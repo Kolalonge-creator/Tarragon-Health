@@ -394,10 +394,30 @@ Deno.serve(async (req) => {
     return Response.json({ ok: true, replay: true });
   }
 
-  const markProcessed = (patch: Record<string, unknown> = {}) =>
-    supabase.from("payment_transactions").update({ processed_at: new Date().toISOString(), ...patch }).eq("id", txnRow.id);
-  const markFailed = (error: string) =>
-    supabase.from("payment_transactions").update({ error }).eq("id", txnRow.id);
+  // Every write below silently dropped its own {error} until this fix — a
+  // failed UPDATE (e.g. an invalid enum cast, see the booking_order_type fix
+  // in this same change) left payment_transactions looking untouched with no
+  // trace anywhere but the DB logs. Centralising the check here, rather than
+  // at each of this function's ~15 markProcessed()/markFailed() call sites,
+  // means every one of them — present and future — gets it for free.
+  const markProcessed = async (patch: Record<string, unknown> = {}) => {
+    const { error } = await supabase
+      .from("payment_transactions")
+      .update({ processed_at: new Date().toISOString(), ...patch })
+      .eq("id", txnRow.id);
+    if (error) {
+      console.error("paystack-webhook: failed to mark payment_transactions processed", { patch, error });
+    }
+  };
+  const markFailed = async (error: string) => {
+    const { error: updateError } = await supabase
+      .from("payment_transactions")
+      .update({ error })
+      .eq("id", txnRow.id);
+    if (updateError) {
+      console.error("paystack-webhook: failed to record payment_transactions failure", { error, updateError });
+    }
+  };
 
   const metadata = event.data?.metadata ?? null;
 
@@ -427,7 +447,7 @@ Deno.serve(async (req) => {
             break;
           }
 
-          await supabase
+          const { error: confirmError } = await supabase
             .from(table)
             .update({
               status: "payment_confirmed",
@@ -436,11 +456,43 @@ Deno.serve(async (req) => {
               pending_payment_provider_ref: null,
             })
             .eq("id", row.id);
+          if (confirmError) {
+            console.error(`paystack-webhook: failed to confirm payment on ${table}`, confirmError);
+          }
+
+          // payment_transactions.booking_order_type is public.commission_type
+          // (20260715001642_booking_payment_columns.sql) — created for the
+          // three PARTNER-COMMISSIONED booking kinds (lab/pharmacy/referral)
+          // and never given a 'video_visit' or 'lab_result_consult' label,
+          // because Tarragon does not commission its own doctor-time
+          // products. Every downstream reader of this column
+          // (private.resolve_payment_payer,
+          // private.payment_transaction_service_label,
+          // public.finance_unified_ledger, and the
+          // booking_order_type='lab'/'pharmacy'/'referral' branches of
+          // patient_receipts()/patient_invoices()) only ever switches on
+          // those three values. video_visit/lab_result_consult were added to
+          // the BookingOrderType TS union (checkout-metadata.ts) without a
+          // matching enum label, so writing bookingOrderType into this
+          // column threw an implicit-cast error on every video-visit/
+          // lab-result-consult payment — silently, because this write's own
+          // {error} was never checked (now fixed via markProcessed above).
+          // video_visit_requests/lab_result_consult_requests already carry
+          // their own amount_minor/currency/payment_provider_ref (set by the
+          // update just above) and are read directly by patient_receipts()/
+          // patient_invoices() — exactly the "own table, not
+          // payment_transactions" design that migration's own header already
+          // documents for video consultations — so booking_order_id/
+          // booking_order_type are only meaningful, and now only written,
+          // for the three commissioned kinds.
+          const isCommissionedBookingType =
+            bookingOrderType === "lab" || bookingOrderType === "pharmacy" || bookingOrderType === "referral";
 
           await markProcessed({
             organisation_id: row.organisation_id,
-            booking_order_id: row.id,
-            booking_order_type: bookingOrderType,
+            ...(isCommissionedBookingType
+              ? { booking_order_id: row.id, booking_order_type: bookingOrderType }
+              : {}),
           });
         } else if (metadata.kind === "subscription") {
           const { data: row } = await supabase
