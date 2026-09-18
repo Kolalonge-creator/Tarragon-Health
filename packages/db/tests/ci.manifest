@@ -150,3 +150,30 @@ auto_generated_continuous_clinical_note.sql
 # partial application, and a sabotage run (restoring the old grant+policy
 # shape) proves the RLS checks actually discriminate.
 platform_credit_ledger.sql
+
+# --- Added 2026-09-18 --------------------------------------------------
+# Standing regression coverage for two of the four bug classes found in the
+# 2026-09-18 finance-console and notification-deliverability audits (PR #680,
+# #681), added so each stays closed by CI rather than only by memory/CLAUDE.md
+# prose. private.remap_notification_channel() no longer honours a dead
+# whatsapp/sms notification_channel_preference as a direct lock-in (both
+# channels are 100% failure live) -- proves sms/whatsapp preferences fall
+# through to the same push-or-fallback ladder no-preference already used,
+# email is still honoured, and a sabotage run (reinstating the old lock-in)
+# reopens the hole. The payment-activation fee-tolerance bug (PR #531) already
+# has standing coverage in payment_activation_amount_and_reference.sql above
+# (section 8); the false-consent onlyTypes bug (PR #661) is TypeScript-level
+# application logic, not DB logic, and is covered instead by
+# apps/web/src/app/onboarding/consent-onlytypes-scope.test.ts (Jest).
+notification_channel_preference_dead_channel_no_lockin.sql
+
+# private.finance_post_platform_credit_ledger_entry()'s 'spend' branch used to
+# credit revenue account 4100 (immediate) unconditionally, with no check for
+# whether the purchased service has a bounded access window -- the equivalent
+# card-payment path correctly defers to 2000 + a revenue_recognition_schedules
+# row when service_products.access_duration_days is set. Proves a bounded-
+# access spend defers to 2000 with a matching recognition schedule, a
+# genuinely unbounded (one-off) product still posts straight to 4100 with no
+# schedule created, and a sabotage run (reverting to unconditional 4100)
+# reopens the hole on the bounded case.
+platform_credit_spend_revenue_deferral.sql
