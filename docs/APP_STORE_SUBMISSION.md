@@ -87,25 +87,30 @@ Apple App Review needs a working login to review a patient-facing app gated behi
   Auth API** (`POST /auth/v1/token?grant_type=password` returns a real access token) — see the
   note below on why that verification method was necessary.
   It has no clinical history (no vitals/medications/care plan) — a reviewer will see a real,
-  functional, empty-state dashboard rather than a populated one. Populating it with sample data
-  was deliberately not attempted in this pass: the schema for a "Complete"-tier patient record
-  spans dozens of interdependent tables (care plans, medication logs, vitals) with triggers this
-  session didn't have full visibility into, and getting that wrong risks a subtly-broken fixture
-  that's worse than an honestly-empty one.
-- **A note on verifying this in the Simulator:** two independent login attempts through the iOS
-  Simulator (this account, and separately `patient.complete.test`) both failed with "email and
-  password don't match" — but both accounts' exact credentials were separately confirmed correct
-  by calling Supabase's Auth API directly (`curl .../auth/v1/token?grant_type=password`), and
-  Supabase's own auth logs show a `400 invalid_credentials` request landing at the same moment as
-  the in-Simulator attempt. Conclusion: this is a quirk in how the iOS Simulator control tool's
-  synthetic `text` action injects characters into a React Native `TextInput` (visually looks
-  correct — the field shows the right value — but the RN controlled-component state that actually
-  gets submitted apparently doesn't always match), not a real app or backend bug. `autoCapitalize`
-  is already correctly set to `"none"` on the email field, and `.trim()` is applied before submit
-  (`src/screens/login-screen.tsx`), so this isn't the well-known iOS-autocapitalize gotcha either.
-  A real reviewer typing on a real keyboard should not hit this — but if App Review reports a
-  login failure with these exact credentials, verify the account directly via the Auth API first
-  (command above) before assuming the credentials themselves are wrong.
+  functional dashboard rather than a fully populated one. Populating it with sample data was
+  deliberately not attempted in this pass: the schema for a "Complete"-tier patient record spans
+  dozens of interdependent tables (care plans, medication logs, vitals) with triggers this session
+  didn't have full visibility into, and getting that wrong risks a subtly-broken fixture that's
+  worse than an honestly-empty one.
+- **Resolved — the "email and password don't match" error from the previous pass was chased down
+  further, not left as a guess.** Two independent login attempts through the iOS Simulator (this
+  account, and separately `patient.complete.test`) had failed that way, even though both accounts'
+  credentials were separately confirmed correct via the Auth API. A third attempt, typed the same
+  way but with an extra beat between each step (tap, type, zoom-screenshot to confirm the field's
+  exact rendered value, then submit), **succeeded** — landing on the real Home dashboard
+  (`apps/mobile/store-assets/ios-submission/02-dashboard.png`). Zoomed-in screenshots of both the
+  email field and the revealed (eye-icon) password field showed byte-for-byte correct values on
+  every attempt, including the two that failed — ruling out corrupted text injection. The
+  successful attempt also surfaced an iOS "Save Password?" Keychain prompt immediately after
+  signing in, which only appears once iOS's password-autofill system has taken an interest in a
+  login form. Best explanation: the first couple of interactions with a freshly-(re)connected
+  dev-client's login form race against iOS Keychain/AutoFill (or the JS bundle's own post-connect
+  hydration) in the Simulator specifically — not a deterministic app or backend bug, and not
+  something a real person typing at human speed on a real device should hit. If App Review ever
+  reports a login failure with these credentials, verify the account directly via the Auth API
+  (`curl .../auth/v1/token?grant_type=password`, see above) before assuming the credentials
+  themselves are wrong, and consider whether it's this same class of first-load race rather than
+  anything account-specific.
 - **Sign-in with Apple:** not required. The app has no third-party sign-in of any kind (Google,
   Facebook, etc.) — email/password only — so Apple's "must also offer Sign in with Apple" rule
   (guideline 4.8) does not apply. Confirmed by searching the mobile source for any social-auth
@@ -189,12 +194,16 @@ The `development-simulator` build kicked off after fixing items 1-3 above **fini
 successfully** (`https://expo.dev/accounts/worldbest/projects/tarragon-health/builds/6ab65564-6ac6-4e20-8023-f66c9341376f`)
 — real, end-to-end proof the three tooling fixes actually work, not just that the individual
 files look right. Installed it in the iOS Simulator, connected it to a local Metro instance, and
-confirmed the app boots to a real, correctly-branded sign-in screen (the corrected pulse-line icon
-from `0d7be19a` renders correctly) — `apps/mobile/store-assets/ios-submission/01-sign-in.png`.
+walked it all the way from a signed-out sign-in screen through a real login (see App Review
+information above) to the actual Home dashboard:
+- `apps/mobile/store-assets/ios-submission/01-sign-in.png` — signed-out, confirms the corrected
+  pulse-line icon from `0d7be19a` renders correctly.
+- `apps/mobile/store-assets/ios-submission/02-dashboard.png` — signed in as the dedicated
+  App Review demo account, the real Home tab.
 
 **This is a start, not a finished screenshot set — one thing still needs doing before
-submission:** it was captured on an **iPhone 17 Pro simulator (1206×2622 px)**, not the
+submission:** both were captured on an **iPhone 17 Pro simulator (1206×2622 px)**, not the
 6.9"-class device (e.g. iPhone 17 Pro Max, 1320×2868 px) Apple's screenshot requirements are keyed
-to. Re-capture on the correct device size before uploading to App Store Connect — ideally logged
-in, showing a populated screen, once the login-in-Simulator quirk noted under App Review
-information above is worked around (or just fixed on a real device, which shouldn't hit it).
+to. Re-capture on the correct device size before uploading to App Store Connect — the same
+account/steps documented above reproduce cleanly now, so this is now just a device-size swap, not
+a debugging exercise.
