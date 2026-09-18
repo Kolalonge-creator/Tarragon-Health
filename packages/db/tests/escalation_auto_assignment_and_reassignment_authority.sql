@@ -42,10 +42,15 @@
 --       on a nonexistent escalation_id genuinely raises rather than silently returning success --
 --       its "not found" check used to be dead code (a query between the UPDATE and the FOUND
 --       check clobbered FOUND back to true).
---   20. (20260918095533_fix_reassign_escalation_same_doctor_noop_drops_reason.sql) reassigning to
---       the doctor already holding the case is REJECTED, not silently accepted as a no-op --
---       a no-op UPDATE means private.audit_row_change() sees no changed columns and never writes
---       an audit_log row at all, silently dropping the CMO's reason.
+--   20. (20260918100749_fix_reassign_escalation_noop_check_race_and_status.sql) reassigning to
+--       the SAME doctor is ALLOWED when status would genuinely change (under_review -> open) --
+--       the no-op guard checks status as well as the doctor, not just the doctor alone.
+--   21. Immediately after, with status genuinely 'open', reassigning to the SAME doctor again is a
+--       TRUE no-op and IS rejected (22023) -- a no-op UPDATE means private.audit_row_change() sees
+--       no changed columns and never writes an audit_log row at all, silently dropping the CMO's
+--       reason. (Originally added by 20260918095533_fix_reassign_escalation_same_doctor_noop_drops_reason.sql,
+--       whose guard didn't yet check status -- tightened by 20260918100749, which also closed a
+--       TOCTOU race between the guard's SELECT and the UPDATE with SELECT ... FOR UPDATE.)
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/escalation_auto_assignment_and_reassignment_authority.sql
 -- Nothing here persists -- the whole file runs inside begin/rollback.
@@ -663,10 +668,13 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Case 20 (added 20260918095533_fix_reassign_escalation_same_doctor_noop_drops_reason.sql):
--- reassigning the case to the doctor ALREADY holding it must be rejected, not silently succeed as
--- a no-op that drops the reason. emergency_case is assigned to doctor_c since case 14; doctor_cmo
--- "reassigns" it to doctor_c again.
+-- Case 20 (added 20260918095533, tightened 20260918100749_fix_reassign_escalation_noop_check_race_and_status.sql):
+-- emergency_case is assigned to doctor_c with status='under_review' at this point (cases 14/16).
+-- Reassigning it to doctor_c AGAIN is the SAME doctor, but status is not yet 'open' -- so the
+-- resulting UPDATE is a real, auditable change (status moving back to 'open'), not a true no-op,
+-- and must be ALLOWED through -- proving the no-op guard checks status as well as
+-- assigned_doctor_id, not just the doctor alone (an earlier, untightened version of this guard
+-- would have wrongly rejected this as "already assigned").
 -- ---------------------------------------------------------------------------
 do $$
 declare
@@ -679,7 +687,7 @@ begin
     perform public.reassign_escalation(
       (select v from ids where k = 'emergency_case'),
       (select v from ids where k = 'doctor_c'),
-      'should be refused as a no-op'
+      'same doctor, but status is under_review -- a real change, must be allowed'
     );
     v_raised := null;
   exception when others then
@@ -688,7 +696,40 @@ begin
 
   perform set_config('request.jwt.claims', '', true);
 
-  insert into test_result values (20, 'reassign_escalation() to the doctor already holding the case is REJECTED (no silent reason-dropping no-op)',
+  insert into test_result values (20, 'reassign_escalation() to the SAME doctor is ALLOWED when status would genuinely change (under_review -> open)',
+    case when v_raised is null
+      and (select status from public.escalations where id = (select v from ids where k = 'emergency_case')) = 'open'
+      then 'PASS' else 'FAIL' end,
+    'sqlstate=' || coalesce(v_raised, 'none') ||
+      ' status=' || (select status::text from public.escalations where id = (select v from ids where k = 'emergency_case')));
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Case 21: status is genuinely 'open' now (case 20 just set it), still assigned to doctor_c --
+-- reassigning to doctor_c AGAIN is now a TRUE no-op (doctor unchanged, status already 'open')
+-- and must be rejected (22023), not silently drop the reason with no audit_log row.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_raised text;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', (select v from ids where k = 'doctor_cmo'), 'role', 'authenticated')::text, true);
+
+  begin
+    perform public.reassign_escalation(
+      (select v from ids where k = 'emergency_case'),
+      (select v from ids where k = 'doctor_c'),
+      'should be refused as a true no-op'
+    );
+    v_raised := null;
+  exception when others then
+    v_raised := sqlstate;
+  end;
+
+  perform set_config('request.jwt.claims', '', true);
+
+  insert into test_result values (21, 'reassign_escalation() to the doctor already holding the case, status already open, is a TRUE no-op and is REJECTED',
     case when v_raised = '22023' then 'PASS' else 'FAIL' end,
     'sqlstate=' || coalesce(v_raised, 'none -- call succeeded as a silent no-op'));
 end $$;

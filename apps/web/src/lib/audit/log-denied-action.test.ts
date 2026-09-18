@@ -1,9 +1,12 @@
+import * as Sentry from "@sentry/nextjs";
 import {
   denialReasonFromError,
   handleIfPermissionDenied,
   isPermissionDeniedError,
   logDeniedAction,
 } from "./log-denied-action";
+
+jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 
 describe("isPermissionDeniedError", () => {
   it("recognises a Postgres 42501 error", () => {
@@ -87,19 +90,41 @@ describe("logDeniedAction", () => {
     );
   });
 
-  it("is fire-and-forget: an RPC rejection never throws or produces an unhandled rejection", async () => {
+  it("is fire-and-forget: an RPC rejection never throws, but is reported so the trail's own silent failures are visible", async () => {
+    (Sentry.captureException as jest.Mock).mockClear();
     const rpc = jest.fn().mockRejectedValue(new Error("network error"));
     // Must not throw synchronously...
     expect(() => logDeniedAction(base, { rpc })).not.toThrow();
     // ...and the rejection must actually be handled, not just deferred --
-    // await the mocked call so a missing .catch() would surface here as an
-    // unhandled rejection rather than passing silently.
+    // await the mocked call so a missing rejection handler would surface
+    // here as an unhandled rejection rather than passing silently.
     await expect(rpc.mock.results[0]!.value).rejects.toThrow("network error");
+    // Flush the microtask queue so the .then() rejection handler has run.
+    await Promise.resolve();
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ extra: expect.objectContaining({ action: base.action }) })
+    );
   });
 
-  it("is fire-and-forget: an RPC error result never throws", () => {
-    const { client } = mockClient({ error: { code: "42501", message: "permission denied" } });
+  it("is fire-and-forget: an RPC error result never throws, but is reported", async () => {
+    (Sentry.captureException as jest.Mock).mockClear();
+    const rpcError = { code: "42501", message: "permission denied" };
+    const { client } = mockClient({ error: rpcError });
     expect(() => logDeniedAction(base, client)).not.toThrow();
+    await Promise.resolve();
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      rpcError,
+      expect.objectContaining({ extra: expect.objectContaining({ action: base.action }) })
+    );
+  });
+
+  it("does not report to Sentry when the RPC genuinely succeeds", async () => {
+    (Sentry.captureException as jest.Mock).mockClear();
+    const { client } = mockClient({ error: null });
+    logDeniedAction(base, client);
+    await Promise.resolve();
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 });
 

@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/client";
 
 type LogDeniedActionClient = Pick<ReturnType<typeof createClient>, "rpc">;
@@ -67,7 +68,14 @@ export function denialReasonFromError(error: unknown, fallback: string): string 
  * Fire-and-forget by design (same posture as this file's neighbours'
  * `.catch(() => {})` fire-and-forget calls) -- a failure to log the denial
  * must never surface as a second, confusing error on top of the one the user
- * already saw for the real attempt.
+ * already saw for the real attempt. "Fire-and-forget" means never re-throwing
+ * or blocking the caller, not "nobody ever finds out" -- a failure here means
+ * this NDPR-relevant audit trail silently stopped recording, which is worth
+ * knowing about even though nothing should interrupt the user over it. Both
+ * failure paths report to Sentry (a no-op if NEXT_PUBLIC_SENTRY_DSN isn't
+ * configured, see instrumentation-client.ts) with the RPC params as context
+ * -- action/entityType/entityId/organisationId only, never `reason` (already
+ * required to be non-PHI, but there's no reason to widen what Sentry sees).
  *
  * `reason` must never carry patient-identifying or clinical detail -- see
  * audit_log.reason's own column comment. Keep it generic (what kind of
@@ -86,6 +94,12 @@ export function logDeniedAction(
   // real browser client for every actual call site, unchanged.
   client: LogDeniedActionClient = createClient()
 ): void {
+  const context = {
+    action: params.action,
+    entityType: params.entityType,
+    entityId: params.entityId,
+    organisationId: params.organisationId,
+  };
   void client
     .rpc("log_denied_action", {
       p_action: params.action,
@@ -95,16 +109,23 @@ export function logDeniedAction(
       p_reason: params.reason,
     })
     .then(
-      () => {
-        // Nothing to do either way -- fire-and-forget, see the doc comment above.
+      ({ error }) => {
+        if (!error) return;
+        // The RPC responded but rejected the write (e.g. an action string
+        // not yet added to public.log_denied_action()'s allowlist, or an
+        // is_org_staff failure for an edge-case caller) -- still
+        // fire-and-forget for the user, but worth knowing this denial row
+        // never got written.
+        Sentry.captureException(error, { extra: context });
       },
-      () => {
+      (error: unknown) => {
         // Rejection handler, not a chained .catch() -- the Supabase query
         // builder's return type is PromiseLike, not a full Promise, so it has
         // no .catch(). Same fire-and-forget posture as generateCaseBriefAction's
         // own .catch(() => {}) in lib/queries/escalations.ts -- a
         // network-level rejection here must never surface as an unhandled
         // promise rejection on top of the real error the user already saw.
+        Sentry.captureException(error, { extra: context });
       }
     );
 }
