@@ -317,25 +317,43 @@ export function EscalationWorklist({
                         }}
                       >
                         <option value="">Assign to…</option>
-                        {(assignableDoctors ?? []).map((d) => (
-                          <option key={d.profile_id} value={d.profile_id ?? ""}>
-                            {d.full_name} — {d.doctor_tier ? DOCTOR_TIER_LABEL[d.doctor_tier] : "Unassigned tier"}
-                          </option>
-                        ))}
+                        {(assignableDoctors ?? [])
+                          // The doctor already holding this case is excluded
+                          // -- public.reassign_escalation() itself now
+                          // rejects a same-doctor "reassignment" outright
+                          // (20260918095533), since it would otherwise be a
+                          // no-op UPDATE that silently drops the CMO's
+                          // reason with no audit_log row at all. This is the
+                          // UI-side half of that fix; the DB check is what
+                          // actually enforces it.
+                          .filter((d) => d.profile_id !== escalation.assigned_doctor_id)
+                          .map((d) => (
+                            <option key={d.profile_id} value={d.profile_id ?? ""}>
+                              {d.full_name} — {d.doctor_tier ? DOCTOR_TIER_LABEL[d.doctor_tier] : "Unassigned tier"}
+                            </option>
+                          ))}
                       </select>
                     )}
-                    {canAssign && assign.isError && (
-                      // reassign_escalation can reject a reason over 300
-                      // chars (22001) as well as an authority denial
-                      // (42501, already durably logged by
-                      // handleIfPermissionDenied) -- either way the CMO
-                      // needs to see that the reassignment did NOT go
-                      // through, not just watch the select silently reset.
-                      <span className="max-w-[14rem] text-right text-xs text-red-600">
-                        {(assign.error as { message?: string } | null)?.message ??
-                          "Could not reassign this case."}
-                      </span>
-                    )}
+                    {canAssign &&
+                      assign.isError &&
+                      // useAssignEscalation() is one shared mutation used by
+                      // every row's select -- isError/error are global to
+                      // that instance, not per-row. Gate the banner on
+                      // `variables` (the args from the LAST .mutate() call)
+                      // matching THIS row's escalation id, or every other
+                      // row would show the same failed row's error too.
+                      assign.variables?.escalationId === escalation.id && (
+                        // reassign_escalation can reject a reason over 300
+                        // chars (22001), a same-doctor no-op (22023), or an
+                        // authority denial (42501, already durably logged by
+                        // handleIfPermissionDenied) -- either way the CMO
+                        // needs to see that the reassignment did NOT go
+                        // through, not just watch the select silently reset.
+                        <span className="max-w-[14rem] text-right text-xs text-red-600">
+                          {(assign.error as { message?: string } | null)?.message ??
+                            "Could not reassign this case."}
+                        </span>
+                      )}
                   </div>
                 </li>
               );
