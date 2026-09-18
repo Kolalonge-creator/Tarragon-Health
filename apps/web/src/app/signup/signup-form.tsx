@@ -110,6 +110,7 @@ function EmailSignupForm({
             autoComplete="given-name"
             required
             ref={firstNameRef}
+            disabled={pending}
             className={FIELD_CLASS}
             {...fieldErrorProps(errorId, invalid("firstName"))}
           />
@@ -124,6 +125,7 @@ function EmailSignupForm({
             autoComplete="family-name"
             required
             ref={lastNameRef}
+            disabled={pending}
             className={FIELD_CLASS}
             {...fieldErrorProps(errorId, invalid("lastName"))}
           />
@@ -141,6 +143,7 @@ function EmailSignupForm({
           autoComplete="email"
           required
           ref={emailRef}
+          disabled={pending}
           className={FIELD_CLASS}
           {...fieldErrorProps(errorId, invalid("email"))}
         />
@@ -156,6 +159,7 @@ function EmailSignupForm({
             autoComplete="tel-country-code"
             defaultValue={COUNTRY_CALLING_CODES[0].dialCode}
             ref={countryCodeRef}
+            disabled={pending}
             className={`w-auto shrink-0 ${FIELD_CLASS}`}
             aria-label="Country code"
             required
@@ -169,6 +173,7 @@ function EmailSignupForm({
           <Input
             {...phoneInputProps}
             ref={phoneRef}
+            disabled={pending}
             className={FIELD_CLASS}
             {...fieldErrorProps(
               errorId,
@@ -193,6 +198,7 @@ function EmailSignupForm({
           autoComplete="address-level1"
           defaultValue=""
           ref={stateFieldRef}
+          disabled={pending}
           className={FIELD_CLASS}
           aria-describedby="signup-state-hint"
         >
@@ -217,6 +223,7 @@ function EmailSignupForm({
           autoComplete="new-password"
           required
           minLength={PASSWORD_MIN_LENGTH}
+          disabled={pending}
           className={FIELD_CLASS}
           {...fieldErrorProps(errorId, invalid("password"), "signup-password-rule")}
         />
