@@ -142,6 +142,11 @@ export function OperationsDashboard() {
             </table>
           </div>
         )}
+        <p className="mt-3 text-xs text-charcoal-ink/50">
+          In-app has no external send step — a notification is visible to the patient the instant
+          it&rsquo;s created, so its &ldquo;Pending&rdquo; count means unread, not undelivered,
+          unlike WhatsApp/SMS/email/push, which genuinely queue against a provider that can fail.
+        </p>
       </SectionCard>
     </div>
   );
