@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { Check, Gift } from "lucide-react";
 import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { NIGERIAN_STATES } from "@/lib/nigeria-states";
@@ -30,6 +30,34 @@ export function SignupForm({
   // Server actions here return the failing field name alongside the message
   // (see firstIssue), so only that control is marked invalid.
   const invalid = (field: string) => Boolean(state?.error) && state?.field === field;
+
+  // React resets a <form action={...}>'s uncontrolled fields to their
+  // defaultValue synchronously at submit time, before the action even runs —
+  // so a `defaultValue` sourced from the *returned* state is always one
+  // submission too late to stop that reset (it only affects the *next*
+  // reset). Previously this meant a single invalid field (e.g. a mistyped
+  // phone number) silently wiped the visitor's name, email and password too,
+  // forcing a full retype. These refs let us imperatively restore the
+  // non-sensitive fields once the new state actually lands, after the reset
+  // has already happened.
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const countryCodeRef = useRef<HTMLSelectElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const stateFieldRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (!state?.values) return;
+    if (firstNameRef.current) firstNameRef.current.value = state.values.firstName ?? "";
+    if (lastNameRef.current) lastNameRef.current.value = state.values.lastName ?? "";
+    if (emailRef.current) emailRef.current.value = state.values.email ?? "";
+    if (countryCodeRef.current && state.values.countryCode) {
+      countryCodeRef.current.value = state.values.countryCode;
+    }
+    if (phoneRef.current) phoneRef.current.value = state.values.phone ?? "";
+    if (stateFieldRef.current) stateFieldRef.current.value = state.values.state ?? "";
+  }, [state]);
 
   if (state?.success) {
     return (
@@ -69,6 +97,7 @@ export function SignupForm({
             name="firstName"
             autoComplete="given-name"
             required
+            ref={firstNameRef}
             className={FIELD_CLASS}
             {...fieldErrorProps(errorId, invalid("firstName"))}
           />
@@ -82,6 +111,7 @@ export function SignupForm({
             name="lastName"
             autoComplete="family-name"
             required
+            ref={lastNameRef}
             className={FIELD_CLASS}
             {...fieldErrorProps(errorId, invalid("lastName"))}
           />
@@ -98,6 +128,7 @@ export function SignupForm({
           inputMode="email"
           autoComplete="email"
           required
+          ref={emailRef}
           className={FIELD_CLASS}
           {...fieldErrorProps(errorId, invalid("email"))}
         />
@@ -112,6 +143,7 @@ export function SignupForm({
             name="countryCode"
             autoComplete="tel-country-code"
             defaultValue={COUNTRY_CALLING_CODES[0].dialCode}
+            ref={countryCodeRef}
             className={`w-auto shrink-0 ${FIELD_CLASS}`}
             aria-label="Country code"
             required
@@ -124,6 +156,7 @@ export function SignupForm({
           </Select>
           <Input
             {...phoneInputProps}
+            ref={phoneRef}
             className={FIELD_CLASS}
             {...fieldErrorProps(
               errorId,
@@ -147,6 +180,7 @@ export function SignupForm({
           name="state"
           autoComplete="address-level1"
           defaultValue=""
+          ref={stateFieldRef}
           className={FIELD_CLASS}
           aria-describedby="signup-state-hint"
         >

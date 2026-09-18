@@ -166,7 +166,19 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
         <CardTitle>Risk assessment</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-6">
+        {/* noValidate: without it, a required field on a step the visitor
+            isn't currently viewing (e.g. Lifestyle's smoking_status) silently
+            kills the final submit — Chrome logs "An invalid form control ...
+            is not focusable" to the console and the click on "Save
+            assessment" just does nothing, no error, no request, nothing.
+            The `hidden` attribute does NOT reliably bar a control from
+            constraint validation the way the comment below once assumed
+            (confirmed empirically 2026-09-18: reproduced on step 4 with
+            step 2 left blank). Server-side Zod validation
+            (riskAssessmentSchema) still enforces the same required fields —
+            noValidate only means a real, visible `state.error` now surfaces
+            instead of a silent no-op. */}
+        <form action={formAction} className="space-y-6" noValidate>
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             A few honest answers help us tell you what to check and when. This isn&apos;t
             a diagnosis, just a starting point for your care.
@@ -187,9 +199,10 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
           {/* Every step stays mounted (hidden, not unmounted) across the
               whole wizard: an unmounted step's uncontrolled inputs lose
               their DOM nodes and are silently missing from FormData at
-              final submit. `hidden` also bars these inputs from native
-              constraint validation while off-screen, so a `required`
-              field on another step never blocks the current one. */}
+              final submit. `hidden` does NOT reliably bar these inputs from
+              native constraint validation while off-screen (see the
+              `noValidate` comment on the <form> above) — that's now handled
+              at the form level instead. */}
           <div className={stepClass} hidden={step !== 1}>
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Family history</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
