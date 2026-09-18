@@ -24,6 +24,22 @@
 >   browser-side per App Store 3.1.1), and the new web-only "Platform Credit" prepaid balance
 >   never reached mobile so it doesn't change this submission at all.
 
+> **Combined Android+iOS release-readiness audit, 2026-09-18** — a separate, in-flight session
+> (branch `feat/health-connect-full-build-20260918`, PR #670) is independently re-enabling Health
+> Connect for this same release; this pass deliberately did not touch that work to avoid
+> colliding with it — check that PR's status before assuming Health Connect is still off. This
+> pass instead found and fixed **two build-tooling bugs that would have blocked the next `eas
+> build` on either platform, not just iOS**, discovered while producing an iOS
+> `development-simulator` build (see `docs/APP_STORE_SUBMISSION.md`, the new iOS-side twin of
+> this file, for the full detail): (1) a 2026-09-16 security bump of `@xmldom/xmldom` to `0.9.12`
+> had an undocumented regression that crashed the plist-parsing step every native build depends
+> on — fixed with a scoped `pnpm patch`, no security regression; (2) the project archive had grown
+> to 3.8 GB with no `.easignore`, over EAS's 2.0 GB upload cap — fixed by adding one at the repo
+> root. Neither was specific to iOS; both apply equally to the next Android upload. Also fixed:
+> `ios/TarragonHealth/TarragonHealth.entitlements`'s `aps-environment` was hardcoded
+> `development`, which would have failed code signing on an App Store/ad-hoc iOS archive (not
+> relevant to Android, noted here only because it was found in the same pass).
+
 ## Pre-upload checklist
 
 1. Build from `main-dev` with `pnpm build:prod` (production profile, AAB, `versionCode`

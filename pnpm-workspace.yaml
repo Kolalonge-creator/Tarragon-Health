@@ -202,3 +202,20 @@ overrides:
   # developer-authored plist XML is unaffected, but not something to leave
   # to an open floor picking up whatever ships next.
   "@xmldom/xmldom": "0.9.12" # GHSA-c7q8-3ch8-vqpv and 12 other GHSA ids, see the 2026-09-15 Dependabot sweep
+
+patchedDependencies:
+  # A real gap in the 2026-09-15 sweep's verification above: it checked
+  # 0.9.x's *documented* behavioural changes against well-formed plist XML
+  # (fine) but missed an *undocumented* one. `DOMParser.parseFromString`'s
+  # JSDoc still promises `mimeType` defaults to 'application/xml' when
+  # omitted, but 0.9.12's actual code validates whatever was passed
+  # (including `undefined`) and throws — a bug in xmldom itself, not a
+  # stricter-validation tradeoff. Every bundled copy of `@expo/plist`
+  # (0.3.5/0.4.9/0.5.4) and `plist` in this tree calls parseFromString with
+  # only one argument, so every `eas build --platform ios` was hard-failing
+  # at the Expo.plist/entitlements sync step ("the provided mimeType
+  # 'undefined' is not valid") — found 2026-09-18 auditing why no iOS build
+  # had ever completed past `development-simulator`. Restores exactly the
+  # documented default; every other 0.9.12 behavioural/security change
+  # (requireWellFormed, CDATA, etc.) is untouched — see patches/@xmldom__xmldom@0.9.12.patch.
+  '@xmldom/xmldom@0.9.12': patches/@xmldom__xmldom@0.9.12.patch
