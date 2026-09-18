@@ -497,6 +497,29 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
 - Both: feature branch (never commit directly to `main` or `main-dev` — PR into `main-dev`, the day-to-day integration branch and Vercel's actual Production Branch, see the corrected 2026-08-04 note above), `.env.example` updated for any new vars, works fully via app/web — WhatsApp/SMS notifications are additive, never required
+- **Run `/code-review high` on the diff before opening any PR** (added 2026-09-18, after a recurring
+  pattern across this project's own history: a bug ships, works in the author's own testing, and is
+  only found weeks later by a founder-requested audit — see the finance-console, notification-
+  deliverability, and consent-onboarding entries in memory/`docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`
+  for real examples). This is a standing habit, not just something to run when asked for an audit.
+  When the diff touches money (pricing, journal postings, ledger entries, payment activation,
+  refunds/reversals), consent/privacy (consent recording, access-category scoping, anything under
+  `reproductive_health` per the access-category note above), or anything that can fail silently
+  (a trigger that swallows its own exception, a disabled/locked feature with no visible signal, a
+  discarded RPC error), explicitly ask the review for that class of bug by name — a generic pass
+  reads business logic as "working code" and misses it. `/code-review ultra` for anything touching
+  `private.is_org_staff()`, the doctor-tier authority ladder, or RLS on a patient-scoped table.
+- **Every confirmed bug fix gets a standing regression test, not just a memory/changelog entry**
+  (added 2026-09-18). A memory file records that a bug was found; it does not stop it recurring. Match
+  this codebase's existing convention: a DB-level bug (a trigger, RPC, or RLS policy) gets a
+  BEGIN/ROLLBACK proof script in `packages/db/tests/`, registered in `ci.manifest` (never left
+  unregistered — `ci.excluded` is only for scripts that cannot yet self-assert with `raise exception`),
+  proving the fix AND including a sabotage step that reverts the fix and confirms the test would have
+  caught it (a test that can't fail is not a test). An application-level bug (server action, component
+  logic) gets a Jest test next to the file it fixes, following the existing `jest.mock("@/lib/supabase/server", ...)`
+  pattern (see `apps/web/src/app/onboarding/consent-onlytypes-scope.test.ts` or
+  `contract-lookup-failure.test.ts` for the shape). Skipping this because "it's fixed now" is exactly
+  how the same bug class re-enters the codebase later.
 
 ## What Claude Must Never Do
 - Never commit directly to `main` or `main-dev`
