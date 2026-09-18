@@ -7,8 +7,7 @@ import {
   type VerifiedDocument,
 } from "@/lib/queries/verified-documents";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
-import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
+import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -133,7 +132,6 @@ export function VerifiedDocumentsCard({
   const request = useRequestVerifiedDocument();
   const [requestNote, setRequestNote] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
-  const [isBuying, setIsBuying] = useState(false);
 
   if (!organisationId) return null;
 
@@ -157,27 +155,6 @@ export function VerifiedDocumentsCard({
     );
   }
 
-  async function buyCredit() {
-    setIsBuying(true);
-    setFormError(null);
-    try {
-      const result = await purchaseServiceProduct({
-        serviceProductCode: typeSpecificCode,
-        callbackPath: "/patient/care",
-      });
-      if (result?.error) {
-        setFormError(result.error);
-        return;
-      }
-      if (result?.checkoutUrl) {
-        window.location.href = result.checkoutUrl;
-        return;
-      }
-    } finally {
-      setIsBuying(false);
-    }
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -195,12 +172,13 @@ export function VerifiedDocumentsCard({
             <p className="text-sm text-charcoal-ink dark:text-night-ink">
               Buy a credit for this document type to request it.
             </p>
-            <Button size="sm" disabled={isBuying} onClick={buyCredit}>
-              {isBuying
-                ? "Redirecting to payment…"
-                : `Buy a ${DOCUMENT_TYPE_LABEL[documentType].toLowerCase()} credit`}
-            </Button>
-            <PaystackFeeNotice />
+            <PayWithCreditOrCard
+              patientId={patientId}
+              serviceProductCode={typeSpecificCode}
+              callbackPath="/patient/care"
+              buyLabel={`Buy a ${DOCUMENT_TYPE_LABEL[documentType].toLowerCase()} credit`}
+              onError={setFormError}
+            />
           </div>
         )}
 

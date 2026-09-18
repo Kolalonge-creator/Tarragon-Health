@@ -19,8 +19,7 @@ import {
   careMessageCategories,
   type CareMessageCategory,
 } from "@/lib/validation/care-messages";
-import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
-import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
+import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
 
 const CONFIDENTIAL_MESSAGE_CREDIT_CODE = "confidential_message_credit";
 
@@ -74,7 +73,6 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
   const [needsCredit, setNeedsCredit] = useState(false);
-  const [isBuying, setIsBuying] = useState(false);
 
   const startThread = () => {
     setError(null);
@@ -107,27 +105,6 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
       },
     );
   };
-
-  async function buyCreditThenSend() {
-    setIsBuying(true);
-    setError(null);
-    const result = await purchaseServiceProduct({
-      serviceProductCode: CONFIDENTIAL_MESSAGE_CREDIT_CODE,
-      callbackPath: "/patient/messages",
-    });
-    if (result?.error) {
-      setError(result.error);
-      setIsBuying(false);
-      return;
-    }
-    if (result?.checkoutUrl) {
-      window.location.href = result.checkoutUrl;
-      return;
-    }
-    setIsBuying(false);
-    setNeedsCredit(false);
-    startThread();
-  }
 
   const composeErrorId = fieldErrorId("care-message");
   const openThread = (threads ?? []).find((t) => t.id === openId) ?? null;
@@ -283,18 +260,21 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                   {...fieldErrorProps(composeErrorId, Boolean(error))}
                 />
               </div>
-              <div className="flex items-center gap-3">
-                {needsCredit ? (
-                  <Button
-                    type="button"
-                    disabled={isBuying}
-                    onClick={buyCreditThenSend}
-                  >
-                    {isBuying
-                      ? "Redirecting to payment…"
-                      : "Pay ₦2,500 and send"}
-                  </Button>
-                ) : (
+              {needsCredit ? (
+                <PayWithCreditOrCard
+                  patientId={patientId}
+                  serviceProductCode={CONFIDENTIAL_MESSAGE_CREDIT_CODE}
+                  callbackPath="/patient/messages"
+                  buyLabel="Pay ₦2,500 and send"
+                  creditLabel="Pay with credit and send"
+                  onError={setError}
+                  onSuccess={() => {
+                    setNeedsCredit(false);
+                    startThread();
+                  }}
+                />
+              ) : (
+                <div className="flex items-center gap-3">
                   <Button
                     type="button"
                     disabled={
@@ -306,10 +286,10 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                   >
                     {start.isPending ? "Sending…" : "Send"}
                   </Button>
-                )}
-                <FormError id={composeErrorId} message={error} />
-              </div>
-              {needsCredit && <PaystackFeeNotice />}
+                  <FormError id={composeErrorId} message={error} />
+                </div>
+              )}
+              {needsCredit && <FormError id={composeErrorId} message={error} />}
             </div>
           </div>
         ) : openThread ? (

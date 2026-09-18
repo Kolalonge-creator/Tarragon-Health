@@ -25,8 +25,7 @@ import { FertilityAssessmentForm } from "./fertility-assessment-form";
 import { SexualWellnessPanel } from "./sexual-wellness-panel";
 import { startConfidentialSrhThread } from "./confidential-message-action";
 import { SexualHealthPrivacySettingsCard } from "./sexual-health-privacy-settings-card";
-import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
-import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
+import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
 
 const CONFIDENTIAL_MESSAGE_CREDIT_CODE = "confidential_message_credit";
 
@@ -83,7 +82,7 @@ function PrivacyBanner() {
  * generally rather than a specific thread, same as every other "you'll find
  * it in Messages" hand-off in this codebase.
  */
-function ConfidentialMessageCta() {
+function ConfidentialMessageCta({ patientId }: { patientId: string }) {
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -91,7 +90,6 @@ function ConfidentialMessageCta() {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [needsCredit, setNeedsCredit] = useState(false);
-  const [isBuying, setIsBuying] = useState(false);
 
   function send() {
     setError(null);
@@ -114,29 +112,6 @@ function ConfidentialMessageCta() {
       setOpen(false);
       setSent(true);
     });
-  }
-
-  async function buyCreditThenSend() {
-    setIsBuying(true);
-    setError(null);
-    const result = await purchaseServiceProduct({
-      serviceProductCode: CONFIDENTIAL_MESSAGE_CREDIT_CODE,
-      callbackPath: "/patient/sexual-health",
-    });
-    if (result?.error) {
-      setError(result.error);
-      setIsBuying(false);
-      return;
-    }
-    if (result?.checkoutUrl) {
-      window.location.href = result.checkoutUrl;
-      return;
-    }
-    // Activated with no charge to run — retry immediately with the same
-    // subject/message the patient already typed.
-    setIsBuying(false);
-    setNeedsCredit(false);
-    send();
   }
 
   return (
@@ -207,17 +182,33 @@ function ConfidentialMessageCta() {
             {error && (
               <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             )}
-            <div className="flex gap-2">
-              {needsCredit ? (
+            {needsCredit ? (
+              <div className="space-y-2">
+                <PayWithCreditOrCard
+                  patientId={patientId}
+                  serviceProductCode={CONFIDENTIAL_MESSAGE_CREDIT_CODE}
+                  callbackPath="/patient/sexual-health"
+                  buyLabel="Pay ₦2,500 and send"
+                  creditLabel="Pay with credit and send"
+                  onError={setError}
+                  onSuccess={() => {
+                    // Activated with no charge to run — retry immediately
+                    // with the same subject/message the patient already typed.
+                    setNeedsCredit(false);
+                    send();
+                  }}
+                />
                 <Button
                   type="button"
                   size="sm"
-                  disabled={isBuying}
-                  onClick={buyCreditThenSend}
+                  variant="ghost"
+                  onClick={() => setOpen(false)}
                 >
-                  {isBuying ? "Redirecting to payment…" : "Pay ₦2,500 and send"}
+                  Cancel
                 </Button>
-              ) : (
+              </div>
+            ) : (
+              <div className="flex gap-2">
                 <Button
                   type="button"
                   size="sm"
@@ -230,18 +221,17 @@ function ConfidentialMessageCta() {
                 >
                   {pending ? "Sending…" : "Send"}
                 </Button>
-              )}
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => setOpen(false)}
-                disabled={pending || isBuying}
-              >
-                Cancel
-              </Button>
-            </div>
-            {needsCredit && <PaystackFeeNotice />}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setOpen(false)}
+                  disabled={pending}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
@@ -404,7 +394,7 @@ export function SexualHealthHub({ patientId }: { patientId: string }) {
 
       {activeTab === "learn" && <LearnTab />}
 
-      <ConfidentialMessageCta />
+      <ConfidentialMessageCta patientId={patientId} />
     </div>
   );
 }
