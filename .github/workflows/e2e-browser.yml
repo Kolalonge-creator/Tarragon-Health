@@ -1,0 +1,171 @@
+name: Browser E2E smoke
+
+# Separate workflow, deliberately NOT folded into ci.yml. This suite is
+# genuinely different in kind from everything else in ci.yml: it drives a
+# real Chromium browser against a locally-built-and-started `next build` +
+# `next start` server (playwright.config.ts's webServer — see its own
+# comment for why this is a production build, not `next dev`) that talks to
+# the ONE real, shared production Supabase project (this platform has no
+# staging database — see CLAUDE.md), signed in as one of the 23 standing
+# `@tarragon.test` QA accounts. It is read-only/navigation-only by
+# construction (apps/web/e2e/fixtures.ts's header comment) but still depends
+# on live network conditions and real account state in a way the rest of CI
+# does not, so it is NOT added to branch protection's required checks here —
+# that is a GitHub repo-settings change (Settings > Branches), left to the
+# founder to make once this workflow has proven itself stable over enough
+# real PRs. Until then this reports as an ordinary, non-blocking check.
+#
+# `next build` itself is NOT new to CI — ci.yml's "TypeScript (web +
+# shared)" job already runs `pnpm build` (turbo -> `next build` on
+# apps/web) on every PR, with ZERO Supabase env vars set at all, so a build
+# failure here is unlikely to be "the build doesn't work in CI" (already
+# proven false by that job) and more likely something specific to THIS
+# workflow — the webServer readiness check, the app.localhost host-header
+# routing (see fixtures.ts's own comment on why that matters), or a secret
+# that's missing/malformed. Worth knowing regardless: this IS the first CI
+# job that runs a build with any NEXT_PUBLIC_SUPABASE_* var actually set —
+# verified locally that succeeds with just the two public ones, but that
+# exact combination has never been exercised on a real GitHub Actions
+# runner before this PR.
+#
+# One further, currently-unmitigated flakiness risk worth knowing about
+# before considering this a required check: this suite performs a small
+# number of real `signInWithPassword` calls per run against production
+# Supabase Auth, which applies BOTH an IP-scoped AND an email-scoped rate
+# limit (login/actions.ts's checkAuthRateLimit — 20/5min per IP, 8/15min per
+# email — backed by the one shared production Redis, not anything
+# per-workflow-run). The email-scoped bucket is the sharper risk: every
+# concurrent run of this workflow, on every PR, signs in with the exact
+# same literal `patient.free.test@tarragon.test` /
+# `clinician.tier1.test@tarragon.test` strings (e2e/fixtures.ts's
+# QA_ACCOUNTS) — on a repo with real concurrent-PR volume (CLAUDE.md notes
+# ~70 PRs merged in a single day at points), that shared identifier can be
+# rate-limited by activity this workflow run had no part in, failing a
+# correct login with a rate-limit error rather than a real bug. No fix is
+# applied here (would need either a CI-specific rate-limit allowlist on the
+# backend, or a non-UI login path this suite deliberately does not use,
+# since it exists to test the real login form) — flagging it as a known,
+# accepted limitation rather than a silent gap.
+#
+# Needs three repo secrets this workflow was not able to provision itself:
+#   - NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY — both public,
+#     client-exposed values by design, not privileged credentials (see the
+#     root .env.example's own comment on them, under "Supabase").
+#   - PLAYWRIGHT_QA_PASSWORD — the real, shared password for the 23 standing
+#     `@tarragon.test` QA accounts. This one IS a real credential; ask the
+#     founder for the current value and add it as a repo secret directly
+#     (Settings > Secrets and variables > Actions) — never put it in a
+#     workflow file or any other committed source (this repo is public; see
+#     apps/web/e2e/fixtures.ts's `qaPassword()` for why it insists on an env
+#     var rather than a hardcoded fallback).
+# None of these three secrets exist in this repo as of this PR. Every job
+# step here degrades to a clean, clearly-labelled skip when any is absent,
+# rather than a confusing wall of login-failure test errors.
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "packages/shared/**"
+      - ".github/workflows/e2e-browser.yml"
+
+concurrency:
+  group: e2e-browser-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    name: Playwright smoke suite
+    runs-on: ubuntu-latest
+    # Generous margin above webServer's own 5-minute build+boot allowance
+    # (playwright.config.ts) plus dependency install/Chromium download on a
+    # cold, uncached GitHub-hosted runner — cheap to over-allow here since
+    # this isn't (yet) a required/blocking check; a hung run still ends,
+    # just later, rather than risking a hard GitHub Actions cancellation
+    # mid-run with no useful failure message.
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required secrets are configured
+        id: secrets-check
+        # Secrets are passed via `env:`, never interpolated straight into the
+        # script body — the documented safe pattern (GitHub's own hardening
+        # guidance), so an unusual value in any secret is read as inert
+        # shell-variable content rather than executed as script text.
+        env:
+          SUPABASE_URL_SECRET: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY_SECRET: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          QA_PASSWORD_SECRET: ${{ secrets.PLAYWRIGHT_QA_PASSWORD }}
+        run: |
+          if [ -z "$SUPABASE_URL_SECRET" ] || [ -z "$SUPABASE_ANON_KEY_SECRET" ] || [ -z "$QA_PASSWORD_SECRET" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::One or more of NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, PLAYWRIGHT_QA_PASSWORD repo secrets are not set — skipping the browser E2E suite rather than failing every test on a login that can never succeed. Add all three (see this workflow's own header comment) to enable it."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install pnpm
+        if: steps.secrets-check.outputs.configured == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        if: steps.secrets-check.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.secrets-check.outputs.configured == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Get installed Playwright version
+        if: steps.secrets-check.outputs.configured == 'true'
+        id: playwright-version
+        working-directory: apps/web
+        run: echo "version=$(node -e "console.log(require('@playwright/test/package.json').version)")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright's Chromium download
+        if: steps.secrets-check.outputs.configured == 'true'
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          # Keyed on the exact @playwright/test version so a dependency bump
+          # (which can ship a newer bundled Chromium) never reuses a stale
+          # cached binary — Playwright itself would just re-download in that
+          # case, but keying the cache correctly means it actually gets a
+          # fresh hit next time instead of permanently missing.
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright's Chromium
+        if: steps.secrets-check.outputs.configured == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      # Even on a cache hit, the OS package dependencies Chromium needs
+      # (libnss3 etc., installed via --with-deps above) aren't part of the
+      # cached ~/.cache/ms-playwright directory — only the browser binary is.
+      - name: Install Chromium's OS dependencies
+        if: steps.secrets-check.outputs.configured == 'true' && steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: apps/web
+        run: npx playwright install-deps chromium
+
+      - name: Run the browser E2E smoke suite
+        if: steps.secrets-check.outputs.configured == 'true'
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          PLAYWRIGHT_QA_PASSWORD: ${{ secrets.PLAYWRIGHT_QA_PASSWORD }}
+          CI: true
+        run: pnpm e2e
+
+      - name: Upload Playwright report
+        if: steps.secrets-check.outputs.configured == 'true' && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 14
