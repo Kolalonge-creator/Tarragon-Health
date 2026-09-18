@@ -1,5 +1,5 @@
 import { Constants } from "./database.types";
-import { SPECIALIST_TYPE_LABEL, SPECIALIST_TYPE_OPTIONS, SPECIALIST_TYPES } from "./specialist-type-options";
+import { SPECIALIST_TYPE_LABEL, SPECIALIST_TYPE_OPTIONS, SPECIALIST_TYPE_VALUES, SPECIALIST_TYPES } from "./specialist-type-options";
 
 describe("specialist type options", () => {
   it("covers every live specialist_type enum value -- the drift this file exists to stop", () => {
@@ -17,6 +17,10 @@ describe("specialist type options", () => {
 
   it("has no duplicate values", () => {
     expect(new Set(SPECIALIST_TYPES).size).toBe(SPECIALIST_TYPES.length);
+  });
+
+  it("SPECIALIST_TYPE_VALUES (the literal tuple zod consumers derive their enum from) matches SPECIALIST_TYPES exactly", () => {
+    expect([...SPECIALIST_TYPE_VALUES].sort()).toEqual([...SPECIALIST_TYPES].sort());
   });
 
   it("labels every option, and only options that exist", () => {
