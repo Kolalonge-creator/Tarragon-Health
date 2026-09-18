@@ -36,6 +36,24 @@ export async function signEcgReportPath(path: string): Promise<string | null> {
 }
 
 /**
+ * Batched form of signEcgReportPath — one Storage API call for the whole
+ * list instead of one per document (mirrors
+ * lib/lab-results/documents.ts's signResultDocumentPaths, same N+1 fix).
+ * Returns a Map keyed by storage path; a path that failed to sign maps to
+ * null rather than dropping the entry.
+ */
+export async function signEcgReportPaths(paths: string[]): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  if (paths.length === 0) return map;
+  const service = createServiceRoleClient();
+  const { data } = await service.storage.from(ECG_REPORT_BUCKET).createSignedUrls(paths, 300);
+  for (const entry of data ?? []) {
+    map.set(entry.path ?? "", entry.signedUrl ?? null);
+  }
+  return map;
+}
+
+/**
  * Load a patient's ECG documents (RLS-scoped to the passed caller client — a
  * patient sees their own, org staff see org patients') and attach a signed
  * URL to each. Newest first.
@@ -54,19 +72,21 @@ export async function loadEcgReportDocuments(
 
   if (!rows || rows.length === 0) return [];
 
-  return Promise.all(
-    rows.map(async (row) => ({
-      id: row.id,
-      source: row.source,
-      originalFilename: row.original_filename,
-      mimeType: row.mime_type,
-      note: row.note,
-      createdAt: row.created_at,
-      reviewedBy: row.reviewed_by,
-      reviewedAt: row.reviewed_at,
-      reviewNote: row.review_note,
-      signedUrl: await signEcgReportPath(row.file_path),
-      isPdf: row.mime_type === "application/pdf",
-    })),
-  );
+  // One batched Storage call for every document's signed URL instead of one
+  // request per row (see signEcgReportPaths).
+  const signedUrlByPath = await signEcgReportPaths(rows.map((row) => row.file_path));
+
+  return rows.map((row) => ({
+    id: row.id,
+    source: row.source,
+    originalFilename: row.original_filename,
+    mimeType: row.mime_type,
+    note: row.note,
+    createdAt: row.created_at,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: row.reviewed_at,
+    reviewNote: row.review_note,
+    signedUrl: signedUrlByPath.get(row.file_path) ?? null,
+    isPdf: row.mime_type === "application/pdf",
+  }));
 }

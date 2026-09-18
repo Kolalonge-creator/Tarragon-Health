@@ -68,6 +68,29 @@ export async function signResultDocumentPath(
 }
 
 /**
+ * Batched form of signResultDocumentPath — one Storage API call for the
+ * whole list instead of one per document (this was previously an N+1: a
+ * patient/org with 20 result documents fired 20 separate signed-URL
+ * requests). Returns a Map keyed by storage path so callers can look up
+ * each document's URL in order; a path that failed to sign maps to null
+ * rather than dropping the entry.
+ */
+export async function signResultDocumentPaths(
+  paths: string[],
+): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  if (paths.length === 0) return map;
+  const service = createServiceRoleClient();
+  const { data } = await service.storage
+    .from(RESULT_DOC_BUCKET)
+    .createSignedUrls(paths, 300);
+  for (const entry of data ?? []) {
+    map.set(entry.path ?? "", entry.signedUrl ?? null);
+  }
+  return map;
+}
+
+/**
  * Load a patient's result documents (RLS-scoped to the passed caller client —
  * a patient sees their own, org staff see org patients') and attach a signed
  * URL to each. Newest first.
@@ -86,30 +109,32 @@ export async function loadResultDocuments(
 
   if (!rows || rows.length === 0) return [];
 
-  return Promise.all(
-    rows.map(async (row) => ({
-      id: row.id,
-      source: row.source,
-      originalFilename: row.original_filename,
-      mimeType: row.mime_type,
-      note: row.note,
-      testCode: row.test_code,
-      createdAt: row.created_at,
-      reviewedBy: row.reviewed_by,
-      reviewedAt: row.reviewed_at,
-      reviewNote: row.review_note,
-      patientInterpretation: row.patient_interpretation,
-      nextSteps: row.next_steps,
-      interpretationSentAt: row.interpretation_sent_at,
-      acknowledgementStatus: row.acknowledgement_status,
-      actionCompletedAt: row.action_completed_at,
-      aiSummaryStatus: row.ai_summary_status,
-      aiSummaryGeneratedAt: row.ai_summary_generated_at,
-      signedUrl: await signResultDocumentPath(row.file_path),
-      isPdf: row.mime_type === "application/pdf",
-      supersedesDocumentId: row.supersedes_document_id,
-      supersededByDocumentId: row.superseded_by_document_id,
-      supersededAt: row.superseded_at,
-    })),
-  );
+  // One batched Storage call for every document's signed URL instead of one
+  // request per row (see signResultDocumentPaths).
+  const signedUrlByPath = await signResultDocumentPaths(rows.map((row) => row.file_path));
+
+  return rows.map((row) => ({
+    id: row.id,
+    source: row.source,
+    originalFilename: row.original_filename,
+    mimeType: row.mime_type,
+    note: row.note,
+    testCode: row.test_code,
+    createdAt: row.created_at,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: row.reviewed_at,
+    reviewNote: row.review_note,
+    patientInterpretation: row.patient_interpretation,
+    nextSteps: row.next_steps,
+    interpretationSentAt: row.interpretation_sent_at,
+    acknowledgementStatus: row.acknowledgement_status,
+    actionCompletedAt: row.action_completed_at,
+    aiSummaryStatus: row.ai_summary_status,
+    aiSummaryGeneratedAt: row.ai_summary_generated_at,
+    signedUrl: signedUrlByPath.get(row.file_path) ?? null,
+    isPdf: row.mime_type === "application/pdf",
+    supersedesDocumentId: row.supersedes_document_id,
+    supersededByDocumentId: row.superseded_by_document_id,
+    supersededAt: row.superseded_at,
+  }));
 }

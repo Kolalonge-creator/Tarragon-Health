@@ -29,31 +29,41 @@ export default async function ClinicianVaccinationsPage() {
         .order("created_at", { ascending: true })
     : { data: null, error: null };
 
+  // One batched Storage call for every pending certificate's signed URL
+  // instead of one request per record — previously an N+1 that fired a
+  // separate signed-URL request per row in the verification queue.
   const service = createServiceRoleClient();
-  const items: PendingVerificationItem[] = await Promise.all(
-    (records ?? []).map(async (record) => {
-      let signedUrl: string | null = null;
-      if (record.physical_certificate_path) {
-        const { data } = await service.storage
-          .from("vaccination-certificates")
-          .createSignedUrl(record.physical_certificate_path, SIGNED_URL_TTL_SECONDS);
-        signedUrl = data?.signedUrl ?? null;
-      }
-      const isPdf = (record.physical_certificate_path ?? "").toLowerCase().endsWith(".pdf");
-      return {
-        id: record.id,
-        patientName: record.profiles?.full_name ?? "Patient",
-        patientNumber: record.profiles?.patient_number ?? null,
-        vaccineName: record.vaccination_catalog?.name ?? "Vaccine",
-        doseNumber: record.dose_number,
-        dateAdministered: record.date_administered,
-        provider: record.provider,
-        uploadedAt: record.created_at,
-        signedUrl,
-        isPdf,
-      };
-    }),
-  );
+  const certificatePaths = (records ?? [])
+    .map((record) => record.physical_certificate_path)
+    .filter((path): path is string => !!path);
+  const signedUrlByPath = new Map<string, string | null>();
+  if (certificatePaths.length > 0) {
+    const { data } = await service.storage
+      .from("vaccination-certificates")
+      .createSignedUrls(certificatePaths, SIGNED_URL_TTL_SECONDS);
+    for (const entry of data ?? []) {
+      signedUrlByPath.set(entry.path ?? "", entry.signedUrl ?? null);
+    }
+  }
+
+  const items: PendingVerificationItem[] = (records ?? []).map((record) => {
+    const signedUrl = record.physical_certificate_path
+      ? (signedUrlByPath.get(record.physical_certificate_path) ?? null)
+      : null;
+    const isPdf = (record.physical_certificate_path ?? "").toLowerCase().endsWith(".pdf");
+    return {
+      id: record.id,
+      patientName: record.profiles?.full_name ?? "Patient",
+      patientNumber: record.profiles?.patient_number ?? null,
+      vaccineName: record.vaccination_catalog?.name ?? "Vaccine",
+      doseNumber: record.dose_number,
+      dateAdministered: record.date_administered,
+      provider: record.provider,
+      uploadedAt: record.created_at,
+      signedUrl,
+      isPdf,
+    };
+  });
 
   return (
     <div className="space-y-6">

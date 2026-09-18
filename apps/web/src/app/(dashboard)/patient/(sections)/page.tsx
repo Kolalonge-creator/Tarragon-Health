@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
@@ -18,7 +19,6 @@ import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-l
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
-import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
 import { WeeklyPlanCard } from "@/app/(dashboard)/patient/weekly-plan-card";
 import { BiomarkerCategoriesCard } from "@/app/(dashboard)/patient/biomarker-categories-card";
@@ -69,6 +69,16 @@ const BP_STATUS_TONE: Record<Exclude<BpLevel, "unknown">, "green" | "amber" | "r
 function CardSkeleton({ className = "h-40" }: { className?: string }) {
   return <div aria-hidden className={`animate-pulse rounded-2xl bg-charcoal-ink/[0.07] dark:bg-night-ink/10 ${className}`} />;
 }
+
+// Split out of the main dashboard bundle: recharts is a meaningfully-sized
+// charting library, and this card renders well below the fold on the
+// highest-traffic page in the app. A plain static import was pulling the
+// whole library into every patient's First Load JS even though the chart
+// isn't needed until they scroll.
+const VitalsTrendChart = dynamic(
+  () => import("@/components/vitals-trend-chart").then((m) => m.VitalsTrendChart),
+  { loading: () => <CardSkeleton className="h-72" /> },
+);
 
 export default async function PatientOverviewPage() {
   const { subjectId, acting, subjectSex, glucoseUnit, uiLanguage } =
