@@ -13,6 +13,9 @@ node_modules/
 # turborepo
 .turbo/
 
+# Claude Code: session-scoped code-review markers (see .claude/settings.json)
+.claude/.review-markers/
+
 # pnpm local store
 .pnpm-store/
 
