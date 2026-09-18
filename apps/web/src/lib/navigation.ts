@@ -355,6 +355,8 @@ export function getNavSections(
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
+                { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
               ],
             },
           ]
@@ -558,6 +560,8 @@ export function getNavSections(
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
+                { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
               ],
             },
           ];
@@ -586,6 +590,7 @@ export function getNavSections(
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
             { label: "Leads", href: "/admin/leads", icon: "members" },
             { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
@@ -662,6 +667,7 @@ export function getNavSections(
           items: [
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
         },
@@ -700,6 +706,7 @@ export function getNavSections(
           items: [
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
           ],
         },
         {

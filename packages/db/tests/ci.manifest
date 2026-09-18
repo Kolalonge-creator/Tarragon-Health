@@ -177,3 +177,18 @@ notification_channel_preference_dead_channel_no_lockin.sql
 # schedule created, and a sabotage run (reverting to unconditional 4100)
 # reopens the hole on the bounded case.
 platform_credit_spend_revenue_deferral.sql
+
+# Standing coverage for the new admin/support "view as" shadow-view feature
+# (20260918104500_support_view_as.sql, PR building the read-only support
+# debugging tool the 2026-09-18 admin/ops maturity audit found missing).
+# Proves: a caller without the support.view_as permission cannot start a
+# session; a session cannot target a back-office/admin account or the caller
+# themselves; a granted caller CAN start one and the server — not the client —
+# derives the ~30-minute expires_at window; while active, the viewer can READ
+# the subject's profile but a WRITE attempt is genuinely blocked (read-only
+# proven, not assumed); an unrelated staff account with no session of its own
+# still cannot read the subject; starting a session writes a real audit_log
+# row carrying the reason and a real in-app notification to the subject;
+# ending the session immediately revokes the read grant; and an ended session
+# cannot be un-ended or have its window silently extended.
+support_view_as_sessions.sql
