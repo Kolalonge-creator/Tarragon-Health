@@ -100,34 +100,49 @@ export function logDeniedAction(
     entityId: params.entityId,
     organisationId: params.organisationId,
   };
-  void client
-    .rpc("log_denied_action", {
-      p_action: params.action,
-      p_entity_type: params.entityType,
-      p_entity_id: params.entityId,
-      p_organisation_id: params.organisationId,
-      p_reason: params.reason,
-    })
-    .then(
-      ({ error }) => {
-        if (!error) return;
-        // The RPC responded but rejected the write (e.g. an action string
-        // not yet added to public.log_denied_action()'s allowlist, or an
-        // is_org_staff failure for an edge-case caller) -- still
-        // fire-and-forget for the user, but worth knowing this denial row
-        // never got written.
-        Sentry.captureException(error, { extra: context });
-      },
-      (error: unknown) => {
-        // Rejection handler, not a chained .catch() -- the Supabase query
-        // builder's return type is PromiseLike, not a full Promise, so it has
-        // no .catch(). Same fire-and-forget posture as generateCaseBriefAction's
-        // own .catch(() => {}) in lib/queries/escalations.ts -- a
-        // network-level rejection here must never surface as an unhandled
-        // promise rejection on top of the real error the user already saw.
-        Sentry.captureException(error, { extra: context });
-      }
-    );
+  // The whole call is wrapped in try/catch, not just the async .then() path:
+  // client.rpc(...) itself is a synchronous call that builds and returns a
+  // thenable, and while the real Supabase client doesn't throw synchronously
+  // in practice, this function's entire contract is "never throw" -- every
+  // call site invokes this BEFORE re-throwing the real error
+  // (handleIfPermissionDenied -> logDeniedAction -> throw error), so a
+  // synchronous throw here would replace the error the user is supposed to
+  // see with an internal audit-logging failure instead, exactly the
+  // "second, confusing error" this function's own doc comment says must
+  // never happen.
+  try {
+    void client
+      .rpc("log_denied_action", {
+        p_action: params.action,
+        p_entity_type: params.entityType,
+        p_entity_id: params.entityId,
+        p_organisation_id: params.organisationId,
+        p_reason: params.reason,
+      })
+      .then(
+        ({ error }) => {
+          if (!error) return;
+          // The RPC responded but rejected the write (e.g. an action string
+          // not yet added to public.log_denied_action()'s allowlist, or an
+          // is_org_staff failure for an edge-case caller) -- still
+          // fire-and-forget for the user, but worth knowing this denial row
+          // never got written.
+          Sentry.captureException(error, { extra: context });
+        },
+        (error: unknown) => {
+          // Rejection handler, not a chained .catch() -- the Supabase query
+          // builder's return type is PromiseLike, not a full Promise, so it
+          // has no .catch(). Same fire-and-forget posture as
+          // generateCaseBriefAction's own .catch(() => {}) in
+          // lib/queries/escalations.ts -- a network-level rejection here
+          // must never surface as an unhandled promise rejection on top of
+          // the real error the user already saw.
+          Sentry.captureException(error, { extra: context });
+        }
+      );
+  } catch (error) {
+    Sentry.captureException(error, { extra: context });
+  }
 }
 
 /**

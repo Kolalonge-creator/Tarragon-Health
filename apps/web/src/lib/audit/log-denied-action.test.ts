@@ -126,6 +126,26 @@ describe("logDeniedAction", () => {
     await Promise.resolve();
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
+
+  it("never throws even if the client's rpc() call itself throws synchronously", () => {
+    // Every call site invokes logDeniedAction BEFORE re-throwing the real
+    // error it caught (handleIfPermissionDenied -> logDeniedAction -> throw
+    // error) -- a synchronous throw here would replace that real error with
+    // an internal audit-logging failure instead, the exact "second,
+    // confusing error" this function's contract says must never happen.
+    (Sentry.captureException as jest.Mock).mockClear();
+    const boom = new Error("client misconfigured");
+    const client = {
+      rpc: () => {
+        throw boom;
+      },
+    };
+    expect(() => logDeniedAction(base, client)).not.toThrow();
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      boom,
+      expect.objectContaining({ extra: expect.objectContaining({ action: base.action }) })
+    );
+  });
 });
 
 describe("handleIfPermissionDenied", () => {
