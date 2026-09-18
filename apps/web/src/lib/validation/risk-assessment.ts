@@ -106,6 +106,51 @@ export const riskAssessmentSchema = z
 
 export type RiskAssessmentInput = z.infer<typeof riskAssessmentSchema>;
 
+/**
+ * Shapes a submitted `RiskAssessmentForm` FormData into the object
+ * `riskAssessmentSchema.safeParse` expects. Pulled out of
+ * `submitRiskAssessment` (apps/web/src/app/(dashboard)/patient/actions.ts)
+ * so it's unit-testable without a Supabase client.
+ *
+ * `|| undefined` on `exercise_days_per_week`/`exercise_minutes_per_session`/
+ * `height_cm` matters specifically because they're `z.coerce.number()`
+ * fields, not because they're optional (they aren't). `Number("")` is `0`,
+ * a value that passes every one of these fields' own min()/max() bounds —
+ * so a blank field would otherwise be silently recorded as real "0 exercise
+ * days, 0 minutes" (or a height of 0cm) data instead of failing validation.
+ * `Number(undefined)` is `NaN`, which Zod correctly rejects. Found
+ * 2026-09-18 alongside the `noValidate` fix on `RiskAssessmentForm`, which
+ * is what first made it possible to reach this schema with these fields
+ * genuinely blank (previously the browser's own constraint validation
+ * silently blocked the submit before it got this far).
+ */
+export function parseRiskAssessmentFormData(formData: FormData) {
+  return {
+    family_diabetes: formData.get("family_diabetes"),
+    family_hypertension: formData.get("family_hypertension"),
+    family_heart_disease: formData.get("family_heart_disease"),
+    family_sickle_cell: formData.get("family_sickle_cell"),
+    family_cancer_types: formData.getAll("family_cancer_types"),
+    family_cancer_other_detail: formData.get("family_cancer_other_detail") || undefined,
+    smoking_status: formData.get("smoking_status"),
+    cigarettes_per_day: formData.get("cigarettes_per_day") || undefined,
+    alcohol_use: formData.get("alcohol_use"),
+    exercise_days_per_week: formData.get("exercise_days_per_week") || undefined,
+    exercise_minutes_per_session: formData.get("exercise_minutes_per_session") || undefined,
+    diet_pattern: formData.getAll("diet_pattern"),
+    sleep_hours: formData.get("sleep_hours"),
+    stress_level: formData.get("stress_level"),
+    height_cm: formData.get("height_cm") || undefined,
+    weight_kg: formData.get("weight_kg") || undefined,
+    existing_diagnoses: formData.getAll("existing_diagnoses"),
+    existing_diagnoses_other_detail: formData.get("existing_diagnoses_other_detail") || undefined,
+    current_medications: formData.get("current_medications") || undefined,
+    hpv_vaccinated: formData.get("hpv_vaccinated"),
+    other_vaccines_detail: formData.get("other_vaccines_detail") || undefined,
+    prior_abnormal_result: formData.get("prior_abnormal_result"),
+  };
+}
+
 /** Which risk_assessment_responses.category each field belongs to. */
 export const QUESTION_CATEGORY: Record<
   keyof RiskAssessmentInput,
