@@ -7,12 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialog";
 import { useLedgerEntries, useFinanceAccounts, useCostCenters, financeKeys } from "@/lib/finance/queries";
 import {
   postManualJournalAction,
   reverseJournalAction,
   type JournalLineInput,
 } from "@/lib/finance/actions";
+import type { LedgerEntry } from "@/lib/finance/schemas";
 import { lagosToday, lagosDaysAgo } from "@/lib/format-date";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
 
@@ -94,13 +96,41 @@ export function LedgerBrowser() {
     qc.invalidateQueries({ queryKey: financeKeys.all });
   }
 
-  async function reverse(id: string) {
-    const reason = window.prompt("Reason for this reversal?") ?? "";
-    if (!reason) return;
-    const res = await reverseJournalAction(id, reason);
-    if (res.ok) qc.invalidateQueries({ queryKey: financeKeys.all });
-    else window.alert(res.error ?? "Could not reverse entry.");
+  const [reversing, setReversing] = useState<LedgerEntry | null>(null);
+  const [reversalReason, setReversalReason] = useState("");
+  const [reversalBusy, setReversalBusy] = useState(false);
+  const [reversalError, setReversalError] = useState<string | null>(null);
+  const [ledgerMessage, setLedgerMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  function askToReverse(entry: LedgerEntry) {
+    setReversalError(null);
+    setReversalReason("");
+    setLedgerMessage(null);
+    setReversing(entry);
   }
+
+  async function confirmReverse() {
+    if (!reversing || !reversalReason.trim()) return;
+    setReversalBusy(true);
+    const res = await reverseJournalAction(reversing.id, reversalReason.trim());
+    setReversalBusy(false);
+    if (!res.ok) {
+      setReversalError(res.error ?? "Could not reverse entry.");
+      return;
+    }
+    const status = (res.data as { status?: string } | undefined)?.status;
+    setReversing(null);
+    setLedgerMessage(
+      status === "pending_approval"
+        ? { ok: true, text: "This entry is above the approval threshold, so the reversal was sent to Approvals for a second finance officer to review." }
+        : { ok: true, text: "Journal entry reversed." },
+    );
+    qc.invalidateQueries({ queryKey: financeKeys.all });
+  }
+
+  const reversingMaxMinor = reversing
+    ? Math.max(0, ...(reversing.lines ?? []).map((l) => Math.max(l.debit_minor, l.credit_minor)))
+    : 0;
 
   const accountOptions = accounts.data ?? [];
 
@@ -233,6 +263,11 @@ export function LedgerBrowser() {
           </div>
         }
       >
+        {ledgerMessage && (
+          <p className={`mb-3 text-sm ${ledgerMessage.ok ? "text-brand-green" : "text-red-600"}`}>
+            {ledgerMessage.text}
+          </p>
+        )}
         {entries.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : (entries.data ?? []).length === 0 ? (
@@ -251,7 +286,7 @@ export function LedgerBrowser() {
                     {e.reversal_of && <Badge variant="blue">Reversal</Badge>}
                   </div>
                   {!e.is_reversed && !e.reversal_of && (
-                    <button type="button" className="text-xs text-charcoal-ink/50 hover:text-red-600" onClick={() => reverse(e.id)}>
+                    <button type="button" className="text-xs text-charcoal-ink/50 hover:text-red-600" onClick={() => askToReverse(e)}>
                       Reverse
                     </button>
                   )}
@@ -280,6 +315,40 @@ export function LedgerBrowser() {
           </div>
         )}
       </SectionCard>
+
+      <ConfirmDialog
+        open={reversing !== null}
+        title="Reverse this journal entry?"
+        description="This posts an equal-and-opposite entry rather than editing history. If the amount is above the approval threshold, it will be sent to a second finance officer for review instead of reversing immediately."
+        confirmLabel={reversalBusy ? "Reversing…" : "Reverse entry"}
+        confirmDisabled={reversalBusy || !reversalReason.trim()}
+        destructive
+        onCancel={() => setReversing(null)}
+        onConfirm={confirmReverse}
+      >
+        {reversing && (
+          <div className="space-y-3">
+            <ConfirmDialogFacts
+              rows={[
+                { label: "Entry", value: `#${reversing.entry_no}` },
+                { label: "Date", value: reversing.entry_date },
+                { label: "Memo", value: reversing.memo ?? "—" },
+                { label: "Amount", value: formatMinor(reversingMaxMinor, reversing.currency) },
+              ]}
+            />
+            <div>
+              <Label htmlFor="reversal-reason">Reason for this reversal (required)</Label>
+              <Input
+                id="reversal-reason"
+                value={reversalReason}
+                onChange={(e) => setReversalReason(e.target.value)}
+                placeholder="e.g. Posted to the wrong account"
+              />
+            </div>
+            {reversalError && <p className="text-sm text-red-600">{reversalError}</p>}
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

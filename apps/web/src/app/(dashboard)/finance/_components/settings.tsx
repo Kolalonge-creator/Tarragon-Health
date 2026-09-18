@@ -21,7 +21,26 @@ import {
   upsertApprovalThresholdAction,
 } from "@/lib/finance/actions";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { FinanceAccount } from "@/lib/finance/schemas";
+
+const PERIOD_ACTION_COPY: Record<"open" | "closed" | "locked", { title: string; description: string; confirmLabel: string }> = {
+  open: {
+    title: "Reopen this period?",
+    description: "Reopening lets new entries post to a month that was already closed or locked. Do this only to fix a real mistake.",
+    confirmLabel: "Reopen period",
+  },
+  closed: {
+    title: "Close this period?",
+    description: "A closed period blocks ordinary posting; it can still be reopened by a finance officer.",
+    confirmLabel: "Close period",
+  },
+  locked: {
+    title: "Lock this period?",
+    description: "A locked period can't be reopened without care. Locking always requires a second finance officer's approval — this sends the request to Approvals rather than locking immediately.",
+    confirmLabel: "Request lock",
+  },
+};
 
 const STATUS_VARIANT: Record<string, "green" | "amber" | "grey"> = {
   open: "green",
@@ -37,15 +56,33 @@ export function FinanceSettings() {
   const approvalSettings = useApprovalSettings();
   const [ccMsg, setCcMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [thresholdMsg, setThresholdMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [periodMsg, setPeriodMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [confirmingPeriod, setConfirmingPeriod] = useState<{ month: string; status: "open" | "closed" | "locked" } | null>(null);
+  const [periodBusy, setPeriodBusy] = useState(false);
   const invalidate = () => qc.invalidateQueries({ queryKey: financeKeys.all });
 
-  async function setStatus(month: string, status: "open" | "closed" | "locked") {
+  function askToSetStatus(month: string, status: "open" | "closed" | "locked") {
+    setPeriodMsg(null);
+    setConfirmingPeriod({ month, status });
+  }
+
+  async function confirmSetStatus() {
+    if (!confirmingPeriod) return;
+    const { month, status } = confirmingPeriod;
+    setPeriodBusy(true);
     const res = await setPeriodStatusAction(`${month}-01`, status);
-    if (!res.ok) return window.alert(res.error ?? "Could not update period.");
-    const resultStatus = (res.data as { status?: string } | undefined)?.status;
-    if (resultStatus === "pending_approval") {
-      window.alert("Locking this period requires a second finance officer's approval, sent to Approvals.");
+    setPeriodBusy(false);
+    setConfirmingPeriod(null);
+    if (!res.ok) {
+      setPeriodMsg({ ok: false, text: res.error ?? "Could not update period." });
+      return;
     }
+    const resultStatus = (res.data as { status?: string } | undefined)?.status;
+    setPeriodMsg(
+      resultStatus === "pending_approval"
+        ? { ok: true, text: "Locking this period requires a second finance officer's approval — sent to Approvals." }
+        : { ok: true, text: `Period ${month} is now ${status}.` },
+    );
     invalidate();
   }
 
@@ -96,6 +133,9 @@ export function FinanceSettings() {
         title="Accounting periods"
         description="Close a month to lock it against further posting. Locked periods can't be reopened without care."
       >
+        {periodMsg && (
+          <p className={`mb-3 text-sm ${periodMsg.ok ? "text-brand-green" : "text-red-600"}`}>{periodMsg.text}</p>
+        )}
         {periods.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : (periods.data ?? []).length === 0 ? (
@@ -116,9 +156,9 @@ export function FinanceSettings() {
                   <td className="py-2"><Badge variant={STATUS_VARIANT[p.status] ?? "grey"}>{p.status}</Badge></td>
                   <td className="py-2 text-right">
                     <div className="inline-flex gap-2">
-                      {p.status !== "open" && <Button size="sm" variant="outline" onClick={() => setStatus(p.period_month, "open")}>Reopen</Button>}
-                      {p.status === "open" && <Button size="sm" variant="outline" onClick={() => setStatus(p.period_month, "closed")}>Close</Button>}
-                      {p.status !== "locked" && <Button size="sm" variant="outline" onClick={() => setStatus(p.period_month, "locked")}>Lock</Button>}
+                      {p.status !== "open" && <Button size="sm" variant="outline" onClick={() => askToSetStatus(p.period_month, "open")}>Reopen</Button>}
+                      {p.status === "open" && <Button size="sm" variant="outline" onClick={() => askToSetStatus(p.period_month, "closed")}>Close</Button>}
+                      {p.status !== "locked" && <Button size="sm" variant="outline" onClick={() => askToSetStatus(p.period_month, "locked")}>Lock</Button>}
                     </div>
                   </td>
                 </tr>
@@ -234,6 +274,19 @@ export function FinanceSettings() {
         )}
         {thresholdMsg && <p className={`mt-2 text-sm ${thresholdMsg.ok ? "text-brand-green" : "text-red-600"}`}>{thresholdMsg.text}</p>}
       </SectionCard>
+
+      <ConfirmDialog
+        open={confirmingPeriod !== null}
+        title={confirmingPeriod ? PERIOD_ACTION_COPY[confirmingPeriod.status].title : ""}
+        description={confirmingPeriod ? PERIOD_ACTION_COPY[confirmingPeriod.status].description : undefined}
+        confirmLabel={periodBusy ? "Working…" : confirmingPeriod ? PERIOD_ACTION_COPY[confirmingPeriod.status].confirmLabel : "Confirm"}
+        confirmDisabled={periodBusy}
+        destructive={confirmingPeriod?.status === "locked"}
+        onCancel={() => setConfirmingPeriod(null)}
+        onConfirm={confirmSetStatus}
+      >
+        {confirmingPeriod && <p className="text-sm font-medium">{confirmingPeriod.month}</p>}
+      </ConfirmDialog>
     </div>
   );
 }

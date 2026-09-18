@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { usePendingApprovals, useApprovalHistory, financeKeys } from "@/lib/finance/queries";
 import { approveRequestAction, rejectRequestAction } from "@/lib/finance/actions";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { formatPatientDateTime } from "@/lib/format-date";
 
 function requestSummary(payload: Record<string, unknown>, type: string): string {
   if (type === "period_lock") {
@@ -78,7 +79,7 @@ export function ApprovalsQueue() {
                     <span className="ml-2 text-sm text-charcoal-ink/80">{requestSummary(r.payload, r.request_type)}</span>
                   </div>
                   <span className="text-xs text-charcoal-ink/50">
-                    Requested by {r.requested_by_name ?? "someone"} · {new Date(r.requested_at).toLocaleString()}
+                    Requested by {r.requested_by_name ?? "someone"} · {formatPatientDateTime(r.requested_at)}
                   </span>
                 </div>
                 {r.reason && <p className="mt-1 text-xs text-charcoal-ink/60">Reason: {r.reason}</p>}

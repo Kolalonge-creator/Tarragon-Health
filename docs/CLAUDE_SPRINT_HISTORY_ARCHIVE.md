@@ -3990,3 +3990,133 @@ an unrelated profile, confirm a plain top-up does not notify while an admin gran
 have been applied to the live project. Browser-verified end-to-end as patient/admin/finance on a
 worktree-pinned dev server (see the worktree-vs-main-checkout `preview_start` gotcha this required
 working around, in memory).
+
+### 2026-09-18 — Full finance-team console audit (logged in as `finance@tarragonhealth.ng`): two
+real book-accuracy bugs found and corrected in production, a silent no-op fixed, a maker-checker gap
+closed, and a broad polish/consistency sweep
+
+Founder asked for the finance team's console to be audited end-to-end and brought to the standard
+expected of the platform generally. Logged in as the real `finance@tarragonhealth.ng` account (a
+magic link, per the established recipe — there is no `@tarragon.test` finance fixture) rather than
+the founder's own admin login, since the finance role's own gated views (see
+`lib/finance/partner-statement-access.ts`) are materially different from what admin sees on the same
+pages. Ran a code-inventory pass in parallel with live click-through of all 15 `/finance/*` pages.
+
+**Two real, live book-accuracy bugs, both found by comparing one finance RPC against a sibling that
+does the same calculation correctly, and both confirmed and fixed at the root:**
+1. `finance_kpi_summary`'s cash figure (feeding the Overview page's "Cash runway" tile) summed only
+   accounts 1000/1010, omitting 1020 "Payment processor clearing" — the account holding the bulk of
+   real live cash (every platform-credit top-up and most card payments land there first).
+   `finance_dashboard_summary`'s own `cash_ngn` tile already included 1020 correctly; the KPI RPC was
+   the odd one out. Live effect: real cash was ~₦20,355 but the KPI tile showed "Cash runway: 0 mo" —
+   an alarming, wrong number on the single dashboard whose job is telling the founder how much runway
+   is left. Fixed by adding `'1020'` to the KPI RPC's cash query; verified live, runway now correctly
+   shows 174.5 months against the trailing-90-day expense average.
+2. `private.finance_post_platform_credit_ledger_entry`'s `'spend'` branch always credited revenue
+   (4100) immediately, with no check for whether the purchased service has a bounded access window —
+   unlike the card-payment path (`private.finance_post_from_payment`'s `service_purchase` branch),
+   which correctly defers to 2000 and creates a `revenue_recognition_schedules` row when
+   `service_products.access_duration_days` is set. Live effect: the identical "Continuous Monitoring,
+   3 months" product was booked to deferred revenue when paid by card but recognised as revenue on
+   day one when paid by platform credit — a real matching-principle violation, and a direct
+   contradiction of this platform's own stated policy ("a service bought up front is deferred until
+   it is delivered," quoted verbatim on the Finance Overview page's own banner). Fixed by looking up
+   the purchase's `access_duration_days` before deciding the destination account (2000 vs 4100), and
+   creating the same recognition schedule the card path creates when it's bounded — verified via
+   several `BEGIN ... ROLLBACK` transactions (never left test data live) proving both the fixed
+   (duration-based → deferred + schedule) and unfixed (no `service_purchase_id` → still immediate
+   4100, a deliberate regression check) code paths. Migration `20260917234555`.
+   **The one real live entry this bug had already produced** (entry #290, 2026-09-17, a QA test
+   purchase on `patient.free.test@tarragon.test` made during the prior Platform Credit audit session)
+   was reversed and reposted correctly (2100→2000 instead of 2100→4100) with its own recognition
+   schedule backdated to the original spend date, rather than left misstated — same "correct the
+   books, don't just fix the code going forward" discipline as the 2026-09-05 "Phantom ₦10k revenue
+   reversed" entry above. Revenue YTD dropped from a phantom ₦7,500 to the correct ₦0 for this young,
+   still-pre-revenue-recognition dataset; deferred revenue rose by the same ₦7,500.
+
+**A third bug, found only because fixing #10 below required reading the code path closely:**
+`setPeriodStatusAction` (the server action behind Settings' period Close/Lock/Reopen buttons) called
+`finance_set_period_status` but discarded its `data` entirely — and locking a period is
+*unconditional* maker-checker (every lock request goes to Approvals, never posts immediately,
+regardless of amount). The client-side `if (resultStatus === "pending_approval")` branch that was
+supposed to tell the finance officer "this was sent for approval" could therefore never fire: `res.data`
+was always `undefined`. Clicking "Lock" looked like it did nothing at all — no error, no confirmation,
+the period's status badge didn't change — exactly the "[[reference_silent_disable_looks_like_empty_result]]"
+failure shape flagged elsewhere in this file. Fixed by passing `data` through; verified live end-to-end
+(clicked Lock on a real period, got the correct "sent to Approvals" message, confirmed the real pending
+request appeared on `/finance/approvals` correctly blocked from self-approval, then deleted that one
+test request row afterward).
+
+**A fourth, unrelated bug found by chance while spot-checking pages for "stuck loading" during the
+sweep:** `/finance/audit` (the Activity log) was permanently stuck on "Loading…" — confirmed the RPC
+itself worked fine via a direct authenticated REST call (`200`, `[]`), so the bug was client-side:
+`FinanceAuditLog` computed `const to = now();` inline on every render instead of once, so the query's
+own `args`/`queryKey` object was a new value (with a new `to` timestamp) on every re-render, and the
+query kept superseding itself before it could ever resolve. Fixed by moving it into
+`useState(now)` (a lazy initializer, computed once on mount) exactly like `from` already was. This is
+worth remembering as its own pattern: a bare `Date.now()`/`new Date().toISOString()` call used
+directly in a hook's query-key input, rather than stored in state, can produce an infinite-loading
+page with no console error and no failed network request to point at it — this was the only file in
+the finance console with this shape, but it's cheap to grep for (`= now();`/`= new Date().toISOString();`
+not behind `useState`) before shipping a similar client component elsewhere.
+
+**Maker-checker gap closed:** `finance_reverse_journal` only checked `finance.gl.post`, so unlike
+posting a large manual journal entry (which correctly routes to a second officer above the configured
+threshold via `finance_post_manual_journal`), reversing an entry of ANY size — including a
+fraud-motivated reversal, exactly the scenario Approvals exists to catch — was a single officer's
+unilateral action. Gave it the identical threshold check, routed through the same
+`finance_approval_requests` queue (a new `'journal_reversal'` request type; `request_type` is a plain
+text column, no `ALTER TYPE` needed), with `finance_approve_request` gaining a matching execution
+branch. `finance_reverse_journal`'s return type changed from a bare `uuid` to the same
+`{status, ...}` shape `finance_post_manual_journal` already returns, so the UI can tell a synchronous
+reversal from one sent for approval — `ledger.tsx`'s reverse flow was rewritten from a
+`window.prompt`/`window.alert` pair to a proper `ConfirmDialog` (recap of entry/date/memo/amount, a
+required reason field, disabled-until-filled) in the same pass, matching `payables.tsx`'s existing
+pattern rather than leaving the platform's single highest-stakes ledger action with the least UI
+friction of any of them. Migration `20260917235414`.
+
+**Access-control UI gap closed:** `/finance/partner-settlements`'s "Record a new laboratory invoice"
+form was fully live and submittable for the `finance` role even though `partner_statements` RLS
+(`private.is_org_staff`) deliberately excludes `finance` from writing to it (recording what a lab
+delivered is a care-team operations question by design, not an accounting one — see
+`lib/finance/partner-statement-access.ts`'s own header). The read side already had an honest access
+notice for this; the write side had nothing, so a finance officer could fill out the whole form and
+only discover it doesn't work from a raw RLS error on submit. Replaced the form with the same access
+notice for a `finance`-role reader, verified live.
+
+**Broad consistency/polish sweep**, matching the "same standard as a US company" bar the founder asked
+for: a React key warning on every render of Employer billing (a bare `<>...</>` fragment returned from
+inside `.map()` with no key, only its child `<tr>` was keyed — fixed with `<Fragment key=...>`); seven
+spots across the console (`approvals.tsx`, `audit.tsx`, `fraud-signals.tsx`, `unified-ledger.tsx`,
+`partner-settlements-client.tsx`, the print pack's `letterhead.tsx`/`audit-pack.tsx`) using a bare
+`toLocaleString()`/`toLocaleDateString()` with no `timeZone` — resolving to the *browser's* zone
+instead of the documented `Africa/Lagos` rule, and in one printed-document case, the printed date's
+day/month order varying by whichever device printed it — routed through the existing
+`formatPatientDate`/`formatPatientDateTime` helpers instead; a hand-rolled `naira()` formatter on the
+Laboratory settlements page reinvented `formatMinor` with no fixed locale; the new-vendor form on
+Payables silently dropped `contact_email`/`contact_phone`/`tin` on every save (hardcoded to `""` even
+though the RPC/schema fully support them) and had no edit affordance at all for an existing vendor —
+both fixed; `payment_fraud_signals` had zero proactive alerting, unlike reconciliation flags, so a
+duplicate-charge or chargeback signal sat silent until someone opened `/finance/fraud` — added
+`alertAdminsOfOpenFraudSignals`, the same once-daily-per-admin `in_app` pattern
+`alertAdminsOfOpenFlags` already uses, wired into the `fraud-sweep` cron the same way the
+reconciliation cron wires its own alert call; `lib/auth/permissions.ts`'s `PERMISSION_KEYS` union
+(whose own comment says "keep in sync with the migration's seed") was missing seven real, grantable
+`finance.*` permissions (`approvals.manage`, `vendors.manage`, `cost_centers.manage`,
+`budgets.manage`, `compliance.manage`, `capitation.manage`, `employer_billing.manage`) — confirmed
+against the live `public.permissions` table before adding, rather than trusting the sub-agent's
+narrower list; and Settings' period Close/Lock/Reopen buttons fired on a single click with no
+confirmation despite the page's own copy warning "Locked periods can't be reopened without care" —
+given the same `ConfirmDialog` treatment as the ledger reversal above.
+
+**Deliberately not built in this pass — real gaps, lower priority, left for an explicit ask:**
+`finance_pnl_by_cost_center` is a working, previously-fixed RPC with no UI anywhere in the console;
+`useUnifiedLedger`'s documented org-wide lookup mode has no UI toggle (profile-ID lookup only);
+`finance.export` is a seeded, grantable permission that unlocks nothing (no CSV/XLSX export exists
+anywhere, only browser print-to-PDF for the three report packs, which isn't gated on this permission
+at all); nothing in the console checks a caller's specific granular `finance.*` capability before
+rendering a Post/Reverse/Close/Lock/Approve button — only the coarse `finance.view` gate at the
+layout level — so a delegate granted only `finance.view` sees every action fully live and only
+discovers they can't use it from a raw RPC error; and several lower-stakes `window.prompt`/`alert`
+call sites remain (approvals reject, payables void) that would benefit from the same `ConfirmDialog`
+treatment given to reversal and period-locking in this pass.

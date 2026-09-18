@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useFinanceAuditLog, useFinanceAuditActions } from "@/lib/finance/queries";
 import { SectionCard, CenterNote, TableShell, Th } from "./primitives";
+import { formatPatientDateTime } from "@/lib/format-date";
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
 const now = () => new Date().toISOString();
@@ -20,7 +21,12 @@ function summarizeEvent(event: Record<string, unknown>): string {
 export function FinanceAuditLog() {
   const [from, setFrom] = useState(daysAgo(30));
   const [action, setAction] = useState("");
-  const to = now();
+  // Computed once on mount, not inline on every render: a bare `now()` call
+  // here made the query args (and therefore the React Query key) a new
+  // object with a new `to` timestamp on every re-render, so the audit log
+  // query never stopped refetching/superseding itself and the page was
+  // permanently stuck on "Loading…".
+  const [to] = useState(now);
 
   const log = useFinanceAuditLog({ from, to, action: action || undefined });
   const actions = useFinanceAuditActions();
@@ -73,7 +79,7 @@ export function FinanceAuditLog() {
               {(log.data ?? []).map((e) => (
                 <tr key={e.id} className="border-b border-charcoal-ink/5 align-top">
                   <td className="py-2 pr-4 whitespace-nowrap text-charcoal-ink/60">
-                    {new Date(e.created_at).toLocaleString()}
+                    {formatPatientDateTime(e.created_at)}
                   </td>
                   <td className="py-2 pr-4 text-charcoal-ink/70">{e.actor_name ?? "—"}</td>
                   <td className="py-2 pr-4">

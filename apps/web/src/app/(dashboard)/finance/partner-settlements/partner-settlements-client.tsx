@@ -8,7 +8,8 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { LoadFailure } from "@/components/ui/load-failure";
-import { koboToNaira } from "@tarragon/shared";
+import { formatMinor } from "@/lib/analytics/format";
+import { formatPatientDate } from "@/lib/format-date";
 import {
   createPartnerStatement,
   matchStatementAction,
@@ -17,7 +18,7 @@ import {
 } from "./actions";
 import { SectionCard, CenterNote, TableShell, Th } from "../_components/primitives";
 
-const naira = (kobo: number) => `₦${koboToNaira(kobo).toLocaleString()}`;
+const naira = (kobo: number) => formatMinor(kobo, "NGN");
 
 const STATUS_VARIANT: Record<string, "green" | "grey" | "amber" | "red"> = {
   draft: "grey",
@@ -192,7 +193,18 @@ export function PartnerSettlementsClient({
 }) {
   return (
     <div className="space-y-6">
-      <CreateStatementForm providers={providers} />
+      {accessNotice ? (
+        <SectionCard
+          title="Record a new laboratory invoice"
+          description="Enter exactly what the laboratory invoiced for a period. Matching it against our own orders is the next step, not this one."
+        >
+          <p role="status" className="rounded-lg border border-charcoal-ink/15 bg-warm-ivory p-3 text-sm text-charcoal-ink/80">
+            {accessNotice}
+          </p>
+        </SectionCard>
+      ) : (
+        <CreateStatementForm providers={providers} />
+      )}
 
       <SectionCard
         title="Statements"
@@ -231,8 +243,7 @@ export function PartnerSettlementsClient({
                   <td className="py-2 pr-4">{s.provider_name ?? "—"}</td>
                   <td className="py-2 pr-4">{s.reference}</td>
                   <td className="py-2 pr-4">
-                    {new Date(s.period_start).toLocaleDateString("en-NG")} –{" "}
-                    {new Date(s.period_end).toLocaleDateString("en-NG")}
+                    {formatPatientDate(s.period_start)} – {formatPatientDate(s.period_end)}
                   </td>
                   <td className="py-2 pr-4 text-right">{naira(s.invoiced_total_kobo)}</td>
                   <td className="py-2 pr-4 text-right">
