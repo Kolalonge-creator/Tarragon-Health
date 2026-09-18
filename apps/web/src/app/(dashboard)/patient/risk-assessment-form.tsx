@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { submitRiskAssessment } from "./actions";
 import {
@@ -153,6 +153,60 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
     }
   }, [state?.success, queryClient, patientId]);
 
+  // Same bug, same fix as the signup form (see signup/signup-form.tsx):
+  // React resets a <form action={...}>'s uncontrolled fields synchronously
+  // at submit time, before the action even runs, so an error response wipes
+  // every field the wizard isn't currently showing — not just the invalid
+  // one. `noValidate` above is what first makes it possible to reach this
+  // action with an error at all (previously the browser silently refused to
+  // submit), so this restore effect matters more now, not less. Unlike
+  // signup's handful of fields, this form has many, so the restore walks
+  // the form's own elements generically rather than one ref per field.
+  // height_cm/weight_kg/existing_diagnoses are deliberately skipped: they're
+  // already React-controlled (value=/checked= from state, not defaultValue),
+  // so they never get wiped in the first place — the native reset can't
+  // touch what React itself owns and re-asserts on every render.
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    const values = state?.values as Record<string, unknown> | undefined;
+    const form = formRef.current;
+    if (!values || !form) return;
+    for (const el of Array.from(form.elements)) {
+      if (
+        !(el instanceof HTMLInputElement) &&
+        !(el instanceof HTMLSelectElement) &&
+        !(el instanceof HTMLTextAreaElement)
+      ) {
+        continue;
+      }
+      const name = el.name;
+      if (!name || !(name in values)) continue;
+      if (name === "existing_diagnoses" || name === "height_cm" || name === "weight_kg") continue;
+      const value = values[name];
+      if (el instanceof HTMLInputElement && el.type === "checkbox") {
+        el.checked = Array.isArray(value) ? value.includes(el.value) : Boolean(value);
+      } else if (typeof value === "string") {
+        el.value = value;
+      }
+    }
+  }, [state]);
+
+  // Two bits of React state track what the effect above just told the DOM
+  // directly (imperative DOM writes don't fire React's onChange), so the
+  // conditional UI they drive doesn't silently disagree with the restored
+  // fields. Adjusted during render, same pattern as prefillSource/
+  // diagnosesPrefillSource above, rather than inside the effect itself
+  // (react-hooks/set-state-in-effect) — see the comment on that pattern.
+  const [restoredFrom, setRestoredFrom] = useState<typeof state>(undefined);
+  if (state !== restoredFrom) {
+    setRestoredFrom(state);
+    const values = state?.values as Record<string, unknown> | undefined;
+    if (typeof values?.smoking_status === "string") setSmokingStatus(values.smoking_status);
+    if (Array.isArray(values?.family_cancer_types)) {
+      setShowCancerOther(values.family_cancer_types.includes("other"));
+    }
+  }
+
   const bmi = useMemo(() => {
     const height = Number(heightCm);
     const weight = Number(weightKg);
@@ -178,7 +232,15 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             (riskAssessmentSchema) still enforces the same required fields —
             noValidate only means a real, visible `state.error` now surfaces
             instead of a silent no-op. */}
-        <form action={formAction} className="space-y-6" noValidate>
+        <form ref={formRef} action={formAction} className="space-y-6" noValidate>
+          {/* disabled={pending}: without it, a visitor who notices and
+              corrects a mistake while the first submission is still in
+              flight can have that correction silently overwritten once the
+              restore effect above runs on the response — same race the
+              signup form closes with disabled={pending} on each field
+              individually; one <fieldset> does it for every field here at
+              once. */}
+          <fieldset disabled={pending} className="space-y-6 m-0 min-w-0 border-0 p-0">
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             A few honest answers help us tell you what to check and when. This isn&apos;t
             a diagnosis, just a starting point for your care.
@@ -438,6 +500,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               </Button>
             )}
           </div>
+          </fieldset>
         </form>
       </CardContent>
     </Card>
