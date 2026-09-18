@@ -7,7 +7,7 @@ import {
   useAlertQuality,
   useSafetyDashboardSummary,
 } from "@/lib/analytics/queries";
-import { formatNumber, formatPercent } from "@/lib/analytics/format";
+import { formatMinutesDuration, formatNumber, formatPercent } from "@/lib/analytics/format";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 
 const SEVERITY_LABEL: Record<string, string> = {
@@ -147,7 +147,7 @@ export function SafetyDashboard() {
           <dl className="mb-4 grid grid-cols-2 gap-3 text-sm">
             {[
               ["Total alerts", formatNumber(quality.data?.total ?? 0)],
-              ["Avg time to ack", quality.data?.avg_ack_minutes != null ? `${quality.data.avg_ack_minutes}m` : "—"],
+              ["Avg time to ack", quality.data?.avg_ack_minutes != null ? formatMinutesDuration(quality.data.avg_ack_minutes) : "—"],
               ["Avg time to resolve", quality.data?.avg_resolution_hours != null ? `${quality.data.avg_resolution_hours}h` : "—"],
               ["Escalation rate", formatPercent(quality.data?.escalation_rate_pct ?? 0)],
               ["Duplicate rate", formatPercent(quality.data?.duplicate_rate_pct ?? 0)],

@@ -8,7 +8,7 @@ import {
   useReferralTurnaround,
   useSupportResponseTime,
 } from "@/lib/analytics/queries";
-import { formatNumber, formatPercent } from "@/lib/analytics/format";
+import { formatMinutesDuration, formatNumber, formatPercent } from "@/lib/analytics/format";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 import { ExportButton } from "./export-button";
 
@@ -53,8 +53,7 @@ export function ServiceLevelsDashboard() {
         <StatTile
           icon={ShieldCheck}
           label="Avg alert acknowledge time"
-          value={q?.avg_ack_minutes == null ? "—" : formatNumber(q.avg_ack_minutes)}
-          unit={q?.avg_ack_minutes == null ? undefined : "min"}
+          value={q?.avg_ack_minutes == null ? "—" : formatMinutesDuration(q.avg_ack_minutes)}
         />
         <StatTile
           icon={Timer}
@@ -79,8 +78,7 @@ export function ServiceLevelsDashboard() {
         <StatTile
           icon={Headphones}
           label="Avg support first response"
-          value={sup?.avg_first_response_minutes == null ? "—" : formatNumber(sup.avg_first_response_minutes)}
-          unit={sup?.avg_first_response_minutes == null ? undefined : "min"}
+          value={sup?.avg_first_response_minutes == null ? "—" : formatMinutesDuration(sup.avg_first_response_minutes)}
         />
       </div>
 
@@ -273,7 +271,7 @@ export function ServiceLevelsDashboard() {
             </div>
             <div>
               <p className="text-2xl font-semibold tabular-nums text-charcoal-ink">
-                {sup?.avg_first_response_minutes == null ? "—" : `${formatNumber(sup.avg_first_response_minutes)} min`}
+                {sup?.avg_first_response_minutes == null ? "—" : formatMinutesDuration(sup.avg_first_response_minutes)}
               </p>
               <p className="text-xs text-charcoal-ink/60">avg first response</p>
             </div>

@@ -45,9 +45,15 @@ export function CenterNote({ children }: { children: ReactNode }) {
 export function MiniBarList({
   items,
   emptyLabel = "No data yet.",
+  preserveCase = false,
 }: {
   items: { label: string; value: number; display?: string }[];
   emptyLabel?: string;
+  /** Skip the default Title Case + underscore-to-space treatment for labels
+   * that are verbatim technical strings (a URL path, a hostname) rather than
+   * an enum-style category — capitalize() turns "/admin/ai-governance" into
+   * "/Admin/Ai-Governance" and "www.google.com" into "Www.Google.Com". */
+  preserveCase?: boolean;
 }) {
   if (items.length === 0) return <CenterNote>{emptyLabel}</CenterNote>;
   const max = Math.max(...items.map((i) => i.value), 1);
@@ -56,7 +62,9 @@ export function MiniBarList({
       {items.map((item) => (
         <li key={item.label} className="space-y-1">
           <div className="flex items-center justify-between text-sm">
-            <span className="capitalize text-charcoal-ink/80">{item.label.replace(/_/g, " ")}</span>
+            <span className={cn("text-charcoal-ink/80", !preserveCase && "capitalize")}>
+              {preserveCase ? item.label : item.label.replace(/_/g, " ")}
+            </span>
             <span className="font-medium tabular-nums text-charcoal-ink">
               {item.display ?? item.value.toLocaleString("en-NG")}
             </span>
