@@ -396,6 +396,18 @@ async function countLabResultConsultsWaiting(supabase: Client) {
   return count ?? 0;
 }
 
+/** Recognised FHIR Bundle entries from a partner import (labs/HMOs/hospitals
+ * via POST /api/v1/fhir/import) waiting for a clinician to confirm, modify,
+ * or dismiss them into the record -- see clinician/fhir-review. */
+async function countFhirProposedResourcesPending(supabase: Client) {
+  const { count, error } = await supabase
+    .from("fhir_import_proposed_resources")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "proposed");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /**
  * Threads waiting on a care-team reply -- exact same predicate as
  * isAwaitingCareTeam (lib/worklist/message-triage.ts), which compares
@@ -447,7 +459,8 @@ export type WorklistCountKey =
   | "unreadSupportMessages"
   | "careThreadsAwaitingReply"
   | "labOrdersAwaitingHomeVisitAssignment"
-  | "labResultConsultsWaiting";
+  | "labResultConsultsWaiting"
+  | "fhirProposedResourcesPending";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -489,6 +502,7 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   careThreadsAwaitingReply: countCareThreadsAwaitingReply,
   labOrdersAwaitingHomeVisitAssignment: countLabOrdersAwaitingHomeVisitAssignment,
   labResultConsultsWaiting: countLabResultConsultsWaiting,
+  fhirProposedResourcesPending: countFhirProposedResourcesPending,
 };
 
 /**
