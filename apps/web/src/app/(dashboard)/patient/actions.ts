@@ -632,6 +632,18 @@ export async function submitRiskAssessment(
     .select("id, screen_type_id, status, due_date")
     .eq("patient_id", subjectId);
 
+  // No row at all (most patients, including everyone straight out of
+  // onboarding's general risk assessment, which never asks a women's-health
+  // question) must gate the same as an explicit 'not_applicable' — never
+  // treat "no signal" as license to assume a life-stage-gated screen type
+  // like antenatal_booking applies. See LIFE_STAGE_GATED_SCREENS in
+  // screening-recommendations.ts.
+  const { data: reproductiveHealthProfile } = await supabase
+    .from("reproductive_health_profiles")
+    .select("life_stage")
+    .eq("patient_id", subjectId)
+    .maybeSingle();
+
   const lastCompletedByScreenTypeId = new Map<string, string>();
   const activeByScreenTypeId = new Map<string, { id: string; due_date: string }>();
   for (const row of existingSchedules ?? []) {
@@ -659,7 +671,7 @@ export async function submitRiskAssessment(
   const recommendations = computeScreeningRecommendations(
     screenTypes ?? [],
     tiersByCondition as Map<PreventionCondition, RiskTier>,
-    { sex: profile.sex, ageYears },
+    { sex: profile.sex, ageYears, reproductiveLifeStage: reproductiveHealthProfile?.life_stage ?? null },
     lastCompletedByScreenTypeId
   );
 
