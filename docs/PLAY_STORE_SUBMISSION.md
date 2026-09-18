@@ -24,6 +24,22 @@
 >   browser-side per App Store 3.1.1), and the new web-only "Platform Credit" prepaid balance
 >   never reached mobile so it doesn't change this submission at all.
 
+> **Combined Android+iOS release-readiness audit, 2026-09-18** — a separate, in-flight session
+> (branch `feat/health-connect-full-build-20260918`, PR #670) is independently re-enabling Health
+> Connect for this same release; this pass deliberately did not touch that work to avoid
+> colliding with it — check that PR's status before assuming Health Connect is still off. This
+> pass instead found and fixed **two build-tooling bugs that would have blocked the next `eas
+> build` on either platform, not just iOS**, discovered while producing an iOS
+> `development-simulator` build (see `docs/APP_STORE_SUBMISSION.md`, the new iOS-side twin of
+> this file, for the full detail): (1) a 2026-09-16 security bump of `@xmldom/xmldom` to `0.9.12`
+> had an undocumented regression that crashed the plist-parsing step every native build depends
+> on — fixed with a scoped `pnpm patch`, no security regression; (2) the project archive had grown
+> to 3.8 GB with no `.easignore`, over EAS's 2.0 GB upload cap — fixed by adding one at the repo
+> root. Neither was specific to iOS; both apply equally to the next Android upload. Also fixed:
+> `ios/TarragonHealth/TarragonHealth.entitlements`'s `aps-environment` was hardcoded
+> `development`, which would have failed code signing on an App Store/ad-hoc iOS archive (not
+> relevant to Android, noted here only because it was found in the same pass).
+
 ## Pre-upload checklist
 
 1. Build from `main-dev` with `pnpm build:prod` (production profile, AAB, `versionCode`
@@ -148,6 +164,16 @@ Cloud API and Termii (reminder/alert delivery only, phone number and message con
 | `android.permission.health.READ_STEPS`, `READ_BLOOD_PRESSURE`, `READ_BLOOD_GLUCOSE`, `READ_WEIGHT`, `READ_OXYGEN_SATURATION`, `READ_HEART_RATE_VARIABILITY`, `READ_RESTING_HEART_RATE`, `READ_HEALTH_DATA_IN_BACKGROUND`, `READ_HEALTH_DATA_HISTORY` | Health Connect: bring across the same reading types Apple Health already syncs on iOS, in the background, and further back than the default ~30-day window on first connect. Re-enabled after v0.1.0 shipped without them — **code-complete, never exercised on a real device**; see "What is deliberately not in v0.1.0" below before submitting a build that declares these |
 
 No location permission in v0.1.0 or after.
+
+## App access / demo account
+
+If Google Play's "App access" declaration asks for a login (it can, e.g. for the Health apps
+declaration reviewer or a restricted-permission review), use the same dedicated account created
+for Apple App Review, not one of the shared `*.test@tarragon.test` QA fixtures — those get reset/
+reused by every concurrent QA session on this project and can't be trusted to still work when a
+reviewer actually logs in weeks later. See `docs/APP_STORE_SUBMISSION.md`'s "App Review
+information" section for the credentials and full reasoning: `appreview.demo@tarragon.test` /
+`TarragonReview2026!`, fully onboarded, verified directly against the Supabase Auth API.
 
 ## Store listing
 
