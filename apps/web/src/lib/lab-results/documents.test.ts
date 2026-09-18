@@ -107,4 +107,24 @@ describe("loadResultDocuments — signed URL batching", () => {
 
     expect(documents[0].signedUrl).toBeNull();
   });
+
+  it("logs a request-level batch failure instead of silently returning every document with a null URL", async () => {
+    // Batching trades per-document failure isolation for one round trip: a
+    // request-level failure (not a per-object one) now zeroes out every
+    // document in the batch at once, and would look identical to "no
+    // documents to show" unless the error itself is surfaced somewhere.
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const rows = [row("doc-1", "patients/p1/a.pdf"), row("doc-2", "patients/p1/b.pdf")];
+    createSignedUrls.mockResolvedValue({
+      data: null,
+      error: { message: "storage: service unavailable" },
+    });
+
+    const documents = await loadResultDocuments(fakeSupabase(rows), "patient-1");
+
+    expect(documents.every((d) => d.signedUrl === null)).toBe(true);
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    expect(consoleError.mock.calls[0][0]).toEqual(expect.stringContaining("2"));
+    consoleError.mockRestore();
+  });
 });

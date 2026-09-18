@@ -75,4 +75,23 @@ describe("loadEcgReportDocuments — signed URL batching", () => {
     expect(documents).toEqual([]);
     expect(createSignedUrls).not.toHaveBeenCalled();
   });
+
+  it("logs a request-level batch failure instead of silently returning every ECG document with a null URL", async () => {
+    // Same trade-off as lab-results/documents.ts's sibling test: batching
+    // means one bad request now zeroes out every document's signedUrl at
+    // once instead of costing just one, so that failure must be logged
+    // rather than looking identical to "no ECG documents on file".
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const rows = [row("ecg-1", "patients/p1/a.pdf"), row("ecg-2", "patients/p1/b.pdf")];
+    createSignedUrls.mockResolvedValue({
+      data: null,
+      error: { message: "storage: service unavailable" },
+    });
+
+    const documents = await loadEcgReportDocuments(fakeSupabase(rows), "patient-1");
+
+    expect(documents.every((d) => d.signedUrl === null)).toBe(true);
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
+  });
 });

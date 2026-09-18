@@ -1,5 +1,5 @@
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { signStoragePaths } from "@/lib/supabase/sign-storage-paths";
 import { LoadFailure } from "@/components/ui/load-failure";
 import {
   VaccinationVerificationList,
@@ -31,20 +31,21 @@ export default async function ClinicianVaccinationsPage() {
 
   // One batched Storage call for every pending certificate's signed URL
   // instead of one request per record — previously an N+1 that fired a
-  // separate signed-URL request per row in the verification queue.
-  const service = createServiceRoleClient();
+  // separate signed-URL request per row in the verification queue. See
+  // lib/supabase/sign-storage-paths.ts for the shared batching
+  // implementation and its request-level-failure-logging note: a batch
+  // failure now zeroes out every certificate's signedUrl at once instead of
+  // costing just one, which — exactly the silent-failure risk this file's
+  // own comment above already warns about for an empty queue — would
+  // otherwise render identically to "nothing is pending".
   const certificatePaths = (records ?? [])
     .map((record) => record.physical_certificate_path)
     .filter((path): path is string => !!path);
-  const signedUrlByPath = new Map<string, string | null>();
-  if (certificatePaths.length > 0) {
-    const { data } = await service.storage
-      .from("vaccination-certificates")
-      .createSignedUrls(certificatePaths, SIGNED_URL_TTL_SECONDS);
-    for (const entry of data ?? []) {
-      signedUrlByPath.set(entry.path ?? "", entry.signedUrl ?? null);
-    }
-  }
+  const signedUrlByPath = await signStoragePaths(
+    "vaccination-certificates",
+    certificatePaths,
+    SIGNED_URL_TTL_SECONDS,
+  );
 
   const items: PendingVerificationItem[] = (records ?? []).map((record) => {
     const signedUrl = record.physical_certificate_path

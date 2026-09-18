@@ -115,4 +115,34 @@ describe("ClinicianVaccinationsPage — signed URL batching", () => {
 
     expect(createSignedUrls).not.toHaveBeenCalled();
   });
+
+  it("logs a request-level batch failure instead of silently rendering an empty-looking queue", async () => {
+    // Same trade-off as the lab-results/ecg-reports sibling tests: batching
+    // means one bad request now zeroes out every pending certificate's
+    // signedUrl at once — exactly the "empty queue reads as fully verified"
+    // risk this page's own comment already calls out, so the failure must
+    // be logged rather than discarded.
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const records = [record("rec-1", "certs/a.pdf"), record("rec-2", "certs/b.pdf")];
+    (createClient as jest.Mock).mockResolvedValue({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            order: () => Promise.resolve({ data: records, error: null }),
+          }),
+        }),
+      }),
+    });
+    createSignedUrls.mockResolvedValue({
+      data: null,
+      error: { message: "storage: service unavailable" },
+    });
+
+    const element = await ClinicianVaccinationsPage();
+    const items = findItemsProp(element) ?? [];
+
+    expect(items.every((i) => i.signedUrl === null)).toBe(true);
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
+  });
 });
