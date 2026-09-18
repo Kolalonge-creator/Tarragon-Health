@@ -177,3 +177,15 @@ notification_channel_preference_dead_channel_no_lockin.sql
 # schedule created, and a sabotage run (reverting to unconditional 4100)
 # reopens the hole on the bounded case.
 platform_credit_spend_revenue_deferral.sql
+
+# The three DSAR request tables (data_export_requests, data_deletion_requests,
+# data_correction_requests) shipped with RLS/attribution triggers allowing an
+# admin (org staff, for correction requests) to review a patient's request,
+# but no UI ever called that path -- a 2026-09-18 audit found real requests
+# stuck pending in production with nowhere to go. Proves the admin queue
+# added alongside this test can actually open the gate (review through to a
+# terminal status, with reviewed_by/completed_by/fulfilled_by stamped
+# server-side) on all three tables, that the requester themselves stays
+# blocked from self-approving, and that a terminal (fulfilled) request locks
+# against further edits.
+dsar_admin_review_workflow.sql

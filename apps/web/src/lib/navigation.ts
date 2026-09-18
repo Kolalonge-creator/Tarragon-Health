@@ -589,6 +589,7 @@ export function getNavSections(
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
             { label: "Leads", href: "/admin/leads", icon: "members" },
             { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
+            { label: "Data rights requests", href: "/admin/data-rights", icon: "privacy" },
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
             { label: "AI governance", href: "/admin/settings/ai-governance", icon: "audit" },
