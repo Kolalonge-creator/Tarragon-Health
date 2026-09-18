@@ -177,3 +177,25 @@ notification_channel_preference_dead_channel_no_lockin.sql
 # schedule created, and a sabotage run (reverting to unconditional 4100)
 # reopens the hole on the bounded case.
 platform_credit_spend_revenue_deferral.sql
+
+# Two successive /code-review high passes on migration 20260918100746
+# (adding clinical_encounter_notes.clinical_encounter_id), both before it
+# ever reached a PR, found 4 real bugs: (1) the sync trigger's row()
+# construct had an untyped string literal that raised "cannot compare
+# dissimilar column types text and unknown" on every real insert/update with
+# a link column set; (2) two AFTER UPDATE triggers on async_consults fire in
+# undocumented alphabetical order, so an auto-drafted note could be created
+# before its clinical_encounters row existed and never get linked; (3)
+# clinical_encounter_id could be set directly by any clinical-tier staff
+# member via a plain UPDATE despite its own "never client-supplied" comment
+# -- fixed in 20260918101643; (4) the fix for (2) itself introduced a new
+# regression, caught by the SECOND review pass on that fix: its fix-up
+# UPDATE could abort an entirely unrelated, session-less source-table write
+# (e.g. a Zoom webhook completing a video consultation) by tripping
+# clinical_encounter_notes_enforce_attribution's UPDATE branch, which has no
+# trusted-system escape hatch -- fixed in 20260918103547 by making the
+# fix-up best-effort (exception-wrapped, never blocks the write it
+# piggybacks on). Proves all four fixes end-to-end via real
+# async-consult-answered and video-consultation-completed flows, with a
+# sabotage control for bug (1).
+clinical_encounter_note_link_bugs.sql
