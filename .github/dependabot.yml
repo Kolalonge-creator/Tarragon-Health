@@ -13,9 +13,10 @@ updates:
       typescript-minor-patch:
         update-types: ["minor", "patch"]
 
-  # ML microservice — uv-managed, standalone (services/ml/), never imports
-  # from apps/ or packages/ per CLAUDE.md's Python Code Rules.
-  - package-ecosystem: "pip"
+  # ML microservice — uv-managed (uv.lock, not requirements.txt), standalone
+  # (services/ml/), never imports from apps/ or packages/ per CLAUDE.md's
+  # Python Code Rules. "pip" ecosystem doesn't parse uv.lock — must be "uv".
+  - package-ecosystem: "uv"
     directory: "/services/ml"
     schedule:
       interval: "weekly"
