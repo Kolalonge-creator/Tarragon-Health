@@ -485,6 +485,12 @@ export function getNavSections(
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan", countKey: "recommendations" },
                 { label: "Device operations", href: "/clinician/device-operations", icon: "devices" },
                 { label: "Data deletion requests", href: "/clinician/data-deletion-requests", icon: "compliance" },
+                {
+                  label: "FHIR partner review",
+                  href: "/clinician/fhir-review",
+                  icon: "inbox",
+                  countKey: "fhirProposedResourcesPending",
+                },
               ],
             },
             {

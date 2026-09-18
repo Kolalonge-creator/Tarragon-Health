@@ -21,6 +21,11 @@ export const businessSummarySchema = z.object({
   roles: z.array(z.object({ role: z.string(), count: z.number() })).default([]),
   org_types: z.array(z.object({ type: z.string(), count: z.number() })).default([]),
   states: z.array(z.object({ state: z.string(), count: z.number() })).default([]),
+  // Added 2026-09-18 when this RPC switched from always-live aggregation to
+  // a nightly-refreshed snapshot (docs/DATA_ARCHITECTURE_GAPS_BUILD_PLAN.md
+  // §3) -- null/absent for a non-analyst caller (gated to `{}`) or before
+  // the first refresh has ever run.
+  _computed_at: z.string().nullable().optional(),
 });
 export type BusinessSummary = z.infer<typeof businessSummarySchema>;
 
