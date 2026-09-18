@@ -7,23 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { koboToNaira, nairaToKobo, type SpecialistType } from "@tarragon/shared";
+import { koboToNaira, nairaToKobo, SPECIALIST_TYPES, type SpecialistType } from "@tarragon/shared";
 import type { PatientLocation } from "../facility-selector";
-
-const SPECIALIST_TYPES: SpecialistType[] = [
-  "cardiology",
-  "endocrinology",
-  "nephrology",
-  "ophthalmology",
-  "urologist",
-  "oncologist",
-  "ob_gyn",
-  "dietetics",
-  "podiatry",
-  "psychiatry",
-  "psychology",
-  "other",
-];
 
 /**
  * Patient-initiated "find a specialist" browsing (66.6/66.10 — a searchable
