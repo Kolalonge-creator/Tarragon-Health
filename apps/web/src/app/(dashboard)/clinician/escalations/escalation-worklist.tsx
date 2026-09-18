@@ -324,6 +324,18 @@ export function EscalationWorklist({
                         ))}
                       </select>
                     )}
+                    {canAssign && assign.isError && (
+                      // reassign_escalation can reject a reason over 300
+                      // chars (22001) as well as an authority denial
+                      // (42501, already durably logged by
+                      // handleIfPermissionDenied) -- either way the CMO
+                      // needs to see that the reassignment did NOT go
+                      // through, not just watch the select silently reset.
+                      <span className="max-w-[14rem] text-right text-xs text-red-600">
+                        {(assign.error as { message?: string } | null)?.message ??
+                          "Could not reassign this case."}
+                      </span>
+                    )}
                   </div>
                 </li>
               );
