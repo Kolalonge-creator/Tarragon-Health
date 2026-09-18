@@ -39460,6 +39460,7 @@ export type Database = {
         }[]
       }
       admin_member_activity: { Args: { p_member: string }; Returns: Json }
+      admin_refresh_analytics_business_summary: { Args: never; Returns: undefined }
       admin_refresh_public_impact_metrics: { Args: never; Returns: undefined }
       admin_merge_patient_records: {
         Args: {

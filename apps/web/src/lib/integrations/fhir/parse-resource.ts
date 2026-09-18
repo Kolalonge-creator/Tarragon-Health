@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import type { FhirResource } from "./bundle-schema";
+import { VITAL_TYPE_VALUE_FIELD } from "./vital-mapping";
 
 /**
  * Parser version stamped on every fhir_import_proposed_resources row
@@ -121,40 +122,28 @@ function parseObservation(resource: FhirResource): ParseResult {
     return { ok: false, skip: { resourceType: "Observation", reason: `No valueQuantity for LOINC ${code}` } };
   }
 
-  const normalizedPayload: Record<string, unknown> = { vital_type, taken_at };
-  switch (vital_type) {
-    case "glucose":
-      normalizedPayload.glucose_mmol_l = value;
-      // FHIR carries no reliable standard field for fasting/random/post-meal
-      // context across partners — defaulting rather than guessing, flagged
-      // so a reviewing clinician sees it before confirming.
-      normalizedPayload.glucose_context = "random";
-      warnings.push("glucose_context defaulted to 'random' — the source Observation carried no fasting/post-meal timing");
-      break;
-    case "weight":
-      normalizedPayload.weight_kg = value;
-      break;
-    case "temperature":
-      normalizedPayload.temperature_c = value;
-      break;
-    case "spo2":
-      normalizedPayload.spo2_pct = value;
-      break;
-    case "waist_circumference":
-      normalizedPayload.waist_cm = value;
-      break;
-    case "pulse":
-      normalizedPayload.pulse_bpm = value;
-      break;
-    default:
-      // respiratory_rate/peak_flow have no dedicated vitals_readings column
-      // yet (see CLAUDE.md's device-integration section) — recognised as a
-      // vital_type but with nowhere to land the actual number, so skip
-      // rather than propose a resource confirm would fail to write.
-      return {
-        ok: false,
-        skip: { resourceType: "Observation", reason: `vital_type '${vital_type}' has no matching vitals_readings column yet` },
-      };
+  // VITAL_TYPE_VALUE_FIELD (vital-mapping.ts) is the single source of truth
+  // for which vitals_readings column a vital_type lands in — the review UI
+  // imports the same constant rather than re-deriving this mapping.
+  const targetField = VITAL_TYPE_VALUE_FIELD[vital_type];
+  if (!targetField) {
+    // respiratory_rate/peak_flow have no dedicated vitals_readings column
+    // yet (see CLAUDE.md's device-integration section) — recognised as a
+    // vital_type but with nowhere to land the actual number, so skip
+    // rather than propose a resource confirm would fail to write.
+    return {
+      ok: false,
+      skip: { resourceType: "Observation", reason: `vital_type '${vital_type}' has no matching vitals_readings column yet` },
+    };
+  }
+
+  const normalizedPayload: Record<string, unknown> = { vital_type, taken_at, [targetField]: value };
+  if (vital_type === "glucose") {
+    // FHIR carries no reliable standard field for fasting/random/post-meal
+    // context across partners — defaulting rather than guessing, flagged
+    // so a reviewing clinician sees it before confirming.
+    normalizedPayload.glucose_context = "random";
+    warnings.push("glucose_context defaulted to 'random' — the source Observation carried no fasting/post-meal timing");
   }
 
   return {
@@ -206,19 +195,36 @@ function parseMedication(resource: FhirResource, resourceType: "MedicationStatem
     return { ok: false, skip: { resourceType, reason: "No medicationCodeableConcept.text/coding[].display — cannot identify the drug" } };
   }
 
+  // FHIR's dosageInstruction.text is one free-text instruction (e.g. "Take
+  // 2 tablets by mouth twice daily") that doesn't cleanly split into this
+  // platform's separate dose/frequency columns — putting the same string in
+  // both (as an earlier version of this parser did) duplicates it rather
+  // than distinguishing anything, and the confirm-side trigger
+  // (private.enforce_fhir_import_resource_attribution) writes both columns
+  // independently. Placing the full instruction in `dose` only and leaving
+  // `frequency` for the reviewing clinician to split out is honest about
+  // what was actually parsed.
   const dosageText = resource.dosage?.[0]?.text ?? resource.dosageInstruction?.[0]?.text ?? null;
   if (!dosageText) {
     warnings.push("No dosage/dosageInstruction text in the source resource — dose and frequency left blank for the reviewing clinician to fill in");
+  } else {
+    warnings.push("Source dosage instruction was not split into a separate dose and frequency — full instruction placed in 'dose'; confirm or edit frequency before accepting");
   }
 
-  const is_active = resource.status ? ["active", "intended", "in-progress"].includes(resource.status) : true;
+  // FHIR R4 valid values: MedicationRequest.status is
+  // active|on-hold|cancelled|completed|entered-in-error|stopped|draft|unknown;
+  // MedicationStatement.status is
+  // active|completed|entered-in-error|intended|stopped|on-hold|unknown|not-taken.
+  // "in-progress" belongs to neither (it's a MedicationAdministration
+  // status) and was a copy-paste error in an earlier version of this list.
+  const is_active = resource.status ? ["active", "intended", "draft"].includes(resource.status) : true;
 
   return {
     ok: true,
     proposal: {
       resourceType,
       fhirResourceId: resource.id ?? null,
-      normalizedPayload: { drug_name, dose: dosageText, frequency: dosageText, is_active },
+      normalizedPayload: { drug_name, dose: dosageText, frequency: null, is_active },
       parseWarnings: warnings,
     },
   };
@@ -234,20 +240,60 @@ async function parseImmunization(
     return { ok: false, skip: { resourceType: "Immunization", reason: "No vaccineCode.text/coding — cannot identify the vaccine" } };
   }
 
-  // Best-effort match against this platform's own catalogue: an Immunization
-  // has nowhere valid to land without a real vaccination_catalog_id (the FK
-  // is NOT NULL) — see the "never propose what confirm can't write" rule in
-  // the migration header. No match means a clean skip, never a guess.
-  let catalogQuery = supabase.from("vaccination_catalog").select("id").eq("is_active", true).limit(1);
-  catalogQuery = vaccineCode ? catalogQuery.eq("code", vaccineCode) : catalogQuery.ilike("name", `%${vaccineText}%`);
-  const { data: catalogMatch } = await catalogQuery.maybeSingle();
+  // vaccination_catalog.code is this platform's OWN internal slug (e.g.
+  // 'hepatitis_b'), not a FHIR/CVX/SNOMED code — matching a partner's
+  // standard vaccineCode.coding[].code against it would essentially never
+  // hit, silently skipping every real coded Immunization. Name/text is the
+  // only field that can plausibly line up across systems, so that's the
+  // only match strategy here; an Immunization has nowhere valid to land
+  // without a real vaccination_catalog_id (the FK is NOT NULL) — see the
+  // "never propose what confirm can't write" rule in the migration header,
+  // so no match means a clean skip, never a guess.
+  const searchText = vaccineText ?? vaccineCode;
+  if (!searchText) {
+    return { ok: false, skip: { resourceType: "Immunization", reason: "No usable vaccine name/text to match against the catalogue" } };
+  }
 
-  if (!catalogMatch) {
+  // Try an exact (case-insensitive) name match first — safe, unambiguous.
+  const { data: exactMatch } = await supabase
+    .from("vaccination_catalog")
+    .select("id")
+    .eq("is_active", true)
+    .ilike("name", searchText)
+    .maybeSingle();
+
+  const warnings: string[] = [];
+  let catalogMatchId: string | null = exactMatch?.id ?? null;
+
+  if (!catalogMatchId) {
+    // Fall back to a substring match — inherently ambiguous (e.g.
+    // "Hepatitis" alone matches both "Hepatitis A" and "Hepatitis B birth
+    // dose"), so this is flagged with a warning every time it's used,
+    // unlike an exact match, and ordered by name for determinism rather
+    // than relying on whatever order Postgres happens to return.
+    const { data: fuzzyMatches } = await supabase
+      .from("vaccination_catalog")
+      .select("id, name")
+      .eq("is_active", true)
+      .ilike("name", `%${searchText}%`)
+      .order("name")
+      .limit(2);
+    if (fuzzyMatches && fuzzyMatches.length > 0) {
+      catalogMatchId = fuzzyMatches[0].id;
+      warnings.push(
+        fuzzyMatches.length > 1
+          ? `Vaccine name '${searchText}' matched multiple catalogue entries (e.g. '${fuzzyMatches[0].name}' vs '${fuzzyMatches[1].name}') — '${fuzzyMatches[0].name}' was picked; verify this is the right one before confirming`
+          : `Vaccine name '${searchText}' matched catalogue entry '${fuzzyMatches[0].name}' by partial text, not an exact name — verify before confirming`
+      );
+    }
+  }
+
+  if (!catalogMatchId) {
     return {
       ok: false,
       skip: {
         resourceType: "Immunization",
-        reason: `No matching entry in this platform's vaccination catalogue for '${vaccineText ?? vaccineCode}'`,
+        reason: `No matching entry in this platform's vaccination catalogue for '${searchText}'`,
       },
     };
   }
@@ -265,8 +311,8 @@ async function parseImmunization(
     proposal: {
       resourceType: "Immunization",
       fhirResourceId: resource.id ?? null,
-      normalizedPayload: { vaccination_catalog_id: catalogMatch.id, dose_number, date_administered, provider },
-      parseWarnings: [],
+      normalizedPayload: { vaccination_catalog_id: catalogMatchId, dose_number, date_administered, provider },
+      parseWarnings: warnings,
     },
   };
 }

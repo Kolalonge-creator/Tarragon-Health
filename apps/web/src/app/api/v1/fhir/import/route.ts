@@ -61,7 +61,9 @@ export async function POST(request: Request): Promise<Response> {
 
       // Org-scoped dedupe (fhir_import_batches_org_bundle_idx) — a retry of
       // the exact same Bundle identifier for this org is a clean no-op, not
-      // a duplicate batch full of duplicate proposals.
+      // a duplicate batch full of duplicate proposals. This is a best-effort
+      // check, not the only defence against a duplicate — see the unique
+      // constraint handling around the insert below for the concurrent case.
       if (bundleIdentifier) {
         const { data: existingBatch } = await supabase
           .from("fhir_import_batches")
@@ -94,7 +96,15 @@ export async function POST(request: Request): Promise<Response> {
 
       for (const entry of bundle.entry) {
         const resource = entry.resource;
-        if (!resource) continue;
+        if (!resource) {
+          // A structurally valid Bundle entry with no embedded resource
+          // (e.g. a reference-only transaction entry) is still recorded,
+          // never silently dropped — same invariant every other unsupported
+          // entry gets via skipReasons below.
+          resourceCounts["(no resource)"] = (resourceCounts["(no resource)"] ?? 0) + 1;
+          skipReasons.push({ resourceType: "(no resource)", reason: "Bundle entry has no embedded resource" });
+          continue;
+        }
         resourceCounts[resource.resourceType] = (resourceCounts[resource.resourceType] ?? 0) + 1;
 
         const parsed = await parseFhirResourceEntry(resource, supabase);
@@ -126,6 +136,31 @@ export async function POST(request: Request): Promise<Response> {
         .select("id")
         .single();
       if (batchError || !batch) {
+        // A unique-constraint violation (23505) here means a concurrent
+        // duplicate request won the race on fhir_bundle_identifier between
+        // our dedupe SELECT above and this INSERT — re-fetch and answer the
+        // same graceful already_processed shape the SELECT above would
+        // have, rather than surfacing a raw 500 for what is really a clean
+        // idempotent retry.
+        if (batchError?.code === "23505" && bundleIdentifier) {
+          const { data: raceWinner } = await supabase
+            .from("fhir_import_batches")
+            .select("id, resource_counts, skip_reasons")
+            .eq("organisation_id", verified.organisationId)
+            .eq("fhir_bundle_identifier", bundleIdentifier)
+            .maybeSingle();
+          if (raceWinner) {
+            return {
+              status: 200,
+              body: {
+                batch_id: raceWinner.id,
+                already_processed: true,
+                resource_counts: raceWinner.resource_counts,
+                skip_reasons: raceWinner.skip_reasons,
+              },
+            };
+          }
+        }
         return { status: 500, body: { error: "Could not record this import batch" } };
       }
 
@@ -145,7 +180,18 @@ export async function POST(request: Request): Promise<Response> {
           }))
         );
         if (proposalsError) {
-          return { status: 500, body: { error: "Batch recorded but proposed resources could not be written — contact support with this batch_id", batch_id: batch.id } };
+          // Do NOT leave the batch row committed on its own: a retry of the
+          // same bundleIdentifier would otherwise hit the dedupe check above
+          // and be told "already_processed" despite zero proposals ever
+          // having been written — silently losing every resource in the
+          // Bundle while reporting success. Roll the batch back (cascades
+          // to any proposals, though a single multi-row INSERT that failed
+          // wrote none) so a retry starts clean instead.
+          await supabase.from("fhir_import_batches").delete().eq("id", batch.id);
+          return {
+            status: 500,
+            body: { error: "Could not record the proposed resources from this Bundle — nothing was saved, please retry the same request." },
+          };
         }
       }
 

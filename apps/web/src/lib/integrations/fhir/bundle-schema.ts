@@ -71,12 +71,18 @@ export const fhirBundleSchema = z.object({
   resourceType: z.literal("Bundle"),
   id: z.string().optional(),
   identifier: z.object({ value: z.string().optional() }).optional(),
+  // Capped (/code-review high finding): each Immunization entry drives its
+  // own vaccination_catalog lookup in the import route's loop, sequentially
+  // — an unbounded Bundle would mean an unbounded number of serial DB
+  // round-trips in one request. 500 is generous for one patient's record
+  // (a realistic bulk catch-up import) while still bounding worst case.
   entry: z
     .array(
       z.object({
         resource: fhirResourceSchema.optional(),
       })
     )
+    .max(500, "A Bundle may carry at most 500 entries per import — split a larger export into multiple Bundles")
     .default([]),
 });
 export type FhirBundle = z.infer<typeof fhirBundleSchema>;

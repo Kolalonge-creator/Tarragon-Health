@@ -74,6 +74,22 @@ export function useBusinessSummary() {
   });
 }
 
+/** Forces the nightly-refreshed analytics_business_summary snapshot
+ * (docs/DATA_ARCHITECTURE_GAPS_BUILD_PLAN.md §3) to recompute on demand,
+ * same shape as useRecomputeImpactMetrics. */
+export function useRecomputeBusinessSummary() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await createClient().rpc("admin_refresh_analytics_business_summary");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analytics", "business-summary"] });
+    },
+  });
+}
+
 export function useGrowthTimeseries(period: GrowthPeriod = "month") {
   return useQuery({
     queryKey: ["analytics", "growth", period],

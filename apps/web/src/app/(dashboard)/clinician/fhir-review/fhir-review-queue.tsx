@@ -10,6 +10,7 @@ import {
   dismissFhirProposedResource,
   type FhirReviewDecisionState,
 } from "./actions";
+import { VITAL_TYPE_VALUE_FIELD } from "@/lib/integrations/fhir/vital-mapping";
 
 export interface ProposedFhirResource {
   id: string;
@@ -43,21 +44,11 @@ function formatDate(iso: string): string {
 function payloadSummary(item: ProposedFhirResource): string {
   const p = item.normalized_payload;
   switch (item.resource_type) {
-    case "Observation":
+    case "Observation": {
       if (p.vital_type === "blood_pressure") return `BP ${p.systolic}/${p.diastolic}`;
-      return `${p.vital_type}: ${p[
-        p.vital_type === "glucose"
-          ? "glucose_mmol_l"
-          : p.vital_type === "weight"
-            ? "weight_kg"
-            : p.vital_type === "temperature"
-              ? "temperature_c"
-              : p.vital_type === "spo2"
-                ? "spo2_pct"
-                : p.vital_type === "waist_circumference"
-                  ? "waist_cm"
-                  : "pulse_bpm"
-      ]}`;
+      const field = VITAL_TYPE_VALUE_FIELD[p.vital_type as keyof typeof VITAL_TYPE_VALUE_FIELD];
+      return field ? `${p.vital_type}: ${p[field]}` : `${p.vital_type} (unrecognised)`;
+    }
     case "AllergyIntolerance":
       return `${p.allergen} (${p.severity}) — ${p.reaction}`;
     case "MedicationStatement":

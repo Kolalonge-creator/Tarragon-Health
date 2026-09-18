@@ -16,6 +16,39 @@
 > shipped" note before assuming a later phase is also done — Phase 2/3 items remain open per their own
 > gates (partner onboarding, FHIR export, empirical materialisation of the other ~44 analytics RPCs,
 > the hard-supertype encounter-model question).
+>
+> **`/code-review high` was run on the full Phase 1 diff before opening the PR, per this repo's own
+> Definition of Done, and found real bugs — fixed same-day, before merge, not after:** the analytics
+> snapshot's refresh function was accidentally written against a stale, pre-2026-09-02 shape of
+> `analytics_business_summary()` (reverted `paid_purchases`/`paying_patients` back to the retired
+> `total_subscriptions`/`active_subscriptions` fields — caught by cross-checking the live function body,
+> not trusting the migration file that inspired it, exactly the discipline this file's own CLAUDE.md
+> warns about); the FHIR import route could mask a partial-write failure as a successful retry, drop a
+> resourceless Bundle entry without recording it, and 500 on a genuine concurrent-duplicate race instead
+> of the graceful idempotent response; the Immunization parser compared a partner's FHIR-standard
+> vaccine code against this platform's own internal catalogue slug (near-guaranteed to never match) and
+> its substring-name fallback could silently pick the wrong vaccine; and the medication parser wrote the
+> same raw dosage string into both `dose` and `frequency`. All fixed, tested (124→138 passing tests), and
+> live. The `analytics_business_summary()` payload also gained `_computed_at` and a manual "Refresh now"
+> action on `/analytics/business`, closing a related finding that the switch from live-aggregation to a
+> nightly snapshot had no staleness signal anywhere.
+>
+> **Known Phase 1 limitations, surfaced by the same review and deliberately NOT fixed now (design-level,
+> not correctness bugs) — real fast-follow candidates, not silently accepted:**
+> - The 9 `clinical_encounters` sync trigger functions are hand-written per source table, not
+>   config/data-driven. A 10th encounter-shaped table (there will be one eventually) means a 10th
+>   hand-copied function rather than a one-line config addition — this codebase has a working precedent
+>   for exactly this shape of generic-trigger-over-many-tables (`private.audit_row_change()`,
+>   `20260812030853_row_change_audit_triggers.sql`) that a future pass should consider reusing here.
+> - The FHIR LOINC-code-to-`vital_type` map (and the allergy-severity map) are hardcoded TypeScript,
+>   not a DB-configurable table — unlike `parseImmunization`'s own catalogue lookup one function away.
+>   This platform already has a working "which codes mean what" DB pattern for exactly this decision
+>   class (`triage_protocols`, `escalation_slas`, and the MDM `reference_concepts`/`lookup_concept`
+>   machinery in `20260829093134_mdm_terminology_core.sql`) that a real partner onboarding (Phase 2)
+>   should probably move this onto, so a partner's slightly different code usage doesn't need a deploy.
+> - `/clinician/fhir-review`'s confirm/dismiss are two near-identical server actions and could be one
+>   parameterized action; not merged now to keep this diff's diff-of-behavior easy to review, but worth
+>   collapsing before a third status (`modified`) gets its own UI.
 
 ## 1. HL7 FHIR interoperability layer
 

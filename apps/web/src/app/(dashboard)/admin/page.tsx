@@ -75,11 +75,17 @@ export default async function AdminPage() {
   const canViewIncidents = isSuperAdmin || keys.has("incidents.view") || keys.has("incidents.manage");
   const canManageAiGovernance = isSuperAdmin || keys.has("ai_governance.manage");
 
-  // Live platform KPIs for the welcome banner + stat row. The RPCs return
+  // Platform KPIs for the welcome banner + stat row. The RPCs return
   // '{}' (parsed to all-zero defaults) for a caller who isn't analyst/admin,
   // and the count queries return 0 rows rather than erroring under RLS — so
   // this is safe to call unconditionally for any role that can reach /admin
   // via the delegated-access carve-out in proxy.ts.
+  // Corrected 2026-09-18: businessRes below is no longer live-aggregated —
+  // analytics_business_summary() now reads a nightly-refreshed snapshot
+  // (docs/DATA_ARCHITECTURE_GAPS_BUILD_PLAN.md §3); it carries its own
+  // `_computed_at` for a consumer that wants to show staleness, which this
+  // banner does not yet do (see the full "as of"/refresh treatment on
+  // /analytics/business instead).
   const supabase = await createClient();
   const [
     businessRes,
