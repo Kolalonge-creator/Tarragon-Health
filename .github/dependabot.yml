@@ -1,0 +1,29 @@
+version: 2
+
+updates:
+  # pnpm workspace — root directory covers apps/web, apps/mobile, and every
+  # packages/* member via the single pnpm-lock.yaml (Dependabot resolves the
+  # whole workspace from here, not per-package).
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      typescript-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # ML microservice — uv-managed, standalone (services/ml/), never imports
+  # from apps/ or packages/ per CLAUDE.md's Python Code Rules.
+  - package-ecosystem: "pip"
+    directory: "/services/ml"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # The workflow files themselves.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
