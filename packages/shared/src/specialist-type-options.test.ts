@@ -1,5 +1,12 @@
 import { Constants } from "./database.types";
-import { SPECIALIST_TYPE_LABEL, SPECIALIST_TYPE_OPTIONS, SPECIALIST_TYPES } from "./specialist-type-options";
+import {
+  SPECIALIST_TYPE_LABEL,
+  SPECIALIST_TYPE_NOUN,
+  SPECIALIST_TYPE_OPTIONS,
+  SPECIALIST_TYPE_VALUES,
+  SPECIALIST_TYPES,
+  specialistTypeNoun,
+} from "./specialist-type-options";
 
 describe("specialist type options", () => {
   it("covers every live specialist_type enum value -- the drift this file exists to stop", () => {
@@ -13,6 +20,7 @@ describe("specialist type options", () => {
     // build instead of silently shipping an incomplete picker.
     const liveValues = [...Constants.public.Enums.specialist_type].sort();
     expect([...SPECIALIST_TYPES].sort()).toEqual(liveValues);
+    expect([...SPECIALIST_TYPE_VALUES].sort()).toEqual(liveValues);
   });
 
   it("has no duplicate values", () => {
@@ -26,5 +34,19 @@ describe("specialist type options", () => {
       expect(SPECIALIST_TYPE_LABEL[value]).toBe(label);
     }
     expect(Object.keys(SPECIALIST_TYPE_LABEL).sort()).toEqual([...SPECIALIST_TYPES].sort());
+  });
+
+  it("SPECIALIST_TYPE_NOUN has a real, non-empty entry for every live value -- the drift class that let genitourinary_medicine fall through to a raw label in a referral letter", () => {
+    for (const value of SPECIALIST_TYPES) {
+      const noun = SPECIALIST_TYPE_NOUN[value];
+      expect(typeof noun).toBe("string");
+      expect(noun.length).toBeGreaterThan(0);
+      expect(specialistTypeNoun(value)).toBe(noun);
+    }
+    expect(Object.keys(SPECIALIST_TYPE_NOUN).sort()).toEqual([...SPECIALIST_TYPES].sort());
+  });
+
+  it("specialistTypeNoun falls back to a humanised string for a value outside the known enum", () => {
+    expect(specialistTypeNoun("not_a_real_type")).toBe("not a real type");
   });
 });

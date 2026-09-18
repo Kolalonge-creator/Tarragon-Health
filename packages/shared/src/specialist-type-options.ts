@@ -41,6 +41,20 @@ export const SPECIALIST_TYPE_OPTIONS: { value: SpecialistType; label: string }[]
 /** Just the values, in the same order, for a call site that doesn't need labels. */
 export const SPECIALIST_TYPES: SpecialistType[] = SPECIALIST_TYPE_OPTIONS.map((o) => o.value);
 
+/**
+ * Same values as SPECIALIST_TYPES, as a literal tuple -- what a zod-enum
+ * call site needs. `z.enum` requires a `readonly [T, ...T[]]` tuple type to
+ * infer a literal union, and SPECIALIST_TYPES' widened `SpecialistType[]`
+ * type doesn't satisfy that -- see apps/web/src/lib/ai-coach/referral-tool.ts
+ * for a real consumer. The cast is safe: SPECIALIST_TYPE_OPTIONS is never
+ * empty, and specialist-type-options.test.ts asserts this still covers
+ * every live enum value.
+ */
+export const SPECIALIST_TYPE_VALUES = SPECIALIST_TYPE_OPTIONS.map((o) => o.value) as [
+  SpecialistType,
+  ...SpecialistType[],
+];
+
 /** Value -> label lookup, for a call site that renders a badge/table cell rather than a picker. */
 export const SPECIALIST_TYPE_LABEL: Record<SpecialistType, string> = SPECIALIST_TYPE_OPTIONS.reduce(
   (acc, o) => {
@@ -49,3 +63,40 @@ export const SPECIALIST_TYPE_LABEL: Record<SpecialistType, string> = SPECIALIST_
   },
   {} as Record<SpecialistType, string>
 );
+
+/**
+ * The practitioner noun for a specialist_type -- the person who practices
+ * the specialty, for prose that addresses a person ("any cardiologist the
+ * patient chooses", not "any cardiology"), e.g. a referral letter's
+ * salutation. A different shape from SPECIALIST_TYPE_LABEL, which labels the
+ * specialty itself (genitourinary_medicine -> "Genitourinary Medicine
+ * (Sexual Health)" there, vs. "genitourinary medicine specialist" here).
+ * `Record<SpecialistType, string>`, not `Record<string, string>`, so a
+ * missing entry for a new enum value fails `tsc`, not just a test.
+ */
+export const SPECIALIST_TYPE_NOUN: Record<SpecialistType, string> = {
+  urologist: "urologist",
+  oncologist: "oncologist",
+  ob_gyn: "OB-GYN",
+  cardiology: "cardiologist",
+  endocrinology: "endocrinologist",
+  nephrology: "nephrologist",
+  ophthalmology: "ophthalmologist",
+  dietetics: "dietitian",
+  podiatry: "podiatrist",
+  psychiatry: "psychiatrist",
+  psychology: "psychologist",
+  genitourinary_medicine: "genitourinary medicine specialist",
+  other: "specialist",
+};
+
+/**
+ * The practitioner noun for a `specialist_type` value that isn't
+ * necessarily known to be one at the type level (e.g. a DB column typed
+ * `string`). Falls back to a humanised version of the raw value for
+ * anything not in `SPECIALIST_TYPE_NOUN`, so an unrecognised value degrades
+ * to readable text rather than throwing or printing a raw underscored code.
+ */
+export function specialistTypeNoun(value: string): string {
+  return SPECIALIST_TYPE_NOUN[value as SpecialistType] ?? value.replace(/_/g, " ");
+}
