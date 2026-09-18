@@ -41623,6 +41623,16 @@ export type Database = {
         Args: { p_appointment_id: string; p_occurrence_id: string }
         Returns: undefined
       }
+      log_denied_action: {
+        Args: {
+          p_action: string
+          p_entity_id: string
+          p_entity_type: string
+          p_organisation_id: string
+          p_reason?: string
+        }
+        Returns: string
+      }
       log_patient_data_export: {
         Args: { p_scope?: string }
         Returns: undefined
@@ -42147,6 +42157,10 @@ export type Database = {
           p_reason: string
         }
         Returns: boolean
+      }
+      reassign_escalation: {
+        Args: { p_doctor_profile_id: string; p_escalation_id: string; p_reason?: string }
+        Returns: undefined
       }
       record_ai_human_override: {
         Args: {
