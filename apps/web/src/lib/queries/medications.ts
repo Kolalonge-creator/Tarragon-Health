@@ -1,10 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import {
-  denialReasonFromError,
-  isPermissionDeniedError,
-  logDeniedAction,
-} from "@/lib/audit/log-denied-action";
+import { handleIfPermissionDenied } from "@/lib/audit/log-denied-action";
 import type { Tables } from "@tarragon/shared";
 import type { AmendMedicationInput, MedicationInput } from "@/lib/validation/medications";
 import type { MedicationLogInput } from "@/lib/validation/medication-logs";
@@ -338,18 +334,13 @@ export function useAmendMedication() {
             : undefined,
       });
       if (error) {
-        if (isPermissionDeniedError(error)) {
-          logDeniedAction({
-            action: "medications.amendment_denied",
-            entityType: "medications",
-            entityId: medicationId,
-            organisationId,
-            reason: denialReasonFromError(
-              error,
-              "Prescription amendment attempted without prescribing authority"
-            ),
-          });
-        }
+        handleIfPermissionDenied(error, {
+          action: "medications.amendment_denied",
+          entityType: "medications",
+          entityId: medicationId,
+          organisationId,
+          fallbackReason: "Prescription amendment attempted without prescribing authority",
+        });
         throw error;
       }
     },

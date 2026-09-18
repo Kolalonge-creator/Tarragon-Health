@@ -108,3 +108,38 @@ export function logDeniedAction(
       }
     );
 }
+
+/**
+ * The one shared "is this a denial, and if so log it" check every mutation
+ * hook wired to logDeniedAction needs -- factored out so the three call
+ * sites (useStartEscalationReview, useAssignEscalation in
+ * lib/queries/escalations.ts, useAmendMedication in lib/queries/medications.ts)
+ * can't silently diverge from each other (e.g. one forgetting the
+ * isPermissionDeniedError guard and miscategorising an unrelated validation
+ * failure as an authority denial). Callers still throw the original error
+ * themselves afterward -- this only decides whether, and with what reason,
+ * to log it first.
+ */
+export function handleIfPermissionDenied(
+  error: unknown,
+  params: {
+    action: string;
+    entityType: string;
+    entityId: string;
+    organisationId: string;
+    fallbackReason: string;
+  },
+  client?: LogDeniedActionClient
+): void {
+  if (!isPermissionDeniedError(error)) return;
+  logDeniedAction(
+    {
+      action: params.action,
+      entityType: params.entityType,
+      entityId: params.entityId,
+      organisationId: params.organisationId,
+      reason: denialReasonFromError(error, params.fallbackReason),
+    },
+    client
+  );
+}

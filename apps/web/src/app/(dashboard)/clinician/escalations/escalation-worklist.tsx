@@ -294,7 +294,20 @@ export function EscalationWorklist({
                           const reason = window.prompt(
                             "Reason for this reassignment? (optional, no clinical detail)"
                           );
-                          if (reason === null) return;
+                          if (reason === null) {
+                            // The native <select> already visually shows the
+                            // just-picked doctor by the time this handler
+                            // runs (the browser updates it before firing
+                            // onChange) -- window.prompt then blocks
+                            // rendering entirely, so nothing re-syncs it back
+                            // to the value="" prop on abort unless the DOM is
+                            // reset directly here. Not fighting React: this
+                            // control's "value" is a fixed "", never
+                            // state-driven, so there's nothing for a re-render
+                            // to reconcile against.
+                            e.target.value = "";
+                            return;
+                          }
                           assign.mutate({
                             escalationId: escalation.id,
                             doctorProfileId,

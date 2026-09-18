@@ -1,4 +1,9 @@
-import { denialReasonFromError, isPermissionDeniedError, logDeniedAction } from "./log-denied-action";
+import {
+  denialReasonFromError,
+  handleIfPermissionDenied,
+  isPermissionDeniedError,
+  logDeniedAction,
+} from "./log-denied-action";
 
 describe("isPermissionDeniedError", () => {
   it("recognises a Postgres 42501 error", () => {
@@ -95,5 +100,47 @@ describe("logDeniedAction", () => {
   it("is fire-and-forget: an RPC error result never throws", () => {
     const { client } = mockClient({ error: { code: "42501", message: "permission denied" } });
     expect(() => logDeniedAction(base, client)).not.toThrow();
+  });
+});
+
+describe("handleIfPermissionDenied", () => {
+  const base = {
+    action: "escalations.claim_denied",
+    entityType: "escalations",
+    entityId: "11111111-1111-1111-1111-111111111111",
+    organisationId: "22222222-2222-2222-2222-222222222222",
+    fallbackReason: "fallback reason",
+  };
+
+  it("logs a denial for a 42501, using the error's own message", () => {
+    const rpc = jest.fn().mockResolvedValue({ error: null });
+    handleIfPermissionDenied(
+      { code: "42501", message: "Only the doctor this case is assigned to can start reviewing it." },
+      base,
+      { rpc }
+    );
+
+    expect(rpc).toHaveBeenCalledWith(
+      "log_denied_action",
+      expect.objectContaining({
+        p_action: base.action,
+        p_reason: "Only the doctor this case is assigned to can start reviewing it.",
+      })
+    );
+  });
+
+  it("does not log anything for an unrelated error code -- the shared guard every call site relies on", () => {
+    const rpc = jest.fn();
+    // 42704 is amend_medication's "Prescription not found" -- not an
+    // authority denial. The whole point of factoring this into one shared
+    // helper is that no call site can forget this check.
+    handleIfPermissionDenied({ code: "42704", message: "Prescription not found" }, base, { rpc });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("does not throw for a non-error value", () => {
+    const rpc = jest.fn();
+    expect(() => handleIfPermissionDenied(null, base, { rpc })).not.toThrow();
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

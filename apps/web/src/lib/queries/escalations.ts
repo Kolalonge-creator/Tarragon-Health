@@ -2,11 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { compareByAlert } from "@/lib/worklist/priority";
 import { generateCaseBriefAction } from "@/lib/case-briefs/actions";
-import {
-  denialReasonFromError,
-  isPermissionDeniedError,
-  logDeniedAction,
-} from "@/lib/audit/log-denied-action";
+import { handleIfPermissionDenied } from "@/lib/audit/log-denied-action";
 import type { EscalationLevel, ScreeningResultStatus, Tables } from "@tarragon/shared";
 
 export type EscalationWithDetails = Tables<"escalations"> & {
@@ -234,18 +230,13 @@ export function useStartEscalationReview() {
         .select("clinician_alert_id")
         .maybeSingle();
       if (error) {
-        if (isPermissionDeniedError(error)) {
-          logDeniedAction({
-            action: "escalations.claim_denied",
-            entityType: "escalations",
-            entityId: escalationId,
-            organisationId,
-            reason: denialReasonFromError(
-              error,
-              "Escalation status-transition attempt rejected by the authority gate"
-            ),
-          });
-        }
+        handleIfPermissionDenied(error, {
+          action: "escalations.claim_denied",
+          entityType: "escalations",
+          entityId: escalationId,
+          organisationId,
+          fallbackReason: "Escalation status-transition attempt rejected by the authority gate",
+        });
         throw error;
       }
       return data;
@@ -301,18 +292,13 @@ export function useAssignEscalation() {
         p_reason: reason || undefined,
       });
       if (error) {
-        if (isPermissionDeniedError(error)) {
-          logDeniedAction({
-            action: "escalations.reassignment_denied",
-            entityType: "escalations",
-            entityId: escalationId,
-            organisationId,
-            reason: denialReasonFromError(
-              error,
-              "Reassignment attempted without Chief Medical Officer authority"
-            ),
-          });
-        }
+        handleIfPermissionDenied(error, {
+          action: "escalations.reassignment_denied",
+          entityType: "escalations",
+          entityId: escalationId,
+          organisationId,
+          fallbackReason: "Reassignment attempted without Chief Medical Officer authority",
+        });
         throw error;
       }
     },
