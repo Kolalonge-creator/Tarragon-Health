@@ -281,6 +281,7 @@ export function BookAppointment({
 
         {message && (
           <p
+            role={message.tone === "error" ? "alert" : "status"}
             className={`text-sm ${message.tone === "success" ? "text-brand-green dark:text-brand-green-bright" : "text-red-600 dark:text-red-400"}`}
           >
             {message.text}
