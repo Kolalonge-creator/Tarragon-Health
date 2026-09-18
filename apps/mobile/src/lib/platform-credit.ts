@@ -1,6 +1,13 @@
-import { fetchPlatformCreditBalance, postPlatformCreditTopupIntent, postPlatformCreditSpend } from "./api";
+import {
+  fetchPlatformCreditBalance,
+  postPlatformCreditTopupIntent,
+  postPlatformCreditSpend,
+  type PayServicePurchaseWithCreditResult,
+} from "./api";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
+
+export type { PayServicePurchaseWithCreditResult } from "./api";
 
 export interface PlatformCreditLedgerEntry {
   id: string;
@@ -42,10 +49,14 @@ export const PLATFORM_CREDIT_ENTRY_LABEL: Record<string, string> = {
  * general balance.
  *
  * Started as read-only (balance/top-up foundation only). Spending is now
- * wired in too — see trySpendPlatformCreditForService below, which the five
+ * wired in two ways: trySpendPlatformCreditForService below, which the five
  * credit-gated screens (second opinion, senior case review, verified
  * documents, ask a doctor, confidential message) call to settle a request's
- * credit in-app instead of bouncing out to the browser.
+ * credit in-app instead of bouncing out to the browser; and
+ * spendPlatformCreditOnService + hasEnoughPlatformCredit, for the direct
+ * purchase flows that prefer paying from this balance over the browser
+ * hand-off when it covers the price up front (see services-screen.tsx,
+ * payment-issue-card.tsx).
  */
 export async function loadPlatformCreditState(): Promise<QueryResult<PlatformCreditState>> {
   const result = await fetchPlatformCreditBalance();
@@ -161,4 +172,32 @@ export async function trySpendPlatformCreditForService(
     return { spent: false, error: "This can no longer be paid for — try again." };
   }
   return { spent: true };
+}
+
+/**
+ * Buys serviceProductCode entirely out of the caller's platform credit
+ * balance — no browser hand-off. Callers should only invoke this once
+ * they've already confirmed the balance covers the price (see
+ * hasEnoughPlatformCredit below); this still returns a proper
+ * `insufficient_balance` result rather than throwing if that check raced
+ * with something else spending the balance in the meantime, so callers
+ * should fall back to their existing browser checkout on any !ok result.
+ */
+export async function spendPlatformCreditOnService(
+  serviceProductCode: string
+): Promise<QueryResult<PayServicePurchaseWithCreditResult>> {
+  const result = await postPlatformCreditSpend(serviceProductCode);
+  if (result.error) {
+    return { ok: false, error: result.error };
+  }
+  const { success: _success, ...rest } = result;
+  return { ok: true, data: rest as PayServicePurchaseWithCreditResult };
+}
+
+/** Whether a balance already on hand (e.g. from loadPlatformCreditState)
+ * covers a given price — the shared "does in-app credit cover this" check
+ * every direct-purchase screen runs before choosing credit over the browser
+ * hand-off. A zero price (nothing left to pay) always counts as covered. */
+export function hasEnoughPlatformCredit(balanceKobo: number, priceKobo: number): boolean {
+  return priceKobo <= 0 || balanceKobo >= priceKobo;
 }

@@ -221,6 +221,16 @@ function ScreeningDayCard({ day, onChanged }: { day: ScreeningDay; onChanged: ()
         </MutedText>
       )}
       {day.status === "confirmed" && outstanding > 0 && (
+        // Deliberately a pure browser hand-off, not wired to platform credit
+        // (checked 2026-09-18): a confirmed screening day is a single-payer,
+        // sponsor-funded pooled booking settled through
+        // screening_day_payments/record_screening_day_payment_intent (see
+        // screening-day-checkout.ts) — any instalment amount up to what's
+        // still outstanding, never a fixed-price service_products purchase.
+        // pay_service_purchase_on_platform_credit only settles a
+        // service_purchases row created by record_service_purchase_intent;
+        // there's no equivalent for a pooled group-event instalment, so this
+        // is a genuinely different money shape platform credit can't pay into.
         <SecondaryButton
           title="Pay"
           onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/screening-days`)}

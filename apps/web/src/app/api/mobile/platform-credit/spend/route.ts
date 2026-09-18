@@ -12,25 +12,25 @@ import { createBearerClient } from "@/lib/supabase/bearer";
  * here — both RPCs are SECURITY DEFINER but check auth.uid()/RLS themselves,
  * so this route can only ever spend the caller's own balance (or, same as
  * the RPCs' own authority check, a linked dependent's on the caller's
- * behalf).
+ * behalf — patientId defaults to the caller's own id).
  *
- * This is what lets the five mobile credit-gated screens (second opinion,
- * senior case review, verified documents, ask a doctor, confidential
- * message) settle a request's credit in-app instead of bouncing out to the
- * browser: record_service_purchase_intent creates the pending
- * service_purchases row for the product the screen names, and
- * pay_service_purchase_on_platform_credit either activates it from the
- * patient's platform_credit balance or comes back with a
- * reason: "insufficient_balance" shortfall the caller can show — the exact
- * same jsonb shape usePayServicePurchaseWithCredit's callers already handle
- * on web, just returned as this route's JSON body instead of an RPC result.
+ * This is what lets every mobile "pay with Platform Credit in-app" screen
+ * (the five credit-gated ones, My services, the stalled-purchase retry
+ * card) settle a request's credit without bouncing out to the browser:
+ * record_service_purchase_intent creates the pending service_purchases row
+ * for the product the caller names, and pay_service_purchase_on_platform_
+ * credit either activates it from the patient's platform_credit balance or
+ * comes back with a reason: "insufficient_balance" shortfall the caller can
+ * show — the exact same jsonb shape usePayServicePurchaseWithCredit's
+ * callers already handle on web, just spread flat into this route's JSON
+ * body (`{ success: true, ...result }`) instead of an RPC result.
  *
  * scopedEntityType/scopedEntityId are accepted (mirroring
- * record_service_purchase_intent's own optional params) but none of the
- * five mobile screens need them today — each spends a plain, unscoped
- * product credit that a later insert (second_opinion_requests,
- * async_consults, etc.) redeems via redeem_available_service_purchase, not
- * something tied to the purchase row itself.
+ * record_service_purchase_intent's own optional params) but no caller needs
+ * them today — each spends a plain, unscoped product credit that a later
+ * insert (second_opinion_requests, async_consults, etc.) redeems via
+ * redeem_available_service_purchase, not something tied to the purchase row
+ * itself.
  */
 const bodySchema = z.object({
   serviceProductCode: z.string().min(1),

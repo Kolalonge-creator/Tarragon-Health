@@ -411,7 +411,7 @@ export interface PlatformCreditBalanceResponse {
 /** Mirrors apps/web/src/lib/queries/platform-credit.ts's
  * useMyPlatformCreditBalance/usePlatformCreditConfig/useMyPlatformCreditLedger --
  * see apps/web/src/app/api/mobile/platform-credit/balance/route.ts. Balance
- * viewing — see postPlatformCreditSpend below for actually spending it. */
+ * viewing only — see postPlatformCreditSpend below for the spend side. */
 export async function fetchPlatformCreditBalance(): Promise<PlatformCreditBalanceResponse> {
   const result = await request<PlatformCreditBalanceResponse>("/api/mobile/platform-credit/balance", "GET");
   return result.ok ? result.data : { error: result.error };
@@ -442,34 +442,41 @@ export async function postPlatformCreditTopupIntent(
   return result.ok ? result.data : { error: result.error };
 }
 
+/** Mirrors apps/web/src/lib/queries/platform-credit.ts's PayWithCreditResult
+ * — the shared result shape for settling a service_purchases row entirely
+ * out of platform credit, no Paystack round trip. Precise discriminated
+ * union so a caller narrowing on `ok`/`reason` gets real type-checking. */
+export type PayServicePurchaseWithCreditResult =
+  | { ok: true; service_purchase_id: string; amount_kobo: number; new_balance_kobo: number }
+  | { ok: true; already_active: boolean }
+  | { ok: false; reason: "not_payable"; status: string }
+  | {
+      ok: false;
+      reason: "insufficient_balance";
+      balance_kobo: number;
+      required_kobo: number;
+      shortfall_kobo: number;
+    };
+
 export type PlatformCreditSpendReason = "not_payable" | "insufficient_balance";
 
-export interface PlatformCreditSpendResult {
-  success?: boolean;
-  ok?: boolean;
-  reason?: PlatformCreditSpendReason;
-  status?: string;
-  balance_kobo?: number;
-  required_kobo?: number;
-  shortfall_kobo?: number;
-  service_purchase_id?: string;
-  amount_kobo?: number;
-  new_balance_kobo?: number;
-  already_active?: boolean;
-  error?: string;
-}
+/** The route returns `{ success: true, ...result }` — the settlement RPC's
+ * own fields spread flat alongside `success`, not nested under a `result`
+ * key. `error` only ever reflects a request-level failure (network/auth/
+ * validation), never a business decision — a caller must check `ok` before
+ * treating this as a paid credit, exactly as the web hook's callers do. */
+export type PlatformCreditSpendResult =
+  | ({ success: true } & PayServicePurchaseWithCreditResult)
+  | { success?: false; error: string };
 
 /** Mirrors apps/web/src/lib/queries/platform-credit.ts's
  * usePayServicePurchaseWithCredit -- see
  * apps/web/src/app/api/mobile/platform-credit/spend/route.ts. Same two-RPC
  * shape server-side (record_service_purchase_intent, then
  * pay_service_purchase_on_platform_credit), collapsed into one request here.
- * The route's `ok`/`reason` fields inside the response describe whether the
- * *spend itself* succeeded (paid vs. short vs. no-longer-payable) — that is
- * distinct from this function's own `error`, which only ever reflects a
- * request-level failure (network/auth/validation), never a business
- * decision. A caller must check `data.ok` before treating this as a paid
- * credit, exactly as the web hook's callers do. */
+ * scopedEntityType/scopedEntityId mirror record_service_purchase_intent's
+ * own optional params — none of today's callers need them, but they're
+ * accepted so a future scoped product doesn't need a second wrapper. */
 export async function postPlatformCreditSpend(
   serviceProductCode: string,
   options?: { patientId?: string; scopedEntityType?: string; scopedEntityId?: string }
