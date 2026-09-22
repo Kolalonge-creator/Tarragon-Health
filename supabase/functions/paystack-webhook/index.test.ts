@@ -1,9 +1,13 @@
 // Replay/idempotency and correctness coverage for the Paystack webhook —
 // this project's authoritative source of truth for subscription/service
-// activation (see index.ts's own header). Until now this handler had zero
+// activation (see handler.ts's own header). Until now this handler had zero
 // direct tests: it's a Deno edge function, outside Jest's reach, and the
 // only existing check was a byte-for-byte drift guard on the refund-key
 // derivation block (apps/web/src/lib/billing/refund-idempotency.test.ts).
+// Imports from handler.ts, not index.ts — index.ts is the real deployed
+// entrypoint and does nothing but call Deno.serve; see its own header for
+// why the logic was split out rather than tested via an import.meta.main
+// guard in the same file.
 //
 // Runs against a FakeSupabaseClient (test-fake-supabase.ts), not a live
 // Supabase project — deliberately, since this sandbox has neither Docker
@@ -18,7 +22,7 @@
 //        supabase/functions/paystack-webhook/index.test.ts
 
 import { assert, assertEquals, assertExists } from "jsr:@std/assert@1";
-import { handleWebhookRequest, verifySignature } from "./index.ts";
+import { handleWebhookRequest, verifySignature } from "./handler.ts";
 import { FakeSupabaseClient } from "./test-fake-supabase.ts";
 
 const SECRET = "test-webhook-secret-do-not-use-in-prod";
@@ -323,11 +327,49 @@ Deno.test({
 // Regression coverage for the 5 CheckoutKind values that had NO branch at
 // all until this change (voucher_payment, sponsored_subscription,
 // screening_day_payment, subsidy_contribution, platform_credit_topup) —
-// see index.ts's charge.success handler for the full incident writeup.
-// Before the fix, every one of these fell into the subscription_add_ons
-// else-branch, found no matching row, and was marked FAILED with a
-// misleading error even though a dedicated DB trigger had already activated
-// it correctly on the same INSERT.
+// see handler.ts's charge.success handler for the full incident writeup,
+// including the CORRECTED 2026-09-23 note: the first version of this branch
+// trusted the trigger blindly (bare markProcessed(), no re-check), which a
+// code review caught as a SILENT FALSE SUCCESS risk — subsidy_contribution's
+// and platform_credit_topup's own triggers have documented silent no-op
+// paths. These fixtures mirror exactly what each trigger's OWN migration
+// leaves behind in its target table, both when it activated the row and
+// when it didn't (stale/mismatched reference, or the trigger's silent
+// no-op), so both directions are proven, not just the happy path.
+const TRIGGER_ACTIVATED_KIND_FIXTURES: Record<
+  "voucher_payment" | "sponsored_subscription" | "screening_day_payment" | "subsidy_contribution" | "platform_credit_topup",
+  { table: string; activatedRow: Record<string, unknown>; notYetActivatedRow: Record<string, unknown> | null }
+> = {
+  voucher_payment: {
+    table: "care_voucher_payments",
+    activatedRow: { id: "vp-1", organisation_id: "org-1", status: "applied", pending_provider_ref: "TXN_REF_001" },
+    notYetActivatedRow: { id: "vp-1", organisation_id: "org-1", status: "pending", pending_provider_ref: "TXN_REF_001" },
+  },
+  sponsored_subscription: {
+    table: "service_purchases",
+    activatedRow: { id: "sps-1", organisation_id: "org-1", status: "active", payment_provider_ref: "TXN_REF_001" },
+    // This trigger only ever creates the row on success (it has no
+    // pre-existing pending row to update) — "not yet activated" here means
+    // no row exists at all, not a row stuck in some other status.
+    notYetActivatedRow: null,
+  },
+  screening_day_payment: {
+    table: "screening_day_payments",
+    activatedRow: { id: "sdp-1", organisation_id: "org-1", status: "applied", pending_provider_ref: "TXN_REF_001" },
+    notYetActivatedRow: { id: "sdp-1", organisation_id: "org-1", status: "pending", pending_provider_ref: "TXN_REF_001" },
+  },
+  subsidy_contribution: {
+    table: "subsidy_contributions",
+    activatedRow: { id: "sc-1", organisation_id: "org-1", status: "payment_confirmed", payment_provider_ref: "TXN_REF_001" },
+    notYetActivatedRow: { id: "sc-1", organisation_id: "org-1", status: "pending_payment", pending_payment_provider_ref: "TXN_REF_001" },
+  },
+  platform_credit_topup: {
+    table: "platform_credit_topup_intents",
+    activatedRow: { id: "pct-1", organisation_id: "org-1", status: "completed", payment_provider_ref: "TXN_REF_001" },
+    notYetActivatedRow: { id: "pct-1", organisation_id: "org-1", status: "pending_payment", pending_payment_provider_ref: "TXN_REF_001" },
+  },
+};
+
 for (
   const kind of [
     "voucher_payment",
@@ -337,23 +379,150 @@ for (
     "platform_credit_topup",
   ] as const
 ) {
+  const fixture = TRIGGER_ACTIVATED_KIND_FIXTURES[kind];
+
   Deno.test({
-    name: `charge.success (${kind}): trigger-activated kinds are marked processed, not misreported as a failed add-on lookup`,
+    name: `charge.success (${kind}): a genuinely trigger-activated row is marked processed, not misreported as a failed add-on lookup`,
     permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
     async fn() {
       const client = newClient();
+      client.seed(fixture.table, [fixture.activatedRow]);
       await postWith(client, chargeSuccess({ metadata: { kind, profile_id: "profile-1" } }));
 
       const txn = client.rows("payment_transactions")[0];
       assertExists(txn.processed_at);
       assertEquals(txn.error, undefined);
+      assertEquals(txn.organisation_id, "org-1");
       // The bug this regresses: subscription_add_ons must never even be
       // queried for these kinds, let alone left as the reason for a false
       // failure.
       assertEquals(client.rows("subscription_add_ons").length, 0);
     },
   });
+
+  Deno.test({
+    name: `charge.success (${kind}): a trigger that did NOT activate the row surfaces as failed, never a silent false success`,
+    permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+    async fn() {
+      const client = newClient();
+      if (fixture.notYetActivatedRow) client.seed(fixture.table, [fixture.notYetActivatedRow]);
+      await postWith(client, chargeSuccess({ metadata: { kind, profile_id: "profile-1" } }));
+
+      const txn = client.rows("payment_transactions")[0];
+      assertEquals(txn.processed_at, undefined);
+      assert(typeof txn.error === "string" && txn.error.length > 0);
+    },
+  });
 }
+
+Deno.test({
+  name: "charge.success (add_on): still routes to and activates subscription_add_ons — the one case the exhaustiveness rewrite must not have broken",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+  async fn() {
+    const client = newClient();
+    client.seed("subscription_add_ons", [
+      { id: "addon-1", organisation_id: "org-1", interval: "monthly", pending_provider_ref: "TXN_REF_001", status: "trialing" },
+    ]);
+
+    await postWith(client, chargeSuccess({ metadata: { kind: "add_on", profile_id: "profile-1" } }));
+
+    const addOn = client.rows("subscription_add_ons")[0];
+    assertEquals(addOn.status, "active");
+    assertEquals(addOn.provider_ref, "TXN_REF_001");
+    const txn = client.rows("payment_transactions")[0];
+    assertExists(txn.processed_at);
+    assertEquals(txn.subscription_add_on_id, "addon-1");
+  },
+});
+
+Deno.test({
+  name: "charge.success: a metadata.kind value outside the known 9 (a payload bug, not a real CheckoutKind) is recorded as an explicit unrecognised-kind failure, never silently treated as add_on",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+  async fn() {
+    const client = newClient();
+    client.seed("subscription_add_ons", [
+      { id: "addon-1", organisation_id: "org-1", interval: "monthly", pending_provider_ref: "TXN_REF_001", status: "trialing" },
+    ]);
+
+    await postWith(
+      client,
+      chargeSuccess({ metadata: { kind: "not_a_real_checkout_kind", profile_id: "profile-1" } }),
+    );
+
+    // The regression this proves: before the exhaustiveness rewrite, an
+    // unrecognised kind fell into the add_on else-branch and WOULD have
+    // activated this seeded row. It must not.
+    assertEquals(client.rows("subscription_add_ons")[0].status, "trialing");
+    const txn = client.rows("payment_transactions")[0];
+    assertEquals(txn.processed_at, undefined);
+    assert(typeof txn.error === "string" && txn.error.includes("unrecognised metadata.kind=not_a_real_checkout_kind"));
+  },
+});
+
+// ---------------------------------------------------------------------------
+// subscription.create — best-effort enrichment, exercises the fake client's
+// .in()/.is()/.order()/.limit() chain (the only production code path that
+// uses them)
+// ---------------------------------------------------------------------------
+
+Deno.test({
+  name: "subscription.create: correlates to the most recent not-yet-enriched subscription for the matching plan and enriches provider_ref/provider_email_token",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+  async fn() {
+    const client = newClient();
+    client.seed("subscription_plans", [{ id: "plan-1", paystack_plan_code: "PLN_essential" }]);
+    client.seed("subscriptions", [
+      {
+        id: "sub-old",
+        plan_id: "plan-1",
+        provider: "paystack",
+        status: "active",
+        provider_email_token: null,
+        started_at: "2026-09-01T00:00:00.000Z",
+      },
+      {
+        id: "sub-new",
+        plan_id: "plan-1",
+        provider: "paystack",
+        status: "trialing",
+        provider_email_token: null,
+        started_at: "2026-09-20T00:00:00.000Z",
+      },
+    ]);
+
+    await postWith(client, {
+      event: "subscription.create",
+      data: {
+        plan: { plan_code: "PLN_essential" },
+        subscription_code: "SUB_code_001",
+        email_token: "email_tok_001",
+      },
+    });
+
+    // Picks the most recently started candidate, not just any match.
+    const enriched = client.rows("subscriptions").find((r) => r.id === "sub-new")!;
+    assertEquals(enriched.provider_ref, "SUB_code_001");
+    assertEquals(enriched.provider_email_token, "email_tok_001");
+    const untouched = client.rows("subscriptions").find((r) => r.id === "sub-old")!;
+    assertEquals(untouched.provider_ref, undefined);
+  },
+});
+
+Deno.test({
+  name: "subscription.create: a plan code matching no subscription or add-on is recorded as failed, not silently dropped",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+  async fn() {
+    const client = newClient();
+    await postWith(client, {
+      event: "subscription.create",
+      data: { plan: { plan_code: "PLN_unknown" }, subscription_code: "SUB_x", email_token: "tok_x" },
+    });
+
+    const txn = client.rows("payment_transactions")[0];
+    assertEquals(txn.processed_at, undefined);
+    assert(typeof txn.error === "string" && txn.error.includes("could not correlate"));
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Refunds — pending/failed never post, only processed does; correlation;
@@ -425,33 +594,34 @@ Deno.test({
   },
 });
 
-Deno.test({
-  name: "refund.processed with no identifiable charge reference and no amount: recorded under a content hash, never posted",
-  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
-  async fn() {
-    const client = newClient();
-    const { json } = await postWith(client, refundEvent("refund.processed", { transaction_reference: undefined, reference: undefined, amount: undefined }));
+for (
+  const { label, overrides } of [
+    {
+      label: "no identifiable charge reference and no amount",
+      overrides: { transaction_reference: undefined, reference: undefined, amount: undefined },
+    },
+    {
+      label: "a non-integer amount (a decimal string that isn't whole kobo)",
+      overrides: { amount: "500.5" },
+    },
+  ] as const
+) {
+  Deno.test({
+    name: `refund.processed with ${label}: recorded under a content hash, never posted`,
+    permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+    async fn() {
+      const client = newClient();
+      const { json } = await postWith(client, refundEvent("refund.processed", overrides));
 
-    assertEquals(json.ok, false);
-    assertEquals(json.error, "refund_unidentifiable");
-    const txn = client.rows("payment_transactions")[0];
-    assertExists(txn);
-    assert(String(txn.provider_event_id).startsWith("refund:unidentifiable:sha256:"));
-    assertEquals(txn.processed_at, undefined);
-  },
-});
-
-Deno.test({
-  name: "refund.processed with a non-integer amount (e.g. a decimal string that isn't whole kobo): treated as unidentifiable, not silently posted at the wrong amount",
-  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
-  async fn() {
-    const client = newClient();
-    const { json } = await postWith(client, refundEvent("refund.processed", { amount: "500.5" }));
-
-    assertEquals(json.error, "refund_unidentifiable");
-    assertEquals(client.rows("payment_transactions")[0].processed_at, undefined);
-  },
-});
+      assertEquals(json.ok, false);
+      assertEquals(json.error, "refund_unidentifiable");
+      const txn = client.rows("payment_transactions")[0];
+      assertExists(txn);
+      assert(String(txn.provider_event_id).startsWith("refund:unidentifiable:sha256:"));
+      assertEquals(txn.processed_at, undefined);
+    },
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Unknown / forward-compatible event types — never silently dropped

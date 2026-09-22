@@ -1,9 +1,18 @@
 // Test-only in-memory stand-in for a SupabaseClient, covering exactly the
-// query-builder surface paystack-webhook/index.ts actually calls: .from(t)
+// query-builder surface paystack-webhook/handler.ts actually calls: .from(t)
 // .{insert,update,select}() chained with .eq/.in/.is/.or/.order/.limit, then
 // either awaited directly or terminated with .maybeSingle(). Not imported by
-// index.ts itself, so it never ships with the deployed function (Supabase
-// bundles from index.ts's own import graph).
+// index.ts (the deployed entrypoint), so it never ships with the deployed
+// function — Supabase bundles from index.ts's own import graph, and index.ts
+// only imports handler.ts.
+//
+// This is the Deno-runtime sibling of apps/web/src/lib/ai-coach/test-
+// support.ts's chainable()/fakeSupabaseFrom() — the same idea (a thenable
+// fake Postgrest builder), reused as a Jest convention across 8+ test files
+// there. That one can't literally be imported here (Jest-only, jest.fn-
+// based); this file exists because the Deno runtime has no equivalent of
+// its own yet. If you're building a THIRD fake Supabase client anywhere in
+// this repo, check both of these first.
 //
 // This intentionally does NOT try to be a general Postgrest mock — it
 // implements only what this one handler uses, and unique-constraint conflict
@@ -11,7 +20,10 @@
 // backs payment_transactions in production (see
 // supabase/migrations/20260712201507_payment_transactions.sql), so the
 // replay/idempotency tests exercise the same guarantee the real schema
-// provides, not a looser one.
+// provides, not a looser one. `.or()` in particular is a naive
+// comma/dot-split (see its own comment below) — good enough for the
+// alphanumeric references this handler actually deals in, not a real
+// Postgrest-syntax parser.
 
 export type Row = Record<string, unknown>;
 
@@ -102,7 +114,14 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
-  /** Supports Postgrest's "col.eq.value,col2.eq.value2" shape, matching ANY clause. */
+  /**
+   * Supports Postgrest's "col.eq.value,col2.eq.value2" shape, matching ANY
+   * clause. Naive split on "," then ".", with no escaping — real Postgrest
+   * requires escaping a comma/parenthesis inside a value, which this does
+   * not implement. Fine for this handler's actual `.or()` uses (Paystack
+   * references, org-scoped ids — always plain alphanumeric), not a general
+   * Postgrest-syntax parser.
+   */
   or(expr: string) {
     this.filters.push({ type: "or", expr });
     return this;
