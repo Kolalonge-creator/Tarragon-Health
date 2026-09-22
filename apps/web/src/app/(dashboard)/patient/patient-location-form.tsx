@@ -7,8 +7,10 @@ import { updatePatientLocation } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { NIGERIAN_STATES } from "@/lib/nigeria-states";
 
 /**
  * Saves the patient's state/city/area. Nearby-facility pickers (labs,
@@ -48,12 +50,19 @@ export function PatientLocationForm({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="location-state">State</Label>
-              <Input
-                id="location-state"
-                name="state"
-                placeholder="e.g. Lagos"
-                defaultValue={initial.state ?? ""}
-              />
+              {/* A free-text field here previously let a typo or casing
+                  mismatch silently break region-gated availability — see
+                  the "value MUST match... exactly" warning in
+                  nigeria-states.ts. Same canonical list the signup form
+                  already uses. */}
+              <Select id="location-state" name="state" defaultValue={initial.state ?? ""}>
+                <option value="">Select…</option>
+                {NIGERIAN_STATES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="location-city">City</Label>

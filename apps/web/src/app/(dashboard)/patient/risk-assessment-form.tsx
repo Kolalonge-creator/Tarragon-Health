@@ -160,13 +160,42 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
     return weight / (height / 100) ** 2;
   }, [heightCm, weightKg]);
 
+  /**
+   * `hidden` (and the `display: none` it produces) does NOT exempt a
+   * control from native constraint validation, despite the comment this
+   * once carried — only genuinely inert/disabled controls are excluded.
+   * A `required` field left unanswered on an earlier, currently-hidden
+   * step therefore still blocks the browser's own pre-submit check; since
+   * that control has no layout box, the browser can't focus or show its
+   * error bubble either, so it just cancels the submit with nothing
+   * visible at all (confirmed via a real click-through: "Save assessment"
+   * silently did nothing after skipping a Lifestyle field). `noValidate`
+   * below hands validation to this handler instead, which finds the first
+   * invalid control, switches to the step that owns it, and asks the
+   * browser to (re-)report validity once that step is actually rendered.
+   */
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    const form = e.currentTarget;
+    const invalid = form.querySelector<HTMLElement>(":invalid");
+    if (!invalid) return;
+    e.preventDefault();
+    const stepEl = invalid.closest<HTMLElement>("[data-step]");
+    const stepIndex = stepEl ? Number(stepEl.dataset.step) : NaN;
+    if (Number.isInteger(stepIndex) && stepIndex !== step) {
+      setStep(stepIndex);
+      requestAnimationFrame(() => form.reportValidity());
+    } else {
+      form.reportValidity();
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Risk assessment</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-6">
+        <form action={formAction} onSubmit={handleSubmit} noValidate className="space-y-6">
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             A few honest answers help us tell you what to check and when. This isn&apos;t
             a diagnosis, just a starting point for your care.
@@ -187,10 +216,12 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
           {/* Every step stays mounted (hidden, not unmounted) across the
               whole wizard: an unmounted step's uncontrolled inputs lose
               their DOM nodes and are silently missing from FormData at
-              final submit. `hidden` also bars these inputs from native
-              constraint validation while off-screen, so a `required`
-              field on another step never blocks the current one. */}
-          <div className={stepClass} hidden={step !== 1}>
+              final submit. `hidden` does NOT bar a `required` field from
+              native constraint validation though (a common assumption
+              that doesn't hold) — `data-step` + `handleSubmit` above is
+              what actually keeps an off-screen required field from
+              silently blocking submission. */}
+          <div className={stepClass} hidden={step !== 1} data-step={1}>
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Family history</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               <Checkbox name="family_diabetes" label="Diabetes" />
@@ -222,7 +253,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             )}
           </div>
 
-          <div className={stepClass} hidden={step !== 2}>
+          <div className={stepClass} hidden={step !== 2} data-step={2}>
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Lifestyle</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -347,7 +378,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             />
           </div>
 
-          <div className={stepClass} hidden={step !== 3}>
+          <div className={stepClass} hidden={step !== 3} data-step={3}>
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">
               Past medical history &amp; medications
             </h3>
@@ -389,7 +420,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             </div>
           </div>
 
-          <div className={stepClass} hidden={step !== 4}>
+          <div className={stepClass} hidden={step !== 4} data-step={4}>
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">
               Vaccination &amp; screening history
             </h3>
