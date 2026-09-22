@@ -51,33 +51,16 @@ function conceptText(concept: { coding?: { display?: string }[]; text?: string }
   return concept?.text ?? concept?.coding?.[0]?.display ?? null;
 }
 
-// Common LOINC codes for the vital signs vitals_readings already supports.
-// Deliberately narrow, matching the same "record what we don't recognise,
-// never guess" posture as the resource-type allow-list itself — an
-// unrecognised code produces a skip, not a wrong reading.
-const OBSERVATION_LOINC_VITAL_TYPE: Record<string, Database["public"]["Enums"]["vital_type"]> = {
-  "8867-4": "pulse",
-  "2339-0": "glucose",
-  "41653-7": "glucose",
-  "15074-8": "glucose",
-  "14749-6": "glucose",
-  "29463-7": "weight",
-  "3141-9": "weight",
-  "8310-5": "temperature",
-  "8331-1": "temperature",
-  "59408-5": "spo2",
-  "2708-6": "spo2",
-  "56086-2": "waist_circumference",
-  "8280-0": "waist_circumference",
-  "9279-1": "respiratory_rate",
-  "33452-4": "peak_flow",
-  "19935-6": "peak_flow",
-};
+// The BP panel/component codes are structural (they say "this Observation is
+// shaped as a two-component blood-pressure panel", not "which of our
+// clinical concepts does this LOINC code mean") — kept as code, not moved to
+// public.fhir_loinc_vital_type_mappings alongside the flat vital_type codes
+// below. See that table's own migration for why those ARE DB-configurable.
 const BP_PANEL_LOINC = "85354-9";
 const SYSTOLIC_LOINC = "8480-6";
 const DIASTOLIC_LOINC = "8462-4";
 
-function parseObservation(resource: FhirResource): ParseResult {
+async function parseObservation(resource: FhirResource, supabase: SupabaseClient<Database>): Promise<ParseResult> {
   const warnings: string[] = [];
   const taken_at = resource.effectiveDateTime ?? resource.issued ?? null;
   if (!taken_at) {
@@ -104,19 +87,36 @@ function parseObservation(resource: FhirResource): ParseResult {
     }
   }
 
-  if (!code || !(code in OBSERVATION_LOINC_VITAL_TYPE)) {
+  if (!code) {
     return {
       ok: false,
-      skip: {
-        resourceType: "Observation",
-        reason: code
-          ? `Unrecognised LOINC code ${code} — no matching vital_type on this platform`
-          : "Observation has no coded LOINC value — cannot classify",
-      },
+      skip: { resourceType: "Observation", reason: "Observation has no coded LOINC value — cannot classify" },
     };
   }
 
-  const vital_type = OBSERVATION_LOINC_VITAL_TYPE[code];
+  // Deliberately narrow, matching the same "record what we don't recognise,
+  // never guess" posture as the resource-type allow-list itself — an
+  // unrecognised code produces a skip, not a wrong reading. DB-driven (see
+  // public.fhir_loinc_vital_type_mappings' own migration) rather than a
+  // hardcoded TypeScript object: widening this for a real partner's
+  // locally-common LOINC variant is an admin data change, not a code
+  // deploy, matching how parseImmunization already resolves against
+  // vaccination_catalog below.
+  const { data: mapping } = await supabase
+    .from("fhir_loinc_vital_type_mappings")
+    .select("vital_type")
+    .eq("loinc_code", code)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!mapping) {
+    return {
+      ok: false,
+      skip: { resourceType: "Observation", reason: `Unrecognised LOINC code ${code} — no matching vital_type on this platform` },
+    };
+  }
+
+  const vital_type = mapping.vital_type;
   const value = resource.valueQuantity?.value;
   if (value == null) {
     return { ok: false, skip: { resourceType: "Observation", reason: `No valueQuantity for LOINC ${code}` } };
@@ -337,7 +337,7 @@ export async function parseFhirResourceEntry(
 
   switch (resource.resourceType) {
     case "Observation":
-      return parseObservation(resource);
+      return parseObservation(resource, supabase);
     case "AllergyIntolerance":
       return parseAllergyIntolerance(resource);
     case "MedicationStatement":

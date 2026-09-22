@@ -13158,6 +13158,27 @@ export type Database = {
           },
         ]
       }
+      fhir_loinc_vital_type_mappings: {
+        Row: {
+          created_at: string
+          is_active: boolean
+          loinc_code: string
+          vital_type: Database["public"]["Enums"]["vital_type"]
+        }
+        Insert: {
+          created_at?: string
+          is_active?: boolean
+          loinc_code: string
+          vital_type: Database["public"]["Enums"]["vital_type"]
+        }
+        Update: {
+          created_at?: string
+          is_active?: boolean
+          loinc_code?: string
+          vital_type?: Database["public"]["Enums"]["vital_type"]
+        }
+        Relationships: []
+      }
       fhir_import_batches: {
         Row: {
           api_key_id: string

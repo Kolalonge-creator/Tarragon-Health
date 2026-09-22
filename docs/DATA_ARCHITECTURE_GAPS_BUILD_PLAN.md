@@ -40,12 +40,17 @@
 >   hand-copied function rather than a one-line config addition — this codebase has a working precedent
 >   for exactly this shape of generic-trigger-over-many-tables (`private.audit_row_change()`,
 >   `20260812030853_row_change_audit_triggers.sql`) that a future pass should consider reusing here.
-> - The FHIR LOINC-code-to-`vital_type` map (and the allergy-severity map) are hardcoded TypeScript,
->   not a DB-configurable table — unlike `parseImmunization`'s own catalogue lookup one function away.
->   This platform already has a working "which codes mean what" DB pattern for exactly this decision
->   class (`triage_protocols`, `escalation_slas`, and the MDM `reference_concepts`/`lookup_concept`
->   machinery in `20260829093134_mdm_terminology_core.sql`) that a real partner onboarding (Phase 2)
->   should probably move this onto, so a partner's slightly different code usage doesn't need a deploy.
+> - **Closed 2026-09-22 — the LOINC-code-to-`vital_type` map (Observation only).** Moved to
+>   `public.fhir_loinc_vital_type_mappings` (migration `20260922182613`), mirroring
+>   `public.vaccination_catalog`'s own shape exactly — a global reference table, any `authenticated`
+>   reads, only `private.is_admin()` writes. `parseObservation` (`parse-resource.ts`) now queries it
+>   instead of a static object; widening it for a real partner's locally-common LOINC variant is an
+>   admin data change, not a code deploy. This did NOT require a real FHIR partner or a warehouse — it's
+>   a pure architecture correction to code that already ships. **Deliberately NOT moved**: the BP-panel/
+>   systolic/diastolic LOINC constants (structural — "this Observation is shaped as a two-component
+>   panel", not a per-partner terminology choice) and the allergy-severity map (a direct 1:1 mirror of
+>   FHIR's own fixed `mild`/`moderate`/`severe` valueset, not something a partner's local usage varies) —
+>   both stay as code on purpose, not an oversight.
 > - `/clinician/fhir-review`'s confirm/dismiss are two near-identical server actions and could be one
 >   parameterized action; not merged now to keep this diff's diff-of-behavior easy to review, but worth
 >   collapsing before a third status (`modified`) gets its own UI.

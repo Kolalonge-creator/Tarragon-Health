@@ -42,6 +42,15 @@ const MAMMOGRAPHY: ScreenTypeRow = {
   frequency_months: 24,
 };
 
+const ANTENATAL_BOOKING: ScreenTypeRow = {
+  id: "antenatal-id",
+  code: "antenatal_booking",
+  sex_applicability: "female",
+  age_from: 15,
+  age_to: 49,
+  frequency_months: null,
+};
+
 const today = new Date("2026-07-06T00:00:00.000Z");
 
 function tiers(entries: Array<[PreventionCondition, RiskTier]>): Map<PreventionCondition, RiskTier> {
@@ -162,6 +171,37 @@ describe("computeScreeningRecommendations", () => {
     expect(highTierResult).toEqual([
       { screenTypeId: "lipid-id", screenTypeCode: "lipid_panel", dueDate: "2026-07-06" },
     ]);
+  });
+
+  describe("antenatal_booking life-stage gate", () => {
+    it("never recommends antenatal booking for an eligible woman with no reproductive life stage on file", () => {
+      // Regression: a fresh signup (female, 15-49, no reproductive_health_profiles
+      // row yet) must not be told they're "due" for antenatal booking off sex+age
+      // alone — that presumes pregnancy with zero clinical signal for it.
+      const profile: ScreeningProfile = { sex: "female", ageYears: 30, reproductiveLifeStage: null };
+      const result = computeScreeningRecommendations([ANTENATAL_BOOKING], tiers([]), profile, new Map(), today);
+      expect(result).toEqual([]);
+    });
+
+    it("never recommends antenatal booking for a menstruating (non-pregnant) woman", () => {
+      const profile: ScreeningProfile = { sex: "female", ageYears: 30, reproductiveLifeStage: "menstruating" };
+      const result = computeScreeningRecommendations([ANTENATAL_BOOKING], tiers([]), profile, new Map(), today);
+      expect(result).toEqual([]);
+    });
+
+    it("recommends antenatal booking once the patient has self-reported pregnant", () => {
+      const profile: ScreeningProfile = { sex: "female", ageYears: 30, reproductiveLifeStage: "pregnant" };
+      const result = computeScreeningRecommendations([ANTENATAL_BOOKING], tiers([]), profile, new Map(), today);
+      expect(result).toEqual([
+        { screenTypeId: "antenatal-id", screenTypeCode: "antenatal_booking", dueDate: "2026-07-06" },
+      ]);
+    });
+
+    it("does not gate an unrelated screen type on reproductive life stage", () => {
+      const profile: ScreeningProfile = { sex: "female", ageYears: 50, reproductiveLifeStage: null };
+      const result = computeScreeningRecommendations([MAMMOGRAPHY], tiers([]), profile, new Map(), today);
+      expect(result).toEqual([{ screenTypeId: "mammo-id", screenTypeCode: "mammography", dueDate: "2026-07-06" }]);
+    });
   });
 
   it("never recommends a one-off screening again once completed", () => {

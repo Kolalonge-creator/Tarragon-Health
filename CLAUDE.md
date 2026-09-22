@@ -87,6 +87,29 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
   times across this project's history. See `feedback_supabase_anon_execute_gotcha.md` in memory
   before trusting any past migration's own comment that claims this is closed — re-check live with
   `has_function_privilege('anon', '<function>', 'EXECUTE')` rather than the comment.
+- **Adding a new overload to a function already called with untyped literal arguments silently
+  breaks every existing bare-literal call site — differently depending on what kind of call site it
+  is.** `private.can_read_clinical(uuid, caregiver_permission)`
+  (`20260902234600_caregiver_permission_enforcement.sql`) turned every existing
+  `private.can_read_clinical(<uuid>, 'some_literal')` call ambiguous (`42725`) the moment it landed —
+  ambiguous on the TYPE of the unknown-typed literal, not on its value, so it doesn't matter whether
+  the literal happens to be a valid member of either enum. A plpgsql function body re-resolves its
+  calls on every invocation, so four already-shipped functions (`mark_care_message_thread_read`,
+  `private.can_read_record_correction`, `care_receipt`, `search_patient_record`) broke immediately
+  and silently the same day, fixed same-day in
+  `20260902235200_fix_can_read_clinical_overload_ambiguity_live_callers.sql`. An RLS policy (or a
+  view) binds its expression tree once at `CREATE POLICY`/`CREATE VIEW` time and never re-resolves
+  it, so a policy created before the new overload existed keeps working forever — the hole is a
+  *future* migration that `DROP`+`CREATE POLICY`s the exact same bare text again (typically
+  copy-pasted from the table's own history), which is exactly what almost shipped broken on a
+  separate branch three weeks later, and which a repo-wide sweep then found 16 more instances of
+  (`20260922183343_fix_remaining_can_read_clinical_bare_literal_policies.sql` — see the archive's
+  2026-09-22 entry for the full account, including why "the true current definition" had to be
+  pulled from live `pg_policies` rather than this branch's own migration history for two of the
+  tables). **Before adding a new overload to any function already called with an untyped literal
+  argument, grep every existing call site — policies and function bodies both — and add the explicit
+  cast to all of them in the same migration**, rather than finding them one accidental hit at a time
+  over the following weeks.
 - **`generate_typescript_types` returns PRODUCTION, which is every in-flight branch at once — not
   your branch.** Around 128 feature branches all apply their migrations to the same live project, so
   a wholesale regeneration of `packages/shared/src/database.types.ts` silently imports other people's

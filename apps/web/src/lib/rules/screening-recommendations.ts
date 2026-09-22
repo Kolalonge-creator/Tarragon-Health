@@ -9,6 +9,15 @@ export type ScreenTypeRow = Pick<
 export interface ScreeningProfile {
   sex: Enums<"sex"> | null;
   ageYears: number | null;
+  /**
+   * Self-reported reproductive life stage (reproductive_health_profiles.
+   * life_stage) — undefined/null whenever the patient has no profile row on
+   * file yet (e.g. straight out of onboarding's general risk assessment,
+   * which never asks a women's-health question). Only consulted for the
+   * handful of codes in LIFE_STAGE_GATED_SCREENS below; every other screen
+   * type's sex/age eligibility is unaffected.
+   */
+  reproductiveLifeStage?: Enums<"reproductive_life_stage"> | null;
 }
 
 export interface ScreeningRecommendation {
@@ -28,6 +37,20 @@ interface TierEscalationRule {
 }
 
 const TIER_RANK: Record<RiskTier, number> = { low: 0, moderate: 1, high: 2 };
+
+/**
+ * screen_types whose sex+age eligibility alone is presumptuous rather than
+ * merely broad. antenatal_booking is 'female'/15-49 with no pregnancy signal
+ * of its own in the catalogue — sex+age alone would tell every eligible
+ * woman she's "due" for antenatal booking regardless of whether she is
+ * pregnant, trying to conceive, or neither. Gated on the same self-reported
+ * life stage cycle-nudges.ts already uses for its own (separately-surfaced)
+ * antenatal nudge. A code with no entry here is unaffected — this only ever
+ * narrows the small set of codes listed, never the general engine.
+ */
+const LIFE_STAGE_GATED_SCREENS: Partial<Record<string, ReadonlyArray<Enums<"reproductive_life_stage">>>> = {
+  antenatal_booking: ["pregnant"],
+};
 
 /**
  * Tier-driven overrides from V1 spec §6.1 ("Escalation trigger" column).
@@ -78,6 +101,11 @@ export function computeScreeningRecommendations(
 
   for (const screenType of screenTypes) {
     if (screenType.sex_applicability !== "all" && screenType.sex_applicability !== profile.sex) continue;
+
+    const requiredLifeStages = LIFE_STAGE_GATED_SCREENS[screenType.code];
+    if (requiredLifeStages && !requiredLifeStages.includes(profile.reproductiveLifeStage ?? "not_applicable")) {
+      continue;
+    }
 
     let ageFrom = screenType.age_from;
     let frequencyMonths = screenType.frequency_months;
