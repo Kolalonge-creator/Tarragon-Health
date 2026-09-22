@@ -109,21 +109,29 @@ export async function proxy(request: NextRequest) {
   // below — a per-page check would have to be remembered everywhere a
   // protected route is added. `/auth/*` is exempt because those routes are
   // themselves mid-flow token exchanges (email confirm, mobile bridge) that
-  // must be allowed to complete. `/reset-password`/`/forgot-password` are
-  // exempt for a real scenario found in review: an MFA-enrolled patient who
-  // enters their password correctly (a real aal1 session, pending the MFA
-  // step) but doesn't have their authenticator device handy would otherwise
-  // be trapped — unable to reach the password-reset flow at all, bounced
-  // straight back to /login/mfa-challenge every time. Same exemption
-  // lib/auth/idle-timeout.ts's isIdleTimeoutExemptPath already carries for
-  // the same two routes, for a related reason.
-  if (
-    user &&
-    pathname !== "/login/mfa-challenge" &&
-    pathname !== "/reset-password" &&
-    pathname !== "/forgot-password" &&
-    !pathname.startsWith("/auth/")
-  ) {
+  // must be allowed to complete.
+  //
+  // Deliberately does NOT exempt /reset-password or /forgot-password, unlike
+  // lib/auth/idle-timeout.ts's isIdleTimeoutExemptPath — an earlier version
+  // of this gate did, and it was a real account-takeover vulnerability, not
+  // a UX fix: reset-password/actions.ts's updatePassword() checks only "is
+  // there an authenticated session," never AAL/MFA status. Exempting
+  // /reset-password here meant an attacker who has ONLY a victim's password
+  // (no TOTP secret) could sign in to get a real aal1 session, navigate
+  // straight to the now-unguarded /reset-password, and set a brand-new
+  // password — full takeover with MFA never actually checked. The idle-
+  // timeout gate is a much weaker mechanism (a "were they active recently"
+  // cookie check) and exempting IT from these two routes creates no such
+  // bypass — the two gates protect different things and must not share one
+  // exemption list. An MFA-enrolled patient without their authenticator
+  // device getting stuck reaching password-reset is a real, known,
+  // DELIBERATELY UNFIXED limitation of this pass — "lost my 2FA device"
+  // recovery is its own sensitive flow that arguably should require more
+  // friction, not less, and doing it safely would need distinguishing a
+  // genuine password-recovery-token session (Supabase's `amr` claims can
+  // record `type: "recovery"`) from an ordinary aal1 password session, not
+  // another blanket path exemption.
+  if (user && pathname !== "/login/mfa-challenge" && !pathname.startsWith("/auth/")) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel) {
       const challengeUrl = new URL("/login/mfa-challenge", request.url);

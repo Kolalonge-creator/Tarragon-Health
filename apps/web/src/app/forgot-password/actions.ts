@@ -9,6 +9,7 @@ import {
   phoneOtpVerifySchema,
 } from "@/lib/validation/auth";
 import { callLockoutRpc } from "@/lib/auth/lockout-rpc";
+import { stampActivityCookie } from "@/lib/auth/idle-timeout";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
@@ -192,6 +193,11 @@ export async function verifyPhoneReset(
 
   // Best-effort — never let lockout bookkeeping block a real reset.
   await callLockoutRpc(supabase, "clear_login_failures");
+
+  // Fresh timestamp for THIS session — see stampActivityCookie's own doc
+  // comment. /reset-password itself is idle-timeout-exempt, but this
+  // session carries on past it once the new password is set.
+  await stampActivityCookie();
 
   redirect("/reset-password");
 }

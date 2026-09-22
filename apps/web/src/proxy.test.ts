@@ -128,24 +128,26 @@ describe("MFA step-up gate", () => {
     expect(res.status).toBe(200);
   });
 
-  // Regression found in review: an MFA-enrolled patient who enters their
-  // password correctly (a real aal1 session, pending the step-up) but
-  // doesn't have their authenticator device handy would otherwise be
-  // trapped — bounced straight back to /login/mfa-challenge every time they
-  // tried to reach the password-reset flow instead. See
-  // lib/auth/idle-timeout.ts's isIdleTimeoutExemptPath for the same
-  // exemption on the same two routes, for a related reason. Asserts the
-  // redirect target specifically, not a bare 200 — /reset-password isn't in
-  // PUBLIC_PATHS and /forgot-password is, so each can still legitimately
-  // redirect elsewhere (an unreadable-profile fail-closed, an already-
-  // signed-in-on-a-public-page bounce) without that meaning the MFA gate
-  // caught it.
+  // Regression: an EARLIER version of this branch exempted /reset-password
+  // and /forgot-password from this gate (mirroring lib/auth/idle-timeout.ts's
+  // isIdleTimeoutExemptPath, which legitimately does exempt them from the
+  // separate idle-timeout check). That was a real account-takeover
+  // vulnerability, caught and reverted before merge: reset-password/
+  // actions.ts's updatePassword() checks only "is there an authenticated
+  // session," never AAL/MFA status — exempting /reset-password from THIS
+  // gate meant an attacker who has ONLY a victim's password (no TOTP
+  // secret) could sign in for a real aal1 session, navigate straight to the
+  // now-unguarded /reset-password, and set a brand-new password with MFA
+  // never actually checked. The two gates protect different things and must
+  // never share one exemption list — this proves the MFA gate still catches
+  // both routes.
   it.each(["/reset-password", "/forgot-password"])(
-    "never sends %s to /login/mfa-challenge, even mid-challenge",
+    "still redirects %s to /login/mfa-challenge for a session mid-challenge",
     async (path) => {
       stubSession({ user: { id: "u1" }, aal: mfaPending });
       const res = await proxy(request(path));
-      expect(res.headers.get("location") ?? "").not.toContain("/login/mfa-challenge");
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/login/mfa-challenge");
     }
   );
 });

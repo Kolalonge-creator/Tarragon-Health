@@ -32,6 +32,7 @@
  * at all, which is the same practical effect as signing out.
  */
 import { NextResponse, type NextRequest } from "next/server";
+import { cookies } from "next/headers";
 
 /** Overridable for tests / a future admin-tunable setting; 30 minutes by
  * default — a reasonable enterprise-portal baseline, not a regulator-mandated
@@ -132,19 +133,59 @@ export function isSessionIdle(lastSeenCookieValue: string | undefined, now: numb
  * very first authenticated request has run), not "stamped ages ago". */
 const ACTIVITY_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
+/** The one place the cookie's own options are written — both stampActivity
+ * (proxy.ts) and stampActivityCookie (server actions, below) go through
+ * this so the two can never drift apart. */
+function activityCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: ACTIVITY_COOKIE_MAX_AGE_SECONDS,
+  };
+}
+
 /** Stamps the current-activity cookie onto a response that's about to be
  * returned for real (best-effort — a handful of intermediate redirect
  * branches in proxy.ts return a different response object and skip this; the
  * very next real page load re-stamps it, same "best-effort, never block a
  * real request" posture as lib/rate-limit.ts and record-login-device.ts). */
 export function stampActivity(response: NextResponse, now: number): void {
-  response.cookies.set(LAST_ACTIVITY_COOKIE, String(now), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: ACTIVITY_COOKIE_MAX_AGE_SECONDS,
-  });
+  response.cookies.set(LAST_ACTIVITY_COOKIE, String(now), activityCookieOptions());
+}
+
+/**
+ * Server Action equivalent of stampActivity, for the moment a session
+ * actually BEGINS (a successful sign-in/checkout-OTP-verify/password-reset)
+ * rather than an ordinary already-authenticated request through proxy.ts.
+ *
+ * Regression fixed before merge: nothing stamped or cleared th_last_seen at
+ * login, so a user whose PREVIOUS session ended any way other than explicit
+ * sign-out (browser closed, refresh token naturally expired, walked away —
+ * arguably the majority of real sessions; signOut() is the one path that
+ * already clears this, see auth/actions.ts) still had that old session's
+ * stale cookie sitting in their browser. Logging back in with a correct
+ * password redirected straight into the very first authenticated page load,
+ * which read the OLD stale timestamp, isSessionIdle() saw it was older than
+ * IDLE_TIMEOUT_MS, and immediately bounced the user right back to
+ * /login?reason=idle — straight after a successful login, not a rare edge
+ * case. Called from redirectAfterLogin (login/actions.ts, shared by the
+ * password and phone-OTP paths), and the success paths of
+ * verifyGuestCheckoutOtp (guest-checkout.ts), verifyPhoneReset
+ * (forgot-password/actions.ts) and updatePassword (reset-password/actions.ts)
+ * — every place a fresh, real session is handed to the user and redirected
+ * onward. Best-effort, same posture as every other cookie/RPC write in this
+ * module: a failure here must never block a real sign-in.
+ */
+export async function stampActivityCookie(now: number = Date.now()): Promise<void> {
+  try {
+    (await cookies()).set(LAST_ACTIVITY_COOKIE, String(now), activityCookieOptions());
+  } catch {
+    // Called from a Server Component render path in some edge case, or any
+    // other context where cookies() can't be written — never let this block
+    // a real sign-in.
+  }
 }
 
 /** Builds the redirect for an idle-expired session: clears every Supabase

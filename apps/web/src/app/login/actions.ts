@@ -11,6 +11,7 @@ import {
 import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
 import { recordLoginDevice } from "@/lib/auth/record-login-device";
 import { callLockoutRpc } from "@/lib/auth/lockout-rpc";
+import { stampActivityCookie } from "@/lib/auth/idle-timeout";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage, isInvalidCredentialsError } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
@@ -37,6 +38,10 @@ async function redirectAfterLogin(
   // sign-in (see record-login-device.ts). Runs for every successful login
   // path that calls this shared helper.
   await recordLoginDevice(supabase);
+  // Fresh timestamp for THIS session, not whatever a previous one left
+  // behind — see stampActivityCookie's own doc comment for the "logging
+  // back in immediately bounces you to /login?reason=idle" bug this closes.
+  await stampActivityCookie();
   redirect(await resolveLoginDestination(supabase, userId, redirectTo?.toString()));
 }
 

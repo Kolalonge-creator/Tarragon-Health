@@ -11,6 +11,7 @@ import {
 } from "@/lib/validation/guest-checkout";
 import { callLockoutRpc } from "@/lib/auth/lockout-rpc";
 import { recordLoginDevice } from "@/lib/auth/record-login-device";
+import { stampActivityCookie } from "@/lib/auth/idle-timeout";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
@@ -214,6 +215,12 @@ export async function verifyGuestCheckoutOtp(
   // phone-OTP login would have triggered. Best-effort, never blocks a real
   // checkout (see record-login-device.ts).
   await recordLoginDevice(supabase);
+
+  // Fresh timestamp for THIS session — see stampActivityCookie's own doc
+  // comment for why inheriting a previous session's stale cookie would
+  // otherwise bounce this guest straight to /login?reason=idle right after
+  // authenticating.
+  await stampActivityCookie();
 
   const metadataPhone = data.user.user_metadata?.phone;
   if (typeof metadataPhone === "string" && metadataPhone.length > 0) {
