@@ -39,7 +39,7 @@ export function ApprovalsQueue() {
   }
 
   async function reject(id: string) {
-    const reason = note[id]?.trim() || window.prompt("Reason for rejecting?") || "";
+    const reason = note[id]?.trim() || window.prompt("Reason for rejecting?")?.trim() || "";
     if (!reason) {
       setMsg({ ok: false, text: "Rejection needs a reason: nothing was rejected." });
       return;

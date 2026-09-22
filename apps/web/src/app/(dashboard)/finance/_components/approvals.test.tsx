@@ -80,6 +80,17 @@ describe("ApprovalsQueue — reject() with an empty note", () => {
     promptSpy.mockRestore();
   });
 
+  it("treats a whitespace-only prompt answer as no reason too", async () => {
+    const promptSpy = jest.spyOn(window, "prompt").mockReturnValue("   ");
+    render(<ApprovalsQueue />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+
+    expect(await screen.findByText("Rejection needs a reason: nothing was rejected.")).toBeTruthy();
+    expect(rejectRequestAction).not.toHaveBeenCalled();
+    promptSpy.mockRestore();
+  });
+
   it("uses a non-empty note field directly without prompting", async () => {
     const promptSpy = jest.spyOn(window, "prompt");
     render(<ApprovalsQueue />);
