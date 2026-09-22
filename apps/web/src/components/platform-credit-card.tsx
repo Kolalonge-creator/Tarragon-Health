@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE } from "@/lib/billing/platform-credit-messages";
 import { koboToNaira } from "@tarragon/shared";
 
 const naira = (kobo: number) => `₦${koboToNaira(kobo).toLocaleString()}`;
@@ -140,8 +141,7 @@ export function PlatformCreditCard({ patientId }: { patientId: string }) {
             // funds" affordance is hidden, with a clear, non-alarming
             // explanation rather than a missing button with no context.
             <p className="pt-2 text-sm text-slate-600 dark:text-night-ink/70">
-              Adding funds isn&apos;t available right now. Your balance and spending are not
-              affected.
+              {PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE}
             </p>
           )}
         </div>

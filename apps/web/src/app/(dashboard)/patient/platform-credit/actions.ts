@@ -4,7 +4,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
 import { initiatePlatformCreditTopupCheckout } from "@/lib/billing/platform-credit-checkout";
-import { isPlatformModuleEnabled, PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE } from "@/lib/platform-modules";
+import { isPlatformModuleEnabled } from "@/lib/platform-modules";
+import { PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE } from "@/lib/billing/platform-credit-messages";
 import { nairaToKobo } from "@tarragon/shared";
 
 export type PlatformCreditActionState = { error?: string; message?: string } | undefined;

@@ -253,7 +253,7 @@ export const PAID_SERVICES: PaidService[] = [
     price: "₦30,000",
     priceCaption: "for 90 days",
     description:
-      "Every reading you log is checked against care protocols whatever you pay. What this adds is that a dangerous one is put in front of a doctor on your care team, rather than sitting on your record waiting to be noticed. It also carries entry to the doctor-supported track of the chronic programme if you are managing hypertension or diabetes. Paid once, for 90 days, and then it stops. There is no card kept on file and nothing to cancel — buy it again if you want to keep the watch going.",
+      "Every reading you log is checked against care protocols whatever you pay. What this adds is that a dangerous one is put in front of a doctor on your care team, rather than sitting on your record waiting to be noticed. It also carries entry to the doctor-supported track of the chronic programme if you are managing hypertension or diabetes. Paid once, for 90 days, and then it stops. There is no card kept on file and nothing to cancel. Buy it again if you want to keep the watch going.",
     breakdown: [
       "Every blood pressure, glucose, oxygen, temperature and pulse reading checked as you log it",
       "A dangerous reading raised to a doctor, not just flagged on your record",

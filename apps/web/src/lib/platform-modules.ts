@@ -27,13 +27,10 @@ export type PlatformModuleKey =
   | "provider_org_platform"
   | "platform_credit_topups";
 
-/** Shown wherever the platform_credit_topups module is off — the web action
- * (patient/platform-credit/actions.ts) and the mobile route
- * (api/mobile/platform-credit/topup-intent/route.ts) both import this single
- * copy rather than each holding their own string, so a future wording change
- * can't update one client's message and silently miss the other. */
-export const PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE =
-  "Adding funds isn't available right now. Your existing Platform Credit balance and spending are not affected.";
+// The platform_credit_topups "disabled" message lives in
+// lib/billing/platform-credit-messages.ts, not here — this module carries
+// `import "server-only"`, and platform-credit-card.tsx (a client component)
+// needs that string too.
 
 export type PlatformModuleRow = {
   key: string;

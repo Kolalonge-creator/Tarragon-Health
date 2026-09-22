@@ -20,7 +20,7 @@ export function PreventiveHealthCheckReviewCta({ priceKobo }: { priceKobo: numbe
     <div className="space-y-2">
       <p className="text-charcoal-ink/60 dark:text-night-ink/60">
         Once your checks are in, a doctor on your care team can write back a plan for what to do
-        next — ₦{koboToNaira(priceKobo).toLocaleString()}, a one-off purchase for this year&apos;s
+        next. ₦{koboToNaira(priceKobo).toLocaleString()}, a one-off purchase for this year&apos;s
         check.
       </p>
       <form action={formAction}>

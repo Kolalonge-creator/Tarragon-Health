@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { initiatePlatformCreditTopupCheckout } from "@/lib/billing/platform-credit-checkout";
-import { PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE } from "@/lib/platform-modules";
+import { PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE } from "@/lib/billing/platform-credit-messages";
 
 // Checked below via a direct `platform_modules` read on the bearer-
 // authenticated client, not lib/platform-modules.ts's
