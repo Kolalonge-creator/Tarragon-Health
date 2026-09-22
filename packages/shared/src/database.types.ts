@@ -19,7 +19,7 @@ export type Database = {
           failed_attempts: number
           last_failed_at: string | null
           locked_until: string | null
-          organisation_id: string
+          organisation_id: string | null
           profile_id: string
           updated_at: string
         }
@@ -27,7 +27,7 @@ export type Database = {
           failed_attempts?: number
           last_failed_at?: string | null
           locked_until?: string | null
-          organisation_id: string
+          organisation_id?: string | null
           profile_id: string
           updated_at?: string
         }
@@ -35,7 +35,7 @@ export type Database = {
           failed_attempts?: number
           last_failed_at?: string | null
           locked_until?: string | null
-          organisation_id?: string
+          organisation_id?: string | null
           profile_id?: string
           updated_at?: string
         }

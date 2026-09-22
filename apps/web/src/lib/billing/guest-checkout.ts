@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { isGuestCheckoutProductCode } from "@/lib/billing/guest-checkout-products";
 import {
@@ -10,7 +11,7 @@ import {
   combineGuestPhone,
 } from "@/lib/validation/guest-checkout";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
-import { authErrorMessage } from "@/lib/auth/auth-error-message";
+import { authErrorMessage, isInvalidOtpError } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 
 export type GuestCheckoutState =
@@ -142,9 +143,48 @@ export async function verifyGuestCheckoutOtp(
   }
 
   const supabase = await createClient();
+
+  // Same real account-level lockout the login flow enforces (see
+  // 20260918111442_account_lockout_after_repeated_failed_logins.sql).
+  // Without this, an account locked out by 5 failed PASSWORD attempts on
+  // /login could still be fully authenticated through THIS flow instead —
+  // signInWithOtp with shouldCreateUser:true (startGuestCheckout above)
+  // silently signs in a returning guest whose email matches an existing
+  // account, so a locked account is reachable here even though the login
+  // page correctly refuses it. Best-effort, same posture as every other
+  // lockout check in this codebase: a transient failure here must never
+  // itself block a real checkout.
+  let isLocked = false;
+  try {
+    const result = await supabase.rpc("is_account_locked", { p_email: email });
+    isLocked = Boolean(result.data);
+  } catch {
+    // Fall through and let verifyOtp decide.
+  }
+  if (isLocked) {
+    return { error: RATE_LIMIT_MESSAGE, step: "verify", email };
+  }
+
   const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
   if (error || !data.user) {
+    // Only a genuine wrong/expired code counts toward the lockout — never a
+    // rate-limit or network error. Service-role-only, same reasoning as
+    // login/actions.ts: the anon key is not a secret.
+    if (isInvalidOtpError(error)) {
+      try {
+        await createServiceRoleClient().rpc("record_failed_login", { p_email: email });
+      } catch {
+        // Never let lockout bookkeeping block showing the real error.
+      }
+    }
     return { error: authErrorMessage(error, "otp_verify"), step: "verify", email };
+  }
+
+  // Best-effort — never let lockout bookkeeping block a real checkout.
+  try {
+    await supabase.rpc("clear_login_failures");
+  } catch {
+    // Never let lockout bookkeeping block a real checkout.
   }
 
   const metadataPhone = data.user.user_metadata?.phone;

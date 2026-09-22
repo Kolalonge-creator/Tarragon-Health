@@ -456,6 +456,50 @@ begin
   end if;
 end $$;
 
+-- ==========================================================================
+-- 10. Regression: a profile with organisation_id = NULL (self-serve/org-less
+--     patients — nullable by design, see profiles.organisation_id) must
+--     still be lockable. An earlier version of record_failed_login treated
+--     organisation_id itself being null as "no such profile" and silently
+--     no-opped, meaning this entire user segment could never be locked out
+--     no matter how many wrong passwords were entered.
+-- ==========================================================================
+do $$
+declare
+  v_patient uuid := gen_random_uuid();
+  v_locked  boolean;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_patient, 'alrfl-orgless-patient@example.invalid', 'x', now(), '{}', '{}');
+  -- Explicit NULL organisation_id — the on_auth_user_created trigger already
+  -- defaulted this profile to the seeded consumer org, so it must be
+  -- overwritten here, not just left unspecified.
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_patient, null, 'patient', 'ALRFL Orgless Patient')
+  on conflict (id) do update
+    set organisation_id = null, role = excluded.role, full_name = excluded.full_name;
+
+  if exists (select 1 from public.profiles where id = v_patient and organisation_id is not null) then
+    raise exception 'SETUP FAILED: expected this profile''s organisation_id to be null';
+  end if;
+
+  perform public.record_failed_login('alrfl-orgless-patient@example.invalid');
+  perform public.record_failed_login('alrfl-orgless-patient@example.invalid');
+  perform public.record_failed_login('alrfl-orgless-patient@example.invalid');
+  perform public.record_failed_login('alrfl-orgless-patient@example.invalid');
+  perform public.record_failed_login('alrfl-orgless-patient@example.invalid');
+
+  select public.is_account_locked('alrfl-orgless-patient@example.invalid') into v_locked;
+
+  insert into alrfl_result values
+    ('an organisation_id = NULL profile can still be locked out',
+     coalesce(v_locked::text, 'null'), 'true',
+     case when v_locked = true then 'PASS' else 'FAIL' end);
+  if v_locked is distinct from true then
+    raise exception 'REGRESSION: a profile with organisation_id = NULL was never locked out — an entire org-less patient segment has no account-lockout protection at all';
+  end if;
+end $$;
+
 select check_name, observed, expected, verdict
 from alrfl_result
 order by verdict desc, check_name;

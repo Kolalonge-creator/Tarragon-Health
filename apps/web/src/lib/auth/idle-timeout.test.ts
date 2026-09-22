@@ -52,6 +52,39 @@ describe("stampActivity", () => {
     stampActivity(response, 1_000_000_000_000);
     expect(response.cookies.get(LAST_ACTIVITY_COOKIE)?.value).toBe("1000000000000");
   });
+
+  it("gives the cookie a browser-side lifetime far longer than the idle threshold", () => {
+    // Regression: an earlier version set maxAge to IDLE_TIMEOUT_MS + 60s
+    // (~31 minutes), so a session abandoned for LONGER than that had its
+    // cookie expire and get dropped by the browser before the next request
+    // arrived — isSessionIdle() then saw no cookie and read that as "fresh,
+    // never stamped", waving a genuinely long-abandoned session through
+    // instead of bouncing it to /login?reason=idle. The cookie's own
+    // maxAge must comfortably outlive any realistic abandonment window;
+    // staleness is judged by the stored timestamp, never by whether the
+    // cookie itself still exists.
+    const response = NextResponse.next();
+    stampActivity(response, Date.now());
+    const maxAge = response.cookies.get(LAST_ACTIVITY_COOKIE)?.maxAge ?? 0;
+    expect(maxAge).toBeGreaterThan(IDLE_TIMEOUT_MS / 1000 + 60 * 60); // outlives 30min+1hr
+  });
+
+  it("end-to-end: a session abandoned for 2 hours is still caught as idle, not waved through as 'fresh'", () => {
+    // The cookie the ORIGINAL activity-stamping request wrote (2 hours ago).
+    const response = NextResponse.next();
+    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+    stampActivity(response, twoHoursAgo);
+    const cookie = response.cookies.get(LAST_ACTIVITY_COOKIE)!;
+
+    // The cookie must still be "alive" from the browser's own perspective
+    // (maxAge not yet elapsed) 2 hours later, so the next request actually
+    // presents it rather than nothing at all.
+    expect(cookie.maxAge ?? 0).toBeGreaterThan(2 * 60 * 60);
+
+    // And once presented, it correctly reads as idle-expired — not as a
+    // fresh, never-stamped session.
+    expect(isSessionIdle(cookie.value, Date.now())).toBe(true);
+  });
 });
 
 describe("buildIdleTimeoutRedirect", () => {

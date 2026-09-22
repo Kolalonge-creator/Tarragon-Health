@@ -67,13 +67,36 @@ export function isBackgroundTelemetryPath(pathname: string): boolean {
 /** True when the recorded last-activity cookie is old enough that the
  * session should be treated as idle-expired. A missing/unparseable cookie is
  * NOT idle — that is the normal shape of the very first authenticated
- * request after a fresh sign-in, before this cookie has ever been stamped. */
+ * request after a fresh sign-in, before this cookie has ever been stamped
+ * (see stampActivity's own comment for why the cookie's own browser-side
+ * lifetime is deliberately much longer than IDLE_TIMEOUT_MS, which is what
+ * keeps "missing" a reliable signal for "never stamped" rather than also
+ * meaning "stamped so long ago the browser itself dropped it"). */
 export function isSessionIdle(lastSeenCookieValue: string | undefined, now: number): boolean {
   if (!lastSeenCookieValue) return false;
   const lastSeen = Number(lastSeenCookieValue);
   if (!Number.isFinite(lastSeen)) return false;
   return now - lastSeen > IDLE_TIMEOUT_MS;
 }
+
+/** How long the activity cookie itself is allowed to live in the browser —
+ * deliberately MUCH longer than IDLE_TIMEOUT_MS, and NOT derived from it.
+ * Bug fixed before merge: an earlier version set this to IDLE_TIMEOUT_MS + 60s
+ * (~31 minutes for the 30-minute default), which meant a session abandoned
+ * for LONGER than that window had its cookie expire and get DROPPED by the
+ * browser before the next request ever arrived — that next request then saw
+ * no cookie at all, isSessionIdle() read that as "fresh, never stamped", and
+ * a session left untouched for e.g. 2 hours on a shared computer was waved
+ * through with full access instead of being bounced to /login?reason=idle —
+ * the exact inverse of what the feature exists to do, and the longer a
+ * session sat abandoned, the more certain the bypass became. Giving the
+ * cookie a lifetime of days rather than minutes decouples "does the cookie
+ * still exist" from "is the session still fresh": staleness is judged purely
+ * by the STORED TIMESTAMP (isSessionIdle's own comparison), never by whether
+ * the browser has garbage-collected the cookie — so "missing" reliably means
+ * only "never stamped" (the one genuine case: right after login, before the
+ * very first authenticated request has run), not "stamped ages ago". */
+const ACTIVITY_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 /** Stamps the current-activity cookie onto a response that's about to be
  * returned for real (best-effort — a handful of intermediate redirect
@@ -86,7 +109,7 @@ export function stampActivity(response: NextResponse, now: number): void {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: Math.ceil(IDLE_TIMEOUT_MS / 1000) + 60,
+    maxAge: ACTIVITY_COOKIE_MAX_AGE_SECONDS,
   });
 }
 

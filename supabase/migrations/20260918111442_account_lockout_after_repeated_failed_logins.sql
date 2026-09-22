@@ -33,7 +33,17 @@
 
 create table public.account_lockouts (
   profile_id       uuid primary key references public.profiles (id) on delete cascade,
-  organisation_id  uuid not null references public.organisations (id) on delete cascade,
+  -- Nullable, matching profiles.organisation_id itself (nullable by design —
+  -- self-serve/org-less patients, and "on delete set null" if an org is
+  -- later deleted; see 20260705211044_core_auth_multitenancy.sql). Found
+  -- before merge: an earlier version of this column was NOT NULL, and
+  -- record_failed_login()/record_failed_login_by_phone() early-returned
+  -- (silently no-op) whenever a profile's organisation_id was null — meaning
+  -- that entire org-less patient segment could NEVER be locked out no
+  -- matter how many wrong passwords/OTPs were entered. Account lockout is a
+  -- per-ACCOUNT security property, not a tenancy-scoped one, so it must
+  -- never be gated on organisation_id at all.
+  organisation_id  uuid references public.organisations (id) on delete set null,
   failed_attempts  integer not null default 0,
   locked_until     timestamptz,
   last_failed_at   timestamptz,
@@ -92,6 +102,25 @@ comment on function private.is_profile_locked(uuid) is
   'Core lockout check, shared by is_account_locked(email) and '
   'is_account_locked_by_phone(phone) — see 20260918111442_account_lockout_after_'
   'repeated_failed_logins.sql for why both login methods must consult the same lock.';
+
+-- 20260812003758_revoke_private_schema_execute_from_public.sql's own `alter
+-- default privileges in schema private grant execute on functions to
+-- authenticated, service_role` means every NEW private.* function — this one
+-- included — is born EXECUTE-able by `authenticated` by default, not closed.
+-- Neither this function nor record_failed_login_attempt below needs that:
+-- their only real callers (the public.* wrappers) run SECURITY DEFINER as
+-- the function owner, which always has implicit execute on its own schema's
+-- functions regardless of any grant — no explicit grant to `authenticated`
+-- was ever required for the app to work. record_failed_login_attempt in
+-- particular takes a raw, caller-supplied profile_id/organisation_id with no
+-- internal ownership check, so leaving it at its inherited-by-default
+-- `authenticated` access would be exactly the account-denial vector this
+-- migration's own public.record_failed_login header comment describes —
+-- reachable one layer down. Revoking here matches this codebase's own
+-- established discipline (see that migration's "revoke first, re-grant only
+-- what's proven necessary" pattern) rather than relying on private schema
+-- currently being unreachable via PostgREST as the only line of defence.
+revoke all on function private.is_profile_locked(uuid) from public, anon, authenticated;
 
 create or replace function private.record_failed_login_attempt(p_profile_id uuid, p_org_id uuid)
 returns void
@@ -153,7 +182,7 @@ begin
     -- while wiring this up: the pre-existing security.new_device_signin
     -- notification has the same gap (no to_email either), which means its
     -- email half has been silently failing "recipient has no email address"
-    -- since it shipped. See 20260918120000_fix_new_device_signin_missing_
+    -- since it shipped. See 20260922191934_fix_new_device_signin_missing_
     -- to_email.sql for that fix; this is the same pattern applied here from
     -- the start. Matches 20260720120004_prescription_lab_order_patient_
     -- emails.sql's own `select email into ... from auth.users` convention.
@@ -185,7 +214,12 @@ comment on function private.record_failed_login_attempt(uuid, uuid) is
   'Core failed-attempt bookkeeping, shared by record_failed_login(email) and '
   'record_failed_login_by_phone(phone). Locks the profile for 15 minutes once 5 '
   'consecutive failures are reached, firing an in_app+email security.account_locked '
-  'notification the moment a lock is newly applied.';
+  'notification the moment a lock is newly applied. Deliberately EXECUTE-revoked from '
+  'authenticated (see private.is_profile_locked''s comment above) — takes a raw profile_id/'
+  'organisation_id with no ownership check, so it must never be callable except from within '
+  'a SECURITY DEFINER public.* wrapper, which needs no grant to call it.';
+
+revoke all on function private.record_failed_login_attempt(uuid, uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- is_account_locked(email) — called from the login server action BEFORE
@@ -289,14 +323,25 @@ as $$
 declare
   v_profile_id  uuid;
   v_org_id      uuid;
+  v_has_profile boolean;
 begin
   select id into v_profile_id from auth.users where lower(email) = lower(trim(p_email));
   if v_profile_id is null then
     return;
   end if;
 
-  select organisation_id into v_org_id from public.profiles where id = v_profile_id;
-  if v_org_id is null then
+  -- Bug fixed before merge: this used to treat organisation_id itself being
+  -- null (a profile that genuinely HAS no org — self-serve/org-less
+  -- patients, or an org later deleted; profiles.organisation_id is nullable
+  -- by design) as "no such profile", silently skipping the whole lockout for
+  -- that entire user segment no matter how many wrong passwords they
+  -- entered. Checking existence separately from the org_id value is what
+  -- lets a null org_id still flow through to
+  -- private.record_failed_login_attempt below — account lockout is a
+  -- per-account security property, not a tenancy-scoped one.
+  select organisation_id, true into v_org_id, v_has_profile
+  from public.profiles where id = v_profile_id;
+  if not coalesce(v_has_profile, false) then
     return;
   end if;
 
@@ -324,6 +369,7 @@ as $$
 declare
   v_profile_id  uuid;
   v_org_id      uuid;
+  v_has_profile boolean;
 begin
   -- GoTrue stores auth.users.phone WITHOUT the leading '+' (E.164 digits
   -- only — see 20260711222638_fix_handle_new_user_metadata_timing_and_phone.sql
@@ -336,8 +382,12 @@ begin
     return;
   end if;
 
-  select organisation_id into v_org_id from public.profiles where id = v_profile_id;
-  if v_org_id is null then
+  -- See record_failed_login(text)'s matching comment above — a null
+  -- organisation_id is a real, valid state (org-less patients), not "no
+  -- profile"; checking existence separately is what lets it still count.
+  select organisation_id, true into v_org_id, v_has_profile
+  from public.profiles where id = v_profile_id;
+  if not coalesce(v_has_profile, false) then
     return;
   end if;
 
@@ -392,6 +442,18 @@ revoke execute on function public.clear_login_failures() from anon;
 -- ---------------------------------------------------------------------------
 do $$
 begin
+  -- The two internal private.* helpers must be reachable by NOBODY directly
+  -- — not even authenticated, which schema/20260812003758's own `alter
+  -- default privileges` would otherwise grant them by default. Their only
+  -- real callers (the public.* wrappers below) run SECURITY DEFINER as the
+  -- function owner and need no grant to call them.
+  if has_function_privilege('authenticated', 'private.is_profile_locked(uuid)', 'EXECUTE') then
+    raise exception 'private.is_profile_locked is EXECUTE-able by authenticated — should be reachable only via the public.* wrappers (SECURITY DEFINER, no grant needed for that)';
+  end if;
+  if has_function_privilege('authenticated', 'private.record_failed_login_attempt(uuid, uuid)', 'EXECUTE') then
+    raise exception 'private.record_failed_login_attempt is EXECUTE-able by authenticated — takes a raw profile_id/organisation_id with no ownership check, this is an account-lockout DoS vector one layer down from the public wrapper';
+  end if;
+
   if not has_function_privilege('anon', 'public.is_account_locked(text)', 'EXECUTE') then
     raise exception 'is_account_locked must be EXECUTE-able by anon (pre-auth login check)';
   end if;
