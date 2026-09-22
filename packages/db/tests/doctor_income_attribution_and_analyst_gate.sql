@@ -33,6 +33,15 @@
 --      regression, not just that the grant statement was once run.
 --   5. private.doctor_paid_work stays unreachable directly by authenticated
 --      (the only path to this data is through the two gated RPCs).
+--   6. The 'appointment' redemption path — the ONE path that joins
+--      clinical_staff's sibling table, profiles, instead of clinical_staff
+--      itself (appointments.clinician_id -> profiles.id directly) — resolves
+--      to the booked doctor for a live appointment, and resolves to NO
+--      doctor (falls to 'unattributed', not silently mis-attributed) once
+--      that appointment is patient_cancelled. Added 20260922192954 after a
+--      review found this exact path — the one most likely to regress by a
+--      copy-paste "fix" from the other seven clinical_staff-joining
+--      branches — was the one path this test never exercised.
 --
 -- Run via `supabase db query "$(cat this_file.sql)" --linked`, `psql
 -- $DATABASE_URL -f this_file.sql`, or the Supabase SQL editor.
@@ -216,6 +225,127 @@ begin
   end if;
 
   raise notice 'PASS 1-3, 5: doctor income resolves the correct actor table, gate closes for a non-analyst, totals reconcile, view is unreachable directly';
+end $$;
+
+------------------------------------------------------------------ 6. the 'appointment' path: the one branch joining profiles directly
+-- (not via clinical_staff), and the cancelled-appointment carve-out
+-- (20260922192954) that must stop a cancelled booking crediting a doctor.
+do $$
+declare
+  v_org             uuid;
+  v_patient         uuid := gen_random_uuid();
+  v_doctor          uuid := gen_random_uuid();
+  v_analyst         uuid := gen_random_uuid();
+  v_staff_id        uuid := gen_random_uuid();
+  v_product         uuid;
+  v_price           bigint;
+  v_appt_ok         uuid := gen_random_uuid();
+  v_appt_cancelled  uuid := gen_random_uuid();
+  v_income          jsonb;
+  v_entry           jsonb;
+begin
+  select organisation_id into v_org
+    from public.profiles where role = 'patient' and organisation_id is not null limit 1;
+  select id, price_kobo into v_product, v_price
+    from public.service_products where is_active limit 1;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values
+    (v_patient, 'dia-appt-p@example.invalid', 'x', now(), '{}', '{}'),
+    (v_doctor,  'dia-appt-d@example.invalid', 'x', now(), '{}', '{}'),
+    (v_analyst, 'dia-appt-a@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values
+    (v_patient, v_org, 'patient',   'DIA Appt Patient'),
+    (v_doctor,  v_org, 'clinician', 'DIA Appt Doctor'),
+    (v_analyst, v_org, 'analyst',   'DIA Appt Analyst')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+  insert into public.clinical_staff
+    (id, organisation_id, profile_id, full_name, credential_type, active, doctor_tier, license_verified_at)
+  values (v_staff_id, v_org, v_doctor, 'DIA Appt Doctor', 'MDCN', true, 'medical_officer', now());
+
+  -- A live appointment: attributed to the doctor via appointments.
+  -- clinician_id -> profiles, the one redemption path with no
+  -- clinical_staff join at all (the profiles-vs-clinical_staff footgun the
+  -- migration's header specifically calls out).
+  insert into public.appointments
+    (id, organisation_id, patient_id, clinician_id, scheduled_for, ends_at, status,
+     appointment_type, consultation_method, payment_status, is_high_priority, created_at, updated_at)
+  values
+    (v_appt_ok, v_org, v_patient, v_doctor, now() + interval '1 day', now() + interval '1 day 30 minutes',
+     'confirmed', 'gp', 'telemedicine', 'paid', false, now(), now());
+
+  -- The same doctor, a second appointment, cancelled by the patient after
+  -- booking. cancel_appointment() only ever updates this table -- it never
+  -- touches service_purchases -- so the credit below stays 'active' exactly
+  -- as it would after a real cancellation.
+  insert into public.appointments
+    (id, organisation_id, patient_id, clinician_id, scheduled_for, ends_at, status,
+     appointment_type, consultation_method, payment_status, is_high_priority,
+     cancelled_at, created_at, updated_at)
+  values
+    (v_appt_cancelled, v_org, v_patient, v_doctor, now() + interval '2 days', now() + interval '2 days 30 minutes',
+     'patient_cancelled', 'gp', 'telemedicine', 'refund_due', false, now(), now(), now());
+
+  insert into public.service_purchases
+    (organisation_id, patient_id, purchaser_profile_id, service_product_id,
+     status, amount_kobo, currency, purchased_at, redeemed_at, redeemed_entity_type, redeemed_entity_id)
+  values
+    (v_org, v_patient, v_patient, v_product, 'active', v_price, 'NGN', now(), now(), 'appointment', v_appt_ok),
+    (v_org, v_patient, v_patient, v_product, 'active', v_price, 'NGN', now(), now(), 'appointment', v_appt_cancelled);
+
+  perform set_config('request.jwt.claim.sub', v_analyst::text, true);
+  v_income := public.analytics_doctor_income();
+  v_entry := (
+    select d from jsonb_array_elements(v_income->'by_doctor') d
+    where d->>'doctor_profile_id' = v_doctor::text
+  );
+
+  if v_entry is null then
+    raise exception 'FAIL 6a: the appointment-sourced doctor has no by_doctor entry at all — %', v_income->'by_doctor';
+  end if;
+  -- Exactly the live appointment's revenue, not the cancelled one's too --
+  -- proves the cancelled row's money is excluded from THIS doctor's
+  -- attribution (it still counts in the platform total, just not credited
+  -- to him).
+  if (v_entry->>'revenue_minor')::bigint <> v_price then
+    raise exception 'FAIL 6b: doctor revenue_minor % includes the cancelled appointment (expected exactly %, the live one only)',
+      v_entry->>'revenue_minor', v_price;
+  end if;
+  if (v_entry->>'jobs')::int <> 1 then
+    raise exception 'FAIL 6c: expected exactly 1 attributed job (the live appointment), got %', v_entry->>'jobs';
+  end if;
+
+  -- The cancelled appointment's row must still exist in the report (money
+  -- was still collected) but as unattributed, not silently dropped, and
+  -- with its work_status preserved so an analyst can see why.
+  declare
+    v_cancelled_row jsonb;
+  begin
+    -- analytics_doctor_paid_jobs exposes source_id (the service_purchases
+    -- row's own id) and not work_id (the appointment's own id) — this test
+    -- hit that mismatch once while being written. No live data has any
+    -- 'appointment'-sourced row at all (confirmed before this migration
+    -- shipped), so work_type + work_status alone uniquely identifies the
+    -- fixture row here without needing work_id.
+    select t from jsonb_array_elements(public.analytics_doctor_paid_jobs(null, null, null, 2000)) t
+      where (t->>'work_type') = 'appointment'
+        and (t->>'work_status') = 'patient_cancelled'
+      into v_cancelled_row;
+    if v_cancelled_row is null then
+      raise exception 'FAIL 6d: the cancelled appointment vanished from the report entirely instead of landing in unattributed';
+    end if;
+    if v_cancelled_row->>'doctor_profile_id' is not null then
+      raise exception 'FAIL 6e: the cancelled appointment is still attributed to a doctor: %', v_cancelled_row;
+    end if;
+    if v_cancelled_row->>'work_status' <> 'patient_cancelled' then
+      raise exception 'FAIL 6f: the cancelled appointment lost its work_status (expected patient_cancelled, got %)',
+        v_cancelled_row->>'work_status';
+    end if;
+  end;
+
+  raise notice 'PASS 6: appointment path (profiles join, not clinical_staff) resolves correctly, and a cancelled appointment is excluded from doctor attribution without disappearing from the report';
 end $$;
 
 ------------------------------------------------------------------ 4c. sabotage: the anon-execute revoke actually discriminates

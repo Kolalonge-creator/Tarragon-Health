@@ -542,6 +542,7 @@ export function useDoctorPaidJobs(params?: {
   doctorProfileId?: string;
   from?: string;
   to?: string;
+  limit?: number;
 }) {
   return useQuery({
     queryKey: [
@@ -550,12 +551,14 @@ export function useDoctorPaidJobs(params?: {
       params?.doctorProfileId ?? null,
       params?.from ?? null,
       params?.to ?? null,
+      params?.limit ?? null,
     ],
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_doctor_paid_jobs", {
         p_doctor_profile_id: params?.doctorProfileId,
         p_from: params?.from,
         p_to: params?.to,
+        p_limit: params?.limit,
       });
       if (error) throw error;
       return doctorPaidJobsSchema.parse(data);

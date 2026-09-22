@@ -506,6 +506,11 @@ export const doctorIncomeSchema = z.object({
         revenue_minor: z.number(),
         gross_minor: z.number(),
         currency: z.string().nullable(),
+        // True when this doctor's rows span more than one currency —
+        // revenue_minor is still their sum, but that sum is not a single
+        // real-world amount when currencies differ, and the UI should say
+        // so rather than silently showing it under one arbitrary symbol.
+        mixed_currency: z.boolean().default(false),
         first_job_at: z.string().nullable(),
         last_job_at: z.string().nullable(),
         by_product: z.array(doctorIncomeByProductSchema).default([]),

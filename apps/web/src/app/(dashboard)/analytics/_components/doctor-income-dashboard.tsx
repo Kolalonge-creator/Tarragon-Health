@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { useDoctorIncome, useDoctorPaidJobs } from "@/lib/analytics/queries";
 import { formatMinor, formatNumber } from "@/lib/analytics/format";
+import { startOfLagosMonthUtc } from "@/lib/ai-coach/lagos-day";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 import { ExportButton } from "./export-button";
 import type { DoctorIncomeByDoctor, DoctorPaidJob } from "@/lib/analytics/schemas";
@@ -19,25 +20,32 @@ function fmtDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleDateString("en-NG", { dateStyle: "medium" }) : "—";
 }
 
-/** UTC-based month boundaries — close enough for a monthly commission
- * review; not attempting a full Africa/Lagos-aware cutover for a handful of
- * hours either side of midnight on the 1st. */
 type PeriodPreset = "all" | "this_month" | "last_month";
+/** The drill-down job list caps out at this many rows (RPC hard limit
+ * 2000). Passed explicitly rather than relying on the RPC's own lower
+ * default (500) — see analytics_doctor_paid_jobs's p_limit. */
+const MAX_JOBS_PER_DOCTOR = 2000;
 
+/** Month boundaries in Africa/Lagos wall-clock time (CLAUDE.md: "Timezone
+ * always Africa/Lagos"), via the same offset primitive the rest of the
+ * platform uses for day boundaries — a naive Date.UTC(y, m, 1) boundary
+ * misclassifies any job earned within the ~1-hour band either side of UTC
+ * midnight on the 1st. */
 function periodRange(preset: PeriodPreset): { from?: string; to?: string; label: string } {
   const now = new Date();
   if (preset === "all") return { label: "All time" };
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth();
   if (preset === "this_month") {
-    const from = new Date(Date.UTC(y, m, 1));
-    const label = from.toLocaleDateString("en-NG", { month: "long", year: "numeric" });
+    const from = startOfLagosMonthUtc(now, 0);
+    const label = from.toLocaleDateString("en-NG", { month: "long", year: "numeric", timeZone: "Africa/Lagos" });
     return { from: from.toISOString(), label };
   }
-  // last_month
-  const from = new Date(Date.UTC(y, m - 1, 1));
-  const to = new Date(Date.UTC(y, m, 1));
-  const label = from.toLocaleDateString("en-NG", { month: "long", year: "numeric" });
+  // last_month. The RPCs compare earned_at <= p_to (inclusive), so subtract
+  // 1ms off the exclusive month-start boundary — otherwise a job earned at
+  // exactly midnight Lagos time on the 1st would count in both "last month"
+  // and "this month".
+  const from = startOfLagosMonthUtc(now, -1);
+  const to = new Date(startOfLagosMonthUtc(now, 0).getTime() - 1);
+  const label = from.toLocaleDateString("en-NG", { month: "long", year: "numeric", timeZone: "Africa/Lagos" });
   return { from: from.toISOString(), to: to.toISOString(), label };
 }
 
@@ -53,8 +61,26 @@ function attributionBadge(attribution: DoctorPaidJob["attribution"]) {
   return <Badge variant="grey">No single job</Badge>;
 }
 
-function DoctorDetail({ doctor }: { doctor: DoctorIncomeByDoctor }) {
-  const jobs = useDoctorPaidJobs({ doctorProfileId: doctor.doctor_profile_id });
+function DoctorDetail({
+  doctor,
+  from,
+  to,
+}: {
+  doctor: DoctorIncomeByDoctor;
+  from?: string;
+  to?: string;
+}) {
+  // Scoped to the same period as the summary tiles above — without this the
+  // drill-down list and its export silently show the doctor's entire
+  // history regardless of the period picker, and never reconcile with the
+  // totals displayed right next to it.
+  const jobs = useDoctorPaidJobs({
+    doctorProfileId: doctor.doctor_profile_id,
+    from,
+    to,
+    limit: MAX_JOBS_PER_DOCTOR,
+  });
+  const truncated = (jobs.data ?? []).length >= MAX_JOBS_PER_DOCTOR;
 
   return (
     <div className="space-y-4">
@@ -64,6 +90,11 @@ function DoctorDetail({ doctor }: { doctor: DoctorIncomeByDoctor }) {
           <p className="text-lg font-semibold tabular-nums text-clinical-navy">
             {formatMinor(doctor.revenue_minor, doctor.currency ?? "NGN")}
           </p>
+          {doctor.mixed_currency && (
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+              Sums more than one currency — not a single reliable amount.
+            </p>
+          )}
         </div>
         <div className="rounded-md border border-charcoal-ink/10 bg-white px-3 py-2 dark:border-night-ink/15 dark:bg-night-card">
           <p className="text-xs text-charcoal-ink/50">Paid jobs</p>
@@ -126,34 +157,42 @@ function DoctorDetail({ doctor }: { doctor: DoctorIncomeByDoctor }) {
         ) : (jobs.data ?? []).length === 0 ? (
           <CenterNote>No paid jobs in this period.</CenterNote>
         ) : (
-          <div className="max-h-80 overflow-auto rounded-md border border-charcoal-ink/10 dark:border-night-ink/15">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-warm-ivory dark:bg-night-card">
-                <tr className="border-b border-charcoal-ink/10 text-left text-xs text-charcoal-ink/50">
-                  <th className="py-1.5 pr-4 pl-3 font-medium">Service</th>
-                  <th className="py-1.5 pr-4 font-medium">Patient</th>
-                  <th className="py-1.5 pr-4 font-medium">Earned</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(jobs.data ?? []).map((j) => (
-                  <tr key={`${j.source}-${j.source_id}`} className="border-b border-charcoal-ink/5">
-                    <td className="py-1.5 pr-4 pl-3 text-charcoal-ink/80">{j.product_name}</td>
-                    <td className="py-1.5 pr-4 font-mono text-xs text-charcoal-ink/60">
-                      {j.patient_number ?? "—"}
-                    </td>
-                    <td className="py-1.5 pr-4 whitespace-nowrap text-charcoal-ink/60">
-                      {fmtWhen(j.earned_at)}
-                    </td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums">
-                      {formatMinor(j.revenue_minor, j.currency ?? "NGN")}
-                    </td>
+          <>
+            {truncated && (
+              <p className="mb-2 rounded-md bg-sprout-gold/15 px-2.5 py-1.5 text-xs text-charcoal-ink/70">
+                Showing the most recent {MAX_JOBS_PER_DOCTOR.toLocaleString("en-NG")} jobs — this
+                doctor has more than that in this period. Narrow the period to see the rest.
+              </p>
+            )}
+            <div className="max-h-80 overflow-auto rounded-md border border-charcoal-ink/10 dark:border-night-ink/15">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-warm-ivory dark:bg-night-card">
+                  <tr className="border-b border-charcoal-ink/10 text-left text-xs text-charcoal-ink/50">
+                    <th className="py-1.5 pr-4 pl-3 font-medium">Service</th>
+                    <th className="py-1.5 pr-4 font-medium">Patient</th>
+                    <th className="py-1.5 pr-4 font-medium">Earned</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">Amount</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {(jobs.data ?? []).map((j) => (
+                    <tr key={`${j.source}-${j.source_id}`} className="border-b border-charcoal-ink/5">
+                      <td className="py-1.5 pr-4 pl-3 text-charcoal-ink/80">{j.product_name}</td>
+                      <td className="py-1.5 pr-4 font-mono text-xs text-charcoal-ink/60">
+                        {j.patient_number ?? "—"}
+                      </td>
+                      <td className="py-1.5 pr-4 whitespace-nowrap text-charcoal-ink/60">
+                        {fmtWhen(j.earned_at)}
+                      </td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums">
+                        {formatMinor(j.revenue_minor, j.currency ?? "NGN")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -294,6 +333,11 @@ export function DoctorIncomeDashboard() {
                       <td className="py-2 pr-4 text-right tabular-nums">{formatNumber(d.patients)}</td>
                       <td className="py-2 pr-4 text-right tabular-nums font-medium">
                         {formatMinor(d.revenue_minor, d.currency ?? "NGN")}
+                        {d.mixed_currency && (
+                          <span className="ml-1.5 align-middle" title="This total sums more than one currency — treat it as unreliable until reviewed.">
+                            <Badge variant="amber">mixed currency</Badge>
+                          </span>
+                        )}
                       </td>
                       <td className="py-2 whitespace-nowrap text-charcoal-ink/60">
                         {fmtDate(d.last_job_at)}
@@ -302,7 +346,7 @@ export function DoctorIncomeDashboard() {
                     {selectedDoctorId === d.doctor_profile_id && (
                       <tr className="border-b border-charcoal-ink/5 bg-warm-ivory dark:bg-night-card">
                         <td colSpan={6} className="px-4 py-4">
-                          <DoctorDetail doctor={d} />
+                          <DoctorDetail doctor={d} from={range.from} to={range.to} />
                         </td>
                       </tr>
                     )}
