@@ -4,6 +4,14 @@ import type { Tables } from "@tarragon/shared";
 
 export type SupportViewSession = Tables<"support_view_sessions">;
 
+/** Shared by the console list and the session page — one definition of "still active". */
+export function isSupportViewSessionActive(session: {
+  ended_at: string | null;
+  expires_at: string;
+}): boolean {
+  return !session.ended_at && new Date(session.expires_at).getTime() > Date.now();
+}
+
 export type SupportViewSubject = {
   id: string;
   full_name: string | null;
@@ -43,15 +51,26 @@ export function useSupportViewAsSubjectSearch(query: string) {
  * granting a live profiles read for a non-admin/non-org-staff viewer, which would make an
  * embed show null forever — this row's own record of who it was about must not depend on a
  * read grant its own ending just revoked.
+ *
+ * Explicitly filtered to viewer_id = the caller — support_view_sessions_select's RLS policy
+ * also admits rows where the caller is the SUBJECT (so they can see who viewed them) or an
+ * admin, and without this filter this "your sessions" list would silently mix in sessions
+ * someone else ran against the caller's own account.
  */
 export function useMySupportViewSessions() {
   return useQuery({
     queryKey: ["support-view-as-sessions"],
     queryFn: async () => {
       const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return [];
+
       const { data, error } = await supabase
         .from("support_view_sessions")
         .select("*")
+        .eq("viewer_id", user.id)
         .order("started_at", { ascending: false })
         .limit(20);
       if (error) throw error;

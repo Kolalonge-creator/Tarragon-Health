@@ -15,6 +15,12 @@
 --   * while a session is active, the viewer CAN read the subject's profile
 --     row (private.can_support_view actually grants the read) but CANNOT
 --     write it — the whole point of "read-only" is proven, not assumed;
+--   * that read grant actually works on EVERY table in the read surface
+--     (vitals_readings, medications, appointments, screening_schedules), not
+--     just profiles;
+--   * the grant is scoped to the exact (viewer, subject) pair — an active
+--     session for one subject does NOT also grant a read on a different
+--     subject (per-subject scoping, not "any active session anywhere");
 --   * a DIFFERENT staff member with no session of their own still cannot
 --     read the subject's profile — the grant is scoped to exactly the
 --     (viewer, subject) pair, not a blanket opening;
@@ -112,6 +118,22 @@ begin
 
   insert into public.user_permission_grants (profile_id, permission_key)
   values (v_support_agent, 'support.view_as');
+
+  -- One row per table in the support-view-as read surface (besides profiles, already covered),
+  -- so check 5b below can prove private.can_support_view actually grants a READ on each of
+  -- them, not just profiles — the original pass only ever read profiles through an active
+  -- session, so a broken cast/clause on any of the other 6 tables would have gone unnoticed.
+  insert into public.vitals_readings (patient_id, organisation_id, vital_type, source, taken_at, pulse_bpm)
+  values (v_patient, v_org, 'pulse', 'manual', now(), 72);
+  insert into public.medications (patient_id, organisation_id, drug_name, dose, frequency, is_active)
+  values (v_patient, v_org, 'SVAS Test Drug', '10mg', 'daily', true);
+  insert into public.appointments
+    (patient_id, organisation_id, appointment_type, consultation_method, scheduled_for, ends_at, status)
+  values (v_patient, v_org, 'gp', 'telemedicine', now() + interval '1 day', now() + interval '1 day' + interval '30 minutes', 'confirmed');
+  insert into public.screening_schedules (patient_id, organisation_id, screen_type_id, due_date, status)
+  select v_patient, v_org, id, current_date + interval '30 days', 'pending' from public.screen_types limit 1;
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, employment_type, active)
+  values (v_org, v_clinician, 'SVAS Test Clinician', 'medical_officer', 'employed', false);
 
   insert into svas_fixture(k, v) values
     ('org', v_org), ('agent_org', v_agent_org), ('support_agent', v_support_agent),
@@ -302,6 +324,94 @@ begin
 end $$;
 
 -- ==========================================================================
+-- 5b. While the session is active: the viewer CAN read the patient's data on
+--     EVERY table in the read surface, not just profiles — the previous pass
+--     of this suite only ever exercised a read against profiles through an
+--     active session, so a broken cast/clause on vitals_readings, medications,
+--     appointments, screening_schedules, notifications, or clinical_staff
+--     could have shipped with all-green tests. Each of these 6 tables got one
+--     fixture row for the patient (or, for clinical_staff, the clinician) in
+--     the setup block above.
+-- ==========================================================================
+do $$
+declare
+  v_support_agent uuid := (select v from svas_fixture where k = 'support_agent');
+  v_patient       uuid := (select v from svas_fixture where k = 'patient');
+  v_vitals_count       bigint;
+  v_medications_count  bigint;
+  v_appointments_count bigint;
+  v_screenings_count   bigint;
+  v_notifications_count bigint;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_support_agent::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_vitals_count from public.vitals_readings where patient_id = v_patient;
+  select count(*) into v_medications_count from public.medications where patient_id = v_patient;
+  select count(*) into v_appointments_count from public.appointments where patient_id = v_patient;
+  select count(*) into v_screenings_count from public.screening_schedules where patient_id = v_patient;
+  -- The AFTER INSERT notify trigger already wrote the "support_view_as_started" row to the
+  -- patient the moment the session started (check 4) — this proves the viewer can read
+  -- notifications for their subject too, not just the other clinical tables.
+  select count(*) into v_notifications_count from public.notifications where recipient_id = v_patient;
+  reset role;
+
+  insert into svas_result values
+    ('active session: viewer can read vitals_readings', 'support agent', v_vitals_count::text, '1',
+     case when v_vitals_count = 1 then 'PASS' else 'FAIL' end);
+  insert into svas_result values
+    ('active session: viewer can read medications', 'support agent', v_medications_count::text, '1',
+     case when v_medications_count = 1 then 'PASS' else 'FAIL' end);
+  insert into svas_result values
+    ('active session: viewer can read appointments', 'support agent', v_appointments_count::text, '1',
+     case when v_appointments_count = 1 then 'PASS' else 'FAIL' end);
+  insert into svas_result values
+    ('active session: viewer can read screening_schedules', 'support agent', v_screenings_count::text, '1',
+     case when v_screenings_count = 1 then 'PASS' else 'FAIL' end);
+  insert into svas_result values
+    ('active session: viewer can read notifications', 'support agent', v_notifications_count::text, '>= 1',
+     case when v_notifications_count >= 1 then 'PASS' else 'FAIL' end);
+  if v_vitals_count <> 1 or v_medications_count <> 1 or v_appointments_count <> 1 or v_screenings_count <> 1
+    or v_notifications_count < 1
+  then
+    raise exception 'BROKEN: an active support view-as session could not read one or more of vitals_readings (%), medications (%), appointments (%), screening_schedules (%), notifications (%) for its subject',
+      v_vitals_count, v_medications_count, v_appointments_count, v_screenings_count, v_notifications_count;
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 5c. Per-subject scoping — while the support agent's ONLY active session is
+--     for the PATIENT, they still cannot read the CLINICIAN's profile or
+--     clinical_staff record. This is the check that would actually fail if
+--     private.can_support_view() were buggy in a way check 6 below cannot
+--     catch — e.g. checking only "does this caller have ANY active session"
+--     without also matching p_subject_id to the specific row being read.
+-- ==========================================================================
+do $$
+declare
+  v_support_agent uuid := (select v from svas_fixture where k = 'support_agent');
+  v_clinician     uuid := (select v from svas_fixture where k = 'clinician');
+  v_readback      text;
+  v_staff_count   bigint;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_support_agent::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select full_name into v_readback from public.profiles where id = v_clinician;
+  select count(*) into v_staff_count from public.clinical_staff where profile_id = v_clinician;
+  reset role;
+
+  insert into svas_result values
+    ('per-subject scoping: patient session does not also grant the clinician subject', 'support agent',
+     coalesce(v_readback, 'null (refused)') || ' / clinical_staff=' || v_staff_count::text,
+     'null (refused) / clinical_staff=0',
+     case when v_readback is null and v_staff_count = 0 then 'PASS' else 'FAIL' end);
+  if v_readback is not null or v_staff_count <> 0 then
+    raise exception 'LEAK: an active session for one subject (patient) also granted a read on an UNRELATED subject (clinician) — private.can_support_view is not scoping by subject_id correctly';
+  end if;
+end $$;
+
+-- ==========================================================================
 -- 6. A DIFFERENT staff member (no session, no grant) still cannot read the
 --    patient's profile — the read grant is scoped to exactly this
 --    (viewer, subject) pair, not opened up for every staff account.
@@ -413,7 +523,10 @@ end $$;
 --     null->non-null transition (a caller permitted to UPDATE the row setting
 --     ended_by alone, while the session is still active). Uses a fresh
 --     second session (against the clinician subject) so it's still active
---     going into this check.
+--     going into this check — also doubles as the positive clinical_staff
+--     read proof (the last table in the read surface 5b didn't cover, since
+--     the fixture's clinical_staff row belongs to the clinician, not the
+--     patient session that was active at that point).
 -- ==========================================================================
 do $$
 declare
@@ -423,6 +536,7 @@ declare
   v_session_id    uuid;
   v_ended_by      uuid;
   v_ended_at      timestamptz;
+  v_staff_count   bigint;
 begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_support_agent::text, 'role', 'authenticated')::text, true);
@@ -430,7 +544,15 @@ begin
   insert into public.support_view_sessions (viewer_id, subject_id, reason)
   values (v_support_agent, v_clinician, 'checking a clinician-side report')
   returning id into v_session_id;
+  select count(*) into v_staff_count from public.clinical_staff where profile_id = v_clinician;
   reset role;
+
+  insert into svas_result values
+    ('active session for the clinician subject: viewer can read clinical_staff', 'support agent',
+     v_staff_count::text, '1', case when v_staff_count = 1 then 'PASS' else 'FAIL' end);
+  if v_staff_count <> 1 then
+    raise exception 'BROKEN: an active support view-as session for a clinician subject could not read their clinical_staff record';
+  end if;
 
   -- The subject may also touch this row (support_view_sessions_end admits viewer/subject/admin),
   -- so attempt the sabotage as the clinician subject setting only ended_by, leaving ended_at null.

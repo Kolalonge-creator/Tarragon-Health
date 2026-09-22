@@ -13,24 +13,16 @@ import {
   useStartSupportViewSession,
   useEndSupportViewSession,
   useMySupportViewSessions,
+  isSupportViewSessionActive,
   type SupportViewSubject,
 } from "@/lib/queries/support-view-as";
+import { timeAgo } from "@/lib/worklist/sla-label";
 
 const REASON_MIN_LENGTH = 3;
-
-function isSessionActive(session: { ended_at: string | null; expires_at: string }): boolean {
-  return !session.ended_at && new Date(session.expires_at).getTime() > Date.now();
-}
-
-function timeAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  const minutes = Math.round(ms / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
-}
+// Matches the DB's support_view_sessions_reason_len CHECK constraint (3-500) — enforced
+// client-side too so a too-long reason shows a friendly disabled button, not a raw Postgres
+// check-constraint error surfaced verbatim.
+const REASON_MAX_LENGTH = 500;
 
 function SubjectRow({ subject }: { subject: SupportViewSubject }) {
   const router = useRouter();
@@ -65,11 +57,16 @@ function SubjectRow({ subject }: { subject: SupportViewSubject }) {
             placeholder="e.g. patient reports their dashboard shows no vitals after syncing a wearable"
             className="text-sm"
             rows={2}
+            maxLength={REASON_MAX_LENGTH}
           />
           <Button
             type="button"
             size="sm"
-            disabled={startSession.isPending || reason.trim().length < REASON_MIN_LENGTH}
+            disabled={
+              startSession.isPending ||
+              reason.trim().length < REASON_MIN_LENGTH ||
+              reason.trim().length > REASON_MAX_LENGTH
+            }
             onClick={() => {
               startSession.mutate(
                 { subjectId: subject.id, subjectRole: subject.role, reason: reason.trim() },
@@ -80,7 +77,9 @@ function SubjectRow({ subject }: { subject: SupportViewSubject }) {
             {startSession.isPending ? "Starting…" : "Start 30-minute session"}
           </Button>
           {startSession.isError && (
-            <p className="text-xs text-red-600">{(startSession.error as Error).message}</p>
+            <p className="text-xs text-red-600">
+              {startSession.error instanceof Error ? startSession.error.message : "Could not start the session."}
+            </p>
           )}
         </div>
       )}
@@ -101,7 +100,7 @@ function SessionsList() {
   return (
     <ul className="divide-y divide-charcoal-ink/10">
       {sessions.map((s) => {
-        const active = isSessionActive(s);
+        const active = isSupportViewSessionActive(s);
         return (
           <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
             <div>

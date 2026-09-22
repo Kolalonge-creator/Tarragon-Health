@@ -288,6 +288,11 @@ begin
   end if;
 
   new.viewer_id := (select auth.uid());
+  -- v_subject_org can legitimately be null (profiles.organisation_id is nullable) — same
+  -- org-less-profile edge case every other org-scoped table on this platform already lives
+  -- with (e.g. profiles_select's own "organisation_id is not null and is_org_staff(...)"
+  -- guard). A null here just means this session's audit_log/notifications rows carry a null
+  -- organisation_id too, same as any other org-less profile's activity would.
   new.organisation_id := v_subject_org;
   new.subject_role := v_subject_role;
   new.subject_full_name := v_subject_name;
@@ -323,7 +328,8 @@ security definer
 set search_path = ''
 as $$
 begin
-  if new.viewer_id is distinct from old.viewer_id
+  if new.id is distinct from old.id
+    or new.viewer_id is distinct from old.viewer_id
     or new.subject_id is distinct from old.subject_id
     or new.subject_full_name is distinct from old.subject_full_name
     or new.subject_role is distinct from old.subject_role
@@ -331,6 +337,7 @@ begin
     or new.reason is distinct from old.reason
     or new.started_at is distinct from old.started_at
     or new.expires_at is distinct from old.expires_at
+    or new.created_at is distinct from old.created_at
   then
     raise exception 'Only ending a support view-as session (ended_at) is allowed once created';
   end if;

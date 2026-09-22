@@ -5,14 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { isSupportViewSessionActive } from "@/lib/queries/support-view-as";
 import { EndSessionButton } from "./end-session-button";
 import { SessionCountdown } from "./session-countdown";
 
 export const metadata = { title: "Support view-as session" };
-
-function computeIsActive(session: { ended_at: string | null; expires_at: string }): boolean {
-  return !session.ended_at && new Date(session.expires_at).getTime() > Date.now();
-}
 
 function shortDate(value: string | null): string {
   if (!value) return "—";
@@ -54,7 +51,7 @@ export default async function SupportViewAsSessionPage({
     redirect("/admin/support/view-as");
   }
 
-  const isActive = computeIsActive(session);
+  const isActive = isSupportViewSessionActive(session);
 
   // Once a session has ended or expired, private.can_support_view() correctly stops granting
   // a read on the subject's data — that IS the read-only, time-boxed guarantee working as
