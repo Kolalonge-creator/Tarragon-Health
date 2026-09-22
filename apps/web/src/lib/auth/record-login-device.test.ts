@@ -1,16 +1,27 @@
+const headersMock = jest.fn(async () => ({
+  get: (key: string) => (key === "user-agent" ? "TestAgent/1.0" : null),
+}));
 jest.mock("next/headers", () => ({
-  headers: async () => ({
-    get: (key: string) => (key === "user-agent" ? "TestAgent/1.0" : null),
-  }),
+  headers: () => headersMock(),
 }));
 
+const getClientIpMock = jest.fn(async () => "203.0.113.5");
 jest.mock("@/lib/rate-limit", () => ({
-  getClientIp: async () => "203.0.113.5",
+  getClientIp: () => getClientIpMock(),
 }));
 
 import { recordLoginDevice } from "./record-login-device";
 
 describe("recordLoginDevice", () => {
+  beforeEach(() => {
+    headersMock.mockClear();
+    headersMock.mockImplementation(async () => ({
+      get: (key: string) => (key === "user-agent" ? "TestAgent/1.0" : null),
+    }));
+    getClientIpMock.mockClear();
+    getClientIpMock.mockImplementation(async () => "203.0.113.5");
+  });
+
   it("calls the RPC with a sha256 fingerprint of the User-Agent, plus the UA and IP", async () => {
     const rpc = jest.fn().mockResolvedValue({ data: true, error: null });
     const supabase = { rpc } as unknown as Parameters<typeof recordLoginDevice>[0];
@@ -46,5 +57,29 @@ describe("recordLoginDevice", () => {
     const supabase = { rpc } as unknown as Parameters<typeof recordLoginDevice>[0];
 
     await expect(recordLoginDevice(supabase)).resolves.toBeUndefined();
+  });
+
+  // Regression: after routing the RPC call through callRpc, only the RPC
+  // call itself was protected by a try/catch — headers()/getClientIp()/
+  // createHash() ran unguarded before it, contradicting this function's own
+  // "must never block a real login" doc-comment promise. Flagged
+  // independently 4+ times across review passes. Fixed by wrapping the
+  // whole function body in one try/catch again.
+  it("never throws when headers() itself throws (no request context)", async () => {
+    headersMock.mockRejectedValueOnce(new Error("no request context"));
+    const rpc = jest.fn().mockResolvedValue({ data: true, error: null });
+    const supabase = { rpc } as unknown as Parameters<typeof recordLoginDevice>[0];
+
+    await expect(recordLoginDevice(supabase)).resolves.toBeUndefined();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("never throws when getClientIp() itself throws", async () => {
+    getClientIpMock.mockRejectedValueOnce(new Error("malformed forwarded-for header"));
+    const rpc = jest.fn().mockResolvedValue({ data: true, error: null });
+    const supabase = { rpc } as unknown as Parameters<typeof recordLoginDevice>[0];
+
+    await expect(recordLoginDevice(supabase)).resolves.toBeUndefined();
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

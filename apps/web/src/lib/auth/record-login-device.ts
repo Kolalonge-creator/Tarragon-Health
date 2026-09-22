@@ -23,14 +23,25 @@ import type { Database } from "@tarragon/shared";
  * before redirecting the user onward.
  */
 export async function recordLoginDevice(supabase: SupabaseClient<Database>): Promise<void> {
-  const h = await headers();
-  const userAgent = h.get("user-agent") ?? "unknown";
-  const ip = await getClientIp();
-  const fingerprint = createHash("sha256").update(userAgent).digest("hex");
+  try {
+    const h = await headers();
+    const userAgent = h.get("user-agent") ?? "unknown";
+    const ip = await getClientIp();
+    const fingerprint = createHash("sha256").update(userAgent).digest("hex");
 
-  await callRpc(supabase, "record_login_device", {
-    p_device_fingerprint: fingerprint,
-    p_user_agent: userAgent,
-    p_ip: ip,
-  });
+    await callRpc(supabase, "record_login_device", {
+      p_device_fingerprint: fingerprint,
+      p_user_agent: userAgent,
+      p_ip: ip,
+    });
+  } catch {
+    // headers()/getClientIp() can throw outside a real request context (or
+    // getClientIp fails to parse a malformed forwarded-for header) — callRpc
+    // already reports a resolved RPC failure to Sentry, but a thrown
+    // exception from these calls happens before callRpc ever runs, so it
+    // must be caught here directly. Deliberately silent, no Sentry report:
+    // unlike a broken RPC grant (a real platform-wide regression worth
+    // paging on), a missing header on one request is expected/benign. Never
+    // let this block a real login.
+  }
 }
