@@ -27,6 +27,16 @@ export function PatientLocationForm({
   const [state, formAction, pending] = useActionState(updatePatientLocation, undefined);
   const router = useRouter();
 
+  // The state field used to be free text (see the Select comment below), so
+  // an existing profile can carry a value that isn't an exact match for any
+  // NIGERIAN_STATES option (different casing, "FCT" instead of "Abuja",
+  // etc.). A <Select> with no matching <option> silently falls back to the
+  // first one ("Select…") — if the patient then saved the form without
+  // touching this field, that blank submission would have nulled out their
+  // real saved state. Keeping the on-file value as its own option instead
+  // preserves it (and makes the mismatch visible) until they pick a real one.
+  const hasCanonicalMatch = !initial.state || NIGERIAN_STATES.some((s) => s.value === initial.state);
+
   // Server components read profiles.state/city/area — refresh so the pickers
   // downstream pick up the new saved location without a full reload.
   useEffect(() => {
@@ -57,6 +67,9 @@ export function PatientLocationForm({
                   already uses. */}
               <Select id="location-state" name="state" defaultValue={initial.state ?? ""}>
                 <option value="">Select…</option>
+                {!hasCanonicalMatch && (
+                  <option value={initial.state ?? ""}>{initial.state} (on file, please reselect)</option>
+                )}
                 {NIGERIAN_STATES.map((s) => (
                   <option key={s.value} value={s.value}>
                     {s.label}
