@@ -178,6 +178,15 @@ notification_channel_preference_dead_channel_no_lockin.sql
 # reopens the hole on the bounded case.
 platform_credit_spend_revenue_deferral.sql
 
+# --- Added 2026-09-22 -----------------------------------------------------
+# record_login_device()'s security.new_device_signin email notification has
+# been silently failing to send since it shipped (2026-08-29) -- it never set
+# payload.to_email, which send-pending-notifications requires for any
+# email-channel row (no profiles.email column, no fallback lookup unlike
+# phone). Found while wiring the sibling security.account_locked notification
+# below, which was checked against this exact bug class from the start.
+new_device_signin_to_email.sql
+
 # --- Added 2026-09-18 (auth security audit) -----------------------------
 # Real account-level lockout after repeated failed password logins was a
 # confirmed gap: only a rolling IP/email rate limit existed (lib/rate-limit.ts),

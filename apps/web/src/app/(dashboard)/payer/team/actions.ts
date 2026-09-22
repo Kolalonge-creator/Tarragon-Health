@@ -5,6 +5,12 @@ import { revalidatePath } from "next/cache";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import {
+  PASSWORD_COMPLEXITY_REGEX,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_TOO_SHORT_MESSAGE,
+  PASSWORD_TOO_WEAK_MESSAGE,
+} from "@/lib/validation/password";
 
 export type ActionState = { error?: string; message?: string } | undefined;
 
@@ -12,7 +18,15 @@ const inviteSchema = z.object({
   insurerId: z.string().uuid(),
   email: z.string().email(),
   fullName: z.string().trim().min(1).max(200),
-  password: z.string().min(8).max(72),
+  // Shared with every patient-facing new-password field (2026-09-18 security
+  // audit — this ad-hoc min(8) used to be weaker than the rest of the
+  // platform, letting a payer admin provision a staff account with a
+  // digits-only or letters-only password).
+  password: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE)
+    .max(72)
+    .regex(PASSWORD_COMPLEXITY_REGEX, PASSWORD_TOO_WEAK_MESSAGE),
   payerRole: z.enum(["owner", "benefits_manager", "authorisation_officer", "claims_officer", "analyst"]),
   jobTitle: z.string().trim().max(200).optional(),
 });

@@ -103,6 +103,7 @@ declare
   v_attempts    integer;
   v_locked_until timestamptz;
   v_should_notify boolean := false;
+  v_email       text;
 begin
   insert into public.account_lockouts (profile_id, organisation_id, failed_attempts, last_failed_at)
   values (p_profile_id, p_org_id, 1, now())
@@ -146,6 +147,18 @@ begin
   end if;
 
   if v_should_notify then
+    -- send-pending-notifications resolves an email-channel row's destination
+    -- ONLY from payload.to_email (profiles has no email column, and unlike
+    -- phone there is no recipient-profile fallback lookup for email) — found
+    -- while wiring this up: the pre-existing security.new_device_signin
+    -- notification has the same gap (no to_email either), which means its
+    -- email half has been silently failing "recipient has no email address"
+    -- since it shipped. See 20260918120000_fix_new_device_signin_missing_
+    -- to_email.sql for that fix; this is the same pattern applied here from
+    -- the start. Matches 20260720120004_prescription_lab_order_patient_
+    -- emails.sql's own `select email into ... from auth.users` convention.
+    select email into v_email from auth.users where id = p_profile_id;
+
     insert into public.notifications
       (organisation_id, recipient_id, channel, status, template, payload, content_class, priority)
     values
@@ -160,7 +173,8 @@ begin
        jsonb_build_object(
          'message', 'Your Tarragon Health account was temporarily locked for 15 minutes after several failed sign-in attempts. If this wasn''t you, please reset your password as soon as the lock lifts.',
          'locked_minutes', 15,
-         'occurred_at', now()
+         'occurred_at', now(),
+         'to_email', v_email
        ),
        'non_clinical', 'critical');
   end if;

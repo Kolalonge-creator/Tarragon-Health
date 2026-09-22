@@ -132,6 +132,7 @@ declare
   v_locked boolean;
   v_in_app_count bigint;
   v_email_count  bigint;
+  v_to_email     text;
 begin
   perform public.record_failed_login('alrfl-test-patient@example.invalid');
 
@@ -140,7 +141,7 @@ begin
   from public.notifications
   where recipient_id = (select v from alrfl_fixture where k = 'patient')
     and template = 'security.account_locked' and channel = 'in_app';
-  select count(*) into v_email_count
+  select count(*), max(payload->>'to_email') into v_email_count, v_to_email
   from public.notifications
   where recipient_id = (select v from alrfl_fixture where k = 'patient')
     and template = 'security.account_locked' and channel = 'email';
@@ -154,9 +155,21 @@ begin
   insert into alrfl_result values
     ('exactly one email lockout notification queued', v_email_count::text, '1',
      case when v_email_count = 1 then 'PASS' else 'FAIL' end);
+  -- Regression: send-pending-notifications resolves an email row's
+  -- destination ONLY from payload.to_email (no profiles.email column, no
+  -- fallback lookup unlike phone) — without this, the email half silently
+  -- failed "recipient has no email address" on every real lockout.
+  insert into alrfl_result values
+    ('email notification carries payload.to_email (or the pipeline drops it silently)',
+     coalesce(v_to_email, 'null'), 'alrfl-test-patient@example.invalid',
+     case when v_to_email = 'alrfl-test-patient@example.invalid' then 'PASS' else 'FAIL' end);
   if v_locked is distinct from true or v_in_app_count <> 1 or v_email_count <> 1 then
     raise exception 'BROKEN: 5th failure did not lock+notify exactly once (locked=%, in_app=%, email=%)',
       v_locked, v_in_app_count, v_email_count;
+  end if;
+  if v_to_email is distinct from 'alrfl-test-patient@example.invalid' then
+    raise exception 'BROKEN: email notification has no (or wrong) payload.to_email — send-pending-notifications would silently drop it (got %)',
+      coalesce(v_to_email, 'null');
   end if;
 end $$;
 
