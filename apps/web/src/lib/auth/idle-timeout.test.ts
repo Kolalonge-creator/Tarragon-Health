@@ -71,11 +71,25 @@ describe("isIdleTimeoutExemptPath", () => {
     expect(isIdleTimeoutExemptPath("/login/mfa-challenge")).toBe(true);
   });
 
-  it("exempts the guest-checkout flow (regression: an in-progress purchase would otherwise get silently dropped mid payment-entry)", () => {
-    expect(isIdleTimeoutExemptPath("/checkout")).toBe(true);
+  it("exempts the guest-checkout OTP-entry page only", () => {
     expect(isIdleTimeoutExemptPath("/checkout/video_visit_credit")).toBe(true);
-    expect(isIdleTimeoutExemptPath("/checkout/continue")).toBe(true);
-    expect(isIdleTimeoutExemptPath("/checkout/receipt")).toBe(true);
+  });
+
+  // Regression: an earlier version of this exemption was a blanket
+  // /checkout prefix, which also covered /checkout/continue —
+  // purchaseServiceProduct() executed there is a real, authenticated
+  // purchase gated only on getCurrentUser(), with no recency check of its
+  // own. A signed-in patient (not just a guest) who leaves a tab open and
+  // idle on a shared/public computer well past the idle threshold would
+  // never be bounced when someone else navigated to that URL (browser
+  // back/forward, a bookmark, a copied link) — a financial transaction must
+  // still respect the idle timeout.
+  it("does NOT exempt /checkout/continue — a real financial transaction, not an OTP-entry step", () => {
+    expect(isIdleTimeoutExemptPath("/checkout/continue")).toBe(false);
+  });
+
+  it("does NOT exempt /checkout/receipt", () => {
+    expect(isIdleTimeoutExemptPath("/checkout/receipt")).toBe(false);
   });
 
   it("does not exempt a real dashboard route", () => {

@@ -80,22 +80,34 @@ export function isBackgroundTelemetryPath(pathname: string): boolean {
  * path (reset-password/actions.ts) would never execute. /forgot-password
  * and /login/mfa-challenge are the same shape: a session already mid-way
  * through recovering or stepping up, not a signal of a stale session
- * sitting untouched. `/checkout` (verifyGuestCheckoutOtp establishes a real
- * session there too, per guest-checkout.ts) is the same shape again — a
- * guest who takes longer than the idle threshold to enter payment details
- * (slow connection, hesitation) would otherwise have their final "Pay"
- * submission intercepted, silently dropping an in-progress purchase and
- * forcing a restart of the whole guest-checkout flow. A prefix match on
- * `/checkout` covers its /[code], /continue and /receipt sub-paths in one
- * exemption.
+ * sitting untouched.
+ *
+ * `/checkout/<code>` (the guest-checkout OTP-entry page,
+ * app/checkout/[code]/page.tsx) is the same shape again — a guest fills in
+ * the form and types a code emailed to them, not a signal of a stale
+ * session sitting untouched. Deliberately NOT a blanket `/checkout` prefix,
+ * unlike an earlier version of this exemption: /checkout/continue
+ * (app/checkout/continue/page.tsx) calls purchaseServiceProduct() — a real,
+ * authenticated purchase — gated only on getCurrentUser(), with no recency
+ * check of its own. A blanket prefix would have meant a signed-in patient
+ * (not just a guest) who leaves a tab open and idle on a shared/public
+ * computer well past the idle threshold is never bounced when someone else
+ * navigates to /checkout/continue?code=... (browser back/forward, a
+ * bookmark, a copied link) — the purchase would go through on an account
+ * that's been unattended well past IDLE_TIMEOUT_MINUTES, exactly the
+ * scenario idle-timeout exists to prevent. A real financial transaction
+ * must still respect the idle timeout, whether the buyer is a guest or an
+ * already-authenticated patient — /checkout/continue and /checkout/receipt
+ * are deliberately excluded.
  */
 export function isIdleTimeoutExemptPath(pathname: string): boolean {
   return (
     pathname === "/reset-password" ||
     pathname === "/forgot-password" ||
     pathname === "/login/mfa-challenge" ||
-    pathname === "/checkout" ||
-    pathname.startsWith("/checkout/")
+    (pathname.startsWith("/checkout/") &&
+      !pathname.startsWith("/checkout/continue") &&
+      !pathname.startsWith("/checkout/receipt"))
   );
 }
 

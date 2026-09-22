@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { mfaCodeSchema } from "@/lib/validation/auth";
 import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
+import { stampActivityCookie } from "@/lib/auth/idle-timeout";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
@@ -45,6 +46,7 @@ export async function verifyLoginMfaChallenge(
   if (!factor) {
     // Nothing enrolled after all (e.g. turned off in another tab mid-flow) —
     // there's nothing left to challenge, so just carry on.
+    await stampActivityCookie();
     redirect(
       await resolveLoginDestination(supabase, user.id, formData.get("redirectTo")?.toString())
     );
@@ -65,6 +67,15 @@ export async function verifyLoginMfaChallenge(
   if (verifyError) {
     return { error: "That code did not match. Check the app and try again.", field: "code" };
   }
+
+  // Fresh timestamp for THIS session — see stampActivityCookie's own doc
+  // comment. The activity cookie was last stamped at the password/OTP step,
+  // BEFORE this challenge, and /login/mfa-challenge itself is idle-timeout-
+  // exempt (no stamp happens there either) — without this, a patient whose
+  // challenge takes longer than IDLE_TIMEOUT_MINUTES (finding their
+  // authenticator app, typing the code) would be bounced straight to
+  // /login?reason=idle immediately after entering the correct code.
+  await stampActivityCookie();
 
   redirect(
     await resolveLoginDestination(supabase, user.id, formData.get("redirectTo")?.toString())

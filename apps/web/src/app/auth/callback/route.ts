@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getRoleHomePath } from "@/lib/auth/roles";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
+import { stampActivity } from "@/lib/auth/idle-timeout";
 
 /** Exchanges an email-confirmation / magic-link code for a session. */
 export async function GET(request: NextRequest) {
@@ -60,5 +61,18 @@ export async function GET(request: NextRequest) {
     .single();
 
   const home = profile ? getRoleHomePath(profile.role) : "/patient";
-  return NextResponse.redirect(`${origin}${sanitizeRedirect(redirectParam) ?? home}`);
+  const response = NextResponse.redirect(`${origin}${sanitizeRedirect(redirectParam) ?? home}`);
+
+  // Fresh timestamp for THIS session — /auth/* is itself idle-timeout-exempt
+  // (proxy.ts), so without this a user with a stale cookie from a previous
+  // session who signs in via a magic link/email-confirmation link would be
+  // redirected straight into a non-exempt page and immediately bounced to
+  // /login?reason=idle right after a successful sign-in. See
+  // stampActivityCookie's own doc comment (idle-timeout.ts) for the same fix
+  // applied to every Server Action login path; this is the Route Handler
+  // equivalent (stampActivity, not stampActivityCookie, since this
+  // constructs its own NextResponse rather than running in a Server Action).
+  stampActivity(response, Date.now());
+
+  return response;
 }

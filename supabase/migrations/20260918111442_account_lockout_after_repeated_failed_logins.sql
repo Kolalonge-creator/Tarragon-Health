@@ -398,9 +398,14 @@ $$;
 comment on function public.record_failed_login_by_phone(text) is
   'Phone-OTP counterpart to record_failed_login(email) — same underlying counter/lock '
   '(private.record_failed_login_attempt), keyed by the same profile_id. service_role-only, '
-  'same reasoning as record_failed_login(email). Called from '
-  'apps/web/src/app/login/actions.ts''s verifyPhoneOtp, via createServiceRoleClient(), right '
-  'after a failed verifyOtp.';
+  'same reasoning as record_failed_login(email). NOT currently called from anywhere in the app '
+  '— verifyPhoneOtp/verifyPhoneReset were found before merge to have wired a wrong OTP guess '
+  'here, which is a griefing vector for these two flows specifically (they need only a phone '
+  'number, not a secret, to trigger a real OTP send — see login/actions.ts''s own comment on '
+  'verifyPhoneOtp''s failure branch), and that wiring was deliberately reverted. Do not treat '
+  'this function''s existence as proof phone-OTP brute-forcing contributes to lockout, and do '
+  'not re-wire a caller to it without re-reading that reasoning first — this is dead code on '
+  'purpose, not an oversight.';
 
 revoke all on function public.record_failed_login_by_phone(text) from public, anon, authenticated;
 grant execute on function public.record_failed_login_by_phone(text) to service_role;

@@ -192,10 +192,23 @@ export function isInvalidCredentialsError(error: unknown): boolean {
 
 /**
  * True only for a genuine wrong/expired OTP code — never GoTrue's own rate
- * limiting or a network blip. login/actions.ts's verifyPhoneOtp gates the
- * SAME account-lockout counter isInvalidCredentialsError gates for password
- * sign-in on this, so a lockout genuinely blocks the account regardless of
- * which method an attacker (or a confused legitimate owner) tries.
+ * limiting or a network blip.
+ *
+ * NOT currently called from anywhere in the app. An earlier version of
+ * login/actions.ts's verifyPhoneOtp (and forgot-password/actions.ts's
+ * verifyPhoneReset, and guest-checkout.ts's verifyGuestCheckoutOtp) gated
+ * the SAME account-lockout counter isInvalidCredentialsError gates for
+ * password sign-in on this — found before merge to be a real griefing
+ * vector for exactly those flows, since a phone/email OTP request needs
+ * only a public identifier (not a secret) to trigger a real code send, so
+ * every guess an attacker submits is GUARANTEED to fail with zero
+ * knowledge/effort, unlike a password guess. Counting OTP failures toward
+ * the shared lockout let anyone who merely knows a victim's phone/email
+ * lock them out of login indefinitely — see verifyPhoneOtp's own comment
+ * for the full writeup. Kept (rather than deleted) as a correctly-tested
+ * utility in case a future, genuinely different OTP-verification context
+ * doesn't have that problem — do not wire this into a new call site without
+ * re-checking that the same griefing analysis doesn't apply.
  */
 export function isInvalidOtpError(error: unknown): boolean {
   const raw = rawMessage(error).toLowerCase();
