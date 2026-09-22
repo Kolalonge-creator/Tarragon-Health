@@ -48,6 +48,96 @@ enable_signup = true
 enable_confirmations = true
 template = "Your Tarragon Health code is {{ .Code }}"
 
+# GoTrue-level account-lockout enforcement (see
+# supabase/migrations/20260922201110_password_verification_hook_gotrue_level_lockout.sql)
+# — fires inside Supabase Auth on every password sign-in, from every client
+# (web, mobile, or a direct API caller), closing the mobile/direct-API
+# bypass the web-only is_account_locked()/record_failed_login() pre-check in
+# apps/web/src/app/login/actions.ts cannot reach on its own.
+[auth.hook.password_verification_attempt]
+enabled = true
+uri = "pg-functions://postgres/public/hook_password_verification_attempt"
+
+# Session-lifetime backstops enforced by Supabase Auth itself (GoTrue),
+# independent of any client's own code — see
+# apps/mobile/src/lib/idle-timeout.ts's header comment for why this does NOT
+# substitute for a real per-client idle-timeout: inactivity_timeout is only
+# checked when a session's refresh token is redeemed, and
+# @supabase/supabase-js's autoRefreshToken proactively refreshes on a timer
+# regardless of real user activity as long as the client process is alive —
+# so a foregrounded-but-untouched mobile app keeps "refreshing" itself right
+# through this window. This IS still real, useful defense-in-depth: it
+# bounds a raw stolen-refresh-token replay that isn't itself driving an
+# auto-refreshing SDK, and timebox is a hard cap no client behaviour can
+# extend. The genuine idle-timeout enforcement is apps/web/src/lib/auth/
+# idle-timeout.ts (web, cookie-based) and apps/mobile/src/lib/idle-timeout.ts
+# (mobile, AppState-based) — both independently sign the session out after
+# real inactivity, layered on top of this.
+[auth.sessions]
+# Absolute cap regardless of activity — a stolen/leaked refresh token (or a
+# session nobody ever explicitly closes) cannot be replayed forever.
+timebox = "24h"
+# Checked at refresh time — see the caveat above for why this alone cannot
+# be relied on for "idle" in the way a UI timeout can.
+inactivity_timeout = "30m"
+
+# ---------------------------------------------------------------------------
+# Production override for `supabase config push --project-ref
+# koiplnmbgnqnbywhpjlf`. The root [auth] block above is deliberately shaped
+# for LOCAL development (`supabase start`) — site_url=localhost, no SMTP/SMS
+# credentials, etc. — and `config push` pushes every DECLARED field
+# wholesale, with no per-field scoping flag. Pushing the root block as-is
+# would silently overwrite production's real site_url, redirect allow-list,
+# email/SMS confirmation toggles, SMS copy, and API schema exposure with
+# these local-dev values — a real, live-verified hazard, not a hypothetical
+# one (see `supabase config diff --project-ref koiplnmbgnqnbywhpjlf`, run
+# immediately before writing this block, which showed exactly that drift).
+#
+# This block mirrors the live project's OWN current settings for every field
+# below EXCEPT the two this change actually intends to touch
+# (auth.hook.password_verification_attempt.*, auth.sessions.*) — copied
+# verbatim from that same diff's "remote" values, not guessed. Pushing with
+# `--project-ref koiplnmbgnqnbywhpjlf` therefore changes only those two
+# things in production; nothing else in live auth config moves. If this
+# block is ever reused for a future production auth change, re-run
+# `config diff --project-ref koiplnmbgnqnbywhpjlf` FIRST and reconcile any
+# new drift here before pushing — don't assume these mirrored values are
+# still current.
+[remotes.koiplnmbgnqnbywhpjlf]
+project_id = "koiplnmbgnqnbywhpjlf"
+
+[remotes.koiplnmbgnqnbywhpjlf.api]
+schemas = ["public", "graphql_public"]
+
+[remotes.koiplnmbgnqnbywhpjlf.auth]
+site_url = "https://app.tarragonhealth.ng"
+additional_redirect_urls = [
+  "https://app.tarragonhealth.ng/**",
+  "https://tarragonhealth.ng/**",
+  "https://tarragon-health-web.vercel.app/**",
+  "http://localhost:3000/**",
+]
+jwt_expiry = 3600
+enable_signup = true
+
+[remotes.koiplnmbgnqnbywhpjlf.auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[remotes.koiplnmbgnqnbywhpjlf.auth.sms]
+enable_signup = false
+enable_confirmations = false
+template = "Your code is {{ .Code }}"
+
+# The two fields this whole override block exists to change:
+[remotes.koiplnmbgnqnbywhpjlf.auth.hook.password_verification_attempt]
+enabled = true
+uri = "pg-functions://postgres/public/hook_password_verification_attempt"
+
+[remotes.koiplnmbgnqnbywhpjlf.auth.sessions]
+timebox = "24h"
+inactivity_timeout = "30m"
+
 [edge_runtime]
 enabled = true
 

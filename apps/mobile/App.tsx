@@ -6,6 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import logoMarkWhite from "./assets/logo-mark-white.png";
 import { readAppLockEnabled } from "@/lib/app-lock";
+import { checkIdleAndMaybeSignOut, stampActivity } from "@/lib/idle-timeout";
 import { registerBackgroundHealthSync } from "@/lib/background-sync";
 import { registerPushToken } from "@/lib/push-registration";
 import { flushPendingVitals } from "@/lib/offline-vitals-queue";
@@ -198,6 +199,36 @@ function AppContent() {
     }
   }, [session, identity]);
 
+  // Idle-timeout enforcement — see lib/idle-timeout.ts's header comment for
+  // why this must exist independently of Supabase's own project-level
+  // inactivity_timeout (GoTrue only checks that at refresh time, and
+  // autoRefreshToken keeps a foregrounded-but-untouched app "refreshing"
+  // right through it). Two checkpoints, mirroring the web file's own
+  // "check on the thing that could have changed while unattended" posture:
+  // immediately on every transition back to "active" (catches a session
+  // that expired while backgrounded, since JS timers don't reliably run
+  // then), and every 60s while foregrounded (catches a session left open
+  // and untouched without ever backgrounding). Only runs once a session
+  // exists — an idle timeout has nothing to enforce before sign-in.
+  useEffect(() => {
+    if (!session) return;
+
+    const check = () => {
+      void checkIdleAndMaybeSignOut();
+    };
+
+    check();
+    const interval = setInterval(check, 60_000);
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "active") check();
+    });
+
+    return () => {
+      clearInterval(interval);
+      sub.remove();
+    };
+  }, [!!session]);
+
   if (stuck) {
     return (
       <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: spacing.screen, gap: 12 }}>
@@ -254,7 +285,18 @@ function AppContent() {
   return (
     // Bottom excluded: BottomTabBar (inside HomeShell) insets its own bottom
     // edge, so a bottom inset here would double up the gesture-area padding.
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }} edges={["top", "left", "right"]}>
+    // onTouchStart is deliberately non-capturing (a passive bubble listener,
+    // never onStartShouldSetResponderCapture) so it observes every touch
+    // anywhere in the authenticated shell for idle-timeout purposes (see
+    // lib/idle-timeout.ts) without ever claiming the responder or
+    // interfering with navigation/gesture handling underneath it.
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.card }}
+      edges={["top", "left", "right"]}
+      onTouchStart={() => {
+        void stampActivity();
+      }}
+    >
       <StatusBar barStyle="dark-content" />
       <HomeShell
         userId={session.user.id}
