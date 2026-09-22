@@ -208,8 +208,8 @@ export function OnboardingFlow({
         </p>
         <p className="text-sm text-charcoal-ink">
           The app itself is free. The only thing that costs money is a doctor&apos;s time when
-          you ask for it, and that is also what adds a Tarragon doctor being paged on a
-          dangerous reading and routine review of your readings when nothing is flagged.
+          you ask for it. Paying for that is also what gets a doctor paged automatically on a
+          dangerous reading, plus routine review of your readings even when nothing&apos;s flagged.
         </p>
       </div>
 

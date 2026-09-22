@@ -146,7 +146,7 @@ export default async function HealthCheckPage() {
       title: "2. Mental wellbeing",
       state: wellbeingStage.kind,
       label: wellbeingStage.label,
-      href: null,
+      href: "#mental-wellbeing",
     },
     {
       title: "3. Your measurements",
@@ -280,7 +280,7 @@ export default async function HealthCheckPage() {
 
       <MentalHealthSummary patientId={profile.id} />
 
-      <div>
+      <div id="mental-wellbeing" className="scroll-mt-24">
         <h2 className="mb-2 font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">Mental wellbeing check-in</h2>
         <MentalHealthScreenForm patientId={profile.id} />
       </div>

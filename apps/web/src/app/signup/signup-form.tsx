@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Check, Gift } from "lucide-react";
 import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { NIGERIAN_STATES } from "@/lib/nigeria-states";
@@ -31,6 +31,17 @@ export function SignupForm({
   // (see firstIssue), so only that control is marked invalid.
   const invalid = (field: string) => Boolean(state?.error) && state?.field === field;
 
+  // React resets every uncontrolled field in an action-bound <form> once the
+  // action returns, success or failure — so a single bad phone number wiped
+  // name/email/password too and made the visitor start over. Re-keying the
+  // form after a failed attempt forces a remount, which is what lets fresh
+  // `defaultValue`s below (from the server's echoed `values`) actually take.
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (state?.error) setAttempt((n) => n + 1);
+  }, [state]);
+  const values = state?.values;
+
   if (state?.success) {
     return (
       <div className="flex flex-col items-center gap-3 py-4 text-center">
@@ -45,7 +56,7 @@ export function SignupForm({
   }
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form key={attempt} action={formAction} className="space-y-5">
       {intent && <input type="hidden" name="intent" value={intent} />}
       {refCode && (
         <>
@@ -69,6 +80,7 @@ export function SignupForm({
             name="firstName"
             autoComplete="given-name"
             required
+            defaultValue={values?.firstName}
             className={FIELD_CLASS}
             {...fieldErrorProps(errorId, invalid("firstName"))}
           />
@@ -82,6 +94,7 @@ export function SignupForm({
             name="lastName"
             autoComplete="family-name"
             required
+            defaultValue={values?.lastName}
             className={FIELD_CLASS}
             {...fieldErrorProps(errorId, invalid("lastName"))}
           />
@@ -98,6 +111,7 @@ export function SignupForm({
           inputMode="email"
           autoComplete="email"
           required
+          defaultValue={values?.email}
           className={FIELD_CLASS}
           {...fieldErrorProps(errorId, invalid("email"))}
         />
@@ -111,7 +125,7 @@ export function SignupForm({
             id="countryCode"
             name="countryCode"
             autoComplete="tel-country-code"
-            defaultValue={COUNTRY_CALLING_CODES[0].dialCode}
+            defaultValue={values?.countryCode || COUNTRY_CALLING_CODES[0].dialCode}
             className={`w-auto shrink-0 ${FIELD_CLASS}`}
             aria-label="Country code"
             required
@@ -124,6 +138,7 @@ export function SignupForm({
           </Select>
           <Input
             {...phoneInputProps}
+            defaultValue={values?.phone}
             className={FIELD_CLASS}
             {...fieldErrorProps(
               errorId,
@@ -146,7 +161,7 @@ export function SignupForm({
           id="state"
           name="state"
           autoComplete="address-level1"
-          defaultValue=""
+          defaultValue={values?.state ?? ""}
           className={FIELD_CLASS}
           aria-describedby="signup-state-hint"
         >

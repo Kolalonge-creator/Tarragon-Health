@@ -7,9 +7,41 @@ import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 
+/**
+ * What the visitor had already typed when a submission failed — everything
+ * except the password. React resets every field in an action-bound `<form>`
+ * once the action returns (success OR failure), so without this the form
+ * silently wiped the whole thing (name, email, phone) over one bad phone
+ * number and made the visitor retype all of it. Password is deliberately
+ * left out: don't round-trip it back through the server response.
+ */
+export type SignupSubmittedValues = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  countryCode?: string;
+  phone?: string;
+  state?: string;
+};
+
 export type SignupActionState =
-  | { error?: string; field?: string; success?: boolean }
+  | { error?: string; field?: string; success?: boolean; values?: SignupSubmittedValues }
   | undefined;
+
+function submittedValues(formData: FormData): SignupSubmittedValues {
+  const asString = (key: string) => {
+    const value = formData.get(key);
+    return typeof value === "string" ? value : undefined;
+  };
+  return {
+    firstName: asString("firstName"),
+    lastName: asString("lastName"),
+    email: asString("email"),
+    countryCode: asString("countryCode"),
+    phone: asString("phone"),
+    state: asString("state"),
+  };
+}
 
 /**
  * Public self-serve signup always provisions a `patient` profile — this
@@ -34,7 +66,7 @@ export async function signUp(
     password: formData.get("password"),
   });
   if (!parsed.success) {
-    return firstIssue(parsed.error, "Check the details above and try again.");
+    return { ...firstIssue(parsed.error, "Check the details above and try again."), values: submittedValues(formData) };
   }
 
   // IP-scoped (10/hour) blunts scripted mass account creation; email-scoped
@@ -47,7 +79,7 @@ export async function signUp(
     { limit: 3, windowSeconds: 3600 }
   );
   if (!limited.success) {
-    return { error: RATE_LIMIT_MESSAGE };
+    return { error: RATE_LIMIT_MESSAGE, values: submittedValues(formData) };
   }
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
@@ -80,7 +112,7 @@ export async function signUp(
     // GoTrue's raw string leaked its own 6-character minimum here, which
     // directly contradicted the 8-character rule this form enforces and is
     // now shown under the password field.
-    return { error: authErrorMessage(error, "sign_up") };
+    return { error: authErrorMessage(error, "sign_up"), values: submittedValues(formData) };
   }
 
   return { success: true };
