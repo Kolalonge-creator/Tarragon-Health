@@ -4,17 +4,10 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
 import { initiatePlatformCreditTopupCheckout } from "@/lib/billing/platform-credit-checkout";
-import { isPlatformModuleEnabled } from "@/lib/platform-modules";
+import { isPlatformModuleEnabled, PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE } from "@/lib/platform-modules";
 import { nairaToKobo } from "@tarragon/shared";
 
 export type PlatformCreditActionState = { error?: string; message?: string } | undefined;
-
-/** Shown when the platform_credit_topups module is off — see
- * 20260922185100_platform_credit_topups_kill_switch.sql. Deliberately
- * reassures the patient that their existing balance/spending is unaffected,
- * rather than surfacing a raw RPC exception or a generic failure. */
-const TOPUPS_DISABLED_MESSAGE =
-  "Adding funds isn't available right now. Your existing Platform Credit balance and spending are not affected.";
 
 /**
  * Tops up the caller's own platform credit balance (or, if patientId is
@@ -41,7 +34,7 @@ export async function topUpPlatformCredit(
   if (!user.email) return { error: "Your account needs an email on file to fund your balance." };
 
   if (!(await isPlatformModuleEnabled("platform_credit_topups"))) {
-    return { error: TOPUPS_DISABLED_MESSAGE };
+    return { error: PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE };
   }
 
   const patientId = (formData.get("patientId") as string) || user.id;

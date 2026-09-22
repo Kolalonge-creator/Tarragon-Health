@@ -270,3 +270,17 @@ can_read_clinical_bare_literal_policy_cast.sql
 platform_credit_topups_kill_switch.sql
 continuous_monitoring_90d_single_tier.sql
 preventive_health_check_review_sku.sql
+
+# /code-review high on the above continuous_monitoring_90d_single_tier.sql
+# migration, run before its PR was opened, found a real bug in it: the new
+# product's features array was copied from continuous_monitoring_cover.sql's
+# original committed INSERT text (vitals_red_flag_doctor_escalation only),
+# never checking that the LIVE continuous_monitoring_3m/6m rows had since
+# been expanded to seven features by a later migration. Fixed in
+# 20260922193500_fix_continuous_monitoring_90d_missing_doctor_time_features.sql.
+# Proves the array carries all seven features (not the 12-month-only
+# annual_review bonus), that a real purchase flips a real enrolment from
+# self_monitoring to doctor_supported and grants clinician_review/
+# doctor_checkin, and a sabotage run (features reverted to the pre-fix
+# single-feature shape) reproduces the original bug.
+continuous_monitoring_90d_doctor_time_features.sql
