@@ -46,6 +46,31 @@ function stubCatalogClient(opts: {
   return builder as unknown as Parameters<typeof parseFhirResourceEntry>[1];
 }
 
+/**
+ * Stand-in for the single `.from("fhir_loinc_vital_type_mappings").select(...)
+ * .eq(...).eq(...).maybeSingle()` chain parseObservation now calls — DB-driven
+ * per docs/DATA_ARCHITECTURE_GAPS_BUILD_PLAN.md §1 (was a hardcoded TS object;
+ * moved to public.fhir_loinc_vital_type_mappings so widening it for a real
+ * partner's LOINC variant is an admin data change, not a code deploy).
+ */
+function stubLoincClient(mappings: Record<string, string>): Parameters<typeof parseFhirResourceEntry>[1] {
+  let lastCode: string | null = null;
+  const builder: Record<string, unknown> = {
+    maybeSingle: () => {
+      const vitalType = lastCode ? mappings[lastCode] : undefined;
+      return Promise.resolve({ data: vitalType ? { vital_type: vitalType } : null, error: null });
+    },
+  };
+  for (const method of ["from", "select"]) {
+    builder[method] = () => builder;
+  }
+  builder.eq = (col: string, value: string) => {
+    if (col === "loinc_code") lastCode = value;
+    return builder;
+  };
+  return builder as unknown as Parameters<typeof parseFhirResourceEntry>[1];
+}
+
 describe("isSupportedResourceType", () => {
   it("accepts exactly the 5 v1 import resource types", () => {
     expect(isSupportedResourceType("Observation")).toBe(true);
@@ -85,14 +110,15 @@ describe("parseFhirResourceEntry — Observation", () => {
     });
   });
 
-  it("maps a glucose Observation and flags the defaulted glucose_context", async () => {
+  it("maps a glucose Observation (resolved via the DB LOINC mapping table) and flags the defaulted glucose_context", async () => {
     const resource: FhirResource = {
       resourceType: "Observation",
       effectiveDateTime: "2026-09-01T10:00:00Z",
       code: { coding: [{ code: "2339-0" }] },
       valueQuantity: { value: 5.6 },
     };
-    const result = await parseFhirResourceEntry(resource, unusedSupabase);
+    const supabase = stubLoincClient({ "2339-0": "glucose" });
+    const result = await parseFhirResourceEntry(resource, supabase);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.proposal.normalizedPayload.glucose_mmol_l).toBe(5.6);
@@ -100,14 +126,29 @@ describe("parseFhirResourceEntry — Observation", () => {
     expect(result.proposal.parseWarnings.length).toBeGreaterThan(0);
   });
 
-  it("skips (never guesses) an Observation with an unrecognised LOINC code", async () => {
+  it("maps a pulse Observation using a different LOINC code, proving the mapping is genuinely looked up per code, not hardcoded per test", async () => {
+    const resource: FhirResource = {
+      resourceType: "Observation",
+      effectiveDateTime: "2026-09-01T10:00:00Z",
+      code: { coding: [{ code: "8867-4" }] },
+      valueQuantity: { value: 72 },
+    };
+    const supabase = stubLoincClient({ "8867-4": "pulse" });
+    const result = await parseFhirResourceEntry(resource, supabase);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.proposal.normalizedPayload.pulse_bpm).toBe(72);
+  });
+
+  it("skips (never guesses) an Observation whose LOINC code has no row in fhir_loinc_vital_type_mappings", async () => {
     const resource: FhirResource = {
       resourceType: "Observation",
       effectiveDateTime: "2026-09-01T10:00:00Z",
       code: { coding: [{ code: "99999-9" }] },
       valueQuantity: { value: 1 },
     };
-    const result = await parseFhirResourceEntry(resource, unusedSupabase);
+    const supabase = stubLoincClient({}); // empty table — nothing matches
+    const result = await parseFhirResourceEntry(resource, supabase);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.skip.reason).toMatch(/Unrecognised LOINC/);
