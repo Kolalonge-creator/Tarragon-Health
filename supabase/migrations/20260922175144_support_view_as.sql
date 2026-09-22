@@ -76,6 +76,134 @@
 -- this is not meant to be the final word on scope.
 
 -- ---------------------------------------------------------------------------
+-- 0. Migration-record gap closed, found while building this feature (NOT a live bug fix — the
+--    live database already behaves correctly; only the committed git history was out of sync
+--    with it). private.audit_row_change()'s only two migration-file redefinitions are
+--    20260829204722_audit_log_reason_and_result.sql (adds reason/result) and, later the same
+--    day, 20260829222942_flag_cross_org_actor_on_phi_audit_entries.sql (adds cross_org_actor) —
+--    and 20260829222942's OWN COMMITTED SQL TEXT never declares v_reason, never reads
+--    app.audit_reason, and its insert into public.audit_log (...) column list omits reason/
+--    result entirely, i.e. replaying git's migration history verbatim would silently drop
+--    reason/result support for every table using this generic trigger. But a direct live check
+--    against the actual project (koiplnmbgnqnbywhpjlf), via
+--    `select pg_get_functiondef(oid) from pg_proc where proname = 'audit_row_change' and
+--    pronamespace = 'private'::regnamespace`, shows the LIVE function already has both
+--    cross_org_actor AND reason/result together — someone applied the correct merged version
+--    directly to the live database at some point, with no matching migration file ever
+--    committed for it. Exactly the "live schema object with no migration record at all" class
+--    CLAUDE.md's standing lessons describe (previously documented for
+--    private.guard_profiles_self_update() — this is a second, independent instance of the same
+--    failure mode, not that one recurring). What this section actually does: re-asserts the
+--    live, already-correct definition (confirmed byte-identical to the live pg_get_functiondef
+--    output, aside from one cosmetic dash character in a comment) so it finally has a matching
+--    git migration record — a documentation/provenance fix, not a behavioural one. This feature's
+--    own audit trail (support_view_sessions' reason) already works correctly against live without
+--    this section; it's included so `supabase db reset` / CI replay produces the same live
+--    behaviour a fresh environment would otherwise silently lack, and so this drift is no longer
+--    invisible to a plain migration-files-vs-git diff.
+-- ---------------------------------------------------------------------------
+create or replace function private.audit_row_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor      uuid;
+  v_actor_org  uuid;
+  v_reason     text;
+  v_org        uuid;
+  v_entity_id  uuid;
+  v_action     text;
+  v_changed    text[];
+  v_old        jsonb;
+  v_new        jsonb;
+  v_hash       text;
+  v_cross_org  boolean;
+begin
+  v_actor := coalesce(
+    auth.uid(),
+    nullif(current_setting('app.audit_actor_id', true), '')::uuid
+  );
+  v_reason := nullif(current_setting('app.audit_reason', true), '');
+
+  if tg_op = 'INSERT' then
+    v_new       := to_jsonb(NEW);
+    v_entity_id := (v_new ->> 'id')::uuid;
+    v_org       := nullif(v_new ->> 'organisation_id', '')::uuid;
+    v_action    := tg_table_name || '.created';
+    select array_agg(key order by key) into v_changed
+      from jsonb_each(v_new) where value is not null;
+    v_hash := encode(extensions.digest(v_new::text, 'sha256'), 'hex');
+
+  elsif tg_op = 'UPDATE' then
+    v_old       := to_jsonb(OLD);
+    v_new       := to_jsonb(NEW);
+    v_entity_id := (v_new ->> 'id')::uuid;
+    v_org       := nullif(v_new ->> 'organisation_id', '')::uuid;
+    v_action    := tg_table_name || '.updated';
+    select array_agg(key order by key) into v_changed
+      from jsonb_each(v_new) n
+      where key <> 'updated_at'
+        and n.value is distinct from (v_old -> n.key);
+
+    if v_changed is null then
+      -- Nothing changed except (at most) updated_at -- a touch, not a real change.
+      return NEW;
+    end if;
+
+    v_hash := encode(extensions.digest(v_new::text, 'sha256'), 'hex');
+
+  elsif tg_op = 'DELETE' then
+    v_old       := to_jsonb(OLD);
+    v_entity_id := (v_old ->> 'id')::uuid;
+    v_org       := nullif(v_old ->> 'organisation_id', '')::uuid;
+    v_action    := tg_table_name || '.deleted';
+    select array_agg(key order by key) into v_changed
+      from jsonb_each(v_old) where value is not null;
+    v_hash := encode(extensions.digest(v_old::text, 'sha256'), 'hex');
+  end if;
+
+  if v_actor is not null then
+    select organisation_id into v_actor_org from public.profiles where id = v_actor;
+  end if;
+  v_cross_org := v_actor_org is not null and v_org is not null and v_actor_org <> v_org;
+
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, reason, result)
+  values (
+    v_org, v_actor, v_action, tg_table_name, v_entity_id,
+    jsonb_build_object(
+      'changed_columns', to_jsonb(coalesce(v_changed, array[]::text[])),
+      'row_hash', v_hash,
+      'actor_resolved', v_actor is not null,
+      'cross_org_actor', v_cross_org
+    ),
+    v_reason,
+    'success'
+  );
+
+  if tg_op = 'DELETE' then
+    return OLD;
+  end if;
+  return NEW;
+end;
+$$;
+
+comment on function private.audit_row_change() is
+  'Generic AFTER INSERT/UPDATE/DELETE audit trigger. Logs actor, action, entity, reason (from '
+  'app.audit_reason if a caller set it), result (always success -- a trigger cannot fire on a '
+  'rolled-back write), the list of changed column NAMES (never values), a sha256 hash of the '
+  'full row, and whether the acting profile''s own organisation_id differs from the row''s '
+  '(cross_org_actor) to public.audit_log. See 20260812030853_row_change_audit_triggers.sql for '
+  'the original design, 20260829204722_audit_log_reason_and_result.sql for reason/result, '
+  '20260829222942_flag_cross_org_actor_on_phi_audit_entries.sql for cross_org_actor, and '
+  '20260922175144_support_view_as.sql for why this re-assertion exists: 20260829222942''s own '
+  'committed SQL text omits reason/result even though the live function has always carried both '
+  'since some untracked change -- this closes that git-vs-live migration-record gap.';
+
+revoke all on function private.audit_row_change() from public;
+
+-- ---------------------------------------------------------------------------
 -- 1. Permission catalogue entry.
 -- ---------------------------------------------------------------------------
 insert into public.permissions (key, label, category, description) values
@@ -92,16 +220,24 @@ on conflict (key) do nothing;
 -- 2. public.support_view_sessions
 -- ---------------------------------------------------------------------------
 create table public.support_view_sessions (
-  id                uuid primary key default gen_random_uuid(),
-  viewer_id         uuid not null references public.profiles (id) on delete cascade,
-  subject_id        uuid not null references public.profiles (id) on delete cascade,
-  organisation_id   uuid references public.organisations (id) on delete set null,
-  reason            text not null,
-  started_at        timestamptz not null default now(),
-  expires_at        timestamptz not null default (now() + interval '30 minutes'),
-  ended_at          timestamptz,
-  ended_by          uuid references public.profiles (id) on delete set null,
-  created_at        timestamptz not null default now(),
+  id                  uuid primary key default gen_random_uuid(),
+  viewer_id           uuid not null references public.profiles (id) on delete cascade,
+  subject_id          uuid not null references public.profiles (id) on delete cascade,
+  -- Snapshotted at insert time, server-derived, immutable — see the enforce-rules trigger.
+  -- Deliberately NOT re-read live from public.profiles by the history list/page: once a
+  -- session ends, private.can_support_view() (correctly) stops granting a live profiles read
+  -- for a non-admin/non-org-staff viewer, which would otherwise make their own past sessions
+  -- show "Unknown subject" forever — the session's own record of who it was about must not
+  -- depend on a read grant that the session's own end just revoked.
+  subject_full_name  text,
+  subject_role        public.user_role not null,
+  organisation_id     uuid references public.organisations (id) on delete set null,
+  reason              text not null,
+  started_at          timestamptz not null default now(),
+  expires_at          timestamptz not null default (now() + interval '30 minutes'),
+  ended_at            timestamptz,
+  ended_by            uuid references public.profiles (id) on delete set null,
+  created_at          timestamptz not null default now(),
   constraint support_view_sessions_no_self check (viewer_id <> subject_id),
   constraint support_view_sessions_reason_len check (char_length(btrim(reason)) between 3 and 500)
 );
@@ -115,7 +251,7 @@ comment on table public.support_view_sessions is
   'A time-boxed (fixed 30-minute), audited, read-only support/admin "view as" session. '
   'private.can_support_view() consults only this table — an active row here is the sole '
   'authority behind the support.view_as read grant on the tables listed in '
-  '20260918104500_support_view_as.sql. Never touch this table with a service-role client.';
+  '20260922175144_support_view_as.sql. Never touch this table with a service-role client.';
 
 -- ---------------------------------------------------------------------------
 -- 3. BEFORE INSERT: authorise + re-derive server-controlled fields. Single source of truth —
@@ -132,13 +268,14 @@ as $$
 declare
   v_subject_role public.user_role;
   v_subject_org  uuid;
+  v_subject_name text;
 begin
   if not private.has_permission('support.view_as') then
     raise exception 'You do not have permission to start a support view-as session'
       using errcode = '42501';
   end if;
 
-  select role, organisation_id into v_subject_role, v_subject_org
+  select role, organisation_id, full_name into v_subject_role, v_subject_org, v_subject_name
   from public.profiles where id = new.subject_id;
 
   if v_subject_role is null then
@@ -152,6 +289,8 @@ begin
 
   new.viewer_id := (select auth.uid());
   new.organisation_id := v_subject_org;
+  new.subject_role := v_subject_role;
+  new.subject_full_name := v_subject_name;
   new.started_at := now();
   new.expires_at := now() + interval '30 minutes';
   new.ended_at := null;
@@ -186,6 +325,8 @@ as $$
 begin
   if new.viewer_id is distinct from old.viewer_id
     or new.subject_id is distinct from old.subject_id
+    or new.subject_full_name is distinct from old.subject_full_name
+    or new.subject_role is distinct from old.subject_role
     or new.organisation_id is distinct from old.organisation_id
     or new.reason is distinct from old.reason
     or new.started_at is distinct from old.started_at
@@ -197,6 +338,14 @@ begin
   if old.ended_at is not null then
     raise exception 'This support view-as session has already ended';
   end if;
+
+  -- ended_by is forced back to its old value (null, since we just checked old.ended_at is
+  -- null) EXCEPT in the one legitimate transition below — closes a gap where a caller
+  -- permitted to UPDATE this row (viewer/subject/admin) could set ended_by alone, without
+  -- ending the session (ended_at left null), writing an attributable-looking value onto a
+  -- session that per ended_at is still active. ended_by must never be settable independently
+  -- of a genuine ended_at null->non-null transition.
+  new.ended_by := old.ended_by;
 
   if new.ended_at is distinct from old.ended_at and new.ended_at is not null then
     new.ended_at := now();
@@ -331,6 +480,17 @@ grant execute on function private.can_support_view(uuid) to authenticated;
 --    only already-low-sensitivity identity fields (name/role/phone/patient number) — never
 --    clinical data — and only to a caller who already holds the permission; it does not by
 --    itself grant a read on anything else.
+--
+--    Deliberate tenant-isolation trade-off, called out explicitly rather than left implicit:
+--    unlike almost every other multi-tenant read on this platform ("every table has
+--    organisation_id — always filter by it"), this search is NOT organisation_id-scoped — it
+--    searches every patient/clinician profile platform-wide. That's the point of the RPC (a
+--    delegated grantee is very often looking for someone outside their own org), but it does
+--    mean any support.view_as holder can discover name/phone/patient_number for anyone on the
+--    platform, before starting a session against them. Accepted here because support.view_as
+--    is itself a real, audited, revocable grant (not ambient), and the fields returned are the
+--    same low-sensitivity identity fields already shown in-app search/booking UIs — not a
+--    justification for widening scope further without the same reasoning.
 -- ---------------------------------------------------------------------------
 create or replace function public.search_support_view_subjects(p_query text)
 returns table (
@@ -353,9 +513,12 @@ as $$
     and p_query is not null
     and char_length(btrim(p_query)) >= 2
     and (
-      p.full_name ilike '%' || p_query || '%'
-      or p.phone ilike '%' || p_query || '%'
-      or p.patient_number ilike '%' || p_query || '%'
+      -- Escape ILIKE's own wildcard characters in the caller-typed query so a literal
+      -- "_" (e.g. inside a phone number) or "%" doesn't act as a pattern wildcard and
+      -- silently widen the match to the wrong person.
+      p.full_name ilike '%' || replace(replace(p_query, '%', '\%'), '_', '\_') || '%'
+      or p.phone ilike '%' || replace(replace(p_query, '%', '\%'), '_', '\_') || '%'
+      or p.patient_number ilike '%' || replace(replace(p_query, '%', '\%'), '_', '\_') || '%'
     )
   order by p.full_name
   limit 20;
@@ -366,7 +529,15 @@ grant execute on function public.search_support_view_subjects(text) to authentic
 
 -- ---------------------------------------------------------------------------
 -- 9. Extend the bounded read surface (see header) — one more OR-clause per policy, every other
---    clause copied byte-identical from each table's live definition so nothing else changes.
+--    clause copied byte-identical from each table's live definition so nothing else changes,
+--    EXCEPT two `can_read_clinical` calls (vitals_readings_select, screening_schedules_select)
+--    that needed an explicit ::care_access_category cast added — see the inline note on
+--    vitals_readings_select below: confirmed via a live dry run against project
+--    koiplnmbgnqnbywhpjlf that private.can_read_clinical(patient_id, 'vitals_readings') is
+--    ambiguous today (private.can_read_clinical now has 3 live overloads), even though this is
+--    the exact bare text the tables' own last migration (20260902232555) used successfully —
+--    it was created before the caregiver_permission overload existed and Postgres never
+--    re-resolves an already-bound policy expression.
 -- ---------------------------------------------------------------------------
 drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles
@@ -395,7 +566,17 @@ create policy vitals_readings_select on public.vitals_readings
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id, 'vitals_readings')
+    -- Explicit ::care_access_category cast, added by this migration: private.can_read_clinical
+    -- now has THREE live overloads (1-arg legacy, 2-arg care_access_category, 2-arg
+    -- caregiver_permission — confirmed via pg_proc against the live project), so a bare
+    -- untyped string literal here is genuinely ambiguous, not just in this migration's own
+    -- dry run but for any future CREATE POLICY that recreates this exact clause. The original
+    -- (20260902232555) got away with the untyped form only because it was created before the
+    -- caregiver_permission overload existed and Postgres never re-resolves an already-created
+    -- policy's bound function reference — a fresh `supabase db reset` replaying migration
+    -- history in order could still hit this the moment both overloads coexist. Fixed here for
+    -- this policy's own re-creation; flagged separately as a latent platform-wide risk.
+    or private.can_read_clinical(patient_id, 'vitals_readings'::public.care_access_category)
     or private.has_emergency_access(patient_id, 'vitals_readings')
     or private.can_support_view(patient_id)
   );
@@ -428,7 +609,8 @@ create policy screening_schedules_select on public.screening_schedules
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id, 'labs_results')
+    -- Explicit cast — see the identical note on vitals_readings_select above.
+    or private.can_read_clinical(patient_id, 'labs_results'::public.care_access_category)
     or private.has_emergency_access(patient_id, 'labs_results')
     or private.can_support_view(patient_id)
   );
@@ -504,17 +686,47 @@ begin
     raise exception 'FAIL: support.view_as permission not seeded';
   end if;
 
+  -- At least one permissive SELECT policy per table must carry can_support_view — NOT every
+  -- SELECT policy on the table. Several of these 7 tables have more than one permissive SELECT
+  -- policy for unrelated purposes (profiles_select_my_grantees, profiles_select_pending_care_
+  -- access, vitals_readings_select_own_entry — confirmed live), and Postgres ORs multiple
+  -- permissive policies together, so the grant only needs to exist in ONE of them (the table's
+  -- own <table>_select policy, which is what this migration edits).
   if exists (
-    select 1 from pg_policies
-    where schemaname = 'public'
-      and tablename in (
-        'profiles', 'vitals_readings', 'medications', 'appointments',
-        'screening_schedules', 'notifications', 'clinical_staff'
-      )
-      and cmd = 'SELECT'
-      and coalesce(qual, '') !~ 'can_support_view'
+    select t.tbl
+    from unnest(array[
+      'profiles', 'vitals_readings', 'medications', 'appointments',
+      'screening_schedules', 'notifications', 'clinical_staff'
+    ]) as t(tbl)
+    where not exists (
+      select 1 from pg_policies
+      where schemaname = 'public' and tablename = t.tbl and cmd = 'SELECT'
+        and coalesce(qual, '') ~ 'can_support_view'
+    )
   ) then
-    raise exception 'FAIL: a SELECT policy in the support-view-as read surface is missing can_support_view';
+    raise exception 'FAIL: a table in the support-view-as read surface has no SELECT policy carrying can_support_view';
+  end if;
+
+  -- The section-0 fix: private.audit_row_change() must actually read app.audit_reason and
+  -- write reason/result again, not just typecheck — this is exactly the kind of "committed body
+  -- looks right, live behaviour doesn't" gap CLAUDE.md warns about, so assert the live definition
+  -- text directly rather than trusting that CREATE OR REPLACE applied what this file intends.
+  if (select pg_get_functiondef(oid) from pg_proc
+      where proname = 'audit_row_change' and pronamespace = 'private'::regnamespace)
+    not like '%app.audit_reason%'
+  then
+    raise exception 'FAIL: private.audit_row_change() does not read app.audit_reason';
+  end if;
+
+  if (select pg_get_functiondef(oid) from pg_proc
+      where proname = 'audit_row_change' and pronamespace = 'private'::regnamespace)
+    !~ 'insert into public\.audit_log \([^)]*reason[^)]*result'
+  then
+    raise exception 'FAIL: private.audit_row_change() does not insert reason/result into audit_log';
+  end if;
+
+  if has_function_privilege('anon', 'private.audit_row_change()', 'EXECUTE') then
+    raise exception 'FAIL: anon can execute private.audit_row_change';
   end if;
 
   raise notice 'PASS: support_view_sessions table + rules + audit + notification + can_support_view read surface in place';

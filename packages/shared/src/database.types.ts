@@ -35939,7 +35939,9 @@ export type Database = {
           organisation_id: string | null
           reason: string
           started_at: string
+          subject_full_name: string | null
           subject_id: string
+          subject_role: Database["public"]["Enums"]["user_role"]
           viewer_id: string
         }
         Insert: {
@@ -35951,7 +35953,9 @@ export type Database = {
           organisation_id?: string | null
           reason: string
           started_at?: string
+          subject_full_name?: string | null
           subject_id: string
+          subject_role: Database["public"]["Enums"]["user_role"]
           viewer_id: string
         }
         Update: {
@@ -35963,7 +35967,9 @@ export type Database = {
           organisation_id?: string | null
           reason?: string
           started_at?: string
+          subject_full_name?: string | null
           subject_id?: string
+          subject_role?: Database["public"]["Enums"]["user_role"]
           viewer_id?: string
         }
         Relationships: [

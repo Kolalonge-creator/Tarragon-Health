@@ -22,7 +22,7 @@ export default async function SupportViewAsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Support view-as"
-        description="Enter a time-boxed (30 minutes), read-only, audited shadow view of a specific patient's or clinician's account summary to debug a reported issue. The patient/clinician is notified in-app the moment a session starts, naming you and your reason. Nothing here can be edited — this tool has no write actions at all."
+        description="Enter a time-boxed (30 minutes), read-only, audited shadow view of a specific patient's or clinician's account summary to debug a reported issue. The patient/clinician is notified in-app the moment a session starts, naming you and your reason. Nothing here can be edited: this tool has no write actions at all."
       />
       <SupportViewAsConsole />
     </div>

@@ -355,7 +355,6 @@ export function getNavSections(
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
-            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
               ],
             },
@@ -560,7 +559,6 @@ export function getNavSections(
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
-            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
               ],
             },

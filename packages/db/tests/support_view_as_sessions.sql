@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Verification: 20260918104500_support_view_as
+-- Verification: 20260922175144_support_view_as
 --
 --   * a caller WITHOUT the support.view_as permission cannot start a session
 --     (sabotage control on the enforce-rules trigger);
@@ -24,6 +24,10 @@
 --   * ending a session (by the viewer) clears the read grant immediately —
 --     private.can_support_view goes back to false and the profile read is
 --     refused again;
+--   * ended_by cannot be set independently of a genuine ended_at transition
+--     (a caller permitted to UPDATE the row setting ended_by alone, while
+--     the session is still active) — sabotage control on the update-guard
+--     trigger's field-forcing logic;
 --   * a session cannot be "un-ended" or have its window extended after the
 --     fact — sabotage control on the update-guard trigger.
 --
@@ -62,6 +66,7 @@ create temporary table svas_result(
 do $$
 declare
   v_org           uuid;
+  v_agent_org     uuid;
   v_support_agent uuid := gen_random_uuid();
   v_bystander     uuid := gen_random_uuid();
   v_patient       uuid := gen_random_uuid();
@@ -73,6 +78,14 @@ begin
     raise exception 'no organisation available — cannot run this test';
   end if;
 
+  -- A second, temporary org (rolled back with everything else) for the support agent and
+  -- bystander — they must NOT be private.is_org_staff() for the subjects' own org, or a read/
+  -- write that succeeds below could be ordinary same-org clinician access (profiles_update
+  -- itself is `id = auth.uid() OR is_org_staff(organisation_id)` — confirmed live) rather than
+  -- proof that private.can_support_view specifically is (or is not) doing the work.
+  insert into public.organisations (name, type) values ('SVAS Test Agent Org', 'clinic')
+  returning id into v_agent_org;
+
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values
     (v_support_agent, 'svas-test-support@example.invalid', 'x', now(), '{}', '{}'),
@@ -81,24 +94,29 @@ begin
     (v_clinician, 'svas-test-clinician@example.invalid', 'x', now(), '{}', '{}'),
     (v_other_admin, 'svas-test-other-admin@example.invalid', 'x', now(), '{}', '{}');
 
-  -- Deliberately NOT organisation-staff for v_patient/v_clinician's own org membership check —
-  -- the support agent and bystander sit in a DIFFERENT org (private.is_org_staff would refuse
-  -- them on org-membership grounds alone), so any read that succeeds below is unambiguously
-  -- private.can_support_view doing the work, not a same-org staff coincidence.
+  -- ON CONFLICT DO UPDATE: a live trigger on auth.users auto-provisions a matching public.
+  -- profiles row (confirmed against the live project — a plain INSERT here hits profiles_pkey),
+  -- so this upserts over whatever that trigger already created rather than assuming an empty
+  -- table to insert fresh into.
   insert into public.profiles (id, organisation_id, role, full_name)
   values
-    (v_support_agent, v_org, 'clinician', 'SVAS Test Support Agent'),
-    (v_bystander, v_org, 'clinician', 'SVAS Test Bystander'),
+    (v_support_agent, v_agent_org, 'clinician', 'SVAS Test Support Agent'),
+    (v_bystander, v_agent_org, 'clinician', 'SVAS Test Bystander'),
     (v_patient, v_org, 'patient', 'SVAS Test Patient'),
     (v_clinician, v_org, 'clinician', 'SVAS Test Clinician'),
-    (v_other_admin, v_org, 'admin', 'SVAS Test Other Admin');
+    (v_other_admin, v_org, 'admin', 'SVAS Test Other Admin')
+  on conflict (id) do update set
+    organisation_id = excluded.organisation_id,
+    role = excluded.role,
+    full_name = excluded.full_name;
 
   insert into public.user_permission_grants (profile_id, permission_key)
   values (v_support_agent, 'support.view_as');
 
   insert into svas_fixture(k, v) values
-    ('org', v_org), ('support_agent', v_support_agent), ('bystander', v_bystander),
-    ('patient', v_patient), ('clinician', v_clinician), ('other_admin', v_other_admin);
+    ('org', v_org), ('agent_org', v_agent_org), ('support_agent', v_support_agent),
+    ('bystander', v_bystander), ('patient', v_patient), ('clinician', v_clinician),
+    ('other_admin', v_other_admin);
 end $$;
 
 -- ==========================================================================
@@ -387,6 +405,50 @@ begin
      case when v_readback is null then 'PASS' else 'FAIL' end);
   if v_readback is not null then
     raise exception 'LEAK: an ended support view-as session still grants a read on the subject''s profile';
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 8b. Sabotage — ended_by cannot be set independently of a genuine ended_at
+--     null->non-null transition (a caller permitted to UPDATE the row setting
+--     ended_by alone, while the session is still active). Uses a fresh
+--     second session (against the clinician subject) so it's still active
+--     going into this check.
+-- ==========================================================================
+do $$
+declare
+  v_support_agent uuid := (select v from svas_fixture where k = 'support_agent');
+  v_bystander     uuid := (select v from svas_fixture where k = 'bystander');
+  v_clinician     uuid := (select v from svas_fixture where k = 'clinician');
+  v_session_id    uuid;
+  v_ended_by      uuid;
+  v_ended_at      timestamptz;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_support_agent::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  insert into public.support_view_sessions (viewer_id, subject_id, reason)
+  values (v_support_agent, v_clinician, 'checking a clinician-side report')
+  returning id into v_session_id;
+  reset role;
+
+  -- The subject may also touch this row (support_view_sessions_end admits viewer/subject/admin),
+  -- so attempt the sabotage as the clinician subject setting only ended_by, leaving ended_at null.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_clinician::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  update public.support_view_sessions set ended_by = v_bystander where id = v_session_id;
+  reset role;
+
+  select ended_by, ended_at into v_ended_by, v_ended_at from public.support_view_sessions where id = v_session_id;
+
+  insert into svas_result values
+    ('ended_by cannot be set independently of ending the session', 'clinician subject',
+     coalesce(v_ended_by::text, 'null') || ' / ended_at=' || coalesce(v_ended_at::text, 'null'),
+     'null / ended_at=null',
+     case when v_ended_by is null and v_ended_at is null then 'PASS' else 'FAIL' end);
+  if v_ended_by is not null then
+    raise exception 'LEAK: ended_by was set to % on a session still active (ended_at is null) — the update-guard trigger did not force it back', v_ended_by;
   end if;
 end $$;
 

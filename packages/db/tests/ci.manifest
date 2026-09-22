@@ -179,7 +179,7 @@ notification_channel_preference_dead_channel_no_lockin.sql
 platform_credit_spend_revenue_deferral.sql
 
 # Standing coverage for the new admin/support "view as" shadow-view feature
-# (20260918104500_support_view_as.sql, PR building the read-only support
+# (20260918104402_support_view_as.sql, PR building the read-only support
 # debugging tool the 2026-09-18 admin/ops maturity audit found missing).
 # Proves: a caller without the support.view_as permission cannot start a
 # session; a session cannot target a back-office/admin account or the caller

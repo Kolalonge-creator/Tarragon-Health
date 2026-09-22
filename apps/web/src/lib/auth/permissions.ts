@@ -67,7 +67,7 @@ export const PERMISSION_KEYS = [
   "feature_flags.manage",
   "ops.console.view",
   "support.manage",
-  // Seeded by 20260918104500_support_view_as.sql — a time-boxed, read-only,
+  // Seeded by 20260922175144_support_view_as.sql — a time-boxed, read-only,
   // audited shadow view of a specific patient's or clinician's account
   // summary, to debug a reported issue. Distinct from support.manage (which
   // gates the support ticket inbox, not account data access).

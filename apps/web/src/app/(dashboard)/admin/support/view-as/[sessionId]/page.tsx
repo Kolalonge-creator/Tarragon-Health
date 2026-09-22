@@ -56,6 +56,13 @@ export default async function SupportViewAsSessionPage({
 
   const isActive = computeIsActive(session);
 
+  // Once a session has ended or expired, private.can_support_view() correctly stops granting
+  // a read on the subject's data — that IS the read-only, time-boxed guarantee working as
+  // designed, not a bug. Don't run the 7 live queries at all in that state (they'd just come
+  // back empty/null, which would misleadingly look like "this patient has no vitals/
+  // medications/..." rather than "this tool's access has ended"), and don't imply a frozen
+  // snapshot exists — it doesn't; only session.subject_full_name/subject_role (immutable
+  // snapshot columns on the session row itself, always readable by the viewer) survive.
   const [
     { data: subject },
     { data: vitals },
@@ -64,54 +71,56 @@ export default async function SupportViewAsSessionPage({
     { data: screenings },
     { data: notifications },
     { data: clinicalStaff },
-  ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name, role, phone, city, state, patient_number, organisation_id, created_at, is_active")
-      .eq("id", session.subject_id)
-      .maybeSingle(),
-    supabase
-      .from("vitals_readings")
-      .select("id, vital_type, source, taken_at, systolic, diastolic, pulse_bpm, glucose_mmol_l, spo2_pct, temperature_c, weight_kg")
-      .eq("patient_id", session.subject_id)
-      .order("taken_at", { ascending: false })
-      .limit(20),
-    supabase
-      .from("medications")
-      .select("id, drug_name, dose, frequency, is_active, created_at")
-      .eq("patient_id", session.subject_id)
-      .order("created_at", { ascending: false })
-      .limit(20),
-    supabase
-      .from("appointments")
-      .select("id, appointment_type, status, scheduled_for, consultation_method")
-      .eq("patient_id", session.subject_id)
-      .order("scheduled_for", { ascending: false })
-      .limit(10),
-    supabase
-      .from("screening_schedules")
-      .select("id, status, due_date, screen_types(name)")
-      .eq("patient_id", session.subject_id)
-      .order("due_date", { ascending: false })
-      .limit(10),
-    supabase
-      .from("notifications")
-      .select("id, channel, status, template, created_at, sent_at")
-      .eq("recipient_id", session.subject_id)
-      .order("created_at", { ascending: false })
-      .limit(20),
-    supabase
-      .from("clinical_staff")
-      .select("id, doctor_tier, active, credential_type, credential_number, license_verified_at")
-      .eq("profile_id", session.subject_id)
-      .maybeSingle(),
-  ]);
+  ] = isActive
+    ? await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, full_name, role, phone, city, state, patient_number, organisation_id, created_at, is_active")
+          .eq("id", session.subject_id)
+          .maybeSingle(),
+        supabase
+          .from("vitals_readings")
+          .select("id, vital_type, source, taken_at, systolic, diastolic, pulse_bpm, glucose_mmol_l, spo2_pct, temperature_c, weight_kg")
+          .eq("patient_id", session.subject_id)
+          .order("taken_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("medications")
+          .select("id, drug_name, dose, frequency, is_active, created_at")
+          .eq("patient_id", session.subject_id)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("appointments")
+          .select("id, appointment_type, status, scheduled_for, consultation_method")
+          .eq("patient_id", session.subject_id)
+          .order("scheduled_for", { ascending: false })
+          .limit(10),
+        supabase
+          .from("screening_schedules")
+          .select("id, status, due_date, screen_types(name)")
+          .eq("patient_id", session.subject_id)
+          .order("due_date", { ascending: false })
+          .limit(10),
+        supabase
+          .from("notifications")
+          .select("id, channel, status, template, created_at, sent_at")
+          .eq("recipient_id", session.subject_id)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("clinical_staff")
+          .select("id, doctor_tier, active, credential_type, credential_number, license_verified_at")
+          .eq("profile_id", session.subject_id)
+          .maybeSingle(),
+      ])
+    : [{ data: null }, { data: null }, { data: null }, { data: null }, { data: null }, { data: null }, { data: null }];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Viewing: ${subject?.full_name ?? "Unknown"}`}
-        description="Read-only account summary. Nothing on this page can be edited — there is no write action anywhere in this tool."
+        title={`Viewing: ${session.subject_full_name ?? "Unnamed subject"}`}
+        description="Read-only account summary. Nothing on this page can be edited: there is no write action anywhere in this tool."
         actions={
           isActive ? (
             <div className="flex items-center gap-3">
@@ -127,16 +136,21 @@ export default async function SupportViewAsSessionPage({
       {!isActive && (
         <Card>
           <CardContent className="py-4 text-sm text-charcoal-ink/70">
-            This session ended {shortDate(session.ended_at ?? session.expires_at)}. The data below is what was
-            visible while it was active and may be stale — start a new session from{" "}
+            This session ended {shortDate(session.ended_at ?? session.expires_at)}. The read-only access it
+            granted has ended too, so this account&apos;s data is no longer visible through this tool.
+            Nothing below reflects what it actually contains (an empty card here means &ldquo;no longer
+            accessible&rdquo;, not &ldquo;nothing on file&rdquo;). Reason given at the time:{" "}
+            &ldquo;{session.reason}&rdquo;. Start a new session from{" "}
             <Link href="/admin/support/view-as" className="underline">
               Support view-as
             </Link>{" "}
-            for a fresh read.
+            for a fresh, currently-authorised read.
           </CardContent>
         </Card>
       )}
 
+      {isActive && (
+      <>
       <Card>
         <CardHeader>
           <CardTitle>Identity</CardTitle>
@@ -315,6 +329,8 @@ export default async function SupportViewAsSessionPage({
           )}
         </CardContent>
       </Card>
+      </>
+      )}
     </div>
   );
 }

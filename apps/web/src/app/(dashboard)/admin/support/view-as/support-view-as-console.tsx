@@ -72,7 +72,7 @@ function SubjectRow({ subject }: { subject: SupportViewSubject }) {
             disabled={startSession.isPending || reason.trim().length < REASON_MIN_LENGTH}
             onClick={() => {
               startSession.mutate(
-                { subjectId: subject.id, reason: reason.trim() },
+                { subjectId: subject.id, subjectRole: subject.role, reason: reason.trim() },
                 { onSuccess: (session) => router.push(`/admin/support/view-as/${session.id}`) }
               );
             }}
@@ -101,13 +101,12 @@ function SessionsList() {
   return (
     <ul className="divide-y divide-charcoal-ink/10">
       {sessions.map((s) => {
-        const subject = s.subject as { id: string; full_name: string | null; role: string } | null;
         const active = isSessionActive(s);
         return (
           <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
             <div>
               <p className="text-sm text-charcoal-ink">
-                {subject?.full_name ?? "Unknown subject"}
+                {s.subject_full_name ?? "Unnamed subject"}
                 <span className="ml-2">
                   <Badge variant={active ? "green" : "grey"}>{active ? "Active" : "Ended"}</Badge>
                 </span>
@@ -119,7 +118,7 @@ function SessionsList() {
             </div>
             <div className="flex gap-2">
               <Button type="button" size="sm" variant="outline" onClick={() => router.push(`/admin/support/view-as/${s.id}`)}>
-                {active ? "Resume" : "View record"}
+                {active ? "Resume" : "Session details"}
               </Button>
               {active && (
                 <Button

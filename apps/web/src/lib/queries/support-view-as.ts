@@ -20,7 +20,7 @@ export type SupportViewSubject = {
  * requires one), so a plain table select would return nothing for exactly the caller
  * this search is for. The RPC is gated by the same permission instead, and returns only
  * already-low-sensitivity identity fields — never clinical data. See
- * 20260918104500_support_view_as.sql section 8.
+ * 20260922175144_support_view_as.sql section 8.
  */
 export function useSupportViewAsSubjectSearch(query: string) {
   return useQuery({
@@ -35,7 +35,15 @@ export function useSupportViewAsSubjectSearch(query: string) {
   });
 }
 
-/** The caller's own sessions — active ones surface a resume link, ended ones a recent-history list. */
+/**
+ * The caller's own sessions — active ones surface a resume link, ended ones a recent-history
+ * list. Deliberately reads subject_full_name/subject_role straight off the session row (a
+ * server-derived snapshot, immutable once set — see the migration) rather than embedding a
+ * live `profiles` join: once a session ends, private.can_support_view() correctly stops
+ * granting a live profiles read for a non-admin/non-org-staff viewer, which would make an
+ * embed show null forever — this row's own record of who it was about must not depend on a
+ * read grant its own ending just revoked.
+ */
 export function useMySupportViewSessions() {
   return useQuery({
     queryKey: ["support-view-as-sessions"],
@@ -43,11 +51,11 @@ export function useMySupportViewSessions() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("support_view_sessions")
-        .select("*, subject:profiles!support_view_sessions_subject_id_fkey(id, full_name, role)")
+        .select("*")
         .order("started_at", { ascending: false })
         .limit(20);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as SupportViewSession[];
     },
     refetchInterval: 30_000,
   });
@@ -83,16 +91,29 @@ export function useSupportViewSession(sessionId: string | null) {
 export function useStartSupportViewSession() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ subjectId, reason }: { subjectId: string; reason: string }) => {
+    mutationFn: async ({
+      subjectId,
+      subjectRole,
+      reason,
+    }: {
+      subjectId: string;
+      subjectRole: "patient" | "clinician";
+      reason: string;
+    }) => {
       const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
 
+      // viewer_id/subject_role are required by the column (not null, no SQL-level default —
+      // this codebase's generated Insert type reflects that), but neither carries any
+      // authority: private.enforce_support_view_session_rules() (the BEFORE INSERT trigger)
+      // unconditionally re-derives both from auth.uid() and a fresh public.profiles lookup,
+      // so whatever is sent here is never trusted.
       const { data, error } = await supabase
         .from("support_view_sessions")
-        .insert({ viewer_id: user.id, subject_id: subjectId, reason })
+        .insert({ viewer_id: user.id, subject_id: subjectId, subject_role: subjectRole, reason })
         .select("*")
         .single();
       if (error) throw error;

@@ -18,6 +18,11 @@ export function SessionCountdown({ expiresAt }: { expiresAt: string }) {
       const remaining = Math.max(0, Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000));
       setSecondsLeft(remaining);
       if (remaining === 0) {
+        // Stop ticking once expired — otherwise this fires router.refresh() every
+        // second thereafter until the server round-trip flips isActive to false and
+        // unmounts this component, which can queue up several redundant refreshes
+        // of the page's 7-query Promise.all if that round-trip is slow.
+        clearInterval(id);
         router.refresh();
       }
     }, 1000);

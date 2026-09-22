@@ -1,6 +1,6 @@
 /**
  * Regression coverage for the admin/support "view as" feature
- * (20260918104500_support_view_as.sql, PR building the read-only support
+ * (20260922175144_support_view_as.sql, PR building the read-only support
  * debugging tool a 2026-09-18 admin/ops maturity audit found missing).
  *
  * Proves the page-guard mirror of the real DB authority: `admin` holds
