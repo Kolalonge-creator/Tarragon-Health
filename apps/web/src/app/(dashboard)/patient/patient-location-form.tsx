@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { updatePatientLocation } from "./actions";
@@ -27,6 +27,21 @@ export function PatientLocationForm({
   const [state, formAction, pending] = useActionState(updatePatientLocation, undefined);
   const router = useRouter();
 
+  // React resets every uncontrolled field in this action-bound <form> once
+  // the action returns, success or failure (see signup-form.tsx's fix for
+  // the same behavior) — so a transient save error could otherwise wipe out
+  // city/area/state edits the patient had just typed, not just fail to save
+  // them. Re-keying the form on a failed attempt forces a remount, which is
+  // what lets fresh defaultValues (from the server's echoed `values`) apply.
+  const [attempt, setAttempt] = useState(0);
+  const [lastState, setLastState] = useState(state);
+  if (state !== lastState) {
+    setLastState(state);
+    if (state?.error) setAttempt((n) => n + 1);
+  }
+  const values = state?.values;
+  const currentState = values?.state ?? initial.state;
+
   // The state field used to be free text (see the Select comment below), so
   // an existing profile can carry a value that isn't an exact match for any
   // NIGERIAN_STATES option (different casing, "FCT" instead of "Abuja",
@@ -35,7 +50,7 @@ export function PatientLocationForm({
   // touching this field, that blank submission would have nulled out their
   // real saved state. Keeping the on-file value as its own option instead
   // preserves it (and makes the mismatch visible) until they pick a real one.
-  const hasCanonicalMatch = !initial.state || NIGERIAN_STATES.some((s) => s.value === initial.state);
+  const hasCanonicalMatch = !currentState || NIGERIAN_STATES.some((s) => s.value === currentState);
 
   // Server components read profiles.state/city/area — refresh so the pickers
   // downstream pick up the new saved location without a full reload.
@@ -56,7 +71,7 @@ export function PatientLocationForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-4">
+        <form key={attempt} action={formAction} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="location-state">State</Label>
@@ -65,10 +80,10 @@ export function PatientLocationForm({
                   the "value MUST match... exactly" warning in
                   nigeria-states.ts. Same canonical list the signup form
                   already uses. */}
-              <Select id="location-state" name="state" defaultValue={initial.state ?? ""}>
+              <Select id="location-state" name="state" defaultValue={currentState ?? ""}>
                 <option value="">Select…</option>
                 {!hasCanonicalMatch && (
-                  <option value={initial.state ?? ""}>{initial.state} (on file, please reselect)</option>
+                  <option value={currentState ?? ""}>{currentState} (on file, please reselect)</option>
                 )}
                 {NIGERIAN_STATES.map((s) => (
                   <option key={s.value} value={s.value}>
@@ -83,7 +98,7 @@ export function PatientLocationForm({
                 id="location-city"
                 name="city"
                 placeholder="e.g. Ikeja"
-                defaultValue={initial.city ?? ""}
+                defaultValue={values?.city ?? initial.city ?? ""}
               />
             </div>
             <div className="space-y-1.5">
@@ -92,7 +107,7 @@ export function PatientLocationForm({
                 id="location-area"
                 name="area"
                 placeholder="e.g. Allen Avenue"
-                defaultValue={initial.area ?? ""}
+                defaultValue={values?.area ?? initial.area ?? ""}
               />
             </div>
           </div>

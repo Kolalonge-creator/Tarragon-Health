@@ -187,7 +187,17 @@ export async function logVital(
   return { success: true };
 }
 
-export type UpdateLocationActionState = { error?: string; success?: boolean } | undefined;
+export type UpdateLocationActionState =
+  | { error?: string; success?: boolean; values?: { state?: string; city?: string; area?: string } }
+  | undefined;
+
+function locationValues(formData: FormData): { state?: string; city?: string; area?: string } {
+  const asString = (key: string) => {
+    const value = formData.get(key);
+    return typeof value === "string" ? value : undefined;
+  };
+  return { state: asString("state"), city: asString("city"), area: asString("area") };
+}
 
 /**
  * Saves the patient's own state/city/area on their profiles row (RLS-scoped —
@@ -205,7 +215,10 @@ export async function updatePatientLocation(
     area: formData.get("area") ?? undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return {
+      error: parsed.error.issues[0]?.message ?? "Invalid input",
+      values: locationValues(formData),
+    };
   }
 
   const supabase = await createClient();
@@ -213,7 +226,7 @@ export async function updatePatientLocation(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { error: "Not signed in" };
+    return { error: "Not signed in", values: locationValues(formData) };
   }
 
   // Empty string → null so a cleared field doesn't store "".
@@ -227,7 +240,12 @@ export async function updatePatientLocation(
     })
     .eq("id", user.id);
   if (error) {
-    return { error: error.message };
+    // React resets every uncontrolled field in this action-bound <form> once
+    // the action returns, success or failure (see signup-form.tsx's own
+    // fix for the same behavior) — without echoing the submitted values
+    // back, a transient DB error here would silently discard city/area/state
+    // edits the patient had just typed, not just fail to save them.
+    return { error: error.message, values: locationValues(formData) };
   }
 
   return { success: true };
