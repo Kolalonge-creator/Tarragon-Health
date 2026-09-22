@@ -37,9 +37,27 @@
 //     carry the subscription_code, matched against `provider_ref` (set by
 //     the subscription.create enrichment above).
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
-type CheckoutKind = "subscription" | "add_on" | "booking";
+// Mirrors apps/web/src/lib/billing/checkout-metadata.ts's CheckoutKind
+// (the canonical definition — checkout always writes metadata via that
+// type). This local copy had only 3 of its 9 values until this file was
+// first ever `deno check`ed (2026-09-23): the switch below already branched
+// on `metadata.kind === "service_purchase"`, a comparison the narrower type
+// made look like a TypeScript error, which is exactly how it went unnoticed
+// that the switch had NO branch at all for 4 of the other 6 real values —
+// see the charge.success handler's comment on that branch for what that
+// actually broke in production.
+type CheckoutKind =
+  | "subscription"
+  | "add_on"
+  | "booking"
+  | "voucher_payment"
+  | "sponsored_subscription"
+  | "screening_day_payment"
+  | "subsidy_contribution"
+  | "service_purchase"
+  | "platform_credit_topup";
 type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "lab_result_consult";
 
 interface CheckoutMetadata {
@@ -101,8 +119,11 @@ interface PaystackEvent {
   };
 }
 
-async function verifySignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
-  const secret = Deno.env.get("PAYSTACK_WEBHOOK_SECRET");
+export async function verifySignature(
+  rawBody: string,
+  signatureHeader: string | null,
+  secret: string | undefined,
+): Promise<boolean> {
   // Fail closed, unlike whatsapp-webhook's degrade-open: a forged event here
   // activates a real subscription/add-on for free, not just a fake chat
   // message, so an unconfigured secret must reject every request.
@@ -138,7 +159,7 @@ async function verifySignature(rawBody: string, signatureHeader: string | null):
  * HMAC-SHA512 hex digest is a public constant, not a secret. Everything after
  * that runs over the full string with no early exit.
  */
-function timingSafeEqual(a: string, b: string): boolean {
+export function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) {
@@ -147,7 +168,7 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-function intervalToMs(interval: string | null): number {
+export function intervalToMs(interval: string | null): number {
   return interval === "yearly" ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
 }
 
@@ -194,7 +215,7 @@ const PAYMENT_TRANSACTION_TYPES = new Set([
   "other",
 ]);
 
-function toEventType(event: string | undefined): string {
+export function toEventType(event: string | undefined): string {
   return event && PAYMENT_TRANSACTION_TYPES.has(event) ? event : "other";
 }
 
@@ -283,23 +304,29 @@ export function refundProviderEventId(eventName: string, key: string): string {
  * retry of the identical body and nothing else — unlike the body LENGTH this
  * replaced, which collided across unrelated events.
  */
-async function sha256Hex(input: string): Promise<string> {
+export async function sha256Hex(input: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-Deno.serve(async (req) => {
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
-
+// Extracted from the Deno.serve callback so it has a name a test can call
+// directly with a fake/local SupabaseClient and a constructed Request,
+// without spinning up a listener. Deno.serve below is now a thin wrapper —
+// no logic moved, nothing renamed, behaviour identical.
+export async function handleWebhookRequest(
+  req: Request,
+  supabase: SupabaseClient,
+): Promise<Response> {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
   const rawBody = await req.text();
-  const signatureValid = await verifySignature(rawBody, req.headers.get("x-paystack-signature"));
+  const signatureValid = await verifySignature(
+    rawBody,
+    req.headers.get("x-paystack-signature"),
+    Deno.env.get("PAYSTACK_WEBHOOK_SECRET"),
+  );
 
   if (!signatureValid) {
     return Response.json({ ok: false, error: "invalid_signature" }, { status: 200 });
@@ -554,6 +581,48 @@ Deno.serve(async (req) => {
           } else {
             await markProcessed({ organisation_id: row.organisation_id });
           }
+        } else if (
+          metadata.kind === "voucher_payment" ||
+          metadata.kind === "sponsored_subscription" ||
+          metadata.kind === "screening_day_payment" ||
+          metadata.kind === "subsidy_contribution" ||
+          metadata.kind === "platform_credit_topup"
+        ) {
+          // Same shape as the service_purchase branch above, for the other
+          // five kinds whose activation is entirely trigger-based: a
+          // dedicated AFTER INSERT trigger on payment_transactions, gated on
+          // event_type + raw_payload.metadata.kind, fires on the bare insert
+          // above and does the real work before this switch ever runs —
+          // finance_post_voucher_payment/finance_post_sponsored_subscription_
+          // payment (20260902192530_fix_voucher_and_sponsored_purchase_
+          // finance_posting.sql), payment_transactions_apply_screening_day_
+          // payment (20260829003735_group_screening_days.sql),
+          // apply_subsidy_contribution_from_transaction
+          // (20260830113902_subsidy_split_engine.sql), and
+          // private.apply_platform_credit_topup_payment
+          // (20260917100406_platform_credit_ledger_functions.sql).
+          //
+          // Until this branch existed, all five fell into the
+          // subscription_add_ons else-branch below, found no matching row,
+          // and were marked FAILED with a misleading "no subscription_add_ons
+          // row..." error even though the payment had already activated
+          // correctly — processed_at stayed permanently null, which both
+          // misreported these transactions as failed in any admin/finance
+          // view keyed on it, and (for voucher_payment/sponsored_subscription
+          // specifically, before 20260902192530 widened finance_post_from_
+          // payment's own processed_at gate to admit them) silently starved
+          // finance posting outright. See that migration's header for the
+          // full diagnosis — it fixed the DB-trigger side of this same root
+          // cause but could not fix this Edge Function's switch statement.
+          //
+          // markProcessed() here only restores an accurate signal; unlike
+          // service_purchase above it does not re-verify each kind's own
+          // target table, since each already has its own dedicated trigger
+          // and its own independent failure surface (e.g. subsidy_
+          // contributions staying 'pending_payment', screening_day_payments
+          // staying 'pending') that this column was never the source of
+          // truth for.
+          await markProcessed();
         } else {
           const { data: row } = await supabase
             .from("subscription_add_ons")
@@ -881,4 +950,19 @@ Deno.serve(async (req) => {
   }
 
   return Response.json({ ok: true });
-});
+}
+
+// Guarded so importing this module (as index.test.ts does, to reach
+// handleWebhookRequest and the other exports) never binds a real port as a
+// side effect — only running this file directly does, which is exactly what
+// the Supabase Edge Runtime does in production, so this changes no deployed
+// behaviour.
+if (import.meta.main) {
+  Deno.serve((req) => {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    return handleWebhookRequest(req, supabase);
+  });
+}
