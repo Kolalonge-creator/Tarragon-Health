@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Verification: 20260918104719_finance_reversal_row_locking
+# Verification: 20260922181900_finance_reversal_row_locking
 #
 # WHY THIS IS A .sh PROOF, NOT A .sql ONE (see scripts/run-db-proofs.sh's own
 # header). Every other file in this directory runs as one psql session
@@ -45,7 +45,7 @@
 # (>=1s -- proof it was actually blocked, not just that it happened to run
 # after the holder had already committed).
 #
-# WHAT IT PROVES, against the fix in 20260918104719_finance_reversal_row_locking.sql:
+# WHAT IT PROVES, against the fix in 20260922181900_finance_reversal_row_locking.sql:
 #  1. Two concurrent public.finance_reverse_journal calls against the same
 #     UNDER-threshold entry (the synchronous path): exactly one reversal
 #     posts. The loser gets a clean "entry already reversed" error.
@@ -99,7 +99,7 @@ set -uo pipefail
 
 DB_URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MIGRATION_FILE="$SELF_DIR/../../../supabase/migrations/20260918104719_finance_reversal_row_locking.sql"
+MIGRATION_FILE="$SELF_DIR/../../../supabase/migrations/20260922181900_finance_reversal_row_locking.sql"
 
 # Refuse to run against anything that doesn't look like a local/throwaway
 # Postgres instance -- see the SAFETY note above. A plain substring check on
@@ -517,7 +517,7 @@ fi
 #    scheduling luck.
 # ============================================================================
 "${PSQL_SETUP[@]}" <<'SQL'
--- Exact pre-fix (live before 20260918104719) bodies -- no FOR UPDATE anywhere.
+-- Exact pre-fix (live before 20260922181900) bodies -- no FOR UPDATE anywhere.
 create or replace function private.finance_reverse_entry(
   p_entry uuid, p_reason text, p_created_by uuid default null
 ) returns uuid
@@ -637,7 +637,7 @@ fi
 #    should now leave one request stuck at status='pending' with an error.
 # ============================================================================
 "${PSQL_SETUP[@]}" <<'SQL'
--- Exact pre-fix (live before 20260918104719) body -- no is_reversed
+-- Exact pre-fix (live before 20260922181900) body -- no is_reversed
 -- pre-check before calling finance_reverse_entry in the journal_reversal
 -- branch. finance_reverse_entry/finance_reverse_journal are untouched here
 -- (still fixed), isolating finding 2 from finding 1.

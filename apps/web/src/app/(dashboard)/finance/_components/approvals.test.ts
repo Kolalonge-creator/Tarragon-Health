@@ -1,6 +1,6 @@
 /**
  * Regression coverage for a bug found while adding the finance reversal
- * row-locking migration (20260918104719): request_type 'journal_reversal'
+ * row-locking migration (20260922181900): request_type 'journal_reversal'
  * could not previously exist in finance_approval_requests at all (a CHECK
  * constraint silently rejected it), so requestLabel/requestSummary had never
  * been exercised against one. Naively they'd read a manual-journal-shaped
