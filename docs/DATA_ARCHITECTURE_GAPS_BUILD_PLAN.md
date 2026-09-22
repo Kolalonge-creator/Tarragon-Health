@@ -51,9 +51,12 @@
 >   panel", not a per-partner terminology choice) and the allergy-severity map (a direct 1:1 mirror of
 >   FHIR's own fixed `mild`/`moderate`/`severe` valueset, not something a partner's local usage varies) —
 >   both stay as code on purpose, not an oversight.
-> - `/clinician/fhir-review`'s confirm/dismiss are two near-identical server actions and could be one
->   parameterized action; not merged now to keep this diff's diff-of-behavior easy to review, but worth
->   collapsing before a third status (`modified`) gets its own UI.
+> - **Partially addressed 2026-09-18**, when the `modified` status got its own UI ("Edit & confirm"):
+>   `confirmFhirProposedResource`/`modifyFhirProposedResource`/`dismissFhirProposedResource` now share one
+>   `requireClinicalTierForReview` helper for the app-layer tier gate (previously duplicated per action,
+>   and — a real gap this closed in passing — `dismissFhirProposedResource` had never had the gate at all),
+>   but the three actions themselves are still separate functions, not one parameterized action. Full
+>   collapse remains a live, smaller opportunity, not a blocker.
 
 ## 1. HL7 FHIR interoperability layer
 
@@ -101,10 +104,21 @@ guessed — that guess predates `lib/integrations/gateway.ts`, which is now this
 convention for "any future partner endpoint." The parser (`parse-resource.ts`) supports a specific,
 tested set of common LOINC codes for Observation and a best-effort catalogue match for Immunization —
 an unrecognised code or an unmatched vaccine name is recorded in `skip_reasons`, never guessed at. The
-review worklist supports confirm and dismiss-with-reason; it does not yet expose an edit-before-confirm
-form for the `modified` status path the schema already supports (a real fast-follow, not a structural
-gap — the DB enforces `confirmed_payload` correctly whenever a UI is built for it). What was already
-half-built before this pass:
+review worklist supports confirm, dismiss-with-reason, and — **shipped 2026-09-18, same-day fast-follow**
+— "Edit & confirm", a form (`fhir-review-queue.tsx`) exposing every editable field of `normalized_payload`,
+submitting the edited values as `confirmed_payload` with status `modified`. Field-by-field, not one generic
+text box per key: a shared config (`editable-field-config.ts`, imported by both the UI and the server
+action, same pattern `vital-mapping.ts` established for the vital-type/column mapping) says whether each
+key is a number (`<input type="number">`), a boolean (a real checkbox, never a case-sensitive "does the
+text say true"), a real Postgres enum — `severity`/`glucose_context` — (a `<select>` constrained to that
+enum's actual values, matching the exact live `allergy_severity`/`glucose_context` enum lists), a date, or
+free text; `vital_type`/`vaccination_catalog_id` are `"readonly"` — never exposed for editing, and the
+server never trusts a submission for them even if one somehow arrives. **A /code-review high pass on the
+first version of this feature found the naive "guess the kind from `typeof`" approach missed both enum
+fields entirely** (a clinician could type an invalid `severity`/`glucose_context` value and hit a raw
+Postgres cast error, or silently write the wrong boolean via a case-sensitive text match) — the config-
+driven redesign above is the fix, not a patch on top of the original approach. What was already half-built
+before this pass:
 1. `POST /api/integrations/fhir/import` — validates a FHIR R4 Bundle against an existing `api_keys`
    credential, writes `fhir_import_batches` + `fhir_import_proposed_resources` rows. This is a pure
    consumer of schema/logic that already exists and was already designed to be safe (review-gated,
