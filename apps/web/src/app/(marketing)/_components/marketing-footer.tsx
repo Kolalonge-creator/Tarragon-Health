@@ -199,6 +199,12 @@ export function MarketingFooter() {
                 +234 806 119 7940
               </a>
             </p>
+            {/* Registered headquarters, locality level. Care is delivered in
+                the app, so this is deliberately not framed as somewhere to
+                visit. */}
+            <p className="text-sm text-white/65">
+              Headquarters: {SITE.headquarters}
+            </p>
           </div>
           <SocialLinks />
         </div>
