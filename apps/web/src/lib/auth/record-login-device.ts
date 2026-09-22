@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { getClientIp } from "@/lib/rate-limit";
+import { callRpc } from "@/lib/auth/lockout-rpc";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
@@ -13,24 +14,23 @@ import type { Database } from "@tarragon/shared";
  * fingerprint is seen for that profile.
  *
  * Deliberately best-effort: a failure here (RPC error, missing headers) must
- * never block a real login. Called from the password and phone-OTP success
- * paths in login/actions.ts, right before redirectAfterLogin().
+ * never block a real login. Routed through callRpc — found in review, this
+ * used to catch a thrown exception but never inspect a resolved RPC-level
+ * `{data, error}` failure (permission denied, a lost grant), which would
+ * silently disable new-device detection platform-wide with nothing logged.
+ * See callRpc's own doc comment. Called from the password, phone-OTP and
+ * guest-checkout success paths (login/actions.ts, guest-checkout.ts), right
+ * before redirecting the user onward.
  */
 export async function recordLoginDevice(supabase: SupabaseClient<Database>): Promise<void> {
-  try {
-    const h = await headers();
-    const userAgent = h.get("user-agent") ?? "unknown";
-    const ip = await getClientIp();
-    const fingerprint = createHash("sha256").update(userAgent).digest("hex");
+  const h = await headers();
+  const userAgent = h.get("user-agent") ?? "unknown";
+  const ip = await getClientIp();
+  const fingerprint = createHash("sha256").update(userAgent).digest("hex");
 
-    await supabase.rpc("record_login_device", {
-      p_device_fingerprint: fingerprint,
-      p_user_agent: userAgent,
-      p_ip: ip,
-    });
-  } catch {
-    // Best-effort only — never let device-notification bookkeeping break a
-    // real sign-in. The RPC derives the profile from auth.uid() itself (a
-    // real session is guaranteed by the time this is called).
-  }
+  await callRpc(supabase, "record_login_device", {
+    p_device_fingerprint: fingerprint,
+    p_user_agent: userAgent,
+    p_ip: ip,
+  });
 }

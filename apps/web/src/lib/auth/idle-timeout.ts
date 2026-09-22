@@ -79,14 +79,22 @@ export function isBackgroundTelemetryPath(pathname: string): boolean {
  * path (reset-password/actions.ts) would never execute. /forgot-password
  * and /login/mfa-challenge are the same shape: a session already mid-way
  * through recovering or stepping up, not a signal of a stale session
- * sitting untouched. `request.nextUrl.pathname` never includes the query
- * string, so an exact match on these fixed route paths is sufficient.
+ * sitting untouched. `/checkout` (verifyGuestCheckoutOtp establishes a real
+ * session there too, per guest-checkout.ts) is the same shape again — a
+ * guest who takes longer than the idle threshold to enter payment details
+ * (slow connection, hesitation) would otherwise have their final "Pay"
+ * submission intercepted, silently dropping an in-progress purchase and
+ * forcing a restart of the whole guest-checkout flow. A prefix match on
+ * `/checkout` covers its /[code], /continue and /receipt sub-paths in one
+ * exemption.
  */
 export function isIdleTimeoutExemptPath(pathname: string): boolean {
   return (
     pathname === "/reset-password" ||
     pathname === "/forgot-password" ||
-    pathname === "/login/mfa-challenge"
+    pathname === "/login/mfa-challenge" ||
+    pathname === "/checkout" ||
+    pathname.startsWith("/checkout/")
   );
 }
 

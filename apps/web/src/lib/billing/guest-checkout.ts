@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { isGuestCheckoutProductCode } from "@/lib/billing/guest-checkout-products";
 import {
@@ -11,8 +10,9 @@ import {
   combineGuestPhone,
 } from "@/lib/validation/guest-checkout";
 import { callLockoutRpc } from "@/lib/auth/lockout-rpc";
+import { recordLoginDevice } from "@/lib/auth/record-login-device";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
-import { authErrorMessage, isInvalidOtpError } from "@/lib/auth/auth-error-message";
+import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 
 export type GuestCheckoutState =
@@ -159,7 +159,7 @@ export async function verifyGuestCheckoutOtp(
 
   const supabase = await createClient();
 
-  // Same real account-level lockout the login flow enforces (see
+  // Reads the SAME account-level lockout the login flow enforces (see
   // 20260918111442_account_lockout_after_repeated_failed_logins.sql).
   // Without this, an account locked out by 5 failed PASSWORD attempts on
   // /login could still be fully authenticated through THIS flow instead —
@@ -178,17 +178,42 @@ export async function verifyGuestCheckoutOtp(
 
   const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
   if (error || !data.user) {
-    // Only a genuine wrong/expired code counts toward the lockout — never a
-    // rate-limit or network error. Service-role-only, same reasoning as
-    // login/actions.ts: the anon key is not a secret.
-    if (isInvalidOtpError(error)) {
-      await callLockoutRpc(createServiceRoleClient(), "record_failed_login", { p_email: email });
-    }
+    // Deliberately does NOT call record_failed_login here, unlike every
+    // other verify path in this codebase — found and reverted before merge
+    // as a real vulnerability this migration's own protection would have
+    // introduced, not a missed spot. Every other lockout-writing entry point
+    // (password, phone OTP) requires the caller to already know something
+    // about the account (the password itself, or control of the phone
+    // number the OTP was sent to) before a failure can even be attempted.
+    // startGuestCheckout needs only a PUBLIC email address to trigger a real
+    // OTP send to that address — so if wrong guesses here also counted
+    // toward the shared lockout counter, any stranger who knows nothing else
+    // about a victim's account could send them one OTP, submit 5 guesses
+    // they can never actually get right (the code went to the victim's own
+    // inbox), and lock the victim out of password AND phone-OTP login too —
+    // repeatable indefinitely with nothing but a public email address as
+    // input, worse than the bypass this lockout was built to close. The
+    // is_account_locked READ above still closes the real bypass (a locked
+    // account can't be reached via checkout); recording failures from this
+    // specific entry point is intentionally left out. The existing
+    // guest-checkout-verify rate limit (8/15min) above is this endpoint's
+    // own, narrower protection against OTP brute-forcing.
     return { error: authErrorMessage(error, "otp_verify"), step: "verify", email };
   }
 
   // Best-effort — never let lockout bookkeeping block a real checkout.
   await callLockoutRpc(supabase, "clear_login_failures");
+
+  // Same new-device security alert every real sign-in path fires (see
+  // redirectAfterLogin in login/actions.ts) — found missing here in review.
+  // This flow "silently authenticates a returning guest whose email matches
+  // an EXISTING account" (this function's own doc comment above), so someone
+  // who reaches an existing account through checkout — whether the real
+  // owner or anyone who intercepted/guessed their OTP — deserves the same
+  // "new sign-in from an unrecognized device" notification a password or
+  // phone-OTP login would have triggered. Best-effort, never blocks a real
+  // checkout (see record-login-device.ts).
+  await recordLoginDevice(supabase);
 
   const metadataPhone = data.user.user_metadata?.phone;
   if (typeof metadataPhone === "string" && metadataPhone.length > 0) {

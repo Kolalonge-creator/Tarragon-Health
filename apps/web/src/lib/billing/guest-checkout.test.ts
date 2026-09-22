@@ -1,20 +1,31 @@
 /**
- * Regression: verifyGuestCheckoutOtp is a THIRD passwordless sign-in entry
- * point (email OTP, via signInWithOtp/verifyOtp) that used to have no
- * integration with the account-lockout feature at all
- * (20260918111442_account_lockout_after_repeated_failed_logins.sql). Per
- * startGuestCheckout's own doc comment, signInWithOtp with
- * shouldCreateUser:true silently authenticates a returning guest whose email
- * matches an EXISTING account — including one just locked via 5 failed
- * password attempts on /login. An attacker could lock a victim's account via
- * the password path, then walk straight through guest checkout at /checkout
- * to fully authenticate into that same account during the lock window — a
- * complete side-channel bypass of the whole feature. Proves, against the
- * real verifyGuestCheckoutOtp:
- *  - a locked account is refused BEFORE verifyOtp is ever called;
- *  - record_failed_login fires via the SERVICE-ROLE client on a genuine
- *    wrong-code result, never the anon-key client;
- *  - a successful verify clears the failure counter.
+ * Two related regressions around verifyGuestCheckoutOtp/startGuestCheckout,
+ * a THIRD passwordless sign-in entry point (email OTP) alongside password
+ * and phone-OTP login:
+ *
+ * 1. Bypass (fixed): per startGuestCheckout's own doc comment, signInWithOtp
+ *    with shouldCreateUser:true silently authenticates a returning guest
+ *    whose email matches an EXISTING account — including one locked via 5
+ *    failed password attempts on /login. Both functions now READ
+ *    is_account_locked before proceeding, so a locked account can't be
+ *    reached through checkout either.
+ *
+ * 2. Griefing vector (found and reverted before merge, NOT built): an
+ *    earlier version of this fix also called record_failed_login on a wrong
+ *    OTP guess here, the same way login/actions.ts and forgot-password/
+ *    actions.ts do for THEIR verify failures. That is wrong for THIS entry
+ *    point specifically — unlike password or phone-OTP login, which both
+ *    require the caller to already know something about the account (the
+ *    password itself, or control of the phone number an OTP was sent to),
+ *    startGuestCheckout needs only a PUBLIC email address to trigger a real
+ *    OTP send. If wrong guesses here also counted toward the shared lockout
+ *    counter, any stranger who knows nothing else about a victim could
+ *    submit 5 guesses they can never get right (the code goes to the
+ *    victim's own inbox) and lock the victim out of password AND phone-OTP
+ *    login too — repeatable indefinitely with nothing but a public email
+ *    address as input. verifyGuestCheckoutOtp deliberately never calls
+ *    record_failed_login at all; this file proves that stays true even
+ *    across repeated wrong guesses.
  */
 
 jest.mock("next/navigation", () => ({ redirect: jest.fn() }));
@@ -26,8 +37,12 @@ jest.mock("@/lib/billing/purchase-service-product", () => ({
   purchaseServiceProduct: jest.fn().mockResolvedValue({ activated: true }),
 }));
 
+const recordLoginDevice = jest.fn().mockResolvedValue(undefined);
+jest.mock("@/lib/auth/record-login-device", () => ({
+  recordLoginDevice: (...args: unknown[]) => recordLoginDevice(...args),
+}));
+
 const anonRpc = jest.fn();
-const serviceRoleRpc = jest.fn();
 const verifyOtp = jest.fn();
 const signInWithOtp = jest.fn();
 const profilesUpdate = jest.fn().mockReturnValue({ eq: jest.fn() });
@@ -38,10 +53,6 @@ jest.mock("@/lib/supabase/server", () => ({
     auth: { verifyOtp, signInWithOtp },
     from: () => ({ update: profilesUpdate }),
   }),
-}));
-
-jest.mock("@/lib/supabase/service-role", () => ({
-  createServiceRoleClient: jest.fn(() => ({ rpc: serviceRoleRpc })),
 }));
 
 import { startGuestCheckout, verifyGuestCheckoutOtp } from "./guest-checkout";
@@ -69,9 +80,9 @@ function startFormData(email: string) {
 
 beforeEach(() => {
   anonRpc.mockReset();
-  serviceRoleRpc.mockReset().mockResolvedValue({ data: null, error: null });
   verifyOtp.mockReset();
   signInWithOtp.mockReset().mockResolvedValue({ error: null });
+  recordLoginDevice.mockReset().mockResolvedValue(undefined);
 });
 
 describe("verifyGuestCheckoutOtp — account lockout (bypass regression)", () => {
@@ -89,40 +100,7 @@ describe("verifyGuestCheckoutOtp — account lockout (bypass regression)", () =>
     expect(verifyOtp).not.toHaveBeenCalled();
   });
 
-  it("records a failure via the SERVICE-ROLE client on a genuine wrong-code result", async () => {
-    anonRpc.mockResolvedValue({ data: false, error: null });
-    verifyOtp.mockResolvedValue({ data: { user: null }, error: { message: "Invalid otp" } });
-
-    await verifyGuestCheckoutOtp(
-      PRODUCT_CODE,
-      undefined,
-      otpFormData("guest@example.com", "00000000")
-    );
-
-    expect(serviceRoleRpc).toHaveBeenCalledWith("record_failed_login", {
-      p_email: "guest@example.com",
-    });
-    const anonRpcCalls = anonRpc.mock.calls.map((call) => call[0]);
-    expect(anonRpcCalls).not.toContain("record_failed_login");
-  });
-
-  it("does NOT record a failure for a rate-limit error", async () => {
-    anonRpc.mockResolvedValue({ data: false, error: null });
-    verifyOtp.mockResolvedValue({
-      data: { user: null },
-      error: { message: "For security purposes, you can only request this after 47 seconds" },
-    });
-
-    await verifyGuestCheckoutOtp(
-      PRODUCT_CODE,
-      undefined,
-      otpFormData("guest@example.com", "12345678")
-    );
-
-    expect(serviceRoleRpc).not.toHaveBeenCalled();
-  });
-
-  it("clears failures via the ordinary client on a successful verify", async () => {
+  it("clears failures and records the login device on a successful verify", async () => {
     anonRpc.mockResolvedValue({ data: false, error: null });
     verifyOtp.mockResolvedValue({
       data: { user: { id: "user-1", user_metadata: {} } },
@@ -136,6 +114,57 @@ describe("verifyGuestCheckoutOtp — account lockout (bypass regression)", () =>
     );
 
     expect(anonRpc).toHaveBeenCalledWith("clear_login_failures");
+    // Same new-device security alert every other real sign-in path fires
+    // (redirectAfterLogin in login/actions.ts) — this flow authenticates
+    // into a real account too and deserves the same coverage.
+    expect(recordLoginDevice).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("verifyGuestCheckoutOtp — griefing-vector regression (must NEVER record a failure)", () => {
+  const errorShapes = [
+    { message: "Invalid otp" },
+    { message: "Token has expired or is invalid" },
+    { message: "For security purposes, you can only request this after 47 seconds" },
+    { message: "TypeError: fetch failed" },
+  ];
+
+  it.each(errorShapes)(
+    "never calls record_failed_login for a %j verifyOtp failure",
+    async (errorShape) => {
+      anonRpc.mockResolvedValue({ data: false, error: null });
+      verifyOtp.mockResolvedValue({ data: { user: null }, error: errorShape });
+
+      await verifyGuestCheckoutOtp(
+        PRODUCT_CODE,
+        undefined,
+        otpFormData("victim@example.com", "00000000")
+      );
+
+      const anonRpcCalls = anonRpc.mock.calls.map((call) => call[0]);
+      expect(anonRpcCalls).not.toContain("record_failed_login");
+    }
+  );
+
+  it("an anonymous actor with only a victim's public email cannot lock the victim out via repeated wrong guesses", async () => {
+    // Simulates the exact attack: attacker knows only victim@example.com
+    // (no password, no phone), triggers one real OTP send via
+    // startGuestCheckout, then submits 5 deliberately-wrong codes — the
+    // number that would lock the account via the password/phone-OTP path.
+    anonRpc.mockResolvedValue({ data: false, error: null }); // never locked
+    verifyOtp.mockResolvedValue({ data: { user: null }, error: { message: "Invalid otp" } });
+
+    for (let i = 0; i < 5; i++) {
+      await verifyGuestCheckoutOtp(
+        PRODUCT_CODE,
+        undefined,
+        otpFormData("victim@example.com", "00000000")
+      );
+    }
+
+    const anonRpcCalls = anonRpc.mock.calls.map((call) => call[0]);
+    expect(anonRpcCalls).not.toContain("record_failed_login");
+    expect(anonRpcCalls).not.toContain("record_failed_login_by_phone");
   });
 });
 

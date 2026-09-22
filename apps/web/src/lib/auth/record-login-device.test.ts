@@ -33,4 +33,18 @@ describe("recordLoginDevice", () => {
 
     await expect(recordLoginDevice(supabase)).resolves.toBeUndefined();
   });
+
+  it("never throws when the RPC resolves with a PostgREST-level error (regression: this used to be silently ignored)", async () => {
+    // callRpc's job (lockout-rpc.ts) is to catch exactly this shape — a
+    // lost EXECUTE grant on record_login_device resolves {data:null,
+    // error:...} rather than throwing, which the old bare try/catch never
+    // inspected at all.
+    const rpc = jest.fn().mockResolvedValue({
+      data: null,
+      error: { message: "permission denied for function record_login_device" },
+    });
+    const supabase = { rpc } as unknown as Parameters<typeof recordLoginDevice>[0];
+
+    await expect(recordLoginDevice(supabase)).resolves.toBeUndefined();
+  });
 });

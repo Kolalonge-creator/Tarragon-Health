@@ -60,6 +60,13 @@ describe("isIdleTimeoutExemptPath", () => {
     expect(isIdleTimeoutExemptPath("/login/mfa-challenge")).toBe(true);
   });
 
+  it("exempts the guest-checkout flow (regression: an in-progress purchase would otherwise get silently dropped mid payment-entry)", () => {
+    expect(isIdleTimeoutExemptPath("/checkout")).toBe(true);
+    expect(isIdleTimeoutExemptPath("/checkout/video_visit_credit")).toBe(true);
+    expect(isIdleTimeoutExemptPath("/checkout/continue")).toBe(true);
+    expect(isIdleTimeoutExemptPath("/checkout/receipt")).toBe(true);
+  });
+
   it("does not exempt a real dashboard route", () => {
     expect(isIdleTimeoutExemptPath("/patient/dashboard")).toBe(false);
   });
