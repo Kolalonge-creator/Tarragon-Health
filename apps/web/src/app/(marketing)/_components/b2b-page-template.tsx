@@ -144,6 +144,40 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
         </div>
       </Section>
 
+      {content.partnerOffer ? (
+        <Section variant="navy">
+          <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-2 lg:items-center">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-wide text-white/60">
+                {content.partnerOffer.eyebrow}
+              </p>
+              <h2 className="mt-2 font-heading text-3xl font-semibold sm:text-4xl">
+                {content.partnerOffer.title}
+              </h2>
+              <p className="mt-4 leading-relaxed text-white/80">{content.partnerOffer.body}</p>
+              {/* variant="outline" is dark text on a transparent background
+                  (button.tsx) — illegible on this section's navy background,
+                  so the default solid brand-green variant is used instead. */}
+              <Button asChild size="lg" className="mt-6">
+                <Link href={`${MARKETING_ROUTES.contact}?source=${content.slug}-ngo&role=${content.partnerOffer.ctaRole}`}>
+                  {content.partnerOffer.ctaLabel}
+                </Link>
+              </Button>
+            </div>
+            <ul className="space-y-3">
+              {content.partnerOffer.points.map((point) => (
+                <li key={point} className="flex gap-3 rounded-xl bg-white/5 p-4 text-sm leading-relaxed text-white/85">
+                  <span aria-hidden className="text-brand-green">
+                    ✓
+                  </span>
+                  {point}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Section>
+      ) : null}
+
       {(content.slug === "corporate" || content.slug === "hmo") && (
         <Section>
           <SectionHeading

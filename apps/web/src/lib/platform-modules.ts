@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/server";
  * the database would refuse anyway. Keep it that way: never use the result
  * of `isPlatformModuleEnabled` as the ONLY check before a write.
  */
-export type PlatformModuleKey = "payer_platform" | "provider_org_platform";
+export type PlatformModuleKey = "payer_platform" | "provider_org_platform" | "ngo_funded_cohort";
 
 export type PlatformModuleRow = {
   key: string;

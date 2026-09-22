@@ -199,3 +199,18 @@ platform_credit_spend_revenue_deferral.sql
 # async-consult-answered and video-consultation-completed flows, with a
 # sabotage control for bug (1).
 clinical_encounter_note_link_bugs.sql
+
+# NGO-funded cohort module (dormant, platform_modules key ngo_funded_cohort).
+# Proves dormancy, org-type/product/cap validation, cross-org invitation-read
+# isolation, and the claim flow producing a correctly-shaped care_voucher --
+# including the real leak this proof caught before the module ever shipped
+# (claim_funding_programme_invitation originally attributed the voucher's
+# purchaser_profile_id to the inviting ngo_admin, which handed them a second,
+# unrelated RLS door into the row via care_vouchers_select's own "purchaser_
+# profile_id = auth.uid()" clause -- fixed in 20260922184722 by attributing
+# to the programme's own creator instead). Ends with a same-organisation
+# sabotage control for private.is_org_staff()'s ngo_admin exclusion, the one
+# targeted enough to actually falsify it (a cross-org attempt is blocked by
+# ordinary tenant isolation regardless of the exclusion and would sabotage
+# nothing real -- see the file's own header for why).
+ngo_funded_cohort.sql
