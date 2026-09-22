@@ -216,6 +216,27 @@ cleanup() {
     if ! out="$("${PSQL_SETUP[@]}" \
       -v officer_x="$OFFICER_X" -v officer_y="$OFFICER_Y" -v requester="$REQUESTER" \
       -v reviewer_b="$REVIEWER_B" -v reviewer_c="$REVIEWER_C" 2>&1 <<'SQL'
+-- private.log_audit is called by every finance_reverse_journal/
+-- finance_approve_request call this script makes, and writes
+-- public.audit_log rows with actor_id = the acting user. audit_log is
+-- fully immutable -- private.reject_mutation() unconditionally rejects
+-- every UPDATE/DELETE, no role exemption -- and audit_log_actor_id_fkey
+-- is live ON DELETE RESTRICT, drifted from this table's original
+-- migration text of ON DELETE SET NULL; confirmed via
+-- pg_get_constraintdef, not trusted from the migration file. Without
+-- this, deleting these fixture actors below fails outright with a
+-- foreign-key violation, on every database that carries this trigger --
+-- which the scratch schema this script was developed against did not
+-- faithfully replicate, so this was never caught before the first real
+-- CI run. session_replication_role bypasses the append-only trigger and
+-- FK-enforcement triggers for this session. Plain SET, not SET LOCAL --
+-- each statement psql sends here autocommits on its own, no explicit
+-- BEGIN in this script, so SET LOCAL's transaction-scoped effect would
+-- revert before the very next statement even ran; SET at session scope
+-- is what actually carries the setting to the DELETE immediately below.
+set session_replication_role = replica;
+delete from public.audit_log where actor_id in (:'officer_x'::uuid, :'officer_y'::uuid, :'requester'::uuid, :'reviewer_b'::uuid, :'reviewer_c'::uuid);
+set session_replication_role = default;
 delete from public.finance_approval_requests where requested_by in (:'requester'::uuid) or reviewed_by in (:'reviewer_b'::uuid, :'reviewer_c'::uuid);
 delete from public.finance_journal_entries where created_by in (:'officer_x'::uuid, :'officer_y'::uuid, :'requester'::uuid, :'reviewer_b'::uuid, :'reviewer_c'::uuid);
 delete from auth.users where id in (:'officer_x'::uuid, :'officer_y'::uuid, :'requester'::uuid, :'reviewer_b'::uuid, :'reviewer_c'::uuid);
