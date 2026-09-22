@@ -637,12 +637,19 @@ export async function submitRiskAssessment(
   // question) must gate the same as an explicit 'not_applicable' — never
   // treat "no signal" as license to assume a life-stage-gated screen type
   // like antenatal_booking applies. See LIFE_STAGE_GATED_SCREENS in
-  // screening-recommendations.ts.
-  const { data: reproductiveHealthProfile } = await supabase
-    .from("reproductive_health_profiles")
-    .select("life_stage")
-    .eq("patient_id", subjectId)
-    .maybeSingle();
+  // screening-recommendations.ts. Only fetched for female patients — every
+  // current gated code is female-only, so the lookup can never change the
+  // outcome for anyone else.
+  const reproductiveHealthProfile =
+    profile.sex === "female"
+      ? (
+          await supabase
+            .from("reproductive_health_profiles")
+            .select("life_stage")
+            .eq("patient_id", subjectId)
+            .maybeSingle()
+        ).data
+      : null;
 
   const lastCompletedByScreenTypeId = new Map<string, string>();
   const activeByScreenTypeId = new Map<string, { id: string; due_date: string }>();
