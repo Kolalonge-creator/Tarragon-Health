@@ -65,11 +65,19 @@ describe("updatePatientLocation — submitted values survive a failed submission
     expect(result?.values).toEqual({ state: "Lagos", city: "Ikeja", area: "Allen Avenue" });
   });
 
-  it("returns no values on success, since the form keeps the fields the patient just confirmed", async () => {
+  it("also echoes back the submitted values on success", async () => {
+    // The same reset-on-any-outcome React behavior applies on success too:
+    // without this, a successful save could flash the visible fields back
+    // to their stale pre-edit values for the moment before router.refresh()
+    // lands a fresh `initial` prop from the server, looking like the edit
+    // itself was silently lost even though it saved correctly.
     update.mockResolvedValue({ error: null });
 
     const result = await updatePatientLocation(undefined, formDataFor());
 
-    expect(result).toEqual({ success: true });
+    expect(result).toEqual({
+      success: true,
+      values: { state: "Lagos", city: "Ikeja", area: "Allen Avenue" },
+    });
   });
 });

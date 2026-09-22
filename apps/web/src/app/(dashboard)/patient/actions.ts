@@ -251,7 +251,12 @@ export async function updatePatientLocation(
     return { error: error.message, values: locationValues(formData) };
   }
 
-  return { success: true };
+  // Echoed here too, not just on failure: the same reset-on-any-outcome
+  // behavior means a successful save can otherwise flash the visible
+  // fields back to their pre-edit values for the moment before
+  // router.refresh() lands a fresh `initial` prop — looking, right after a
+  // successful save, like the edit itself was silently lost.
+  return { success: true, values: locationValues(formData) };
 }
 
 const AVATAR_BUCKET = "patient-avatars";

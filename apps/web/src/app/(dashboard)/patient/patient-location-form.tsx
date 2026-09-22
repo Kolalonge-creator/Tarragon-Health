@@ -28,16 +28,20 @@ export function PatientLocationForm({
   const router = useRouter();
 
   // React resets every uncontrolled field in this action-bound <form> once
-  // the action returns, success or failure (see signup-form.tsx's fix for
+  // the action returns, success OR failure (see signup-form.tsx's fix for
   // the same behavior) — so a transient save error could otherwise wipe out
   // city/area/state edits the patient had just typed, not just fail to save
-  // them. Re-keying the form on a failed attempt forces a remount, which is
-  // what lets fresh defaultValues (from the server's echoed `values`) apply.
+  // them. Re-keying the form on every attempt forces a remount, which is
+  // what lets fresh defaultValues (from the server's echoed `values`,
+  // returned on success too) actually apply — without this, a *successful*
+  // save could flash the visible fields back to their stale pre-edit values
+  // for the moment before router.refresh() lands a fresh `initial` prop,
+  // looking like the edit was silently lost even though it wasn't.
   const [attempt, setAttempt] = useState(0);
   const [lastState, setLastState] = useState(state);
   if (state !== lastState) {
     setLastState(state);
-    if (state?.error) setAttempt((n) => n + 1);
+    if (state) setAttempt((n) => n + 1);
   }
   const values = state?.values;
   const currentState = values?.state ?? initial.state;
