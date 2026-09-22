@@ -10,6 +10,7 @@ import {
   guestCheckoutVerifySchema,
   combineGuestPhone,
 } from "@/lib/validation/guest-checkout";
+import { callLockoutRpc } from "@/lib/auth/lockout-rpc";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage, isInvalidOtpError } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
@@ -91,13 +92,9 @@ export async function startGuestCheckout(
   // returns false uniformly for an email with no account (this call also
   // silently provisions one via shouldCreateUser below), so this reveals
   // nothing new either way.
-  let isLocked = false;
-  try {
-    const result = await supabase.rpc("is_account_locked", { p_email: email });
-    isLocked = Boolean(result.data);
-  } catch {
-    // Fall through and let signInWithOtp decide.
-  }
+  const isLocked = Boolean(
+    await callLockoutRpc<boolean>(supabase, "is_account_locked", { p_email: email })
+  );
   if (isLocked) {
     return { error: RATE_LIMIT_MESSAGE };
   }
@@ -172,13 +169,9 @@ export async function verifyGuestCheckoutOtp(
   // page correctly refuses it. Best-effort, same posture as every other
   // lockout check in this codebase: a transient failure here must never
   // itself block a real checkout.
-  let isLocked = false;
-  try {
-    const result = await supabase.rpc("is_account_locked", { p_email: email });
-    isLocked = Boolean(result.data);
-  } catch {
-    // Fall through and let verifyOtp decide.
-  }
+  const isLocked = Boolean(
+    await callLockoutRpc<boolean>(supabase, "is_account_locked", { p_email: email })
+  );
   if (isLocked) {
     return { error: RATE_LIMIT_MESSAGE, step: "verify", email };
   }
@@ -189,21 +182,13 @@ export async function verifyGuestCheckoutOtp(
     // rate-limit or network error. Service-role-only, same reasoning as
     // login/actions.ts: the anon key is not a secret.
     if (isInvalidOtpError(error)) {
-      try {
-        await createServiceRoleClient().rpc("record_failed_login", { p_email: email });
-      } catch {
-        // Never let lockout bookkeeping block showing the real error.
-      }
+      await callLockoutRpc(createServiceRoleClient(), "record_failed_login", { p_email: email });
     }
     return { error: authErrorMessage(error, "otp_verify"), step: "verify", email };
   }
 
   // Best-effort — never let lockout bookkeeping block a real checkout.
-  try {
-    await supabase.rpc("clear_login_failures");
-  } catch {
-    // Never let lockout bookkeeping block a real checkout.
-  }
+  await callLockoutRpc(supabase, "clear_login_failures");
 
   const metadataPhone = data.user.user_metadata?.phone;
   if (typeof metadataPhone === "string" && metadataPhone.length > 0) {

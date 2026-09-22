@@ -5,6 +5,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { newPasswordSchema } from "@/lib/validation/auth";
 import { getRoleHomePath } from "@/lib/auth/roles";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
+import { callLockoutRpc } from "@/lib/auth/lockout-rpc";
 import { firstIssue } from "@/lib/validation/first-issue";
 
 export type ResetPasswordActionState = { error?: string; field?: string } | undefined;
@@ -39,11 +40,7 @@ export async function updatePassword(
   // their brand-new correct password for up to 15 more minutes if their
   // reset session ends before the lock naturally expires. Best-effort —
   // never let lockout bookkeeping block a real password reset.
-  try {
-    await supabase.rpc("clear_login_failures");
-  } catch {
-    // Never let lockout bookkeeping block a real password reset.
-  }
+  await callLockoutRpc(supabase, "clear_login_failures");
 
   const { data: profile } = await supabase
     .from("profiles")

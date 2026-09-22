@@ -10,6 +10,7 @@ import {
 } from "@/lib/validation/auth";
 import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
 import { recordLoginDevice } from "@/lib/auth/record-login-device";
+import { callLockoutRpc } from "@/lib/auth/lockout-rpc";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import {
   authErrorMessage,
@@ -77,18 +78,13 @@ export async function signInWithEmail(
   // signInWithPassword so a locked account is refused without ever reaching
   // GoTrue. Returns false uniformly for an unknown email, so this reveals
   // nothing about whether the address has an account — same generic message
-  // as the rate limit above either way. Best-effort, same as the other two
-  // lockout RPC calls below: a transient failure here (network/fetch-level,
-  // not an RPC-level error response) must never itself break sign-in for
-  // every user.
-  let isLocked = false;
-  try {
-    const result = await supabase.rpc("is_account_locked", { p_email: parsed.data.email });
-    isLocked = Boolean(result.data);
-  } catch {
-    // Fall through and let signInWithPassword decide — never block a real
-    // sign-in because the lockout check itself failed.
-  }
+  // as the rate limit above either way. callLockoutRpc is best-effort (never
+  // blocks a real sign-in on a transient failure) and reports a genuine
+  // RPC-level error (e.g. a lost grant) to Sentry rather than treating it
+  // identically to "no attacker" — see its own doc comment.
+  const isLocked = Boolean(
+    await callLockoutRpc<boolean>(supabase, "is_account_locked", { p_email: parsed.data.email })
+  );
   if (isLocked) {
     return { error: RATE_LIMIT_MESSAGE };
   }
@@ -103,11 +99,6 @@ export async function signInWithEmail(
     // despite never entering a wrong password. See isInvalidCredentialsError's
     // own doc comment.
     if (isInvalidCredentialsError(error)) {
-      // Best-effort — a failure here must never block showing the real error
-      // to the user, and it derives account existence itself internally (a
-      // failure for an unknown email is a safe no-op), so no enumeration
-      // signal is added by calling it unconditionally.
-      //
       // Deliberately the SERVICE-ROLE client, not the anon-key `supabase`
       // client used everywhere else in this file. record_failed_login() is
       // now granted EXECUTE to service_role only (see the migration's own
@@ -117,13 +108,9 @@ export async function signInWithEmail(
       // RPC directly lock an arbitrary known account with no real login
       // attempt at all. Only this trusted server call, using a key never sent
       // to a browser, may record a failure.
-      try {
-        await createServiceRoleClient().rpc("record_failed_login", {
-          p_email: parsed.data.email,
-        });
-      } catch {
-        // Never let lockout bookkeeping block showing the real sign-in error.
-      }
+      await callLockoutRpc(createServiceRoleClient(), "record_failed_login", {
+        p_email: parsed.data.email,
+      });
     }
     // Never the raw GoTrue string, and never anything that would confirm
     // whether this address has an account here.
@@ -131,11 +118,7 @@ export async function signInWithEmail(
   }
 
   // Best-effort — never let lockout bookkeeping block a real sign-in.
-  try {
-    await supabase.rpc("clear_login_failures");
-  } catch {
-    // Never let lockout bookkeeping block a real sign-in.
-  }
+  await callLockoutRpc(supabase, "clear_login_failures");
 
   await redirectAfterLogin(supabase, data.user.id, formData.get("redirectTo"));
 }
@@ -169,16 +152,10 @@ export async function requestPhoneOtp(
   // Checked here too, not just at verify — a locked account otherwise still
   // receives a real, live OTP SMS on every request (cost, and a spam vector
   // for the account owner) even though verifyPhoneOtp below would correctly
-  // refuse the code. Best-effort, same posture as every other lockout check.
-  let isLocked = false;
-  try {
-    const result = await supabase.rpc("is_account_locked_by_phone", {
-      p_phone: parsed.data.phone,
-    });
-    isLocked = Boolean(result.data);
-  } catch {
-    // Fall through and let signInWithOtp decide.
-  }
+  // refuse the code.
+  const isLocked = Boolean(
+    await callLockoutRpc<boolean>(supabase, "is_account_locked_by_phone", { p_phone: parsed.data.phone })
+  );
   if (isLocked) {
     return { error: RATE_LIMIT_MESSAGE };
   }
@@ -227,17 +204,10 @@ export async function verifyPhoneOtp(
   // Without this, an account locked out by repeated wrong-password attempts
   // could still be fully authenticated via phone OTP during the lock
   // window, which would make the lockout read as account-wide protection
-  // without actually being one. Best-effort, same posture as the password
-  // path: a transient failure here must never itself block a real sign-in.
-  let isLocked = false;
-  try {
-    const result = await supabase.rpc("is_account_locked_by_phone", {
-      p_phone: parsed.data.phone,
-    });
-    isLocked = Boolean(result.data);
-  } catch {
-    // Fall through and let verifyOtp decide.
-  }
+  // without actually being one.
+  const isLocked = Boolean(
+    await callLockoutRpc<boolean>(supabase, "is_account_locked_by_phone", { p_phone: parsed.data.phone })
+  );
   if (isLocked) {
     return { error: RATE_LIMIT_MESSAGE, step: "verify", phone: parsed.data.phone };
   }
@@ -254,13 +224,9 @@ export async function verifyPhoneOtp(
     // key is not a secret, so this must never be callable with the ordinary
     // client.
     if (isInvalidOtpError(error)) {
-      try {
-        await createServiceRoleClient().rpc("record_failed_login_by_phone", {
-          p_phone: parsed.data.phone,
-        });
-      } catch {
-        // Never let lockout bookkeeping block showing the real sign-in error.
-      }
+      await callLockoutRpc(createServiceRoleClient(), "record_failed_login_by_phone", {
+        p_phone: parsed.data.phone,
+      });
     }
     return {
       error: authErrorMessage(error, "otp_verify"),
@@ -273,11 +239,7 @@ export async function verifyPhoneOtp(
   // Best-effort — never let lockout bookkeeping block a real sign-in. Shares
   // the same clear_login_failures() the password path uses (scoped to the
   // now-authenticated auth.uid(), not to which method signed in).
-  try {
-    await supabase.rpc("clear_login_failures");
-  } catch {
-    // Never let lockout bookkeeping block a real sign-in.
-  }
+  await callLockoutRpc(supabase, "clear_login_failures");
 
   await redirectAfterLogin(supabase, data.user.id, formData.get("redirectTo"));
 }
