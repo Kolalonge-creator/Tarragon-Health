@@ -87,16 +87,21 @@ function renderText(letterhead: InvoiceLetterhead): string {
   return collectText(InvoiceDocument({ invoice, billTo, letterhead })).join("\n");
 }
 
-type FooterText = ReactElement<{
-  children?: unknown;
-  style?: {
-    fontSize?: number;
-    color?: string;
-    lineHeight?: number;
-    maxLines?: number;
-    textOverflow?: string;
-  };
-}>;
+type FooterStyle = {
+  fontSize?: number;
+  color?: string;
+  lineHeight?: number;
+  maxLines?: number;
+  textOverflow?: string;
+};
+
+type FooterText = ReactElement<{ children?: unknown; style?: FooterStyle | FooterStyle[] }>;
+
+/** The address line composes two style objects, so flatten before asserting. */
+function flatStyle(node: FooterText): FooterStyle {
+  const style = node.props.style;
+  return Array.isArray(style) ? Object.assign({}, ...style) : (style ?? {});
+}
 
 /**
  * Collects <Text> nodes carrying the `footerLine` style. `lineHeight` is part
@@ -112,12 +117,13 @@ function footerLines(letterhead: InvoiceLetterhead): FooterText[] {
       return;
     }
     const element = node as Partial<FooterText>;
-    const style = element.props?.style;
+    const raw = element.props?.style;
+    const style: FooterStyle = Array.isArray(raw) ? Object.assign({}, ...raw) : (raw ?? {});
     if (
       element.type === "Text" &&
-      style?.fontSize === 7.5 &&
-      style?.color === "#7a8792" &&
-      style?.lineHeight === 1.4
+      style.fontSize === 7.5 &&
+      style.color === "#7a8792" &&
+      style.lineHeight === 1.4
     ) {
       found.push(element as FooterText);
     }
@@ -132,7 +138,7 @@ function countFooterLines(letterhead: InvoiceLetterhead): number {
 }
 
 function findAddressNode(letterhead: InvoiceLetterhead): FooterText | undefined {
-  return footerLines(letterhead).find((node) => node.props.style?.maxLines !== undefined);
+  return footerLines(letterhead).find((node) => flatStyle(node).maxLines !== undefined);
 }
 
 describe("InvoiceDocument registered office", () => {
@@ -187,8 +193,11 @@ describe("InvoiceDocument registered office", () => {
     // The cap has to live on the STYLE: @react-pdf/layout reads it as
     // node.style?.maxLines, so a `maxLines` JSX prop would silently do nothing.
     expect(addressNode).toBeDefined();
-    expect(addressNode?.props.style?.maxLines).toBe(2);
-    expect(addressNode?.props.style?.textOverflow).toBe("ellipsis");
+    const style = flatStyle(addressNode!);
+    expect(style.maxLines).toBe(2);
+    expect(style.textOverflow).toBe("ellipsis");
+    // Composition must not lose the base footer styling.
+    expect(style.fontSize).toBe(7.5);
   });
 
   it("still falls back to the platform contact details when email and phone are unset", () => {

@@ -191,16 +191,11 @@ const styles = StyleSheet.create({
   },
   footerLeft: { flexDirection: "column", maxWidth: 380 },
   footerLine: { fontSize: 7.5, color: "#7a8792", lineHeight: 1.4 },
-  // `maxLines`/`textOverflow` are read off the resolved *style* by
+  // Composed onto footerLine rather than restating it, so the two can never
+  // drift apart. `maxLines`/`textOverflow` are read off the resolved *style* by
   // @react-pdf/layout (getMaxLines -> node.style?.maxLines), not off the Text's
   // props — passing maxLines as a JSX prop silently does nothing.
-  footerAddress: {
-    fontSize: 7.5,
-    color: "#7a8792",
-    lineHeight: 1.4,
-    maxLines: ADDRESS_MAX_LINES,
-    textOverflow: "ellipsis",
-  },
+  footerAddressCap: { maxLines: ADDRESS_MAX_LINES, textOverflow: "ellipsis" },
   footerBrand: { fontSize: 7.5, color: PDF_BRAND_GREEN, fontWeight: 700 },
   pageNumber: { fontSize: 7.5, color: "#7a8792" },
 });
@@ -371,7 +366,7 @@ export function InvoiceDocument({
                 /admin/settings/company-profile the line is absent entirely,
                 rather than rendering an empty row. */}
             {registeredAddress !== "" && (
-              <Text style={styles.footerAddress}>
+              <Text style={[styles.footerLine, styles.footerAddressCap]}>
                 {registeredAddress}
               </Text>
             )}
