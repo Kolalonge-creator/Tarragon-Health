@@ -10,6 +10,15 @@ import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/compo
 type Tab = "phone" | "email";
 type PhoneStep = "request" | "verify" | "new-password";
 
+// Mirrors apps/web/src/lib/validation/password.ts's PASSWORD_MIN_LENGTH/
+// PASSWORD_COMPLEXITY_REGEX, same reasoning as signup-screen.tsx's own
+// duplicated copy (no shared validation package yet) — 2026-09-18 security
+// audit: this screen previously enforced length only, a complete bypass of
+// the web app's new letter+number floor for anyone resetting their password
+// via mobile. Keep in sync with the web original if it changes.
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_COMPLEXITY_REGEX = /^(?=.*[A-Za-z])(?=.*\d).*$/;
+
 const inputStyle = {
   borderWidth: 1,
   borderColor: colors.border,
@@ -163,8 +172,12 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
 
   async function submitNewPassword() {
     setError(null);
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters");
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      setError(`Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+      return;
+    }
+    if (!PASSWORD_COMPLEXITY_REGEX.test(newPassword)) {
+      setError("Password must include at least one letter and one number");
       return;
     }
     if (newPassword !== confirmPassword) {

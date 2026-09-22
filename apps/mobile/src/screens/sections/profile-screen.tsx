@@ -567,6 +567,16 @@ function IdentityVerificationSection({
   );
 }
 
+// Mirrors apps/web/src/lib/validation/password.ts's PASSWORD_MIN_LENGTH/
+// PASSWORD_COMPLEXITY_REGEX — same duplicated-constant reasoning as
+// signup-screen.tsx/forgot-password-screen.tsx (no shared validation package
+// yet). 2026-09-18 security audit: this screen previously enforced length
+// only, a complete bypass of the web app's letter+number floor for anyone
+// changing their password from inside the mobile app. Keep in sync with the
+// web original if it changes.
+const CHANGE_PASSWORD_MIN_LENGTH = 8;
+const CHANGE_PASSWORD_COMPLEXITY_REGEX = /^(?=.*[A-Za-z])(?=.*\d).*$/;
+
 function ChangePasswordSection() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -577,8 +587,12 @@ function ChangePasswordSection() {
   async function handleSave() {
     setError(null);
     setSaved(false);
-    if (password.length < 8) {
-      setError("At least 8 characters.");
+    if (password.length < CHANGE_PASSWORD_MIN_LENGTH) {
+      setError(`At least ${CHANGE_PASSWORD_MIN_LENGTH} characters.`);
+      return;
+    }
+    if (!CHANGE_PASSWORD_COMPLEXITY_REGEX.test(password)) {
+      setError("Include at least one letter and one number.");
       return;
     }
     if (password !== confirmPassword) {

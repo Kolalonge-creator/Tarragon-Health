@@ -21,15 +21,19 @@ const inputStyle = {
  * Same source-of-truth problem forgot-password-screen.tsx's duplicated
  * COUNTRY_CALLING_CODES import solves for phone codes: there is no shared
  * validation/reference package this app can pull from yet, so these mirror
- * apps/web/src/lib/validation/password.ts's PASSWORD_MIN_LENGTH (the actual
- * Supabase-enforced rule) and apps/web/src/lib/nigeria-states.ts's list
- * value-for-value (the public signup page duplicates it there too, for the
- * same reason — its own comment explains RLS blocks reading
- * service_regions pre-login). Keep both in sync with their web originals if
- * either changes.
+ * apps/web/src/lib/validation/password.ts's PASSWORD_MIN_LENGTH/
+ * PASSWORD_COMPLEXITY_REGEX (the actual Supabase-enforced rule, 2026-09-18
+ * security audit — mobile had ONLY the length check, so this screen was a
+ * complete bypass of the web app's new letter+number floor: someone signing
+ * up here could still set "12345678") and apps/web/src/lib/nigeria-states.ts's
+ * list value-for-value (the public signup page duplicates it there too, for
+ * the same reason — its own comment explains RLS blocks reading
+ * service_regions pre-login). Keep all three in sync with their web
+ * originals if any changes.
  */
 const PASSWORD_MIN_LENGTH = 8;
-const PASSWORD_RULE_HINT = `At least ${PASSWORD_MIN_LENGTH} characters.`;
+const PASSWORD_COMPLEXITY_REGEX = /^(?=.*[A-Za-z])(?=.*\d).*$/;
+const PASSWORD_RULE_HINT = `At least ${PASSWORD_MIN_LENGTH} characters, including a letter and a number.`;
 
 const NIGERIAN_STATES: ReadonlyArray<{ value: string; label: string }> = [
   { value: "Abia", label: "Abia" },
@@ -154,6 +158,10 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
     }
     if (password.length < PASSWORD_MIN_LENGTH) {
       setError(`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
+      return;
+    }
+    if (!PASSWORD_COMPLEXITY_REGEX.test(password)) {
+      setError("Password must include at least one letter and one number.");
       return;
     }
 
