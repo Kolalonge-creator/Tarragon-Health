@@ -17,10 +17,9 @@ import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
 import { PartnerLogoStrip } from "./_components/partner-logo-strip";
 import { MARKETING_MEDIA } from "./_content/media";
-import { AnimatedNumber } from "./_components/animated-number";
 import { StepsExplorer } from "./_components/steps-explorer";
 import { StaggeredReveal } from "./_components/staggered-reveal";
-import { HOW_IT_WORKS_STEPS, PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
+import { HOME_HOW_IT_WORKS, PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
 import { DEFAULT_HERO } from "./_content/channel-heroes";
 import { PILLARS, PILLARS_SECTION_COPY } from "./_content/pillars";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
@@ -40,8 +39,14 @@ const HOME_TITLE = "TarragonHealth | Care that stays with you";
 export const metadata: Metadata = {
   ...pageMetadata({
     title: HOME_TITLE,
+    // Kept <= 160 chars: apps/web/src/lib/marketing/page-metadata.test.ts
+    // enforces MAX_DESCRIPTION = 160 as a hard stop across every marketing
+    // page (Google truncates a listing there). The original 202-char draft
+    // cut off mid-sentence; a first trim to 161 still failed that test by
+    // one character, caught only in CI because this file's test run never
+    // covers src/lib/marketing/ (only src/app/(marketing)/).
     description:
-      "Health monitoring for chronic disease, preventive health, and care coordination. Track vitals, medication, labs, and preventive checks in one secure platform.",
+      "Free to join. Tarragon watches your blood pressure, sugar, medication and screenings between doctor visits, and brings in a doctor when a result needs one.",
     path: "/",
   }),
   title: { absolute: HOME_TITLE },
@@ -107,9 +112,16 @@ export default async function MarketingHomePage() {
               className="border-0 shadow-none transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-sm"
             >
               <CardContent className="p-5">
-                <p className="font-heading text-3xl font-bold text-brand-green">
-                  <AnimatedNumber value={stat.value} />
-                </p>
+                {/* Deliberately NOT AnimatedNumber, unlike the other stat
+                    tiles on this site. That component renders "prefix + 0 +
+                    suffix" until an IntersectionObserver fires, so the "12
+                    hrs" contact-SLA promise served as "0 hrs on a critical
+                    result" in the server-rendered HTML, and stayed that way
+                    for anyone with JavaScript blocked or a throttled
+                    observer. A count-up flourish is fine over a headcount;
+                    it is not fine over a clinical commitment a visitor is
+                    being asked to trust. */}
+                <p className="font-heading text-3xl font-bold text-brand-green">{stat.value}</p>
                 {/* Deliberately not a heading. These four stat labels used to
                     be <h2>s, which put "priority programmes" / "escalation
                     levels" ahead of the page's first real section heading in
@@ -171,27 +183,35 @@ export default async function MarketingHomePage() {
       </Section>
 
       <Section variant="sage">
+        {/* Rewritten 2026-09-22. This used to read "Chronic disease is
+            poorly followed up between doctor visits", which is a true
+            sentence about a disease category rather than about the person
+            reading it. The visitor's own experience is the more persuasive
+            version of the same fact, and it costs nothing in accuracy. */}
         <StoryPanel
-          eyebrow="The problem"
-          title="Chronic disease is poorly followed up between doctor visits"
-          description="Readings drift, medication gets missed, and screenings slip, because nobody's watching in between."
+          eyebrow="The gap"
+          title="You were fine when you left the hospital. Then what?"
+          description="You got a diagnosis, a prescription, and a date to come back in three months. In between, readings drift, drugs run out, and the test you were told to do slips. Nobody is watching, so nothing gets caught early."
           media={homepage.problem}
         />
       </Section>
 
-      {/* The spec's numbered "how it works" sequence (§3.1.5), reusing the
-          exact HOW_IT_WORKS_STEPS/StepsExplorer pair already built for
-          /services rather than a duplicate list — this is the one place on
-          the homepage where a real sequence justifies numbering. */}
+      {/* The spec's numbered "how it works" sequence (§3.1.5). Rewritten
+          2026-09-22: the heading used to be "Tarragon monitors, reminds,
+          reviews, coordinates, and escalates" — five system verbs in a row,
+          a description of what the software does rather than of what the
+          visitor gets. The six-stage HOW_IT_WORKS_STEPS pipeline it rendered
+          moved to /services, where someone has already opted into that level
+          of detail; the homepage now uses the three-step HOME_HOW_IT_WORKS. */}
       <Section>
         <SectionHeading
           eyebrow="How it works"
-          title="Tarragon monitors, reminds, reviews, coordinates, and escalates"
-          description="Your care team keeps watch over your health record: calm follow-up when things are steady, escalation when they are not."
+          title="Five minutes to set up. Then we keep watch."
+          description="You log what is easy to log. Every reading is checked against your care protocols, you get a nudge when something is due, and a doctor is brought in when a result needs one."
         />
         <div className="mx-auto grid max-w-5xl items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-14">
           <StepsExplorer
-            steps={HOW_IT_WORKS_STEPS.map(({ title, body }) => ({ title, body }))}
+            steps={HOME_HOW_IT_WORKS.map(({ title, body }) => ({ title, body }))}
             tone="green"
           />
           <MarketingMediaFrame media={homepage.solution} />
@@ -202,6 +222,50 @@ export default async function MarketingHomePage() {
           </Button>
           <Button asChild variant="ghost">
             <Link href={MARKETING_ROUTES.about}>About Tarragon</Link>
+          </Button>
+        </div>
+      </Section>
+
+      {/* Added 2026-09-22. The free app plus pay-per-service model (founder
+          decision 2026-09-02) is this platform's single clearest advantage in
+          a market where people expect a health subscription to bill them
+          quietly, and it previously appeared for the first time around the
+          eighth section of the page. Every line below is checked against
+          _content/pricing.ts and the live service_products catalogue: no
+          figure is quoted here, so this block cannot drift out of step with
+          the prices the pricing page reads at request time. */}
+      <Section variant="sage">
+        <SectionHeading
+          eyebrow="What it costs"
+          title="The app is free. You pay for a doctor, not a subscription."
+          description="No monthly fee, nothing charged twice, and no bill you did not agree to first."
+        />
+        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
+          {[
+            {
+              title: "Free, always",
+              body: "Tracking, reminders, your personal screening and vaccination calendar, the education library, and the AI coach.",
+            },
+            {
+              title: "Paid, per piece of work",
+              body: "A doctor reading your result, a consultation, a medication review, or a standing watch on the readings you log.",
+            },
+            {
+              title: "You approve every naira",
+              body: "You see the exact price and confirm it before anything is charged. Nothing renews by itself.",
+            },
+          ].map((item) => (
+            <Card key={item.title} variant="soft" className="border-0 shadow-none">
+              <CardContent className="p-6">
+                <h3 className="font-heading text-base font-semibold text-charcoal-ink">{item.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{item.body}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="mt-8 flex justify-center">
+          <Button asChild variant="outline">
+            <Link href={MARKETING_ROUTES.pricing}>See the full price list</Link>
           </Button>
         </div>
       </Section>
@@ -290,7 +354,7 @@ export default async function MarketingHomePage() {
           />
           <div className="p-8 sm:p-10">
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              Priority programme
+              If you are well
             </p>
             <h2 className="mt-2 font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">
               {PREVENTION_CALLOUT.title}

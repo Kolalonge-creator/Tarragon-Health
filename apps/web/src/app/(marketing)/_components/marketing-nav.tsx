@@ -9,7 +9,11 @@ import { cn } from "@/lib/utils";
 const NAV_LINKS = [
   { key: "chronicCare" as const, label: "Chronic care" },
   { key: "prevention" as const, label: "Prevention" },
-  { key: "careCoordination" as const, label: "Care coordination" },
+  // Relabelled 2026-09-22. "Care coordination" is one of the platform's five
+  // internal business categories, not a phrase a visitor searches for or
+  // recognises as being about their own lab test and prescription. The route
+  // and page are unchanged; only the nav label a stranger has to parse is.
+  { key: "careCoordination" as const, label: "Labs & medication" },
   { key: "whoItsFor" as const, label: "Who it's for" },
   { key: "pricing" as const, label: "Pricing" },
   // Contact is the only marketing page that captures a lead, and the single
