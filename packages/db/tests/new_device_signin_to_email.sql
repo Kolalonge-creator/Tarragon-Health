@@ -5,7 +5,10 @@
 --     notification now carries payload.to_email, matching auth.users.email —
 --     without it, send-pending-notifications silently drops the row
 --     ("recipient has no email address"), which is exactly what was
---     happening since this notification shipped.
+--     happening since this notification shipped;
+--   * a profile with organisation_id = NULL (self-serve/org-less patients —
+--     nullable by design) still gets a user_known_devices row and its
+--     notifications, instead of silently no-opping.
 --
 -- Run via `supabase db query "$(cat this_file.sql)" --linked`, `psql
 -- $DATABASE_URL -f this_file.sql`, or the Supabase SQL editor.
@@ -60,6 +63,51 @@ begin
   end if;
 
   raise notice 'PASS: security.new_device_signin email row carries payload.to_email = %', v_to_email;
+end $$;
+
+-- ==========================================================================
+-- Regression: organisation_id = NULL must not silently disable this.
+-- ==========================================================================
+do $$
+declare
+  v_patient uuid := gen_random_uuid();
+  v_is_new  boolean;
+  v_count   bigint;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_patient, 'ndste-orgless-patient@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_patient, null, 'patient', 'NDSTE Orgless Patient')
+  on conflict (id) do update set organisation_id = null, role = excluded.role, full_name = excluded.full_name;
+
+  if exists (select 1 from public.profiles where id = v_patient and organisation_id is not null) then
+    raise exception 'SETUP FAILED: expected this profile''s organisation_id to be null';
+  end if;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_patient::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select public.record_login_device('ndste-orgless-fingerprint', 'TestAgent/1.0', '203.0.113.9')
+    into v_is_new;
+  reset role;
+
+  if v_is_new is distinct from true then
+    raise exception 'REGRESSION: record_login_device silently no-opped for a profile with organisation_id = NULL — an org-less patient gets no device history or new-device notification at all';
+  end if;
+
+  select count(*) into v_count from public.user_known_devices where profile_id = v_patient;
+  if v_count <> 1 then
+    raise exception 'REGRESSION: no user_known_devices row was written for an organisation_id = NULL profile';
+  end if;
+
+  select count(*) into v_count
+  from public.notifications
+  where recipient_id = v_patient and template = 'security.new_device_signin';
+  if v_count <> 2 then
+    raise exception 'REGRESSION: expected 2 notifications (in_app + email) for an organisation_id = NULL profile, got %', v_count;
+  end if;
+
+  raise notice 'PASS: record_login_device works for an organisation_id = NULL profile';
 end $$;
 
 rollback;

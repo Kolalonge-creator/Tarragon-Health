@@ -116,12 +116,20 @@ export function stampActivity(response: NextResponse, now: number): void {
 /** Builds the redirect for an idle-expired session: clears every Supabase
  * session cookie plus the activity cookie itself, directly from the
  * request's own cookie jar — see the module header for why this is used
- * instead of supabase.auth.signOut() here. */
+ * instead of supabase.auth.signOut() here.
+ *
+ * Deliberately status 303 ("See Other"), not the default 307: a 307
+ * preserves the original method AND body, so a Server Action POST issued
+ * from an idle session (someone submits a form after their tab sat past the
+ * threshold) would get REPLAYED as a POST to /login — a plain page route
+ * with no Server Action matching that request — instead of a clean
+ * "signed out" landing. 303 always tells the client to follow up with a
+ * plain GET, which is what every idle-timeout redirect actually means here. */
 export function buildIdleTimeoutRedirect(request: NextRequest): NextResponse {
   const loginUrl = new URL("/login", request.url);
   loginUrl.searchParams.set("reason", "idle");
   loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
-  const redirectResponse = NextResponse.redirect(loginUrl);
+  const redirectResponse = NextResponse.redirect(loginUrl, 303);
 
   for (const cookie of request.cookies.getAll()) {
     if (cookie.name.startsWith("sb-")) {

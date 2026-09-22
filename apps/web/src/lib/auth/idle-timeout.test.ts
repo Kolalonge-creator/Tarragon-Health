@@ -92,7 +92,10 @@ describe("buildIdleTimeoutRedirect", () => {
     const request = new NextRequest("https://app.tarragonhealth.com/patient/vitals");
     const response = buildIdleTimeoutRedirect(request);
 
-    expect(response.status).toBe(307);
+    // 303, not the default 307 — a 307 would replay a Server Action POST
+    // (submitted from an idle session) as a POST to /login instead of a
+    // clean GET landing. See buildIdleTimeoutRedirect's own comment.
+    expect(response.status).toBe(303);
     const location = new URL(response.headers.get("location")!);
     expect(location.pathname).toBe("/login");
     expect(location.searchParams.get("reason")).toBe("idle");
