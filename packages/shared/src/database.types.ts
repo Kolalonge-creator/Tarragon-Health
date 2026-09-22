@@ -43273,6 +43273,11 @@ export type Database = {
       ageing_assessment_status: "in_progress" | "completed"
       ageing_assessment_type: "self_report" | "clinician"
       ai_autonomy_level: "inform_only" | "recommend" | "assist" | "execute"
+      ai_document_summary_status:
+        | "pending"
+        | "ready"
+        | "flagged"
+        | "unavailable"
       ai_drift_kind: "data_drift" | "model_drift"
       ai_evaluation_kind:
         | "safety"
@@ -44321,11 +44326,6 @@ export type Database = {
         | "clinically_withdrawn"
       lab_refund_status: "requested" | "approved" | "rejected" | "paid"
       lab_report_status: "preliminary" | "final" | "corrected" | "amended"
-      ai_document_summary_status:
-        | "pending"
-        | "ready"
-        | "flagged"
-        | "unavailable"
       lab_result_consult_request_status:
         | "requested"
         | "pending_payment"
@@ -45491,6 +45491,12 @@ export const Constants = {
       ageing_assessment_status: ["in_progress", "completed"],
       ageing_assessment_type: ["self_report", "clinician"],
       ai_autonomy_level: ["inform_only", "recommend", "assist", "execute"],
+      ai_document_summary_status: [
+        "pending",
+        "ready",
+        "flagged",
+        "unavailable",
+      ],
       ai_drift_kind: ["data_drift", "model_drift"],
       ai_evaluation_kind: [
         "safety",
@@ -46677,12 +46683,6 @@ export const Constants = {
       ],
       lab_refund_status: ["requested", "approved", "rejected", "paid"],
       lab_report_status: ["preliminary", "final", "corrected", "amended"],
-      ai_document_summary_status: [
-        "pending",
-        "ready",
-        "flagged",
-        "unavailable",
-      ],
       lab_result_consult_request_status: [
         "requested",
         "pending_payment",
