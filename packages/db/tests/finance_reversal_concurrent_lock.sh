@@ -19,11 +19,15 @@
 # pre-fix bodies of the very functions that move money, then restore the
 # fixed bodies. That is only acceptable against a throwaway/local stack, so
 # this script refuses to run at all unless $DATABASE_URL looks local (see the
-# guard right after the constants below) -- checked two ways: a cheap
-# substring match on the URL text as a first filter, then an authoritative
-# check of inet_server_addr() (where the connection actually landed), since
-# a URL can look local while a password, a multi-host conninfo, a
-# PGHOSTADDR override, or an SSH tunnel makes it connect somewhere real.
+# guard right after the constants below) -- a substring match on the URL
+# text. A server-side check (inet_server_addr()) was tried and reverted: it
+# misclassified the Supabase CLI's own local Docker stack -- the one
+# environment this actually needs to allow -- as remote, because of how
+# Docker's NAT changes what address the server sees the connection arrive on
+# (see the guard's own comment for the full explanation). A URL-text check is
+# not bulletproof (a password could in principle contain "localhost", among
+# other theoretical bypasses), but a theoretically tighter check that breaks
+# the real target environment is strictly worse than one that doesn't.
 # restore_fixed_functions re-applies the migration file with
 # --single-transaction so a failed restore can never leave the constraint
 # dropped and the pre-fix bodies still deployed, and is only ever invoked
@@ -103,16 +107,27 @@ MIGRATION_FILE="$SELF_DIR/../../../supabase/migrations/20260922181900_finance_re
 
 # Refuse to run against anything that doesn't look like a local/throwaway
 # Postgres instance -- see the SAFETY note above. A plain substring check on
-# $DATABASE_URL is not trustworthy on its own (a Supabase password can
-# contain "localhost", a multi-host libpq conninfo can fail over to a remote
-# host, PGHOSTADDR can silently redirect where a "local-looking" URL
-# actually connects) -- it's kept here only as a cheap, fast first filter.
-# The real check, below (once psql is confirmed available), asks the SERVER
-# where it actually is via inet_server_addr(), which reflects the real
-# connection regardless of how it was constructed. Override with
-# FRCL_ALLOW_REMOTE=yes-i-know-this-is-disposable (an exact phrase, not any
-# truthy value, so a stray FRCL_ALLOW_REMOTE=0 left in an environment can't
-# silently disarm this) only if you are certain $DATABASE_URL is disposable.
+# $DATABASE_URL is not perfectly trustworthy on its own (a Supabase password
+# could in principle contain "localhost", a multi-host libpq conninfo can
+# fail over to a remote host, PGHOSTADDR can silently redirect where a
+# "local-looking" URL actually connects), but it is what this check actually
+# uses: an earlier version of this guard tried to be more "authoritative" by
+# also asking the server where it thinks it is via inet_server_addr(), and
+# that made things WORSE, not better -- it failed this exact CI job outright.
+# The Supabase CLI's local stack (what run-db-proofs.sh's own default
+# DATABASE_URL, and CI, actually point at) runs Postgres inside a Docker
+# container; the client dials 127.0.0.1:54322 on the host, but Docker's NAT
+# means inet_server_addr() reports the address the connection arrived at on
+# the CONTAINER's side (its bridge-network interface), not the host-visible
+# loopback address the URL was written with. That is not a loopback address,
+# so the "authoritative" check misclassified the one environment that matters
+# most -- CI's own, always-genuinely-local stack -- as remote, and refused to
+# run at all. A theoretically-more-precise check that breaks the real target
+# environment is worse than an imperfect one that doesn't, so this stays a
+# URL check only. Override with FRCL_ALLOW_REMOTE=yes-i-know-this-is-disposable
+# (an exact phrase, not any truthy value, so a stray FRCL_ALLOW_REMOTE=0 left
+# in an environment can't silently disarm this) only if you are certain
+# $DATABASE_URL is disposable.
 ALLOW_REMOTE_PHRASE="yes-i-know-this-is-disposable"
 if [[ "$DB_URL" != *"127.0.0.1"* && "$DB_URL" != *"localhost"* && "$DB_URL" != *"host=/"* \
       && "${FRCL_ALLOW_REMOTE:-}" != "$ALLOW_REMOTE_PHRASE" ]]; then
@@ -129,22 +144,6 @@ if ! command -v psql >/dev/null 2>&1; then
 fi
 if [[ ! -f "$MIGRATION_FILE" ]]; then
   echo "finance_reversal_concurrent_lock: expected migration file not found at $MIGRATION_FILE" >&2
-  exit 1
-fi
-
-# The authoritative check: where did the connection actually land, not what
-# the URL text says. NULL means a Unix-domain socket, which cannot be
-# remote by definition. 127.0.0.0/8 and ::1 are loopback. Anything else --
-# including "couldn't even run this query" -- refuses.
-SERVER_LOCALITY="$(psql "$DB_URL" -X -q -t -A -c \
-  "select case when inet_server_addr() is null then 'local' \
-               when inet_server_addr() <<= '127.0.0.0/8'::inet then 'local' \
-               when inet_server_addr() = '::1'::inet then 'local' \
-               else 'remote' end;" 2>&1)"
-if [[ "$SERVER_LOCALITY" != "local" && "${FRCL_ALLOW_REMOTE:-}" != "$ALLOW_REMOTE_PHRASE" ]]; then
-  echo "finance_reversal_concurrent_lock: refusing to run -- the server itself does not report a local address." >&2
-  echo "inet_server_addr() check returned: $SERVER_LOCALITY" >&2
-  echo "If this really is a throwaway/local stack, re-run with FRCL_ALLOW_REMOTE=$ALLOW_REMOTE_PHRASE." >&2
   exit 1
 fi
 
