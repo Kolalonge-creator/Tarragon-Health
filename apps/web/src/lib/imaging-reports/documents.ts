@@ -21,6 +21,11 @@ export interface ImagingReportDocumentView {
   /** The radiologist's own Impression/Conclusion, verbatim. Shown regardless
    * of flagged/ready when present. */
   aiImpressionText: string | null;
+  /** Whether AI-016 judged the radiologist's own wording to state a finding
+   * — the same signal aiSummaryStatus is derived from. Exposed alongside
+   * aiSummaryStatus/aiImpressionText for parity with the lab/ECG loaders'
+   * own flagged-detail fields, even though no current UI reads it directly. */
+  aiImpressionFlagged: boolean | null;
   aiSummaryGeneratedAt: string | null;
   /** Short-lived signed URL for the file, or null if it could not be signed. */
   signedUrl: string | null;
@@ -56,7 +61,7 @@ export async function loadImagingReportDocuments(
   const { data: rows } = await supabase
     .from("imaging_report_documents")
     .select(
-      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, ai_summary_status, ai_impression_text, ai_summary_generated_at",
+      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, ai_summary_status, ai_impression_text, ai_impression_flagged, ai_summary_generated_at",
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
@@ -76,6 +81,7 @@ export async function loadImagingReportDocuments(
       reviewNote: row.review_note,
       aiSummaryStatus: row.ai_summary_status,
       aiImpressionText: row.ai_impression_text,
+      aiImpressionFlagged: row.ai_impression_flagged,
       aiSummaryGeneratedAt: row.ai_summary_generated_at,
       signedUrl: await signImagingReportPath(row.file_path),
       isPdf: row.mime_type === "application/pdf",

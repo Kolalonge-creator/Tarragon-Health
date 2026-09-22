@@ -10,7 +10,7 @@ import { extractEcgReport, isEcgReportExtractionConfigured } from "./extract";
 import { isReadableDocumentType, normaliseForVision } from "@/lib/lab-reports/heic";
 import { confirmEcgReportExtractionSchema } from "@/lib/validation/ecg-report-extraction";
 import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
-import { deriveEcgAiSummaryStatus, deriveEcgFlaggedStatement } from "./ai-summary";
+import { deriveEcgAiSummaryStatus, extractMachineRhythmStatement } from "./ai-summary";
 
 export type EcgExtractionActionResult = { error?: string; success?: boolean; message?: string };
 
@@ -112,7 +112,7 @@ export async function runEcgReportExtraction(
         .from("ecg_report_documents")
         .update({
           ai_summary_status: "unavailable",
-          ai_flagged_statement: null,
+          ai_rhythm_statement: null,
           ai_summary_generated_at: new Date().toISOString(),
         })
         .eq("id", documentId);
@@ -250,7 +250,7 @@ export async function runEcgReportExtraction(
       .from("ecg_report_documents")
       .update({
         ai_summary_status: deriveEcgAiSummaryStatus(parameters),
-        ai_flagged_statement: deriveEcgFlaggedStatement(parameters),
+        ai_rhythm_statement: extractMachineRhythmStatement(parameters),
         ai_summary_generated_at: new Date().toISOString(),
       })
       .eq("id", documentId);

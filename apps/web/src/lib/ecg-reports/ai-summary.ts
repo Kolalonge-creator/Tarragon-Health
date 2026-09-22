@@ -37,16 +37,23 @@ export function deriveEcgAiSummaryStatus(
 }
 
 /**
- * The machine's own printed rhythm statement, verbatim, when
- * deriveEcgAiSummaryStatus would return 'flagged' — null otherwise. Reads
- * the SAME row as that function so the two can never disagree about WHICH
- * statement is behind a 'flagged' status.
+ * The machine's own printed rhythm statement, verbatim — ALWAYS returned
+ * when the extraction resolved one, regardless of ready/flagged. Reads the
+ * SAME row deriveEcgAiSummaryStatus does, so the two can never disagree
+ * about which statement backs a given status.
+ *
+ * Deliberately not conditioned on status: a "ready" ECG did not necessarily
+ * print exactly "Normal sinus rhythm" — checkQtNotShorterThanQrs's own
+ * NORMAL_RHYTHM_PATTERN also matches "Normal ECG", "Normal electrocardiogram"
+ * and "Normal 12-lead ECG", none of which mention "sinus rhythm" at all.
+ * Showing the patient the ACTUAL printed words in every case (not a
+ * hardcoded "normal sinus rhythm" guess) is what the whole feature's
+ * verbatim-only discipline requires — see extract.ts's own "copy it
+ * VERBATIM... never your assessment" instruction.
  */
-export function deriveEcgFlaggedStatement(
+export function extractMachineRhythmStatement(
   parameters: { code: string | null; status: string; valueText: string | null }[],
 ): string | null {
-  const status = deriveEcgAiSummaryStatus(parameters);
-  if (status !== "flagged") return null;
   const statement = parameters.find(
     (p) => p.code === "machine_rhythm_statement" && p.status === "ready" && p.valueText,
   );

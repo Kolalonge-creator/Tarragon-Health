@@ -10588,7 +10588,7 @@ export type Database = {
       }
       ecg_report_documents: {
         Row: {
-          ai_flagged_statement: string | null
+          ai_rhythm_statement: string | null
           ai_summary_generated_at: string | null
           ai_summary_status: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id: string | null
@@ -10610,7 +10610,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
-          ai_flagged_statement?: string | null
+          ai_rhythm_statement?: string | null
           ai_summary_generated_at?: string | null
           ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id?: string | null
@@ -10632,7 +10632,7 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
-          ai_flagged_statement?: string | null
+          ai_rhythm_statement?: string | null
           ai_summary_generated_at?: string | null
           ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id?: string | null

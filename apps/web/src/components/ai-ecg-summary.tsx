@@ -9,6 +9,15 @@ type AiSummaryStatus = Database["public"]["Enums"]["lab_result_ai_summary_status
  * AiResultSummary's role and discipline exactly (styling, "not a medical
  * opinion" labelling) — see lib/ecg-reports/ai-summary.ts for what it reads.
  *
+ * ALWAYS shows the machine's own printed rhythm statement verbatim, in both
+ * the ready and flagged cases — never a hardcoded guess at what a "normal"
+ * printout says. (Fixed 2026-09-22, /code-review high: this used to hardcode
+ * "reads normal sinus rhythm" for every ready case, which was simply false
+ * whenever a cart printed "Normal ECG"/"Normal 12-lead ECG" instead — a
+ * direct violation of the feature's own verbatim-only discipline. See
+ * lib/ecg-reports/ai-summary.ts's extractMachineRhythmStatement and the
+ * ai_rhythm_statement column rename.)
+ *
  * No paid "discuss this" booking action here, unlike AiResultSummary: this
  * platform has no ECG-specific consult-fee product (lab_result_consult_requests
  * is lab-specific by schema — see its own header). "Message your care team"
@@ -18,12 +27,13 @@ type AiSummaryStatus = Database["public"]["Enums"]["lab_result_ai_summary_status
  */
 export function AiEcgSummary({
   status,
-  flaggedStatement,
+  statement,
 }: {
   status: AiSummaryStatus;
-  /** The machine's own printed rhythm statement, verbatim — only meaningful
-   * when status is 'flagged'. See EcgReportDocumentView.aiFlaggedStatement. */
-  flaggedStatement?: string | null;
+  /** The machine's own printed rhythm statement, verbatim — populated
+   * whenever the extraction resolved one, regardless of status. See
+   * EcgReportDocumentView.aiRhythmStatement. */
+  statement?: string | null;
 }) {
   if (status === "pending") {
     return (
@@ -37,6 +47,10 @@ export function AiEcgSummary({
   }
 
   const isFlagged = status === "flagged";
+  // Should always be non-null when status is ready/flagged (both statuses
+  // require a resolved statement — see deriveEcgAiSummaryStatus), but never
+  // assumed: fall back to a generic phrase rather than showing "null".
+  const printedText = statement ?? "no rhythm statement was printed";
 
   return (
     <div
@@ -51,8 +65,8 @@ export function AiEcgSummary({
       </p>
       <p className="mt-1 text-sm text-charcoal-ink dark:text-night-ink">
         {isFlagged
-          ? `The ECG machine's own printout reads: "${flaggedStatement ?? "not normal sinus rhythm"}". This isn't a diagnosis — you'll need to follow up with a doctor about it.`
-          : "The ECG machine's own printout reads normal sinus rhythm. A doctor hasn't reviewed the full tracing yet — you'll see their interpretation here once they have."}
+          ? `The ECG machine's own printout reads: "${printedText}". This isn't a diagnosis — you'll need to follow up with a doctor about it.`
+          : `The ECG machine's own printout reads: "${printedText}". A doctor hasn't reviewed the full tracing yet — you'll see their interpretation here once they have.`}
       </p>
       {isFlagged && (
         <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">

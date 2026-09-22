@@ -8,6 +8,11 @@ import { deriveImagingAiSummaryStatus } from "./ai-summary";
 import { isReadableDocumentType, normaliseForVision } from "@/lib/lab-reports/heic";
 import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
 
+// Same convention as EXTRACTION_MODEL_ID in lib/lab-reports/extraction-actions.ts
+// and lib/ecg-reports/extraction-actions.ts — named once rather than repeated
+// as a literal at each recordAiInteraction call site.
+const EXTRACTION_MODEL_ID = "claude-sonnet-5";
+
 /**
  * Read an uploaded imaging/radiology report into a patient-facing automated
  * summary. Runs under the SERVICE-ROLE client and takes the document's own
@@ -34,7 +39,6 @@ export async function runImagingReportExtraction(
   params: {
     documentId: string;
     patientId: string;
-    organisationId: string;
     filePath: string;
     mimeType: string | null;
   },
@@ -69,6 +73,28 @@ export async function runImagingReportExtraction(
     return fail("Automatic reading is not configured on this environment.", "ANTHROPIC_API_KEY is not set.");
   }
 
+  // -- AI-016 governance gate -------------------------------------------------
+  // Checked BEFORE the storage download/HEIC-normalisation below, not after:
+  // AI-016 ships registered DISABLED (pending evaluation + approval), so
+  // right now this gate is the ONLY thing every imaging upload hits — doing
+  // the download/normalise first would mean paying that real network + CPU
+  // cost on 100% of uploads purely to discard the result at this check.
+  const governance = await decideAiGovernance(service, AI_SYSTEMS.imagingReportExtraction.code);
+  if (!governance.allow) {
+    await recordAiInteraction(service, {
+      systemCode: AI_SYSTEMS.imagingReportExtraction.code,
+      modelIdentifier: "none:fallback",
+      inputCategory: "imaging_report_document",
+      status: "fallback",
+      subjectProfileId: patientId,
+      fallbackReason: governance.message,
+      resultingAction: "no_automated_summary",
+      resultingEntityType: "imaging_report_documents",
+      resultingEntityId: documentId,
+    });
+    return fail("Automatic reading is not turned on for imaging reports yet.", `AI governance: ${governance.reason}`);
+  }
+
   let fileBase64: string;
   let visionMediaType: string = mimeType;
   try {
@@ -87,30 +113,13 @@ export async function runImagingReportExtraction(
     return fail("Could not open the stored report file.", "Download failed.");
   }
 
-  // -- AI-016 governance gate -------------------------------------------------
-  const governance = await decideAiGovernance(service, AI_SYSTEMS.imagingReportExtraction.code);
-  if (!governance.allow) {
-    await recordAiInteraction(service, {
-      systemCode: AI_SYSTEMS.imagingReportExtraction.code,
-      modelIdentifier: "none:fallback",
-      inputCategory: "imaging_report_document",
-      status: "fallback",
-      subjectProfileId: patientId,
-      fallbackReason: governance.message,
-      resultingAction: "no_automated_summary",
-      resultingEntityType: "imaging_report_documents",
-      resultingEntityId: documentId,
-    });
-    return fail("Automatic reading is not turned on for imaging reports yet.", `AI governance: ${governance.reason}`);
-  }
-
   const startedAt = Date.now();
   const result = await extractImagingReport({ fileBase64, mediaType: visionMediaType });
 
   if (!result.ok) {
     await recordAiInteraction(service, {
       systemCode: AI_SYSTEMS.imagingReportExtraction.code,
-      modelIdentifier: "claude-sonnet-5",
+      modelIdentifier: EXTRACTION_MODEL_ID,
       inputCategory: "imaging_report_document",
       status: "failed",
       subjectProfileId: patientId,
@@ -151,7 +160,7 @@ export async function runImagingReportExtraction(
   // provenance, same discipline as the lab/ECG pipelines' own audit rows.
   await recordAiInteraction(service, {
     systemCode: AI_SYSTEMS.imagingReportExtraction.code,
-    modelIdentifier: "claude-sonnet-5",
+    modelIdentifier: EXTRACTION_MODEL_ID,
     inputCategory: "imaging_report_document",
     status: "completed",
     subjectProfileId: patientId,

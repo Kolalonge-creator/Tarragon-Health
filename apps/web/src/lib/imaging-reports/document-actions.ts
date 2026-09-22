@@ -143,7 +143,6 @@ export async function uploadImagingReportForPatient(
   // enabling it needs no further code change.
   await runImagingReportExtraction(service, {
     documentId: inserted.id,
-    organisationId: patient.organisation_id,
     patientId,
     filePath: path,
     mimeType: file.type,
@@ -243,7 +242,6 @@ export async function uploadImagingReportAsPatient(
   // one so enabling it needs no further code change.
   await runImagingReportExtraction(createServiceRoleClient(), {
     documentId: inserted.id,
-    organisationId: me.organisation_id,
     patientId: user.id,
     filePath: path,
     mimeType: file.type,

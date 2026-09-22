@@ -110,7 +110,7 @@ export async function EcgReportDocuments({ patientId }: { patientId: string }) {
                     </p>
                     <AiEcgSummary
                       status={doc.aiSummaryStatus}
-                      flaggedStatement={doc.aiFlaggedStatement}
+                      statement={doc.aiRhythmStatement}
                     />
                   </>
                 )}

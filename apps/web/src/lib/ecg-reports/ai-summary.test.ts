@@ -1,4 +1,4 @@
-import { deriveEcgAiSummaryStatus, deriveEcgFlaggedStatement } from "./ai-summary";
+import { deriveEcgAiSummaryStatus, extractMachineRhythmStatement } from "./ai-summary";
 
 /**
  * deriveEcgAiSummaryStatus is the entire decision surface for what a
@@ -57,22 +57,27 @@ describe("deriveEcgAiSummaryStatus", () => {
   });
 });
 
-describe("deriveEcgFlaggedStatement", () => {
-  it("is null when the status is 'ready'", () => {
-    const parameters = [
-      { code: "machine_rhythm_statement", status: "ready", valueText: "Normal sinus rhythm" },
-    ];
-    expect(deriveEcgFlaggedStatement(parameters)).toBeNull();
-  });
-
-  it("is null when the status is 'unavailable'", () => {
-    expect(deriveEcgFlaggedStatement([])).toBeNull();
+describe("extractMachineRhythmStatement", () => {
+  it("is null when no statement row exists", () => {
+    expect(extractMachineRhythmStatement([])).toBeNull();
   });
 
   it("returns the machine's statement verbatim when flagged", () => {
     const parameters = [
       { code: "machine_rhythm_statement", status: "ready", valueText: "Sinus tachycardia" },
     ];
-    expect(deriveEcgFlaggedStatement(parameters)).toBe("Sinus tachycardia");
+    expect(extractMachineRhythmStatement(parameters)).toBe("Sinus tachycardia");
+  });
+
+  // Regression: the patient-facing card must show the ACTUAL printed words
+  // in the 'ready' case too, never a hardcoded "normal sinus rhythm" guess —
+  // a cart that prints "Normal 12-lead ECG" never mentions "sinus rhythm" at
+  // all, and deriveEcgAiSummaryStatus still classifies it 'ready'.
+  it("returns the verbatim statement even when it is a known-normal phrase deriveEcgAiSummaryStatus classifies as 'ready'", () => {
+    const parameters = [
+      { code: "machine_rhythm_statement", status: "ready", valueText: "Normal 12-lead ECG" },
+    ];
+    expect(deriveEcgAiSummaryStatus(parameters)).toBe("ready");
+    expect(extractMachineRhythmStatement(parameters)).toBe("Normal 12-lead ECG");
   });
 });
