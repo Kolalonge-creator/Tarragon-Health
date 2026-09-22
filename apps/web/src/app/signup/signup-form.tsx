@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Check, Gift } from "lucide-react";
 import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { NIGERIAN_STATES } from "@/lib/nigeria-states";
@@ -36,10 +36,14 @@ export function SignupForm({
   // name/email/password too and made the visitor start over. Re-keying the
   // form after a failed attempt forces a remount, which is what lets fresh
   // `defaultValue`s below (from the server's echoed `values`) actually take.
+  // Adjusted during render, not in an effect, so it can't cascade an extra
+  // render — same pattern as the prefill in risk-assessment-form.tsx.
   const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
+  const [lastState, setLastState] = useState(state);
+  if (state !== lastState) {
+    setLastState(state);
     if (state?.error) setAttempt((n) => n + 1);
-  }, [state]);
+  }
   const values = state?.values;
 
   if (state?.success) {
