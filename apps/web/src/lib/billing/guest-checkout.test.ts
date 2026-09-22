@@ -29,12 +29,13 @@ jest.mock("@/lib/billing/purchase-service-product", () => ({
 const anonRpc = jest.fn();
 const serviceRoleRpc = jest.fn();
 const verifyOtp = jest.fn();
+const signInWithOtp = jest.fn();
 const profilesUpdate = jest.fn().mockReturnValue({ eq: jest.fn() });
 
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({
     rpc: anonRpc,
-    auth: { verifyOtp },
+    auth: { verifyOtp, signInWithOtp },
     from: () => ({ update: profilesUpdate }),
   }),
 }));
@@ -43,7 +44,7 @@ jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: jest.fn(() => ({ rpc: serviceRoleRpc })),
 }));
 
-import { verifyGuestCheckoutOtp } from "./guest-checkout";
+import { startGuestCheckout, verifyGuestCheckoutOtp } from "./guest-checkout";
 
 const PRODUCT_CODE = "video_visit_credit";
 
@@ -54,10 +55,23 @@ function otpFormData(email: string, token: string) {
   return fd;
 }
 
+function startFormData(email: string) {
+  const fd = new FormData();
+  fd.set("fullName", "Guest Patient");
+  fd.set("email", email);
+  // countryCode/phone are optional but the schema only accepts undefined or
+  // "" for a blank value — formData.get() returns null for an absent key,
+  // which fails validation, so the real form always sends "" when left blank.
+  fd.set("countryCode", "");
+  fd.set("phone", "");
+  return fd;
+}
+
 beforeEach(() => {
   anonRpc.mockReset();
   serviceRoleRpc.mockReset().mockResolvedValue({ data: null, error: null });
   verifyOtp.mockReset();
+  signInWithOtp.mockReset().mockResolvedValue({ error: null });
 });
 
 describe("verifyGuestCheckoutOtp — account lockout (bypass regression)", () => {
@@ -122,5 +136,34 @@ describe("verifyGuestCheckoutOtp — account lockout (bypass regression)", () =>
     );
 
     expect(anonRpc).toHaveBeenCalledWith("clear_login_failures");
+  });
+});
+
+describe("startGuestCheckout — account lockout", () => {
+  it("refuses to send an OTP to a locked account", async () => {
+    anonRpc.mockResolvedValue({ data: true, error: null });
+
+    const result = await startGuestCheckout(
+      PRODUCT_CODE,
+      undefined,
+      startFormData("locked@example.com")
+    );
+
+    expect(result?.error).toBe("Too many attempts. Please wait a moment, then try again.");
+    expect(anonRpc).toHaveBeenCalledWith("is_account_locked", { p_email: "locked@example.com" });
+    expect(signInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it("sends the OTP when the account is not locked", async () => {
+    anonRpc.mockResolvedValue({ data: false, error: null });
+
+    const result = await startGuestCheckout(
+      PRODUCT_CODE,
+      undefined,
+      startFormData("guest@example.com")
+    );
+
+    expect(result?.step).toBe("verify");
+    expect(signInWithOtp).toHaveBeenCalled();
   });
 });

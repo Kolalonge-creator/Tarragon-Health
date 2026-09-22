@@ -84,6 +84,24 @@ export async function startGuestCheckout(
   }
 
   const supabase = await createClient();
+
+  // Checked here too, not just at verifyGuestCheckoutOtp — a locked account
+  // otherwise still gets a real, live OTP email on every request even
+  // though the verify step would correctly refuse it. No enumeration risk:
+  // returns false uniformly for an email with no account (this call also
+  // silently provisions one via shouldCreateUser below), so this reveals
+  // nothing new either way.
+  let isLocked = false;
+  try {
+    const result = await supabase.rpc("is_account_locked", { p_email: email });
+    isLocked = Boolean(result.data);
+  } catch {
+    // Fall through and let signInWithOtp decide.
+  }
+  if (isLocked) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {

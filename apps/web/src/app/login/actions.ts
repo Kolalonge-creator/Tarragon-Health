@@ -165,6 +165,24 @@ export async function requestPhoneOtp(
   }
 
   const supabase = await createClient();
+
+  // Checked here too, not just at verify — a locked account otherwise still
+  // receives a real, live OTP SMS on every request (cost, and a spam vector
+  // for the account owner) even though verifyPhoneOtp below would correctly
+  // refuse the code. Best-effort, same posture as every other lockout check.
+  let isLocked = false;
+  try {
+    const result = await supabase.rpc("is_account_locked_by_phone", {
+      p_phone: parsed.data.phone,
+    });
+    isLocked = Boolean(result.data);
+  } catch {
+    // Fall through and let signInWithOtp decide.
+  }
+  if (isLocked) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
   const { error } = await supabase.auth.signInWithOtp({ phone: parsed.data.phone });
   if (error) {
     return { error: authErrorMessage(error, "otp_send"), field: "phone" };

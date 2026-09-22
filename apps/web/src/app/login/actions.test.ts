@@ -33,11 +33,12 @@ const anonRpc = jest.fn();
 const serviceRoleRpc = jest.fn();
 const signInWithPassword = jest.fn();
 const verifyOtp = jest.fn();
+const signInWithOtp = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({
     rpc: anonRpc,
-    auth: { signInWithPassword, verifyOtp },
+    auth: { signInWithPassword, verifyOtp, signInWithOtp },
   }),
 }));
 
@@ -45,7 +46,7 @@ jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: jest.fn(() => ({ rpc: serviceRoleRpc })),
 }));
 
-import { signInWithEmail, verifyPhoneOtp } from "./actions";
+import { requestPhoneOtp, signInWithEmail, verifyPhoneOtp } from "./actions";
 import { RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
 function loginFormData(email: string, password: string) {
@@ -62,11 +63,19 @@ function otpFormData(phone: string, token: string) {
   return fd;
 }
 
+function otpRequestFormData(countryCode: string, phone: string) {
+  const fd = new FormData();
+  fd.set("countryCode", countryCode);
+  fd.set("phone", phone);
+  return fd;
+}
+
 beforeEach(() => {
   anonRpc.mockReset();
   serviceRoleRpc.mockReset().mockResolvedValue({ data: null, error: null });
   signInWithPassword.mockReset();
   verifyOtp.mockReset();
+  signInWithOtp.mockReset().mockResolvedValue({ error: null });
 });
 
 describe("signInWithEmail — account lockout", () => {
@@ -182,5 +191,28 @@ describe("verifyPhoneOtp — account lockout", () => {
 
     expect(anonRpc).toHaveBeenCalledWith("clear_login_failures");
     expect(serviceRoleRpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("requestPhoneOtp — account lockout", () => {
+  it("refuses to send an OTP to a locked account", async () => {
+    anonRpc.mockResolvedValue({ data: true, error: null });
+
+    const result = await requestPhoneOtp(undefined, otpRequestFormData("+234", "8012345678"));
+
+    expect(result?.error).toBe(RATE_LIMIT_MESSAGE);
+    expect(anonRpc).toHaveBeenCalledWith("is_account_locked_by_phone", {
+      p_phone: "+2348012345678",
+    });
+    expect(signInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it("sends the OTP when the account is not locked", async () => {
+    anonRpc.mockResolvedValue({ data: false, error: null });
+
+    const result = await requestPhoneOtp(undefined, otpRequestFormData("+234", "8012345678"));
+
+    expect(result?.step).toBe("verify");
+    expect(signInWithOtp).toHaveBeenCalledWith({ phone: "+2348012345678" });
   });
 });

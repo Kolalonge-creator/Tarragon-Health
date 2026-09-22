@@ -86,6 +86,29 @@ export async function requestPhoneReset(
   }
 
   const supabase = await createClient();
+
+  // Checked here too, not just at verifyPhoneReset — a locked account
+  // otherwise still receives a real, live OTP SMS on every request even
+  // though the verify step would correctly refuse it. Deliberately the same
+  // "no bypass via any method" stance the lockout takes everywhere else in
+  // this codebase: an OTP code is itself guessable within a rate-limited
+  // window, so letting phone-reset override a password lockout would just
+  // move the attack surface rather than closing it — the legitimate
+  // recovery path while locked is to wait out the 15 minutes, same as any
+  // other entry point.
+  let isLocked = false;
+  try {
+    const result = await supabase.rpc("is_account_locked_by_phone", {
+      p_phone: parsed.data.phone,
+    });
+    isLocked = Boolean(result.data);
+  } catch {
+    // Fall through and let signInWithOtp decide.
+  }
+  if (isLocked) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
   const { error } = await supabase.auth.signInWithOtp({ phone: parsed.data.phone });
   if (error) {
     // Same anti-enumeration reasoning as the email path above: the mapped

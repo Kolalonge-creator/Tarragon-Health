@@ -23,11 +23,12 @@ jest.mock("@/lib/rate-limit", () => ({
 const anonRpc = jest.fn();
 const serviceRoleRpc = jest.fn();
 const verifyOtp = jest.fn();
+const signInWithOtp = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({
     rpc: anonRpc,
-    auth: { verifyOtp, resetPasswordForEmail: jest.fn(), signInWithOtp: jest.fn() },
+    auth: { verifyOtp, resetPasswordForEmail: jest.fn(), signInWithOtp },
   }),
 }));
 
@@ -35,7 +36,7 @@ jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: jest.fn(() => ({ rpc: serviceRoleRpc })),
 }));
 
-import { verifyPhoneReset } from "./actions";
+import { requestPhoneReset, verifyPhoneReset } from "./actions";
 import { RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
 function otpFormData(phone: string, token: string) {
@@ -45,10 +46,18 @@ function otpFormData(phone: string, token: string) {
   return fd;
 }
 
+function otpRequestFormData(countryCode: string, phone: string) {
+  const fd = new FormData();
+  fd.set("countryCode", countryCode);
+  fd.set("phone", phone);
+  return fd;
+}
+
 beforeEach(() => {
   anonRpc.mockReset();
   serviceRoleRpc.mockReset().mockResolvedValue({ data: null, error: null });
   verifyOtp.mockReset();
+  signInWithOtp.mockReset().mockResolvedValue({ error: null });
 });
 
 describe("verifyPhoneReset — account lockout (bypass regression)", () => {
@@ -95,5 +104,28 @@ describe("verifyPhoneReset — account lockout (bypass regression)", () => {
 
     expect(anonRpc).toHaveBeenCalledWith("clear_login_failures");
     expect(serviceRoleRpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("requestPhoneReset — account lockout", () => {
+  it("refuses to send a reset OTP to a locked account", async () => {
+    anonRpc.mockResolvedValue({ data: true, error: null });
+
+    const result = await requestPhoneReset(undefined, otpRequestFormData("+234", "8012345678"));
+
+    expect(result?.error).toBe(RATE_LIMIT_MESSAGE);
+    expect(anonRpc).toHaveBeenCalledWith("is_account_locked_by_phone", {
+      p_phone: "+2348012345678",
+    });
+    expect(signInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it("sends the OTP when the account is not locked", async () => {
+    anonRpc.mockResolvedValue({ data: false, error: null });
+
+    const result = await requestPhoneReset(undefined, otpRequestFormData("+234", "8012345678"));
+
+    expect(result?.step).toBe("verify");
+    expect(signInWithOtp).toHaveBeenCalledWith({ phone: "+2348012345678" });
   });
 });
