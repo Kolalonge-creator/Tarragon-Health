@@ -44,11 +44,26 @@ export const supabase = createClient<Database>(
  * foreground state, which is part of why Supabase's project-level
  * `inactivity_timeout` alone can't be relied on as a real idle-timeout for
  * this app — see lib/idle-timeout.ts's header comment.
+ *
+ * Guarded by a `globalThis` flag, not a module-level `let` — Supabase's own
+ * docs say to "register the listener only once", but a plain module-level
+ * guard doesn't actually survive Metro Fast Refresh re-evaluating this
+ * module during normal local development (edit-and-save on this very file,
+ * or anything that invalidates its module cache entry), which would
+ * silently register a second listener each time and double-call
+ * startAutoRefresh()/stopAutoRefresh() per transition. `globalThis` persists
+ * across a Fast Refresh module re-evaluation, so this guard actually holds
+ * in the one situation it exists to cover; a production cold start only
+ * ever evaluates this module once regardless.
  */
-AppState.addEventListener("change", (state) => {
-  if (state === "active") {
-    void supabase.auth.startAutoRefresh();
-  } else {
-    void supabase.auth.stopAutoRefresh();
-  }
-});
+const AUTO_REFRESH_LISTENER_GUARD = "__tarragonAutoRefreshListenerRegistered";
+if (!(globalThis as Record<string, unknown>)[AUTO_REFRESH_LISTENER_GUARD]) {
+  (globalThis as Record<string, unknown>)[AUTO_REFRESH_LISTENER_GUARD] = true;
+  AppState.addEventListener("change", (state) => {
+    if (state === "active") {
+      void supabase.auth.startAutoRefresh();
+    } else {
+      void supabase.auth.stopAutoRefresh();
+    }
+  });
+}

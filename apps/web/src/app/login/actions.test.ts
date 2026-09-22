@@ -9,14 +9,22 @@
  * server actions:
  *  - a locked account is refused (RATE_LIMIT_MESSAGE) WITHOUT ever calling
  *    signInWithPassword/verifyOtp — GoTrue is never touched;
- *  - record_failed_login is called via the SERVICE-ROLE client, never the
- *    ordinary anon-key client (the exact vector the pre-merge review found:
- *    granting anon EXECUTE on this let anyone lock an arbitrary account
- *    directly via PostgREST);
- *  - record_failed_login only fires for a genuine wrong-password result —
- *    never for "email not confirmed" or any other error class;
- *  - a successful sign-in clears the failure counter via the ordinary
- *    (non-service-role) client.
+ *  - signInWithEmail's password path no longer calls record_failed_login/
+ *    clear_login_failures itself, on ANY outcome — regression coverage for a
+ *    real bug found and fixed 2026-09-22 (see
+ *    20260922201110_password_verification_hook_gotrue_level_lockout.sql):
+ *    once GoTrue's own Password Verification Attempt Auth Hook
+ *    (public.hook_password_verification_attempt) started recording/clearing
+ *    the SAME account_lockouts row as part of signInWithPassword itself,
+ *    this action ALSO calling those RPCs double-counted every web attempt,
+ *    silently halving the documented/tested "5 failed attempts" lockout
+ *    threshold to 3 for web sign-ins specifically. The is_account_locked
+ *    pre-check is unaffected (read-only, still called for fast UX feedback);
+ *  - the phone-OTP path below is a DIFFERENT story: there is no GoTrue Auth
+ *    Hook for OTP verification, so verifyPhoneOtp is still the ONLY
+ *    enforcement point for that path and must keep calling
+ *    record_failed_login_by_phone/clear_login_failures directly — do not
+ *    "simplify" that block to match the password path above.
  */
 
 jest.mock("next/navigation", () => ({ redirect: jest.fn() }));
@@ -92,7 +100,7 @@ describe("signInWithEmail — account lockout", () => {
     expect(signInWithPassword).not.toHaveBeenCalled();
   });
 
-  it("calls record_failed_login via the SERVICE-ROLE client, never the anon-key client, on a genuine credentials failure", async () => {
+  it("does NOT call record_failed_login itself on a genuine credentials failure — GoTrue's own Auth Hook records it now", async () => {
     anonRpc.mockResolvedValue({ data: false, error: null }); // is_account_locked -> false
     signInWithPassword.mockResolvedValue({
       data: { user: null },
@@ -101,48 +109,23 @@ describe("signInWithEmail — account lockout", () => {
 
     await signInWithEmail(undefined, loginFormData("wrong@example.com", "wrongpassword"));
 
-    expect(serviceRoleRpc).toHaveBeenCalledWith("record_failed_login", {
-      p_email: "wrong@example.com",
-    });
-    // The anon-key client's own rpc() must only have been used for the
-    // lockout CHECK, never for recording a failure — that write is the exact
-    // vector the pre-merge review found (anon EXECUTE on record_failed_login
-    // let anyone lock an arbitrary account directly via PostgREST).
+    // Regression: this action calling record_failed_login here (on top of
+    // the GoTrue hook doing the same recording as part of
+    // signInWithPassword itself) is exactly the double-counting bug fixed
+    // 2026-09-22 — see this file's header comment.
+    expect(serviceRoleRpc).not.toHaveBeenCalled();
     const anonRpcCalls = anonRpc.mock.calls.map((call) => call[0]);
     expect(anonRpcCalls).not.toContain("record_failed_login");
   });
 
-  it("does NOT record a failure for 'email not confirmed' — that is not a wrong password", async () => {
-    anonRpc.mockResolvedValue({ data: false, error: null });
-    signInWithPassword.mockResolvedValue({
-      data: { user: null },
-      error: { message: "Email not confirmed" },
-    });
-
-    await signInWithEmail(undefined, loginFormData("unconfirmed@example.com", "correctpassword"));
-
-    expect(serviceRoleRpc).not.toHaveBeenCalled();
-  });
-
-  it("does NOT record a failure for GoTrue's own rate limiting", async () => {
-    anonRpc.mockResolvedValue({ data: false, error: null });
-    signInWithPassword.mockResolvedValue({
-      data: { user: null },
-      error: { message: "For security purposes, you can only request this after 47 seconds" },
-    });
-
-    await signInWithEmail(undefined, loginFormData("ratelimited@example.com", "correctpassword"));
-
-    expect(serviceRoleRpc).not.toHaveBeenCalled();
-  });
-
-  it("clears failures via the ordinary client on a successful sign-in", async () => {
+  it("does NOT call clear_login_failures itself on a successful sign-in — GoTrue's own Auth Hook clears it now", async () => {
     anonRpc.mockResolvedValue({ data: false, error: null });
     signInWithPassword.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
 
     await signInWithEmail(undefined, loginFormData("real@example.com", "correctpassword"));
 
-    expect(anonRpc).toHaveBeenCalledWith("clear_login_failures");
+    const anonRpcCalls = anonRpc.mock.calls.map((call) => call[0]);
+    expect(anonRpcCalls).not.toContain("clear_login_failures");
     expect(serviceRoleRpc).not.toHaveBeenCalled();
   });
 });

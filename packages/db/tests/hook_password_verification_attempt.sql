@@ -237,19 +237,25 @@ end $$;
 --    migration's own header comment), which is categorically worse than the
 --    lockout bug this migration closes.
 --
---    Sabotage: the same garbage event is then fed through a temporary
---    redefinition of the function WITHOUT the exception handler, inside
---    this same transaction, to confirm this event genuinely WOULD raise if
---    the handler weren't there — proving check 5a isn't vacuously passing
---    because nothing on this path can throw to begin with. The real
---    function is restored immediately after (still inside the same
---    transaction, which is rolled back regardless).
+--    Sabotage: patches the LIVE function definition (via pg_get_functiondef,
+--    same pattern as packages/db/tests/critical_notification_dead_letter_
+--    without_pathway.sql section 6) rather than hand-copying the function
+--    body a second time — a hardcoded duplicate silently drifts from the
+--    real migration the moment its logic changes; this reads the function
+--    that's actually live at test time and surgically disables just the
+--    exception handler's swallowing behaviour (re-raise after logging,
+--    instead of returning continue), so the redefinition tracks whatever
+--    the real function currently is. No manual "restore" step needed
+--    either — this whole file is one transaction, closed by the ROLLBACK
+--    at the bottom, which undoes the sabotage redefinition along with
+--    everything else.
 -- ==========================================================================
 do $$
 declare
   v_garbage_event jsonb := jsonb_build_object('user_id', 'not-a-real-uuid', 'valid', false);
   v_result jsonb;
   v_raised boolean := false;
+  v_def    text;
 begin
   v_result := public.hook_password_verification_attempt(v_garbage_event);
 
@@ -262,21 +268,14 @@ begin
       v_result;
   end if;
 
-  -- Sabotage: strip the exception handler and confirm THIS SAME event would
-  -- have raised without it.
-  create or replace function public.hook_password_verification_attempt(event jsonb)
-  returns jsonb
-  language plpgsql
-  security definer
-  set search_path = ''
-  as $body$
-  declare
-    v_user_id uuid;
-  begin
-    v_user_id := (event->>'user_id')::uuid;
-    return jsonb_build_object('decision', 'continue');
-  end;
-  $body$;
+  -- Sabotage: re-raise instead of swallowing, right after the same RAISE
+  -- WARNING the real handler logs with — 'sqlerrm;' is the unique anchor
+  -- (appears exactly once, in that one line).
+  v_def := pg_get_functiondef('public.hook_password_verification_attempt(jsonb)'::regprocedure);
+  if v_def not like '%sqlerrm;%' then
+    raise exception 'SABOTAGE SETUP FAILED: the hook no longer contains the anchor this test patches (expected a RAISE WARNING ending in sqlerrm; inside the exception handler)';
+  end if;
+  execute replace(v_def, 'sqlerrm;', 'sqlerrm; raise;');
 
   begin
     perform public.hook_password_verification_attempt(v_garbage_event);
@@ -286,65 +285,13 @@ begin
   end;
 
   insert into hpva_result values
-    ('5b. sabotage — without the handler, this SAME event genuinely raises',
+    ('5b. sabotage — without the handler swallowing it, this SAME event genuinely raises',
      v_raised::text, 'true',
      case when v_raised then 'PASS' else 'FAIL' end);
   if not v_raised then
-    raise exception 'SABOTAGE FAILED: the garbage event did not raise even without an exception handler — check 5a is not actually proving anything (the fail-open path was never exercised)';
+    raise exception 'SABOTAGE FAILED: the garbage event did not raise even with the handler patched to re-raise — check 5a is not actually proving anything (the fail-open path was never exercised)';
   end if;
 end $$;
-
--- Restore the real function so checks below run against the actual
--- implementation, not the stripped sabotage version — the sabotage
--- redefinition above is visible to the rest of THIS open transaction until
--- it commits or rolls back, so waiting for the closing ROLLBACK isn't
--- enough on its own. Body kept identical to
--- 20260922201110_password_verification_hook_gotrue_level_lockout.sql —
--- if that migration's hook logic ever changes, this copy must change too,
--- or this file starts testing a function that no longer matches production.
-create or replace function public.hook_password_verification_attempt(event jsonb)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $body$
-declare
-  v_user_id uuid;
-  v_valid   boolean;
-  v_org_id  uuid;
-  v_has_profile boolean;
-begin
-  v_user_id := (event->>'user_id')::uuid;
-
-  if v_user_id is null then
-    return jsonb_build_object('decision', 'continue');
-  end if;
-
-  if private.is_profile_locked(v_user_id) then
-    return jsonb_build_object(
-      'decision', 'reject',
-      'message', 'This account is temporarily locked after several failed sign-in attempts. Please try again later or reset your password.'
-    );
-  end if;
-
-  v_valid := (event->>'valid')::boolean;
-
-  if v_valid is false then
-    select organisation_id, true into v_org_id, v_has_profile
-    from public.profiles where id = v_user_id;
-    if coalesce(v_has_profile, false) then
-      perform private.record_failed_login_attempt(v_user_id, v_org_id);
-    end if;
-  elsif v_valid is true then
-    perform private.clear_login_failures_for_profile(v_user_id);
-  end if;
-
-  return jsonb_build_object('decision', 'continue');
-exception
-  when others then
-    return jsonb_build_object('decision', 'continue');
-end;
-$body$;
 
 -- ==========================================================================
 -- 6. The real invocation path: call the hook explicitly AS

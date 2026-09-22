@@ -185,9 +185,22 @@ exception
   when others then
     -- See this file's header comment: an error here must never block a real
     -- sign-in platform-wide. Degrade to GoTrue's own default behaviour
-    -- (continue) rather than propagate — the web app's is_account_locked/
-    -- record_failed_login pre-checks remain a second, independent layer for
-    -- the web client even if this hook is ever silently degrading.
+    -- (continue) rather than propagate — the web app's is_account_locked
+    -- pre-check remains a second, independent layer for the web client even
+    -- if this hook is ever silently degrading.
+    --
+    -- RAISE WARNING (not EXCEPTION) — logs to Supabase's function/Postgres
+    -- logs without aborting the function or propagating to GoTrue, so this
+    -- stays genuinely fail-open while NOT being invisible: a fail-open path
+    -- with no signal anywhere is exactly the trap this codebase's own
+    -- "silent disable looks like an empty result" lesson describes (a
+    -- degraded feature that looks identical to a healthy one, so nobody
+    -- ever notices it broke). If this hook ever starts degrading for every
+    -- sign-in because of, say, an unrelated future migration breaking
+    -- account_lockouts, this is what would let it actually be found via
+    -- query_logs/Postgres logs instead of silently disabling lockout
+    -- platform-wide forever.
+    raise warning 'hook_password_verification_attempt degraded to continue: %', sqlerrm;
     return jsonb_build_object('decision', 'continue');
 end;
 $$;

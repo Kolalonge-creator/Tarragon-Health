@@ -48,16 +48,50 @@ export function isIdleExpired(lastSeen: number | null, now: number): boolean {
   return now - lastSeen > IDLE_TIMEOUT_MS;
 }
 
+/** Minimum gap between real SecureStore writes — a real OS keychain/keystore
+ * I/O call, not an in-memory one, and App.tsx's onTouchStart wiring calls
+ * this on every touch-start anywhere in the app, including each finger-down
+ * of a scroll flick. The idle check itself only ever runs once a minute (or
+ * on AppState resume), so sub-minute write precision buys nothing — this
+ * throttle avoids bursts of keychain writes during sustained scrolling
+ * without weakening the idle-timeout guarantee at all: the throttle window
+ * is far smaller than IDLE_TIMEOUT_MS, so the recorded timestamp is never
+ * more than this many ms behind the true last real touch.
+ *
+ * `lastStampedAt` is module-level, in-memory, in-process state — separate
+ * from the SecureStore-persisted value readLastActivity()/checkIdleAndMaybe
+ * SignOut() read, and NOT reset by clearActivity(). That's deliberate: after
+ * a sign-out, the very next touch on the fresh LoginScreen should still be
+ * throttled the same way, and the only consequence of a stale in-memory
+ * value surviving a sign-out is a skipped write within the next 10s, which
+ * `readLastActivity()` already treats as "never stamped" (safe, not idle)
+ * once the persisted key is gone. Assumes `now` is monotonically
+ * non-decreasing across real calls, which holds for Date.now() in practice
+ * — __resetThrottleForTests() exists only because unit tests deliberately
+ * pass non-monotonic explicit timestamps across independent test cases. */
+const STAMP_THROTTLE_MS = 10_000;
+let lastStampedAt = 0;
+
 /** Best-effort — matches app-lock.ts's own posture (SecureStore I/O must
  * never crash a touch handler). A write failure just means the next check
  * falls back to whatever was last successfully stamped (or null), never
  * blocks the touch itself. */
 export async function stampActivity(now: number = Date.now()): Promise<void> {
+  if (now - lastStampedAt < STAMP_THROTTLE_MS) return;
+  lastStampedAt = now;
   try {
     await SecureStore.setItemAsync(LAST_ACTIVITY_KEY, String(now));
   } catch {
     // Best-effort — see comment above.
   }
+}
+
+/** Test-only: resets the in-memory throttle state so each test case's
+ * explicit (and often non-monotonic relative to other cases) timestamps
+ * aren't throttled against a PREVIOUS, unrelated test's last stamp. Not
+ * meaningful in the real app, where `now` only ever moves forward. */
+export function __resetThrottleForTests(): void {
+  lastStampedAt = 0;
 }
 
 async function readLastActivity(): Promise<number | null> {

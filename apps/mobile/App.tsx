@@ -279,7 +279,25 @@ function AppContent() {
   // The shell is gated behind the lock, not overlaid by it: while locked, no
   // patient data mounts at all, so nothing can leak under or behind the gate.
   if (lockState === "locked") {
-    return <AppLockScreen onUnlocked={() => setLockState("unlocked")} />;
+    return (
+      <AppLockScreen
+        onUnlocked={() => {
+          // A real bug found in review: without this, successfully
+          // authenticating via Face ID/PIN did not itself count as
+          // "activity" for lib/idle-timeout.ts — only a touch inside the
+          // HomeShell below does. A patient who took long enough entering
+          // their PIN (a retried Face ID prompt, a slow typer) to push total
+          // elapsed idle time past IDLE_TIMEOUT_MS would unlock successfully
+          // and then get immediately signed out again by the very next
+          // interval tick or AppState check, right after proving presence —
+          // the opposite of what App Lock is supposed to feel like. Stamping
+          // here treats a successful unlock itself as activity, same as the
+          // web idle-timeout treats any authenticated request as activity.
+          void stampActivity();
+          setLockState("unlocked");
+        }}
+      />
+    );
   }
 
   return (
