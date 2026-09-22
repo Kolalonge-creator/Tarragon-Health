@@ -75,17 +75,17 @@ export function guestCheckoutProductCopy(
   // Continuous Monitoring collapsed to a single 90-day code 2026-09-22 (see
   // 20260922185200_continuous_monitoring_90d_single_tier.sql) — no more
   // 3/6/12-month terms to special-case here, `code` matches a PAID_SERVICES
-  // entry directly.
+  // entry directly. No PAID_SERVICES entry carries a `terms` array anymore
+  // (only WEIGHT_MANAGEMENT, handled above, still does), so this branch
+  // reads price/priceCaption straight off the product.
   const service = PAID_SERVICES.find((s) => s.code === code);
   if (!service) return null;
 
-  const term = service.terms?.find((t) => t.code === code);
   return {
     code,
     name: service.name,
-    staticPrice: term?.price ?? service.price,
-    priceCaption: term ? `for ${term.label.toLowerCase()}` : service.priceCaption,
+    staticPrice: service.price,
+    priceCaption: service.priceCaption,
     description: service.description,
-    terms: service.terms,
   };
 }

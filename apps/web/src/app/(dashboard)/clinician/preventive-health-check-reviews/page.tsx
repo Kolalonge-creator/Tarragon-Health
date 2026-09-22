@@ -31,7 +31,8 @@ export default async function PreventiveHealthCheckReviewsPage() {
     )
     .not("review_requested_at", "is", null)
     .is("reviewed_at", null)
-    .order("review_requested_at", { ascending: true });
+    .order("review_requested_at", { ascending: true })
+    .limit(200);
 
   return (
     <div className="space-y-6">

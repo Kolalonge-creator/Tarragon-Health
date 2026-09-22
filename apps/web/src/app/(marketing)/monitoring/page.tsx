@@ -68,7 +68,7 @@ const WHAT_HAPPENS = [
   },
   {
     when: "Between the alarms",
-    body: "Trends get watched, not just single readings, and your screening calendar keeps moving. The twelve-month term also carries your annual review.",
+    body: "Trends get watched, not just single readings, and your screening calendar keeps moving alongside it.",
   },
 ];
 
@@ -86,7 +86,7 @@ const FAQ = [
   {
     question: "Does it renew automatically?",
     answer:
-      "No. You pay once for the term you choose and it stops at the end. There is no card kept on file and nothing to cancel. We tell you before it runs out, so it comes as no surprise.",
+      "No. You pay once, for 90 days, and it stops at the end. There is no card kept on file and nothing to cancel. We tell you before it runs out, so buy it again then if you want to keep it going.",
   },
   {
     question: "What counts as a dangerous reading?",
