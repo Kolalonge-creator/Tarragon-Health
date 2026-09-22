@@ -64,6 +64,32 @@ export function isBackgroundTelemetryPath(pathname: string): boolean {
   return pathname === "/api/heartbeat" || pathname === "/api/track";
 }
 
+/**
+ * Paths that must NEVER be idle-timed-out, because they're themselves a
+ * mid-flow, already-authenticated-for-one-specific-purpose step — same
+ * category as `/auth/*`, which the idle check already exempts for this
+ * reason. Found before merge as a real interaction bug between two features
+ * added in the same change: an account locked out by repeated failed
+ * logins (20260918111442_account_lockout_after_repeated_failed_logins.sql)
+ * clicks their password-reset email, lands on /reset-password, but takes
+ * longer than IDLE_TIMEOUT_MINUTES to compose and submit a new password —
+ * without this exemption, the idle gate would intercept that POST and
+ * redirect to /login?reason=idle before updatePassword() ever runs, so the
+ * clear_login_failures() call added specifically to un-stick that recovery
+ * path (reset-password/actions.ts) would never execute. /forgot-password
+ * and /login/mfa-challenge are the same shape: a session already mid-way
+ * through recovering or stepping up, not a signal of a stale session
+ * sitting untouched. `request.nextUrl.pathname` never includes the query
+ * string, so an exact match on these fixed route paths is sufficient.
+ */
+export function isIdleTimeoutExemptPath(pathname: string): boolean {
+  return (
+    pathname === "/reset-password" ||
+    pathname === "/forgot-password" ||
+    pathname === "/login/mfa-challenge"
+  );
+}
+
 /** True when the recorded last-activity cookie is old enough that the
  * session should be treated as idle-expired. A missing/unparseable cookie is
  * NOT idle — that is the normal shape of the very first authenticated

@@ -12,6 +12,7 @@ import {
   LAST_ACTIVITY_COOKIE,
   buildIdleTimeoutRedirect,
   isBackgroundTelemetryPath,
+  isIdleTimeoutExemptPath,
   isSessionIdle,
   stampActivity,
 } from "@/lib/auth/idle-timeout";
@@ -73,13 +74,23 @@ export async function proxy(request: NextRequest) {
   // the way back to a fresh sign-in, not to the MFA challenge. `/auth/*` is
   // exempt for the same reason it's exempt from the MFA gate — those routes
   // are themselves mid-flow token exchanges, not a signal of a stale session
-  // sitting untouched. `isBackgroundTelemetryPath` is exempt for a sharper
-  // reason: those two routes fire on a fixed interval regardless of real
-  // user input (see its own comment) — without excluding them, the periodic
-  // pings from a merely-open, unattended tab would keep re-stamping activity
-  // forever and this feature would never actually fire for the scenario it
-  // exists for.
-  if (user && !pathname.startsWith("/auth/") && !isBackgroundTelemetryPath(pathname)) {
+  // sitting untouched. `isIdleTimeoutExemptPath` (/reset-password,
+  // /forgot-password, /login/mfa-challenge) is the same category — see its
+  // own comment for the real bug this closes: an account-locked patient
+  // recovering via /reset-password could otherwise get idle-timed-out mid
+  // password-entry, before the clear_login_failures() call that un-sticks
+  // their lockout ever runs. `isBackgroundTelemetryPath` is exempt for a
+  // sharper reason: those two routes fire on a fixed interval regardless of
+  // real user input (see its own comment) — without excluding them, the
+  // periodic pings from a merely-open, unattended tab would keep
+  // re-stamping activity forever and this feature would never actually
+  // fire for the scenario it exists for.
+  if (
+    user &&
+    !pathname.startsWith("/auth/") &&
+    !isIdleTimeoutExemptPath(pathname) &&
+    !isBackgroundTelemetryPath(pathname)
+  ) {
     const now = Date.now();
     if (isSessionIdle(request.cookies.get(LAST_ACTIVITY_COOKIE)?.value, now)) {
       return buildIdleTimeoutRedirect(request);

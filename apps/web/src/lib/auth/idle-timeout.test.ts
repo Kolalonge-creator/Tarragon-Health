@@ -4,6 +4,7 @@ import {
   LAST_ACTIVITY_COOKIE,
   buildIdleTimeoutRedirect,
   isBackgroundTelemetryPath,
+  isIdleTimeoutExemptPath,
   isSessionIdle,
   stampActivity,
 } from "./idle-timeout";
@@ -43,6 +44,24 @@ describe("isBackgroundTelemetryPath", () => {
     expect(isBackgroundTelemetryPath("/patient/dashboard")).toBe(false);
     expect(isBackgroundTelemetryPath("/api/heartbeats")).toBe(false);
     expect(isBackgroundTelemetryPath("/api/tracker")).toBe(false);
+  });
+});
+
+describe("isIdleTimeoutExemptPath", () => {
+  it("exempts /reset-password (regression: locked-account recovery would otherwise get idle-timed-out mid password-entry)", () => {
+    expect(isIdleTimeoutExemptPath("/reset-password")).toBe(true);
+  });
+
+  it("exempts /forgot-password", () => {
+    expect(isIdleTimeoutExemptPath("/forgot-password")).toBe(true);
+  });
+
+  it("exempts /login/mfa-challenge", () => {
+    expect(isIdleTimeoutExemptPath("/login/mfa-challenge")).toBe(true);
+  });
+
+  it("does not exempt a real dashboard route", () => {
+    expect(isIdleTimeoutExemptPath("/patient/dashboard")).toBe(false);
   });
 });
 
