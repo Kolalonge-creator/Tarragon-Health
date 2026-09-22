@@ -445,6 +445,24 @@ taken on faith:**
   `(dashboard)/provider-org` route guards) — do not flip either on without the founder's explicit
   go-ahead, and confirm a real signed counterparty exists first. Neither platform's activation has
   ever been exercised against a real insurer or provider organisation.
+- **2026-09-22 — 2 of 5 open Dependabot alerts (`image-size`, GHSA advisories behind #31/#32, both DoS-via-
+  infinite-loop parsing ICNS/JXL/HEIF images) have no available fix and were dismissed with reason
+  `tolerable_risk`, not silently ignored.** The other 3 (`anyio`, #85-#87, TLS-cert-spoofing/critical among
+  them) were real and fixed by a plain `uv lock --upgrade-package anyio` in `services/ml` — no code
+  change needed. `image-size` is different: it's pulled in by `metro` (the React Native/Expo JS bundler,
+  `apps/mobile`-only, build/dev-time — never reachable by production traffic or untrusted network input),
+  and `@expo/metro@54.2.0` (tied to `apps/mobile`'s pinned `expo: ~54.0.36`) hard-pins `metro@0.83.3`,
+  which itself declares `image-size: ^1.0.2` — a range that can never resolve past `1.x`, and the
+  vulnerable range covers all of `1.x` too (no patched `1.x` release exists). The only real fix is
+  upstream: metro dropped its `image-size` dependency entirely somewhere after `0.83.3` (confirmed: the
+  latest published `metro` has no `image-size` dependency at all), but reaching that version means a real
+  Expo SDK bump (`apps/mobile`'s `expo: ~54.0.36` → a newer SDK line), which is app-config/native-module/
+  EAS-rebuild work, not a dependency-lockfile fix. Forcing a pnpm `overrides` entry to `image-size@2.x`
+  was deliberately NOT done — that's a major version bump with likely-breaking API changes, overriding
+  what `metro` itself declares as compatible, for a bundler-only DoS with no real attack surface in this
+  app's actual usage. Revisit when `apps/mobile` next does a deliberate Expo SDK upgrade for its own
+  reasons — check then whether the new SDK line's `metro`/`@expo/metro` pin has already dropped
+  `image-size`, closing this for free.
 - **2026-08-26 — mobile OTA publishing is now automated, but needs one secret added before it runs.**
   `apps/mobile` had no CI path to the actual running app — EAS Update only shipped via a manual
   `eas update`, and a day's worth of merged JS-only UI work (BMW-kit rework, nav-drawer/Devices
