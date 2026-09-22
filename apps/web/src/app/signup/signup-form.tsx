@@ -126,7 +126,13 @@ export function SignupForm({
             name="countryCode"
             autoComplete="tel-country-code"
             defaultValue={values?.countryCode || COUNTRY_CALLING_CODES[0].dialCode}
-            className={`w-auto shrink-0 ${FIELD_CLASS}`}
+            // A fixed, bounded width rather than w-auto: at phone width the
+            // full "Nigeria (+234)" label was claiming most of the row
+            // (native <select> sizes to its selected option's text), leaving
+            // the phone number input so narrow its own placeholder digits
+            // were clipped. This still fits "+234" plus most country names;
+            // the full label is always visible once the native picker opens.
+            className={`w-28 shrink-0 truncate sm:w-auto ${FIELD_CLASS}`}
             aria-label="Country code"
             required
           >
@@ -139,7 +145,12 @@ export function SignupForm({
           <Input
             {...phoneInputProps}
             defaultValue={values?.phone}
-            className={FIELD_CLASS}
+            // flex-1 min-w-0: the country Select next to this is shrink-0
+            // and needs its full label width, so without an explicit grow
+            // basis this input was squeezed down to just a few characters
+            // wide on a phone screen (its own placeholder, "8012345678",
+            // was clipped to "8012").
+            className={`flex-1 min-w-0 ${FIELD_CLASS}`}
             {...fieldErrorProps(
               errorId,
               invalid("phone") || invalid("countryCode"),
