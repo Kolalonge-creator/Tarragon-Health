@@ -350,12 +350,19 @@ export function getNavSections(
             // administrator" or "Provider network administrator" role
             // presets) — the pages self-gate, so this link is always safe to
             // show, same pattern as every other admin-area nav entry.
+            // Support view-as is deliberately NOT listed here: it needs its
+            // own `support.view_as` grant, which none of the presets in
+            // 20260829093427_ops_admin_role_presets.sql carry (unlike
+            // ops.console.view/incidents.*, which several do) — showing the
+            // link would bounce every Coordinator back to /admin every time,
+            // the exact "a link that bounces is worse than no link"
+            // anti-pattern this file already avoids above. Add it back once
+            // a preset actually grants the permission.
             {
               label: "Operations",
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
-                { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
               ],
             },
           ]
@@ -554,12 +561,15 @@ export function getNavSections(
             // Only reachable for a clinician holding a delegated
             // ops.console.view/incidents.* grant (the "Clinical
             // administrator" role preset) — self-gated, safe to always show.
+            // Support view-as is deliberately NOT listed here — the Clinical
+            // administrator preset carries no `support.view_as` grant, so
+            // the link would always bounce (see the identical note in the
+            // care_coordinator case above).
             {
               label: "Operations administration",
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
-                { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
               ],
             },
           ];
@@ -659,13 +669,15 @@ export function getNavSections(
         // grant (the "Technical administrator" or "Data & analytics
         // administrator" role presets carry ops.console.view/incidents.*;
         // only Technical administrator carries feature_flags.manage) —
-        // self-gated, safe to always show.
+        // self-gated, safe to always show. Support view-as is deliberately
+        // NOT listed here — neither preset carries `support.view_as`, so the
+        // link would always bounce (see the identical note in the
+        // care_coordinator case above).
         {
           label: "Platform operations",
           items: [
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
-            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
         },
@@ -699,12 +711,15 @@ export function getNavSections(
         },
         // Only reachable for a Finance administrator holding the delegated
         // ops.console.view/incidents.* grant — self-gated, safe to show.
+        // Support view-as is deliberately NOT listed here — the Finance
+        // administrator preset carries no `support.view_as` grant, so the
+        // link would always bounce (see the identical note in the
+        // care_coordinator case above).
         {
           label: "Operations",
           items: [
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
-            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
           ],
         },
         {

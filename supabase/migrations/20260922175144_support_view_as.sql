@@ -61,19 +61,23 @@
 --    (private.is_scoped_access_role() is exactly this codebase's own precedent for "additive,
 --    narrowly-scoped, never widen is_org_staff itself").
 --
--- Table scope for this pass — profiles, vitals_readings, medications, appointments,
--- screening_schedules, notifications, clinical_staff. Chosen as the read surface that actually
--- answers most reported "my dashboard looks wrong" issues (identity, recent vitals, current
--- meds, upcoming/past appointments, screening due dates, what they were actually notified, and —
--- for a clinician subject — their tier/credential/active status) without touching anything in the
+-- Table scope for this pass — profiles (via a narrow identity RPC, not a row-level policy — see
+-- section 9), vitals_readings, medications, appointments, screening_schedules, notifications
+-- (non-clinical only), clinical_staff. Chosen as the read surface that actually answers most
+-- reported "my dashboard looks wrong" issues (identity, recent vitals, current meds, upcoming/
+-- past appointments, screening due dates, what they were actually notified, and — for a
+-- clinician subject — their tier/credential/active status) without touching anything in the
 -- reproductive-health family (reproductive_health_profiles, menstrual_cycles,
 -- menstrual_daily_logs) or clinical messaging/results content. That exclusion is deliberate, not
 -- an oversight: per CLAUDE.md, reproductive_health is a protected access category everywhere else
 -- on the platform (private.has_emergency_access excludes it from break-glass; the 2026-09-05
 -- platform audit found and closed a guardian-read gap on exactly these three tables) — a new,
--- broader support-debugging grant has no business touching it in a first pass. Extending coverage
--- to more tables later is additive (one more OR-clause per table, reusing the same function) —
--- this is not meant to be the final word on scope.
+-- broader support-debugging grant has no business touching it in a first pass. The
+-- notifications_select restriction to content_class = 'non_clinical' exists specifically because
+-- some notification templates unrelated to those three tables (e.g. menstrual-cycle reminders)
+-- are still clinical content that would otherwise leak through an unfiltered clause. Extending
+-- coverage to more tables later is additive (one more OR-clause per table, reusing the same
+-- function) — this is not meant to be the final word on scope.
 
 -- ---------------------------------------------------------------------------
 -- 0. Migration-record gap closed, found while building this feature (NOT a live bug fix — the
@@ -404,10 +408,15 @@ create policy support_view_sessions_end on public.support_view_sessions
 
 grant select, insert, update on public.support_view_sessions to authenticated;
 
--- Same generic write-audit coverage as emergency_access_grants, care_messages, profiles, etc.
+-- Same generic write-audit coverage as most tables using this trigger (care_messages, profiles,
+-- etc. — 20260812030853's own table list is wired insert-or-update-or-delete). No RLS DELETE
+-- policy exists on this table (asserted in the closing proof block below), so no `authenticated`
+-- client can ever trigger this branch — included anyway so a future service-role/ops deletion
+-- still leaves an audit_log trace, rather than silently going untracked the way an
+-- insert-or-update-only trigger would.
 drop trigger if exists audit_row_change_trg on public.support_view_sessions;
 create trigger audit_row_change_trg
-  after insert or update on public.support_view_sessions
+  after insert or update or delete on public.support_view_sessions
   for each row execute function private.audit_row_change();
 
 -- ---------------------------------------------------------------------------
@@ -469,11 +478,54 @@ as $$
       and s.viewer_id = (select auth.uid())
       and s.ended_at is null
       and s.expires_at > now()
-  );
+  )
+  -- Re-checked on every read, not just once at session creation — the migration's own header
+  -- calls support.view_as "a real, audited, revocable grant"; without this, revoking it
+  -- mid-session (e.g. an admin responding to suspected misuse) would leave an already-open
+  -- session still granting reads for up to the remaining ~30 minutes, since
+  -- enforce_support_view_session_rules() only checks the permission once, at INSERT time.
+  and private.has_permission('support.view_as');
 $$;
 
 revoke all on function private.can_support_view(uuid) from public;
 grant execute on function private.can_support_view(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 7b. Narrow identity RPC for a support-view-as session — see the note on profiles_select
+--    (section 9) for why this exists instead of a can_support_view(id) clause on profiles
+--    itself: RLS is row-level, so a policy clause would grant the subject's entire row,
+--    including hiv_status/hbv_status/hcv_status and emergency_contact_*, not just the
+--    identity fields this feature's admin page actually needs. Returns exactly the columns
+--    apps/web's [sessionId]/page.tsx displays, gated on an active session for that specific
+--    subject — nothing more.
+-- ---------------------------------------------------------------------------
+create or replace function public.get_support_view_subject_identity(p_subject_id uuid)
+returns table (
+  id               uuid,
+  full_name        text,
+  role             public.user_role,
+  phone            text,
+  city             text,
+  state            text,
+  patient_number   text,
+  organisation_id  uuid,
+  created_at       timestamptz,
+  is_active        boolean
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.id, p.full_name, p.role, p.phone, p.city, p.state, p.patient_number,
+         p.organisation_id, p.created_at, p.is_active
+  from public.profiles p
+  where p.id = p_subject_id
+    and private.can_support_view(p_subject_id);
+$$;
+
+revoke all on function public.get_support_view_subject_identity(uuid) from public, anon;
+grant execute on function public.get_support_view_subject_identity(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 8. Subject search — a real gap, not a nicety: a delegated (non-admin) support.view_as
@@ -520,12 +572,14 @@ as $$
     and p_query is not null
     and char_length(btrim(p_query)) >= 2
     and (
-      -- Escape ILIKE's own wildcard characters in the caller-typed query so a literal
-      -- "_" (e.g. inside a phone number) or "%" doesn't act as a pattern wildcard and
-      -- silently widen the match to the wrong person.
-      p.full_name ilike '%' || replace(replace(p_query, '%', '\%'), '_', '\_') || '%'
-      or p.phone ilike '%' || replace(replace(p_query, '%', '\%'), '_', '\_') || '%'
-      or p.patient_number ilike '%' || replace(replace(p_query, '%', '\%'), '_', '\_') || '%'
+      -- Trimmed once, reused for both the length gate above and every pattern below — a stray
+      -- leading/trailing space (pasted from a phone field, a typo) used to pass the length
+      -- check but never match anything, since the ILIKE pattern was built from the untrimmed
+      -- literal. Also escapes ILIKE's own wildcard characters so a literal "_" (e.g. inside a
+      -- phone number) or "%" doesn't act as a pattern wildcard and silently widen the match.
+      p.full_name ilike '%' || replace(replace(btrim(p_query), '%', '\%'), '_', '\_') || '%'
+      or p.phone ilike '%' || replace(replace(btrim(p_query), '%', '\%'), '_', '\_') || '%'
+      or p.patient_number ilike '%' || replace(replace(btrim(p_query), '%', '\%'), '_', '\_') || '%'
     )
   order by p.full_name
   limit 20;
@@ -535,37 +589,30 @@ revoke all on function public.search_support_view_subjects(text) from public, an
 grant execute on function public.search_support_view_subjects(text) to authenticated;
 
 -- ---------------------------------------------------------------------------
--- 9. Extend the bounded read surface (see header) — one more OR-clause per policy, every other
---    clause copied byte-identical from each table's live definition so nothing else changes,
---    EXCEPT two `can_read_clinical` calls (vitals_readings_select, screening_schedules_select)
---    that needed an explicit ::care_access_category cast added — see the inline note on
---    vitals_readings_select below: confirmed via a live dry run against project
---    koiplnmbgnqnbywhpjlf that private.can_read_clinical(patient_id, 'vitals_readings') is
---    ambiguous today (private.can_read_clinical now has 3 live overloads), even though this is
---    the exact bare text the tables' own last migration (20260902232555) used successfully —
---    it was created before the caregiver_permission overload existed and Postgres never
---    re-resolves an already-bound policy expression.
+-- 9. Extend the bounded read surface (see header) on the 6 tables where a row-level grant is
+--    actually the right shape (vitals_readings, medications, appointments, screening_schedules,
+--    notifications, clinical_staff) — one more OR-clause per policy, every other clause copied
+--    byte-identical from each table's live definition so nothing else changes, EXCEPT two
+--    `can_read_clinical` calls (vitals_readings_select, screening_schedules_select) that needed
+--    an explicit ::care_access_category cast added — see the inline note on vitals_readings_select
+--    below: confirmed via a live dry run against project koiplnmbgnqnbywhpjlf that
+--    private.can_read_clinical(patient_id, 'vitals_readings') is ambiguous today
+--    (private.can_read_clinical now has 3 live overloads), even though this is the exact bare
+--    text the tables' own last migration (20260902232555) used successfully — it was created
+--    before the caregiver_permission overload existed and Postgres never re-resolves an
+--    already-bound policy expression. notifications_select additionally restricts its clause to
+--    content_class = 'non_clinical' — see its own comment below.
 -- ---------------------------------------------------------------------------
-drop policy if exists profiles_select on public.profiles;
-create policy profiles_select on public.profiles
-  for select to authenticated
-  using (
-    id = (select auth.uid())
-    or private.is_admin()
-    or (organisation_id is not null and private.is_org_staff(organisation_id))
-    or (
-      private.is_lab_liaison()
-      and role = 'patient'
-      and organisation_id is not null
-      and organisation_id = private.current_org_id()
-    )
-    or exists (
-      select 1 from public.profile_access pa
-      where pa.profile_id = profiles.id
-        and pa.grantee_user_id = (select auth.uid())
-    )
-    or private.can_support_view(id)
-  );
+-- profiles is deliberately NOT touched here — see public.get_support_view_subject_identity()
+-- below. RLS is row-level, not column-level: a can_support_view(id) OR-clause here would grant
+-- the subject's ENTIRE profiles row, including hiv_status/hbv_status/hcv_status
+-- (20260802212314_serology_state_machine.sql) and emergency_contact_*, to any query the caller
+-- makes against the table directly — not just the curated identity columns this feature's own
+-- admin page asks for. This codebase already made and fixed exactly this mistake once
+-- (20260807112503_clinician_phone_admin_only_visibility.sql: a profiles_select clause meant for
+-- a name lookup exposed phone/DOB/HIV/HBV/HCV/emergency contacts to any patient with a care
+-- plan; the fix replaced the row-level grant with a narrow, name-only SECURITY DEFINER RPC).
+-- Reusing that established pattern here rather than reintroducing the same shape of leak.
 
 drop policy if exists vitals_readings_select on public.vitals_readings;
 create policy vitals_readings_select on public.vitals_readings
@@ -628,7 +675,15 @@ create policy notifications_select on public.notifications
   using (
     recipient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_support_view(recipient_id)
+    -- Restricted to content_class = 'non_clinical', unlike every other clause in this policy —
+    -- notifications is not template-filtered by category the way the rest of this feature's read
+    -- surface deliberately excludes reproductive_health, and some non-reproductive-health
+    -- templates (e.g. cycle_period_due_soon/today/late, 20260902201443) are still content_class
+    -- 'clinical' and would otherwise surface exactly the category this feature's own header says
+    -- it stays out of. non_clinical is the existing, already-audited distinction
+    -- (20260730094515_i1_notifications_content_class.sql) for "safe to show on an open rail" —
+    -- reused here for "safe to show a support agent", not a new judgement call.
+    or (private.can_support_view(recipient_id) and content_class = 'non_clinical')
   );
 
 drop policy if exists clinical_staff_select on public.clinical_staff;
@@ -681,6 +736,13 @@ begin
     raise exception 'FAIL: authenticated cannot execute private.can_support_view';
   end if;
 
+  if (select pg_get_functiondef(oid) from pg_proc
+      where proname = 'can_support_view' and pronamespace = 'private'::regnamespace)
+    not like '%has_permission%'
+  then
+    raise exception 'FAIL: private.can_support_view() does not re-check support.view_as on every read (revocation mid-session would be ineffective)';
+  end if;
+
   if has_function_privilege('anon', 'public.search_support_view_subjects(text)', 'EXECUTE') then
     raise exception 'FAIL: anon can execute public.search_support_view_subjects';
   end if;
@@ -694,15 +756,17 @@ begin
   end if;
 
   -- At least one permissive SELECT policy per table must carry can_support_view — NOT every
-  -- SELECT policy on the table. Several of these 7 tables have more than one permissive SELECT
+  -- SELECT policy on the table. Several of these tables have more than one permissive SELECT
   -- policy for unrelated purposes (profiles_select_my_grantees, profiles_select_pending_care_
   -- access, vitals_readings_select_own_entry — confirmed live), and Postgres ORs multiple
   -- permissive policies together, so the grant only needs to exist in ONE of them (the table's
-  -- own <table>_select policy, which is what this migration edits).
+  -- own <table>_select policy, which is what this migration edits). profiles is deliberately
+  -- excluded from this list — see section 9's comment: it's read via
+  -- get_support_view_subject_identity() instead of a row-level RLS clause.
   if exists (
     select t.tbl
     from unnest(array[
-      'profiles', 'vitals_readings', 'medications', 'appointments',
+      'vitals_readings', 'medications', 'appointments',
       'screening_schedules', 'notifications', 'clinical_staff'
     ]) as t(tbl)
     where not exists (
@@ -712,6 +776,30 @@ begin
     )
   ) then
     raise exception 'FAIL: a table in the support-view-as read surface has no SELECT policy carrying can_support_view';
+  end if;
+
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'profiles' and cmd = 'SELECT'
+      and coalesce(qual, '') ~ 'can_support_view'
+  ) then
+    raise exception 'FAIL: profiles must never carry a can_support_view row-level grant — use get_support_view_subject_identity() instead (see section 9)';
+  end if;
+
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'notifications' and cmd = 'SELECT'
+      and coalesce(qual, '') ~ 'can_support_view' and coalesce(qual, '') !~ 'non_clinical'
+  ) then
+    raise exception 'FAIL: notifications_select''s can_support_view clause is missing the content_class = non_clinical restriction';
+  end if;
+
+  if has_function_privilege('anon', 'public.get_support_view_subject_identity(uuid)', 'EXECUTE') then
+    raise exception 'FAIL: anon can execute public.get_support_view_subject_identity';
+  end if;
+
+  if not has_function_privilege('authenticated', 'public.get_support_view_subject_identity(uuid)', 'EXECUTE') then
+    raise exception 'FAIL: authenticated cannot execute public.get_support_view_subject_identity';
   end if;
 
   -- The section-0 fix: private.audit_row_change() must actually read app.audit_reason and

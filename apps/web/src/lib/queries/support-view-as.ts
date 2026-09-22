@@ -80,26 +80,6 @@ export function useMySupportViewSessions() {
   });
 }
 
-export function useSupportViewSession(sessionId: string | null) {
-  return useQuery({
-    queryKey: ["support-view-as-session", sessionId ?? ""],
-    enabled: Boolean(sessionId),
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("support_view_sessions")
-        .select("*")
-        .eq("id", sessionId as string)
-        .single();
-      if (error) throw error;
-      return data as SupportViewSession;
-    },
-    // Short poll while on the shadow-view page itself, so an expiring countdown / an
-    // early end (by the subject, from another tab) is reflected without a manual reload.
-    refetchInterval: 15_000,
-  });
-}
-
 /**
  * Starts a session. The insert itself carries no authority — RLS's insert policy only
  * checks "is this caller the viewer they claim to be"; private.enforce_support_view_

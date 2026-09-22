@@ -41203,6 +41203,21 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: Json
       }
+      get_support_view_subject_identity: {
+        Args: { p_subject_id: string }
+        Returns: {
+          city: string
+          created_at: string
+          full_name: string
+          id: string
+          is_active: boolean
+          organisation_id: string
+          patient_number: string
+          phone: string
+          role: Database["public"]["Enums"]["user_role"]
+          state: string
+        }[]
+      }
       grant_platform_credit: {
         Args: { p_amount_kobo: number; p_patient_id: string; p_reason: string }
         Returns: number

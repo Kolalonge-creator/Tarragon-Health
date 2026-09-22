@@ -60,58 +60,77 @@ export default async function SupportViewAsSessionPage({
   // medications/..." rather than "this tool's access has ended"), and don't imply a frozen
   // snapshot exists — it doesn't; only session.subject_full_name/subject_role (immutable
   // snapshot columns on the session row itself, always readable by the viewer) survive.
-  const [
-    { data: subject },
-    { data: vitals },
-    { data: medications },
-    { data: appointments },
-    { data: screenings },
-    { data: notifications },
-    { data: clinicalStaff },
-  ] = isActive
-    ? await Promise.all([
-        supabase
-          .from("profiles")
-          .select("id, full_name, role, phone, city, state, patient_number, organisation_id, created_at, is_active")
-          .eq("id", session.subject_id)
-          .maybeSingle(),
-        supabase
-          .from("vitals_readings")
-          .select("id, vital_type, source, taken_at, systolic, diastolic, pulse_bpm, glucose_mmol_l, spo2_pct, temperature_c, weight_kg")
-          .eq("patient_id", session.subject_id)
-          .order("taken_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("medications")
-          .select("id, drug_name, dose, frequency, is_active, created_at")
-          .eq("patient_id", session.subject_id)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("appointments")
-          .select("id, appointment_type, status, scheduled_for, consultation_method")
-          .eq("patient_id", session.subject_id)
-          .order("scheduled_for", { ascending: false })
-          .limit(10),
-        supabase
-          .from("screening_schedules")
-          .select("id, status, due_date, screen_types(name)")
-          .eq("patient_id", session.subject_id)
-          .order("due_date", { ascending: false })
-          .limit(10),
-        supabase
-          .from("notifications")
-          .select("id, channel, status, template, created_at, sent_at")
-          .eq("recipient_id", session.subject_id)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("clinical_staff")
-          .select("id, doctor_tier, active, credential_type, credential_number, license_verified_at")
-          .eq("profile_id", session.subject_id)
-          .maybeSingle(),
-      ])
-    : [{ data: null }, { data: null }, { data: null }, { data: null }, { data: null }, { data: null }, { data: null }];
+  //
+  // Fetched into a single named object (not a positional array/tuple) so adding, removing, or
+  // reordering a query can't silently shift which variable gets which result.
+  const snapshot = isActive
+    ? await (async () => {
+        const [
+          { data: subject },
+          { data: vitals },
+          { data: medications },
+          { data: appointments },
+          { data: screenings },
+          { data: notifications },
+          { data: clinicalStaff },
+        ] = await Promise.all([
+          // Deliberately NOT a plain `.from("profiles").select(...)` — that would rely on a
+          // row-level RLS grant, which would expose the subject's ENTIRE profiles row (including
+          // hiv_status/hbv_status/hcv_status and emergency_contact_*) to any query the caller made
+          // against the table directly, not just these curated columns. This RPC returns exactly
+          // these columns server-side — see get_support_view_subject_identity() in
+          // 20260922175144_support_view_as.sql.
+          supabase
+            .rpc("get_support_view_subject_identity", { p_subject_id: session.subject_id })
+            .maybeSingle(),
+          supabase
+            .from("vitals_readings")
+            .select("id, vital_type, source, taken_at, systolic, diastolic, pulse_bpm, glucose_mmol_l, spo2_pct, temperature_c, weight_kg")
+            .eq("patient_id", session.subject_id)
+            .order("taken_at", { ascending: false })
+            .limit(20),
+          supabase
+            .from("medications")
+            .select("id, drug_name, dose, frequency, is_active, created_at")
+            .eq("patient_id", session.subject_id)
+            .order("created_at", { ascending: false })
+            .limit(20),
+          supabase
+            .from("appointments")
+            .select("id, appointment_type, status, scheduled_for, consultation_method")
+            .eq("patient_id", session.subject_id)
+            .order("scheduled_for", { ascending: false })
+            .limit(10),
+          supabase
+            .from("screening_schedules")
+            .select("id, status, due_date, screen_types(name)")
+            .eq("patient_id", session.subject_id)
+            .order("due_date", { ascending: false })
+            .limit(10),
+          supabase
+            .from("notifications")
+            .select("id, channel, status, template, created_at, sent_at")
+            .eq("recipient_id", session.subject_id)
+            .order("created_at", { ascending: false })
+            .limit(20),
+          supabase
+            .from("clinical_staff")
+            .select("id, doctor_tier, active, credential_type, credential_number, license_verified_at")
+            .eq("profile_id", session.subject_id)
+            .maybeSingle(),
+        ]);
+        return { subject, vitals, medications, appointments, screenings, notifications, clinicalStaff };
+      })()
+    : {
+        subject: null,
+        vitals: null,
+        medications: null,
+        appointments: null,
+        screenings: null,
+        notifications: null,
+        clinicalStaff: null,
+      };
+  const { subject, vitals, medications, appointments, screenings, notifications, clinicalStaff } = snapshot;
 
   return (
     <div className="space-y-6">
@@ -216,12 +235,12 @@ export default async function SupportViewAsSessionPage({
                 <li key={v.id} className="flex justify-between py-1.5">
                   <span>
                     {v.vital_type}
-                    {v.systolic ? ` — ${v.systolic}/${v.diastolic} mmHg` : ""}
-                    {v.pulse_bpm ? ` — ${v.pulse_bpm} bpm` : ""}
-                    {v.glucose_mmol_l ? ` — ${v.glucose_mmol_l} mmol/L` : ""}
-                    {v.spo2_pct ? ` — ${v.spo2_pct}%` : ""}
-                    {v.temperature_c ? ` — ${v.temperature_c}°C` : ""}
-                    {v.weight_kg ? ` — ${v.weight_kg} kg` : ""}
+                    {v.systolic != null ? ` — ${v.systolic}/${v.diastolic ?? "—"} mmHg` : ""}
+                    {v.pulse_bpm != null ? ` — ${v.pulse_bpm} bpm` : ""}
+                    {v.glucose_mmol_l != null ? ` — ${v.glucose_mmol_l} mmol/L` : ""}
+                    {v.spo2_pct != null ? ` — ${v.spo2_pct}%` : ""}
+                    {v.temperature_c != null ? ` — ${v.temperature_c}°C` : ""}
+                    {v.weight_kg != null ? ` — ${v.weight_kg} kg` : ""}
                     <span className="ml-2 text-xs text-charcoal-ink/40">({v.source})</span>
                   </span>
                   <span className="text-charcoal-ink/50">{shortDate(v.taken_at)}</span>

@@ -34,6 +34,10 @@
 --     (a caller permitted to UPDATE the row setting ended_by alone, while
 --     the session is still active) — sabotage control on the update-guard
 --     trigger's field-forcing logic;
+--   * revoking support.view_as mid-session immediately cuts off the read
+--     grant, even though the session row itself is still technically active
+--     — the permission is re-checked on every read, not just once at
+--     session creation, so this really is a "revocable grant" as claimed;
 --   * a session cannot be "un-ended" or have its window extended after the
 --     fact — sabotage control on the update-guard trigger.
 --
@@ -290,7 +294,12 @@ begin
     json_build_object('sub', v_support_agent::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
 
-  select full_name into v_readback from public.profiles where id = v_patient;
+  -- Not a plain `select ... from public.profiles` — profiles carries no can_support_view RLS
+  -- clause at all (see the migration's own note: a row-level grant there would expose
+  -- hiv_status/hbv_status/hcv_status/emergency_contact_*, not just identity fields). The
+  -- identity read goes through get_support_view_subject_identity() instead, same as the real
+  -- admin page does.
+  select full_name into v_readback from public.get_support_view_subject_identity(v_patient);
 
   begin
     update public.profiles set full_name = 'TAMPERED BY SUPPORT AGENT' where id = v_patient;
@@ -397,7 +406,7 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_support_agent::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  select full_name into v_readback from public.profiles where id = v_clinician;
+  select full_name into v_readback from public.get_support_view_subject_identity(v_clinician);
   select count(*) into v_staff_count from public.clinical_staff where profile_id = v_clinician;
   reset role;
 
@@ -425,7 +434,12 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_bystander::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  select full_name into v_readback from public.profiles where id = v_patient;
+  -- Not a plain `select ... from public.profiles` — profiles carries no can_support_view RLS
+  -- clause at all (see the migration's own note: a row-level grant there would expose
+  -- hiv_status/hbv_status/hcv_status/emergency_contact_*, not just identity fields). The
+  -- identity read goes through get_support_view_subject_identity() instead, same as the real
+  -- admin page does.
+  select full_name into v_readback from public.get_support_view_subject_identity(v_patient);
   reset role;
 
   insert into svas_result values
@@ -498,7 +512,12 @@ begin
   set local role authenticated;
   update public.support_view_sessions set ended_at = now() where id = v_session_id;
   select ended_at, ended_by into v_ended_at, v_ended_by from public.support_view_sessions where id = v_session_id;
-  select full_name into v_readback from public.profiles where id = v_patient;
+  -- Not a plain `select ... from public.profiles` — profiles carries no can_support_view RLS
+  -- clause at all (see the migration's own note: a row-level grant there would expose
+  -- hiv_status/hbv_status/hcv_status/emergency_contact_*, not just identity fields). The
+  -- identity read goes through get_support_view_subject_identity() instead, same as the real
+  -- admin page does.
+  select full_name into v_readback from public.get_support_view_subject_identity(v_patient);
   reset role;
 
   insert into svas_result values
@@ -572,6 +591,44 @@ begin
   if v_ended_by is not null then
     raise exception 'LEAK: ended_by was set to % on a session still active (ended_at is null) — the update-guard trigger did not force it back', v_ended_by;
   end if;
+end $$;
+
+-- ==========================================================================
+-- 8c. Revoking support.view_as mid-session immediately cuts off the read
+--     grant, even though the session row itself is still technically active
+--     (ended_at null, expires_at in the future) — private.can_support_view()
+--     re-checks the permission on every read, not just once at session
+--     creation. Reuses the still-active clinician session from 8b.
+-- ==========================================================================
+do $$
+declare
+  v_support_agent uuid := (select v from svas_fixture where k = 'support_agent');
+  v_clinician     uuid := (select v from svas_fixture where k = 'clinician');
+  v_staff_count   bigint;
+begin
+  update public.user_permission_grants
+  set revoked_at = now()
+  where profile_id = v_support_agent and permission_key = 'support.view_as';
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_support_agent::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_staff_count from public.clinical_staff where profile_id = v_clinician;
+  reset role;
+
+  insert into svas_result values
+    ('revoking support.view_as mid-session immediately refuses the read', 'support agent',
+     v_staff_count::text, '0', case when v_staff_count = 0 then 'PASS' else 'FAIL' end);
+  if v_staff_count <> 0 then
+    raise exception 'LEAK: a still-active session kept granting reads after the underlying support.view_as permission was revoked';
+  end if;
+
+  -- Restore the grant — checks 9/10 below still need it (un-ending a session and the search
+  -- RPC are both gated on it too); this test only needed the revoked window, not a
+  -- permanently-revoked fixture.
+  update public.user_permission_grants
+  set revoked_at = null
+  where profile_id = v_support_agent and permission_key = 'support.view_as';
 end $$;
 
 -- ==========================================================================
