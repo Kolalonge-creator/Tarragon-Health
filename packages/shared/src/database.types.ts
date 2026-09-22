@@ -39784,6 +39784,19 @@ export type Database = {
         Args: { p_period?: string }
         Returns: Json
       }
+      analytics_doctor_income: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      analytics_doctor_paid_jobs: {
+        Args: {
+          p_doctor_profile_id?: string
+          p_from?: string
+          p_to?: string
+          p_limit?: number
+        }
+        Returns: Json
+      }
       analytics_doctor_performance: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json

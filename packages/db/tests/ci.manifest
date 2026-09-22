@@ -199,3 +199,4 @@ platform_credit_spend_revenue_deferral.sql
 # async-consult-answered and video-consultation-completed flows, with a
 # sabotage control for bug (1).
 clinical_encounter_note_link_bugs.sql
+doctor_income_attribution_and_analyst_gate.sql

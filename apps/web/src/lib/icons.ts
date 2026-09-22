@@ -212,6 +212,7 @@ export const NAV_ICON = {
   // which category gets which of these).
   business: BarChart3,
   financial: Wallet,
+  doctorIncome: PiggyBank,
   investor: Landmark,
   accounting: Calculator,
   users: UserRound,

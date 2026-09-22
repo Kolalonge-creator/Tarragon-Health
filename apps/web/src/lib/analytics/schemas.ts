@@ -481,6 +481,102 @@ export const doctorPerformanceSchema = z.object({
 });
 export type DoctorPerformance = z.infer<typeof doctorPerformanceSchema>;
 
+// ---- Doctor income (public.analytics_doctor_income, 20260922190157) -------
+// Reports money earned per doctor from paid work, for commission
+// calculation. Deliberately carries no commission rate or payout figure —
+// see the migration header for why.
+export const doctorIncomeByProductSchema = z.object({
+  product_code: z.string(),
+  product_name: z.string(),
+  jobs: z.number(),
+  revenue_minor: z.number(),
+});
+
+export const doctorIncomeSchema = z.object({
+  by_doctor: z
+    .array(
+      z.object({
+        doctor_profile_id: z.string(),
+        doctor: z.string(),
+        tier: z.string().nullable(),
+        employment_type: z.string().nullable(),
+        active: z.boolean(),
+        jobs: z.number(),
+        patients: z.number(),
+        revenue_minor: z.number(),
+        gross_minor: z.number(),
+        currency: z.string().nullable(),
+        first_job_at: z.string().nullable(),
+        last_job_at: z.string().nullable(),
+        by_product: z.array(doctorIncomeByProductSchema).default([]),
+      })
+    )
+    .default([]),
+  // Paid work that names no single doctor — an unspent credit or a term of
+  // standing cover (expected_jobs > 1), or a specific job nobody is recorded
+  // against. Shown so the analyst's total covers everything sold, not only
+  // the attributable part.
+  unattributed: z
+    .array(
+      z.object({
+        attribution: z.enum(["unattributed", "no_single_job"]),
+        product_code: z.string(),
+        product_name: z.string(),
+        is_doctor_time: z.boolean(),
+        expected_jobs: z.number().nullable(),
+        jobs: z.number(),
+        revenue_minor: z.number(),
+      })
+    )
+    .default([]),
+  by_source: z
+    .array(z.object({ source: z.string(), jobs: z.number(), revenue_minor: z.number() }))
+    .default([]),
+  totals: z
+    .object({
+      jobs: z.number(),
+      revenue_minor: z.number(),
+      gross_minor: z.number(),
+      attributed_jobs: z.number(),
+      attributed_revenue_minor: z.number(),
+      doctors: z.number(),
+    })
+    .default({
+      jobs: 0,
+      revenue_minor: 0,
+      gross_minor: 0,
+      attributed_jobs: 0,
+      attributed_revenue_minor: 0,
+      doctors: 0,
+    }),
+  period: z.object({ from: z.string().nullable(), to: z.string().nullable() }).optional(),
+});
+export type DoctorIncome = z.infer<typeof doctorIncomeSchema>;
+export type DoctorIncomeByDoctor = DoctorIncome["by_doctor"][number];
+
+// ---- Doctor paid jobs (public.analytics_doctor_paid_jobs) — line items ----
+// behind one doctor's income total, or the whole period. Patients appear as
+// patient numbers only, matching the rest of the analyst console.
+export const doctorPaidJobSchema = z.object({
+  source: z.string(),
+  source_id: z.string(),
+  product_code: z.string(),
+  product_name: z.string(),
+  work_type: z.string().nullable(),
+  work_status: z.string().nullable(),
+  is_doctor_time: z.boolean(),
+  attribution: z.enum(["attributed", "unattributed", "no_single_job"]),
+  doctor_profile_id: z.string().nullable(),
+  doctor: z.string().nullable(),
+  patient_number: z.string().nullable(),
+  earned_at: z.string().nullable(),
+  revenue_minor: z.number(),
+  gross_minor: z.number(),
+  currency: z.string().nullable(),
+});
+export const doctorPaidJobsSchema = z.array(doctorPaidJobSchema).default([]);
+export type DoctorPaidJob = z.infer<typeof doctorPaidJobSchema>;
+
 // ---- Provider capacity (docs/CLINICAL_NETWORK_SPEC.md §4.17) --------------
 export const providerCapacitySchema = z.object({
   by_specialty: z
