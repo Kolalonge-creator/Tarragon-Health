@@ -227,6 +227,39 @@ export async function verifyGuestCheckoutOtp(
     await supabase.from("profiles").update({ phone: metadataPhone }).eq("id", data.user.id);
   }
 
+  // MFA step-up gate — mirrors proxy.ts's own gate (see its header comment
+  // for the full reasoning on why /reset-password and /forgot-password
+  // deliberately do NOT get this same exemption). This flow can silently
+  // authenticate into an EXISTING account by email match (this function's
+  // own doc comment above); if that account has TOTP enrolled,
+  // purchaseServiceProduct() below would otherwise run in the SAME request
+  // as OTP verification — before any subsequent page load ever reaches
+  // proxy.ts's gate, since a real charge (not just a redirect to a
+  // dashboard) is what happens next. Money would move before MFA was ever
+  // checked. Every other entry point into this codebase relies on proxy.ts
+  // catching the very next request; this one can't, because there IS no
+  // intervening request before the purchase — so the check is duplicated
+  // here, using the identical aal2-pending test proxy.ts uses.
+  //
+  // Deliberately does NOT attempt the challenge inline: redirects to the
+  // same /login/mfa-challenge page a normal login step-up uses, carrying a
+  // `redirect` back to /checkout/continue?code=... — the pre-existing
+  // "resume an already-authenticated guest checkout" page (built for the
+  // magic-link flow, see its own header comment), which reuses
+  // purchaseServiceProduct() exactly as this function does and is itself
+  // naturally covered by proxy.ts's MFA gate (not on its exemption list) —
+  // so the charge can only execute once TOTP is verified. No purchase
+  // happens on this request at all when step-up is required.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel) {
+    const resumePath = `/checkout/continue?code=${encodeURIComponent(serviceProductCode)}`;
+    redirect(`/login/mfa-challenge?redirect=${encodeURIComponent(resumePath)}`);
+    // redirect() always throws in real Next.js (NEXT_REDIRECT) — this return
+    // is defensive/explicit so purchaseServiceProduct can never be reached
+    // on this code path even under a test double that doesn't throw.
+    return;
+  }
+
   const result = await purchaseServiceProduct({
     serviceProductCode,
     callbackPath: "/checkout/receipt",

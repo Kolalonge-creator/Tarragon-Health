@@ -99,6 +99,26 @@ export function isBackgroundTelemetryPath(pathname: string): boolean {
  * must still respect the idle timeout, whether the buyer is a guest or an
  * already-authenticated patient — /checkout/continue and /checkout/receipt
  * are deliberately excluded.
+ *
+ * KNOWN, DELIBERATELY UNFIXED LIMITATION (found in review after the above
+ * was written): this route-based narrowing does not fully close the gap it
+ * was meant to close. `/checkout/[code]` itself has to stay exempt (a
+ * genuine new guest reaching the OTP form has never been idle), but
+ * verifyGuestCheckoutOtp (guest-checkout.ts) verifies the OTP AND calls
+ * purchaseServiceProduct() synchronously in that SAME server action — the
+ * purchase never reaches a separate, non-exempt route the way this
+ * exemption's reasoning assumes. So an idle-but-still-cookied EXISTING
+ * session that happens to land back on /checkout/[code] (bookmark, browser
+ * back/forward, a copied link) can still complete a real purchase without
+ * the idle check ever running. Closing this properly would mean either
+ * checking staleness inside verifyGuestCheckoutOtp itself (not at the
+ * route/proxy level — see the MFA step-up check added directly inside that
+ * function for the analogous "this route can't rely on proxy.ts because
+ * there's no intervening request before money moves" reasoning) or
+ * splitting OTP-verify from purchase into two requests. Left undone here
+ * deliberately rather than as an open-ended restructure under time
+ * pressure; documented explicitly so it isn't a hidden gap a reviewer has
+ * to rediscover.
  */
 export function isIdleTimeoutExemptPath(pathname: string): boolean {
   return (

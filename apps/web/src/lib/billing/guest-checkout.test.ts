@@ -28,13 +28,15 @@
  *    across repeated wrong guesses.
  */
 
-jest.mock("next/navigation", () => ({ redirect: jest.fn() }));
+const redirectMock = jest.fn();
+jest.mock("next/navigation", () => ({ redirect: (...args: unknown[]) => redirectMock(...args) }));
 jest.mock("@/lib/rate-limit", () => ({
   checkAuthRateLimit: jest.fn().mockResolvedValue({ success: true, retryAfterSeconds: 0 }),
   RATE_LIMIT_MESSAGE: "Too many attempts. Please wait a moment, then try again.",
 }));
+const purchaseServiceProduct = jest.fn().mockResolvedValue({ activated: true });
 jest.mock("@/lib/billing/purchase-service-product", () => ({
-  purchaseServiceProduct: jest.fn().mockResolvedValue({ activated: true }),
+  purchaseServiceProduct: (...args: unknown[]) => purchaseServiceProduct(...args),
 }));
 
 const recordLoginDevice = jest.fn().mockResolvedValue(undefined);
@@ -46,11 +48,18 @@ const anonRpc = jest.fn();
 const verifyOtp = jest.fn();
 const signInWithOtp = jest.fn();
 const profilesUpdate = jest.fn().mockReturnValue({ eq: jest.fn() });
+// Defaults to "no step-up needed" (aal1 -> aal1), matching an account with
+// no MFA factor enrolled — the overwhelming majority of guest-checkout
+// callers. Individual tests override this to simulate an MFA-enrolled
+// account being reached through this flow.
+const getAuthenticatorAssuranceLevel = jest
+  .fn()
+  .mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal1" }, error: null });
 
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({
     rpc: anonRpc,
-    auth: { verifyOtp, signInWithOtp },
+    auth: { verifyOtp, signInWithOtp, mfa: { getAuthenticatorAssuranceLevel } },
     from: () => ({ update: profilesUpdate }),
   }),
 }));
@@ -83,6 +92,11 @@ beforeEach(() => {
   verifyOtp.mockReset();
   signInWithOtp.mockReset().mockResolvedValue({ error: null });
   recordLoginDevice.mockReset().mockResolvedValue(undefined);
+  redirectMock.mockReset();
+  purchaseServiceProduct.mockReset().mockResolvedValue({ activated: true });
+  getAuthenticatorAssuranceLevel
+    .mockReset()
+    .mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal1" }, error: null });
 });
 
 describe("verifyGuestCheckoutOtp — account lockout (bypass regression)", () => {
@@ -165,6 +179,67 @@ describe("verifyGuestCheckoutOtp — griefing-vector regression (must NEVER reco
     const anonRpcCalls = anonRpc.mock.calls.map((call) => call[0]);
     expect(anonRpcCalls).not.toContain("record_failed_login");
     expect(anonRpcCalls).not.toContain("record_failed_login_by_phone");
+  });
+});
+
+describe("verifyGuestCheckoutOtp — MFA step-up gate (account-takeover regression)", () => {
+  // This flow can silently authenticate into an EXISTING account by email
+  // match (see the module's own doc comment). If that account has TOTP
+  // enrolled, purchaseServiceProduct() must never run in the same request
+  // as OTP verification — proxy.ts's own MFA gate only catches the NEXT
+  // request, and there is no next request before this function would
+  // otherwise charge the account. Found in review: money could move before
+  // MFA was ever checked.
+  it("does NOT purchase and redirects to the MFA challenge when the account needs step-up", async () => {
+    anonRpc.mockResolvedValue({ data: false, error: null }); // not locked
+    verifyOtp.mockResolvedValue({
+      data: { user: { id: "user-1", user_metadata: {} } },
+      error: null,
+    });
+    getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: "aal1", nextLevel: "aal2" },
+      error: null,
+    });
+
+    await verifyGuestCheckoutOtp(
+      PRODUCT_CODE,
+      undefined,
+      otpFormData("mfa-enrolled@example.com", "12345678")
+    );
+
+    expect(purchaseServiceProduct).not.toHaveBeenCalled();
+    expect(redirectMock).toHaveBeenCalledTimes(1);
+    const [target] = redirectMock.mock.calls[0]!;
+    expect(target).toMatch(/^\/login\/mfa-challenge\?redirect=/);
+    // Resume target carries the guest's product code straight back into the
+    // pre-existing "resume an authenticated checkout" page, which itself
+    // reuses purchaseServiceProduct() and is covered by proxy.ts's own MFA
+    // gate — the charge only ever executes once TOTP is verified.
+    expect(decodeURIComponent(target)).toBe(
+      `/login/mfa-challenge?redirect=/checkout/continue?code=${PRODUCT_CODE}`
+    );
+  });
+
+  it("still purchases normally when the account has no MFA factor enrolled (aal1 -> aal1)", async () => {
+    anonRpc.mockResolvedValue({ data: false, error: null });
+    verifyOtp.mockResolvedValue({
+      data: { user: { id: "user-1", user_metadata: {} } },
+      error: null,
+    });
+    // Default mock is already aal1 -> aal1; asserted explicitly here for clarity.
+    getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: "aal1", nextLevel: "aal1" },
+      error: null,
+    });
+
+    await verifyGuestCheckoutOtp(
+      PRODUCT_CODE,
+      undefined,
+      otpFormData("no-mfa@example.com", "12345678")
+    );
+
+    expect(purchaseServiceProduct).toHaveBeenCalledTimes(1);
+    expect(redirectMock).toHaveBeenCalledWith("/checkout/receipt");
   });
 });
 
