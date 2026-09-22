@@ -1,13 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ReviewedResultLine } from "@/components/reviewed-result-line";
+import { ReportDocumentList } from "@/components/report-document-list";
 import {
   loadResultDocuments,
   type ResultDocumentView,
@@ -17,12 +10,6 @@ import { PatientResultUpload } from "@/components/patient-result-upload";
 import { ReplaceResultDocumentForm } from "./replace-result-document-form";
 import { ResultDocumentsDownloadPicker } from "./result-documents-download-picker";
 import { AiResultSummary } from "./ai-result-summary";
-
-function sourceLabel(source: string): string {
-  return source === "patient"
-    ? "You uploaded this"
-    : "Uploaded by your care team";
-}
 
 /** Groups documents by their known test type, most-recently-updated group
  * first, with anything of unknown type (uploaded before this field existed,
@@ -69,6 +56,12 @@ function formatDate(value: string): string {
  * plain-language interpretation is sent to you in the app" plan feature.
  * Always renders the upload form so a patient can add a result they received
  * directly.
+ *
+ * Shares its card/list/badge/signed-URL-link/reviewed-block structure with
+ * EcgReportDocuments/ImagingReportDocuments via ReportDocumentList — this
+ * component supplies only what's genuinely specific to a lab result: the
+ * test-type grouping, the interpretation/next-steps reviewed block, and the
+ * multi-result download picker.
  */
 export async function ResultDocuments({ patientId }: { patientId: string }) {
   const supabase = await createClient();
@@ -79,131 +72,63 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
   const groups = groupByTestType(documents);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Result documents</CardTitle>
-        <CardDescription>
-          Lab result files on your record. Once a doctor has read one, their
-          interpretation and any next steps appear here.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {documents.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-            No result documents yet.
+    <ReportDocumentList
+      title="Result documents"
+      description="Lab result files on your record. Once a doctor has read one, their interpretation and any next steps appear here."
+      emptyText="No result documents yet."
+      fallbackFilename="Result"
+      groups={groups}
+      isReviewed={(doc) => Boolean(doc.interpretationSentAt && doc.patientInterpretation)}
+      badgeReviewed={(doc) => Boolean(doc.interpretationSentAt)}
+      reviewedLabel="Interpreted"
+      renderReviewed={(doc) => (
+        <div className="rounded-lg border border-brand-green/20 dark:border-brand-green-bright/20 bg-brand-green/5 dark:bg-brand-green/15 p-3">
+          <p className="text-sm text-charcoal-ink dark:text-night-ink">
+            {doc.patientInterpretation}
           </p>
-        ) : (
-          <div className="space-y-5">
-            {groups.map((group) => (
-              <div key={group.label} className="space-y-3">
-                {groups.length > 1 && (
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
-                    {group.label}
-                  </h4>
-                )}
-                <ul className="space-y-4">
-                  {group.documents.map((doc) => (
-                    <li
-                      key={doc.id}
-                      className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-4 last:border-0 last:pb-0"
-                    >
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-                          {doc.originalFilename ?? "Result"}
-                        </p>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <Badge
-                            variant={
-                              doc.interpretationSentAt ? "green" : "amber"
-                            }
-                          >
-                            {doc.interpretationSentAt
-                              ? "Interpreted"
-                              : "Awaiting review"}
-                          </Badge>
-                          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-                            {formatDate(doc.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                        {sourceLabel(doc.source)}
-                        {doc.note ? ` · ${doc.note}` : ""}
-                      </p>
-                      {doc.signedUrl ? (
-                        <a
-                          href={doc.signedUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
-                        >
-                          {doc.isPdf
-                            ? "Open original (PDF) →"
-                            : "View original →"}
-                        </a>
-                      ) : (
-                        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-                          File unavailable.
-                        </p>
-                      )}
-                      {doc.interpretationSentAt && doc.patientInterpretation ? (
-                        <div className="rounded-lg border border-brand-green/20 dark:border-brand-green-bright/20 bg-brand-green/5 dark:bg-brand-green/15 p-3">
-                          <p className="text-sm text-charcoal-ink dark:text-night-ink">
-                            {doc.patientInterpretation}
-                          </p>
-                          {doc.nextSteps && (
-                            <p className="mt-2 text-sm text-charcoal-ink dark:text-night-ink">
-                              <span className="font-medium">Next steps:</span>{" "}
-                              {doc.nextSteps}
-                            </p>
-                          )}
-                          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                            <ReviewedResultLine
-                              reviewedBy={doc.reviewedBy}
-                              reviewedAt={doc.reviewedAt}
-                            />
-                            <a
-                              href={`/api/patient/lab-result/${doc.id}/pdf`}
-                              className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
-                            >
-                              Download as PDF →
-                            </a>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-                            Your care team hasn&apos;t reviewed this yet.
-                            We&apos;ll let you know here as soon as they have.
-                          </p>
-                          <AiResultSummary
-                            status={doc.aiSummaryStatus}
-                            flaggedAnalytes={doc.aiFlaggedAnalytes}
-                          />
-                          {doc.source === "patient" && !doc.reviewedAt && (
-                            <ReplaceResultDocumentForm documentId={doc.id} />
-                          )}
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          {doc.nextSteps && (
+            <p className="mt-2 text-sm text-charcoal-ink dark:text-night-ink">
+              <span className="font-medium">Next steps:</span> {doc.nextSteps}
+            </p>
+          )}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <ReviewedResultLine reviewedBy={doc.reviewedBy} reviewedAt={doc.reviewedAt} />
+            <a
+              href={`/api/patient/lab-result/${doc.id}/pdf`}
+              className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
+            >
+              Download as PDF →
+            </a>
           </div>
-        )}
-        {interpreted.length >= 2 && (
-          <ResultDocumentsDownloadPicker
-            results={interpreted.map((doc) => ({
-              id: doc.id,
-              label: `${doc.originalFilename ?? "Result"} (${formatDate(doc.createdAt)})`,
-            }))}
-          />
-        )}
-        <div className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
-          <PatientResultUpload label="Upload a result" patientId={patientId} />
         </div>
-      </CardContent>
-    </Card>
+      )}
+      renderPending={(doc) => (
+        <>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+            Your care team hasn&apos;t reviewed this yet. We&apos;ll let you know here as soon as
+            they have.
+          </p>
+          <AiResultSummary status={doc.aiSummaryStatus} flaggedAnalytes={doc.aiFlaggedAnalytes} />
+          {doc.source === "patient" && !doc.reviewedAt && (
+            <ReplaceResultDocumentForm documentId={doc.id} />
+          )}
+        </>
+      )}
+      footer={
+        <>
+          {interpreted.length >= 2 && (
+            <ResultDocumentsDownloadPicker
+              results={interpreted.map((doc) => ({
+                id: doc.id,
+                label: `${doc.originalFilename ?? "Result"} (${formatDate(doc.createdAt)})`,
+              }))}
+            />
+          )}
+          <div className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+            <PatientResultUpload label="Upload a result" patientId={patientId} />
+          </div>
+        </>
+      }
+    />
   );
 }

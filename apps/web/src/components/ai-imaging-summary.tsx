@@ -1,5 +1,6 @@
 "use client";
 
+import { AiSummaryCard } from "@/components/ai-summary-card";
 import type { Database } from "@tarragon/shared";
 
 type AiSummaryStatus = Database["public"]["Enums"]["lab_result_ai_summary_status"];
@@ -7,9 +8,10 @@ type AiSummaryStatus = Database["public"]["Enums"]["lab_result_ai_summary_status
 /**
  * Deterministic, patient-visible summary for an uploaded imaging/radiology
  * report, mirroring AiResultSummary/AiEcgSummary's role and discipline
- * exactly. Reads AI-016's output (lib/imaging-reports/extract.ts) — the
- * radiologist's own Impression/Conclusion, copied verbatim, never Tarragon's
- * own reading of the scan image.
+ * exactly (both now shared via AiSummaryCard). Reads AI-016's output
+ * (lib/imaging-reports/extract.ts) — the radiologist's own
+ * Impression/Conclusion, copied verbatim, never Tarragon's own reading of
+ * the scan image.
  *
  * AI-016 ships registered but DISABLED (see the 2026-09-22 migration) — this
  * component already handles that correctly: 'unavailable' is exactly what
@@ -29,39 +31,24 @@ export function AiImagingSummary({
    * radiologist's own words is itself the answer a patient uploaded to get. */
   impressionText?: string | null;
 }) {
-  if (status === "pending") {
-    return (
-      <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-        Preparing an automatic summary…
-      </p>
-    );
-  }
-  if (status === "unavailable") {
-    return null;
-  }
-
-  const isFlagged = status === "flagged";
-
   return (
-    <div
-      className={`rounded-lg border p-3 ${
-        isFlagged
-          ? "border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15"
-          : "border-slate-200 dark:border-night-ink/15 bg-slate-50 dark:bg-night-ink/10"
-      }`}
+    <AiSummaryCard
+      status={status}
+      label="The radiologist's own report. Not a doctor's review of your case."
     >
-      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
-        The radiologist&apos;s own report. Not a doctor&apos;s review of your case.
-      </p>
-      {impressionText && (
-        <p className="mt-1 text-sm text-charcoal-ink dark:text-night-ink">{impressionText}</p>
+      {(isFlagged) => (
+        <>
+          {impressionText && (
+            <p className="mt-1 text-sm text-charcoal-ink dark:text-night-ink">{impressionText}</p>
+          )}
+          {isFlagged && (
+            <p className="mt-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+              This isn&apos;t a diagnosis — you&apos;ll need to follow up with a doctor about it.
+              Message your care team in the app if you&apos;d like to talk this through sooner.
+            </p>
+          )}
+        </>
       )}
-      {isFlagged && (
-        <p className="mt-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
-          This isn&apos;t a diagnosis — you&apos;ll need to follow up with a doctor about it.
-          Message your care team in the app if you&apos;d like to talk this through sooner.
-        </p>
-      )}
-    </div>
+    </AiSummaryCard>
   );
 }

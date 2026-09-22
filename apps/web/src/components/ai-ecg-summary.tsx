@@ -1,5 +1,6 @@
 "use client";
 
+import { AiSummaryCard } from "@/components/ai-summary-card";
 import type { Database } from "@tarragon/shared";
 
 type AiSummaryStatus = Database["public"]["Enums"]["lab_result_ai_summary_status"];
@@ -7,7 +8,8 @@ type AiSummaryStatus = Database["public"]["Enums"]["lab_result_ai_summary_status
 /**
  * Deterministic, patient-visible summary for an uploaded ECG, mirroring
  * AiResultSummary's role and discipline exactly (styling, "not a medical
- * opinion" labelling) — see lib/ecg-reports/ai-summary.ts for what it reads.
+ * opinion" labelling — both now shared via AiSummaryCard) — see
+ * lib/ecg-reports/ai-summary.ts for what it reads.
  *
  * ALWAYS shows the machine's own printed rhythm statement verbatim, in both
  * the ready and flagged cases — never a hardcoded guess at what a "normal"
@@ -35,44 +37,27 @@ export function AiEcgSummary({
    * EcgReportDocumentView.aiRhythmStatement. */
   statement?: string | null;
 }) {
-  if (status === "pending") {
-    return (
-      <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-        Preparing an automatic summary…
-      </p>
-    );
-  }
-  if (status === "unavailable") {
-    return null;
-  }
-
-  const isFlagged = status === "flagged";
   // Should always be non-null when status is ready/flagged (both statuses
   // require a resolved statement — see deriveEcgAiSummaryStatus), but never
   // assumed: fall back to a generic phrase rather than showing "null".
   const printedText = statement ?? "no rhythm statement was printed";
 
   return (
-    <div
-      className={`rounded-lg border p-3 ${
-        isFlagged
-          ? "border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15"
-          : "border-slate-200 dark:border-night-ink/15 bg-slate-50 dark:bg-night-ink/10"
-      }`}
-    >
-      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
-        Automated summary. Not a medical opinion.
-      </p>
-      <p className="mt-1 text-sm text-charcoal-ink dark:text-night-ink">
-        {isFlagged
-          ? `The ECG machine's own printout reads: "${printedText}". This isn't a diagnosis — you'll need to follow up with a doctor about it.`
-          : `The ECG machine's own printout reads: "${printedText}". A doctor hasn't reviewed the full tracing yet — you'll see their interpretation here once they have.`}
-      </p>
-      {isFlagged && (
-        <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-          Message your care team in the app if you&apos;d like to talk this through sooner.
-        </p>
+    <AiSummaryCard status={status} label="Automated summary. Not a medical opinion.">
+      {(isFlagged) => (
+        <>
+          <p className="mt-1 text-sm text-charcoal-ink dark:text-night-ink">
+            {isFlagged
+              ? `The ECG machine's own printout reads: "${printedText}". This isn't a diagnosis — you'll need to follow up with a doctor about it.`
+              : `The ECG machine's own printout reads: "${printedText}". A doctor hasn't reviewed the full tracing yet — you'll see their interpretation here once they have.`}
+          </p>
+          {isFlagged && (
+            <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Message your care team in the app if you&apos;d like to talk this through sooner.
+            </p>
+          )}
+        </>
       )}
-    </div>
+    </AiSummaryCard>
   );
 }
