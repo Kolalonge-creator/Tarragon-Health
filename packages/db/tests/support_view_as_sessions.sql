@@ -44,6 +44,14 @@
 --     literal backslash — a caught regression where the escape order left
 --     the backslash itself unescaped, silently consuming the query's own
 --     trailing wildcard and returning zero rows for a real subject.
+--   * the update-guard's immutability check, rewritten from a hand-listed
+--     column allowlist to a generic jsonb diff, still blocks a column the
+--     old allowlist named (reason) — proving the rewrite didn't silently
+--     narrow what it protects;
+--   * a caller holding ONLY the "Customer support administrator" role
+--     preset (via custom_role_id, no direct user_permission_grants row)
+--     can genuinely start a session — proving support.view_as actually
+--     reaches a real delegable preset, not just the superadmin account.
 --
 -- Run via `supabase db query "$(cat this_file.sql)" --linked`, `psql
 -- $DATABASE_URL -f this_file.sql`, or the Supabase SQL editor.
@@ -666,6 +674,46 @@ begin
 end $$;
 
 -- ==========================================================================
+-- 9b. Sabotage — the update-guard's immutability check (rewritten from a
+--     hand-listed column allowlist to a generic jsonb diff — see this
+--     migration's private.guard_support_view_session_update()) still blocks
+--     a column the old allowlist explicitly named, proving the rewrite
+--     didn't silently narrow what's protected. Uses a fresh session (the
+--     original `session` fixture is already ended by check 8) so there's an
+--     active row to attempt the sabotage against.
+-- ==========================================================================
+do $$
+declare
+  v_support_agent uuid := (select v from svas_fixture where k = 'support_agent');
+  v_clinician     uuid := (select v from svas_fixture where k = 'clinician');
+  v_session_id    uuid;
+  v_caught        boolean := false;
+  v_msg           text;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_support_agent::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  insert into public.support_view_sessions (viewer_id, subject_id, reason)
+  values (v_support_agent, v_clinician, 'checking a report, take two')
+  returning id into v_session_id;
+
+  begin
+    update public.support_view_sessions set reason = 'REWRITTEN BY SUPPORT AGENT' where id = v_session_id;
+  exception when others then
+    v_caught := true;
+    v_msg := sqlerrm;
+  end;
+  reset role;
+
+  insert into svas_result values
+    ('generic jsonb-diff immutability guard still blocks changing reason', 'support agent',
+     coalesce(v_msg, 'not blocked'), 'blocked', case when v_caught then 'PASS' else 'FAIL' end);
+  if not v_caught then
+    raise exception 'LEAK: reason was mutated after session creation — the rewritten generic-diff immutability guard is narrower than the allowlist it replaced';
+  end if;
+end $$;
+
+-- ==========================================================================
 -- 10. public.search_support_view_subjects: a bystander with no support.view_as
 --     grant gets nothing back (even though the row exists and matches), while
 --     the granted support agent can find the subject to start a session
@@ -740,6 +788,57 @@ begin
      v_hits::text, '1', case when v_hits = 1 then 'PASS' else 'FAIL' end);
   if v_hits <> 1 then
     raise exception 'BROKEN: searching for a name containing a literal backslash ("Foo\Bar") returned % rows, expected 1 — the escape-order regression is back', v_hits;
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 12. The "Customer support administrator" role preset
+--     (20260922185119_support_view_as_customer_support_preset_grant.sql)
+--     genuinely carries support.view_as — a caller holding ONLY that preset
+--     (via custom_role_id, no direct user_permission_grants row at all) can
+--     start a real session. Before that migration, support.view_as was
+--     unreachable by any preset, so this tool was usable only by the
+--     superadmin `admin` account despite being designed as a delegable
+--     capability — proving the grant via a role assignment, not just
+--     asserting the role_permissions row exists, is what actually closes
+--     that gap.
+-- ==========================================================================
+do $$
+declare
+  v_org             uuid := (select v from svas_fixture where k = 'agent_org');
+  v_patient         uuid := (select v from svas_fixture where k = 'patient');
+  v_preset_role_id  uuid;
+  v_preset_holder   uuid := gen_random_uuid();
+  v_session_id      uuid;
+begin
+  select id into v_preset_role_id from public.custom_roles where name = 'Customer support administrator';
+  if v_preset_role_id is null then
+    raise exception 'FAIL: "Customer support administrator" preset not found — 20260829093427_ops_admin_role_presets.sql may not be applied';
+  end if;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_preset_holder, 'svas-test-preset-holder@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, custom_role_id, full_name)
+  values (v_preset_holder, v_org, 'care_coordinator', v_preset_role_id, 'SVAS Test Preset Holder')
+  on conflict (id) do update set
+    organisation_id = excluded.organisation_id,
+    role = excluded.role,
+    custom_role_id = excluded.custom_role_id,
+    full_name = excluded.full_name;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_preset_holder::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  insert into public.support_view_sessions (viewer_id, subject_id, reason)
+  values (v_preset_holder, v_patient, 'preset-only grantee starting a session')
+  returning id into v_session_id;
+  reset role;
+
+  insert into svas_result values
+    ('a caller holding only the Customer support administrator preset can start a session', 'preset holder',
+     v_session_id::text, 'not null', case when v_session_id is not null then 'PASS' else 'FAIL' end);
+  if v_session_id is null then
+    raise exception 'BROKEN: a caller assigned the Customer support administrator preset (no direct user_permission_grants row) could not start a support view-as session — support.view_as is not actually reaching this preset';
   end if;
 end $$;
 
