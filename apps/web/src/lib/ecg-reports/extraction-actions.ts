@@ -163,6 +163,15 @@ export async function runEcgReportExtraction(
   // switch is honoured before the model is reached, every outcome reaches
   // ai_interaction_log, and the fallback is the manual entry form this
   // function already fell back to for every other failure.
+  //
+  // Checked AFTER the download/normalise above, unlike
+  // imaging-reports/extraction-actions.ts's own governance gate (checked
+  // BEFORE its download, 2026-09-22 — see that file's comment). Deliberately
+  // left as-is here rather than reordered to match: AI-006 is live/enabled,
+  // so this only wastes work during an actual kill-switch/incident, not on
+  // every call the way AI-016's disabled-by-default state made it waste work
+  // on every imaging upload. Tracked as a follow-up, not forgotten — see the
+  // "Move lab/ECG AI governance check before storage download" task.
   const governance = await decideAiGovernance(service, AI_SYSTEMS.ecgReportExtraction.code);
   if (!governance.allow) {
     await recordAiInteraction(service, {

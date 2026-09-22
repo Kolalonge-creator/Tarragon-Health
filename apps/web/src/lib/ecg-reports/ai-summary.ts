@@ -23,6 +23,19 @@
  * quirk.
  */
 
+// Deliberately a WHOLE-STRING match (^...$), not a prefix/substring check: a
+// cart that prints a compound statement like "Normal sinus rhythm with
+// frequent PVCs" must NOT match here, since the trailing clause is a real
+// abnormal finding a looser prefix match would silently swallow. The
+// consequence, accepted on purpose, is that a genuinely normal printout with
+// ANY extra trailing text (e.g. "Normal sinus rhythm. Rate 72bpm.") also
+// falls through to 'flagged' rather than 'ready' -- over-flagging is the
+// safe direction, matching this file's asymmetric-risk posture everywhere
+// else. Calibrated against the phrasing extract.ts's own system prompt asks
+// the model to use, not against real ECG cart output (no real hardware has
+// exercised this path yet -- same caveat CLAUDE.md's BLE section carries for
+// the clinical-device pairing path). Revisit the strictness once real
+// printouts are available to calibrate against.
 const NORMAL_RHYTHM_PATTERN =
   /^(normal sinus rhythm|normal ecg|normal electrocardiogram|normal 12[- ]lead ecg)\.?$/i;
 
@@ -43,9 +56,9 @@ export function deriveEcgAiSummaryStatus(
  * about which statement backs a given status.
  *
  * Deliberately not conditioned on status: a "ready" ECG did not necessarily
- * print exactly "Normal sinus rhythm" — checkQtNotShorterThanQrs's own
- * NORMAL_RHYTHM_PATTERN also matches "Normal ECG", "Normal electrocardiogram"
- * and "Normal 12-lead ECG", none of which mention "sinus rhythm" at all.
+ * print exactly "Normal sinus rhythm" — this file's own NORMAL_RHYTHM_PATTERN
+ * (above) also matches "Normal ECG", "Normal electrocardiogram" and "Normal
+ * 12-lead ECG", none of which mention "sinus rhythm" at all.
  * Showing the patient the ACTUAL printed words in every case (not a
  * hardcoded "normal sinus rhythm" guess) is what the whole feature's
  * verbatim-only discipline requires — see extract.ts's own "copy it

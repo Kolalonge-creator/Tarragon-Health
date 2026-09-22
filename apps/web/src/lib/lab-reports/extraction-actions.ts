@@ -185,6 +185,15 @@ export async function runLabReportExtraction(
   // outcome reaches ai_interaction_log. The fallback is the one this function
   // already had for every other failure -- the draft does not appear and the
   // manual entry form stands, which is AI-005's recorded fallback_behaviour.
+  //
+  // Checked AFTER the download/normalise above, unlike
+  // imaging-reports/extraction-actions.ts's own governance gate (checked
+  // BEFORE its download, 2026-09-22 — see that file's comment). Deliberately
+  // left as-is here rather than reordered to match: AI-005 is live/enabled,
+  // so this only wastes work during an actual kill-switch/incident, not on
+  // every call the way AI-016's disabled-by-default state made it waste work
+  // on every imaging upload. Tracked as a follow-up, not forgotten — see the
+  // "Move lab/ECG AI governance check before storage download" task.
   const governance = await decideAiGovernance(service, AI_SYSTEMS.labReportExtraction.code);
   if (!governance.allow) {
     await recordAiInteraction(service, {
