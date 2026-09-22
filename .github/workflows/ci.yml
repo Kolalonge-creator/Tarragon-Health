@@ -143,6 +143,112 @@ jobs:
       - name: Pytest
         run: uv run pytest
 
+  # Real-browser E2E (Playwright), distinct from the Jest `e2e/` suite (which
+  # hits the live project's DB/Edge Functions directly, bypassing the UI).
+  # Runs against a fresh LOCAL Supabase stack, never the live production
+  # project — branching isn't available on the current plan
+  # (PaymentRequiredException, checked live 2026-09-23), so this reuses the
+  # same free, Docker-based tooling supabase-db below already proves works
+  # (`supabase start` + `db reset`) rather than touching production on every
+  # PR. See apps/web/e2e-browser/README.md for the full reasoning and what's
+  # covered. NOTE: this job could not be executed even once in the session
+  # that wrote it (no Docker in that sandbox) — its first real run is
+  # whatever CI run first picks up this commit. Read a failure here as
+  # genuine signal, not flakiness, until it's proven green at least once.
+  e2e-browser:
+    name: Browser E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect E2E-relevant changes
+        id: changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            e2e:
+              - "apps/web/**"
+              - "packages/shared/**"
+              - "supabase/migrations/**"
+              - "supabase/seed.sql"
+              - ".github/workflows/ci.yml"
+
+      - name: Install pnpm
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - uses: supabase/setup-cli@v1
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        run: supabase start
+
+      - name: Replay all migrations + seed
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        run: supabase db reset
+
+      # `-o env` prints NAME=value lines for the local stack's own connection
+      # details; --override-name renames them directly to what Next.js
+      # expects, so no separate remap step is needed. Documented as a real
+      # CLI example (`supabase status --help`), but NOT verified live in the
+      # session that wrote this job (no Docker there) — if the override keys
+      # below don't match (e.g. api.anon_key vs a different path), this step
+      # is the first place to look on a failed run.
+      - name: Export local Supabase connection env vars
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        run: |
+          supabase status -o env \
+            --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
+            --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            >> "$GITHUB_ENV"
+
+      - name: Run browser E2E tests
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        working-directory: apps/web
+        env:
+          # sk_test_... only, from repo secrets — see e2e-browser/README.md
+          # and b2c-signup-to-entitlement.spec.ts's own comment: the
+          # checkout-initiation test skips gracefully if this isn't set,
+          # rather than failing the whole job. NOT yet configured as of
+          # 2026-09-23 (checked via `gh secret list`) — add
+          # PAYSTACK_SECRET_KEY as a repo secret to turn that test on.
+          PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
+        run: pnpm test:e2e-browser
+
+      - name: Upload Playwright report
+        if: always() && (github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true')
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 14
+
+      - name: Stop local Supabase stack
+        if: always() && (github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true')
+        run: supabase stop
+
   supabase-db:
     name: Supabase migration replay
     runs-on: ubuntu-latest
