@@ -5,9 +5,9 @@ import { GuardLeafMark } from "@/components/brand/guard-leaf-mark";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string }>;
+  searchParams: Promise<{ redirect?: string; reason?: string }>;
 }) {
-  const { redirect } = await searchParams;
+  const { redirect, reason } = await searchParams;
 
   return (
     <div className="flex flex-1 items-center justify-center bg-white px-4 py-12 sm:py-16">
@@ -28,6 +28,18 @@ export default async function LoginPage({
             Sign in to pick up where you left off.
           </p>
         </div>
+
+        {reason === "idle" && (
+          // buildIdleTimeoutRedirect (lib/auth/idle-timeout.ts) sends a
+          // timed-out session here with ?reason=idle. Without this, a
+          // patient who steps away from an open tab gets silently bounced
+          // back to a bare login page with no explanation — indistinguishable
+          // from a bug rather than the deliberate security control it is.
+          <p className="rounded-md bg-brand-green/10 px-4 py-3 text-center text-sm text-charcoal-ink">
+            You were signed out after a while of inactivity, to help keep your account safe.
+            Sign in again to continue.
+          </p>
+        )}
 
         <LoginForm redirectTo={redirect} />
 

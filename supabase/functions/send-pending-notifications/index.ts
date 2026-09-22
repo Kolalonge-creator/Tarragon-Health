@@ -2439,7 +2439,14 @@ const TEMPLATE_MAP: Record<
       languageCode: "en",
       components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: message,
-      pushUrl: "/patient/settings/security",
+      // Corrected 2026-09-18 (found while wiring the sibling
+      // security.account_locked template below): /patient/settings/security
+      // has never existed as a route — grep across apps/web/src/app confirms
+      // it. /account is the real, role-agnostic security-settings page
+      // (password/MFA/known-devices), reachable by every role including
+      // patients — see apps/web/src/app/(dashboard)/account/page.tsx's own
+      // header comment.
+      pushUrl: "/account",
       email: {
         subject: "New sign-in to your Tarragon Health account",
         html:
@@ -2457,6 +2464,42 @@ const TEMPLATE_MAP: Record<
   // medication's scheduled dose time. scheduled_time is already an
   // Africa/Lagos local HH:MM string from the producer, not a timestamp --
   // no formatLagosDateTime conversion needed or correct here.
+  // record_failed_login() (account_lockout_after_repeated_failed_logins.sql)
+  // queues this in_app + email, priority='critical', the moment 5 consecutive
+  // failed password attempts newly lock an account — see that migration for
+  // why this is a real lockout, not just the rolling rate limit. Same
+  // plain-pass-through shape as security.new_device_signin right above: the
+  // producer already resolves payload.message to a full sentence, never
+  // gated by TEMPLATE_CATEGORY (a critical-only security template, same
+  // posture as new-device-signin). Registering this here on the SAME PR that
+  // adds the producer, rather than after the fact, is deliberate — the
+  // comment above this block documents exactly what happens to a template
+  // key with no TEMPLATE_MAP entry (140 real rows silently stuck on "unknown
+  // template" for over two weeks before anyone noticed).
+  "security.account_locked": (payload) => {
+    const message = String(
+      payload.message ?? "Your Tarragon Health account was temporarily locked after several failed sign-in attempts.",
+    );
+    return {
+      metaTemplateName: "security_account_locked",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: message,
+      // /account, not /patient/settings/security — see the sibling
+      // security.new_device_signin entry above for why.
+      pushUrl: "/account",
+      email: {
+        subject: "Your Tarragon Health account was temporarily locked",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>${message}</p>` +
+          `<p style="color:#5b6b78;font-size:13px">If this was you and you've forgotten your password, you can reset it once the lock lifts. If it wasn't you, please reset your password as soon as you're able to sign in again.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
+          `</div>`,
+        text: message,
+      },
+    };
+  },
   medication_dose_reminder: (payload) => {
     const drugName = String(payload.drug_name ?? "your medication");
     const scheduledTime = String(payload.scheduled_time ?? "now");

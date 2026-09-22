@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_lockouts: {
+        Row: {
+          failed_attempts: number
+          last_failed_at: string | null
+          locked_until: string | null
+          organisation_id: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          failed_attempts?: number
+          last_failed_at?: string | null
+          locked_until?: string | null
+          organisation_id: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          failed_attempts?: number
+          last_failed_at?: string | null
+          locked_until?: string | null
+          organisation_id?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_lockouts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_lockouts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_log_entries: {
         Row: {
           activity_name: string | null
@@ -40160,6 +40202,7 @@ export type Database = {
         Args: { p_lab_order_id: string; p_patient_id: string }
         Returns: string
       }
+      clear_login_failures: { Args: never; Returns: undefined }
       clear_vitals_validation_flag: {
         Args: { p_reading_id: string }
         Returns: undefined
@@ -41435,6 +41478,7 @@ export type Database = {
         }[]
       }
       invoice_letterhead_details: { Args: never; Returns: Json }
+      is_account_locked: { Args: { p_email: string }; Returns: boolean }
       issue_screening_day_voucher: {
         Args: { p_beneficiary_profile_id: string; p_slot_id: string }
         Returns: Json
@@ -42190,6 +42234,7 @@ export type Database = {
         }
         Returns: Json
       }
+      record_failed_login: { Args: { p_email: string }; Returns: undefined }
       record_integration_delivery_result: {
         Args: {
           p_duration_ms: number

@@ -79,7 +79,7 @@ describe("signupSchema", () => {
     email: "ada@example.com",
     countryCode: "+234",
     phone: "8012345678",
-    password: "longenough",
+    password: "longenough1",
   };
 
   it("accepts a fully valid signup payload", () => {
@@ -105,5 +105,13 @@ describe("signupSchema", () => {
 
   it("rejects a blank last name", () => {
     expect(signupSchema.safeParse({ ...valid, lastName: " " }).success).toBe(false);
+  });
+
+  it("rejects a password with no digit", () => {
+    expect(signupSchema.safeParse({ ...valid, password: "onlyletters" }).success).toBe(false);
+  });
+
+  it("rejects a password with no letter", () => {
+    expect(signupSchema.safeParse({ ...valid, password: "12345678" }).success).toBe(false);
   });
 });

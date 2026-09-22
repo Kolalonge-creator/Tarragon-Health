@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { MfaSettingsCard } from "@/components/account/mfa-settings-card";
 import { SignOutOtherDevicesCard } from "@/components/account/sign-out-other-devices-card";
+import { getKnownDevices } from "@/lib/queries/known-devices";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 import { JoinEmployerCodeForm } from "./join-employer-code-form";
 
@@ -66,7 +67,12 @@ export default async function AccountPage() {
   const idValue = isPatient ? profile.patient_number : staffNumber;
 
   const supabase = await createClient();
-  const { data: factors } = await supabase.auth.mfa.listFactors();
+  // Independent reads — run concurrently rather than paying two sequential
+  // round-trips on a page every signed-in user visits.
+  const [{ data: factors }, knownDevices] = await Promise.all([
+    supabase.auth.mfa.listFactors(),
+    getKnownDevices(supabase),
+  ]);
   const verifiedFactorId =
     factors?.totp.find((f) => f.status === "verified")?.id ?? null;
 
@@ -145,7 +151,7 @@ export default async function AccountPage() {
 
       <ChangePasswordForm />
       <MfaSettingsCard verifiedFactorId={verifiedFactorId} />
-      <SignOutOtherDevicesCard />
+      <SignOutOtherDevicesCard devices={knownDevices} />
     </div>
   );
 }

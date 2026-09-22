@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   emailLoginSchema,
   phoneOtpRequestSchema,
@@ -10,7 +11,7 @@ import {
 import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
 import { recordLoginDevice } from "@/lib/auth/record-login-device";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
-import { authErrorMessage } from "@/lib/auth/auth-error-message";
+import { authErrorMessage, isInvalidCredentialsError } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
@@ -64,11 +65,72 @@ export async function signInWithEmail(
   }
 
   const supabase = await createClient();
+
+  // Real account-level lockout, distinct from the rolling rate limit above —
+  // see 20260918111442_account_lockout_after_repeated_failed_logins.sql for
+  // why the rate limit alone isn't a lockout (it resets every window, keeps
+  // no record, and never notifies the account owner). Checked BEFORE
+  // signInWithPassword so a locked account is refused without ever reaching
+  // GoTrue. Returns false uniformly for an unknown email, so this reveals
+  // nothing about whether the address has an account — same generic message
+  // as the rate limit above either way. Best-effort, same as the other two
+  // lockout RPC calls below: a transient failure here (network/fetch-level,
+  // not an RPC-level error response) must never itself break sign-in for
+  // every user.
+  let isLocked = false;
+  try {
+    const result = await supabase.rpc("is_account_locked", { p_email: parsed.data.email });
+    isLocked = Boolean(result.data);
+  } catch {
+    // Fall through and let signInWithPassword decide — never block a real
+    // sign-in because the lockout check itself failed.
+  }
+  if (isLocked) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error || !data.user) {
+    // Only a genuine wrong-password/wrong-email result counts toward the
+    // lockout — never "email not confirmed", GoTrue's own rate limiting, or
+    // a transient network error, all of which also surface as `error` here.
+    // Without this, a patient who simply hasn't clicked their confirmation
+    // email yet could get their real account locked out after 5 attempts
+    // despite never entering a wrong password. See isInvalidCredentialsError's
+    // own doc comment.
+    if (isInvalidCredentialsError(error)) {
+      // Best-effort — a failure here must never block showing the real error
+      // to the user, and it derives account existence itself internally (a
+      // failure for an unknown email is a safe no-op), so no enumeration
+      // signal is added by calling it unconditionally.
+      //
+      // Deliberately the SERVICE-ROLE client, not the anon-key `supabase`
+      // client used everywhere else in this file. record_failed_login() is
+      // now granted EXECUTE to service_role only (see the migration's own
+      // header comment): the anon key isn't a secret, so an earlier version
+      // of this call — using the plain client, matching record_failed_login's
+      // original anon+authenticated grant — let anyone who could reach this
+      // RPC directly lock an arbitrary known account with no real login
+      // attempt at all. Only this trusted server call, using a key never sent
+      // to a browser, may record a failure.
+      try {
+        await createServiceRoleClient().rpc("record_failed_login", {
+          p_email: parsed.data.email,
+        });
+      } catch {
+        // Never let lockout bookkeeping block showing the real sign-in error.
+      }
+    }
     // Never the raw GoTrue string, and never anything that would confirm
     // whether this address has an account here.
     return { error: authErrorMessage(error, "sign_in") };
+  }
+
+  // Best-effort — never let lockout bookkeeping block a real sign-in.
+  try {
+    await supabase.rpc("clear_login_failures");
+  } catch {
+    // Never let lockout bookkeeping block a real sign-in.
   }
 
   await redirectAfterLogin(supabase, data.user.id, formData.get("redirectTo"));

@@ -12,7 +12,7 @@ describe("firstIssue", () => {
       email: "not-an-email",
       countryCode: "+234",
       phone: "8012345678",
-      password: "longenough",
+      password: "longenough1",
     });
     expect(parsed.success).toBe(false);
     if (parsed.success) return;
@@ -31,10 +31,11 @@ describe("firstIssue", () => {
   it("reports the refinement's own path, not the first object key", () => {
     // A mismatched confirmation is attached to confirmPassword by the
     // schema's `.refine(..., { path: ["confirmPassword"] })`, which is the
-    // field a user has to fix.
+    // field a user has to fix. Both values meet the complexity rule so the
+    // only issue at all is the mismatch itself.
     const parsed = newPasswordSchema.safeParse({
-      password: "longenough",
-      confirmPassword: "longenoughtoo",
+      password: "longenough1",
+      confirmPassword: "longenough1too",
     });
     expect(parsed.success).toBe(false);
     if (parsed.success) return;
@@ -55,8 +56,10 @@ describe("password rule", () => {
     // schema minimum ever moves, this is what stops the visible rule from
     // silently staying behind.
     expect(PASSWORD_RULE_HINT).toContain(String(PASSWORD_MIN_LENGTH));
-    const tooShort = "a".repeat(PASSWORD_MIN_LENGTH - 1);
-    const longEnough = "a".repeat(PASSWORD_MIN_LENGTH);
+    // "1" + repeated "a"s meets complexity (a letter and a digit) so this
+    // isolates the length check specifically.
+    const tooShort = "1" + "a".repeat(PASSWORD_MIN_LENGTH - 2);
+    const longEnough = "1" + "a".repeat(PASSWORD_MIN_LENGTH - 1);
     expect(
       newPasswordSchema.safeParse({ password: tooShort, confirmPassword: tooShort }).success
     ).toBe(false);

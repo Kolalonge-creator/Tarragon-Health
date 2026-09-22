@@ -8,6 +8,13 @@ import {
 } from "@/lib/auth/roles";
 import { isAppHost } from "@/lib/marketing/host";
 import { isMarketingPath } from "@/lib/marketing/routes";
+import {
+  LAST_ACTIVITY_COOKIE,
+  buildIdleTimeoutRedirect,
+  isBackgroundTelemetryPath,
+  isSessionIdle,
+  stampActivity,
+} from "@/lib/auth/idle-timeout";
 
 // Next.js 16 renamed `middleware.ts` -> `proxy.ts` (same file-convention
 // contract, function must be named/exported `proxy`).
@@ -58,6 +65,26 @@ export async function proxy(request: NextRequest) {
   // and the fresh token pair + intended `next` path, ever got a chance to run.
   if (pathname === "/auth/mobile-bridge") {
     return response;
+  }
+
+  // Idle-session timeout (2026-09-18 security audit gap — see
+  // lib/auth/idle-timeout.ts's header for the full reasoning). Must run
+  // before the MFA gate below: an idle-expired session should be sent all
+  // the way back to a fresh sign-in, not to the MFA challenge. `/auth/*` is
+  // exempt for the same reason it's exempt from the MFA gate — those routes
+  // are themselves mid-flow token exchanges, not a signal of a stale session
+  // sitting untouched. `isBackgroundTelemetryPath` is exempt for a sharper
+  // reason: those two routes fire on a fixed interval regardless of real
+  // user input (see its own comment) — without excluding them, the periodic
+  // pings from a merely-open, unattended tab would keep re-stamping activity
+  // forever and this feature would never actually fire for the scenario it
+  // exists for.
+  if (user && !pathname.startsWith("/auth/") && !isBackgroundTelemetryPath(pathname)) {
+    const now = Date.now();
+    if (isSessionIdle(request.cookies.get(LAST_ACTIVITY_COOKIE)?.value, now)) {
+      return buildIdleTimeoutRedirect(request);
+    }
+    stampActivity(response, now);
   }
 
   // MFA step-up gate. Only fires for a caller who has already verified a

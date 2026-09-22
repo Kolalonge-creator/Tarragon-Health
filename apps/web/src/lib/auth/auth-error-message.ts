@@ -65,6 +65,13 @@ function rawMessage(error: unknown): string {
  * message text has been stable for far longer. Order matters — the first
  * match wins, so the more specific patterns are listed first.
  */
+/** The one GoTrue error class that genuinely means "wrong password" (as
+ * opposed to unconfirmed email, rate limiting, a network blip, etc.) — the
+ * single source of truth both PATTERNS below and isInvalidCredentialsError()
+ * match against, so the two can never drift apart. */
+const INVALID_CREDENTIALS_PATTERN =
+  /invalid login credentials|invalid credentials|invalid email or password/;
+
 const PATTERNS: Array<{
   match: RegExp;
   /** Contexts this applies to; omitted means every context. */
@@ -72,7 +79,7 @@ const PATTERNS: Array<{
   message: string;
 }> = [
   {
-    match: /invalid login credentials|invalid credentials|invalid email or password/,
+    match: INVALID_CREDENTIALS_PATTERN,
     message: "That email and password do not match an account. Check both and try again.",
   },
   {
@@ -158,4 +165,19 @@ export function authErrorMessage(error: unknown, context: AuthErrorContext = "ge
     }
   }
   return GENERIC[context];
+}
+
+/**
+ * True only for a genuine wrong-password/wrong-email failure — never for
+ * "email not confirmed", GoTrue's own rate limiting, a network blip, an
+ * expired session, or anything else `signInWithPassword` can return an error
+ * for. login/actions.ts gates the account-lockout counter
+ * (20260918111442_account_lockout_after_repeated_failed_logins.sql) on this,
+ * not on "any error at all" — otherwise a patient who simply hasn't
+ * confirmed their email yet, or who hits a transient network error, would
+ * get their account locked out after 5 tries despite never having entered a
+ * wrong password.
+ */
+export function isInvalidCredentialsError(error: unknown): boolean {
+  return INVALID_CREDENTIALS_PATTERN.test(rawMessage(error).toLowerCase());
 }

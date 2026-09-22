@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { authErrorMessage, type AuthErrorContext } from "./auth-error-message";
+import { authErrorMessage, isInvalidCredentialsError, type AuthErrorContext } from "./auth-error-message";
 import { PASSWORD_MIN_LENGTH } from "@/lib/validation/password";
 
 const CONTEXTS: AuthErrorContext[] = [
@@ -127,5 +127,33 @@ describe("authErrorMessage", () => {
         expect(authErrorMessage({ message: raw }, context)).toMatch(/[.!?]$/);
       }
     }
+  });
+});
+
+describe("isInvalidCredentialsError", () => {
+  it("is true for a genuine wrong-password/wrong-email failure", () => {
+    expect(isInvalidCredentialsError({ message: "Invalid login credentials" })).toBe(true);
+    expect(isInvalidCredentialsError({ message: "invalid email or password" })).toBe(true);
+  });
+
+  it("is false for email-not-confirmed, so an unconfirmed account never gets locked out", () => {
+    expect(isInvalidCredentialsError({ message: "Email not confirmed" })).toBe(false);
+  });
+
+  it("is false for GoTrue's own rate limiting", () => {
+    expect(
+      isInvalidCredentialsError({
+        message: "For security purposes, you can only request this after 47 seconds",
+      })
+    ).toBe(false);
+  });
+
+  it("is false for a network failure", () => {
+    expect(isInvalidCredentialsError({ message: "TypeError: fetch failed" })).toBe(false);
+  });
+
+  it("is false for an unrecognised or missing error", () => {
+    expect(isInvalidCredentialsError(null)).toBe(false);
+    expect(isInvalidCredentialsError({})).toBe(false);
   });
 });

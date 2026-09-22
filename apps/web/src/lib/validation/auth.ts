@@ -1,12 +1,28 @@
 import { z } from "zod";
 import { E164_GENERIC } from "@tarragon/shared";
-import { PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE } from "./password";
+import {
+  PASSWORD_COMPLEXITY_REGEX,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_TOO_SHORT_MESSAGE,
+  PASSWORD_TOO_WEAK_MESSAGE,
+} from "./password";
 
+// Login only ever checks length, deliberately not complexity — an existing
+// account's real password (set before the complexity rule below existed, or
+// simply never subject to it) must never be rejected retroactively.
 export const emailLoginSchema = z.object({
   email: z.email(),
   password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
 });
 export type EmailLoginInput = z.infer<typeof emailLoginSchema>;
+
+// Applied to every NEW password (signup, reset) — see password.ts for why
+// this is length + a letter/number mix rather than a heavier composition
+// rule.
+const newPasswordFieldSchema = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE)
+  .regex(PASSWORD_COMPLEXITY_REGEX, PASSWORD_TOO_WEAK_MESSAGE);
 
 const phoneCombineSchema = z.object({
   countryCode: z.string().regex(/^\+\d{1,4}$/, "Select a country code"),
@@ -45,7 +61,7 @@ export type MfaCodeInput = z.infer<typeof mfaCodeSchema>;
 
 export const newPasswordSchema = z
   .object({
-    password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
+    password: newPasswordFieldSchema,
     confirmPassword: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -105,7 +121,7 @@ export const signupSchema = z
       .nullish()
       .catch(undefined)
       .transform((v) => v ?? undefined),
-    password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
+    password: newPasswordFieldSchema,
   })
   .transform((data) => ({
     ...data,

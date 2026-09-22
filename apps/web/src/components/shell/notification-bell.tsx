@@ -399,7 +399,21 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   if (n.template === "security.new_device_signin") {
     return {
       text: "New sign-in to your account from a device we haven't seen before",
-      href: "/patient/settings/security",
+      // Corrected 2026-09-18 — /patient/settings/security has never existed
+      // as a route (found while adding the account_locked case right below,
+      // which would otherwise have copied the same broken link). /account is
+      // the real, role-agnostic security-settings page.
+      href: "/account",
+    };
+  }
+  if (n.template === "security.account_locked") {
+    // record_failed_login() (account_lockout_after_repeated_failed_logins.sql)
+    // — see this file's own header comment: every new in_app template needs
+    // a case here, or it falls through to the generic fallback below and a
+    // critical security event reads as "You have an update."
+    return {
+      text: "Your account was temporarily locked after several failed sign-in attempts",
+      href: "/account",
     };
   }
   if (

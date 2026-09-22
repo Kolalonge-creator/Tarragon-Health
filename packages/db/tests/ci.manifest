@@ -177,3 +177,15 @@ notification_channel_preference_dead_channel_no_lockin.sql
 # schedule created, and a sabotage run (reverting to unconditional 4100)
 # reopens the hole on the bounded case.
 platform_credit_spend_revenue_deferral.sql
+
+# --- Added 2026-09-18 (auth security audit) -----------------------------
+# Real account-level lockout after repeated failed password logins was a
+# confirmed gap: only a rolling IP/email rate limit existed (lib/rate-limit.ts),
+# which resets every window and never notifies the account owner. Proves
+# record_failed_login() no-ops for an unknown email, the account stays
+# unlocked through 4 failures, the 5th locks it and queues exactly one
+# in_app + one email 'security.account_locked' notification (not per-attempt
+# spam on a 6th failure), a DIFFERENT session's clear_login_failures() cannot
+# touch this account's lock (it is scoped to auth.uid(), no argument), and the
+# account's own session can clear its own lock.
+account_lockout_after_repeated_failed_logins.sql
