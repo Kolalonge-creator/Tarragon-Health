@@ -51,6 +51,10 @@ export interface PatientMonitoringRow {
   openAlertCount: number;
 }
 
+/** Default cap on the roster fetch below — also the number named in the
+ * monitoring page's truncation caveat, so the two never drift apart. */
+export const DEFAULT_ROSTER_LIMIT = 200;
+
 export interface LoadPatientMonitoringRosterOptions {
   q?: string;
   /** "Assigned to me" toggle — mirrors clinician/patients/page.tsx's `mine`
@@ -74,10 +78,11 @@ export interface LoadPatientMonitoringRosterOptions {
  * thing this page can draw, and a broken RPC drew it.
  *
  * `truncated` is a third, separate concern: the roster fetch itself is
- * capped (`limit`, default 200), so in an org with more patients than that,
- * a name search that finds nothing must not read as "this patient is not on
- * the platform" when it may simply be past row 200. See
- * clinician/patients/page.tsx's `conditionTruncated` for the same pattern.
+ * capped (`limit`, default `DEFAULT_ROSTER_LIMIT`), so in an org with more
+ * patients than that, a name search — or a status/gender/age filter, which
+ * the page applies client-side on top of this same fetch — that finds
+ * nothing must not read as "this patient is not on the platform" when it
+ * may simply be past the cap.
  */
 export interface PatientMonitoringRoster {
   rows: PatientMonitoringRow[];
@@ -98,7 +103,7 @@ export async function loadPatientMonitoringRoster(
   supabase: SupabaseClient<Database>,
   options: LoadPatientMonitoringRosterOptions
 ): Promise<PatientMonitoringRoster> {
-  const { q, mineOnly, callerId, limit = 200 } = options;
+  const { q, mineOnly, callerId, limit = DEFAULT_ROSTER_LIMIT } = options;
 
   let assignedPatientIds: string[] | null = null;
   if (mineOnly) {
@@ -116,8 +121,7 @@ export async function loadPatientMonitoringRoster(
 
   // Fetches one row past `limit` so `truncated` below can tell "exactly
   // `limit` patients, nothing more" apart from "more than `limit` exist" —
-  // the extra row is sliced back off immediately and never rendered. Same
-  // pattern as clinician/patients/page.tsx's condition search.
+  // the extra row is sliced back off immediately and never rendered.
   let query = supabase
     .from("profiles")
     .select("id, full_name, patient_number, avatar_url, sex, date_of_birth")
