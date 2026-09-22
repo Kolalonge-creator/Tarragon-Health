@@ -39,11 +39,14 @@ const HOME_TITLE = "TarragonHealth | Care that stays with you";
 export const metadata: Metadata = {
   ...pageMetadata({
     title: HOME_TITLE,
-    // Kept under ~160 chars on purpose: Google truncates a meta description
-    // around there, and the original 202-char draft cut off mid-sentence
-    // ("...and gets a doctor invol...").
+    // Kept <= 160 chars: apps/web/src/lib/marketing/page-metadata.test.ts
+    // enforces MAX_DESCRIPTION = 160 as a hard stop across every marketing
+    // page (Google truncates a listing there). The original 202-char draft
+    // cut off mid-sentence; a first trim to 161 still failed that test by
+    // one character, caught only in CI because this file's test run never
+    // covers src/lib/marketing/ (only src/app/(marketing)/).
     description:
-      "Free to join. Tarragon watches your blood pressure, blood sugar, medication and screenings between doctor visits, and brings in a doctor when a result needs one.",
+      "Free to join. Tarragon watches your blood pressure, sugar, medication and screenings between doctor visits, and brings in a doctor when a result needs one.",
     path: "/",
   }),
   title: { absolute: HOME_TITLE },
