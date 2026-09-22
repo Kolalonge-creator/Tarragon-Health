@@ -3,7 +3,7 @@ import type { PreventionCondition, RiskTier } from "./risk-scoring";
 
 export type ScreenTypeRow = Pick<
   Tables<"screen_types">,
-  "id" | "code" | "sex_applicability" | "age_from" | "age_to" | "frequency_months"
+  "id" | "code" | "sex_applicability" | "age_from" | "age_to" | "frequency_months" | "is_optional"
 >;
 
 export interface ScreeningProfile {
@@ -24,6 +24,16 @@ export interface ScreeningRecommendation {
   screenTypeId: string;
   screenTypeCode: string;
   dueDate: string;
+  /**
+   * screen_types.is_optional carried through unchanged — see that column's
+   * own comment ("Offered when due, never assumed. The patient opts in
+   * rather than finding it already inside their review."). This function
+   * still computes a due date for an optional screen type (so a caller can
+   * show it as an offer with a real date), it just never implies the caller
+   * should auto-insert a screening_schedules row for it — callers that do
+   * the auto-scheduling (e.g. actions.ts) must filter this out themselves.
+   */
+  isOptional: boolean;
 }
 
 interface TierEscalationRule {
@@ -132,15 +142,47 @@ export function computeScreeningRecommendations(
         screenTypeId: screenType.id,
         screenTypeCode: screenType.code,
         dueDate: addMonths(lastCompleted, frequencyMonths),
+        isOptional: screenType.is_optional,
       });
     } else {
       recommendations.push({
         screenTypeId: screenType.id,
         screenTypeCode: screenType.code,
         dueDate: todayISODate(today),
+        isOptional: screenType.is_optional,
       });
     }
   }
 
   return recommendations;
+}
+
+export interface ScreeningScheduleHistoryRow {
+  screen_type_id: string;
+  status: string;
+  due_date: string;
+}
+
+/**
+ * "Most recent completed due_date per screen type" — the exact map shape
+ * computeScreeningRecommendations's `lastCompletedByScreenTypeId` parameter
+ * expects. Factored out here (this function already owns that parameter's
+ * type contract) so every caller building it from a screening_schedules
+ * result set shares one implementation rather than re-deriving the same
+ * "keep the latest due_date where status === 'completed'" logic by hand —
+ * actions.ts's submitRiskAssessment and screening.ts's
+ * useOptionalScreeningOffers both call this instead of looping themselves.
+ */
+export function buildLastCompletedByScreenTypeId(
+  schedules: ScreeningScheduleHistoryRow[]
+): Map<string, string> {
+  const lastCompletedByScreenTypeId = new Map<string, string>();
+  for (const row of schedules) {
+    if (row.status !== "completed") continue;
+    const latest = lastCompletedByScreenTypeId.get(row.screen_type_id);
+    if (!latest || row.due_date > latest) {
+      lastCompletedByScreenTypeId.set(row.screen_type_id, row.due_date);
+    }
+  }
+  return lastCompletedByScreenTypeId;
 }
