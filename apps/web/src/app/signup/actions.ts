@@ -6,6 +6,9 @@ import { signupSchema } from "@/lib/validation/auth";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
+import { pickFormValues } from "@/lib/forms/pick-form-values";
+
+const SUBMITTED_VALUE_FIELDS = ["firstName", "lastName", "email", "countryCode", "phone", "state"] as const;
 
 /**
  * What the visitor had already typed when a submission failed — everything
@@ -15,32 +18,14 @@ import { firstIssue } from "@/lib/validation/first-issue";
  * number and made the visitor retype all of it. Password is deliberately
  * left out: don't round-trip it back through the server response.
  */
-export type SignupSubmittedValues = {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  countryCode?: string;
-  phone?: string;
-  state?: string;
-};
+export type SignupSubmittedValues = Partial<Record<(typeof SUBMITTED_VALUE_FIELDS)[number], string>>;
 
 export type SignupActionState =
   | { error?: string; field?: string; success?: boolean; values?: SignupSubmittedValues }
   | undefined;
 
 function submittedValues(formData: FormData): SignupSubmittedValues {
-  const asString = (key: string) => {
-    const value = formData.get(key);
-    return typeof value === "string" ? value : undefined;
-  };
-  return {
-    firstName: asString("firstName"),
-    lastName: asString("lastName"),
-    email: asString("email"),
-    countryCode: asString("countryCode"),
-    phone: asString("phone"),
-    state: asString("state"),
-  };
+  return pickFormValues(formData, SUBMITTED_VALUE_FIELDS);
 }
 
 /**

@@ -16,6 +16,7 @@ import { recordWeeklyPlanProgress } from "@/lib/lifestyle/weekly-plan-progress";
 import { symptomLogSchema } from "@/lib/validation/symptoms";
 import { medicationAccessBarrierSchema } from "@/lib/validation/medication-access-barriers";
 import { patientLocationSchema } from "@/lib/validation/patient-location";
+import { pickFormValues } from "@/lib/forms/pick-form-values";
 import { emergencyContactSchema } from "@/lib/validation/emergency-contact";
 import { heightSchema } from "@/lib/validation/height";
 import { dangerReportSchema, dangerSignsSummary, type DangerSign } from "@/lib/validation/emergency";
@@ -187,16 +188,18 @@ export async function logVital(
   return { success: true };
 }
 
+const LOCATION_VALUE_FIELDS = ["state", "city", "area"] as const;
+
 export type UpdateLocationActionState =
-  | { error?: string; success?: boolean; values?: { state?: string; city?: string; area?: string } }
+  | {
+      error?: string;
+      success?: boolean;
+      values?: Partial<Record<(typeof LOCATION_VALUE_FIELDS)[number], string>>;
+    }
   | undefined;
 
-function locationValues(formData: FormData): { state?: string; city?: string; area?: string } {
-  const asString = (key: string) => {
-    const value = formData.get(key);
-    return typeof value === "string" ? value : undefined;
-  };
-  return { state: asString("state"), city: asString("city"), area: asString("area") };
+function locationValues(formData: FormData) {
+  return pickFormValues(formData, LOCATION_VALUE_FIELDS);
 }
 
 /**
