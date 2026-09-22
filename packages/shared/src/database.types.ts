@@ -10588,6 +10588,9 @@ export type Database = {
       }
       ecg_report_documents: {
         Row: {
+          ai_flagged_statement: string | null
+          ai_summary_generated_at: string | null
+          ai_summary_status: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id: string | null
           created_at: string
           file_path: string
@@ -10607,6 +10610,9 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          ai_flagged_statement?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path: string
@@ -10626,6 +10632,9 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          ai_flagged_statement?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path?: string
@@ -16213,6 +16222,10 @@ export type Database = {
       }
       imaging_report_documents: {
         Row: {
+          ai_impression_flagged: boolean | null
+          ai_impression_text: string | null
+          ai_summary_generated_at: string | null
+          ai_summary_status: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id: string | null
           created_at: string
           file_path: string
@@ -16232,6 +16245,10 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          ai_impression_flagged?: boolean | null
+          ai_impression_text?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path: string
@@ -16251,6 +16268,10 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          ai_impression_flagged?: boolean | null
+          ai_impression_text?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path?: string
@@ -18438,6 +18459,7 @@ export type Database = {
           acknowledgement_status: Database["public"]["Enums"]["result_document_acknowledgement_status"]
           action_completed_at: string | null
           action_completed_by: string | null
+          ai_flagged_analytes: Json
           ai_summary_generated_at: string | null
           ai_summary_status: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id: string | null
@@ -18470,6 +18492,7 @@ export type Database = {
           acknowledgement_status?: Database["public"]["Enums"]["result_document_acknowledgement_status"]
           action_completed_at?: string | null
           action_completed_by?: string | null
+          ai_flagged_analytes?: Json
           ai_summary_generated_at?: string | null
           ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id?: string | null
@@ -18502,6 +18525,7 @@ export type Database = {
           acknowledgement_status?: Database["public"]["Enums"]["result_document_acknowledgement_status"]
           action_completed_at?: string | null
           action_completed_by?: string | null
+          ai_flagged_analytes?: Json
           ai_summary_generated_at?: string | null
           ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id?: string | null

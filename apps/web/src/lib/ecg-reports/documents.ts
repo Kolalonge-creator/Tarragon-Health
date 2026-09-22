@@ -15,6 +15,13 @@ export interface EcgReportDocumentView {
   reviewedBy: string | null;
   reviewedAt: string | null;
   reviewNote: string | null;
+  /** Deterministic, patient-visible summary status — never a doctor opinion.
+   * See lib/ecg-reports/ai-summary.ts. */
+  aiSummaryStatus: Database["public"]["Enums"]["lab_result_ai_summary_status"];
+  /** The machine's own printed rhythm statement, verbatim, when
+   * aiSummaryStatus = 'flagged'. Null otherwise. */
+  aiFlaggedStatement: string | null;
+  aiSummaryGeneratedAt: string | null;
   /** Short-lived signed URL for the file, or null if it could not be signed. */
   signedUrl: string | null;
   isPdf: boolean;
@@ -47,7 +54,7 @@ export async function loadEcgReportDocuments(
   const { data: rows } = await supabase
     .from("ecg_report_documents")
     .select(
-      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note",
+      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, ai_summary_status, ai_flagged_statement, ai_summary_generated_at",
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
@@ -65,6 +72,9 @@ export async function loadEcgReportDocuments(
       reviewedBy: row.reviewed_by,
       reviewedAt: row.reviewed_at,
       reviewNote: row.review_note,
+      aiSummaryStatus: row.ai_summary_status,
+      aiFlaggedStatement: row.ai_flagged_statement,
+      aiSummaryGeneratedAt: row.ai_summary_generated_at,
       signedUrl: await signEcgReportPath(row.file_path),
       isPdf: row.mime_type === "application/pdf",
     })),

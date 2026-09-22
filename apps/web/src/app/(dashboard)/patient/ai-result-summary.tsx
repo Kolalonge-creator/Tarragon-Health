@@ -14,8 +14,16 @@ type AiSummaryStatus = Database["public"]["Enums"]["lab_result_ai_summary_status
  * flags (extraction-actions.ts: deriveAiSummaryStatus). Deliberately styled
  * and worded to be unmistakably NOT the doctor-authored patientInterpretation
  * block above it: no green "reviewed" styling, an explicit "not a medical
- * opinion" label, and no analyte names or values, since none are ever stored
- * on ai_summary_status in the first place.
+ * opinion" label.
+ *
+ * Widened 2026-09-22 to name the specific flagged test(s) (flaggedAnalytes)
+ * — founder decision: a patient who already has the full document in hand
+ * is not having a result "delivered" by being told which of its OWN rows sat
+ * outside the range the lab itself printed. Both fields shown are copied
+ * verbatim from the document (lib/lab-reports/ai-summary.ts), never a
+ * Tarragon-computed value — see the ai_flagged_analytes migration for the
+ * full reasoning. Still never a diagnosis, still always paired with the
+ * "talk to a doctor" prompt below.
  *
  * "Discuss this" starts the same paid self-arranged consult flow every other
  * lab-result consult on this platform uses (requestLabResultConsult); there
@@ -24,7 +32,15 @@ type AiSummaryStatus = Database["public"]["Enums"]["lab_result_ai_summary_status
  * same fallback PatientResultUpload uses when its own labOrderId prop is
  * omitted.
  */
-export function AiResultSummary({ status }: { status: AiSummaryStatus }) {
+export function AiResultSummary({
+  status,
+  flaggedAnalytes = [],
+}: {
+  status: AiSummaryStatus;
+  /** Which test(s) triggered a 'flagged' status — ignored unless status is
+   * 'flagged'. See ResultDocumentView.aiFlaggedAnalytes. */
+  flaggedAnalytes?: { label: string; reportedRange: string | null }[];
+}) {
   const [state, formAction, pending] = useActionState<RequestLabResultConsultState, FormData>(
     requestLabResultConsult,
     undefined,
@@ -56,7 +72,11 @@ export function AiResultSummary({ status }: { status: AiSummaryStatus }) {
       </p>
       <p className="mt-1 text-sm text-charcoal-ink dark:text-night-ink">
         {isFlagged
-          ? "One or more values in this file fall outside the range printed on the report itself. This isn't a diagnosis. Only a doctor reviewing the full picture can tell you what it means."
+          ? flaggedAnalytes.length > 0
+            ? `${flaggedAnalytes.length === 1 ? "This test is" : "These tests are"} outside the range printed on the report itself: ${flaggedAnalytes
+                .map((a) => (a.reportedRange ? `${a.label} (report range: ${a.reportedRange})` : a.label))
+                .join(", ")}. This isn't a diagnosis — you'll need to follow up with a doctor about it.`
+            : "One or more values in this file fall outside the range printed on the report itself. This isn't a diagnosis. Only a doctor reviewing the full picture can tell you what it means."
           : "The values in this file look consistent with the ranges printed on the report. A doctor hasn't reviewed this yet. You'll see their interpretation here once they have."}
       </p>
       <form action={formAction} className="mt-2">

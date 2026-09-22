@@ -10,6 +10,7 @@ import { extractEcgReport, isEcgReportExtractionConfigured } from "./extract";
 import { isReadableDocumentType, normaliseForVision } from "@/lib/lab-reports/heic";
 import { confirmEcgReportExtractionSchema } from "@/lib/validation/ecg-report-extraction";
 import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
+import { deriveEcgAiSummaryStatus, deriveEcgFlaggedStatement } from "./ai-summary";
 
 export type EcgExtractionActionResult = { error?: string; success?: boolean; message?: string };
 
@@ -99,6 +100,24 @@ export async function runEcgReportExtraction(
       );
     } catch (error) {
       console.error("ecg-reports: could not persist failure", error);
+    }
+    // -- Patient-facing AI summary status -------------------------------------
+    // Every failure path routes through here, so this covers all of them
+    // uniformly. Mirrors lib/lab-reports/extraction-actions.ts's own
+    // 'unavailable' write exactly — never touches clinician_alerts, stores no
+    // clinical judgement, only a status the patient sees immediately on their
+    // own upload, independent of any doctor review.
+    try {
+      await service
+        .from("ecg_report_documents")
+        .update({
+          ai_summary_status: "unavailable",
+          ai_flagged_statement: null,
+          ai_summary_generated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId);
+    } catch (error) {
+      console.error("ecg-reports: could not persist AI summary status", error);
     }
     return { status: "failed" as const, readyCount: 0, message };
   };
@@ -220,6 +239,23 @@ export async function runEcgReportExtraction(
   );
   if (upsertError) {
     return fail("Could not save the draft.", upsertError.message);
+  }
+
+  // -- Patient-facing AI summary status ---------------------------------------
+  // Mirrors lib/lab-reports/extraction-actions.ts's own write exactly. Reads
+  // only the machine's own printed rhythm statement (ai-summary.ts) — never
+  // touches clinician_alerts, never a clinical judgement of the tracing.
+  try {
+    await service
+      .from("ecg_report_documents")
+      .update({
+        ai_summary_status: deriveEcgAiSummaryStatus(parameters),
+        ai_flagged_statement: deriveEcgFlaggedStatement(parameters),
+        ai_summary_generated_at: new Date().toISOString(),
+      })
+      .eq("id", documentId);
+  } catch (error) {
+    console.error("ecg-reports: could not persist AI summary status", error);
   }
 
   // 40.11. Counts and provenance only -- the measured parameters stay in

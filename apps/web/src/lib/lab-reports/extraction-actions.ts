@@ -12,7 +12,7 @@ import { isReadableDocumentType, normaliseForVision } from "./heic";
 import { worstStatusOf, type PatientContext } from "./reference-ranges";
 import { confirmLabReportExtractionSchema } from "@/lib/validation/lab-report-extraction";
 import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
-import { deriveAiSummaryStatus } from "./ai-summary";
+import { deriveAiSummaryStatus, deriveAiFlaggedAnalytes } from "./ai-summary";
 
 export type ExtractionActionResult = { error?: string; success?: boolean; message?: string };
 
@@ -113,14 +113,16 @@ export async function runLabReportExtraction(
     // Every failure path above routes through here, so this covers all of them
     // uniformly rather than duplicating the update at each early return.
     // Deliberately separate from the escalation bridge below: never reads
-    // worstStatusOf/reference-ranges.ts, never touches clinician_alerts, and
-    // stores no analyte names or values — only a status the patient sees
-    // immediately on their own upload, independent of any doctor review.
+    // worstStatusOf/reference-ranges.ts, never touches clinician_alerts.
+    // ai_flagged_analytes is reset to [] here too — a re-extraction that
+    // fails must never leave a stale flagged-test list on screen behind a
+    // status that no longer says 'flagged'.
     try {
       await service
         .from("lab_result_documents")
         .update({
           ai_summary_status: "unavailable",
+          ai_flagged_analytes: [] as unknown as Json,
           ai_summary_generated_at: new Date().toISOString(),
         })
         .eq("id", documentId);
@@ -338,14 +340,17 @@ export async function runLabReportExtraction(
 
   // -- Patient-facing AI summary status ---------------------------------------
   // Deliberately separate from the escalation bridge below: this never reads
-  // worstStatusOf/reference-ranges.ts, never touches clinician_alerts, and
-  // stores no analyte names or values — only a status the patient sees
-  // immediately on their own upload, independent of any doctor review.
+  // worstStatusOf/reference-ranges.ts and never touches clinician_alerts.
+  // ai_flagged_analytes (2026-09-22) names which test(s) triggered a
+  // 'flagged' status — both fields it stores are copied verbatim off the
+  // page by deriveAiFlaggedAnalytes, never a Tarragon-computed value — see
+  // that migration's header for why this is safe to show a patient directly.
   try {
     await service
       .from("lab_result_documents")
       .update({
         ai_summary_status: deriveAiSummaryStatus(rows),
+        ai_flagged_analytes: deriveAiFlaggedAnalytes(rows) as unknown as Json,
         ai_summary_generated_at: new Date().toISOString(),
       })
       .eq("id", documentId);

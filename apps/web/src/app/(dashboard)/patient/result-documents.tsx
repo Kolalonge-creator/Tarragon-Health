@@ -176,7 +176,10 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
                             Your care team hasn&apos;t reviewed this yet.
                             We&apos;ll let you know here as soon as they have.
                           </p>
-                          <AiResultSummary status={doc.aiSummaryStatus} />
+                          <AiResultSummary
+                            status={doc.aiSummaryStatus}
+                            flaggedAnalytes={doc.aiFlaggedAnalytes}
+                          />
                           {doc.source === "patient" && !doc.reviewedAt && (
                             <ReplaceResultDocumentForm documentId={doc.id} />
                           )}
