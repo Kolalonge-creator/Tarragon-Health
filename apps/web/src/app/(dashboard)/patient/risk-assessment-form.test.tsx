@@ -122,4 +122,41 @@ describe("RiskAssessmentForm", () => {
     expect(fd.get("other_vaccines_detail")).toBe("Yellow fever");
     expect(fd.get("prior_abnormal_result")).toBe("on");
   });
+
+  /**
+   * A second, separate bug found by actually clicking through the wizard as
+   * a real user: `hidden` (and the `display: none` it produces) does NOT
+   * exempt a control from native HTML constraint validation, despite this
+   * file's own prior belief that it did. A `required` field left blank on
+   * an earlier, now-hidden step silently blocked the browser's pre-submit
+   * check — and since that field has no layout box, the browser couldn't
+   * focus it or show its error either, so "Save assessment" just did
+   * nothing with zero feedback. The fix drives validation manually
+   * (`noValidate` + `handleSubmit`) and jumps back to whichever step owns
+   * the first invalid control.
+   */
+  it("jumps back to the step with the unanswered required field instead of silently doing nothing", async () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+
+    // Step 1: skip everything (nothing here is required).
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 2: leave every required Lifestyle field blank, go straight on.
+    expect(screen.getByText("Step 2 of 4: Lifestyle")).toBeTruthy();
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 3: nothing required here either.
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 4: attempt the real submit.
+    expect(screen.getByText("Step 4 of 4: Vaccination & screening")).toBeTruthy();
+    fireEvent.click(screen.getByText("Save assessment"));
+
+    // The submit must never reach the server action...
+    expect(capturedFormData).toBeNull();
+    // ...and the wizard must land back on the step that owns the first
+    // unanswered required field (Smoking, the first control in step 2),
+    // not leave the user stranded on step 4 with no explanation.
+    expect(screen.getByText("Step 2 of 4: Lifestyle")).toBeTruthy();
+  });
 });
