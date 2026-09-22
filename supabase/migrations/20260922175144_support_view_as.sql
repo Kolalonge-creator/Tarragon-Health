@@ -331,19 +331,24 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_old jsonb := to_jsonb(old);
+  v_new jsonb := to_jsonb(new);
+  v_illegally_changed text[];
 begin
-  if new.id is distinct from old.id
-    or new.viewer_id is distinct from old.viewer_id
-    or new.subject_id is distinct from old.subject_id
-    or new.subject_full_name is distinct from old.subject_full_name
-    or new.subject_role is distinct from old.subject_role
-    or new.organisation_id is distinct from old.organisation_id
-    or new.reason is distinct from old.reason
-    or new.started_at is distinct from old.started_at
-    or new.expires_at is distinct from old.expires_at
-    or new.created_at is distinct from old.created_at
-  then
-    raise exception 'Only ending a support view-as session (ended_at) is allowed once created';
+  -- Generic diff (same jsonb_each pattern as private.audit_row_change() in section 0 above)
+  -- rather than a hand-listed column allowlist: a column added to this table later is
+  -- immutable here by default. The allowlist this replaced fails OPEN instead — a new column
+  -- silently becomes mutable unless someone remembers to add it to a growing hand-maintained
+  -- list, the wrong failure direction for a security-critical immutability guard.
+  select array_agg(key order by key) into v_illegally_changed
+    from jsonb_each(v_new) n
+    where key not in ('ended_at', 'ended_by')
+      and n.value is distinct from (v_old -> n.key);
+
+  if v_illegally_changed is not null then
+    raise exception 'Only ending a support view-as session (ended_at) is allowed once created — attempted to change: %',
+      array_to_string(v_illegally_changed, ', ');
   end if;
 
   if old.ended_at is not null then
@@ -565,21 +570,28 @@ stable
 security definer
 set search_path = ''
 as $$
+  -- Trimmed once, reused for both the length gate below and every pattern via `q` — a stray
+  -- leading/trailing space (pasted from a phone field, a typo) used to pass the length check
+  -- but never match anything, since the ILIKE pattern was built from the untrimmed literal.
+  -- Also escapes ILIKE's own metacharacters so a literal backslash, "_" (e.g. inside a phone
+  -- number), or "%" in the search text doesn't act as a pattern wildcard/escape and silently
+  -- widen or narrow the match — the backslash itself must be escaped FIRST, otherwise a
+  -- backslash introduced by the "%"/"_" replacements below would itself get re-escaped.
+  -- Computed once in `q` rather than repeated inline per column, so all three comparisons stay
+  -- identical by construction.
+  with q as (
+    select '%' || replace(replace(replace(btrim(p_query), '\', '\\'), '%', '\%'), '_', '\_') || '%' as pattern
+  )
   select p.id, p.full_name, p.role, p.phone, p.organisation_id, p.patient_number
-  from public.profiles p
+  from public.profiles p, q
   where private.has_permission('support.view_as')
     and p.role in ('patient', 'clinician')
     and p_query is not null
     and char_length(btrim(p_query)) >= 2
     and (
-      -- Trimmed once, reused for both the length gate above and every pattern below — a stray
-      -- leading/trailing space (pasted from a phone field, a typo) used to pass the length
-      -- check but never match anything, since the ILIKE pattern was built from the untrimmed
-      -- literal. Also escapes ILIKE's own wildcard characters so a literal "_" (e.g. inside a
-      -- phone number) or "%" doesn't act as a pattern wildcard and silently widen the match.
-      p.full_name ilike '%' || replace(replace(btrim(p_query), '%', '\%'), '_', '\_') || '%'
-      or p.phone ilike '%' || replace(replace(btrim(p_query), '%', '\%'), '_', '\_') || '%'
-      or p.patient_number ilike '%' || replace(replace(btrim(p_query), '%', '\%'), '_', '\_') || '%'
+      p.full_name ilike q.pattern
+      or p.phone ilike q.pattern
+      or p.patient_number ilike q.pattern
     )
   order by p.full_name
   limit 20;

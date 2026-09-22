@@ -40,6 +40,10 @@
 --     session creation, so this really is a "revocable grant" as claimed;
 --   * a session cannot be "un-ended" or have its window extended after the
 --     fact — sabotage control on the update-guard trigger.
+--   * public.search_support_view_subjects matches a query containing a
+--     literal backslash — a caught regression where the escape order left
+--     the backslash itself unescaped, silently consuming the query's own
+--     trailing wildcard and returning zero rows for a real subject.
 --
 -- Run via `supabase db query "$(cat this_file.sql)" --linked`, `psql
 -- $DATABASE_URL -f this_file.sql`, or the Supabase SQL editor.
@@ -698,6 +702,44 @@ begin
      v_support_agent_hits::text, '>= 1', case when v_support_agent_hits >= 1 then 'PASS' else 'FAIL' end);
   if v_support_agent_hits < 1 then
     raise exception 'BROKEN: a granted support agent could not find a valid subject via search_support_view_subjects';
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 11. public.search_support_view_subjects: a query containing a literal
+--     backslash still matches — a caught regression. The escaping originally
+--     only handled ILIKE's own wildcards (%, _) and missed the escape
+--     character itself: a query like "Foo\Bar" got re-escaped into a pattern
+--     whose trailing wildcard was consumed by the unescaped backslash
+--     ("...Foo\%" parses as a literal "%", not "any characters"), silently
+--     returning zero rows for a subject who was actually right there.
+-- ==========================================================================
+do $$
+declare
+  v_org           uuid;
+  v_support_agent uuid := (select v from svas_fixture where k = 'support_agent');
+  v_backslash_patient uuid := gen_random_uuid();
+  v_hits          int;
+begin
+  select v into v_org from svas_fixture where k = 'org';
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_backslash_patient, 'svas-test-backslash-patient@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_backslash_patient, v_org, 'patient', 'Foo\Bar Patient')
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_support_agent::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_hits from public.search_support_view_subjects('Foo\Bar');
+  reset role;
+
+  insert into svas_result values
+    ('subject search: a query containing a literal backslash still matches', 'support agent',
+     v_hits::text, '1', case when v_hits = 1 then 'PASS' else 'FAIL' end);
+  if v_hits <> 1 then
+    raise exception 'BROKEN: searching for a name containing a literal backslash ("Foo\Bar") returned % rows, expected 1 — the escape-order regression is back', v_hits;
   end if;
 end $$;
 

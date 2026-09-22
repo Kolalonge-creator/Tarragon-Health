@@ -47,8 +47,10 @@ function SubjectRow({ subject }: { subject: SupportViewSubject }) {
       {expanded && (
         <div className="mt-3 space-y-2 rounded-md bg-charcoal-ink/[0.03] p-3">
           <Label htmlFor={`reason-${subject.id}`} className="text-xs">
-            Reason (required — never write clinical detail or PHI here; this text is readable by any
-            org-staff account via the audit log, and is shown to {subject.full_name ?? "the subject"} themselves)
+            Reason (required — never write clinical detail or PHI here; this text is recorded in
+            the audit log, readable by you, an admin, and this person&apos;s own org staff — not
+            every org-staff account — and is shown in-app to {subject.full_name ?? "the subject"}{" "}
+            themselves)
           </Label>
           <Textarea
             id={`reason-${subject.id}`}
@@ -101,6 +103,12 @@ function SessionsList() {
     <ul className="divide-y divide-charcoal-ink/10">
       {sessions.map((s) => {
         const active = isSupportViewSessionActive(s);
+        // One shared `endSession` mutation instance serves every row in this list — scope its
+        // pending/error state to THIS row via `variables` (the sessionId last passed to
+        // mutate()), so ending session A doesn't disable session B's button, and A's own
+        // failure is surfaced instead of silently swallowed.
+        const isThisPending = endSession.isPending && endSession.variables === s.id;
+        const thisFailed = endSession.isError && endSession.variables === s.id;
         return (
           <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
             <div>
@@ -114,6 +122,11 @@ function SessionsList() {
                 Started {timeAgo(s.started_at)}
                 {s.reason ? ` · "${s.reason}"` : ""}
               </p>
+              {thisFailed && (
+                <p className="text-xs text-red-600">
+                  Could not end this session — it&apos;s still active. Try again.
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
               <Button type="button" size="sm" variant="outline" onClick={() => router.push(`/admin/support/view-as/${s.id}`)}>
@@ -124,10 +137,10 @@ function SessionsList() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={endSession.isPending}
+                  disabled={isThisPending}
                   onClick={() => endSession.mutate(s.id)}
                 >
-                  End now
+                  {isThisPending ? "Ending…" : "End now"}
                 </Button>
               )}
             </div>

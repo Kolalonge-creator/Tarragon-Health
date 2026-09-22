@@ -350,19 +350,19 @@ export function getNavSections(
             // administrator" or "Provider network administrator" role
             // presets) — the pages self-gate, so this link is always safe to
             // show, same pattern as every other admin-area nav entry.
-            // Support view-as is deliberately NOT listed here: it needs its
-            // own `support.view_as` grant, which none of the presets in
-            // 20260829093427_ops_admin_role_presets.sql carry (unlike
-            // ops.console.view/incidents.*, which several do) — showing the
-            // link would bounce every Coordinator back to /admin every time,
-            // the exact "a link that bounces is worse than no link"
-            // anti-pattern this file already avoids above. Add it back once
-            // a preset actually grants the permission.
+            // Support view-as is real here specifically because "Customer
+            // support administrator" carries `support.view_as` (see
+            // 20260922185119_support_view_as_customer_support_preset_grant.sql)
+            // — unlike the other 3 delegated sections below (Clinical
+            // administrator, Technical/Data & analytics administrator,
+            // Finance administrator), whose presets do NOT carry it, so the
+            // link stays deliberately absent there rather than bouncing.
             {
               label: "Operations",
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+                { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
               ],
             },
           ]
