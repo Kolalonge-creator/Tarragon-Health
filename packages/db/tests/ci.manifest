@@ -252,3 +252,11 @@ can_read_clinical_bare_literal_policy_cast.sql
 # ever insert AND sign a new draft. See the migration's own header.
 cmo_governed_config_insert_dual_gate.sql
 cmo_clinical_rules_insert_dual_gate.sql
+
+# --- Added 2026-09-23 -------------------------------------------------------
+# Doctor-to-doctor curbside consult messaging: participant-only RLS (proved
+# as `authenticated`, not `postgres`, so the SELECT policy is genuinely
+# exercised), doctor-tier gating (Care Coordinator excluded on both sides),
+# same-org-only, forge-proof authorship, closed-thread terminality, and the
+# bidirectional in_app notification. See the migration's own header.
+curbside_consults.sql

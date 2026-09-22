@@ -427,6 +427,12 @@ export function getNavSections(
                 { label: "Prescription renewals", href: "/clinician/prescription-renewals", icon: "medication", countKey: "prescriptionRenewalRequests" },
                 { label: "Verified documents", href: "/clinician/verified-documents", icon: "inbox", countKey: "verifiedDocumentRequests" },
                 { label: "Senior case reviews", href: "/clinician/senior-case-reviews", icon: "escalation", countKey: "seniorCaseReviews" },
+                {
+                  label: "Curbside consults",
+                  href: "/clinician/curbside-consults",
+                  icon: "messages",
+                  countKey: "curbsideConsultsAwaitingReply",
+                },
               ],
             },
             {
