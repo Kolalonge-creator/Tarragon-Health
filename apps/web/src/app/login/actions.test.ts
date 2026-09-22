@@ -160,25 +160,35 @@ describe("verifyPhoneOtp — account lockout", () => {
     expect(verifyOtp).not.toHaveBeenCalled();
   });
 
-  it("calls record_failed_login_by_phone via the SERVICE-ROLE client on a genuine wrong-code failure", async () => {
+  // Griefing-vector regression: requestPhoneOtp needs only a phone number
+  // (not a secret) to trigger a real OTP send, so an attacker who doesn't
+  // own the phone is GUARANTEED to fail every guess here with zero effort —
+  // if that counted toward the shared lockout, anyone who merely knows a
+  // victim's phone number could lock them out of login indefinitely. See
+  // guest-checkout.ts's verifyGuestCheckoutOtp for the fuller writeup of the
+  // same fix. Never call record_failed_login_by_phone from this verify
+  // path, for any error shape.
+  it.each([
+    { message: "Invalid otp" },
+    { message: "Token has expired or is invalid" },
+    { message: "For security purposes, you can only request this after 47 seconds" },
+    { message: "TypeError: fetch failed" },
+  ])("never calls record_failed_login_by_phone for a %j verifyOtp failure", async (errorShape) => {
     anonRpc.mockResolvedValue({ data: false, error: null });
-    verifyOtp.mockResolvedValue({ data: { user: null }, error: { message: "Invalid otp" } });
+    verifyOtp.mockResolvedValue({ data: { user: null }, error: errorShape });
 
     await verifyPhoneOtp(undefined, otpFormData("+2348012345678", "000000"));
 
-    expect(serviceRoleRpc).toHaveBeenCalledWith("record_failed_login_by_phone", {
-      p_phone: "+2348012345678",
-    });
+    expect(serviceRoleRpc).not.toHaveBeenCalled();
   });
 
-  it("does NOT record a failure for a rate-limit error", async () => {
-    anonRpc.mockResolvedValue({ data: false, error: null });
-    verifyOtp.mockResolvedValue({
-      data: { user: null },
-      error: { message: "For security purposes, you can only request this after 47 seconds" },
-    });
+  it("an anonymous actor with only a victim's phone number cannot lock the victim out via repeated wrong guesses", async () => {
+    anonRpc.mockResolvedValue({ data: false, error: null }); // never locked
+    verifyOtp.mockResolvedValue({ data: { user: null }, error: { message: "Invalid otp" } });
 
-    await verifyPhoneOtp(undefined, otpFormData("+2348012345678", "123456"));
+    for (let i = 0; i < 5; i++) {
+      await verifyPhoneOtp(undefined, otpFormData("+2348012345678", "000000"));
+    }
 
     expect(serviceRoleRpc).not.toHaveBeenCalled();
   });

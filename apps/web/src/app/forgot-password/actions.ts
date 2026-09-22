@@ -3,7 +3,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   passwordResetEmailSchema,
   phoneOtpRequestSchema,
@@ -11,7 +10,7 @@ import {
 } from "@/lib/validation/auth";
 import { callLockoutRpc } from "@/lib/auth/lockout-rpc";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
-import { authErrorMessage, isInvalidOtpError } from "@/lib/auth/auth-error-message";
+import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 
 export type ForgotPasswordActionState =
@@ -170,14 +169,19 @@ export async function verifyPhoneReset(
     type: "sms",
   });
   if (error || !data.user) {
-    // Only a genuine wrong/expired code counts toward the lockout — never a
-    // rate-limit or network error. Service-role-only, same reasoning as
-    // login/actions.ts: the anon key is not a secret.
-    if (isInvalidOtpError(error)) {
-      await callLockoutRpc(createServiceRoleClient(), "record_failed_login_by_phone", {
-        p_phone: parsed.data.phone,
-      });
-    }
+    // Deliberately does NOT call record_failed_login_by_phone here — same
+    // griefing-vector fix as verifyPhoneOtp (login/actions.ts) and
+    // verifyGuestCheckoutOtp (guest-checkout.ts, which has the fuller
+    // writeup). requestPhoneReset above needs only a phone number to
+    // trigger a real OTP send; an attacker who doesn't own the phone can
+    // never receive the real code, so every guess submitted here is
+    // GUARANTEED to fail with zero effort or risk — counting that toward
+    // the shared lockout counter would let anyone who merely knows a
+    // victim's phone number lock them out of login indefinitely. The
+    // is_account_locked_by_phone READ above still closes the real bypass
+    // (a locked account's password can't be reset via phone OTP either);
+    // the existing forgot-password-phone-verify rate limit above is this
+    // endpoint's own, narrower protection against OTP brute-forcing.
     return {
       error: authErrorMessage(error, "otp_verify"),
       field: "token",

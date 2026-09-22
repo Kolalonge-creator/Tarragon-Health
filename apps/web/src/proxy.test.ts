@@ -127,6 +127,27 @@ describe("MFA step-up gate", () => {
     const res = await proxy(request("/clinician/patients"));
     expect(res.status).toBe(200);
   });
+
+  // Regression found in review: an MFA-enrolled patient who enters their
+  // password correctly (a real aal1 session, pending the step-up) but
+  // doesn't have their authenticator device handy would otherwise be
+  // trapped — bounced straight back to /login/mfa-challenge every time they
+  // tried to reach the password-reset flow instead. See
+  // lib/auth/idle-timeout.ts's isIdleTimeoutExemptPath for the same
+  // exemption on the same two routes, for a related reason. Asserts the
+  // redirect target specifically, not a bare 200 — /reset-password isn't in
+  // PUBLIC_PATHS and /forgot-password is, so each can still legitimately
+  // redirect elsewhere (an unreadable-profile fail-closed, an already-
+  // signed-in-on-a-public-page bounce) without that meaning the MFA gate
+  // caught it.
+  it.each(["/reset-password", "/forgot-password"])(
+    "never sends %s to /login/mfa-challenge, even mid-challenge",
+    async (path) => {
+      stubSession({ user: { id: "u1" }, aal: mfaPending });
+      const res = await proxy(request(path));
+      expect(res.headers.get("location") ?? "").not.toContain("/login/mfa-challenge");
+    }
+  );
 });
 
 describe("unreadable profile row", () => {

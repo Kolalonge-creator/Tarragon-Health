@@ -109,8 +109,21 @@ export async function proxy(request: NextRequest) {
   // below — a per-page check would have to be remembered everywhere a
   // protected route is added. `/auth/*` is exempt because those routes are
   // themselves mid-flow token exchanges (email confirm, mobile bridge) that
-  // must be allowed to complete.
-  if (user && pathname !== "/login/mfa-challenge" && !pathname.startsWith("/auth/")) {
+  // must be allowed to complete. `/reset-password`/`/forgot-password` are
+  // exempt for a real scenario found in review: an MFA-enrolled patient who
+  // enters their password correctly (a real aal1 session, pending the MFA
+  // step) but doesn't have their authenticator device handy would otherwise
+  // be trapped — unable to reach the password-reset flow at all, bounced
+  // straight back to /login/mfa-challenge every time. Same exemption
+  // lib/auth/idle-timeout.ts's isIdleTimeoutExemptPath already carries for
+  // the same two routes, for a related reason.
+  if (
+    user &&
+    pathname !== "/login/mfa-challenge" &&
+    pathname !== "/reset-password" &&
+    pathname !== "/forgot-password" &&
+    !pathname.startsWith("/auth/")
+  ) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel) {
       const challengeUrl = new URL("/login/mfa-challenge", request.url);

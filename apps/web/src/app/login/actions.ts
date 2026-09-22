@@ -12,11 +12,7 @@ import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
 import { recordLoginDevice } from "@/lib/auth/record-login-device";
 import { callLockoutRpc } from "@/lib/auth/lockout-rpc";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
-import {
-  authErrorMessage,
-  isInvalidCredentialsError,
-  isInvalidOtpError,
-} from "@/lib/auth/auth-error-message";
+import { authErrorMessage, isInvalidCredentialsError } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
@@ -218,16 +214,23 @@ export async function verifyPhoneOtp(
     type: "sms",
   });
   if (error || !data.user) {
-    // Only a genuine wrong/expired code counts toward the lockout — never
-    // GoTrue's own rate limiting or a transient network error. Same
-    // service-role-only call as the password path, same reasoning: the anon
-    // key is not a secret, so this must never be callable with the ordinary
-    // client.
-    if (isInvalidOtpError(error)) {
-      await callLockoutRpc(createServiceRoleClient(), "record_failed_login_by_phone", {
-        p_phone: parsed.data.phone,
-      });
-    }
+    // Deliberately does NOT call record_failed_login_by_phone here — found
+    // and reverted before merge as a real vulnerability this migration
+    // would have introduced, not a missed spot (same reasoning as guest-
+    // checkout.ts's verifyGuestCheckoutOtp, which has the fuller writeup).
+    // Unlike a wrong PASSWORD guess (signInWithEmail above), which requires
+    // the caller to actually possess something not publicly knowable,
+    // requestPhoneOtp needs only a phone number to trigger a real OTP send
+    // — an attacker who does not own the phone can never receive the real
+    // code, so every guess they submit here is GUARANTEED to fail, with
+    // zero effort or risk. If failures here counted toward the shared
+    // lockout counter, anyone who merely knows a victim's phone number
+    // could submit 5 guesses they can never get right and lock the victim
+    // out of BOTH password and phone-OTP login, repeatable indefinitely.
+    // The is_account_locked_by_phone READ above still closes the real
+    // bypass this was built for (a locked account can't complete phone-OTP
+    // login either); the existing login-phone-verify rate limit above is
+    // this endpoint's own, narrower protection against OTP brute-forcing.
     return {
       error: authErrorMessage(error, "otp_verify"),
       field: "token",
