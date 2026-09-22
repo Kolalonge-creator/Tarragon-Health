@@ -9277,6 +9277,146 @@ export type Database = {
           },
         ]
       }
+      curbside_consult_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          organisation_id: string
+          sender_clinical_staff_id: string | null
+          thread_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          organisation_id: string
+          sender_clinical_staff_id?: string | null
+          thread_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          sender_clinical_staff_id?: string | null
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curbside_consult_messages_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curbside_consult_messages_sender_clinical_staff_id_fkey"
+            columns: ["sender_clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curbside_consult_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "curbside_consult_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curbside_consult_threads: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          id: string
+          initiator_clinical_staff_id: string
+          last_message_at: string
+          last_message_sender_id: string | null
+          organisation_id: string
+          patient_id: string | null
+          recipient_clinical_staff_id: string
+          status: Database["public"]["Enums"]["curbside_consult_status"]
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          initiator_clinical_staff_id: string
+          last_message_at?: string
+          last_message_sender_id?: string | null
+          organisation_id: string
+          patient_id?: string | null
+          recipient_clinical_staff_id: string
+          status?: Database["public"]["Enums"]["curbside_consult_status"]
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          id?: string
+          initiator_clinical_staff_id?: string
+          last_message_at?: string
+          last_message_sender_id?: string | null
+          organisation_id?: string
+          patient_id?: string | null
+          recipient_clinical_staff_id?: string
+          status?: Database["public"]["Enums"]["curbside_consult_status"]
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curbside_consult_threads_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curbside_consult_threads_initiator_clinical_staff_id_fkey"
+            columns: ["initiator_clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curbside_consult_threads_last_message_sender_id_fkey"
+            columns: ["last_message_sender_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curbside_consult_threads_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curbside_consult_threads_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curbside_consult_threads_recipient_clinical_staff_id_fkey"
+            columns: ["recipient_clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_roles: {
         Row: {
           base_role: Database["public"]["Enums"]["user_role"]
@@ -40207,6 +40347,10 @@ export type Database = {
         Args: { p_reason?: string; p_session_id: string }
         Returns: undefined
       }
+      close_curbside_consult: {
+        Args: { p_thread_id: string }
+        Returns: undefined
+      }
       complete_care_task: {
         Args: {
           p_evidence?: Json
@@ -42006,6 +42150,10 @@ export type Database = {
         Args: { p_body: string; p_thread_id: string }
         Returns: string
       }
+      post_curbside_consult_message: {
+        Args: { p_body: string; p_thread_id: string }
+        Returns: string
+      }
       price_review_for_patient: {
         Args: { p_bundle_code: string; p_patient_id: string }
         Returns: Json
@@ -43085,6 +43233,15 @@ export type Database = {
         }
         Returns: string
       }
+      start_curbside_consult: {
+        Args: {
+          p_body: string
+          p_patient_id?: string
+          p_recipient_clinical_staff_id: string
+          p_subject: string
+        }
+        Returns: string
+      }
       set_sexual_health_pin: { Args: { p_pin: string }; Returns: undefined }
       clear_sexual_health_pin: { Args: never; Returns: undefined }
       verify_sexual_health_pin: { Args: { p_pin: string }; Returns: boolean }
@@ -43223,6 +43380,10 @@ export type Database = {
         Returns: Database["public"]["Tables"]["weight_management_enrolments"]["Row"]
       }
       count_care_threads_awaiting_reply: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      count_curbside_consults_awaiting_reply: {
         Args: Record<PropertyKey, never>
         Returns: number
       }
@@ -43557,6 +43718,7 @@ export type Database = {
         | "monitoring_reminder"
         | "general"
       care_message_thread_status: "open" | "closed"
+      curbside_consult_status: "open" | "closed"
       care_management_barrier_category:
         | "financial"
         | "transport"
@@ -45806,6 +45968,7 @@ export const Constants = {
         "general",
       ],
       care_message_thread_status: ["open", "closed"],
+      curbside_consult_status: ["open", "closed"],
       care_management_barrier_category: [
         "financial",
         "transport",

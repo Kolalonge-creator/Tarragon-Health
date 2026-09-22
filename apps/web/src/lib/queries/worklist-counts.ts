@@ -425,6 +425,18 @@ async function countCareThreadsAwaitingReply(supabase: Client) {
   return data ?? 0;
 }
 
+/** Doctor-to-doctor curbside consults where the OTHER party sent last --
+ * same "column-vs-caller" RPC shape as countCareThreadsAwaitingReply, and
+ * the same reason: comparing last_message_sender_id to the caller's own
+ * clinical_staff id isn't expressible as a plain .select().eq() filter. See
+ * public.count_curbside_consults_awaiting_reply()
+ * (20260922230142_curbside_consults.sql). */
+async function countCurbsideConsultsAwaitingReply(supabase: Client) {
+  const { data, error } = await supabase.rpc("count_curbside_consults_awaiting_reply");
+  if (error) throw error;
+  return data ?? 0;
+}
+
 export type WorklistCountKey =
   | "escalations"
   | "referralsNeedingUrgency"
@@ -460,7 +472,8 @@ export type WorklistCountKey =
   | "careThreadsAwaitingReply"
   | "labOrdersAwaitingHomeVisitAssignment"
   | "labResultConsultsWaiting"
-  | "fhirProposedResourcesPending";
+  | "fhirProposedResourcesPending"
+  | "curbsideConsultsAwaitingReply";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -503,6 +516,7 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   labOrdersAwaitingHomeVisitAssignment: countLabOrdersAwaitingHomeVisitAssignment,
   labResultConsultsWaiting: countLabResultConsultsWaiting,
   fhirProposedResourcesPending: countFhirProposedResourcesPending,
+  curbsideConsultsAwaitingReply: countCurbsideConsultsAwaitingReply,
 };
 
 /**
