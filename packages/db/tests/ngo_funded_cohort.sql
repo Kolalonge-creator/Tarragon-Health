@@ -2,16 +2,24 @@
 -- NGO-funded cohort (module: ngo_funded_cohort) — end-to-end proof.
 --
 -- Migrations: 20260922183610_ngo_funded_cohort_enum_values.sql,
---             20260922184145_ngo_funded_cohort_schema.sql.
+--             20260922184145_ngo_funded_cohort_schema.sql,
+--             20260922184722_fix_claim_funding_programme_invitation_purchaser_leak.sql,
+--             20260922190640_fix_claim_funding_programme_invitation_voucher_expiry.sql,
+--             20260922190851_ngo_funded_cohort_review_fixes.sql.
 --
 -- What this proves, against the real live schema, fully self-contained
 -- (its own auth.users/profiles/organisations fixtures — nothing here
 -- depends on a pre-existing real account):
 --
 --   1. Dormancy is real, not cosmetic: every RPC refuses while the module is
---      off, and the module starts off in this database right now.
---   2. create_funding_programme rejects a non-NGO organisation and a
---      non-active-catalogue service product; only a superadmin may call it.
+--      off (including revoke_funding_programme_invitation and
+--      set_funding_programme_status, which an earlier review pass found
+--      missing the gate — see point 10), and the module starts off in this
+--      database right now.
+--   2. create_funding_programme rejects a non-NGO organisation, a
+--      non-active-catalogue service product, and a non-NGN-priced product
+--      (care_vouchers has no currency column at all — found missing by
+--      review); only a superadmin may call it.
 --   3. invite_to_funding_programme refuses on a draft (not yet active)
 --      programme, refuses a caller who is not the owning org's ngo_admin
 --      (and not admin), and refuses a roster that would exceed the
@@ -19,12 +27,17 @@
 --   4. Read isolation: a DIFFERENT NGO's ngo_admin reads zero of this
 --      programme's invitations, while the owning ngo_admin reads all of
 --      them — ordinary multi-tenant isolation, proven rather than assumed.
---   5. claim_funding_programme_invitation turns a claim into a real,
---      correctly-shaped care_vouchers row (active, fully paid, purchaser_
---      profile_id = the funding programme's own creator, NOT the inviting
---      ngo_admin — see point 6) and marks the invitation claimed; a second
---      claim of the same token is refused; a claim past the funded_unit_cap
---      is refused.
+--   5. claim_funding_programme_invitation refuses a caller whose own phone/
+--      email does not match the invitation's (found missing by review — the
+--      inviting ngo_admin can read invite_token via ordinary RLS, so without
+--      this check they could claim a beneficiary's funded place as
+--      themselves), then turns a matching claim into a real, correctly-
+--      shaped care_vouchers row (active, fully paid, an expiry stamped from
+--      care_voucher_config.validity_months — also found missing by review —
+--      purchaser_profile_id = the funding programme's own creator, NOT the
+--      inviting ngo_admin — see point 6) and marks the invitation claimed; a
+--      second claim of the same token is refused; a claim past the
+--      funded_unit_cap is refused.
 --   6. THE core property this whole module exists to protect: the NGO
 --      admin who funded and invited a beneficiary still reads ZERO rows of
 --      that beneficiary's care_vouchers or clinical record (vitals_readings)
@@ -47,6 +60,18 @@
 --      exclusion, so sabotaging it there would prove nothing (an earlier
 --      draft of this file tried exactly that and correctly self-reported a
 --      GAP rather than a false PASS).
+--   9. NOT covered here, documented rather than silently skipped: the
+--      double-claim TOCTOU race fixed by taking `for update` on the
+--      invitation row (20260922190851) needs two genuinely concurrent
+--      database sessions to exercise for real; a single-transaction SQL
+--      proof cannot reproduce a race between two separate connections. What
+--      IS proven here is that the ordinary single-caller claim path still
+--      works correctly with the lock in place (point 5) — the lock adds no
+--      observable behaviour change to the non-racing case.
+--  10. Module-gate parity: revoke_funding_programme_invitation and
+--      set_funding_programme_status both refuse while ngo_funded_cohort is
+--      off, matching their three siblings (found missing by review — see
+--      the migration header for the scenario this closes).
 --
 -- HONESTY CONVENTION (see i1_i10_invariants_platform.sql's header): every
 -- check below either PASSes for real or is reported as a GAP; nothing here
@@ -70,12 +95,15 @@ declare
   v_ngo_admin_b  uuid := gen_random_uuid();
   v_patient_1    uuid := gen_random_uuid();
   v_patient_2    uuid := gen_random_uuid();
+  v_patient_3    uuid := gen_random_uuid();
 
   v_product      uuid;
+  v_product_usd  uuid;
   v_programme    uuid;
 
   v_token_1      text;
   v_token_2      text;
+  v_token_3      text;
 
   v_n            integer;
   v_ok           boolean;
@@ -103,21 +131,30 @@ begin
     (v_ngo_admin_a, 'ngofc-admin-a@example.invalid', 'x', now(), '{}', '{}'),
     (v_ngo_admin_b, 'ngofc-admin-b@example.invalid', 'x', now(), '{}', '{}'),
     (v_patient_1,   'ngofc-patient-1@example.invalid', 'x', now(), '{}', '{}'),
-    (v_patient_2,   'ngofc-patient-2@example.invalid', 'x', now(), '{}', '{}');
+    (v_patient_2,   'ngofc-patient-2@example.invalid', 'x', now(), '{}', '{}'),
+    (v_patient_3,   'ngofc-patient-3@example.invalid', 'x', now(), '{}', '{}');
 
+  -- Patients' own phone numbers match the invitations they are meant to
+  -- claim (+2348030000021/22/23) — required now that claim_funding_
+  -- programme_invitation checks identity (point 5).
   insert into public.profiles (id, organisation_id, role, full_name, phone)
   values
     (v_ngo_admin_a, v_org_ngo_a, 'ngo_admin', 'NGO Cohort Admin A', '+2348030000001'),
     (v_ngo_admin_b, v_org_ngo_b, 'ngo_admin', 'NGO Cohort Admin B', '+2348030000002'),
-    (v_patient_1,   v_org_patient, 'patient', 'NGO Cohort Patient 1', '+2348030000003'),
-    (v_patient_2,   v_org_patient, 'patient', 'NGO Cohort Patient 2', '+2348030000004')
+    (v_patient_1,   v_org_patient, 'patient', 'NGO Cohort Patient 1', '+2348030000021'),
+    (v_patient_2,   v_org_patient, 'patient', 'NGO Cohort Patient 2', '+2348030000022'),
+    (v_patient_3,   v_org_patient, 'patient', 'NGO Cohort Patient 3', '+2348030000023')
   on conflict (id) do update set
     organisation_id = excluded.organisation_id, role = excluded.role,
     full_name = excluded.full_name, phone = excluded.phone;
 
-  insert into public.service_products (code, name, price_kobo, is_active)
-  values ('NGO-FC-TEST-SKU', 'NGO Cohort Test Review', 500000, true)
+  insert into public.service_products (code, name, price_kobo, currency, is_active)
+  values ('NGO-FC-TEST-SKU', 'NGO Cohort Test Review', 500000, 'NGN', true)
   returning id into v_product;
+
+  insert into public.service_products (code, name, price_kobo, currency, is_active)
+  values ('NGO-FC-TEST-SKU-USD', 'NGO Cohort Test Review (Diaspora)', 500000, 'USD', true)
+  returning id into v_product_usd;
 
   -- =========================================================================
   -- 1. Dormancy is real: create_funding_programme refuses while off.
@@ -127,7 +164,7 @@ begin
 
   v_ok := true;
   begin
-    perform public.create_funding_programme(v_org_ngo_a, v_product, 'Should not work', 'CONTRACT-0', 2);
+    perform public.create_funding_programme(v_org_ngo_a, v_product, 'Should not work', 'CONTRACT-0', 3);
   exception when others then v_ok := false;
   end;
   if v_ok then raise exception 'FAIL: create_funding_programme worked while ngo_funded_cohort is dormant'; end if;
@@ -148,26 +185,35 @@ begin
 
   -- =========================================================================
   -- 3. create_funding_programme: rejects a non-NGO org, rejects an inactive
-  --    product, then succeeds for a real NGO org + active product.
+  --    product, rejects a non-NGN-priced product, then succeeds for a real
+  --    NGN-priced NGO org + active product.
   -- =========================================================================
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
 
   v_ok := true;
   begin
-    perform public.create_funding_programme(v_org_patient, v_product, 'Wrong org type', 'CONTRACT-1', 2);
+    perform public.create_funding_programme(v_org_patient, v_product, 'Wrong org type', 'CONTRACT-1', 3);
   exception when others then v_ok := false;
   end;
   if v_ok then raise exception 'FAIL: create_funding_programme accepted a non-NGO organisation'; end if;
   raise notice 'PASS  create_funding_programme refuses a non-NGO organisation';
 
-  v_programme := public.create_funding_programme(v_org_ngo_a, v_product, 'NGO Cohort Test Programme', 'CONTRACT-2', 2);
+  v_ok := true;
+  begin
+    perform public.create_funding_programme(v_org_ngo_a, v_product_usd, 'Wrong currency', 'CONTRACT-1B', 3);
+  exception when others then v_ok := false;
+  end;
+  if v_ok then raise exception 'FAIL: create_funding_programme accepted a non-NGN-priced service product'; end if;
+  raise notice 'PASS  create_funding_programme refuses a non-NGN-priced service product';
+
+  v_programme := public.create_funding_programme(v_org_ngo_a, v_product, 'NGO Cohort Test Programme', 'CONTRACT-2', 3);
   if v_programme is null then raise exception 'FAIL: create_funding_programme did not return an id'; end if;
 
   if (select status from public.funding_programmes where id = v_programme) <> 'draft' then
     raise exception 'FAIL: a new funding programme should start draft';
   end if;
-  raise notice 'PASS  create_funding_programme creates a draft programme for a real NGO org + active product';
+  raise notice 'PASS  create_funding_programme creates a draft programme for a real NGO org + NGN active product';
 
   reset role;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
@@ -217,7 +263,7 @@ begin
   reset role;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
 
-  -- The owning ngo_admin cannot invite more people than the funded cap (2).
+  -- The owning ngo_admin cannot invite more people than the funded cap (3).
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_ngo_admin_a::text, 'role', 'authenticated')::text, true);
   v_ok := true;
@@ -227,7 +273,8 @@ begin
       jsonb_build_array(
         jsonb_build_object('phone', '+2348030000021'),
         jsonb_build_object('phone', '+2348030000022'),
-        jsonb_build_object('phone', '+2348030000023')
+        jsonb_build_object('phone', '+2348030000023'),
+        jsonb_build_object('phone', '+2348030000024')
       )
     );
   exception when others then v_ok := false;
@@ -235,16 +282,17 @@ begin
   if v_ok then raise exception 'FAIL: invite_to_funding_programme allowed exceeding the funded_unit_cap'; end if;
   raise notice 'PASS  invite_to_funding_programme refuses a roster larger than the funded cap';
 
-  -- Now within cap: two real invitations.
+  -- Now within cap: three real invitations, matching the three patient fixtures.
   v_result := public.invite_to_funding_programme(
     v_programme,
     jsonb_build_array(
       jsonb_build_object('phone', '+2348030000021', 'full_name', 'Cohort Beneficiary One'),
-      jsonb_build_object('phone', '+2348030000022', 'full_name', 'Cohort Beneficiary Two')
+      jsonb_build_object('phone', '+2348030000022', 'full_name', 'Cohort Beneficiary Two'),
+      jsonb_build_object('phone', '+2348030000023', 'full_name', 'Cohort Beneficiary Three')
     )
   );
-  if (v_result->>'invited')::int <> 2 then
-    raise exception 'FAIL: invite_to_funding_programme did not create 2 invitations';
+  if (v_result->>'invited')::int <> 3 then
+    raise exception 'FAIL: invite_to_funding_programme did not create 3 invitations';
   end if;
   raise notice 'PASS  invite_to_funding_programme invites within the funded cap';
 
@@ -255,10 +303,12 @@ begin
     where funding_programme_id = v_programme and phone = '+2348030000021';
   select invite_token into v_token_2 from public.funding_programme_invitations
     where funding_programme_id = v_programme and phone = '+2348030000022';
+  select invite_token into v_token_3 from public.funding_programme_invitations
+    where funding_programme_id = v_programme and phone = '+2348030000023';
 
   -- =========================================================================
   -- 6. Read isolation: org B's ngo_admin reads none of org A's invitations;
-  --    org A's own ngo_admin reads both (control, proving the query works).
+  --    org A's own ngo_admin reads all three (control, proving the query works).
   -- =========================================================================
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_ngo_admin_b::text, 'role', 'authenticated')::text, true);
@@ -269,15 +319,37 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_ngo_admin_a::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into v_n from public.funding_programme_invitations where funding_programme_id = v_programme;
-  if v_n <> 2 then raise exception 'FAIL(control): org A''s own ngo_admin cannot read its own invitations'; end if;
+  if v_n <> 3 then raise exception 'FAIL(control): org A''s own ngo_admin cannot read its own invitations'; end if;
   reset role;
   raise notice 'PASS  invitation reads are isolated per NGO organisation';
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
 
   -- =========================================================================
-  -- 7. Claim flow: a real beneficiary turns a token into a real, correctly-
-  --    shaped care_vouchers row; a second claim of the same token refuses.
+  -- 7. Identity binding: the person claiming a token must be signed in with
+  --    an account whose own phone/email matches the invitation's — closes
+  --    the gap where the inviting ngo_admin (who can read invite_token via
+  --    ordinary RLS) could otherwise claim a beneficiary's place themselves.
+  -- =========================================================================
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient_1::text, 'role', 'authenticated')::text, true);
+  v_ok := true;
+  begin
+    -- patient_1's own phone is +2348030000021, not the +2348030000023 this
+    -- token (invitation 3) was sent to.
+    perform public.claim_funding_programme_invitation(v_token_3);
+  exception when others then v_ok := false;
+  end;
+  reset role;
+  if v_ok then raise exception 'FAIL: a caller could claim an invitation not addressed to their own phone/email'; end if;
+  raise notice 'PASS  claim_funding_programme_invitation refuses a caller whose phone/email does not match the invitation';
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
+
+  -- =========================================================================
+  -- 8. Claim flow: a real, matching beneficiary turns a token into a real,
+  --    correctly-shaped care_vouchers row; a second claim of the same token
+  --    refuses.
   -- =========================================================================
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_patient_1::text, 'role', 'authenticated')::text, true);
@@ -299,13 +371,17 @@ begin
     and (status = 'active')
     and (amount_paid_kobo = face_value_kobo)
     and (face_value_kobo = 500000)
+    -- 20260922190640: every other voucher-issuing path stamps an expiry
+    -- from care_voucher_config.validity_months; this must too.
+    and (expires_at is not null)
+    and (expires_at > now())
   into v_ok
   from public.care_vouchers where id = v_voucher_id;
 
   if not coalesce(v_ok, false) then
-    raise exception 'FAIL: claimed voucher is not shaped as expected (beneficiary/purchaser/status/amount)';
+    raise exception 'FAIL: claimed voucher is not shaped as expected (beneficiary/purchaser/status/amount/expiry)';
   end if;
-  raise notice 'PASS  claiming an invitation creates a correctly-shaped, fully-paid, active care_voucher, attributed to the programme creator rather than the inviting ngo_admin';
+  raise notice 'PASS  claiming an invitation creates a correctly-shaped, fully-paid, active, expiring care_voucher, attributed to the programme creator rather than the inviting ngo_admin';
 
   if (select status from public.funding_programme_invitations where invite_token = v_token_1) <> 'claimed' then
     raise exception 'FAIL: invitation was not marked claimed';
@@ -325,20 +401,25 @@ begin
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
 
-  -- Second beneficiary claims the second (and last, cap=2) place.
+  -- Second and third beneficiaries claim their own matching places.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_patient_2::text, 'role', 'authenticated')::text, true);
   perform public.claim_funding_programme_invitation(v_token_2);
   reset role;
+
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient_3::text, 'role', 'authenticated')::text, true);
+  perform public.claim_funding_programme_invitation(v_token_3);
+  reset role;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
 
-  if (select count(*) from public.funding_programme_invitations where funding_programme_id = v_programme and status = 'claimed') <> 2 then
-    raise exception 'FAIL: expected both invitations claimed';
+  if (select count(*) from public.funding_programme_invitations where funding_programme_id = v_programme and status = 'claimed') <> 3 then
+    raise exception 'FAIL: expected all three invitations claimed';
   end if;
-  raise notice 'PASS  the funded programme''s cap (2) is exactly filled by two real claims';
+  raise notice 'PASS  the funded programme''s cap (3) is exactly filled by three real, identity-matched claims';
 
   -- =========================================================================
-  -- 8a. Cross-org proof: funding a place is not joining the care team, and
+  -- 9a. Cross-org proof: funding a place is not joining the care team, and
   --     is doubly blocked here (the beneficiary keeps their OWN organisation_
   --     id, per purchase_care_voucher's identical shape — it is never set to
   --     the NGO's own org). Give patient 1 a real clinical row, written as
@@ -362,7 +443,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
 
   -- =========================================================================
-  -- 8b. THE targeted proof of the actual line this migration added. 8a alone
+  -- 9b. THE targeted proof of the actual line this migration added. 9a alone
   --     is not a sufficient sabotage target: it is protected by ordinary
   --     multi-tenant ORG ISOLATION (v_org_patient <> v_org_ngo_a) regardless
   --     of the ngo_admin exclusion — is_org_staff's own "organisation_id =
@@ -393,9 +474,9 @@ begin
   raise notice 'PASS  ngo_admin reads zero rows even for a clinical row filed under its OWN organisation_id (the exclusion, not org isolation, is what blocks this one)';
 
   -- =========================================================================
-  -- 9. Sabotage control for 8b: with is_org_staff's ngo_admin exclusion
-  --    removed, the SAME same-org read must now succeed — proving the
-  --    exclusion is actually what was protecting it, not a vacuous check.
+  -- 10. Sabotage control for 9b: with is_org_staff's ngo_admin exclusion
+  --     removed, the SAME same-org read must now succeed — proving the
+  --     exclusion is actually what was protecting it, not a vacuous check.
   -- =========================================================================
   create or replace function private.is_org_staff(org uuid)
   returns boolean
@@ -424,7 +505,7 @@ begin
   if v_n = 0 then
     raise exception 'GAP: sabotaged is_org_staff (no ngo_admin exclusion) still reads zero own-org rows — this test would not have caught a missing exclusion';
   end if;
-  raise notice 'PASS  sabotage control: removing the ngo_admin exclusion genuinely opens the own-org read (proves check 8b is real)';
+  raise notice 'PASS  sabotage control: removing the ngo_admin exclusion genuinely opens the own-org read (proves check 9b is real)';
 
   -- Restore the correct function and re-prove the read is refused again.
   create or replace function private.is_org_staff(org uuid)
@@ -456,6 +537,37 @@ begin
   end if;
   raise notice 'PASS  restoring is_org_staff''s ngo_admin exclusion closes the own-org read again';
 
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
+
+  -- =========================================================================
+  -- 11. Module-gate parity: revoke_funding_programme_invitation and
+  --     set_funding_programme_status both refuse while the module is off,
+  --     matching their three siblings (found missing by review — see
+  --     20260922190851_ngo_funded_cohort_review_fixes.sql).
+  -- =========================================================================
+  perform public.set_platform_module('ngo_funded_cohort', false, 'gate-parity check — reactivated below');
+
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
+
+  v_ok := true;
+  begin
+    perform public.revoke_funding_programme_invitation(gen_random_uuid(), 'gate check');
+  exception when others then v_ok := false;
+  end;
+  if v_ok then raise exception 'FAIL: revoke_funding_programme_invitation worked while ngo_funded_cohort is dormant'; end if;
+  raise notice 'PASS  revoke_funding_programme_invitation refuses while the module is dormant';
+
+  v_ok := true;
+  begin
+    perform public.set_funding_programme_status(v_programme, 'expired');
+  exception when others then v_ok := false;
+  end;
+  if v_ok then raise exception 'FAIL: set_funding_programme_status worked while ngo_funded_cohort is dormant'; end if;
+  raise notice 'PASS  set_funding_programme_status refuses while the module is dormant';
+
+  reset role;
+  perform public.set_platform_module('ngo_funded_cohort', true, 'restored after gate-parity check');
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
 
   raise notice 'PASS  ngo_funded_cohort: all checks passed';

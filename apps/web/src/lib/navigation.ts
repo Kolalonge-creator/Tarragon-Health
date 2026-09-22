@@ -793,6 +793,16 @@ export function getNavSections(
           ],
         },
       ];
+    // Module ngo_funded_cohort — built dormant (platform_modules.
+    // ngo_funded_cohort, off by default). Same posture as the payer/
+    // provider-org nav above: /ngo itself checks module + role server-side
+    // and renders a "not yet activated" placeholder when the module is off.
+    case "ngo_admin":
+      return [
+        {
+          items: [{ label: "Overview", href: "/ngo", icon: "dashboard", exact: true }],
+        },
+      ];
     default:
       return [];
   }

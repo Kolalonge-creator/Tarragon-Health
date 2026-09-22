@@ -159,7 +159,9 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
                   (button.tsx) — illegible on this section's navy background,
                   so the default solid brand-green variant is used instead. */}
               <Button asChild size="lg" className="mt-6">
-                <Link href={`${MARKETING_ROUTES.contact}?source=${content.slug}-ngo&role=${content.partnerOffer.ctaRole}`}>
+                <Link
+                  href={`${MARKETING_ROUTES.contact}?source=${encodeURIComponent(`${content.slug}-ngo`)}&role=${encodeURIComponent(content.partnerOffer.ctaRole)}`}
+                >
                   {content.partnerOffer.ctaLabel}
                 </Link>
               </Button>
