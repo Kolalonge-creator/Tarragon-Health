@@ -199,3 +199,14 @@ platform_credit_spend_revenue_deferral.sql
 # async-consult-answered and video-consultation-completed flows, with a
 # sabotage control for bug (1).
 clinical_encounter_note_link_bugs.sql
+
+# 20260922183343 added an explicit ::care_access_category cast to 16 RLS
+# policies whose can_read_clinical(patient_id, '<literal>') call was left
+# bare by earlier migrations, closing the ambiguous-overload hole a future
+# CREATE POLICY re-resolving that same bare text would hit now that
+# can_read_clinical has 3 live overloads (a real incident on a separate,
+# unmerged admin/support "view as" branch, which is where this was found).
+# Proves all 16 policies carry the cast, and sabotages by creating a scratch
+# policy with the pre-fix bare text against a real table to confirm it still
+# fails to even CREATE (42725) today.
+can_read_clinical_bare_literal_policy_cast.sql
