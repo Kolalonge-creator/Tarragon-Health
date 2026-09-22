@@ -41479,6 +41479,7 @@ export type Database = {
       }
       invoice_letterhead_details: { Args: never; Returns: Json }
       is_account_locked: { Args: { p_email: string }; Returns: boolean }
+      is_account_locked_by_phone: { Args: { p_phone: string }; Returns: boolean }
       issue_screening_day_voucher: {
         Args: { p_beneficiary_profile_id: string; p_slot_id: string }
         Returns: Json
@@ -42235,6 +42236,7 @@ export type Database = {
         Returns: Json
       }
       record_failed_login: { Args: { p_email: string }; Returns: undefined }
+      record_failed_login_by_phone: { Args: { p_phone: string }; Returns: undefined }
       record_integration_delivery_result: {
         Args: {
           p_duration_ms: number

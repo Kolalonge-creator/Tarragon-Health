@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  PASSWORD_COMPLEXITY_REGEX,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_TOO_SHORT_MESSAGE,
+  PASSWORD_TOO_WEAK_MESSAGE,
+} from "./password";
 
 /** Every account/login role (public.user_role). Used for provisioning + role assignment. */
 export const USER_ROLES = [
@@ -63,7 +69,15 @@ export const provisionMemberSchema = z
     phone: e164,
     role: z.enum(USER_ROLES),
     organisationId: optionalUuid,
-    password: z.string().min(8, "At least 8 characters").max(72),
+    // Shared with every patient-facing new-password field (2026-09-18
+    // security audit — this ad-hoc min(8) used to be weaker than the rest of
+    // the platform, letting an admin provision any staff account with a
+    // digits-only or letters-only password).
+    password: z
+      .string()
+      .min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE)
+      .max(72)
+      .regex(PASSWORD_COMPLEXITY_REGEX, PASSWORD_TOO_WEAK_MESSAGE),
   })
   // Clinicians must have a phone on file to be pageable for emergency vitals
   // red-flags (private.enqueue_critical_notification's recipient filter is

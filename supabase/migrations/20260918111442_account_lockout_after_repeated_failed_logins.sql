@@ -41,9 +41,10 @@ create table public.account_lockouts (
 );
 
 comment on table public.account_lockouts is
-  'One row per profile tracking consecutive failed password-login attempts and any active '
-  'lockout. Written only by public.record_failed_login()/public.clear_login_failures() — no '
-  'direct client insert/update path. See '
+  'One row per profile tracking consecutive failed login attempts (password or phone-OTP — '
+  'both feed the same counter/lock) and any active lockout. Written only by '
+  'public.record_failed_login()/public.record_failed_login_by_phone()/public.clear_login_failures() '
+  '— no direct client insert/update path. See '
   '20260918111442_account_lockout_after_repeated_failed_logins.sql for design notes.';
 
 create index account_lockouts_organisation_id_idx on public.account_lockouts (organisation_id);
@@ -63,6 +64,116 @@ create trigger account_lockouts_set_updated_at
   for each row execute function private.set_updated_at();
 
 -- ---------------------------------------------------------------------------
+-- private.is_profile_locked(profile_id) / private.record_failed_login_attempt
+-- (profile_id, org_id) — the actual lockout logic, factored out of the
+-- email-keyed functions below so the phone-OTP login path (verifyPhoneOtp in
+-- apps/web/src/app/login/actions.ts) can share it too. Without this, a
+-- lockout triggered by repeated wrong-password attempts read as "account
+-- security" but only actually blocked the PASSWORD login method — an
+-- attacker (or the legitimate owner) could still complete sign-in via phone
+-- OTP during the lock window, and a wrong-OTP guess never counted toward the
+-- same counter either. Every public wrapper below (is_account_locked,
+-- is_account_locked_by_phone, record_failed_login, record_failed_login_by_
+-- phone) is now a thin identifier-resolution shim over these two.
+-- ---------------------------------------------------------------------------
+create or replace function private.is_profile_locked(p_profile_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select locked_until is not null and locked_until > now()
+  from public.account_lockouts
+  where profile_id = p_profile_id;
+$$;
+
+comment on function private.is_profile_locked(uuid) is
+  'Core lockout check, shared by is_account_locked(email) and '
+  'is_account_locked_by_phone(phone) — see 20260918111442_account_lockout_after_'
+  'repeated_failed_logins.sql for why both login methods must consult the same lock.';
+
+create or replace function private.record_failed_login_attempt(p_profile_id uuid, p_org_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_attempts    integer;
+  v_locked_until timestamptz;
+  v_should_notify boolean := false;
+begin
+  insert into public.account_lockouts (profile_id, organisation_id, failed_attempts, last_failed_at)
+  values (p_profile_id, p_org_id, 1, now())
+  on conflict (profile_id) do update
+    set failed_attempts = case
+          -- A lock that has already expired starts a fresh count rather than
+          -- compounding forever off a stale streak from days ago.
+          when public.account_lockouts.locked_until is not null
+               and public.account_lockouts.locked_until <= now()
+          then 1
+          else public.account_lockouts.failed_attempts + 1
+        end,
+        -- Bug fixed before merge: this branch used to leave a naturally-
+        -- expired locked_until at its stale past value instead of clearing
+        -- it. That past timestamp still satisfies "locked_until <= now()"
+        -- on every SUBSEQUENT failure too, so failed_attempts kept resetting
+        -- to 1 forever instead of ever incrementing past 1 again — the
+        -- account could be locked exactly once, then never again, no matter
+        -- how many more genuine wrong-password attempts followed. Clearing
+        -- locked_until to null here is what lets the next failure's ON
+        -- CONFLICT branch take the "else" (increment) path instead of
+        -- repeating the "reset to 1" path indefinitely. See
+        -- packages/db/tests/account_lockout_after_repeated_failed_logins.sql
+        -- section 7 for the regression proof (lock, let it expire, 5 more
+        -- failures, confirm a SECOND lock actually fires).
+        locked_until = case
+          when public.account_lockouts.locked_until is not null
+               and public.account_lockouts.locked_until <= now()
+          then null
+          else public.account_lockouts.locked_until
+        end,
+        last_failed_at = now()
+  returning failed_attempts, locked_until into v_attempts, v_locked_until;
+
+  if v_attempts >= 5 and (v_locked_until is null or v_locked_until <= now()) then
+    update public.account_lockouts
+    set locked_until = now() + interval '15 minutes',
+        failed_attempts = 0
+    where profile_id = p_profile_id;
+    v_should_notify := true;
+  end if;
+
+  if v_should_notify then
+    insert into public.notifications
+      (organisation_id, recipient_id, channel, status, template, payload, content_class, priority)
+    values
+      (p_org_id, p_profile_id, 'in_app', 'pending', 'security.account_locked',
+       jsonb_build_object(
+         'message', 'Your Tarragon Health account was temporarily locked after several failed sign-in attempts. If this wasn''t you, consider resetting your password.',
+         'locked_minutes', 15,
+         'occurred_at', now()
+       ),
+       'non_clinical', 'critical'),
+      (p_org_id, p_profile_id, 'email', 'pending', 'security.account_locked',
+       jsonb_build_object(
+         'message', 'Your Tarragon Health account was temporarily locked for 15 minutes after several failed sign-in attempts. If this wasn''t you, please reset your password as soon as the lock lifts.',
+         'locked_minutes', 15,
+         'occurred_at', now()
+       ),
+       'non_clinical', 'critical');
+  end if;
+end;
+$$;
+
+comment on function private.record_failed_login_attempt(uuid, uuid) is
+  'Core failed-attempt bookkeeping, shared by record_failed_login(email) and '
+  'record_failed_login_by_phone(phone). Locks the profile for 15 minutes once 5 '
+  'consecutive failures are reached, firing an in_app+email security.account_locked '
+  'notification the moment a lock is newly applied.';
+
+-- ---------------------------------------------------------------------------
 -- is_account_locked(email) — called from the login server action BEFORE
 -- attempting signInWithPassword, so a locked account is refused without ever
 -- touching GoTrue (and without moving the lockout window further into the
@@ -78,18 +189,12 @@ set search_path = ''
 as $$
 declare
   v_profile_id uuid;
-  v_locked_until timestamptz;
 begin
   select id into v_profile_id from auth.users where lower(email) = lower(trim(p_email));
   if v_profile_id is null then
     return false;
   end if;
-
-  select locked_until into v_locked_until
-  from public.account_lockouts
-  where profile_id = v_profile_id;
-
-  return v_locked_until is not null and v_locked_until > now();
+  return coalesce(private.is_profile_locked(v_profile_id), false);
 end;
 $$;
 
@@ -103,23 +208,63 @@ revoke all on function public.is_account_locked(text) from public;
 grant execute on function public.is_account_locked(text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- record_failed_login(email) — called from the login server action right
--- after signInWithPassword returns an error, via createServiceRoleClient()
--- (lib/supabase/service-role.ts), NEVER the ordinary anon-key client.
+-- is_account_locked_by_phone(phone) — the phone-OTP login path's equivalent
+-- of is_account_locked(email) above. Consults the SAME account_lockouts row
+-- (keyed by profile_id, not by which identifier was used to find it), so a
+-- lock triggered by password failures genuinely blocks OTP sign-in too, not
+-- just the method that caused it.
+-- ---------------------------------------------------------------------------
+create or replace function public.is_account_locked_by_phone(p_phone text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_profile_id uuid;
+begin
+  -- GoTrue stores auth.users.phone WITHOUT the leading '+' (E.164 digits
+  -- only — see 20260711222638_fix_handle_new_user_metadata_timing_and_phone.sql
+  -- for the same convention on the write side), but every caller here passes
+  -- a '+'-prefixed E.164 string (phoneOtpVerifySchema/E164_GENERIC) — strip it
+  -- before comparing, or this would never match a real row.
+  select id into v_profile_id from auth.users
+  where phone = case when trim(p_phone) ~ '^\+' then substring(trim(p_phone) from 2) else trim(p_phone) end;
+  if v_profile_id is null then
+    return false;
+  end if;
+  return coalesce(private.is_profile_locked(v_profile_id), false);
+end;
+$$;
+
+comment on function public.is_account_locked_by_phone(text) is
+  'Phone-OTP counterpart to is_account_locked(email) — same account_lockouts row, same '
+  'anti-enumeration posture (false for both an unknown number and a real, unlocked one).';
+
+revoke all on function public.is_account_locked_by_phone(text) from public;
+grant execute on function public.is_account_locked_by_phone(text) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- record_failed_login(email) / record_failed_login_by_phone(phone) — called
+-- from the login server action right after signInWithPassword/verifyOtp
+-- returns an error, via createServiceRoleClient() (lib/supabase/service-role.ts),
+-- NEVER the ordinary anon-key client.
 --
--- Deliberately service_role-only, unlike is_account_locked above. The anon
--- key that would let this be callable at all pre-auth is not a secret — it
--- ships in the browser bundle — so an EARLIER version of this migration that
--- granted anon EXECUTE here let anyone who knew (or guessed) a victim's email
--- call this directly against the public PostgREST endpoint, with no real
--- login attempt and no interaction with lib/rate-limit.ts's throttling at
--- all, to lock that account indefinitely (5 calls, repeated every 15
--- minutes) — turning the anti-brute-force feature into an account-denial
--- weapon. Restricting EXECUTE to service_role closes that: only this
--- project's own trusted server code, using a secret never sent to a browser,
--- can record a failure. is_account_locked() stays anon-callable because it
--- only reads (no mutation, so no denial-of-service vector) and the real
--- login flow genuinely needs to check it before any session exists.
+-- Deliberately service_role-only, unlike the is_account_locked* checks above.
+-- The anon key that would let this be callable at all pre-auth is not a
+-- secret — it ships in the browser bundle — so an EARLIER version of this
+-- migration that granted anon EXECUTE here let anyone who knew (or guessed) a
+-- victim's email call this directly against the public PostgREST endpoint,
+-- with no real login attempt and no interaction with lib/rate-limit.ts's
+-- throttling at all, to lock that account indefinitely (5 calls, repeated
+-- every 15 minutes) — turning the anti-brute-force feature into an
+-- account-denial weapon. Restricting EXECUTE to service_role closes that:
+-- only this project's own trusted server code, using a secret never sent to
+-- a browser, can record a failure. The is_account_locked* checks stay
+-- anon-callable because they only read (no mutation, so no denial-of-service
+-- vector) and the real login flow genuinely needs to check before any
+-- session exists.
 -- ---------------------------------------------------------------------------
 create or replace function public.record_failed_login(p_email text)
 returns void
@@ -130,9 +275,6 @@ as $$
 declare
   v_profile_id  uuid;
   v_org_id      uuid;
-  v_attempts    integer;
-  v_locked_until timestamptz;
-  v_should_notify boolean := false;
 begin
   select id into v_profile_id from auth.users where lower(email) = lower(trim(p_email));
   if v_profile_id is null then
@@ -144,54 +286,13 @@ begin
     return;
   end if;
 
-  insert into public.account_lockouts (profile_id, organisation_id, failed_attempts, last_failed_at)
-  values (v_profile_id, v_org_id, 1, now())
-  on conflict (profile_id) do update
-    set failed_attempts = case
-          -- A lock that has already expired starts a fresh count rather than
-          -- compounding forever off a stale streak from days ago.
-          when public.account_lockouts.locked_until is not null
-               and public.account_lockouts.locked_until <= now()
-          then 1
-          else public.account_lockouts.failed_attempts + 1
-        end,
-        last_failed_at = now()
-  returning failed_attempts, locked_until into v_attempts, v_locked_until;
-
-  if v_attempts >= 5 and (v_locked_until is null or v_locked_until <= now()) then
-    update public.account_lockouts
-    set locked_until = now() + interval '15 minutes',
-        failed_attempts = 0
-    where profile_id = v_profile_id;
-    v_should_notify := true;
-  end if;
-
-  if v_should_notify then
-    insert into public.notifications
-      (organisation_id, recipient_id, channel, status, template, payload, content_class, priority)
-    values
-      (v_org_id, v_profile_id, 'in_app', 'pending', 'security.account_locked',
-       jsonb_build_object(
-         'message', 'Your Tarragon Health account was temporarily locked after several failed sign-in attempts. If this wasn''t you, consider resetting your password.',
-         'locked_minutes', 15,
-         'occurred_at', now()
-       ),
-       'non_clinical', 'critical'),
-      (v_org_id, v_profile_id, 'email', 'pending', 'security.account_locked',
-       jsonb_build_object(
-         'message', 'Your Tarragon Health account was temporarily locked for 15 minutes after several failed sign-in attempts. If this wasn''t you, please reset your password as soon as the lock lifts.',
-         'locked_minutes', 15,
-         'occurred_at', now()
-       ),
-       'non_clinical', 'critical');
-  end if;
+  perform private.record_failed_login_attempt(v_profile_id, v_org_id);
 end;
 $$;
 
 comment on function public.record_failed_login(text) is
   'Increments the failed-login counter for the account matching this email (no-op if none '
-  'exists) and locks it for 15 minutes once 5 consecutive failures are reached, firing an '
-  'in_app+email security.account_locked notification the moment a lock is newly applied. '
+  'exists) — see private.record_failed_login_attempt for the actual lock/notify logic. '
   'service_role-only — see the header comment right above this function for why anon/'
   'authenticated must never be able to call this directly. Called from '
   'apps/web/src/app/login/actions.ts, via createServiceRoleClient(), right after a failed '
@@ -199,6 +300,46 @@ comment on function public.record_failed_login(text) is
 
 revoke all on function public.record_failed_login(text) from public, anon, authenticated;
 grant execute on function public.record_failed_login(text) to service_role;
+
+create or replace function public.record_failed_login_by_phone(p_phone text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_profile_id  uuid;
+  v_org_id      uuid;
+begin
+  -- GoTrue stores auth.users.phone WITHOUT the leading '+' (E.164 digits
+  -- only — see 20260711222638_fix_handle_new_user_metadata_timing_and_phone.sql
+  -- for the same convention on the write side), but every caller here passes
+  -- a '+'-prefixed E.164 string (phoneOtpVerifySchema/E164_GENERIC) — strip it
+  -- before comparing, or this would never match a real row.
+  select id into v_profile_id from auth.users
+  where phone = case when trim(p_phone) ~ '^\+' then substring(trim(p_phone) from 2) else trim(p_phone) end;
+  if v_profile_id is null then
+    return;
+  end if;
+
+  select organisation_id into v_org_id from public.profiles where id = v_profile_id;
+  if v_org_id is null then
+    return;
+  end if;
+
+  perform private.record_failed_login_attempt(v_profile_id, v_org_id);
+end;
+$$;
+
+comment on function public.record_failed_login_by_phone(text) is
+  'Phone-OTP counterpart to record_failed_login(email) — same underlying counter/lock '
+  '(private.record_failed_login_attempt), keyed by the same profile_id. service_role-only, '
+  'same reasoning as record_failed_login(email). Called from '
+  'apps/web/src/app/login/actions.ts''s verifyPhoneOtp, via createServiceRoleClient(), right '
+  'after a failed verifyOtp.';
+
+revoke all on function public.record_failed_login_by_phone(text) from public, anon, authenticated;
+grant execute on function public.record_failed_login_by_phone(text) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- clear_login_failures() — called from the login server action right after a
@@ -240,12 +381,16 @@ begin
   if not has_function_privilege('anon', 'public.is_account_locked(text)', 'EXECUTE') then
     raise exception 'is_account_locked must be EXECUTE-able by anon (pre-auth login check)';
   end if;
+  if not has_function_privilege('anon', 'public.is_account_locked_by_phone(text)', 'EXECUTE') then
+    raise exception 'is_account_locked_by_phone must be EXECUTE-able by anon (pre-auth login check)';
+  end if;
 
-  -- record_failed_login is the one function here that WRITES on an
-  -- anonymous caller's say-so — see its own header comment for the
-  -- account-denial exploit that follows if anon or authenticated can call it
-  -- directly. service_role must be able to (the login action's only caller,
-  -- via createServiceRoleClient()); nothing else may.
+  -- record_failed_login/record_failed_login_by_phone are the two functions
+  -- here that WRITE on an anonymous caller's say-so — see their header
+  -- comment for the account-denial exploit that follows if anon or
+  -- authenticated can call either directly. service_role must be able to
+  -- (the login action's only caller, via createServiceRoleClient()); nothing
+  -- else may.
   if has_function_privilege('anon', 'public.record_failed_login(text)', 'EXECUTE') then
     raise exception 'record_failed_login is EXECUTE-able by anon — this is an account-lockout DoS vector, not a hardening gap';
   end if;
@@ -254,6 +399,16 @@ begin
   end if;
   if not has_function_privilege('service_role', 'public.record_failed_login(text)', 'EXECUTE') then
     raise exception 'record_failed_login is NOT EXECUTE-able by service_role — the login action''s only caller would be locked out itself';
+  end if;
+
+  if has_function_privilege('anon', 'public.record_failed_login_by_phone(text)', 'EXECUTE') then
+    raise exception 'record_failed_login_by_phone is EXECUTE-able by anon — this is an account-lockout DoS vector, not a hardening gap';
+  end if;
+  if has_function_privilege('authenticated', 'public.record_failed_login_by_phone(text)', 'EXECUTE') then
+    raise exception 'record_failed_login_by_phone is EXECUTE-able by authenticated — this is an account-lockout DoS vector, not a hardening gap';
+  end if;
+  if not has_function_privilege('service_role', 'public.record_failed_login_by_phone(text)', 'EXECUTE') then
+    raise exception 'record_failed_login_by_phone is NOT EXECUTE-able by service_role — the login action''s only caller would be locked out itself';
   end if;
 
   if has_function_privilege('anon', 'public.clear_login_failures()', 'EXECUTE') then

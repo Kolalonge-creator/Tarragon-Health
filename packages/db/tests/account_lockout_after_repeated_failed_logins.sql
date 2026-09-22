@@ -13,7 +13,18 @@
 --     auth.uid(), so a DIFFERENT authenticated session cannot use it to
 --     clear (or is_account_locked to inspect) someone else's lock by name;
 --     confirms the reset in the step above was this account's own doing,
---     not a blanket unlock.
+--     not a blanket unlock;
+--   * a lock that expires NATURALLY (not via clear_login_failures()) fully
+--     re-arms — a second real lockout event is reachable after 5 more
+--     failures, not permanently disabled after the first (regression for a
+--     bug found before merge — see section 7);
+--   * sabotage — a DIFFERENT authenticated session cannot SELECT this
+--     account's account_lockouts row (RLS), with a control proving the
+--     account's OWN session genuinely can (section 8);
+--   * the phone-OTP login path shares the SAME lock as the password path —
+--     a lockout triggered by password failures blocks phone-OTP sign-in
+--     too, confirming this is genuinely account-wide, not per-method
+--     (section 9).
 --
 -- Run via `supabase db query "$(cat this_file.sql)" --linked`, `psql
 -- $DATABASE_URL -f this_file.sql`, or the Supabase SQL editor.
@@ -231,6 +242,204 @@ begin
   if v_locked is distinct from false or v_attempts <> 0 then
     raise exception 'BROKEN: the account''s own session could not clear its own lock (locked=%, attempts=%)',
       v_locked, v_attempts;
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 7. Regression for the re-arm bug found before merge: once a lock expires
+--    naturally (not via clear_login_failures()), the NEXT failure must clear
+--    the stale locked_until so failed_attempts can climb past 1 again — a
+--    second real lockout event must be reachable, not just the first ever.
+--    A fresh patient is used here (not the one from steps 1-6, which was
+--    already cleared) so this is a clean re-arm test, not a continuation.
+-- ==========================================================================
+do $$
+declare
+  v_org     uuid;
+  v_patient uuid := gen_random_uuid();
+  v_attempts integer;
+  v_locked_until timestamptz;
+  v_locked  boolean;
+  v_notif_count bigint;
+begin
+  select id into v_org from public.organisations limit 1;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_patient, 'alrfl-rearm-patient@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_patient, v_org, 'patient', 'ALRFL Rearm Patient')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+
+  -- Lock it once (5 failures).
+  perform public.record_failed_login('alrfl-rearm-patient@example.invalid');
+  perform public.record_failed_login('alrfl-rearm-patient@example.invalid');
+  perform public.record_failed_login('alrfl-rearm-patient@example.invalid');
+  perform public.record_failed_login('alrfl-rearm-patient@example.invalid');
+  perform public.record_failed_login('alrfl-rearm-patient@example.invalid');
+
+  select public.is_account_locked('alrfl-rearm-patient@example.invalid') into v_locked;
+  if v_locked is distinct from true then
+    raise exception 'SETUP FAILED: expected the account to be locked before simulating expiry';
+  end if;
+
+  -- Simulate the 15-minute lock having already expired — nothing but time
+  -- passing does this in real use; a test can't wait 15 real minutes, so
+  -- this directly backdates locked_until the same way the clock would.
+  update public.account_lockouts
+  set locked_until = now() - interval '1 minute'
+  where profile_id = v_patient;
+
+  -- One failure right after expiry: must reset failed_attempts to a clean 1
+  -- AND clear locked_until to null (the bug: it used to leave locked_until
+  -- stale, which then kept resetting every subsequent failure to 1 forever).
+  perform public.record_failed_login('alrfl-rearm-patient@example.invalid');
+  select failed_attempts, locked_until into v_attempts, v_locked_until
+  from public.account_lockouts where profile_id = v_patient;
+
+  insert into alrfl_result values
+    ('1st failure after natural expiry: attempts reset to 1', coalesce(v_attempts::text, 'null'), '1',
+     case when v_attempts = 1 then 'PASS' else 'FAIL' end);
+  insert into alrfl_result values
+    ('1st failure after natural expiry: locked_until cleared to null',
+     coalesce(v_locked_until::text, 'null'), 'null',
+     case when v_locked_until is null then 'PASS' else 'FAIL' end);
+  if v_attempts <> 1 or v_locked_until is not null then
+    raise exception 'BROKEN: failure right after natural expiry did not reset to a clean state (attempts=%, locked_until=%)',
+      v_attempts, v_locked_until;
+  end if;
+
+  -- THE ACTUAL REGRESSION: 4 more failures must increment normally (2,3,4,5),
+  -- not keep resetting to 1 — and the 5th of THIS batch must fire a SECOND
+  -- real lock + notification. Before the fix, failed_attempts could never
+  -- climb past 1 again here, so this would stay unlocked forever.
+  perform public.record_failed_login('alrfl-rearm-patient@example.invalid');
+  perform public.record_failed_login('alrfl-rearm-patient@example.invalid');
+  perform public.record_failed_login('alrfl-rearm-patient@example.invalid');
+  perform public.record_failed_login('alrfl-rearm-patient@example.invalid');
+
+  select public.is_account_locked('alrfl-rearm-patient@example.invalid') into v_locked;
+  select count(*) into v_notif_count
+  from public.notifications
+  where recipient_id = v_patient and template = 'security.account_locked';
+
+  insert into alrfl_result values
+    ('a SECOND lockout event actually fires after natural expiry + 5 more failures',
+     coalesce(v_locked::text, 'null'), 'true',
+     case when v_locked = true then 'PASS' else 'FAIL' end);
+  insert into alrfl_result values
+    ('the second lockout queued its own second pair of notifications',
+     v_notif_count::text, '4',
+     case when v_notif_count = 4 then 'PASS' else 'FAIL' end);
+  if v_locked is distinct from true or v_notif_count <> 4 then
+    raise exception 'REGRESSION: account_lockouts never re-arms after a natural expiry — attacker gets unlimited attempts after the first lock (locked=%, notifs=%)',
+      v_locked, v_notif_count;
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 8. Sabotage — a DIFFERENT authenticated session cannot SELECT this
+--    account's own account_lockouts row via account_lockouts_select. RLS
+--    restricts to profile_id = auth.uid(); prove it actually discriminates,
+--    not just that the policy compiles.
+-- ==========================================================================
+do $$
+declare
+  v_patient uuid := (select v from alrfl_fixture where k = 'patient');
+  v_other   uuid := gen_random_uuid();
+  v_org     uuid := (select v from alrfl_fixture where k = 'org');
+  v_own_count   bigint;
+  v_cross_count bigint;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_other, 'alrfl-rls-other@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_other, v_org, 'patient', 'ALRFL RLS Other')
+  on conflict (id) do update set organisation_id = excluded.organisation_id;
+
+  -- The OTHER patient's own session: sees only its own (zero, since v_other
+  -- has never failed a login) — asserts the gate OPENS for its own row
+  -- (well, would, if one existed) before the sabotage check proves it stays
+  -- shut for someone else's.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_other::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_own_count from public.account_lockouts where profile_id = v_other;
+  select count(*) into v_cross_count from public.account_lockouts where profile_id = v_patient;
+  reset role;
+
+  insert into alrfl_result values
+    ('a different session sees zero of its OWN (nonexistent) lockout rows',
+     v_own_count::text, '0', case when v_own_count = 0 then 'PASS' else 'FAIL' end);
+  insert into alrfl_result values
+    ('a different session sees ZERO rows for another profile''s lockout history',
+     v_cross_count::text, '0', case when v_cross_count = 0 then 'PASS' else 'FAIL' end);
+  if v_cross_count <> 0 then
+    raise exception 'LEAK: a different authenticated session could SELECT another profile''s account_lockouts row (count=%)',
+      v_cross_count;
+  end if;
+
+  -- Control: the account's OWN session genuinely can see its own row (a
+  -- policy that blocks everyone equally would pass the check above
+  -- vacuously — this proves it actually discriminates by identity, not by
+  -- blanket-denying everyone).
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_patient::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_own_count from public.account_lockouts where profile_id = v_patient;
+  reset role;
+
+  insert into alrfl_result values
+    ('the account''s OWN session sees its OWN lockout row',
+     v_own_count::text, '1', case when v_own_count = 1 then 'PASS' else 'FAIL' end);
+  if v_own_count <> 1 then
+    raise exception 'BROKEN: the account''s own session could not see its own account_lockouts row — the SELECT policy over-restricts';
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 9. Phone-OTP path shares the SAME lock as the password path — a lockout
+--    triggered by password failures genuinely blocks phone-OTP sign-in too,
+--    not just the method that caused it (and record_failed_login_by_phone
+--    contributes to the same counter).
+-- ==========================================================================
+do $$
+declare
+  v_org     uuid;
+  v_patient uuid := gen_random_uuid();
+  v_locked_by_email boolean;
+  v_locked_by_phone boolean;
+begin
+  select id into v_org from public.organisations limit 1;
+
+  insert into auth.users
+    (id, email, phone, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_patient, 'alrfl-phone-patient@example.invalid', '2348012340099', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_patient, v_org, 'patient', 'ALRFL Phone Patient')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+
+  -- Lock the account via the PASSWORD path only.
+  perform public.record_failed_login('alrfl-phone-patient@example.invalid');
+  perform public.record_failed_login('alrfl-phone-patient@example.invalid');
+  perform public.record_failed_login('alrfl-phone-patient@example.invalid');
+  perform public.record_failed_login('alrfl-phone-patient@example.invalid');
+  perform public.record_failed_login('alrfl-phone-patient@example.invalid');
+
+  select public.is_account_locked('alrfl-phone-patient@example.invalid') into v_locked_by_email;
+  -- '+' prefixed, matching what the app actually passes (phoneOtpVerifySchema
+  -- / E164_GENERIC) — proves the '+' -stripping lookup in is_account_locked_
+  -- by_phone actually works against GoTrue's un-prefixed auth.users.phone.
+  select public.is_account_locked_by_phone('+2348012340099') into v_locked_by_phone;
+
+  insert into alrfl_result values
+    ('a password-triggered lock is also visible via is_account_locked_by_phone',
+     coalesce(v_locked_by_phone::text, 'null'), 'true',
+     case when v_locked_by_phone = true then 'PASS' else 'FAIL' end);
+  if v_locked_by_phone is distinct from true or v_locked_by_email is distinct from true then
+    raise exception 'BROKEN: password-path lock is not visible to the phone-OTP path (email=%, phone=%) — a lockout would not actually be account-wide',
+      v_locked_by_email, v_locked_by_phone;
   end if;
 end $$;
 

@@ -11,7 +11,11 @@ import {
 import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
 import { recordLoginDevice } from "@/lib/auth/record-login-device";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
-import { authErrorMessage, isInvalidCredentialsError } from "@/lib/auth/auth-error-message";
+import {
+  authErrorMessage,
+  isInvalidCredentialsError,
+  isInvalidOtpError,
+} from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
@@ -199,18 +203,62 @@ export async function verifyPhoneOtp(
   }
 
   const supabase = await createClient();
+
+  // Same real account-level lockout as the password path (signInWithEmail
+  // above) — see 20260918111442_account_lockout_after_repeated_failed_logins.sql.
+  // Without this, an account locked out by repeated wrong-password attempts
+  // could still be fully authenticated via phone OTP during the lock
+  // window, which would make the lockout read as account-wide protection
+  // without actually being one. Best-effort, same posture as the password
+  // path: a transient failure here must never itself block a real sign-in.
+  let isLocked = false;
+  try {
+    const result = await supabase.rpc("is_account_locked_by_phone", {
+      p_phone: parsed.data.phone,
+    });
+    isLocked = Boolean(result.data);
+  } catch {
+    // Fall through and let verifyOtp decide.
+  }
+  if (isLocked) {
+    return { error: RATE_LIMIT_MESSAGE, step: "verify", phone: parsed.data.phone };
+  }
+
   const { data, error } = await supabase.auth.verifyOtp({
     phone: parsed.data.phone,
     token: parsed.data.token,
     type: "sms",
   });
   if (error || !data.user) {
+    // Only a genuine wrong/expired code counts toward the lockout — never
+    // GoTrue's own rate limiting or a transient network error. Same
+    // service-role-only call as the password path, same reasoning: the anon
+    // key is not a secret, so this must never be callable with the ordinary
+    // client.
+    if (isInvalidOtpError(error)) {
+      try {
+        await createServiceRoleClient().rpc("record_failed_login_by_phone", {
+          p_phone: parsed.data.phone,
+        });
+      } catch {
+        // Never let lockout bookkeeping block showing the real sign-in error.
+      }
+    }
     return {
       error: authErrorMessage(error, "otp_verify"),
       field: "token",
       step: "verify",
       phone: parsed.data.phone,
     };
+  }
+
+  // Best-effort — never let lockout bookkeeping block a real sign-in. Shares
+  // the same clear_login_failures() the password path uses (scoped to the
+  // now-authenticated auth.uid(), not to which method signed in).
+  try {
+    await supabase.rpc("clear_login_failures");
+  } catch {
+    // Never let lockout bookkeeping block a real sign-in.
   }
 
   await redirectAfterLogin(supabase, data.user.id, formData.get("redirectTo"));

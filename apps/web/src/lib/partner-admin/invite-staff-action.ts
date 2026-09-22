@@ -3,6 +3,12 @@
 import { z } from "zod";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import {
+  PASSWORD_COMPLEXITY_REGEX,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_TOO_SHORT_MESSAGE,
+  PASSWORD_TOO_WEAK_MESSAGE,
+} from "@/lib/validation/password";
 
 export type InviteStaffState = { error?: string; message?: string } | undefined;
 
@@ -14,7 +20,16 @@ const invitePartnerStaffSchema = z.object({
     .regex(/^\+[1-9][0-9]{7,14}$/, "Use E.164 format, e.g. +2348012345678")
     .optional()
     .or(z.literal("")),
-  password: z.string().min(8, "At least 8 characters").max(72),
+  // Shared with every patient-facing new-password field (2026-09-18 security
+  // audit — this ad-hoc min(8) used to be weaker than the rest of the
+  // platform, letting a partner admin provision a staff login with a
+  // digits-only or letters-only password while every patient-facing surface
+  // enforced a letter+number floor).
+  password: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE)
+    .max(72)
+    .regex(PASSWORD_COMPLEXITY_REGEX, PASSWORD_TOO_WEAK_MESSAGE),
 });
 
 /**

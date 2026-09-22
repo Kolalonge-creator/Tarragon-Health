@@ -9,7 +9,11 @@
 export function summarizeUserAgent(userAgent: string | null): string {
   if (!userAgent) return "Unknown device";
 
-  const browser = /Edg\//.test(userAgent)
+  // "Edg/" (desktop), "EdgA/" (Android), "EdgiOS/" (iOS) — Edge's UA token
+  // differs per platform; matching only "Edg/" mislabelled mobile Edge as
+  // Chrome/Safari, undermining the "spot an unfamiliar login" point of this
+  // list.
+  const browser = /Edg(A|iOS)?\//.test(userAgent)
     ? "Edge"
     : /OPR\//.test(userAgent)
       ? "Opera"

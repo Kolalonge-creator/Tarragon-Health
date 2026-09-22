@@ -72,6 +72,14 @@ function rawMessage(error: unknown): string {
 const INVALID_CREDENTIALS_PATTERN =
   /invalid login credentials|invalid credentials|invalid email or password/;
 
+/** The two GoTrue error classes that genuinely mean "wrong/expired OTP code"
+ * — the single source of truth both PATTERNS below and isInvalidOtpError()
+ * match against. Deliberately NOT matched against a generic "session
+ * expired" context — see isInvalidOtpError's own doc comment. */
+const EXPIRED_OR_INVALID_TOKEN_PATTERN =
+  /token has expired or is invalid|invalid token|otp_expired|token expired|expired token/;
+const INVALID_OTP_PATTERN = /invalid otp|otp is invalid/;
+
 const PATTERNS: Array<{
   match: RegExp;
   /** Contexts this applies to; omitted means every context. */
@@ -99,11 +107,11 @@ const PATTERNS: Array<{
       "We could not create an account with those details. If you already have one, sign in instead, or reset your password.",
   },
   {
-    match: /token has expired or is invalid|invalid token|otp_expired|token expired|expired token/,
+    match: EXPIRED_OR_INVALID_TOKEN_PATTERN,
     message: "That code is wrong or has expired. Ask for a new one and try again.",
   },
   {
-    match: /invalid otp|otp is invalid/,
+    match: INVALID_OTP_PATTERN,
     message: "That code is not right. Check it and try again.",
   },
   {
@@ -180,4 +188,16 @@ export function authErrorMessage(error: unknown, context: AuthErrorContext = "ge
  */
 export function isInvalidCredentialsError(error: unknown): boolean {
   return INVALID_CREDENTIALS_PATTERN.test(rawMessage(error).toLowerCase());
+}
+
+/**
+ * True only for a genuine wrong/expired OTP code — never GoTrue's own rate
+ * limiting or a network blip. login/actions.ts's verifyPhoneOtp gates the
+ * SAME account-lockout counter isInvalidCredentialsError gates for password
+ * sign-in on this, so a lockout genuinely blocks the account regardless of
+ * which method an attacker (or a confused legitimate owner) tries.
+ */
+export function isInvalidOtpError(error: unknown): boolean {
+  const raw = rawMessage(error).toLowerCase();
+  return EXPIRED_OR_INVALID_TOKEN_PATTERN.test(raw) || INVALID_OTP_PATTERN.test(raw);
 }
