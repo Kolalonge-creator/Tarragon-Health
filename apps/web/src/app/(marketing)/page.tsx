@@ -39,8 +39,11 @@ const HOME_TITLE = "TarragonHealth | Care that stays with you";
 export const metadata: Metadata = {
   ...pageMetadata({
     title: HOME_TITLE,
+    // Kept under ~160 chars on purpose: Google truncates a meta description
+    // around there, and the original 202-char draft cut off mid-sentence
+    // ("...and gets a doctor invol...").
     description:
-      "Care usually stops when you leave the hospital. Tarragon watches your blood pressure, blood sugar, medication and screenings in between, and gets a doctor involved when a result needs one. Free to join.",
+      "Free to join. Tarragon watches your blood pressure, blood sugar, medication and screenings between doctor visits, and brings in a doctor when a result needs one.",
     path: "/",
   }),
   title: { absolute: HOME_TITLE },
