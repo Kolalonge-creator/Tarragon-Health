@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:e2e-mobile": "maestro test .maestro/flows"
   },
   "dependencies": {
     "@babel/runtime": "^7.25.0",

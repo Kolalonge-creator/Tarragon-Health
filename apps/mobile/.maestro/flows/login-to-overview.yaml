@@ -1,0 +1,32 @@
+appId: com.tarragonhealth.mobile
+name: Login to patient overview
+tags:
+  - smoke
+  - launch-path
+---
+# Cold launch: App.tsx shows a branded splash (SafeAreaView, brand-colored,
+# logo mark + ActivityIndicator — no text, no testID) while it resolves
+# supabase.auth.getSession() -> loadPatientIdentity() -> readAppLockEnabled().
+# That gate has its own 8s internal timeout (STUCK_LOADING_TIMEOUT_MS in
+# App.tsx) before showing a "Try again" retry screen — give it real headroom
+# here rather than a tight Maestro-level timeout racing that same clock.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Email"
+    timeout: 15000
+
+# No testID convention exists anywhere in apps/mobile/src (confirmed via
+# repo-wide grep, 2026-09-23) — every selector below targets visible text /
+# accessibilityLabel, the only thing this codebase actually provides.
+- tapOn: "Email"
+- inputText: ${MOBILE_E2E_EMAIL}
+- tapOn: "Password"
+- inputText: ${MOBILE_E2E_PASSWORD}
+- tapOn: "Sign in"
+
+# The static subtitle, not the header ("<FirstName>'s overview") — stays the
+# same regardless of which account MOBILE_E2E_EMAIL points at.
+- extendedWaitUntil:
+    visible: "Today at a glance: your numbers, your care team, and recent activity."
+    timeout: 20000
