@@ -67,6 +67,7 @@ export default async function ClinicianClinicalSignoffPage() {
         staff={data.staff}
         protocols={data.protocols}
         totalConfigCount={data.totalConfigCount}
+        basePath="/clinician"
       />
     </div>
   );

@@ -88,6 +88,7 @@ export default async function ClinicianClinicalRulesPage() {
             rules={rows}
             clinicalStaff={staffOptions ?? []}
             signedProtocols={protocols ?? []}
+            basePath="/clinician"
           />
         </>
       )}

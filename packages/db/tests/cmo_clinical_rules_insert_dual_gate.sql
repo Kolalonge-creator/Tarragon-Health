@@ -6,7 +6,10 @@
 -- signClinicalRuleWithGovernanceAction and draftNextClinicalRuleVersionAction
 -- both depend on), and a plain clinician (active, no chief_medical_officer
 -- tier) still cannot. Mirrors cmo_governed_config_insert_dual_gate.sql's
--- shape. Run inside a transaction that is always rolled back.
+-- shape, including its sabotage step (check 0: temporarily restore the
+-- pre-fix admin-only policy and confirm the Director insert that succeeds
+-- in check 2 would have failed under it). Run inside a transaction that is
+-- always rolled back.
 
 begin;
 
@@ -42,6 +45,45 @@ begin
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
   values (v_director_profile, v_org, 'CR Gate Test Director', 'chief_medical_officer', true, 'MDCN', 'CRGATETEST-002', true, v_verifier, v_verifier, now())
   returning id into v_director_staff;
+
+  -- 0) Sabotage: prove this test would have caught the pre-fix bug. Put
+  -- clinical_rules_insert back to its exact pre-migration shape
+  -- (private.is_admin() only) and confirm the Director insert that succeeds
+  -- in check 2 below would have failed under it. Restored to the real
+  -- (fixed) policy immediately after, before any real check runs.
+  alter policy clinical_rules_insert on public.clinical_rules
+    with check (
+      private.is_admin()
+      and status = 'draft'
+      and approved_by is null
+      and approved_at is null
+      and activated_at is null
+    );
+
+  v_failed := false;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_director_profile, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    insert into public.clinical_rules (rule_key, version, name, description, category, domain, event_type, explanation_template)
+    values (v_rule_key || '_sabotage', 1, 'Gate test rule', 'sabotage proof, must not persist', 'operational', 'engagement', 'appointment_missed', 'test');
+    v_failed := true;
+  exception when others then null; end;
+  reset role;
+  if v_failed then
+    raise exception 'SABOTAGE FAILED: a Clinical Director inserted a clinical_rules draft under the pre-fix (admin-only) policy — this test would not have caught the original bug';
+  end if;
+
+  -- Restored to the real, currently-live shape: private.is_active_clinical_
+  -- director() (20260922200335 folded the original inlined EXISTS into this
+  -- pre-existing helper — see that migration's header).
+  alter policy clinical_rules_insert on public.clinical_rules
+    with check (
+      (private.is_admin() or private.is_active_clinical_director())
+      and status = 'draft'
+      and approved_by is null
+      and approved_at is null
+      and activated_at is null
+    );
 
   -- 1) Plain clinician cannot insert a draft clinical_rules row.
   v_failed := false;

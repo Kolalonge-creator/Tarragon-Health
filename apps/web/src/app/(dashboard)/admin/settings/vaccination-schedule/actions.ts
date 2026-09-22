@@ -50,7 +50,7 @@ export async function createVaccinationScheduleDraftAction(
   const sourceUrl = String(formData.get("source_url") ?? "").trim() || null;
   const notes =
     String(formData.get("notes") ?? "").trim() ||
-    `Reviewed and drafted by admin, version ${nextVersion}. Sign to bring into force.`;
+    `Reviewed and drafted by ${profile?.role === "admin" ? "admin" : "the Clinical Director"}, version ${nextVersion}. Sign to bring into force.`;
 
   const { error } = await supabase.from("vaccination_schedule_signoffs").insert({
     version: nextVersion,

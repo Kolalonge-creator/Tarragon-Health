@@ -107,7 +107,7 @@ export async function createEscalationSlaDraftAction(
     String(formData.get("notes") ?? "").trim() ||
     (changes.length > 0
       ? `Version ${nextVersion}: ${changes.join("; ")}. Sign to bring into force.`
-      : `Re-attested by admin, version ${nextVersion}, config unchanged from the prior active version. Sign to bring into force.`);
+      : `Re-attested by ${profile?.role === "admin" ? "admin" : "the Clinical Director"}, version ${nextVersion}, config unchanged from the prior active version. Sign to bring into force.`);
 
   const { error } = await supabase.from("escalation_slas").insert({
     version: nextVersion,

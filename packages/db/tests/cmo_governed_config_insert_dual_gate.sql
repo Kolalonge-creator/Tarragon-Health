@@ -1,6 +1,6 @@
 -- Tarragon Health — CMO governed-config INSERT dual-gate verification
 --
--- Proves the fix in 20260922192709_cmo_governed_config_insert_dual_gate.sql:
+-- Proves the fix in 20260922193027_cmo_governed_config_insert_dual_gate.sql:
 -- an active Clinical Director can insert a new draft version on each of the
 -- 5 governed config tables that were previously admin-INSERT-only
 -- (alert_rules, escalation_slas, mental_health_screening_cadences,
@@ -10,7 +10,12 @@
 -- inside a transaction that is always rolled back — nothing here should ever
 -- be committed.
 --
--- Checks per table:
+-- Checks:
+--   0. Sabotage (alert_rules only, stands for all 5 — identical WITH CHECK
+--      shape): temporarily restore the pre-fix admin-only policy and
+--      confirm a Director insert that succeeds below would have failed
+--      under it, proving this test can actually fail.
+--   Per table:
 --   1. A plain clinician (no CMO tier) cannot insert a draft — RLS refuses.
 --   2. An active Clinical Director CAN insert a draft.
 --   3. The inserted row lands unsigned/inactive, as the policy requires.
@@ -50,6 +55,40 @@ begin
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
   values (v_director_profile, v_org, 'Gate Test Director', 'chief_medical_officer', true, 'MDCN', 'GATETEST-002', true, v_verifier, v_verifier, now())
   returning id into v_director_staff;
+
+  -- ---- sabotage: prove this test would have caught the pre-fix bug -------
+  -- Temporarily put alert_rules_insert back to its exact pre-migration
+  -- shape (private.is_admin() only, no Clinical Director fallback) and
+  -- confirm the Director insert that succeeds below would have failed
+  -- under it. All 5 tables in this migration got the identical WITH CHECK
+  -- transformation from the same migration, so proving the mechanism once
+  -- here stands for all 5 rather than repeating it 5 times. Restored to the
+  -- real (fixed) policy immediately after, before any real check runs.
+  alter policy alert_rules_insert on public.alert_rules
+    with check (private.is_admin() and approved_by is null and approved_at is null and is_active = false);
+
+  v_failed := false;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_director_profile, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    insert into public.alert_rules (version, config, notes) values (999000, '[]'::jsonb, 'sabotage proof, must not persist');
+    v_failed := true;
+  exception when others then null; end;
+  reset role;
+  if v_failed then
+    raise exception 'SABOTAGE FAILED: a Clinical Director inserted an alert_rules draft under the pre-fix (admin-only) policy — this test would not have caught the original bug';
+  end if;
+
+  -- Restored to the real, currently-live shape: private.is_active_clinical_
+  -- director() (20260922200335 folded the original inlined EXISTS into this
+  -- pre-existing helper — see that migration's header).
+  alter policy alert_rules_insert on public.alert_rules
+    with check (
+      (private.is_admin() or private.is_active_clinical_director())
+      and approved_by is null
+      and approved_at is null
+      and is_active = false
+    );
 
   -- ---- alert_rules ----------------------------------------------------
   v_failed := false;

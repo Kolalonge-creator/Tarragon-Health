@@ -51,7 +51,7 @@ export async function createScreeningCadenceDraftAction(
   const nextVersion = latest.version + 1;
   const notes =
     String(formData.get("notes") ?? "").trim() ||
-    `Re-attested by admin, version ${nextVersion}, config unchanged from version ${latest.version}. Sign to bring into force.`;
+    `Re-attested by ${profile?.role === "admin" ? "admin" : "the Clinical Director"}, version ${nextVersion}, config unchanged from version ${latest.version}. Sign to bring into force.`;
 
   const { error } = await supabase.from("mental_health_screening_cadences").insert({
     version: nextVersion,

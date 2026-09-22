@@ -57,7 +57,7 @@ export async function createCvRiskConfigDraftAction(
     organisation_id: organisationId,
     version: nextVersion,
     config: config as unknown as Json,
-    notes: `Edited by admin, version ${nextVersion}. Review and sign to bring into force.`,
+    notes: `Edited by ${profile?.role === "admin" ? "admin" : "the Clinical Director"}, version ${nextVersion}. Review and sign to bring into force.`,
   });
   if (error) return { error: error.message };
 
