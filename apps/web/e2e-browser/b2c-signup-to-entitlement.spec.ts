@@ -40,11 +40,14 @@ test.describe("B2C signup form", () => {
 
 // The 3 tests below share one patient and have a real ordering dependency:
 // onboarding must complete before the later two can reach /patient/* pages
-// without being redirected back to /onboarding. Relies on this config's
-// `workers: 1` / no `fullyParallel` (playwright.config.ts) to guarantee
-// declaration-order execution within this file — an atypical thing to lean
-// on in Playwright generally, called out here rather than left implicit.
+// without being redirected back to /onboarding. Explicit serial mode (not
+// just leaning on playwright.config.ts's own worker count) so that if "log
+// in and complete onboarding" fails, the other two are SKIPPED rather than
+// run anyway and fail with confusing, unrelated-looking timeouts (they were
+// never going to pass once onboarding didn't complete).
 test.describe("authenticated patient journey", () => {
+  test.describe.configure({ mode: "serial" });
+
   let patient: TestPatient;
 
   test.beforeAll(async () => {
@@ -124,7 +127,12 @@ test.describe("authenticated patient journey", () => {
     await page.waitForURL(/\/patient/, { timeout: 15_000 });
 
     await page.goto("/patient/subscription");
-    const activeRow = page.getByText(productName).locator("..");
+    // subscription-manager.tsx's actual structure: <li><div><p>name</p><p>...</p></div><Badge>Active</Badge></li>
+    // — the Badge is a SIBLING of the <div> wrapping the name, not a
+    // descendant of it, so .locator("..") (one level up from the name)
+    // lands on that <div> and would never find "Active" inside it. Go up
+    // to the <li> instead.
+    const activeRow = page.getByText(productName).locator("../..");
     await expect(activeRow.getByText("Active", { exact: true })).toBeVisible({ timeout: 10_000 });
   });
 });

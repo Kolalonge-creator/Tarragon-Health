@@ -65,10 +65,33 @@ own comment) rather than failing the run.
 
 Neither spec drives Paystack's actual hosted checkout page to completion —
 there's no test card to enter, and doing so would be flaky and out of this
-app's own scope. Webhook-side payment processing (signature verification,
-idempotency, the `charge.success`/refund state machine) has its own
-dedicated, fully-executed test suite:
-`supabase/functions/paystack-webhook/index.test.ts`.
+app's own scope. `seedActiveServicePurchase` bypasses Paystack and the
+webhook entirely, seeding the exact end state
+`private.apply_service_purchase_payment` produces so the UI layer can be
+proven honestly — it does not exercise the webhook's own request handling at
+all.
+
+Webhook-side payment processing (signature verification, idempotency, the
+`charge.success`/refund state machine) is covered separately by
+`supabase/functions/paystack-webhook/index.test.ts` — **not yet on
+`main-dev` as of this PR**, only on the still-open
+`test/paystack-webhook-replay-idempotency` branch (PR #722); check whether
+it's merged before treating it as present. Read that test's own header
+before assuming more than it proves, too: it runs against a hand-rolled
+in-memory fake Supabase client, not a real Postgres instance, so it verifies
+the webhook's own branching/idempotency *logic* correctly, not that a real
+`charge.success` payload through the real webhook against a real trigger on a real database produces an `active`
+`service_purchases` row. Three separate proofs, each real but partial:
+this suite proves the UI honestly reflects the trigger's documented output;
+`index.test.ts` proves the webhook's own decision logic against a fake DB;
+and `packages/db/tests/payment_activation_amount_and_reference.sql`
+(registered in `ci.manifest`, run by the `supabase-db` CI job) proves the
+trigger itself against a real Postgres instance. No single test drives all
+three at once — a real Paystack `charge.success` payload arriving at the
+real deployed webhook against a real database is only provable by an actual
+production/staging round trip, which is what the original implementation
+plan's "real test-mode round trip" verification step (referenced in the
+webhook's own header comment) was for.
 
 ## A known verification gap, stated plainly
 

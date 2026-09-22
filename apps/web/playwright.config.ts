@@ -19,10 +19,20 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e-browser",
-  fullyParallel: false,
+  // fullyParallel left at Playwright's own default (false): tests within
+  // ONE FILE always share a worker and run in declaration order — exactly
+  // what employer-eligibility.spec.ts's 3 tests want (they share one
+  // beforeAll-seeded org; fullyParallel:true could split them across
+  // workers, running that beforeAll/afterAll redundantly once per worker
+  // for no benefit, since these are 3 fast, already-sequential tests).
+  // b2c-signup-to-entitlement.spec.ts's "authenticated patient journey"
+  // block has a real ordering dependency beyond this and declares its own
+  // test.describe.configure({ mode: "serial" }) for that. No `workers` cap
+  // here, unlike the removed `workers: 1` — DIFFERENT files (this one vs.
+  // employer-eligibility.spec.ts) are independent and can run concurrently
+  // across workers; only intra-file order needed protecting.
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   globalSetup: "./e2e-browser/global-setup.ts",
   timeout: 30_000,

@@ -158,7 +158,16 @@ jobs:
   e2e-browser:
     name: Browser E2E (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # supabase-db below (migration replay + DB proofs only) budgets 15
+    # minutes; this job does that SAME supabase start + db reset, plus
+    # pnpm install, a cold `playwright install --with-deps chromium`
+    # (routinely 2-5 min on a fresh runner), Next's own dev-server boot, and
+    # 7 real-browser tests — 20 minutes had no empirical basis (this job
+    # could not be run even once before being written, see the header
+    # comment below) and was reviewed as likely too tight. 30 minutes gives
+    # real headroom; tighten once this job has actually run and its real
+    # duration is known.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 

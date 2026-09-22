@@ -27,11 +27,17 @@ test.describe("employer eligibility checker (/corporate)", () => {
     if (error || !org) throw error ?? new Error("organisation insert returned no row");
     organisationId = org.id;
 
+    // public.employer_roster_status is ('pending' | 'claimed' | 'removed' |
+    // 'invited' | 'departed') — no 'active' value exists. checkEligibility()
+    // only excludes 'removed' (.neq("status", "removed")), so 'pending' (the
+    // table's own default, matching a roster member added but not yet
+    // claimed — the exact scenario this test's copy assertion describes:
+    // "Sign up... and your coverage attaches automatically") is correct.
     const { error: rosterError } = await adminClient.from("employer_roster_members").insert({
       organisation_id: organisationId,
       phone: coveredPhoneE164,
       full_name: "[e2e-test] Roster Member",
-      status: "active",
+      status: "pending",
     });
     if (rosterError) throw rosterError;
   });

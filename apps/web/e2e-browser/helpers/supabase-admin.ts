@@ -98,14 +98,19 @@ export async function deleteTestPatient(patient: TestPatient): Promise<void> {
  * Seeds a service_purchases + payment_transactions pair whose end state is
  * byte-for-byte what private.apply_service_purchase_payment() (the same
  * AFTER INSERT trigger the real Paystack webhook's INSERT fires — see
- * supabase/functions/paystack-webhook/handler.ts and
+ * supabase/functions/paystack-webhook/ — index.ts on main-dev as of this
+ * writing, split into handler.ts + index.ts on the still-unmerged
+ * test/paystack-webhook-replay-idempotency branch/PR #722, check which is
+ * current — and
  * supabase/migrations/20260831143207_service_purchase_checkout_and_payment_trigger.sql,
  * refined by 20260905060745 and 20260910215431) produces for a genuinely
  * completed payment — without ever calling Paystack or the webhook. The
  * trigger is the SAME code running against the SAME local stack the app
  * itself talks to, so this proves the UI layer honestly reflects real DB
- * state, not that the payment flow's webhook code works (that's
- * supabase/functions/paystack-webhook/index.test.ts's job).
+ * state, not that the webhook's own request-handling code works, and not
+ * that the trigger itself is correct against a real payload shape (see
+ * e2e-browser/README.md's "What this does NOT do" for the full three-way
+ * breakdown of what is and isn't proven where).
  */
 export async function seedActiveServicePurchase(
   patientId: string,

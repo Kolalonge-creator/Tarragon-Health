@@ -345,6 +345,18 @@ rules and let the git history / PR descriptions be the record of what shipped wh
 
 **Known standing follow-ups, as last recorded — verify each before acting, none of these should be
 taken on faith:**
+- **Supabase branching is unavailable on the current plan** (`PaymentRequiredException: Branching is
+  supported only on the Pro plan or above`) — hit live twice now, independently, six weeks apart
+  (2026-08-07, again 2026-09-23 while building the browser-E2E suite at `apps/web/e2e-browser/`), each
+  time only left as a code comment rather than surfaced here. This blocks giving CI a genuinely
+  disposable, per-run database for anything that needs one (real signup/checkout/eligibility E2E in
+  particular) — the workaround in place is a free, local, Docker-based Supabase stack
+  (`supabase start` + `db reset`, the same tooling the `supabase-db` CI job already proves works), which
+  is real isolation but real CI runner minutes, not the same fidelity/speed a hosted branch would give.
+  **Founder decision needed**: is a Pro-plan upgrade (a recurring cost, not evaluated here) worth it for
+  CI branching, or is the local-stack workaround the permanent answer? Until decided, expect this exact
+  wall to be hit again the next time disposable-database CI comes up — check this entry before
+  re-discovering it a third time.
 - **RESOLVED 2026-09-02, confirmed live 2026-09-03** — `main-dev` branch protection now lists all
   three CI jobs (`Supabase migration replay`, `Python ML service`, `TypeScript (web + shared)`) under
   `required_status_checks.contexts`, `enforce_admins` is `true`, and `gh pr merge` genuinely refuses a
