@@ -234,3 +234,28 @@ finance_reversal_concurrent_lock.sh
 # async-consult-answered and video-consultation-completed flows, with a
 # sabotage control for bug (1).
 clinical_encounter_note_link_bugs.sql
+
+# cancel_care_voucher (20260830103626) located the GL entry behind each
+# payment it cancels with a PLAIN select, unlocked -- composed with
+# 20260922181900's fix to finance_reverse_entry (its own SELECT ... FOR
+# UPDATE, and a RAISE when a concurrent caller already reversed the row),
+# a genuinely concurrent, independent reversal of the SAME payment entry
+# (an unrelated finance officer action, or an approved journal_reversal
+# request against it -- NOT a second cancel_care_voucher call on the same
+# voucher, which this function's own top-level care_vouchers FOR UPDATE
+# already fully serialises) could abort the WHOLE cancellation transaction
+# with an unhandled 'entry already reversed' -- the voucher left uncancelled
+# and its refund never queued, over something that isn't actually a reason
+# cancellation should fail. Same .sh-not-.sql reasoning as
+# finance_reversal_concurrent_lock.sh above (a single session can't hold a
+# lock against itself to prove a second one blocks on it). Fix: lock +
+# recheck, adding FOR UPDATE to both of this function's target entry
+# lookups -- under Postgres's documented SELECT ... FOR UPDATE semantics, a
+# lookup that blocks on a row someone else is reversing re-evaluates its
+# WHERE clause against the newly-committed row once unblocked, so an
+# already-reversed entry is simply excluded from the result rather than
+# handed to finance_reverse_entry to raise on. Proves the fixed race
+# completes cleanly (voucher cancelled, refund queued, challenger genuinely
+# blocked >=1s) and a sabotage phase that temporarily redeploys the exact
+# pre-fix body reopens the unhandled-abort failure mode.
+care_voucher_cancellation_concurrent_reversal.sh
