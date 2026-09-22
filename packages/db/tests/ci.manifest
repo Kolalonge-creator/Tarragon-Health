@@ -277,10 +277,15 @@ preventive_health_check_review_sku.sql
 # original committed INSERT text (vitals_red_flag_doctor_escalation only),
 # never checking that the LIVE continuous_monitoring_3m/6m rows had since
 # been expanded to seven features by a later migration. Fixed in
-# 20260922193500_fix_continuous_monitoring_90d_missing_doctor_time_features.sql.
-# Proves the array carries all seven features (not the 12-month-only
-# annual_review bonus), that a real purchase flips a real enrolment from
-# self_monitoring to doctor_supported and grants clinician_review/
-# doctor_checkin, and a sabotage run (features reverted to the pre-fix
-# single-feature shape) reproduces the original bug.
-continuous_monitoring_90d_doctor_time_features.sql
+# 20260922193500_fix_continuous_monitoring_90d_missing_doctor_time_features.sql,
+# corrected again by 20260922225731_restore_annual_review_reachability_on_
+# continuous_monitoring_90d.sql (that fix's own "not the 12-month-only
+# annual_review bonus" reasoning turned out to make annual_review
+# unreachable platform-wide — see that migration's header). The dedicated
+# regression test for this, continuous_monitoring_90d_doctor_time_features.sql,
+# needs a real chronic-programme enrolment fixture that only the live
+# project has activated (supabase/seed/seed.sql never activates one) — see
+# its entry in ci.excluded for why, and confirmation it passes live. CI
+# coverage for "annual_review must stay reachable" instead comes from
+# doctor_time_entitlement_grantable_by_purchasable_product.sql (line 14
+# above), which builds its own fixtures generically and already covers this.

@@ -105,11 +105,19 @@ begin
     raise exception 'FAIL: continuous_monitoring_90d is missing: %', v_missing;
   end if;
 
+  -- Corrected by 20260922225731_restore_annual_review_reachability_on_
+  -- continuous_monitoring_90d.sql: this migration originally shipped WITHOUT
+  -- annual_review on the theory it was a 12-month-tier-only bonus with no
+  -- home left once that tier retired — but that made the entitlement
+  -- unreachable platform-wide, exactly the defect
+  -- doctor_time_entitlement_grantable_by_purchasable_product.sql exists to
+  -- catch. It now belongs here, the one remaining Continuous Monitoring
+  -- product.
   insert into cmdf_result values
-    ('continuous_monitoring_90d does NOT carry the 12-month-only annual_review bonus', (not ('annual_review' = any(v_features)))::text, 'true',
-     case when not ('annual_review' = any(v_features)) then 'PASS' else 'FAIL' end);
-  if 'annual_review' = any(v_features) then
-    raise exception 'FAIL: continuous_monitoring_90d should not carry annual_review';
+    ('continuous_monitoring_90d carries annual_review (the only home left for it)', ('annual_review' = any(v_features))::text, 'true',
+     case when 'annual_review' = any(v_features) then 'PASS' else 'FAIL' end);
+  if not ('annual_review' = any(v_features)) then
+    raise exception 'FAIL: continuous_monitoring_90d should carry annual_review — see 20260922225731';
   end if;
 end $$;
 
