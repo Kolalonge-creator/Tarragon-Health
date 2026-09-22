@@ -32,6 +32,19 @@ export async function updatePassword(
     return { error: authErrorMessage(error, "password_update"), field: "password" };
   }
 
+  // Same as verifyPhoneReset's success path (forgot-password/actions.ts) —
+  // without this, a patient who was locked out after 5 wrong passwords,
+  // then reset via the emailed link (proving ownership and setting a valid
+  // new password), stays locked: is_account_locked() would still refuse
+  // their brand-new correct password for up to 15 more minutes if their
+  // reset session ends before the lock naturally expires. Best-effort —
+  // never let lockout bookkeeping block a real password reset.
+  try {
+    await supabase.rpc("clear_login_failures");
+  } catch {
+    // Never let lockout bookkeeping block a real password reset.
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
