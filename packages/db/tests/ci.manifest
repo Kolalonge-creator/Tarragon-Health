@@ -245,3 +245,28 @@ clinical_encounter_note_link_bugs.sql
 # policy with the pre-fix bare text against a real table to confirm it still
 # fails to even CREATE (42725) today.
 can_read_clinical_bare_literal_policy_cast.sql
+
+# --- Added 2026-09-22 — launch-scope audit reconciliation --------------------
+# Three standing proofs for the launch-scope audit reconciliation work
+# (see docs/LAUNCH_SCOPE_AND_PLATFORM_REBUILD_AUDIT_2026-09-21.md):
+#   platform_credit_topups_kill_switch.sql — the new platform_credit_topups
+#     module gates record_platform_credit_topup_intent (refuses while off,
+#     opens once a superadmin switches it on via set_platform_module, closes
+#     again on toggle-back) while spend and balance/ledger reads are always
+#     unaffected, proven with a real funded balance throughout.
+#   continuous_monitoring_90d_single_tier.sql — the retired 3/6/12-month
+#     tiers are inactive but an EXISTING active purchase against one still
+#     grants access (deactivating a product must never retroactively revoke
+#     it); the new 90-day tier opens/closes the escalation gate and expires
+#     exactly 90 days after a real record_service_purchase_intent purchase;
+#     buying a retired code is refused outright.
+#   preventive_health_check_review_sku.sql — the SKU ships is_active = false
+#     (a real purchase attempt is refused, not just documented as blocked)
+#     pending Clinical Director sign-off on prevention_intake; the
+#     service_purchases trigger that opens/stamps a patient's Health Check
+#     on activation is scoped to only this product's feature (an unrelated
+#     purchase never touches annual_health_checks) and works even for a
+#     patient who never started the free Health Check journey.
+platform_credit_topups_kill_switch.sql
+continuous_monitoring_90d_single_tier.sql
+preventive_health_check_review_sku.sql

@@ -3,6 +3,24 @@ import { z } from "zod";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { initiatePlatformCreditTopupCheckout } from "@/lib/billing/platform-credit-checkout";
 
+/** Same message and same reasoning as the web action
+ * (apps/web/.../patient/platform-credit/actions.ts) — see
+ * 20260922185100_platform_credit_topups_kill_switch.sql.
+ *
+ * Checked here via a direct `platform_modules` read on the bearer-
+ * authenticated client, not lib/platform-modules.ts's
+ * `isPlatformModuleEnabled` — that helper builds a cookie-based server
+ * client (lib/supabase/server.ts's createClient, which reads next/headers'
+ * cookies()), and this route has no cookie session at all, only a bearer
+ * token. Calling it here would silently read as `anon` (no cookie session
+ * found) and always report every module disabled regardless of its real
+ * state, since `platform_modules` has no anon SELECT grant. The RPC itself
+ * (private.module_enabled inside record_platform_credit_topup_intent) still
+ * refuses independently either way — this is the route-level layer, not the
+ * only one. */
+const TOPUPS_DISABLED_MESSAGE =
+  "Adding funds isn't available right now. Your existing Platform Credit balance and spending are not affected.";
+
 /**
  * Mobile equivalent of apps/web/.../patient/platform-credit/actions.ts's
  * topUpPlatformCredit — same two-step shape (record_platform_credit_topup_intent,
@@ -43,6 +61,15 @@ export async function POST(request: Request): Promise<NextResponse> {
       { error: "Your account needs an email on file to fund your balance." },
       { status: 400 }
     );
+  }
+
+  const { data: topupsModule } = await supabase
+    .from("platform_modules")
+    .select("is_enabled")
+    .eq("key", "platform_credit_topups")
+    .maybeSingle();
+  if (!topupsModule?.is_enabled) {
+    return NextResponse.json({ error: TOPUPS_DISABLED_MESSAGE }, { status: 403 });
   }
 
   let body: unknown;

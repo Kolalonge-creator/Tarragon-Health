@@ -2041,6 +2041,7 @@ export type Database = {
           lab_order_id: string | null
           organisation_id: string
           patient_id: string
+          review_requested_at: string | null
           review_summary: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -2059,6 +2060,7 @@ export type Database = {
           lab_order_id?: string | null
           organisation_id: string
           patient_id: string
+          review_requested_at?: string | null
           review_summary?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -2077,6 +2079,7 @@ export type Database = {
           lab_order_id?: string | null
           organisation_id?: string
           patient_id?: string
+          review_requested_at?: string | null
           review_summary?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null

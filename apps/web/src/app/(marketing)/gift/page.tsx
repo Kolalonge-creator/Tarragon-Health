@@ -56,7 +56,7 @@ function giftIdeas(overrides: ResolvedServicePrices) {
     },
     {
       title: "Continuous Monitoring",
-      price: `From ${servicePrice("continuous_monitoring_3m", overrides)}, for three months`,
+      price: `${servicePrice("continuous_monitoring_90d", overrides)}, for 90 days`,
       body: "A standing watch on the blood pressure, blood sugar and other readings they log: checked against care protocols, with a dangerous one put in front of a doctor rather than sitting unnoticed. Bought once for a fixed term, then it simply stops; nothing renews on its own.",
     },
     {

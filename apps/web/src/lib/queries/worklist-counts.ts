@@ -425,6 +425,26 @@ async function countCareThreadsAwaitingReply(supabase: Client) {
   return data ?? 0;
 }
 
+/**
+ * Preventive Health Check Reviews a patient has paid for but nobody has
+ * written back yet — exact same predicate as the preventive-health-check-
+ * reviews worklist page's own query. Before this counter/page existed
+ * (added 2026-09-22 alongside the Preventive Health Check Review SKU, see
+ * 20260922185300_preventive_health_check_review_sku.sql), a doctor could
+ * only find a check to review by already knowing the patientId and
+ * navigating straight to /clinician/patients/[patientId] — nothing
+ * surfaced "a patient is waiting on this" anywhere.
+ */
+async function countPreventiveHealthCheckReviewsWaiting(supabase: Client) {
+  const { count, error } = await supabase
+    .from("annual_health_checks")
+    .select("id", { count: "exact", head: true })
+    .not("review_requested_at", "is", null)
+    .is("reviewed_at", null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export type WorklistCountKey =
   | "escalations"
   | "referralsNeedingUrgency"
@@ -460,7 +480,8 @@ export type WorklistCountKey =
   | "careThreadsAwaitingReply"
   | "labOrdersAwaitingHomeVisitAssignment"
   | "labResultConsultsWaiting"
-  | "fhirProposedResourcesPending";
+  | "fhirProposedResourcesPending"
+  | "preventiveHealthCheckReviewsWaiting";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -503,6 +524,7 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   labOrdersAwaitingHomeVisitAssignment: countLabOrdersAwaitingHomeVisitAssignment,
   labResultConsultsWaiting: countLabResultConsultsWaiting,
   fhirProposedResourcesPending: countFhirProposedResourcesPending,
+  preventiveHealthCheckReviewsWaiting: countPreventiveHealthCheckReviewsWaiting,
 };
 
 /**

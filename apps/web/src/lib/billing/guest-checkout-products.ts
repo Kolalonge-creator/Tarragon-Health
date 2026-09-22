@@ -20,9 +20,7 @@ import { PAID_SERVICES, WEIGHT_MANAGEMENT } from "@/app/(marketing)/_content/pri
  * a hand-crafted request for a code that was never meant to be guest-buyable.
  */
 export const GUEST_CHECKOUT_PRODUCT_CODES = [
-  "continuous_monitoring_3m",
-  "continuous_monitoring_6m",
-  "continuous_monitoring_12m",
+  "continuous_monitoring_90d",
   "written_result_interpretation",
   "result_interpretation_credit",
   "async_consult_credit",
@@ -74,12 +72,11 @@ export function guestCheckoutProductCopy(
     };
   }
 
-  // Continuous Monitoring's 6/12-month terms share the 3-month entry's copy
-  // and description — only the price/term label differ, held in `terms`.
-  const parentCode = code.startsWith("continuous_monitoring_")
-    ? "continuous_monitoring_3m"
-    : code;
-  const service = PAID_SERVICES.find((s) => s.code === parentCode);
+  // Continuous Monitoring collapsed to a single 90-day code 2026-09-22 (see
+  // 20260922185200_continuous_monitoring_90d_single_tier.sql) — no more
+  // 3/6/12-month terms to special-case here, `code` matches a PAID_SERVICES
+  // entry directly.
+  const service = PAID_SERVICES.find((s) => s.code === code);
   if (!service) return null;
 
   const term = service.terms?.find((t) => t.code === code);
