@@ -17625,7 +17625,7 @@ export type Database = {
           action_completed_at: string | null
           action_completed_by: string | null
           ai_summary_generated_at: string | null
-          ai_summary_status: Database["public"]["Enums"]["lab_result_ai_summary_status"]
+          ai_summary_status: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id: string | null
           created_at: string
           file_path: string
@@ -17656,7 +17656,7 @@ export type Database = {
           action_completed_at?: string | null
           action_completed_by?: string | null
           ai_summary_generated_at?: string | null
-          ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
+          ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path: string
@@ -17687,7 +17687,7 @@ export type Database = {
           action_completed_at?: string | null
           action_completed_by?: string | null
           ai_summary_generated_at?: string | null
-          ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
+          ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path?: string
@@ -41863,7 +41863,7 @@ export type Database = {
         | "clinically_withdrawn"
       lab_refund_status: "requested" | "approved" | "rejected" | "paid"
       lab_report_status: "preliminary" | "final" | "corrected" | "amended"
-      lab_result_ai_summary_status:
+      ai_document_summary_status:
         | "pending"
         | "ready"
         | "flagged"
@@ -44100,7 +44100,7 @@ export const Constants = {
       ],
       lab_refund_status: ["requested", "approved", "rejected", "paid"],
       lab_report_status: ["preliminary", "final", "corrected", "amended"],
-      lab_result_ai_summary_status: [
+      ai_document_summary_status: [
         "pending",
         "ready",
         "flagged",
