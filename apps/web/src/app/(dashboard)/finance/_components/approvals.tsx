@@ -5,17 +5,57 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePendingApprovals, useApprovalHistory, financeKeys } from "@/lib/finance/queries";
+import type { PendingApproval, ApprovalHistoryEntry } from "@/lib/finance/schemas";
 import { approveRequestAction, rejectRequestAction } from "@/lib/finance/actions";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
 import { formatPatientDateTime } from "@/lib/format-date";
 
-function requestSummary(payload: Record<string, unknown>, type: string): string {
-  if (type === "period_lock") {
-    return `Lock accounting period ${String(payload.period_month ?? "")}`;
+type RequestType = (PendingApproval | ApprovalHistoryEntry)["request_type"];
+
+// Switches on the union type, not `string` -- if a future migration adds a
+// fourth request_type without updating this file, TypeScript refuses to
+// compile it (the `never` assignment below) instead of silently falling
+// through to the manual_journal rendering, which is exactly the bug this
+// file was fixed for once already (a journal_reversal row rendering as a
+// mislabelled "Manual journal · ₦0" request).
+export function requestLabel(type: RequestType): string {
+  switch (type) {
+    case "period_lock":
+      return "Period lock";
+    case "journal_reversal":
+      return "Reversal";
+    case "manual_journal":
+      return "Manual journal";
+    default: {
+      const _exhaustive: never = type;
+      return _exhaustive;
+    }
   }
-  const lines = Array.isArray(payload.lines) ? (payload.lines as { debit_minor?: number; credit_minor?: number }[]) : [];
-  const max = lines.reduce((m, l) => Math.max(m, l.debit_minor ?? 0, l.credit_minor ?? 0), 0);
-  return `Journal entry: ${formatMinor(max, String(payload.currency ?? "NGN"))} · ${String(payload.memo ?? "")}`;
+}
+
+export function requestSummary(row: PendingApproval | ApprovalHistoryEntry): string {
+  const { payload, request_type: type } = row;
+  switch (type) {
+    case "period_lock":
+      return `Lock accounting period ${String(payload.period_month ?? "")}`;
+    case "journal_reversal": {
+      const target = row.reversal_target;
+      const amount = target ? formatMinor(target.amount_minor, target.currency) : "an entry";
+      const entryLabel = target ? `entry #${target.entry_no}` : "an entry that no longer exists";
+      return `Reverse ${entryLabel}: ${amount} · ${String(payload.reason ?? "")}`;
+    }
+    case "manual_journal": {
+      const lines = Array.isArray(payload.lines)
+        ? (payload.lines as { debit_minor?: number; credit_minor?: number }[])
+        : [];
+      const max = lines.reduce((m, l) => Math.max(m, l.debit_minor ?? 0, l.credit_minor ?? 0), 0);
+      return `Journal entry: ${formatMinor(max, String(payload.currency ?? "NGN"))} · ${String(payload.memo ?? "")}`;
+    }
+    default: {
+      const _exhaustive: never = type;
+      return _exhaustive;
+    }
+  }
 }
 
 export function ApprovalsQueue() {
@@ -34,7 +74,21 @@ export function ApprovalsQueue() {
     const res = await approveRequestAction(id, note[id] ?? "");
     setBusy(null);
     if (!res.ok) return setMsg({ ok: false, text: res.error ?? "Could not approve." });
-    setMsg({ ok: true, text: "Approved and posted." });
+    // finance_approve_request can resolve a journal_reversal request to a
+    // clean auto-rejection (never a thrown error) instead of posting, when
+    // it can't actually be carried out: see the row-locking migration.
+    const data = res.data as { status?: string; reason?: string } | null;
+    if (data?.status === "rejected") {
+      const reasonText =
+        data.reason === "entry_already_reversed"
+          ? "this entry was already reversed by another approved request"
+          : data.reason === "entry_not_found"
+            ? "the entry this request targets no longer exists"
+            : "the reversal could not be completed";
+      setMsg({ ok: true, text: `Not posted: ${reasonText}, so this request was auto-rejected.` });
+    } else {
+      setMsg({ ok: true, text: "Approved and posted." });
+    }
     invalidate();
   }
 
@@ -67,6 +121,11 @@ export function ApprovalsQueue() {
       >
         {pending.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : pending.isError ? (
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            Could not load pending approvals. This does NOT mean there is nothing waiting: reload the
+            page before trusting an empty queue.
+          </p>
         ) : (pending.data ?? []).length === 0 ? (
           <CenterNote>Nothing waiting on approval. ✓</CenterNote>
         ) : (
@@ -75,8 +134,8 @@ export function ApprovalsQueue() {
               <div key={r.id} className="rounded-lg border border-charcoal-ink/10 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <Badge variant="amber">{r.request_type === "period_lock" ? "Period lock" : "Manual journal"}</Badge>
-                    <span className="ml-2 text-sm text-charcoal-ink/80">{requestSummary(r.payload, r.request_type)}</span>
+                    <Badge variant="amber">{requestLabel(r.request_type)}</Badge>
+                    <span className="ml-2 text-sm text-charcoal-ink/80">{requestSummary(r)}</span>
                   </div>
                   <span className="text-xs text-charcoal-ink/50">
                     Requested by {r.requested_by_name ?? "someone"} · {formatPatientDateTime(r.requested_at)}
@@ -112,6 +171,8 @@ export function ApprovalsQueue() {
       <SectionCard title="Recently reviewed" description="Approved and rejected requests.">
         {history.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : history.isError ? (
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">Could not load approval history.</p>
         ) : (history.data ?? []).length === 0 ? (
           <CenterNote>No reviewed requests yet.</CenterNote>
         ) : (
@@ -127,7 +188,7 @@ export function ApprovalsQueue() {
             <tbody>
               {(history.data ?? []).map((r) => (
                 <tr key={r.id} className="border-b border-charcoal-ink/5">
-                  <td className="py-2 pr-4 text-charcoal-ink/70">{requestSummary(r.payload, r.request_type)}</td>
+                  <td className="py-2 pr-4 text-charcoal-ink/70">{requestSummary(r)}</td>
                   <td className="py-2 pr-4 text-charcoal-ink/60">{r.requested_by_name ?? "—"}</td>
                   <td className="py-2 pr-4 text-charcoal-ink/60">
                     {r.reviewed_by_name ?? "—"}

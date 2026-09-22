@@ -178,6 +178,41 @@ notification_channel_preference_dead_channel_no_lockin.sql
 # reopens the hole on the bounded case.
 platform_credit_spend_revenue_deferral.sql
 
+# private.finance_reverse_entry read finance_journal_entries with a plain
+# SELECT and only later set is_reversed = true, so two concurrent reversal
+# attempts on the same entry (finance_reverse_journal's synchronous path, or
+# finance_approve_request's journal_reversal branch) could both read
+# is_reversed = false before either committed -- a real race, though NOT the
+# double-financial-effect one it first looked like: a pre-existing unique
+# index on (source, source_ref) already makes a genuine second contra
+# posting for the same entry impossible, so what the race actually produced
+# was a raw, unhandled duplicate-key error (or a misleading false-success)
+# instead of a clean business error. The FOR UPDATE fix is still correct --
+# see the migration's own header for the full, corrected account, and this
+# proof's SABOTAGE 3 for how it verifies that corrected claim rather than the
+# original wrong one. finance_approve_request also called finance_reverse_entry
+# with no prior check that the target entry was reversible at all, so a
+# second pending request approved after the first already reversed the entry
+# (or a request whose target entry no longer exists) raised and rolled back
+# the WHOLE approval transaction, leaving that request stuck at
+# status='pending' forever -- this half is unaffected by the correction
+# above and is a real, severe bug. A .sh proof, not .sql, because the first
+# finding specifically needs two real overlapping transactions -- see its
+# own header for why a single-session BEGIN/ROLLBACK script can't prove a
+# lock actually blocks a second session. Proves exactly one reversal
+# succeeds under concurrent direct calls (check 1) and under concurrent
+# approvals of two duplicate pending requests -- the loser cleanly rejected,
+# never stuck pending (check 2) -- and two sabotage runs (reverting the FOR
+# UPDATE lock; reverting only the approve-time pre-check) each reopen their
+# respective hole. Also fixed in the same migration+PR: the CHECK constraint
+# that had silently rejected every journal_reversal request since
+# 20260917235414 shipped (drop constraint if exists + a closing DO
+# assertion), and the Approvals UI/Zod schemas, which would have thrown on
+# the whole approvals query the first time a real journal_reversal row
+# existed (apps/web/src/lib/finance/schemas.ts only accepted
+# request_type in manual_journal/period_lock).
+finance_reversal_concurrent_lock.sh
+
 # Two successive /code-review high passes on migration 20260918100746
 # (adding clinical_encounter_notes.clinical_encounter_id), both before it
 # ever reached a PR, found 4 real bugs: (1) the sync trigger's row()
