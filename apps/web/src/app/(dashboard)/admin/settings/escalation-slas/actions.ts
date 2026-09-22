@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import type { Json } from "@tarragon/shared";
 import { slaFieldName } from "./sla-field";
 
@@ -48,7 +49,13 @@ export async function createEscalationSlaDraftAction(
   formData: FormData
 ): Promise<CreateEscalationSlaDraftState> {
   const profile = await getCurrentProfile();
-  if (profile?.role !== "admin") {
+  const staff = await getCurrentClinicalStaff();
+  // Dual-gated the same way triage-protocols/actions.ts was fixed 2026-09-14:
+  // an admin login OR the org's Chief Medical Officer / Clinical Director.
+  // Found 2026-09-22 — this action was admin-only even though
+  // sign_escalation_slas (below) already required a Clinical Director,
+  // never admin — a CMO could sign a version but never draft one.
+  if (profile?.role !== "admin" && !canAssignCases(staff)) {
     return { error: "Not authorised" };
   }
 
@@ -110,6 +117,7 @@ export async function createEscalationSlaDraftAction(
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings/escalation-slas");
+  revalidatePath("/clinician/escalation-slas");
   return { success: true };
 }
 
@@ -129,5 +137,6 @@ export async function signEscalationSlasAction(
   });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/escalation-slas");
+  revalidatePath("/clinician/escalation-slas");
   return { success: true };
 }

@@ -245,3 +245,10 @@ clinical_encounter_note_link_bugs.sql
 # policy with the pre-fix bare text against a real table to confirm it still
 # fails to even CREATE (42725) today.
 can_read_clinical_bare_literal_policy_cast.sql
+
+# --- Added 2026-09-22 -------------------------------------------------------
+# CMO governed-config INSERT dual-gate: 5 tables were admin-INSERT-only while
+# their sign_* RPCs were Clinical-Director-only, leaving nobody who could
+# ever insert AND sign a new draft. See the migration's own header.
+cmo_governed_config_insert_dual_gate.sql
+cmo_clinical_rules_insert_dual_gate.sql

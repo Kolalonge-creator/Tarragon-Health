@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 
 export type CreateSignoffDraftState = { error?: string; success?: boolean } | undefined;
 export type SignVaccinationScheduleState = { error?: string; success?: boolean } | undefined;
@@ -19,7 +20,13 @@ export async function createVaccinationScheduleDraftAction(
   formData: FormData
 ): Promise<CreateSignoffDraftState> {
   const profile = await getCurrentProfile();
-  if (profile?.role !== "admin") {
+  const staff = await getCurrentClinicalStaff();
+  // Dual-gated the same way triage-protocols/actions.ts was fixed 2026-09-14:
+  // an admin login OR the org's Chief Medical Officer / Clinical Director.
+  // Found 2026-09-22 — this action was admin-only even though
+  // sign_vaccination_schedule (below) already required a Clinical Director,
+  // never admin — a CMO could sign a version but never draft one.
+  if (profile?.role !== "admin" && !canAssignCases(staff)) {
     return { error: "Not authorised" };
   }
 
@@ -54,6 +61,7 @@ export async function createVaccinationScheduleDraftAction(
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings/vaccination-schedule");
+  revalidatePath("/clinician/vaccination-schedule");
   return { success: true };
 }
 
@@ -73,5 +81,6 @@ export async function signVaccinationScheduleAction(
   });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/vaccination-schedule");
+  revalidatePath("/clinician/vaccination-schedule");
   return { success: true };
 }
