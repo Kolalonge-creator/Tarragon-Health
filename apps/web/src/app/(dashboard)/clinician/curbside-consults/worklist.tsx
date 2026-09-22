@@ -10,6 +10,7 @@ import {
 } from "@/lib/queries/curbside-consults";
 import { CurbsideConsultThread as CurbsideConsultThreadView } from "@/components/curbside-consult-thread";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
+import { formatPatientDateTime } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,13 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 function when(iso: string): string {
-  return new Date(iso).toLocaleString("en-GB", {
-    timeZone: "Africa/Lagos",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatPatientDateTime(iso, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 /** "The other person" from this reader's point of view — a curbside consult
@@ -41,6 +36,8 @@ function isAwaitingMyReply(thread: CurbsideConsultThread, myClinicalStaffId: str
   );
 }
 
+type InvalidField = "recipient" | "subject" | "body" | null;
+
 function NewConsultForm({ onStarted }: { onStarted: () => void }) {
   const { data: colleagues } = useCurbsideConsultColleagues();
   const start = useStartCurbsideConsult();
@@ -48,17 +45,32 @@ function NewConsultForm({ onStarted }: { onStarted: () => void }) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Which control the error actually belongs to — three different fields can
+  // fail validation here, so a single fieldErrorProps binding on one of them
+  // would mark the wrong control aria-invalid whenever a different one is
+  // the actual problem.
+  const [invalidField, setInvalidField] = useState<InvalidField>(null);
+  const recipientFieldId = "curbside-consult-recipient";
+  const subjectFieldId = "curbside-consult-subject";
   const bodyFieldId = "curbside-consult-new-body";
-  const bodyErrorId = fieldErrorId(bodyFieldId);
+  const errorId = fieldErrorId(bodyFieldId);
 
   const submit = () => {
     setError(null);
+    setInvalidField(null);
     if (!recipientId) {
       setError("Choose who you're asking.");
+      setInvalidField("recipient");
       return;
     }
-    if (subject.trim().length === 0 || body.trim().length === 0) {
-      setError("A subject and a question are both required.");
+    if (subject.trim().length === 0) {
+      setError("A subject is required.");
+      setInvalidField("subject");
+      return;
+    }
+    if (body.trim().length === 0) {
+      setError("Your question is required.");
+      setInvalidField("body");
       return;
     }
     start.mutate(
@@ -70,7 +82,10 @@ function NewConsultForm({ onStarted }: { onStarted: () => void }) {
           setBody("");
           onStarted();
         },
-        onError: (err) => setError(err instanceof Error ? err.message : "Could not start the consult."),
+        onError: (err) => {
+          setError(err instanceof Error ? err.message : "Could not start the consult.");
+          setInvalidField(null);
+        },
       },
     );
   };
@@ -78,14 +93,15 @@ function NewConsultForm({ onStarted }: { onStarted: () => void }) {
   return (
     <div className="space-y-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-charcoal-ink/[0.02] dark:bg-night-ink/[0.04] p-4">
       <div>
-        <label htmlFor="curbside-consult-recipient" className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
+        <label htmlFor={recipientFieldId} className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
           Ask
         </label>
         <select
-          id="curbside-consult-recipient"
+          id={recipientFieldId}
           className="mt-1 block w-full rounded-md border border-charcoal-ink/20 dark:border-night-ink/25 bg-white dark:bg-night-card px-2 py-1.5 text-sm text-charcoal-ink dark:text-night-ink"
           value={recipientId}
           onChange={(e) => setRecipientId(e.target.value)}
+          {...fieldErrorProps(errorId, invalidField === "recipient")}
         >
           <option value="">Choose a colleague…</option>
           {(colleagues ?? []).map((c) => (
@@ -97,16 +113,17 @@ function NewConsultForm({ onStarted }: { onStarted: () => void }) {
         </select>
       </div>
       <div>
-        <label htmlFor="curbside-consult-subject" className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
+        <label htmlFor={subjectFieldId} className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
           Subject
         </label>
         <Input
-          id="curbside-consult-subject"
+          id={subjectFieldId}
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           placeholder="e.g. Resistant hypertension, 4th-line question"
           maxLength={200}
           className="mt-1"
+          {...fieldErrorProps(errorId, invalidField === "subject")}
         />
       </div>
       <div>
@@ -120,14 +137,14 @@ function NewConsultForm({ onStarted }: { onStarted: () => void }) {
           rows={3}
           maxLength={4000}
           className="mt-1"
-          {...fieldErrorProps(bodyErrorId, Boolean(error))}
+          {...fieldErrorProps(errorId, invalidField === "body")}
         />
       </div>
       <div className="flex items-center gap-3">
         <Button type="button" size="sm" disabled={start.isPending} onClick={submit}>
           {start.isPending ? "Sending…" : "Ask colleague"}
         </Button>
-        <FormError id={bodyErrorId} message={error} />
+        <FormError id={errorId} message={error} />
       </div>
     </div>
   );

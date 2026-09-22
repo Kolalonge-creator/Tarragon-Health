@@ -1,6 +1,10 @@
 -- Tarragon Health
 -- Live proof for 20260922230142_curbside_consults.sql (doctor-to-doctor
--- "curbside consult" messaging) and 20260922230221_curbside_consult_notification_template.sql.
+-- "curbside consult" messaging), 20260922230221_curbside_consult_notification_template.sql,
+-- and 20260922232521_fix_curbside_consult_review_findings.sql (the /code-review
+-- high fast-follow: closed the anon-EXECUTE gap on the count RPC, and made
+-- last_message_at/last_message_sender_id trigger-only so a participant can no
+-- longer spoof "awaiting reply" state via a raw PATCH).
 --
 -- Every negative is paired with a positive control per CLAUDE.md's own rule:
 --   1.  Doctor A starts a consult with Doctor B                          -> ALLOWED
@@ -19,6 +23,9 @@
 --   11. Doctor A closes the consult, self-attributed                    -> ALLOWED, closed_by = Doctor A
 --   12. Nobody can post into a closed consult                            -> BLOCKED
 --   13. A closed consult cannot be reopened via direct UPDATE            -> BLOCKED
+--   14. A participant cannot spoof last_message_sender_id via a raw
+--       UPDATE (only the message-insert trigger may move it)             -> BLOCKED
+--   15. anon cannot execute count_curbside_consults_awaiting_reply()      -> BLOCKED (privilege check, not RLS)
 --
 -- Sabotage check (do this once, not as a permanent code path): temporarily
 -- change case 4's expectation to 'true' (i.e. assume the SELECT policy is a
@@ -189,6 +196,33 @@ select 'notifications: Doctor A notified of the reply', 'true',
        )::text;
 
 ------------------------------------------------------------------
+-- Case 4b: Doctor A (a genuine participant) cannot spoof
+-- last_message_sender_id via a raw UPDATE -- only the message-insert
+-- trigger may move it. Sabotage-relevant: before the fix migration, this
+-- column had no immutability guard at all and this case failed.
+------------------------------------------------------------------
+select set_config('request.jwt.claims',
+  json_build_object('sub', (select v from ids where k='doctor_a'), 'role','authenticated')::text, true);
+set local role authenticated;
+
+do $$
+begin
+  update public.curbside_consult_threads
+    set last_message_sender_id = (select v from ids where k='doctor_a_staff')
+    where id = (select v from ids where k='thread');
+  insert into results values ('participant spoofs last_message_sender_id via raw UPDATE', 'blocked', 'allowed: SECURITY HOLE');
+exception when others then
+  insert into results values ('participant spoofs last_message_sender_id via raw UPDATE', 'blocked', 'blocked');
+end $$;
+
+reset role;
+select set_config('request.jwt.claims', null, true);
+
+insert into results
+select 'last_message_sender_id unchanged after the spoof attempt', (select v from ids where k='doctor_b_staff')::text, last_message_sender_id::text
+from public.curbside_consult_threads where id = (select v from ids where k='thread');
+
+------------------------------------------------------------------
 -- Case 5: Doctor C (non-participant) cannot post into the thread.
 ------------------------------------------------------------------
 select set_config('request.jwt.claims',
@@ -318,6 +352,32 @@ end $$;
 
 reset role;
 select set_config('request.jwt.claims', null, true);
+
+------------------------------------------------------------------
+-- Case 12: anon cannot execute count_curbside_consults_awaiting_reply() --
+-- a privilege check (EXECUTE grant), not an RLS/trigger check, so it must be
+-- run as the `anon` role itself, unauthenticated. `results`/`ids` are only
+-- granted to `authenticated` (not `anon`), so the outcome is captured in a
+-- session-local GUC and recorded AFTER switching back -- inserting into
+-- `results` while still `anon` would itself raise insufficient_privilege and
+-- get misread as the RPC call being the thing that failed.
+------------------------------------------------------------------
+set local role anon;
+
+do $$
+begin
+  perform public.count_curbside_consults_awaiting_reply();
+  perform set_config('curbside_consult_test.case12', 'allowed: SECURITY HOLE', true);
+exception when insufficient_privilege then
+  perform set_config('curbside_consult_test.case12', 'blocked', true);
+end $$;
+
+reset role;
+
+insert into results values (
+  'anon executes count_curbside_consults_awaiting_reply', 'blocked',
+  current_setting('curbside_consult_test.case12', true)
+);
 
 select check_name, expected, actual,
        case when expected = actual then 'PASS' else 'FAIL' end as result

@@ -19,6 +19,14 @@ export interface CurbsideConsultColleague {
   doctor_tier: DoctorTier | null;
 }
 
+/** Re-export so callers only need to import from this module — the
+ * underlying query is @/lib/queries/clinical-staff's useAssignableDoctors,
+ * which already selects every active, non-Care-Coordinator doctor in the
+ * caller's org (id, profile_id, full_name, doctor_tier). Reusing it here
+ * rather than a second hand-rolled query keeps the eligibility rule (who
+ * counts as "assignable"/"askable") in exactly one place. */
+export { useAssignableDoctors as useCurbsideConsultColleagues } from "@/lib/queries/clinical-staff";
+
 export interface CurbsideConsultThread {
   id: string;
   initiator_clinical_staff_id: string;
@@ -33,6 +41,10 @@ export interface CurbsideConsultThread {
   created_at: string;
   initiator: CurbsideConsultColleague | null;
   recipient: CurbsideConsultColleague | null;
+  // Schema/RPC-ready (migration header: "regarding this patient" context
+  // only, no new PHI-access grant) but deliberately not surfaced in the v1
+  // UI — no compose-form field sets patientId and no view renders it yet.
+  // Fetched here so a future UI pass has it without another query change.
   patient: { full_name: string | null; patient_number: string | null } | null;
 }
 
@@ -88,31 +100,6 @@ export function useCurbsideConsultMessages(threadId: string) {
       return data as unknown as CurbsideConsultMessage[];
     },
     enabled: !!threadId,
-  });
-}
-
-/** Doctor-tier colleagues in the caller's own org who could receive a
- * curbside consult — same shape as useAssignableDoctors
- * (lib/queries/clinical-staff.ts), but that one is scoped to the Chief
- * Medical Officer's case-reassignment control; this is open to any clinician
- * picking a peer to ask. Care Coordinators are excluded server-side too
- * (private.enforce_curbside_consult_thread), this is just the friendly UI
- * filter so one never shows up in the picker to begin with. */
-export function useCurbsideConsultColleagues() {
-  return useQuery({
-    queryKey: ["curbside-consult-colleagues"],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("clinical_staff")
-        .select("id, full_name, doctor_tier")
-        .neq("doctor_tier", "care_coordinator")
-        .eq("active", true)
-        .not("profile_id", "is", null)
-        .order("full_name", { ascending: true });
-      if (error) throw error;
-      return data as CurbsideConsultColleague[];
-    },
   });
 }
 

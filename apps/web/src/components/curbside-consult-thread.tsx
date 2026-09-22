@@ -7,18 +7,13 @@ import {
   type CurbsideConsultMessage,
 } from "@/lib/queries/curbside-consults";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
+import { formatPatientDateTime } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 function when(iso: string): string {
-  return new Date(iso).toLocaleString("en-GB", {
-    timeZone: "Africa/Lagos",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatPatientDateTime(iso, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 function senderLabel(message: CurbsideConsultMessage, myClinicalStaffId: string): string {
