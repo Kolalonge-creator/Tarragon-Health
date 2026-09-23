@@ -105,8 +105,15 @@ export const MARKETING_MEDIA = {
       imageAlt: "Close-up of two people's hands sorting medication into a weekly pill organiser",
     } satisfies MarketingMediaSlot,
     solution: {
-      imageSrc: "/marketing/photos/body/how-it-works-log-reading.jpg",
-      imageAlt: "A hand holding a phone beside a home blood pressure cuff on a wooden table",
+      // A real, unedited screenshot of the patient app's "Your health, by
+      // area" card (apps/web/src/app/(dashboard)/patient/health-domains-card.tsx),
+      // captured on a real iOS Simulator against a QA fixture account
+      // (patient.complete.test@tarragon.test, temporarily renamed to a
+      // placeholder Nigerian name for the screenshot, reverted immediately
+      // after) — never a mockup or a generated image, per the standing
+      // "anatomically-wrong prevention hero clip" lesson on this codebase.
+      imageSrc: "/marketing/photos/app/how-it-works-health-domains.jpg",
+      imageAlt: "The Tarragon app's health domains screen, showing readings grouped into areas like Rhythm & recovery, Fitness and Inflammation",
     } satisfies MarketingMediaSlot,
     preventionCallout: {
       imageSrc: "/marketing/photos/body/prevention-reviewing-notes.jpg",
@@ -123,6 +130,17 @@ export const MARKETING_MEDIA = {
         imageAlt: "Doctor on a calm follow-up call with a patient",
       } satisfies MarketingMediaSlot,
     },
+  },
+  pricing: {
+    // Same provenance discipline as homepage.solution above: a real,
+    // unedited screenshot (iOS Simulator, QA fixture account temporarily
+    // renamed to a placeholder Nigerian name for the shot, reverted right
+    // after) rather than a mockup — shown before the price list so "what
+    // you're paying for" is something concrete, not an abstract promise.
+    trustVisual: {
+      imageSrc: "/marketing/photos/app/how-it-works-health-score.jpg",
+      imageAlt: "The Tarragon app's patient dashboard, showing a health score summary and a next best step",
+    } satisfies MarketingMediaSlot,
   },
   productHero: {
     hypertension: {

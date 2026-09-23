@@ -7,6 +7,8 @@ import { fetchPlanPrices, servicePriceOverridesFrom } from "@/lib/marketing/plan
 import { PricingLabelBadge } from "../_components/pricing-label";
 import { CtaBand } from "../_components/cta-band";
 import { FaqAccordion } from "../_components/marketing-faq-accordion";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
+import { MARKETING_MEDIA } from "../_content/media";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { SITE, SITE_URL, absoluteUrl, pageMetadata } from "@/lib/marketing/site";
@@ -94,6 +96,9 @@ Just want one blood test? You do not need an account for that.
           <Button asChild variant="outline" size="sm" className="mt-3">
             <Link href={MARKETING_ROUTES.annualHealthCheck}>Book a one-off check instead</Link>
           </Button>
+        </div>
+        <div className="mx-auto mb-10 max-w-xs">
+          <MarketingMediaFrame media={MARKETING_MEDIA.pricing.trustVisual} />
         </div>
         <PricingFreeFeatures />
         <div className="mt-10 flex flex-wrap justify-center gap-3">
