@@ -40574,6 +40574,10 @@ export type Database = {
         Args: { p_token: string }
         Returns: Json
       }
+      get_funding_programme_stats: {
+        Args: { p_programme_id: string }
+        Returns: Json
+      }
       claim_health_reset_trial: { Args: never; Returns: Json }
       case_management_analytics: { Args: never; Returns: Json }
       close_care_management_case: {

@@ -208,3 +208,34 @@ export async function listFundingProgrammeInvitations(
   if (error) throw error;
   return data;
 }
+
+export type FundingProgrammeStats = {
+  programmeId: string;
+  status: FundingProgrammeStatus;
+  fundedUnitCap: number;
+  invited: number;
+  claimed: number;
+  expired: number;
+  revoked: number;
+  vouchersRedeemed: number;
+  unitsCommitted: number;
+  unitsRemaining: number;
+};
+
+/**
+ * Read-only aggregate: superadmin or the programme's own organisation's
+ * ngo_admin. Never returns individual invitation rows — counts only, so this
+ * is safe to show as a console summary without a small-cell-suppression
+ * threshold on top (see 20260923010941_funding_programme_stats.sql's header
+ * for why exact counts, not suppressed ones, are the right call here).
+ */
+export async function getFundingProgrammeStats(
+  supabase: SupabaseClient<Database>,
+  programmeId: string
+): Promise<FundingProgrammeStats> {
+  const { data, error } = await supabase.rpc("get_funding_programme_stats", {
+    p_programme_id: programmeId,
+  });
+  if (error) throw error;
+  return data as unknown as FundingProgrammeStats;
+}
