@@ -7,7 +7,7 @@ import {
 } from "./lab-result-consult-actions";
 import type { Database } from "@tarragon/shared";
 
-type AiSummaryStatus = Database["public"]["Enums"]["lab_result_ai_summary_status"];
+type AiSummaryStatus = Database["public"]["Enums"]["ai_document_summary_status"];
 
 /**
  * Deterministic, patient-visible summary derived from the extraction's QC

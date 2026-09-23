@@ -163,6 +163,18 @@ clinician_phone_admin_visibility.sql
 communication_preferences_and_marketing_consent.sql
 computed_review_price.sql
 consultation_system.sql
+#
+# continuous_monitoring_90d_doctor_time_features.sql: same fixture backlog as
+# the chronic_programme_* entries above, not a genuine failure — verified
+# PASS end to end against the live project (all 5 checks, sabotage included).
+# It enrols a real chronic_programme_enrolments row with status='enrolled',
+# which private.enforce_chronic_enrolment_active_programme() only allows when
+# chronic_condition_programmes.is_active is true for that condition; live,
+# hypertension is (confirmed: is_active=true), but supabase/seed/seed.sql
+# never seeds or activates that table at all, so a fresh `supabase db reset`
+# has no active chronic condition to enrol into. Move it back to ci.manifest
+# once seed.sql (or a CI-only fixture step) activates at least one condition.
+continuous_monitoring_90d_doctor_time_features.sql
 data_governance_rls.sql
 #
 # device_registry_lifecycle.sql (PR #355, Connected Medical Device Platform):

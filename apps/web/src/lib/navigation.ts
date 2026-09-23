@@ -427,6 +427,12 @@ export function getNavSections(
                 { label: "Prescription renewals", href: "/clinician/prescription-renewals", icon: "medication", countKey: "prescriptionRenewalRequests" },
                 { label: "Verified documents", href: "/clinician/verified-documents", icon: "inbox", countKey: "verifiedDocumentRequests" },
                 { label: "Senior case reviews", href: "/clinician/senior-case-reviews", icon: "escalation", countKey: "seniorCaseReviews" },
+                {
+                  label: "Curbside consults",
+                  href: "/clinician/curbside-consults",
+                  icon: "messages",
+                  countKey: "curbsideConsultsAwaitingReply",
+                },
               ],
             },
             {
@@ -504,6 +510,17 @@ export function getNavSections(
                   icon: "labs",
                   countKey: "labResultConsultsWaiting",
                 },
+                // Added 2026-09-22 alongside the Preventive Health Check
+                // Review SKU — before this, a paid-for Health Check review
+                // had no queue anywhere; a doctor could only find one by
+                // already knowing the patientId. See
+                // 20260922185300_preventive_health_check_review_sku.sql.
+                {
+                  label: "Preventive Health Check reviews",
+                  href: "/clinician/preventive-health-check-reviews",
+                  icon: "preventive",
+                  countKey: "preventiveHealthCheckReviewsWaiting",
+                },
                 // Both added 2026-09-10 with the two new clinical products.
                 // Shown to every clinician tier, per this file's gating
                 // philosophy: the authority rules live in the database
@@ -545,8 +562,39 @@ export function getNavSections(
             {
               label: "Clinical governance",
               items: [
+                // Leads the section on purpose: the one page that answers
+                // "what still needs my signature, and what do I press"
+                // across every governed table below, rather than making a
+                // CMO check nine separate pages to find out. Added
+                // 2026-09-22 alongside the rest of this section's entries —
+                // before that, only 2 of the 9 governance pages below had a
+                // /clinician mirror at all (Clinical protocols, Symptom
+                // triage protocols); the other 7 plus this checklist were
+                // reachable only via /admin, which a real CMO account
+                // (always `profiles.role = "clinician"`) cannot open.
+                { label: "Clinical sign-off", href: "/clinician/clinical-signoff", icon: "review" },
                 { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
+                { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
+                { label: "Alert rules", href: "/clinician/alert-rules", icon: "siren" },
+                { label: "Escalation SLAs", href: "/clinician/escalation-slas", icon: "escalation" },
+                { label: "CV-risk (cholesterol) config", href: "/clinician/cv-risk-config", icon: "bp" },
+                {
+                  label: "Risk questionnaire configuration",
+                  href: "/clinician/risk-questionnaire-config",
+                  icon: "review",
+                },
+                {
+                  label: "Mental health screening cadences",
+                  href: "/clinician/mental-health-screening",
+                  icon: "preventive",
+                },
+                {
+                  label: "Provider quality policy",
+                  href: "/clinician/provider-quality-policy",
+                  icon: "review",
+                },
+                { label: "Vaccination schedule", href: "/clinician/vaccination-schedule", icon: "vaccination" },
                 { label: "Provider quality", href: "/clinician/provider-quality", icon: "analytics" },
               ],
             },

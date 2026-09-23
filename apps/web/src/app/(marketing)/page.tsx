@@ -384,16 +384,23 @@ export default async function MarketingHomePage() {
             <h2 className="mt-2 font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">
               Take Tarragon with you
             </h2>
-            {/* Corrected 2026-09-05: this used to say "download the app for
-                iPhone and Android" and "search TarragonHealth in the App
-                Store or Google Play". Neither store listing exists — there is
-                no apps.apple.com or play.google.com URL anywhere in the repo,
-                apps/mobile/eas.json has an empty production submit config,
-                and distribution today is an internal preview build. A visitor
-                who searched would find nothing. What IS true is the PWA: see
-                apps/web/src/app/manifest.ts (standalone display, installable
-                from the browser). Restore store wording only once a listing is
-                actually live. */}
+            {/* Corrected 2026-09-22 (launch-scope audit reconciliation) —
+                still no live App Store/Google Play listing as of this pass
+                (see docs/PLAY_STORE_SUBMISSION.md: a 2026-09-17
+                icon-impersonation rejection has a same-day fix commit, but
+                whether the resubmission was actually approved is not
+                confirmable from the repository — flagged to the founder as
+                an action item, not assumed either way), so "are coming"
+                stays honest rather than claiming a listing that may or may
+                not exist yet. Also softened the wearables-sync claim: the
+                Apple Health / Android Health Connect bridges are real,
+                built code, but per CLAUDE.md's Device & Wearable
+                Integration section neither has ever run on a real device or
+                a Health Connect-capable emulator, and none of the 5
+                cloud-OAuth wearable providers (Oura/WHOOP/Garmin/Fitbit/
+                Dexcom) has real developer credentials configured yet — so a
+                blanket "automatic sync from...wearables" overclaims
+                reliability for something largely unverified in practice. */}
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Tarragon works in any phone browser, and you can add it to your home screen so it
               opens like an app: the same secure record you use on the web, with your care team
@@ -405,7 +412,7 @@ export default async function MarketingHomePage() {
                 "Get reminders for medication, screenings, and reviews",
                 "Message your care team any time, right in the app",
                 "Share your Health Passport with any doctor",
-                "Automatic sync from Apple Health, Health Connect, and wearables",
+                "Sync from Apple Health or Android Health Connect where your phone supports it",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-2.5 text-sm text-charcoal-ink/75">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-green" aria-hidden />
