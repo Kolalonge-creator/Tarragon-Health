@@ -18,12 +18,6 @@ const EXT_BY_MIME: Record<string, string> = {
   "application/pdf": "pdf",
 };
 
-/** The stable, machine-readable marker
- * public.claim_lab_result_consult_credit raises in its error DETAIL when no
- * unclaimed, paid request is found — never pattern-match on its message
- * text, which is free to change. */
-const CONSULT_FEE_REQUIRED_DETAIL = "CONSULT_FEE_REQUIRED";
-
 /**
  * Native camera-capture lab result upload for the Expo mobile app
  * (MOBILE_APP_SPEC.md §2.5) — mirrors uploadResultDocumentAsPatient in
@@ -33,12 +27,14 @@ const CONSULT_FEE_REQUIRED_DETAIL = "CONSULT_FEE_REQUIRED";
  * lab_result_documents insert (source pinned to 'patient', patient_id from
  * the session — never the client), same runLabReportExtraction structured
  * read so a photographed result becomes trendable numbers exactly like a
- * web upload, and — founder rule, 2026-08-30 — the same one-off ₦10,000
- * consultation-fee gate via public.claim_lab_result_consult_credit /
- * public.settle_lab_result_consult_claim, called before/after the upload
- * exactly as the web action does. A Server Action can't be invoked from a
- * bare fetch, hence a Route Handler mirror rather than reuse — same
- * reasoning as every other /api/mobile/* route.
+ * web upload. Uploading is free (the 2026-08-30 one-off ₦10,000
+ * consultation-fee gate was reversed 2026-09-22 — see
+ * uploadResultDocumentAsPatient's own header); public.claim_lab_result_consult_credit /
+ * public.settle_lab_result_consult_claim are still called, but only as a
+ * best-effort link for a patient who already paid for a doctor walkthrough,
+ * never as a precondition. A Server Action can't be invoked from a bare
+ * fetch, hence a Route Handler mirror rather than reuse — same reasoning as
+ * every other /api/mobile/* route.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   const authHeader = request.headers.get("authorization");
@@ -124,34 +120,27 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
   }
 
-  // The consultation-fee gate — called BEFORE the storage upload so an
-  // unpaid patient never wastes one. See the web action's comment for the
-  // full mechanics (claim/settle, network-billed exemption).
+  // Best-effort, never blocking: links an already-paid doctor-walkthrough
+  // credit to this upload if one exists; otherwise the upload proceeds with
+  // nothing linked. See the web action's header for the full reasoning.
   let claimedRequestId: string | null = null;
-  const { data: claimed, error: claimError } = await supabase.rpc(
-    "claim_lab_result_consult_credit",
-    // Supabase's generated Args type doesn't carry nullability for plain
-    // Postgres function params (only DEFAULTs make an arg optional), even
-    // though the RPC itself accepts null fine — same cast used elsewhere
-    // in this file's web counterpart (lib/lab-results/actions.ts:138).
-    {
-      p_patient_id: user.id,
-      p_lab_order_id: (labOrderId ?? null) as unknown as string,
-    },
-  );
-  if (claimError) {
-    if (claimError.details === CONSULT_FEE_REQUIRED_DETAIL) {
-      return NextResponse.json(
-        {
-          error: "Pay the lab-result consultation fee to upload this result.",
-          requiresConsultFeePayment: true,
-        },
-        { status: 402 },
-      );
-    }
-    return NextResponse.json({ error: claimError.message }, { status: 400 });
+  try {
+    const { data: claimed, error: claimError } = await supabase.rpc(
+      "claim_lab_result_consult_credit",
+      // Supabase's generated Args type doesn't carry nullability for plain
+      // Postgres function params (only DEFAULTs make an arg optional), even
+      // though the RPC itself accepts null fine — same cast used elsewhere
+      // in this file's web counterpart (lib/lab-results/actions.ts).
+      {
+        p_patient_id: user.id,
+        p_lab_order_id: (labOrderId ?? null) as unknown as string,
+      },
+    );
+    if (claimError) throw claimError;
+    claimedRequestId = claimed ?? null;
+  } catch (error) {
+    console.error("mobile lab-result-upload: could not claim a consult-fee credit (non-blocking)", error);
   }
-  claimedRequestId = claimed ?? null;
 
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   // Leading folder MUST be the caller's uid — the storage own-folder policy

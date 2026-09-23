@@ -39,6 +39,11 @@ export interface ResultDocumentView {
    * above, which are both doctor-authored. See extraction-actions.ts. */
   aiSummaryStatus: Database["public"]["Enums"]["ai_document_summary_status"];
   aiSummaryGeneratedAt: string | null;
+  /** Which test(s) `aiSummaryStatus = 'flagged'` refers to — label and the
+   * lab's own printed range, both copied verbatim off the document. Empty
+   * unless aiSummaryStatus is 'flagged'. See
+   * lib/lab-reports/ai-summary.ts#FlaggedAnalyte. */
+  aiFlaggedAnalytes: { label: string; reportedRange: string | null }[];
   /** Short-lived signed URL for the file, or null if it could not be signed. */
   signedUrl: string | null;
   isPdf: boolean;
@@ -79,7 +84,7 @@ export async function loadResultDocuments(
   const { data: rows } = await supabase
     .from("lab_result_documents")
     .select(
-      "id, source, original_filename, mime_type, note, test_code, created_at, file_path, reviewed_by, reviewed_at, review_note, patient_interpretation, next_steps, interpretation_sent_at, acknowledgement_status, action_completed_at, supersedes_document_id, superseded_by_document_id, superseded_at, ai_summary_status, ai_summary_generated_at",
+      "id, source, original_filename, mime_type, note, test_code, created_at, file_path, reviewed_by, reviewed_at, review_note, patient_interpretation, next_steps, interpretation_sent_at, acknowledgement_status, action_completed_at, supersedes_document_id, superseded_by_document_id, superseded_at, ai_summary_status, ai_summary_generated_at, ai_flagged_analytes",
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
@@ -105,6 +110,8 @@ export async function loadResultDocuments(
       actionCompletedAt: row.action_completed_at,
       aiSummaryStatus: row.ai_summary_status,
       aiSummaryGeneratedAt: row.ai_summary_generated_at,
+      aiFlaggedAnalytes:
+        (row.ai_flagged_analytes as { label: string; reportedRange: string | null }[] | null) ?? [],
       signedUrl: await signResultDocumentPath(row.file_path),
       isPdf: row.mime_type === "application/pdf",
       supersedesDocumentId: row.supersedes_document_id,
