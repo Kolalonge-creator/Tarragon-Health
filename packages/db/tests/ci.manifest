@@ -350,3 +350,16 @@ curbside_consults.sql
 # reconciliation, and the cancelled-appointment exclusion, each verified
 # live including a wrong-actor-table-join sabotage run.
 doctor_income_attribution_and_analyst_gate.sql
+
+# --- Added 2026-09-23 -------------------------------------------------------
+# sponsored_service_reservations: the launch-scope audit's claim-based
+# diaspora flow (pay for a named service against a bare phone number + first
+# name, no profile created up front). Proves the full lifecycle -- create as
+# pending_payment, a matching charge.success payment activates it to
+# invited with a real invite_token, a claim from the WRONG phone is refused
+# (the load-bearing anti-impersonation check), the correct phone succeeds
+# and creates a real active care_vouchers row -- plus two sabotage runs: the
+# same reservation cannot be claimed twice, and a payment of the wrong
+# amount does not activate a fresh reservation. Run as `authenticated`, not
+# `postgres`, for both patient-facing RPCs.
+sponsored_service_reservations.sql
