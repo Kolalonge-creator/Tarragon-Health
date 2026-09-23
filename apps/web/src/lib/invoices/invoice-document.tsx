@@ -44,6 +44,17 @@ export interface InvoiceBillTo {
 }
 
 /**
+ * How many rendered lines the registered office may occupy. The footer is
+ * absolutely positioned and grows upward, so its height has to be bounded or a
+ * long address runs into the invoice body; `page.paddingBottom` reserves
+ * exactly this many lines. Two rather than one so that a realistic Nigerian
+ * registered office ("Plot 1234B, Block XV, Admiralty Way, Lekki Phase 1,
+ * Eti-Osa LGA, Lagos State") still prints in full — ellipsising a legally
+ * significant address is a last resort, not the normal path.
+ */
+const ADDRESS_MAX_LINES = 2;
+
+/**
  * A4 letterhead geometry, identical to every other TarragonHealth-issued PDF
  * (preventive-care-plan-document.tsx, lab-request-document.tsx,
  * referral-letter-document.tsx) — one visual system across the platform.
@@ -57,7 +68,11 @@ const styles = StyleSheet.create({
     color: PDF_CLINICAL_NAVY,
     fontFamily: PDF_FONT_FAMILY,
     paddingTop: HEADER_HEIGHT + 20,
-    paddingBottom: 56,
+    // Clears the absolutely-positioned footer at its tallest. The footer grows
+    // upward from `bottom: 24`, so this has to reserve its worst case: 24 + 8
+    // paddingTop + four 7.5pt/1.4 lines (company, a registered office that
+    // wrapped to the ADDRESS_MAX_LINES cap, contact) ≈ 74.
+    paddingBottom: 80,
     paddingHorizontal: PAGE_PADDING,
   },
 
@@ -176,6 +191,11 @@ const styles = StyleSheet.create({
   },
   footerLeft: { flexDirection: "column", maxWidth: 380 },
   footerLine: { fontSize: 7.5, color: "#7a8792", lineHeight: 1.4 },
+  // Composed onto footerLine rather than restating it, so the two can never
+  // drift apart. `maxLines`/`textOverflow` are read off the resolved *style* by
+  // @react-pdf/layout (getMaxLines -> node.style?.maxLines), not off the Text's
+  // props — passing maxLines as a JSX prop silently does nothing.
+  footerAddressCap: { maxLines: ADDRESS_MAX_LINES, textOverflow: "ellipsis" },
   footerBrand: { fontSize: 7.5, color: PDF_BRAND_GREEN, fontWeight: 700 },
   pageNumber: { fontSize: 7.5, color: "#7a8792" },
 });
@@ -188,6 +208,37 @@ function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/**
+ * The registered office is entered as free text in a <Textarea> at
+ * /admin/settings/company-profile, so it can legitimately arrive with newlines.
+ * Collapsing them here means the address wraps on width alone, which is what
+ * ADDRESS_MAX_LINES can actually bound — an embedded "\n" would otherwise force
+ * a new line regardless of how much room the footer has reserved.
+ */
+function oneLineAddress(address: string): string {
+  return address
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+/**
+ * Phone numbers are stored E.164 platform-wide, but the footer has always shown
+ * the spaced, readable form — PDF_CONTACT_PHONE, the fallback used when no
+ * registered phone is on file, is literally "+234 806 119 7940". Grouping the
+ * stored value here keeps the two identical, so populating
+ * finance_company_profile.registered_phone does not silently make the printed
+ * invoice less readable than the fallback it replaces.
+ *
+ * Anything that is not a Nigerian +234 mobile is passed through untouched
+ * rather than guessed at.
+ */
+function displayPhone(phone: string): string {
+  const match = /^\+234(\d{3})(\d{3})(\d{4})$/.exec(phone.replace(/\s+/g, ""));
+  return match ? `+234 ${match[1]} ${match[2]} ${match[3]}` : phone;
 }
 
 function vatLine(invoice: InvoiceDocumentData): string {
@@ -207,6 +258,9 @@ export function InvoiceDocument({
   letterhead: InvoiceLetterhead;
 }) {
   const companyName = letterhead.trading_name || letterhead.legal_name || "TarragonHealth";
+  const registeredAddress = letterhead.registered_address
+    ? oneLineAddress(letterhead.registered_address)
+    : "";
 
   return (
     <Document title={`TarragonHealth invoice ${invoice.invoice_number}`} author="TarragonHealth" subject="Invoice">
@@ -324,9 +378,17 @@ export function InvoiceDocument({
             <Text style={styles.footerLine}>
               {companyName} · {invoice.reference}
             </Text>
+            {/* Registered office. Null-gated: until an admin enters it at
+                /admin/settings/company-profile the line is absent entirely,
+                rather than rendering an empty row. */}
+            {registeredAddress !== "" && (
+              <Text style={[styles.footerLine, styles.footerAddressCap]}>
+                {registeredAddress}
+              </Text>
+            )}
             <Text style={styles.footerLine}>
               <Text style={styles.footerBrand}>TarragonHealth</Text> · {letterhead.registered_email || PDF_CONTACT_EMAIL} ·{" "}
-              {letterhead.registered_phone || PDF_CONTACT_PHONE}
+              {letterhead.registered_phone ? displayPhone(letterhead.registered_phone) : PDF_CONTACT_PHONE}
             </Text>
           </View>
           <Text

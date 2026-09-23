@@ -11,7 +11,12 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
-import { useBusinessSummary, useGrowthTimeseries, type GrowthPeriod } from "@/lib/analytics/queries";
+import {
+  useBusinessSummary,
+  useGrowthTimeseries,
+  useRecomputeBusinessSummary,
+  type GrowthPeriod,
+} from "@/lib/analytics/queries";
 import { formatNumber } from "@/lib/analytics/format";
 import { paletteColor } from "./chart-palette";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
@@ -28,12 +33,41 @@ export function BusinessDashboard() {
   const [period, setPeriod] = useState<GrowthPeriod>("month");
   const summary = useBusinessSummary();
   const growth = useGrowthTimeseries(period);
+  const recompute = useRecomputeBusinessSummary();
 
   const s = summary.data;
   const growthRows = growth.data ?? [];
 
   return (
     <div className="space-y-6">
+      {/* These stat tiles now come from a nightly-refreshed snapshot, not a
+          live query (docs/DATA_ARCHITECTURE_GAPS_BUILD_PLAN.md §3) — a
+          real /code-review high finding on this same change was that the
+          switch from always-live to cached happened with no staleness
+          signal anywhere; this strip is the fix. */}
+      {s?._computed_at && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-charcoal-ink/60">
+          <span>
+            Data as of{" "}
+            {new Date(s._computed_at).toLocaleString(undefined, {
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}{" "}
+            (refreshes nightly)
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={recompute.isPending}
+            onClick={() => recompute.mutate()}
+          >
+            {recompute.isPending ? "Refreshing…" : "Refresh now"}
+          </Button>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile icon={Building2} label="Organisations" value={formatNumber(s?.total_orgs ?? 0)} />
         <StatTile icon={Users} label="Patients" value={formatNumber(s?.total_patients ?? 0)} />

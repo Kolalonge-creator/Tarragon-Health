@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { riskQuestionnaireConfigJsonSchema } from "@/lib/validation/risk-questionnaire-config";
 import type { Json } from "@tarragon/shared";
 
@@ -28,7 +29,13 @@ export async function createRiskQuestionnaireConfigDraftAction(
   }
 
   const profile = await getCurrentProfile();
-  if (profile?.role !== "admin" || !profile.organisation_id) {
+  const staff = await getCurrentClinicalStaff();
+  // Dual-gated the same way triage-protocols/actions.ts was fixed 2026-09-14:
+  // an admin login OR the org's Chief Medical Officer / Clinical Director.
+  // Found 2026-09-22. risk_questionnaire_configs' own INSERT RLS policy was
+  // already private.is_org_staff()-scoped (admits any staff clinician), so
+  // only this app-layer check needed widening.
+  if ((profile?.role !== "admin" && !canAssignCases(staff)) || !profile?.organisation_id) {
     return { error: "Not authorised" };
   }
   const organisationId = profile.organisation_id;
@@ -55,6 +62,7 @@ export async function createRiskQuestionnaireConfigDraftAction(
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings/risk-questionnaire-config");
+  revalidatePath("/clinician/risk-questionnaire-config");
   return { success: true };
 }
 
@@ -73,5 +81,6 @@ export async function signRiskQuestionnaireConfigAction(
   const { error } = await supabase.rpc("sign_risk_questionnaire_config", { p_config_id: configId });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/risk-questionnaire-config");
+  revalidatePath("/clinician/risk-questionnaire-config");
   return { success: true };
 }

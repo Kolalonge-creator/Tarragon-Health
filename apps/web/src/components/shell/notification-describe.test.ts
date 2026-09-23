@@ -117,6 +117,32 @@ describe("patient abnormal-result follow-up", () => {
   });
 });
 
+describe("support_view_as_started (added by 20260922175144_support_view_as.sql)", () => {
+  it("names the viewer and quotes the reason, and links to the role-agnostic home", () => {
+    const rendered = describeNotification(
+      notification("support_view_as_started", {
+        session_id: "11111111-1111-1111-1111-111111111111",
+        viewer_name: "Jane from Support",
+        reason: "patient reports missing vitals on their dashboard",
+        expires_at: new Date().toISOString(),
+      })
+    );
+    expect(rendered.text).toBe(
+      'Jane from Support opened a support view of your account: "patient reports missing vitals on their dashboard"'
+    );
+    expect(rendered.href).toBe("/");
+    expect(rendered.text).not.toBe("You have an update");
+  });
+
+  it("falls back to a generic viewer name and omits the quote when there is no reason", () => {
+    const rendered = describeNotification(notification("support_view_as_started", {}));
+    expect(rendered.text).toBe(
+      "A member of the Tarragon Health support team opened a support view of your account"
+    );
+    expect(rendered.href).toBe("/");
+  });
+});
+
 describe("the generic fallback is still there for anything unmapped", () => {
   it("does not swallow an unknown template", () => {
     const rendered = describeNotification(notification("some_template_added_later"));
