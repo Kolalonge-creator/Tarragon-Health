@@ -167,6 +167,170 @@ jobs:
       - name: Pytest
         run: uv run pytest
 
+  # Real-browser E2E (Playwright), distinct from the Jest `e2e/` suite (which
+  # hits the live project's DB/Edge Functions directly, bypassing the UI).
+  # Runs against a fresh LOCAL Supabase stack, never the live production
+  # project — branching isn't available on the current plan
+  # (PaymentRequiredException, checked live 2026-09-23), so this reuses the
+  # same free, Docker-based tooling supabase-db below already proves works
+  # (`supabase start` + `db reset`) rather than touching production on every
+  # PR. See apps/web/e2e-browser/README.md for the full reasoning and what's
+  # covered. NOTE: this job could not be executed even once in the session
+  # that wrote it (no Docker in that sandbox) — its first real run is
+  # whatever CI run first picks up this commit. Read a failure here as
+  # genuine signal, not flakiness, until it's proven green at least once.
+  e2e-browser:
+    name: Browser E2E (Playwright)
+    runs-on: ubuntu-latest
+    # supabase-db below (migration replay + DB proofs only) budgets 15
+    # minutes; this job does that SAME supabase start + db reset, plus
+    # pnpm install, a cold `playwright install --with-deps chromium`
+    # (routinely 2-5 min on a fresh runner), Next's own dev-server boot, and
+    # 7 real-browser tests — 20 minutes had no empirical basis (this job
+    # could not be run even once before being written, see the header
+    # comment below) and was reviewed as likely too tight. 30 minutes gives
+    # real headroom; tighten once this job has actually run and its real
+    # duration is known.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect E2E-relevant changes
+        id: changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            e2e:
+              - "apps/web/**"
+              - "packages/shared/**"
+              - "supabase/migrations/**"
+              - "supabase/seed.sql"
+              - ".github/workflows/ci.yml"
+
+      - name: Install pnpm
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - uses: supabase/setup-cli@v1
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        run: supabase start
+
+      - name: Replay all migrations + seed
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        run: supabase db reset
+
+      # `-o env` prints NAME=value lines for the local stack's own connection
+      # details; --override-name renames them directly to what Next.js
+      # expects, so no separate remap step is needed. Documented as a real
+      # CLI example (`supabase status --help`), but NOT verified live in the
+      # session that wrote this job (no Docker there) — if the override keys
+      # below don't match (e.g. api.anon_key vs a different path), this step
+      # is the first place to look on a failed run.
+      # First live run of this job (2026-09-22) failed here: next dev's
+      # proxy.ts (Edge Runtime, always) threw "Invalid supabaseUrl" even
+      # though NEXT_PUBLIC_SUPABASE_URL/ANON_KEY WERE present in this job's
+      # own shell env by the time Playwright spawned `pnpm dev` — confirmed
+      # directly in that run's own `env:` debug printout for the next step.
+      # Next.js/Turbopack's own env-var pickup for Edge Runtime code is not
+      # guaranteed to reliably inherit ambient process.env the way a plain
+      # Node process does; writing a real apps/web/.env.local is the one
+      # mechanism Next's dev server is documented to read directly at
+      # startup, collapsing the previous fragile chain (GH step env ->
+      # $GITHUB_ENV -> shell -> playwright.config.ts -> spawned child
+      # process -> Turbopack) into a single, Next-native source of truth.
+      # $GITHUB_ENV is still populated too, for the Playwright test process
+      # itself and its Node-based Supabase admin client
+      # (helpers/supabase-admin.ts), which read process.env directly with
+      # no Turbopack/Edge Runtime involved.
+      - name: Export local Supabase connection env vars
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        run: |
+          # ROOT CAUSE (found 2026-09-23 after 5 failed attempts — see git
+          # history for the full chase): `supabase status -o env`'s raw
+          # output quotes its values (`KEY="value"`). $GITHUB_ENV is NOT a
+          # shell — appending that raw content to it via a bare `cat >>`
+          # does not strip the quotes; GitHub Actions takes everything
+          # after the first `=` as the LITERAL value, quote characters
+          # included. Every subsequent step's process.env.NEXT_PUBLIC_SUPABASE_URL
+          # was therefore the 27-character string `"http://127.0.0.1:54321"`
+          # (quote marks genuinely part of the value, confirmed via a
+          # JSON.stringify diagnostic directly in next.config.ts's own
+          # module scope), not the 21-character URL — which is exactly why
+          # `new URL(...)` / @supabase/ssr's own validator threw "Invalid
+          # supabaseUrl" no matter which OTHER mechanism (.env.local,
+          # next.config.ts's `env` field, forcing NODE_ENV, switching
+          # bundlers) was used to try to supply it: process.env is Next's
+          # highest-priority env source, so the quote-contaminated value
+          # from $GITHUB_ENV kept winning over every correctly-clean
+          # alternative.
+          #
+          # Fix: `source` the raw output as shell script FIRST (bash's own
+          # parser correctly strips the quotes) and only then write clean,
+          # unquoted KEY=value lines to both $GITHUB_ENV and
+          # apps/web/.env.local — never `cat`/`cp` the CLI's raw output
+          # directly into either.
+          supabase status -o env \
+            --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
+            --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            > /tmp/supabase-env.txt
+          set -a
+          source /tmp/supabase-env.txt
+          set +a
+          : > apps/web/.env.local
+          for f in "$GITHUB_ENV" apps/web/.env.local; do
+            echo "NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}" >> "$f"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}" >> "$f"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}" >> "$f"
+          done
+
+      - name: Run browser E2E tests
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        working-directory: apps/web
+        env:
+          # sk_test_... only, from repo secrets — see e2e-browser/README.md
+          # and b2c-signup-to-entitlement.spec.ts's own comment: the
+          # checkout-initiation test skips gracefully if this isn't set,
+          # rather than failing the whole job. NOT yet configured as of
+          # 2026-09-23 (checked via `gh secret list`) — add
+          # PAYSTACK_SECRET_KEY as a repo secret to turn that test on.
+          PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
+        run: pnpm test:e2e-browser
+
+      - name: Upload Playwright report
+        if: always() && (github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true')
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 14
+
+      - name: Stop local Supabase stack
+        if: always() && (github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true')
+        run: supabase stop
+
   # Edge functions (supabase/functions/) are Deno, not Node — they're outside
   # every other job's reach (pnpm/jest never sees them; supabase-db below
   # replays migrations, not function code). Until this job, paystack-webhook
