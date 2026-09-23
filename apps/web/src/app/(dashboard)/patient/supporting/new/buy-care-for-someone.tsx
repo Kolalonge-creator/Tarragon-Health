@@ -14,13 +14,98 @@ import { useSupportedPeople } from "@/lib/queries/sponsorship";
 import { useActiveServiceProducts } from "@/lib/queries/service-products";
 import { addElderProxyDependentAction } from "../../family/add-elder-actions";
 import { addElderProxyDependentSchema } from "@/lib/validation/elder-proxy-dependent";
-import { paySomeonesPlan, type SponsorActionState } from "../actions";
+import { paySomeonesPlan, reserveServiceForSomeone, type SponsorActionState } from "../actions";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
 }
 
 type Beneficiary = { id: string; name: string };
+
+/**
+ * Third path: pay for a named service against nothing but a phone number and
+ * first name — no record set up, no elder-proxy dependent created. For
+ * someone who will use the app themselves once they sign up (unlike the
+ * elder-proxy card above, which creates a record the sponsor manages
+ * indefinitely). Reads the same active-products list as PickAndPay below, but
+ * combines service selection and recipient details into one submit since
+ * there is no beneficiary profile id to hand off to a second step yet — one
+ * only exists once create_sponsored_service_reservation creates the
+ * reservation row.
+ */
+function ReserveForRecipient() {
+  const { data: plans, isLoading } = useActiveServiceProducts();
+  const [state, action, pending] = useActionState<SponsorActionState, FormData>(
+    reserveServiceForSomeone,
+    undefined,
+  );
+
+  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_kobo > 0);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Someone who&apos;ll use the app themselves</CardTitle>
+        <CardDescription>
+          Pay for their first service with just their phone number and first name — no record to
+          set up. Once they sign up on Tarragon with that same number, they claim what you paid
+          for and take it from there themselves.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {!isLoading && payable.length === 0 && (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+            Nothing is available to buy right now.
+          </p>
+        )}
+        {!isLoading && payable.length > 0 && (
+          <form action={action} className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="reserve-first-name">Their first name</Label>
+                <Input id="reserve-first-name" name="recipientFirstName" required />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="reserve-phone">Their phone number</Label>
+                <Input
+                  id="reserve-phone"
+                  name="recipientPhone"
+                  type="tel"
+                  placeholder="+2348012345678"
+                  required
+                />
+              </div>
+            </div>
+            <Select name="serviceProductId" defaultValue="" className="max-w-sm" required>
+              <option value="">Choose what to buy</option>
+              {payable.map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.name} ({naira(plan.price_kobo)})
+                </option>
+              ))}
+            </Select>
+            <div>
+              <Button type="submit" disabled={pending}>
+                {pending ? "Starting…" : "Pay on my card"}
+              </Button>
+            </div>
+            {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+            <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+              Billed to you now, in naira, via Paystack. We&apos;ll text them once payment lands so
+              they know it&apos;s waiting — they claim it after signing up under this same number.
+              You can see the status from{" "}
+              <Link href="/patient/supporting" className="text-brand-green underline">
+                People you support
+              </Link>
+              .
+            </p>
+          </form>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 /**
  * Step 1 of 2: who is this for.
@@ -238,6 +323,8 @@ function ChooseBeneficiary({ onChosen }: { onChosen: (b: Beneficiary) => void })
           )}
         </CardContent>
       </Card>
+
+      <ReserveForRecipient />
     </div>
   );
 }

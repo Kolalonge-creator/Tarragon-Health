@@ -382,7 +382,7 @@ jobs:
       - name: Test
         if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
         working-directory: supabase/functions/paystack-webhook
-        run: deno test --no-config --allow-env=PAYSTACK_WEBHOOK_SECRET .
+        run: deno test --no-config --allow-env=PAYSTACK_WEBHOOK_SECRET,TERMII_API_KEY,APP_BASE_URL .
 
       - name: Lint
         if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
