@@ -222,11 +222,11 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "patient",
     tabLabel: "For you",
     title: "Track your health without carrying it alone.",
-    body: "Blood pressure, blood sugar, weight, medication, and lab checks, in one secure place, with a doctor behind it when you need one.",
+    body: "Blood pressure, blood sugar, weight, medication, and lab checks, in one secure place — free to log, with a doctor's review as a service you book when you need one.",
     points: [
       "BP, glucose, and weight logging with trend review",
       "Medication reminders and refill alerts",
-      "Scheduled doctor check-in, doctor escalation when needed",
+      "A dangerous reading always gets safety guidance; a doctor's review or check-in is a service you book",
     ],
     stats: [
       { label: "Blood pressure", value: "124 / 79", pill: { text: "In range", tone: "green" } },
