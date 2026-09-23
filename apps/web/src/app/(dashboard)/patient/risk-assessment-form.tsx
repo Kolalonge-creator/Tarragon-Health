@@ -271,23 +271,26 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               }}
               defaultCheckedValues={values?.family_cancer_types}
             />
-            {showCancerOther && (
-              <div className="space-y-1.5">
-                <Label htmlFor="family_cancer_other_detail">Which cancer type?</Label>
-                {/* required: riskAssessmentSchema's superRefine demands this
-                    whenever "other" is checked; without it, handleSubmit's
-                    :invalid check can't catch a blank one client-side, so it
-                    would reach the server and fail there instead. */}
-                <Input
-                  id="family_cancer_other_detail"
-                  name="family_cancer_other_detail"
-                  type="text"
-                  maxLength={300}
-                  defaultValue={values?.family_cancer_other_detail}
-                  required
-                />
-              </div>
-            )}
+            {/* `hidden`, not a conditional unmount — same reasoning as
+                cigarettes_per_day below: unchecking "Other" and re-checking
+                it within this step (no wizard navigation at all) used to
+                discard whatever cancer type was already typed, since the
+                whole block was unmounted and remounted from scratch. Also
+                why `required` is conditional rather than unconditional: a
+                merely-hidden field must not become an unconditional
+                validation landmine for handleSubmit's :invalid check when
+                it's not currently relevant. */}
+            <div className="space-y-1.5" hidden={!showCancerOther}>
+              <Label htmlFor="family_cancer_other_detail">Which cancer type?</Label>
+              <Input
+                id="family_cancer_other_detail"
+                name="family_cancer_other_detail"
+                type="text"
+                maxLength={300}
+                defaultValue={values?.family_cancer_other_detail}
+                required={showCancerOther}
+              />
+            </div>
           </div>
 
           <div className={stepClass} hidden={step !== 2} data-step={2}>
@@ -476,22 +479,19 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                 if (value === "other") setShowDiagnosesOther(checked);
               }}
             />
-            {showDiagnosesOther && (
-              <div className="space-y-1.5">
-                <Label htmlFor="existing_diagnoses_other_detail">Which diagnosis?</Label>
-                {/* required: same reasoning as family_cancer_other_detail
-                    above — riskAssessmentSchema's superRefine requires this
-                    whenever "other" is checked. */}
-                <Input
-                  id="existing_diagnoses_other_detail"
-                  name="existing_diagnoses_other_detail"
-                  type="text"
-                  maxLength={300}
-                  defaultValue={values?.existing_diagnoses_other_detail}
-                  required
-                />
-              </div>
-            )}
+            {/* `hidden`, not a conditional unmount — same reasoning as
+                family_cancer_other_detail above. */}
+            <div className="space-y-1.5" hidden={!showDiagnosesOther}>
+              <Label htmlFor="existing_diagnoses_other_detail">Which diagnosis?</Label>
+              <Input
+                id="existing_diagnoses_other_detail"
+                name="existing_diagnoses_other_detail"
+                type="text"
+                maxLength={300}
+                defaultValue={values?.existing_diagnoses_other_detail}
+                required={showDiagnosesOther}
+              />
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="current_medications">Current medications (optional)</Label>
               <Input

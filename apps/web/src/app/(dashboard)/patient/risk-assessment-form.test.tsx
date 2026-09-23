@@ -258,4 +258,42 @@ describe("RiskAssessmentForm", () => {
 
     expect((screen.getByLabelText("Cigarettes per day") as HTMLSelectElement).value).toBe("6_10");
   });
+
+  /**
+   * The identical bug, found in two more fields by a later review pass:
+   * family_cancer_other_detail was mounted via `{showCancerOther && (...)}`
+   * and existing_diagnoses_other_detail via `{showDiagnosesOther && (...)}` -
+   * the same conditional-unmount pattern cigarettes_per_day had, just
+   * gating a checkbox instead of a select. Unchecking "Other" and
+   * re-checking it discarded whatever detail text was already typed.
+   */
+  it("keeps the family-cancer-type detail when 'Other' is unchecked and re-checked", () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+
+    fireEvent.click(screen.getByLabelText("Other")); // family_cancer_types "other"
+    fireEvent.change(screen.getByLabelText("Which cancer type?"), {
+      target: { value: "Skin cancer" },
+    });
+
+    fireEvent.click(screen.getByLabelText("Other")); // uncheck
+    fireEvent.click(screen.getByLabelText("Other")); // re-check
+
+    expect((screen.getByLabelText("Which cancer type?") as HTMLInputElement).value).toBe("Skin cancer");
+  });
+
+  it("keeps the existing-diagnosis detail when 'other' is unchecked and re-checked", () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+    fireEvent.click(screen.getByText("Next")); // step 2
+    fireEvent.click(screen.getByText("Next")); // step 3
+
+    fireEvent.click(screen.getByLabelText("other")); // existing_diagnoses "other"
+    fireEvent.change(screen.getByLabelText("Which diagnosis?"), {
+      target: { value: "Thyroid disorder" },
+    });
+
+    fireEvent.click(screen.getByLabelText("other")); // uncheck
+    fireEvent.click(screen.getByLabelText("other")); // re-check
+
+    expect((screen.getByLabelText("Which diagnosis?") as HTMLInputElement).value).toBe("Thyroid disorder");
+  });
 });

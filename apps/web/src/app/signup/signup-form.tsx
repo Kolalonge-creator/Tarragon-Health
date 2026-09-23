@@ -129,8 +129,10 @@ export function SignupForm({
             // full "Nigeria (+234)" label was claiming most of the row
             // (native <select> sizes to its selected option's text), leaving
             // the phone number input so narrow its own placeholder digits
-            // were clipped. This still fits "+234" plus most country names;
-            // the full label is always visible once the native picker opens.
+            // were clipped. The full label is always visible once the
+            // native picker opens; the collapsed box can still truncate a
+            // longer country name (see the dial-code-first option order
+            // below for why that's harmless).
             className={`w-28 shrink-0 truncate sm:w-auto ${FIELD_CLASS}`}
             aria-label="Country code"
             required
@@ -138,7 +140,13 @@ export function SignupForm({
           >
             {COUNTRY_CALLING_CODES.map((country) => (
               <option key={country.iso} value={country.dialCode}>
-                {country.label} ({country.dialCode})
+                {/* Dial code first: text-overflow truncation cuts from the
+                    end, so on a narrow collapsed select a long country name
+                    ("United Arab Emirates (+971)") could hide the dial code
+                    entirely — the one part that actually confirms which
+                    country is selected. "+971 United Arab Emirates" keeps
+                    that part visible regardless of how much gets clipped. */}
+                {country.dialCode} {country.label}
               </option>
             ))}
           </Select>
