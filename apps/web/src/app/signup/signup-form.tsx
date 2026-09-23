@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { Check, Gift } from "lucide-react";
 import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { NIGERIAN_STATES } from "@/lib/nigeria-states";
@@ -13,6 +13,7 @@ import { Select } from "@/components/ui/select";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULE_HINT } from "@/lib/validation/password";
+import { useRemountOnActionResult } from "@/lib/forms/use-remount-on-action-result";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
@@ -31,19 +32,13 @@ export function SignupForm({
   // (see firstIssue), so only that control is marked invalid.
   const invalid = (field: string) => Boolean(state?.error) && state?.field === field;
 
-  // React resets every uncontrolled field in an action-bound <form> once the
-  // action returns, success or failure — so a single bad phone number wiped
-  // name/email/password too and made the visitor start over. Re-keying the
-  // form after a failed attempt forces a remount, which is what lets fresh
-  // `defaultValue`s below (from the server's echoed `values`) actually take.
-  // Adjusted during render, not in an effect, so it can't cascade an extra
-  // render — same pattern as the prefill in risk-assessment-form.tsx.
-  const [attempt, setAttempt] = useState(0);
-  const [lastState, setLastState] = useState(state);
-  if (state !== lastState) {
-    setLastState(state);
-    if (state?.error) setAttempt((n) => n + 1);
-  }
+  // See useRemountOnActionResult's own comment: a single bad phone number
+  // used to wipe name/email/password too and make the visitor start over,
+  // since React resets every uncontrolled field once the action returns.
+  // Remounting on a failed attempt is what lets fresh `defaultValue`s below
+  // (from the server's echoed `values`) actually take; focus lands on the
+  // error banner below rather than being lost to document.body.
+  const attempt = useRemountOnActionResult(state, (s) => Boolean(s?.error), errorId);
   const values = state?.values;
 
   if (state?.success) {

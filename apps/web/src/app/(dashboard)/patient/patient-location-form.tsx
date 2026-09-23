@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { updatePatientLocation } from "./actions";
@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, FormSuccess, fieldErrorId } from "@/components/ui/form-error";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { NIGERIAN_STATES } from "@/lib/nigeria-states";
+import { useRemountOnActionResult } from "@/lib/forms/use-remount-on-action-result";
 
 /**
  * Saves the patient's state/city/area. Nearby-facility pickers (labs,
@@ -26,23 +28,15 @@ export function PatientLocationForm({
 }) {
   const [state, formAction, pending] = useActionState(updatePatientLocation, undefined);
   const router = useRouter();
+  const errorId = fieldErrorId("location");
 
-  // React resets every uncontrolled field in this action-bound <form> once
-  // the action returns, success OR failure (see signup-form.tsx's fix for
-  // the same behavior) — so a transient save error could otherwise wipe out
-  // city/area/state edits the patient had just typed, not just fail to save
-  // them. Re-keying the form on every attempt forces a remount, which is
+  // See useRemountOnActionResult's own comment: a transient save error (or,
+  // just as much, a *successful* save) used to leave the visible fields
+  // showing stale values, since React resets every uncontrolled field once
+  // the action returns regardless of outcome. Remounting on every attempt is
   // what lets fresh defaultValues (from the server's echoed `values`,
-  // returned on success too) actually apply — without this, a *successful*
-  // save could flash the visible fields back to their stale pre-edit values
-  // for the moment before router.refresh() lands a fresh `initial` prop,
-  // looking like the edit was silently lost even though it wasn't.
-  const [attempt, setAttempt] = useState(0);
-  const [lastState, setLastState] = useState(state);
-  if (state !== lastState) {
-    setLastState(state);
-    if (state) setAttempt((n) => n + 1);
-  }
+  // returned on success too) actually apply.
+  const attempt = useRemountOnActionResult(state, (s) => Boolean(s), errorId);
   const values = state?.values;
   const currentState = values?.state ?? initial.state;
 
@@ -115,8 +109,8 @@ export function PatientLocationForm({
               />
             </div>
           </div>
-          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
-          {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Location saved.</p>}
+          <FormError id={errorId} message={state?.error} />
+          <FormSuccess message={state?.success ? "Location saved." : undefined} />
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save location"}
           </Button>
