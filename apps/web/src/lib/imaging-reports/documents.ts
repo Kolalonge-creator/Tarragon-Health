@@ -17,7 +17,7 @@ export interface ImagingReportDocumentView {
   reviewNote: string | null;
   /** Deterministic, patient-visible summary status — never a doctor opinion.
    * See lib/imaging-reports/extraction-actions.ts (AI-016). */
-  aiSummaryStatus: Database["public"]["Enums"]["lab_result_ai_summary_status"];
+  aiSummaryStatus: Database["public"]["Enums"]["ai_document_summary_status"];
   /** The radiologist's own Impression/Conclusion, verbatim. Shown regardless
    * of flagged/ready when present. */
   aiImpressionText: string | null;

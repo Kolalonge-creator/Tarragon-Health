@@ -141,26 +141,12 @@ export async function runEcgReportExtraction(
     );
   }
 
-  let fileBase64: string;
-  let visionMediaType: string = mimeType;
-  try {
-    const { data: file, error } = await service.storage.from(ECG_REPORT_BUCKET).download(filePath);
-    if (error || !file) throw error ?? new Error("Not found in storage");
-
-    // An iPhone photographing a printed ECG produces HEIC, same as a
-    // photographed lab report — reuses lib/lab-reports/heic.ts rather than
-    // duplicating the conversion. Never throws.
-    const normalised = await normaliseForVision(Buffer.from(await file.arrayBuffer()), mimeType);
-    fileBase64 = normalised.buffer.toString("base64");
-    visionMediaType = normalised.mediaType;
-  } catch (error) {
-    console.error("ecg-reports: could not download document", error);
-    return fail("Could not open the stored ECG file.", "Download failed.");
-  }
-
   // -- AI-006 governance gate -----------------------------------------------
-  // Same shape and the same reasoning as the lab pipeline's gate: the kill
-  // switch is honoured before the model is reached, every outcome reaches
+  // Checked BEFORE the storage download/HEIC-normalisation below, not after:
+  // AI-006 is live/enabled in production, but the kill switch must still be
+  // honoured before any real network + CPU cost is paid, not after. Same
+  // shape and the same reasoning as the lab pipeline's gate: the kill switch
+  // is honoured before the model is reached, every outcome reaches
   // ai_interaction_log, and the fallback is the manual entry form this
   // function already fell back to for every other failure.
   //
@@ -189,6 +175,23 @@ export async function runEcgReportExtraction(
       "Automatic reading is switched off just now. Enter the parameters by hand.",
       `AI governance: ${governance.reason}`,
     );
+  }
+
+  let fileBase64: string;
+  let visionMediaType: string = mimeType;
+  try {
+    const { data: file, error } = await service.storage.from(ECG_REPORT_BUCKET).download(filePath);
+    if (error || !file) throw error ?? new Error("Not found in storage");
+
+    // An iPhone photographing a printed ECG produces HEIC, same as a
+    // photographed lab report — reuses lib/lab-reports/heic.ts rather than
+    // duplicating the conversion. Never throws.
+    const normalised = await normaliseForVision(Buffer.from(await file.arrayBuffer()), mimeType);
+    fileBase64 = normalised.buffer.toString("base64");
+    visionMediaType = normalised.mediaType;
+  } catch (error) {
+    console.error("ecg-reports: could not download document", error);
+    return fail("Could not open the stored ECG file.", "Download failed.");
   }
 
   const startedAt = Date.now();

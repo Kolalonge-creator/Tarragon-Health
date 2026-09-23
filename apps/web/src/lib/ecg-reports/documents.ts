@@ -17,7 +17,7 @@ export interface EcgReportDocumentView {
   reviewNote: string | null;
   /** Deterministic, patient-visible summary status — never a doctor opinion.
    * See lib/ecg-reports/ai-summary.ts. */
-  aiSummaryStatus: Database["public"]["Enums"]["lab_result_ai_summary_status"];
+  aiSummaryStatus: Database["public"]["Enums"]["ai_document_summary_status"];
   /** The ECG machine's own printed rhythm statement, verbatim — populated
    * whenever the extraction resolved one, regardless of aiSummaryStatus.
    * Null when no statement was printed/read. */

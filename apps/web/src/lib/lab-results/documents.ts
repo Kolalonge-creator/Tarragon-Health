@@ -37,7 +37,7 @@ export interface ResultDocumentView {
   /** Deterministic, patient-visible summary status — never a doctor opinion,
    * never freeform text. Distinct from patientInterpretation/acknowledgementStatus
    * above, which are both doctor-authored. See extraction-actions.ts. */
-  aiSummaryStatus: Database["public"]["Enums"]["lab_result_ai_summary_status"];
+  aiSummaryStatus: Database["public"]["Enums"]["ai_document_summary_status"];
   aiSummaryGeneratedAt: string | null;
   /** Which test(s) `aiSummaryStatus = 'flagged'` refers to — label and the
    * lab's own printed range, both copied verbatim off the document. Empty

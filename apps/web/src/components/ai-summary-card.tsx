@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import type { Database } from "@tarragon/shared";
 
-type AiSummaryStatus = Database["public"]["Enums"]["lab_result_ai_summary_status"];
+type AiSummaryStatus = Database["public"]["Enums"]["ai_document_summary_status"];
 
 /**
  * Shared presentational chrome for a deterministic, patient-visible AI

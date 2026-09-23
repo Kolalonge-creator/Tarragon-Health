@@ -3,7 +3,7 @@
 import { AiSummaryCard } from "@/components/ai-summary-card";
 import type { Database } from "@tarragon/shared";
 
-type AiSummaryStatus = Database["public"]["Enums"]["lab_result_ai_summary_status"];
+type AiSummaryStatus = Database["public"]["Enums"]["ai_document_summary_status"];
 
 /**
  * Deterministic, patient-visible summary for an uploaded ECG, mirroring

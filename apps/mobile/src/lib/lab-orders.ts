@@ -163,7 +163,7 @@ export async function getLabResultInterpretations(
 }
 
 export type ResultDocumentSource = Enums<"lab_result_document_source">;
-export type AiSummaryStatus = Enums<"lab_result_ai_summary_status">;
+export type AiSummaryStatus = Enums<"ai_document_summary_status">;
 
 /** Same storage bucket as apps/web/src/lib/lab-results/documents.ts's
  * RESULT_DOC_BUCKET — kept as a local literal since that file is
