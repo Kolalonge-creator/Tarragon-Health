@@ -25,7 +25,8 @@ import { createClient } from "@/lib/supabase/server";
 export type PlatformModuleKey =
   | "payer_platform"
   | "provider_org_platform"
-  | "platform_credit_topups";
+  | "platform_credit_topups"
+  | "ngo_funded_cohort";
 
 // The platform_credit_topups "disabled" message lives in
 // lib/billing/platform-credit-messages.ts, not here — this module carries

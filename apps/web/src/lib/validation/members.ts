@@ -20,6 +20,12 @@ export const USER_ROLES = [
   // organisation is is_operational. See platform_modules.
   "payer_admin",
   "provider_org_staff",
+  // Module ngo_funded_cohort — same "provisionable ahead of activation" shape
+  // as payer_admin/provider_org_staff above: the seat exists so a real NGO
+  // partner's account can be created (and linked to their organisation) as
+  // soon as a partnership is signed, but every RPC that checks role =
+  // 'ngo_admin' still refuses until a superadmin switches the module on.
+  "ngo_admin",
 ] as const;
 
 export type UserRoleValue = (typeof USER_ROLES)[number];
@@ -39,6 +45,7 @@ export const USER_ROLE_LABELS: Record<UserRoleValue, string> = {
   admin: "Super Admin",
   payer_admin: "Payer Admin (insurer platform — dormant until activated)",
   provider_org_staff: "Provider Organisation Staff (dormant until activated)",
+  ngo_admin: "NGO Partner Admin (funded-cohort module — dormant until activated)",
 };
 
 const optionalUuid = z

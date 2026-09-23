@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const LEAD_ROLES = ["patient", "family", "employer", "hmo", "other"] as const;
+export const LEAD_ROLES = ["patient", "family", "employer", "hmo", "ngo", "other"] as const;
 
 export type LeadRole = (typeof LEAD_ROLES)[number];
 
