@@ -86,6 +86,19 @@
  *
  * Same webhook-recognition correction as voucher_payment above.
  */
+/**
+ * 'sponsored_service_reservation' (2026-09-23) activates via
+ * private.activate_sponsored_service_reservation (an AFTER INSERT trigger on
+ * payment_transactions, see
+ * supabase/migrations/20260923013621_activate_sponsored_service_reservation.sql).
+ * A launch-scope audit's claim-based diaspora flow: unlike
+ * sponsored_subscription (which requires a profile_access grant to already
+ * exist), this pays for a named service against a bare recipient phone
+ * number + first name, no profile created up front. The webhook flips the
+ * reservation to 'invited' and mints an invite_token; the recipient claims
+ * it themselves once they've signed up under that same phone number
+ * (public.claim_sponsored_service_reservation).
+ */
 export type CheckoutKind =
   | "subscription"
   | "add_on"
@@ -95,7 +108,8 @@ export type CheckoutKind =
   | "screening_day_payment"
   | "subsidy_contribution"
   | "service_purchase"
-  | "platform_credit_topup";
+  | "platform_credit_topup"
+  | "sponsored_service_reservation";
 
 export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "lab_result_consult";
 
@@ -118,4 +132,6 @@ export interface CheckoutMetadata {
   plan_code?: string;
   /** Only set for kind='subsidy_contribution' — the subsidy_contributions.id this specific charge settles. */
   subsidy_contribution_id?: string;
+  /** Only set for kind='sponsored_service_reservation' — the sponsored_service_reservations.id this charge activates. */
+  reservation_id?: string;
 }

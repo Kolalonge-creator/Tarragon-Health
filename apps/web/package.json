@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:e2e": "jest --config jest.e2e.config.mjs",
+    "test:e2e-browser": "playwright test",
     "lab-corpus": "tsx --tsconfig tsconfig.scripts.json scripts/run-lab-corpus.ts",
     "ai-coach-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-safety-eval.ts",
     "ai-coach-governance-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-governance-suites-eval.ts"
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
