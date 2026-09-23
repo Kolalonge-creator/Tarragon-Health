@@ -11,6 +11,7 @@
     "test": "jest",
     "test:a11y": "jest --testPathPatterns=\\.a11y\\.test\\.tsx$",
     "test:e2e": "jest --config jest.e2e.config.mjs",
+    "e2e": "playwright test --config=playwright.smoke.config.ts",
     "test:e2e-browser": "playwright test",
     "lab-corpus": "tsx --tsconfig tsconfig.scripts.json scripts/run-lab-corpus.ts",
     "ai-coach-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-safety-eval.ts",

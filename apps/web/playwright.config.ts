@@ -1,6 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
+ * Sibling to `playwright.smoke.config.ts` (`./e2e`, `pnpm e2e`), which runs
+ * a read-only login/navigation smoke suite against the real production
+ * Supabase project via the shared `@tarragon.test` QA accounts. This one
+ * runs write-capable flows (signup, checkout, entitlement) against a fresh
+ * LOCAL Supabase stack instead — the two are kept as separate config files
+ * and separate CI jobs deliberately: different webServer commands,
+ * different target databases, different risk profiles.
+ *
  * Real browser E2E — distinct from jest.e2e.config.mjs's `e2e/` (which hits
  * the live project's DB/Edge Functions directly, bypassing the UI). These
  * specs drive the actual Next.js app in a real browser. Intended to run
