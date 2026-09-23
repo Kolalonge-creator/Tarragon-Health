@@ -319,3 +319,15 @@ cmo_clinical_rules_insert_dual_gate.sql
 # same-org-only, forge-proof authorship, closed-thread terminality, and the
 # bidirectional in_app notification. See the migration's own header.
 curbside_consults.sql
+
+# --- Added 2026-09-22 (doctor income analytics) ------------------------------
+# See supabase/migrations/20260922190157_doctor_paid_work_and_income_analytics.sql
+# and its 20260922192954 follow-up fix (cancelled-appointment carve-out,
+# O(doctors x rows) by_product fix, shared clinical_staff lookup, mixed-
+# currency flag, redeemed_entity_type CHECK constraint). Covers the
+# 'verified_document' and 'appointment' redemption paths end-to-end (the
+# latter the one path joining profiles directly, not clinical_staff), the
+# analyst gate (open/closed, with a sabotage grant/revoke), totals
+# reconciliation, and the cancelled-appointment exclusion, each verified
+# live including a wrong-actor-table-join sabotage run.
+doctor_income_attribution_and_analyst_gate.sql
