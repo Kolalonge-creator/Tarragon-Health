@@ -224,12 +224,18 @@ export async function updatePatientLocation(
     };
   }
 
+  // Past this point every branch has a validated `parsed.data` to echo back
+  // instead of the raw formData — trimmed the same way it's about to be
+  // (or already was) persisted, so the re-rendered field can't show stray
+  // whitespace the database write itself never kept.
+  const validatedValues = { state: parsed.data.state, city: parsed.data.city, area: parsed.data.area };
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { error: "Not signed in", values: locationValues(formData) };
+    return { error: "Not signed in", values: validatedValues };
   }
 
   // Empty string → null so a cleared field doesn't store "".
@@ -248,7 +254,7 @@ export async function updatePatientLocation(
     // fix for the same behavior) — without echoing the submitted values
     // back, a transient DB error here would silently discard city/area/state
     // edits the patient had just typed, not just fail to save them.
-    return { error: error.message, values: locationValues(formData) };
+    return { error: error.message, values: validatedValues };
   }
 
   // Echoed here too, not just on failure: the same reset-on-any-outcome
@@ -256,7 +262,7 @@ export async function updatePatientLocation(
   // fields back to their pre-edit values for the moment before
   // router.refresh() lands a fresh `initial` prop — looking, right after a
   // successful save, like the edit itself was silently lost.
-  return { success: true, values: locationValues(formData) };
+  return { success: true, values: validatedValues };
 }
 
 const AVATAR_BUCKET = "patient-avatars";

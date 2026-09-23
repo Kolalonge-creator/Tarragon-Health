@@ -10,10 +10,6 @@
  * on both ways it can fail.
  */
 
-jest.mock("@/lib/auth/current-profile", () => ({
-  getCurrentProfile: jest.fn(),
-}));
-
 const getUser = jest.fn();
 const update = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
