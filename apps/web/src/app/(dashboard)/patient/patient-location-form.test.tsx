@@ -8,9 +8,12 @@
  * <Select> whose defaultValue matches no <option> silently falls back to
  * the first one ("Select…") - on the next save, that blank submission would
  * have overwritten the patient's real saved state with NULL. This proves
- * a non-matching on-file value is kept as its own selected option instead
- * of being silently dropped, and that a canonical value still selects
- * normally.
+ * a genuinely unrecognized on-file value is kept as its own selected option
+ * instead of being silently dropped, that a *recognizable* variant (per
+ * resolveNigerianState in nigeria-states.ts — different casing, a trailing
+ * "...State" suffix, an FCT/Abuja alias) is pre-selected on its canonical
+ * spelling instead of falling back at all, and that an already-canonical
+ * value still selects normally.
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { PatientLocationForm } from "./patient-location-form";
@@ -25,12 +28,20 @@ jest.mock("./actions", () => ({
 }));
 
 describe("PatientLocationForm — state dropdown", () => {
-  it("keeps a non-canonical on-file value selected instead of silently blanking it", () => {
+  it("pre-selects the canonical spelling for a recognizable non-canonical on-file value", () => {
     render(<PatientLocationForm initial={{ state: "lagos state", city: null, area: null }} />);
 
     const select = screen.getByLabelText("State") as HTMLSelectElement;
-    expect(select.value).toBe("lagos state");
-    expect(screen.getByText("lagos state (on file, please reselect)")).toBeTruthy();
+    expect(select.value).toBe("Lagos");
+    expect(screen.queryByText(/on file, please reselect/)).toBeNull();
+  });
+
+  it("keeps a genuinely unrecognized on-file value selected instead of silently blanking it", () => {
+    render(<PatientLocationForm initial={{ state: "Neverland", city: null, area: null }} />);
+
+    const select = screen.getByLabelText("State") as HTMLSelectElement;
+    expect(select.value).toBe("Neverland");
+    expect(screen.getByText("Neverland (on file, please reselect)")).toBeTruthy();
   });
 
   it("selects the matching canonical option normally when the on-file value is a real state", () => {

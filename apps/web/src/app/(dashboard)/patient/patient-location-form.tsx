@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError, FormSuccess, fieldErrorId } from "@/components/ui/form-error";
 import { SEMANTIC_ICON } from "@/lib/icons";
-import { NIGERIAN_STATES } from "@/lib/nigeria-states";
+import { NIGERIAN_STATES, resolveNigerianState } from "@/lib/nigeria-states";
 import { useRemountOnActionResult } from "@/lib/forms/use-remount-on-action-result";
 
 /**
@@ -128,9 +128,17 @@ export function PatientLocationForm({
   // etc.). A <Select> with no matching <option> silently falls back to the
   // first one ("Select…") — if the patient then saved the form without
   // touching this field, that blank submission would have nulled out their
-  // real saved state. Keeping the on-file value as its own option instead
-  // preserves it (and makes the mismatch visible) until they pick a real one.
-  const hasCanonicalMatch = !currentState || NIGERIAN_STATES.some((s) => s.value === currentState);
+  // real saved state. A recognizable variant (different casing, a trailing
+  // "...State" suffix, a common FCT/Abuja alias — see resolveNigerianState)
+  // is pre-selected on its canonical NIGERIAN_STATES spelling instead of
+  // falling back at all, so the mismatch resolves itself the moment this
+  // form renders rather than waiting on the patient to notice and reselect.
+  // Only a genuinely unrecognized on-file value (a typo too garbled to
+  // resolve, a diaspora patient's home country) keeps itself as its own
+  // option, visible and preserved, until they pick a real one.
+  const { recognized: isCurrentStateRecognized, canonical: canonicalCurrentState } = resolveNigerianState(currentState);
+  const hasCanonicalMatch = !currentState || isCurrentStateRecognized;
+  const selectedState = canonicalCurrentState || "";
 
   // Server components read profiles.state/city/area — refresh so the pickers
   // downstream pick up the new saved location without a full reload.
@@ -179,7 +187,7 @@ export function PatientLocationForm({
                   the "value MUST match... exactly" warning in
                   nigeria-states.ts. Same canonical list the signup form
                   already uses. */}
-              <Select id="location-state" name="state" defaultValue={currentState ?? ""}>
+              <Select id="location-state" name="state" defaultValue={selectedState}>
                 <option value="">Select…</option>
                 {!hasCanonicalMatch && (
                   <option value={currentState ?? ""}>{currentState} (on file, please reselect)</option>
