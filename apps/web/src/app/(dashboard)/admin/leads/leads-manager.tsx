@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SearchableList } from "@/components/ui/searchable-list";
-import { LEAD_ROLES } from "@/lib/validation/lead";
+import { LEAD_ROLES, LEAD_GOAL_LABEL, type LeadGoal } from "@/lib/validation/lead";
 import { toggleLeadContactedAction, type LeadActionState } from "./actions";
 import type { LeadRow } from "./page";
 
@@ -31,6 +31,13 @@ const ROLE_LABEL: Record<(typeof LEAD_ROLES)[number], string> = {
  * falling back to the raw string for any value ROLE_LABEL doesn't know. */
 function roleLabel(role: string): string {
   return role in ROLE_LABEL ? ROLE_LABEL[role as keyof typeof ROLE_LABEL] : role;
+}
+
+/** Same safe-fallback shape as roleLabel above: `lead.goal` is a plain
+ * nullable string off the DB row, not narrowed to LeadGoal. */
+function goalLabel(goal: string | null): string | null {
+  if (!goal) return null;
+  return goal in LEAD_GOAL_LABEL ? LEAD_GOAL_LABEL[goal as LeadGoal] : goal;
 }
 
 function shortDate(iso: string): string {
@@ -122,7 +129,7 @@ export function LeadsManager({ leads }: { leads: LeadRow[] }) {
         <SearchableList
           items={filtered}
           filterFn={(lead, q) =>
-            [lead.name, lead.contact, lead.message, roleLabel(lead.role), lead.source]
+            [lead.name, lead.contact, lead.message, roleLabel(lead.role), goalLabel(lead.goal), lead.source]
               .filter(Boolean)
               .some((field) => field!.toLowerCase().includes(q))
           }
@@ -161,6 +168,9 @@ function LeadCard({ lead }: { lead: LeadRow }) {
           </p>
         </div>
 
+        {goalLabel(lead.goal) && (
+          <p className="text-xs text-charcoal-ink/60">Goal: {goalLabel(lead.goal)}</p>
+        )}
         {lead.message && <p className="text-sm text-charcoal-ink/80">{lead.message}</p>}
 
         <div className="flex flex-wrap items-center gap-3 pt-1">

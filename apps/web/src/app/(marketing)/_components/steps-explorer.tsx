@@ -86,6 +86,14 @@ export function StepsExplorer({
                     isActive ? "text-charcoal-ink" : "text-charcoal-ink/75"
                   )}
                 >
+                  {/* The number badge itself is aria-hidden (decorative), and
+                      <ol>/<li> position-in-set isn't reliably announced to
+                      someone who tabs straight to this button rather than
+                      browsing the list in order — this sr-only prefix gives
+                      every screen-reader user the step number regardless of
+                      how they arrived here, without changing what's already
+                      visibly on screen. */}
+                  <span className="sr-only">Step {index + 1}: </span>
                   {item.title}
                 </h3>
                 <p

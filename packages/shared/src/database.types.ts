@@ -19354,6 +19354,7 @@ export type Database = {
           contacted_at: string | null
           contacted_by: string | null
           created_at: string
+          goal: Database["public"]["Enums"]["lead_goal"] | null
           id: string
           message: string | null
           name: string
@@ -19365,6 +19366,7 @@ export type Database = {
           contacted_at?: string | null
           contacted_by?: string | null
           created_at?: string
+          goal?: Database["public"]["Enums"]["lead_goal"] | null
           id?: string
           message?: string | null
           name: string
@@ -19376,6 +19378,7 @@ export type Database = {
           contacted_at?: string | null
           contacted_by?: string | null
           created_at?: string
+          goal?: Database["public"]["Enums"]["lead_goal"] | null
           id?: string
           message?: string | null
           name?: string
@@ -42217,6 +42220,16 @@ export type Database = {
         Args: { p_appointment_id: string; p_occurrence_id: string }
         Returns: undefined
       }
+      log_denied_action: {
+        Args: {
+          p_action: string
+          p_entity_id: string
+          p_entity_type: string
+          p_organisation_id: string
+          p_reason?: string
+        }
+        Returns: string
+      }
       log_patient_data_export: {
         Args: { p_scope?: string }
         Returns: undefined
@@ -42745,6 +42758,10 @@ export type Database = {
           p_reason: string
         }
         Returns: boolean
+      }
+      reassign_escalation: {
+        Args: { p_doctor_profile_id: string; p_escalation_id: string; p_reason?: string }
+        Returns: undefined
       }
       record_ai_human_override: {
         Args: {
@@ -44953,6 +44970,13 @@ export type Database = {
         | "clinician"
         | "admin"
         | "lab_partner"
+      lead_goal:
+        | "managing_a_condition"
+        | "staying_ahead"
+        | "family_care"
+        | "fast_doctor_access"
+        | "one_record"
+        | "still_exploring"
       lead_role: "patient" | "family" | "employer" | "hmo" | "other" | "ngo"
       lifestyle_barrier_code:
         | "cost"
@@ -47322,6 +47346,14 @@ export const Constants = {
         "clinician",
         "admin",
         "lab_partner",
+      ],
+      lead_goal: [
+        "managing_a_condition",
+        "staying_ahead",
+        "family_care",
+        "fast_doctor_access",
+        "one_record",
+        "still_exploring",
       ],
       lead_role: ["patient", "family", "employer", "hmo", "other", "ngo"],
       lifestyle_barrier_code: [

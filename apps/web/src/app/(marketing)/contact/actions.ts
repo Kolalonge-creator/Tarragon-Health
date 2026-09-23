@@ -32,6 +32,7 @@ export async function submitLead(
     name: formData.get("name"),
     contact: formData.get("contact"),
     role: formData.get("role"),
+    goal: formData.get("goal") || undefined,
     message: formData.get("message") || undefined,
     source: formData.get("source") || "homepage",
   });
@@ -55,6 +56,7 @@ export async function submitLead(
     name: parsed.data.name,
     contact: parsed.data.contact,
     role: parsed.data.role,
+    goal: parsed.data.goal ?? null,
     message: parsed.data.message ?? null,
     source: parsed.data.source,
   });
