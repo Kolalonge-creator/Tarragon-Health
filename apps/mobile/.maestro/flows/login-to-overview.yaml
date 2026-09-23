@@ -1,3 +1,7 @@
+# iOS only for now (see README's "Platform scope" note) — app.json's iOS
+# bundleIdentifier (com.tarragonhealth.mobile) and Android package
+# (com.tarragonhealth.app) are different strings, and this flow was
+# researched/reasoned about against the iOS build only.
 appId: com.tarragonhealth.mobile
 name: Login to patient overview
 tags:
@@ -7,18 +11,30 @@ tags:
 # Cold launch: App.tsx shows a branded splash (SafeAreaView, brand-colored,
 # logo mark + ActivityIndicator — no text, no testID) while it resolves
 # supabase.auth.getSession() -> loadPatientIdentity() -> readAppLockEnabled().
-# That gate has its own 8s internal timeout (STUCK_LOADING_TIMEOUT_MS in
-# App.tsx) before showing a "Try again" retry screen — give it real headroom
-# here rather than a tight Maestro-level timeout racing that same clock.
+# That's actually TWO stacked 8000ms gates sharing STUCK_LOADING_TIMEOUT_MS —
+# the outer Ionicons.loadFont() gate in App(), then AppContent's own
+# session/identity gate — so the pathological worst case (the "blank shell
+# hang" this session hit and documented in memory:
+# project_blank_shell_hang_recurred_20260923) is up to ~16s before
+# LoginScreen ever mounts, not 8s. 20s gives real headroom above that, not
+# just above one of the two clocks.
 - launchApp:
     clearState: true
 - extendedWaitUntil:
     visible: "Email"
-    timeout: 15000
+    timeout: 20000
 
 # No testID convention exists anywhere in apps/mobile/src (confirmed via
 # repo-wide grep, 2026-09-23) — every selector below targets visible text /
 # accessibilityLabel, the only thing this codebase actually provides.
+#
+# MOBILE_E2E_EMAIL/MOBILE_E2E_PASSWORD below are NOT read from a plain
+# shell `export` — Maestro only resolves ${VAR} from a flow's own `env:`
+# block, from `-e VAR=value` on the `maestro test` command line, or from
+# shell vars prefixed MAESTRO_. This flow relies on the CALLER passing
+# `-e MOBILE_E2E_EMAIL=... -e MOBILE_E2E_PASSWORD=...` (see README) rather
+# than declaring its own `env:` block, so the same flow file works
+# unchanged against any account without editing it.
 - tapOn: "Email"
 - inputText: ${MOBILE_E2E_EMAIL}
 - tapOn: "Password"
@@ -26,7 +42,13 @@ tags:
 - tapOn: "Sign in"
 
 # The static subtitle, not the header ("<FirstName>'s overview") — stays the
-# same regardless of which account MOBILE_E2E_EMAIL points at.
+# same regardless of which account MOBILE_E2E_EMAIL points at. Known
+# limitation, not fixed here: this text only renders once OverviewScreen's
+# getSummaryStats() (one of 6 parallel calls) succeeds — a transient
+# post-login fetch failure (plausible if session/RLS propagation lags right
+# after sign-in) renders a "couldn't load / tap to retry" card instead, and
+# this step would time out on that transient condition with no retry,
+# looking identical to a real login failure. Not hardened against that here.
 - extendedWaitUntil:
     visible: "Today at a glance: your numbers, your care team, and recent activity."
     timeout: 20000

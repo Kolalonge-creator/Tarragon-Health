@@ -3,9 +3,19 @@
 Nothing existed here before this pass — no Detox, no Maestro, no mobile UI-automation of any kind.
 Maestro was chosen over Detox specifically because it drives an already-built app/binary via YAML
 flows with no native test-runner integration required, which matters given this repo's real
-constraint: `apps/mobile` has committed native `ios/`/`android/` directories (not a pure managed
-Expo project), so every UI-automation option here needs a real compiled build regardless — Maestro
-at least doesn't also need Detox's Xcode/Gradle test-target wiring on top of that.
+constraint: `apps/mobile/ios/` is a committed, expo-prebuild-generated native project (not a pure
+managed Expo app) — **`apps/mobile/android/` is NOT committed** (`apps/mobile/.gitignore` excludes
+it explicitly, with its own comment noting this is deliberately unlike `ios/`), so every
+UI-automation option here needs at minimum a real local `ios/` build regardless — Maestro at least
+doesn't also need Detox's Xcode/Gradle test-target wiring on top of that.
+
+## Platform scope: iOS only, for now
+
+`login-to-overview.yaml`'s `appId: com.tarragonhealth.mobile` matches `app.json`'s iOS
+`bundleIdentifier` only — Android's `package` is the different string
+`com.tarragonhealth.app`. This flow was researched and (attempted to be) verified against the iOS
+Simulator only; treat it as iOS-only until an Android variant is written and its own `appId`
+confirmed, not as a flow that happens to also work on Android.
 
 ## Setup
 
@@ -26,15 +36,23 @@ npx expo run:ios      # or: eas build --profile development --platform ios, then
 Then, with a Metro dev server running and the built app open on a simulator/device:
 
 ```bash
-export MOBILE_E2E_EMAIL=patient.free.test@tarragon.test      # or any account from the existing
-export MOBILE_E2E_PASSWORD=...                                # QA test-account roster (see memory)
-maestro test apps/mobile/.maestro/flows/login-to-overview.yaml
+maestro test apps/mobile/.maestro/flows/login-to-overview.yaml \
+  -e MOBILE_E2E_EMAIL=... -e MOBILE_E2E_PASSWORD=...
 ```
 
-Credentials are read from environment variables, never hardcoded in the flow file — this repo
-already has an established QA test-account roster (all `@tarragon.test`, one shared password) for
-exactly this kind of manual/scripted click-through; point `MOBILE_E2E_EMAIL`/`MOBILE_E2E_PASSWORD`
-at any patient account from it rather than inventing new credentials or a new account.
+**Must be `-e` flags on the command line, not a plain shell `export`.** Maestro only resolves a
+flow's `${VAR}` references from three places: the flow's own `env:` block, `-e VAR=value` on this
+command, or a shell variable prefixed `MAESTRO_` — a bare `export MOBILE_E2E_EMAIL=...` does none
+of those and the flow will not see it (confirmed against Maestro's own docs on
+parameters/constants).
+
+Credentials are read from these flags, never hardcoded in the flow file or this README — this repo
+already has an established QA test-account roster (all `@tarragon.test`, one shared password, see
+memory `project_qa_test_accounts_20260727`) for exactly this kind of manual/scripted click-through;
+point `MOBILE_E2E_EMAIL`/`MOBILE_E2E_PASSWORD` at any patient account from it rather than inventing
+new credentials, creating a new account, or writing a specific account's address into this
+committed file (a real, working test-account email paired in the same paragraph with "the roster
+shares one password" is attack-surface worth not adding, even for a low-value test account).
 
 ## What's covered
 
@@ -80,20 +98,40 @@ introduced by this work:
    error while probing for physical USB devices), and one Metro instance crashed with an unrelated
    internal `RangeError` in its file-crawler.
 
-None of this is a defect in `login-to-overview.yaml` itself, as far as could be determined — it's
-grounded in real, current source (`apps/mobile/src/screens/login-screen.tsx`,
-`apps/mobile/src/screens/sections/overview-screen.tsx`, `apps/mobile/App.tsx`'s cold-start gate),
-not guessed. But "grounded in real source" and "proven to work" are different claims, and only the
-first one can honestly be made here. **Whoever runs this flow for the first time is the first
-person to find out whether it actually passes.** Read a failure as plausibly-real signal about the
-flow, but check simulator/Metro health first (per the memory entries above) before assuming the
-flow itself is wrong.
+**Update, same session:** since live verification wasn't possible, `/code-review high` was run on
+the flow itself instead — and it found two real defects that WOULD have made every run fail
+regardless of environment health, now fixed: the env-var substitution mechanism described above
+(the first version relied on a plain `export`, which Maestro never reads), and the `appId`
+Android-mismatch (see "Platform scope" above). So the honest state is more precise than "probably
+fine, just unverified": this flow has already been proven wrong twice by review and corrected
+without ever running once. Selectors themselves (`"Email"`, `"Password"`, `"Sign in"`, the Overview
+subtitle text) were independently checked against current source and are accurate. Two known,
+accepted limitations remain, not fixed:
+- `launchApp: {clearState: true}` wipes the local App Lock preference along with everything else,
+  so this flow structurally can never exercise (or accidentally get blocked by) the App Lock screen
+  — by construction, not by accident.
+- The final wait can time out on a transient post-login stats-fetch failure (a real, different
+  screen state — a "couldn't load, tap to retry" card) that looks identical to a genuine login
+  failure from the outside. Not hardened against here.
+
+**Whoever runs this flow for the first time is still the first person to find out whether it
+actually passes end-to-end.** Read a failure as plausibly-real signal about the flow, but check
+simulator/Metro health first (per the memory entries above) before assuming the flow itself is
+wrong.
 
 ## CI
 
-**Not wired into CI in this pass, deliberately.** Unlike the web Playwright suite (which only needed
-a local Postgres via Docker), a mobile CI job needs a `macos-latest` GitHub Actions runner, Xcode,
-CocoaPods, and either a real native build step (slow, ~15-30+ min uncached) or a pre-built artifact
-from EAS — a meaningfully bigger lift than this pass's scope, and not worth attempting blind given
-this session couldn't even get the flow running *locally* to prove the approach first. Wire this up
-once `login-to-overview.yaml` has been confirmed passing against a real build at least once.
+**Real device execution is not wired into CI in this pass, deliberately.** Unlike the web Playwright
+suite (which only needed a local Postgres via Docker), a mobile CI job that actually runs a flow
+needs a `macos-latest` GitHub Actions runner, Xcode, CocoaPods, and either a real native build step
+(slow, ~15-30+ min uncached) or a pre-built artifact from EAS — a meaningfully bigger lift than this
+pass's scope, and not worth attempting blind given this session couldn't even get the flow running
+*locally* to prove the approach first. Wire this up once `login-to-overview.yaml` has been confirmed
+passing against a real build at least once.
+
+**What IS wired in**: a YAML-syntax lint step on every flow file (`mobile-typescript` job in
+`.github/workflows/ci.yml`) — needs no simulator, no macOS runner, nothing device-related. It's the
+same `python3 -c "import yaml; yaml.safe_load_all(...)"` structural check used to validate this
+flow by hand, now running on every PR so a future broken/malformed flow file (bad indentation, a
+stray colon) is caught before merge instead of only being discovered the next time someone tries to
+run Maestro locally.

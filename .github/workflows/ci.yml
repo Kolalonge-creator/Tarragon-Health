@@ -98,6 +98,30 @@ jobs:
         if: github.event_name != 'pull_request' || steps.changes.outputs.mobile == 'true'
         run: pnpm --filter @tarragon/mobile lint
 
+      # Structural check only — confirms every Maestro flow file parses as
+      # Maestro's own config+commands two-document YAML format (the same
+      # check used to validate apps/mobile/.maestro/flows/login-to-overview.yaml
+      # by hand before it could ever be run against a real device — see
+      # apps/mobile/.maestro/README.md). Catches a broken/malformed flow file
+      # before merge; does NOT run any flow against a simulator/device — that
+      # needs a macOS runner + a real native build and is out of scope here.
+      - name: Lint Maestro flow YAML
+        if: github.event_name != 'pull_request' || steps.changes.outputs.mobile == 'true'
+        run: |
+          pip install --quiet pyyaml
+          python3 -c "
+          import glob, sys, yaml
+          files = glob.glob('apps/mobile/.maestro/flows/*.yaml')
+          if not files:
+              sys.exit('no Maestro flow files found under apps/mobile/.maestro/flows/')
+          for path in files:
+              docs = list(yaml.safe_load_all(open(path)))
+              assert len(docs) == 2, f'{path}: expected 2 YAML documents (config + commands), got {len(docs)}'
+              assert isinstance(docs[0], dict) and 'appId' in docs[0], f'{path}: config block missing appId'
+              assert isinstance(docs[1], list) and len(docs[1]) > 0, f'{path}: commands block must be a non-empty list'
+              print(f'{path}: OK ({len(docs[1])} commands)')
+          "
+
   python-ml:
     name: Python ML service
     runs-on: ubuntu-latest
