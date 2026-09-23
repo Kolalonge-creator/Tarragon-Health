@@ -6,6 +6,7 @@ import { PricingServices } from "../_components/pricing-services";
 import { fetchPlanPrices, servicePriceOverridesFrom } from "@/lib/marketing/plan-prices";
 import { PricingLabelBadge } from "../_components/pricing-label";
 import { CtaBand } from "../_components/cta-band";
+import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { SITE, SITE_URL, absoluteUrl, pageMetadata } from "@/lib/marketing/site";
@@ -144,22 +145,7 @@ No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
           eyebrow="Questions"
           title="Frequently asked questions"
         />
-        <div className="mx-auto grid max-w-4xl gap-4">
-          {pricingFaq.map((faq) => (
-            <details
-              key={faq.question}
-              className="group rounded-xl border border-charcoal-ink/10 bg-white p-5"
-            >
-              <summary className="cursor-pointer list-none font-heading text-lg font-semibold text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2">
-                {faq.question}
-                <span className="float-right ml-4 text-brand-green transition-transform group-open:rotate-45">
-                  +
-                </span>
-              </summary>
-              <p className="mt-3 text-charcoal-ink/70">{faq.answer}</p>
-            </details>
-          ))}
-        </div>
+        <FaqAccordion items={pricingFaq} variant="minimal" />
       </Section>
 
       <Section>

@@ -11,6 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { HealthDomainArt } from "@/app/(dashboard)/patient/health-domain-art";
 
 const GROUP_LABEL: Record<HealthDomainGroup, string> = {
   energy: "Energy, day to day",
@@ -31,17 +32,20 @@ function DomainTile({ domain }: { domain: HealthDomainView }) {
         : null;
 
   return (
-    <div className="rounded-xl border border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card p-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{domain.label}</p>
-        {badge ? (
-          <Badge variant={badge.variant}>{badge.label}</Badge>
-        ) : (
-          <Badge variant="grey">Not tracked yet</Badge>
-        )}
+    <div className="flex gap-3 rounded-xl border border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card p-4">
+      <HealthDomainArt domainKey={domain.key} className="h-10 w-10 shrink-0" />
+      <div className="min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{domain.label}</p>
+          {badge ? (
+            <Badge variant={badge.variant}>{badge.label}</Badge>
+          ) : (
+            <Badge variant="grey">Not tracked yet</Badge>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/55">{domain.blurb}</p>
+        <p className="mt-1.5 text-xs text-charcoal-ink/70 dark:text-night-ink/70">{domain.narrative}</p>
       </div>
-      <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/55">{domain.blurb}</p>
-      <p className="mt-1.5 text-xs text-charcoal-ink/70 dark:text-night-ink/70">{domain.narrative}</p>
     </div>
   );
 }
