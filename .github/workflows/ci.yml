@@ -65,7 +65,7 @@ jobs:
       - name: Detect mobile-relevant changes
         id: changes
         if: github.event_name == 'pull_request'
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             mobile:
@@ -198,7 +198,7 @@ jobs:
       - name: Detect E2E-relevant changes
         id: changes
         if: github.event_name == 'pull_request'
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             e2e:
@@ -349,7 +349,7 @@ jobs:
       - name: Detect edge-function changes
         id: changes
         if: github.event_name == 'pull_request'
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             edge:
