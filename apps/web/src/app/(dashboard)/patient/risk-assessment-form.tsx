@@ -271,15 +271,25 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               }}
               defaultCheckedValues={values?.family_cancer_types}
             />
-            {/* `hidden`, not a conditional unmount — same reasoning as
-                cigarettes_per_day below: unchecking "Other" and re-checking
-                it within this step (no wizard navigation at all) used to
-                discard whatever cancer type was already typed, since the
-                whole block was unmounted and remounted from scratch. Also
-                why `required` is conditional rather than unconditional: a
-                merely-hidden field must not become an unconditional
-                validation landmine for handleSubmit's :invalid check when
-                it's not currently relevant. */}
+            {/* `hidden`, not a conditional unmount — unchecking "Other" and
+                re-checking it within this step (no wizard navigation at
+                all) used to discard whatever cancer type was already
+                typed, since the whole block was unmounted and remounted
+                from scratch. `required` is conditional so a merely-hidden
+                field doesn't become an unconditional validation landmine
+                for handleSubmit's :invalid check when it's not currently
+                relevant. `disabled` (not just `hidden`) matters for a
+                different reason: a hidden-but-not-disabled field's value
+                is still included in FormData at submit — riskAssessmentSchema
+                only validates *presence* when family_cancer_types includes
+                "other", never *absence* when it doesn't, so unchecking
+                "Other" after typing a detail (without this) would silently
+                persist that stale text to a patient's clinical record even
+                though the category it describes is no longer selected.
+                Disabled fields are excluded from FormData entirely, while
+                still keeping their value in the DOM for the toggle-back-on
+                case above — the one thing a plain conditional unmount would
+                also have gotten right, at the cost of losing that case. */}
             <div className="space-y-1.5" hidden={!showCancerOther}>
               <Label htmlFor="family_cancer_other_detail">Which cancer type?</Label>
               <Input
@@ -289,6 +299,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                 maxLength={300}
                 defaultValue={values?.family_cancer_other_detail}
                 required={showCancerOther}
+                disabled={!showCancerOther}
               />
             </div>
           </div>
@@ -324,20 +335,20 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               {/* `hidden`, not a conditional unmount: toggling smoking_status
                   away from "current" and back within step 2 (no wizard
                   navigation at all) used to discard whatever cigarette count
-                  was already picked, the same "unmounted uncontrolled input
-                  loses its value" problem the step-vs-hidden comment above
-                  describes for step navigation — this field just had its own
-                  smaller version of it. `required` is conditional to match
+                  was already picked. `required` is conditional to match
                   riskAssessmentSchema's superRefine (only demanded when
-                  smoking_status is "current"); a field that's merely hidden,
-                  not irrelevant, must not become an unconditionally-required
-                  landmine for handleSubmit's :invalid check above. */}
+                  smoking_status is "current"). `disabled` is what keeps a
+                  stale pick from being silently submitted (and persisted to
+                  a patient's clinical record) after they've said they don't
+                  currently smoke — see family_cancer_other_detail's comment
+                  above for the full reasoning, same fix, same bug class. */}
               <div className="space-y-1.5" hidden={smokingStatus !== "current"}>
                 <Label htmlFor="cigarettes_per_day">Cigarettes per day</Label>
                 <Select
                   id="cigarettes_per_day"
                   name="cigarettes_per_day"
                   required={smokingStatus === "current"}
+                  disabled={smokingStatus !== "current"}
                   defaultValue={values?.cigarettes_per_day ?? ""}
                 >
                   <option value="" disabled>
@@ -479,8 +490,10 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                 if (value === "other") setShowDiagnosesOther(checked);
               }}
             />
-            {/* `hidden`, not a conditional unmount — same reasoning as
-                family_cancer_other_detail above. */}
+            {/* `hidden` + `disabled`, not a conditional unmount — same
+                reasoning as family_cancer_other_detail above (both the
+                toggle-preserves-value fix and the disabled-so-a-stale-value
+                can't be silently persisted fix). */}
             <div className="space-y-1.5" hidden={!showDiagnosesOther}>
               <Label htmlFor="existing_diagnoses_other_detail">Which diagnosis?</Label>
               <Input
@@ -490,6 +503,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                 maxLength={300}
                 defaultValue={values?.existing_diagnoses_other_detail}
                 required={showDiagnosesOther}
+                disabled={!showDiagnosesOther}
               />
             </div>
             <div className="space-y-1.5">

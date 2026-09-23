@@ -296,4 +296,66 @@ describe("RiskAssessmentForm", () => {
 
     expect((screen.getByLabelText("Which diagnosis?") as HTMLInputElement).value).toBe("Thyroid disorder");
   });
+
+  /**
+   * A real data-integrity bug introduced by the three "keeps the answer
+   * when toggled away and back" fixes above: `hidden` alone keeps the DOM
+   * value around, but a hidden-not-disabled field is still included in
+   * FormData at submit — riskAssessmentSchema's superRefine only validates
+   * *presence* when the category is selected (smoking_status === "current",
+   * "other" checked), never *absence* when it isn't, so a stale value left
+   * over from before the patient changed their mind would have silently
+   * reached the server and been persisted to their clinical record as if
+   * it were still current. `disabled` (not just `hidden`) is what actually
+   * excludes a field's value from FormData while keeping it in the DOM.
+   */
+  it("does not submit a stale value for a field whose category was unselected before submitting", async () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+
+    // Step 1: check "Other" cancer type, type a detail, then uncheck it.
+    fireEvent.click(screen.getByLabelText("Other"));
+    fireEvent.change(screen.getByLabelText("Which cancer type?"), {
+      target: { value: "Skin cancer" },
+    });
+    fireEvent.click(screen.getByLabelText("Other"));
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 2: pick "Currently smoke", a cigarette count, then change to
+    // "Never smoked" — the same reconsideration a real patient might make.
+    fireEvent.change(screen.getByLabelText("Smoking"), { target: { value: "current" } });
+    fireEvent.change(screen.getByLabelText("Cigarettes per day"), { target: { value: "6_10" } });
+    fireEvent.change(screen.getByLabelText("Smoking"), { target: { value: "never" } });
+    fireEvent.change(screen.getByLabelText("Alcohol"), { target: { value: "none" } });
+    fireEvent.change(screen.getByLabelText("Exercise days/week"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Minutes per session"), { target: { value: "30" } });
+    fireEvent.change(screen.getByLabelText("Sleep (hours/night)"), { target: { value: "7_to_8" } });
+    fireEvent.change(screen.getByLabelText("Stress level"), { target: { value: "moderate" } });
+    fireEvent.change(screen.getByLabelText("Height (cm)"), { target: { value: "170" } });
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 3: same reconsideration for existing diagnoses "other".
+    fireEvent.click(screen.getByLabelText("other"));
+    fireEvent.change(screen.getByLabelText("Which diagnosis?"), {
+      target: { value: "Thyroid disorder" },
+    });
+    fireEvent.click(screen.getByLabelText("other"));
+    fireEvent.click(screen.getByText("Next"));
+
+    fireEvent.click(screen.getByText("Save assessment"));
+    await screen.findByText("Thanks, your care plan preview below reflects your answers.");
+
+    expect(capturedFormData).not.toBeNull();
+    const fd = capturedFormData as FormData;
+    // None of these were ever re-selected before submitting, so none of
+    // them should have reached the server at all - not even as an empty
+    // string, since a disabled field is excluded from FormData entirely.
+    expect(fd.get("cigarettes_per_day")).toBeNull();
+    expect(fd.get("family_cancer_other_detail")).toBeNull();
+    expect(fd.get("existing_diagnoses_other_detail")).toBeNull();
+    // The categories that would have made them relevant are genuinely
+    // unselected too, not just visually hidden.
+    expect(fd.get("smoking_status")).toBe("never");
+    expect(fd.getAll("family_cancer_types")).toEqual([]);
+    expect(fd.getAll("existing_diagnoses")).toEqual([]);
+  });
 });
