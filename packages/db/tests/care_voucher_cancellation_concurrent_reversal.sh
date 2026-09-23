@@ -160,25 +160,32 @@ SQL
     local out
     if ! out="$("${PSQL_SETUP[@]}" \
       -v officer="$OFFICER" -v canceller="$CANCELLER" -v beneficiary="$BENEFICIARY" 2>&1 <<'SQL'
+-- Deleting these fixture actors trips more than one immutable, append-only
+-- table's private.reject_mutation trigger. public.audit_log directly:
 -- private.log_audit is called by finance_reverse_journal and by
--- cancel_care_voucher's own success path, and writes public.audit_log rows
--- with actor_id = auth.uid -- i.e. the officer/canceller fixture actors.
--- audit_log is fully immutable, private.reject_mutation, an unconditional
--- BEFORE UPDATE/DELETE trigger with no role exemption, and
--- audit_log_actor_id_fkey is ON DELETE RESTRICT, so deleting these actors
--- below fails outright with a foreign-key violation unless their audit_log
--- rows go first. session_replication_role bypasses the append-only trigger
--- and FK-enforcement for this session. Plain SET, not SET LOCAL -- every
--- statement here autocommits on its own, no explicit BEGIN, so SET LOCAL
--- would revert before the very next statement even ran. See
--- finance_reversal_concurrent_lock.sh's own identical fix for the first
--- real CI failure this same class of bug produced there.
+-- cancel_care_voucher's own success path, writes actor_id = auth.uid, and
+-- audit_log_actor_id_fkey is ON DELETE RESTRICT. And -- confirmed only by
+-- a real CI run, not predictable from reading either table's own migration
+-- file in isolation -- public.record_corrections too: its patient_id and
+-- corrected_by columns are ON DELETE SET NULL against profiles.id, so
+-- deleting a profile makes Postgres attempt the FK's own UPDATE that sets
+-- patient_id to NULL, and that UPDATE is what record_corrections own
+-- append-only trigger rejects, independent of whether any row of it
+-- actually references this fixture's ids. Rather than special-case each
+-- append-only table as a future CI run surfaces it, session_replication_role
+-- bypasses every normal trigger, append-only rejection and FK-enforcement
+-- alike, for the WHOLE cleanup block below, not just the audit_log delete.
+-- Plain SET, not SET LOCAL -- every statement here autocommits on its own,
+-- no explicit BEGIN, so SET LOCAL would revert before the very next
+-- statement even ran. See finance_reversal_concurrent_lock.sh's own
+-- identical fix, scoped only to audit_log, the one table its own first
+-- real CI run happened to hit, for the precedent this widens.
 set session_replication_role = replica;
 delete from public.audit_log where actor_id in (:'officer'::uuid, :'canceller'::uuid, :'beneficiary'::uuid);
-set session_replication_role = default;
 delete from public.finance_journal_entries where created_by in (:'officer'::uuid, :'canceller'::uuid);
 delete from public.profiles where id in (:'officer'::uuid, :'canceller'::uuid, :'beneficiary'::uuid);
 delete from auth.users where id in (:'officer'::uuid, :'canceller'::uuid, :'beneficiary'::uuid);
+set session_replication_role = default;
 SQL
     )"; then
       echo "CRITICAL: fixture actor cleanup failed -- test actors and/or journal entries may remain on \$DATABASE_URL." >&2
