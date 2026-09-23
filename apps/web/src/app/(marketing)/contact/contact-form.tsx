@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { LEAD_ROLES } from "@/lib/validation/lead";
+import { LEAD_ROLES, LEAD_GOALS, LEAD_GOAL_LABEL } from "@/lib/validation/lead";
 
 const ROLE_LABELS: Record<(typeof LEAD_ROLES)[number], string> = {
   patient: "Patient",
@@ -131,6 +131,23 @@ export function ContactForm() {
           {LEAD_ROLES.map((role) => (
             <option key={role} value={role}>
               {ROLE_LABELS[role]}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="goal">What brings you here? (optional)</Label>
+        <Select
+          id="goal"
+          name="goal"
+          defaultValue=""
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
+        >
+          <option value="">Prefer not to say</option>
+          {LEAD_GOALS.map((goal) => (
+            <option key={goal} value={goal}>
+              {LEAD_GOAL_LABEL[goal]}
             </option>
           ))}
         </Select>

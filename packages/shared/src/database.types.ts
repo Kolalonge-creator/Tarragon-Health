@@ -19354,6 +19354,7 @@ export type Database = {
           contacted_at: string | null
           contacted_by: string | null
           created_at: string
+          goal: Database["public"]["Enums"]["lead_goal"] | null
           id: string
           message: string | null
           name: string
@@ -19365,6 +19366,7 @@ export type Database = {
           contacted_at?: string | null
           contacted_by?: string | null
           created_at?: string
+          goal?: Database["public"]["Enums"]["lead_goal"] | null
           id?: string
           message?: string | null
           name: string
@@ -19376,6 +19378,7 @@ export type Database = {
           contacted_at?: string | null
           contacted_by?: string | null
           created_at?: string
+          goal?: Database["public"]["Enums"]["lead_goal"] | null
           id?: string
           message?: string | null
           name?: string
@@ -44953,6 +44956,13 @@ export type Database = {
         | "clinician"
         | "admin"
         | "lab_partner"
+      lead_goal:
+        | "managing_a_condition"
+        | "staying_ahead"
+        | "family_care"
+        | "fast_doctor_access"
+        | "one_record"
+        | "still_exploring"
       lead_role: "patient" | "family" | "employer" | "hmo" | "other" | "ngo"
       lifestyle_barrier_code:
         | "cost"
@@ -47322,6 +47332,14 @@ export const Constants = {
         "clinician",
         "admin",
         "lab_partner",
+      ],
+      lead_goal: [
+        "managing_a_condition",
+        "staying_ahead",
+        "family_care",
+        "fast_doctor_access",
+        "one_record",
+        "still_exploring",
       ],
       lead_role: ["patient", "family", "employer", "hmo", "other", "ngo"],
       lifestyle_barrier_code: [
