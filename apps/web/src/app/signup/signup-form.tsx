@@ -134,6 +134,7 @@ export function SignupForm({
             className={`w-28 shrink-0 truncate sm:w-auto ${FIELD_CLASS}`}
             aria-label="Country code"
             required
+            {...fieldErrorProps(errorId, invalid("countryCode"), PHONE_HINT_ID)}
           >
             {COUNTRY_CALLING_CODES.map((country) => (
               <option key={country.iso} value={country.dialCode}>

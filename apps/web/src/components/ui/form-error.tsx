@@ -50,16 +50,25 @@ export function FormError({
  * but it still has to be announced, which a plain `<p>` never is.
  */
 export function FormSuccess({
+  id,
   message,
   className,
 }: {
+  /** Optional — pass it (with `tabIndex={-1}` implied, same as FormError)
+   *  when the caller wants to move focus here after a successful submit,
+   *  e.g. a form that remounts on every action result and would otherwise
+   *  lose focus to document.body on success just as much as on failure. */
+  id?: string;
+  /** Falsy renders nothing. */
   message?: string | null | false;
   className?: string;
 }) {
   if (!message) return null;
   return (
     <p
+      id={id}
       role="status"
+      tabIndex={id ? -1 : undefined}
       className={cn("text-sm text-brand-green dark:text-brand-green-bright", className)}
     >
       {message}

@@ -29,14 +29,18 @@ export function PatientLocationForm({
   const [state, formAction, pending] = useActionState(updatePatientLocation, undefined);
   const router = useRouter();
   const errorId = fieldErrorId("location");
+  const successId = "location-success";
 
   // See useRemountOnActionResult's own comment: a transient save error (or,
   // just as much, a *successful* save) used to leave the visible fields
   // showing stale values, since React resets every uncontrolled field once
   // the action returns regardless of outcome. Remounting on every attempt is
   // what lets fresh defaultValues (from the server's echoed `values`,
-  // returned on success too) actually apply.
-  const attempt = useRemountOnActionResult(state, (s) => Boolean(s), errorId);
+  // returned on success too) actually apply. Unlike signup (which only ever
+  // remounts on error, since success there swaps to a whole different
+  // confirmation screen), this form remounts on success too, so focus needs
+  // to land on whichever banner is actually showing.
+  const attempt = useRemountOnActionResult(state, (s) => Boolean(s), state?.success ? successId : errorId);
   const values = state?.values;
   const currentState = values?.state ?? initial.state;
 
@@ -110,7 +114,7 @@ export function PatientLocationForm({
             </div>
           </div>
           <FormError id={errorId} message={state?.error} />
-          <FormSuccess message={state?.success ? "Location saved." : undefined} />
+          <FormSuccess id={successId} message={state?.success ? "Location saved." : undefined} />
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save location"}
           </Button>
