@@ -6,20 +6,21 @@ import { BrandLockup } from "./brand-logo";
 import { MARKETING_ROUTES, MARKETING_ROUTES_BUILT } from "@/lib/marketing/routes";
 import { cn } from "@/lib/utils";
 
+// Collapsed 2026-09-22 (launch-scope audit reconciliation, EPIC 6) from a
+// 6-item nav (chronic care / prevention / care coordination / who it's for /
+// pricing / contact) to 5. Nothing was deleted: chronicCare, careCoordination,
+// whoItsFor, devices, monitoring and hmo all stay live pages, reachable from
+// Prevention or the footer (marketing-footer.tsx already links every one of
+// them) — this only narrows what a first-time visitor sees at the top of
+// every page, per the audit's "too much for a first launch" finding. No
+// invented geography or cohort-size language anywhere in this change, per
+// the founder's explicit rejection of the audit's pilot-cohort framing.
 const NAV_LINKS = [
-  { key: "chronicCare" as const, label: "Chronic care" },
   { key: "prevention" as const, label: "Prevention" },
-  // Relabelled 2026-09-22. "Care coordination" is one of the platform's five
-  // internal business categories, not a phrase a visitor searches for or
-  // recognises as being about their own lab test and prescription. The route
-  // and page are unchanged; only the nav label a stranger has to parse is.
-  { key: "careCoordination" as const, label: "Labs & medication" },
-  { key: "whoItsFor" as const, label: "Who it's for" },
+  { key: "services" as const, label: "How it works" },
   { key: "pricing" as const, label: "Pricing" },
-  // Contact is the only marketing page that captures a lead, and the single
-  // route a B2B visitor (employer, HMO) is looking for. It used to exist only
-  // in the footer, so reaching it meant scrolling past every page.
-  { key: "contact" as const, label: "Contact" },
+  { key: "corporate" as const, label: "For organisations" },
+  { key: "about" as const, label: "About & trust" },
 ];
 
 /** Oscar/Omada-style audience split, surfaced above the nav instead of buried in the footer. */

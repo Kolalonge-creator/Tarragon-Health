@@ -8,15 +8,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { LEAD_ROLES } from "@/lib/validation/lead";
+import { LEAD_ROLES, LEAD_GOALS, LEAD_GOAL_LABEL } from "@/lib/validation/lead";
 
 const ROLE_LABELS: Record<(typeof LEAD_ROLES)[number], string> = {
   patient: "Patient",
   family: "Family member / caregiver",
   employer: "Employer",
   hmo: "HMO / insurer",
+  ngo: "NGO / PHC / government programme",
   other: "Other",
 };
+
+function isLeadRole(value: string | null): value is (typeof LEAD_ROLES)[number] {
+  return value !== null && (LEAD_ROLES as readonly string[]).includes(value);
+}
 
 const ERROR_ID = "contact-form-error";
 
@@ -30,6 +35,13 @@ const ERROR_ID = "contact-form-error";
 export function ContactForm() {
   const searchParams = useSearchParams();
   const source = searchParams.get("source") ?? "homepage";
+  // Same idea as `source`: a CTA that already knows who it's for (e.g. the
+  // NGO/PHC offer on the Corporate page) can pre-select the role dropdown by
+  // passing `?role=ngo`, instead of a visitor having to pick it themselves.
+  // Falls back to "patient" — the default before this existed — for any
+  // unrecognised or missing value.
+  const roleParam = searchParams.get("role");
+  const defaultRole = isLeadRole(roleParam) ? roleParam : "patient";
   const [state, formAction, pending] = useActionState(submitLead, undefined);
   const successRef = useRef<HTMLHeadingElement | null>(null);
 
@@ -111,7 +123,7 @@ export function ContactForm() {
         <Select
           id="role"
           name="role"
-          defaultValue="patient"
+          defaultValue={defaultRole}
           required
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
@@ -119,6 +131,23 @@ export function ContactForm() {
           {LEAD_ROLES.map((role) => (
             <option key={role} value={role}>
               {ROLE_LABELS[role]}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="goal">What brings you here? (optional)</Label>
+        <Select
+          id="goal"
+          name="goal"
+          defaultValue=""
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
+        >
+          <option value="">Prefer not to say</option>
+          {LEAD_GOALS.map((goal) => (
+            <option key={goal} value={goal}>
+              {LEAD_GOAL_LABEL[goal]}
             </option>
           ))}
         </Select>

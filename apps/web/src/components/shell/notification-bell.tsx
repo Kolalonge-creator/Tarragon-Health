@@ -802,6 +802,23 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: "/finance/reconciliation",
     };
   }
+  if (n.template === "support_view_as_started") {
+    // From private.notify_support_view_session_started() (support view-as,
+    // 20260922175144_support_view_as.sql) — sent to the SUBJECT (a patient or
+    // a clinician, never the viewer), so unlike most templates here this one
+    // has no single role-specific href to link into; "/" is the one existing
+    // role-agnostic entry point (proxy.ts redirects "/" to getRoleHomePath()
+    // for a signed-in user on the app host), so it resolves correctly either
+    // way instead of hardcoding /patient for a clinician subject too.
+    const viewerName = String(payload.viewer_name ?? "A member of the Tarragon Health support team");
+    const reason = String(payload.reason ?? "");
+    return {
+      text: reason
+        ? `${viewerName} opened a support view of your account: "${reason}"`
+        : `${viewerName} opened a support view of your account`,
+      href: "/",
+    };
+  }
   return { text: "You have an update", href: "/patient" };
 }
 

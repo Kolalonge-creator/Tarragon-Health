@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 export type SetModuleState = { error?: string; message?: string } | undefined;
 
 const schema = z.object({
-  key: z.enum(["payer_platform", "provider_org_platform"]),
+  key: z.enum(["payer_platform", "provider_org_platform", "platform_credit_topups"]),
   enabled: z.enum(["true", "false"]),
   note: z.string().trim().max(2000).optional(),
 });

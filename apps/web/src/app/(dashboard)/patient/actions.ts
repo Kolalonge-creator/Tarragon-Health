@@ -45,7 +45,10 @@ import {
 } from "@/lib/validation/risk-assessment";
 import { computePreventionRiskScores } from "@/lib/rules/compute-risk-scores";
 import type { ComputedRiskScore, PreventionCondition, RiskTier } from "@/lib/rules/risk-scoring";
-import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
+import {
+  computeScreeningRecommendations,
+  buildLastCompletedByScreenTypeId,
+} from "@/lib/rules/screening-recommendations";
 import { computeCareProgrammeRecommendations } from "@/lib/rules/care-programme-recommendations";
 import {
   computePreventiveProgrammeRecommendations,
@@ -624,7 +627,7 @@ export async function submitRiskAssessment(
 
   const { data: screenTypes } = await supabase
     .from("screen_types")
-    .select("id, code, sex_applicability, age_from, age_to, frequency_months")
+    .select("id, code, sex_applicability, age_from, age_to, frequency_months, is_optional")
     .eq("is_active", true);
 
   const { data: existingSchedules } = await supabase
@@ -651,15 +654,10 @@ export async function submitRiskAssessment(
         ).data
       : null;
 
-  const lastCompletedByScreenTypeId = new Map<string, string>();
+  const lastCompletedByScreenTypeId = buildLastCompletedByScreenTypeId(existingSchedules ?? []);
   const activeByScreenTypeId = new Map<string, { id: string; due_date: string }>();
   for (const row of existingSchedules ?? []) {
-    if (row.status === "completed") {
-      const latest = lastCompletedByScreenTypeId.get(row.screen_type_id);
-      if (!latest || row.due_date > latest) {
-        lastCompletedByScreenTypeId.set(row.screen_type_id, row.due_date);
-      }
-    } else if (row.status === "pending" || row.status === "booked") {
+    if (row.status === "pending" || row.status === "booked") {
       activeByScreenTypeId.set(row.screen_type_id, { id: row.id, due_date: row.due_date });
     }
   }
@@ -691,7 +689,18 @@ export async function submitRiskAssessment(
   // own session.
   const serviceRoleClient = createServiceRoleClient();
 
-  const newSchedules = recommendations.filter((rec) => !activeByScreenTypeId.has(rec.screenTypeId));
+  // is_optional screen types (screen_types.is_optional — "Offered when due,
+  // never assumed. The patient opts in rather than finding it already
+  // inside their review.") are never auto-inserted here, no matter how due
+  // they are — a patient accepts one explicitly from the "Optional
+  // screenings" offer surface (useAcceptOptionalScreening), which performs
+  // the identical insert this loop does for everything else, just gated on
+  // the patient's own action. Once accepted, the row lands in
+  // activeByScreenTypeId on the next run and the tighten-due-date loop
+  // below treats it exactly like any other screening from then on.
+  const newSchedules = recommendations.filter(
+    (rec) => !rec.isOptional && !activeByScreenTypeId.has(rec.screenTypeId)
+  );
   if (newSchedules.length > 0) {
     const { error: scheduleInsertError } = await serviceRoleClient.from("screening_schedules").insert(
       newSchedules.map((rec) => ({

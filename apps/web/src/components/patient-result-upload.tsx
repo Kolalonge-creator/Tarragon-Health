@@ -1,16 +1,11 @@
 "use client";
 
-import { useActionState, useId, useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { uploadResultDocumentAsPatient } from "@/lib/lab-results/actions";
+import { cancelLabResultConsultRequest } from "@/app/(dashboard)/patient/lab-result-consult-actions";
 import {
-  requestLabResultConsult,
-  cancelLabResultConsultRequest,
-  type RequestLabResultConsultState,
-} from "@/app/(dashboard)/patient/lab-result-consult-actions";
-import {
-  useLabResultConsultPrice,
   useMyLabResultConsultRequests,
   labResultConsultKeys,
 } from "@/lib/queries/lab-result-consult";
@@ -34,17 +29,6 @@ import {
   RESULT_DOCUMENT_TEST_TYPE_OPTIONS,
 } from "@/lib/labs/test-code-labels";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
-
-/** Thrown by the upload mutation specifically when the DB-enforced
- * consultation-fee gate rejected it (public.claim_lab_result_consult_credit)
- * — distinguished from every other upload failure so the UI can offer a
- * "pay and continue" action instead of a dead-end error message. */
-class ConsultFeeRequiredError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ConsultFeeRequiredError";
-  }
-}
 
 function formatPrice(amountMinor: number, currency: string): string {
   const symbol = CURRENCY_SYMBOL[currency as Currency] ?? currency;
@@ -135,13 +119,14 @@ function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
  * upload form once did (it used to write straight to the table from the
  * browser, bypassing both the consult fee and the AI extraction below).
  *
- * Once uploaded, whether a doctor actually reads it is never gated by plan —
- * a result a patient is holding must always be readable by a doctor,
- * whatever they pay. Founder rule, 2026-08-30: the UPLOAD ITSELF is now
- * gated behind a one-off ₦10,000 consultation fee (a different, narrower
- * rule — see uploadResultDocumentAsPatient's own comment). Paying it also
- * books a 15-minute doctor walkthrough of the result. A rejected upload
- * shows a "pay and continue" prompt instead of a dead-end error.
+ * Uploading is free — the 2026-08-30 one-off ₦10,000 consultation-fee gate
+ * on the upload itself was reversed 2026-09-22 (see
+ * uploadResultDocumentAsPatient's own comment): a result a patient is
+ * holding must always be uploadable and readable by a doctor, whatever they
+ * pay. The fee still exists as a separate, optional thing to book — a doctor
+ * walkthrough of the result, offered from the AI summary card once uploaded
+ * (AiResultSummary's "Discuss this with a Tarragon doctor" button), never as
+ * a precondition to uploading.
  */
 export function PatientResultUpload({
   labOrderId,
@@ -183,7 +168,6 @@ export function PatientResultUpload({
   const [testType, setTestType] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const price = useLabResultConsultPrice();
   const needsTestType = !testCode;
 
   const upload = useMutation({
@@ -199,12 +183,7 @@ export function PatientResultUpload({
         (testType && testType !== OTHER_TEST_TYPE_VALUE ? testType : undefined);
       if (effectiveTestCode) formData.set("test_code", effectiveTestCode);
       const result = await uploadResultDocumentAsPatient(formData);
-      if (result.error) {
-        if (result.requiresConsultFeePayment) {
-          throw new ConsultFeeRequiredError(result.error);
-        }
-        throw new Error(result.error);
-      }
+      if (result.error) throw new Error(result.error);
     },
     onSuccess: () => {
       setSuccess("Thank you. Your care team has been asked to read it.");
@@ -216,11 +195,6 @@ export function PatientResultUpload({
       onUploaded?.();
     },
   });
-
-  const [payState, payAction, payPending] = useActionState<
-    RequestLabResultConsultState,
-    FormData
-  >(requestLabResultConsult, undefined);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -241,8 +215,6 @@ export function PatientResultUpload({
   }
 
   const uploadErrorInstance = upload.error as Error | null;
-  const requiresPayment =
-    uploadErrorInstance instanceof ConsultFeeRequiredError;
   const displayError = validationError ?? uploadErrorInstance?.message ?? null;
   const errorId = fieldErrorId(`${fieldId}-file`);
   const hintId = `${fieldId}-file-hint`;
@@ -264,11 +236,7 @@ export function PatientResultUpload({
               setValidationError(null);
               setSuccess(null);
             }}
-            {...fieldErrorProps(
-              errorId,
-              Boolean(displayError) && !requiresPayment,
-              hintId,
-            )}
+            {...fieldErrorProps(errorId, Boolean(displayError), hintId)}
           />
           <p
             id={hintId}
@@ -322,41 +290,9 @@ export function PatientResultUpload({
             {upload.isPending ? "Sending…" : "Send to my care team"}
           </Button>
           <FormSuccess message={success} className="text-xs font-medium" />
-          <FormError
-            id={errorId}
-            message={!requiresPayment && displayError}
-            className="text-xs"
-          />
+          <FormError id={errorId} message={displayError} className="text-xs" />
         </div>
       </form>
-
-      {requiresPayment && (
-        <div className="rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 p-3 space-y-2">
-          <p className="text-xs text-charcoal-ink/80 dark:text-night-ink/80">
-            {displayError}
-            {price.data && (
-              <>
-                {" "}
-                The fee is{" "}
-                {formatPrice(price.data.amount_minor, price.data.currency)}.
-              </>
-            )}
-          </p>
-          <form action={payAction}>
-            {labOrderId && (
-              <input type="hidden" name="lab_order_id" value={labOrderId} />
-            )}
-            <Button type="submit" size="sm" disabled={payPending}>
-              {payPending ? "Redirecting to payment…" : "Pay & continue"}
-            </Button>
-          </form>
-          <FormError
-            id={fieldErrorId(`${fieldId}-pay`)}
-            message={payState?.error}
-            className="text-xs"
-          />
-        </div>
-      )}
 
       {patientId && <MyConsultRequestsStatus patientId={patientId} />}
     </div>

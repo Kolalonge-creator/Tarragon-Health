@@ -350,11 +350,19 @@ export function getNavSections(
             // administrator" or "Provider network administrator" role
             // presets) — the pages self-gate, so this link is always safe to
             // show, same pattern as every other admin-area nav entry.
+            // Support view-as is real here specifically because "Customer
+            // support administrator" carries `support.view_as` (see
+            // 20260922185119_support_view_as_customer_support_preset_grant.sql)
+            // — unlike the other 3 delegated sections below (Clinical
+            // administrator, Technical/Data & analytics administrator,
+            // Finance administrator), whose presets do NOT carry it, so the
+            // link stays deliberately absent there rather than bouncing.
             {
               label: "Operations",
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+                { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
               ],
             },
           ]
@@ -510,6 +518,17 @@ export function getNavSections(
                   icon: "labs",
                   countKey: "labResultConsultsWaiting",
                 },
+                // Added 2026-09-22 alongside the Preventive Health Check
+                // Review SKU — before this, a paid-for Health Check review
+                // had no queue anywhere; a doctor could only find one by
+                // already knowing the patientId. See
+                // 20260922185300_preventive_health_check_review_sku.sql.
+                {
+                  label: "Preventive Health Check reviews",
+                  href: "/clinician/preventive-health-check-reviews",
+                  icon: "preventive",
+                  countKey: "preventiveHealthCheckReviewsWaiting",
+                },
                 // Both added 2026-09-10 with the two new clinical products.
                 // Shown to every clinician tier, per this file's gating
                 // philosophy: the authority rules live in the database
@@ -590,6 +609,10 @@ export function getNavSections(
             // Only reachable for a clinician holding a delegated
             // ops.console.view/incidents.* grant (the "Clinical
             // administrator" role preset) — self-gated, safe to always show.
+            // Support view-as is deliberately NOT listed here — the Clinical
+            // administrator preset carries no `support.view_as` grant, so
+            // the link would always bounce (see the identical note in the
+            // care_coordinator case above).
             {
               label: "Operations administration",
               items: [
@@ -623,6 +646,7 @@ export function getNavSections(
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
             { label: "Leads", href: "/admin/leads", icon: "members" },
             { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
@@ -693,7 +717,10 @@ export function getNavSections(
         // grant (the "Technical administrator" or "Data & analytics
         // administrator" role presets carry ops.console.view/incidents.*;
         // only Technical administrator carries feature_flags.manage) —
-        // self-gated, safe to always show.
+        // self-gated, safe to always show. Support view-as is deliberately
+        // NOT listed here — neither preset carries `support.view_as`, so the
+        // link would always bounce (see the identical note in the
+        // care_coordinator case above).
         {
           label: "Platform operations",
           items: [
@@ -732,6 +759,10 @@ export function getNavSections(
         },
         // Only reachable for a Finance administrator holding the delegated
         // ops.console.view/incidents.* grant — self-gated, safe to show.
+        // Support view-as is deliberately NOT listed here — the Finance
+        // administrator preset carries no `support.view_as` grant, so the
+        // link would always bounce (see the identical note in the
+        // care_coordinator case above).
         {
           label: "Operations",
           items: [
@@ -828,6 +859,16 @@ export function getNavSections(
           items: [
             { label: "Settlements", href: "/provider-org/settlements", icon: "statements" },
           ],
+        },
+      ];
+    // Module ngo_funded_cohort — built dormant (platform_modules.
+    // ngo_funded_cohort, off by default). Same posture as the payer/
+    // provider-org nav above: /ngo itself checks module + role server-side
+    // and renders a "not yet activated" placeholder when the module is off.
+    case "ngo_admin":
+      return [
+        {
+          items: [{ label: "Overview", href: "/ngo", icon: "dashboard", exact: true }],
         },
       ];
     default:

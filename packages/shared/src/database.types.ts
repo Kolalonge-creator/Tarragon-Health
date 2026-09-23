@@ -2041,6 +2041,7 @@ export type Database = {
           lab_order_id: string | null
           organisation_id: string
           patient_id: string
+          review_requested_at: string | null
           review_summary: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -2059,6 +2060,7 @@ export type Database = {
           lab_order_id?: string | null
           organisation_id: string
           patient_id: string
+          review_requested_at?: string | null
           review_summary?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -2077,6 +2079,7 @@ export type Database = {
           lab_order_id?: string | null
           organisation_id?: string
           patient_id?: string
+          review_requested_at?: string | null
           review_summary?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -5853,6 +5856,114 @@ export type Database = {
             columns: ["subscription_plan_id"]
             isOneToOne: false
             referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sponsored_service_reservations: {
+        Row: {
+          id: string
+          organisation_id: string
+          service_product_id: string
+          sponsor_profile_id: string
+          recipient_phone: string
+          recipient_first_name: string
+          status: Database["public"]["Enums"]["sponsored_reservation_status"]
+          amount_kobo: number
+          currency: Database["public"]["Enums"]["currency"]
+          payment_provider: string | null
+          payment_provider_ref: string | null
+          invite_token: string | null
+          invited_at: string | null
+          expires_at: string | null
+          claimed_by_profile_id: string | null
+          claimed_at: string | null
+          care_voucher_id: string | null
+          cancelled_at: string | null
+          cancelled_reason: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organisation_id: string
+          service_product_id: string
+          sponsor_profile_id: string
+          recipient_phone: string
+          recipient_first_name: string
+          status?: Database["public"]["Enums"]["sponsored_reservation_status"]
+          amount_kobo: number
+          currency?: Database["public"]["Enums"]["currency"]
+          payment_provider?: string | null
+          payment_provider_ref?: string | null
+          invite_token?: string | null
+          invited_at?: string | null
+          expires_at?: string | null
+          claimed_by_profile_id?: string | null
+          claimed_at?: string | null
+          care_voucher_id?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organisation_id?: string
+          service_product_id?: string
+          sponsor_profile_id?: string
+          recipient_phone?: string
+          recipient_first_name?: string
+          status?: Database["public"]["Enums"]["sponsored_reservation_status"]
+          amount_kobo?: number
+          currency?: Database["public"]["Enums"]["currency"]
+          payment_provider?: string | null
+          payment_provider_ref?: string | null
+          invite_token?: string | null
+          invited_at?: string | null
+          expires_at?: string | null
+          claimed_by_profile_id?: string | null
+          claimed_at?: string | null
+          care_voucher_id?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsored_service_reservations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsored_service_reservations_service_product_id_fkey"
+            columns: ["service_product_id"]
+            isOneToOne: false
+            referencedRelation: "service_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsored_service_reservations_sponsor_profile_id_fkey"
+            columns: ["sponsor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsored_service_reservations_claimed_by_profile_id_fkey"
+            columns: ["claimed_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsored_service_reservations_care_voucher_id_fkey"
+            columns: ["care_voucher_id"]
+            isOneToOne: false
+            referencedRelation: "care_vouchers"
             referencedColumns: ["id"]
           },
         ]
@@ -10728,6 +10839,9 @@ export type Database = {
       }
       ecg_report_documents: {
         Row: {
+          ai_rhythm_statement: string | null
+          ai_summary_generated_at: string | null
+          ai_summary_status: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id: string | null
           created_at: string
           file_path: string
@@ -10747,6 +10861,9 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          ai_rhythm_statement?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path: string
@@ -10766,6 +10883,9 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          ai_rhythm_statement?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path?: string
@@ -14584,6 +14704,165 @@ export type Database = {
           },
         ]
       }
+      funding_programme_invitations: {
+        Row: {
+          care_voucher_id: string | null
+          claimed_at: string | null
+          claimed_by_profile_id: string | null
+          created_at: string
+          email: string | null
+          expires_at: string
+          full_name: string | null
+          funding_programme_id: string
+          id: string
+          invite_token: string
+          invited_at: string
+          invited_by: string
+          phone: string | null
+          revoked_at: string | null
+          revoked_reason: string | null
+          status: Database["public"]["Enums"]["funding_invitation_status"]
+          updated_at: string
+        }
+        Insert: {
+          care_voucher_id?: string | null
+          claimed_at?: string | null
+          claimed_by_profile_id?: string | null
+          created_at?: string
+          email?: string | null
+          expires_at: string
+          full_name?: string | null
+          funding_programme_id: string
+          id?: string
+          invite_token?: string
+          invited_at?: string
+          invited_by: string
+          phone?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          status?: Database["public"]["Enums"]["funding_invitation_status"]
+          updated_at?: string
+        }
+        Update: {
+          care_voucher_id?: string | null
+          claimed_at?: string | null
+          claimed_by_profile_id?: string | null
+          created_at?: string
+          email?: string | null
+          expires_at?: string
+          full_name?: string | null
+          funding_programme_id?: string
+          id?: string
+          invite_token?: string
+          invited_at?: string
+          invited_by?: string
+          phone?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          status?: Database["public"]["Enums"]["funding_invitation_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funding_programme_invitations_care_voucher_id_fkey"
+            columns: ["care_voucher_id"]
+            isOneToOne: false
+            referencedRelation: "care_vouchers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_programme_invitations_claimed_by_profile_id_fkey"
+            columns: ["claimed_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_programme_invitations_funding_programme_id_fkey"
+            columns: ["funding_programme_id"]
+            isOneToOne: false
+            referencedRelation: "funding_programmes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_programme_invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funding_programmes: {
+        Row: {
+          contract_reference: string
+          created_at: string
+          created_by: string | null
+          ends_at: string | null
+          funded_unit_cap: number
+          id: string
+          name: string
+          organisation_id: string
+          price_kobo: number | null
+          service_product_id: string
+          starts_at: string | null
+          status: Database["public"]["Enums"]["funding_programme_status"]
+          updated_at: string
+        }
+        Insert: {
+          contract_reference: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          funded_unit_cap: number
+          id?: string
+          name: string
+          organisation_id: string
+          price_kobo?: number | null
+          service_product_id: string
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["funding_programme_status"]
+          updated_at?: string
+        }
+        Update: {
+          contract_reference?: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          funded_unit_cap?: number
+          id?: string
+          name?: string
+          organisation_id?: string
+          price_kobo?: number | null
+          service_product_id?: string
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["funding_programme_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funding_programmes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_programmes_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_programmes_service_product_id_fkey"
+            columns: ["service_product_id"]
+            isOneToOne: false
+            referencedRelation: "service_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       glycaemic_target_defaults: {
         Row: {
           category: Database["public"]["Enums"]["glycaemic_target_category"]
@@ -16353,6 +16632,10 @@ export type Database = {
       }
       imaging_report_documents: {
         Row: {
+          ai_impression_flagged: boolean | null
+          ai_impression_text: string | null
+          ai_summary_generated_at: string | null
+          ai_summary_status: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id: string | null
           created_at: string
           file_path: string
@@ -16372,6 +16655,10 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          ai_impression_flagged?: boolean | null
+          ai_impression_text?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path: string
@@ -16391,6 +16678,10 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          ai_impression_flagged?: boolean | null
+          ai_impression_text?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path?: string
@@ -18578,6 +18869,7 @@ export type Database = {
           acknowledgement_status: Database["public"]["Enums"]["result_document_acknowledgement_status"]
           action_completed_at: string | null
           action_completed_by: string | null
+          ai_flagged_analytes: Json
           ai_summary_generated_at: string | null
           ai_summary_status: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id: string | null
@@ -18610,6 +18902,7 @@ export type Database = {
           acknowledgement_status?: Database["public"]["Enums"]["result_document_acknowledgement_status"]
           action_completed_at?: string | null
           action_completed_by?: string | null
+          ai_flagged_analytes?: Json
           ai_summary_generated_at?: string | null
           ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
@@ -18642,6 +18935,7 @@ export type Database = {
           acknowledgement_status?: Database["public"]["Enums"]["result_document_acknowledgement_status"]
           action_completed_at?: string | null
           action_completed_by?: string | null
+          ai_flagged_analytes?: Json
           ai_summary_generated_at?: string | null
           ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
@@ -19060,6 +19354,7 @@ export type Database = {
           contacted_at: string | null
           contacted_by: string | null
           created_at: string
+          goal: Database["public"]["Enums"]["lead_goal"] | null
           id: string
           message: string | null
           name: string
@@ -19071,6 +19366,7 @@ export type Database = {
           contacted_at?: string | null
           contacted_by?: string | null
           created_at?: string
+          goal?: Database["public"]["Enums"]["lead_goal"] | null
           id?: string
           message?: string | null
           name: string
@@ -19082,6 +19378,7 @@ export type Database = {
           contacted_at?: string | null
           contacted_by?: string | null
           created_at?: string
+          goal?: Database["public"]["Enums"]["lead_goal"] | null
           id?: string
           message?: string | null
           name?: string
@@ -36090,6 +36387,80 @@ export type Database = {
           },
         ]
       }
+      support_view_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          ended_by: string | null
+          expires_at: string
+          id: string
+          organisation_id: string | null
+          reason: string
+          started_at: string
+          subject_full_name: string | null
+          subject_id: string
+          subject_role: Database["public"]["Enums"]["user_role"]
+          viewer_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          ended_by?: string | null
+          expires_at?: string
+          id?: string
+          organisation_id?: string | null
+          reason: string
+          started_at?: string
+          subject_full_name?: string | null
+          subject_id: string
+          subject_role: Database["public"]["Enums"]["user_role"]
+          viewer_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          ended_by?: string | null
+          expires_at?: string
+          id?: string
+          organisation_id?: string | null
+          reason?: string
+          started_at?: string
+          subject_full_name?: string | null
+          subject_id?: string
+          subject_role?: Database["public"]["Enums"]["user_role"]
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_view_sessions_ended_by_fkey"
+            columns: ["ended_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_view_sessions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_view_sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_view_sessions_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       symptom_triage_assessments: {
         Row: {
           category: Database["public"]["Enums"]["triage_category"]
@@ -39924,6 +40295,19 @@ export type Database = {
         Args: { p_period?: string }
         Returns: Json
       }
+      analytics_doctor_income: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      analytics_doctor_paid_jobs: {
+        Args: {
+          p_doctor_profile_id?: string
+          p_from?: string
+          p_to?: string
+          p_limit?: number
+        }
+        Returns: Json
+      }
       analytics_doctor_performance: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -40297,6 +40681,14 @@ export type Database = {
         Args: { target_roster_id: string }
         Returns: boolean
       }
+      claim_funding_programme_invitation: {
+        Args: { p_token: string }
+        Returns: Json
+      }
+      claim_sponsored_service_reservation: {
+        Args: { p_token: string }
+        Returns: Json
+      }
       claim_health_reset_trial: { Args: never; Returns: Json }
       case_management_analytics: { Args: never; Returns: Json }
       close_care_management_case: {
@@ -40525,6 +40917,19 @@ export type Database = {
         Returns: number
       }
       create_emergency_card: { Args: never; Returns: string }
+      create_funding_programme: {
+        Args: {
+          p_contract_reference: string
+          p_ends_at?: string
+          p_funded_unit_cap: number
+          p_name: string
+          p_organisation_id: string
+          p_price_kobo?: number
+          p_service_product_id: string
+          p_starts_at?: string
+        }
+        Returns: string
+      }
       create_navigation_request: {
         Args: {
           p_category: Database["public"]["Enums"]["navigation_request_category"]
@@ -40575,6 +40980,14 @@ export type Database = {
           p_per_profile_limit?: number
           p_starts_at?: string
           p_value: number
+        }
+        Returns: string
+      }
+      create_sponsored_service_reservation: {
+        Args: {
+          p_recipient_first_name: string
+          p_recipient_phone: string
+          p_service_product_id: string
         }
         Returns: string
       }
@@ -41294,6 +41707,21 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: Json
       }
+      get_support_view_subject_identity: {
+        Args: { p_subject_id: string }
+        Returns: {
+          city: string
+          created_at: string
+          full_name: string
+          id: string
+          is_active: boolean
+          organisation_id: string
+          patient_number: string
+          phone: string
+          role: Database["public"]["Enums"]["user_role"]
+          state: string
+        }[]
+      }
       grant_platform_credit: {
         Args: { p_amount_kobo: number; p_patient_id: string; p_reason: string }
         Returns: number
@@ -41599,6 +42027,10 @@ export type Database = {
           window_hours: number
         }[]
       }
+      invite_to_funding_programme: {
+        Args: { p_contacts: Json; p_programme_id: string }
+        Returns: Json
+      }
       invoice_letterhead_details: { Args: never; Returns: Json }
       issue_screening_day_voucher: {
         Args: { p_beneficiary_profile_id: string; p_slot_id: string }
@@ -41787,6 +42219,16 @@ export type Database = {
       link_chronic_checkin_appointment: {
         Args: { p_appointment_id: string; p_occurrence_id: string }
         Returns: undefined
+      }
+      log_denied_action: {
+        Args: {
+          p_action: string
+          p_entity_id: string
+          p_entity_type: string
+          p_organisation_id: string
+          p_reason?: string
+        }
+        Returns: string
       }
       log_patient_data_export: {
         Args: { p_scope?: string }
@@ -42316,6 +42758,10 @@ export type Database = {
           p_reason: string
         }
         Returns: boolean
+      }
+      reassign_escalation: {
+        Args: { p_doctor_profile_id: string; p_escalation_id: string; p_reason?: string }
+        Returns: undefined
       }
       record_ai_human_override: {
         Args: {
@@ -42871,6 +43317,10 @@ export type Database = {
         Returns: undefined
       }
       revoke_emergency_card: { Args: never; Returns: undefined }
+      revoke_funding_programme_invitation: {
+        Args: { p_invitation_id: string; p_reason?: string }
+        Returns: undefined
+      }
       revoke_health_passport: {
         Args: { p_issuance_id: string; p_reason?: string }
         Returns: undefined
@@ -42944,6 +43394,17 @@ export type Database = {
           title: string
         }[]
       }
+      search_support_view_subjects: {
+        Args: { p_query: string }
+        Returns: {
+          full_name: string
+          id: string
+          organisation_id: string
+          patient_number: string
+          phone: string
+          role: Database["public"]["Enums"]["user_role"]
+        }[]
+      }
       select_video_visit_alternate_slot: {
         Args: { p_request_id: string; p_slot_id: string }
         Returns: string
@@ -42957,6 +43418,10 @@ export type Database = {
           p_categories: Database["public"]["Enums"]["care_access_category"][]
           p_grant_id: string
         }
+        Returns: undefined
+      }
+      set_funding_programme_status: {
+        Args: { p_note?: string; p_programme_id: string; p_status: string }
         Returns: undefined
       }
       set_health_education_content_status: {
@@ -44267,6 +44732,8 @@ export type Database = {
       foot_risk_class: "low" | "increased" | "high" | "active"
       foot_sensation: "normal" | "reduced" | "absent"
       fulfilment_mode: "partner" | "self_arranged"
+      funding_invitation_status: "invited" | "claimed" | "expired" | "revoked"
+      funding_programme_status: "draft" | "active" | "expired" | "cancelled"
       glucose_context:
         | "fasting"
         | "random"
@@ -44507,7 +44974,14 @@ export type Database = {
         | "clinician"
         | "admin"
         | "lab_partner"
-      lead_role: "patient" | "family" | "employer" | "hmo" | "other"
+      lead_goal:
+        | "managing_a_condition"
+        | "staying_ahead"
+        | "family_care"
+        | "fast_doctor_access"
+        | "one_record"
+        | "still_exploring"
+      lead_role: "patient" | "family" | "employer" | "hmo" | "other" | "ngo"
       lifestyle_barrier_code:
         | "cost"
         | "time"
@@ -44787,6 +45261,7 @@ export type Database = {
         | "direct_consumer"
         | "protocol_partner"
         | "provider_org"
+        | "ngo"
       outcomes_contract_type: "fee_at_risk" | "flat"
       outreach_contact_channel: "call" | "whatsapp"
       outreach_task_status:
@@ -45314,6 +45789,12 @@ export type Database = {
         | "clinical_approval"
         | "active"
       sponsor_sharing_level: "none" | "activity" | "full"
+      sponsored_reservation_status:
+        | "pending_payment"
+        | "invited"
+        | "claimed"
+        | "expired"
+        | "cancelled"
       staff_employment_type: "employed" | "contracted"
       sti_case_status:
         | "result_received"
@@ -45425,6 +45906,7 @@ export type Database = {
         | "lab_partner"
         | "payer_admin"
         | "provider_org_staff"
+        | "ngo_admin"
       vaccination_adverse_event_severity: "mild" | "moderate" | "severe"
       vaccination_adverse_event_symptom:
         | "pain_at_site"
@@ -46599,6 +47081,8 @@ export const Constants = {
       foot_risk_class: ["low", "increased", "high", "active"],
       foot_sensation: ["normal", "reduced", "absent"],
       fulfilment_mode: ["partner", "self_arranged"],
+      funding_invitation_status: ["invited", "claimed", "expired", "revoked"],
+      funding_programme_status: ["draft", "active", "expired", "cancelled"],
       glucose_context: [
         "fasting",
         "random",
@@ -46867,7 +47351,15 @@ export const Constants = {
         "admin",
         "lab_partner",
       ],
-      lead_role: ["patient", "family", "employer", "hmo", "other"],
+      lead_goal: [
+        "managing_a_condition",
+        "staying_ahead",
+        "family_care",
+        "fast_doctor_access",
+        "one_record",
+        "still_exploring",
+      ],
+      lead_role: ["patient", "family", "employer", "hmo", "other", "ngo"],
       lifestyle_barrier_code: [
         "cost",
         "time",
@@ -47172,6 +47664,7 @@ export const Constants = {
         "direct_consumer",
         "protocol_partner",
         "provider_org",
+        "ngo",
       ],
       outcomes_contract_type: ["fee_at_risk", "flat"],
       outreach_contact_channel: ["call", "whatsapp"],
@@ -47771,6 +48264,13 @@ export const Constants = {
         "active",
       ],
       sponsor_sharing_level: ["none", "activity", "full"],
+      sponsored_reservation_status: [
+        "pending_payment",
+        "invited",
+        "claimed",
+        "expired",
+        "cancelled",
+      ],
       staff_employment_type: ["employed", "contracted"],
       sti_case_status: [
         "result_received",
@@ -47890,6 +48390,7 @@ export const Constants = {
         "lab_partner",
         "payer_admin",
         "provider_org_staff",
+        "ngo_admin",
       ],
       vaccination_adverse_event_severity: ["mild", "moderate", "severe"],
       vaccination_adverse_event_symptom: [

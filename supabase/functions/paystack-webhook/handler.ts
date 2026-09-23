@@ -57,7 +57,8 @@ type CheckoutKind =
   | "screening_day_payment"
   | "subsidy_contribution"
   | "service_purchase"
-  | "platform_credit_topup";
+  | "platform_credit_topup"
+  | "sponsored_service_reservation";
 type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "lab_result_consult";
 
 interface CheckoutMetadata {
@@ -67,6 +68,10 @@ interface CheckoutMetadata {
   subscription_id?: string;
   booking_order_id?: string;
   booking_order_type?: BookingOrderType;
+  // Only set for kind='sponsored_service_reservation' — the
+  // sponsored_service_reservations.id this charge activates. See
+  // apps/web/src/lib/billing/checkout-metadata.ts's own copy of this field.
+  reservation_id?: string;
 }
 
 const BOOKING_TABLE: Record<
@@ -221,6 +226,47 @@ export function timingSafeEqual(a: string, b: string): boolean {
 
 export function intervalToMs(interval: string | null): number {
   return interval === "yearly" ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * A duplicate of send-pending-notifications/index.ts's sendTermiiSms, not a
+ * shared import: Edge Functions in this repo each deploy standalone (no
+ * `_shared/` directory exists between them yet), and this is the one place
+ * that must send an SMS to someone with NO profile row at all — the
+ * `notifications` table demands a non-null recipient_id, which cannot exist
+ * yet for a sponsored_service_reservations recipient until they claim, so
+ * the queue that every other notification goes through cannot carry this
+ * one. Best-effort and never throws: a failed SMS must not fail the
+ * payment's own activation, which has already happened in the DB by the
+ * time this runs.
+ */
+async function sendReservationInviteSms(toPhone: string, text: string): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = Deno.env.get("TERMII_API_KEY");
+  if (!apiKey) return { ok: false, error: "TERMII_API_KEY not configured" };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch("https://api.ng.termii.com/api/sms/send", {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        to: toPhone,
+        from: "Tarragon",
+        sms: text,
+        type: "plain",
+        channel: "generic",
+      }),
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "unknown error" };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -735,12 +781,71 @@ export async function handleWebhookRequest(
             .eq("id", row.id);
 
           await markProcessed({ organisation_id: row.organisation_id, subscription_add_on_id: row.id });
+        } else if (metadata.kind === "sponsored_service_reservation") {
+          // Its own branch, not folded into TRIGGER_ACTIVATED_KIND_TABLE
+          // above. That table's kind pattern (refFilter matching a
+          // pre-activation pending reference column, e.g. voucher_payment's
+          // pending_provider_ref) genuinely doesn't fit here — this table
+          // has no such column, only reservation_id in checkout metadata,
+          // since the row is minted before Paystack is ever involved.
+          // CORRECTED 2026-09-23 (code review, before this branch first
+          // merged): an earlier version of this comment claimed the table
+          // "has no reference at all," which overstated it —
+          // payment_provider_ref does exist and is set by the trigger on
+          // success, the same shape sponsored_subscription's own
+          // TRIGGER_ACTIVATED_KIND_TABLE entry matches against. The real
+          // reason this stays a dedicated branch is the extra fields a
+          // genuine success needs that the generic mechanism's
+          // id/organisation_id/status-only select can't provide: unlike
+          // every other trigger-activated kind, a success here means
+          // someone with no profile yet must be told by SMS (invite_token,
+          // recipient_phone, recipient_first_name), since
+          // public.notifications demands a non-null recipient_id that
+          // cannot exist for them until they claim.
+          const reservationId = metadata.reservation_id;
+          if (!reservationId) {
+            await markFailed("sponsored_service_reservation charge.success missing metadata.reservation_id");
+            break;
+          }
+
+          const { data: reservation } = await supabase
+            .from("sponsored_service_reservations")
+            .select("id, organisation_id, status, payment_provider_ref, invite_token, recipient_phone, recipient_first_name")
+            .eq("id", reservationId)
+            .maybeSingle();
+
+          if (!reservation) {
+            await markFailed(`no sponsored_service_reservations row for reservation_id=${reservationId}`);
+          } else if (reservation.status !== "invited" || reservation.payment_provider_ref !== event.data.reference) {
+            await markFailed(
+              `sponsored_service_reservations ${reservation.id} still ${reservation.status} after trigger — see payment_integrity_flags`,
+            );
+          } else {
+            await markProcessed({ organisation_id: reservation.organisation_id });
+
+            const claimUrl = `${Deno.env.get("APP_BASE_URL") ?? "https://app.tarragonhealth.ng"}/claim/${reservation.invite_token}`;
+            const smsResult = await sendReservationInviteSms(
+              reservation.recipient_phone,
+              `Hi ${reservation.recipient_first_name}, someone paid for care for you on Tarragon Health. Claim it: ${claimUrl}`,
+            );
+            if (!smsResult.ok) {
+              // The reservation itself is correctly activated regardless —
+              // this only means the recipient has to be told some other
+              // way. Logged, not a markFailed(): the payment_transactions
+              // row already reflects a genuine success above.
+              console.error("paystack-webhook: reservation invite SMS failed", {
+                reservationId: reservation.id,
+                error: smsResult.error,
+              });
+            }
+          }
         } else {
-          // Exhaustiveness: CheckoutKind has exactly 9 members and every one
+          // Exhaustiveness: CheckoutKind has exactly 10 members and every one
           // is now an explicit branch above (booking, subscription,
-          // service_purchase, the 5 trigger-activated kinds, add_on) — the
+          // service_purchase, the 5 trigger-activated kinds, add_on,
+          // sponsored_service_reservation) — the
           // `never` assignment below fails to COMPILE (caught by this
-          // repo's `deno check`, now wired into CI) if a 10th kind is ever
+          // repo's `deno check`, now wired into CI) if an 11th kind is ever
           // added to checkout-metadata.ts without a matching branch here.
           // That's the structural fix for how this file shipped with a
           // silent gap for 5 of its 9 real values in the first place: the
