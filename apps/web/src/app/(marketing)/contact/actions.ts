@@ -4,7 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { leadSchema } from "@/lib/validation/lead";
 import { pickFormValues } from "@/lib/forms/pick-form-values";
 
-const LEAD_VALUE_FIELDS = ["name", "contact", "role", "message"] as const;
+const LEAD_VALUE_FIELDS = ["name", "contact", "role", "goal", "message"] as const;
 
 /**
  * What the visitor had already typed when a submission failed. Same bug

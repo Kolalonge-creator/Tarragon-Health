@@ -143,9 +143,8 @@ export function ContactForm() {
         <Select
           id="goal"
           name="goal"
-          defaultValue=""
-          aria-invalid={invalid || undefined}
-          aria-describedby={describedBy}
+          defaultValue={values?.goal ?? ""}
+          {...fieldErrorProps(ERROR_ID, invalid)}
         >
           <option value="">Prefer not to say</option>
           {LEAD_GOALS.map((goal) => (
