@@ -14,6 +14,7 @@ import { statTileValue } from "@/components/ui/stat-tile-value";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
 import { OverviewHero } from "@/app/(dashboard)/patient/overview-hero";
+import { ServiceStatusCard } from "@/app/(dashboard)/patient/service-status-card";
 import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-last-here-card";
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
@@ -125,6 +126,14 @@ export default async function PatientOverviewPage() {
           still warm, still Lagos-time-aware, without repeating the name
           DashboardPlaceholder's "Hi, {name}" already gave a moment ago. */}
       <OverviewHero patientId={subjectId} eyebrow={weekSummaryLine} />
+
+      {/* States plainly whether a clinician is actually watching this account
+          right now -- the launch-scope audit's core service-boundary rule
+          (docs/LAUNCH_SCOPE_AND_PLATFORM_REBUILD_AUDIT_2026-09-21.md S1/S5.0):
+          a free/self-tracking patient must never be left to infer a funded
+          clinician relationship that doesn't exist. Right under the hero,
+          above the informational "since you were last here" reel. */}
+      <ServiceStatusCard patientId={subjectId} acting={!!acting} />
 
       {/* A short, honest "while you were away" highlight reel — only renders
           when the patient is returning after a real gap and something

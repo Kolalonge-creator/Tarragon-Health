@@ -43387,6 +43387,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      resolve_patient_service_access: {
+        Args: { p_patient_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       lab_integration_status: "api" | "hl7_fhir" | "file_exchange" | "structured_upload" | "manual"
