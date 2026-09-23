@@ -25,10 +25,15 @@
 --     discriminates, i.e. that this event genuinely WOULD raise if the
 --     handler weren't there, rather than the test vacuously passing because
 --     nothing in that path ever throws to begin with;
---   * the real invocation path — calling the hook explicitly as
---     supabase_auth_admin (the role GoTrue itself calls hooks as), not just
---     asserting the grant exists — actually returns a decision rather than
---     a permission error.
+--   * supabase_auth_admin (the role GoTrue itself calls hooks as) genuinely
+--     has both grants Postgres requires to invoke the function at all —
+--     EXECUTE on the function AND USAGE on its containing schema. NOT
+--     verified via `SET ROLE supabase_auth_admin`: a real CI run showed that
+--     fails with "permission denied to set role" even as postgres (not a
+--     member of supabase_auth_admin in Supabase's role hierarchy), and
+--     GoTrue never role-switches either — it connects to Postgres natively
+--     AS supabase_auth_admin over its own separate connection. See section
+--     6's own comment for the full reasoning.
 --
 -- Run via `supabase db query "$(cat this_file.sql)" --linked`, `psql
 -- $DATABASE_URL -f this_file.sql`, or the Supabase SQL editor.
@@ -294,61 +299,46 @@ begin
 end $$;
 
 -- ==========================================================================
--- 6. The real invocation path: call the hook explicitly AS
---    supabase_auth_admin (the role GoTrue itself calls hooks as), not just
---    postgres/superuser — proves the grant this migration's own self-check
---    asserts is not merely present in pg_proc.proacl but actually usable,
---    i.e. GoTrue itself would not be blocked from calling its own hook.
+-- 6. Proves supabase_auth_admin (the role GoTrue itself calls hooks as) can
+--    actually reach the hook — NOT via `SET ROLE supabase_auth_admin`, which
+--    a real CI run showed fails with SQLSTATE 42501 ("permission denied to
+--    set role") even as postgres: postgres is not a member of
+--    supabase_auth_admin in Supabase's own role hierarchy (confirmed live,
+--    not assumed — this project has no baseline to compare against, this is
+--    the first hook this codebase has ever added), and GoTrue itself never
+--    role-switches either — it connects to Postgres natively AS
+--    supabase_auth_admin, with its own separate connection, never via SET
+--    ROLE from postgres. So the only thing actually verifiable from a
+--    postgres-connected script is that the underlying grants — the exact
+--    two things that would block that separate GoTrue connection —
+--    genuinely exist: EXECUTE on the function itself, and USAGE on its
+--    containing schema (Postgres requires BOTH to invoke a function; see
+--    this migration's own comment on the USAGE grant for why EXECUTE alone
+--    isn't enough). This is the same pair of checks the migration's own
+--    self-check DO block already asserts — restated here as its own
+--    PASS/FAIL row for consistency with the rest of this file's result
+--    table, not because the migration's check is untrusted.
 -- ==========================================================================
 do $$
 declare
-  v_unlocked uuid := (select v from hpva_fixture where k = 'unlocked');
-  v_result   jsonb;
-  v_has_exec boolean;
+  v_has_exec  boolean;
   v_has_usage boolean;
-  v_current_role text := current_user;
 begin
-  -- Diagnostics FIRST, as plain visible NOTICEs — if the SET ROLE or the
-  -- call below fails, this still tells a reader exactly what Postgres's own
-  -- catalog says the grants are, rather than only a generic caught-exception
-  -- message with no way to tell "SET ROLE itself failed" apart from "the
-  -- role has it but the call still failed" apart from "the grant genuinely
-  -- isn't there".
   select has_function_privilege('supabase_auth_admin', 'public.hook_password_verification_attempt(jsonb)', 'EXECUTE')
     into v_has_exec;
   select has_schema_privilege('supabase_auth_admin', 'public', 'USAGE') into v_has_usage;
-  raise notice 'diagnostics before SET ROLE: current_user=%, supabase_auth_admin has EXECUTE=%, has schema USAGE=%',
-    v_current_role, v_has_exec, v_has_usage;
-
-  begin
-    set local role supabase_auth_admin;
-  exception
-    when others then
-      raise exception 'BROKEN: SET ROLE supabase_auth_admin itself failed (SQLSTATE=%, SQLERRM=%) — % is not a member of / cannot switch to supabase_auth_admin at all, before this even reaches the function-call privilege question',
-        sqlstate, sqlerrm, v_current_role;
-  end;
-
-  -- v_unlocked is already locked from check 3 above — reuse it rather than
-  -- creating a third fixture patient, this check only cares whether the
-  -- CALL itself succeeds under this role, not the decision content.
-  begin
-    v_result := public.hook_password_verification_attempt(
-      jsonb_build_object('user_id', v_unlocked::text, 'valid', true));
-  exception
-    when others then
-      reset role;
-      raise exception 'BROKEN: SET ROLE supabase_auth_admin succeeded, but calling hook_password_verification_attempt as that role failed (SQLSTATE=%, SQLERRM=%) — has EXECUTE=%, has schema USAGE=%',
-        sqlstate, sqlerrm, v_has_exec, v_has_usage;
-  end;
-  reset role;
 
   insert into hpva_result values
-    ('calling the hook AS supabase_auth_admin succeeds and returns a decision',
-     coalesce(v_result->>'decision', 'null'), 'reject',
-     case when v_result->>'decision' = 'reject' then 'PASS' else 'FAIL' end);
-  if v_result->>'decision' is distinct from 'reject' then
-    raise exception 'BROKEN: invoking the hook as supabase_auth_admin did not behave like the real GoTrue call path would (result=%) — check the EXECUTE grant and SECURITY DEFINER chain',
-      v_result;
+    ('supabase_auth_admin has EXECUTE on hook_password_verification_attempt',
+     coalesce(v_has_exec::text, 'null'), 'true',
+     case when v_has_exec then 'PASS' else 'FAIL' end);
+  insert into hpva_result values
+    ('supabase_auth_admin has USAGE on schema public (required to invoke the function at all, EXECUTE alone is not sufficient)',
+     coalesce(v_has_usage::text, 'null'), 'true',
+     case when v_has_usage then 'PASS' else 'FAIL' end);
+  if not (coalesce(v_has_exec, false) and coalesce(v_has_usage, false)) then
+    raise exception 'BROKEN: supabase_auth_admin is missing a grant this hook needs to be callable at all (EXECUTE=%, schema USAGE=%) — GoTrue itself would be unable to call its own hook, which fails every password sign-in on the platform',
+      v_has_exec, v_has_usage;
   end if;
 end $$;
 
