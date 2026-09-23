@@ -178,6 +178,18 @@ notification_channel_preference_dead_channel_no_lockin.sql
 # reopens the hole on the bounded case.
 platform_credit_spend_revenue_deferral.sql
 
+# The three DSAR request tables (data_export_requests, data_deletion_requests,
+# data_correction_requests) shipped with RLS/attribution triggers allowing an
+# admin (org staff, for correction requests) to review a patient's request,
+# but no UI ever called that path -- a 2026-09-18 audit found real requests
+# stuck pending in production with nowhere to go. Proves the admin queue
+# added alongside this test can actually open the gate (review through to a
+# terminal status, with reviewed_by/completed_by/fulfilled_by stamped
+# server-side) on all three tables, that the requester themselves stays
+# blocked from self-approving, and that a terminal (fulfilled) request locks
+# against further edits.
+dsar_admin_review_workflow.sql
+
 # Standing coverage for the new admin/support "view as" shadow-view feature
 # (20260922175144_support_view_as.sql, PR building the read-only support
 # debugging tool the 2026-09-18 admin/ops maturity audit found missing).
