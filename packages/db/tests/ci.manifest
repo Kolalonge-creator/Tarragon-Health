@@ -262,14 +262,17 @@ cmo_clinical_rules_insert_dual_gate.sql
 curbside_consults.sql
 
 # --- Added 2026-09-23 -------------------------------------------------------
-# public.resolve_patient_service_access(): the launch-scope audit's S5.0 read
-# model aggregating service_purchases + annual_health_checks into one
-# patient-facing service status (monitoring_active/review_in_progress/
-# service_active/self_tracking), backing the patient dashboard's
-# ServiceStatusCard. Proves each status derives from real entitlement data
-# (never a hardcoded flag), that self/caregiver/org-staff access all work,
-# that an unrelated caller is refused, and sabotages the org-staff branch by
-# calling as staff of a DIFFERENT organisation to confirm it discriminates by
-# org rather than admitting any staff account. Run as `authenticated`, not
+# public.resolve_patient_service_access(): a founder-commissioned launch-scope
+# audit's read model aggregating service_purchases into one patient-facing
+# service status (monitoring_active/service_active/self_tracking), backing
+# the patient dashboard's ServiceStatusCard. Deliberately does not yet cover a
+# "review in progress" state -- that depends on annual_health_checks columns
+# owned by a still-unmerged sibling branch, see the migration's own header.
+# Proves each status derives from real entitlement data (never a hardcoded
+# flag), that monitoring wins priority over an unrelated active purchase when
+# both are true, that self/caregiver/org-staff access all work, that an
+# unrelated caller is refused, and sabotages the org-staff branch by calling
+# as staff of a DIFFERENT organisation to confirm it discriminates by org
+# rather than admitting any staff account. Run as `authenticated`, not
 # `postgres`, so the function's EXECUTE grant is genuinely exercised.
 resolve_patient_service_access.sql

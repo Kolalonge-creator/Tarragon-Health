@@ -29,7 +29,6 @@ describe("resolveServiceAccess", () => {
     const access: ServiceAccess = {
       status: "monitoring_active",
       monitoringExpiresAt: "2026-12-22T00:00:00.000Z",
-      healthCheckReviewRequestedAt: null,
       resolvedAt: "2026-09-23T00:00:00.000Z",
     };
     mockRpc.mockResolvedValue({ data: access, error: null });

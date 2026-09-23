@@ -128,11 +128,12 @@ export default async function PatientOverviewPage() {
       <OverviewHero patientId={subjectId} eyebrow={weekSummaryLine} />
 
       {/* States plainly whether a clinician is actually watching this account
-          right now -- the launch-scope audit's core service-boundary rule
-          (docs/LAUNCH_SCOPE_AND_PLATFORM_REBUILD_AUDIT_2026-09-21.md S1/S5.0):
-          a free/self-tracking patient must never be left to infer a funded
-          clinician relationship that doesn't exist. Right under the hero,
-          above the informational "since you were last here" reel. */}
+          right now -- a founder-commissioned launch-scope audit's core
+          service-boundary rule (a local document, not tracked in this repo --
+          see the PR that introduced this card for the one it was written
+          against): a free/self-tracking patient must never be left to infer a
+          funded clinician relationship that doesn't exist. Right under the
+          hero, above the informational "since you were last here" reel. */}
       <ServiceStatusCard patientId={subjectId} acting={!!acting} />
 
       {/* A short, honest "while you were away" highlight reel — only renders

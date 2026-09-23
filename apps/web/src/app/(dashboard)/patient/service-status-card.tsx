@@ -2,22 +2,22 @@ import { createClient } from "@/lib/supabase/server";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { formatPatientDate } from "@/lib/format-date";
 
-export type ServiceAccessStatus = "monitoring_active" | "review_in_progress" | "service_active" | "self_tracking";
+export type ServiceAccessStatus = "monitoring_active" | "service_active" | "self_tracking";
 
 export type ServiceAccess = {
   status: ServiceAccessStatus;
   monitoringExpiresAt: string | null;
-  healthCheckReviewRequestedAt: string | null;
   resolvedAt: string;
 };
 
 /**
- * The audit's own launch-scope boundary rule (docs/LAUNCH_SCOPE_AND_PLATFORM_
- * REBUILD_AUDIT_2026-09-21.md S1/S5.0): a free/self-tracking patient must
- * never be left to infer a clinician relationship that isn't actually funded.
- * This card is the one place on the dashboard that states the boundary
- * plainly, sourced from public.resolve_patient_service_access() -- never a
- * hardcoded string, and never inferred client-side from other cards.
+ * A founder-commissioned launch-scope audit's boundary rule (a local
+ * document, not tracked in this repo -- see the PR description for the one
+ * this card was written against): a free/self-tracking patient must never be
+ * left to infer a clinician relationship that isn't actually funded. This
+ * card is the one place on the dashboard that states the boundary plainly,
+ * sourced from public.resolve_patient_service_access() -- never a hardcoded
+ * string, and never inferred client-side from other cards.
  *
  * Exported for testing: the "fails closed to null on error" behaviour is the
  * one thing that matters here (a broken RPC must never render as an active
@@ -50,15 +50,11 @@ const COPY: Record<
         ? `Your Continuous Monitoring service runs until ${formatPatientDate(access.monitoringExpiresAt)}.`
         : "Your Continuous Monitoring service is active.",
   },
-  review_in_progress: {
-    icon: "clinicianFollowUp",
-    title: "Review in progress",
-    body: () => "A clinician is reviewing your Health Check. You'll see the plan here once it's ready.",
-  },
   service_active: {
     icon: "clinicianFollowUp",
     title: "A paid service is active",
-    body: () => "You have an active clinician-backed service on your account.",
+    body: () =>
+      "You have an active clinician-backed service on your account. See Services & receipts for what's included and when it's due.",
   },
   self_tracking: {
     icon: "billing",
@@ -69,10 +65,13 @@ const COPY: Record<
 };
 
 export async function ServiceStatusCard({ patientId, acting }: { patientId: string; acting: boolean }) {
-  // Same reasoning as SinceYouWereLastHere: a caregiver acting on a
-  // dependent's behalf sees the dependent's own status via this same card
-  // (no different boundary for them), so `acting` is accepted for parity
-  // with sibling cards but is not itself a reason to hide this one.
+  // Unlike SinceYouWereLastHere (which hides for a caregiver because "since
+  // you were last here" is about the BROWSING session, not the record on
+  // screen), this card states a fact about the PATIENT record itself -- a
+  // caregiver acting on a dependent's behalf needs to see that dependent's
+  // own service boundary just as much as the patient would. `acting` is kept
+  // as a prop for call-site parity with sibling cards, not because it changes
+  // whether this one renders.
   void acting;
 
   const access = await resolveServiceAccess(patientId);

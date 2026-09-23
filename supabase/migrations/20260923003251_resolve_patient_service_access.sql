@@ -1,27 +1,32 @@
--- The launch-scope audit (docs/LAUNCH_SCOPE_AND_PLATFORM_REBUILD_AUDIT_2026-09-21.md, S5.0)
--- calls for a single server-side read model that answers "what clinician-backed
--- service does this patient currently have, if any" -- so the app never has to
--- infer that from scattered entitlement tables, and so a patient is never shown
--- (or led to believe) a monitoring/review relationship that isn't actually funded.
+-- A founder-commissioned launch-scope audit (a local document, not tracked in
+-- this repo -- see the PR description for the one seen when this was written)
+-- calls for a single server-side read model that answers "what clinician-
+-- backed service does this patient currently have, if any" -- so the app
+-- never has to infer that from scattered entitlement tables, and so a patient
+-- is never shown (or led to believe) a monitoring relationship that isn't
+-- actually funded.
 --
 -- Deliberately NOT a new "journey" table: this codebase has a standing rule
 -- against parallel state tables that re-derive what an existing table already
 -- owns (see CLAUDE.md's Annual Health Review rule and the wearables "no dual
 -- source of truth" rule). Every fact this function returns is read live from
--- tables that already exist and are already the entitlement source of truth:
---   - service_purchases + service_products: the general doctor-time-entitlement
---     ledger. "Active" = status = 'active' AND (expires_at IS NULL OR
---     expires_at > now()) -- the exact predicate private.patient_has_feature_access
---     and public.has_feature_access already use, copied here rather than
---     reinvented.
---   - annual_health_checks.review_requested_at / .reviewed_at: sets a Preventive
---     Health Check Review's "paid, waiting on a clinician" vs "clinician wrote
---     back" state (review_requested_at is stamped by
---     private.request_preventive_health_check_review, reviewed_at by the
---     existing completeHealthCheckReview flow).
--- Adding a new state that isn't derivable from real entitlement data is exactly
--- the failure mode this function exists to prevent -- extend the WHEN/ELSIF
--- chain below only from a real table, never from a hardcoded flag.
+-- service_purchases + service_products, the general doctor-time-entitlement
+-- ledger that already is the source of truth. "Active" = status = 'active'
+-- AND (expires_at IS NULL OR expires_at > now()) -- the exact predicate
+-- private.patient_has_feature_access and public.has_feature_access already
+-- use, copied here rather than reinvented.
+--
+-- Deliberately does NOT touch annual_health_checks yet: a first version of
+-- this migration also classified a "review_in_progress" state from
+-- annual_health_checks.review_requested_at/.reviewed_at, but that column pair
+-- is owned by the still-unmerged Preventive Health Check Review SKU work
+-- (fix/launch-scope-reconciliation-20260922, not yet in main-dev) -- this
+-- branch has no migration that creates it, so a fresh `supabase db reset`
+-- replay of this branch alone would fail with "column does not exist" even
+-- though it appeared to work when tested live against the shared project
+-- (which already carries that other branch's schema). Caught by code review
+-- before merge. Add that state back in a follow-up once the owning branch
+-- merges, rather than duplicating its column here.
 --
 -- Access model copied from public.care_receipt (20260807012000_care_receipt.sql):
 -- the caller may read a patient's own status, a caregiver holding a live
@@ -42,8 +47,6 @@ declare
   v_patient_org uuid;
   v_monitoring_code text;
   v_monitoring_expires_at timestamptz;
-  v_review_requested_at timestamptz;
-  v_reviewed_at timestamptz;
   v_has_other_active_purchase boolean;
   v_status text;
 begin
@@ -89,24 +92,21 @@ begin
    order by sp.expires_at desc nulls last
    limit 1;
 
-  select ahc.review_requested_at, ahc.reviewed_at
-    into v_review_requested_at, v_reviewed_at
-    from public.annual_health_checks ahc
-   where ahc.patient_id = p_patient_id
-     and ahc.year = extract(year from now())::int
-   limit 1;
-
   select exists(
     select 1 from public.service_purchases sp
      where sp.patient_id = p_patient_id
        and sp.status = 'active'
        and (sp.expires_at is null or sp.expires_at > now())
+       and sp.service_product_id != all(
+         array(
+           select prod.id from public.service_products prod
+            where prod.code like 'continuous_monitoring_%'
+         )
+       )
   ) into v_has_other_active_purchase;
 
   if v_monitoring_code is not null then
     v_status := 'monitoring_active';
-  elsif v_review_requested_at is not null and v_reviewed_at is null then
-    v_status := 'review_in_progress';
   elsif v_has_other_active_purchase then
     v_status := 'service_active';
   else
@@ -116,7 +116,6 @@ begin
   return jsonb_build_object(
     'status', v_status,
     'monitoringExpiresAt', v_monitoring_expires_at,
-    'healthCheckReviewRequestedAt', v_review_requested_at,
     'resolvedAt', now()
   );
 end;
