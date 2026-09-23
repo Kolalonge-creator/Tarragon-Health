@@ -45,7 +45,10 @@ import {
 } from "@/lib/validation/risk-assessment";
 import { computePreventionRiskScores } from "@/lib/rules/compute-risk-scores";
 import type { ComputedRiskScore, PreventionCondition, RiskTier } from "@/lib/rules/risk-scoring";
-import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
+import {
+  computeScreeningRecommendations,
+  buildLastCompletedByScreenTypeId,
+} from "@/lib/rules/screening-recommendations";
 import { computeCareProgrammeRecommendations } from "@/lib/rules/care-programme-recommendations";
 import {
   computePreventiveProgrammeRecommendations,
@@ -624,7 +627,7 @@ export async function submitRiskAssessment(
 
   const { data: screenTypes } = await supabase
     .from("screen_types")
-    .select("id, code, sex_applicability, age_from, age_to, frequency_months")
+    .select("id, code, sex_applicability, age_from, age_to, frequency_months, is_optional")
     .eq("is_active", true);
 
   const { data: existingSchedules } = await supabase
@@ -632,15 +635,29 @@ export async function submitRiskAssessment(
     .select("id, screen_type_id, status, due_date")
     .eq("patient_id", subjectId);
 
-  const lastCompletedByScreenTypeId = new Map<string, string>();
+  // No row at all (most patients, including everyone straight out of
+  // onboarding's general risk assessment, which never asks a women's-health
+  // question) must gate the same as an explicit 'not_applicable' — never
+  // treat "no signal" as license to assume a life-stage-gated screen type
+  // like antenatal_booking applies. See LIFE_STAGE_GATED_SCREENS in
+  // screening-recommendations.ts. Only fetched for female patients — every
+  // current gated code is female-only, so the lookup can never change the
+  // outcome for anyone else.
+  const reproductiveHealthProfile =
+    profile.sex === "female"
+      ? (
+          await supabase
+            .from("reproductive_health_profiles")
+            .select("life_stage")
+            .eq("patient_id", subjectId)
+            .maybeSingle()
+        ).data
+      : null;
+
+  const lastCompletedByScreenTypeId = buildLastCompletedByScreenTypeId(existingSchedules ?? []);
   const activeByScreenTypeId = new Map<string, { id: string; due_date: string }>();
   for (const row of existingSchedules ?? []) {
-    if (row.status === "completed") {
-      const latest = lastCompletedByScreenTypeId.get(row.screen_type_id);
-      if (!latest || row.due_date > latest) {
-        lastCompletedByScreenTypeId.set(row.screen_type_id, row.due_date);
-      }
-    } else if (row.status === "pending" || row.status === "booked") {
+    if (row.status === "pending" || row.status === "booked") {
       activeByScreenTypeId.set(row.screen_type_id, { id: row.id, due_date: row.due_date });
     }
   }
@@ -659,7 +676,7 @@ export async function submitRiskAssessment(
   const recommendations = computeScreeningRecommendations(
     screenTypes ?? [],
     tiersByCondition as Map<PreventionCondition, RiskTier>,
-    { sex: profile.sex, ageYears },
+    { sex: profile.sex, ageYears, reproductiveLifeStage: reproductiveHealthProfile?.life_stage ?? null },
     lastCompletedByScreenTypeId
   );
 
@@ -672,7 +689,18 @@ export async function submitRiskAssessment(
   // own session.
   const serviceRoleClient = createServiceRoleClient();
 
-  const newSchedules = recommendations.filter((rec) => !activeByScreenTypeId.has(rec.screenTypeId));
+  // is_optional screen types (screen_types.is_optional — "Offered when due,
+  // never assumed. The patient opts in rather than finding it already
+  // inside their review.") are never auto-inserted here, no matter how due
+  // they are — a patient accepts one explicitly from the "Optional
+  // screenings" offer surface (useAcceptOptionalScreening), which performs
+  // the identical insert this loop does for everything else, just gated on
+  // the patient's own action. Once accepted, the row lands in
+  // activeByScreenTypeId on the next run and the tighten-due-date loop
+  // below treats it exactly like any other screening from then on.
+  const newSchedules = recommendations.filter(
+    (rec) => !rec.isOptional && !activeByScreenTypeId.has(rec.screenTypeId)
+  );
   if (newSchedules.length > 0) {
     const { error: scheduleInsertError } = await serviceRoleClient.from("screening_schedules").insert(
       newSchedules.map((rec) => ({

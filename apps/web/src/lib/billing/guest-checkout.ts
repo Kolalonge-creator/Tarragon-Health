@@ -12,9 +12,39 @@ import {
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
+import { pickFormValues } from "@/lib/forms/pick-form-values";
+
+const REQUEST_VALUE_FIELDS = ["fullName", "email", "countryCode", "phone"] as const;
+const VERIFY_VALUE_FIELDS = ["token"] as const;
+
+/**
+ * What the visitor had already typed — into the request step or the verify
+ * step — when a submission failed. React resets every uncontrolled field in
+ * an action-bound `<form>` once the action returns, success or failure, so
+ * without this a rate limit, a duplicate-email error, or a wrong/expired
+ * code on this paid checkout flow silently wiped what the visitor had just
+ * typed and forced a full re-type.
+ */
+export type GuestCheckoutSubmittedValues = Partial<
+  Record<(typeof REQUEST_VALUE_FIELDS)[number] | (typeof VERIFY_VALUE_FIELDS)[number], string>
+>;
+
+function requestSubmittedValues(formData: FormData): GuestCheckoutSubmittedValues {
+  return pickFormValues(formData, REQUEST_VALUE_FIELDS);
+}
+
+function verifySubmittedValues(formData: FormData): GuestCheckoutSubmittedValues {
+  return pickFormValues(formData, VERIFY_VALUE_FIELDS);
+}
 
 export type GuestCheckoutState =
-  | { error?: string; field?: string; step?: "verify"; email?: string }
+  | {
+      error?: string;
+      field?: string;
+      step?: "verify";
+      email?: string;
+      values?: GuestCheckoutSubmittedValues;
+    }
   | undefined;
 
 /**
@@ -54,7 +84,10 @@ export async function startGuestCheckout(
   formData: FormData
 ): Promise<GuestCheckoutState> {
   if (!isGuestCheckoutProductCode(serviceProductCode)) {
-    return { error: "This isn't available without an account. Please sign in or sign up first." };
+    return {
+      error: "This isn't available without an account. Please sign in or sign up first.",
+      values: requestSubmittedValues(formData),
+    };
   }
 
   const parsed = guestCheckoutSchema.safeParse({
@@ -64,7 +97,10 @@ export async function startGuestCheckout(
     phone: formData.get("phone"),
   });
   if (!parsed.success) {
-    return firstIssue(parsed.error, "Check your details and try again.");
+    return {
+      ...firstIssue(parsed.error, "Check your details and try again."),
+      values: requestSubmittedValues(formData),
+    };
   }
   const { fullName, email } = parsed.data;
   const phone = combineGuestPhone(parsed.data);
@@ -79,7 +115,7 @@ export async function startGuestCheckout(
     { limit: 3, windowSeconds: 3600 }
   );
   if (!limited.success) {
-    return { error: RATE_LIMIT_MESSAGE };
+    return { error: RATE_LIMIT_MESSAGE, values: requestSubmittedValues(formData) };
   }
 
   const supabase = await createClient();
@@ -91,7 +127,7 @@ export async function startGuestCheckout(
     },
   });
   if (error) {
-    return { error: authErrorMessage(error, "otp_send") };
+    return { error: authErrorMessage(error, "otp_send"), values: requestSubmittedValues(formData) };
   }
 
   return { step: "verify", email };
@@ -112,7 +148,12 @@ export async function verifyGuestCheckoutOtp(
   formData: FormData
 ): Promise<GuestCheckoutState> {
   if (!isGuestCheckoutProductCode(serviceProductCode)) {
-    return { error: "This isn't available without an account. Please sign in or sign up first." };
+    return {
+      error: "This isn't available without an account. Please sign in or sign up first.",
+      step: "verify",
+      email: formData.get("email")?.toString(),
+      values: verifySubmittedValues(formData),
+    };
   }
 
   const parsed = guestCheckoutVerifySchema.safeParse({
@@ -124,6 +165,7 @@ export async function verifyGuestCheckoutOtp(
       ...firstIssue(parsed.error, "Check the code and try again."),
       step: "verify",
       email: formData.get("email")?.toString(),
+      values: verifySubmittedValues(formData),
     };
   }
   const { email, token } = parsed.data;
@@ -138,13 +180,18 @@ export async function verifyGuestCheckoutOtp(
     { limit: 8, windowSeconds: 900 }
   );
   if (!limited.success) {
-    return { error: RATE_LIMIT_MESSAGE, step: "verify", email };
+    return { error: RATE_LIMIT_MESSAGE, step: "verify", email, values: verifySubmittedValues(formData) };
   }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
   if (error || !data.user) {
-    return { error: authErrorMessage(error, "otp_verify"), step: "verify", email };
+    return {
+      error: authErrorMessage(error, "otp_verify"),
+      step: "verify",
+      email,
+      values: verifySubmittedValues(formData),
+    };
   }
 
   const metadataPhone = data.user.user_metadata?.phone;

@@ -8,7 +8,10 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.services, label: "Services" },
     { href: MARKETING_ROUTES.chronicCare, label: "Chronic care" },
     { href: MARKETING_ROUTES.prevention, label: "Prevention" },
-    { href: MARKETING_ROUTES.careCoordination, label: "Care coordination" },
+    // Kept in sync with the top-nav relabel in marketing-nav.tsx
+    // (2026-09-22) — same route, same label, so a visitor doesn't see two
+    // different names for the identical page.
+    { href: MARKETING_ROUTES.careCoordination, label: "Labs & medication" },
     { href: MARKETING_ROUTES.devices, label: "Devices" },
   ],
   programmes: [
@@ -198,6 +201,12 @@ export function MarketingFooter() {
               >
                 +234 806 119 7940
               </a>
+            </p>
+            {/* Registered headquarters, locality level. Care is delivered in
+                the app, so this is deliberately not framed as somewhere to
+                visit. */}
+            <p className="text-sm text-white/65">
+              Headquarters: {SITE.headquarters}
             </p>
           </div>
           <SocialLinks />

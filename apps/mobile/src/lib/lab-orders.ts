@@ -163,7 +163,7 @@ export async function getLabResultInterpretations(
 }
 
 export type ResultDocumentSource = Enums<"lab_result_document_source">;
-export type AiSummaryStatus = Enums<"lab_result_ai_summary_status">;
+export type AiSummaryStatus = Enums<"ai_document_summary_status">;
 
 /** Same storage bucket as apps/web/src/lib/lab-results/documents.ts's
  * RESULT_DOC_BUCKET — kept as a local literal since that file is
@@ -194,6 +194,11 @@ export interface ResultDocumentItem {
   nextSteps: string | null;
   interpretationSentAt: string | null;
   aiSummaryStatus: AiSummaryStatus;
+  /** Which test(s) aiSummaryStatus = 'flagged' refers to — label and the
+   * lab's own printed range, both copied verbatim off the document. Empty
+   * unless aiSummaryStatus is 'flagged'. Mirrors web's ResultDocumentView.aiFlaggedAnalytes
+   * (2026-09-22 widening — see apps/web/src/lib/lab-reports/ai-summary.ts). */
+  aiFlaggedAnalytes: { label: string; reportedRange: string | null }[];
 }
 
 /**
@@ -207,7 +212,7 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
     const { data: rows, error } = await supabase
       .from("lab_result_documents")
       .select(
-        "id, source, original_filename, mime_type, note, test_code, created_at, file_path, reviewed_by, reviewed_at, patient_interpretation, next_steps, interpretation_sent_at, ai_summary_status"
+        "id, source, original_filename, mime_type, note, test_code, created_at, file_path, reviewed_by, reviewed_at, patient_interpretation, next_steps, interpretation_sent_at, ai_summary_status, ai_flagged_analytes"
       )
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false });
@@ -255,6 +260,8 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
           nextSteps: row.next_steps,
           interpretationSentAt: row.interpretation_sent_at,
           aiSummaryStatus: row.ai_summary_status,
+          aiFlaggedAnalytes:
+            (row.ai_flagged_analytes as { label: string; reportedRange: string | null }[] | null) ?? [],
         };
       })
     );

@@ -2,12 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 
 export type CreateProviderQualityPolicyDraftState = { error?: string; success?: boolean } | undefined;
 export type SignProviderQualityPolicyState = { error?: string; success?: boolean } | undefined;
 
 const REVALIDATE_PATH = "/admin/settings/provider-quality-policy";
+// Also rendered at /clinician/provider-quality-policy (the CMO's own
+// reachable mirror, added 2026-09-22).
+const CLINICIAN_PATH = "/clinician/provider-quality-policy";
 
 /**
  * Create a new draft version, duplicating the most recent version's config
@@ -22,7 +26,13 @@ export async function createProviderQualityPolicyDraftAction(
   formData: FormData
 ): Promise<CreateProviderQualityPolicyDraftState> {
   const profile = await getCurrentProfile();
-  if (profile?.role !== "admin") {
+  const staff = await getCurrentClinicalStaff();
+  // Dual-gated the same way triage-protocols/actions.ts was fixed 2026-09-14:
+  // an admin login OR the org's Chief Medical Officer / Clinical Director.
+  // Found 2026-09-22 -- this action was admin-only even though
+  // sign_provider_quality_policy (below) already required a Clinical
+  // Director, never admin -- a CMO could sign a version but never draft one.
+  if (profile?.role !== "admin" && !canAssignCases(staff)) {
     return { error: "Not authorised" };
   }
 
@@ -39,7 +49,7 @@ export async function createProviderQualityPolicyDraftAction(
   const nextVersion = latest.version + 1;
   const notes =
     String(formData.get("notes") ?? "").trim() ||
-    `Re-attested by admin, version ${nextVersion}, config unchanged from version ${latest.version}. Sign to bring into force.`;
+    `Re-attested by ${profile?.role === "admin" ? "admin" : "the Clinical Director"}, version ${nextVersion}, config unchanged from version ${latest.version}. Sign to bring into force.`;
 
   const { error } = await supabase.from("provider_quality_policy").insert({
     version: nextVersion,
@@ -49,6 +59,7 @@ export async function createProviderQualityPolicyDraftAction(
   if (error) return { error: error.message };
 
   revalidatePath(REVALIDATE_PATH);
+  revalidatePath(CLINICIAN_PATH);
   return { success: true };
 }
 
@@ -64,5 +75,6 @@ export async function signProviderQualityPolicyAction(policyId: string): Promise
   const { error } = await supabase.rpc("sign_provider_quality_policy", { p_policy_id: policyId });
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
+  revalidatePath(CLINICIAN_PATH);
   return { success: true };
 }

@@ -3,7 +3,7 @@ name: Browser E2E smoke
 # Separate workflow, deliberately NOT folded into ci.yml. This suite is
 # genuinely different in kind from everything else in ci.yml: it drives a
 # real Chromium browser against a locally-built-and-started `next build` +
-# `next start` server (playwright.config.ts's webServer — see its own
+# `next start` server (playwright.smoke.config.ts's webServer — see its own
 # comment for why this is a production build, not `next dev`) that talks to
 # the ONE real, shared production Supabase project (this platform has no
 # staging database — see CLAUDE.md), signed in as one of the 23 standing
@@ -78,7 +78,7 @@ jobs:
     name: Playwright smoke suite
     runs-on: ubuntu-latest
     # Generous margin above webServer's own 5-minute build+boot allowance
-    # (playwright.config.ts) plus dependency install/Chromium download on a
+    # (playwright.smoke.config.ts) plus dependency install/Chromium download on a
     # cold, uncached GitHub-hosted runner — cheap to over-allow here since
     # this isn't (yet) a required/blocking check; a hung run still ends,
     # just later, rather than risking a hard GitHub Actions cancellation

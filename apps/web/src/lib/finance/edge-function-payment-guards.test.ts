@@ -14,7 +14,7 @@ import { resolve } from "node:path";
  * test here means the fix is committed, not that production has it.
  */
 
-const WEBHOOK = resolve(__dirname, "../../../../../supabase/functions/paystack-webhook/index.ts");
+const WEBHOOK = resolve(__dirname, "../../../../../supabase/functions/paystack-webhook/handler.ts");
 const SENDER = resolve(
   __dirname,
   "../../../../../supabase/functions/send-pending-notifications/index.ts",

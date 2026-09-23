@@ -7,6 +7,7 @@ import { completeOnboarding } from "./actions";
 import { ConsentStep } from "./consent-step";
 import { DemographicsForm } from "./demographics-form";
 import { IntakeStep } from "./intake-step";
+import { IntentStep, type OnboardingIntent } from "./intent-step";
 import { PlanPreview } from "./plan-preview";
 import { ReadyNotice } from "./ready-notice";
 import { ExistingPlanNotice } from "./existing-plan-notice";
@@ -56,7 +57,7 @@ function DoneRow({
   );
 }
 
-const STEP_LABELS = ["Your agreement", "About you", "Health profile", "Finish"] as const;
+const STEP_LABELS = ["What brings you here", "Your agreement", "Your risk profile", "Finish"] as const;
 
 /**
  * "Step 2 of 4", plus the named steps. There was no progress indicator of any
@@ -100,9 +101,30 @@ function OnboardingProgress({ current }: { current: number }) {
 /**
  * Client-side onboarding orchestrator. Four counted steps (see STEP_LABELS,
  * which is what OnboardingProgress shows the patient):
- *   1. Consent (required)   2. About you, DOB/sex (required)
- *   3. Health profile (skippable)   4. Confirmation (the app is free)
- * "Where you are" renders alongside step 2 rather than as a counted step of
+ *   1. What brings you here (not stored, gates nothing — see intent-step.tsx.
+ *      Only ever changes IntakeStep's intro copy below it, never which
+ *      risk-assessment section opens: an earlier version of this step tried
+ *      to jump the questionnaire straight to a later section, which code
+ *      review caught as unsafe — several of its required fields (Lifestyle's
+ *      in particular) have no client-side enforcement on a hidden step, so
+ *      starting past section 1 let a patient submit without ever seeing
+ *      them, failing server-side validation with no way to find what was
+ *      missing.)
+ *   2. Consent (required)
+ *   3. Your risk profile: DOB/sex (required), then the risk-assessment
+ *      questionnaire + current medications (skippable) — two components
+ *      (DemographicsForm, IntakeStep) shown under one counted step, so DOB/sex
+ *      leads straight into the assessment it exists to power rather than
+ *      standing alone as its own disconnected "About you" step. Both stay
+ *      gated on consentDone too, not just demographicsDone — reopening
+ *      "Your agreement" after finishing this step must hide it again, not
+ *      leave it rendered underneath an unconfirmed consent.
+ *   4. Confirmation (the app is free)
+ * Resequenced 2026-09-23 from the previous Consent → Demographics → Intake →
+ * dashboard order: an intent step now leads, and risk assessment is the
+ * first substantive thing after agreeing to the terms rather than the third
+ * of four steps.
+ * "Where you are" renders alongside step 3 rather than as a counted step of
  * its own: it is optional, it gates nothing, and the nearby-facility pickers
  * it was collected for are suspended platform-wide.
  * Required steps gate the final step both here and structurally in the DB
@@ -152,6 +174,13 @@ export function OnboardingFlow({
     location: { state: string | null; city: string | null; area: string | null };
   };
 }) {
+  // Not persisted (see intent-step.tsx) — defaulting to already-answered
+  // skips the intent step entirely for anyone returning to a reopened flow
+  // (consent or demographics already on file means they were here before),
+  // rather than asking a returning visitor "what brings you here" again.
+  const [intent, setIntent] = useState<OnboardingIntent | null>(
+    initial.consentDone || initial.demographicsDone ? "unsure" : null
+  );
   const [consentDone, setConsentDone] = useState(initial.consentDone);
   const [demographicsDone, setDemographicsDone] = useState(initial.demographicsDone);
   const [intakeCollapsed, setIntakeCollapsed] = useState(initial.intakeDone);
@@ -164,7 +193,10 @@ export function OnboardingFlow({
   });
 
   const readyForPlan = consentDone && demographicsDone;
-  const currentStep = !consentDone ? 0 : !demographicsDone ? 1 : !intakeCollapsed ? 2 : 3;
+  // Demographics and intake are two components but one counted step (index
+  // 2, "Your risk profile") — see the component doc comment above.
+  const riskProfileDone = demographicsDone && intakeCollapsed;
+  const currentStep = intent === null ? 0 : !consentDone ? 1 : !riskProfileDone ? 2 : 3;
 
   if (!receivesCare) {
     return <SupporterOnboarding profile={profile} done={consentDone} onDone={setConsentDone} />;
@@ -213,48 +245,66 @@ export function OnboardingFlow({
         </p>
       </div>
 
-      {careTeamSlot}
-
-      {/* Step 1: Consent */}
-      {consentDone ? (
-        <DoneRow label="Your agreement" onReopen={() => setConsentDone(false)} />
+      {/* Step 1: what brings you here — not stored, gates nothing, just
+          picks which risk-assessment section opens first below. Everything
+          past this point waits for an answer, including the care-team card:
+          there's nothing to show yet that's actually about them. */}
+      {intent === null ? (
+        <IntentStep onComplete={setIntent} />
       ) : (
-        <ConsentStep onComplete={() => setConsentDone(true)} />
-      )}
+        <>
+          {careTeamSlot}
 
-      {/* Step 2: Demographics + location (revealed after consent) */}
-      {consentDone &&
-        (demographicsDone ? (
-          <DoneRow
-            label="About you"
-            detail={demographics.dateOfBirth ?? undefined}
-            onReopen={() => setDemographicsDone(false)}
-          />
-        ) : (
-          <DemographicsForm
-            initial={demographics}
-            onComplete={(saved) => {
-              setDemographics(saved);
-              setDemographicsDone(true);
-            }}
-          />
-        ))}
+          {/* Step 2: Consent */}
+          {consentDone ? (
+            <DoneRow label="Your agreement" onReopen={() => setConsentDone(false)} />
+          ) : (
+            <ConsentStep onComplete={() => setConsentDone(true)} />
+          )}
 
-      {/* Location stays in the flow because it is the one answer that changes
-          what we can show you next: it is how we find labs and clinics near
-          you. Emergency contacts and identity verification used to sit here
-          too; both are optional, neither is needed to start, and both now live
-          on the dashboard under Profile & settings instead. */}
-      {consentDone && demographicsDone && (
-        <PatientLocationForm initial={initial.location} />
-      )}
+          {/* Step 3: Your risk profile — DOB/sex (required), then the
+              risk-assessment questionnaire (skippable), counted as one step
+              even though it's two components: DOB/sex exists to power the
+              assessment, so it leads straight into it rather than standing
+              alone. */}
+          {consentDone &&
+            (demographicsDone ? (
+              <DoneRow
+                label="About you"
+                detail={demographics.dateOfBirth ?? undefined}
+                onReopen={() => setDemographicsDone(false)}
+              />
+            ) : (
+              <DemographicsForm
+                initial={demographics}
+                onComplete={(saved) => {
+                  setDemographics(saved);
+                  setDemographicsDone(true);
+                }}
+              />
+            ))}
 
-      {/* Step 3: Health profile (skippable) */}
-      {readyForPlan && !intakeCollapsed && (
-        <IntakeStep patientId={profile.id} onSkip={() => setIntakeCollapsed(true)} />
-      )}
-      {readyForPlan && intakeCollapsed && (
-        <DoneRow label="Health profile" onReopen={() => setIntakeCollapsed(false)} />
+          {/* Location stays in the flow because it is the one answer that
+              changes what we can show you next: it is how we find labs and
+              clinics near you. Emergency contacts and identity verification
+              used to sit here too; both are optional, neither is needed to
+              start, and both now live on the dashboard under Profile &
+              settings instead. */}
+          {consentDone && demographicsDone && (
+            <PatientLocationForm initial={initial.location} />
+          )}
+
+          {consentDone && demographicsDone && !intakeCollapsed && (
+            <IntakeStep
+              patientId={profile.id}
+              onSkip={() => setIntakeCollapsed(true)}
+              intent={intent}
+            />
+          )}
+          {consentDone && demographicsDone && intakeCollapsed && (
+            <DoneRow label="Health profile" onReopen={() => setIntakeCollapsed(false)} />
+          )}
+        </>
       )}
 
       {/* Step 4: a patient who already has something active (a legacy pack
@@ -268,7 +318,7 @@ export function OnboardingFlow({
       {readyForPlan && intakeCollapsed && !existingPlan && <PlanPreview patientId={profile.id} />}
       {readyForPlan && intakeCollapsed && !existingPlan && <ReadyNotice />}
 
-      {!readyForPlan && (
+      {intent !== null && !readyForPlan && (
         <p className="text-center text-xs text-charcoal-ink/50">
           Complete the steps above to finish setting up your account.
         </p>
