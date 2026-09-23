@@ -6,6 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import logoMarkWhite from "./assets/logo-mark-white.png";
 import { readAppLockEnabled } from "@/lib/app-lock";
+import { checkIdleAndMaybeSignOut, stampActivity } from "@/lib/idle-timeout";
 import { registerBackgroundHealthSync } from "@/lib/background-sync";
 import { registerPushToken } from "@/lib/push-registration";
 import { flushPendingVitals } from "@/lib/offline-vitals-queue";
@@ -198,6 +199,36 @@ function AppContent() {
     }
   }, [session, identity]);
 
+  // Idle-timeout enforcement — see lib/idle-timeout.ts's header comment for
+  // why this must exist independently of Supabase's own project-level
+  // inactivity_timeout (GoTrue only checks that at refresh time, and
+  // autoRefreshToken keeps a foregrounded-but-untouched app "refreshing"
+  // right through it). Two checkpoints, mirroring the web file's own
+  // "check on the thing that could have changed while unattended" posture:
+  // immediately on every transition back to "active" (catches a session
+  // that expired while backgrounded, since JS timers don't reliably run
+  // then), and every 60s while foregrounded (catches a session left open
+  // and untouched without ever backgrounding). Only runs once a session
+  // exists — an idle timeout has nothing to enforce before sign-in.
+  useEffect(() => {
+    if (!session) return;
+
+    const check = () => {
+      void checkIdleAndMaybeSignOut();
+    };
+
+    check();
+    const interval = setInterval(check, 60_000);
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "active") check();
+    });
+
+    return () => {
+      clearInterval(interval);
+      sub.remove();
+    };
+  }, [!!session]);
+
   if (stuck) {
     return (
       <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: spacing.screen, gap: 12 }}>
@@ -248,13 +279,42 @@ function AppContent() {
   // The shell is gated behind the lock, not overlaid by it: while locked, no
   // patient data mounts at all, so nothing can leak under or behind the gate.
   if (lockState === "locked") {
-    return <AppLockScreen onUnlocked={() => setLockState("unlocked")} />;
+    return (
+      <AppLockScreen
+        onUnlocked={() => {
+          // A real bug found in review: without this, successfully
+          // authenticating via Face ID/PIN did not itself count as
+          // "activity" for lib/idle-timeout.ts — only a touch inside the
+          // HomeShell below does. A patient who took long enough entering
+          // their PIN (a retried Face ID prompt, a slow typer) to push total
+          // elapsed idle time past IDLE_TIMEOUT_MS would unlock successfully
+          // and then get immediately signed out again by the very next
+          // interval tick or AppState check, right after proving presence —
+          // the opposite of what App Lock is supposed to feel like. Stamping
+          // here treats a successful unlock itself as activity, same as the
+          // web idle-timeout treats any authenticated request as activity.
+          void stampActivity();
+          setLockState("unlocked");
+        }}
+      />
+    );
   }
 
   return (
     // Bottom excluded: BottomTabBar (inside HomeShell) insets its own bottom
     // edge, so a bottom inset here would double up the gesture-area padding.
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }} edges={["top", "left", "right"]}>
+    // onTouchStart is deliberately non-capturing (a passive bubble listener,
+    // never onStartShouldSetResponderCapture) so it observes every touch
+    // anywhere in the authenticated shell for idle-timeout purposes (see
+    // lib/idle-timeout.ts) without ever claiming the responder or
+    // interfering with navigation/gesture handling underneath it.
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.card }}
+      edges={["top", "left", "right"]}
+      onTouchStart={() => {
+        void stampActivity();
+      }}
+    >
       <StatusBar barStyle="dark-content" />
       <HomeShell
         userId={session.user.id}

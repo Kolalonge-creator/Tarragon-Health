@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   emailLoginSchema,
   phoneOtpRequestSchema,
@@ -13,7 +12,14 @@ import { recordLoginDevice } from "@/lib/auth/record-login-device";
 import { callLockoutRpc } from "@/lib/auth/lockout-rpc";
 import { stampActivityCookie } from "@/lib/auth/idle-timeout";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
-import { authErrorMessage, isInvalidCredentialsError } from "@/lib/auth/auth-error-message";
+// Neither isInvalidCredentialsError nor isInvalidOtpError is needed in this
+// file anymore: the password path's record_failed_login call (which
+// isInvalidCredentialsError gated) was removed 2026-09-22 (GoTrue's own Auth
+// Hook records it now — see 20260922201110_password_verification_hook_
+// gotrue_level_lockout.sql), and the phone-OTP path's record_failed_login_by_
+// phone call (which isInvalidOtpError gated) was independently removed as a
+// griefing-vector fix — see verifyPhoneOtp's own comment below.
+import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
@@ -90,36 +96,28 @@ export async function signInWithEmail(
     return { error: RATE_LIMIT_MESSAGE };
   }
 
+  // record_failed_login()/clear_login_failures() are DELIBERATELY not called
+  // from this password path anymore (removed 2026-09-22, see
+  // 20260922201110_password_verification_hook_gotrue_level_lockout.sql) —
+  // signInWithPassword below now invokes the Password Verification Attempt
+  // Auth Hook (public.hook_password_verification_attempt) inside GoTrue
+  // itself, which records the exact same failure/success against the exact
+  // same account_lockouts row as part of this very call. Calling either RPC
+  // again here would double-count every web attempt against the shared
+  // counter — found as a real bug during that migration's own review: it
+  // silently halved the account's effective lockout threshold from the
+  // documented/tested "5 failed attempts" to 3 for web sign-ins specifically
+  // (mobile and any direct API caller were never double-counted, since they
+  // never called these RPCs in the first place — the whole reason the hook
+  // exists). The is_account_locked() pre-check above is unaffected — it only
+  // reads, so calling it costs nothing and still gives a faster, more
+  // specific "this account is locked" message before ever reaching GoTrue.
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error || !data.user) {
-    // Only a genuine wrong-password/wrong-email result counts toward the
-    // lockout — never "email not confirmed", GoTrue's own rate limiting, or
-    // a transient network error, all of which also surface as `error` here.
-    // Without this, a patient who simply hasn't clicked their confirmation
-    // email yet could get their real account locked out after 5 attempts
-    // despite never entering a wrong password. See isInvalidCredentialsError's
-    // own doc comment.
-    if (isInvalidCredentialsError(error)) {
-      // Deliberately the SERVICE-ROLE client, not the anon-key `supabase`
-      // client used everywhere else in this file. record_failed_login() is
-      // now granted EXECUTE to service_role only (see the migration's own
-      // header comment): the anon key isn't a secret, so an earlier version
-      // of this call — using the plain client, matching record_failed_login's
-      // original anon+authenticated grant — let anyone who could reach this
-      // RPC directly lock an arbitrary known account with no real login
-      // attempt at all. Only this trusted server call, using a key never sent
-      // to a browser, may record a failure.
-      await callLockoutRpc(createServiceRoleClient(), "record_failed_login", {
-        p_email: parsed.data.email,
-      });
-    }
     // Never the raw GoTrue string, and never anything that would confirm
     // whether this address has an account here.
     return { error: authErrorMessage(error, "sign_in") };
   }
-
-  // Best-effort — never let lockout bookkeeping block a real sign-in.
-  await callLockoutRpc(supabase, "clear_login_failures");
 
   await redirectAfterLogin(supabase, data.user.id, formData.get("redirectTo"));
 }

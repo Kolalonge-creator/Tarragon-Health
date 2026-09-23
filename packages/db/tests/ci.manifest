@@ -198,3 +198,21 @@ new_device_signin_to_email.sql
 # touch this account's lock (it is scoped to auth.uid(), no argument), and the
 # account's own session can clear its own lock.
 account_lockout_after_repeated_failed_logins.sql
+
+# --- Added 2026-09-22 (GoTrue-level lockout enforcement) -----------------
+# The 2026-09-18 lockout above is enforced entirely in apps/web/src/app/
+# login/actions.ts — GoTrue itself never consults account_lockouts, so the
+# mobile app and any direct GoTrue REST caller bypass it completely. Proves
+# public.hook_password_verification_attempt (the Password Verification
+# Attempt Auth Hook) rejects a locked account even on valid=true, does not
+# reject an unlocked account on valid=false (only records it), drives the
+# same shared counter to a real lock through 5 hook calls alone with zero
+# app-layer record_failed_login() involvement, clears an accumulated count
+# on valid=true, and — the most important property in the file — fails OPEN
+# (returns {"decision":"continue"}) rather than raising on a garbage event,
+# with a sabotage step confirming that same event genuinely WOULD raise
+# without the handler (an uncaught exception here blocks every password
+# sign-in on the platform, per Supabase's own Auth Hook error semantics).
+# Also proves the real invocation path by calling the hook explicitly as
+# supabase_auth_admin, the role GoTrue itself uses.
+hook_password_verification_attempt.sql
