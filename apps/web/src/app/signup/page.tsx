@@ -49,9 +49,9 @@ const SUPPORT_BENEFITS = [
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string; intent?: string }>;
+  searchParams: Promise<{ ref?: string; intent?: string; redirect?: string }>;
 }) {
-  const { ref, intent } = await searchParams;
+  const { ref, intent, redirect } = await searchParams;
   const bookingCheck = intent === "health_check";
   // Someone here to pay for a relative's care. They are not signing up to be
   // treated, so we neither promise them care nor ask them to consent to it.
@@ -105,6 +105,7 @@ export default async function SignupPage({
           <SignupForm
             refCode={ref}
             intent={bookingCheck ? "health_check" : supporting ? "support" : undefined}
+            redirectTo={redirect}
           />
         </div>
 

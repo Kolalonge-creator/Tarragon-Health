@@ -9,6 +9,12 @@ const PATHS = [
   "/admin/settings/clinical-signoff",
   "/admin/settings/clinical-rules",
   "/admin/settings/clinical-protocols",
+  // This action is also called from /clinician/clinical-signoff (the CMO's
+  // own reachable mirror, added 2026-09-22) — without these too, a CMO
+  // signing from there would see stale state on their own page until a hard
+  // refresh, even though the write itself succeeded.
+  "/clinician/clinical-signoff",
+  "/clinician/clinical-rules",
 ];
 
 /**

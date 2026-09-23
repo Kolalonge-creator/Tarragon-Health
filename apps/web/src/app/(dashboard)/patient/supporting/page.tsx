@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { NAV_ICON } from "@/lib/icons";
 import { SupportedPeople } from "./supported-people";
+import { ReservationsSent } from "./reservations-sent";
 import { SponsorSharingControl } from "@/components/sponsor-care-report";
 import { joinAsPatientToo } from "./actions";
 
@@ -43,6 +44,8 @@ export default async function SupportingPage() {
       />
 
       <SupportedPeople />
+
+      <ReservationsSent />
 
       {/* The other half of the same relationship, on the same page on purpose.
           Someone who both supports a person and is supported BY one should be

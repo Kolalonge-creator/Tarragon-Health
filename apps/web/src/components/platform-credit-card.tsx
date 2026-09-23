@@ -6,12 +6,14 @@ import {
   useMyPlatformCreditBalance,
   usePlatformCreditConfig,
   useMyPlatformCreditLedger,
+  usePlatformCreditTopupsEnabled,
   type PlatformCreditLedgerEntry,
 } from "@/lib/queries/platform-credit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE } from "@/lib/billing/platform-credit-messages";
 import { koboToNaira } from "@tarragon/shared";
 
 const naira = (kobo: number) => `₦${koboToNaira(kobo).toLocaleString()}`;
@@ -43,6 +45,7 @@ export function PlatformCreditCard({ patientId }: { patientId: string }) {
   const { data: balance } = useMyPlatformCreditBalance(patientId);
   const { data: config } = usePlatformCreditConfig();
   const { data: ledger } = useMyPlatformCreditLedger(patientId, 10);
+  const { data: topupsEnabled } = usePlatformCreditTopupsEnabled();
 
   const [topUpState, topUpAction, topUpPending] = useActionState(topUpPlatformCredit, undefined);
   const [customOpen, setCustomOpen] = useState(false);
@@ -86,47 +89,60 @@ export function PlatformCreditCard({ patientId }: { patientId: string }) {
           {topUpState?.error && (
             <p className="pt-1 text-xs text-red-600 dark:text-red-300">{topUpState.error}</p>
           )}
-          <div className="flex flex-wrap gap-2 pt-2">
-            {suggested.map((amountKobo) => (
-              <form key={amountKobo} action={topUpAction}>
-                <input type="hidden" name="patientId" value={patientId} />
-                <input type="hidden" name="amountNaira" value={koboToNaira(amountKobo)} />
-                <Button type="submit" size="sm" variant="outline" disabled={topUpPending}>
-                  {topUpPending ? "…" : naira(amountKobo)}
+          {topupsEnabled ? (
+            <>
+              <div className="flex flex-wrap gap-2 pt-2">
+                {suggested.map((amountKobo) => (
+                  <form key={amountKobo} action={topUpAction}>
+                    <input type="hidden" name="patientId" value={patientId} />
+                    <input type="hidden" name="amountNaira" value={koboToNaira(amountKobo)} />
+                    <Button type="submit" size="sm" variant="outline" disabled={topUpPending}>
+                      {topUpPending ? "…" : naira(amountKobo)}
+                    </Button>
+                  </form>
+                ))}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCustomOpen(!customOpen)}
+                >
+                  {customOpen ? "Cancel" : "Custom amount"}
                 </Button>
-              </form>
-            ))}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setCustomOpen(!customOpen)}
-            >
-              {customOpen ? "Cancel" : "Custom amount"}
-            </Button>
-          </div>
+              </div>
 
-          {customOpen && (
-            <form action={topUpAction} className="flex items-end gap-2 pt-3">
-              <input type="hidden" name="patientId" value={patientId} />
-              <label className="block text-sm">
-                <span className="text-slate-700 dark:text-night-ink/80">Amount (₦)</span>
-                <Input
-                  name="amountNaira"
-                  type="number"
-                  min={minNaira}
-                  max={maxNaira}
-                  value={customNaira}
-                  onChange={(e) => setCustomNaira(e.target.value)}
-                  placeholder={String(minNaira)}
-                  className="mt-1"
-                  required
-                />
-              </label>
-              <Button type="submit" size="sm" disabled={topUpPending}>
-                {topUpPending ? "Opening checkout…" : "Add funds"}
-              </Button>
-            </form>
+              {customOpen && (
+                <form action={topUpAction} className="flex items-end gap-2 pt-3">
+                  <input type="hidden" name="patientId" value={patientId} />
+                  <label className="block text-sm">
+                    <span className="text-slate-700 dark:text-night-ink/80">Amount (₦)</span>
+                    <Input
+                      name="amountNaira"
+                      type="number"
+                      min={minNaira}
+                      max={maxNaira}
+                      value={customNaira}
+                      onChange={(e) => setCustomNaira(e.target.value)}
+                      placeholder={String(minNaira)}
+                      className="mt-1"
+                      required
+                    />
+                  </label>
+                  <Button type="submit" size="sm" disabled={topUpPending}>
+                    {topUpPending ? "Opening checkout…" : "Add funds"}
+                  </Button>
+                </form>
+              )}
+            </>
+          ) : (
+            // platform_credit_topups is off — see
+            // 20260922185100_platform_credit_topups_kill_switch.sql. Balance
+            // and "Recent activity" below stay fully visible; only the "add
+            // funds" affordance is hidden, with a clear, non-alarming
+            // explanation rather than a missing button with no context.
+            <p className="pt-2 text-sm text-slate-600 dark:text-night-ink/70">
+              {PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE}
+            </p>
           )}
         </div>
 
