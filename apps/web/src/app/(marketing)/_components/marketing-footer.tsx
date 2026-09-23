@@ -8,7 +8,10 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.services, label: "Services" },
     { href: MARKETING_ROUTES.chronicCare, label: "Chronic care" },
     { href: MARKETING_ROUTES.prevention, label: "Prevention" },
-    { href: MARKETING_ROUTES.careCoordination, label: "Care coordination" },
+    // Kept in sync with the top-nav relabel in marketing-nav.tsx
+    // (2026-09-22) — same route, same label, so a visitor doesn't see two
+    // different names for the identical page.
+    { href: MARKETING_ROUTES.careCoordination, label: "Labs & medication" },
     { href: MARKETING_ROUTES.devices, label: "Devices" },
   ],
   programmes: [

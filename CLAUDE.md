@@ -87,6 +87,29 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
   times across this project's history. See `feedback_supabase_anon_execute_gotcha.md` in memory
   before trusting any past migration's own comment that claims this is closed — re-check live with
   `has_function_privilege('anon', '<function>', 'EXECUTE')` rather than the comment.
+- **Adding a new overload to a function already called with untyped literal arguments silently
+  breaks every existing bare-literal call site — differently depending on what kind of call site it
+  is.** `private.can_read_clinical(uuid, caregiver_permission)`
+  (`20260902234600_caregiver_permission_enforcement.sql`) turned every existing
+  `private.can_read_clinical(<uuid>, 'some_literal')` call ambiguous (`42725`) the moment it landed —
+  ambiguous on the TYPE of the unknown-typed literal, not on its value, so it doesn't matter whether
+  the literal happens to be a valid member of either enum. A plpgsql function body re-resolves its
+  calls on every invocation, so four already-shipped functions (`mark_care_message_thread_read`,
+  `private.can_read_record_correction`, `care_receipt`, `search_patient_record`) broke immediately
+  and silently the same day, fixed same-day in
+  `20260902235200_fix_can_read_clinical_overload_ambiguity_live_callers.sql`. An RLS policy (or a
+  view) binds its expression tree once at `CREATE POLICY`/`CREATE VIEW` time and never re-resolves
+  it, so a policy created before the new overload existed keeps working forever — the hole is a
+  *future* migration that `DROP`+`CREATE POLICY`s the exact same bare text again (typically
+  copy-pasted from the table's own history), which is exactly what almost shipped broken on a
+  separate branch three weeks later, and which a repo-wide sweep then found 16 more instances of
+  (`20260922183343_fix_remaining_can_read_clinical_bare_literal_policies.sql` — see the archive's
+  2026-09-22 entry for the full account, including why "the true current definition" had to be
+  pulled from live `pg_policies` rather than this branch's own migration history for two of the
+  tables). **Before adding a new overload to any function already called with an untyped literal
+  argument, grep every existing call site — policies and function bodies both — and add the explicit
+  cast to all of them in the same migration**, rather than finding them one accidental hit at a time
+  over the following weeks.
 - **`generate_typescript_types` returns PRODUCTION, which is every in-flight branch at once — not
   your branch.** Around 128 feature branches all apply their migrations to the same live project, so
   a wholesale regeneration of `packages/shared/src/database.types.ts` silently imports other people's
@@ -445,6 +468,24 @@ taken on faith:**
   `(dashboard)/provider-org` route guards) — do not flip either on without the founder's explicit
   go-ahead, and confirm a real signed counterparty exists first. Neither platform's activation has
   ever been exercised against a real insurer or provider organisation.
+- **2026-09-22 — 2 of 5 open Dependabot alerts (`image-size`, GHSA advisories behind #31/#32, both DoS-via-
+  infinite-loop parsing ICNS/JXL/HEIF images) have no available fix and were dismissed with reason
+  `tolerable_risk`, not silently ignored.** The other 3 (`anyio`, #85-#87, TLS-cert-spoofing/critical among
+  them) were real and fixed by a plain `uv lock --upgrade-package anyio` in `services/ml` — no code
+  change needed. `image-size` is different: it's pulled in by `metro` (the React Native/Expo JS bundler,
+  `apps/mobile`-only, build/dev-time — never reachable by production traffic or untrusted network input),
+  and `@expo/metro@54.2.0` (tied to `apps/mobile`'s pinned `expo: ~54.0.36`) hard-pins `metro@0.83.3`,
+  which itself declares `image-size: ^1.0.2` — a range that can never resolve past `1.x`, and the
+  vulnerable range covers all of `1.x` too (no patched `1.x` release exists). The only real fix is
+  upstream: metro dropped its `image-size` dependency entirely somewhere after `0.83.3` (confirmed: the
+  latest published `metro` has no `image-size` dependency at all), but reaching that version means a real
+  Expo SDK bump (`apps/mobile`'s `expo: ~54.0.36` → a newer SDK line), which is app-config/native-module/
+  EAS-rebuild work, not a dependency-lockfile fix. Forcing a pnpm `overrides` entry to `image-size@2.x`
+  was deliberately NOT done — that's a major version bump with likely-breaking API changes, overriding
+  what `metro` itself declares as compatible, for a bundler-only DoS with no real attack surface in this
+  app's actual usage. Revisit when `apps/mobile` next does a deliberate Expo SDK upgrade for its own
+  reasons — check then whether the new SDK line's `metro`/`@expo/metro` pin has already dropped
+  `image-size`, closing this for free.
 - **2026-08-26 — mobile OTA publishing is now automated, but needs one secret added before it runs.**
   `apps/mobile` had no CI path to the actual running app — EAS Update only shipped via a manual
   `eas update`, and a day's worth of merged JS-only UI work (BMW-kit rework, nav-drawer/Devices

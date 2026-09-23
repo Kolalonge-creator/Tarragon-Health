@@ -12,7 +12,9 @@ export type BuyProgrammeAddonState = { error?: string; message?: string } | unde
  * scopedEntityType/scopedEntityId so it's unambiguous which 12-week window
  * it covers.
  *
- * Sells continuous_monitoring_3m (₦7,500 / 90 days), not the old
+ * Sells continuous_monitoring_90d (₦30,000 / 90 days — the single tier the
+ * old 3/6/12-month ladder collapsed into 2026-09-22, see
+ * 20260922185200_continuous_monitoring_90d_single_tier.sql), not the old
  * chronic_doctor_supported_pack — that flat bundle was retired 2026-09-10
  * and unbundled; the chronic_doctor_supported_track feature (what actually
  * flips an enrolment's track) now lives on the continuous_monitoring_*
@@ -28,7 +30,7 @@ export async function buyProgrammeDoctorSupportedAddon(
   _formData: FormData
 ): Promise<BuyProgrammeAddonState> {
   const result = await purchaseServiceProduct({
-    serviceProductCode: "continuous_monitoring_3m",
+    serviceProductCode: "continuous_monitoring_90d",
     scopedEntityType: "chronic_programme_enrolments",
     scopedEntityId: enrolmentId,
     callbackPath: "/patient/subscription/checkout-callback",

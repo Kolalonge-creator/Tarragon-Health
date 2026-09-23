@@ -225,11 +225,17 @@ function DraftNextVersionForm({
   nextVersion,
   clinicalStaff,
   signedProtocols,
+  basePath,
 }: {
   sourceId: string;
   nextVersion: number;
   clinicalStaff: ClinicalStaffOption[];
   signedProtocols: SignedProtocolOption[];
+  /** Where "sign a protocol first" points a reader to. Found 2026-09-22:
+   * this text used to be a hardcoded /admin/settings/protocols reference,
+   * rendered unchanged on /clinician/clinical-rules — a dead end for a CMO,
+   * who reaches this via /clinician/protocols, not /admin/settings/protocols. */
+  basePath: string;
 }) {
   const [state, action, pending] = useActionState<DraftNextVersionState, FormData>(
     draftNextClinicalRuleVersionAction,
@@ -279,7 +285,7 @@ function DraftNextVersionForm({
           </div>
           {signedProtocols.length === 0 && (
             <p className="text-xs text-amber-700">
-              No signed protocol exists yet to link. Sign one at /admin/settings/protocols first, or
+              No signed protocol exists yet to link. Sign one at {basePath}/protocols first, or
               leave this unset and the new draft still won&apos;t be signable until it is.
             </p>
           )}
@@ -373,10 +379,15 @@ export function ClinicalRulesManager({
   rules,
   clinicalStaff,
   signedProtocols,
+  basePath = "/admin/settings",
 }: {
   rules: ClinicalRuleVersionRow[];
   clinicalStaff: ClinicalStaffOption[];
   signedProtocols: SignedProtocolOption[];
+  /** Threaded down to DraftNextVersionForm's "sign a protocol first"
+   * prompt — "/admin/settings" for the admin console, "/clinician" for the
+   * CMO's own mirror. */
+  basePath?: string;
 }) {
   const [search, setSearch] = useState("");
 
@@ -441,6 +452,7 @@ export function ClinicalRulesManager({
                 nextVersion={latest.version + 1}
                 clinicalStaff={clinicalStaff}
                 signedProtocols={signedProtocols}
+                basePath={basePath}
               />
             )}
           </div>
