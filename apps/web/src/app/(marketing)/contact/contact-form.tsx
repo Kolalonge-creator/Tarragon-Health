@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { LEAD_ROLES } from "@/lib/validation/lead";
+import { useRemountOnActionResult } from "@/lib/forms/use-remount-on-action-result";
 
 const ROLE_LABELS: Record<(typeof LEAD_ROLES)[number], string> = {
   patient: "Patient",
@@ -60,6 +61,15 @@ export function ContactForm() {
   const invalid = Boolean(errorMessage);
   const describedBy = errorMessage ? ERROR_ID : undefined;
 
+  // See useRemountOnActionResult's own comment: without this, a validation
+  // or save failure wiped every field the visitor had already typed
+  // correctly, since React resets every uncontrolled field once the bound
+  // action returns. Remounting the form is what lets the fresh
+  // `defaultValue`s below (from the server's echoed `values`) actually take;
+  // focus lands on the error banner rather than being lost to document.body.
+  const attempt = useRemountOnActionResult(state, (s) => Boolean(s && "error" in s && s.error), ERROR_ID);
+  const values = state && "values" in state ? state.values : undefined;
+
   if (state?.success) {
     return (
       <div className="rounded-2xl border border-brand-green/20 bg-brand-green/5 p-8 text-center">
@@ -78,7 +88,11 @@ export function ContactForm() {
   }
 
   return (
-    <form action={formAction} className="space-y-5 rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-8">
+    <form
+      key={attempt}
+      action={formAction}
+      className="space-y-5 rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-8"
+    >
       <input type="hidden" name="source" value={source} />
       {/* Live region rendered unconditionally, above the fields it describes.
           A region that only appears with its message is often missed by
@@ -89,7 +103,8 @@ export function ContactForm() {
         {errorMessage ? (
           <p
             id={ERROR_ID}
-            className="rounded-lg border border-clinical-navy/20 bg-charcoal-ink/5 p-3 text-sm text-charcoal-ink"
+            tabIndex={-1}
+            className="rounded-lg border border-clinical-navy/20 bg-charcoal-ink/5 p-3 text-sm text-charcoal-ink focus-visible:outline-none"
           >
             {errorMessage}
           </p>
@@ -102,6 +117,7 @@ export function ContactForm() {
           name="name"
           autoComplete="name"
           required
+          defaultValue={values?.name}
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
         />
@@ -114,6 +130,7 @@ export function ContactForm() {
           type="text"
           placeholder="you@example.com or +234XXXXXXXXXX"
           required
+          defaultValue={values?.contact}
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
         />
@@ -123,7 +140,7 @@ export function ContactForm() {
         <Select
           id="role"
           name="role"
-          defaultValue={defaultRole}
+          defaultValue={values?.role ?? defaultRole}
           required
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
@@ -145,6 +162,7 @@ export function ContactForm() {
           name="message"
           rows={5}
           placeholder="Tell us what you want help with..."
+          defaultValue={values?.message}
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
         />
