@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { credentialMonitorSchema } from "@/lib/queries/provider-quality";
 import { Worklist } from "./worklist";
+import { TodayPriorities } from "./today-priorities";
 import { RedFlagAttestation } from "./red-flag-attestation";
 import { AttestationCard } from "./attestation-card";
 import { HtnAttestationCard } from "./htn-attestation-card";
@@ -248,6 +249,12 @@ export default async function ClinicianPage() {
         </h1>
         <p className="text-sm text-charcoal-ink/60">Here&apos;s what needs you today.</p>
       </div>
+
+      {/* A founder-commissioned launch-scope audit's core clinician-side ask:
+          the first thing on this page should be 3 priority buckets, not a
+          ~50-destination sidebar. Purely additive -- every worklist page
+          below stays exactly where it is, this just summarises them. */}
+      <TodayPriorities />
 
       {/* Chief Medical Officer is the top tier, not an orthogonal flag —
           reaching it carries every capability this dashboard grants any
