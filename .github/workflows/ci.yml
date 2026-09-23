@@ -273,7 +273,40 @@ jobs:
             --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
             > /tmp/supabase-env.txt
           cat /tmp/supabase-env.txt >> "$GITHUB_ENV"
-          cp /tmp/supabase-env.txt apps/web/.env.local
+
+          # DIAGNOSTIC (2nd failed attempt at this step — see git history):
+          # writing /tmp/supabase-env.txt's raw content straight into
+          # apps/web/.env.local via `cp` did NOT fix "Invalid supabaseUrl"
+          # in next dev's proxy.ts, even though the SAME vars were
+          # confirmed present in this job's own shell env by the next
+          # step. That rules out simple non-propagation and points at the
+          # .env.local file's raw content not actually being valid dotenv
+          # syntax (supabase status -o env's exact output format was never
+          # independently confirmed — this sandbox never had Docker to run
+          # `supabase start` and inspect it directly). Printed here so the
+          # next failure (if any) has real data instead of another guess.
+          echo "--- DEBUG: raw supabase status -o env output (cat -A) ---"
+          cat -A /tmp/supabase-env.txt
+          echo "--- END DEBUG ---"
+
+          # Robust reconstruction: `source` the captured output as shell
+          # script rather than assume it's already valid dotenv syntax —
+          # bash's own parser correctly handles quoted values, unquoted
+          # values, and an `export` prefix, none of which dotenv is
+          # guaranteed to agree with. Then write out an explicit, minimal,
+          # guaranteed-correct .env.local with exactly the 3 keys Next.js
+          # needs, removing any ambiguity about the CLI's exact raw format.
+          set -a
+          source /tmp/supabase-env.txt
+          set +a
+          : > apps/web/.env.local
+          echo "NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}" >> apps/web/.env.local
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}" >> apps/web/.env.local
+          echo "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}" >> apps/web/.env.local
+
+          echo "--- DEBUG: reconstructed apps/web/.env.local ---"
+          cat apps/web/.env.local
+          echo "--- END DEBUG ---"
 
       - name: Run browser E2E tests
         if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
