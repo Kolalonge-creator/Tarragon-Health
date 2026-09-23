@@ -16,8 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { REFERRAL_STATUS_BADGE } from "@/lib/worklist/referral-status-badge";
-import { SPECIALIST_TYPE_OPTIONS } from "@/lib/referrals/specialist-type-options";
-import type { SpecialistType } from "@tarragon/shared";
+import { SPECIALIST_TYPE_OPTIONS, type SpecialistType } from "@tarragon/shared";
 
 const TERMINAL_STATUSES: SpecialistReferralWithDetails["status"][] = ["closed", "declined"];
 
