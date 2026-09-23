@@ -7,6 +7,7 @@ import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { Section, SectionHeading } from "../_components/section";
 import { WhatWeMeasure } from "../_components/what-we-measure";
 import { HowTestingWorks } from "../_components/how-testing-works";
+import { StepsExplorer } from "../_components/steps-explorer";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -272,17 +273,7 @@ export default function AnnualHealthCheckPage() {
 
       <Section variant="sage">
         <SectionHeading eyebrow="How it works" title="Booked in minutes, done in a morning" />
-        <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {HOW_IT_WORKS.map((item) => (
-            <div key={item.step} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
-              <p className="font-heading text-2xl font-bold text-brand-green">{item.step}</p>
-              <h3 className="mt-2 font-heading text-base font-semibold text-charcoal-ink">
-                {item.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{item.body}</p>
-            </div>
-          ))}
-        </div>
+        <StepsExplorer steps={HOW_IT_WORKS.map(({ title, body }) => ({ title, body }))} />
       </Section>
 
       <Section>
