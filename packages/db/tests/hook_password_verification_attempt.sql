@@ -304,13 +304,42 @@ do $$
 declare
   v_unlocked uuid := (select v from hpva_fixture where k = 'unlocked');
   v_result   jsonb;
+  v_has_exec boolean;
+  v_has_usage boolean;
+  v_current_role text := current_user;
 begin
-  set local role supabase_auth_admin;
+  -- Diagnostics FIRST, as plain visible NOTICEs — if the SET ROLE or the
+  -- call below fails, this still tells a reader exactly what Postgres's own
+  -- catalog says the grants are, rather than only a generic caught-exception
+  -- message with no way to tell "SET ROLE itself failed" apart from "the
+  -- role has it but the call still failed" apart from "the grant genuinely
+  -- isn't there".
+  select has_function_privilege('supabase_auth_admin', 'public.hook_password_verification_attempt(jsonb)', 'EXECUTE')
+    into v_has_exec;
+  select has_schema_privilege('supabase_auth_admin', 'public', 'USAGE') into v_has_usage;
+  raise notice 'diagnostics before SET ROLE: current_user=%, supabase_auth_admin has EXECUTE=%, has schema USAGE=%',
+    v_current_role, v_has_exec, v_has_usage;
+
+  begin
+    set local role supabase_auth_admin;
+  exception
+    when others then
+      raise exception 'BROKEN: SET ROLE supabase_auth_admin itself failed (SQLSTATE=%, SQLERRM=%) — % is not a member of / cannot switch to supabase_auth_admin at all, before this even reaches the function-call privilege question',
+        sqlstate, sqlerrm, v_current_role;
+  end;
+
   -- v_unlocked is already locked from check 3 above — reuse it rather than
   -- creating a third fixture patient, this check only cares whether the
   -- CALL itself succeeds under this role, not the decision content.
-  v_result := public.hook_password_verification_attempt(
-    jsonb_build_object('user_id', v_unlocked::text, 'valid', true));
+  begin
+    v_result := public.hook_password_verification_attempt(
+      jsonb_build_object('user_id', v_unlocked::text, 'valid', true));
+  exception
+    when others then
+      reset role;
+      raise exception 'BROKEN: SET ROLE supabase_auth_admin succeeded, but calling hook_password_verification_attempt as that role failed (SQLSTATE=%, SQLERRM=%) — has EXECUTE=%, has schema USAGE=%',
+        sqlstate, sqlerrm, v_has_exec, v_has_usage;
+  end;
   reset role;
 
   insert into hpva_result values
@@ -321,10 +350,6 @@ begin
     raise exception 'BROKEN: invoking the hook as supabase_auth_admin did not behave like the real GoTrue call path would (result=%) — check the EXECUTE grant and SECURITY DEFINER chain',
       v_result;
   end if;
-exception
-  when insufficient_privilege then
-    reset role;
-    raise exception 'BROKEN: supabase_auth_admin cannot EXECUTE public.hook_password_verification_attempt — GoTrue itself would be unable to call its own hook, which fails every password sign-in on the platform';
 end $$;
 
 select check_name, observed, expected, verdict
