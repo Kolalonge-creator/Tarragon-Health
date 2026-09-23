@@ -2,12 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 
 export type CreateScreeningCadenceDraftState = { error?: string; success?: boolean } | undefined;
 export type SignScreeningCadenceState = { error?: string; success?: boolean } | undefined;
 
 const REVALIDATE_PATH = "/admin/settings/mental-health-screening";
+// Also rendered at /clinician/mental-health-screening (the CMO's own
+// reachable mirror, added 2026-09-22).
+const CLINICIAN_PATH = "/clinician/mental-health-screening";
 
 /**
  * Create a new draft version, duplicating the most recent version's
@@ -23,7 +27,14 @@ export async function createScreeningCadenceDraftAction(
   formData: FormData
 ): Promise<CreateScreeningCadenceDraftState> {
   const profile = await getCurrentProfile();
-  if (profile?.role !== "admin") {
+  const staff = await getCurrentClinicalStaff();
+  // Dual-gated the same way triage-protocols/actions.ts was fixed 2026-09-14:
+  // an admin login OR the org's Chief Medical Officer / Clinical Director.
+  // Found 2026-09-22 — this action was admin-only even though
+  // sign_mental_health_screening_cadences (below) already required a
+  // Clinical Director, never admin — a CMO could sign a version but never
+  // draft one.
+  if (profile?.role !== "admin" && !canAssignCases(staff)) {
     return { error: "Not authorised" };
   }
 
@@ -40,7 +51,7 @@ export async function createScreeningCadenceDraftAction(
   const nextVersion = latest.version + 1;
   const notes =
     String(formData.get("notes") ?? "").trim() ||
-    `Re-attested by admin, version ${nextVersion}, config unchanged from version ${latest.version}. Sign to bring into force.`;
+    `Re-attested by ${profile?.role === "admin" ? "admin" : "the Clinical Director"}, version ${nextVersion}, config unchanged from version ${latest.version}. Sign to bring into force.`;
 
   const { error } = await supabase.from("mental_health_screening_cadences").insert({
     version: nextVersion,
@@ -50,6 +61,7 @@ export async function createScreeningCadenceDraftAction(
   if (error) return { error: error.message };
 
   revalidatePath(REVALIDATE_PATH);
+  revalidatePath(CLINICIAN_PATH);
   return { success: true };
 }
 
@@ -65,5 +77,6 @@ export async function signScreeningCadenceAction(versionId: string): Promise<Sig
   const { error } = await supabase.rpc("sign_mental_health_screening_cadences", { p_id: versionId });
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
+  revalidatePath(CLINICIAN_PATH);
   return { success: true };
 }
