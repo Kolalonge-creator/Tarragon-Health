@@ -103,6 +103,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
   const { data: carePlans } = useCarePlans(patientId);
   const { data: priorResponses } = useRiskAssessmentResponses(patientId);
   const errorId = fieldErrorId("risk-assessment");
+  const successId = "risk-assessment-success";
 
   // Most of this wizard's fields are plain uncontrolled inputs with no
   // React-side tracking at all, so — same bug as signup/patient-location,
@@ -113,7 +114,24 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
   // the whole form to remount so fresh `defaultValue`/`defaultChecked` props
   // built from it actually take (see the hook's own comment for why a plain
   // prop change on an already-mounted uncontrolled input doesn't do this).
-  const attempt = useRemountOnActionResult(state, (s) => Boolean(s?.error), errorId);
+  //
+  // Corrected by review: `shouldRemount` used to be error-only
+  // (`Boolean(s?.error)`), on the theory that a multi-step wizard staying
+  // mounted through a success (so the patient can keep reviewing/editing)
+  // meant it didn't need to remount there too. That reasoning missed the
+  // hook's own documented behavior: React resets every uncontrolled field
+  // in an action-bound <form> at *submit* time, unconditionally - success
+  // included - regardless of whether anything ever remounts afterward. With
+  // no remount to reapply fresh defaultValue/defaultChecked props from the
+  // echoed `values` (also returned on success, same as patient-location-
+  // form.tsx), every one of this wizard's ~15 uncontrolled fields visibly
+  // went blank/unchecked the instant "Save assessment" was clicked, even
+  // though the save itself succeeded and the server already had the correct
+  // data (the native reset fires before the action is even invoked, so
+  // FormData submission is unaffected - only what the patient sees after).
+  // Remounting on success too, exactly like patient-location-form.tsx, is
+  // what lets the echoed `values` actually repopulate the visible fields.
+  const attempt = useRemountOnActionResult(state, (s) => Boolean(s), state?.success ? successId : errorId);
   const values = state?.values;
 
   const [step, setStep] = useState(1);
@@ -547,13 +565,16 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
           </div>
 
           <FormError id={errorId} message={state?.error} />
-          {/* No `id` here (unlike patient-location-form.tsx's success
-              banner): this form only remounts on error — see
-              useRemountOnActionResult's `shouldRemount` above — so there's
-              no post-success remount that would need a focus target to
-              land on. FormSuccess still gets this a real `role="status"`
-              announcement, which the bare <p> it replaced never had. */}
-          <FormSuccess message={state?.success ? "Thanks, your care plan preview below reflects your answers." : undefined} />
+          {/* `id` given (unlike this file's own earlier version): this form
+              now remounts on success too — see `shouldRemount` above — so
+              focus needs somewhere to land once the whole <form> is torn
+              down and rebuilt, same as patient-location-form.tsx. Also
+              gives this a real `role="status"` announcement, which the
+              bare <p> it originally replaced never had. */}
+          <FormSuccess
+            id={successId}
+            message={state?.success ? "Thanks, your care plan preview below reflects your answers." : undefined}
+          />
 
           <div className="flex justify-between">
             {step > 1 && (

@@ -425,4 +425,52 @@ describe("RiskAssessmentForm", () => {
       queryKey: ["prevention-risk-scores", "patient-1"],
     });
   });
+
+  /**
+   * Smoke test for the remount-on-success fix (see
+   * risk-assessment-form-remount-on-success.test.ts for the actual
+   * regression guard - a source-inspection test, not this one): confirms
+   * that when the form DOES remount with fresh echoed `values`, the
+   * repopulated field actually shows the right text. This does NOT, on its
+   * own, prove the original bug is fixed or would be caught by a
+   * regression: confirmed directly (sabotage-and-rerun) that jsdom does
+   * not reproduce React's native submit-time form-reset in this test
+   * environment, so this test passes identically whether or not the form
+   * remounts on success at all - the sibling source-inspection test is
+   * what actually discriminates the fix from the bug.
+   */
+  it("keeps a field's value visible after a successful submission instead of wiping it blank", async () => {
+    nextResult = {
+      success: true,
+      values: { current_medications: "Amlodipine 5mg", other_vaccines_detail: "Yellow fever" },
+    };
+    render(<RiskAssessmentForm patientId="patient-1" />);
+
+    fireEvent.click(screen.getByText("Next")); // Step 1: nothing required.
+    fireEvent.change(screen.getByLabelText("Smoking"), { target: { value: "never" } });
+    fireEvent.change(screen.getByLabelText("Alcohol"), { target: { value: "none" } });
+    fireEvent.change(screen.getByLabelText("Exercise days/week"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Minutes per session"), { target: { value: "30" } });
+    fireEvent.change(screen.getByLabelText("Sleep (hours/night)"), { target: { value: "7_to_8" } });
+    fireEvent.change(screen.getByLabelText("Stress level"), { target: { value: "moderate" } });
+    fireEvent.change(screen.getByLabelText("Height (cm)"), { target: { value: "170" } });
+    fireEvent.click(screen.getByText("Next")); // Step 2 -> 3
+    fireEvent.change(screen.getByLabelText("Current medications (optional)"), {
+      target: { value: "Amlodipine 5mg" },
+    });
+    fireEvent.click(screen.getByText("Next")); // Step 3 -> 4
+    fireEvent.change(screen.getByLabelText("Any other vaccines? (optional)"), {
+      target: { value: "Yellow fever" },
+    });
+
+    fireEvent.click(screen.getByText("Save assessment"));
+    await screen.findByText("Thanks, your care plan preview below reflects your answers.");
+
+    expect((screen.getByLabelText("Current medications (optional)") as HTMLInputElement).value).toBe(
+      "Amlodipine 5mg"
+    );
+    expect((screen.getByLabelText("Any other vaccines? (optional)") as HTMLInputElement).value).toBe(
+      "Yellow fever"
+    );
+  });
 });

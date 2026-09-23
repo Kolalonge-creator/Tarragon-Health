@@ -861,7 +861,15 @@ export async function submitRiskAssessment(
     ageYears,
   });
 
-  return { success: true };
+  // `values` echoed here too, not just on the failure branches above: the
+  // risk-assessment form now remounts on success as well as on error (see
+  // risk-assessment-form.tsx's useRemountOnActionResult wiring) so its
+  // freshly-torn-down-and-rebuilt uncontrolled fields have something to
+  // read fresh `defaultValue`/`defaultChecked` props from — without this,
+  // remounting alone would just replace "blanked out by React's native
+  // submit-time form reset" with "blanked out because there's no echo to
+  // repopulate from," a different mechanism producing the same visible bug.
+  return { success: true, values };
 }
 
 export type UpdateEmergencyContactState = { error?: string; success?: boolean } | undefined;
