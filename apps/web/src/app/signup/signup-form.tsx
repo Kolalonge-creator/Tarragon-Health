@@ -124,7 +124,7 @@ export function SignupForm({
             id="countryCode"
             name="countryCode"
             autoComplete="tel-country-code"
-            defaultValue={values?.countryCode || COUNTRY_CALLING_CODES[0].dialCode}
+            defaultValue={values?.countryCode ?? COUNTRY_CALLING_CODES[0].dialCode}
             // A fixed, bounded width rather than w-auto: at phone width the
             // full "Nigeria (+234)" label was claiming most of the row
             // (native <select> sizes to its selected option's text), leaving
