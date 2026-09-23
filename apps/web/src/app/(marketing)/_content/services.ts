@@ -61,26 +61,51 @@ export const SERVICE_CARDS: ServiceCard[] = [
   },
 ];
 
+/**
+ * Rewritten 2026-09-22. The previous four entries ("4 priority programmes",
+ * "1 place to message your care team", "4 escalation levels", "1 shared
+ * record") were internal architecture facts formatted as stat tiles. Two of
+ * them had the value "1", which is not a statistic, and "escalation levels"
+ * / "shared record" are words from the build spec rather than words a
+ * patient would use or care about.
+ *
+ * This platform is pre-launch, so there are no volume numbers to show and
+ * none may be invented (same discipline as the empty testimonials and the
+ * single-entry partner strip). The honest substitute for popularity is a
+ * specific, checkable promise, so each entry below is one commitment a
+ * visitor can hold Tarragon to:
+ *
+ *   - "₦0"        free app, founder decision 2026-09-02 (_content/pricing.ts).
+ *   - "12 hrs"    escalation_slas v8, the live active config: 720 minutes for
+ *                 a critical screening result, 1440 for any other abnormal
+ *                 one. Verified live 2026-09-22 — re-read the active row
+ *                 before changing this number, never the value in CLAUDE.md.
+ *   - "Any lab"   self-arranged fulfilment (2026-08-03): Tarragon decides
+ *                 which test you need, you take the request anywhere.
+ *   - "Next of kin" emergency_event channel sequence, which contacts the
+ *                 named next of kin when a dangerous reading is not
+ *                 acknowledged.
+ */
 export const PROOF_STATS = [
   {
-    value: "4",
-    label: "priority programmes",
-    detail: "Hypertension, diabetes, weight management, and preventive health.",
+    value: "₦0",
+    label: "to join",
+    detail: "The app is free, with no subscription. You pay only when a doctor does a piece of work for you.",
   },
   {
-    value: "1",
-    label: "place to message your care team",
-    detail: "Message any time in the app; a real person replies.",
+    value: "12 hrs",
+    label: "on a critical result",
+    detail: "A critical test result gets doctor follow-up within 12 hours, and any other abnormal result within 24.",
   },
   {
-    value: "4",
-    label: "escalation levels",
-    detail: "Routine review through emergency escalation, matched to what's needed.",
+    value: "Any lab",
+    label: "near you",
+    detail: "We work out which test you need. You take the request to whichever lab you like and pay them directly.",
   },
   {
-    value: "1",
-    label: "shared record",
-    detail: "Chronic care, prevention, medication, and labs together, in one place.",
+    value: "Next of kin",
+    label: "told in an emergency",
+    detail: "If a dangerous reading goes unacknowledged, the person you named is contacted too.",
   },
 ] as const;
 
@@ -121,20 +146,58 @@ export const WHAT_WE_TRACK = [
   "ask-a-doctor messages",
 ] as const;
 
+/**
+ * The detailed sequence, used on /services where a visitor has already
+ * chosen to read about how the platform works.
+ *
+ * Relabelled 2026-09-22: the step titles used to be the pipeline's own
+ * internal stage names ("Onboard", "Monitor", "Care protocol checks",
+ * "Escalation"), which read as a state machine rather than as something
+ * happening to a person. The sequence itself is unchanged, and the homepage
+ * now uses the shorter HOME_HOW_IT_WORKS below instead of this list.
+ *
+ * Corrected in the same pass: step 5 promised doctor alerting "on the
+ * doctor-supported programme", naming `chronic_doctor_supported_pack`, which
+ * is_active = false in service_products (retired and unbundled 2026-09-10,
+ * see _content/pricing.ts). The products that actually grant
+ * `vitals_red_flag_doctor_escalation` today are Continuous Monitoring and
+ * Supervised Weight Management (verified live 2026-09-22).
+ */
 export const HOW_IT_WORKS_STEPS = [
-  { step: 1, title: "Sign up", body: "Create your account in minutes, for yourself or a loved one." },
-  { step: 2, title: "Onboard", body: "Share your health history and what you want Tarragon to watch." },
-  { step: 3, title: "Monitor", body: "Log vitals, take medication, and complete preventive checks." },
-  { step: 4, title: "Care protocol checks", body: "Every reading you log is checked against care protocols automatically." },
+  { step: 1, title: "Create your account", body: "A couple of minutes, for yourself or for someone you look after." },
+  { step: 2, title: "Tell us what to watch", body: "Your conditions, your medication, and the history that matters." },
+  { step: 3, title: "Log as you go", body: "Blood pressure, sugar, weight, doses. Type them in, or let your cuff, phone or watch send them." },
+  { step: 4, title: "Every reading gets checked", body: "Each reading is compared against your care protocols automatically, not simply filed away." },
   {
     step: 5,
-    title: "Escalation",
-    body: "A dangerous reading gets you immediate guidance, your emergency contact notified, and a follow-up. On the doctor-supported programme, a doctor is alerted too.",
+    title: "Something looks wrong",
+    body: "A dangerous reading gets you clear guidance straight away, alerts the person you named, and is followed up. With Continuous Monitoring, a doctor is alerted too.",
   },
   {
     step: 6,
-    title: "Family updates (optional)",
-    body: "Name a next of kin who can follow your care and be called first in an emergency.",
+    title: "Someone else is kept in the loop",
+    body: "Name a next of kin who can follow your care and be contacted first in an emergency.",
+  },
+] as const;
+
+/**
+ * The homepage version: three steps, not six. A visitor on the homepage has
+ * not yet decided they care how the machinery works, and a numbered
+ * six-stage pipeline on a first visit reads as documentation. Same truth,
+ * told from the reader's side, with the detail left to /services.
+ */
+export const HOME_HOW_IT_WORKS = [
+  {
+    title: "Tell us what to watch",
+    body: "Your conditions, your medication, your age. About five minutes, for yourself or for a parent.",
+  },
+  {
+    title: "Log as you go",
+    body: "Blood pressure, sugar, weight, doses. Type them in, or let your cuff, phone or watch send them for you.",
+  },
+  {
+    title: "We tell you when it matters",
+    body: "Quiet weeks stay quiet. A worrying reading gets you clear guidance straight away and alerts the person you named. An abnormal test result gets a doctor.",
   },
 ] as const;
 
@@ -300,7 +363,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "Is there a Tarragon app?",
     answer:
-      "Tarragon works in any phone browser today, and you can add it to your home screen so it opens like an app. It's the same secure record as the web dashboard, so you can move between your phone and a computer without losing anything. Native apps for iPhone and Android are coming, and we'll say so here the day they land.",
+      "Tarragon works in any phone browser today, and you can add it to your home screen so it opens like an app. It's the same secure record as the web dashboard, so you can move between your phone and a computer without losing anything. Native apps for iPhone and Android are coming, and we'll say so here the day they're available to download.",
   },
   {
     category: "general",

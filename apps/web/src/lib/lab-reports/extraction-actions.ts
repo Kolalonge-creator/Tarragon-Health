@@ -150,6 +150,36 @@ export async function runLabReportExtraction(
     );
   }
 
+  // -- AI-005 governance gate -----------------------------------------------
+  // Checked BEFORE the storage download/HEIC-normalisation below, not after:
+  // AI-005 is live/enabled in production, but the kill switch must still be
+  // honoured before any real network + CPU cost is paid, not after. Checked
+  // here rather than through runGovernedAi() because this function's control
+  // flow (a first pass, a corpus lookup, a conditional hinted retry) does not
+  // fit the wrapper's run/fallback shape. The two guarantees are the same:
+  // the kill switch is honoured before the model is reached, and every
+  // outcome reaches ai_interaction_log. The fallback is the one this function
+  // already had for every other failure -- the draft does not appear and the
+  // manual entry form stands, which is AI-005's recorded fallback_behaviour.
+  const governance = await decideAiGovernance(service, AI_SYSTEMS.labReportExtraction.code);
+  if (!governance.allow) {
+    await recordAiInteraction(service, {
+      systemCode: AI_SYSTEMS.labReportExtraction.code,
+      modelIdentifier: "none:fallback",
+      inputCategory: "lab_report_document",
+      status: "fallback",
+      subjectProfileId: patientId,
+      fallbackReason: governance.message,
+      resultingAction: "manual_entry_required",
+      resultingEntityType: "lab_report_documents",
+      resultingEntityId: documentId,
+    });
+    return fail(
+      "Automatic reading is switched off just now. Enter the results by hand.",
+      `AI governance: ${governance.reason}`,
+    );
+  }
+
   let fileBase64: string;
   // The media type actually sent to the model, which is not always the one the
   // document was stored under — see normaliseForVision.
@@ -173,33 +203,6 @@ export async function runLabReportExtraction(
   } catch (error) {
     console.error("lab-reports: could not download document", error);
     return fail("Could not open the stored report file.", "Download failed.");
-  }
-
-  // -- AI-005 governance gate -----------------------------------------------
-  // Checked here rather than through runGovernedAi() because this function's
-  // control flow (a first pass, a corpus lookup, a conditional hinted retry)
-  // does not fit the wrapper's run/fallback shape. The two guarantees are the
-  // same: the kill switch is honoured before the model is reached, and every
-  // outcome reaches ai_interaction_log. The fallback is the one this function
-  // already had for every other failure -- the draft does not appear and the
-  // manual entry form stands, which is AI-005's recorded fallback_behaviour.
-  const governance = await decideAiGovernance(service, AI_SYSTEMS.labReportExtraction.code);
-  if (!governance.allow) {
-    await recordAiInteraction(service, {
-      systemCode: AI_SYSTEMS.labReportExtraction.code,
-      modelIdentifier: "none:fallback",
-      inputCategory: "lab_report_document",
-      status: "fallback",
-      subjectProfileId: patientId,
-      fallbackReason: governance.message,
-      resultingAction: "manual_entry_required",
-      resultingEntityType: "lab_report_documents",
-      resultingEntityId: documentId,
-    });
-    return fail(
-      "Automatic reading is switched off just now. Enter the results by hand.",
-      `AI governance: ${governance.reason}`,
-    );
   }
 
   const startedAt = Date.now();
