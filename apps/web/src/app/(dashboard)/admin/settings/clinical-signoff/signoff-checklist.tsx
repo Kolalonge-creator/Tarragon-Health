@@ -240,6 +240,7 @@ export function SignoffChecklist({
   staff,
   protocols,
   totalConfigCount,
+  basePath = "/admin/settings",
 }: {
   unsignedRules: UnsignedRule[];
   signedRules: SignedRule[];
@@ -248,6 +249,15 @@ export function SignoffChecklist({
   staff: StaffOption[];
   protocols: ProtocolOption[];
   totalConfigCount: number;
+  /** Where the "sign a clinical protocol first" prompt below links — the
+   * only hardcoded /admin/settings/* link left in this component after
+   * unsignedConfigs/settled already threaded their hrefs through
+   * readGovernedConfigSignoff's basePath. Found 2026-09-22: rendering this
+   * component unchanged on /clinician/clinical-signoff meant a CMO hitting
+   * this exact empty state got a link into /admin, which proxy.ts refuses
+   * for a plain `clinician` login — the one dead end left in the page this
+   * PR built specifically so a CMO never has to touch /admin. */
+  basePath?: string;
 }) {
   const signedRuleCount = signedRules.length;
   const totalRules = unsignedRules.length + signedRuleCount;
@@ -312,7 +322,7 @@ export function SignoffChecklist({
         <Card>
           <CardContent className="py-4 text-sm text-amber-800">
             No signed protocol exists to link a rule to yet, so none of these can be signed.{" "}
-            <Link href="/admin/settings/protocols" className="underline">
+            <Link href={`${basePath}/protocols`} className="underline">
               Sign a clinical protocol first
             </Link>
             .

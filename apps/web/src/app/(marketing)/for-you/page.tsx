@@ -251,8 +251,8 @@ export default function ForYouPage() {
           <p>
             The app is free and stays free: track your own numbers, get your screening calendar,
             read the whole education library, and use the AI Health Coach, with no time limit and no
-            card required. When you want a doctor behind your readings rather than just a record of
-            them, {CHRONIC_PROGRAMME.name} starts at {CHRONIC_PROGRAMME.price} {CHRONIC_PROGRAMME.priceCaption}:
+            card required. When you want your care team reviewing your readings rather than just a
+            record of them, {CHRONIC_PROGRAMME.name} is {CHRONIC_PROGRAMME.price} {CHRONIC_PROGRAMME.priceCaption}:
             a dangerous reading reaches a doctor on your care team instead of sitting on your record.
             Add a Chronic Care Review whenever one falls due, and managing your weight alongside
             hypertension or diabetes is part of that same review, at no extra charge.

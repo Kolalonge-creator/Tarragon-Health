@@ -40,15 +40,23 @@
 >   hand-copied function rather than a one-line config addition — this codebase has a working precedent
 >   for exactly this shape of generic-trigger-over-many-tables (`private.audit_row_change()`,
 >   `20260812030853_row_change_audit_triggers.sql`) that a future pass should consider reusing here.
-> - The FHIR LOINC-code-to-`vital_type` map (and the allergy-severity map) are hardcoded TypeScript,
->   not a DB-configurable table — unlike `parseImmunization`'s own catalogue lookup one function away.
->   This platform already has a working "which codes mean what" DB pattern for exactly this decision
->   class (`triage_protocols`, `escalation_slas`, and the MDM `reference_concepts`/`lookup_concept`
->   machinery in `20260829093134_mdm_terminology_core.sql`) that a real partner onboarding (Phase 2)
->   should probably move this onto, so a partner's slightly different code usage doesn't need a deploy.
-> - `/clinician/fhir-review`'s confirm/dismiss are two near-identical server actions and could be one
->   parameterized action; not merged now to keep this diff's diff-of-behavior easy to review, but worth
->   collapsing before a third status (`modified`) gets its own UI.
+> - **Closed 2026-09-22 — the LOINC-code-to-`vital_type` map (Observation only).** Moved to
+>   `public.fhir_loinc_vital_type_mappings` (migration `20260922182613`), mirroring
+>   `public.vaccination_catalog`'s own shape exactly — a global reference table, any `authenticated`
+>   reads, only `private.is_admin()` writes. `parseObservation` (`parse-resource.ts`) now queries it
+>   instead of a static object; widening it for a real partner's locally-common LOINC variant is an
+>   admin data change, not a code deploy. This did NOT require a real FHIR partner or a warehouse — it's
+>   a pure architecture correction to code that already ships. **Deliberately NOT moved**: the BP-panel/
+>   systolic/diastolic LOINC constants (structural — "this Observation is shaped as a two-component
+>   panel", not a per-partner terminology choice) and the allergy-severity map (a direct 1:1 mirror of
+>   FHIR's own fixed `mild`/`moderate`/`severe` valueset, not something a partner's local usage varies) —
+>   both stay as code on purpose, not an oversight.
+> - **Partially addressed 2026-09-18**, when the `modified` status got its own UI ("Edit & confirm"):
+>   `confirmFhirProposedResource`/`modifyFhirProposedResource`/`dismissFhirProposedResource` now share one
+>   `requireClinicalTierForReview` helper for the app-layer tier gate (previously duplicated per action,
+>   and — a real gap this closed in passing — `dismissFhirProposedResource` had never had the gate at all),
+>   but the three actions themselves are still separate functions, not one parameterized action. Full
+>   collapse remains a live, smaller opportunity, not a blocker.
 
 ## 1. HL7 FHIR interoperability layer
 
@@ -96,10 +104,21 @@ guessed — that guess predates `lib/integrations/gateway.ts`, which is now this
 convention for "any future partner endpoint." The parser (`parse-resource.ts`) supports a specific,
 tested set of common LOINC codes for Observation and a best-effort catalogue match for Immunization —
 an unrecognised code or an unmatched vaccine name is recorded in `skip_reasons`, never guessed at. The
-review worklist supports confirm and dismiss-with-reason; it does not yet expose an edit-before-confirm
-form for the `modified` status path the schema already supports (a real fast-follow, not a structural
-gap — the DB enforces `confirmed_payload` correctly whenever a UI is built for it). What was already
-half-built before this pass:
+review worklist supports confirm, dismiss-with-reason, and — **shipped 2026-09-18, same-day fast-follow**
+— "Edit & confirm", a form (`fhir-review-queue.tsx`) exposing every editable field of `normalized_payload`,
+submitting the edited values as `confirmed_payload` with status `modified`. Field-by-field, not one generic
+text box per key: a shared config (`editable-field-config.ts`, imported by both the UI and the server
+action, same pattern `vital-mapping.ts` established for the vital-type/column mapping) says whether each
+key is a number (`<input type="number">`), a boolean (a real checkbox, never a case-sensitive "does the
+text say true"), a real Postgres enum — `severity`/`glucose_context` — (a `<select>` constrained to that
+enum's actual values, matching the exact live `allergy_severity`/`glucose_context` enum lists), a date, or
+free text; `vital_type`/`vaccination_catalog_id` are `"readonly"` — never exposed for editing, and the
+server never trusts a submission for them even if one somehow arrives. **A /code-review high pass on the
+first version of this feature found the naive "guess the kind from `typeof`" approach missed both enum
+fields entirely** (a clinician could type an invalid `severity`/`glucose_context` value and hit a raw
+Postgres cast error, or silently write the wrong boolean via a case-sensitive text match) — the config-
+driven redesign above is the fix, not a patch on top of the original approach. What was already half-built
+before this pass:
 1. `POST /api/integrations/fhir/import` — validates a FHIR R4 Bundle against an existing `api_keys`
    credential, writes `fhir_import_batches` + `fhir_import_proposed_resources` rows. This is a pure
    consumer of schema/logic that already exists and was already designed to be safe (review-gated,
@@ -186,14 +205,27 @@ inbound FKs, RLS, triggers) makes that a Phase 3 decision at best, not a default
    tables (case-cockpit, CMO caseload views, any future analytics-warehouse rollups from §3) at this one
    table instead — a real simplification with no migration risk to existing data.
 
-### Phase 2 — needs review
-- Migrate `clinical_encounter_notes`'s three optional link columns to reference `clinical_encounters.id`
-  instead of the three individual FKs it has today — a real consolidation of an already-live table, needs
-  a careful backfill and the usual proof-with-sabotage-test discipline this repo already applies to RLS
-  changes.
+### Phase 2 — partially shipped 2026-09-18
+- **Shipped, scoped down from the original description above:** `clinical_encounter_notes` gained a
+  `clinical_encounter_id` column (migration `20260918100746_clinical_encounter_notes_link_unified_encounter.sql`),
+  backfilled and kept current by a trigger — but ADDITIVE, alongside the three original link columns, not
+  instead of them as first planned. Checked before building: `apps/web/src/lib/queries/consultation-video.ts`
+  and `encounter-notes.ts` both read/write `video_consultation_id` directly in the live video-consult flow
+  — replacing the three columns outright is real app-layer surgery across a sensitive path, not a pure DB
+  migration, and wasn't attempted. A future pass can retire the three original columns once those two app
+  query sites are migrated to read `clinical_encounter_id` instead.
+  **Two successive `/code-review high` passes, both before this reached a PR, found and fixed 4 real bugs**
+  (migrations `20260918101643` and `20260918103547`, proof script `packages/db/tests/clinical_encounter_note_link_bugs.sql`):
+  a `row()` type-mismatch that crashed every real note write with a link column set; an undocumented
+  cross-table trigger-firing-order race for `async_consults` that could leave a note permanently unlinked;
+  a client-writable bypass of the column's own "never client-supplied" comment; and — found only by a
+  *second* review pass on the fix for the second bug — a regression where the fix itself could abort an
+  entirely unrelated, session-less source-table write (e.g. a Zoom webhook completing a video
+  consultation). Worth internalising as a pattern: a fix for a real bug is itself new code and deserves
+  the same scrutiny as the original change, not a pass on the strength of "it's just a fix."
 - Decide whether `postnatal_checkins`/`weight_management_checkins` (which currently have no status
   column, only a completion timestamp) should gain one to fit the header table's lifecycle concept, or
-  whether the header table tolerates encounter types with a simpler lifecycle.
+  whether the header table tolerates encounter types with a simpler lifecycle. Not done.
 
 ### Phase 3 — needs an explicit founder ask
 - Retrofitting doctor/CMO worklist UI to query through the unified table instead of per-type tables is
@@ -260,6 +292,13 @@ extends a pattern this codebase has already built and proven once.
 ### Phase 2 — needs review
 - Which RPCs actually need materialization is an empirical question, not a design one — instrument first
   (query timing, `pg_stat_statements`) rather than materializing everything preemptively.
+- **Checked 2026-09-18, before doing more materialization work: the platform has 50 total `profiles` rows.**
+  Every one of the ~15 join-heavy analytics RPCs runs in single-digit milliseconds at this scale regardless
+  of join count — there is currently zero empirical signal that materializing any of them would help
+  anything. Doing so now would be exactly the "materializing everything preemptively" this section already
+  warns against. Re-run this check (real query timing, not a guess) once there's real usage volume before
+  picking the next RPC to materialize — don't take "more materialization" as a default next step just
+  because the pattern from Phase 1 exists and is easy to repeat.
 - Refresh cadence per metric (nightly is fine for most dashboards; anything investor-facing or
   operationally time-sensitive may need a tighter cadence than `pg_cron`'s daily default elsewhere in
   this repo suggests).

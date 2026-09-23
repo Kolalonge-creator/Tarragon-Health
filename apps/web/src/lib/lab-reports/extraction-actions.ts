@@ -12,7 +12,7 @@ import { isReadableDocumentType, normaliseForVision } from "./heic";
 import { worstStatusOf, type PatientContext } from "./reference-ranges";
 import { confirmLabReportExtractionSchema } from "@/lib/validation/lab-report-extraction";
 import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
-import { deriveAiSummaryStatus } from "./ai-summary";
+import { deriveAiSummaryStatus, deriveAiFlaggedAnalytes } from "./ai-summary";
 
 export type ExtractionActionResult = { error?: string; success?: boolean; message?: string };
 
@@ -113,14 +113,16 @@ export async function runLabReportExtraction(
     // Every failure path above routes through here, so this covers all of them
     // uniformly rather than duplicating the update at each early return.
     // Deliberately separate from the escalation bridge below: never reads
-    // worstStatusOf/reference-ranges.ts, never touches clinician_alerts, and
-    // stores no analyte names or values — only a status the patient sees
-    // immediately on their own upload, independent of any doctor review.
+    // worstStatusOf/reference-ranges.ts, never touches clinician_alerts.
+    // ai_flagged_analytes is reset to [] here too — a re-extraction that
+    // fails must never leave a stale flagged-test list on screen behind a
+    // status that no longer says 'flagged'.
     try {
       await service
         .from("lab_result_documents")
         .update({
           ai_summary_status: "unavailable",
+          ai_flagged_analytes: [] as unknown as Json,
           ai_summary_generated_at: new Date().toISOString(),
         })
         .eq("id", documentId);
@@ -150,6 +152,36 @@ export async function runLabReportExtraction(
     );
   }
 
+  // -- AI-005 governance gate -----------------------------------------------
+  // Checked BEFORE the storage download/HEIC-normalisation below, not after:
+  // AI-005 is live/enabled in production, but the kill switch must still be
+  // honoured before any real network + CPU cost is paid, not after. Checked
+  // here rather than through runGovernedAi() because this function's control
+  // flow (a first pass, a corpus lookup, a conditional hinted retry) does not
+  // fit the wrapper's run/fallback shape. The two guarantees are the same:
+  // the kill switch is honoured before the model is reached, and every
+  // outcome reaches ai_interaction_log. The fallback is the one this function
+  // already had for every other failure -- the draft does not appear and the
+  // manual entry form stands, which is AI-005's recorded fallback_behaviour.
+  const governance = await decideAiGovernance(service, AI_SYSTEMS.labReportExtraction.code);
+  if (!governance.allow) {
+    await recordAiInteraction(service, {
+      systemCode: AI_SYSTEMS.labReportExtraction.code,
+      modelIdentifier: "none:fallback",
+      inputCategory: "lab_report_document",
+      status: "fallback",
+      subjectProfileId: patientId,
+      fallbackReason: governance.message,
+      resultingAction: "manual_entry_required",
+      resultingEntityType: "lab_report_documents",
+      resultingEntityId: documentId,
+    });
+    return fail(
+      "Automatic reading is switched off just now. Enter the results by hand.",
+      `AI governance: ${governance.reason}`,
+    );
+  }
+
   let fileBase64: string;
   // The media type actually sent to the model, which is not always the one the
   // document was stored under — see normaliseForVision.
@@ -173,33 +205,6 @@ export async function runLabReportExtraction(
   } catch (error) {
     console.error("lab-reports: could not download document", error);
     return fail("Could not open the stored report file.", "Download failed.");
-  }
-
-  // -- AI-005 governance gate -----------------------------------------------
-  // Checked here rather than through runGovernedAi() because this function's
-  // control flow (a first pass, a corpus lookup, a conditional hinted retry)
-  // does not fit the wrapper's run/fallback shape. The two guarantees are the
-  // same: the kill switch is honoured before the model is reached, and every
-  // outcome reaches ai_interaction_log. The fallback is the one this function
-  // already had for every other failure -- the draft does not appear and the
-  // manual entry form stands, which is AI-005's recorded fallback_behaviour.
-  const governance = await decideAiGovernance(service, AI_SYSTEMS.labReportExtraction.code);
-  if (!governance.allow) {
-    await recordAiInteraction(service, {
-      systemCode: AI_SYSTEMS.labReportExtraction.code,
-      modelIdentifier: "none:fallback",
-      inputCategory: "lab_report_document",
-      status: "fallback",
-      subjectProfileId: patientId,
-      fallbackReason: governance.message,
-      resultingAction: "manual_entry_required",
-      resultingEntityType: "lab_report_documents",
-      resultingEntityId: documentId,
-    });
-    return fail(
-      "Automatic reading is switched off just now. Enter the results by hand.",
-      `AI governance: ${governance.reason}`,
-    );
   }
 
   const startedAt = Date.now();
@@ -338,14 +343,17 @@ export async function runLabReportExtraction(
 
   // -- Patient-facing AI summary status ---------------------------------------
   // Deliberately separate from the escalation bridge below: this never reads
-  // worstStatusOf/reference-ranges.ts, never touches clinician_alerts, and
-  // stores no analyte names or values — only a status the patient sees
-  // immediately on their own upload, independent of any doctor review.
+  // worstStatusOf/reference-ranges.ts and never touches clinician_alerts.
+  // ai_flagged_analytes (2026-09-22) names which test(s) triggered a
+  // 'flagged' status — both fields it stores are copied verbatim off the
+  // page by deriveAiFlaggedAnalytes, never a Tarragon-computed value — see
+  // that migration's header for why this is safe to show a patient directly.
   try {
     await service
       .from("lab_result_documents")
       .update({
         ai_summary_status: deriveAiSummaryStatus(rows),
+        ai_flagged_analytes: deriveAiFlaggedAnalytes(rows) as unknown as Json,
         ai_summary_generated_at: new Date().toISOString(),
       })
       .eq("id", documentId);

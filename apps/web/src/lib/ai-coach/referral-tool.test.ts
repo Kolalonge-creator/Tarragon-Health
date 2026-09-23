@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
+import { Constants, type Database } from "@tarragon/shared";
 import { buildReferralRequestTool } from "./referral-tool";
 import { chainable } from "./test-support";
 
@@ -84,5 +84,27 @@ describe("buildReferralRequestTool", () => {
 
     const schemaShape = (tool as unknown as { schema: { shape: Record<string, unknown> } }).schema.shape;
     expect(Object.keys(schemaShape).sort()).toEqual(["reason", "specialistType"]);
+  });
+
+  it("specialistType enum covers every live specialist_type value -- a patient asking for a type left out here can never be flagged", () => {
+    // Before this was derived from @tarragon/shared's SPECIALIST_TYPE_VALUES,
+    // this file hand-copied its own subset of the enum and silently drifted
+    // out of sync with it (missing psychiatry, psychology, and
+    // genitourinary_medicine) as the enum grew -- see
+    // packages/shared/src/specialist-type-options.test.ts for the sibling
+    // assertion against every other call site.
+    const tool = buildReferralRequestTool({
+      patientSupabase: { rpc: jest.fn() } as unknown as SupabaseClient<Database>,
+      getServiceRoleSupabase: () => fakeServiceRole(),
+      organisationId: "org-1",
+      patientId: "pat-1",
+      conversationId: "conv-1",
+      onReferralRequested: jest.fn(),
+    });
+
+    const schemaShape = (tool as unknown as { schema: { shape: { specialistType: { options: string[] } } } }).schema
+      .shape;
+    const liveValues = [...Constants.public.Enums.specialist_type].sort();
+    expect([...schemaShape.specialistType.options].sort()).toEqual(liveValues);
   });
 });

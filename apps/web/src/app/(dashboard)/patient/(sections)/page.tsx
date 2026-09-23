@@ -23,6 +23,7 @@ import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
 import { WeeklyPlanCard } from "@/app/(dashboard)/patient/weekly-plan-card";
 import { BiomarkerCategoriesCard } from "@/app/(dashboard)/patient/biomarker-categories-card";
 import { RiskSignalsCard } from "@/app/(dashboard)/patient/risk-signals-card";
+import { HealthDomainsCard } from "@/app/(dashboard)/patient/health-domains-card";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareScheduleCard } from "@/app/(dashboard)/patient/care-schedule-card";
 import { HealthScoreCard } from "@/components/health-score-card";
@@ -339,6 +340,12 @@ export default async function PatientOverviewPage() {
           an ML-only or orientation-only signal (lib/lab-reports/
           biomarker-categories.ts). */}
       <BiomarkerCategoriesCard patientId={subjectId} />
+      {/* Same underlying signals as RiskSignalsCard/BiomarkerCategoriesCard
+          above, regrouped into a patient-facing "today's energy / future
+          health" mental model rather than a clinical worklist framing.
+          canViewReproductive is never inferred for a caregiver/supporter —
+          `!acting` is only true when the viewer IS the patient. */}
+      <HealthDomainsCard patientId={subjectId} canViewReproductive={!acting} />
       {/* The thing a one-off lab visit structurally cannot tell someone: what
           has moved across several results. Renders nothing until there is
           genuinely enough history for a pattern. */}

@@ -42,6 +42,34 @@ export function usePlatformCreditConfig() {
   });
 }
 
+/**
+ * Whether NEW top-ups are currently switched on
+ * (public.platform_modules.key = 'platform_credit_topups' — see
+ * 20260922185100_platform_credit_topups_kill_switch.sql). Defaults to
+ * `false` while loading/on error so the top-up affordance never briefly
+ * flashes visible before this resolves — the safe direction to fail in,
+ * since the real gate is enforced server-side in the RPC/action regardless
+ * of what this hook renders (lib/platform-modules.ts's "never the ONLY
+ * check" rule). Does not gate balance/ledger display, only the "add funds"
+ * affordance — existing balance and spending are never affected by this
+ * switch.
+ */
+export function usePlatformCreditTopupsEnabled() {
+  return useQuery({
+    queryKey: ["platform-credit", "topups-enabled"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("platform_modules")
+        .select("is_enabled")
+        .eq("key", "platform_credit_topups")
+        .maybeSingle();
+      if (error) throw error;
+      return data?.is_enabled ?? false;
+    },
+  });
+}
+
 /** Most recent activity — top-ups, spends, admin grants/corrections — newest
  * first. Used for the "What happened to my balance" history list. */
 export function useMyPlatformCreditLedger(patientId: string | null | undefined, limit = 20) {

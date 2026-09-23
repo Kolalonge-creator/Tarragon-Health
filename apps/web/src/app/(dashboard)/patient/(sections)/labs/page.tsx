@@ -6,6 +6,8 @@ import { LabOrdersList } from "@/app/(dashboard)/patient/lab-orders-list";
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
 import { LabResults } from "@/app/(dashboard)/patient/lab-results";
 import { ResultDocuments } from "@/app/(dashboard)/patient/result-documents";
+import { EcgReportDocuments } from "@/app/(dashboard)/patient/ecg-report-documents";
+import { ImagingReportDocuments } from "@/app/(dashboard)/patient/imaging-report-documents";
 import { BookingRequestsList } from "@/app/(dashboard)/patient/booking-requests-list";
 
 export default async function PatientLabsPage() {
@@ -15,7 +17,7 @@ export default async function PatientLabsPage() {
     <DashboardSection
       id="labs"
       title="Labs & bookings"
-      description="Request lab tests, and track your requests and results."
+      description="Request lab tests, and upload and track your lab, ECG, and imaging results."
       icon={SEMANTIC_ICON.labs}
     >
       {/* Lab-request coordination and the screening calendar are free to every
@@ -28,6 +30,8 @@ export default async function PatientLabsPage() {
         <div className="space-y-4">
           <LabResults patientId={subjectId} />
           <ResultDocuments patientId={subjectId} />
+          <EcgReportDocuments patientId={subjectId} />
+          <ImagingReportDocuments patientId={subjectId} />
           <ResultsTrendsCard patientId={subjectId} />
         </div>
         <div className="space-y-4">

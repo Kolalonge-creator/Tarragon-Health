@@ -1,10 +1,12 @@
--- Lab-result consultation fee: the gate that blocks a self-arranged
--- lab-result upload until the one-off consultation fee is paid. Founder rule,
--- 2026-08-30; price re-set to ₦7,500 on 2026-09-10 (see
--- 20260910014006_unbundle_chronic_pack.sql) — this test intentionally reads
--- the expected amount from lab_result_consult_prices itself rather than
--- hardcoding a figure, so it does not go stale the next time the founder
--- reprices this fee.
+-- Lab-result consultation fee: an OPTIONAL credit a patient may claim when
+-- uploading a self-arranged result, never a gate on the upload itself since
+-- 2026-09-22 (claim_lab_result_consult_credit no longer raises when there is
+-- nothing to claim — see 20260922190142_lab_result_consult_credit_never_blocks_upload.sql).
+-- Founder rule, 2026-08-30, reversed 2026-09-22; price re-set to ₦7,500 on
+-- 2026-09-10 (see 20260910014006_unbundle_chronic_pack.sql) — this test
+-- intentionally reads the expected amount from lab_result_consult_prices
+-- itself rather than hardcoding a figure, so it does not go stale the next
+-- time the founder reprices this fee.
 --
 -- Covers: the price book pins the amount server-side (and, per the
 -- 2026-09-16 regression this guards against, that amount tracks
@@ -12,12 +14,17 @@
 -- service_products.result_interpretation_credit "Result Consultation" video
 -- product it was silently falling back to — see
 -- 20260916024151_fix_lab_result_consult_fee_stale_service_product_fallback.sql);
--- an unpaid (or already-consumed) credit is refused, never silently allowed;
--- a patient cannot claim another patient's paid credit even by naming their
--- id directly; a claimed credit cannot be claimed twice; settling can both
--- link the real document AND release a claim back to payment_confirmed on a
--- failed upload; and a network-billed (fulfilment='partner') order skips the
--- whole gate without ever needing a lab_result_consult_requests row at all.
+-- claiming with nothing paid returns NULL rather than blocking (2026-09-22 —
+-- previously this raised and blocked the upload; the CONTROL cases below
+-- were updated in that same change, not removed, since "nothing to claim"
+-- returning null cleanly is exactly as real a behaviour to guard as the old
+-- raise was); a patient cannot claim another patient's paid credit even by
+-- naming their id directly (still a hard raise — an authorisation check, not
+-- a "nothing to claim" case); a claimed credit cannot be claimed twice;
+-- settling can both link the real document AND release a claim back to
+-- payment_confirmed on a failed upload; and a network-billed
+-- (fulfilment='partner') order returns null (nothing owed) without ever
+-- needing a lab_result_consult_requests row at all.
 --
 -- Run inside a single transaction and ROLLED BACK. Every negative is paired
 -- with a positive control, because a check that only ever proves "nothing
@@ -127,18 +134,17 @@ begin
   reset role;
 
   ------------------------------------------------------------------
-  -- 2. An unpaid request cannot be claimed — the gate must reject, never
-  --    silently allow, an upload with no confirmed payment.
+  -- 2. An unpaid request cannot be claimed — since 2026-09-22 this returns
+  --    NULL (nothing to claim, upload proceeds anyway) rather than raising.
+  --    Still must never return a claimed id for a request that was never
+  --    paid — that is the actual invariant, whichever shape the "no" takes.
   ------------------------------------------------------------------
   perform set_config('request.jwt.claims', v_claims, true);
   set local role authenticated;
 
-  begin
-    perform public.claim_lab_result_consult_credit(v_pt, null);
-    insert into r values ('2a CONTROL unpaid request cannot be claimed', 'FAIL - accepted');
-  exception when raise_exception then
-    insert into r values ('2a CONTROL unpaid request cannot be claimed', 'PASS');
-  end;
+  select public.claim_lab_result_consult_credit(v_pt, null) into v_claimed;
+  insert into r values ('2a an unpaid request cannot be claimed (returns null, does not block)',
+    case when v_claimed is null then 'PASS' else 'FAIL - claimed ' || v_claimed::text end);
 
   reset role;
 
@@ -165,12 +171,9 @@ begin
     insert into r values ('4a CONTROL cannot claim another patient''s paid credit', 'PASS');
   end;
 
-  begin
-    perform public.claim_lab_result_consult_credit(v_pt2, null);
-    insert into r values ('4b CONTROL unrelated patient has nothing to claim', 'FAIL - accepted');
-  exception when raise_exception then
-    insert into r values ('4b CONTROL unrelated patient has nothing to claim', 'PASS');
-  end;
+  select public.claim_lab_result_consult_credit(v_pt2, null) into v_claimed;
+  insert into r values ('4b unrelated patient has nothing to claim (returns null)',
+    case when v_claimed is null then 'PASS' else 'FAIL - claimed ' || v_claimed::text end);
 
   reset role;
 
@@ -189,14 +192,11 @@ begin
     case when v_status = 'document_uploaded' then 'PASS' else 'FAIL - got ' || v_status end);
 
   ------------------------------------------------------------------
-  -- 6. The SAME credit cannot be claimed a second time.
+  -- 6. The SAME credit cannot be claimed a second time (returns null).
   ------------------------------------------------------------------
-  begin
-    perform public.claim_lab_result_consult_credit(v_pt, null);
-    insert into r values ('6a an already-claimed request cannot be claimed twice', 'FAIL - accepted');
-  exception when raise_exception then
-    insert into r values ('6a an already-claimed request cannot be claimed twice', 'PASS');
-  end;
+  select public.claim_lab_result_consult_credit(v_pt, null) into v_claimed;
+  insert into r values ('6a an already-claimed request cannot be claimed twice (returns null)',
+    case when v_claimed is null then 'PASS' else 'FAIL - claimed ' || v_claimed::text end);
 
   ------------------------------------------------------------------
   -- 7. Settle links the real document once it exists (the reason claim and
@@ -232,12 +232,9 @@ begin
   perform set_config('request.jwt.claims', v_claims, true);
   set local role authenticated;
 
-  begin
-    perform public.claim_lab_result_consult_credit(v_pt, null);
-    insert into r values ('8a CONTROL order-linked credit does not satisfy a loose upload', 'FAIL - accepted');
-  exception when raise_exception then
-    insert into r values ('8a CONTROL order-linked credit does not satisfy a loose upload', 'PASS');
-  end;
+  select public.claim_lab_result_consult_credit(v_pt, null) into v_claimed;
+  insert into r values ('8a order-linked credit does not satisfy a loose upload (returns null)',
+    case when v_claimed is null then 'PASS' else 'FAIL - claimed ' || v_claimed::text end);
 
   select public.claim_lab_result_consult_credit(v_pt, v_order_self) into v_claimed;
   insert into r values ('8b claiming with the matching lab_order_id succeeds',
@@ -294,6 +291,42 @@ begin
     insert into r values ('10c CONTROL lab_order_id must belong to the same patient', 'FAIL - accepted');
   exception when check_violation then
     insert into r values ('10c CONTROL lab_order_id must belong to the same patient', 'PASS');
+  end;
+
+  reset role;
+
+  ------------------------------------------------------------------
+  -- 11. The actual 2026-09-22 deliverable, end to end: a patient who has
+  --     NEVER created a lab_result_consult_requests row at all — never
+  --     attempted to pay, ever — can still both claim (gets null, nothing
+  --     to claim) AND insert their own lab_result_documents row. Before
+  --     2026-09-22, uploadResultDocumentAsPatient's app code returned an
+  --     error and never reached this insert at all when claim raised; this
+  --     proves the underlying DB objects were never what blocked it (RLS on
+  --     lab_result_documents never depended on a paid credit, only the app
+  --     code did), and that claim's new null-not-raise return keeps it that
+  --     way going forward.
+  ------------------------------------------------------------------
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_pt2, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+
+  if exists (select 1 from public.lab_result_consult_requests where patient_id = v_pt2) then
+    raise exception 'fixture contamination — v_pt2 must have zero consult requests for case 11 to mean anything';
+  end if;
+
+  select public.claim_lab_result_consult_credit(v_pt2, null) into v_claimed;
+  insert into r values ('11a a patient with zero consult-request history claims null, not an error',
+    case when v_claimed is null then 'PASS' else 'FAIL - claimed ' || v_claimed::text end);
+
+  begin
+    insert into public.lab_result_documents
+      (organisation_id, patient_id, file_path, original_filename, mime_type, file_size_bytes, source)
+    values (v_org, v_pt2, v_pt2 || '/never-paid-test.pdf', 'result.pdf', 'application/pdf', 1024, 'patient');
+    insert into r values ('11b that same patient can still upload for free — no credit needed', 'PASS');
+  exception when others then
+    insert into r values ('11b that same patient can still upload for free — no credit needed',
+      'FAIL - ' || sqlerrm);
   end;
 
   reset role;
