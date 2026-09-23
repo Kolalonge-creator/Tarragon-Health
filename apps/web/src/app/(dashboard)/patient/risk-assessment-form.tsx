@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FormError, fieldErrorId } from "@/components/ui/form-error";
+import { FormError, FormSuccess, fieldErrorId } from "@/components/ui/form-error";
 import { useRemountOnActionResult } from "@/lib/forms/use-remount-on-action-result";
 import type { Enums } from "@tarragon/shared";
 
@@ -173,7 +173,13 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
       queryClient.invalidateQueries({ queryKey: ["risk-assessment-responses", patientId] });
       queryClient.invalidateQueries({ queryKey: ["prevention-risk-scores", patientId] });
     }
-  }, [state?.success, queryClient, patientId]);
+    // Depends on `state` itself, not the derived `state?.success` boolean —
+    // same reasoning as patient-location-form.tsx's router.refresh() effect:
+    // two successful submissions in a row both have `success: true` (the
+    // same primitive, on two different `state` objects), so a dependency
+    // array keyed on that boolean wouldn't change between them and this
+    // effect would silently skip invalidating the caches on the second one.
+  }, [state, queryClient, patientId]);
 
   const bmi = useMemo(() => {
     const height = Number(heightCm);
@@ -541,11 +547,13 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
           </div>
 
           <FormError id={errorId} message={state?.error} />
-          {state?.success && (
-            <p className="text-sm text-brand-green dark:text-brand-green-bright">
-              Thanks, your care plan preview below reflects your answers.
-            </p>
-          )}
+          {/* No `id` here (unlike patient-location-form.tsx's success
+              banner): this form only remounts on error — see
+              useRemountOnActionResult's `shouldRemount` above — so there's
+              no post-success remount that would need a focus target to
+              land on. FormSuccess still gets this a real `role="status"`
+              announcement, which the bare <p> it replaced never had. */}
+          <FormSuccess message={state?.success ? "Thanks, your care plan preview below reflects your answers." : undefined} />
 
           <div className="flex justify-between">
             {step > 1 && (

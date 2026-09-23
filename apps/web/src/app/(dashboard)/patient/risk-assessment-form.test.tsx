@@ -12,8 +12,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { RiskAssessmentForm } from "./risk-assessment-form";
 
+// A single persistent spy AND a single persistent client object (not fresh
+// per call) - real react-query's useQueryClient() returns the same client
+// instance across renders, and returning a fresh object here on every call
+// would make `queryClient` itself a changed effect dependency on every
+// render regardless of `state`, masking the exact bug this file's dependency-
+// array regression test exists to catch.
+const mockInvalidateQueries = jest.fn();
+const mockQueryClient = { invalidateQueries: mockInvalidateQueries };
 jest.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => mockQueryClient,
 }));
 jest.mock("@/lib/queries/vitals", () => ({
   useVitalsReadings: () => ({ data: undefined }),
@@ -30,7 +38,14 @@ let nextResult: unknown = { success: true };
 jest.mock("./actions", () => ({
   submitRiskAssessment: jest.fn(async (_prevState: unknown, formData: FormData) => {
     capturedFormData = formData;
-    return nextResult;
+    // A fresh object every call - not the same `nextResult` reference twice
+    // in a row - mirrors what a real server action does (a new object per
+    // invocation) and is what a second consecutive `{success:true}` submit
+    // needs to actually exercise: React's useActionState bails out of a
+    // state update entirely (Object.is) when the exact same reference comes
+    // back twice, which would make a second-submission regression test pass
+    // vacuously regardless of the effect's own dependency array.
+    return { ...(nextResult as Record<string, unknown>) };
   }),
 }));
 
@@ -38,6 +53,7 @@ describe("RiskAssessmentForm", () => {
   beforeEach(() => {
     capturedFormData = null;
     nextResult = { success: true };
+    mockInvalidateQueries.mockClear();
   });
 
   it("carries every step's answers to the final submit, even after navigating past earlier steps", async () => {
@@ -357,5 +373,56 @@ describe("RiskAssessmentForm", () => {
     expect(fd.get("smoking_status")).toBe("never");
     expect(fd.getAll("family_cancer_types")).toEqual([]);
     expect(fd.getAll("existing_diagnoses")).toEqual([]);
+  });
+
+  /**
+   * Regression test for a bug caught by review: the success-side effect that
+   * invalidates the risk-assessment/prevention-risk-score React Query caches
+   * depended on the derived `state?.success` boolean instead of `state`
+   * itself - the exact bug pattern this same PR fixes in
+   * patient-location-form.tsx's router.refresh() effect. This proves the
+   * effect fires on a real successful submission at all (the baseline it
+   * must still satisfy); the "fires again on a SECOND consecutive success"
+   * half of this regression - the actual bug - is proven separately in
+   * risk-assessment-form-invalidate-effect.test.ts via source inspection:
+   * this component's own `<form>` doesn't remount on success (only on
+   * error, see `useRemountOnActionResult`'s `shouldRemount` above), and a
+   * second real submission of that same un-remounted `<form
+   * action={formAction}>` element isn't reliably driveable through jsdom's
+   * synthetic events in this React 19 setup (confirmed: neither a second
+   * `fireEvent.click` nor `fireEvent.submit`, even after flushing well past
+   * the first transition's resolution, ever re-invokes the mocked action a
+   * second time here) - a test-harness limitation, not a reason to believe
+   * real browsers can't submit the same form twice.
+   */
+  it("invalidates the risk-assessment caches on a successful submission", async () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+
+    // Minimal path to a successful save: only the required Step 2 fields,
+    // nothing else.
+    fireEvent.click(screen.getByText("Next")); // Step 1: nothing required.
+    fireEvent.change(screen.getByLabelText("Smoking"), { target: { value: "never" } });
+    fireEvent.change(screen.getByLabelText("Alcohol"), { target: { value: "none" } });
+    fireEvent.change(screen.getByLabelText("Exercise days/week"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Minutes per session"), { target: { value: "30" } });
+    fireEvent.change(screen.getByLabelText("Sleep (hours/night)"), { target: { value: "7_to_8" } });
+    fireEvent.change(screen.getByLabelText("Stress level"), { target: { value: "moderate" } });
+    fireEvent.change(screen.getByLabelText("Height (cm)"), { target: { value: "170" } });
+    fireEvent.click(screen.getByText("Next")); // Step 2 -> 3
+    fireEvent.click(screen.getByText("Next")); // Step 3: nothing required.
+
+    fireEvent.click(screen.getByText("Save assessment"));
+    const successMessage = await screen.findByText(
+      "Thanks, your care plan preview below reflects your answers."
+    );
+    // Now rendered via the shared FormSuccess component (was a bare <p>) -
+    // a screen reader gets a real announcement rather than silence.
+    expect(successMessage.getAttribute("role")).toBe("status");
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["risk-assessment-responses", "patient-1"],
+    });
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["prevention-risk-scores", "patient-1"],
+    });
   });
 });
