@@ -783,16 +783,25 @@ export async function handleWebhookRequest(
           await markProcessed({ organisation_id: row.organisation_id, subscription_add_on_id: row.id });
         } else if (metadata.kind === "sponsored_service_reservation") {
           // Its own branch, not folded into TRIGGER_ACTIVATED_KIND_TABLE
-          // above: private.activate_sponsored_service_reservation
-          // (20260923013621_activate_sponsored_service_reservation.sql)
-          // correlates by metadata.reservation_id rather than a
-          // pending_*_ref column (this table has none — the row is created
-          // with no reference at all, only reservation_id in checkout
-          // metadata, since it's minted before Paystack is ever involved),
-          // and — unlike every other trigger-activated kind — a genuine
-          // success here means someone with no profile yet must be told by
-          // SMS, since public.notifications demands a non-null recipient_id
-          // that cannot exist for them until they claim.
+          // above. That table's kind pattern (refFilter matching a
+          // pre-activation pending reference column, e.g. voucher_payment's
+          // pending_provider_ref) genuinely doesn't fit here — this table
+          // has no such column, only reservation_id in checkout metadata,
+          // since the row is minted before Paystack is ever involved.
+          // CORRECTED 2026-09-23 (code review, before this branch first
+          // merged): an earlier version of this comment claimed the table
+          // "has no reference at all," which overstated it —
+          // payment_provider_ref does exist and is set by the trigger on
+          // success, the same shape sponsored_subscription's own
+          // TRIGGER_ACTIVATED_KIND_TABLE entry matches against. The real
+          // reason this stays a dedicated branch is the extra fields a
+          // genuine success needs that the generic mechanism's
+          // id/organisation_id/status-only select can't provide: unlike
+          // every other trigger-activated kind, a success here means
+          // someone with no profile yet must be told by SMS (invite_token,
+          // recipient_phone, recipient_first_name), since
+          // public.notifications demands a non-null recipient_id that
+          // cannot exist for them until they claim.
           const reservationId = metadata.reservation_id;
           if (!reservationId) {
             await markFailed("sponsored_service_reservation charge.success missing metadata.reservation_id");

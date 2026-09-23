@@ -20,6 +20,18 @@ function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
 }
 
+/**
+ * Shared by ReserveForRecipient and PickAndPay below — both need the same
+ * "active, NGN-priced, actually chargeable" filter over the same query; a
+ * copy in each used to drift silently (caught in code review) since nothing
+ * enforced the two stayed identical.
+ */
+function usePayableServiceProducts() {
+  const { data: plans, isLoading } = useActiveServiceProducts();
+  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_kobo > 0);
+  return { payable, isLoading };
+}
+
 type Beneficiary = { id: string; name: string };
 
 /**
@@ -34,13 +46,11 @@ type Beneficiary = { id: string; name: string };
  * reservation row.
  */
 function ReserveForRecipient() {
-  const { data: plans, isLoading } = useActiveServiceProducts();
+  const { payable, isLoading } = usePayableServiceProducts();
   const [state, action, pending] = useActionState<SponsorActionState, FormData>(
     reserveServiceForSomeone,
     undefined,
   );
-
-  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_kobo > 0);
 
   return (
     <Card>
@@ -339,13 +349,11 @@ function ChooseBeneficiary({ onChosen }: { onChosen: (b: Beneficiary) => void })
  * service_products rows, same as every product that came before them.
  */
 function PickAndPay({ beneficiary }: { beneficiary: Beneficiary }) {
-  const { data: plans, isLoading } = useActiveServiceProducts();
+  const { payable, isLoading } = usePayableServiceProducts();
   const [state, action, pending] = useActionState<SponsorActionState, FormData>(
     paySomeonesPlan,
     undefined,
   );
-
-  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_kobo > 0);
 
   return (
     <Card>

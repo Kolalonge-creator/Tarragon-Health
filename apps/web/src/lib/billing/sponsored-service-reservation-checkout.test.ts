@@ -5,6 +5,14 @@
  * create_sponsored_service_reservation, and it must refuse a non-NGN product
  * before charging anything (reservations only support naira-priced
  * services, per the RPC's own guard).
+ *
+ * The price it charges must come from the reservation row the RPC just
+ * created (sponsored_service_reservations.amount_kobo), not a fresh
+ * service_products read — a second, later price read would race a live
+ * price edit and could charge an amount the activation trigger's own
+ * amount_minor <> amount_kobo check would then reject, stranding the
+ * reservation at pending_payment forever (found in code review before this
+ * ever merged).
  */
 
 const getUser = jest.fn();
@@ -16,7 +24,7 @@ jest.mock("@/lib/supabase/server", () => ({
     auth: { getUser },
     rpc,
     from: (table: string) => {
-      if (table !== "service_products") throw new Error(`unexpected table ${table}`);
+      if (table !== "sponsored_service_reservations") throw new Error(`unexpected table ${table}`);
       return { select: () => ({ eq: () => ({ maybeSingle }) }) };
     },
   }),
@@ -78,9 +86,9 @@ describe("initiateSponsoredServiceReservationCheckout", () => {
     expect(initializeOneOffTransaction).not.toHaveBeenCalled();
   });
 
-  it("refuses a non-NGN product even after the reservation row is created", async () => {
+  it("refuses a non-NGN reservation even after the reservation row is created", async () => {
     rpc.mockResolvedValue({ data: "resv-1", error: null });
-    maybeSingle.mockResolvedValue({ data: { price_kobo: 500000, currency: "USD" } });
+    maybeSingle.mockResolvedValue({ data: { amount_kobo: 500000, currency: "USD" } });
 
     const result = await initiateSponsoredServiceReservationCheckout(ARGS);
 
@@ -88,9 +96,12 @@ describe("initiateSponsoredServiceReservationCheckout", () => {
     expect(initializeOneOffTransaction).not.toHaveBeenCalled();
   });
 
-  it("starts checkout with the reservation_id on success", async () => {
+  it("charges the price stored ON THE RESERVATION, not a fresh service_products read (regression: closes a price-race window)", async () => {
     rpc.mockResolvedValue({ data: "resv-1", error: null });
-    maybeSingle.mockResolvedValue({ data: { price_kobo: 500000, currency: "NGN" } });
+    // A price that has since drifted from whatever service_products says now
+    // — this must be what gets charged, since it's what the activation
+    // trigger will check the payment against.
+    maybeSingle.mockResolvedValue({ data: { amount_kobo: 500000, currency: "NGN" } });
     initializeOneOffTransaction.mockResolvedValue({
       ok: true,
       data: { authorizationUrl: "https://paystack.com/pay/abc" },

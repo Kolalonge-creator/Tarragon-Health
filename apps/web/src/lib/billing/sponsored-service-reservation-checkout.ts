@@ -51,12 +51,21 @@ export async function initiateSponsoredServiceReservationCheckout(args: {
     return { ok: false, error: rpcError?.message ?? "Could not start this reservation" };
   }
 
-  const { data: product } = await supabase
-    .from("service_products")
-    .select("price_kobo, currency")
-    .eq("id", args.serviceProductId)
+  // Read the price back off the reservation the RPC just created, not off
+  // service_products again — that RPC already priced it from the SAME row
+  // this select would re-read, and a second, later read opens a real race:
+  // a price edit landing between the two reads would charge a different
+  // amount than private.activate_sponsored_service_reservation's own
+  // amount_minor <> amount_kobo check expects, permanently stranding the
+  // reservation at pending_payment with no retry path (caught in code
+  // review before merge — the original version selected service_products
+  // here a second time).
+  const { data: reservation } = await supabase
+    .from("sponsored_service_reservations")
+    .select("amount_kobo, currency")
+    .eq("id", reservationId)
     .maybeSingle();
-  if (!product || product.currency !== "NGN") {
+  if (!reservation || reservation.currency !== "NGN") {
     return { ok: false, error: "That service can't be paid in your currency yet." };
   }
 
@@ -69,7 +78,7 @@ export async function initiateSponsoredServiceReservationCheckout(args: {
 
   const result = await initializeOneOffTransaction({
     email: args.email,
-    amountMinor: product.price_kobo,
+    amountMinor: reservation.amount_kobo,
     currency: "NGN",
     callbackUrl: args.callbackUrl,
     metadata,

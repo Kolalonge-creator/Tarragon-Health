@@ -47,7 +47,7 @@ export default async function ClaimPage({ params }: { params: Promise<{ token: s
                   I already have an account
                 </Button>
               </Link>
-              <Link href="/signup">
+              <Link href={`/signup?redirect=${encodeURIComponent(`/claim/${token}`)}`}>
                 <Button type="button" className="w-full sm:w-auto">
                   Create an account
                 </Button>
