@@ -224,6 +224,22 @@ jobs:
       # session that wrote this job (no Docker there) — if the override keys
       # below don't match (e.g. api.anon_key vs a different path), this step
       # is the first place to look on a failed run.
+      # First live run of this job (2026-09-22) failed here: next dev's
+      # proxy.ts (Edge Runtime, always) threw "Invalid supabaseUrl" even
+      # though NEXT_PUBLIC_SUPABASE_URL/ANON_KEY WERE present in this job's
+      # own shell env by the time Playwright spawned `pnpm dev` — confirmed
+      # directly in that run's own `env:` debug printout for the next step.
+      # Next.js/Turbopack's own env-var pickup for Edge Runtime code is not
+      # guaranteed to reliably inherit ambient process.env the way a plain
+      # Node process does; writing a real apps/web/.env.local is the one
+      # mechanism Next's dev server is documented to read directly at
+      # startup, collapsing the previous fragile chain (GH step env ->
+      # $GITHUB_ENV -> shell -> playwright.config.ts -> spawned child
+      # process -> Turbopack) into a single, Next-native source of truth.
+      # $GITHUB_ENV is still populated too, for the Playwright test process
+      # itself and its Node-based Supabase admin client
+      # (helpers/supabase-admin.ts), which read process.env directly with
+      # no Turbopack/Edge Runtime involved.
       - name: Export local Supabase connection env vars
         if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
         run: |
@@ -231,7 +247,9 @@ jobs:
             --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
             --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
             --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
-            >> "$GITHUB_ENV"
+            > /tmp/supabase-env.txt
+          cat /tmp/supabase-env.txt >> "$GITHUB_ENV"
+          cp /tmp/supabase-env.txt apps/web/.env.local
 
       - name: Run browser E2E tests
         if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
