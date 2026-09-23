@@ -292,6 +292,7 @@ export function CareMessageThread({
                   ref={fileInputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+                  aria-label="Attach a file"
                   className="hidden"
                   onChange={(e) => onFilePicked(e.target.files?.[0] ?? null)}
                 />

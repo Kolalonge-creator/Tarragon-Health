@@ -111,7 +111,11 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
         <CardTitle>Your upcoming appointments</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            {error}
+          </p>
+        )}
 
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {appointments && appointments.length === 0 && (
