@@ -11,6 +11,10 @@ const REVALIDATE_PATH = "/admin/settings/clinical-rules";
 // fresh state as this page after any lifecycle action below, not a cached
 // queue count from before the action ran.
 const HUB_PATH = "/admin/settings/clinical-protocols";
+// Also rendered at /clinician/clinical-rules (the CMO's own reachable
+// mirror, added 2026-09-22) — without this, a CMO acting from there would
+// see stale state on their own page until a hard refresh.
+const CLINICIAN_PATH = "/clinician/clinical-rules";
 
 /**
  * §32.13. The DB RPC (public.promote_clinical_rule_to_shadow) is the real
@@ -29,6 +33,7 @@ export async function promoteToShadowAction(
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
   revalidatePath(HUB_PATH);
+  revalidatePath(CLINICIAN_PATH);
   return { success: "Promoted to shadow. It will now be evaluated against real events without acting on any patient." };
 }
 
@@ -48,6 +53,7 @@ export async function signClinicalRuleAction(
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
   revalidatePath(HUB_PATH);
+  revalidatePath(CLINICIAN_PATH);
   return { success: activate ? "Signed and activated." : "Signed (not yet activated)." };
 }
 
@@ -70,6 +76,7 @@ export async function rollbackClinicalRuleAction(
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
   revalidatePath(HUB_PATH);
+  revalidatePath(CLINICIAN_PATH);
   return { success: `Rolled back to version ${toVersion}.` };
 }
 
@@ -86,6 +93,7 @@ export async function retireClinicalRuleAction(
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
   revalidatePath(HUB_PATH);
+  revalidatePath(CLINICIAN_PATH);
   return { success: "Retired." };
 }
 
@@ -157,6 +165,7 @@ export async function draftNextClinicalRuleVersionAction(
 
   revalidatePath(REVALIDATE_PATH);
   revalidatePath(HUB_PATH);
+  revalidatePath(CLINICIAN_PATH);
   return { success: `Draft v${nextVersion} created for ${source.rule_key}.` };
 }
 

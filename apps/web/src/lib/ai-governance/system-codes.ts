@@ -106,6 +106,14 @@ export const AI_SYSTEMS = {
     code: "AI-015",
     failClosedIfGovernanceUnavailable: false,
   },
+  imagingReportExtraction: {
+    code: "AI-016",
+    // Same posture as AI-005/AI-006: reads a real clinical document and
+    // produces a patient-facing verdict directly. Registered DISABLED
+    // pending a real evaluation + Clinical Director approval — see
+    // 20260922190712_ai016_imaging_report_extraction_registration.sql.
+    failClosedIfGovernanceUnavailable: true,
+  },
 } as const;
 
 export type AiSystemKey = keyof typeof AI_SYSTEMS;

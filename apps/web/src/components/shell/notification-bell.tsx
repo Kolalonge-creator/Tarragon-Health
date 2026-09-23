@@ -158,6 +158,18 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: "/clinician",
     };
   }
+  if (n.template === "curbside_consult_new_message") {
+    // Doctor-to-doctor curbside consult (20260922230142_curbside_consults.sql)
+    // -- no sender_display in the payload (unlike new_care_message's frozen
+    // author_display): both parties are org staff and clinical_staff is
+    // already org-wide readable, so the client resolves the name itself
+    // rather than needing it frozen at insert time.
+    const subject = String(payload.subject ?? "your curbside consult").trim();
+    return {
+      text: `New reply in "${subject}"`,
+      href: "/clinician/curbside-consults",
+    };
+  }
   if (n.template === "clinician_new_referral") {
     const specialist = String(payload.specialist_type ?? "a specialist").replace(/_/g, " ");
     return {
@@ -788,6 +800,23 @@ export function describe(n: InAppNotification): { text: string; href: string } {
           ? "1 payment discrepancy is waiting to be reviewed"
           : `${count} payment discrepancies are waiting to be reviewed`,
       href: "/finance/reconciliation",
+    };
+  }
+  if (n.template === "support_view_as_started") {
+    // From private.notify_support_view_session_started() (support view-as,
+    // 20260922175144_support_view_as.sql) — sent to the SUBJECT (a patient or
+    // a clinician, never the viewer), so unlike most templates here this one
+    // has no single role-specific href to link into; "/" is the one existing
+    // role-agnostic entry point (proxy.ts redirects "/" to getRoleHomePath()
+    // for a signed-in user on the app host), so it resolves correctly either
+    // way instead of hardcoding /patient for a clinician subject too.
+    const viewerName = String(payload.viewer_name ?? "A member of the Tarragon Health support team");
+    const reason = String(payload.reason ?? "");
+    return {
+      text: reason
+        ? `${viewerName} opened a support view of your account: "${reason}"`
+        : `${viewerName} opened a support view of your account`,
+      href: "/",
     };
   }
   return { text: "You have an update", href: "/patient" };

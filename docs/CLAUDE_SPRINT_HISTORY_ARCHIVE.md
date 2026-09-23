@@ -4120,3 +4120,73 @@ layout level — so a delegate granted only `finance.view` sees every action ful
 discovers they can't use it from a raw RPC error; and several lower-stakes `window.prompt`/`alert`
 call sites remain (approvals reject, payables void) that would benefit from the same `ConfirmDialog`
 treatment given to reversal and period-locking in this pass.
+
+### 2026-09-22 — Swept the remaining bare-literal `can_read_clinical` RLS policies for the
+overload-ambiguity hole first found (and only partly closed) three weeks earlier
+
+A separate, unmerged admin/support "view as" branch (`claude/zen-montalcini-16829e`) hit a real,
+live bug while writing a brand-new migration: `private.can_read_clinical(patient_id,
+'vitals_readings')`, copied verbatim from `vitals_readings_select`'s own last migration
+(`20260902232555`), failed to even apply with `function private.can_read_clinical(uuid, unknown) is
+not unique` (42725). Confirmed live via `pg_get_function_identity_arguments` that
+`private.can_read_clinical` now has three overloads — the legacy 1-arg form, `(uuid,
+care_access_category)`, and `(uuid, caregiver_permission)`, the last added by
+`20260902234600_caregiver_permission_enforcement.sql` — and a bare untyped string-literal second
+argument is ambiguous between the two 2-arg forms regardless of the literal's value (this is type
+resolution on an "unknown"-typed literal, not a check of whether the value is a valid member of
+either enum). That branch fixed the two policies it happened to touch
+(`20260922175144_support_view_as.sql` §9) and flagged the rest as a platform-wide latent risk.
+
+The underlying overload-addition already broke things twice before, in two different ways, both same
+day as the overload landed: `20260902235200_fix_can_read_clinical_overload_ambiguity_live_callers.sql`
+had to fix four already-shipped plpgsql function bodies (`mark_care_message_thread_read`,
+`private.can_read_record_correction`, `care_receipt`, `search_patient_record`) that broke
+*immediately and silently* the moment the overload existed — plpgsql function bodies re-resolve their
+function calls on every invocation, unlike RLS policies, which bind their expression tree once at
+`CREATE POLICY` time and never re-resolve it. That's exactly why the 16 RLS policies below had sat
+broken-if-ever-touched-again for three weeks without a single live error: every one of them was
+created (or last redefined) *before* the caregiver_permission overload existed, so they kept working
+fine — the hole only opens the moment a *future* migration re-creates that same bare text, which is
+precisely what almost happened on the "view as" branch.
+
+Rather than wait for the next accidental hit, did a repo-wide scan: for every RLS policy referencing
+`can_read_clinical`, traced its true current definition (the most recent migration that
+`DROP`+`CREATE POLICY`'d it, not just the first), cross-checked against live `pg_policies`. Found 16
+more still on the bare form — `care_message_attachments_select`, `care_plan_goals_select`,
+`care_plan_interventions_select`, `clinical_summaries_select`, `clinician_alerts_select`,
+`escalations_select`, `medication_logs_select`, `patient_blood_profile_select`,
+`patient_cardiovascular_profile_select`, `patient_quarterly_reports_select`,
+`patient_risk_scores_select`, `patient_serology_status_select`, `reproductive_health_profiles_select`,
+`symptom_triage_assessments_select`, `vaccination_records_select`, `vaccination_schedules_select` —
+plus two false positives correctly left alone (`care_vouchers_select` calls a function that already
+returns a concretely-typed `care_access_category`; `patient_timeline_select` passes a
+concretely-typed column, not a literal — neither is actually ambiguous).
+`private.has_emergency_access` calls sitting alongside several of these were left bare on purpose:
+confirmed via the same `pg_proc` query it has exactly one live overload, so it isn't ambiguous.
+`vitals_readings_select`/`screening_schedules_select` were deliberately **not** re-touched here —
+already fixed live by the other, still-unmerged branch, and redefining them from this branch's own
+migration history would have silently reverted the `can_support_view` clause that branch already
+added live (a real trap: pulling "the true current definition" from live state instead of from this
+branch's own git history is exactly what avoided it).
+
+Fixed in `20260922183343_fix_remaining_can_read_clinical_bare_literal_policies.sql` — every clause
+copied byte-identical from the live definition, only the `can_read_clinical` call gets the explicit
+`::care_access_category` cast. Dry-run (`BEGIN`/`ROLLBACK`) then real apply, both directly against the
+live project via the Supabase CLI (no `apply_migration` MCP tool in this session — see
+`reference_supabase_cli_sql_access` in memory), ahead of opening the PR. Added a standing regression
+test (`packages/db/tests/can_read_clinical_bare_literal_policy_cast.sql`, registered in
+`ci.manifest`) with a real sabotage step: it creates a scratch policy against a real table
+(`clinical_summaries`) using the pre-fix bare text and confirms it still fails to even `CREATE`
+(42725) today, then confirms the cast form succeeds. `/code-review high` on the diff: no findings.
+Merged as PR #706 into `main-dev` after all CI checks (including "Supabase migration replay," which
+re-ran the new migration and the new regression test from a fresh local reset) and the Vercel preview
+passed.
+
+**The general lesson, not just this one function** — see the new standing-engineering-lessons bullet
+in this file's parent `CLAUDE.md`: adding a new overload to a function already called with untyped
+literal arguments doesn't just risk ambiguity going forward, it silently breaks every existing
+bare-literal call site, differently depending on the call site's kind — a plpgsql function body
+re-resolves on every call and breaks immediately; an RLS policy (or a view) binds once and keeps
+working until something re-creates it. Grep every existing call site — policies and function bodies
+both — and cast all of them in the same migration that adds the overload, rather than finding them
+one accidental hit at a time over the following weeks.

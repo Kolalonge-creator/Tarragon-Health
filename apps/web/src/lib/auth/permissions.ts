@@ -67,6 +67,11 @@ export const PERMISSION_KEYS = [
   "feature_flags.manage",
   "ops.console.view",
   "support.manage",
+  // Seeded by 20260922175144_support_view_as.sql — a time-boxed, read-only,
+  // audited shadow view of a specific patient's or clinician's account
+  // summary, to debug a reported issue. Distinct from support.manage (which
+  // gates the support ticket inbox, not account data access).
+  "support.view_as",
   "notification_templates.manage",
   "ai_governance.manage",
 ] as const;
@@ -138,4 +143,14 @@ export async function canViewOpsConsole(): Promise<boolean> {
   const profile = await getCurrentProfile();
   if (profile?.role === "admin" || profile?.role === "analyst") return true;
   return hasPermission("ops.console.view");
+}
+
+/**
+ * Page-guard mirror of private.can_support_view()'s authorising side — this checks
+ * whether the caller may START a support view-as session at all (the DB enforce-rules
+ * trigger is the real gate; this only avoids showing the tool to someone it would
+ * refuse). `admin` holds it implicitly via hasPermission's isSuperAdmin short-circuit.
+ */
+export async function canStartSupportViewAs(): Promise<boolean> {
+  return hasPermission("support.view_as");
 }
