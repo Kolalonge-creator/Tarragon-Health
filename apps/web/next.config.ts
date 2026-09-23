@@ -2,6 +2,18 @@ import type { NextConfig } from "next";
 import path from "node:path";
 import { withSentryConfig } from "@sentry/nextjs";
 
+// TEMPORARY DIAGNOSTIC (remove once apps/web/e2e-browser's CI job is
+// confirmed green — see its own multi-attempt debugging history for why):
+// next.config.ts's own module evaluation is the one place proven to run
+// unconditionally, in a plain Node context, regardless of Edge Runtime or
+// bundler — this prints exactly what it sees, directly to the CI log.
+if (process.env.CI) {
+  console.error(
+    "[next.config.ts DIAGNOSTIC] NODE_ENV=", JSON.stringify(process.env.NODE_ENV),
+    "NEXT_PUBLIC_SUPABASE_URL=", JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_URL),
+  );
+}
+
 // Derived from NEXT_PUBLIC_SUPABASE_URL rather than hardcoded, so a local
 // dev/staging Supabase project (or a future project migration) doesn't
 // silently leave the CSP pointed at the wrong host. Falls back to the one

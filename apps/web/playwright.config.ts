@@ -46,25 +46,34 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
-    // --webpack, not `pnpm dev` (Turbopack, this repo's default for local
-    // dev speed) — 4 real CI attempts (see git history) at getting
-    // NEXT_PUBLIC_SUPABASE_URL/ANON_KEY into src/proxy.ts's Edge Runtime
-    // execution all failed identically, despite confirming (via CI debug
-    // output) the values were correct at every other layer: the shell env,
-    // a written .env.local file, and next.config.ts's own `env` field (a
-    // compile-time substitution mechanism, not a runtime env lookup).
-    // Turbopack's dev-mode Edge Runtime bundling is a substantially newer
-    // code path than webpack's, which has had this exact feature working
-    // for years — testing whether the gap is Turbopack-dev-mode-specific,
-    // scoped to only this test runner's own spawned server (never the
-    // `pnpm dev` a developer runs locally, which keeps Turbopack).
-    command: "npx next dev --webpack",
+    // Reverted from --webpack: that attempt PROVED the bug is not
+    // Turbopack-specific — the stack trace changed shape (`proxy$1`,
+    // webpack's own naming, confirming --webpack genuinely ran) but the
+    // exact same "Invalid supabaseUrl" persisted. Back to plain `pnpm dev`
+    // (Turbopack, this repo's normal dev experience) now that the bundler
+    // is ruled out as the variable.
+    command: "pnpm dev",
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
       ...process.env,
       PORT: String(PORT),
+      // Forced explicitly rather than left to whatever ambient value this
+      // CI job's own environment carries — untested until now.
+      // node_modules/next/dist/docs/01-app/02-guides/environment-variables.md
+      // (line 250/272) documents that .env.local is never loaded at all
+      // when NODE_ENV=test, and this repo's own next.config.ts now also
+      // has a (still-failing) `env` field explicitly setting these same 2
+      // vars — if NODE_ENV really is "test" here, BOTH of those failing
+      // makes sense together, since .env.local wouldn't load AND the
+      // "legacy" (next.config.ts's own env.md doc's word) `env` config
+      // field may have equally undocumented dev-mode-under-test gaps.
+      // `next dev` defaults NODE_ENV to "development" only when the var is
+      // UNASSIGNED (same doc, "Good to know") — if something upstream in
+      // this CI job (Playwright itself, actions/setup-node, or turbo) is
+      // setting it to "test" first, that default never kicks in.
+      NODE_ENV: "development",
     },
   },
 });
