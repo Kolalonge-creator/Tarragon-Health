@@ -78,4 +78,78 @@ describe("PatientLocationForm — state dropdown", () => {
 
     expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("Yaba");
   });
+
+  /**
+   * A subtler bug caught by review, in the fix for the bug directly above:
+   * the "has `initial` genuinely changed?" check used `initial !== lastInitial`
+   * - object reference equality. Server Component props are a *fresh object
+   * reference on every render* (every RSC payload / router.refresh()), even
+   * when every field is byte-identical to before - so that check fired on
+   * essentially every refresh, including this form's OWN post-save
+   * router.refresh() (see the effect keyed on `state`). If the patient
+   * started typing a further correction into a field in the brief window
+   * between the save's own remount and that save's own refresh delivering a
+   * matching `initial` back, the reference check would treat it as "a new
+   * external change," clear `values`, and remount a second time - silently
+   * discarding whatever they'd since typed, even though nothing external
+   * had actually changed. This proves a same-VALUE `initial` arriving via a
+   * new object reference (simulating exactly that self-triggered refresh,
+   * without going through an actual save) leaves an in-progress, unsubmitted
+   * edit untouched.
+   */
+  it("does not discard an in-progress edit when a same-value initial prop arrives via a new object reference", () => {
+    const initialA = { state: "Lagos", city: null, area: null };
+    const { rerender } = render(<PatientLocationForm initial={initialA} />);
+
+    const city = screen.getByLabelText("City") as HTMLInputElement;
+    fireEvent.change(city, { target: { value: "Mid-edit correction" } });
+    expect(city.value).toBe("Mid-edit correction");
+
+    // A NEW object, but every field equal to initialA - exactly what a
+    // Server Component re-render hands down even when nothing changed.
+    const initialB = { state: "Lagos", city: null, area: null };
+    expect(initialB).not.toBe(initialA);
+    rerender(<PatientLocationForm initial={initialB} />);
+
+    expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("Mid-edit correction");
+  });
+
+  /**
+   * The scenario above proves a same-value `initial` never causes a
+   * spurious remount on its own, but doesn't exercise the actual mechanism
+   * this form uses to get there for its own post-save refresh specifically
+   * (`knownServerValue` is synced to a successful save's echoed values, not
+   * just to a changed `initial` prop - see the component's own comment).
+   * This drives a REAL save through the mocked action first (so the
+   * component's post-save router.refresh() effect actually fires and the
+   * echo-driven remount actually happens), types a further correction into
+   * the freshly-remounted field - simulating the patient refining their own
+   * just-saved value before the save's own refresh has finished round-
+   * tripping - then rerenders with a *new* `initial` object whose values
+   * match what was just saved (exactly what that refresh would eventually
+   * hand back). A version of the fix that only compared `initial` against
+   * the literal previous `initial` prop (never syncing in the save's own
+   * echo) would treat this incoming prop as "a change" purely because
+   * nothing had updated its own bookkeeping to already expect it, clearing
+   * `values` and remounting a second time - reverting the patient's further
+   * correction back to the bare saved value.
+   */
+  it("does not discard a further in-progress correction when the save's own refresh delivers matching values back", async () => {
+    const { rerender } = render(<PatientLocationForm initial={{ state: "Lagos", city: null, area: null }} />);
+
+    fireEvent.click(screen.getByText("Save location"));
+    await screen.findByText("Location saved.");
+    expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("Ikeja");
+
+    const city = screen.getByLabelText("City") as HTMLInputElement;
+    fireEvent.change(city, { target: { value: "Ikeja GRA" } });
+    expect(city.value).toBe("Ikeja GRA");
+
+    // A brand-new object (never seen by this component before) whose values
+    // match exactly what was just saved - what the save's own
+    // router.refresh() would eventually hand back.
+    rerender(<PatientLocationForm initial={{ state: "Lagos", city: "Ikeja", area: null }} />);
+
+    expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("Ikeja GRA");
+  });
 });

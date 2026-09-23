@@ -66,16 +66,58 @@ export function PatientLocationForm({
   // genuinely new `initial.city` needs the DOM to actually re-read it, not
   // just have `values` stop shadowing it in a computation nothing re-runs.
   const [initialEpoch, setInitialEpoch] = useState(0);
-  const [lastInitial, setLastInitial] = useState(initial);
-  if (initial !== lastInitial) {
-    setLastInitial(initial);
-    setValues(undefined);
-    setInitialEpoch((n) => n + 1);
-  }
+  const sameLocation = (
+    a: { state: string | null; city: string | null; area: string | null },
+    b: { state: string | null; city: string | null; area: string | null }
+  ) => (a.state ?? "") === (b.state ?? "") && (a.city ?? "") === (b.city ?? "") && (a.area ?? "") === (b.area ?? "");
+  // Two separate trackers, deliberately not one — collapsing them into a
+  // single "known server value" caused a real bug (caught by review): when
+  // a state-adjusting setState call during render triggers React to
+  // immediately re-invoke this function with the updated state (the
+  // "adjust state during render" pattern's normal behaviour), any check
+  // whose *condition* reads a value one of these blocks just wrote gets a
+  // different answer on that replay than the state name suggests — even
+  // though the underlying prop hasn't changed at all. `lastInitialProp`
+  // exists purely to answer "did the literal `initial` PROP change since
+  // last render" and is written ONLY by the block below that reacts to a
+  // prop change, so a save's own state-changed block (writing
+  // `knownServerValue`) never perturbs it, even across a same-tick replay.
+  const [lastInitialProp, setLastInitialProp] = useState(initial);
+  // `knownServerValue` is what this component currently believes the
+  // server's truth to be right now. It starts equal to `initial`, and gets
+  // updated two ways: when a genuinely new `initial` prop arrives (below),
+  // or when this component's own successful save just wrote exactly this
+  // value (further below) — the latter matters because Server Component
+  // props are always a *fresh object reference* on every RSC payload /
+  // router.refresh(), even when every field is byte-identical to before.
+  // Without treating our own save as already-known, the router.refresh()
+  // that same save triggers (see the effect below) would eventually hand
+  // back a matching-but-new-reference `initial`, which — compared only by
+  // value against `lastInitialProp` — reads as "the prop changed," forcing
+  // an avoidable second remount that could silently discard whatever the
+  // patient had since started typing as a further correction.
+  const [knownServerValue, setKnownServerValue] = useState(initial);
   const [lastState, setLastState] = useState(state);
   if (state !== lastState) {
     setLastState(state);
     setValues(state?.values);
+    if (state?.success && state.values) {
+      setKnownServerValue({
+        state: state.values.state ?? null,
+        city: state.values.city ?? null,
+        area: state.values.area ?? null,
+      });
+    }
+  }
+  if (!sameLocation(initial, lastInitialProp)) {
+    setLastInitialProp(initial);
+    // The prop genuinely changed value — but only remount for it if it's
+    // not just our own save's refresh catching up to what we already know.
+    if (!sameLocation(initial, knownServerValue)) {
+      setKnownServerValue(initial);
+      setValues(undefined);
+      setInitialEpoch((n) => n + 1);
+    }
   }
 
   const currentState = values?.state ?? initial.state;
@@ -114,6 +156,20 @@ export function PatientLocationForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* `initialEpoch` bumping doesn't restore focus the way `attempt`
+            does via useRemountOnActionResult — a deliberate, known gap, not
+            an oversight. Two things make wiring it in not worth doing right
+            now: (1) with the value-comparison fix above, this remount path
+            only fires for a genuinely new external value (a caregiver or
+            another tab editing the same profile) — the far more common
+            trigger, the form's own post-save refresh, no longer reaches it
+            at all — so this path is rare in practice; (2) unlike the error/
+            success banner `attempt` restores focus to, there's no natural
+            place to send focus for a change *this* visitor didn't initiate
+            — yanking their focus to announce someone else's edit while
+            they're reading or typing elsewhere on the page would be its own
+            small UX regression. Revisit if this path turns out to fire more
+            than expected. */}
         <form key={`${attempt}-${initialEpoch}`} action={formAction} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
