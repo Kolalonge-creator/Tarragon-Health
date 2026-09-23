@@ -225,6 +225,22 @@ function oneLineAddress(address: string): string {
     .join(", ");
 }
 
+/**
+ * Phone numbers are stored E.164 platform-wide, but the footer has always shown
+ * the spaced, readable form — PDF_CONTACT_PHONE, the fallback used when no
+ * registered phone is on file, is literally "+234 806 119 7940". Grouping the
+ * stored value here keeps the two identical, so populating
+ * finance_company_profile.registered_phone does not silently make the printed
+ * invoice less readable than the fallback it replaces.
+ *
+ * Anything that is not a Nigerian +234 mobile is passed through untouched
+ * rather than guessed at.
+ */
+function displayPhone(phone: string): string {
+  const match = /^\+234(\d{3})(\d{3})(\d{4})$/.exec(phone.replace(/\s+/g, ""));
+  return match ? `+234 ${match[1]} ${match[2]} ${match[3]}` : phone;
+}
+
 function vatLine(invoice: InvoiceDocumentData): string {
   if (invoice.vat_treatment === "standard" && invoice.vat_rate_pct != null) {
     return `VAT (${invoice.vat_rate_pct}%)`;
@@ -372,7 +388,7 @@ export function InvoiceDocument({
             )}
             <Text style={styles.footerLine}>
               <Text style={styles.footerBrand}>TarragonHealth</Text> · {letterhead.registered_email || PDF_CONTACT_EMAIL} ·{" "}
-              {letterhead.registered_phone || PDF_CONTACT_PHONE}
+              {letterhead.registered_phone ? displayPhone(letterhead.registered_phone) : PDF_CONTACT_PHONE}
             </Text>
           </View>
           <Text

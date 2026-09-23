@@ -200,6 +200,20 @@ describe("InvoiceDocument registered office", () => {
     expect(style.fontSize).toBe(7.5);
   });
 
+  it("prints a stored E.164 phone in the same spaced form as the fallback", () => {
+    // Regression: registered_phone is stored E.164 (+2348061197940) but
+    // PDF_CONTACT_PHONE, the fallback it replaces, is "+234 806 119 7940".
+    // Populating the column must not make the invoice less readable.
+    const text = renderText({ ...emptyLetterhead, registered_phone: "+2348061197940" });
+    expect(text).toContain("+234 806 119 7940");
+    expect(text).not.toContain("+2348061197940");
+  });
+
+  it("passes a non-Nigerian number through rather than guessing its grouping", () => {
+    const text = renderText({ ...emptyLetterhead, registered_phone: "+442079460958" });
+    expect(text).toContain("+442079460958");
+  });
+
   it("still falls back to the platform contact details when email and phone are unset", () => {
     const text = renderText(emptyLetterhead);
     expect(text).toContain("TarragonHealth");
