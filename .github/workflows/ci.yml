@@ -267,46 +267,44 @@ jobs:
       - name: Export local Supabase connection env vars
         if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
         run: |
+          # ROOT CAUSE (found 2026-09-23 after 5 failed attempts — see git
+          # history for the full chase): `supabase status -o env`'s raw
+          # output quotes its values (`KEY="value"`). $GITHUB_ENV is NOT a
+          # shell — appending that raw content to it via a bare `cat >>`
+          # does not strip the quotes; GitHub Actions takes everything
+          # after the first `=` as the LITERAL value, quote characters
+          # included. Every subsequent step's process.env.NEXT_PUBLIC_SUPABASE_URL
+          # was therefore the 27-character string `"http://127.0.0.1:54321"`
+          # (quote marks genuinely part of the value, confirmed via a
+          # JSON.stringify diagnostic directly in next.config.ts's own
+          # module scope), not the 21-character URL — which is exactly why
+          # `new URL(...)` / @supabase/ssr's own validator threw "Invalid
+          # supabaseUrl" no matter which OTHER mechanism (.env.local,
+          # next.config.ts's `env` field, forcing NODE_ENV, switching
+          # bundlers) was used to try to supply it: process.env is Next's
+          # highest-priority env source, so the quote-contaminated value
+          # from $GITHUB_ENV kept winning over every correctly-clean
+          # alternative.
+          #
+          # Fix: `source` the raw output as shell script FIRST (bash's own
+          # parser correctly strips the quotes) and only then write clean,
+          # unquoted KEY=value lines to both $GITHUB_ENV and
+          # apps/web/.env.local — never `cat`/`cp` the CLI's raw output
+          # directly into either.
           supabase status -o env \
             --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
             --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
             --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
             > /tmp/supabase-env.txt
-          cat /tmp/supabase-env.txt >> "$GITHUB_ENV"
-
-          # DIAGNOSTIC (2nd failed attempt at this step — see git history):
-          # writing /tmp/supabase-env.txt's raw content straight into
-          # apps/web/.env.local via `cp` did NOT fix "Invalid supabaseUrl"
-          # in next dev's proxy.ts, even though the SAME vars were
-          # confirmed present in this job's own shell env by the next
-          # step. That rules out simple non-propagation and points at the
-          # .env.local file's raw content not actually being valid dotenv
-          # syntax (supabase status -o env's exact output format was never
-          # independently confirmed — this sandbox never had Docker to run
-          # `supabase start` and inspect it directly). Printed here so the
-          # next failure (if any) has real data instead of another guess.
-          echo "--- DEBUG: raw supabase status -o env output (cat -A) ---"
-          cat -A /tmp/supabase-env.txt
-          echo "--- END DEBUG ---"
-
-          # Robust reconstruction: `source` the captured output as shell
-          # script rather than assume it's already valid dotenv syntax —
-          # bash's own parser correctly handles quoted values, unquoted
-          # values, and an `export` prefix, none of which dotenv is
-          # guaranteed to agree with. Then write out an explicit, minimal,
-          # guaranteed-correct .env.local with exactly the 3 keys Next.js
-          # needs, removing any ambiguity about the CLI's exact raw format.
           set -a
           source /tmp/supabase-env.txt
           set +a
           : > apps/web/.env.local
-          echo "NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}" >> apps/web/.env.local
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}" >> apps/web/.env.local
-          echo "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}" >> apps/web/.env.local
-
-          echo "--- DEBUG: reconstructed apps/web/.env.local ---"
-          cat apps/web/.env.local
-          echo "--- END DEBUG ---"
+          for f in "$GITHUB_ENV" apps/web/.env.local; do
+            echo "NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}" >> "$f"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}" >> "$f"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}" >> "$f"
+          done
 
       - name: Run browser E2E tests
         if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
