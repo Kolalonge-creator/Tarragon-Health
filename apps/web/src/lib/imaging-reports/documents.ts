@@ -39,8 +39,8 @@ export interface ImagingReportDocumentView {
  * their own uid folder) — the row-level RLS on imaging_report_documents is
  * the real authorisation gate, so the CALLER must already have read the row
  * through their own RLS-scoped session before asking for a URL. Never
- * returns a public URL. Mirrors lib/ecg-reports/documents.ts's
- * signEcgReportPath exactly.
+ * returns a public URL. Same single-document shape as
+ * lib/referrals/outcome-documents.ts's signReferralOutcomeDocumentPath.
  */
 export async function signImagingReportPath(path: string): Promise<string | null> {
   const service = createServiceRoleClient();

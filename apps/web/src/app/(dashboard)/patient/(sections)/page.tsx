@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { LazyVitalsTrendChart } from "@/components/vitals-trend-chart-lazy";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
@@ -19,7 +20,6 @@ import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-l
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
-import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
 import { WeeklyPlanCard } from "@/app/(dashboard)/patient/weekly-plan-card";
 import { BiomarkerCategoriesCard } from "@/app/(dashboard)/patient/biomarker-categories-card";
@@ -323,7 +323,7 @@ export default async function PatientOverviewPage() {
       </Suspense>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
-        <VitalsTrendChart patientId={subjectId} />
+        <LazyVitalsTrendChart patientId={subjectId} />
         <TodaysDoses patientId={subjectId} />
       </div>
 
