@@ -36252,6 +36252,80 @@ export type Database = {
           },
         ]
       }
+      support_view_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          ended_by: string | null
+          expires_at: string
+          id: string
+          organisation_id: string | null
+          reason: string
+          started_at: string
+          subject_full_name: string | null
+          subject_id: string
+          subject_role: Database["public"]["Enums"]["user_role"]
+          viewer_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          ended_by?: string | null
+          expires_at?: string
+          id?: string
+          organisation_id?: string | null
+          reason: string
+          started_at?: string
+          subject_full_name?: string | null
+          subject_id: string
+          subject_role: Database["public"]["Enums"]["user_role"]
+          viewer_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          ended_by?: string | null
+          expires_at?: string
+          id?: string
+          organisation_id?: string | null
+          reason?: string
+          started_at?: string
+          subject_full_name?: string | null
+          subject_id?: string
+          subject_role?: Database["public"]["Enums"]["user_role"]
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_view_sessions_ended_by_fkey"
+            columns: ["ended_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_view_sessions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_view_sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_view_sessions_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       symptom_triage_assessments: {
         Row: {
           category: Database["public"]["Enums"]["triage_category"]
@@ -41486,6 +41560,21 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: Json
       }
+      get_support_view_subject_identity: {
+        Args: { p_subject_id: string }
+        Returns: {
+          city: string
+          created_at: string
+          full_name: string
+          id: string
+          is_active: boolean
+          organisation_id: string
+          patient_number: string
+          phone: string
+          role: Database["public"]["Enums"]["user_role"]
+          state: string
+        }[]
+      }
       grant_platform_credit: {
         Args: { p_amount_kobo: number; p_patient_id: string; p_reason: string }
         Returns: number
@@ -43142,6 +43231,17 @@ export type Database = {
           snippet: string
           table_name: string
           title: string
+        }[]
+      }
+      search_support_view_subjects: {
+        Args: { p_query: string }
+        Returns: {
+          full_name: string
+          id: string
+          organisation_id: string
+          patient_number: string
+          phone: string
+          role: Database["public"]["Enums"]["user_role"]
         }[]
       }
       select_video_visit_alternate_slot: {
