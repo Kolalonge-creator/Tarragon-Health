@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { koboToNaira, nairaToKobo, SPECIALIST_TYPES, type SpecialistType } from "@tarragon/shared";
+import { canonicalizeNigerianState } from "@/lib/nigeria-states";
 import type { PatientLocation } from "../facility-selector";
 
 /**
@@ -29,7 +30,12 @@ import type { PatientLocation } from "../facility-selector";
  */
 export function FindASpecialist({ patientLocation }: { patientLocation?: PatientLocation | null }) {
   const [specialistType, setSpecialistType] = useState<SpecialistType>("cardiology");
-  const [state, setState] = useState(patientLocation?.state ?? "");
+  // Canonicalized: useMatchedSpecialistProviders compares this against
+  // specialist_providers.state with a plain `=`, so a stale non-canonical profile value
+  // (a casing/whitespace/"...State"-suffix variant) would otherwise silently lose the
+  // same-state sort boost every real match should get. Falls back to the raw value when
+  // it matches no canonical state.
+  const [state, setState] = useState(canonicalizeNigerianState(patientLocation?.state));
   const [city, setCity] = useState(patientLocation?.city ?? "");
   const [requireTelemedicine, setRequireTelemedicine] = useState(false);
   const [maxFeeNaira, setMaxFeeNaira] = useState("");
