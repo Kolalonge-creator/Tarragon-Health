@@ -208,8 +208,10 @@ export function OnboardingFlow({
         </p>
         <p className="text-sm text-charcoal-ink">
           The app itself is free. The only thing that costs money is a doctor&apos;s time when
-          you ask for it. Paying for that is also what gets a doctor paged automatically on a
-          dangerous reading, plus routine review of your readings even when nothing&apos;s flagged.
+          you ask for it. The safety net above always applies, whether or not you&apos;ve paid
+          for anything. What paying for a doctor&apos;s time adds on top of that is a doctor
+          personally reviewing a dangerous reading, plus routine review of your readings even
+          when nothing&apos;s flagged.
         </p>
       </div>
 
