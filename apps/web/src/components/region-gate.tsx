@@ -8,7 +8,7 @@ import {
   useMyOpenWaitlist,
   type RegionServiceType,
 } from "@/lib/queries/service-regions";
-import { canonicalizeNigerianState, isRecognizedNigerianState } from "@/lib/nigeria-states";
+import { resolveNigerianState } from "@/lib/nigeria-states";
 
 const SERVICE_LABELS: Record<RegionServiceType, string> = {
   lab: "Lab tests",
@@ -53,14 +53,15 @@ export function RegionGate({
 }) {
   const label = serviceLabel ?? SERVICE_LABELS[service];
   const { data: available, isLoading } = useRegionServiceAvailable(state, service);
-  // Canonicalized once and reused for every waitlist read/write and for the "coming soon"
-  // display copy below, so a patient whose profile holds a non-canonical spelling (e.g.
+  // Resolved once (a single normalization pass) and reused for: whether `state` is a
+  // recognized Nigerian state at all (below), every waitlist read/write, and the "coming
+  // soon" display copy — so a patient whose profile holds a non-canonical spelling (e.g.
   // "Lagos State") doesn't join a waitlist keyed by that raw string —
   // private.notify_region_waitlist does an EXACT match against the canonical
   // service_regions.state when a state goes live, so a raw, un-canonicalized write would
   // silently never fire for that patient (region_service_available itself was fixed to
   // tolerate the variant on read; this closes the same gap on the waitlist write/read path).
-  const canonicalState = canonicalizeNigerianState(state);
+  const { recognized: isRecognizedState, canonical: canonicalState } = resolveNigerianState(state);
   const { data: alreadyJoined } = useMyOpenWaitlist(canonicalState || null, service, careRecipientId);
   const joinWaitlist = useJoinRegionWaitlist();
   const [justJoined, setJustJoined] = useState(false);
@@ -81,7 +82,11 @@ export function RegionGate({
   }
 
   if (isLoading) {
-    return <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Checking availability in {state}…</p>;
+    return (
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+        Checking availability in {canonicalState || state}…
+      </p>
+    );
   }
 
   if (available) {
@@ -96,7 +101,7 @@ export function RegionGate({
   // different copy: "coming soon" implies we'll get there, which isn't true or actionable
   // for the second case, and "please reselect" would be actively confusing for a patient
   // who genuinely isn't in Nigeria.
-  if (!isRecognizedNigerianState(state)) {
+  if (!isRecognizedState) {
     return (
       <div className="rounded-lg border border-dashed border-charcoal-ink/15 dark:border-night-ink/20 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3">
         <p className="text-sm font-medium text-charcoal-ink/70 dark:text-night-ink/70">

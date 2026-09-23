@@ -3,6 +3,7 @@ import {
   canonicalizeNigerianState,
   isRecognizedNigerianState,
   normalizeNigerianStateKey,
+  resolveNigerianState,
 } from "./nigeria-states";
 
 describe("normalizeNigerianStateKey", () => {
@@ -29,6 +30,14 @@ describe("normalizeNigerianStateKey", () => {
 
   it("does not collide unrelated strings", () => {
     expect(normalizeNigerianStateKey("United Kingdom")).not.toBe(normalizeNigerianStateKey("Lagos"));
+  });
+
+  it("folds punctuation the same way the SQL side's shared private.normalise_term does", () => {
+    // Regression: private.normalize_ng_state was rebuilt on private.normalise_term, which
+    // folds ANY non-alphanumeric run (not just whitespace) to a space. This JS mirror must
+    // match, or a hyphenated/comma'd stale value resolves differently client- vs server-side.
+    expect(normalizeNigerianStateKey("Cross-River")).toBe(normalizeNigerianStateKey("Cross River"));
+    expect(normalizeNigerianStateKey("Akwa,Ibom")).toBe(normalizeNigerianStateKey("Akwa Ibom"));
   });
 });
 
@@ -80,5 +89,15 @@ describe("isRecognizedNigerianState", () => {
     expect(isRecognizedNigerianState("   ")).toBe(false);
     expect(isRecognizedNigerianState(null)).toBe(false);
     expect(isRecognizedNigerianState(undefined)).toBe(false);
+  });
+});
+
+describe("resolveNigerianState", () => {
+  it("agrees with canonicalizeNigerianState/isRecognizedNigerianState for a variety of inputs", () => {
+    for (const value of ["Lagos", "lagos state", "FCT", "United Kingdom", "", "   ", null, undefined]) {
+      const resolved = resolveNigerianState(value);
+      expect(resolved.canonical).toBe(canonicalizeNigerianState(value));
+      expect(resolved.recognized).toBe(isRecognizedNigerianState(value));
+    }
   });
 });
