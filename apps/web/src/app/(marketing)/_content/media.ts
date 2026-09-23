@@ -113,7 +113,12 @@ export const MARKETING_MEDIA = {
       // after) — never a mockup or a generated image, per the standing
       // "anatomically-wrong prevention hero clip" lesson on this codebase.
       imageSrc: "/marketing/photos/app/how-it-works-health-domains.jpg",
-      imageAlt: "The Tarragon app's health domains screen, showing readings grouped into areas like Rhythm & recovery, Fitness and Inflammation",
+      // Only names domains lib/health-domains/domains.ts can actually
+      // populate today (RISK_SCORE_TO_DOMAIN/BIOMARKER_CATEGORY_TO_DOMAIN) —
+      // Fitness/Mind/Hormones/Inflammation/Brain have no feeding signal yet
+      // and always render "Not tracked yet", so naming them here as an
+      // example would describe a capability the shipped feature lacks.
+      imageAlt: "The Tarragon app's health domains screen, showing readings grouped into areas like Rhythm & recovery, Cardiovascular and Metabolic health",
     } satisfies MarketingMediaSlot,
     preventionCallout: {
       imageSrc: "/marketing/photos/body/prevention-reviewing-notes.jpg",

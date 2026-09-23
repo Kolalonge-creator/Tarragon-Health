@@ -30,15 +30,26 @@ export function StickyCtaBar() {
   const tickingRef = useRef(false);
   const visible = scrolledIntoRange && consent !== null;
 
+  const scrollHeightRef = useRef(0);
+
   useEffect(() => {
     const SHOW_AFTER_PX = 480;
     const HIDE_WITHIN_PX_OF_BOTTOM = 560;
 
+    // scrollHeight is layout-dependent (unlike scrollY/innerHeight) — reading
+    // it on every scroll tick can force a synchronous reflow whenever
+    // something below the fold (an image, a lazy-mounted section) has
+    // dirtied the layout since the last read. A ResizeObserver keeps a
+    // cached value updated only when the document's size actually changes,
+    // so the scroll handler itself never queries live geometry.
+    function updateScrollHeight() {
+      scrollHeightRef.current = document.documentElement.scrollHeight;
+    }
+
     function evaluate() {
       tickingRef.current = false;
       const scrollY = window.scrollY;
-      const distanceFromBottom =
-        document.documentElement.scrollHeight - (scrollY + window.innerHeight);
+      const distanceFromBottom = scrollHeightRef.current - (scrollY + window.innerHeight);
       setScrolledIntoRange(scrollY > SHOW_AFTER_PX && distanceFromBottom > HIDE_WITHIN_PX_OF_BOTTOM);
     }
 
@@ -48,10 +59,19 @@ export function StickyCtaBar() {
       requestAnimationFrame(evaluate);
     }
 
+    updateScrollHeight();
     evaluate();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateScrollHeight();
+      evaluate();
+    });
+    resizeObserver.observe(document.documentElement);
+
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     return () => {
+      resizeObserver.disconnect();
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };

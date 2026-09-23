@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { LEAD_ROLES, LEAD_GOALS } from "@/lib/validation/lead";
+import { LEAD_ROLES, LEAD_GOALS, LEAD_GOAL_LABEL } from "@/lib/validation/lead";
 
 const ROLE_LABELS: Record<(typeof LEAD_ROLES)[number], string> = {
   patient: "Patient",
@@ -17,18 +17,6 @@ const ROLE_LABELS: Record<(typeof LEAD_ROLES)[number], string> = {
   hmo: "HMO / insurer",
   ngo: "NGO / PHC / government programme",
   other: "Other",
-};
-
-// Optional — helps us understand what brings someone here, separate from
-// who they are (the role field above). Kept short and non-alarmist, in
-// keeping with the words this site avoids (docs/BRAND_GUIDE.md).
-const GOAL_LABELS: Record<(typeof LEAD_GOALS)[number], string> = {
-  managing_a_condition: "Managing a condition, like hypertension or diabetes",
-  staying_ahead: "Staying ahead of one, screening and prevention",
-  family_care: "Coordinating care for a parent or family member",
-  fast_doctor_access: "Getting to a doctor without the wait",
-  one_record: "One record instead of scattered results and files",
-  still_exploring: "Still exploring",
 };
 
 function isLeadRole(value: string | null): value is (typeof LEAD_ROLES)[number] {
@@ -159,7 +147,7 @@ export function ContactForm() {
           <option value="">Prefer not to say</option>
           {LEAD_GOALS.map((goal) => (
             <option key={goal} value={goal}>
-              {GOAL_LABELS[goal]}
+              {LEAD_GOAL_LABEL[goal]}
             </option>
           ))}
         </Select>

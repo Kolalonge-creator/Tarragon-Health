@@ -1,5 +1,4 @@
 import { Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export type FaqItem = {
   question: string;
@@ -32,7 +31,7 @@ export function FaqAccordion({
               {item.question}
               <Plus
                 aria-hidden
-                className="h-5 w-5 shrink-0 text-charcoal-ink/50 transition-transform duration-200 group-open:rotate-45"
+                className="h-5 w-5 shrink-0 text-brand-green transition-transform duration-200 group-open:rotate-45"
               />
             </summary>
             <p className="mt-3 text-charcoal-ink/70">{item.answer}</p>
@@ -53,9 +52,7 @@ export function FaqAccordion({
             {item.question}
             <Plus
               aria-hidden
-              className={cn(
-                "h-5 w-5 shrink-0 text-brand-green transition-transform duration-200 group-open:rotate-45"
-              )}
+              className="h-5 w-5 shrink-0 text-brand-green transition-transform duration-200 group-open:rotate-45"
             />
           </summary>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">{item.answer}</p>

@@ -80,6 +80,30 @@ describe("buildHealthDomains", () => {
     expect(rhythm?.narrative).toContain("10 synced nights");
   });
 
+  it("never asserts a status from too few nights to judge consistency (sleep.consistency 'unknown')", () => {
+    const result = buildHealthDomains({
+      sleepSummary: {
+        lastNightMinutes: 400,
+        averageMinutes: 410,
+        nightsInWindow: 2,
+        consistency: "unknown",
+        trend: "unknown",
+      },
+    });
+    const rhythm = result.find((d) => d.key === "rhythm_recovery");
+    expect(rhythm?.status).toBe("no_data");
+    // Still a plain fact, not a fabricated verdict.
+    expect(rhythm?.narrative).toContain("6.8 hours");
+  });
+
+  it("maps heart_rate_pattern to cardiovascular, not rhythm_recovery", () => {
+    const result = buildHealthDomains({
+      riskSignals: [{ score_type: "heart_rate_pattern", risk_level: "high" }],
+    });
+    expect(result.find((d) => d.key === "cardiovascular")).toMatchObject({ status: "attention" });
+    expect(result.find((d) => d.key === "rhythm_recovery")).toMatchObject({ status: "no_data" });
+  });
+
   it("flags rhythm & recovery as needing attention when sleep is irregular", () => {
     const result = buildHealthDomains({
       sleepSummary: {

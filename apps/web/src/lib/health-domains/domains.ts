@@ -22,7 +22,7 @@
 
 import type { Enums } from "@tarragon/shared";
 import type { BiomarkerCategoryView } from "@/lib/lab-reports/biomarker-categories";
-import type { SleepSummary } from "@/lib/queries/wearable-sleep";
+import { SLEEP_TREND_LABEL, type SleepSummary } from "@/lib/queries/wearable-sleep";
 
 export type HealthDomainGroup = "energy" | "future_health";
 
@@ -116,13 +116,19 @@ const DOMAIN_META: Record<
 /** Which existing patient_risk_scores.score_type feeds which domain. Any
  * score_type not listed here (e.g. predictive_missed_follow_up, an
  * adherence signal, not a body-system one) is deliberately left out of
- * this view — it stays visible via RiskSignalsCard instead. */
+ * this view — it stays visible via RiskSignalsCard instead.
+ *
+ * heart_rate_pattern lives under cardiovascular, not rhythm_recovery: it's
+ * assess-heart-rate.ts's sustained resting-rate-range assessment, built to
+ * mirror bp_control's own shape and raising the same category:"clinical"
+ * alert — a cardiovascular signal, not a sleep/recovery one, even though
+ * the name reads adjacent to "rhythm". */
 const RISK_SCORE_TO_DOMAIN: Partial<Record<string, HealthDomainKey>> = {
   cvd_10yr: "cardiovascular",
   heart_age: "cardiovascular",
   bp_control: "cardiovascular",
+  heart_rate_pattern: "cardiovascular",
   hba1c_trajectory: "metabolic",
-  heart_rate_pattern: "rhythm_recovery",
 };
 
 /** Which existing biomarker category (lib/lab-reports/biomarker-categories.ts)
@@ -189,15 +195,22 @@ export function buildHealthDomains(inputs: HealthDomainInputs): HealthDomainView
 
   const sleep = inputs.sleepSummary;
   if (sleep && sleep.nightsInWindow > 0) {
-    status.set(
-      "rhythm_recovery",
-      worse(status.get("rhythm_recovery")!, sleep.consistency === "irregular" ? "attention" : "good")
-    );
+    if (sleep.consistency === "irregular") {
+      status.set("rhythm_recovery", worse(status.get("rhythm_recovery")!, "attention"));
+    } else if (sleep.consistency === "consistent" || sleep.consistency === "somewhat_variable") {
+      status.set("rhythm_recovery", worse(status.get("rhythm_recovery")!, "good"));
+    }
+    // consistency "unknown" (wearable-sleep.ts: fewer than 3 nights, "too
+    // few nights to say anything meaningful") asserts no status either
+    // way — same discipline as risk_level "unknown"/null above. The
+    // average-hours sentence below is still a plain fact, not a verdict,
+    // so it's fine to show even for those first couple of nights.
     if (sleep.averageMinutes != null) {
       const hours = Math.round((sleep.averageMinutes / 60) * 10) / 10;
       notes.get("rhythm_recovery")!.push(
         `You're averaging about ${hours} hours of sleep a night over your last ${sleep.nightsInWindow} synced night${sleep.nightsInWindow === 1 ? "" : "s"}` +
-          (sleep.consistency === "irregular" ? ", with a fairly irregular pattern." : ".")
+          (sleep.consistency === "irregular" ? ", with a fairly irregular pattern. " : ". ") +
+          SLEEP_TREND_LABEL[sleep.trend]
       );
     }
   }
