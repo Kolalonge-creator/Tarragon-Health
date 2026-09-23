@@ -228,7 +228,7 @@ jobs:
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
         with:
           version: latest
@@ -396,7 +396,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: latest
 
