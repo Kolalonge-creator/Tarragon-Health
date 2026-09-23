@@ -12,14 +12,16 @@
  * of being silently dropped, and that a canonical value still selects
  * normally.
  */
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { PatientLocationForm } from "./patient-location-form";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: jest.fn() }),
 }));
+
+const nextResult: unknown = { success: true, values: { state: "Lagos", city: "Ikeja", area: null } };
 jest.mock("./actions", () => ({
-  updatePatientLocation: jest.fn(),
+  updatePatientLocation: jest.fn(async () => nextResult),
 }));
 
 describe("PatientLocationForm — state dropdown", () => {
@@ -44,5 +46,36 @@ describe("PatientLocationForm — state dropdown", () => {
 
     const select = screen.getByLabelText("State") as HTMLSelectElement;
     expect(select.value).toBe("");
+  });
+
+  /**
+   * A subtler bug caught by review: `state.values` (the action's echo, used
+   * to repopulate a field right after its own submission) never resets on
+   * its own — `useActionState`'s state persists indefinitely, and this
+   * component is never remounted by `router.refresh()` alone (only the
+   * Server Component tree re-renders, handing it a fresh `initial` prop).
+   * Left unchecked, a successful save's echoed values would keep winning
+   * over `initial` forever, including over a *later*, legitimate external
+   * edit (another tab, a caregiver) — silently overwriting it right back on
+   * the next save, and permanently defeating the state-dropdown mismatch
+   * detector above (a canonical value saved once would mean "on file,
+   * please reselect" could never fire again even for a genuinely new
+   * mismatch). This drives a real save, then re-renders with a changed
+   * `initial` simulating exactly that external update, and asserts the new
+   * `initial` wins rather than the stale echoed value.
+   */
+  it("lets a fresh initial prop override a stale echoed value from an earlier save", async () => {
+    const { rerender } = render(<PatientLocationForm initial={{ state: "Lagos", city: null, area: null }} />);
+
+    fireEvent.click(screen.getByText("Save location"));
+    await screen.findByText("Location saved.");
+    expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("Ikeja");
+
+    // Simulate a later, external change to this same profile's city -
+    // exactly what router.refresh() would eventually hand this component
+    // if a caregiver (or another tab) had edited it in the meantime.
+    rerender(<PatientLocationForm initial={{ state: "Lagos", city: "Yaba", area: null }} />);
+
+    expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("Yaba");
   });
 });

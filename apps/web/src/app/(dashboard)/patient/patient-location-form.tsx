@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { updatePatientLocation } from "./actions";
@@ -41,7 +41,43 @@ export function PatientLocationForm({
   // confirmation screen), this form remounts on success too, so focus needs
   // to land on whichever banner is actually showing.
   const attempt = useRemountOnActionResult(state, (s) => Boolean(s), state?.success ? successId : errorId);
-  const values = state?.values;
+
+  // `state.values` (the action's echo) must only win over `initial` for the
+  // render(s) immediately after the submission that produced it — its job
+  // is to repopulate a freshly-remounted field with what was just typed,
+  // not to permanently shadow the server's own truth. `useActionState`'s
+  // `state` never resets to undefined on its own, and this component is
+  // never remounted by `router.refresh()` (only the Server Component tree
+  // re-renders, handing this Client Component a fresh `initial` prop) — so
+  // without clearing it, `values` would keep winning forever, including
+  // over a *later*, legitimate external edit to this same profile (another
+  // tab, a caregiver), silently overwriting it right back on the next save.
+  // It would also permanently defeat the state-dropdown mismatch detector
+  // below: once a canonical value is saved successfully, "on file, please
+  // reselect" could never fire again even if a later out-of-band write
+  // reintroduced a real mismatch. Cleared the moment a genuinely new
+  // `initial` arrives, whatever caused it; a fresh submission's own echo
+  // (checked second, so it wins if both change in the same render) always
+  // takes priority over that.
+  const [values, setValues] = useState(state?.values);
+  // Also part of the remount key below: clearing `values` alone wouldn't be
+  // enough on its own, since `defaultValue` on an already-mounted
+  // uncontrolled input is inert to prop changes without a remount — a
+  // genuinely new `initial.city` needs the DOM to actually re-read it, not
+  // just have `values` stop shadowing it in a computation nothing re-runs.
+  const [initialEpoch, setInitialEpoch] = useState(0);
+  const [lastInitial, setLastInitial] = useState(initial);
+  if (initial !== lastInitial) {
+    setLastInitial(initial);
+    setValues(undefined);
+    setInitialEpoch((n) => n + 1);
+  }
+  const [lastState, setLastState] = useState(state);
+  if (state !== lastState) {
+    setLastState(state);
+    setValues(state?.values);
+  }
+
   const currentState = values?.state ?? initial.state;
 
   // The state field used to be free text (see the Select comment below), so
@@ -56,9 +92,14 @@ export function PatientLocationForm({
 
   // Server components read profiles.state/city/area — refresh so the pickers
   // downstream pick up the new saved location without a full reload.
+  // Depends on `state` itself, not the derived `state?.success` boolean: two
+  // successful saves in a row both have `success: true` (the same primitive,
+  // on two different `state` objects), so a dependency array keyed on that
+  // boolean wouldn't change between them and this effect would silently
+  // skip the second refresh.
   useEffect(() => {
     if (state?.success) router.refresh();
-  }, [state?.success, router]);
+  }, [state, router]);
 
   return (
     <Card>
@@ -73,7 +114,7 @@ export function PatientLocationForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form key={attempt} action={formAction} className="space-y-4">
+        <form key={`${attempt}-${initialEpoch}`} action={formAction} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="location-state">State</Label>
