@@ -216,6 +216,21 @@ comment on function public.hook_password_verification_attempt(jsonb) is
 revoke all on function public.hook_password_verification_attempt(jsonb) from public, anon, authenticated;
 grant execute on function public.hook_password_verification_attempt(jsonb) to supabase_auth_admin;
 
+-- EXECUTE on the function alone is not sufficient — Postgres also requires
+-- USAGE on the function's containing schema for the calling role to invoke
+-- it at all, and supabase_auth_admin is NOT granted USAGE on the public
+-- schema by default (found via a real CI failure on a freshly-reset local
+-- stack: EXECUTE was granted correctly, and the call still failed
+-- insufficient_privilege — this is a well-documented Supabase Auth Hooks
+-- gotcha, not something specific to this project). On a live/hosted
+-- project, registering a hook through the dashboard or `config push` may
+-- provision EXECUTE on the target function automatically, but schema USAGE
+-- is never auto-granted by that path either — and a local `supabase db
+-- reset` replay (this project's own CI job) never goes through that live
+-- hook-registration machinery at all, so this grant must be explicit here
+-- to work in both places.
+grant usage on schema public to supabase_auth_admin;
+
 -- ---------------------------------------------------------------------------
 -- Self-check, same discipline as the prior migration's own (grant comments
 -- can lie — verify live).
@@ -237,5 +252,11 @@ begin
   end if;
   if not has_function_privilege('supabase_auth_admin', 'public.hook_password_verification_attempt(jsonb)', 'EXECUTE') then
     raise exception 'hook_password_verification_attempt is NOT EXECUTE-able by supabase_auth_admin — GoTrue itself would be unable to call its own hook, which fails every password sign-in on the platform (see this file''s header comment)';
+  end if;
+  -- EXECUTE alone doesn't prove the call actually works — see the grant
+  -- usage on schema public statement's own comment above for the real bug
+  -- this assertion would have caught (found via a genuine CI failure).
+  if not has_schema_privilege('supabase_auth_admin', 'public', 'USAGE') then
+    raise exception 'supabase_auth_admin does NOT have USAGE on schema public — it would be unable to invoke hook_password_verification_attempt at all despite having EXECUTE on the function itself, failing every password sign-in on the platform';
   end if;
 end $$;
