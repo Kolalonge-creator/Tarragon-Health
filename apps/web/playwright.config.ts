@@ -46,7 +46,19 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
-    command: "pnpm dev",
+    // --webpack, not `pnpm dev` (Turbopack, this repo's default for local
+    // dev speed) — 4 real CI attempts (see git history) at getting
+    // NEXT_PUBLIC_SUPABASE_URL/ANON_KEY into src/proxy.ts's Edge Runtime
+    // execution all failed identically, despite confirming (via CI debug
+    // output) the values were correct at every other layer: the shell env,
+    // a written .env.local file, and next.config.ts's own `env` field (a
+    // compile-time substitution mechanism, not a runtime env lookup).
+    // Turbopack's dev-mode Edge Runtime bundling is a substantially newer
+    // code path than webpack's, which has had this exact feature working
+    // for years — testing whether the gap is Turbopack-dev-mode-specific,
+    // scoped to only this test runner's own spawned server (never the
+    // `pnpm dev` a developer runs locally, which keeps Turbopack).
+    command: "npx next dev --webpack",
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
