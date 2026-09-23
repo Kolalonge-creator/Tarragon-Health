@@ -574,7 +574,13 @@ export function useAssignableDoctors(options: { enabled?: boolean } = {}) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("clinical_staff")
-        .select("profile_id, full_name, doctor_tier")
+        // `id` was added alongside profile_id so this same query can back a
+        // curbside-consult colleague picker (lib/queries/curbside-consults.ts),
+        // which needs clinical_staff.id for start_curbside_consult's
+        // p_recipient_clinical_staff_id, not profile_id — existing callers
+        // (escalation-worklist.tsx) only ever read profile_id/doctor_tier, so
+        // this is additive.
+        .select("id, profile_id, full_name, doctor_tier")
         .neq("doctor_tier", "care_coordinator")
         .eq("active", true)
         .not("profile_id", "is", null)

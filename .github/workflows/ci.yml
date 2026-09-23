@@ -98,6 +98,30 @@ jobs:
         if: github.event_name != 'pull_request' || steps.changes.outputs.mobile == 'true'
         run: pnpm --filter @tarragon/mobile lint
 
+      # Structural check only — confirms every Maestro flow file parses as
+      # Maestro's own config+commands two-document YAML format (the same
+      # check used to validate apps/mobile/.maestro/flows/login-to-overview.yaml
+      # by hand before it could ever be run against a real device — see
+      # apps/mobile/.maestro/README.md). Catches a broken/malformed flow file
+      # before merge; does NOT run any flow against a simulator/device — that
+      # needs a macOS runner + a real native build and is out of scope here.
+      - name: Lint Maestro flow YAML
+        if: github.event_name != 'pull_request' || steps.changes.outputs.mobile == 'true'
+        run: |
+          pip install --quiet pyyaml
+          python3 -c "
+          import glob, sys, yaml
+          files = glob.glob('apps/mobile/.maestro/flows/*.yaml')
+          if not files:
+              sys.exit('no Maestro flow files found under apps/mobile/.maestro/flows/')
+          for path in files:
+              docs = list(yaml.safe_load_all(open(path)))
+              assert len(docs) == 2, f'{path}: expected 2 YAML documents (config + commands), got {len(docs)}'
+              assert isinstance(docs[0], dict) and 'appId' in docs[0], f'{path}: config block missing appId'
+              assert isinstance(docs[1], list) and len(docs[1]) > 0, f'{path}: commands block must be a non-empty list'
+              print(f'{path}: OK ({len(docs[1])} commands)')
+          "
+
   python-ml:
     name: Python ML service
     runs-on: ubuntu-latest
@@ -275,6 +299,64 @@ jobs:
       - name: Stop local Supabase stack
         if: always() && (github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true')
         run: supabase stop
+
+  # Edge functions (supabase/functions/) are Deno, not Node — they're outside
+  # every other job's reach (pnpm/jest never sees them; supabase-db below
+  # replays migrations, not function code). Until this job, paystack-webhook
+  # — the authoritative source of truth for subscription/service activation,
+  # see that file's own header — had zero direct test coverage; the only
+  # existing check was a drift guard comparing text, not behaviour
+  # (apps/web/src/lib/billing/refund-idempotency.test.ts). Path-filtered like
+  # mobile-typescript above, for the same reason: cheap to skip when nothing
+  # under supabase/functions changed.
+  edge-functions:
+    name: Edge functions (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect edge-function changes
+        id: changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            edge:
+              - "supabase/functions/**"
+              - ".github/workflows/ci.yml"
+
+      - name: Set up Deno
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # --no-config: Deno auto-detects the repo root's pnpm-workspace.yaml and
+      # tries to migrate it into package.json's own "workspaces" field as a
+      # side effect of running at all inside this directory (reproduced
+      # locally 2026-09-23) — irrelevant to and unwanted by these tests, which
+      # need none of Deno's npm-compat machinery. --allow-env is scoped to
+      # exactly what index.test.ts uses today; extend this list (never widen
+      # to a bare --allow-env) when a future edge-function test needs another
+      # variable.
+      #
+      # Scoped to paystack-webhook/, not the whole supabase/functions tree:
+      # the other 5 functions (abnormal-result-handler, integration-outbound-
+      # drain, send-pending-notifications, send-support-reply, whatsapp-
+      # webhook, zoom-webhook) have never been `deno lint`ed either and carry
+      # 6 pre-existing require-await findings unrelated to this change
+      # (checked 2026-09-23) — widen this glob directory-by-directory once
+      # each is verified clean, rather than landing a job that's red on day
+      # one for code this change never touched.
+      - name: Test
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        working-directory: supabase/functions/paystack-webhook
+        run: deno test --no-config --allow-env=PAYSTACK_WEBHOOK_SECRET .
+
+      - name: Lint
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        working-directory: supabase/functions/paystack-webhook
+        run: deno lint --no-config .
 
   supabase-db:
     name: Supabase migration replay
