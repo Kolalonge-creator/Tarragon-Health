@@ -28,11 +28,14 @@ const INTENT_OPTIONS: {
  * Step 1 of onboarding, new: what brought this person here, asked before
  * anything else. Not a consent, not health data, and not stored anywhere —
  * it never gates finishing onboarding and resets on a page refresh, the
- * same way it would cost nothing to skip. Its only job is to pick which
- * section of the risk assessment opens first (see RiskAssessmentForm's
- * initialStep), so the very next thing after agreeing to the terms is a
- * question that is actually relevant to why they signed up, rather than the
- * same fixed family-history-first order for everyone.
+ * same way it would cost nothing to skip. Its only effect is which intro
+ * line IntakeStep shows above the risk-assessment questionnaire (see
+ * intake-step.tsx's INTRO_COPY) — deliberately NOT which section the
+ * questionnaire opens on: an earlier version tried that and code review
+ * caught it as unsafe (several required fields have no enforcement on a
+ * hidden step, so skipping ahead let a patient submit without ever seeing
+ * them). Every visitor still answers the same four sections in the same
+ * order; only the opening sentence changes.
  */
 export function IntentStep({ onComplete }: { onComplete: (intent: OnboardingIntent) => void }) {
   return (
@@ -42,7 +45,7 @@ export function IntentStep({ onComplete }: { onComplete: (intent: OnboardingInte
           What brings you here?
         </h2>
         <p className="mt-1 text-sm text-charcoal-ink/60">
-          Helps us ask the right questions first. You can change your mind at any point.
+          Helps us tailor what comes next. You can change your mind at any point.
         </p>
       </div>
       <div className="space-y-2">

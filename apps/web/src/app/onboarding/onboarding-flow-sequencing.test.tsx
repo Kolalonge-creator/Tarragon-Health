@@ -23,7 +23,7 @@ jest.mock("@/lib/queries/consent", () => ({
 jest.mock("@/app/(dashboard)/patient/patient-location-form", () => ({
   PatientLocationForm: () => null,
 }));
-jest.mock("./intake-step", () => ({ IntakeStep: () => null }));
+jest.mock("./intake-step", () => ({ IntakeStep: () => <div data-testid="intake-step" /> }));
 
 const BASE_INITIAL = {
   consentDone: false,
@@ -79,5 +79,26 @@ describe("OnboardingFlow — intent-first sequencing", () => {
 
     expect(screen.queryByText("What brings you here?")).toBeNull();
     expect(screen.getByTestId("care-team")).toBeTruthy();
+  });
+
+  it("regression: hides the risk-assessment questionnaire when demographics is done but consent is not (was previously gated on demographics alone)", () => {
+    // Only reachable if a returning visitor had finished demographics in an
+    // earlier session, then reopened/withdrew consent before this render —
+    // demographicsDone alone used to be enough to show IntakeStep, letting a
+    // patient interact with the health questionnaire underneath an
+    // unconfirmed ConsentStep. Fixed in code review before this merged.
+    render(
+      <OnboardingFlow
+        profile={{ id: "patient-1", fullName: "Amaka" }}
+        careTeamSlot={<div data-testid="care-team" />}
+        existingPlan={null}
+        initial={{ ...BASE_INITIAL, consentDone: false, demographicsDone: true }}
+      />
+    );
+
+    // Reopens straight past the (skipped) intent step, same as any returning
+    // visitor, landing on ConsentStep since consentDone is false.
+    expect(screen.getByText("Your agreement")).toBeTruthy();
+    expect(screen.queryByTestId("intake-step")).toBeNull();
   });
 });

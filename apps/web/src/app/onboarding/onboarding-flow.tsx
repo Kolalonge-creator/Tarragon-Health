@@ -12,16 +12,6 @@ import { PlanPreview } from "./plan-preview";
 import { ReadyNotice } from "./ready-notice";
 import { ExistingPlanNotice } from "./existing-plan-notice";
 
-/** Which RiskAssessmentForm section (see its own STEP_LABELS) is most
- *  relevant to why someone said they were here. "unsure" and anything
- *  unset both fall back to the form's own default order (family history
- *  first) rather than guessing. */
-const INTENT_TO_RISK_ASSESSMENT_STEP: Record<OnboardingIntent, number> = {
-  manage: 3, // Medical history
-  prevent: 4, // Vaccination & screening
-  unsure: 1, // Family history (the form's own default)
-};
-
 /**
  * A finished step. Previously an inert row: once a step collapsed into one of
  * these there was no way back into it, so a mistyped date of birth (which
@@ -111,14 +101,24 @@ function OnboardingProgress({ current }: { current: number }) {
 /**
  * Client-side onboarding orchestrator. Four counted steps (see STEP_LABELS,
  * which is what OnboardingProgress shows the patient):
- *   1. What brings you here (not stored, gates nothing — just picks which
- *      risk-assessment section opens first)
+ *   1. What brings you here (not stored, gates nothing — see intent-step.tsx.
+ *      Only ever changes IntakeStep's intro copy below it, never which
+ *      risk-assessment section opens: an earlier version of this step tried
+ *      to jump the questionnaire straight to a later section, which code
+ *      review caught as unsafe — several of its required fields (Lifestyle's
+ *      in particular) have no client-side enforcement on a hidden step, so
+ *      starting past section 1 let a patient submit without ever seeing
+ *      them, failing server-side validation with no way to find what was
+ *      missing.)
  *   2. Consent (required)
  *   3. Your risk profile: DOB/sex (required), then the risk-assessment
  *      questionnaire + current medications (skippable) — two components
  *      (DemographicsForm, IntakeStep) shown under one counted step, so DOB/sex
  *      leads straight into the assessment it exists to power rather than
- *      standing alone as its own disconnected "About you" step.
+ *      standing alone as its own disconnected "About you" step. Both stay
+ *      gated on consentDone too, not just demographicsDone — reopening
+ *      "Your agreement" after finishing this step must hide it again, not
+ *      leave it rendered underneath an unconfirmed consent.
  *   4. Confirmation (the app is free)
  * Resequenced 2026-09-23 from the previous Consent → Demographics → Intake →
  * dashboard order: an intent step now leads, and risk assessment is the
@@ -294,14 +294,14 @@ export function OnboardingFlow({
             <PatientLocationForm initial={initial.location} />
           )}
 
-          {demographicsDone && !intakeCollapsed && (
+          {consentDone && demographicsDone && !intakeCollapsed && (
             <IntakeStep
               patientId={profile.id}
               onSkip={() => setIntakeCollapsed(true)}
-              initialStep={INTENT_TO_RISK_ASSESSMENT_STEP[intent]}
+              intent={intent}
             />
           )}
-          {demographicsDone && intakeCollapsed && (
+          {consentDone && demographicsDone && intakeCollapsed && (
             <DoneRow label="Health profile" onReopen={() => setIntakeCollapsed(false)} />
           )}
         </>

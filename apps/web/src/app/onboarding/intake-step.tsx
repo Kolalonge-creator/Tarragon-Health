@@ -4,6 +4,25 @@ import { useState } from "react";
 import { RiskAssessmentForm } from "@/app/(dashboard)/patient/risk-assessment-form";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { Button } from "@/components/ui/button";
+import type { OnboardingIntent } from "./intent-step";
+
+/** Keyed off the intent chosen in intent-step.tsx — a straight copy swap,
+ *  not a change to the questionnaire itself. Deliberately NOT used to open
+ *  the assessment on a later section: every section's required fields
+ *  (Lifestyle's in particular — smoking/alcohol/sleep/stress/height have no
+ *  client-side enforcement on a hidden step) only get filled in if the
+ *  patient actually visits them, so starting anywhere but section 1 risked
+ *  a submission that silently failed validation with no way to find the
+ *  missing section — caught in code review before this ever merged. */
+const INTRO_COPY: Record<OnboardingIntent, string> = {
+  manage: "We'll start with your medical history, so we understand the condition you're managing.",
+  prevent:
+    "We'll build a screening and vaccination calendar matched to your age, sex, and history.",
+  unsure:
+    "Four short sections build your personal prevention plan: a screening and vaccination " +
+    "calendar matched to your age, sex, and history, whether you're managing a condition or " +
+    "perfectly healthy and want to stay that way.",
+};
 
 /**
  * Step 3 of onboarding (Phase B): the guided health profile. Surfaces the
@@ -16,13 +35,12 @@ import { Button } from "@/components/ui/button";
 export function IntakeStep({
   patientId,
   onSkip,
-  initialStep,
+  intent,
 }: {
   patientId: string;
   onSkip: () => void;
-  /** Passed straight through to RiskAssessmentForm — which section opens
-   *  first, driven by the intent chosen in intent-step.tsx. */
-  initialStep?: number;
+  /** From intent-step.tsx — only changes which intro line is shown below. */
+  intent: OnboardingIntent;
 }) {
   const [showMeds, setShowMeds] = useState(false);
 
@@ -38,14 +56,12 @@ export function IntakeStep({
             costs nothing and is the difference between a promise kept and a
             small lie on the way in. */}
         <p className="mt-1 text-sm text-charcoal-ink/60">
-          Four short sections here build your personal prevention plan: a screening and
-          vaccination calendar matched to your age, sex, and history, whether you&apos;re managing
-          a condition or perfectly healthy and want to stay that way. You can stop part-way, or
-          do the whole thing later from your dashboard.
+          {INTRO_COPY[intent]} You can stop part-way, or do the whole thing later from your
+          dashboard.
         </p>
       </div>
 
-      <RiskAssessmentForm patientId={patientId} initialStep={initialStep} />
+      <RiskAssessmentForm patientId={patientId} />
 
       <div className="border-t border-charcoal-ink/10 pt-4">
         <h3 className="text-sm font-semibold text-charcoal-ink">Medicines you take now</h3>
