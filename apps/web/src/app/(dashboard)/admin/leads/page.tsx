@@ -13,6 +13,7 @@ export type LeadRow = {
   name: string;
   contact: string;
   role: string;
+  goal: string | null;
   message: string | null;
   source: string;
   created_at: string;
@@ -33,7 +34,7 @@ export default async function AdminLeadsPage() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("leads")
-    .select("id, name, contact, role, message, source, created_at, contacted_at, contacted_by:profiles!leads_contacted_by_fkey(full_name)")
+    .select("id, name, contact, role, goal, message, source, created_at, contacted_at, contacted_by:profiles!leads_contacted_by_fkey(full_name)")
     .order("created_at", { ascending: false });
 
   const leads: LeadRow[] = (data ?? []).map((row) => ({
@@ -41,6 +42,7 @@ export default async function AdminLeadsPage() {
     name: row.name,
     contact: row.contact,
     role: row.role,
+    goal: row.goal,
     message: row.message,
     source: row.source,
     created_at: row.created_at,

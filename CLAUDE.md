@@ -87,6 +87,29 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
   times across this project's history. See `feedback_supabase_anon_execute_gotcha.md` in memory
   before trusting any past migration's own comment that claims this is closed — re-check live with
   `has_function_privilege('anon', '<function>', 'EXECUTE')` rather than the comment.
+- **Adding a new overload to a function already called with untyped literal arguments silently
+  breaks every existing bare-literal call site — differently depending on what kind of call site it
+  is.** `private.can_read_clinical(uuid, caregiver_permission)`
+  (`20260902234600_caregiver_permission_enforcement.sql`) turned every existing
+  `private.can_read_clinical(<uuid>, 'some_literal')` call ambiguous (`42725`) the moment it landed —
+  ambiguous on the TYPE of the unknown-typed literal, not on its value, so it doesn't matter whether
+  the literal happens to be a valid member of either enum. A plpgsql function body re-resolves its
+  calls on every invocation, so four already-shipped functions (`mark_care_message_thread_read`,
+  `private.can_read_record_correction`, `care_receipt`, `search_patient_record`) broke immediately
+  and silently the same day, fixed same-day in
+  `20260902235200_fix_can_read_clinical_overload_ambiguity_live_callers.sql`. An RLS policy (or a
+  view) binds its expression tree once at `CREATE POLICY`/`CREATE VIEW` time and never re-resolves
+  it, so a policy created before the new overload existed keeps working forever — the hole is a
+  *future* migration that `DROP`+`CREATE POLICY`s the exact same bare text again (typically
+  copy-pasted from the table's own history), which is exactly what almost shipped broken on a
+  separate branch three weeks later, and which a repo-wide sweep then found 16 more instances of
+  (`20260922183343_fix_remaining_can_read_clinical_bare_literal_policies.sql` — see the archive's
+  2026-09-22 entry for the full account, including why "the true current definition" had to be
+  pulled from live `pg_policies` rather than this branch's own migration history for two of the
+  tables). **Before adding a new overload to any function already called with an untyped literal
+  argument, grep every existing call site — policies and function bodies both — and add the explicit
+  cast to all of them in the same migration**, rather than finding them one accidental hit at a time
+  over the following weeks.
 - **`generate_typescript_types` returns PRODUCTION, which is every in-flight branch at once — not
   your branch.** Around 128 feature branches all apply their migrations to the same live project, so
   a wholesale regeneration of `packages/shared/src/database.types.ts` silently imports other people's
@@ -251,6 +274,8 @@ Prevention and chronic management **share the same patient record** — design e
 
 ## Clinical Tier Ladder (collapsed to 3 tiers — 2026-08-31)
 Full detail: `docs/Tarragon_Health_Master_Operating_Plan_v4.md` §4/§7/§8 (relabeled to match, not yet a full rewrite of the surrounding prose — verify specific claims against the live schema/code rather than the doc's older wording). Every clinical judgment is made by a doctor; no case is closed by non-clinical staff; a case climbs only as far as its complexity requires.
+
+**Founder principle (2026-09-18) — the platform's default is direct doctor↔patient, not coordinator-mediated.** Care Coordinators are a scaling lever, not a required intermediary every patient passes through to reach a doctor. This already matches the shipped architecture, not just intent: `private.auto_assign_escalation()` routes every case straight to a qualifying-tier doctor automatically (see "Case auto-assignment" below), and the Care Coordinator tier is scoped to logistics support layered alongside that path, never in front of it. Coordinator staffing should scale in as patient volume, partner network, and operations grow large enough that logistics work no longer fits inside doctors' own time — not be designed as a permanent, structural gate for every patient regardless of scale. When building new patient-facing flows or staffing tooling, don't route a patient through a coordinator to reach a doctor.
 - **Care Coordinator** (employed, non-clinical) — logistics only: check-ins, adherence/missed-reading tracking, lab/refill booking. Never interprets a result, adjusts medication, or closes an escalation — routes anything needing judgment to Medical Officer.
 - **Medical Officer** — standard, protocol-driven consultations within their own patient list; confirms/continues existing stable prescriptions; no new prescribing. Refers to Senior Medical Officer on difficulty.
 - **Senior Medical Officer / Specialist** — everything a Medical Officer does, plus complex and specialist cases, initiating new medications, and handling Medical Officer referrals. Employment relationship (employed vs. contracted — `clinical_staff.employment_type`) is a separate attribute from tier: a contracted external Partner Specialist and an employed senior in-house doctor are both this tier.
@@ -322,6 +347,18 @@ rules and let the git history / PR descriptions be the record of what shipped wh
 
 **Known standing follow-ups, as last recorded — verify each before acting, none of these should be
 taken on faith:**
+- **Supabase branching is unavailable on the current plan** (`PaymentRequiredException: Branching is
+  supported only on the Pro plan or above`) — hit live twice now, independently, six weeks apart
+  (2026-08-07, again 2026-09-23 while building the browser-E2E suite at `apps/web/e2e-browser/`), each
+  time only left as a code comment rather than surfaced here. This blocks giving CI a genuinely
+  disposable, per-run database for anything that needs one (real signup/checkout/eligibility E2E in
+  particular) — the workaround in place is a free, local, Docker-based Supabase stack
+  (`supabase start` + `db reset`, the same tooling the `supabase-db` CI job already proves works), which
+  is real isolation but real CI runner minutes, not the same fidelity/speed a hosted branch would give.
+  **Founder decision needed**: is a Pro-plan upgrade (a recurring cost, not evaluated here) worth it for
+  CI branching, or is the local-stack workaround the permanent answer? Until decided, expect this exact
+  wall to be hit again the next time disposable-database CI comes up — check this entry before
+  re-discovering it a third time.
 - **RESOLVED 2026-09-02, confirmed live 2026-09-03** — `main-dev` branch protection now lists all
   three CI jobs (`Supabase migration replay`, `Python ML service`, `TypeScript (web + shared)`) under
   `required_status_checks.contexts`, `enforce_admins` is `true`, and `gh pr merge` genuinely refuses a
@@ -445,6 +482,24 @@ taken on faith:**
   `(dashboard)/provider-org` route guards) — do not flip either on without the founder's explicit
   go-ahead, and confirm a real signed counterparty exists first. Neither platform's activation has
   ever been exercised against a real insurer or provider organisation.
+- **2026-09-22 — 2 of 5 open Dependabot alerts (`image-size`, GHSA advisories behind #31/#32, both DoS-via-
+  infinite-loop parsing ICNS/JXL/HEIF images) have no available fix and were dismissed with reason
+  `tolerable_risk`, not silently ignored.** The other 3 (`anyio`, #85-#87, TLS-cert-spoofing/critical among
+  them) were real and fixed by a plain `uv lock --upgrade-package anyio` in `services/ml` — no code
+  change needed. `image-size` is different: it's pulled in by `metro` (the React Native/Expo JS bundler,
+  `apps/mobile`-only, build/dev-time — never reachable by production traffic or untrusted network input),
+  and `@expo/metro@54.2.0` (tied to `apps/mobile`'s pinned `expo: ~54.0.36`) hard-pins `metro@0.83.3`,
+  which itself declares `image-size: ^1.0.2` — a range that can never resolve past `1.x`, and the
+  vulnerable range covers all of `1.x` too (no patched `1.x` release exists). The only real fix is
+  upstream: metro dropped its `image-size` dependency entirely somewhere after `0.83.3` (confirmed: the
+  latest published `metro` has no `image-size` dependency at all), but reaching that version means a real
+  Expo SDK bump (`apps/mobile`'s `expo: ~54.0.36` → a newer SDK line), which is app-config/native-module/
+  EAS-rebuild work, not a dependency-lockfile fix. Forcing a pnpm `overrides` entry to `image-size@2.x`
+  was deliberately NOT done — that's a major version bump with likely-breaking API changes, overriding
+  what `metro` itself declares as compatible, for a bundler-only DoS with no real attack surface in this
+  app's actual usage. Revisit when `apps/mobile` next does a deliberate Expo SDK upgrade for its own
+  reasons — check then whether the new SDK line's `metro`/`@expo/metro` pin has already dropped
+  `image-size`, closing this for free.
 - **2026-08-26 — mobile OTA publishing is now automated, but needs one secret added before it runs.**
   `apps/mobile` had no CI path to the actual running app — EAS Update only shipped via a manual
   `eas update`, and a day's worth of merged JS-only UI work (BMW-kit rework, nav-drawer/Devices
@@ -566,3 +621,12 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
 - Diaspora growth-pitch reconciliation (gift-a-health-check, standalone video consult, group screening days, instalment payment, screening→chronic conversion, referral commissions) against what's actually shipped, plus the two gaps it found (diaspora gift flow, group screening days) built and verified → `docs/DIASPORA_HEALTH_CHECK_BUSINESS_MODEL_RECONCILIATION.md`. `screen_core`'s dead video-consult trigger branch is vestigial, not a broken promise — its real doctor-review mechanism is the async `annual_health_checks` review pipeline, already live. **`public.purchase_care_voucher` was deliberately stubbed to always fail by the 2026-08-03 self-arranged-fulfilment sweep (an explicit `⚠️ FOUNDER` comment, not an oversight) and stayed that way for 8 days after Synlab's Aug 21 partner-billing switch removed the reason — re-enabled 2026-08-29 with region/priceable guards mirroring the real order-creation path. A reminder this file has made before in other words: a migration file's committed body is not proof of what a live function does — check `pg_get_functiondef` before building on top of an RPC.**
 - Incident-command runbooks (lab outage, pharmacy network disruption, video/Zoom platform failure, major clinical incident, suspected cybersecurity incident) → `docs/runbooks/` — operational, not legal; `docs/legal/breach-notification-runbook.md` remains authoritative for the NDPA-notification process once a suspected incident is confirmed as a reportable personal-data breach
 - Symptom Assessment & Triage Engine — red-flag screening + dynamic questionnaire, governed/signed protocol config, escalation wiring into the existing `emergency_events`/`clinician_alerts` machinery, safety monitoring, scope decisions (which presenting complaints exist, which entry points have a UI, why there's no AI layer), go-live checklist → `docs/SYMPTOM_TRIAGE_ENGINE_SPEC.md` — the gate is real and fail-closed (no UPDATE policy on `triage_protocols`; only the SECURITY DEFINER `sign_triage_protocols`, which demands an active `is_clinical_director`, can set `is_active`) — but **the checker is now LIVE**: v1 was signed and activated 2026-09-04 20:04 UTC. Do not repeat the old claim that it is off; check `triage_protocols` for the current state
+- HL7 FHIR interoperability layer, generic clinical-encounter model, analytics/BI warehouse — three genuine architecture gaps confirmed against live code 2026-09-18, each with a phased build plan, **Phase 1 shipped the same day** for all three (`POST /api/v1/fhir/import` + `/clinician/fhir-review`; the additive `clinical_encounters` summary table + 9 sync triggers; the `analytics` schema + `analytics.rpc_snapshots` warehouse-lite layer) → `docs/DATA_ARCHITECTURE_GAPS_BUILD_PLAN.md` — a design/reconciliation doc, not a build order; check each section's own "Phase 1 — shipped" note before assuming a later phase is done too (FHIR export in particular touches the same access-category PHI guardrail as every other clinical read on this platform, and a real external warehouse would mean a second database technology, which the Stack A rule gates)
+- Funding/fundraising strategy — why NGO-only grants are a poor direct-application target for a
+  commercial entity, the four ways to actually work with NGOs (implementation partner, customer,
+  subcontracting route, credibility partner), the funding-priority order (commercial/impact
+  investment first, company-eligible grants like SFH CoElevate second, NGO/government partnership
+  pilots third, employer/HMO revenue fourth) → `docs/FUNDING_STRATEGY.md` — founder decision, not
+  engineering scope; distinct from the NGO-funded-cohort *product* mechanics (funding_programmes/
+  funding_programme_invitations, dormant module `ngo_funded_cohort` — see the platform_modules
+  activation gate), which this document assumes as the delivery model once a partnership is signed

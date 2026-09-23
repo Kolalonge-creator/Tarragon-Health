@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { loadPatientMonitoringRoster } from "@/lib/queries/patient-monitoring";
+import { loadPatientMonitoringRoster, DEFAULT_ROSTER_LIMIT } from "@/lib/queries/patient-monitoring";
 import { PatientMonitoringCard } from "./patient-monitoring-card";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -42,7 +42,7 @@ export default async function PatientMonitoringPage({
   const supabase = await createClient();
   const currentUser = showMineOnly ? await getCurrentUser() : null;
 
-  const { rows, rosterFailed, readingsFailed } = await loadPatientMonitoringRoster(supabase, {
+  const { rows, rosterFailed, readingsFailed, truncated } = await loadPatientMonitoringRoster(supabase, {
     q,
     mineOnly: showMineOnly,
     callerId: currentUser?.id ?? null,
@@ -177,6 +177,23 @@ export default async function PatientMonitoringPage({
           </Link>
         </div>
       </form>
+
+      {/* Rendered above every branch below, including the empty and failure
+          states — a truncated roster fetch can still turn up zero matches
+          after a name search, or under a status/gender/age filter (all
+          three are applied client-side on top of this same capped fetch,
+          below), and that empty result must not read as a definitive
+          "no match" when only the first DEFAULT_ROSTER_LIMIT patients on
+          file were ever checked. Not gated on a search/filter being active:
+          even the unfiltered "Everyone" view is drawing from the same
+          capped fetch. */}
+      {truncated && !rosterFailed && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          This view is showing the first {DEFAULT_ROSTER_LIMIT} patients on file, so it may not
+          include everyone in your organisation. Narrow your search or filters for a complete
+          result.
+        </p>
+      )}
 
       {/* readingsFailed is deliberately shown ALONGSIDE the cards rather than
           instead of them: the roster itself is real, and knowing which

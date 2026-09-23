@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useCreateReferral } from "@/lib/queries/specialist-referrals";
 import { checkReferralAppropriateness } from "@/lib/referrals/appropriateness-check";
-import { SPECIALIST_TYPE_OPTIONS } from "@/lib/referrals/specialist-type-options";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -13,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { ReferralSource, ReferralUrgency, SpecialistType } from "@tarragon/shared";
+import { SPECIALIST_TYPE_OPTIONS } from "@tarragon/shared";
 
 const REFERRAL_SOURCE_OPTIONS: { value: ReferralSource; label: string }[] = [
   { value: "clinician_initiated", label: "Clinician judgment during review" },

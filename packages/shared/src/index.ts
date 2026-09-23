@@ -202,9 +202,6 @@ export type ReferralUrgency = Enums<"referral_urgency">;
 /** specialist_referrals.referral_source — clinical origin of the episode (67.2), distinct from the payment-rail `origin` column. */
 export type ReferralSource = Enums<"referral_source">;
 
-/** specialist_referrals.specialist_type / specialist_providers.specialist_type. */
-export type SpecialistType = Enums<"specialist_type">;
-
 /** lab_orders.status — payment/collection/processing lifecycle. */
 export type LabOrderStatus = Enums<"lab_order_status">;
 
@@ -240,3 +237,4 @@ export type ConsultationDurationType = Enums<"consultation_duration_type">;
 
 export * from "./ui-language";
 export * from "./clinical-tier";
+export * from "./specialist-type-options";

@@ -34,6 +34,10 @@ services/*/coverage/
 .next/
 out/
 
+# playwright
+apps/web/playwright-report/
+apps/web/test-results/
+
 # production
 build/
 dist/

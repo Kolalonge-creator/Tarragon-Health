@@ -36,23 +36,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
 import { SearchableList } from "@/components/ui/searchable-list";
+import { SPECIALIST_TYPE_LABEL } from "@tarragon/shared";
 
 // Matches the DB `specialist_type` enum (same one specialist_referrals
 // uses). Only meaningful for Senior Medical Officer / Chief Medical Officer
 // (DB CHECK enforces this) -- setting it is what makes a specialist
 // matchable by private.auto_match_internal_specialist (20260831001458).
-const SPECIALIST_TYPE_LABEL: Record<string, string> = {
-  urologist: "Urology",
-  oncologist: "Oncology",
-  ob_gyn: "OB-GYN",
-  cardiology: "Cardiology",
-  endocrinology: "Endocrinology",
-  nephrology: "Nephrology",
-  ophthalmology: "Ophthalmology",
-  dietetics: "Dietetics",
-  podiatry: "Podiatry",
-  other: "Other",
-};
 
 function isSpecialistEligible(doctorTier: ClinicalStaff["doctor_tier"]): boolean {
   return doctorTier === "senior_medical_officer" || doctorTier === "chief_medical_officer";

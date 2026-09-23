@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import {
   cvRiskConfigFormSchema,
   buildCvRiskConfig,
@@ -29,7 +30,13 @@ export async function createCvRiskConfigDraftAction(
   }
 
   const profile = await getCurrentProfile();
-  if (profile?.role !== "admin" || !profile.organisation_id) {
+  const staff = await getCurrentClinicalStaff();
+  // Dual-gated the same way triage-protocols/actions.ts was fixed 2026-09-14:
+  // an admin login OR the org's Chief Medical Officer / Clinical Director.
+  // Found 2026-09-22. cv_risk_config's own INSERT RLS policy was already
+  // private.is_org_staff()-scoped (admits any staff clinician), so only this
+  // app-layer check needed widening.
+  if ((profile?.role !== "admin" && !canAssignCases(staff)) || !profile?.organisation_id) {
     return { error: "Not authorised" };
   }
   const organisationId = profile.organisation_id;
@@ -50,11 +57,12 @@ export async function createCvRiskConfigDraftAction(
     organisation_id: organisationId,
     version: nextVersion,
     config: config as unknown as Json,
-    notes: `Edited by admin, version ${nextVersion}. Review and sign to bring into force.`,
+    notes: `Edited by ${profile?.role === "admin" ? "admin" : "the Clinical Director"}, version ${nextVersion}. Review and sign to bring into force.`,
   });
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings/cv-risk-config");
+  revalidatePath("/clinician/cv-risk-config");
   return { success: true };
 }
 
@@ -72,5 +80,6 @@ export async function signCvRiskConfigAction(
   const { error } = await supabase.rpc("sign_cv_risk_config", { p_config_id: configId });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/cv-risk-config");
+  revalidatePath("/clinician/cv-risk-config");
   return { success: true };
 }
