@@ -89,14 +89,26 @@ function Checkbox({ name, label }: { name: string; label: string }) {
 
 const stepClass = "space-y-3";
 
-export function RiskAssessmentForm({ patientId }: { patientId: string }) {
+export function RiskAssessmentForm({
+  patientId,
+  initialStep = 1,
+}: {
+  patientId: string;
+  /** Which of the 4 sections to open on (see STEP_LABELS) — every field
+   *  from every section stays mounted regardless (see the `hidden`
+   *  attributes below), so starting elsewhere loses nothing and still
+   *  submits the whole form together. Used by onboarding's intent step to
+   *  open on whichever section is actually relevant to why someone signed
+   *  up, instead of always starting at family history. */
+  initialStep?: number;
+}) {
   const [state, formAction, pending] = useActionState(submitRiskAssessment, undefined);
   const queryClient = useQueryClient();
   const { data: vitalsReadings } = useVitalsReadings(patientId);
   const { data: carePlans } = useCarePlans(patientId);
   const { data: priorResponses } = useRiskAssessmentResponses(patientId);
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(initialStep);
   const [showCancerOther, setShowCancerOther] = useState(false);
   const [showDiagnosesOther, setShowDiagnosesOther] = useState(false);
   const [smokingStatus, setSmokingStatus] = useState("");

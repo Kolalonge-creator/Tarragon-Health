@@ -16,9 +16,13 @@ import { Button } from "@/components/ui/button";
 export function IntakeStep({
   patientId,
   onSkip,
+  initialStep,
 }: {
   patientId: string;
   onSkip: () => void;
+  /** Passed straight through to RiskAssessmentForm — which section opens
+   *  first, driven by the intent chosen in intent-step.tsx. */
+  initialStep?: number;
 }) {
   const [showMeds, setShowMeds] = useState(false);
 
@@ -41,7 +45,7 @@ export function IntakeStep({
         </p>
       </div>
 
-      <RiskAssessmentForm patientId={patientId} />
+      <RiskAssessmentForm patientId={patientId} initialStep={initialStep} />
 
       <div className="border-t border-charcoal-ink/10 pt-4">
         <h3 className="text-sm font-semibold text-charcoal-ink">Medicines you take now</h3>
