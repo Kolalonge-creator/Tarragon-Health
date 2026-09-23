@@ -26,16 +26,18 @@ jest.mock("@/lib/queries/risk-assessment", () => ({
 }));
 
 let capturedFormData: FormData | null = null;
+let nextResult: unknown = { success: true };
 jest.mock("./actions", () => ({
   submitRiskAssessment: jest.fn(async (_prevState: unknown, formData: FormData) => {
     capturedFormData = formData;
-    return { success: true };
+    return nextResult;
   }),
 }));
 
 describe("RiskAssessmentForm", () => {
   beforeEach(() => {
     capturedFormData = null;
+    nextResult = { success: true };
   });
 
   it("carries every step's answers to the final submit, even after navigating past earlier steps", async () => {
@@ -158,5 +160,102 @@ describe("RiskAssessmentForm", () => {
     // unanswered required field (Smoking, the first control in step 2),
     // not leave the user stranded on step 4 with no explanation.
     expect(screen.getByText("Step 2 of 4: Lifestyle")).toBeTruthy();
+  });
+
+  /**
+   * The primary bug this whole file's fixes trace back to: most of this
+   * wizard's fields (everything except smoking_status/height_cm/weight_kg/
+   * existing_diagnoses, which are genuinely React-controlled) are plain
+   * uncontrolled inputs with no client-side tracking at all. Passing every
+   * client-side check (the previous test's fix) only prevents a submission
+   * that was never going to succeed anyway - it does nothing for a rejection
+   * that happens server-side, past every client-side check, which is exactly
+   * what submitRiskAssessment's own superRefine/DB-error paths can still
+   * produce. Before this fix, React's reset-uncontrolled-fields-on-submit
+   * behavior (see useRemountOnActionResult's own comment) meant a server
+   * rejection silently wiped all 4 steps' answers with nothing to retype
+   * from - the exact "whole form gone, no explanation" bug already fixed
+   * here for signup and patient-location.
+   */
+  it("repopulates an uncontrolled field from the server's echoed values after a rejected submission", async () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+
+    // Step 1: check an uncontrolled checkbox and fill the "other" detail
+    // text field it reveals - neither has any client-side React tracking.
+    fireEvent.click(screen.getByLabelText("Diabetes"));
+    fireEvent.click(screen.getByLabelText("Other"));
+    fireEvent.change(screen.getByLabelText("Which cancer type?"), {
+      target: { value: "Skin cancer" },
+    });
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 2: fill every required field so the client-side check passes -
+    // this submission is meant to reach the (mocked) server and be rejected
+    // there, the scenario the previous test's fix does nothing for.
+    fireEvent.change(screen.getByLabelText("Smoking"), { target: { value: "never" } });
+    fireEvent.change(screen.getByLabelText("Alcohol"), { target: { value: "none" } });
+    fireEvent.change(screen.getByLabelText("Exercise days/week"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Minutes per session"), { target: { value: "30" } });
+    fireEvent.change(screen.getByLabelText("Sleep (hours/night)"), { target: { value: "7_to_8" } });
+    fireEvent.change(screen.getByLabelText("Stress level"), { target: { value: "moderate" } });
+    fireEvent.change(screen.getByLabelText("Height (cm)"), { target: { value: "170" } });
+    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByText("Next")); // step 3, nothing required
+
+    // Simulate a server-side rejection past every client-side check —
+    // echoing back exactly what was actually submitted, the way the real
+    // action does via riskAssessmentValues(formData).
+    nextResult = {
+      error: "Something went wrong saving your assessment",
+      values: {
+        family_diabetes: true,
+        family_cancer_types: ["other"],
+        family_cancer_other_detail: "Skin cancer",
+        smoking_status: "never",
+        alcohol_use: "none",
+        exercise_days_per_week: "3",
+        exercise_minutes_per_session: "30",
+        sleep_hours: "7_to_8",
+        stress_level: "moderate",
+        height_cm: "170",
+      },
+    };
+    fireEvent.click(screen.getByText("Save assessment"));
+
+    await screen.findByText("Something went wrong saving your assessment");
+
+    // Back to step 1: the checkbox and its "other" detail text must still
+    // be there — not silently wiped by the remount this fix's own
+    // repopulation depends on.
+    fireEvent.click(screen.getByText("Previous"));
+    fireEvent.click(screen.getByText("Previous"));
+    fireEvent.click(screen.getByText("Previous"));
+    expect((screen.getByLabelText("Diabetes") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("Other") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("Which cancer type?") as HTMLInputElement).value).toBe("Skin cancer");
+  });
+
+  /**
+   * A smaller, separate bug in the same area: cigarettes_per_day was only
+   * ever mounted via `{smokingStatus === "current" && (...)}`, not the
+   * `hidden` pattern every other field in this wizard uses - so toggling
+   * smoking_status away from "current" and back within step 2 (no wizard
+   * navigation at all) unmounted and remounted that <select>, discarding
+   * whatever count was already picked. Fixed by keeping it always mounted,
+   * merely hidden, with `required` made conditional so a hidden-but-
+   * irrelevant field can't block submission per the native-constraint-
+   * validation gotcha this file's other fix already deals with.
+   */
+  it("keeps the cigarettes-per-day answer when smoking status is toggled away and back", () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+    fireEvent.click(screen.getByText("Next")); // to step 2
+
+    fireEvent.change(screen.getByLabelText("Smoking"), { target: { value: "current" } });
+    fireEvent.change(screen.getByLabelText("Cigarettes per day"), { target: { value: "6_10" } });
+
+    fireEvent.change(screen.getByLabelText("Smoking"), { target: { value: "never" } });
+    fireEvent.change(screen.getByLabelText("Smoking"), { target: { value: "current" } });
+
+    expect((screen.getByLabelText("Cigarettes per day") as HTMLSelectElement).value).toBe("6_10");
   });
 });

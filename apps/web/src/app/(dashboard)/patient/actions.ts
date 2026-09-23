@@ -452,7 +452,58 @@ export async function reportMedicationAccessBarrier(
   return { success: true };
 }
 
-export type SubmitRiskAssessmentState = { error?: string; success?: boolean } | undefined;
+// Every string-valued question, plus the three checkbox-group (array) and
+// six single-checkbox (boolean) fields — everything the 4-step wizard can
+// submit. Echoed back on any failure so the client can repopulate the whole
+// form: React resets every uncontrolled field in an action-bound <form> once
+// a submission is dispatched (at dispatch time, not once the action itself
+// resolves — see useRemountOnActionResult's own comment), and this form has
+// no controlled-component tracking for most of its fields, so without this
+// a rejected submission wiped all 4 steps' answers with nothing to retype
+// from, the same bug already fixed here for signup and patient-location.
+const RISK_ASSESSMENT_STRING_FIELDS = [
+  "family_cancer_other_detail",
+  "smoking_status",
+  "cigarettes_per_day",
+  "alcohol_use",
+  "exercise_days_per_week",
+  "exercise_minutes_per_session",
+  "sleep_hours",
+  "stress_level",
+  "height_cm",
+  "weight_kg",
+  "existing_diagnoses_other_detail",
+  "current_medications",
+  "other_vaccines_detail",
+] as const;
+const RISK_ASSESSMENT_ARRAY_FIELDS = ["family_cancer_types", "diet_pattern", "existing_diagnoses"] as const;
+const RISK_ASSESSMENT_BOOLEAN_FIELDS = [
+  "family_diabetes",
+  "family_hypertension",
+  "family_heart_disease",
+  "family_sickle_cell",
+  "hpv_vaccinated",
+  "prior_abnormal_result",
+] as const;
+
+export type RiskAssessmentSubmittedValues = Partial<Record<(typeof RISK_ASSESSMENT_STRING_FIELDS)[number], string>> &
+  Partial<Record<(typeof RISK_ASSESSMENT_ARRAY_FIELDS)[number], string[]>> &
+  Partial<Record<(typeof RISK_ASSESSMENT_BOOLEAN_FIELDS)[number], boolean>>;
+
+function riskAssessmentValues(formData: FormData): RiskAssessmentSubmittedValues {
+  const values: RiskAssessmentSubmittedValues = { ...pickFormValues(formData, RISK_ASSESSMENT_STRING_FIELDS) };
+  for (const key of RISK_ASSESSMENT_ARRAY_FIELDS) {
+    values[key] = formData.getAll(key).filter((v): v is string => typeof v === "string");
+  }
+  for (const key of RISK_ASSESSMENT_BOOLEAN_FIELDS) {
+    values[key] = formData.get(key) != null;
+  }
+  return values;
+}
+
+export type SubmitRiskAssessmentState =
+  | { error?: string; success?: boolean; values?: RiskAssessmentSubmittedValues }
+  | undefined;
 
 /**
  * Submits the risk assessment questionnaire, then recomputes and stores
@@ -469,6 +520,11 @@ export async function submitRiskAssessment(
   _prevState: SubmitRiskAssessmentState,
   formData: FormData
 ): Promise<SubmitRiskAssessmentState> {
+  // Computed once, up front, from the raw formData — every failure branch
+  // below echoes this back unchanged rather than re-deriving it, so there's
+  // one place to update if a field is ever added or renamed.
+  const values = riskAssessmentValues(formData);
+
   const raw = {
     family_diabetes: formData.get("family_diabetes"),
     family_hypertension: formData.get("family_hypertension"),
@@ -496,7 +552,7 @@ export async function submitRiskAssessment(
 
   const parsed = riskAssessmentSchema.safeParse(raw);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input", values };
   }
   const responses = parsed.data;
 
@@ -505,7 +561,7 @@ export async function submitRiskAssessment(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { error: "Not signed in" };
+    return { error: "Not signed in", values };
   }
 
   // Whoever's account is open. resolveSubjectId re-checks the live 'manage'
@@ -520,7 +576,7 @@ export async function submitRiskAssessment(
     .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) {
-    return { error: "No organisation on file" };
+    return { error: "No organisation on file", values };
   }
   const organisationId = profile.organisation_id;
 
@@ -540,7 +596,7 @@ export async function submitRiskAssessment(
     .from("risk_assessment_responses")
     .insert(responseRows);
   if (responsesError) {
-    return { error: responsesError.message };
+    return { error: responsesError.message, values };
   }
 
   // Keep the assessment's weight part of the same longitudinal vitals
@@ -553,7 +609,7 @@ export async function submitRiskAssessment(
       weight_kg: responses.weight_kg,
     });
     if (weightInsertError) {
-      return { error: weightInsertError.message };
+      return { error: weightInsertError.message, values };
     }
   }
 
@@ -603,7 +659,7 @@ export async function submitRiskAssessment(
       }))
     );
   if (scoresError) {
-    return { error: scoresError.message };
+    return { error: scoresError.message, values };
   }
 
   // Auto-enrol into any preventive programme these fresh tiers newly
@@ -735,7 +791,7 @@ export async function submitRiskAssessment(
       }))
     );
     if (scheduleInsertError) {
-      return { error: scheduleInsertError.message };
+      return { error: scheduleInsertError.message, values };
     }
   }
 
@@ -747,7 +803,7 @@ export async function submitRiskAssessment(
         .update({ due_date: rec.dueDate })
         .eq("id", existing.id);
       if (scheduleUpdateError) {
-        return { error: scheduleUpdateError.message };
+        return { error: scheduleUpdateError.message, values };
       }
     }
   }
@@ -788,7 +844,7 @@ export async function submitRiskAssessment(
           })),
         );
       if (recError) {
-        return { error: recError.message };
+        return { error: recError.message, values };
       }
     }
   }

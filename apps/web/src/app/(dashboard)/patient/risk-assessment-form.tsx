@@ -18,6 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
+import { useRemountOnActionResult } from "@/lib/forms/use-remount-on-action-result";
 import type { Enums } from "@tarragon/shared";
 
 const STEP_COUNT = 4;
@@ -40,6 +42,7 @@ function CheckboxGroup({
   onChange,
   checkedValues,
   onToggle,
+  defaultCheckedValues,
 }: {
   legend: string;
   name: string;
@@ -50,6 +53,10 @@ function CheckboxGroup({
    * mirrors the height/weight "adjust state during render" prefill below. */
   checkedValues?: string[];
   onToggle?: (value: string, checked: boolean) => void;
+  /** Uncontrolled-mode only (ignored if `checkedValues` is set, which is
+   * already immune to this): which options to check by default, from the
+   * server's echoed submitted values — see useRemountOnActionResult. */
+  defaultCheckedValues?: string[];
 }) {
   return (
     <fieldset className="space-y-1.5">
@@ -68,7 +75,7 @@ function CheckboxGroup({
                     onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
                       onToggle?.(value, e.target.checked),
                   }
-                : {})}
+                : { defaultChecked: defaultCheckedValues?.includes(value) })}
             />
             {label}
           </label>
@@ -78,10 +85,10 @@ function CheckboxGroup({
   );
 }
 
-function Checkbox({ name, label }: { name: string; label: string }) {
+function Checkbox({ name, label, defaultChecked }: { name: string; label: string; defaultChecked?: boolean }) {
   return (
     <label className="flex items-center gap-1.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-      <input type="checkbox" name={name} className="h-4 w-4" />
+      <input type="checkbox" name={name} className="h-4 w-4" defaultChecked={defaultChecked} />
       {label}
     </label>
   );
@@ -95,14 +102,29 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
   const { data: vitalsReadings } = useVitalsReadings(patientId);
   const { data: carePlans } = useCarePlans(patientId);
   const { data: priorResponses } = useRiskAssessmentResponses(patientId);
+  const errorId = fieldErrorId("risk-assessment");
+
+  // Most of this wizard's fields are plain uncontrolled inputs with no
+  // React-side tracking at all, so — same bug as signup/patient-location,
+  // same fix — a rejected submission (a Zod failure that slips past the
+  // client-side checks below, or any server-side error past that) used to
+  // wipe every one of the 4 steps' answers with nothing to retype from.
+  // `values` is what the server echoes back on any failure; `attempt` forces
+  // the whole form to remount so fresh `defaultValue`/`defaultChecked` props
+  // built from it actually take (see the hook's own comment for why a plain
+  // prop change on an already-mounted uncontrolled input doesn't do this).
+  const attempt = useRemountOnActionResult(state, (s) => Boolean(s?.error), errorId);
+  const values = state?.values;
 
   const [step, setStep] = useState(1);
-  const [showCancerOther, setShowCancerOther] = useState(false);
-  const [showDiagnosesOther, setShowDiagnosesOther] = useState(false);
-  const [smokingStatus, setSmokingStatus] = useState("");
-  const [heightCm, setHeightCm] = useState("");
-  const [weightKg, setWeightKg] = useState("");
-  const [existingDiagnoses, setExistingDiagnoses] = useState<string[]>([]);
+  const [showCancerOther, setShowCancerOther] = useState(values?.family_cancer_types?.includes("other") ?? false);
+  const [showDiagnosesOther, setShowDiagnosesOther] = useState(
+    values?.existing_diagnoses?.includes("other") ?? false
+  );
+  const [smokingStatus, setSmokingStatus] = useState(values?.smoking_status ?? "");
+  const [heightCm, setHeightCm] = useState(values?.height_cm ?? "");
+  const [weightKg, setWeightKg] = useState(values?.weight_kg ?? "");
+  const [existingDiagnoses, setExistingDiagnoses] = useState<string[]>(values?.existing_diagnoses ?? []);
   // Adjust state during render (React's endorsed pattern for "prefill once
   // a query result arrives") rather than in an effect, so it can't cascade
   // an extra render — see https://react.dev/learn/you-might-not-need-an-effect.
@@ -195,7 +217,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
         <CardTitle>Risk assessment</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} onSubmit={handleSubmit} noValidate className="space-y-6">
+        <form key={attempt} action={formAction} onSubmit={handleSubmit} noValidate className="space-y-6">
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             A few honest answers help us tell you what to check and when. This isn&apos;t
             a diagnosis, just a starting point for your care.
@@ -224,10 +246,18 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
           <div className={stepClass} hidden={step !== 1} data-step={1}>
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Family history</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <Checkbox name="family_diabetes" label="Diabetes" />
-              <Checkbox name="family_hypertension" label="Hypertension" />
-              <Checkbox name="family_heart_disease" label="Heart disease" />
-              <Checkbox name="family_sickle_cell" label="Sickle cell" />
+              <Checkbox name="family_diabetes" label="Diabetes" defaultChecked={values?.family_diabetes} />
+              <Checkbox
+                name="family_hypertension"
+                label="Hypertension"
+                defaultChecked={values?.family_hypertension}
+              />
+              <Checkbox
+                name="family_heart_disease"
+                label="Heart disease"
+                defaultChecked={values?.family_heart_disease}
+              />
+              <Checkbox name="family_sickle_cell" label="Sickle cell" defaultChecked={values?.family_sickle_cell} />
             </div>
             <CheckboxGroup
               legend="Family history of cancer (select any)"
@@ -239,19 +269,21 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               onChange={(e) => {
                 if (e.target.value === "other") setShowCancerOther(e.target.checked);
               }}
+              defaultCheckedValues={values?.family_cancer_types}
             />
             {showCancerOther && (
               <div className="space-y-1.5">
                 <Label htmlFor="family_cancer_other_detail">Which cancer type?</Label>
+                {/* required: riskAssessmentSchema's superRefine demands this
+                    whenever "other" is checked; without it, handleSubmit's
+                    :invalid check can't catch a blank one client-side, so it
+                    would reach the server and fail there instead. */}
                 <Input
                   id="family_cancer_other_detail"
                   name="family_cancer_other_detail"
                   type="text"
                   maxLength={300}
-                  // riskAssessmentSchema's superRefine demands this whenever
-                  // "other" is checked; without `required` here, handleSubmit's
-                  // :invalid check can't catch a blank one client-side, so it
-                  // would reach the server and fail there instead.
+                  defaultValue={values?.family_cancer_other_detail}
                   required
                 />
               </div>
@@ -263,11 +295,19 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="smoking_status">Smoking</Label>
+                {/* defaultValue is fed from the live `smokingStatus` state
+                    rather than a static "": this select is otherwise
+                    plain-uncontrolled (only `onChange` updates separate
+                    state, for the cigarettes_per_day condition below), so
+                    on remount it would reset to blank even though
+                    `smokingStatus` itself — tracked in this component,
+                    unaffected by the <form> remounting — still correctly
+                    remembers the last pick. */}
                 <Select
                   id="smoking_status"
                   name="smoking_status"
                   required
-                  defaultValue=""
+                  defaultValue={smokingStatus}
                   onChange={(e) => setSmokingStatus(e.target.value)}
                 >
                   <option value="" disabled>
@@ -278,24 +318,38 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                   <option value="current">Currently smoke</option>
                 </Select>
               </div>
-              {smokingStatus === "current" && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="cigarettes_per_day">Cigarettes per day</Label>
-                  <Select id="cigarettes_per_day" name="cigarettes_per_day" required defaultValue="">
-                    <option value="" disabled>
-                      Select
+              {/* `hidden`, not a conditional unmount: toggling smoking_status
+                  away from "current" and back within step 2 (no wizard
+                  navigation at all) used to discard whatever cigarette count
+                  was already picked, the same "unmounted uncontrolled input
+                  loses its value" problem the step-vs-hidden comment above
+                  describes for step navigation — this field just had its own
+                  smaller version of it. `required` is conditional to match
+                  riskAssessmentSchema's superRefine (only demanded when
+                  smoking_status is "current"); a field that's merely hidden,
+                  not irrelevant, must not become an unconditionally-required
+                  landmine for handleSubmit's :invalid check above. */}
+              <div className="space-y-1.5" hidden={smokingStatus !== "current"}>
+                <Label htmlFor="cigarettes_per_day">Cigarettes per day</Label>
+                <Select
+                  id="cigarettes_per_day"
+                  name="cigarettes_per_day"
+                  required={smokingStatus === "current"}
+                  defaultValue={values?.cigarettes_per_day ?? ""}
+                >
+                  <option value="" disabled>
+                    Select
+                  </option>
+                  {CIGARETTES_PER_DAY.map((value) => (
+                    <option key={value} value={value}>
+                      {value.split("_").join("–")}
                     </option>
-                    {CIGARETTES_PER_DAY.map((value) => (
-                      <option key={value} value={value}>
-                        {value.split("_").join("–")}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              )}
+                  ))}
+                </Select>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="alcohol_use">Alcohol</Label>
-                <Select id="alcohol_use" name="alcohol_use" required defaultValue="">
+                <Select id="alcohol_use" name="alcohol_use" required defaultValue={values?.alcohol_use ?? ""}>
                   <option value="" disabled>
                     Select
                   </option>
@@ -313,6 +367,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                   min={0}
                   max={7}
                   required
+                  defaultValue={values?.exercise_days_per_week}
                 />
               </div>
               <div className="space-y-1.5">
@@ -324,11 +379,12 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                   min={0}
                   max={300}
                   required
+                  defaultValue={values?.exercise_minutes_per_session}
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="sleep_hours">Sleep (hours/night)</Label>
-                <Select id="sleep_hours" name="sleep_hours" required defaultValue="">
+                <Select id="sleep_hours" name="sleep_hours" required defaultValue={values?.sleep_hours ?? ""}>
                   <option value="" disabled>
                     Select
                   </option>
@@ -341,7 +397,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="stress_level">Stress level</Label>
-                <Select id="stress_level" name="stress_level" required defaultValue="">
+                <Select id="stress_level" name="stress_level" required defaultValue={values?.stress_level ?? ""}>
                   <option value="" disabled>
                     Select
                   </option>
@@ -352,16 +408,16 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="height_cm">Height (cm)</Label>
+                {/* min/max match riskAssessmentSchema's own bounds (100-230cm)
+                    so an out-of-range value is caught by handleSubmit's
+                    client-side :invalid check and jumps back to this step,
+                    instead of reaching the server, failing there, and
+                    wiping every step's answers with nothing to explain why. */}
                 <Input
                   id="height_cm"
                   name="height_cm"
                   type="number"
                   required
-                  // Matches riskAssessmentSchema's own bounds (100-230cm) so
-                  // an out-of-range value is caught by handleSubmit's
-                  // client-side :invalid check and jumps back to this step,
-                  // instead of reaching the server, failing there, and
-                  // wiping every step's answers with nothing to explain why.
                   min={100}
                   max={230}
                   value={heightCm}
@@ -370,12 +426,12 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="weight_kg">Weight (kg)</Label>
+                {/* min/max match riskAssessmentSchema's own bounds (20-300kg,
+                    optional) — same reasoning as height_cm above. */}
                 <Input
                   id="weight_kg"
                   name="weight_kg"
                   type="number"
-                  // Matches riskAssessmentSchema's own bounds (20-300kg,
-                  // optional) — same reasoning as height_cm above.
                   min={20}
                   max={300}
                   value={weightKg}
@@ -391,6 +447,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                 value,
                 label: value.split("_").join(" "),
               }))}
+              defaultCheckedValues={values?.diet_pattern}
             />
           </div>
 
@@ -422,21 +479,28 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             {showDiagnosesOther && (
               <div className="space-y-1.5">
                 <Label htmlFor="existing_diagnoses_other_detail">Which diagnosis?</Label>
+                {/* required: same reasoning as family_cancer_other_detail
+                    above — riskAssessmentSchema's superRefine requires this
+                    whenever "other" is checked. */}
                 <Input
                   id="existing_diagnoses_other_detail"
                   name="existing_diagnoses_other_detail"
                   type="text"
                   maxLength={300}
-                  // Same reasoning as family_cancer_other_detail above:
-                  // riskAssessmentSchema's superRefine requires this
-                  // whenever "other" is checked.
+                  defaultValue={values?.existing_diagnoses_other_detail}
                   required
                 />
               </div>
             )}
             <div className="space-y-1.5">
               <Label htmlFor="current_medications">Current medications (optional)</Label>
-              <Input id="current_medications" name="current_medications" type="text" maxLength={500} />
+              <Input
+                id="current_medications"
+                name="current_medications"
+                type="text"
+                maxLength={500}
+                defaultValue={values?.current_medications}
+              />
             </div>
           </div>
 
@@ -444,15 +508,25 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">
               Vaccination &amp; screening history
             </h3>
-            <Checkbox name="hpv_vaccinated" label="I've had the HPV vaccine" />
+            <Checkbox name="hpv_vaccinated" label="I've had the HPV vaccine" defaultChecked={values?.hpv_vaccinated} />
             <div className="space-y-1.5">
               <Label htmlFor="other_vaccines_detail">Any other vaccines? (optional)</Label>
-              <Input id="other_vaccines_detail" name="other_vaccines_detail" type="text" maxLength={300} />
+              <Input
+                id="other_vaccines_detail"
+                name="other_vaccines_detail"
+                type="text"
+                maxLength={300}
+                defaultValue={values?.other_vaccines_detail}
+              />
             </div>
-            <Checkbox name="prior_abnormal_result" label="I've had an abnormal screening result before" />
+            <Checkbox
+              name="prior_abnormal_result"
+              label="I've had an abnormal screening result before"
+              defaultChecked={values?.prior_abnormal_result}
+            />
           </div>
 
-          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+          <FormError id={errorId} message={state?.error} />
           {state?.success && (
             <p className="text-sm text-brand-green dark:text-brand-green-bright">
               Thanks, your care plan preview below reflects your answers.
