@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaBand } from "../_components/cta-band";
 import { Section, SectionHeading } from "../_components/section";
+import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { FAQ_CATEGORY_LABEL, HOMEPAGE_FAQS } from "../_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
@@ -61,22 +62,7 @@ export default function FaqPage() {
                   </h2>
                   <p className="mt-1 text-sm text-charcoal-ink/60">{group.description}</p>
                 </div>
-                <div className="grid gap-4">
-                  {faqs.map((faq) => (
-                    <details
-                      key={faq.question}
-                      className="group rounded-xl border border-charcoal-ink/10 bg-white p-5"
-                    >
-                      <summary className="cursor-pointer list-none font-heading text-lg font-semibold text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2">
-                        {faq.question}
-                        <span className="float-right ml-4 text-brand-green transition-transform group-open:rotate-45">
-                          +
-                        </span>
-                      </summary>
-                      <p className="mt-3 text-charcoal-ink/70">{faq.answer}</p>
-                    </details>
-                  ))}
-                </div>
+                <FaqAccordion items={faqs} variant="minimal" />
               </div>
             );
           })}

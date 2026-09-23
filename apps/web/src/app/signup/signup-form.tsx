@@ -19,11 +19,18 @@ const FIELD_CLASS = "h-11 rounded-xl";
 export function SignupForm({
   refCode,
   intent,
+  redirectTo,
 }: {
   refCode?: string;
   /** Carried through auth metadata so onboarding can land the visitor on what
    *  they came for. Hidden field, same mechanism as refCode. */
   intent?: "health_check" | "support";
+  /** Where to land after the confirmation-email link is clicked — e.g. a
+   *  sponsored_service_reservations claim link (/claim/[token]) a brand-new
+   *  recipient arrived from. Same hidden-field mechanism as login-form.tsx's
+   *  redirectTo; threaded into emailRedirectTo by the signUp action and read
+   *  back by /auth/callback once the account is confirmed. */
+  redirectTo?: string;
 }) {
   const [state, formAction, pending] = useActionState(signUp, undefined);
   const errorId = fieldErrorId("signup");
@@ -47,6 +54,7 @@ export function SignupForm({
   return (
     <form action={formAction} className="space-y-5">
       {intent && <input type="hidden" name="intent" value={intent} />}
+      {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
       {refCode && (
         <>
           <input type="hidden" name="refCode" value={refCode} />

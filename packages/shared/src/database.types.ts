@@ -5860,6 +5860,114 @@ export type Database = {
           },
         ]
       }
+      sponsored_service_reservations: {
+        Row: {
+          id: string
+          organisation_id: string
+          service_product_id: string
+          sponsor_profile_id: string
+          recipient_phone: string
+          recipient_first_name: string
+          status: Database["public"]["Enums"]["sponsored_reservation_status"]
+          amount_kobo: number
+          currency: Database["public"]["Enums"]["currency"]
+          payment_provider: string | null
+          payment_provider_ref: string | null
+          invite_token: string | null
+          invited_at: string | null
+          expires_at: string | null
+          claimed_by_profile_id: string | null
+          claimed_at: string | null
+          care_voucher_id: string | null
+          cancelled_at: string | null
+          cancelled_reason: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organisation_id: string
+          service_product_id: string
+          sponsor_profile_id: string
+          recipient_phone: string
+          recipient_first_name: string
+          status?: Database["public"]["Enums"]["sponsored_reservation_status"]
+          amount_kobo: number
+          currency?: Database["public"]["Enums"]["currency"]
+          payment_provider?: string | null
+          payment_provider_ref?: string | null
+          invite_token?: string | null
+          invited_at?: string | null
+          expires_at?: string | null
+          claimed_by_profile_id?: string | null
+          claimed_at?: string | null
+          care_voucher_id?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organisation_id?: string
+          service_product_id?: string
+          sponsor_profile_id?: string
+          recipient_phone?: string
+          recipient_first_name?: string
+          status?: Database["public"]["Enums"]["sponsored_reservation_status"]
+          amount_kobo?: number
+          currency?: Database["public"]["Enums"]["currency"]
+          payment_provider?: string | null
+          payment_provider_ref?: string | null
+          invite_token?: string | null
+          invited_at?: string | null
+          expires_at?: string | null
+          claimed_by_profile_id?: string | null
+          claimed_at?: string | null
+          care_voucher_id?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsored_service_reservations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsored_service_reservations_service_product_id_fkey"
+            columns: ["service_product_id"]
+            isOneToOne: false
+            referencedRelation: "service_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsored_service_reservations_sponsor_profile_id_fkey"
+            columns: ["sponsor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsored_service_reservations_claimed_by_profile_id_fkey"
+            columns: ["claimed_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsored_service_reservations_care_voucher_id_fkey"
+            columns: ["care_voucher_id"]
+            isOneToOne: false
+            referencedRelation: "care_vouchers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       case_briefs: {
         Row: {
           clinician_alert_id: string
@@ -19246,6 +19354,7 @@ export type Database = {
           contacted_at: string | null
           contacted_by: string | null
           created_at: string
+          goal: Database["public"]["Enums"]["lead_goal"] | null
           id: string
           message: string | null
           name: string
@@ -19257,6 +19366,7 @@ export type Database = {
           contacted_at?: string | null
           contacted_by?: string | null
           created_at?: string
+          goal?: Database["public"]["Enums"]["lead_goal"] | null
           id?: string
           message?: string | null
           name: string
@@ -19268,6 +19378,7 @@ export type Database = {
           contacted_at?: string | null
           contacted_by?: string | null
           created_at?: string
+          goal?: Database["public"]["Enums"]["lead_goal"] | null
           id?: string
           message?: string | null
           name?: string
@@ -40578,6 +40689,10 @@ export type Database = {
         Args: { p_programme_id: string }
         Returns: Json
       }
+      claim_sponsored_service_reservation: {
+        Args: { p_token: string }
+        Returns: Json
+      }
       claim_health_reset_trial: { Args: never; Returns: Json }
       case_management_analytics: { Args: never; Returns: Json }
       close_care_management_case: {
@@ -40869,6 +40984,14 @@ export type Database = {
           p_per_profile_limit?: number
           p_starts_at?: string
           p_value: number
+        }
+        Returns: string
+      }
+      create_sponsored_service_reservation: {
+        Args: {
+          p_recipient_first_name: string
+          p_recipient_phone: string
+          p_service_product_id: string
         }
         Returns: string
       }
@@ -42101,6 +42224,16 @@ export type Database = {
         Args: { p_appointment_id: string; p_occurrence_id: string }
         Returns: undefined
       }
+      log_denied_action: {
+        Args: {
+          p_action: string
+          p_entity_id: string
+          p_entity_type: string
+          p_organisation_id: string
+          p_reason?: string
+        }
+        Returns: string
+      }
       log_patient_data_export: {
         Args: { p_scope?: string }
         Returns: undefined
@@ -42629,6 +42762,10 @@ export type Database = {
           p_reason: string
         }
         Returns: boolean
+      }
+      reassign_escalation: {
+        Args: { p_doctor_profile_id: string; p_escalation_id: string; p_reason?: string }
+        Returns: undefined
       }
       record_ai_human_override: {
         Args: {
@@ -44837,6 +44974,13 @@ export type Database = {
         | "clinician"
         | "admin"
         | "lab_partner"
+      lead_goal:
+        | "managing_a_condition"
+        | "staying_ahead"
+        | "family_care"
+        | "fast_doctor_access"
+        | "one_record"
+        | "still_exploring"
       lead_role: "patient" | "family" | "employer" | "hmo" | "other" | "ngo"
       lifestyle_barrier_code:
         | "cost"
@@ -45645,6 +45789,12 @@ export type Database = {
         | "clinical_approval"
         | "active"
       sponsor_sharing_level: "none" | "activity" | "full"
+      sponsored_reservation_status:
+        | "pending_payment"
+        | "invited"
+        | "claimed"
+        | "expired"
+        | "cancelled"
       staff_employment_type: "employed" | "contracted"
       sti_case_status:
         | "result_received"
@@ -47201,6 +47351,14 @@ export const Constants = {
         "admin",
         "lab_partner",
       ],
+      lead_goal: [
+        "managing_a_condition",
+        "staying_ahead",
+        "family_care",
+        "fast_doctor_access",
+        "one_record",
+        "still_exploring",
+      ],
       lead_role: ["patient", "family", "employer", "hmo", "other", "ngo"],
       lifestyle_barrier_code: [
         "cost",
@@ -48106,6 +48264,13 @@ export const Constants = {
         "active",
       ],
       sponsor_sharing_level: ["none", "activity", "full"],
+      sponsored_reservation_status: [
+        "pending_payment",
+        "invited",
+        "claimed",
+        "expired",
+        "cancelled",
+      ],
       staff_employment_type: ["employed", "contracted"],
       sti_case_status: [
         "result_received",

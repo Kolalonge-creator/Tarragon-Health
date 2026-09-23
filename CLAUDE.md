@@ -274,6 +274,8 @@ Prevention and chronic management **share the same patient record** — design e
 
 ## Clinical Tier Ladder (collapsed to 3 tiers — 2026-08-31)
 Full detail: `docs/Tarragon_Health_Master_Operating_Plan_v4.md` §4/§7/§8 (relabeled to match, not yet a full rewrite of the surrounding prose — verify specific claims against the live schema/code rather than the doc's older wording). Every clinical judgment is made by a doctor; no case is closed by non-clinical staff; a case climbs only as far as its complexity requires.
+
+**Founder principle (2026-09-18) — the platform's default is direct doctor↔patient, not coordinator-mediated.** Care Coordinators are a scaling lever, not a required intermediary every patient passes through to reach a doctor. This already matches the shipped architecture, not just intent: `private.auto_assign_escalation()` routes every case straight to a qualifying-tier doctor automatically (see "Case auto-assignment" below), and the Care Coordinator tier is scoped to logistics support layered alongside that path, never in front of it. Coordinator staffing should scale in as patient volume, partner network, and operations grow large enough that logistics work no longer fits inside doctors' own time — not be designed as a permanent, structural gate for every patient regardless of scale. When building new patient-facing flows or staffing tooling, don't route a patient through a coordinator to reach a doctor.
 - **Care Coordinator** (employed, non-clinical) — logistics only: check-ins, adherence/missed-reading tracking, lab/refill booking. Never interprets a result, adjusts medication, or closes an escalation — routes anything needing judgment to Medical Officer.
 - **Medical Officer** — standard, protocol-driven consultations within their own patient list; confirms/continues existing stable prescriptions; no new prescribing. Refers to Senior Medical Officer on difficulty.
 - **Senior Medical Officer / Specialist** — everything a Medical Officer does, plus complex and specialist cases, initiating new medications, and handling Medical Officer referrals. Employment relationship (employed vs. contracted — `clinical_staff.employment_type`) is a separate attribute from tier: a contracted external Partner Specialist and an employed senior in-house doctor are both this tier.
@@ -345,6 +347,18 @@ rules and let the git history / PR descriptions be the record of what shipped wh
 
 **Known standing follow-ups, as last recorded — verify each before acting, none of these should be
 taken on faith:**
+- **Supabase branching is unavailable on the current plan** (`PaymentRequiredException: Branching is
+  supported only on the Pro plan or above`) — hit live twice now, independently, six weeks apart
+  (2026-08-07, again 2026-09-23 while building the browser-E2E suite at `apps/web/e2e-browser/`), each
+  time only left as a code comment rather than surfaced here. This blocks giving CI a genuinely
+  disposable, per-run database for anything that needs one (real signup/checkout/eligibility E2E in
+  particular) — the workaround in place is a free, local, Docker-based Supabase stack
+  (`supabase start` + `db reset`, the same tooling the `supabase-db` CI job already proves works), which
+  is real isolation but real CI runner minutes, not the same fidelity/speed a hosted branch would give.
+  **Founder decision needed**: is a Pro-plan upgrade (a recurring cost, not evaluated here) worth it for
+  CI branching, or is the local-stack workaround the permanent answer? Until decided, expect this exact
+  wall to be hit again the next time disposable-database CI comes up — check this entry before
+  re-discovering it a third time.
 - **RESOLVED 2026-09-02, confirmed live 2026-09-03** — `main-dev` branch protection now lists all
   three CI jobs (`Supabase migration replay`, `Python ML service`, `TypeScript (web + shared)`) under
   `required_status_checks.contexts`, `enforce_admins` is `true`, and `gh pr merge` genuinely refuses a

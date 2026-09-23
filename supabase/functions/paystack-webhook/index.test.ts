@@ -436,6 +436,88 @@ Deno.test({
 });
 
 Deno.test({
+  name: "charge.success (sponsored_service_reservation): a genuinely trigger-activated reservation is marked processed and an invite SMS is attempted (best-effort — TERMII_API_KEY unset here, so it fails without a network call)",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET", "TERMII_API_KEY", "APP_BASE_URL"] },
+  async fn() {
+    const client = newClient();
+    // Simulates private.activate_sponsored_service_reservation having
+    // already flipped the row to 'invited' and minted payment_provider_ref
+    // by the time this switch runs (it's a synchronous AFTER INSERT trigger
+    // on the same payment_transactions insert this handler just did).
+    client.seed("sponsored_service_reservations", [
+      {
+        id: "resv-1",
+        organisation_id: "org-1",
+        status: "invited",
+        payment_provider_ref: "TXN_REF_001",
+        invite_token: "tok_abc123",
+        recipient_phone: "+2348012345678",
+        recipient_first_name: "Amaka",
+      },
+    ]);
+
+    const { json } = await postWith(
+      client,
+      chargeSuccess({
+        metadata: { kind: "sponsored_service_reservation", profile_id: "profile-1", reservation_id: "resv-1" },
+      }),
+    );
+    assertEquals(json.ok, true);
+    const txn = client.rows("payment_transactions")[0];
+    assertExists(txn.processed_at);
+    assertEquals(txn.organisation_id, "org-1");
+  },
+});
+
+Deno.test({
+  name: "charge.success (sponsored_service_reservation): a trigger that did NOT activate the row (still pending_payment, or the reference doesn't match) surfaces as failed, never a silent false success",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET", "TERMII_API_KEY", "APP_BASE_URL"] },
+  async fn() {
+    const client = newClient();
+    client.seed("sponsored_service_reservations", [
+      {
+        id: "resv-1",
+        organisation_id: "org-1",
+        status: "pending_payment",
+        payment_provider_ref: null,
+        invite_token: null,
+        recipient_phone: "+2348012345678",
+        recipient_first_name: "Amaka",
+      },
+    ]);
+
+    await postWith(
+      client,
+      chargeSuccess({
+        metadata: { kind: "sponsored_service_reservation", profile_id: "profile-1", reservation_id: "resv-1" },
+      }),
+    );
+
+    assertEquals(client.rows("sponsored_service_reservations")[0].status, "pending_payment");
+    const txn = client.rows("payment_transactions")[0];
+    assertEquals(txn.processed_at, undefined);
+    assert(typeof txn.error === "string" && txn.error.includes("still pending_payment after trigger"));
+  },
+});
+
+Deno.test({
+  name: "charge.success (sponsored_service_reservation): missing metadata.reservation_id is recorded as failed rather than looked up by nothing",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+  async fn() {
+    const client = newClient();
+
+    await postWith(
+      client,
+      chargeSuccess({ metadata: { kind: "sponsored_service_reservation", profile_id: "profile-1" } }),
+    );
+
+    const txn = client.rows("payment_transactions")[0];
+    assertEquals(txn.processed_at, undefined);
+    assert(typeof txn.error === "string" && txn.error.includes("missing metadata.reservation_id"));
+  },
+});
+
+Deno.test({
   name: "charge.success: a metadata.kind value outside the known 9 (a payload bug, not a real CheckoutKind) is recorded as an explicit unrecognised-kind failure, never silently treated as add_on",
   permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
   async fn() {

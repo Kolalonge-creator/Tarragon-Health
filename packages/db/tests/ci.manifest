@@ -362,3 +362,32 @@ doctor_income_attribution_and_analyst_gate.sql
 # organisation to confirm the authorisation check discriminates by the
 # programme's own org rather than admitting any ngo_admin.
 funding_programme_stats.sql
+
+# sponsored_service_reservations: the launch-scope audit's claim-based
+# diaspora flow (pay for a named service against a bare phone number + first
+# name, no profile created up front). Proves the full lifecycle -- create as
+# pending_payment, a matching charge.success payment activates it to
+# invited with a real invite_token, a claim from the WRONG phone is refused
+# (the load-bearing anti-impersonation check), the correct phone succeeds
+# and creates a real active care_vouchers row -- plus two sabotage runs: the
+# same reservation cannot be claimed twice, and a payment of the wrong
+# amount does not activate a fresh reservation. Run as `authenticated`, not
+# `postgres`, for both patient-facing RPCs.
+sponsored_service_reservations.sql
+
+# --- Added 2026-09-23 -------------------------------------------------------
+# region_service_available's normalized-state fallback
+# (20260923212037_region_service_available_normalized_state_fallback.sql, plus its
+# same-day 20260923213439_fix_region_service_available_review_findings.sql
+# follow-up): a casing/whitespace/"...State"-suffix variant of profiles.state --
+# the exact shape the free-text location field has always allowed -- now
+# resolves the region gate the same as the canonical spelling, for both
+# location models (regions text[] and state text) and all five gated
+# services, without the master switch (service_regions.is_active) or an
+# unrelated/unrecognized location ever being bypassed, and with
+# service_regions_normalized_state_key_unique proved to reject a
+# normalized-key collision outright (the /code-review high follow-up's fix
+# for the resolution CTE's otherwise-nondeterministic tie-break). Sabotage
+# reverts the function to its pre-fix exact-match-only body and confirms the
+# normalized case would then fail.
+region_service_available_normalized_state_fallback.sql
