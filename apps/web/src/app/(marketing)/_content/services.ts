@@ -363,7 +363,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "Is there a Tarragon app?",
     answer:
-      "Tarragon works in any phone browser today, and you can add it to your home screen so it opens like an app. It's the same secure record as the web dashboard, so you can move between your phone and a computer without losing anything. Native apps for iPhone and Android are coming, and we'll say so here the day they land.",
+      "Tarragon works in any phone browser today, and you can add it to your home screen so it opens like an app. It's the same secure record as the web dashboard, so you can move between your phone and a computer without losing anything. Native apps for iPhone and Android are coming, and we'll say so here the day they're available to download.",
   },
   {
     category: "general",

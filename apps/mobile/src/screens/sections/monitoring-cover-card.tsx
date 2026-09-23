@@ -52,8 +52,8 @@ export function MonitoringCoverCard() {
         <MutedText>
           Every reading you log is still checked against care protocols, and you still get the full
           emergency safety net — immediate guidance, your emergency contact notified, and a check-in
-          afterwards. Continuous Monitoring adds a doctor on your care team being told as well, from
-          ₦7,500 for three months. Nothing renews and no card is kept.
+          afterwards. Continuous Monitoring adds a doctor on your care team being told as well, for
+          ₦30,000 across 90 days. Nothing renews and no card is kept.
         </MutedText>
       </Card>
     );

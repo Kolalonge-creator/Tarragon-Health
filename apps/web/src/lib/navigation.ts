@@ -510,6 +510,17 @@ export function getNavSections(
                   icon: "labs",
                   countKey: "labResultConsultsWaiting",
                 },
+                // Added 2026-09-22 alongside the Preventive Health Check
+                // Review SKU — before this, a paid-for Health Check review
+                // had no queue anywhere; a doctor could only find one by
+                // already knowing the patientId. See
+                // 20260922185300_preventive_health_check_review_sku.sql.
+                {
+                  label: "Preventive Health Check reviews",
+                  href: "/clinician/preventive-health-check-reviews",
+                  icon: "preventive",
+                  countKey: "preventiveHealthCheckReviewsWaiting",
+                },
                 // Both added 2026-09-10 with the two new clinical products.
                 // Shown to every clinician tier, per this file's gating
                 // philosophy: the authority rules live in the database
