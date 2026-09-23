@@ -248,6 +248,11 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                   name="family_cancer_other_detail"
                   type="text"
                   maxLength={300}
+                  // riskAssessmentSchema's superRefine demands this whenever
+                  // "other" is checked; without `required` here, handleSubmit's
+                  // :invalid check can't catch a blank one client-side, so it
+                  // would reach the server and fail there instead.
+                  required
                 />
               </div>
             )}
@@ -352,6 +357,13 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                   name="height_cm"
                   type="number"
                   required
+                  // Matches riskAssessmentSchema's own bounds (100-230cm) so
+                  // an out-of-range value is caught by handleSubmit's
+                  // client-side :invalid check and jumps back to this step,
+                  // instead of reaching the server, failing there, and
+                  // wiping every step's answers with nothing to explain why.
+                  min={100}
+                  max={230}
                   value={heightCm}
                   onChange={(e) => setHeightCm(e.target.value)}
                 />
@@ -362,6 +374,10 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                   id="weight_kg"
                   name="weight_kg"
                   type="number"
+                  // Matches riskAssessmentSchema's own bounds (20-300kg,
+                  // optional) — same reasoning as height_cm above.
+                  min={20}
+                  max={300}
                   value={weightKg}
                   onChange={(e) => setWeightKg(e.target.value)}
                 />
@@ -411,6 +427,10 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                   name="existing_diagnoses_other_detail"
                   type="text"
                   maxLength={300}
+                  // Same reasoning as family_cancer_other_detail above:
+                  // riskAssessmentSchema's superRefine requires this
+                  // whenever "other" is checked.
+                  required
                 />
               </div>
             )}
