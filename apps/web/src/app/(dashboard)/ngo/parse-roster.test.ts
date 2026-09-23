@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { parseRoster } from "./actions";
+import { parseRoster } from "./parse-roster";
 
 describe("parseRoster", () => {
   it("parses one 'Full Name, phone' contact per line", () => {
