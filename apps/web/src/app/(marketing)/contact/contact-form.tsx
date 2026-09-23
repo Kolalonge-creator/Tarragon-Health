@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { LEAD_ROLES } from "@/lib/validation/lead";
 import { useRemountOnActionResult } from "@/lib/forms/use-remount-on-action-result";
 
@@ -24,7 +25,7 @@ function isLeadRole(value: string | null): value is (typeof LEAD_ROLES)[number] 
   return value !== null && (LEAD_ROLES as readonly string[]).includes(value);
 }
 
-const ERROR_ID = "contact-form-error";
+const ERROR_ID = fieldErrorId("contact-form");
 
 /**
  * `?source=corporate|hmo` is read HERE, on the client, not awaited from the
@@ -54,12 +55,11 @@ export function ContactForm() {
     if (state?.success) successRef.current?.focus();
   }, [state?.success]);
 
-  const errorMessage = state && "error" in state ? state.error : undefined;
+  const errorMessage = state?.error;
   // Errors from this action are whole-form (a Zod issue on one of four fields,
   // or a save failure), so every field is marked as described by the one
   // message rather than guessing which field it belongs to.
   const invalid = Boolean(errorMessage);
-  const describedBy = errorMessage ? ERROR_ID : undefined;
 
   // See useRemountOnActionResult's own comment: without this, a validation
   // or save failure wiped every field the visitor had already typed
@@ -67,8 +67,12 @@ export function ContactForm() {
   // action returns. Remounting the form is what lets the fresh
   // `defaultValue`s below (from the server's echoed `values`) actually take;
   // focus lands on the error banner rather than being lost to document.body.
-  const attempt = useRemountOnActionResult(state, (s) => Boolean(s && "error" in s && s.error), ERROR_ID);
-  const values = state && "values" in state ? state.values : undefined;
+  const attempt = useRemountOnActionResult(state, (s) => Boolean(s?.error), ERROR_ID);
+  const values = state?.values;
+  // The role is echoed back verbatim from raw FormData, so a submission
+  // outside LEAD_ROLES (only reachable without JS, or tampered) isn't
+  // trusted as a select value — it would silently select the first option.
+  const echoedRole = values?.role && isLeadRole(values.role) ? values.role : undefined;
 
   if (state?.success) {
     return (
@@ -94,22 +98,7 @@ export function ContactForm() {
       className="space-y-5 rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-8"
     >
       <input type="hidden" name="source" value={source} />
-      {/* Live region rendered unconditionally, above the fields it describes.
-          A region that only appears with its message is often missed by
-          screen readers, which watch an existing node for changes.
-          role="alert" carries an implicit aria-live="assertive", so no
-          aria-live attribute is set here: stating both is contradictory. */}
-      <div role="alert" aria-atomic="true">
-        {errorMessage ? (
-          <p
-            id={ERROR_ID}
-            tabIndex={-1}
-            className="rounded-lg border border-clinical-navy/20 bg-charcoal-ink/5 p-3 text-sm text-charcoal-ink focus-visible:outline-none"
-          >
-            {errorMessage}
-          </p>
-        ) : null}
-      </div>
+      <FormError id={ERROR_ID} message={errorMessage} />
       <div className="space-y-1.5">
         <Label htmlFor="name">Name</Label>
         <Input
@@ -118,8 +107,7 @@ export function ContactForm() {
           autoComplete="name"
           required
           defaultValue={values?.name}
-          aria-invalid={invalid || undefined}
-          aria-describedby={describedBy}
+          {...fieldErrorProps(ERROR_ID, invalid)}
         />
       </div>
       <div className="space-y-1.5">
@@ -131,8 +119,7 @@ export function ContactForm() {
           placeholder="you@example.com or +234XXXXXXXXXX"
           required
           defaultValue={values?.contact}
-          aria-invalid={invalid || undefined}
-          aria-describedby={describedBy}
+          {...fieldErrorProps(ERROR_ID, invalid)}
         />
       </div>
       <div className="space-y-1.5">
@@ -140,10 +127,9 @@ export function ContactForm() {
         <Select
           id="role"
           name="role"
-          defaultValue={values?.role ?? defaultRole}
+          defaultValue={echoedRole ?? defaultRole}
           required
-          aria-invalid={invalid || undefined}
-          aria-describedby={describedBy}
+          {...fieldErrorProps(ERROR_ID, invalid)}
         >
           {LEAD_ROLES.map((role) => (
             <option key={role} value={role}>
@@ -163,8 +149,7 @@ export function ContactForm() {
           rows={5}
           placeholder="Tell us what you want help with..."
           defaultValue={values?.message}
-          aria-invalid={invalid || undefined}
-          aria-describedby={describedBy}
+          {...fieldErrorProps(ERROR_ID, invalid)}
         />
       </div>
       <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-auto">
