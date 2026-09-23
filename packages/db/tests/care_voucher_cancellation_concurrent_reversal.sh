@@ -31,11 +31,17 @@
 # SAFETY. The sabotage phase temporarily deploys a KNOWN-BROKEN, pre-fix body
 # of the function that cancels a voucher and queues real refunds. That is
 # only acceptable against a throwaway/local stack, so this script refuses to
-# run at all unless $DATABASE_URL looks local -- same two-layer guard as
-# finance_reversal_concurrent_lock.sh (a cheap substring filter, then an
-# authoritative inet_server_addr() check), for the same reasons: a URL can
-# look local while a password, a multi-host conninfo, or a PGHOSTADDR
-# override makes it connect somewhere real.
+# run at all unless $DATABASE_URL looks local -- a URL-text substring check,
+# same as finance_reversal_concurrent_lock.sh. An earlier version of that
+# sibling guard also asked the server directly via inet_server_addr, which
+# made things worse, not better: it misclassified the Supabase CLI's own
+# local Docker stack (the one environment this needs to allow) as remote,
+# because Docker's NAT means inet_server_addr reports the address the
+# connection arrived at on the container's own side, not the host loopback
+# the URL was written with. A theoretically tighter check that breaks the
+# real target environment is worse than a simpler one that doesn't, so this
+# stays a URL-text check only -- not bulletproof (a password could in
+# principle contain "localhost"), but that is the accepted trade-off.
 #
 # Fixtures (an org-scoped admin actor per role, a prepaid_service voucher
 # with one applied payment and its real finance_journal_entries row) are
@@ -65,18 +71,6 @@ if ! command -v psql >/dev/null 2>&1; then
 fi
 if [[ ! -f "$MIGRATION_FILE" ]]; then
   echo "care_voucher_cancellation_concurrent_reversal: expected migration file not found at $MIGRATION_FILE" >&2
-  exit 1
-fi
-
-SERVER_LOCALITY="$(psql "$DB_URL" -X -q -t -A -c \
-  "select case when inet_server_addr() is null then 'local' \
-               when inet_server_addr() <<= '127.0.0.0/8'::inet then 'local' \
-               when inet_server_addr() = '::1'::inet then 'local' \
-               else 'remote' end;" 2>&1)"
-if [[ "$SERVER_LOCALITY" != "local" && "${CVCCR_ALLOW_REMOTE:-}" != "$ALLOW_REMOTE_PHRASE" ]]; then
-  echo "care_voucher_cancellation_concurrent_reversal: refusing to run -- the server itself does not report a local address." >&2
-  echo "inet_server_addr() check returned: $SERVER_LOCALITY" >&2
-  echo "If this really is a throwaway/local stack, re-run with CVCCR_ALLOW_REMOTE=$ALLOW_REMOTE_PHRASE." >&2
   exit 1
 fi
 
@@ -166,6 +160,22 @@ SQL
     local out
     if ! out="$("${PSQL_SETUP[@]}" \
       -v officer="$OFFICER" -v canceller="$CANCELLER" -v beneficiary="$BENEFICIARY" 2>&1 <<'SQL'
+-- private.log_audit is called by finance_reverse_journal and by
+-- cancel_care_voucher's own success path, and writes public.audit_log rows
+-- with actor_id = auth.uid -- i.e. the officer/canceller fixture actors.
+-- audit_log is fully immutable, private.reject_mutation, an unconditional
+-- BEFORE UPDATE/DELETE trigger with no role exemption, and
+-- audit_log_actor_id_fkey is ON DELETE RESTRICT, so deleting these actors
+-- below fails outright with a foreign-key violation unless their audit_log
+-- rows go first. session_replication_role bypasses the append-only trigger
+-- and FK-enforcement for this session. Plain SET, not SET LOCAL -- every
+-- statement here autocommits on its own, no explicit BEGIN, so SET LOCAL
+-- would revert before the very next statement even ran. See
+-- finance_reversal_concurrent_lock.sh's own identical fix for the first
+-- real CI failure this same class of bug produced there.
+set session_replication_role = replica;
+delete from public.audit_log where actor_id in (:'officer'::uuid, :'canceller'::uuid, :'beneficiary'::uuid);
+set session_replication_role = default;
 delete from public.finance_journal_entries where created_by in (:'officer'::uuid, :'canceller'::uuid);
 delete from public.profiles where id in (:'officer'::uuid, :'canceller'::uuid, :'beneficiary'::uuid);
 delete from auth.users where id in (:'officer'::uuid, :'canceller'::uuid, :'beneficiary'::uuid);
