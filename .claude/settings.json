@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "ReportFindings",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); sid=$(jq -r '.session_id // empty' <<<\"$input\"); root=\"${CLAUDE_PROJECT_DIR:-$(pwd)}\"; cd \"$root\" 2>/dev/null || exit 0; base=$(git merge-base HEAD origin/main-dev 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || echo \"\"); [ -z \"$base\" ] && exit 0; diffhash=$( { git diff \"$base\"...HEAD 2>/dev/null; git diff HEAD 2>/dev/null; } | git hash-object --stdin 2>/dev/null); [ -z \"$diffhash\" ] && exit 0; mkdir -p \"$root/.claude/.review-markers\"; echo \"$diffhash\" > \"$root/.claude/.review-markers/${sid}.done\"",
+            "statusMessage": "Recording code-review coverage for this diff...",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); cmd=$(jq -r '.tool_input.command // empty' <<<\"$input\"); stripped=$(printf '%s' \"$cmd\" | sed -E \"s/'[^']*'//g; s/\\\"[^\\\"]*\\\"//g\"); if ! echo \"$stripped\" | grep -qE '(^|[;&|]|[[:space:]])gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)'; then exit 0; fi; sid=$(jq -r '.session_id // empty' <<<\"$input\"); root=\"${CLAUDE_PROJECT_DIR:-$(pwd)}\"; marker=\"$root/.claude/.review-markers/${sid}.done\"; block() { printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"%s\"}}\\n' \"$1\"; exit 0; }; if [ ! -f \"$marker\" ]; then block 'No /code-review has run yet this session. Run /code-review high on this diff first (explicitly check financial-math, consent/privacy, and silent-failure bug classes; use /code-review ultra instead if the diff touches is_org_staff, the doctor-tier ladder, or RLS on a patient-scoped table), then retry gh pr create.'; fi; cd \"$root\" 2>/dev/null || exit 0; base=$(git merge-base HEAD origin/main-dev 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || echo \"\"); if [ -z \"$base\" ]; then block 'Could not resolve a merge-base against origin/main-dev to verify the reviewed diff (fetch origin/main-dev first). Re-run /code-review high once that resolves, then retry gh pr create.'; fi; current=$( { git diff \"$base\"...HEAD 2>/dev/null; git diff HEAD 2>/dev/null; } | git hash-object --stdin 2>/dev/null); saved=$(cat \"$marker\" 2>/dev/null); if [ -z \"$current\" ] || [ \"$current\" != \"$saved\" ]; then block 'The diff has changed since the last /code-review run this session (new commits or edits since). Re-run /code-review high on the CURRENT diff before opening this PR.'; fi; exit 0",
+            "statusMessage": "Checking code-review coverage before PR creation...",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

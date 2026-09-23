@@ -14,7 +14,7 @@ import { resolve } from "node:path";
  * test here means the fix is committed, not that production has it.
  */
 
-const WEBHOOK = resolve(__dirname, "../../../../../supabase/functions/paystack-webhook/index.ts");
+const WEBHOOK = resolve(__dirname, "../../../../../supabase/functions/paystack-webhook/handler.ts");
 const SENDER = resolve(
   __dirname,
   "../../../../../supabase/functions/send-pending-notifications/index.ts",
@@ -36,6 +36,73 @@ describe("paystack-webhook signature verification", () => {
     // The forgery risk this whole function guards against: an unconfigured
     // secret must reject every event, never degrade open.
     expect(source).toContain("PAYSTACK_WEBHOOK_SECRET is not set");
+  });
+});
+
+describe("paystack-webhook booking_order_type enum-cast guard", () => {
+  const source = readFileSync(WEBHOOK, "utf8");
+
+  // payment_transactions.booking_order_type is public.commission_type
+  // (lab/pharmacy/referral/home_visit/delivery/service_purchase — confirmed
+  // live 2026-09-18, no drift from the migration files). BookingOrderType
+  // (checkout-metadata.ts) additionally has 'video_visit'/'lab_result_consult',
+  // which were never added as commission_type labels because those two
+  // booking kinds are doctor-time products Tarragon never commissions. The
+  // webhook used to write metadata.booking_order_type into this column for
+  // EVERY booking kind, which threw an implicit-cast error — silently,
+  // because the UPDATE's own {error} was never checked — for a video-visit
+  // or lab-result-consult charge.success, leaving that payment_transactions
+  // row permanently missing processed_at/booking_order_id/booking_order_type
+  // even though the booking itself (video_visit_requests/
+  // lab_result_consult_requests) was correctly confirmed by the write just
+  // above it.
+  const bookingBlock = source.slice(
+    source.indexOf('if (metadata.kind === "booking") {'),
+    source.indexOf('} else if (metadata.kind === "subscription") {'),
+  );
+
+  it("only forwards booking_order_id/booking_order_type for the three commission_type booking kinds", () => {
+    expect(bookingBlock).toContain("isCommissionedBookingType");
+    expect(bookingBlock).toContain(
+      'bookingOrderType === "lab" || bookingOrderType === "pharmacy" || bookingOrderType === "referral"',
+    );
+    // The old unconditional write must be gone — it's what caused the silent
+    // enum-cast failure for video_visit/lab_result_consult.
+    expect(bookingBlock).not.toMatch(/booking_order_id:\s*row\.id,\s*booking_order_type:\s*bookingOrderType,\s*\}\);/);
+  });
+
+  it("checks the booking confirmation UPDATE's own error instead of dropping it", () => {
+    expect(bookingBlock).toContain("const { error: confirmError } = await supabase");
+    expect(bookingBlock).toContain("if (confirmError) {");
+  });
+});
+
+describe("paystack-webhook markProcessed/markFailed no longer swallow their own error", () => {
+  const source = readFileSync(WEBHOOK, "utf8");
+  const helpers = source.slice(
+    source.indexOf("const markProcessed = async"),
+    source.indexOf("const metadata = event.data?.metadata"),
+  );
+
+  it("markProcessed checks {error} and logs it", () => {
+    expect(helpers).toContain("const { error } = await supabase");
+    expect(helpers).toContain('console.error("paystack-webhook: failed to mark payment_transactions processed"');
+  });
+
+  it("markFailed checks {error} and logs it", () => {
+    expect(helpers).toContain("const { error: updateError } = await supabase");
+    expect(helpers).toContain(
+      'console.error("paystack-webhook: failed to record payment_transactions failure"',
+    );
+  });
+
+  it("no longer fires-and-forgets the payment_transactions UPDATE (old unchecked one-liners are gone)", () => {
+    expect(source).not.toContain(
+      'const markProcessed = (patch: Record<string, unknown> = {}) =>\n    supabase.from("payment_transactions")',
+    );
+    expect(source).not.toContain(
+      'const markFailed = (error: string) =>\n    supabase.from("payment_transactions")',
+    );
   });
 });
 

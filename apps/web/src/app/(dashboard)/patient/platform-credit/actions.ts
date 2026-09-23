@@ -4,6 +4,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
 import { initiatePlatformCreditTopupCheckout } from "@/lib/billing/platform-credit-checkout";
+import { isPlatformModuleEnabled } from "@/lib/platform-modules";
+import { PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE } from "@/lib/billing/platform-credit-messages";
 import { nairaToKobo } from "@tarragon/shared";
 
 export type PlatformCreditActionState = { error?: string; message?: string } | undefined;
@@ -17,6 +19,12 @@ export type PlatformCreditActionState = { error?: string; message?: string } | u
  * private.apply_platform_credit_topup_payment once the webhook's insert into
  * payment_transactions lands — never here, and never before the charge is
  * real.
+ *
+ * Checks the platform_credit_topups module before ever calling the RPC, so a
+ * disabled kill switch reads here as this action's own clear, patient-facing
+ * message rather than the RPC's generic exception text — the RPC itself
+ * still refuses independently either way (see lib/platform-modules.ts's
+ * "never the ONLY check" rule).
  */
 export async function topUpPlatformCredit(
   _prevState: PlatformCreditActionState,
@@ -25,6 +33,10 @@ export async function topUpPlatformCredit(
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
   if (!user.email) return { error: "Your account needs an email on file to fund your balance." };
+
+  if (!(await isPlatformModuleEnabled("platform_credit_topups"))) {
+    return { error: PLATFORM_CREDIT_TOPUPS_DISABLED_MESSAGE };
+  }
 
   const patientId = (formData.get("patientId") as string) || user.id;
   const amountNaira = Number(formData.get("amountNaira"));

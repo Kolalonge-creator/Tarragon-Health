@@ -4,7 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 
 export type UpdateCommunicationPreferencesState = { success?: boolean; error?: string } | undefined;
 
-const VALID_CHANNELS = ["whatsapp", "sms", "email", "push"] as const;
+// Kept in sync with communication-preferences-form.tsx's CHANNEL_OPTIONS:
+// whatsapp/sms are excluded — both are currently dead channels, see that
+// file's comment and the paired private.remap_notification_channel() fix.
+const VALID_CHANNELS = ["email", "push"] as const;
 
 /**
  * Health Communication Engine — patient-controlled preferences (17.15).

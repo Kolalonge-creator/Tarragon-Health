@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
-import type { Tables, Enums } from "@tarragon/shared";
+import type { Tables, SpecialistType } from "@tarragon/shared";
 import type { CommissionRateValue } from "@/components/admin/commission-rate-editor";
 import type { PartnerLicenseValues } from "@/components/admin/partner-license-fields";
 
 export type LabProvider = Tables<"lab_providers">;
 export type PharmacyPartner = Tables<"pharmacy_partners">;
 export type SpecialistProvider = Tables<"specialist_providers">;
-export type SpecialistType = Enums<"specialist_type">;
+export type { SpecialistType };
 export type PanelBundle = Tables<"panel_bundles">;
 export type PharmacyMedication = Tables<"pharmacy_medications"> & {
   pharmacy_partner_name: string | null;

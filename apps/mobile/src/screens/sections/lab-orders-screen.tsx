@@ -586,8 +586,13 @@ export function LabOrdersScreen() {
                               Automated summary. Not a medical opinion.
                             </Text>
                             <Text style={{ fontSize: 12.5, color: colors.ink, marginTop: 2 }}>
-                              One or more values in this file fall outside the range printed on the report itself. Only a
-                              doctor reviewing the full picture can tell you what it means.
+                              {doc.aiFlaggedAnalytes.length > 0
+                                ? `${doc.aiFlaggedAnalytes.length === 1 ? "This test is" : "These tests are"} outside the range printed on the report itself: ${doc.aiFlaggedAnalytes
+                                    .map((a) =>
+                                      a.reportedRange ? `${a.label} (report range: ${a.reportedRange})` : a.label
+                                    )
+                                    .join(", ")}. This isn't a diagnosis — you'll need to follow up with a doctor about it.`
+                                : "One or more values in this file fall outside the range printed on the report itself. Only a doctor reviewing the full picture can tell you what it means."}
                             </Text>
                           </View>
                         ) : doc.aiSummaryStatus === "ready" ? (

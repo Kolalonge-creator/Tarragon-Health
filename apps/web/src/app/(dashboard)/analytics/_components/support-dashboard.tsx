@@ -3,7 +3,7 @@
 import { LifeBuoy, Timer, TrendingUp, Gavel } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useComplaintsSummary, useSupportTicketSummary } from "@/lib/analytics/queries";
-import { formatNumber, formatPercent } from "@/lib/analytics/format";
+import { formatMinutesDuration, formatNumber, formatPercent } from "@/lib/analytics/format";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 
 /** §24.13/§24.16's support-centre analytics: technical-ticket volume by status, response/resolution time, escalation and repeat-contact rate, CSAT, and complaints governance throughput. */
@@ -17,8 +17,8 @@ export function SupportDashboard() {
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile icon={LifeBuoy} label="Open tickets" value={formatNumber(t?.open_count ?? 0)} unit={`of ${formatNumber(t?.total ?? 0)} in range`} />
-        <StatTile icon={Timer} label="Avg first response" value={t?.avg_first_response_minutes != null ? `${formatNumber(t.avg_first_response_minutes)}m` : "—"} />
-        <StatTile icon={Timer} label="Avg resolution" value={t?.avg_resolution_minutes != null ? `${formatNumber(t.avg_resolution_minutes)}m` : "—"} />
+        <StatTile icon={Timer} label="Avg first response" value={t?.avg_first_response_minutes != null ? formatMinutesDuration(t.avg_first_response_minutes) : "—"} />
+        <StatTile icon={Timer} label="Avg resolution" value={t?.avg_resolution_minutes != null ? formatMinutesDuration(t.avg_resolution_minutes) : "—"} />
         <StatTile icon={TrendingUp} label="CSAT" value={t?.avg_satisfaction != null ? `${t.avg_satisfaction.toFixed(1)}/5` : "—"} unit={`${formatNumber(t?.satisfaction_response_count ?? 0)} responses`} />
       </div>
 
@@ -40,8 +40,8 @@ export function SupportDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile icon={Gavel} label="Open complaints" value={formatNumber(c?.open_count ?? 0)} unit={`of ${formatNumber(c?.total ?? 0)} in range`} />
-        <StatTile icon={Timer} label="Avg acknowledgement" value={c?.avg_acknowledgement_minutes != null ? `${formatNumber(c.avg_acknowledgement_minutes)}m` : "—"} />
-        <StatTile icon={Timer} label="Avg resolution" value={c?.avg_resolution_minutes != null ? `${formatNumber(c.avg_resolution_minutes)}m` : "—"} />
+        <StatTile icon={Timer} label="Avg acknowledgement" value={c?.avg_acknowledgement_minutes != null ? formatMinutesDuration(c.avg_acknowledgement_minutes) : "—"} />
+        <StatTile icon={Timer} label="Avg resolution" value={c?.avg_resolution_minutes != null ? formatMinutesDuration(c.avg_resolution_minutes) : "—"} />
         <StatTile icon={Gavel} label="Became incident reports" value={formatNumber(c?.incident_escalation_count ?? 0)} unit={`${formatNumber(c?.governance_reviewed_count ?? 0)} governance-reviewed`} />
       </div>
 

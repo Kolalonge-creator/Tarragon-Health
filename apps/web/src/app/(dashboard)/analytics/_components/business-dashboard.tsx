@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Building2, Receipt, UserCheck, Users } from "lucide-react";
-import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { StatTile } from "@/components/ui/stat-tile";
 import {
   ChartContainer,
@@ -11,7 +11,12 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
-import { useBusinessSummary, useGrowthTimeseries, type GrowthPeriod } from "@/lib/analytics/queries";
+import {
+  useBusinessSummary,
+  useGrowthTimeseries,
+  useRecomputeBusinessSummary,
+  type GrowthPeriod,
+} from "@/lib/analytics/queries";
 import { formatNumber } from "@/lib/analytics/format";
 import { paletteColor } from "./chart-palette";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
@@ -28,12 +33,41 @@ export function BusinessDashboard() {
   const [period, setPeriod] = useState<GrowthPeriod>("month");
   const summary = useBusinessSummary();
   const growth = useGrowthTimeseries(period);
+  const recompute = useRecomputeBusinessSummary();
 
   const s = summary.data;
   const growthRows = growth.data ?? [];
 
   return (
     <div className="space-y-6">
+      {/* These stat tiles now come from a nightly-refreshed snapshot, not a
+          live query (docs/DATA_ARCHITECTURE_GAPS_BUILD_PLAN.md §3) — a
+          real /code-review high finding on this same change was that the
+          switch from always-live to cached happened with no staleness
+          signal anywhere; this strip is the fix. */}
+      {s?._computed_at && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-charcoal-ink/60">
+          <span>
+            Data as of{" "}
+            {new Date(s._computed_at).toLocaleString(undefined, {
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}{" "}
+            (refreshes nightly)
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={recompute.isPending}
+            onClick={() => recompute.mutate()}
+          >
+            {recompute.isPending ? "Refreshing…" : "Refresh now"}
+          </Button>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile icon={Building2} label="Organisations" value={formatNumber(s?.total_orgs ?? 0)} />
         <StatTile icon={Users} label="Patients" value={formatNumber(s?.total_patients ?? 0)} />
@@ -116,6 +150,21 @@ export function BusinessDashboard() {
                     <Cell key={entry.role} fill={paletteColor(i)} />
                   ))}
                 </Pie>
+                <Legend
+                  content={() => (
+                    <ul className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-charcoal-ink/70">
+                      {s.roles.map((entry, i) => (
+                        <li key={entry.role} className="flex items-center gap-1.5">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                            style={{ backgroundColor: paletteColor(i) }}
+                          />
+                          {entry.role} ({entry.count})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                />
               </PieChart>
             </ChartContainer>
           )}

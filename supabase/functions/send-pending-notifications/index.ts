@@ -2994,6 +2994,23 @@ Deno.serve(async () => {
     (preferenceRows ?? []).map((p) => [`${p.patient_id}:${p.category}`, p]),
   );
 
+  // WhatsApp (Meta WABA template approval) and SMS (Termii sender-ID
+  // approval) are both off the founder's near-term plan (CLAUDE.md,
+  // 2026-09-15) and have a confirmed 0% live success rate as of
+  // 2026-09-18 — every attempt on either channel is a guaranteed failure
+  // against a real provider, for no patient benefit, that also pollutes
+  // the failure/reconciliation data with noise indistinguishable from a
+  // genuine outage. Routine rows on these channels are suppressed before
+  // ever reaching the provider call. Critical rows are deliberately
+  // UNAFFECTED — private.escalate_unconfirmed_critical_notifications()
+  // depends on a real, timely `failed` status to advance push -> whatsapp
+  // -> sms -> exhausted, and channelAllowed() already never gates a
+  // critical row for any reason; this must stay that way.
+  function platformDisabledChannel(row: NotificationRow): boolean {
+    if (row.priority === "critical") return false;
+    return row.channel === "whatsapp" || row.channel === "sms";
+  }
+
   function channelAllowed(row: NotificationRow): boolean {
     if (row.priority === "critical") return true; // never gated — see TEMPLATE_CATEGORY's header comment
     const category = row.template ? TEMPLATE_CATEGORY[row.template] : undefined;
@@ -3070,6 +3087,11 @@ Deno.serve(async () => {
   for (const row of rows) {
     if (foldedIds.has(row.id)) continue;
 
+    if (platformDisabledChannel(row)) {
+      await suppress(row.id, "whatsapp/sms deprioritised platform-wide, no provider approval yet");
+      suppressed++;
+      continue;
+    }
     if (!channelAllowed(row)) {
       await suppress(row.id, "patient turned off this channel for this category");
       suppressed++;

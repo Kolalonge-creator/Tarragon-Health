@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { MarketingNav } from "./_components/marketing-nav";
 import { MarketingFooter } from "./_components/marketing-footer";
 import { BreadcrumbJsonLd } from "./_components/breadcrumb-json-ld";
+import { StickyCtaBar } from "./_components/sticky-cta-bar";
 import { SITE, SITE_URL, absoluteUrl } from "@/lib/marketing/site";
 
 const DEFAULT_TITLE = `${SITE.name} | ${SITE.tagline}`;
@@ -60,10 +61,13 @@ const organizationJsonLd = {
   telephone: SITE.telephone,
   email: SITE.email,
   identifier: SITE.registrationNumber,
-  // Country-level only: Tarragon runs no clinics and publishes no street
-  // address, and a fabricated one would be worse than none.
+  // Locality-level only: this is the registered headquarters, not a place a
+  // patient attends. Tarragon runs no clinics and publishes no street address,
+  // and a fabricated one would be worse than none.
   address: {
     "@type": "PostalAddress",
+    addressLocality: SITE.addressLocality,
+    addressRegion: SITE.addressRegion,
     addressCountry: SITE.addressCountry,
   },
   contactPoint: [
@@ -104,6 +108,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <MarketingNav />
       <main id="main-content" className="flex-1">{children}</main>
       <MarketingFooter />
+      <StickyCtaBar />
     </div>
   );
 }

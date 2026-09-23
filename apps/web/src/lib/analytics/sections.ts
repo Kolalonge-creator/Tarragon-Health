@@ -53,6 +53,14 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     group: "Financial",
   },
   {
+    id: "doctor-income",
+    href: "/analytics/doctor-income",
+    label: "Doctor income",
+    subtitle: "Paid jobs per doctor, for commission calculation",
+    icon: "doctorIncome",
+    group: "Financial",
+  },
+  {
     id: "investor",
     href: "/analytics/investor",
     label: "Investor",

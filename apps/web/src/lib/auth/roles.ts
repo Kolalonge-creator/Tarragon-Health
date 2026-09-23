@@ -16,6 +16,11 @@ export const ROLE_HOME_PATH: Record<UserRole, string> = {
   lab_partner: "/lab-partner",
   payer_admin: "/payer",
   provider_org_staff: "/provider-org",
+  // Module ngo_funded_cohort — built dormant (see platform_modules), same
+  // pattern as payer_admin/provider_org_staff above. No /ngo route group
+  // exists yet; this reserves the role-home path so provisioning an
+  // ngo_admin seat and building its dashboard don't have to land together.
+  ngo_admin: "/ngo",
 };
 
 export function getRoleHomePath(role: UserRole): string {
@@ -49,6 +54,9 @@ export const ROLE_DISPLAY_LABEL: Record<UserRole, string> = {
   // switches the module on via public.set_platform_module().
   payer_admin: "Payer Admin",
   provider_org_staff: "Provider Organisation Staff",
+  // Module ngo_funded_cohort — built dormant, same reasoning as above; see
+  // docs/FUNDING_STRATEGY.md.
+  ngo_admin: "NGO Partner Admin",
 };
 
 /** True when `pathname` is the role-home (or under it) for `role`. */

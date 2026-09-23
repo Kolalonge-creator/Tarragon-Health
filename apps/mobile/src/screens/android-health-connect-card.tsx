@@ -2,9 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { isHealthConnectAvailable } from "@/lib/health-connect";
+import {
+  hasAcceptedHealthConnectRationale,
+  markHealthConnectRationaleAccepted,
+} from "@/lib/health-connect-consent";
 import { syncHealthConnect, type HealthSyncResult } from "@/lib/health-sync";
 import { colors } from "@/ui/theme";
 import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/components";
+import { HealthConnectRationaleModal } from "@/screens/health-connect-rationale-modal";
 
 /**
  * Android Health Connect card — the Android peer of apple-health-card.tsx,
@@ -18,11 +23,20 @@ import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/components";
  * Connect isn't available (not installed, or an old OS with no path to
  * install it), rather than showing a button that cannot work — same rule
  * apple-health-card.tsx follows.
+ *
+ * Unlike apple-health-card.tsx, tapping Sync does not go straight to
+ * syncHealthConnect() the first time: it shows HealthConnectRationaleModal
+ * first (health-connect-consent.ts's rationale-accepted flag), and only
+ * starts the sync — which is what actually triggers Health Connect's OS
+ * permission dialog, via requestHealthConnectPermissions() — once the
+ * patient continues from that screen. Every sync after the first goes
+ * straight through, same as HealthKit's side.
  */
 export function AndroidHealthConnectCard() {
   const [available, setAvailable] = useState<boolean | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<HealthSyncResult | null>(null);
+  const [rationaleVisible, setRationaleVisible] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -40,7 +54,7 @@ export function AndroidHealthConnectCard() {
     };
   }, []);
 
-  const handleSync = useCallback(async () => {
+  const runSync = useCallback(async () => {
     setSyncing(true);
     setResult(null);
     try {
@@ -49,6 +63,20 @@ export function AndroidHealthConnectCard() {
       setSyncing(false);
     }
   }, []);
+
+  const handleSyncPress = useCallback(async () => {
+    if (await hasAcceptedHealthConnectRationale()) {
+      await runSync();
+    } else {
+      setRationaleVisible(true);
+    }
+  }, [runSync]);
+
+  const handleRationaleAccept = useCallback(async () => {
+    setRationaleVisible(false);
+    await markHealthConnectRationaleAccepted();
+    await runSync();
+  }, [runSync]);
 
   if (available !== true) return null;
 
@@ -85,12 +113,18 @@ export function AndroidHealthConnectCard() {
 
       <PrimaryButton
         title={syncing ? "Syncing…" : "Sync Health Connect"}
-        onPress={handleSync}
+        onPress={() => void handleSyncPress()}
         disabled={syncing}
         loading={syncing}
       />
 
       {result ? <SyncMessage result={result} /> : null}
+
+      <HealthConnectRationaleModal
+        visible={rationaleVisible}
+        onAccept={() => void handleRationaleAccept()}
+        onDecline={() => setRationaleVisible(false)}
+      />
     </Card>
   );
 }

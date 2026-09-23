@@ -396,6 +396,18 @@ async function countLabResultConsultsWaiting(supabase: Client) {
   return count ?? 0;
 }
 
+/** Recognised FHIR Bundle entries from a partner import (labs/HMOs/hospitals
+ * via POST /api/v1/fhir/import) waiting for a clinician to confirm, modify,
+ * or dismiss them into the record -- see clinician/fhir-review. */
+async function countFhirProposedResourcesPending(supabase: Client) {
+  const { count, error } = await supabase
+    .from("fhir_import_proposed_resources")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "proposed");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /**
  * Threads waiting on a care-team reply -- exact same predicate as
  * isAwaitingCareTeam (lib/worklist/message-triage.ts), which compares
@@ -409,6 +421,38 @@ async function countLabResultConsultsWaiting(supabase: Client) {
  */
 async function countCareThreadsAwaitingReply(supabase: Client) {
   const { data, error } = await supabase.rpc("count_care_threads_awaiting_reply");
+  if (error) throw error;
+  return data ?? 0;
+}
+
+/**
+ * Preventive Health Check Reviews a patient has paid for but nobody has
+ * written back yet — exact same predicate as the preventive-health-check-
+ * reviews worklist page's own query. Before this counter/page existed
+ * (added 2026-09-22 alongside the Preventive Health Check Review SKU, see
+ * 20260922185300_preventive_health_check_review_sku.sql), a doctor could
+ * only find a check to review by already knowing the patientId and
+ * navigating straight to /clinician/patients/[patientId] — nothing
+ * surfaced "a patient is waiting on this" anywhere.
+ */
+async function countPreventiveHealthCheckReviewsWaiting(supabase: Client) {
+  const { count, error } = await supabase
+    .from("annual_health_checks")
+    .select("id", { count: "exact", head: true })
+    .not("review_requested_at", "is", null)
+    .is("reviewed_at", null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Doctor-to-doctor curbside consults where the OTHER party sent last --
+ * same "column-vs-caller" RPC shape as countCareThreadsAwaitingReply, and
+ * the same reason: comparing last_message_sender_id to the caller's own
+ * clinical_staff id isn't expressible as a plain .select().eq() filter. See
+ * public.count_curbside_consults_awaiting_reply()
+ * (20260922230142_curbside_consults.sql). */
+async function countCurbsideConsultsAwaitingReply(supabase: Client) {
+  const { data, error } = await supabase.rpc("count_curbside_consults_awaiting_reply");
   if (error) throw error;
   return data ?? 0;
 }
@@ -447,7 +491,10 @@ export type WorklistCountKey =
   | "unreadSupportMessages"
   | "careThreadsAwaitingReply"
   | "labOrdersAwaitingHomeVisitAssignment"
-  | "labResultConsultsWaiting";
+  | "labResultConsultsWaiting"
+  | "fhirProposedResourcesPending"
+  | "preventiveHealthCheckReviewsWaiting"
+  | "curbsideConsultsAwaitingReply";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -489,6 +536,9 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   careThreadsAwaitingReply: countCareThreadsAwaitingReply,
   labOrdersAwaitingHomeVisitAssignment: countLabOrdersAwaitingHomeVisitAssignment,
   labResultConsultsWaiting: countLabResultConsultsWaiting,
+  fhirProposedResourcesPending: countFhirProposedResourcesPending,
+  preventiveHealthCheckReviewsWaiting: countPreventiveHealthCheckReviewsWaiting,
+  curbsideConsultsAwaitingReply: countCurbsideConsultsAwaitingReply,
 };
 
 /**

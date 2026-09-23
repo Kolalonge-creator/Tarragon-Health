@@ -4,11 +4,11 @@ import { Banknote, FileText, Receipt, Scale } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useAccountingSummary } from "@/lib/analytics/queries";
 import { formatMinor } from "@/lib/analytics/format";
-import { MiniBarList, SectionCard } from "./primitives";
+import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 import { ExportButton } from "./export-button";
 
 export function AccountingDashboard() {
-  const { data } = useAccountingSummary();
+  const { data, isLoading } = useAccountingSummary();
   const rr = data?.revenue_recognition;
   const ar = data?.ar_aging;
   const rec = data?.reconciliation;
@@ -38,8 +38,10 @@ export function AccountingDashboard() {
           description="Collected vs recognised vs deferred, across everything bought."
           actions={<ExportButton filename="revenue-recognition" rows={rr?.by_currency ?? []} />}
         >
-          {(rr?.by_currency ?? []).length === 0 ? (
-            <div className="py-6 text-center text-sm text-charcoal-ink/50">Nothing has been bought yet.</div>
+          {isLoading ? (
+            <CenterNote>Loading…</CenterNote>
+          ) : (rr?.by_currency ?? []).length === 0 ? (
+            <CenterNote>Nothing has been bought yet.</CenterNote>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

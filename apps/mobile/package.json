@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:e2e-mobile": "maestro test .maestro/flows"
   },
   "dependencies": {
     "@babel/runtime": "^7.25.0",
@@ -59,12 +60,5 @@
     "jest-expo": "~54.0.18",
     "typescript": "^5.3.3",
     "typescript-eslint": "^8"
-  },
-  "expo": {
-    "autolinking": {
-      "exclude": [
-        "react-native-health-connect"
-      ]
-    }
   }
 }
