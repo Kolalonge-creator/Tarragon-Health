@@ -202,6 +202,9 @@ export function MarketingFooter() {
                 +234 806 119 7940
               </a>
             </p>
+            <p className="text-sm text-white/65">
+              {SITE.addressLocality}, {SITE.addressRegion}, Nigeria
+            </p>
           </div>
           <SocialLinks />
         </div>

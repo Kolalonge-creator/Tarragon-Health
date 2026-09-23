@@ -33,14 +33,20 @@ export const SITE = {
    * search engine or an AI answer attach a phone number and a company
    * registration to this brand instead of guessing.
    *
-   * No street address: Tarragon has no public premises to publish (no owned
-   * clinics), so the postal address is country-level only. Do not invent one.
+   * `addressLocality`/`addressRegion` mirror the registered address the
+   * founder set in `admin/settings/company-profile` (live since 2026-08-12,
+   * `finance_company_profile.registered_address`, "Victoria Island, Lagos,
+   * Nigeria") — a locality, not a street/building, so it's safe to publish
+   * even though Tarragon has no public premises. Keep this in sync with that
+   * record if it ever changes; don't invent a street-level address.
    */
   telephone: "+2348061197940",
   email: "hello@tarragonhealth.ng",
   supportEmail: "support@tarragonhealth.ng",
   /** Corporate Affairs Commission registration number, as shown in the footer. */
   registrationNumber: "RC 9702108",
+  addressLocality: "Victoria Island",
+  addressRegion: "Lagos",
   addressCountry: "NG",
   /** External profiles for Organization structured data. Add real handles only. */
   sameAs: [

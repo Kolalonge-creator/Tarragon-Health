@@ -60,10 +60,13 @@ const organizationJsonLd = {
   telephone: SITE.telephone,
   email: SITE.email,
   identifier: SITE.registrationNumber,
-  // Country-level only: Tarragon runs no clinics and publishes no street
-  // address, and a fabricated one would be worse than none.
+  // Locality-level only (the registered address on file, not a street
+  // number): Tarragon runs no public clinics, so nothing more specific
+  // exists to publish.
   address: {
     "@type": "PostalAddress",
+    addressLocality: SITE.addressLocality,
+    addressRegion: SITE.addressRegion,
     addressCountry: SITE.addressCountry,
   },
   contactPoint: [
