@@ -109,6 +109,30 @@ const nextConfig: NextConfig = {
   },
   // Compile TypeScript sources imported from workspace packages.
   transpilePackages: ["@tarragon/shared", "@tarragon/lifestyle-engine", "@tarragon/symptom-triage-engine"],
+  // Forces these two into the Edge Runtime bundle via compile-time
+  // substitution (next.config's own `env` field — a legacy but still-live
+  // mechanism, distinct from and in ADDITION to Next's normal .env-file
+  // loading) rather than relying on a runtime process.env lookup reaching
+  // src/proxy.ts. proxy.ts ALWAYS runs under Edge Runtime, unconditionally,
+  // and is the only place in this app that does — found live (2026-09-23,
+  // apps/web/e2e-browser's CI job) that plain process.env there could
+  // throw "Invalid supabaseUrl" even with NEXT_PUBLIC_SUPABASE_URL/
+  // ANON_KEY confirmed correctly present in the parent shell AND written
+  // to a real, verified-correct apps/web/.env.local — neither fixed it
+  // (see git history: 3 failed attempts before this one). Next's own docs
+  // (node_modules/next/dist/docs/01-app/02-guides/environment-variables.md
+  // line 250/272) separately note .env.local is never loaded at all when
+  // NODE_ENV=test, which a test runner commonly sets — a second, distinct
+  // reason runtime env lookup is fragile here specifically. A safe no-op
+  // everywhere else: this only re-supplies the exact same value
+  // getSupabaseOrigin() above already reads successfully from
+  // process.env at config-load time (plain Node context, not Edge), so it
+  // changes nothing for a real Vercel build/deploy where these vars are
+  // already genuinely present before next.config.ts even evaluates.
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  },
   // Dev-server-only (ignored in production builds). The Expo mobile app's
   // WebView sections (apps/mobile/src/screens/webview-screen.tsx) hit this
   // dev server over the LAN IP set in apps/mobile/.env's
