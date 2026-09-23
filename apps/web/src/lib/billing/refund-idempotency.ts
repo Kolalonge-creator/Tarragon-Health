@@ -45,7 +45,7 @@
  * we cannot identify.
  */
 
-// >>> BEGIN SHARED REFUND IDEMPOTENCY (mirrored verbatim in supabase/functions/paystack-webhook/index.ts)
+// >>> BEGIN SHARED REFUND IDEMPOTENCY (mirrored verbatim in supabase/functions/paystack-webhook/handler.ts)
 export interface RefundWebhookData {
   transaction_reference?: string | null;
   transaction?: { reference?: string | null } | null;
