@@ -5,20 +5,32 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
-import { TestimonialModerationButtons } from "./moderation-buttons";
+import { CreateDoctorTestimonialForm } from "./create-form";
+import { DoctorTestimonialModerationButtons } from "./moderation-buttons";
 
-export const metadata = { title: "Testimonials" };
+export const metadata = { title: "Doctor testimonials" };
 
-export default async function AdminTestimonialsPage() {
+export default async function AdminDoctorTestimonialsPage() {
   const profile = await getCurrentProfile();
   // proxy.ts already blocks non-admins from /admin/**; defence in depth.
   if (profile?.role !== "admin") redirect("/admin");
+  if (!profile.organisation_id) redirect("/admin");
 
   const supabase = await createClient();
-  const { data: testimonials, error: testimonialsError } = await supabase
-    .from("patient_testimonials")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const [{ data: testimonials, error: testimonialsError }, { data: staff, error: staffError }] =
+    await Promise.all([
+      supabase.from("doctor_testimonials").select("*").order("created_at", { ascending: false }),
+      // Scoped to the admin's own org: private.is_org_staff() lets an
+      // `admin` account see clinical_staff platform-wide, which would
+      // otherwise let this picker offer a clinician from a different
+      // organisation than the one this testimonial gets tagged with.
+      supabase
+        .from("clinical_staff")
+        .select("id, full_name")
+        .eq("organisation_id", profile.organisation_id)
+        .eq("active", true)
+        .order("full_name", { ascending: true }),
+    ]);
 
   const submitted = (testimonials ?? []).filter((t) => t.status === "submitted");
   const reviewed = (testimonials ?? []).filter((t) => t.status !== "submitted");
@@ -26,9 +38,16 @@ export default async function AdminTestimonialsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Testimonials"
-        description="Patient quotes awaiting review. Publishing puts the quote and its display name on the public marketing site, so a quote with no recorded consent to publish cannot be published from here."
+        title="Doctor testimonials"
+        description="There is no doctor-facing submission flow here, by design (founder decision, 2026-09-24): an admin adds a quote only after getting the doctor's consent off-platform, then publishes it separately below. Attribution stays first name + role only, never a surname, tier, specialty, or credential."
       />
+
+      {staffError && (
+        <LoadFailure>
+          The clinician list could not be loaded, so a new testimonial cannot be added right now.
+        </LoadFailure>
+      )}
+      {!staffError && <CreateDoctorTestimonialForm staff={staff ?? []} />}
 
       <Card>
         <CardHeader>
@@ -48,19 +67,17 @@ export default async function AdminTestimonialsPage() {
             <div key={t.id} className="rounded-md border border-charcoal-ink/10 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-medium text-charcoal-ink">{t.display_name}</p>
-                {/* The fact that decides whether this may be published at all,
-                    now on the row rather than only in the table. */}
-                <Badge variant={t.consent_to_publish ? "green" : "red"}>
-                  {t.consent_to_publish ? "Consented to publish" : "No consent to publish"}
-                </Badge>
                 {t.condition && <Badge variant="grey">{t.condition}</Badge>}
               </div>
               <p className="mt-1 text-sm text-charcoal-ink/80">&ldquo;{t.quote}&rdquo;</p>
-              <TestimonialModerationButtons
+              <p className="mt-1 text-xs text-charcoal-ink/60">
+                Consent: {t.consent_reference}
+              </p>
+              <DoctorTestimonialModerationButtons
                 id={t.id}
                 displayName={t.display_name}
                 quote={t.quote}
-                consentToPublish={t.consent_to_publish}
+                consentReference={t.consent_reference}
               />
             </div>
           ))}
@@ -84,7 +101,6 @@ export default async function AdminTestimonialsPage() {
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <Badge variant={t.status === "published" ? "green" : "grey"}>{t.status}</Badge>
                 {t.condition && <Badge variant="grey">{t.condition}</Badge>}
-                {!t.consent_to_publish && <Badge variant="red">No consent on file</Badge>}
               </div>
             </div>
           ))}

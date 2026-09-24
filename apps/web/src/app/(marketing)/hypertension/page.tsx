@@ -6,6 +6,8 @@ import { ResourceCarousel } from "../_components/resource-carousel";
 import { ConditionMonitoringGrid, HYPERTENSION_MONITORING } from "../_components/condition-monitoring";
 import { HowTestingWorks } from "../_components/how-testing-works";
 import { PhoneMockup } from "../_components/phone-mockup";
+import { TestimonialsSection } from "../_components/testimonials-section";
+import { DoctorTestimonialsSection } from "../_components/doctor-testimonials-section";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
 export const revalidate = 300;
@@ -61,6 +63,10 @@ export default async function HypertensionPage() {
       <Section variant="sage">
         <HowTestingWorks current="chronic" />
       </Section>
+
+      <TestimonialsSection condition="hypertension" />
+
+      <DoctorTestimonialsSection condition="hypertension" />
 
       {bloodPressureArticles.length > 0 ? (
         <Section variant="sage">

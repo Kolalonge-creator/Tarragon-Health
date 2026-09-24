@@ -443,6 +443,13 @@ export default async function AdminPage() {
           visible: isSuperAdmin,
         },
         {
+          href: "/admin/doctor-testimonials",
+          label: "Doctor testimonials",
+          blurb: "Add and publish a doctor's quote, with its off-platform consent on file",
+          icon: NAV_ICON.review,
+          visible: isSuperAdmin,
+        },
+        {
           href: "/admin/settings/platform-modules",
           label: "Platform modules",
           blurb: "Activate the payer or provider-organisation platform",

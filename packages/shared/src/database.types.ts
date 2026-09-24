@@ -10730,6 +10730,80 @@ export type Database = {
           },
         ]
       }
+      doctor_testimonials: {
+        Row: {
+          clinical_staff_id: string
+          condition: string | null
+          consent_reference: string
+          created_at: string
+          created_by: string
+          display_name: string
+          id: string
+          organisation_id: string
+          quote: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          clinical_staff_id: string
+          condition?: string | null
+          consent_reference: string
+          created_at?: string
+          created_by: string
+          display_name: string
+          id?: string
+          organisation_id: string
+          quote: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          clinical_staff_id?: string
+          condition?: string | null
+          consent_reference?: string
+          created_at?: string
+          created_by?: string
+          display_name?: string
+          id?: string
+          organisation_id?: string
+          quote?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_testimonials_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_testimonials_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_testimonials_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_testimonials_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drug_monitoring_rules: {
         Row: {
           created_at: string
@@ -26992,6 +27066,7 @@ export type Database = {
       }
       patient_testimonials: {
         Row: {
+          condition: string | null
           consent_to_publish: boolean
           created_at: string
           display_name: string
@@ -27004,6 +27079,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          condition?: string | null
           consent_to_publish?: boolean
           created_at?: string
           display_name: string
@@ -27016,6 +27092,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          condition?: string | null
           consent_to_publish?: boolean
           created_at?: string
           display_name?: string
