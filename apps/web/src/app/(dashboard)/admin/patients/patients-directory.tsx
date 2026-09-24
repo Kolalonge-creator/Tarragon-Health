@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download } from "lucide-react";
 import { ageFromDateOfBirth, koboToNaira } from "@tarragon/shared";
+import { formatPatientDateTime } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +33,9 @@ export type PatientRow = {
   organisationName: string | null;
   isActive: boolean;
   createdAt: string;
+  /** Last login event (auth.users.last_sign_in_at) — "last visited the platform". */
+  lastVisitAt: string | null;
+  /** Last device heartbeat while a dashboard tab was open/visible — "last activity". */
   lastActiveAt: string | null;
   /** Count and total below only include purchases that were actually paid for (see page.tsx's PAID_STATUSES). */
   purchaseCount: number;
@@ -55,6 +59,11 @@ function shortDate(value: string | null): string {
     month: "short",
     year: "numeric",
   });
+}
+
+function shortDateTime(value: string | null): string {
+  if (!value) return "—";
+  return formatPatientDateTime(value);
 }
 
 const PURCHASE_STATUS_VARIANT: Record<string, "green" | "grey" | "red" | "amber" | "blue"> = {
@@ -85,7 +94,8 @@ export function PatientsDirectory({ rows }: { rows: PatientRow[] }) {
       Organisation: r.organisationName ?? "",
       Status: r.isActive ? "Active" : "Inactive",
       Joined: r.createdAt,
-      "Last active": r.lastActiveAt ?? "",
+      "Last visited": r.lastVisitAt ?? "",
+      "Last activity": r.lastActiveAt ?? "",
       "Purchases (paid)": r.purchaseCount,
       "Total spent (NGN)": koboToNaira(r.totalSpentKobo),
       "Last purchase": r.lastPurchaseAt ?? "",
@@ -146,6 +156,7 @@ export function PatientsDirectory({ rows }: { rows: PatientRow[] }) {
                   <th className="px-3 py-2">Contact</th>
                   <th className="px-3 py-2">Age / sex</th>
                   <th className="px-3 py-2">Joined</th>
+                  <th className="px-3 py-2">Last visit / activity</th>
                   <th className="px-3 py-2">Purchases</th>
                   <th className="px-3 py-2">Platform credit</th>
                   <th className="px-3 py-2" />
@@ -191,9 +202,10 @@ function PatientTableRow({ row }: { row: PatientRow }) {
           {age !== null ? `${age}y` : "—"}
           {row.sex ? ` · ${row.sex}` : ""}
         </td>
+        <td className="px-3 py-2 text-charcoal-ink/80">{shortDate(row.createdAt)}</td>
         <td className="px-3 py-2 text-charcoal-ink/80">
-          {shortDate(row.createdAt)}
-          <p className="text-xs text-charcoal-ink/50">last active {shortDate(row.lastActiveAt)}</p>
+          <p>Visited {shortDateTime(row.lastVisitAt)}</p>
+          <p className="text-xs text-charcoal-ink/50">Active {shortDateTime(row.lastActiveAt)}</p>
         </td>
         <td className="px-3 py-2 text-charcoal-ink/80">
           {row.purchaseCount === 0 ? (
@@ -219,7 +231,7 @@ function PatientTableRow({ row }: { row: PatientRow }) {
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={7} className="space-y-3 bg-charcoal-ink/[0.03] px-3 py-3">
+          <td colSpan={8} className="space-y-3 bg-charcoal-ink/[0.03] px-3 py-3">
             {row.purchases.length > 0 && (
               <ul className="space-y-1">
                 {row.purchases.map((p, i) => (

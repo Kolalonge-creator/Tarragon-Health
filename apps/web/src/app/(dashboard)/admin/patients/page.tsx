@@ -63,12 +63,20 @@ export default async function AdminPatientsPage() {
 
   // auth.users isn't reachable via PostgREST — pull emails via the admin API
   // and map onto profiles by id, same pattern as /admin/settings/members.
+  // last_sign_in_at comes along for free from the same call — it's the
+  // actual login event ("last visited the platform"), distinct from
+  // app_last_active_at below (a heartbeat pinged every few minutes while a
+  // dashboard tab stays open/visible, i.e. "last activity").
   const emailById = new Map<string, string | null>();
+  const lastSignInById = new Map<string, string | null>();
   let page = 1;
   for (;;) {
     const { data: usersPage } = await svc.auth.admin.listUsers({ page, perPage: 200 });
     const list = usersPage?.users ?? [];
-    list.forEach((u) => emailById.set(u.id, u.email ?? null));
+    list.forEach((u) => {
+      emailById.set(u.id, u.email ?? null);
+      lastSignInById.set(u.id, u.last_sign_in_at ?? null);
+    });
     if (list.length < 200) break;
     page += 1;
     if (page > 25) break; // defensive cap, mirrors the members page
@@ -128,6 +136,7 @@ export default async function AdminPatientsPage() {
       organisationName: org?.name ?? null,
       isActive: p.is_active,
       createdAt: p.created_at,
+      lastVisitAt: lastSignInById.get(p.id) ?? null,
       lastActiveAt: p.app_last_active_at,
       purchaseCount: paidPurchases.length,
       totalSpentKobo: paidPurchases.reduce((sum, pu) => sum + pu.amountKobo, 0),
