@@ -479,9 +479,70 @@ diabetes_self_monitoring_acting_supporter.sql
 # ALREADY-RECOGNISED revenue tranche (exactly the class of bug
 # 20260905204245_reverse_phantom_service_purchase_revenue.sql exists to warn
 # about — reversing only the original entry would under-correct the ledger),
-# the Paystack refund queue row shape, the platform-credit path (GL reversal
-# + correct_platform_credit balance restoration), the chronic-programme
-# enrolment track downgrade on refund (a real gap: nothing previously
-# reversed activate_chronic_programme_doctor_supported_track's upgrade), and
-# a repeat-decide idempotency guard against a double refund.
+# the Paystack refund queue row shape (incl. the customer-borne processor fee,
+# fixed by 20260924213420_fix_guarantee_refund_review_findings.sql), the
+# platform-credit path (correct_platform_credit as the sole reversal
+# mechanism, no double GL posting), the chronic-programme enrolment track
+# downgrade on refund (a real gap: nothing previously reversed
+# activate_chronic_programme_doctor_supported_track's upgrade), and a
+# repeat-decide idempotency guard against a double refund.
 first_purchase_guarantee_refund.sql
+
+# --- Added 2026-09-24 (second pass) ------------------------------------------
+# private.finance_post_voucher_redeemed had two bugs, found while auditing
+# whether promo-code/care-voucher-covered service purchases report accurately
+# on the finance dashboard (20260924211113_fix_voucher_redemption_finance_
+# posting_amount_and_deferral.sql): it always posted the voucher's full
+# face_value_kobo as revenue instead of the amount actually applied to the
+# order (redeem_care_voucher's own least(face_value_kobo, payable)), and for a
+# service_purchase it always posted straight to 4100 immediate revenue with no
+# check for service_products.access_duration_days -- the same bounded-duration
+# pack paid by card or platform credit correctly defers to 2000 with a
+# recognition schedule. Proves a reward voucher worth more than a bounded-
+# duration order's price posts only the covered amount, deferred to 2000, with
+# a correctly-sized 4020 recognition schedule; a control proves the same for an
+# unbounded order (covered amount, straight to 4100, no schedule); sabotage
+# reverts the trigger to the pre-fix unconditional-face-value/unconditional-
+# 4100 body and confirms both holes reopen on a fresh redemption.
+voucher_redemption_finance_posting_amount_and_deferral.sql
+
+# --- Added 2026-09-24 (third pass) -------------------------------------------
+# public.finance_revenue_by_funding_source() (20260924211136_finance_revenue_
+# by_funding_source.sql) is a new read-side dashboard RPC, not a bug fix, but
+# gets the same standing-regression treatment given the financial-correctness
+# stakes: a reward-voucher-funded bounded-duration purchase's recognised
+# revenue must land entirely in promotional_minor, a platform-credit-paid_
+# balance-funded one entirely in cash_minor, a plain card payment/voucher
+# redemption classified correctly at the point-of-sale leg, and nothing in
+# unclassified_minor. Sabotage collapses the function back to summing every
+# revenue-account credit as cash (the pre-fix gap: no funding-source
+# distinction at all) and confirms the split disappears, proving the checks
+# discriminate rather than passing vacuously.
+finance_revenue_by_funding_source.sql
+
+# --- Added 2026-09-24 (fourth pass) -------------------------------------------
+# /code-review high on the previous two migrations, before they were ever
+# merged, found two real bugs the fix pass above introduced: private.
+# finance_post_voucher_redeemed read the redeeming order's voucher_covered_kobo,
+# which is CUMULATIVE across every voucher ever applied to that order, so a
+# second voucher redeemed directly against an already-partially-covered order
+# (redeem_care_voucher has no "one discount per order" guard of its own -- that
+# lives one layer up, in redeem_promo_code) double-counted the first voucher's
+# amount; and finance_revenue_by_funding_source computed one blended cash/promo
+# ratio per service_purchase and applied it to every revenue_recognition_
+# schedules row tied to that purchase, even though a single purchase can
+# accumulate multiple, separately-funded schedules (a partial voucher plus a
+# later card/platform-credit remainder) -- correct over the purchase's full
+# lifetime, wrong for any single reporting period queried before all of a
+# purchase's schedules have posted revenue. Fixed at the root
+# (20260924213634_fix_voucher_redemption_cross_voucher_double_count_and_revrec_
+# rounding.sql) by persisting the exact per-voucher covered amount and the
+# exact per-schedule promotional split at the moment each is created, instead
+# of re-deriving either from state shared with other redemptions/schedules.
+# Proves a second voucher against an already-partially-covered order posts
+# only its own amount; a purchase with two separately-funded schedules reports
+# a mid-period recognition of only one as fully attributed, not blended with
+# the other's lifetime share; the original single-schedule fix still holds;
+# and two independent sabotage steps (reverting each trigger to its pre-fix
+# shape) reopen the corresponding hole.
+voucher_redemption_cross_voucher_double_count_and_revrec_rounding.sql

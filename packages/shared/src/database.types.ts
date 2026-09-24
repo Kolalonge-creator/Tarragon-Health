@@ -41607,6 +41607,14 @@ export type Database = {
         Args: { p_id: string; p_note?: string; p_status: string }
         Returns: undefined
       }
+      finance_revenue_by_funding_source: {
+        Args: {
+          p_currency?: string
+          p_period_end?: string
+          p_period_start?: string
+        }
+        Returns: Json
+      }
       finance_reverse_journal: {
         Args: { p_entry: string; p_reason: string }
         Returns: string
