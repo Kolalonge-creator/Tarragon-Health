@@ -11,8 +11,6 @@ import { PregnancyStatus } from "@/app/(dashboard)/patient/pregnancy-status";
 import { ObesitySummary } from "@/app/(dashboard)/patient/obesity-summary";
 import { AskADoctor } from "@/app/(dashboard)/patient/ask-a-doctor";
 import { SecondOpinionRequestCard } from "@/app/(dashboard)/patient/second-opinion-request";
-import { VerifiedDocumentsCard } from "@/app/(dashboard)/patient/verified-documents-card";
-import { SeniorCaseReviewCard } from "@/app/(dashboard)/patient/senior-case-review-card";
 import { BookVideoVisit } from "@/app/(dashboard)/patient/book-video-visit";
 import { PatientEscalations } from "@/components/patient-escalations";
 import { HospitalAdmissionsCard } from "@/app/(dashboard)/patient/hospital-admissions-card";
@@ -92,8 +90,6 @@ export default async function PatientCarePage() {
           {/* Pure pay-per-service — no plan bypass, the card carries its own
               buy-a-credit prompt. */}
           <SecondOpinionRequestCard patientId={subjectId} organisationId={profile.organisation_id} />
-          <VerifiedDocumentsCard patientId={subjectId} organisationId={profile.organisation_id} />
-          <SeniorCaseReviewCard patientId={subjectId} organisationId={profile.organisation_id} />
           {coachAccess && <AiCoachChat patientId={subjectId} />}
           <ServiceNavigationAssistant />
           <CareCircleCard />

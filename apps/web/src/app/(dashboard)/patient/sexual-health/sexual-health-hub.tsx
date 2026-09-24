@@ -25,9 +25,6 @@ import { FertilityAssessmentForm } from "./fertility-assessment-form";
 import { SexualWellnessPanel } from "./sexual-wellness-panel";
 import { startConfidentialSrhThread } from "./confidential-message-action";
 import { SexualHealthPrivacySettingsCard } from "./sexual-health-privacy-settings-card";
-import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
-
-const CONFIDENTIAL_MESSAGE_CREDIT_CODE = "confidential_message_credit";
 
 const TABS = [
   { key: "testing", label: "Risk check & testing" },
@@ -82,29 +79,20 @@ function PrivacyBanner() {
  * generally rather than a specific thread, same as every other "you'll find
  * it in Messages" hand-off in this codebase.
  */
-function ConfidentialMessageCta({ patientId }: { patientId: string }) {
+function ConfidentialMessageCta() {
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  const [needsCredit, setNeedsCredit] = useState(false);
 
   function send() {
     setError(null);
-    setNeedsCredit(false);
     startTransition(async () => {
       const result = await startConfidentialSrhThread(subject, body);
       if ("error" in result) {
         setError(result.error);
-        // A confidential/clinical thread needs a doctor's time — 20260907132010
-        // gates it behind one confidential_message_credit (₦2,500). Offer to
-        // buy it right here rather than leaving the patient stuck on a raw
-        // DB error with a subject/message already typed.
-        if (result.error.includes("confidential message credit")) {
-          setNeedsCredit(true);
-        }
         return;
       }
       setSubject("");
@@ -128,8 +116,7 @@ function ConfidentialMessageCta({ patientId }: { patientId: string }) {
         <CardDescription>
           For anything here you&apos;d rather write than say out loud. This
           thread is hidden from anyone else who supports your care, even someone
-          with their usual access to your record. A doctor reads and replies, so
-          this is a paid message (₦2,500).
+          with their usual access to your record. A doctor reads and replies.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -182,56 +169,29 @@ function ConfidentialMessageCta({ patientId }: { patientId: string }) {
             {error && (
               <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             )}
-            {needsCredit ? (
-              <div className="space-y-2">
-                <PayWithCreditOrCard
-                  patientId={patientId}
-                  serviceProductCode={CONFIDENTIAL_MESSAGE_CREDIT_CODE}
-                  callbackPath="/patient/sexual-health"
-                  buyLabel="Pay ₦2,500 and send"
-                  creditLabel="Pay with credit and send"
-                  onError={setError}
-                  onSuccess={() => {
-                    // Activated with no charge to run — retry immediately
-                    // with the same subject/message the patient already typed.
-                    setNeedsCredit(false);
-                    send();
-                  }}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setOpen(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={
-                    pending ||
-                    subject.trim().length < 3 ||
-                    body.trim().length === 0
-                  }
-                  onClick={send}
-                >
-                  {pending ? "Sending…" : "Send"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setOpen(false)}
-                  disabled={pending}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                disabled={
+                  pending ||
+                  subject.trim().length < 3 ||
+                  body.trim().length === 0
+                }
+                onClick={send}
+              >
+                {pending ? "Sending…" : "Send"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setOpen(false)}
+                disabled={pending}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>
@@ -394,7 +354,7 @@ export function SexualHealthHub({ patientId }: { patientId: string }) {
 
       {activeTab === "learn" && <LearnTab />}
 
-      <ConfidentialMessageCta patientId={patientId} />
+      <ConfidentialMessageCta />
     </div>
   );
 }
