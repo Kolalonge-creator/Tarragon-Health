@@ -98,16 +98,22 @@ select (select v from ids where k='org'), (select v from ids where k='child'),
 -- Cannot revise or remove what is now in the record, including their own entry.
 update public.insulin_logs set units = 999
  where patient_id = (select v from ids where k='child');
--- No DELETE grant exists to `authenticated` on any of these three tables at
--- all (confirmed live: org-staff clean-up, if ever needed, goes through the
--- service role) -- a stronger guarantee than RLS alone, so the attempt fails
--- at the grant layer before RLS is even consulted.
+-- No DELETE POLICY exists on any of these three tables (org-staff clean-up,
+-- if ever needed, goes through the service role) -- deliberately checked by
+-- POST-STATE below (the row survives) rather than by expecting one specific
+-- exception here: whether a caller also lacks the table-level DELETE grant
+-- (today's live shape -- 42501 insufficient_privilege, checked/caught here)
+-- or holds the grant but RLS permits deleting nothing because no DELETE
+-- policy exists at all (a freshly `db reset` project's own default-privilege
+-- backfill can differ from a long-lived live project's history -- see
+-- CLAUDE.md's "fresh local reset" lesson -- in which case this DELETE
+-- silently affects zero rows and raises nothing), both are safe and correct;
+-- only the row's survival, asserted below, is the actual guarantee.
 do $$
 begin
   delete from public.insulin_logs where patient_id = (select v from ids where k='child');
-  raise exception 'SABOTAGE CHECK FAILED: a supporter (or the DB role itself) was able to delete a diabetes self-monitoring entry';
 exception when insufficient_privilege then
-  null; -- expected: no DELETE grant to authenticated at all
+  null; -- also fine: no DELETE grant to authenticated at all
 end $$;
 
 reset role;
@@ -118,6 +124,10 @@ begin
   if not exists (select 1 from public.insulin_logs
                   where patient_id = (select v from ids where k='child') and units = 4) then
     raise exception 'FAIL: a manage supporter could not log insulin for the child they support';
+  end if;
+  if not exists (select 1 from public.insulin_logs
+                  where patient_id = (select v from ids where k='child')) then
+    raise exception 'SABOTAGE CHECK FAILED: a supporter (or the DB role itself) was able to delete a diabetes self-monitoring entry';
   end if;
   if (select logged_by_profile_id from public.insulin_logs
        where patient_id = (select v from ids where k='child') and units = 4)
