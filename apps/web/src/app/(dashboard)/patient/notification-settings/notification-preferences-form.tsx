@@ -21,6 +21,7 @@ const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
   care_messages: "Messages from your care team",
   education_wellness: "Health education & wellness",
   billing: "Billing & payments",
+  reputation_requests: "Review requests",
 };
 
 type Channel = "email" | "sms" | "push" | "whatsapp";
