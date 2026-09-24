@@ -38,7 +38,7 @@ export function SmokingClient({ patientId }: { patientId: string }) {
 
   return (
     <div className="space-y-6">
-      <ProfileCard patientId={patientId} profile={profile.data} />
+      <ProfileCard patientId={patientId} profile={profile.data} isLoading={profile.isLoading} />
 
       {status === "current" && (
         <Card>
@@ -124,13 +124,22 @@ export function SmokingClient({ patientId }: { patientId: string }) {
 function ProfileCard({
   patientId,
   profile,
+  isLoading,
 }: {
   patientId: string;
   profile: ReturnType<typeof useSmokingProfile>["data"];
+  isLoading: boolean;
 }) {
   const t = useT();
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState(!profile);
+  // Not seeded from `!profile` directly: `profile` is undefined before the
+  // query resolves (async), and useState's initializer only runs once --
+  // seeding from it here would permanently show the edit form on every fresh
+  // load, even for a patient who already has a saved profile. Wait for the
+  // query to settle before deciding there's nothing to edit (same fix as
+  // weight-client.tsx's WeightGoalSection).
+  const [editingOverride, setEditingOverride] = useState<boolean | null>(null);
+  const editing = editingOverride ?? (!isLoading && !profile);
   const [status, setStatus] = useState(profile?.status ?? "never");
 
   const [state, formAction, pending] = useActionState<SmokingActionState, FormData>(
@@ -138,7 +147,7 @@ function ProfileCard({
       const result = await setSmokingProfileAction(prev, formData);
       if (result?.success) {
         queryClient.invalidateQueries({ queryKey: [PROFILE_KEY, patientId] });
-        setEditing(false);
+        setEditingOverride(false);
       }
       return result;
     },
@@ -150,7 +159,7 @@ function ProfileCard({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>{SMOKING_STATUS_LABELS[profile.status]}</CardTitle>
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+          <Button size="sm" variant="outline" onClick={() => setEditingOverride(true)}>
             {t("Update")}
           </Button>
         </CardHeader>
@@ -235,7 +244,7 @@ function ProfileCard({
               {pending ? t("Saving…") : t("Save")}
             </Button>
             {profile && (
-              <Button type="button" variant="outline" onClick={() => setEditing(false)}>
+              <Button type="button" variant="outline" onClick={() => setEditingOverride(false)}>
                 {t("Cancel")}
               </Button>
             )}
