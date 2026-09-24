@@ -3,7 +3,7 @@ import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { logVital } from "./actions";
+import { logVital, type LogVitalActionState } from "./actions";
 import type { GlucoseUnit } from "@/lib/validation/vitals";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { crosscheckVital, type VitalCrosscheck } from "@/lib/vitals/plausibility";
@@ -16,6 +16,53 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 type KetoneKind = "blood" | "urine";
+
+/**
+ * logVital's own try/catch (actions.ts) only covers a connection that drops
+ * AFTER the browser has reached the Next.js server — i.e. the server's own
+ * downstream call to Supabase fails mid-request. It does NOT cover a
+ * genuinely offline device, where the browser can't send the Server Action
+ * request at all: Next's client action-queue rejects that action's promise
+ * rather than resolving it to a state value (see
+ * next/dist/client/components/router-reducer/reducers/server-action-reducer.js,
+ * fetchServerAction's catch block — confirmed live: reproduced this exact
+ * crash by blocking the action's own fetch in a browser test before this
+ * wrapper existed), and useActionState has no built-in recovery for a
+ * rejected action — the rejection otherwise propagates to the nearest
+ * error.tsx boundary, unmounting this whole route segment. This is the
+ * client-side half of the same fix; wrapping here (rather than inside
+ * actions.ts) is required because the failure this catches never reaches
+ * server code at all. NOTE: this keeps the route segment on screen with a
+ * clear, retryable message, but does NOT preserve the typed values — React
+ * resets a <form action={...}>'s uncontrolled inputs after ANY action
+ * completion, this one included, since it always resolves rather than
+ * throwing (confirmed live; see docs/OFFLINE_RESILIENCE_AUDIT.md §4). Don't
+ * claim otherwise in this message without first converting the form's
+ * inputs to controlled state.
+ *
+ * Next 16 ships an experimental `experimental.useOffline` config flag
+ * (`next/offline`'s `useOffline()`) that does something similar — and more,
+ * automatically retrying once connectivity returns — at the framework level
+ * for every Server Action and navigation. Deliberately not enabled here:
+ * flipping it would change behaviour for every Server Action in the app in
+ * one step, including clinical write paths this audit didn't individually
+ * re-verify, for a feature whose own doc comment lists a known limitation
+ * (concurrent offline navigations can all retry at once). This scoped,
+ * fully-tested local wrapper is the conservative choice for this pass — see
+ * docs/OFFLINE_RESILIENCE_AUDIT.md.
+ */
+export async function logVitalWithConnectionFallback(
+  prevState: LogVitalActionState,
+  formData: FormData
+): Promise<LogVitalActionState> {
+  try {
+    return await logVital(prevState, formData);
+  } catch {
+    return {
+      error: "Couldn't save that reading — check your connection and try again.",
+    };
+  }
+}
 
 export function VitalsForm({
   patientId,
@@ -37,7 +84,7 @@ export function VitalsForm({
   const preferredUnit = useGlucoseUnit();
   const [glucoseUnit, setGlucoseUnit] = useState<GlucoseUnit>(preferredUnit);
   const [ketoneKind, setKetoneKind] = useState<KetoneKind>("blood");
-  const [state, formAction, pending] = useActionState(logVital, undefined);
+  const [state, formAction, pending] = useActionState(logVitalWithConnectionFallback, undefined);
   const queryClient = useQueryClient();
 
   // Crosscheck nudge: when a reading lands outside the normal band we ask the

@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import * as Sentry from "@sentry/nextjs";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { resolveSubjectId, assertNotActingFor } from "@/lib/acting/acting-for";
@@ -68,6 +69,36 @@ export async function logVital(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
+  // Everything below this point does real network I/O (auth, the profile
+  // lookup, the insert itself). A Postgrest-level rejection already comes
+  // back as a `{ error }` result and is handled inline below, but a dropped
+  // or unstable connection surfaces as a THROWN exception instead — with no
+  // try/catch here, that exception would propagate out of this Server
+  // Action to the dashboard's error.tsx boundary, which unmounts this whole
+  // route segment (including the form the patient just filled in) and
+  // replaces it with a generic full-page fallback. Catching it here instead
+  // keeps the route segment mounted and returns the same friendly, retryable
+  // `{ error }` shape as any other failure — deliberately NOT claiming the
+  // typed values survive: React resets a <form action={...}> after ANY
+  // action completion (this one included, since it always resolves rather
+  // than throwing), clearing the uncontrolled inputs regardless of whether
+  // the result carries an error. See docs/OFFLINE_RESILIENCE_AUDIT.md §4 —
+  // preserving the typed reading through an error would need the form's
+  // inputs to be converted to controlled state, which is a separate,
+  // form-wide change this pass didn't make.
+  try {
+    return await logVitalInner(parsed.data);
+  } catch (err) {
+    Sentry.captureException(err, { extra: { action: "logVital" } });
+    return {
+      error: "Couldn't save that reading — check your connection and try again.",
+    };
+  }
+}
+
+async function logVitalInner(
+  data: Extract<ReturnType<typeof vitalsReadingSchema.safeParse>, { success: true }>["data"]
+): Promise<LogVitalActionState> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -96,7 +127,7 @@ export async function logVital(
     return { error: "No organisation on file" };
   }
 
-  const { taken_at, ...reading } = parsed.data;
+  const { taken_at, ...reading } = data;
 
   // vitals_readings stores canonical columns per type — normalise the form
   // shape into DB columns here (glucose→glucose_mmol_l; drop the ketone_kind
