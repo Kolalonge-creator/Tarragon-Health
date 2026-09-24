@@ -2,10 +2,16 @@
 
 import { requireOwnedBookingOrder } from "@/lib/billing/booking-ownership";
 
-/** The only order types redeem_promo_code (and the voucher engine it reuses)
- * supports — subscriptions/add-ons/video visits are recurring provider
- * objects with a fixed price and cannot take a per-order discount this way.
- * See supabase/migrations/20260830102521_promo_codes.sql. */
+/** The order types this specific action (and PromoCodeField) covers — NOT the
+ * full set redeem_promo_code supports. It's scoped to requireOwnedBookingOrder's
+ * single-row booking tables, so it excludes video_visit/lab_result_consult
+ * (also in BookingOrderType, just not wired here). It also excludes
+ * service_purchase: that redemption path doesn't need this action at all —
+ * purchaseServiceProduct() (purchase-service-product.ts) calls
+ * redeem_promo_code directly with p_order_type: "service_purchase", since
+ * record_service_purchase_intent already does its own ownership check.
+ * See supabase/migrations/20260830102521_promo_codes.sql and
+ * 20260901174915_promo_codes_service_purchases.sql. */
 export type PromoCodeOrderType = "lab" | "pharmacy" | "referral";
 
 export type RedeemPromoCodeState = { error?: string; success?: string } | undefined;
