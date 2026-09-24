@@ -134,6 +134,11 @@ const PATTERNS: Array<{
     message: "We could not verify that request. Reload the page and try again.",
   },
   {
+    // A relative of this pattern also lives in
+    // ../network/is-connectivity-error.ts (the (dashboard) error boundary's
+    // connectivity check) — narrower on purpose there (only a `fetch()`
+    // `TypeError`, not any provider error string). Update both if you learn
+    // of a new fetch-failure phrasing.
     match: /network|fetch failed|timeout|timed out|econnrefused/,
     message: "We could not reach the server. Check your connection and try again.",
   },
