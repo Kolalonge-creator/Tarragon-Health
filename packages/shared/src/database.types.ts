@@ -43503,7 +43503,10 @@ export type Database = {
         Returns: undefined
       }
       set_patient_reported_diabetes_type: {
-        Args: { p_type: Database["public"]["Enums"]["diabetes_type"] }
+        Args: {
+          p_patient_id?: string | null
+          p_type: Database["public"]["Enums"]["diabetes_type"]
+        }
         Returns: undefined
       }
       set_pharmacy_order_delivery_address: {

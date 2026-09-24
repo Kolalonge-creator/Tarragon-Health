@@ -3,7 +3,7 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { resolveSubjectId } from "@/lib/acting/acting-for";
+import { resolveSubjectId, getActingFor } from "@/lib/acting/acting-for";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { validatePatientAvatarFile } from "@/lib/validation/patient-avatar";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
@@ -1342,13 +1342,19 @@ async function currentPatientOrg(): Promise<
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in" };
+  // Whoever's account is open — the diabetes daily log (vitals/page.tsx)
+  // already renders these forms against the acting-for SUBJECT, so the write
+  // must land on that same subject, not the caller. resolveSubjectId
+  // re-checks the live 'manage' grant server-side, so a stale/forged cookie
+  // resolves back to the caller's own id.
+  const subjectId = await resolveSubjectId(user.id);
   const { data: profile } = await supabase
     .from("profiles")
     .select("organisation_id")
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) return { error: "No organisation on file" };
-  return { supabase, userId: user.id, organisationId: profile.organisation_id };
+  return { supabase, userId: subjectId, organisationId: profile.organisation_id };
 }
 
 export type DiabetesLogActionState = { error?: string; success?: boolean } | undefined;
@@ -1433,6 +1439,17 @@ export async function logSickDay(
  * obstetric-led — the app surfaces the "referred to antenatal care" banner and
  * the drug-safety advisory contraindicates oral agents / ACEi-ARB. Upsert on
  * the patient's own row (RLS-scoped).
+ *
+ * Deliberately self-only, unlike logInsulin/logFootSelfCheck/logSickDay
+ * above: this writes into the reproductive-health domain, which this
+ * platform never grants on a bare 'manage' acting-for relationship (see
+ * reproductive_health_profiles' RLS — a category-scoped grant AND
+ * private.guardian_may_edit_confidential_domain, never plain
+ * private.can_act_for). patient_pregnancy's own RLS is still the older,
+ * self-or-staff-only shape, so refuse cleanly here with an explanatory
+ * message rather than let a supporter hit a bare, confusing RLS error —
+ * extending this to supporters is a deliberate future design decision, not
+ * a default this action should reach for on its own.
  */
 export async function setPregnancyStatus(
   _prev: DiabetesLogActionState,
@@ -1441,6 +1458,14 @@ export async function setPregnancyStatus(
   const isPregnant = formData.get("is_pregnant") === "true";
   const eddRaw = (formData.get("estimated_due_date") as string | null) ?? null;
   const edd = eddRaw && !Number.isNaN(Date.parse(eddRaw)) ? eddRaw : null;
+
+  const acting = await getActingFor();
+  if (acting) {
+    return {
+      error:
+        "Pregnancy status can only be updated by the account holder themselves right now, not by someone supporting their account.",
+    };
+  }
 
   const ctx = await currentPatientOrg();
   if ("error" in ctx) return { error: ctx.error };
@@ -1479,6 +1504,7 @@ export async function setPatientReportedDiabetesType(
 
   const { error } = await ctx.supabase.rpc("set_patient_reported_diabetes_type", {
     p_type: parsed.data.diabetes_type,
+    p_patient_id: ctx.userId,
   });
   if (error) return { error: error.message };
   return { success: true };

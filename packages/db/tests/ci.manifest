@@ -444,3 +444,28 @@ sponsored_service_reservations.sql
 # reverts the function to its pre-fix exact-match-only body and confirms the
 # normalized case would then fail.
 region_service_available_normalized_state_fallback.sql
+
+# --- Added 2026-09-24 -------------------------------------------------------
+# insulin_logs/foot_self_checks/sick_day_logs never got the 2026-08-01
+# "acting for someone you support" treatment vitals_readings/symptoms
+# already have (20260924071557_diabetes_self_monitoring_acting_supporter.sql).
+# Found during a patient-dashboard audit: a supporter (e.g. a parent managing
+# a diabetic child's account) could not log any of the three at all, and the
+# app-layer code silently misattributed the write to the supporter's own
+# patient_id instead -- including a real foot-problem report, whose trigger
+# then raised a same-day urgent clinician_alerts row against the wrong,
+# non-diabetic patient. Proves a 'manage' supporter can add all three
+# (server-stamped logged_by_profile_id, never client-supplied), can never
+# revise or delete one (including confirming no DELETE grant exists to
+# authenticated at all), a stranger with no grant is refused, the foot-check
+# alert lands on the child and never the parent, and sabotages by dropping
+# the three *_insert_acting_supporter policies to confirm the insert that
+# just succeeded would then fail. Extended same-day to also prove
+# 20260924073141_diabetes_self_monitoring_acting_supporter_followups.sql
+# (the /code-review ultra findings on that first migration): a supporter can
+# read back an entry they just wrote (the missing *_select_own_entry
+# policies), and setPatientReportedDiabetesType's separate RPC-level
+# misattribution (a parent's diabetes-type pick for their child landing on
+# the parent's own patient_diabetes_profile row instead) is fixed and a
+# stranger with no grant is refused.
+diabetes_self_monitoring_acting_supporter.sql
