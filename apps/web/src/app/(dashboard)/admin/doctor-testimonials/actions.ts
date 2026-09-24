@@ -28,7 +28,8 @@ const createSchema = z.object({
   consent_reference: z
     .string()
     .trim()
-    .min(1, "Say where the off-platform consent for this quote/name is recorded"),
+    .min(1, "Say where the off-platform consent for this quote/name is recorded")
+    .max(500, "Keep this to a pointer (where the record lives), not the record itself"),
 });
 
 /**
@@ -67,7 +68,8 @@ export async function createDoctorTestimonial(
   // lets an admin see (and therefore could still POST) a clinical_staff_id
   // from another org — check it explicitly here for a clear error message;
   // `private.enforce_doctor_testimonial_org_match` on the table is the real,
-  // unbypassable enforcement (see supabase/migrations/20260924211500_doctor_testimonials_org_match_and_condition_check.sql).
+  // unbypassable enforcement (see
+  // supabase/migrations/20260924212340_testimonials_condition_check_and_doctor_org_match.sql).
   const { data: staffOrg, error: staffLookupError } = await supabase
     .from("clinical_staff")
     .select("organisation_id")

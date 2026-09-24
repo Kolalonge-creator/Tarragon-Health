@@ -21,13 +21,25 @@
 --     even though anon holds the table-level SELECT grant (row-level, not
 --     column-level, discrimination -- same shape as patient_testimonials);
 --   * anon has no INSERT or UPDATE grant at all -- a member of the public
---     cannot self-publish or fabricate a doctor testimonial.
---   * sabotage-equivalent: dropping doctor_testimonials_update's USING
---     clause down to `true` would let the non-admin update succeed -- this
---     is confirmed structurally (the policy that blocks it in step 4 is the
---     one under test), not literally re-run after sabotage, since RLS
---     policies can't be redefined mid-transaction without invalidating the
---     plan this script already built on.
+--     cannot self-publish or fabricate a doctor testimonial;
+--   * sabotage (step 3b): step 3's rejection turned out to be backed by
+--     THREE independent, redundant gates, found only by actually trying to
+--     sabotage it rather than reasoning about it (two earlier attempts at
+--     this step were each individually insufficient and are preserved in
+--     git history as the record of that): (1) doctor_testimonials_select's
+--     USING clause — a patient isn't org staff, so the row is invisible to
+--     them, and an UPDATE's WHERE clause needs SELECT-level visibility
+--     before the UPDATE policy is even consulted (confirmed live: widening
+--     only the UPDATE policy + disabling the trigger still updates 0 rows,
+--     no error); (2) doctor_testimonials_update's own USING/WITH CHECK;
+--     (3) stamp_doctor_testimonial_review independently re-checking
+--     private.is_admin(). Only widening all three together lets the exact
+--     same update from step 3 succeed, proving step 3's rejection is real,
+--     not a coincidence. That same transition back to 'submitted' also
+--     proves stamp_doctor_testimonial_review resets reviewed_by/reviewed_at
+--     on a revert, the one hardening added in
+--     20260924212340_testimonials_condition_check_and_doctor_org_match.sql
+--     that had no behavioural test anywhere until this step.
 --
 -- Wrapped in BEGIN/ROLLBACK -- a verification script, never seed data.
 -- ===========================================================================
@@ -205,6 +217,78 @@ begin
   if v_status <> 'submitted' then
     raise exception 'HOLE OPEN: a non-admin was able to publish a doctor testimonial';
   end if;
+end $$;
+
+-- ==========================================================================
+-- 3b. Sabotage. Widens all three gates found live to actually be load-
+--     bearing for step 3 (see the file header) and re-attempts the exact
+--     same update — it must now succeed, proving step 3's rejection is
+--     real. Two earlier, narrower versions of this step (widening only the
+--     UPDATE policy; widening the UPDATE policy + disabling the trigger)
+--     each still correctly blocked the update for a different reason,
+--     which is what led to finding the third gate — kept as a live record
+--     of why "reasoning about a sabotage" isn't a substitute for running it.
+-- ==========================================================================
+do $$
+declare
+  v_patient uuid := (select v from dt_fixture where k = 'patient');
+  v_id      uuid := (select v from dt_fixture where k = 'testimonial_to_publish');
+  v_status  text;
+begin
+  alter policy doctor_testimonials_select on public.doctor_testimonials using (true);
+  alter policy doctor_testimonials_update on public.doctor_testimonials using (true) with check (true);
+  alter table public.doctor_testimonials disable trigger doctor_testimonials_stamp_review;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_patient::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  update public.doctor_testimonials set status = 'published' where id = v_id;
+  reset role;
+
+  alter table public.doctor_testimonials enable trigger doctor_testimonials_stamp_review;
+  alter policy doctor_testimonials_update on public.doctor_testimonials
+    using (private.is_admin()) with check (private.is_admin());
+  alter policy doctor_testimonials_select on public.doctor_testimonials
+    using (private.is_org_staff(organisation_id));
+
+  select status into v_status from public.doctor_testimonials where id = v_id;
+  insert into dt_result values
+    ('sabotage: with all three gates widened, the same non-admin update succeeds',
+     v_status, 'published',
+     case when v_status = 'published' then 'PASS' else 'VACUOUS TEST' end);
+  if v_status is distinct from 'published' then
+    raise exception 'VACUOUS TEST: step 3''s rejection was not actually caused by any of the three gates under test';
+  end if;
+
+  -- Put the row back the way step 4 expects to find it (status='submitted',
+  -- no reviewer) — this transition, done for real as the admin (not a
+  -- sabotage bypass), doubles as the only behavioural proof anywhere in
+  -- this suite of stamp_doctor_testimonial_review's reviewed_by/reviewed_at
+  -- reset (added in
+  -- 20260924212340_testimonials_condition_check_and_doctor_org_match.sql):
+  -- a row moved back to "awaiting review" must not keep carrying a stale
+  -- prior reviewer/timestamp from this sabotage's own publish.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', (select v from dt_fixture where k = 'admin')::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  update public.doctor_testimonials set status = 'submitted' where id = v_id;
+  reset role;
+
+  declare
+    v_reviewed_by uuid;
+    v_reviewed_at timestamptz;
+  begin
+    select reviewed_by, reviewed_at into v_reviewed_by, v_reviewed_at
+      from public.doctor_testimonials where id = v_id;
+    insert into dt_result values
+      ('reviewed_by/reviewed_at reset to null when a row moves back to submitted',
+       (v_reviewed_by is null and v_reviewed_at is null)::text, 'true',
+       case when v_reviewed_by is null and v_reviewed_at is null then 'PASS' else 'FAIL' end);
+    if v_reviewed_by is not null or v_reviewed_at is not null then
+      raise exception 'FAIL: a row reverted to submitted kept a stale reviewed_by/reviewed_at (% / %)',
+        v_reviewed_by, v_reviewed_at;
+    end if;
+  end;
 end $$;
 
 -- ==========================================================================

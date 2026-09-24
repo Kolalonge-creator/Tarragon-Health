@@ -1,6 +1,7 @@
 /**
- * The single source of truth for which condition-page slugs a testimonial
- * (patient or doctor) can be tagged with — i.e. which PRODUCT_PAGES entries
+ * The single source of truth, on the TypeScript side, for which
+ * condition-page slugs a testimonial (patient or doctor) can be tagged
+ * with — i.e. which PRODUCT_PAGES entries
  * (apps/web/src/app/(marketing)/_content/products.ts) actually have a
  * TestimonialsSection/DoctorTestimonialsSection mounted. This used to be
  * hand-copied into four places (both Zod schemas, both <select> option
@@ -8,10 +9,14 @@
  * that as a drift risk (a new condition page updated in one spot and not
  * the others silently rejects, or silently never renders, a valid quote).
  *
- * Also backs the `patient_testimonials`/`doctor_testimonials.condition`
- * CHECK constraints (see the migration that added them) — keep this list
- * and those constraints in sync when a new condition page gets a
- * TestimonialsSection wired in.
+ * NOT the source of truth on the database side: `patient_testimonials`/
+ * `doctor_testimonials.condition` are also CHECK-constrained (see the
+ * migration that added them), and a plain SQL CHECK can't import this
+ * TS constant — those two constraints hardcode the same two values
+ * separately. Adding a third condition page means updating BOTH this file
+ * AND both CHECK constraints (in a new migration); missing either half
+ * fails loudly (a Zod/DB rejection), it just doesn't fail in only one
+ * place.
  */
 export const TESTIMONIAL_CONDITIONS = [
   { value: "hypertension", label: "Hypertension (blood pressure)" },
