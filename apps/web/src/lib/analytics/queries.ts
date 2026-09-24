@@ -40,6 +40,7 @@ import {
   programmeFunnelSchema,
   providerCapacitySchema,
   referralTurnaroundSchema,
+  reputationReviewConversionSchema,
   retentionCohortsSchema,
   riskRegisterSchema,
   safetyDashboardSummarySchema,
@@ -264,6 +265,18 @@ export function useAcquisitionFunnel() {
       const { data, error } = await createClient().rpc("analytics_acquisition_funnel", {});
       if (error) throw error;
       return acquisitionFunnelSchema.parse(data);
+    },
+  });
+}
+
+// ---- Reputation review prompts ---------------------------------------------
+export function useReputationReviewConversion() {
+  return useQuery({
+    queryKey: ["analytics", "reputation-review-conversion"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_reputation_review_conversion");
+      if (error) throw error;
+      return reputationReviewConversionSchema.parse(data);
     },
   });
 }
