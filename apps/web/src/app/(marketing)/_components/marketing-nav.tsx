@@ -20,7 +20,7 @@ const NAV_LINKS = [
   { key: "services" as const, label: "How it works" },
   { key: "pricing" as const, label: "Pricing" },
   { key: "corporate" as const, label: "For organisations" },
-  { key: "about" as const, label: "About & trust" },
+  { key: "about" as const, label: "About" },
 ];
 
 /** Oscar/Omada-style audience split, surfaced above the nav instead of buried in the footer. */
