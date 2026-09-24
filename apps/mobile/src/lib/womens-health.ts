@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { assertNotActingFor } from "./acting";
 import type { QueryResult } from "./medications";
 import type { Enums, Tables } from "@tarragon/shared";
 
@@ -23,7 +24,18 @@ import type { Enums, Tables } from "@tarragon/shared";
  * setLastMenstrualPeriod/recordDelivery/logPostnatalCheckin, which on web
  * incorrectly use user.id directly instead of resolveSubjectId(user.id) (a
  * documented pre-existing bug, see the safety notes). Don't replicate that.
+ *
+ * Those same three functions write to patient_pregnancy/postnatal_profiles/
+ * postnatal_checkins, which have no caregiver RLS path at all (see the
+ * table above) — a supporter's write is rejected by Postgres regardless of
+ * which patientId this file passes. Each one calls assertNotActingFor
+ * first, mirroring web's own guard on this exact table group, so a
+ * supporter acting for someone gets NO_CAREGIVER_PREGNANCY_POSTNATAL_MESSAGE
+ * instead of a raw RLS policy-violation string.
  */
+
+const NO_CAREGIVER_PREGNANCY_POSTNATAL_MESSAGE =
+  "Pregnancy and postnatal records can only be managed on your own account, not for someone you support.";
 
 export type ReproductiveLifeStage = Enums<"reproductive_life_stage">;
 export type ReproductiveHealthProfile = Tables<"reproductive_health_profiles">;
@@ -104,6 +116,9 @@ export async function setLastMenstrualPeriod(
   organisationId: string,
   lastMenstrualPeriodDate: string
 ): Promise<QueryResult<null>> {
+  const guardError = await assertNotActingFor(NO_CAREGIVER_PREGNANCY_POSTNATAL_MESSAGE);
+  if (guardError) return { ok: false, error: guardError.error };
+
   const { error } = await supabase.from("patient_pregnancy").upsert(
     { patient_id: patientId, organisation_id: organisationId, is_pregnant: true, last_menstrual_period_date: lastMenstrualPeriodDate },
     { onConflict: "patient_id" }
@@ -219,6 +234,9 @@ export async function recordDelivery(
   organisationId: string,
   input: { delivery_date: string; delivery_mode: "vaginal" | "assisted" | "caesarean" | "unknown"; complications?: string }
 ): Promise<QueryResult<null>> {
+  const guardError = await assertNotActingFor(NO_CAREGIVER_PREGNANCY_POSTNATAL_MESSAGE);
+  if (guardError) return { ok: false, error: guardError.error };
+
   const { error: pregnancyError } = await supabase
     .from("patient_pregnancy")
     .upsert({ patient_id: patientId, organisation_id: organisationId, is_pregnant: false }, { onConflict: "patient_id" });
@@ -255,6 +273,9 @@ export async function logPostnatalCheckin(
     contraception_discussed: boolean;
   }
 ): Promise<QueryResult<null>> {
+  const guardError = await assertNotActingFor(NO_CAREGIVER_PREGNANCY_POSTNATAL_MESSAGE);
+  if (guardError) return { ok: false, error: guardError.error };
+
   const { error } = await supabase.from("postnatal_checkins").insert({
     patient_id: patientId,
     organisation_id: organisationId,
