@@ -6,7 +6,9 @@ import type { NormalisedReading } from "./normalise";
 /**
  * assessBpControlBestEffort/assessHeartRateBestEffort are documented "never
  * throws," but that isn't literally enforced by a try/catch inside either of
- * them — see docs/OFFLINE_RESILIENCE_AUDIT.md §7.1's follow-up. Before this
+ * them — see the offline-resilience audit's §7.1 follow-up
+ * (docs/OFFLINE_RESILIENCE_AUDIT.md, added on the separate, unmerged
+ * fix/offline-low-bandwidth-resilience branch — not present here). Before this
  * fix, a genuine network/DB drop right after a wearable batch's own insert
  * succeeded would throw straight out of ingestReadings uncaught. Because
  * ingestInto/ingestFor (sync.ts) only catch WearableIngestError, that throw

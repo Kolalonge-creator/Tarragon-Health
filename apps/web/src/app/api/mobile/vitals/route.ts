@@ -203,7 +203,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   // genuinely inert health-score bookkeeping below (only one branch below
   // ever runs, per row.vital_type, so one runBestEffort call is enough).
   let safetyAssessmentFailed = false;
-  const safetyExtra = { route: "api/mobile/vitals", stage: "safety_assessment", vitalType: row.vital_type };
+  // patientId/organisationId included so an on-call engineer triaging a
+  // spike of these Sentry events can tell whether it's one patient retried
+  // many times or many patients/orgs affected, without cross-referencing
+  // application logs first.
+  const safetyExtra = {
+    route: "api/mobile/vitals",
+    stage: "safety_assessment",
+    vitalType: row.vital_type,
+    patientId: subjectId,
+    organisationId,
+  };
   if (row.vital_type === "blood_pressure") {
     safetyAssessmentFailed = await runBestEffort(
       () => assessBpControlBestEffort(supabase, subjectId, organisationId),

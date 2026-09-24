@@ -31,9 +31,14 @@ const MIN_READINGS_FOR_ATTENTION_NUDGE = 5;
  *
  * "Never throws" here is a design intent, not an enforced contract — this
  * function has no internal try/catch, so a genuine network/DB drop mid-call
- * (as opposed to the handled cases above) DOES throw. Every caller must wrap
- * it — use `runBestEffort` from `@/lib/sentry/run-best-effort` rather than a
- * local try/catch, per docs/OFFLINE_RESILIENCE_AUDIT.md §7.1.
+ * (as opposed to the handled cases above) DOES throw. Every caller SHOULD
+ * wrap it — use `runBestEffort` from `@/lib/sentry/run-best-effort` rather
+ * than a local try/catch (see that file's own doc comment for the full
+ * history) — but not every caller does yet: `logVital`
+ * (apps/web/src/app/(dashboard)/patient/actions.ts) still calls this
+ * unprotected as of this writing, fixed on a separate, not-yet-merged
+ * branch. Don't assume every call site is covered just because this comment
+ * exists; check the call site itself.
  *
  * Takes the caller's own RLS-scoped client rather than constructing one —
  * the cookie-based web client and the bearer-token mobile client both

@@ -157,7 +157,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   // it, so a failure is reported to Sentry AND surfaced in the response body
   // rather than a silent, unqualified success.
   let safetyAssessmentFailed = false;
-  const safetyExtra = { route: "api/mobile/device-readings", stage: "safety_assessment", vitalType: vital_type };
+  // patientId/organisationId included so an on-call engineer triaging a
+  // spike of these Sentry events can tell whether it's one patient retried
+  // many times or many patients/orgs affected, without cross-referencing
+  // application logs first.
+  const safetyExtra = {
+    route: "api/mobile/device-readings",
+    stage: "safety_assessment",
+    vitalType: vital_type,
+    patientId: user.id,
+    organisationId,
+  };
   if (vital_type === "blood_pressure") {
     safetyAssessmentFailed = await runBestEffort(
       () => assessBpControlBestEffort(supabase, user.id, organisationId),

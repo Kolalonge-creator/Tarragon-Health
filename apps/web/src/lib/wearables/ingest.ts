@@ -270,17 +270,22 @@ export async function ingestReadings(
   // CLAUDE.md's "never deprioritise or silently swallow an abnormal
   // screening result event."
   if (result.vitalsInserted > 0) {
+    // patientId/organisationId included in every extra below (not just here)
+    // so an on-call engineer triaging a spike of these Sentry events can tell
+    // whether it's one patient retried many times or many patients/orgs
+    // affected, without cross-referencing application logs first.
+    const safetyContext = { patientId: target.patientId, organisationId: target.organisationId };
     if (hasBloodPressure) {
       const failed = await runBestEffort(
         () => assessBpControlBestEffort(svc, target.patientId, target.organisationId),
-        { action: "ingestReadings", stage: "safety_assessment", assessor: "bp_control" }
+        { action: "ingestReadings", stage: "safety_assessment", assessor: "bp_control", ...safetyContext }
       );
       if (failed) result.safetyAssessmentFailed = true;
     }
     if (hasPulse) {
       const failed = await runBestEffort(
         () => assessHeartRateBestEffort(svc, target.patientId, target.organisationId),
-        { action: "ingestReadings", stage: "safety_assessment", assessor: "heart_rate" }
+        { action: "ingestReadings", stage: "safety_assessment", assessor: "heart_rate", ...safetyContext }
       );
       if (failed) result.safetyAssessmentFailed = true;
     }

@@ -1,8 +1,10 @@
 /**
  * assessBpControlBestEffort/assessHeartRateBestEffort/assessGlucoseBestEffort
  * are documented "never throws," but that isn't literally enforced by a
- * try/catch inside any of them (see docs/OFFLINE_RESILIENCE_AUDIT.md §7.1's
- * follow-up). Before this fix, a genuine network/DB drop right after this
+ * try/catch inside any of them (see the offline-resilience audit's §7.1
+ * follow-up — docs/OFFLINE_RESILIENCE_AUDIT.md, added on the separate,
+ * unmerged fix/offline-low-bandwidth-resilience branch, not present here).
+ * Before this fix, a genuine network/DB drop right after this
  * route's own insert succeeded would throw straight out of the route handler
  * as an uncaught exception — Next.js turns that into a 500 with no JSON body,
  * which apps/mobile's offline-vitals-queue.ts reads as "not synced" and keeps
