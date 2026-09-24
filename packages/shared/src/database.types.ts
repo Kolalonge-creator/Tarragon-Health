@@ -34197,6 +34197,143 @@ export type Database = {
         }
         Relationships: []
       }
+      service_purchase_guarantee_claims: {
+        Row: {
+          created_at: string
+          decision_note: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          reason: string | null
+          requested_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          service_purchase_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decision_note?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          reason?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          service_purchase_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decision_note?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          reason?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          service_purchase_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_purchase_guarantee_claims_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_purchase_guarantee_claims_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_purchase_guarantee_claims_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_purchase_guarantee_claims_service_purchase_id_fkey"
+            columns: ["service_purchase_id"]
+            isOneToOne: true
+            referencedRelation: "service_purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_purchase_refund_queue: {
+        Row: {
+          amount_minor: number
+          attempts: number
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          guarantee_claim_id: string
+          id: string
+          last_error: string | null
+          provider: string
+          provider_reference: string
+          provider_refund_ref: string | null
+          service_purchase_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor: number
+          attempts?: number
+          created_at?: string
+          currency: Database["public"]["Enums"]["currency"]
+          guarantee_claim_id: string
+          id?: string
+          last_error?: string | null
+          provider: string
+          provider_reference: string
+          provider_refund_ref?: string | null
+          service_purchase_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          attempts?: number
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          guarantee_claim_id?: string
+          id?: string
+          last_error?: string | null
+          provider?: string
+          provider_reference?: string
+          provider_refund_ref?: string | null
+          service_purchase_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_purchase_refund_queue_guarantee_claim_id_fkey"
+            columns: ["guarantee_claim_id"]
+            isOneToOne: true
+            referencedRelation: "service_purchase_guarantee_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_purchase_refund_queue_service_purchase_id_fkey"
+            columns: ["service_purchase_id"]
+            isOneToOne: false
+            referencedRelation: "service_purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_purchases: {
         Row: {
           amount_kobo: number
@@ -41033,6 +41170,10 @@ export type Database = {
         }
         Returns: Json
       }
+      decide_purchase_guarantee_refund: {
+        Args: { p_approve: boolean; p_claim_id: string; p_note?: string }
+        Returns: Json
+      }
       decline_health_passport_attestation: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
@@ -43080,6 +43221,10 @@ export type Database = {
           p_service_category: string
           p_source_id?: string
         }
+        Returns: Json
+      }
+      request_purchase_guarantee_refund: {
+        Args: { p_reason?: string; p_service_purchase_id: string }
         Returns: Json
       }
       request_screening_day: {

@@ -8,6 +8,8 @@ import { formatPatientDate } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
 import { koboToNaira } from "@tarragon/shared";
 import { PayMyShareButton } from "./pay-my-share-button";
+import { RequestRefundButton } from "./request-refund-button";
+import type { GuaranteeClaim } from "@/lib/queries/purchase-guarantee";
 
 const ORDER_TYPE_LABEL: Record<string, string> = {
   lab: "lab order",
@@ -29,6 +31,12 @@ const REFUND_STATUS_VARIANT: Record<string, "green" | "grey" | "amber" | "red"> 
   due: "amber",
   refunded: "green",
   failed: "red",
+};
+
+const SERVICE_STATUS_VARIANT: Record<string, "green" | "grey"> = {
+  active: "green",
+  expired: "grey",
+  refunded: "grey",
 };
 
 /**
@@ -67,6 +75,7 @@ export default async function FinancialProfilePage() {
     vouchersResult,
     refundsResult,
     subsidyShareResult,
+    guaranteeClaimsResult,
   ] = await Promise.all([
       // recentFailures below is filtered out of this SAME window, not a
       // separate query (finance_unified_ledger has no status filter) — a
@@ -76,11 +85,21 @@ export default async function FinancialProfilePage() {
       // fix needs a status-filtered ledger call/RPC parameter; flagged as a
       // known residual limitation, not solved here.
       supabase.rpc("finance_unified_ledger", { p_profile_id: user.id, p_limit: 50 }),
+      // Active, expired, AND refunded: the first-purchase money-back
+      // guarantee is still claimable on a purchase that has since expired
+      // (the RPC's own 30-day window is what actually gates it, not this
+      // page); 'refunded' has to stay visible too, or the only place a
+      // patient could see their own "Refund approved" confirmation
+      // disappears the moment decide_purchase_guarantee_refund flips the
+      // purchase's status. Ordered active-first so a currently-active
+      // service is never pushed out of the top-10 window by more recent
+      // expired/refunded ones.
       supabase
         .from("service_purchases")
         .select("id, status, payable_kobo, currency, expires_at, service_product:service_products(name)")
         .eq("patient_id", user.id)
-        .eq("status", "active")
+        .in("status", ["active", "expired", "refunded"])
+        .order("status", { ascending: true })
         .order("purchased_at", { ascending: false })
         .limit(10),
       supabase
@@ -110,10 +129,22 @@ export default async function FinancialProfilePage() {
         .eq("status", "pending_payment")
         .order("created_at", { ascending: false })
         .limit(10),
+      // For the first-purchase money-back guarantee's "Request a refund"
+      // affordance below — lets the page show a claim's existing status
+      // instead of the button once one has been requested.
+      supabase
+        .from("service_purchase_guarantee_claims")
+        .select("*")
+        .eq("patient_id", user.id),
     ]);
 
   const transactions = ledgerResult.data ?? [];
-  const activeServices = servicePurchasesResult.data ?? [];
+  // Active, expired, AND refunded — no longer "just the active ones", see
+  // the query comment above; kept as one list rather than three so a
+  // guarantee refund's outcome stays visible next to the purchase it
+  // applied to.
+  const myServices = servicePurchasesResult.data ?? [];
+  const guaranteeClaims = (guaranteeClaimsResult.data ?? []) as GuaranteeClaim[];
   const pendingPurchases = pendingPurchasesResult.data ?? [];
   const vouchers = vouchersResult.data ?? [];
   const refunds = refundsResult.data ?? [];
@@ -148,20 +179,31 @@ export default async function FinancialProfilePage() {
             <CardTitle as="h2">Your services</CardTitle>
           </CardHeader>
           <CardContent>
-            {activeServices.length === 0 ? (
-              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No active services yet.</p>
+            {myServices.length === 0 ? (
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No services yet.</p>
             ) : (
               <div className="space-y-3 text-sm">
-                {activeServices.map((service) => (
-                  <div key={service.id} className="space-y-1">
-                    <p className="font-medium text-charcoal-ink dark:text-night-ink">
-                      {service.service_product?.name ?? "Service"}
-                    </p>
-                    <p className="text-charcoal-ink/70 dark:text-night-ink/70">
-                      {naira(service.payable_kobo ?? 0)} {service.currency}
-                      {service.expires_at &&
-                        ` · runs until ${formatPatientDate(service.expires_at)}`}
-                    </p>
+                {myServices.map((service) => (
+                  <div key={service.id} className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <p className="font-medium text-charcoal-ink dark:text-night-ink">
+                        {service.service_product?.name ?? "Service"}{" "}
+                        <Badge variant={SERVICE_STATUS_VARIANT[service.status] ?? "grey"}>
+                          {service.status === "active" ? "Active" : service.status === "refunded" ? "Refunded" : "Expired"}
+                        </Badge>
+                      </p>
+                      <p className="text-charcoal-ink/70 dark:text-night-ink/70">
+                        {naira(service.payable_kobo ?? 0)} {service.currency}
+                        {service.status === "active" && service.expires_at &&
+                          ` · runs until ${formatPatientDate(service.expires_at)}`}
+                        {service.status === "expired" && service.expires_at &&
+                          ` · expired ${formatPatientDate(service.expires_at)}`}
+                      </p>
+                    </div>
+                    <RequestRefundButton
+                      servicePurchaseId={service.id}
+                      existingClaim={guaranteeClaims.find((c) => c.service_purchase_id === service.id)}
+                    />
                   </div>
                 ))}
                 <p className="pt-1">

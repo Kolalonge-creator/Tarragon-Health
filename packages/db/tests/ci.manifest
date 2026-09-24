@@ -469,3 +469,19 @@ region_service_available_normalized_state_fallback.sql
 # the parent's own patient_diabetes_profile row instead) is fixed and a
 # stranger with no grant is refused.
 diabetes_self_monitoring_acting_supporter.sql
+
+# 20260924210805_first_purchase_guarantee_refunds.sql — the first-purchase
+# money-back guarantee (request -> admin approve/deny -> refund). Proves
+# eligibility gating (ineligible payment_provider, already-claimed), the
+# admin-only gate on decide_purchase_guarantee_refund discriminates both ways
+# (refuses a non-admin, not just succeeds for an admin), GL reversal
+# correctness for a card-paid deferred-revenue purchase including an
+# ALREADY-RECOGNISED revenue tranche (exactly the class of bug
+# 20260905204245_reverse_phantom_service_purchase_revenue.sql exists to warn
+# about — reversing only the original entry would under-correct the ledger),
+# the Paystack refund queue row shape, the platform-credit path (GL reversal
+# + correct_platform_credit balance restoration), the chronic-programme
+# enrolment track downgrade on refund (a real gap: nothing previously
+# reversed activate_chronic_programme_doctor_supported_track's upgrade), and
+# a repeat-decide idempotency guard against a double refund.
+first_purchase_guarantee_refund.sql
