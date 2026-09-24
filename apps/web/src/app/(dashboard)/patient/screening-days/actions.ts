@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
 import { initiateScreeningDayPaymentCheckout } from "@/lib/billing/screening-day-checkout";
 import { nairaToKobo } from "@tarragon/shared";
+import {
+  requestScreeningDaySchema,
+  payTowardScreeningDaySchema,
+  addScreeningDaySlotSchema,
+} from "@/lib/validation/screening-days";
 
 export type ScreeningDayActionState = { error?: string; message?: string } | undefined;
 
@@ -22,26 +27,14 @@ export async function requestScreeningDay(
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 
-  const hostName = (formData.get("hostName") as string) || "";
-  const contactPhone = (formData.get("contactPhone") as string) || "";
-  const location = (formData.get("location") as string) || "";
-  const eventDate = (formData.get("eventDate") as string) || "";
-  const panelBundleId = (formData.get("panelBundleId") as string) || "";
-  const slotsRequested = Number(formData.get("slotsRequested"));
-  const notes = (formData.get("notes") as string) || "";
-
-  if (!hostName.trim()) return { error: "Who is this screening day for?" };
-  if (!location.trim()) return { error: "Where will this happen?" };
-  if (!eventDate) return { error: "When is it happening?" };
-  if (!panelBundleId) return { error: "Choose which check you'd like people to have." };
-  if (!Number.isFinite(slotsRequested) || slotsRequested <= 0) {
-    return { error: "How many people are coming?" };
-  }
+  const parsed = requestScreeningDaySchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  const { hostName, contactPhone, location, eventDate, panelBundleId, slotsRequested, notes } = parsed.data;
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("request_screening_day", {
     p_host_name: hostName,
-    p_contact_phone: contactPhone,
+    p_contact_phone: contactPhone ?? "",
     p_location: location,
     p_event_date: eventDate,
     p_panel_bundle_id: panelBundleId,
@@ -69,13 +62,9 @@ export async function payTowardScreeningDay(
   if (!user) return { error: "Not signed in" };
   if (!user.email) return { error: "Your account needs an email on file to check out." };
 
-  const screeningDayId = formData.get("screeningDayId") as string;
-  const amountNaira = Number(formData.get("amountNaira"));
-
-  if (!screeningDayId) return { error: "Which screening day are you paying for?" };
-  if (!Number.isFinite(amountNaira) || amountNaira <= 0) {
-    return { error: "Enter how much you'd like to pay." };
-  }
+  const parsed = payTowardScreeningDaySchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  const { screeningDayId, amountNaira } = parsed.data;
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const result = await initiateScreeningDayPaymentCheckout({
@@ -98,12 +87,9 @@ export async function addScreeningDaySlot(
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 
-  const screeningDayId = formData.get("screeningDayId") as string;
-  const fullName = (formData.get("fullName") as string) || "";
-  const phone = (formData.get("phone") as string) || "";
-
-  if (!screeningDayId) return { error: "Which screening day?" };
-  if (!fullName.trim()) return { error: "Their name?" };
+  const parsed = addScreeningDaySlotSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  const { screeningDayId, fullName, phone } = parsed.data;
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("add_screening_day_slot", {
