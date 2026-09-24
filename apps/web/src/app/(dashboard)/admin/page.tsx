@@ -374,6 +374,13 @@ export default async function AdminPage() {
           icon: SEMANTIC_ICON.booking,
           visible: isSuperAdmin,
         },
+        {
+          href: "/admin/refund-requests",
+          label: "Refund requests",
+          blurb: "First-purchase money-back guarantee claims awaiting a decision",
+          icon: SEMANTIC_ICON.billing,
+          visible: isSuperAdmin,
+        },
       ],
     },
     {

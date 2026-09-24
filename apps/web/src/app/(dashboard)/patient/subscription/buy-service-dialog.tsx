@@ -139,6 +139,10 @@ export function BuyServiceDialog({
             Pay by card instead
           </Button>
         </form>
+
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/50">
+          Covered by our 30-day money-back guarantee on your first purchase.
+        </p>
       </ConfirmDialog>
     </>
   );

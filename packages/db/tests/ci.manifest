@@ -470,6 +470,24 @@ region_service_available_normalized_state_fallback.sql
 # stranger with no grant is refused.
 diabetes_self_monitoring_acting_supporter.sql
 
+# 20260924210805_first_purchase_guarantee_refunds.sql — the first-purchase
+# money-back guarantee (request -> admin approve/deny -> refund). Proves
+# eligibility gating (ineligible payment_provider, already-claimed), the
+# admin-only gate on decide_purchase_guarantee_refund discriminates both ways
+# (refuses a non-admin, not just succeeds for an admin), GL reversal
+# correctness for a card-paid deferred-revenue purchase including an
+# ALREADY-RECOGNISED revenue tranche (exactly the class of bug
+# 20260905204245_reverse_phantom_service_purchase_revenue.sql exists to warn
+# about — reversing only the original entry would under-correct the ledger),
+# the Paystack refund queue row shape (incl. the customer-borne processor fee,
+# fixed by 20260924213420_fix_guarantee_refund_review_findings.sql), the
+# platform-credit path (correct_platform_credit as the sole reversal
+# mechanism, no double GL posting), the chronic-programme enrolment track
+# downgrade on refund (a real gap: nothing previously reversed
+# activate_chronic_programme_doctor_supported_track's upgrade), and a
+# repeat-decide idempotency guard against a double refund.
+first_purchase_guarantee_refund.sql
+
 # --- Added 2026-09-24 -------------------------------------------------------
 # doctor_testimonials (20260924210347_doctor_testimonials.sql), the doctor-
 # side counterpart to patient_testimonials — admin-entered/off-platform
@@ -577,6 +595,25 @@ finance_revenue_by_funding_source.sql
 voucher_redemption_cross_voucher_double_count_and_revrec_rounding.sql
 
 # --- Added 2026-09-24 (fifth pass) --------------------------------------------
+# 20260924213634 above added a 10th parameter to private.finance_create_
+# recognition_schedule via `create or replace function` — which only replaces
+# a function with an IDENTICAL parameter list, so Postgres created a SECOND
+# overload instead of replacing the original. Every existing 9-argument call
+# site (finance_post_from_payment, finance_post_platform_credit_ledger_entry,
+# finance_post_voucher_redeemed) became ambiguous (42725) and, because those
+# callers run inside an exception-swallowing handler built to protect a
+# payment webhook from an accounting failure, the ambiguity was silently
+# recorded into finance_posting_failures instead of raised: every booking/
+# subscription/add_on/service_purchase payment landed with ZERO GL entries and
+# ZERO revenue recognition schedules. Found live (koiplnmbgnqnbywhpjlf) while
+# testing an unrelated PR, confirmed no real production transaction was caught
+# in the window, fixed by dropping the original 9-argument overload
+# (20260924221152_fix_finance_create_recognition_schedule_overload_ambiguity.sql).
+# Proves exactly one overload exists, a real 9-argument call site (a
+# bounded-duration service_purchase payment) posts cleanly, and sabotage
+# (recreating the dropped overload) reproduces the exact 42725 ambiguity.
+finance_create_recognition_schedule_overload_ambiguity.sql
+
 lab_location_reviews_rls.sql
 
 # account_lockouts_anon_execute_and_search_path.sql: 20260924215642 backfilled
