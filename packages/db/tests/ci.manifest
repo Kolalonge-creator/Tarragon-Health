@@ -528,3 +528,6 @@ finance_revenue_by_funding_source.sql
 # and two independent sabotage steps (reverting each trigger to its pre-fix
 # shape) reopen the corresponding hole.
 voucher_redemption_cross_voucher_double_count_and_revrec_rounding.sql
+
+# --- Added 2026-09-24 (fifth pass) --------------------------------------------
+lab_location_reviews_rls.sql
