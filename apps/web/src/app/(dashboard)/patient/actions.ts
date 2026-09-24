@@ -3,7 +3,7 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { resolveSubjectId, getActingFor } from "@/lib/acting/acting-for";
+import { resolveSubjectId, assertNotActingFor } from "@/lib/acting/acting-for";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { validatePatientAvatarFile } from "@/lib/validation/patient-avatar";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
@@ -1459,13 +1459,10 @@ export async function setPregnancyStatus(
   const eddRaw = (formData.get("estimated_due_date") as string | null) ?? null;
   const edd = eddRaw && !Number.isNaN(Date.parse(eddRaw)) ? eddRaw : null;
 
-  const acting = await getActingFor();
-  if (acting) {
-    return {
-      error:
-        "Pregnancy status can only be updated by the account holder themselves right now, not by someone supporting their account.",
-    };
-  }
+  const guardError = await assertNotActingFor(
+    "Pregnancy status can only be updated by the account holder themselves right now, not by someone supporting their account."
+  );
+  if (guardError) return guardError;
 
   const ctx = await currentPatientOrg();
   if ("error" in ctx) return { error: ctx.error };
