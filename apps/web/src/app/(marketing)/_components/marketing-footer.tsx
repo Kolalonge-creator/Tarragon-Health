@@ -47,6 +47,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.careers, label: "Careers" },
     { href: MARKETING_ROUTES.resources, label: "Resources" },
     { href: MARKETING_ROUTES.impact, label: "Our impact" },
+    { href: MARKETING_ROUTES.partners, label: "Our partners" },
     { href: MARKETING_ROUTES.accountability, label: "How we're accountable" },
     { href: MARKETING_ROUTES.coverage, label: "Where we work" },
     { href: MARKETING_ROUTES.faq, label: "FAQ" },

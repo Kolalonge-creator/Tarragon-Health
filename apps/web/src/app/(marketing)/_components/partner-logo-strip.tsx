@@ -1,6 +1,8 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Section } from "./section";
 import { PARTNER_LOGOS } from "../_content/partners";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 /**
  * Renders nothing until PARTNER_LOGOS has real, permitted entries — same
@@ -41,6 +43,14 @@ export function PartnerLogoStrip() {
           )
         )}
       </div>
+      <p className="mt-4 text-center text-sm">
+        <Link
+          href={MARKETING_ROUTES.partners}
+          className="font-medium text-brand-green underline-offset-2 hover:underline"
+        >
+          More about our partners
+        </Link>
+      </p>
     </Section>
   );
 }
