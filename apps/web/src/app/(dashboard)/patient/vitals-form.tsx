@@ -4,6 +4,7 @@ import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { logVital } from "./actions";
+import { useOnlineStatus } from "@/lib/network/use-online-status";
 import type { GlucoseUnit } from "@/lib/validation/vitals";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { crosscheckVital, type VitalCrosscheck } from "@/lib/vitals/plausibility";
@@ -16,6 +17,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 type KetoneKind = "blood" | "urine";
+
+/**
+ * Shown when the submit handler blocks a doomed submission because the
+ * browser already knows it's offline — see the offline guard in
+ * `handleSubmit` below for why this exists instead of wrapping the action
+ * itself (that approach was tried and reverted: it broke this form's
+ * no-JS/pre-hydration submission fallback — see
+ * docs/OFFLINE_RESILIENCE_AUDIT.md §3/§6 for the full account).
+ */
+const OFFLINE_BLOCKED_MESSAGE =
+  "You're offline. Reconnect, then press Save reading again.";
 
 export function VitalsForm({
   patientId,
@@ -40,6 +52,30 @@ export function VitalsForm({
   const [state, formAction, pending] = useActionState(logVital, undefined);
   const queryClient = useQueryClient();
 
+  // Blocks a submission the browser already knows is doomed instead of
+  // letting it reach the server and fail there. Deliberately a pre-submit
+  // guard, not a wrapper around `formAction` itself: `logVital` is passed to
+  // useActionState directly, unwrapped, so this form keeps React's real
+  // no-JS/pre-hydration submission fallback (a plain client function passed
+  // as the action loses that — confirmed live, see
+  // docs/OFFLINE_RESILIENCE_AUDIT.md §3/§6). `navigator.onLine` is a
+  // device-level signal, not proof of real reachability, so a connection
+  // that drops in the narrow window between this check and the request
+  // actually going out is still possible — that residual case is what
+  // logVital's own server-side try/catch (actions.ts) exists for.
+  //
+  // This IS a deliberate exception to useOnlineStatus's own general rule
+  // ("don't skip a real request based on this value" — see its doc comment)
+  // — accepted specifically here because a Server-Action-backed
+  // useActionState form has no other graceful way to surface a client-
+  // transport failure. The accepted trade-off: a false navigator.onLine ===
+  // false reading blocks a submission that would have succeeded; that's
+  // judged rarer and less harmful than the alternative (attempting and
+  // crashing the route segment on a genuine drop, the bug this whole pass
+  // exists to fix).
+  const isOnline = useOnlineStatus();
+  const [offlineBlocked, setOfflineBlocked] = useState(false);
+
   // Crosscheck nudge: when a reading lands outside the normal band we ask the
   // patient to confirm it before saving, and show how to take a cleaner
   // reading — but never block it (a real abnormal value must still reach the
@@ -55,7 +91,8 @@ export function VitalsForm({
   // change that matters: before this, a rejected reading was inserted silently
   // below the button and a screen-reader user got no feedback whatsoever.
   const errorId = fieldErrorId("vitals-form");
-  const readingErrorProps = fieldErrorProps(errorId, Boolean(state?.error));
+  const displayedError = offlineBlocked ? OFFLINE_BLOCKED_MESSAGE : state?.error;
+  const readingErrorProps = fieldErrorProps(errorId, Boolean(displayedError));
 
   useEffect(() => {
     if (state?.success) {
@@ -64,6 +101,27 @@ export function VitalsForm({
   }, [state?.success, queryClient, patientId]);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    // Checked ahead of the crosscheck-bypass branch below too — a confirmed
+    // resubmission from the crosscheck dialog is just as doomed offline as a
+    // first attempt. Clears a previously-shown offline message on any
+    // attempt made while back online, success or not — cleared here rather
+    // than in an effect keyed on `isOnline`, so it disappears exactly when
+    // the patient acts on it (presses Save again) instead of silently
+    // vanishing out from under them the instant connectivity returns.
+    if (!isOnline) {
+      event.preventDefault();
+      // The bypass below wasn't consumed by a real submission attempt — a
+      // blocked attempt isn't a submission, so don't let it survive to a
+      // later, possibly-different retry (see the one-shot comment below);
+      // without this, confirming a crosscheck-flagged reading, getting
+      // blocked here, then pressing Save again unedited would silently
+      // resubmit the same reading a second time, since vitals_readings has
+      // no dedup constraint.
+      confirmedRef.current = false;
+      setOfflineBlocked(true);
+      return;
+    }
+    if (offlineBlocked) setOfflineBlocked(false);
     if (confirmedRef.current) {
       confirmedRef.current = false; // consume the one-shot bypass, let the action run
       return;
@@ -150,7 +208,7 @@ export function VitalsForm({
                     className="flex-1"
                     {...fieldErrorProps(
                       errorId,
-                      Boolean(state?.error),
+                      Boolean(displayedError),
                       "glucose-unit-hint"
                     )}
                   />
@@ -307,7 +365,7 @@ export function VitalsForm({
                 type="number"
                 step="0.5"
                 required
-                {...fieldErrorProps(errorId, Boolean(state?.error), "waist-measure-hint")}
+                {...fieldErrorProps(errorId, Boolean(displayedError), "waist-measure-hint")}
               />
               <p
                 id="waist-measure-hint"
@@ -361,7 +419,7 @@ export function VitalsForm({
             </div>
           )}
 
-          <FormError id={errorId} message={state?.error} />
+          <FormError id={errorId} message={displayedError} />
           <FormSuccess message={state?.success && "Reading logged."} />
 
           {!crosscheck && (

@@ -29,6 +29,7 @@ import {
   apAgingSchema,
   complianceCalendarSchema,
   kpiSummarySchema,
+  revenueByFundingSourceSchema,
   riskFlagsSchema,
   financeAuditLogSchema,
   auditActionsListSchema,
@@ -423,6 +424,21 @@ export function useKpiSummary(currency: string) {
       const { data, error } = await createClient().rpc("finance_kpi_summary", { p_currency: currency });
       if (error) throw error;
       return kpiSummarySchema.parse(data);
+    },
+  });
+}
+
+/** Cash-collected vs promo/voucher-funded split of revenue booked in a
+ * period — see 20260924211136_finance_revenue_by_funding_source.sql. */
+export function useRevenueByFundingSource(currency: string) {
+  return useQuery({
+    queryKey: ["finance", "revenue-by-funding-source", currency],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_revenue_by_funding_source", {
+        p_currency: currency,
+      });
+      if (error) throw error;
+      return revenueByFundingSourceSchema.parse(data);
     },
   });
 }

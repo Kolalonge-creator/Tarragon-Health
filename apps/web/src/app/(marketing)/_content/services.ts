@@ -337,6 +337,12 @@ export const HOMEPAGE_FAQS = [
   },
   {
     category: "general",
+    question: "Can I add a family member or caregiver to help manage my care?",
+    answer:
+      "Yes. You can invite someone you trust, a spouse, an adult child, a caregiver, to help: they can follow your appointments and readings, or help with bookings and refills, depending on what you allow. You choose what they can see and do, they have to accept before it starts, and you can change or withdraw their access at any time. It's not a shared plan or a joint account: you each keep your own free Tarragon account.",
+  },
+  {
+    category: "general",
     question: "How much does it cost?",
     answer:
       "The app is free, with no time limit. You pay only when a doctor does a specific piece of work for you, at a price you see and confirm first, and you pay laboratories and pharmacies directly for tests and refills (we take nothing on those). See the pricing page for what a doctor's time costs.",
