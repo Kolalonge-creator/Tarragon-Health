@@ -202,7 +202,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     step_days_recorded: result.stepDaysRecorded,
     step_days_deferred_to_manual: result.stepDaysDeferredToManual,
     // A post-insert red-flag assessment (BP control, heart-rate pattern)
-    // failed for at least one connection in this batch — see
+    // failed for this connection's batch — see
     // IngestResult.safetyAssessmentFailed's own comment. The readings
     // themselves still stored fine (that's `failed`, separately), but this
     // must not be dropped on the way to the client, or the response goes
