@@ -42,10 +42,15 @@ describe("(dashboard) error boundary — connectivity detection", () => {
     expect(html).not.toContain("Something didn");
   });
 
-  it("shows a 'connection lost' message when the server was reached but responded unrecognisably", () => {
+  it("keeps the generic fallback for Next's 'unexpected response' error (an expired-session redirect looks identical)", () => {
+    // See isConnectivityError's own doc comment: this exact Next-authored
+    // literal fires for both a genuine outage AND an ordinary expired
+    // session redirected to /login, and nothing left in the Error tells the
+    // two apart — so it deliberately falls through to the generic fallback
+    // rather than confidently (and often wrongly) saying "connection lost".
     const html = renderBoundary(new Error("An unexpected response was received from the server."));
-    expect(html).toContain("Connection lost");
-    expect(html).not.toContain("Something didn");
+    expect(html).toContain("Something didn");
+    expect(html).not.toContain("Connection lost");
   });
 
   it("keeps the generic fallback for an unrelated error", () => {
