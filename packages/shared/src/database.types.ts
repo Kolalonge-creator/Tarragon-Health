@@ -17968,6 +17968,146 @@ export type Database = {
           },
         ]
       }
+      lab_location_review_reports: {
+        Row: {
+          created_at: string
+          id: string
+          organisation_id: string
+          reason: string
+          reporter_id: string
+          review_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organisation_id: string
+          reason: string
+          reporter_id: string
+          review_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          reason?: string
+          reporter_id?: string
+          review_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_location_review_reports_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_location_review_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_location_review_reports_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "lab_location_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_location_reviews: {
+        Row: {
+          comment: string | null
+          created_at: string
+          hidden_at: string | null
+          hidden_by: string | null
+          hidden_reason: string | null
+          id: string
+          lab_order_id: string
+          location_id: string
+          organisation_id: string
+          patient_id: string
+          rating: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          hidden_at?: string | null
+          hidden_by?: string | null
+          hidden_reason?: string | null
+          id?: string
+          lab_order_id: string
+          location_id: string
+          organisation_id: string
+          patient_id: string
+          rating: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          hidden_at?: string | null
+          hidden_by?: string | null
+          hidden_reason?: string | null
+          id?: string
+          lab_order_id?: string
+          location_id?: string
+          organisation_id?: string
+          patient_id?: string
+          rating?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_location_reviews_hidden_by_fkey"
+            columns: ["hidden_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_location_reviews_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: true
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_location_reviews_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: true
+            referencedRelation: "lab_orders_awaiting_transmission"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_location_reviews_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "lab_provider_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_location_reviews_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_location_reviews_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_order_refunds: {
         Row: {
           approved_at: string | null
@@ -18141,6 +18281,7 @@ export type Database = {
           home_visit_scheduled_at: string | null
           id: string
           investigation_tier: number
+          location_id: string | null
           phlebotomist_name: string | null
           phlebotomist_phone: string | null
           order_number: string | null
@@ -18196,6 +18337,7 @@ export type Database = {
           home_visit_scheduled_at?: string | null
           id?: string
           investigation_tier?: number
+          location_id?: string | null
           phlebotomist_name?: string | null
           phlebotomist_phone?: string | null
           order_number?: string | null
@@ -18251,6 +18393,7 @@ export type Database = {
           home_visit_scheduled_at?: string | null
           id?: string
           investigation_tier?: number
+          location_id?: string | null
           phlebotomist_name?: string | null
           phlebotomist_phone?: string | null
           order_number?: string | null
@@ -18313,6 +18456,13 @@ export type Database = {
             columns: ["home_visit_provider_id"]
             isOneToOne: false
             referencedRelation: "home_visit_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_orders_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "lab_provider_locations"
             referencedColumns: ["id"]
           },
           {
@@ -32752,6 +32902,72 @@ export type Database = {
           },
         ]
       }
+      reputation_review_prompts: {
+        Row: {
+          channel: Database["public"]["Enums"]["reputation_review_channel"]
+          clicked_at: string | null
+          created_at: string
+          dismissed_at: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          queued_at: string
+          sent_at: string | null
+          shown_at: string | null
+          source_id: string
+          source_table: string
+          status: Database["public"]["Enums"]["reputation_review_prompt_status"]
+          trigger_event: Database["public"]["Enums"]["reputation_review_trigger_event"]
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["reputation_review_channel"]
+          clicked_at?: string | null
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          queued_at?: string
+          sent_at?: string | null
+          shown_at?: string | null
+          source_id: string
+          source_table: string
+          status?: Database["public"]["Enums"]["reputation_review_prompt_status"]
+          trigger_event: Database["public"]["Enums"]["reputation_review_trigger_event"]
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["reputation_review_channel"]
+          clicked_at?: string | null
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          queued_at?: string
+          sent_at?: string | null
+          shown_at?: string | null
+          source_id?: string
+          source_table?: string
+          status?: Database["public"]["Enums"]["reputation_review_prompt_status"]
+          trigger_event?: Database["public"]["Enums"]["reputation_review_trigger_event"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reputation_review_prompts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reputation_review_prompts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       result_release_policies: {
         Row: {
           approved_at: string | null
@@ -40261,6 +40477,7 @@ export type Database = {
         Returns: Json
       }
       analytics_appointment_capacity: { Args: never; Returns: Json }
+      analytics_reputation_review_conversion: { Args: never; Returns: Json }
       analytics_audit_log: {
         Args: {
           p_action?: string
@@ -40692,6 +40909,31 @@ export type Database = {
       claim_sponsored_service_reservation: {
         Args: { p_token: string }
         Returns: Json
+      }
+      claim_pending_reputation_review_prompt: {
+        Args: never
+        Returns: {
+          channel: Database["public"]["Enums"]["reputation_review_channel"]
+          clicked_at: string | null
+          created_at: string
+          dismissed_at: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          queued_at: string
+          sent_at: string | null
+          shown_at: string | null
+          source_id: string
+          source_table: string
+          status: Database["public"]["Enums"]["reputation_review_prompt_status"]
+          trigger_event: Database["public"]["Enums"]["reputation_review_trigger_event"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "reputation_review_prompts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
       case_management_analytics: { Args: never; Returns: Json }
@@ -42163,6 +42405,7 @@ export type Database = {
         Args: { p_state?: string; p_test_code?: string }
         Returns: {
           accreditation: string | null
+          avg_rating: number | null
           capabilities: string[]
           contact_phone: string | null
           integration_status: Database["public"]["Enums"]["lab_integration_status"]
@@ -42174,8 +42417,26 @@ export type Database = {
           price_kobo: number | null
           provider_id: string
           provider_name: string
+          review_count: number
           turnaround_hours: number | null
         }[]
+      }
+      list_lab_location_reviews: {
+        Args: { p_limit?: number; p_location_id: string }
+        Returns: {
+          comment: string | null
+          created_at: string
+          id: string
+          rating: number
+        }[]
+      }
+      report_lab_location_review: {
+        Args: { p_reason: string; p_review_id: string }
+        Returns: undefined
+      }
+      set_lab_order_location: {
+        Args: { p_location_id: string | null; p_order_id: string }
+        Returns: undefined
       }
       assign_home_phlebotomist: {
         Args: {
@@ -42847,6 +43108,10 @@ export type Database = {
       record_platform_credit_topup_intent: {
         Args: { p_amount_kobo: number; p_patient_id: string }
         Returns: string
+      }
+      record_reputation_review_prompt_outcome: {
+        Args: { p_id: string; p_outcome: string }
+        Returns: undefined
       }
       record_result_correction: {
         Args: {
@@ -45229,6 +45494,7 @@ export type Database = {
         | "care_messages"
         | "education_wellness"
         | "billing"
+        | "reputation_requests"
       notification_priority: "routine" | "critical"
       notification_status:
         | "pending"
@@ -45698,6 +45964,21 @@ export type Database = {
         | "perimenopausal"
         | "menopausal"
         | "not_applicable"
+      reputation_review_channel: "native_app_store" | "trustpilot_email"
+      reputation_review_prompt_status:
+        | "queued"
+        | "sent"
+        | "shown"
+        | "clicked"
+        | "dismissed"
+        | "skipped_rate_limited"
+        | "skipped_flag_disabled"
+      reputation_review_trigger_event:
+        | "escalation_resolved"
+        | "clinician_alert_resolved"
+        | "lab_result_explained"
+        | "chronic_checkin_completed"
+        | "chronic_programme_milestone_completed"
       result_action_type:
         | "repeat_test"
         | "medication_change"
@@ -47626,6 +47907,7 @@ export const Constants = {
         "care_messages",
         "education_wellness",
         "billing",
+        "reputation_requests",
       ],
       notification_priority: ["routine", "critical"],
       notification_status: [
@@ -48158,6 +48440,23 @@ export const Constants = {
         "perimenopausal",
         "menopausal",
         "not_applicable",
+      ],
+      reputation_review_channel: ["native_app_store", "trustpilot_email"],
+      reputation_review_prompt_status: [
+        "queued",
+        "sent",
+        "shown",
+        "clicked",
+        "dismissed",
+        "skipped_rate_limited",
+        "skipped_flag_disabled",
+      ],
+      reputation_review_trigger_event: [
+        "escalation_resolved",
+        "clinician_alert_resolved",
+        "lab_result_explained",
+        "chronic_checkin_completed",
+        "chronic_programme_milestone_completed",
       ],
       result_action_type: [
         "repeat_test",

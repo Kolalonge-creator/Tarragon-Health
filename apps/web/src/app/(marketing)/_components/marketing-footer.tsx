@@ -15,7 +15,6 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.devices, label: "Devices" },
   ],
   programmes: [
-    { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },
     { href: MARKETING_ROUTES.annualHealthCheck, label: "Annual Health Check" },
     { href: MARKETING_ROUTES.advancedDiagnostics, label: "Advanced Diagnostics" },
     { href: MARKETING_ROUTES.screeningJourney, label: "Screening Journey" },

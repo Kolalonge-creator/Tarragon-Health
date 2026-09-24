@@ -8,19 +8,22 @@ import { cn } from "@/lib/utils";
 
 // Collapsed 2026-09-22 (launch-scope audit reconciliation, EPIC 6) from a
 // 6-item nav (chronic care / prevention / care coordination / who it's for /
-// pricing / contact) to 5. Nothing was deleted: chronicCare, careCoordination,
-// whoItsFor, devices, monitoring and hmo all stay live pages, reachable from
-// Prevention or the footer (marketing-footer.tsx already links every one of
-// them) — this only narrows what a first-time visitor sees at the top of
-// every page, per the audit's "too much for a first launch" finding. No
-// invented geography or cohort-size language anywhere in this change, per
-// the founder's explicit rejection of the audit's pilot-cohort framing.
+// pricing / contact) to 5, then adjusted again 2026-09-24: chronic care is
+// back (it's the platform's core wedge per CLAUDE.md and was too easy to
+// miss reduced to a Prevention sub-link), and "For organisations" was
+// dropped — it duplicated AUDIENCE_LINKS' "For employers" below, same
+// MARKETING_ROUTES.corporate route under a different label on every page.
+// careCoordination, whoItsFor, devices and monitoring remain live pages,
+// reachable from Prevention or the footer (marketing-footer.tsx already
+// links every one of them). No invented geography or cohort-size language
+// anywhere in this change, per the founder's explicit rejection of the
+// audit's pilot-cohort framing.
 const NAV_LINKS = [
+  { key: "chronicCare" as const, label: "Chronic care" },
   { key: "prevention" as const, label: "Prevention" },
   { key: "services" as const, label: "How it works" },
   { key: "pricing" as const, label: "Pricing" },
-  { key: "corporate" as const, label: "For organisations" },
-  { key: "about" as const, label: "About & trust" },
+  { key: "about" as const, label: "About" },
 ];
 
 /** Oscar/Omada-style audience split, surfaced above the nav instead of buried in the footer. */

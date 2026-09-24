@@ -3,6 +3,7 @@ import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { LabCatalogue } from "@/app/(dashboard)/patient/lab-catalogue";
 import { LabOrdersList } from "@/app/(dashboard)/patient/lab-orders-list";
+import { LabLocationDirectory } from "@/app/(dashboard)/patient/lab-location-directory";
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
 import { LabResults } from "@/app/(dashboard)/patient/lab-results";
 import { ResultDocuments } from "@/app/(dashboard)/patient/result-documents";
@@ -37,11 +38,13 @@ export default async function PatientLabsPage() {
         <div className="space-y-4">
           <LabOrdersList patientId={subjectId} />
           <LabCatalogue />
-          {/* No facility directory. Labs, pharmacies and specialists are all
-              suspended (founder decision 2026-08-03): the platform takes no
-              payment for a test and has inspected no laboratory, so it lists
-              none. BookingRequestsList stays because vaccination bookings
-              still create real requests a patient needs to see. */}
+          {/* Synlab Nigeria was contracted 2026-08-21 and this branch
+              directory shipped 2026-08-29 (list_lab_test_locations) — the
+              older "no facility directory" line here predated both and is
+              stale. Pharmacies/specialists remain unaffected by this. */}
+          <LabLocationDirectory />
+          {/* BookingRequestsList stays because vaccination bookings still
+              create real requests a patient needs to see. */}
           <BookingRequestsList patientId={subjectId} />
         </div>
       </div>

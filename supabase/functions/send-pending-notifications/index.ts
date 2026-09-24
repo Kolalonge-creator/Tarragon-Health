@@ -131,7 +131,8 @@ type PreferenceCategory =
   | "referrals"
   | "care_messages"
   | "education_wellness"
-  | "billing";
+  | "billing"
+  | "reputation_requests";
 
 const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   booking_reminder: "appointments",
@@ -186,6 +187,8 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
 
   sponsor_spend_receipt: "billing",
   sponsor_monthly_report: "billing",
+
+  reputation_review_request_trustpilot: "reputation_requests",
 
   // Deliberately NOT categorised (never gated by this table, always sends):
   // broadcast_announcement (admin-authored, org-wide — a category toggle
@@ -1778,6 +1781,58 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // Reputation & Review-Generation Engine (private.enqueue_reputation_review_prompt).
+  // Email-only -- there is no WhatsApp/SMS row for this template, so
+  // components/smsText below are never actually rendered on those channels,
+  // but the TEMPLATE_MAP call signature requires them regardless.
+  // The link goes through our own signed click-tracking redirect
+  // (/api/reputation/trustpilot-click), reusing the exact same
+  // signBroadcastLinkMessage/BROADCAST_LINK_SECRET mechanism the broadcast
+  // click-tracking links above already use -- a promptId being an
+  // unguessable UUID isn't treated as sufficient on its own in this
+  // codebase (see track-click/route.ts's own header comment), so this
+  // doesn't invent a weaker exception for one more link type. The caller
+  // checks TRUSTPILOT_REVIEW_URL is configured before ever invoking this
+  // render function (see the guard right before TEMPLATE_MAP is looked up)
+  // -- this function can assume it's present. If BROADCAST_LINK_SECRET isn't
+  // configured, signBroadcastLinkMessage returns null -- the tracked
+  // redirect route always rejects a missing/invalid token (it fails closed,
+  // never accepts an "unsigned" click), so linking to it without a token
+  // would just be a permanently broken link for every recipient. Matches
+  // the broadcast_announcement template's own established fallback instead
+  // (see its `if (clickUrl) { ... }` a few hundred lines up): link straight
+  // to the real destination, untracked, rather than through a redirect that
+  // can never succeed.
+  reputation_review_request_trustpilot: (payload, ctx) => {
+    const promptId = String(payload.reputation_review_prompt_id ?? "");
+    const token = signBroadcastLinkMessage(`reputation-click:${promptId}`);
+    const clickUrl = token
+      ? appUrl(`/api/reputation/trustpilot-click?prompt_id=${encodeURIComponent(promptId)}&token=${encodeURIComponent(token)}`)
+      : (Deno.env.get("TRUSTPILOT_REVIEW_URL") ?? "");
+    const smsText =
+      `Thank you for trusting Tarragon Health with your care. If you have a moment, ` +
+      `we'd be grateful for a review: ${clickUrl} Tarragon Health`;
+    return {
+      metaTemplateName: "reputation_review_request_trustpilot",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: clickUrl }] }],
+      smsText,
+      email: {
+        subject: "How has your care been with Tarragon Health?",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi there,</p>` +
+          `<p>Thank you for trusting Tarragon Health with your care. If you have a moment, ` +
+          `we'd be really grateful if you shared your experience in a quick review.</p>` +
+          `<p style="margin:24px 0"><a href="${clickUrl}" style="background:#0E7C52;color:#fff;padding:10px 20px;` +
+          `border-radius:6px;text-decoration:none;display:inline-block">Leave a review</a></p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
   // Sent to the patient when a clinician/specialist prescribes a medication
   // (private.enqueue_medication_prescribed_notifications). Email is the
   // guaranteed channel the requirement asks for; WhatsApp is attempted first on
@@ -3146,6 +3201,19 @@ Deno.serve(async () => {
       }
     };
 
+    // Scoped to exactly one template, same pattern as the PDF-attachment
+    // special case below: the Trustpilot business profile doesn't exist yet
+    // (a founder/ops action), so this can't render a real link. Checked
+    // before calling TEMPLATE_MAP so a missing env var fails just this row
+    // with a clear reason -- not an unhandled throw inside a render
+    // function, which would crash this whole batch run for every other
+    // pending notification too.
+    if (row.template === "reputation_review_request_trustpilot" && !Deno.env.get("TRUSTPILOT_REVIEW_URL")) {
+      await markFailed("TRUSTPILOT_REVIEW_URL is not configured -- Trustpilot business profile not set up yet");
+      failed++;
+      continue;
+    }
+
     const payload = row.payload ?? {};
     const renderFn = row.template ? TEMPLATE_MAP[row.template] : undefined;
     let render: TemplateRender | undefined = renderFn
@@ -3225,9 +3293,26 @@ Deno.serve(async () => {
         const pdf = await fetchPreventiveCarePlanPdf(row.recipient_id);
         if (pdf) attachments = [pdf];
       }
-      await settle(
-        await sendEmail(toEmail, render.email.subject, render.email.html, render.email.text, attachments),
+      const emailResult = await sendEmail(
+        toEmail, render.email.subject, render.email.html, render.email.text, attachments,
       );
+      await settle(emailResult);
+      // Scoped to exactly one template, same pattern as the PDF-attachment
+      // case above: mirrors this send onto the linked reputation_review_prompts
+      // row so the admin funnel can distinguish "sent" from "still queued" --
+      // without this, a Trustpilot ask that genuinely went out is
+      // indistinguishable from one that never left the queue.
+      if (
+        emailResult.ok &&
+        row.template === "reputation_review_request_trustpilot" &&
+        typeof payload.reputation_review_prompt_id === "string"
+      ) {
+        await supabase
+          .from("reputation_review_prompts")
+          .update({ status: "sent", sent_at: new Date().toISOString() })
+          .eq("id", payload.reputation_review_prompt_id)
+          .eq("status", "queued");
+      }
     } else if (row.channel === "push") {
       const subs = subscriptionsByProfile.get(row.recipient_id) ?? [];
       const pushBody = render.smsText.length > PUSH_BODY_MAX_CHARS

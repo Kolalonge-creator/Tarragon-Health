@@ -10,6 +10,7 @@ import { registerBackgroundHealthSync } from "@/lib/background-sync";
 import { registerPushToken } from "@/lib/push-registration";
 import { flushPendingVitals } from "@/lib/offline-vitals-queue";
 import { syncThresholdsIfOnline } from "@/lib/threshold-sync";
+import { checkForPendingReviewPrompt } from "@/lib/review-prompts";
 import { loadPatientIdentity, type PatientIdentity } from "@/lib/identity";
 import { LoginScreen } from "@/screens/login-screen";
 import { AppLockScreen } from "@/screens/app-lock-screen";
@@ -194,6 +195,11 @@ function AppContent() {
       // background task's 15-minute floor.
       flushPendingVitals().catch(() => {});
       syncThresholdsIfOnline().catch(() => {});
+      // Same fire-and-forget contract again — checks for at most one queued
+      // native-app-store review prompt and, if found, calls the OS review
+      // API directly. Already fully self-contained (own try/catch), but
+      // .catch() kept for symmetry with the other calls in this block.
+      checkForPendingReviewPrompt().catch(() => {});
       return () => healthSyncHandle.cancel();
     }
   }, [session, identity]);

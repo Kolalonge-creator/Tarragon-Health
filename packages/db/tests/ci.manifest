@@ -470,6 +470,13 @@ region_service_available_normalized_state_fallback.sql
 # stranger with no grant is refused.
 diabetes_self_monitoring_acting_supporter.sql
 
+# Reputation & Review-Generation Engine: proves the feature-flag gate, the
+# cross-trigger 90-day cooldown (with a sabotage pass removing it), the
+# claim_pending_reputation_review_prompt()/record_reputation_review_prompt_outcome()
+# ownership checks, RLS isolation between patients, and the anon-EXECUTE
+# revoke on both client-facing and internal enqueue functions.
+reputation_review_prompts.sql
+
 # --- Added 2026-09-24 (second pass) ------------------------------------------
 # private.finance_post_voucher_redeemed had two bugs, found while auditing
 # whether promo-code/care-voucher-covered service purchases report accurately
@@ -528,6 +535,9 @@ finance_revenue_by_funding_source.sql
 # and two independent sabotage steps (reverting each trigger to its pre-fix
 # shape) reopen the corresponding hole.
 voucher_redemption_cross_voucher_double_count_and_revrec_rounding.sql
+
+# --- Added 2026-09-24 (fifth pass) --------------------------------------------
+lab_location_reviews_rls.sql
 
 # account_lockouts_anon_execute_and_search_path.sql: 20260924215642 backfilled
 # a missing migration record for public.is_account_locked(_by_phone) (found
