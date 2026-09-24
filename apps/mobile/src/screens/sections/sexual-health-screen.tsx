@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Text, TextInput, View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 import {
   clearSexualHealthPin,
   isCurrentlyLocked,
@@ -38,15 +37,8 @@ import {
   type SexualHealthInstrument,
   type SexualWellnessResult,
 } from "@/lib/sexual-wellness";
-import {
-  CONFIDENTIAL_MESSAGE_CREDIT_REQUIRED_MARKER,
-  CONFIDENTIAL_MESSAGE_CREDIT_CODE,
-  startConfidentialSrhThread,
-} from "@/lib/confidential-message";
-import { trySpendPlatformCreditForService } from "@/lib/platform-credit";
+import { startConfidentialSrhThread } from "@/lib/confidential-message";
 import { loadHealthEducationLibrary, type LibraryItem as HealthEducationLibraryItem } from "@/lib/health-education";
-import { PLATFORM_URL } from "@/lib/platform-url";
-import { koboToNaira } from "@tarragon/shared";
 import { SexualHealthResultsTab, SexualHealthTestingTab } from "@/screens/sections/sexual-health-testing-tab";
 import type { SectionId } from "@/lib/sections";
 import { colors, radius, spacing } from "@/ui/theme";
@@ -708,40 +700,16 @@ function ConfidentialMessageCard() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  const [needsCredit, setNeedsCredit] = useState(false);
 
   async function send() {
     setError(null);
-    setNeedsCredit(false);
     setPending(true);
 
-    let result = await startConfidentialSrhThread(subject, body);
-
-    if (!result.ok && result.error.includes(CONFIDENTIAL_MESSAGE_CREDIT_REQUIRED_MARKER)) {
-      // start_care_thread resolves the caller's own patient id from
-      // auth.uid() itself, so this spends against the caller — no
-      // patientId to pass, same as this card's own props (none).
-      const spend = await trySpendPlatformCreditForService(CONFIDENTIAL_MESSAGE_CREDIT_CODE);
-      if (spend.spent) {
-        result = await startConfidentialSrhThread(subject, body);
-      } else {
-        setPending(false);
-        setNeedsCredit(true);
-        setError(
-          spend.shortfallKobo
-            ? `You need ₦${koboToNaira(spend.shortfallKobo).toLocaleString()} more platform credit to send this.`
-            : (spend.error ?? "Buy a confidential message credit to send this.")
-        );
-        return;
-      }
-    }
+    const result = await startConfidentialSrhThread(subject, body);
 
     setPending(false);
     if (!result.ok) {
       setError(result.error);
-      if (result.error.includes(CONFIDENTIAL_MESSAGE_CREDIT_REQUIRED_MARKER)) {
-        setNeedsCredit(true);
-      }
       return;
     }
     setSubject("");
@@ -756,7 +724,7 @@ function ConfidentialMessageCard() {
       <MutedText>
         For anything here you&apos;d rather write than say out loud. This thread is hidden from anyone else
         who supports your care, even someone with their usual access to your record. A doctor reads and
-        replies, so this is a paid message (₦2,500).
+        replies.
       </MutedText>
 
       {sent && <MutedText>Sent. Your care team will reply in Messages.</MutedText>}
@@ -773,17 +741,10 @@ function ConfidentialMessageCard() {
           <TextInput value={body} onChangeText={setBody} multiline numberOfLines={4} maxLength={4000} style={[textInputStyle, { minHeight: 90, textAlignVertical: "top" }]} />
           {error && <ErrorText>{error}</ErrorText>}
 
-          {needsCredit ? (
-            <SecondaryButton
-              title="Buy a credit in the browser"
-              onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/sexual-health`)}
-            />
-          ) : (
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <PrimaryButton title="Send" onPress={send} disabled={subject.trim().length < 3 || body.trim().length === 0} loading={pending} />
-              <SecondaryButton title="Cancel" onPress={() => setOpen(false)} disabled={pending} />
-            </View>
-          )}
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <PrimaryButton title="Send" onPress={send} disabled={subject.trim().length < 3 || body.trim().length === 0} loading={pending} />
+            <SecondaryButton title="Cancel" onPress={() => setOpen(false)} disabled={pending} />
+          </View>
         </View>
       )}
     </Card>

@@ -159,8 +159,8 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit 
       />
       <AskADoctorSection patientId={patientId} organisationId={organisationId} />
       <SecondOpinionSection patientId={patientId} organisationId={organisationId} />
-      <SeniorCaseReviewSection patientId={patientId} organisationId={organisationId} />
-      <VerifiedDocumentsSection patientId={patientId} organisationId={organisationId} />
+      <SeniorCaseReviewSection patientId={patientId} />
+      <VerifiedDocumentsSection patientId={patientId} />
       <NeedHelpSection patientId={patientId} />
       <VouchersSection patientId={patientId} />
       <TestimonialSection />

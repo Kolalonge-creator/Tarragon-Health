@@ -13,6 +13,7 @@ import { Section, SectionHeading } from "./_components/section";
 import { StoryPanel } from "./_components/story-panel";
 import { TestimonialsSection } from "./_components/testimonials-section";
 import { AppDashboardMockup } from "./_components/app-dashboard-mockup";
+import { PhoneMockup } from "./_components/phone-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
 import { PartnerLogoStrip } from "./_components/partner-logo-strip";
@@ -214,7 +215,14 @@ export default async function MarketingHomePage() {
             steps={HOME_HOW_IT_WORKS.map(({ title, body }) => ({ title, body }))}
             tone="green"
           />
-          <MarketingMediaFrame media={homepage.solution} />
+          <PhoneMockup
+            className="relative mx-auto"
+            src={homepage.solution.imageSrc ?? ""}
+            alt={homepage.solution.imageAlt ?? ""}
+            width={1206}
+            height={1650}
+            showNotch
+          />
         </div>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Button asChild variant="outline">

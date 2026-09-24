@@ -79,14 +79,18 @@ begin
   -- Resolve the vehicle dynamically (never hardcode a product code — the
   -- catalogue churns, confirmed live mid-development of this very migration
   -- when continuous_monitoring_3m/6m/12m were retired in favour of a
-  -- single 90-day tier without this test needing to change).
+  -- single 90-day tier without this test needing to change, and again
+  -- 2026-09-24 when every verified_document_* row was deactivated by the
+  -- Doctor-Signed Documents retirement — is_active governs whether a NEW
+  -- purchase can be made, not whether a row is valid to exist as this
+  -- fixture's service_purchases FK target, so this no longer filters on it).
   select id, code, price_kobo into v_product, v_code, v_price
     from public.service_products
-   where is_active and code like 'verified_document_%'
+   where code like 'verified_document_%'
    order by code
    limit 1;
   if v_product is null then
-    raise exception 'no active verified_document_* product — cannot exercise the verified_document redemption path';
+    raise exception 'no verified_document_* product — cannot exercise the verified_document redemption path';
   end if;
 
   ------------------------------------------------------------------ fixtures

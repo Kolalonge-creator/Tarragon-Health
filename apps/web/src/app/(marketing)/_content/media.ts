@@ -136,17 +136,6 @@ export const MARKETING_MEDIA = {
       } satisfies MarketingMediaSlot,
     },
   },
-  pricing: {
-    // Same provenance discipline as homepage.solution above: a real,
-    // unedited screenshot (iOS Simulator, QA fixture account temporarily
-    // renamed to a placeholder Nigerian name for the shot, reverted right
-    // after) rather than a mockup — shown before the price list so "what
-    // you're paying for" is something concrete, not an abstract promise.
-    trustVisual: {
-      imageSrc: "/marketing/photos/app/how-it-works-health-score.jpg",
-      imageAlt: "The Tarragon app's patient dashboard, showing a health score summary and a next best step",
-    } satisfies MarketingMediaSlot,
-  },
   productHero: {
     hypertension: {
       imageSrc: "/marketing/photos/hero/hypertension.jpg",
