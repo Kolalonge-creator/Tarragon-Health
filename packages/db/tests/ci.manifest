@@ -528,3 +528,16 @@ finance_revenue_by_funding_source.sql
 # and two independent sabotage steps (reverting each trigger to its pre-fix
 # shape) reopen the corresponding hole.
 voucher_redemption_cross_voucher_double_count_and_revrec_rounding.sql
+
+# account_lockouts_anon_execute_and_search_path.sql: 20260924215642 backfilled
+# a missing migration record for public.is_account_locked(_by_phone) (found
+# anon-executable with no legitimate caller, the anon-execute-via-PUBLIC
+# gotcha recurring again) and revoked anon EXECUTE. Its first version also
+# redefined the shared private.set_updated_at() trigger (~280 tables) as a
+# side effect of copying in unrelated functions, silently dropping its
+# search_path pin -- caught by /code-review high before merge, fixed same day
+# in 20260924221235. Proves both: anon lacks EXECUTE on the two functions
+# (authenticated retains it), and private.set_updated_at() keeps search_path
+# pinned -- each with a sabotage step reproducing the exact regression to
+# confirm the check actually discriminates.
+account_lockouts_anon_execute_and_search_path.sql
