@@ -465,9 +465,15 @@ diabetes_self_monitoring_acting_supporter.sql
 # Supervised Weight Management removed outright (founder decision), reversing
 # 20260910011851/20260910053837/20260910182555/20260910182855/20260912230030
 # and the weight-management slices of 20260910011854/20260918091341 -- see
-# 20260924220239_remove_supervised_weight_management.sql. A standing "stays
-# removed" check rather than a fix-proof: confirms the tables/functions/enum/
-# service_products rows have not silently reappeared, that
+# 20260924220239_remove_supervised_weight_management.sql. That migration's own
+# service_products/service_delivery_cost_model rows were then corrected from a
+# hard DELETE to a retirement (is_active = false, kept resolvable) by
+# 20260924222401_retire_not_delete_weight_management_products.sql, matching
+# chronic_doctor_supported_pack's own retirement shape -- found by /code-review
+# high on the diff before it merged. A standing "stays removed" check rather
+# than a fix-proof: confirms the tables/functions/enum have not silently
+# reappeared, that the three service_products/service_delivery_cost_model rows
+# stay present-but-retired (never deleted, never reactivated), that
 # clinical_encounters' narrowed CHECK still accepts a real remaining encounter
 # type and still refuses the removed one, that the free 'obesity'
 # chronic_condition_programmes row stays reverted to its pre-product shape,

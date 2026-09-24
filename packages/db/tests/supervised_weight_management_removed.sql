@@ -1,17 +1,24 @@
 -- ===========================================================================
 -- Verification: Supervised Weight Management stays removed.
 --
--- 20260924220239_remove_supervised_weight_management.sql dropped the product
--- entirely (tables, RPCs, trigger functions, the dedicated enum, the three
--- service_products/service_delivery_cost_model rows) and reverted the free
--- 'obesity' chronic_condition_programmes row to its pre-product shape. A
--- migration's own DO-block assertions only prove that at the moment it ran;
--- this is the standing regression check that a later migration hasn't
--- silently reintroduced any of it (e.g. a future author copying the old
--- 20260910011851 migration as a "similar feature" template).
+-- 20260924220239_remove_supervised_weight_management.sql dropped the product's
+-- schema (tables, RPCs, trigger functions, the dedicated enum) and reverted
+-- the free 'obesity' chronic_condition_programmes row to its pre-product
+-- shape. It also hard-deleted the three service_products/
+-- service_delivery_cost_model rows, which 20260924222401_retire_not_delete_
+-- weight_management_products.sql corrected to a deactivation instead
+-- (is_active = false, kept resolvable), matching this platform's own
+-- chronic_doctor_supported_pack retirement precedent. A migration's own
+-- DO-block assertions only prove its own moment; this is the standing
+-- regression check that a later migration hasn't silently reintroduced the
+-- dropped schema (e.g. a future author copying the old 20260910011851
+-- migration as a "similar feature" template) OR re-deleted the retired
+-- catalogue rows (e.g. a future cleanup pass "finishing the job" by deleting
+-- what looks like dead is_active=false rows).
 --
 -- Deliberately does NOT sabotage-and-confirm the way a fix-proof does — there
--- is no code path here to sabotage; this is a pure "still absent" check.
+-- is no code path here to sabotage; this is a pure "still absent"/"still
+-- retired, not missing" check.
 --
 -- Run via `supabase db query --linked -f this_file.sql`, `psql $DATABASE_URL -f
 -- this_file.sql`, or the Supabase SQL editor.
@@ -49,18 +56,26 @@ begin
     raise exception 'FAIL: a weight-management function has reappeared';
   end if;
 
-  if exists (
-    select 1 from public.service_products
-     where code in ('weight_management_3m', 'weight_management_6m', 'weight_management_12m')
-  ) then
-    raise exception 'FAIL: a weight_management_* service_products row has reappeared';
+  -- Retired, not deleted: the three rows must exist, resolvable for a
+  -- historical reference, and must never be active again.
+  if (select count(*) from public.service_products
+       where code in ('weight_management_3m', 'weight_management_6m', 'weight_management_12m')) <> 3
+  then
+    raise exception 'FAIL: a weight_management_* service_products row is missing -- it should be retired (is_active=false), not deleted';
   end if;
 
   if exists (
-    select 1 from public.service_delivery_cost_model
-     where service_product_code in ('weight_management_3m', 'weight_management_6m', 'weight_management_12m')
+    select 1 from public.service_products
+     where code in ('weight_management_3m', 'weight_management_6m', 'weight_management_12m')
+       and is_active
   ) then
-    raise exception 'FAIL: a weight_management_* service_delivery_cost_model row has reappeared';
+    raise exception 'FAIL: a weight_management_* service_products row has been reactivated';
+  end if;
+
+  if (select count(*) from public.service_delivery_cost_model
+       where service_product_code in ('weight_management_3m', 'weight_management_6m', 'weight_management_12m')) <> 3
+  then
+    raise exception 'FAIL: a weight_management_* service_delivery_cost_model row is missing -- it should stay for historical margin analysis, per that table''s own design (see its comment)';
   end if;
 
   if exists (select 1 from public.clinical_encounters where source_table = 'weight_management_checkins') then
@@ -110,7 +125,7 @@ begin
     raise exception 'FAIL: the unrelated therapy-approval product has gone missing too';
   end if;
 
-  raise notice 'PASS: Supervised Weight Management stays removed; clinical_encounters, the free obesity programme and therapy approvals are intact';
+  raise notice 'PASS: Supervised Weight Management stays removed and its service_products/service_delivery_cost_model rows stay retired, not deleted; clinical_encounters, the free obesity programme and therapy approvals are intact';
 end $$;
 
 rollback;

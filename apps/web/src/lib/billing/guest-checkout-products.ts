@@ -40,9 +40,6 @@ export type GuestCheckoutProductCopy = {
   staticPrice: string;
   priceCaption?: string;
   description: string;
-  disclosure?: string;
-  /** Other terms of the same product, e.g. Continuous Monitoring's 3/6/12-month options. */
-  terms?: readonly { code: string; label: string; price: string; perMonth: string }[];
 };
 
 /**

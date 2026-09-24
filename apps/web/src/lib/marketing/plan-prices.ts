@@ -96,7 +96,6 @@ export function formatPrice(minor: number, currency: "NGN" | "USD"): string {
  * codes were never read, and pricing-services.tsx's per-term `priceOverrides
  * [term.code] ?? term.price` lookup silently fell back to the static price on
  * every one of them regardless of the live service_products row.
- *
  */
 export function servicePriceOverridesFrom(prices: PlanPriceMap): Record<string, string> {
   if (prices.size === 0) return {};
