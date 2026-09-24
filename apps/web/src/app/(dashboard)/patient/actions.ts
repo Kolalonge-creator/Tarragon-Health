@@ -1342,13 +1342,19 @@ async function currentPatientOrg(): Promise<
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in" };
+  // Whoever's account is open — the diabetes daily log (vitals/page.tsx)
+  // already renders these forms against the acting-for SUBJECT, so the write
+  // must land on that same subject, not the caller. resolveSubjectId
+  // re-checks the live 'manage' grant server-side, so a stale/forged cookie
+  // resolves back to the caller's own id.
+  const subjectId = await resolveSubjectId(user.id);
   const { data: profile } = await supabase
     .from("profiles")
     .select("organisation_id")
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) return { error: "No organisation on file" };
-  return { supabase, userId: user.id, organisationId: profile.organisation_id };
+  return { supabase, userId: subjectId, organisationId: profile.organisation_id };
 }
 
 export type DiabetesLogActionState = { error?: string; success?: boolean } | undefined;
@@ -1479,6 +1485,7 @@ export async function setPatientReportedDiabetesType(
 
   const { error } = await ctx.supabase.rpc("set_patient_reported_diabetes_type", {
     p_type: parsed.data.diabetes_type,
+    p_patient_id: ctx.userId,
   });
   if (error) return { error: error.message };
   return { success: true };
