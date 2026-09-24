@@ -45,13 +45,18 @@ describe("isConnectivityError", () => {
     expect(isConnectivityError(error)).toBe(true);
   });
 
-  it("treats a reached-but-unrecognised server response as a connectivity error", () => {
+  it("deliberately does NOT treat Next's generic 'unexpected response' error as connectivity-shaped", () => {
     // Next throws this exact literal (server-action-reducer.js, error code
-    // E394) as a plain Error, not a TypeError, when a Server Action's
-    // response is neither valid RSC content nor a redirect — the server WAS
-    // reached, but responded with something else (a gateway/outage page).
+    // E394) as a plain Error, not a TypeError, whenever a Server Action's
+    // response is neither valid RSC content nor a redirect — which covers a
+    // genuine outage/bad deploy, but ALSO an ordinary expired-session
+    // redirect to /login's HTML page (proxy.ts has no exclusion for a Server
+    // Action POST). Session expiry is common and everyday, not an outage,
+    // and nothing left in this Error distinguishes the two cases — see
+    // isConnectivityError's own doc comment for the full reasoning this test
+    // guards against regressing.
     const error = new Error("An unexpected response was received from the server.");
-    expect(isConnectivityError(error)).toBe(true);
+    expect(isConnectivityError(error)).toBe(false);
   });
 
   it("does not treat a bare TypeError from a real bug as a connectivity error", () => {
