@@ -26,7 +26,7 @@
     "@supabase/supabase-js": "^2.110.0",
     "@tarragon/shared": "workspace:*",
     "expo": "~54.0.36",
-    "expo-background-task": "~1.0.10",
+    "expo-background-task": "~57.0.19",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.9",
     "expo-dev-client": "~6.0.21",
