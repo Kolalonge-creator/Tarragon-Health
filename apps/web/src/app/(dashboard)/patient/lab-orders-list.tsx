@@ -8,6 +8,7 @@ import { PatientResultUpload } from "@/components/patient-result-upload";
 import { EcgReportUpload } from "@/components/ecg-report-upload";
 import { LabOrderTestChecklist } from "@/components/lab-order-test-checklist";
 import { RequestPartnerLabVisit } from "@/app/(dashboard)/patient/request-partner-lab-visit";
+import { LabOrderLocationPicker, RateLabLocation } from "@/app/(dashboard)/patient/lab-order-location-review";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { listQueryState } from "@/lib/queries/list-query-state";
@@ -112,7 +113,23 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                     {order.fulfilment === "self_arranged" && order.status === "ordered" && (
                       <RequestPartnerLabVisit patientId={patientId} orderId={order.id} />
                     )}
+                    {order.fulfilment === "self_arranged" && (
+                      <LabOrderLocationPicker
+                        patientId={patientId}
+                        orderId={order.id}
+                        currentLocationId={order.location_id}
+                      />
+                    )}
                   </>
+                )}
+                {order.status === "resulted" && order.location_id && (
+                  <RateLabLocation
+                    organisationId={order.organisation_id}
+                    patientId={patientId}
+                    labOrderId={order.id}
+                    locationId={order.location_id}
+                    locationName={order.location?.name ?? "this lab"}
+                  />
                 )}
               </li>
             );
