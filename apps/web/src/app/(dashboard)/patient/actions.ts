@@ -3,7 +3,7 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { resolveSubjectId } from "@/lib/acting/acting-for";
+import { resolveSubjectId, getActingFor } from "@/lib/acting/acting-for";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { validatePatientAvatarFile } from "@/lib/validation/patient-avatar";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
@@ -1439,6 +1439,17 @@ export async function logSickDay(
  * obstetric-led — the app surfaces the "referred to antenatal care" banner and
  * the drug-safety advisory contraindicates oral agents / ACEi-ARB. Upsert on
  * the patient's own row (RLS-scoped).
+ *
+ * Deliberately self-only, unlike logInsulin/logFootSelfCheck/logSickDay
+ * above: this writes into the reproductive-health domain, which this
+ * platform never grants on a bare 'manage' acting-for relationship (see
+ * reproductive_health_profiles' RLS — a category-scoped grant AND
+ * private.guardian_may_edit_confidential_domain, never plain
+ * private.can_act_for). patient_pregnancy's own RLS is still the older,
+ * self-or-staff-only shape, so refuse cleanly here with an explanatory
+ * message rather than let a supporter hit a bare, confusing RLS error —
+ * extending this to supporters is a deliberate future design decision, not
+ * a default this action should reach for on its own.
  */
 export async function setPregnancyStatus(
   _prev: DiabetesLogActionState,
@@ -1447,6 +1458,14 @@ export async function setPregnancyStatus(
   const isPregnant = formData.get("is_pregnant") === "true";
   const eddRaw = (formData.get("estimated_due_date") as string | null) ?? null;
   const edd = eddRaw && !Number.isNaN(Date.parse(eddRaw)) ? eddRaw : null;
+
+  const acting = await getActingFor();
+  if (acting) {
+    return {
+      error:
+        "Pregnancy status can only be updated by the account holder themselves right now, not by someone supporting their account.",
+    };
+  }
 
   const ctx = await currentPatientOrg();
   if ("error" in ctx) return { error: ctx.error };
