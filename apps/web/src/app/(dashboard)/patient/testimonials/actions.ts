@@ -3,12 +3,22 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { TESTIMONIAL_CONDITIONS } from "@/lib/testimonials/conditions";
 
 export type SubmitTestimonialState = { error?: string; message?: string } | undefined;
+
+const CONDITION_VALUES = TESTIMONIAL_CONDITIONS.map((c) => c.value) as [string, ...string[]];
 
 const schema = z.object({
   display_name: z.string().trim().min(1, "Enter a display name").max(80),
   quote: z.string().trim().min(20, "A few more words help: at least 20 characters").max(500),
+  // .nullable() because FormData.get() returns null (not undefined) for a
+  // key that's missing entirely — .optional() alone doesn't accept that.
+  condition: z
+    .union([z.enum(CONDITION_VALUES), z.literal("")])
+    .nullable()
+    .optional()
+    .transform((v) => (v ? v : null)),
 });
 
 /**
@@ -29,6 +39,7 @@ export async function submitTestimonial(
   const parsed = schema.safeParse({
     display_name: formData.get("display_name"),
     quote: formData.get("quote"),
+    condition: formData.get("condition"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -40,6 +51,7 @@ export async function submitTestimonial(
     patient_id: profile.id,
     display_name: parsed.data.display_name,
     quote: parsed.data.quote,
+    condition: parsed.data.condition,
     consent_to_publish: true,
     status: "submitted",
   });

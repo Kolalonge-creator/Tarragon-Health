@@ -470,6 +470,46 @@ region_service_available_normalized_state_fallback.sql
 # stranger with no grant is refused.
 diabetes_self_monitoring_acting_supporter.sql
 
+# --- Added 2026-09-24 -------------------------------------------------------
+# doctor_testimonials (20260924210347_doctor_testimonials.sql), the doctor-
+# side counterpart to patient_testimonials — admin-entered/off-platform
+# consent instead of patient self-submit, per an explicit 2026-09-24 founder
+# decision (see the migration header). Proves a non-admin cannot insert at
+# all, a blank consent_reference is rejected, a non-admin publish attempt is
+# silently filtered to zero rows by RLS, an admin CAN publish with
+# reviewed_by/reviewed_at server-stamped to the real admin even when the
+# caller tries to spoof reviewed_by in the same statement, anon reads only
+# the published row (not a still-submitted sibling), and anon has no
+# INSERT/UPDATE grant at all. Building the fixture caught that
+# clinical_staff no longer has a `role` column (dropped by the 2026-08-31
+# doctor_tier collapse) and that `clinical_staff_active_requires_verification`
+# requires license_verified_at whenever active=true — both found only by
+# running against the live project rather than trusting the original
+# migration's column list.
+doctor_testimonials.sql
+
+# testimonials_condition_check_and_doctor_org_match
+# (20260924212340_testimonials_condition_check_and_doctor_org_match.sql) —
+# a same-day /code-review high follow-up on the two entries just above.
+# Proves patient_testimonials/doctor_testimonials.condition reject a value
+# that matches no real condition page (previously free text, silently
+# inserted and then rendered nowhere — the "silent disable looks like an
+# empty result" failure class) and that a doctor_testimonials row cannot
+# reference a clinical_staff_id from a different organisation than its own
+# organisation_id (private.is_admin() is platform-wide, not org-scoped, so
+# nothing else caught this). Sabotages by disabling the new trigger and
+# re-running the exact same cross-org insert to confirm it then succeeds.
+testimonials_condition_check_and_doctor_org_match.sql
+
+# --- Added 2026-09-24 (second pass, doctor testimonials) ---------------------
+# doctor_testimonials_consent_reference_max_length
+# (20260924214847_doctor_testimonials_consent_reference_max_length.sql) and a
+# rewrite of doctor_testimonials.sql's step-3 sabotage test -- see that file's
+# own header for the full account of the three independent, redundant gates
+# (a SELECT policy, an UPDATE policy, and the review trigger's own admin
+# check) found live while trying to sabotage it.
+
+# --- Added 2026-09-24 -------------------------------------------------------
 # Reputation & Review-Generation Engine: proves the feature-flag gate, the
 # cross-trigger 90-day cooldown (with a sabotage pass removing it), the
 # claim_pending_reputation_review_prompt()/record_reputation_review_prompt_outcome()
