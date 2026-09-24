@@ -5,6 +5,7 @@ import { Section, SectionHeading } from "../_components/section";
 import { ResourceCarousel } from "../_components/resource-carousel";
 import { ConditionMonitoringGrid, DIABETES_MONITORING } from "../_components/condition-monitoring";
 import { HowTestingWorks } from "../_components/how-testing-works";
+import { ConditionRiskNote } from "../_components/condition-risk-note";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
 export const revalidate = 300;
@@ -22,7 +23,16 @@ export default async function DiabetesPage() {
   const diabetesArticles = articles.filter((a) => a.category === "Diabetes");
 
   return (
-    <ProductPageTemplate content={content}>
+    <ProductPageTemplate
+      content={content}
+      riskNote={
+        <ConditionRiskNote
+          eyebrow="Why this matters"
+          statement="Diabetes complications rarely start with a bad number. They start with a normal one nobody checked again for months."
+          support="HbA1c can drift for weeks before it ever becomes a symptom. Tarragon keeps glucose, HbA1c, and lab follow-up on one record, so a quiet drift gets reviewed, not missed."
+        />
+      }
+    >
       <Section>
         <SectionHeading
           eyebrow="What we monitor"
