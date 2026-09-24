@@ -19,6 +19,7 @@ import { ServiceStatusCard } from "@/app/(dashboard)/patient/service-status-card
 import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-last-here-card";
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
+import { AskTarragonCard } from "@/app/(dashboard)/patient/ask-tarragon-card";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
 import { WeeklyPlanCard } from "@/app/(dashboard)/patient/weekly-plan-card";
@@ -161,6 +162,14 @@ export default async function PatientOverviewPage() {
           phone this row is what's on screen when the page opens. */}
       <QuickActions showCycle={shouldOfferCycleTracking(subjectSex)} />
 
+      {/* Prominent, single-screen "ask" entry point -- composes the already-
+          governed AI Coach (symptom text) and result-upload + AI summary
+          (lab result) pipelines that otherwise sit buried in Care & support
+          and Labs & bookings respectively. Above the !firstRun gate
+          deliberately: a brand-new patient with nothing logged yet is
+          exactly who most needs a fast way to ask a question or hand over a
+          result, and neither path depends on any existing record data. */}
+      <AskTarragonCard patientId={subjectId} />
 
       {/* On a genuinely empty account everything below this point can only
           report an absence, so it is not rendered at all until there is
