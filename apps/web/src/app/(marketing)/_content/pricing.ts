@@ -123,6 +123,17 @@ export const PRICING_LABELS: Record<
   },
 };
 
+/**
+ * Single source for the "we only ever price in Naira" claim, quoted in three
+ * places (the pricing page hero, this promise list, and the /partners trust
+ * page) — kept as one exported string so a future pricing-model change (this
+ * repo's pricing has been reworked at least four times, per CLAUDE.md) only
+ * needs updating once, not reconciled across three independently-worded
+ * copies.
+ */
+export const NAIRA_ONLY_STATEMENT =
+  "Every price is in Naira, and only Naira. There is no dollar version, no exchange-rate conversion, and no different price depending on where in the world you are paying from.";
+
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
 export const PRICING_PROMISES: string[] = [
   "The app is free. Tracking, reminders, your screening calendar, the whole education library, lifestyle and weight coaching, the AI Health Coach, and your quarterly report cost you nothing, with no time limit and no card required.",
@@ -130,7 +141,7 @@ export const PRICING_PROMISES: string[] = [
   "Nothing auto-renews. Continuous Monitoring is paid once for a fixed term and then simply stops, and we tell you before it does. There is no subscription, no card kept on file, and no cancellation to remember.",
   "We do not sell laboratory tests and take no cut of what a laboratory or pharmacy charges you. We work out which tests you need and write the request, free, and you pay the laboratory directly at their price. We tell you roughly what to expect it to cost so you can compare before you go.",
   "Naira prices are reviewed once a year at most, and we will tell you at least 30 days before any change. Anything you have already paid for is honoured until it runs out.",
-  "Every price is in Naira, and only Naira. There is no dollar version, no exchange-rate conversion, and no different price depending on where in the world you are paying from.",
+  NAIRA_ONLY_STATEMENT,
 ];
 
 export type FreeFeatureGroup = {

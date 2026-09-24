@@ -7,7 +7,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { TIER_COPY } from "@/lib/marketing/accountability-data";
 import { PARTNER_LOGOS, PARTNER_VERIFICATION_PRINCIPLE } from "../_content/partners";
+import { NAIRA_ONLY_STATEMENT } from "../_content/pricing";
 
 export const metadata: Metadata = pageMetadata({
   title: "Our partners",
@@ -39,26 +41,30 @@ const CAPITATION_REASONS = [
 ];
 
 /**
- * Escalation teaser, deliberately unquantified here — /accountability reads
+ * Escalation teaser. Titles are derived from the shared TIER_COPY taxonomy
+ * (accountability-data.ts) rather than re-typed, so a future edit to that
+ * copy can't silently drift out of sync with this page — the same reasoning
+ * that already keeps the SLA *number* off this page: /accountability reads
  * the live, signed escalation_slas config and is the one place that ever
- * states a number (see accountability-data.ts's header comment on failing
- * soft and quiet rather than hardcoding a figure). This page links there
- * instead of repeating a number that could drift out of sync with it.
+ * states a figure (see accountability-data.ts's header comment on failing
+ * soft and quiet rather than hardcoding one). This page links there instead
+ * of repeating a number that could drift out of sync with it.
  */
-const ESCALATION_POINTS = [
-  {
-    title: "Something that could be dangerous now",
-    body: "Gets the fastest, written ceiling we hold ourselves to, and the full emergency safety net regardless of what you've paid.",
-  },
-  {
-    title: "Something that needs a doctor soon",
-    body: "An abnormal result or a concerning home reading gets its own shorter ceiling. It doesn't wait behind routine cases.",
-  },
-  {
-    title: "Everything else that needs a look",
-    body: "Still has a maximum, signed response time. Nothing sits in an unbounded queue, and silence is never assumed to be safe.",
-  },
-];
+const ESCALATION_TIER_ORDER = ["emergency", "urgent_escalation", "clinician_review"] as const;
+
+const ESCALATION_POINT_BODIES: Record<(typeof ESCALATION_TIER_ORDER)[number], string> = {
+  emergency:
+    "Gets the fastest, written ceiling we hold ourselves to, and the full emergency safety net regardless of what you've paid.",
+  urgent_escalation:
+    "An abnormal result or a concerning home reading gets its own shorter ceiling. It doesn't wait behind routine cases.",
+  clinician_review:
+    "Still has a maximum, signed response time. Nothing sits in an unbounded queue, and silence is never assumed to be safe.",
+};
+
+const ESCALATION_POINTS = ESCALATION_TIER_ORDER.map((tier) => ({
+  title: TIER_COPY[tier]?.label ?? tier,
+  body: ESCALATION_POINT_BODIES[tier],
+}));
 
 export default function PartnersPage() {
   return (
@@ -76,33 +82,54 @@ export default function PartnersPage() {
         <SectionHeading
           eyebrow="Named partners"
           title="Who we work with"
-          description="Every name below is a real, current, signed relationship, not a logo placed for effect."
+          description={
+            PARTNER_LOGOS.length > 0
+              ? "Every name below is a real, current, signed relationship, not a logo placed for effect."
+              : PARTNER_VERIFICATION_PRINCIPLE
+          }
         />
-        {/* flex-wrap, not a fixed-column grid: a lone confirmed partner (the
-            current, real count) should sit centered, not stranded in the
-            first cell of a two-column grid built for a count this page
-            doesn't have yet. */}
-        <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-6">
-          {PARTNER_LOGOS.map((partner) => (
-            <Card key={partner.name} className="w-full max-w-sm">
-              <CardContent className="flex flex-col items-center gap-4 p-6 text-center">
-                <Image
-                  src={partner.logoSrc}
-                  alt={partner.name}
-                  width={160}
-                  height={56}
-                  className="h-10 w-auto"
-                />
-                {partner.summary ? (
-                  <p className="text-sm leading-relaxed text-charcoal-ink/70">{partner.summary}</p>
-                ) : null}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          {PARTNER_VERIFICATION_PRINCIPLE}
-        </p>
+        {/* Same "dormant until real" discipline as partner-logo-strip.tsx: if
+            PARTNER_LOGOS is ever empty (a partner roster has changed more
+            than once in this project's history — see CLAUDE.md's laboratory
+            fulfilment section), this page says so honestly instead of
+            rendering a "here's who we work with" heading over nothing. */}
+        {PARTNER_LOGOS.length > 0 ? (
+          <>
+            {/* flex-wrap, not a fixed-column grid: a lone confirmed partner
+                (the current, real count) should sit centered, not stranded
+                in the first cell of a two-column grid built for a count this
+                page doesn't have yet. */}
+            <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-6">
+              {PARTNER_LOGOS.map((partner) => (
+                <Card key={partner.name} className="w-full max-w-sm">
+                  <CardContent className="flex flex-col items-center gap-4 p-6 text-center">
+                    <Image
+                      src={partner.logoSrc}
+                      alt={partner.name}
+                      width={160}
+                      height={56}
+                      className="h-10 w-auto"
+                    />
+                    {partner.summary ? (
+                      <p className="text-sm leading-relaxed text-charcoal-ink/70">{partner.summary}</p>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-charcoal-ink/70">
+              {PARTNER_VERIFICATION_PRINCIPLE}
+            </p>
+          </>
+        ) : (
+          <p className="mx-auto max-w-2xl rounded-2xl border border-charcoal-ink/15 bg-white p-6 text-center text-sm text-charcoal-ink/70">
+            We don&apos;t have a signed, permitted-to-name partner to show right now. Check back, or{" "}
+            <Link href={MARKETING_ROUTES.contact} className="underline">
+              ask us
+            </Link>{" "}
+            and we&apos;ll tell you what&apos;s real today.
+          </p>
+        )}
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Most of what Tarragon does needs no partner at all: you can take a test request to any
           laboratory you choose, anywhere in Nigeria. See{" "}
@@ -137,14 +164,7 @@ export default function PartnersPage() {
       <Section variant="sage">
         <SectionHeading eyebrow="How we price" title="Priced only in Naira" />
         <div className="mx-auto max-w-2xl rounded-xl border border-clinical-navy/15 bg-clinical-navy/[0.04] px-5 py-4 text-center">
-          <p className="text-sm font-semibold text-clinical-navy">
-            Every price is in Naira, always.
-          </p>
-          <p className="mt-1.5 text-sm text-charcoal-ink/75">
-            There is no dollar version, no exchange-rate conversion, and no different price
-            depending on where in the world you&apos;re paying from. One price list, in the
-            currency you actually spend.
-          </p>
+          <p className="text-sm font-semibold text-clinical-navy">{NAIRA_ONLY_STATEMENT}</p>
           <Button asChild variant="outline" size="sm" className="mt-3">
             <Link href={MARKETING_ROUTES.howPricingWorks}>Read the full No-Hidden-Cost Promise</Link>
           </Button>
