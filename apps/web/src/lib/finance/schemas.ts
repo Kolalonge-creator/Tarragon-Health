@@ -485,6 +485,22 @@ export const kpiSummarySchema = z.object({
 });
 export type KpiSummary = z.infer<typeof kpiSummarySchema>;
 
+/** public.finance_revenue_by_funding_source — splits revenue booked in a
+ * period into cash actually collected (Paystack, or platform-credit
+ * paid_balance) vs promo/voucher-funded (a reward_discount voucher, or
+ * platform-credit promo_balance) — never real money. See
+ * 20260924211136_finance_revenue_by_funding_source.sql. */
+export const revenueByFundingSourceSchema = z.object({
+  currency: z.string(),
+  period_start: z.string(),
+  period_end: z.string(),
+  cash_minor: num,
+  promotional_minor: num,
+  unclassified_minor: num,
+  total_minor: num,
+});
+export type RevenueByFundingSource = z.infer<typeof revenueByFundingSourceSchema>;
+
 export const riskFlagsSchema = z.object({
   pending_approvals_count: int,
   aged_unreconciled_count: int,

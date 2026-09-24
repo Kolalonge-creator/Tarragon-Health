@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAiConversation, useAiCoachQuickAction, useSendCoachMessage } from "@/lib/queries/ai-coach";
 import { activeEmergencyKey } from "@/lib/queries/emergency";
-import { requestCareTeamHandoffAction } from "@/lib/ai-coach/handoff-actions";
+import { useCareTeamHandoff } from "@/lib/ai-coach/use-care-team-handoff";
 import { COACH_LIMIT_REACHED_REPLY } from "@/lib/ai-coach/rate-limit";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { CoachSuggestedAction } from "@tarragon/shared";
 import { ReportAiAnswer } from "@/components/ai/report-ai-answer";
+import { CareTeamHandoffStatus } from "@/components/ai/care-team-handoff-status";
 import { AI_SYSTEMS } from "@/lib/ai-governance/system-codes";
 
 import { formatPatientDateTime } from "@/lib/format-date";
@@ -43,15 +44,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
   const quickAction = useAiCoachQuickAction(patientId);
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
-  const [handoff, setHandoff] = useState<
-    { status: "idle" } | { status: "pending" } | { status: "done" } | { status: "error"; error: string }
-  >({ status: "idle" });
-
-  async function handleHandoff() {
-    setHandoff({ status: "pending" });
-    const result = await requestCareTeamHandoffAction(conversation?.conversationId);
-    setHandoff(result.success ? { status: "done" } : { status: "error", error: result.error });
-  }
+  const { handoff, requestHandoff } = useCareTeamHandoff(conversation?.conversationId);
 
   const messages = conversation?.messages ?? [];
   const lastResult = sendMessage.data;
@@ -236,32 +229,12 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
               size="sm"
               variant="ghost"
               className="h-auto gap-1.5 px-0 text-xs text-brand-green dark:text-brand-green-bright hover:bg-transparent hover:underline"
-              onClick={() => void handleHandoff()}
+              onClick={() => void requestHandoff()}
             >
               I want to speak to someone
             </Button>
           )}
-          {handoff.status === "pending" && (
-            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Starting a conversation with your care team…</p>
-          )}
-          {handoff.status === "done" && (
-            <p className="text-xs text-charcoal-ink dark:text-night-ink">
-              Sent. Your care team has what you&apos;ve talked about here.{" "}
-              <Link href="/patient/messages" className="text-brand-green dark:text-brand-green-bright underline">
-                Continue in Messages
-              </Link>
-              .
-            </p>
-          )}
-          {handoff.status === "error" && (
-            <p className="text-xs text-red-600 dark:text-red-300">
-              {handoff.error}. You can also message your care team directly from{" "}
-              <Link href="/patient/messages" className="underline">
-                Messages
-              </Link>
-              .
-            </p>
-          )}
+          <CareTeamHandoffStatus handoff={handoff} />
         </div>
       </CardContent>
     </Card>
