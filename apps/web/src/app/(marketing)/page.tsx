@@ -12,6 +12,7 @@ import { MarketingVideo } from "./_components/marketing-video";
 import { Section, SectionHeading } from "./_components/section";
 import { StoryPanel } from "./_components/story-panel";
 import { TestimonialsSection } from "./_components/testimonials-section";
+import { DoctorTestimonialsSection } from "./_components/doctor-testimonials-section";
 import { AppDashboardMockup } from "./_components/app-dashboard-mockup";
 import { PhoneMockup } from "./_components/phone-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
@@ -502,6 +503,8 @@ export default async function MarketingHomePage() {
       <PartnerLogoStrip />
 
       <TestimonialsSection />
+
+      <DoctorTestimonialsSection />
 
       <Section>
         <EmergencyNotice />
