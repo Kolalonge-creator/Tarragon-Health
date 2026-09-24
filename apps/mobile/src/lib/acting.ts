@@ -48,6 +48,29 @@ export async function resolveSubjectId(ownProfileId: string): Promise<string> {
   return acting?.profileId ?? ownProfileId;
 }
 
+/**
+ * For an action whose table has no caregiver RLS path at all (e.g.
+ * patient_pregnancy/postnatal_profiles/postnatal_checkins — a supporter's
+ * write would be rejected by Postgres regardless of what this returns).
+ * Refuses cleanly with `message` instead of letting the caller surface a raw
+ * RLS policy-violation error through the mobile UI's generic error handling.
+ * Mirrors apps/web/src/lib/acting/acting-for.ts's assertNotActingFor — call
+ * this before doing the write, not after.
+ *
+ * Unlike web (where getActingFor's cookie read can't throw), the callers
+ * here are fire-and-forget `submit()` handlers with no try/catch of their
+ * own, so a rejected getActingFor() (a real SecureStore failure mode — see
+ * refreshActing's own "SecureStore hiccup" comment above) would otherwise
+ * propagate as an unhandled rejection, leaving the caller's loading state
+ * stuck forever with no error shown — worse than the raw RLS error this
+ * function exists to avoid. Same best-effort default as refreshActing:
+ * treat a failed check as "not acting" rather than crash.
+ */
+export async function assertNotActingFor(message: string): Promise<{ error: string } | null> {
+  const acting = await getActingFor().catch(() => null);
+  return acting ? { error: message } : null;
+}
+
 export async function startActingFor(beneficiaryId: string): Promise<boolean> {
   const { data: allowed } = await supabase.rpc("can_act_for", { p_beneficiary: beneficiaryId });
   if (allowed !== true) return false;
