@@ -50,6 +50,11 @@ export async function GET(request: Request): Promise<Response> {
     vitalsInserted: 0,
     wearableInserted: 0,
     implausible: 0,
+    // True when at least one connection's post-insert red-flag assessment
+    // (BP control, heart-rate pattern) failed to run this sweep — surfaced
+    // rather than folded into a clean-looking response, per the same
+    // reasoning as SyncOutcome.safetyAssessmentFailed.
+    safetyAssessmentFailed: false,
   };
 
   for (const row of connections ?? []) {
@@ -59,6 +64,7 @@ export async function GET(request: Request): Promise<Response> {
     totals.vitalsInserted += outcome.vitalsInserted;
     totals.wearableInserted += outcome.wearableInserted;
     totals.implausible += outcome.implausible;
+    totals.safetyAssessmentFailed ||= outcome.safetyAssessmentFailed;
   }
 
   return Response.json(totals);

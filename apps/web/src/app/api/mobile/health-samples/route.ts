@@ -201,6 +201,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     // from the response rather than by reading two tables.
     step_days_recorded: result.stepDaysRecorded,
     step_days_deferred_to_manual: result.stepDaysDeferredToManual,
+    // A post-insert red-flag assessment (BP control, heart-rate pattern)
+    // failed for at least one connection in this batch — see
+    // IngestResult.safetyAssessmentFailed's own comment. The readings
+    // themselves still stored fine (that's `failed`, separately), but this
+    // must not be dropped on the way to the client, or the response goes
+    // back to silently claiming a clean sync over a batch whose
+    // abnormal-result detection didn't actually run.
+    safety_assessment_failed: result.safetyAssessmentFailed,
   };
 
   if (failure) {

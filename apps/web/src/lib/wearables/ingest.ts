@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, TablesInsert } from "@tarragon/shared";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import {
   consentDecisionFor,
   FULL_WEARABLE_CONSENT,
@@ -67,6 +68,16 @@ export interface IngestResult {
    * that day. Not an error — a sync never overwrites a person's own entry —
    * but worth surfacing rather than hiding as a silent no-op. */
   stepDaysDeferredToManual: number;
+  /** True when a post-insert red-flag assessment (BP control, heart-rate
+   * pattern) failed to run for this batch — a genuine network/DB drop right
+   * after the readings themselves landed safely, not a data-loss failure.
+   * Never conflated with `failed`: the rows this batch was asked to store
+   * DID store, but the platform's own abnormal-result detection on top of
+   * them did not run and was not silently treated as "ran, found nothing"
+   * (CLAUDE.md: "never deprioritise or silently swallow an abnormal
+   * screening result event"). See the try/catch around the assessment calls
+   * below for why this can't throw its way into `failed` instead. */
+  safetyAssessmentFailed: boolean;
 }
 
 /**
@@ -113,6 +124,7 @@ export async function ingestReadings(
     failed: 0,
     stepDaysRecorded: 0,
     stepDaysDeferredToManual: 0,
+    safetyAssessmentFailed: false,
   };
   if (readings.length === 0) return result;
 
@@ -238,12 +250,39 @@ export async function ingestReadings(
   // documented it as an open gap. Whether continuous glucose should raise
   // red flags on its own is for the clinical team to settle, not this
   // module.
+  //
+  // assessBpControlBestEffort/assessHeartRateBestEffort are documented
+  // "never throws," but that isn't literally enforced by a try/catch inside
+  // either of them (confirmed by reading both) — a genuine network/DB drop
+  // right after the insert above can still throw here. runBestEffort keeps
+  // each independent of the other and of the insert/step-day work above:
+  // this function's caller (ingestInto/ingestFor in sync.ts) only catches
+  // WearableIngestError, so an uncaught throw here would propagate out of
+  // ingestReadings uncaught — aborting every OTHER connection in the same
+  // webhook batch (processWebhookPayload's per-connection loop) or, for the
+  // cron sweep, every other connection in that run (the loop one level out,
+  // in api/cron/wearable-sync/route.ts, since pullConnection itself only
+  // ever handles one connection) — a much wider blast radius than the one
+  // reading this assessment is for. `safetyAssessmentFailed` carries the
+  // failure forward (through WearableIngestError.result on the failure path,
+  // and directly on the clean path) so the webhook/cron response never
+  // claims this batch's abnormal-result detection ran when it didn't — see
+  // CLAUDE.md's "never deprioritise or silently swallow an abnormal
+  // screening result event."
   if (result.vitalsInserted > 0) {
     if (hasBloodPressure) {
-      await assessBpControlBestEffort(svc, target.patientId, target.organisationId);
+      const failed = await runBestEffort(
+        () => assessBpControlBestEffort(svc, target.patientId, target.organisationId),
+        { action: "ingestReadings", stage: "safety_assessment", assessor: "bp_control" }
+      );
+      if (failed) result.safetyAssessmentFailed = true;
     }
     if (hasPulse) {
-      await assessHeartRateBestEffort(svc, target.patientId, target.organisationId);
+      const failed = await runBestEffort(
+        () => assessHeartRateBestEffort(svc, target.patientId, target.organisationId),
+        { action: "ingestReadings", stage: "safety_assessment", assessor: "heart_rate" }
+      );
+      if (failed) result.safetyAssessmentFailed = true;
     }
   }
 

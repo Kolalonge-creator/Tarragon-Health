@@ -3,6 +3,7 @@ import { hasScope, verifyApiKey } from "@/lib/integrations/api-key";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { integrationReadingSchema } from "@/lib/validation/integration-reading";
 import { mgDlToMmolL, type TablesInsert } from "@tarragon/shared";
 
@@ -135,12 +136,42 @@ export async function POST(request: Request): Promise<NextResponse> {
     .update({ last_synced_at: new Date().toISOString() })
     .eq("id", deviceId);
 
+  // From here on the reading is durably saved (and patient_devices already
+  // updated above). assessBpControlBestEffort/assessGlucoseBestEffort are
+  // documented "never throws," but that isn't literally enforced by a
+  // try/catch inside either of them (confirmed by reading both), so a
+  // genuine network/DB drop right after the insert can still throw here.
+  // Without runBestEffort, that throw would propagate out of this route
+  // handler as an uncaught exception — Next.js turns that into a 500, which
+  // would tell an integration partner this write failed when the reading is
+  // in fact already stored, inviting a blind partner-side retry that also
+  // wouldn't re-run this assessment anyway (a replayed external_reading_id
+  // hits the 23505 dedupe branch above and returns early without reaching
+  // here). These two calls are the platform's actual red-flag/escalation
+  // detection for this reading (BP crisis, DKA/severe hypo) — CLAUDE.md is
+  // explicit that an abnormal-result event must "never deprioritise or
+  // silently swallow" it, so a failure is reported to Sentry AND surfaced in
+  // the response body rather than a silent, unqualified success.
+  let safetyAssessmentFailed = false;
+  const safetyExtra = {
+    route: "api/integrations/device-readings",
+    stage: "safety_assessment",
+    vitalType: vital_type,
+  };
   if (vital_type === "blood_pressure") {
-    await assessBpControlBestEffort(supabase, patient.id, verified.organisationId);
-  }
-  if (vital_type === "glucose") {
-    await assessGlucoseBestEffort(supabase, patient.id, verified.organisationId);
+    safetyAssessmentFailed = await runBestEffort(
+      () => assessBpControlBestEffort(supabase, patient.id, verified.organisationId),
+      safetyExtra
+    );
+  } else if (vital_type === "glucose") {
+    safetyAssessmentFailed = await runBestEffort(
+      () => assessGlucoseBestEffort(supabase, patient.id, verified.organisationId),
+      safetyExtra
+    );
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    ...(safetyAssessmentFailed ? { safetyAssessmentFailed: true } : {}),
+  });
 }
