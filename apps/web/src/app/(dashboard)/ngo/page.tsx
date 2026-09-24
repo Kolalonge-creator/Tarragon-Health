@@ -1,22 +1,42 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { listFundingProgrammesForCaller } from "@/lib/ngo/funding-programmes";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import {
+  listFundingProgrammesForCaller,
+  listFundingProgrammeInvitations,
+  getFundingProgrammeStats,
+  type FundingProgrammeInvitation,
+  type FundingProgrammeStats,
+} from "@/lib/ngo/funding-programmes";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { NgoConsole } from "./ngo-console";
 
 /**
- * Deliberately read-only and minimal: this reads the caller's own org's
- * funding_programmes (RLS already scopes it — see
- * funding_programmes_select's policy) so an ngo_admin login has somewhere
- * real to land once the module is active, not a management console. Create/
- * activate/invite/revoke are superadmin- or ngo_admin-authorised RPCs (see
- * apps/web/src/lib/ngo/funding-programmes.ts) with no UI built on top of
- * them yet — see that file's header for why.
+ * The ngo_admin/admin self-serve console (PR #713 shipped the RPC plumbing
+ * with deliberately zero UI on top — see funding-programmes.ts's header).
+ * RLS already scopes listFundingProgrammesForCaller/listFundingProgrammeInvitations
+ * to the caller's own organisation (or every row for a superadmin), so this
+ * page never needs its own organisation filter. Programme creation stays
+ * superadmin-only at /admin/settings/ngo-programmes — this page is the
+ * everyday, self-serve half (invite a roster, see who's claimed, revoke an
+ * unclaimed invitation, see aggregate progress against the funded cap).
  */
 export default async function NgoDashboardPage() {
   const profile = await getCurrentProfile();
   const supabase = await createClient();
   const programmes = await listFundingProgrammesForCaller(supabase);
+
+  const statsEntries: [string, FundingProgrammeStats][] = [];
+  const invitationEntries: [string, FundingProgrammeInvitation[]][] = [];
+  await Promise.all(
+    programmes.map(async (p) => {
+      const [stats, invitations] = await Promise.all([
+        getFundingProgrammeStats(supabase, p.id).catch(() => null),
+        listFundingProgrammeInvitations(supabase, p.id).catch(() => []),
+      ]);
+      if (stats) statsEntries.push([p.id, stats]);
+      invitationEntries.push([p.id, invitations]);
+    })
+  );
 
   return (
     <div className="space-y-6">
@@ -37,22 +57,11 @@ export default async function NgoDashboardPage() {
           </CardHeader>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {programmes.map((programme) => (
-            <Card key={programme.id}>
-              <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <div>
-                  <CardTitle>{programme.name}</CardTitle>
-                  <CardDescription>Contract {programme.contract_reference}</CardDescription>
-                </div>
-                <Badge>{programme.status}</Badge>
-              </CardHeader>
-              <CardContent className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-                Funded places: {programme.funded_unit_cap}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <NgoConsole
+          programmes={programmes}
+          statsByProgrammeId={Object.fromEntries(statsEntries)}
+          invitationsByProgrammeId={Object.fromEntries(invitationEntries)}
+        />
       )}
     </div>
   );

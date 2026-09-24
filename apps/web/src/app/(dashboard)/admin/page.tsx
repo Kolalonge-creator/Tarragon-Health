@@ -449,6 +449,13 @@ export default async function AdminPage() {
           icon: NAV_ICON.settings,
           visible: isSuperAdmin,
         },
+        {
+          href: "/admin/settings/ngo-programmes",
+          label: "NGO-funded programmes",
+          blurb: "Create a funded cohort for a signed NGO/PHC partner",
+          icon: SEMANTIC_ICON.corporate,
+          visible: isSuperAdmin,
+        },
       ],
     },
     {

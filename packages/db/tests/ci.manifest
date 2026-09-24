@@ -405,6 +405,17 @@ resolve_patient_service_access.sql
 doctor_income_attribution_and_analyst_gate.sql
 
 # --- Added 2026-09-23 -------------------------------------------------------
+# public.get_funding_programme_stats(): the ngo_funded_cohort module's own
+# platform_modules.description names "aggregate small-cell-suppressed
+# programme reporting" as an intended capability that was never built (PR
+# #713 shipped the create/invite/revoke/claim RPCs with zero reporting on
+# top). Proves an ngo_admin of the programme's own org gets correct
+# invited/expired/revoked/claimed counts, a same-org non-ngo_admin is
+# refused, and sabotages by calling as ngo_admin of a DIFFERENT ngo
+# organisation to confirm the authorisation check discriminates by the
+# programme's own org rather than admitting any ngo_admin.
+funding_programme_stats.sql
+
 # sponsored_service_reservations: the launch-scope audit's claim-based
 # diaspora flow (pay for a named service against a bare phone number + first
 # name, no profile created up front). Proves the full lifecycle -- create as

@@ -40685,6 +40685,10 @@ export type Database = {
         Args: { p_token: string }
         Returns: Json
       }
+      get_funding_programme_stats: {
+        Args: { p_programme_id: string }
+        Returns: Json
+      }
       claim_sponsored_service_reservation: {
         Args: { p_token: string }
         Returns: Json
