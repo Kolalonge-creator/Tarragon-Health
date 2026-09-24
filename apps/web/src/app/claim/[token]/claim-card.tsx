@@ -35,7 +35,7 @@ export function ClaimCard({ token }: { token: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/patient/finances">
+          <Link href="/patient/financial-profile">
             <Button type="button">Go to My finances</Button>
           </Link>
         </CardContent>

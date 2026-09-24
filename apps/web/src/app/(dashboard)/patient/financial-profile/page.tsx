@@ -66,10 +66,16 @@ export default async function FinancialProfilePage() {
     pendingPurchasesResult,
     vouchersResult,
     refundsResult,
-    failedPaymentResult,
     subsidyShareResult,
   ] = await Promise.all([
-      supabase.rpc("finance_unified_ledger", { p_profile_id: user.id, p_limit: 20 }),
+      // recentFailures below is filtered out of this SAME window, not a
+      // separate query (finance_unified_ledger has no status filter) — a
+      // wider window makes a stale failure buried behind newer successful
+      // transactions less likely to be dropped from "Recent payment
+      // issues", though it doesn't eliminate the possibility. A guaranteed
+      // fix needs a status-filtered ledger call/RPC parameter; flagged as a
+      // known residual limitation, not solved here.
+      supabase.rpc("finance_unified_ledger", { p_profile_id: user.id, p_limit: 50 }),
       supabase
         .from("service_purchases")
         .select("id, status, payable_kobo, currency, expires_at, service_product:service_products(name)")
@@ -96,12 +102,6 @@ export default async function FinancialProfilePage() {
         .order("created_at", { ascending: false })
         .limit(10),
       supabase
-        .from("payment_transactions")
-        .select("id, error, created_at")
-        .not("error", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(5),
-      supabase
         .from("subsidy_contributions")
         .select(
           "id, role, amount_minor, transaction_subsidy:transaction_subsidies(order_type, gross_amount_kobo)",
@@ -117,7 +117,20 @@ export default async function FinancialProfilePage() {
   const pendingPurchases = pendingPurchasesResult.data ?? [];
   const vouchers = vouchersResult.data ?? [];
   const refunds = refundsResult.data ?? [];
-  const recentFailures = failedPaymentResult.data ?? [];
+  // Sourced from the ledger fetched above, not a direct payment_transactions
+  // read: that table's only RLS select policy is private.is_org_staff, which
+  // never admits the patient themselves, so a direct query here always came
+  // back empty and rendered a false "No recent payment problems". The ledger
+  // RPC already unions in failed payment_transactions rows (status
+  // 'failed', memo = the provider's error), self-scoped to auth.uid().
+  const recentFailures = transactions
+    .filter((t) => t.status === "failed")
+    .slice(0, 5)
+    .map((t) => ({
+      id: t.payment_transaction_id ?? t.entry_id,
+      created_at: t.posted_at,
+      error: t.memo,
+    }));
   const pendingShares = subsidyShareResult.data ?? [];
 
   return (
