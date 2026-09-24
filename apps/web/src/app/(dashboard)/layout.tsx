@@ -5,6 +5,7 @@ import { asUiLanguage } from "@tarragon/shared";
 import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
 import { ConsentNudgeBanner } from "@/components/shell/consent-nudge-banner";
 import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
+import { OfflineBanner } from "@/components/shell/offline-banner";
 import { getNavSections } from "@/lib/navigation";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { isEmbeddedInApp } from "@/lib/embedded-webview";
@@ -133,6 +134,7 @@ export default async function DashboardLayout({
         initialTheme={theme}
         signOutAction={signOut}
       >
+        <OfflineBanner />
         <MfaNudgeBanner role={profile?.role ?? null} />
         {/* Reachable at /patient/privacy for any signed-in patient, supporter-only
             accounts included (they consent to terms_of_service and can go stale
