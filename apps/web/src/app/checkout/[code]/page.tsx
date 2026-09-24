@@ -65,28 +65,6 @@ export default async function GuestCheckoutPage({
             </p>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/75">{copy.description}</p>
-          {copy.disclosure ? (
-            <p className="mt-3 rounded-xl bg-soft-sage p-3 text-xs leading-relaxed text-charcoal-ink/70">
-              {copy.disclosure}
-            </p>
-          ) : null}
-          {copy.terms && copy.terms.length > 1 ? (
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-charcoal-ink/10 pt-4">
-              {copy.terms.map((term) => (
-                <Link
-                  key={term.code}
-                  href={`/checkout/${term.code}`}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                    term.code === code
-                      ? "border-brand-green bg-brand-green/10 text-deep-forest"
-                      : "border-charcoal-ink/15 text-charcoal-ink/70 hover:border-charcoal-ink/30"
-                  }`}
-                >
-                  {term.label} · {term.price}
-                </Link>
-              ))}
-            </div>
-          ) : null}
         </div>
 
         <GuestCheckoutForm code={code} />

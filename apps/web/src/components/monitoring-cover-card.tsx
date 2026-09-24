@@ -44,7 +44,7 @@ export function MonitoringCoverCard() {
     .filter(isPurchaseCurrentlyActive)
     .filter((purchase) => {
       const code = purchase.service_product?.code ?? "";
-      return code.startsWith("continuous_monitoring_") || code.startsWith("weight_management_");
+      return code.startsWith("continuous_monitoring_");
     })
     .sort((a, b) => (b.expires_at ?? "").localeCompare(a.expires_at ?? ""))[0];
 

@@ -33,8 +33,7 @@
 --
 -- Fixtures are self-built (a fresh org, patients, caregiver, and org-staff
 -- account), never selected from live data, run against a freshly reset local
--- stack -- same convention as weight_management_enrolment_on_purchase.sql.
--- Every simulated-session check runs via set_config('request.jwt.claim.sub', ...)
+-- stack. Every simulated-session check runs via set_config('request.jwt.claim.sub', ...)
 -- + role 'authenticated', the same shape private RLS/RPC proofs on this
 -- project already use, run as the `authenticated` role rather than `postgres`
 -- so the SELECT/EXECUTE grants are genuinely exercised.
@@ -97,9 +96,8 @@ begin
     raise exception 'no continuous_monitoring_%% product available -- cannot run this test';
   end if;
 
-  -- Resolved by shape, not a hardcoded code (per the lesson in
-  -- weight_management_enrolment_on_purchase.sql): whatever product this
-  -- points at, it must stay a real, active, non-monitoring product.
+  -- Resolved by shape, not a hardcoded code: whatever product this points
+  -- at, it must stay a real, active, non-monitoring product.
   select id into v_other_product
     from public.service_products
    where is_active and currency = 'NGN' and price_kobo > 0

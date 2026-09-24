@@ -159,9 +159,9 @@ export const WHAT_WE_TRACK = [
  * Corrected in the same pass: step 5 promised doctor alerting "on the
  * doctor-supported programme", naming `chronic_doctor_supported_pack`, which
  * is_active = false in service_products (retired and unbundled 2026-09-10,
- * see _content/pricing.ts). The products that actually grant
- * `vitals_red_flag_doctor_escalation` today are Continuous Monitoring and
- * Supervised Weight Management (verified live 2026-09-22).
+ * see _content/pricing.ts). The product that actually grants
+ * `vitals_red_flag_doctor_escalation` today is Continuous Monitoring
+ * (verified live 2026-09-22).
  */
 export const HOW_IT_WORKS_STEPS = [
   { step: 1, title: "Create your account", body: "A couple of minutes, for yourself or for someone you look after." },

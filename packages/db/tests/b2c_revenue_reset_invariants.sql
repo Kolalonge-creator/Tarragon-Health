@@ -1,7 +1,7 @@
 -- ===========================================================================
 -- Verification: the 2026-09-10 B2C revenue reset
 --
--- Proves the four rules that carry real money or real clinical risk, each in
+-- Proves the three rules that carry real money or real clinical risk, each in
 -- BOTH directions. Asserting only that something is refused proves nothing when
 -- the mechanism is refusing everyone — which is exactly how this platform once
 -- shipped a doctor-escalation gate that resolved false for every patient while
@@ -16,13 +16,15 @@
 --   2. Continuous Monitoring OPENS the escalation gate, an expired one closes
 --      it again, and a patient holding neither is refused.
 --
---   3. Supervision is supervision. A weight-management enrolment against a
---      medication Tarragon prescribed (source = 'clinician') is refused; the
---      same enrolment against the patient's own medication is accepted.
---
---   4. A crisis-flagged wellbeing screen raises an emergency_events row from
+--   3. A crisis-flagged wellbeing screen raises an emergency_events row from
 --      the DATABASE, not from application code — so a third writer, or a failed
 --      insert in either of the two existing ones, cannot lose it.
+--
+-- A fourth rule this file used to prove — that supervision under the
+-- Supervised Weight Management product refuses a Tarragon-prescribed
+-- medication — was removed when that product was removed (see
+-- packages/db/tests/weight_management_enrolment_on_purchase.sql's own
+-- deletion in the same change).
 --
 -- Run via `supabase db query --linked -f this_file.sql`, `psql $DATABASE_URL -f
 -- this_file.sql`, or the Supabase SQL editor.
@@ -41,7 +43,6 @@ declare
   v_patient  uuid := gen_random_uuid();
   v_bundle   uuid;
   v_product  uuid;
-  v_med      uuid;
   v_refused  boolean;
   v_ok       boolean;
   v_after    boolean;
@@ -136,41 +137,7 @@ begin
   raise notice 'PASS(2): escalation gate closed, opens with active cover, closes once expired';
 
   -- ----------------------------------------------------------------------
-  -- 3. Supervision only, enforced rather than asserted in copy
-  -- ----------------------------------------------------------------------
-  insert into public.medications (organisation_id, patient_id, drug_name, source, is_active)
-  values (v_org, v_patient, 'ZZ probe: Tarragon-prescribed', 'clinician', true)
-  returning id into v_med;
-
-  v_refused := false;
-  begin
-    insert into public.weight_management_enrolments
-      (organisation_id, patient_id, medication_id, term_days, status)
-    values (v_org, v_patient, v_med, 90, 'pending_eligibility');
-  exception when others then
-    if sqlerrm like '%patient obtained themselves%' then
-      v_refused := true;
-    else
-      raise exception 'FAIL(3): refused for the wrong reason: %', sqlerrm;
-    end if;
-  end;
-  if not v_refused then
-    raise exception 'FAIL(3): a Tarragon-prescribed medication was accepted for supervision.';
-  end if;
-
-  -- And the legitimate case is accepted, or the rule is just a wall.
-  insert into public.medications
-    (organisation_id, patient_id, drug_name, source, prescriber_name, is_active)
-  values (v_org, v_patient, 'ZZ probe: patient-supplied', 'patient', 'Dr External', true)
-  returning id into v_med;
-
-  insert into public.weight_management_enrolments
-    (organisation_id, patient_id, medication_id, term_days, status)
-  values (v_org, v_patient, v_med, 90, 'pending_eligibility');
-  raise notice 'PASS(3): supervision refuses a Tarragon-prescribed medicine and accepts the patient''s own';
-
-  -- ----------------------------------------------------------------------
-  -- 4. The crisis route is in the database
+  -- 3. The crisis route is in the database
   -- ----------------------------------------------------------------------
   insert into public.mental_health_screens
     (organisation_id, patient_id, instrument, total_score, severity_band, crisis_flagged, item_responses)
@@ -181,7 +148,7 @@ begin
      where patient_id = v_patient and source = 'mental_health_screen' and status = 'active'
   ) into v_ok;
   if not v_ok then
-    raise exception 'FAIL(4): a crisis-flagged screen raised no emergency event from the trigger.';
+    raise exception 'FAIL(3): a crisis-flagged screen raised no emergency event from the trigger.';
   end if;
 
   -- And a NON-crisis screen must not raise one, or the check is vacuous.
@@ -197,9 +164,9 @@ begin
      where patient_id = v_patient and source = 'mental_health_screen' and status = 'active'
   ) into v_ok;
   if v_ok then
-    raise exception 'FAIL(4): a NON-crisis screen raised an emergency event. The trigger is not discriminating.';
+    raise exception 'FAIL(3): a NON-crisis screen raised an emergency event. The trigger is not discriminating.';
   end if;
-  raise notice 'PASS(4): a crisis screen raises an emergency event; a non-crisis screen does not';
+  raise notice 'PASS(3): a crisis screen raises an emergency event; a non-crisis screen does not';
 
   raise notice 'ALL PASS: B2C revenue reset invariants hold';
 end $$;

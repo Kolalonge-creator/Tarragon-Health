@@ -356,43 +356,6 @@ export const PAID_SERVICES: PaidService[] = [
   },
 ];
 
-/**
- * Supervised Weight Management, kept separate from PAID_SERVICES because it is
- * a different kind of thing: a course of medical supervision rather than a
- * piece of work, and it needs its own disclosure about what Tarragon does and
- * does not do.
- *
- * The disclosure is not marketing softening. Tarragon supervises people who
- * obtain the medicine themselves; it does not prescribe or supply it, and the
- * database refuses to enrol anyone on a medicine Tarragon started
- * (private.enforce_weight_management_supervision_only). Do not write copy here
- * that implies otherwise.
- */
-export const WEIGHT_MANAGEMENT = {
-  id: "weight-management",
-  name: "Supervised Weight Management",
-  price: "₦75,000",
-  priceCaption: "for three months",
-  description:
-    "Medical supervision while you are losing weight on medication you obtain yourself. A doctor confirms you are a suitable candidate, agrees the dose-escalation plan with you, watches for the side effects that matter, and reviews your progress every month. Your blood pressure, weight and glucose are monitored throughout, and a dangerous reading reaches a doctor. Continuous Monitoring is included for the length of the programme.",
-  disclosure:
-    "Tarragon does not prescribe, sell or supply weight-loss medication, and is not a pharmacy. You obtain your own prescription and your own medicine. What you are paying for is a doctor taking responsibility for how it is used: whether it is right for you, at what dose, and what to do when something changes.",
-  includes: [
-    "A suitability assessment before anything starts, and an honest answer if the answer is no",
-    "A dose-escalation plan agreed with a doctor, not copied off a leaflet",
-    "A tolerability check-in every two weeks, read by a clinician",
-    "A doctor review every month, in writing",
-    "Continuous Monitoring of your blood pressure, weight and glucose throughout",
-  ],
-  terms: [
-    { code: "weight_management_3m", label: "3 months", price: "₦75,000", perMonth: "₦25,000 a month" },
-    { code: "weight_management_6m", label: "6 months", price: "₦132,000", perMonth: "₦22,000 a month, and covers the full escalation for most people" },
-    { code: "weight_management_12m", label: "12 months", price: "₦240,000", perMonth: "₦20,000 a month" },
-  ],
-} as const;
-
-
-
 /** Repointed 2026-09-10: a voucher buys any paid service. The 12-week pack it
  * used to point at is retired and unbundled, so the natural thing to sponsor is
  * now Continuous Monitoring, which is both the cheapest way in and the thing
@@ -403,7 +366,7 @@ export const CARE_VOUCHER_INTRO =
 export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
   {
     title: "Pay a little at a time",
-    body: "Spread a paid service, such as twelve months of Continuous Monitoring or a course of Supervised Weight Management, over as many instalments as you like. It becomes usable once it is fully paid, and nothing runs out while you are still paying towards it.",
+    body: "Spread a paid service, such as twelve months of Continuous Monitoring, over as many instalments as you like. It becomes usable once it is fully paid, and nothing runs out while you are still paying towards it.",
   },
   {
     title: "Someone can buy it for you",
@@ -547,12 +510,6 @@ export function servicePrice(code: string, overrides?: ResolvedServicePrices): s
   return (
     overrides?.[code] ??
     PAID_SERVICES.find((s) => s.code === code)?.price ??
-    // Weight Management's terms live on their own export, not PAID_SERVICES
-    // (see that block's own comment for why), so a code like
-    // "weight_management_3m" falls through to here. Found while fixing the
-    // FAQ sentence below: this code was never in PAID_SERVICES, so it always
-    // resolved to "" and the live sentence read "...from for three months."
-    WEIGHT_MANAGEMENT.terms.find((t) => t.code === code)?.price ??
     ""
   );
 }
@@ -575,7 +532,7 @@ export function getPricingFaq(
   },
   {
     question: "What exactly do I pay for, then?",
-    answer: `A doctor's time, priced per piece of work, plus a standing watch on your readings. One-off: a written question to a doctor (${p("async_consult_credit")}), having any laboratory result read and explained in writing (${p("written_result_interpretation")}), a chronic care review (${p("chronic_care_review_credit")}), a prescription renewal review (${p("prescription_renewal_credit")}), a video or audio visit (${p("video_visit_credit")}), a second opinion (${p("second_opinion_credit")}), a medication review (${p("medication_review_credit")}), or a result consultation over video (${p("result_interpretation_credit")}). Ongoing: Continuous Monitoring at ${p("continuous_monitoring_90d")} for 90 days, where a dangerous reading reaches a doctor instead of sitting on your record, and Supervised Weight Management from ${p("weight_management_3m")} for three months. The one paid item that isn't a doctor's time is the optional AI Coach Daily Pass (${p("ai_coach_daily_pass_30d")}), which raises the free AI Health Coach's daily message limit for 30 days.`,
+    answer: `A doctor's time, priced per piece of work, plus a standing watch on your readings. One-off: a written question to a doctor (${p("async_consult_credit")}), having any laboratory result read and explained in writing (${p("written_result_interpretation")}), a chronic care review (${p("chronic_care_review_credit")}), a prescription renewal review (${p("prescription_renewal_credit")}), a video or audio visit (${p("video_visit_credit")}), a second opinion (${p("second_opinion_credit")}), a medication review (${p("medication_review_credit")}), or a result consultation over video (${p("result_interpretation_credit")}). Ongoing: Continuous Monitoring at ${p("continuous_monitoring_90d")} for 90 days, where a dangerous reading reaches a doctor instead of sitting on your record. The one paid item that isn't a doctor's time is the optional AI Coach Daily Pass (${p("ai_coach_daily_pass_30d")}), which raises the free AI Health Coach's daily message limit for 30 days.`,
   },
   {
     question: "There used to be Prevent, Essential and Complete Care plans. What happened to them?",
@@ -593,8 +550,8 @@ export function getPricingFaq(
       "You get the full emergency safety net, and it has always been yours regardless of payment: immediate, specific guidance to get to a hospital, your emergency contact notified, and a check-in with you afterwards. Your readings are checked against the same care protocols whatever you pay. What Continuous Monitoring adds is that a Tarragon doctor is alerted to it as well, and follows up with you personally.",
   },
   {
-    question: "Which conditions does Tarragon manage, and where does weight management fit?",
-    answer: `Hypertension and diabetes. Continuous Monitoring (${p("continuous_monitoring_90d")} for 90 days) puts your readings in front of your care team, and a Chronic Care Review (${p("chronic_care_review_credit")}) is where one actually reviews your numbers, adjusts your care plan and writes back. Most people managing a condition buy a review every four to six weeks alongside their monitoring. Weight is different: managing it alongside hypertension or diabetes is part of the same review at no extra charge, weight and lifestyle coaching on their own stay free, and Supervised Weight Management (from ${p("weight_management_3m")}) exists only for people taking weight-loss medication they have obtained themselves and who want a doctor supervising how it is used.`,
+    question: "Which conditions does Tarragon manage, and where does weight fit?",
+    answer: `Hypertension and diabetes. Continuous Monitoring (${p("continuous_monitoring_90d")} for 90 days) puts your readings in front of your care team, and a Chronic Care Review (${p("chronic_care_review_credit")}) is where one actually reviews your numbers, adjusts your care plan and writes back. Most people managing a condition buy a review every four to six weeks alongside their monitoring. Weight is different: managing it alongside hypertension or diabetes is part of the same review at no extra charge, and weight and lifestyle coaching on their own stay free.`,
   },
   {
     question: "Will my card ever be charged automatically?",

@@ -529,20 +529,13 @@ export function getNavSections(
                   icon: "preventive",
                   countKey: "preventiveHealthCheckReviewsWaiting",
                 },
-                // Both added 2026-09-10 with the two new clinical products.
-                // Shown to every clinician tier, per this file's gating
-                // philosophy: the authority rules live in the database
-                // (private.enforce_therapy_approver_authority and
-                // enforce_weight_checkin_reviewer_authority), so a Care
-                // Coordinator can see either queue and is refused if they try
-                // to act on it, which is the right shape -- they route work,
+                // Added 2026-09-10 with the therapy-approval clinical
+                // product. Shown to every clinician tier, per this file's
+                // gating philosophy: the authority rule lives in the database
+                // (private.enforce_therapy_approver_authority), so a Care
+                // Coordinator can see the queue and is refused if they try to
+                // act on it, which is the right shape -- they route work,
                 // they do not close clinical decisions.
-                {
-                  label: "Weight management",
-                  href: "/clinician/weight-management",
-                  icon: "weight",
-                  countKey: "weightManagementPendingEligibility",
-                },
                 {
                   label: "Therapy approvals",
                   href: "/clinician/therapy-approvals",
