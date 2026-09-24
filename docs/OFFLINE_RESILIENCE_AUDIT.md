@@ -110,14 +110,14 @@ first, wrong attempt at the client-side one).
    network drop in that narrow post-insert window was therefore caught by the SAME outer catch as a
    pre-insert failure and reported as "Couldn't save that reading" — false, since the row was already
    committed, and a real risk of a duplicate insert if the patient believed the message and retried.
-   Fixed with a second, inner try/catch scoped to exactly that post-insert tail: a failure there is
-   reported to Sentry (`stage: "post_insert_best_effort"`) but still returns `{ success: true }`, the
-   correct signal. Regression test: `vitals-post-insert-best-effort-failure.test.ts` (sabotage-tested:
-   confirmed to fail without the fix, see its own comment).
+   **First fix caught the whole post-insert tail in one try/catch and always returned a clean
+   `{ success: true }` — a second review pass found that was itself wrong for three of those calls; see
+   §7.1 for why and what actually shipped.** Regression tests:
+   `vitals-post-insert-failure-handling.test.ts` (sabotage-tested: confirmed to fail without the fix).
 3. **Client-side: `VitalsForm` no longer attempts a submission the browser already knows is
    doomed** (`apps/web/src/app/(dashboard)/patient/vitals-form.tsx`). `handleSubmit` now checks
    `useOnlineStatus()` before anything else and, if offline, calls `event.preventDefault()` and shows
-   an inline "You're offline — reconnect, then press Save reading again" message instead of letting
+   an inline "You're offline. Reconnect, then press Save reading again" message instead of letting
    the submission reach `formAction` at all. **This is a pre-submit guard, not a wrapper around the
    action** — `useActionState(logVital, undefined)` still receives the real, unwrapped Server Action
    reference. That distinction matters and is the direct lesson from §6: an earlier version of this
@@ -126,7 +126,11 @@ first, wrong attempt at the client-side one).
    device-level signal, not proof of real reachability (documented in the hook's own comment) — a
    connection that drops in the narrow window between this check and the request actually going out
    is still possible, and is what fix #1 above exists for. This narrows, but does not close, the
-   client-transport gap — see §4. Regression test: `vitals-form-offline-guard.test.ts`.
+   client-transport gap — see §4. **This guard is also a deliberate, disclosed exception to
+   `useOnlineStatus`'s own general rule ("don't skip a real request based on this value") — see §7.2
+   for the reasoning and the accepted trade-off, and §7.3 for a second, real bug this interaction
+   caused and fixed (a stale crosscheck-bypass flag).** Regression tests:
+   `vitals-form-offline-guard.test.ts`, `vitals-form-offline-crosscheck-leak.test.tsx`.
 4. **A visible "you're offline" signal, where there was none** —
    `src/lib/network/use-online-status.ts` (a small hook wrapping `navigator.onLine` +
    `online`/`offline` window events) and `src/components/shell/offline-banner.tsx` (a persistent,
@@ -302,3 +306,122 @@ generalises: **wrapping an imported Server Action in local client code for error
 offline-resilience fix is trying to help, and the only way this was caught was by checking the raw DOM
 `action` attribute after the fix "worked," not by trusting that a passing browser test for the
 targeted failure meant nothing else had changed.
+
+## 7. A second `/code-review high` pass, run on the full diff — three more real bugs, all fixed
+
+`CLAUDE.md`'s Definition of Done requires `/code-review high` on the diff before opening a PR, and
+requires re-running it if the diff changes afterward. §3–§6 above were the state after the first pass;
+this section is what a second pass (required because §3.2/§3.3/§6 were added after the first review)
+found and fixed. Keeping this as its own section rather than silently editing §3 to look like it was
+always correct, for the same reason §6 is kept — the record is more useful with the real sequence of
+findings than with a tidied-up final state.
+
+### 7.1 The post-insert fix from §3.2 was itself unsafe for three of the four calls it covered
+
+The first version of the post-insert fix (§3.2) caught the whole tail — `assessBpControlBestEffort`,
+`assessHeartRateBestEffort`, `assessGlucoseBestEffort`, `recordWeeklyPlanProgress`,
+`assessHealthScoreBestEffort` — in one try/catch and always returned a clean `{ success: true }` on
+any failure there. Review caught that this conflates two genuinely different kinds of failure. The
+first three calls are the platform's actual red-flag/escalation detection for the reading just saved
+(BP crisis range, pulse EMERGENCY range, DKA/severe hypo) — silently absorbing a failure there as a
+plain "Reading logged" hides a real abnormal-result check that never ran, which `CLAUDE.md` is
+explicit about: "Never deprioritise or silently swallow an abnormal screening result event." Worse
+than that: it's a **regression** relative to the pre-fix crash. Before any of this pass's changes, a
+failure in `assessGlucoseBestEffort` crashed the whole page — jarring, but loud enough that a patient
+with a concerning reading would likely retry, giving the assessment another chance to run. The first
+version of this fix removed that accidental retry-inducing signal and replaced it with a clean, false
+"it's fine" — a real, if unintentional, safety regression introduced by an offline-resilience fix.
+`recordWeeklyPlanProgress`/`assessHealthScoreBestEffort`, by contrast, are genuinely inert bookkeeping
+(a missed Weekly Plan tick, a stale Health Score) with no clinical-safety consequence — silent-except-
+for-Sentry is the right call for those, not an oversight.
+
+**Fixed** by splitting into two try/catches (`apps/web/src/app/(dashboard)/patient/actions.ts`). The
+safety-critical one still returns `success: true` (the row genuinely is saved — `success: false` would
+be its own false statement and risks a duplicate-insert retry) but ALSO carries a distinct, honest
+`error`: "Your reading was saved, but we could not finish checking it against your care protocols. If
+this reading concerns you, contact your care team or log it again." The inert-bookkeeping catch is
+unchanged (Sentry-only, `stage: "post_insert_best_effort"`; the safety one uses
+`stage: "safety_assessment"`). `VitalsForm` already renders `state?.error` and `state?.success`
+independently (`FormError` and `FormSuccess`), so this new combination — both an error banner and
+"Reading logged." — renders correctly with no UI changes needed. Regression tests (both directions,
+`vitals-post-insert-failure-handling.test.ts`): a safety-assessment failure yields `success: true` AND
+a matching `error`; an inert-bookkeeping-only failure stays a clean `{ success: true }`.
+
+**Found in the same pass, deliberately not fixed here — a pre-existing, wider version of the same
+gap**: `assessBpControlBestEffort`/`assessHeartRateBestEffort`/`assessGlucoseBestEffort` are called,
+completely unprotected (no local try/catch at all, not even the old unsafe version), from at least
+four other insertion paths this diff doesn't touch — `apps/web/src/lib/wearables/ingest.ts`,
+`apps/web/src/app/api/mobile/vitals/route.ts`, `apps/web/src/app/api/mobile/device-readings/route.ts`,
+and `apps/web/src/app/api/integrations/device-readings/route.ts`. These are pre-existing gaps, not
+introduced by this pass, but real and worth closing — flagged as a separate follow-up
+(`task_2e6726d7`) rather than expanded into here, since fixing them properly means deciding whether
+the deeper fix (making the "never throws" contract literally true inside the three helpers themselves,
+closing this for every caller including future ones) is now worth it given 5+ known call sites, a
+question this pass didn't have the scope to answer carefully.
+
+### 7.2 The pre-submit guard (§3.3) contradicts `useOnlineStatus`'s own documented rule — a deliberate, disclosed exception, not an oversight
+
+`use-online-status.ts`'s doc comment says "nothing downstream of this hook should skip a real request
+or a retry decision based on it" — and `VitalsForm`'s guard does exactly that. Both files now say so
+explicitly (their comments cross-reference each other and this section) rather than leaving the
+contradiction implicit. The reasoning: that general rule is correct for most consumers (a React Query
+mutation's `onError` already surfaces a failed real attempt gracefully, so gating on a possibly-wrong
+local signal only adds risk with no offsetting benefit) but doesn't hold for a Server-Action-backed
+`useActionState` form specifically — per §6, there is no graceful way for THIS form to surface a
+client-transport failure that reaches the server without either the reverted wrapper (breaks
+progressive enhancement) or blocking pre-emptively. Considered and rejected: a "let the first blocked
+attempt through unconditionally on retry" escape hatch, to protect against `navigator.onLine` getting
+permanently stuck reporting false on a genuinely-connected device. Rejected because it reintroduces
+real crash risk for the common case (a patient who insists on retrying while genuinely still offline)
+to mitigate a rarer one (a false-negative reading that doesn't self-correct); modern browsers'
+`navigator.onLine` false-negatives are rare and generally not persistent (they resolve on the next real
+`online`/`offline` transition), unlike the far more common false-positive direction (`onLine === true`
+with no real route) this hook's own comment already warns about. **Accepted trade-off, stated
+plainly**: a false `navigator.onLine === false` reading can block a legitimate submission with no
+override in this form. Judged less harmful than the alternative.
+
+### 7.3 The guard leaked the crosscheck one-shot bypass flag across a blocked attempt
+
+Independently found by three separate review passes (strong signal, not a marginal call): `VitalsForm`'s
+crosscheck-confirmation flow (`confirmAndSave`) sets a one-shot `confirmedRef.current = true` flag and
+calls `formRef.current?.requestSubmit()`. The new offline guard runs *before* the code that consumes
+(resets) that flag, and its early-return branch didn't reset it either. Sequence that leaked it:
+patient enters an abnormal reading → crosscheck dialog appears → patient taps "confirm" right as the
+connection drops → `confirmAndSave` sets the flag and calls `requestSubmit()` → the offline guard
+blocks that resubmission (correctly) but leaves the flag set → patient reconnects and presses Save
+again (same or a freshly-edited abnormal value, without ever touching a field in between, so the
+`onChange`-triggered `resetGuard()` never fires) → `handleSubmit` hits the stale bypass branch FIRST
+and submits immediately, silently skipping `crosscheckVital`/the confirmation dialog for a value that
+was never actually confirmed. Server-side red-flag detection still runs independently on whatever gets
+submitted, so this was a client-side safety-NUDGE gap, not a lost-escalation bug — but a real one, and
+in the same-value case, a genuine duplicate-insert risk (no dedup constraint on `vitals_readings`).
+**Fixed**: the offline-guard branch now resets `confirmedRef.current = false` too — a blocked attempt
+isn't a submission, so the one-shot bypass shouldn't survive it. Regression test:
+`vitals-form-offline-crosscheck-leak.test.tsx` (sabotage-tested: confirmed to fail without the fix —
+the button showed "Saving…" instead of re-showing the crosscheck dialog).
+
+### 7.4 Smaller findings from the same pass
+
+- **Em dashes in the two new patient-facing strings** (`actions.ts`'s and `vitals-form.tsx`'s
+  "couldn't save"/"you're offline" messages) violated this repo's own documented "no em dashes in
+  marketing/dashboard copy" convention — missed on first write despite that convention already being
+  known. Fixed: both now use plain sentence breaks.
+- **A DOM-attribute assertion cannot actually test the §6 regression under Jest.** An attempt to add a
+  unit test asserting the form's raw `action` attribute isn't the wrapper's poison pill (to give §6's
+  fix a regression test, not just the live-browser check in §5) found that `jest.mock("./actions", ...)`
+  strips the "use server" Server-Reference marking from `logVital` regardless of whether
+  `vitals-form.tsx` wraps it first — so the DOM attribute looks identical (already a poison pill, since
+  the mock itself isn't a real reference) in both the correct and the regressed case, confirmed by
+  writing the assertion and finding it couldn't distinguish them. Replaced with a source-level contract
+  test (`vitals-form-offline-guard.test.tsx`'s third test) asserting the literal
+  `useActionState(logVital, ...)` call shape in the file's own source text — cruder, but it's what
+  can actually fail under Jest; the live-browser check in §5/§6 remains the only real proof of
+  progressive enhancement itself.
+- **This doc's earlier claim that `OfflineBanner` is "visible on every signed-in page for every role"
+  was imprecise.** `(dashboard)/layout.tsx` has an earlier-return branch for `isEmbeddedInApp()` (the
+  native mobile app's WebView) that renders only `children`, with none of the four shell banners
+  (`MfaNudgeBanner`/`ConsentNudgeBanner`/`PendingJobsBanner`/`OfflineBanner`) — a pre-existing pattern
+  for every banner in that list, not something new to `OfflineBanner`, since the native shell provides
+  its own chrome. Corrected here rather than in §3 itself, so the correction is visible alongside why
+  it was wrong. `VitalsForm`'s own inline offline message (`displayedError`/`FormError`) still works
+  in the embedded context regardless, since it's part of the page content, not the shell.

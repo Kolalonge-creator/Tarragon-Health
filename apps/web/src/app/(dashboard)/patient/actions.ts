@@ -97,7 +97,7 @@ export async function logVital(
   } catch (err) {
     Sentry.captureException(err, { extra: { action: "logVital" } });
     return {
-      error: "Couldn't save that reading — check your connection and try again.",
+      error: "Couldn't save that reading. Check your connection and try again.",
     };
   }
 }
@@ -176,13 +176,23 @@ async function logVitalInner(data: VitalsReadingInput): Promise<LogVitalActionSt
   // enforced by a try/catch inside every one of them — assessBpControlBestEffort,
   // assessHeartRateBestEffort, and assessGlucoseBestEffort each await a
   // Supabase call directly with no internal try/catch, so a genuine network
-  // drop right after the insert above can still throw here. Without this
-  // try/catch, that throw would be caught by logVital's own outer catch and
-  // reported as "Couldn't save that reading" — false, since the insert
-  // already succeeded, and risking a duplicate insert if the patient
-  // believes them and retries. Caught separately here instead, so a failure
-  // in this best-effort tail is reported to Sentry but never turns an
-  // already-successful save into a reported failure.
+  // drop right after the insert above can still throw here.
+  //
+  // These three calls are the platform's actual red-flag/escalation
+  // detection for this reading (BP crisis, pulse EMERGENCY range, DKA/severe
+  // hypo) — CLAUDE.md is explicit that an abnormal-result event must "never
+  // deprioritise or silently swallow" it. A failure here is caught
+  // SEPARATELY from the inert bookkeeping below, and deliberately does NOT
+  // just log-and-succeed the way that bookkeeping's own catch does: telling
+  // the patient a plain "Reading logged" when the one check that actually
+  // matters didn't run would be worse than this function's pre-fix crash,
+  // which was at least loud enough to prompt a retry (see
+  // docs/OFFLINE_RESILIENCE_AUDIT.md §3 for the full reasoning). `success`
+  // stays true — the row genuinely is saved, and returning `success: false`
+  // here would falsely suggest otherwise and risk a duplicate insert on
+  // retry — but `error` carries an honest, distinct message so the patient
+  // knows the safety check itself didn't finish.
+  let safetyAssessmentFailed = false;
   try {
     if (row.vital_type === "blood_pressure") {
       await assessBpControlBestEffort(supabase, subjectId, profile.organisation_id);
@@ -195,7 +205,18 @@ async function logVitalInner(data: VitalsReadingInput): Promise<LogVitalActionSt
     if (row.vital_type === "glucose" || row.vital_type === "ketones") {
       await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
     }
+  } catch (err) {
+    safetyAssessmentFailed = true;
+    Sentry.captureException(err, {
+      extra: { action: "logVital", stage: "safety_assessment" },
+    });
+  }
 
+  // Genuinely inert bookkeeping — a lost update here (a missed Weekly Plan
+  // tick, a stale Health Score) has no clinical-safety consequence, unlike
+  // the red-flag assessments above, so a failure here staying silent
+  // (Sentry-only) is the right call, not an oversight.
+  try {
     // Bridges into the Weekly Plan card's own completion tracking — a no-op
     // for a patient with no active goal for this metric. Only when subjectId
     // is the caller's own id: lpe_measurements RLS lets a patient insert only
@@ -240,6 +261,13 @@ async function logVitalInner(data: VitalsReadingInput): Promise<LogVitalActionSt
     });
   }
 
+  if (safetyAssessmentFailed) {
+    return {
+      success: true,
+      error:
+        "Your reading was saved, but we could not finish checking it against your care protocols. If this reading concerns you, contact your care team or log it again.",
+    };
+  }
   return { success: true };
 }
 

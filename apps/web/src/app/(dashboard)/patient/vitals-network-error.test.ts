@@ -81,7 +81,7 @@ describe("logVital — network failure during submission", () => {
     getUser.mockRejectedValue(new Error("ECONNRESET"));
 
     await expect(logVital(undefined, bloodPressureFormData())).resolves.toEqual(
-      expect.objectContaining({ error: expect.stringContaining("check your connection") })
+      expect.objectContaining({ error: expect.stringMatching(/check your connection/i) })
     );
   });
 });

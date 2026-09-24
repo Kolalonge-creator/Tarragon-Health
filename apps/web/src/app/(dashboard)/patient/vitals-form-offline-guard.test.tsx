@@ -11,8 +11,22 @@
  * offline, so `logVital` itself stays wired to useActionState unwrapped —
  * see docs/OFFLINE_RESILIENCE_AUDIT.md §3/§6 for the full account. This
  * proves: (1) a blocked submission never calls the action and shows the
- * offline message instead, (2) a normal online submission is unaffected.
+ * offline message instead, (2) a normal online submission is unaffected,
+ * and (3) `useActionState` is still wired to `logVital` directly, not a
+ * wrapper — a live-browser check (not reproducible here) is what actually
+ * caught the regression this guards against: React emits a poison-pill DOM
+ * `action="javascript:throw ..."` for a form whose action isn't a genuine
+ * Server Reference, but jest.mock("./actions", ...) strips that special
+ * "use server" marking from `logVital` regardless of whether vitals-form.tsx
+ * wraps it, so the DOM attribute looks identical (already a poison pill)
+ * either way under Jest — confirmed by trying exactly that assertion here
+ * and finding it can't distinguish the two cases. A source-level check on
+ * the actual `useActionState(...)` call is what CAN catch this at the unit
+ * level; a live browser pass (see docs/OFFLINE_RESILIENCE_AUDIT.md §5/§6)
+ * remains the only way to prove progressive enhancement itself still works.
  */
+import fs from "node:fs";
+import path from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { VitalsForm } from "./vitals-form";
 
@@ -61,5 +75,15 @@ describe("VitalsForm offline guard", () => {
 
     expect(mockLogVital).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/you're offline/i)).toBeNull();
+  });
+
+  it("passes logVital directly to useActionState, not a wrapper (progressive enhancement)", () => {
+    // A DOM-attribute assertion can't distinguish this under Jest (see the
+    // file's top comment) — this is a source-level contract test instead.
+    // If this ever needs to change, re-verify live in the browser first
+    // (raw <form> action attribute, not just that the guard's own behavior
+    // still passes) before updating this assertion.
+    const source = fs.readFileSync(path.join(__dirname, "vitals-form.tsx"), "utf8");
+    expect(source).toMatch(/useActionState\(\s*logVital\s*,/);
   });
 });

@@ -27,7 +27,7 @@ type KetoneKind = "blood" | "urine";
  * docs/OFFLINE_RESILIENCE_AUDIT.md §3/§6 for the full account).
  */
 const OFFLINE_BLOCKED_MESSAGE =
-  "You're offline — reconnect, then press Save reading again.";
+  "You're offline. Reconnect, then press Save reading again.";
 
 export function VitalsForm({
   patientId,
@@ -63,6 +63,16 @@ export function VitalsForm({
   // that drops in the narrow window between this check and the request
   // actually going out is still possible — that residual case is what
   // logVital's own server-side try/catch (actions.ts) exists for.
+  //
+  // This IS a deliberate exception to useOnlineStatus's own general rule
+  // ("don't skip a real request based on this value" — see its doc comment)
+  // — accepted specifically here because a Server-Action-backed
+  // useActionState form has no other graceful way to surface a client-
+  // transport failure. The accepted trade-off: a false navigator.onLine ===
+  // false reading blocks a submission that would have succeeded; that's
+  // judged rarer and less harmful than the alternative (attempting and
+  // crashing the route segment on a genuine drop, the bug this whole pass
+  // exists to fix).
   const isOnline = useOnlineStatus();
   const [offlineBlocked, setOfflineBlocked] = useState(false);
 
@@ -100,6 +110,14 @@ export function VitalsForm({
     // vanishing out from under them the instant connectivity returns.
     if (!isOnline) {
       event.preventDefault();
+      // The bypass below wasn't consumed by a real submission attempt — a
+      // blocked attempt isn't a submission, so don't let it survive to a
+      // later, possibly-different retry (see the one-shot comment below);
+      // without this, confirming a crosscheck-flagged reading, getting
+      // blocked here, then pressing Save again unedited would silently
+      // resubmit the same reading a second time, since vitals_readings has
+      // no dedup constraint.
+      confirmedRef.current = false;
       setOfflineBlocked(true);
       return;
     }
