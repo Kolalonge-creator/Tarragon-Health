@@ -14,12 +14,18 @@
  * refuses cleanly with an explanatory message whenever acting-for is
  * active, before ever attempting the write — extending real write access
  * here is a deliberate future decision, not a default to reach for.
+ *
+ * The refusal itself was later consolidated into the shared
+ * assertNotActingFor() helper (see womens-health-caller-subject-
+ * attribution.test.ts, which found and fixed the same pattern duplicated
+ * ad hoc in womens-health-actions.ts) — this test now mocks that helper
+ * directly rather than the getActingFor() it wraps.
  */
 
-const getActingFor = jest.fn();
+const assertNotActingFor = jest.fn();
 jest.mock("@/lib/acting/acting-for", () => ({
   resolveSubjectId: jest.fn(async (id: string) => id),
-  getActingFor: (...args: unknown[]) => getActingFor(...args),
+  assertNotActingFor: (message: string) => assertNotActingFor(message),
 }));
 
 const upsert = jest.fn();
@@ -49,18 +55,21 @@ function fd(entries: Record<string, string>): FormData {
 describe("setPregnancyStatus while acting for someone", () => {
   beforeEach(() => {
     upsert.mockReset();
-    getActingFor.mockReset();
+    assertNotActingFor.mockReset();
   });
 
   it("refuses cleanly, without ever writing, when acting for a dependent", async () => {
-    getActingFor.mockResolvedValue({ profileId: "dependent-1", fullName: "A Dependent" });
+    assertNotActingFor.mockResolvedValue({
+      error:
+        "Pregnancy status can only be updated by the account holder themselves right now, not by someone supporting their account.",
+    });
     const result = await setPregnancyStatus(undefined, fd({ is_pregnant: "true" }));
     expect(result?.error).toMatch(/account holder themselves/i);
     expect(upsert).not.toHaveBeenCalled();
   });
 
   it("still works normally for the account holder's own record", async () => {
-    getActingFor.mockResolvedValue(null);
+    assertNotActingFor.mockResolvedValue(null);
     const result = await setPregnancyStatus(undefined, fd({ is_pregnant: "true" }));
     expect(result?.error).toBeUndefined();
     expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ patient_id: "caller-1", is_pregnant: true }));

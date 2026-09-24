@@ -60,6 +60,22 @@ export async function resolveSubjectId(ownProfileId: string): Promise<string> {
   return acting?.profileId ?? ownProfileId;
 }
 
+/**
+ * For an action whose table has no caregiver RLS path at all (e.g.
+ * patient_pregnancy/postnatal_profiles/postnatal_checkins — a supporter's
+ * write would be rejected by Postgres regardless of what this returns).
+ * Refuses cleanly with `message` instead of letting the caller hit a raw
+ * RLS policy-violation error. Call this BEFORE resolving the subject/org
+ * for the write, not after, so a supporter is refused for the right reason
+ * even when the beneficiary's own profile is incomplete (no organisation_id
+ * yet, etc.) — checking acting-for state doesn't depend on that lookup
+ * succeeding.
+ */
+export async function assertNotActingFor(message: string): Promise<{ error: string } | null> {
+  const acting = await getActingFor();
+  return acting ? { error: message } : null;
+}
+
 export async function startActingFor(beneficiaryId: string): Promise<boolean> {
   const supabase = await createClient();
   const { data: allowed } = await supabase.rpc("can_act_for", {

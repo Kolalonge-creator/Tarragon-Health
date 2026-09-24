@@ -6,10 +6,13 @@
  * the person they were actually filling the form out for. patient_pregnancy
  * and postnatal_profiles/postnatal_checkins deliberately have no caregiver
  * RLS path at all (see the "no caregiver access, matching patient_pregnancy"
- * assertions in 20260829121135_pregnancy_antenatal_extension.sql and
+ * comments in 20260829121135_pregnancy_antenatal_extension.sql and
  * 20260829121137_postnatal_programme.sql), so the fix is to refuse the
- * write with a clear error when acting for someone else, rather than let it
- * land on the wrong identity.
+ * write with a clear error when acting for someone else, via the shared
+ * assertNotActingFor() helper (checked BEFORE resolving the subject/org, so
+ * the refusal fires even when the beneficiary's own profile is incomplete —
+ * see the second describe block below) — rather than let it land on the
+ * wrong identity.
  *
  * reportPregnancyDangerSymptoms had the same caller-vs-subject bug, but
  * emergency_events DOES have a working acting-for INSERT policy
@@ -47,8 +50,10 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 const resolveSubjectId = jest.fn();
+const assertNotActingFor = jest.fn();
 jest.mock("@/lib/acting/acting-for", () => ({
   resolveSubjectId: (ownProfileId: string) => resolveSubjectId(ownProfileId),
+  assertNotActingFor: (message: string) => assertNotActingFor(message),
 }));
 
 import {
@@ -61,6 +66,8 @@ import {
 const CALLER_ID = "11111111-1111-4111-8111-111111111111";
 const BENEFICIARY_ID = "22222222-2222-4222-8222-222222222222";
 const ORG_ID = "33333333-3333-4333-8333-333333333333";
+const NO_CAREGIVER_ERROR =
+  "Pregnancy and postnatal records can only be managed on your own account, not for someone you support.";
 
 function lmpFormData() {
   const fd = new FormData();
@@ -101,19 +108,20 @@ describe("womens-health-actions — caller vs subject attribution", () => {
   describe("acting for a beneficiary (no caregiver path for pregnancy/postnatal)", () => {
     beforeEach(() => {
       resolveSubjectId.mockResolvedValue(BENEFICIARY_ID);
+      assertNotActingFor.mockResolvedValue({ error: NO_CAREGIVER_ERROR });
     });
 
     it("setLastMenstrualPeriod refuses the write instead of landing it on the caller's own record", async () => {
       const result = await setLastMenstrualPeriod(undefined, lmpFormData());
 
-      expect(result?.error).toMatch(/on your own account/i);
+      expect(result?.error).toBe(NO_CAREGIVER_ERROR);
       expect(pregnancyUpsert).not.toHaveBeenCalled();
     });
 
     it("recordDelivery refuses the write instead of landing it on the caller's own record", async () => {
       const result = await recordDelivery(undefined, deliveryFormData());
 
-      expect(result?.error).toMatch(/on your own account/i);
+      expect(result?.error).toBe(NO_CAREGIVER_ERROR);
       expect(pregnancyUpsert).not.toHaveBeenCalled();
       expect(postnatalProfilesInsert).not.toHaveBeenCalled();
     });
@@ -121,8 +129,23 @@ describe("womens-health-actions — caller vs subject attribution", () => {
     it("logPostnatalCheckin refuses the write instead of landing it on the caller's own record", async () => {
       const result = await logPostnatalCheckin("postnatal-profile-1", undefined, checkinFormData());
 
-      expect(result?.error).toMatch(/on your own account/i);
+      expect(result?.error).toBe(NO_CAREGIVER_ERROR);
       expect(postnatalCheckinsInsert).not.toHaveBeenCalled();
+    });
+
+    it("refuses before looking up the organisation, so an incomplete beneficiary profile doesn't produce a misleading error", async () => {
+      // Regression case: the guard used to run AFTER the organisation lookup
+      // (keyed on the resolved subject), so a beneficiary with no
+      // organisation_id yet made a blocked caregiver see "No organisation on
+      // file" instead of the real "can't manage on someone else's behalf"
+      // refusal. Proving profilesSingle is never even called shows the
+      // guard now runs first.
+      profilesSingle.mockResolvedValue({ data: null });
+
+      const result = await setLastMenstrualPeriod(undefined, lmpFormData());
+
+      expect(result?.error).toBe(NO_CAREGIVER_ERROR);
+      expect(profilesSingle).not.toHaveBeenCalled();
     });
 
     it("reportPregnancyDangerSymptoms attributes the emergency to the beneficiary, not the caller", async () => {
@@ -140,6 +163,7 @@ describe("womens-health-actions — caller vs subject attribution", () => {
   describe("acting for nobody (self)", () => {
     beforeEach(() => {
       resolveSubjectId.mockResolvedValue(CALLER_ID);
+      assertNotActingFor.mockResolvedValue(null);
     });
 
     it("setLastMenstrualPeriod still writes under the caller's own id", async () => {
