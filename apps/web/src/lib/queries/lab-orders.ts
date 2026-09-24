@@ -99,6 +99,10 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
   provider: { name: string; regions: string[] } | null;
   home_visit_provider: { name: string } | null;
   facility: { name: string } | null;
+  // Which lab_provider_locations branch the patient recorded via
+  // set_lab_order_location (2026-09-24) — null until the patient chooses
+  // one, drives both LabOrderLocationPicker and RateLabLocation.
+  location: { name: string } | null;
   // Null-gated "ordered by" attribution (module 57.10) — present only for a
   // clinician-generated order; the patient self-service due-screening path
   // never sets ordered_by, so this stays null there by construction, not by
@@ -117,7 +121,7 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
  * patient-facing availability hint.
  */
 const LAB_ORDER_SELECT =
-  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name), ordered_by_staff:clinical_staff!lab_orders_ordered_by_fkey(full_name, credential_type, credential_number)";
+  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name), location:lab_provider_locations!lab_orders_location_id_fkey(name), ordered_by_staff:clinical_staff!lab_orders_ordered_by_fkey(full_name, credential_type, credential_number)";
 
 /** Patient's own lab_orders, newest first. RLS (patient_id = auth.uid()) does the scoping. */
 export function usePatientLabOrders(patientId: string) {

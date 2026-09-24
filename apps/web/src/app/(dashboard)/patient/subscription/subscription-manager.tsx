@@ -211,7 +211,10 @@ export function SubscriptionManager({ patientId }: { patientId: string }) {
         <Card>
           <CardHeader>
             <CardTitle>Buy a service</CardTitle>
-            <CardDescription>One-off payment, no auto-renewal.</CardDescription>
+            <CardDescription>
+              One-off payment, no auto-renewal. Your first purchase is covered by a 30-day
+              money-back guarantee.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {buyable.length > 0 && <PaystackFeeNotice />}

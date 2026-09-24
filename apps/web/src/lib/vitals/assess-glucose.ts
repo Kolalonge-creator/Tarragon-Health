@@ -43,6 +43,12 @@ const ALERT_TITLE: Record<Exclude<GlucoseFlagKind, "severe_hypo" | "suspected_dk
  * Never throws and never blocks the caller — but a raised red flag is the whole
  * point, so failures are swallowed only to protect the log-write success path,
  * never to drop the flag silently on the happy path.
+ *
+ * That "never throws" contract isn't internally enforced (no try/catch here
+ * — a genuine network/DB drop mid-call DOES throw); every caller SHOULD wrap
+ * it with `runBestEffort` from `@/lib/sentry/run-best-effort` (see that
+ * file's own doc comment, including for the one known caller that doesn't
+ * yet).
  */
 export async function assessGlucoseBestEffort(
   supabase: SupabaseClient<Database>,

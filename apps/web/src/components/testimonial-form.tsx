@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { submitTestimonial } from "@/app/(dashboard)/patient/testimonials/actions";
+import { TESTIMONIAL_CONDITIONS } from "@/lib/testimonials/conditions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,24 @@ export function TestimonialForm() {
                 How should we credit you?
               </label>
               <Input id="display_name" name="display_name" placeholder="e.g. Amina O." maxLength={80} required />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-charcoal-ink dark:text-night-ink" htmlFor="condition">
+                Is this about a specific condition? (optional)
+              </label>
+              <select
+                id="condition"
+                name="condition"
+                defaultValue=""
+                className="flex h-9 w-full rounded-md border border-charcoal-ink/20 bg-white dark:bg-night-card px-3 py-1 text-sm text-charcoal-ink dark:text-night-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+              >
+                <option value="">General / not specific</option>
+                {TESTIMONIAL_CONDITIONS.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-charcoal-ink dark:text-night-ink" htmlFor="quote">

@@ -5,6 +5,8 @@ import { Section, SectionHeading } from "../_components/section";
 import { ResourceCarousel } from "../_components/resource-carousel";
 import { ConditionMonitoringGrid, DIABETES_MONITORING } from "../_components/condition-monitoring";
 import { HowTestingWorks } from "../_components/how-testing-works";
+import { TestimonialsSection } from "../_components/testimonials-section";
+import { DoctorTestimonialsSection } from "../_components/doctor-testimonials-section";
 import { ConditionRiskNote } from "../_components/condition-risk-note";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
@@ -45,6 +47,10 @@ export default async function DiabetesPage() {
       <Section variant="sage">
         <HowTestingWorks current="chronic" />
       </Section>
+
+      <TestimonialsSection condition="diabetes" />
+
+      <DoctorTestimonialsSection condition="diabetes" />
 
       {diabetesArticles.length > 0 ? (
         <Section variant="sage">

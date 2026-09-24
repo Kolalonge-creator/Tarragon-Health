@@ -652,6 +652,7 @@ export function getNavSections(
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
             { label: "Provider quality", href: "/admin/provider-quality", icon: "governance" },
             { label: "Testimonials", href: "/admin/testimonials", icon: "review" },
+            { label: "Doctor testimonials", href: "/admin/doctor-testimonials", icon: "review" },
           ],
         },
         {
