@@ -43,6 +43,7 @@ export const NOTIFICATION_PREFERENCE_CATEGORIES = [
   "care_messages",
   "education_wellness",
   "billing",
+  "reputation_requests",
 ] as const;
 
 export type NotificationPreferenceCategory =

@@ -220,6 +220,7 @@ export const NAV_ICON = {
   team: Clock4,
   engagement: Users,
   acquisition: Globe,
+  reputation: Star,
   operations: Activity,
   patientActivity: UserSearch,
   facilities: Building,

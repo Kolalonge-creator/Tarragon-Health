@@ -32752,6 +32752,72 @@ export type Database = {
           },
         ]
       }
+      reputation_review_prompts: {
+        Row: {
+          channel: Database["public"]["Enums"]["reputation_review_channel"]
+          clicked_at: string | null
+          created_at: string
+          dismissed_at: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          queued_at: string
+          sent_at: string | null
+          shown_at: string | null
+          source_id: string
+          source_table: string
+          status: Database["public"]["Enums"]["reputation_review_prompt_status"]
+          trigger_event: Database["public"]["Enums"]["reputation_review_trigger_event"]
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["reputation_review_channel"]
+          clicked_at?: string | null
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          queued_at?: string
+          sent_at?: string | null
+          shown_at?: string | null
+          source_id: string
+          source_table: string
+          status?: Database["public"]["Enums"]["reputation_review_prompt_status"]
+          trigger_event: Database["public"]["Enums"]["reputation_review_trigger_event"]
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["reputation_review_channel"]
+          clicked_at?: string | null
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          queued_at?: string
+          sent_at?: string | null
+          shown_at?: string | null
+          source_id?: string
+          source_table?: string
+          status?: Database["public"]["Enums"]["reputation_review_prompt_status"]
+          trigger_event?: Database["public"]["Enums"]["reputation_review_trigger_event"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reputation_review_prompts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reputation_review_prompts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       result_release_policies: {
         Row: {
           approved_at: string | null
@@ -40261,6 +40327,7 @@ export type Database = {
         Returns: Json
       }
       analytics_appointment_capacity: { Args: never; Returns: Json }
+      analytics_reputation_review_conversion: { Args: never; Returns: Json }
       analytics_audit_log: {
         Args: {
           p_action?: string
@@ -40692,6 +40759,31 @@ export type Database = {
       claim_sponsored_service_reservation: {
         Args: { p_token: string }
         Returns: Json
+      }
+      claim_pending_reputation_review_prompt: {
+        Args: never
+        Returns: {
+          channel: Database["public"]["Enums"]["reputation_review_channel"]
+          clicked_at: string | null
+          created_at: string
+          dismissed_at: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          queued_at: string
+          sent_at: string | null
+          shown_at: string | null
+          source_id: string
+          source_table: string
+          status: Database["public"]["Enums"]["reputation_review_prompt_status"]
+          trigger_event: Database["public"]["Enums"]["reputation_review_trigger_event"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "reputation_review_prompts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
       case_management_analytics: { Args: never; Returns: Json }
@@ -42839,6 +42931,10 @@ export type Database = {
       record_platform_credit_topup_intent: {
         Args: { p_amount_kobo: number; p_patient_id: string }
         Returns: string
+      }
+      record_reputation_review_prompt_outcome: {
+        Args: { p_id: string; p_outcome: string }
+        Returns: undefined
       }
       record_result_correction: {
         Args: {
@@ -45221,6 +45317,7 @@ export type Database = {
         | "care_messages"
         | "education_wellness"
         | "billing"
+        | "reputation_requests"
       notification_priority: "routine" | "critical"
       notification_status:
         | "pending"
@@ -45690,6 +45787,21 @@ export type Database = {
         | "perimenopausal"
         | "menopausal"
         | "not_applicable"
+      reputation_review_channel: "native_app_store" | "trustpilot_email"
+      reputation_review_prompt_status:
+        | "queued"
+        | "sent"
+        | "shown"
+        | "clicked"
+        | "dismissed"
+        | "skipped_rate_limited"
+        | "skipped_flag_disabled"
+      reputation_review_trigger_event:
+        | "escalation_resolved"
+        | "clinician_alert_resolved"
+        | "lab_result_explained"
+        | "chronic_checkin_completed"
+        | "chronic_programme_milestone_completed"
       result_action_type:
         | "repeat_test"
         | "medication_change"
@@ -47618,6 +47730,7 @@ export const Constants = {
         "care_messages",
         "education_wellness",
         "billing",
+        "reputation_requests",
       ],
       notification_priority: ["routine", "critical"],
       notification_status: [
@@ -48150,6 +48263,23 @@ export const Constants = {
         "perimenopausal",
         "menopausal",
         "not_applicable",
+      ],
+      reputation_review_channel: ["native_app_store", "trustpilot_email"],
+      reputation_review_prompt_status: [
+        "queued",
+        "sent",
+        "shown",
+        "clicked",
+        "dismissed",
+        "skipped_rate_limited",
+        "skipped_flag_disabled",
+      ],
+      reputation_review_trigger_event: [
+        "escalation_resolved",
+        "clinician_alert_resolved",
+        "lab_result_explained",
+        "chronic_checkin_completed",
+        "chronic_programme_milestone_completed",
       ],
       result_action_type: [
         "repeat_test",
