@@ -91,7 +91,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "Can I pay for their lab tests too?",
     answer:
-      "For a named health check bundle, yes, where we have a contracted partner laboratory: Tarragon bills one real price and settles with that laboratory directly, so there is nothing further for them to pay at the lab. For any other test, laboratories are paid directly by whoever is standing in one, at that lab's price. If you want to help with one of those, the practical way is to send them what it costs.",
+      "Not directly through Tarragon. Laboratories are paid by whoever is standing in one, at that lab's price, and we add nothing on top. If you want to help with the cost, the practical way is to send them what it costs. We're partnered with Synlab Nigeria and trust their results, so it's a reasonable default if they don't already have a lab in mind, but they're free to use any laboratory they like.",
   },
   {
     question: "Will I see their results?",
