@@ -1,5 +1,5 @@
 import { marketingAnonClient } from "./anon-client";
-import { PAID_SERVICES, WEIGHT_MANAGEMENT } from "@/app/(marketing)/_content/pricing";
+import { PAID_SERVICES } from "@/app/(marketing)/_content/pricing";
 
 /**
  * Live prices for the public pricing page.
@@ -97,13 +97,6 @@ export function formatPrice(minor: number, currency: "NGN" | "USD"): string {
  * [term.code] ?? term.price` lookup silently fell back to the static price on
  * every one of them regardless of the live service_products row.
  *
- * WEIGHT_MANAGEMENT is walked separately (its three term codes, not
- * PAID_SERVICES) because it is kept out of PAID_SERVICES on purpose — see
- * that export's own comment in _content/pricing.ts. Without this, its live
- * service_products prices were fetched by fetchPlanPrices() but never made
- * it into this map, so pricing-services.tsx and product-cta-card.tsx (via
- * servicePrice()) always fell through to the static ₦75,000/₦132,000/
- * ₦240,000 strings instead.
  */
 export function servicePriceOverridesFrom(prices: PlanPriceMap): Record<string, string> {
   if (prices.size === 0) return {};
@@ -119,12 +112,6 @@ export function servicePriceOverridesFrom(prices: PlanPriceMap): Record<string, 
       if (termPrice !== undefined) {
         out[term.code] = formatPrice(termPrice, "NGN");
       }
-    }
-  }
-  for (const term of WEIGHT_MANAGEMENT.terms) {
-    const price = prices.get(term.code);
-    if (price !== undefined) {
-      out[term.code] = formatPrice(price, "NGN");
     }
   }
   return out;

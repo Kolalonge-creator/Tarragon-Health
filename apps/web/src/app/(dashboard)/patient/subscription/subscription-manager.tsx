@@ -72,9 +72,7 @@ const PRODUCT_GROUPS: {
     title: "Ongoing cover",
     blurb:
       "Paid once for a fixed term, then it stops. No card is kept on file and there is nothing to cancel.",
-    match: (code) =>
-      code.startsWith("continuous_monitoring_") ||
-      code.startsWith("weight_management_"),
+    match: (code) => code.startsWith("continuous_monitoring_"),
   },
   {
     id: "doctor-time",

@@ -30,7 +30,7 @@ const WAYS_TO_GIVE = [
   },
   {
     title: "Cover a doctor's time for them",
-    body: "Anything on our paid list can be bought for someone else at the same real price: a video visit, a result read back to them properly, Continuous Monitoring on their readings, or Supervised Weight Management if they're already taking weight-loss medication. Nothing renews afterwards, so there is no card of yours left on their account, and their results go to them and their doctor, and to nobody else.",
+    body: "Anything on our paid list can be bought for someone else at the same real price: a video visit, a result read back to them properly, or Continuous Monitoring on their readings. Nothing renews afterwards, so there is no card of yours left on their account, and their results go to them and their doctor, and to nobody else.",
   },
   {
     // The ₦500 figure is fixed in code, not DB-configured: redeem_referral_code
@@ -60,11 +60,6 @@ function giftIdeas(overrides: ResolvedServicePrices) {
       body: "A standing watch on the blood pressure, blood sugar and other readings they log: checked against care protocols, with a dangerous one put in front of a doctor rather than sitting unnoticed. Bought once for a fixed term, then it simply stops; nothing renews on its own.",
     },
     {
-      title: "Supervised Weight Management",
-      price: "From ₦75,000, for three months",
-      body: "For someone already taking weight-loss medication they've obtained themselves: a doctor confirms they're a suitable candidate, agrees a dose plan with them, watches for side effects, and reviews progress monthly. Tarragon supervises; it does not prescribe or supply the medicine.",
-    },
-    {
       title: "A video visit with a doctor",
       price: `${servicePrice("video_visit_credit", overrides)}, one visit`,
       body: "The lighter option: one online consultation with a doctor, theirs to book from their own account whenever suits them. A good way to talk through a result or a worry properly.",
@@ -76,7 +71,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "What exactly am I buying?",
     answer:
-      "One named service for someone specific, rather than a top-up balance: a health check like the Core Screen, a doctor consultation, Continuous Monitoring, or Supervised Weight Management. It sits on their account with their name on it until they choose to use it.",
+      "One named service for someone specific, rather than a top-up balance: a health check like the Core Screen, a doctor consultation, or Continuous Monitoring. It sits on their account with their name on it until they choose to use it.",
   },
   {
     question: "Who can I buy this for?",

@@ -72,15 +72,6 @@ b2c_revenue_reset_invariants.sql
 # that the admin console is not broken by the lockdown.
 specialist_providers_commercial_columns_hidden.sql
 
-# --- Added 2026-09-10 (third pass) ------------------------------------------
-# 20260910011851 shipped the Supervised Weight Management product and its full
-# clinician-side machinery, but nothing ever created a weight_management_enrolments
-# row when a purchase activated -- a paying patient saw the empty state forever.
-# Proves activation creates the row with the right shape, a duplicate purchase
-# while one is already live is a no-op rather than a failed payment, and an
-# unrelated product's activation does not touch this table at all.
-weight_management_enrolment_on_purchase.sql
-
 # --- Added 2026-09-14 --------------------------------------------------------
 # private.auto_assign_escalation() and the reassignment-authority pair had
 # zero test coverage -- the migration's own closing assertion block only
@@ -469,3 +460,17 @@ region_service_available_normalized_state_fallback.sql
 # the parent's own patient_diabetes_profile row instead) is fixed and a
 # stranger with no grant is refused.
 diabetes_self_monitoring_acting_supporter.sql
+
+# --- Added 2026-09-24 --------------------------------------------------------
+# Supervised Weight Management removed outright (founder decision), reversing
+# 20260910011851/20260910053837/20260910182555/20260910182855/20260912230030
+# and the weight-management slices of 20260910011854/20260918091341 -- see
+# 20260924220239_remove_supervised_weight_management.sql. A standing "stays
+# removed" check rather than a fix-proof: confirms the tables/functions/enum/
+# service_products rows have not silently reappeared, that
+# clinical_encounters' narrowed CHECK still accepts a real remaining encounter
+# type and still refuses the removed one, that the free 'obesity'
+# chronic_condition_programmes row stays reverted to its pre-product shape,
+# and that the co-located, unrelated therapy-approval product was not taken
+# down with it.
+supervised_weight_management_removed.sql

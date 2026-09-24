@@ -32,9 +32,9 @@ export const LAUNCH_WORKLIST_BUCKET: Record<WorklistCountKey, LaunchWorklistBuck
   // a real service_products row with a price_kobo behind it (async consult,
   // second opinion, prescription renewal, verified document, senior case
   // review, a lab result consult, a Preventive Health Check Review,
-  // supervised weight management eligibility, a therapy approval) — this is
-  // a deliberately narrower test than "a doctor owes someone a reply," which
-  // is why curbside consults (free doctor-to-doctor messaging, no
+  // a therapy approval) — this is a deliberately narrower test than "a
+  // doctor owes someone a reply," which is why curbside consults (free
+  // doctor-to-doctor messaging, no
   // service_products row at all, see curbside-consults' own page header) is
   // classified under Follow-up & quality below instead, not here.
   asyncConsults: "paidWorkDue",
@@ -44,7 +44,6 @@ export const LAUNCH_WORKLIST_BUCKET: Record<WorklistCountKey, LaunchWorklistBuck
   seniorCaseReviews: "paidWorkDue",
   labResultConsultsWaiting: "paidWorkDue",
   preventiveHealthCheckReviewsWaiting: "paidWorkDue",
-  weightManagementPendingEligibility: "paidWorkDue",
   therapyApprovalsWaiting: "paidWorkDue",
 
   // Follow-up & quality — everything else: condition-programme reviews,
@@ -100,7 +99,6 @@ export const WORKLIST_HREF: Record<WorklistCountKey, string> = {
   curbsideConsultsAwaitingReply: "/clinician/curbside-consults",
   labResultConsultsWaiting: "/clinician/lab-result-consults",
   preventiveHealthCheckReviewsWaiting: "/clinician/preventive-health-check-reviews",
-  weightManagementPendingEligibility: "/clinician/weight-management",
   therapyApprovalsWaiting: "/clinician/therapy-approvals",
   referralsNeedingUrgency: "/clinician/referrals",
   waitlistedReferrals: "/clinician/referrals/waitlisted",
@@ -143,7 +141,6 @@ export const WORKLIST_LABEL: Record<WorklistCountKey, string> = {
   curbsideConsultsAwaitingReply: "Curbside consults",
   labResultConsultsWaiting: "Lab result consults",
   preventiveHealthCheckReviewsWaiting: "Preventive Health Check reviews",
-  weightManagementPendingEligibility: "Weight management eligibility",
   therapyApprovalsWaiting: "Therapy approvals",
   referralsNeedingUrgency: "Referrals",
   waitlistedReferrals: "Waitlisted referrals",

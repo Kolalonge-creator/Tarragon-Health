@@ -36586,183 +36586,6 @@ export type Database = {
         }
         Relationships: []
       }
-      weight_management_enrolments: {
-        Row: {
-          created_at: string
-          eligibility_confirmed_at: string | null
-          eligibility_confirmed_by: string | null
-          eligibility_notes: string | null
-          ended_reason: string | null
-          ends_at: string | null
-          id: string
-          medication_id: string | null
-          obesity_assessment_id: string | null
-          organisation_id: string
-          patient_id: string
-          service_purchase_id: string | null
-          started_at: string | null
-          starting_weight_kg: number | null
-          status: Database["public"]["Enums"]["weight_management_status"]
-          supervising_clinician_id: string | null
-          target_weight_kg: number | null
-          term_days: number
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          eligibility_confirmed_at?: string | null
-          eligibility_confirmed_by?: string | null
-          eligibility_notes?: string | null
-          ended_reason?: string | null
-          ends_at?: string | null
-          id?: string
-          medication_id?: string | null
-          obesity_assessment_id?: string | null
-          organisation_id: string
-          patient_id: string
-          service_purchase_id?: string | null
-          started_at?: string | null
-          starting_weight_kg?: number | null
-          status?: Database["public"]["Enums"]["weight_management_status"]
-          supervising_clinician_id?: string | null
-          target_weight_kg?: number | null
-          term_days: number
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          eligibility_confirmed_at?: string | null
-          eligibility_confirmed_by?: string | null
-          eligibility_notes?: string | null
-          ended_reason?: string | null
-          ends_at?: string | null
-          id?: string
-          medication_id?: string | null
-          obesity_assessment_id?: string | null
-          organisation_id?: string
-          patient_id?: string
-          service_purchase_id?: string | null
-          started_at?: string | null
-          starting_weight_kg?: number | null
-          status?: Database["public"]["Enums"]["weight_management_status"]
-          supervising_clinician_id?: string | null
-          target_weight_kg?: number | null
-          term_days?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      weight_management_dose_steps: {
-        Row: {
-          agreed_at: string | null
-          agreed_by: string | null
-          created_at: string
-          dose_label: string
-          enrolment_id: string
-          held_reason: string | null
-          id: string
-          organisation_id: string
-          planned_from: string
-          reached_at: string | null
-          step_number: number
-          updated_at: string
-        }
-        Insert: {
-          agreed_at?: string | null
-          agreed_by?: string | null
-          created_at?: string
-          dose_label: string
-          enrolment_id: string
-          held_reason?: string | null
-          id?: string
-          organisation_id: string
-          planned_from: string
-          reached_at?: string | null
-          step_number: number
-          updated_at?: string
-        }
-        Update: {
-          agreed_at?: string | null
-          agreed_by?: string | null
-          created_at?: string
-          dose_label?: string
-          enrolment_id?: string
-          held_reason?: string | null
-          id?: string
-          organisation_id?: string
-          planned_from?: string
-          reached_at?: string | null
-          step_number?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      weight_management_checkins: {
-        Row: {
-          abdominal_pain: number | null
-          checked_in_at: string
-          clinician_note: string | null
-          constipation: number | null
-          created_at: string
-          diarrhoea: number | null
-          enrolment_id: string
-          id: string
-          nausea: number | null
-          organisation_id: string
-          patient_id: string
-          patient_note: string | null
-          poor_oral_intake: boolean
-          red_flag_reported: boolean
-          reviewed_at: string | null
-          reviewed_by: string | null
-          updated_at: string
-          vomiting: number | null
-          weight_kg: number | null
-        }
-        Insert: {
-          abdominal_pain?: number | null
-          checked_in_at?: string
-          clinician_note?: string | null
-          constipation?: number | null
-          created_at?: string
-          diarrhoea?: number | null
-          enrolment_id: string
-          id?: string
-          nausea?: number | null
-          organisation_id: string
-          patient_id: string
-          patient_note?: string | null
-          poor_oral_intake?: boolean
-          red_flag_reported?: boolean
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          updated_at?: string
-          vomiting?: number | null
-          weight_kg?: number | null
-        }
-        Update: {
-          abdominal_pain?: number | null
-          checked_in_at?: string
-          clinician_note?: string | null
-          constipation?: number | null
-          created_at?: string
-          diarrhoea?: number | null
-          enrolment_id?: string
-          id?: string
-          nausea?: number | null
-          organisation_id?: string
-          patient_id?: string
-          patient_note?: string | null
-          poor_oral_intake?: boolean
-          red_flag_reported?: boolean
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          updated_at?: string
-          vomiting?: number | null
-          weight_kg?: number | null
-        }
-        Relationships: []
-      }
     }
     Views: {
       care_message_communication_log: {
@@ -40837,10 +40660,6 @@ export type Database = {
         Args: { p_confirm?: boolean; p_session_id: string }
         Returns: Database["public"]["Tables"]["therapy_sessions"]["Row"]
       }
-      review_weight_management_checkin: {
-        Args: { p_checkin_id: string; p_note?: string }
-        Returns: Database["public"]["Tables"]["weight_management_checkins"]["Row"]
-      }
     }
     Enums: {
       activity_entry_type: "steps" | "workout"
@@ -42804,7 +42623,6 @@ export type Database = {
         | "dexcom"
         | "libre"
         | "android_health_connect"
-      weight_management_status: "pending_eligibility" | "active" | "paused" | "completed" | "withdrawn"
       wellness_challenge_metric:
         | "vitals_logs"
         | "meal_logs"
@@ -45154,7 +44972,6 @@ export const Constants = {
         "libre",
         "android_health_connect",
       ],
-      weight_management_status: ["pending_eligibility", "active", "paused", "completed", "withdrawn"],
       wellness_challenge_metric: [
         "vitals_logs",
         "meal_logs",
