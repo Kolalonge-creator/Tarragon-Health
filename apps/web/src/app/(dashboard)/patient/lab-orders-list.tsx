@@ -113,15 +113,25 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                     {order.fulfilment === "self_arranged" && order.status === "ordered" && (
                       <RequestPartnerLabVisit patientId={patientId} orderId={order.id} />
                     )}
-                    {order.fulfilment === "self_arranged" && (
-                      <LabOrderLocationPicker
-                        patientId={patientId}
-                        orderId={order.id}
-                        currentLocationId={order.location_id}
-                      />
-                    )}
                   </>
                 )}
+                {/* Mirrors set_lab_order_location's own write-once rule
+                    (20260924210135_lab_location_reviews.sql): editable any
+                    time up to and including 'resulted' as long as no branch
+                    has been recorded yet (so a patient who never touched
+                    this while "awaiting" can still unlock rating once the
+                    result lands), then locked once both a branch is set AND
+                    the order is resulted — never shown alongside
+                    RateLabLocation below, which takes over at that point. */}
+                {order.fulfilment === "self_arranged" &&
+                  order.status !== "cancelled" &&
+                  !(order.status === "resulted" && order.location_id) && (
+                    <LabOrderLocationPicker
+                      patientId={patientId}
+                      orderId={order.id}
+                      currentLocationId={order.location_id}
+                    />
+                  )}
                 {order.status === "resulted" && order.location_id && (
                   <RateLabLocation
                     organisationId={order.organisation_id}

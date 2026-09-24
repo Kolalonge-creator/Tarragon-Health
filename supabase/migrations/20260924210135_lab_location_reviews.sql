@@ -50,7 +50,13 @@ begin
   if v_order.id is null then
     raise exception 'lab order not found' using errcode = 'P0002';
   end if;
-  if v_order.patient_id is distinct from auth.uid() then
+  -- A caregiver with a 'manage'-level grant carrying book_appointments (the
+  -- established permission for booking/logistics actions taken on a
+  -- dependent's behalf — see sponsor_book_care) may act here too; the row
+  -- itself always stays attributed to v_order.patient_id, never the actor.
+  if v_order.patient_id is distinct from auth.uid()
+     and not private.can_act_for(v_order.patient_id, 'book_appointments'::public.caregiver_permission)
+  then
     raise exception 'not your lab order' using errcode = '42501';
   end if;
   if v_order.fulfilment <> 'self_arranged' then
@@ -58,6 +64,20 @@ begin
   end if;
   if v_order.status = 'cancelled' then
     raise exception 'this order is cancelled' using errcode = '23514';
+  end if;
+  -- Write-once from the point a review becomes possible: once a branch is
+  -- recorded AND the order has reached 'resulted', it can no longer be
+  -- switched to a different active branch. Without this, a patient could
+  -- set branch A pre-result, then swap to a different branch B they never
+  -- visited immediately before filing a review, and lab_location_reviews'
+  -- own insert-time match check (location_id = the order's *current*
+  -- location_id) would wave it through — the "verified, real visit"
+  -- premise depends on this being closed. A still-null location_id on a
+  -- resulted order is deliberately NOT blocked here: a patient who forgot
+  -- to record a branch before the result arrived can still set one once,
+  -- which is what unlocks reviewing at all for them.
+  if v_order.location_id is not null and v_order.status = 'resulted' then
+    raise exception 'the lab branch cannot be changed once your result has arrived' using errcode = '23514';
   end if;
   if p_location_id is not null and not exists (
     select 1
@@ -75,7 +95,7 @@ end;
 $$;
 
 comment on function public.set_lab_order_location(uuid, uuid) is
-  'Patient-only, narrow write: records which lab_provider_locations branch the caller used for their own self-arranged lab_orders row. SECURITY DEFINER because lab_orders_update RLS is staff-only; this function does its own ownership/fulfilment/status checks rather than relying on that policy.';
+  'Narrow write: records which lab_provider_locations branch was used for a self-arranged lab_orders row, callable by the order''s own patient or a caregiver with a can_act_for(book_appointments) grant. SECURITY DEFINER because lab_orders_update RLS is staff-only; this function does its own ownership/fulfilment/status/write-once checks rather than relying on that policy.';
 
 revoke all on function public.set_lab_order_location(uuid, uuid) from public, anon;
 grant execute on function public.set_lab_order_location(uuid, uuid) to authenticated;
@@ -114,47 +134,128 @@ create index lab_location_reviews_patient_idx on public.lab_location_reviews (pa
 
 alter table public.lab_location_reviews enable row level security;
 
--- A patient reads their own reviews; staff/admin read every review in their
--- org for moderation. Deliberately NOT readable by other patients directly
--- (that would leak which patient had which test at which branch) — the
--- public, identity-free directory read is list_lab_location_reviews below.
+-- A patient reads their own reviews (including one a caregiver filed on
+-- their behalf, per can_act_for(book_appointments) -- the same permission
+-- the INSERT policy requires of that caregiver, matched here on purpose so
+-- someone authorized to file a review is also authorized to read back what
+-- they filed; confirmed necessary, not just generous, while shipping this:
+-- Postgres requires an INSERT ... RETURNING row to also satisfy the
+-- table's SELECT policy, so without this a caregiver-filed insert raises
+-- the same "violates row-level security policy" error even when the
+-- INSERT's own WITH CHECK genuinely passed, and useMyLabLocationReview's
+-- "have you already reviewed this" read would silently show nothing for a
+-- caregiver forever after). Staff/admin read every review in their org for
+-- moderation. Deliberately NOT readable by other patients directly (that
+-- would leak which patient had which test at which branch) — the public,
+-- identity-free directory read is list_lab_location_reviews below.
 create policy lab_location_reviews_select on public.lab_location_reviews
   for select to authenticated
   using (
     patient_id = (select auth.uid())
+    or private.can_act_for(patient_id, 'book_appointments'::public.caregiver_permission)
     or private.is_org_staff(organisation_id)
     or private.is_admin()
   );
 
--- The verification gate: a review may only be filed for a lab_orders row the
--- caller owns, that has genuinely completed ('resulted'), and whose current
--- recorded location (set via set_lab_order_location) matches the location
--- being reviewed. lab_order_id is UNIQUE, so this is also "one review per
--- completed visit", not per patient-location pair.
+-- The verification gate: a review may only be filed for a lab_orders row
+-- that genuinely belongs to the review's own declared patient_id, that has
+-- completed ('resulted'), and whose current recorded location (set via
+-- set_lab_order_location) matches the location being reviewed. lab_order_id
+-- is UNIQUE, so this is also "one review per completed visit", not per
+-- patient-location pair. The row is always attributed to the real patient
+-- (patient_id), never the caller — a caregiver with a 'manage' grant
+-- carrying book_appointments (mirroring set_lab_order_location's own check
+-- above, and sponsor_book_care's established pattern) may submit it on the
+-- patient's behalf.
 --
--- The new row's location_id/organisation_id are qualified with the table's
--- own name (lab_location_reviews.location_id, not bare location_id) --
--- lab_orders (aliased lo) also has columns with those exact names, and an
--- unqualified reference inside the EXISTS subquery resolves to the nearer
--- scope (lo.location_id), silently comparing lo.location_id to itself
--- rather than to the row being inserted. Confirmed live before shipping
--- this: with the bare form, a review could be filed against any location
--- regardless of the order's own recorded one. lab_order_id needs no such
--- qualification only because lab_orders has no column literally named
--- lab_order_id, so it has nowhere else to resolve to.
+-- The order-match check is a SECURITY DEFINER helper, not a raw EXISTS
+-- against lab_orders under the caller's own RLS — a caregiver authorized
+-- via can_act_for(..., 'book_appointments') is not necessarily granted
+-- 'view_results' too (lab_orders_select's own RLS requires view_results,
+-- is_org_staff, or ownership to see a row at all), so a raw EXISTS
+-- evaluated as that caregiver would silently see zero rows and reject a
+-- perfectly legitimate submission -- confirmed live before shipping this,
+-- the same "found it by actually running the test" discipline as the
+-- qualification bug below. Routing the objective "does this order match"
+-- fact through a definer function cleanly separates it from the
+-- authorization check (can_act_for, still evaluated as the real caller)
+-- and, as a side effect, removes the entire class of bug the comment below
+-- describes: private.lab_order_matches_review's parameters are p_-prefixed,
+-- so there is no column name for an unqualified reference to collide with.
+--
+-- (Keeping this note for the record: the first version of this policy used
+-- a bare EXISTS with lab_location_reviews.location_id/organisation_id
+-- qualified against lo.* -- necessary at the time because an unqualified
+-- reference inside that subquery resolved to the nearer scope, lo.*,
+-- silently comparing lo.* to itself rather than to the row being inserted.
+-- The definer-function rewrite below made that qualification moot, but the
+-- lesson -- always qualify, or better, avoid the ambiguous scope
+-- altogether -- is worth keeping visible.)
+create function private.lab_order_matches_review(
+  p_lab_order_id    uuid,
+  p_patient_id      uuid,
+  p_location_id     uuid,
+  p_organisation_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.lab_orders lo
+    where lo.id = p_lab_order_id
+      and lo.patient_id = p_patient_id
+      and lo.status = 'resulted'
+      and lo.location_id = p_location_id
+      and lo.organisation_id = p_organisation_id
+  );
+$$;
+
+revoke all on function private.lab_order_matches_review(uuid, uuid, uuid, uuid) from public, anon;
+grant execute on function private.lab_order_matches_review(uuid, uuid, uuid, uuid) to authenticated;
+
 create policy lab_location_reviews_insert on public.lab_location_reviews
   for insert to authenticated
   with check (
-    patient_id = (select auth.uid())
-    and exists (
-      select 1 from public.lab_orders lo
-      where lo.id = lab_order_id
-        and lo.patient_id = (select auth.uid())
-        and lo.status = 'resulted'
-        and lo.location_id = lab_location_reviews.location_id
-        and lo.organisation_id = lab_location_reviews.organisation_id
+    (
+      patient_id = (select auth.uid())
+      or private.can_act_for(patient_id, 'book_appointments'::public.caregiver_permission)
     )
+    and private.lab_order_matches_review(lab_order_id, patient_id, location_id, organisation_id)
   );
+
+-- Defense in depth beyond the role-gated UPDATE policy below: RLS alone
+-- can't express "staff may change status/hidden_* but never the patient's
+-- own content" (a WITH CHECK has no OLD row to diff against), so a plain
+-- role check would let any org staff member silently rewrite a filed
+-- review's rating/comment/patient_id/location_id -- not just hide it,
+-- despite that being the only thing the policy's own comment promises.
+create function private.enforce_lab_location_review_moderation_only_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.rating is distinct from old.rating
+     or new.comment is distinct from old.comment
+     or new.patient_id is distinct from old.patient_id
+     or new.lab_order_id is distinct from old.lab_order_id
+     or new.location_id is distinct from old.location_id
+     or new.organisation_id is distinct from old.organisation_id
+     or new.created_at is distinct from old.created_at
+  then
+    raise exception 'only moderation fields (status, hidden_by, hidden_at, hidden_reason) may be updated on a filed review' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger lab_location_reviews_moderation_only_update
+  before update on public.lab_location_reviews
+  for each row execute function private.enforce_lab_location_review_moderation_only_update();
 
 -- Staff-owned once filed, same posture as complaints/clinical_incident_reports:
 -- a patient cannot edit or delete their own review after submitting it; the
@@ -265,6 +366,20 @@ grant execute on function public.report_lab_location_review(uuid, text) to authe
 -- SECURITY DEFINER is what makes that split possible: it composes rows the
 -- caller could not read directly, deliberately, the same shape as
 -- list_lab_test_locations's own comment already documents for this file.
+--
+-- Deliberately NOT filtered by organisation_id, here or in
+-- list_lab_test_locations' rating aggregate below: a lab_provider_locations
+-- branch is platform-wide catalog data (lab_providers/lab_provider_locations
+-- themselves carry no organisation_id at all, by design), not a
+-- multi-tenant record, so its reputation is a fact about the physical place
+-- shared across every organisation on the platform -- the same reason a
+-- Google Maps rating for a clinic isn't scoped per referring employer.
+-- organisation_id still lives on lab_location_reviews itself (per the
+-- platform convention that every patient-linked table carries it), and
+-- still gates the raw table's own patient/staff SELECT policy above, so a
+-- staff member's moderation view stays scoped to their own org's patients
+-- — only this anonymised, identity-free aggregate read is intentionally
+-- pooled across all of them.
 -- ---------------------------------------------------------------------------
 create function public.list_lab_location_reviews(p_location_id uuid, p_limit integer default 20)
 returns table (id uuid, rating smallint, comment text, created_at timestamptz)
@@ -319,6 +434,18 @@ stable
 security definer
 set search_path = ''
 as $$
+  -- Both joins below are LATERAL, deliberately: a plain (non-lateral) join
+  -- of lab_tests here, filtered only by provider_id/is_active with the
+  -- test-code check folded into the join condition, still matches EVERY
+  -- active test row for a provider whenever p_test_code is null (the
+  -- condition is then just `true`) -- fanning each location out once per
+  -- active lab_tests row that provider has (dozens, once the screening-
+  -- ladder catalogues are counted). This RPC had zero real callers before
+  -- this migration, so that fan-out was latent and harmless; the patient-
+  -- facing directory/picker this migration adds are the first callers that
+  -- pass no test code at all, which would otherwise render the same branch
+  -- card/option many times over. LATERAL + LIMIT 1 caps each side to at
+  -- most one row per location regardless of how many tests/reviews exist.
   select
     lp.id, lp.name, lp.integration_status, lp.accreditation,
     lpl.id, lpl.name, lpl.state, lpl.address, lpl.contact_phone,
@@ -327,16 +454,20 @@ as $$
     rv.avg_rating, coalesce(rv.review_count, 0)
   from public.lab_providers lp
   join public.lab_provider_locations lpl on lpl.lab_provider_id = lp.id and lpl.is_active
-  left join public.lab_tests lt
-    on lt.provider_id = lp.id
-   and lt.is_active
-   and (p_test_code is null or lt.code = p_test_code)
-  left join (
-    select location_id, round(avg(rating), 1) as avg_rating, count(*) as review_count
-    from public.lab_location_reviews
-    where status = 'visible'
-    group by location_id
-  ) rv on rv.location_id = lpl.id
+  left join lateral (
+    select lt2.id, lt2.turnaround_hours, lt2.price_kobo
+    from public.lab_tests lt2
+    where lt2.provider_id = lp.id
+      and lt2.is_active
+      and lt2.code = p_test_code
+    limit 1
+  ) lt on p_test_code is not null
+  left join lateral (
+    select round(avg(r.rating), 1) as avg_rating, count(*) as review_count
+    from public.lab_location_reviews r
+    where r.location_id = lpl.id
+      and r.status = 'visible'
+  ) rv on true
   where lp.is_active
     and (p_test_code is null or lt.id is not null)
     and (p_state is null or lpl.state = p_state)
