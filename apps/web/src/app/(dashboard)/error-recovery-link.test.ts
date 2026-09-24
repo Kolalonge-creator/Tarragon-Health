@@ -23,7 +23,7 @@ function renderBoundary(): string {
   return renderToStaticMarkup(
     createElement(DashboardError, {
       error: Object.assign(new Error("boom"), { digest: "test-digest" }),
-      unstable_retry: () => {},
+      retry: () => {},
     })
   );
 }
