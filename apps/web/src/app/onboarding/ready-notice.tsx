@@ -70,6 +70,10 @@ export function ReadyNotice() {
           If a reading ever looks dangerous, you are told straight away what to do, on every
           plan, whether or not you have paid for anything.
         </p>
+        <p className="mt-2 text-xs text-charcoal-ink/70">
+          Want a family member or caregiver to help? You can invite them any time from Care &
+          support → Your people, once you&apos;re on your dashboard.
+        </p>
       </div>
       <form
         action={async () => {
