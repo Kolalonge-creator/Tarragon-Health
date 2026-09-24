@@ -121,7 +121,9 @@ export function SmokingClient({ patientId }: { patientId: string }) {
   );
 }
 
-function ProfileCard({
+// Exported for testing only (smoking-client.test.tsx) — every other
+// consumer should still go through SmokingClient.
+export function ProfileCard({
   patientId,
   profile,
   isLoading,
@@ -140,7 +142,19 @@ function ProfileCard({
   // weight-client.tsx's WeightGoalSection).
   const [editingOverride, setEditingOverride] = useState<boolean | null>(null);
   const editing = editingOverride ?? (!isLoading && !profile);
-  const [status, setStatus] = useState(profile?.status ?? "never");
+  // Same async-seeding trap as `editing` above, one component-instance level
+  // deeper: ProfileCard never unmounts across the loading -> loaded
+  // transition, so a useState(profile?.status ?? "never") initializer here
+  // would freeze on whatever `profile` was (usually undefined) at the very
+  // first render and never notice the real value arriving later. That left
+  // the edit form's Status dropdown defaulting to "never" for a returning
+  // "current"/"former" smoker who clicks Update, hiding the fields that
+  // status implies and silently overwriting their saved status back to
+  // "never" if they saved without touching the dropdown. Derived fresh from
+  // `profile` every render instead, only overridden once the patient
+  // actually picks something in this edit session.
+  const [statusOverride, setStatusOverride] = useState<(typeof SMOKING_STATUSES)[number] | null>(null);
+  const status = statusOverride ?? profile?.status ?? "never";
 
   const [state, formAction, pending] = useActionState<SmokingActionState, FormData>(
     async (prev, formData) => {
@@ -148,6 +162,7 @@ function ProfileCard({
       if (result?.success) {
         queryClient.invalidateQueries({ queryKey: [PROFILE_KEY, patientId] });
         setEditingOverride(false);
+        setStatusOverride(null);
       }
       return result;
     },
@@ -187,7 +202,7 @@ function ProfileCard({
               id="status"
               name="status"
               defaultValue={status}
-              onChange={(e) => setStatus(e.target.value as typeof status)}
+              onChange={(e) => setStatusOverride(e.target.value as typeof status)}
             >
               {SMOKING_STATUSES.map((s) => (
                 <option key={s} value={s}>
@@ -244,7 +259,14 @@ function ProfileCard({
               {pending ? t("Saving…") : t("Save")}
             </Button>
             {profile && (
-              <Button type="button" variant="outline" onClick={() => setEditingOverride(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditingOverride(false);
+                  setStatusOverride(null);
+                }}
+              >
                 {t("Cancel")}
               </Button>
             )}
