@@ -57,7 +57,7 @@
     "eslint": "^9",
     "expo-build-properties": "~1.0.10",
     "jest": "^29.7.0",
-    "jest-expo": "~54.0.18",
+    "jest-expo": "~57.0.5",
     "typescript": "^5.3.3",
     "typescript-eslint": "^8"
   }
