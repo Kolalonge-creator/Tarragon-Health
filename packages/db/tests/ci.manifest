@@ -546,3 +546,23 @@ finance_revenue_by_funding_source.sql
 # and two independent sabotage steps (reverting each trigger to its pre-fix
 # shape) reopen the corresponding hole.
 voucher_redemption_cross_voucher_double_count_and_revrec_rounding.sql
+
+# --- Added 2026-09-24 (fifth pass) --------------------------------------------
+# 20260924213634 above added a 10th parameter to private.finance_create_
+# recognition_schedule via `create or replace function` — which only replaces
+# a function with an IDENTICAL parameter list, so Postgres created a SECOND
+# overload instead of replacing the original. Every existing 9-argument call
+# site (finance_post_from_payment, finance_post_platform_credit_ledger_entry,
+# finance_post_voucher_redeemed) became ambiguous (42725) and, because those
+# callers run inside an exception-swallowing handler built to protect a
+# payment webhook from an accounting failure, the ambiguity was silently
+# recorded into finance_posting_failures instead of raised: every booking/
+# subscription/add_on/service_purchase payment landed with ZERO GL entries and
+# ZERO revenue recognition schedules. Found live (koiplnmbgnqnbywhpjlf) while
+# testing an unrelated PR, confirmed no real production transaction was caught
+# in the window, fixed by dropping the original 9-argument overload
+# (20260924221152_fix_finance_create_recognition_schedule_overload_ambiguity.sql).
+# Proves exactly one overload exists, a real 9-argument call site (a
+# bounded-duration service_purchase payment) posts cleanly, and sabotage
+# (recreating the dropped overload) reproduces the exact 42725 ambiguity.
+finance_create_recognition_schedule_overload_ambiguity.sql
