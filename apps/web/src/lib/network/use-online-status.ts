@@ -27,13 +27,13 @@ export function useOnlineStatus(): boolean {
   useEffect(() => {
     let cancelled = false;
 
-    // setIsOnline is called from inside this microtask, not synchronously in
-    // the effect body — same pattern as MfaNudgeBanner's mount check, which
-    // avoids react-hooks/set-state-in-effect while still reading the real
-    // browser value as soon as this effect first runs.
-    void Promise.resolve().then(() => {
+    // setIsOnline is called from inside this async IIFE, not synchronously
+    // in the effect body — same pattern as MfaNudgeBanner's mount check,
+    // which avoids react-hooks/set-state-in-effect while still reading the
+    // real browser value as soon as this effect first runs.
+    void (async () => {
       if (!cancelled) setIsOnline(navigator.onLine);
-    });
+    })();
 
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);

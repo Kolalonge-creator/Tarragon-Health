@@ -3,7 +3,8 @@ import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { logVital, type LogVitalActionState } from "./actions";
+import { logVital } from "./actions";
+import { useOnlineStatus } from "@/lib/network/use-online-status";
 import type { GlucoseUnit } from "@/lib/validation/vitals";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { crosscheckVital, type VitalCrosscheck } from "@/lib/vitals/plausibility";
@@ -18,51 +19,15 @@ import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/compone
 type KetoneKind = "blood" | "urine";
 
 /**
- * logVital's own try/catch (actions.ts) only covers a connection that drops
- * AFTER the browser has reached the Next.js server — i.e. the server's own
- * downstream call to Supabase fails mid-request. It does NOT cover a
- * genuinely offline device, where the browser can't send the Server Action
- * request at all: Next's client action-queue rejects that action's promise
- * rather than resolving it to a state value (see
- * next/dist/client/components/router-reducer/reducers/server-action-reducer.js,
- * fetchServerAction's catch block — confirmed live: reproduced this exact
- * crash by blocking the action's own fetch in a browser test before this
- * wrapper existed), and useActionState has no built-in recovery for a
- * rejected action — the rejection otherwise propagates to the nearest
- * error.tsx boundary, unmounting this whole route segment. This is the
- * client-side half of the same fix; wrapping here (rather than inside
- * actions.ts) is required because the failure this catches never reaches
- * server code at all. NOTE: this keeps the route segment on screen with a
- * clear, retryable message, but does NOT preserve the typed values — React
- * resets a <form action={...}>'s uncontrolled inputs after ANY action
- * completion, this one included, since it always resolves rather than
- * throwing (confirmed live; see docs/OFFLINE_RESILIENCE_AUDIT.md §4). Don't
- * claim otherwise in this message without first converting the form's
- * inputs to controlled state.
- *
- * Next 16 ships an experimental `experimental.useOffline` config flag
- * (`next/offline`'s `useOffline()`) that does something similar — and more,
- * automatically retrying once connectivity returns — at the framework level
- * for every Server Action and navigation. Deliberately not enabled here:
- * flipping it would change behaviour for every Server Action in the app in
- * one step, including clinical write paths this audit didn't individually
- * re-verify, for a feature whose own doc comment lists a known limitation
- * (concurrent offline navigations can all retry at once). This scoped,
- * fully-tested local wrapper is the conservative choice for this pass — see
- * docs/OFFLINE_RESILIENCE_AUDIT.md.
+ * Shown when the submit handler blocks a doomed submission because the
+ * browser already knows it's offline — see the offline guard in
+ * `handleSubmit` below for why this exists instead of wrapping the action
+ * itself (that approach was tried and reverted: it broke this form's
+ * no-JS/pre-hydration submission fallback — see
+ * docs/OFFLINE_RESILIENCE_AUDIT.md §3/§6 for the full account).
  */
-export async function logVitalWithConnectionFallback(
-  prevState: LogVitalActionState,
-  formData: FormData
-): Promise<LogVitalActionState> {
-  try {
-    return await logVital(prevState, formData);
-  } catch {
-    return {
-      error: "Couldn't save that reading — check your connection and try again.",
-    };
-  }
-}
+const OFFLINE_BLOCKED_MESSAGE =
+  "You're offline — reconnect, then press Save reading again.";
 
 export function VitalsForm({
   patientId,
@@ -84,8 +49,22 @@ export function VitalsForm({
   const preferredUnit = useGlucoseUnit();
   const [glucoseUnit, setGlucoseUnit] = useState<GlucoseUnit>(preferredUnit);
   const [ketoneKind, setKetoneKind] = useState<KetoneKind>("blood");
-  const [state, formAction, pending] = useActionState(logVitalWithConnectionFallback, undefined);
+  const [state, formAction, pending] = useActionState(logVital, undefined);
   const queryClient = useQueryClient();
+
+  // Blocks a submission the browser already knows is doomed instead of
+  // letting it reach the server and fail there. Deliberately a pre-submit
+  // guard, not a wrapper around `formAction` itself: `logVital` is passed to
+  // useActionState directly, unwrapped, so this form keeps React's real
+  // no-JS/pre-hydration submission fallback (a plain client function passed
+  // as the action loses that — confirmed live, see
+  // docs/OFFLINE_RESILIENCE_AUDIT.md §3/§6). `navigator.onLine` is a
+  // device-level signal, not proof of real reachability, so a connection
+  // that drops in the narrow window between this check and the request
+  // actually going out is still possible — that residual case is what
+  // logVital's own server-side try/catch (actions.ts) exists for.
+  const isOnline = useOnlineStatus();
+  const [offlineBlocked, setOfflineBlocked] = useState(false);
 
   // Crosscheck nudge: when a reading lands outside the normal band we ask the
   // patient to confirm it before saving, and show how to take a cleaner
@@ -102,7 +81,8 @@ export function VitalsForm({
   // change that matters: before this, a rejected reading was inserted silently
   // below the button and a screen-reader user got no feedback whatsoever.
   const errorId = fieldErrorId("vitals-form");
-  const readingErrorProps = fieldErrorProps(errorId, Boolean(state?.error));
+  const displayedError = offlineBlocked ? OFFLINE_BLOCKED_MESSAGE : state?.error;
+  const readingErrorProps = fieldErrorProps(errorId, Boolean(displayedError));
 
   useEffect(() => {
     if (state?.success) {
@@ -111,6 +91,19 @@ export function VitalsForm({
   }, [state?.success, queryClient, patientId]);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    // Checked ahead of the crosscheck-bypass branch below too — a confirmed
+    // resubmission from the crosscheck dialog is just as doomed offline as a
+    // first attempt. Clears a previously-shown offline message on any
+    // attempt made while back online, success or not — cleared here rather
+    // than in an effect keyed on `isOnline`, so it disappears exactly when
+    // the patient acts on it (presses Save again) instead of silently
+    // vanishing out from under them the instant connectivity returns.
+    if (!isOnline) {
+      event.preventDefault();
+      setOfflineBlocked(true);
+      return;
+    }
+    if (offlineBlocked) setOfflineBlocked(false);
     if (confirmedRef.current) {
       confirmedRef.current = false; // consume the one-shot bypass, let the action run
       return;
@@ -197,7 +190,7 @@ export function VitalsForm({
                     className="flex-1"
                     {...fieldErrorProps(
                       errorId,
-                      Boolean(state?.error),
+                      Boolean(displayedError),
                       "glucose-unit-hint"
                     )}
                   />
@@ -354,7 +347,7 @@ export function VitalsForm({
                 type="number"
                 step="0.5"
                 required
-                {...fieldErrorProps(errorId, Boolean(state?.error), "waist-measure-hint")}
+                {...fieldErrorProps(errorId, Boolean(displayedError), "waist-measure-hint")}
               />
               <p
                 id="waist-measure-hint"
@@ -408,7 +401,7 @@ export function VitalsForm({
             </div>
           )}
 
-          <FormError id={errorId} message={state?.error} />
+          <FormError id={errorId} message={displayedError} />
           <FormSuccess message={state?.success && "Reading logged."} />
 
           {!crosscheck && (

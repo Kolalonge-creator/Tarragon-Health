@@ -12,7 +12,7 @@ import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
 import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
 import { assessHealthScoreBestEffort } from "@/lib/health-score/assess-health-score";
 import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate-vaccination-schedule";
-import { vitalsReadingSchema } from "@/lib/validation/vitals";
+import { vitalsReadingSchema, type VitalsReadingInput } from "@/lib/validation/vitals";
 import { recordWeeklyPlanProgress } from "@/lib/lifestyle/weekly-plan-progress";
 import { symptomLogSchema } from "@/lib/validation/symptoms";
 import { medicationAccessBarrierSchema } from "@/lib/validation/medication-access-barriers";
@@ -86,6 +86,12 @@ export async function logVital(
   // preserving the typed reading through an error would need the form's
   // inputs to be converted to controlled state, which is a separate,
   // form-wide change this pass didn't make.
+  //
+  // In practice this only ever fires for auth.getUser()/the profile
+  // lookup/the insert call itself: logVitalInner has its own inner
+  // try/catch around everything that runs AFTER a successful insert, so a
+  // failure there can never reach here and be misreported as "the reading
+  // wasn't saved" — see that inner try/catch's own comment.
   try {
     return await logVitalInner(parsed.data);
   } catch (err) {
@@ -96,9 +102,7 @@ export async function logVital(
   }
 }
 
-async function logVitalInner(
-  data: Extract<ReturnType<typeof vitalsReadingSchema.safeParse>, { success: true }>["data"]
-): Promise<LogVitalActionState> {
+async function logVitalInner(data: VitalsReadingInput): Promise<LogVitalActionState> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -167,56 +171,74 @@ async function logVitalInner(
     return { error: error.message };
   }
 
-  if (row.vital_type === "blood_pressure") {
-    await assessBpControlBestEffort(supabase, subjectId, profile.organisation_id);
-  }
-  if (row.vital_type === "pulse") {
-    await assessHeartRateBestEffort(supabase, subjectId, profile.organisation_id);
-  }
-  // Glucose OR ketones both re-run the glucose red-flag engine — a ketone log
-  // pairs with the latest glucose to catch suspected DKA (§15.3).
-  if (row.vital_type === "glucose" || row.vital_type === "ketones") {
-    await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
-  }
-
-  // Bridges into the Weekly Plan card's own completion tracking — a no-op
-  // for a patient with no active goal for this metric. Only when subjectId
-  // is the caller's own id: lpe_measurements RLS lets a patient insert only
-  // their own rows, with no supporter-acting-for-dependent path (unlike
-  // vitals_readings above), so a supporter logging for someone they
-  // support must not attempt this write. Deliberately does not re-run
-  // red-flag evaluation — that's already handled by the assess*BestEffort
-  // calls above, specific to this reading; see the helper's own comment.
-  if (subjectId === user.id) {
-    if (row.vital_type === "weight") {
-      await recordWeeklyPlanProgress(supabase, {
-        patientId: subjectId,
-        organisationId: profile.organisation_id,
-        metric: "weight",
-        valueNum: row.weight_kg,
-        unit: "kg",
-      });
-    } else if (row.vital_type === "blood_pressure") {
-      await recordWeeklyPlanProgress(supabase, {
-        patientId: subjectId,
-        organisationId: profile.organisation_id,
-        metric: "bp",
-        valueJson: { systolic: row.systolic, diastolic: row.diastolic },
-        unit: "mmHg",
-      });
-    } else if (row.vital_type === "glucose") {
-      await recordWeeklyPlanProgress(supabase, {
-        patientId: subjectId,
-        organisationId: profile.organisation_id,
-        metric: "glucose",
-        valueNum: row.glucose_mmol_l,
-        unit: "mmol/L",
-      });
+  // From here on the reading is durably saved. The assess*BestEffort helpers
+  // below are documented "never throws," but that contract isn't literally
+  // enforced by a try/catch inside every one of them — assessBpControlBestEffort,
+  // assessHeartRateBestEffort, and assessGlucoseBestEffort each await a
+  // Supabase call directly with no internal try/catch, so a genuine network
+  // drop right after the insert above can still throw here. Without this
+  // try/catch, that throw would be caught by logVital's own outer catch and
+  // reported as "Couldn't save that reading" — false, since the insert
+  // already succeeded, and risking a duplicate insert if the patient
+  // believes them and retries. Caught separately here instead, so a failure
+  // in this best-effort tail is reported to Sentry but never turns an
+  // already-successful save into a reported failure.
+  try {
+    if (row.vital_type === "blood_pressure") {
+      await assessBpControlBestEffort(supabase, subjectId, profile.organisation_id);
     }
+    if (row.vital_type === "pulse") {
+      await assessHeartRateBestEffort(supabase, subjectId, profile.organisation_id);
+    }
+    // Glucose OR ketones both re-run the glucose red-flag engine — a ketone log
+    // pairs with the latest glucose to catch suspected DKA (§15.3).
+    if (row.vital_type === "glucose" || row.vital_type === "ketones") {
+      await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
+    }
+
+    // Bridges into the Weekly Plan card's own completion tracking — a no-op
+    // for a patient with no active goal for this metric. Only when subjectId
+    // is the caller's own id: lpe_measurements RLS lets a patient insert only
+    // their own rows, with no supporter-acting-for-dependent path (unlike
+    // vitals_readings above), so a supporter logging for someone they
+    // support must not attempt this write. Deliberately does not re-run
+    // red-flag evaluation — that's already handled by the assess*BestEffort
+    // calls above, specific to this reading; see the helper's own comment.
+    if (subjectId === user.id) {
+      if (row.vital_type === "weight") {
+        await recordWeeklyPlanProgress(supabase, {
+          patientId: subjectId,
+          organisationId: profile.organisation_id,
+          metric: "weight",
+          valueNum: row.weight_kg,
+          unit: "kg",
+        });
+      } else if (row.vital_type === "blood_pressure") {
+        await recordWeeklyPlanProgress(supabase, {
+          patientId: subjectId,
+          organisationId: profile.organisation_id,
+          metric: "bp",
+          valueJson: { systolic: row.systolic, diastolic: row.diastolic },
+          unit: "mmHg",
+        });
+      } else if (row.vital_type === "glucose") {
+        await recordWeeklyPlanProgress(supabase, {
+          patientId: subjectId,
+          organisationId: profile.organisation_id,
+          metric: "glucose",
+          valueNum: row.glucose_mmol_l,
+          unit: "mmol/L",
+        });
+      }
+    }
+    // subjectId, not user.id: a supporter logging for someone they act for
+    // must reassess THAT person's health score, not their own.
+    await assessHealthScoreBestEffort(supabase, subjectId, profile.organisation_id);
+  } catch (err) {
+    Sentry.captureException(err, {
+      extra: { action: "logVital", stage: "post_insert_best_effort" },
+    });
   }
-  // subjectId, not user.id: a supporter logging for someone they act for
-  // must reassess THAT person's health score, not their own.
-  await assessHealthScoreBestEffort(supabase, subjectId, profile.organisation_id);
 
   return { success: true };
 }
