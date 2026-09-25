@@ -68,7 +68,7 @@ export async function GET(
   let referrerCredential: string | null = null;
   if (referral.set_by) {
     const { data: staff } = await supabase
-      .from("clinical_staff")
+      .from("clinical_staff_directory")
       .select("full_name, credential_type, credential_number")
       .eq("profile_id", referral.set_by)
       .eq("active", true)

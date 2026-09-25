@@ -655,3 +655,43 @@ supervised_weight_management_removed.sql
 # pre-fix function definition, reproduced in this migration's PR) confirming
 # the "earlier draft retired" check genuinely fails without the fix.
 ai_system_version_approval_retires_superseded_drafts.sql
+
+# --- Added 2026-09-25 (second pass) ------------------------------------------
+# clinical_staff_select's org-wide clause ("organisation_id = current_org_id()")
+# admitted any patient in an org to a raw SELECT on every clinical_staff row --
+# not just the safe name/photo/bio/credential columns the app's own queries
+# select, since RLS is row-level, not column-level. Every sensitive column
+# added to the table since the 20260712191500 original (indemnity_insurer,
+# indemnity_policy_number, indemnity_expires_at, indemnity_exempt_by,
+# staff_number, verified_by, credential_verified_by) rode along on that same
+# clause. Confirmed live with a simulated patient session before the fix (see
+# 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql):
+# a patient could read another doctor's indemnity_policy_number and
+# staff_number directly via the Supabase client SDK / PostgREST. Fixed by
+# narrowing the base table's patient-facing read path to org staff /
+# support-view-as only, and adding public.clinical_staff_directory -- a
+# deliberately owner-run (not security_invoker, same exception as
+# public.therapy_directory) safe-column view every patient-facing call site
+# was moved to. Proves: a patient gets zero rows from the base table; the
+# same patient still sees trust-display columns via the directory view; the
+# directory view structurally carries no sensitive column; org staff access
+# to the full base table is unaffected; and a sabotage step that reinstates
+# the old broad policy inside the same rolled-back transaction reproduces the
+# leak, confirming this test would have caught the original bug. Extended the
+# same day (still pre-merge, found by /code-review high) with a 6th section
+# proving a service-role caller (no auth.uid() at all -- cron jobs, internal
+# notification routes) still sees the view's rows, per
+# 20260925021440_fix_clinical_staff_directory_service_role_and_replay_guard.sql
+# -- the original view's predicate resolved entirely through auth.uid()-
+# dependent helpers, so a service-role caller silently got zero rows, not an
+# error, breaking the quarterly-report cron's and the lab-order-request-pdf
+# notification's doctor-attribution lines. Same-day review also found four
+# patient-facing PostgREST embedded joins (clinical_staff!<fkey>(...) in
+# patient_timeline/care_messages/second_opinion_requests/async_consults/
+# verified_documents reads) that resolved against clinical_staff's own RLS,
+# not this view -- fixed in application code (explicit follow-up query against
+# clinical_staff_directory, merged client-side) rather than here, since
+# PostgREST's "embedding through views" support couldn't be verified live in
+# this environment; see the Jest regression tests next to patient-timeline.ts
+# and care-messages.ts for that half of the fix.
+clinical_staff_directory_column_scoping.sql

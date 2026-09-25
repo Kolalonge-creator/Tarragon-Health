@@ -10,6 +10,11 @@ export type TimelineEventType = Enums<"timeline_event_type">;
  * pagination strategy for the full-history screen. `actor` carries doctor_tier
  * so the UI can gate "Dr. X" attribution through isClinicalTier (from
  * @tarragon/shared) rather than showing it for a Care Coordinator's row too.
+ *
+ * No credential_type/credential_number here -- per docs/CLINICAL_TRUST_MODEL_SPEC.md's
+ * 2026-09-25/2026-09-26 correction, patients never see a doctor's MDCN/NMCN
+ * registration number (or an inline specialty/years-of-experience either),
+ * only "Dr. First Last".
  */
 export type TimelineEvent = Tables<"patient_timeline"> & {
   actor: {

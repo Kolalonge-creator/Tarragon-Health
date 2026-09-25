@@ -157,14 +157,14 @@ export async function getHealthPassportData(
   const directorId = careTeamRes.data?.clinical_director_id;
   if (directorId) {
     const { data } = await supabase
-      .from("clinical_staff")
+      .from("clinical_staff_directory")
       .select("full_name, credential_type, credential_number")
       .eq("profile_id", directorId)
       .eq("active", true)
       .maybeSingle();
     if (data) {
       protocolAuthor = {
-        fullName: data.full_name,
+        fullName: data.full_name ?? "",
         credentialType: data.credential_type,
         credentialNumber: data.credential_number,
       };
@@ -172,7 +172,7 @@ export async function getHealthPassportData(
   }
   if (!protocolAuthor) {
     const { data } = await supabase
-      .from("clinical_staff")
+      .from("clinical_staff_directory")
       .select("full_name, credential_type, credential_number")
       .eq("organisation_id", organisationId)
       .eq("doctor_tier", "chief_medical_officer")
@@ -181,7 +181,7 @@ export async function getHealthPassportData(
       .maybeSingle();
     if (data) {
       protocolAuthor = {
-        fullName: data.full_name,
+        fullName: data.full_name ?? "",
         credentialType: data.credential_type,
         credentialNumber: data.credential_number,
       };

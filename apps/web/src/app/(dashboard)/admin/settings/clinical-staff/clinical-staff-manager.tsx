@@ -35,6 +35,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
+import { formatYearsOfExperience } from "@/lib/clinical/format-years-of-experience";
 import { SearchableList } from "@/components/ui/searchable-list";
 import { SPECIALIST_TYPE_LABEL } from "@tarragon/shared";
 
@@ -59,6 +60,18 @@ function needsIndemnity(staff: Pick<ClinicalStaff, "doctor_tier" | "employment_t
     staff.doctor_tier === "chief_medical_officer" ||
     (staff.doctor_tier === "senior_medical_officer" && staff.employment_type === "contracted")
   );
+}
+
+/** Parses the raw "Years of experience" input, clamping to the DB's own
+ * `clinical_staff_years_of_experience_range` CHECK (0-80) and rejecting
+ * non-integer input client-side — a number input's min/max attributes don't
+ * stop a typed 999 or 5.5 from being submitted, which would otherwise
+ * surface as a raw Postgres CHECK-constraint error via create.isError. */
+function parseYearsOfExperience(raw: string): number | null {
+  if (!raw.trim()) return null;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed)) return null;
+  return Math.min(80, Math.max(0, parsed));
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -254,11 +267,14 @@ function IndemnityForm({
   );
 }
 
-/** Edits speciality/bio/photo on an existing record — the fields the manager had no way to change after "Add clinical staff". */
+/** Edits speciality/bio/years-of-experience/photo on an existing record — the fields the manager had no way to change after "Add clinical staff". Years of experience (alongside speciality) is the patient-facing credibility line — see reviewed-by-doctor.tsx — replacing the MDCN/NMCN credential number, which stays below for internal licence verification only. */
 function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone: () => void }) {
   const update = useUpdateClinicalStaff();
   const [specialty, setSpecialty] = useState(staff.specialty ?? "");
   const [bio, setBio] = useState(staff.bio ?? "");
+  const [yearsOfExperience, setYearsOfExperience] = useState(
+    staff.years_of_experience != null ? String(staff.years_of_experience) : ""
+  );
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
 
@@ -305,13 +321,22 @@ function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone
           value={specialty}
           onChange={(e) => setSpecialty(e.target.value)}
         />
-        <Textarea
-          placeholder="Bio"
-          rows={2}
-          value={bio}
-          onChange={(e) => setBio(e.target.value)}
+        <Input
+          type="number"
+          min={0}
+          max={80}
+          placeholder="Years of experience"
+          value={yearsOfExperience}
+          onChange={(e) => setYearsOfExperience(e.target.value)}
         />
       </div>
+      <Textarea
+        className="mt-2"
+        placeholder="Bio"
+        rows={2}
+        value={bio}
+        onChange={(e) => setBio(e.target.value)}
+      />
       {update.isError && <p className="mt-2 text-sm text-red-600">{(update.error as Error).message}</p>}
       <div className="mt-2 flex items-center gap-2">
         <Button
@@ -325,6 +350,7 @@ function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone
                 organisationId: staff.organisation_id,
                 specialty,
                 bio,
+                yearsOfExperience: parseYearsOfExperience(yearsOfExperience),
                 photoFile: photoFile ?? undefined,
                 removePhoto,
               },
@@ -468,6 +494,7 @@ export function ClinicalStaffManager() {
   const [credentialType, setCredentialType] = useState("");
   const [credentialNumber, setCredentialNumber] = useState("");
   const [specialty, setSpecialty] = useState("");
+  const [yearsOfExperience, setYearsOfExperience] = useState("");
   const [bio, setBio] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -580,10 +607,31 @@ export function ClinicalStaffManager() {
               />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="specialty">Speciality (optional)</Label>
-            <Input id="specialty" value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="specialty">Speciality (optional)</Label>
+              <Input id="specialty" value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="years-of-experience">Years of experience (optional)</Label>
+              <Input
+                id="years-of-experience"
+                type="number"
+                min={0}
+                max={80}
+                value={yearsOfExperience}
+                onChange={(e) => setYearsOfExperience(e.target.value)}
+              />
+            </div>
           </div>
+          <p className="text-xs text-charcoal-ink/60">
+            Speciality and years of experience appear only on this doctor&apos;s profile page
+            (/patient/doctor/…) — every other patient-facing mention (messages, timeline,
+            escalations) shows just their name, linked to that page. Not the credential number
+            above, which Nigerian patients don&apos;t recognise as a trust signal (founder decision
+            2026-09-25/2026-09-26). The credential fields remain required for internal licence
+            verification only.
+          </p>
           <div className="space-y-1.5">
             <Label htmlFor="bio">Bio (optional)</Label>
             <Textarea id="bio" rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
@@ -626,6 +674,7 @@ export function ClinicalStaffManager() {
                   credentialType: credentialType.trim(),
                   credentialNumber: credentialNumber.trim(),
                   specialty: specialty.trim(),
+                  yearsOfExperience: parseYearsOfExperience(yearsOfExperience),
                   bio: bio.trim(),
                   profilePhone: profilePhone.trim(),
                   photoFile: photoFile ?? undefined,
@@ -636,6 +685,7 @@ export function ClinicalStaffManager() {
                     setCredentialType("");
                     setCredentialNumber("");
                     setSpecialty("");
+                    setYearsOfExperience("");
                     setBio("");
                     setProfilePhone("");
                     setPhotoFile(null);
@@ -694,6 +744,14 @@ export function ClinicalStaffManager() {
                           {s.full_name}
                           <span className="text-charcoal-ink/60">, {tierLabel}</span>
                         </p>
+                        {(s.specialty || s.years_of_experience != null) && (
+                          <p className="text-xs text-charcoal-ink/60">
+                            {[s.specialty, formatYearsOfExperience(s.years_of_experience)]
+                              .filter(Boolean)
+                              .join(" · ")}
+                            <span className="text-charcoal-ink/40"> (shown on this doctor&apos;s profile page)</span>
+                          </p>
+                        )}
                         <p className="text-xs text-charcoal-ink/60">
                           {s.staff_number && (
                             <span className="font-medium text-charcoal-ink/70">{s.staff_number} · </span>
