@@ -641,6 +641,22 @@ account_lockouts_anon_execute_and_search_path.sql
 supervised_weight_management_removed.sql
 
 # --- Added 2026-09-25 --------------------------------------------------------
+# public.approve_ai_system_version never retired a superseded draft of the
+# same ai_system, so AI-001's CMO sign-off queue accumulated four dead,
+# never-approved versions (v1, 2026-09-14.1, 2026-09-14.2, 2026-09-16.2) that
+# each real fix superseded without ever being cleaned up -- they sat forever
+# reading as "awaiting approval" even though the system was long since
+# validated and live on a later version. Fixed in
+# 20260925014357_ai_system_version_approval_retires_superseded_drafts.sql:
+# approving a version now retires every earlier, still-open sibling of the
+# same system. Mints its own fresh org/admin/probe system rather than
+# borrowing AI-001's real history, with a control proving a version created
+# AFTER the one just approved is left untouched, and a sabotage step (the
+# pre-fix function definition, reproduced in this migration's PR) confirming
+# the "earlier draft retired" check genuinely fails without the fix.
+ai_system_version_approval_retires_superseded_drafts.sql
+
+# --- Added 2026-09-25 (second pass) ------------------------------------------
 # clinical_staff_select's org-wide clause ("organisation_id = current_org_id()")
 # admitted any patient in an org to a raw SELECT on every clinical_staff row --
 # not just the safe name/photo/bio/credential columns the app's own queries
