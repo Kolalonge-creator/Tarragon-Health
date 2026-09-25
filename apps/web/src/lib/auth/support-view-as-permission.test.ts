@@ -15,10 +15,11 @@
  */
 
 let currentUser: { id: string } | null = { id: "caller-1" };
-let profileRow: { id: string; role: string; custom_role_id: string | null } | null = {
+let profileRow: { id: string; role: string; custom_role_id: string | null; is_active: boolean } | null = {
   id: "caller-1",
   role: "clinician",
   custom_role_id: null,
+  is_active: true,
 };
 let grantRows: { permission_key: string }[] = [];
 let rolePermissionRows: { permission_key: string }[] = [];
@@ -65,13 +66,13 @@ import { canStartSupportViewAs, hasPermission } from "./permissions";
 describe("support.view_as permission gate", () => {
   beforeEach(() => {
     currentUser = { id: "caller-1" };
-    profileRow = { id: "caller-1", role: "clinician", custom_role_id: null };
+    profileRow = { id: "caller-1", role: "clinician", custom_role_id: null, is_active: true };
     grantRows = [];
     rolePermissionRows = [];
   });
 
   it("admits admin implicitly, without needing a grant row", async () => {
-    profileRow = { id: "caller-1", role: "admin", custom_role_id: null };
+    profileRow = { id: "caller-1", role: "admin", custom_role_id: null, is_active: true };
     await expect(canStartSupportViewAs()).resolves.toBe(true);
   });
 
@@ -90,13 +91,22 @@ describe("support.view_as permission gate", () => {
   });
 
   it("admits a non-admin whose custom role bundle carries support.view_as", async () => {
-    profileRow = { id: "caller-1", role: "clinician", custom_role_id: "role-1" };
+    profileRow = { id: "caller-1", role: "clinician", custom_role_id: "role-1", is_active: true };
     rolePermissionRows = [{ permission_key: "support.view_as" }];
     await expect(canStartSupportViewAs()).resolves.toBe(true);
   });
 
   it("refuses a signed-out caller", async () => {
     currentUser = null;
+    await expect(canStartSupportViewAs()).resolves.toBe(false);
+  });
+
+  it("refuses a deactivated admin, even though they'd otherwise be admitted implicitly", async () => {
+    // getCurrentProfile() treats profiles.is_active = false as signed-out
+    // (see 20260925093444_enforce_profiles_is_active_in_core_authz.sql) — a
+    // suspended login must lose this page-level gate too, not just the
+    // RLS-level ones.
+    profileRow = { id: "caller-1", role: "admin", custom_role_id: null, is_active: false };
     await expect(canStartSupportViewAs()).resolves.toBe(false);
   });
 

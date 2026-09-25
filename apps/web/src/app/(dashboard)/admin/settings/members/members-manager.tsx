@@ -331,6 +331,13 @@ function MemberItem({
   // every day — confirm it, same as the other destructive dialog on this page.
   const [pendingSuspend, setPendingSuspend] = useState(false);
 
+  function runSetActive(active: boolean) {
+    const fd = new FormData();
+    fd.set("memberId", member.id);
+    fd.set("active", active ? "true" : "false");
+    run((f) => setMemberActiveAction(undefined, f), fd);
+  }
+
   return (
     <details className="rounded-md border border-charcoal-ink/10 px-4 py-3">
       <summary className="flex cursor-pointer flex-wrap items-center gap-2 text-sm">
@@ -419,16 +426,7 @@ function MemberItem({
               size="sm"
               variant="outline"
               disabled={pending}
-              onClick={() => {
-                if (member.is_active) {
-                  setPendingSuspend(true);
-                } else {
-                  const fd = new FormData();
-                  fd.set("memberId", member.id);
-                  fd.set("active", "true");
-                  run((f) => setMemberActiveAction(undefined, f), fd);
-                }
-              }}
+              onClick={() => (member.is_active ? setPendingSuspend(true) : runSetActive(true))}
             >
               {member.is_active ? "Suspend login" : "Reinstate login"}
             </Button>
@@ -531,10 +529,7 @@ function MemberItem({
         destructive
         onConfirm={() => {
           setPendingSuspend(false);
-          const fd = new FormData();
-          fd.set("memberId", member.id);
-          fd.set("active", "false");
-          run((f) => setMemberActiveAction(undefined, f), fd);
+          runSetActive(false);
         }}
         onCancel={() => setPendingSuspend(false)}
       >

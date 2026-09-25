@@ -221,11 +221,16 @@ export async function setMemberPhoneAction(
  * (20260925093444_enforce_profiles_is_active_in_core_authz.sql), so setting it
  * false here genuinely revokes RLS-level access, not just a UI badge.
  *
- * Two hard-stop guards: an admin can't suspend their own account (an easy way
- * to lock yourself out with no one left to undo it), and the platform's last
- * remaining active super admin can't be suspended (that really would be an
- * unrecoverable lockout — nobody would be left holding is_admin()/users.suspend
- * to reinstate them).
+ * The actual guard+write is public.set_member_active (RPC), not a plain
+ * `.update()` here — a code review caught that profiles_update's RLS policy
+ * has no is_admin() branch and requires a non-null organisation_id, so a
+ * plain RLS-scoped update silently no-op'd (reported success, changed
+ * nothing) against any admin/lab_partner/payer_admin/provider_org_staff/
+ * ngo_admin target, all of which are null-org by design. The RPC also closes
+ * a TOCTOU race in the "don't suspend the last active Super Admin" guard
+ * (an advisory lock serializes concurrent callers) and self-authorizes
+ * internally, since it's reachable directly via supabase.rpc(), not only
+ * through this action. See 20260925100329_set_member_active_atomic_rpc.sql.
  */
 export async function setMemberActiveAction(
   _prev: MemberActionState,
@@ -242,29 +247,8 @@ export async function setMemberActiveAction(
   }
   const { memberId, active } = parsed.data;
 
-  if (!active && memberId === actor.id) {
-    return { error: "You can't suspend your own account." };
-  }
-
   const supabase = await createClient();
-
-  if (!active) {
-    const svc = createServiceRoleClient();
-    const { data: target } = await svc.from("profiles").select("role").eq("id", memberId).single();
-    if (target?.role === "admin") {
-      const { count } = await svc
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("role", "admin")
-        .eq("is_active", true)
-        .neq("id", memberId);
-      if (!count) {
-        return { error: "Can't suspend the last remaining active Super Admin." };
-      }
-    }
-  }
-
-  const { error } = await supabase.from("profiles").update({ is_active: active }).eq("id", memberId);
+  const { error } = await supabase.rpc("set_member_active", { p_member_id: memberId, p_active: active });
   if (error) return { error: error.message };
 
   await recordAudit(actor.id, actor.organisation_id, active ? "member.reinstated" : "member.suspended", "profiles", memberId, {});

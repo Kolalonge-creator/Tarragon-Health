@@ -42,6 +42,7 @@ export default async function MembersPage() {
     isSuperAdmin ||
     keys.has("users.provision") ||
     keys.has("users.roles.assign") ||
+    keys.has("users.suspend") ||
     keys.has("users.permissions.grant") ||
     keys.has("roles.manage");
   if (!canManageUsers) redirect("/admin");
