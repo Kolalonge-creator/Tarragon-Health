@@ -445,8 +445,7 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
           <View style={{ backgroundColor: "#FDECEC", borderRadius: radius.card, padding: 10 }}>
             <Text style={{ fontSize: 13, color: colors.status.critical }}>
               You told us you have had thoughts of harming yourself. You are not alone. A member of your care
-              team will reach out. If you are in immediate danger, please contact emergency services or go to
-              the nearest hospital now.
+              team will reach out. If you are in immediate danger, please go to the nearest hospital now.
             </Text>
           </View>
         )}
