@@ -72,7 +72,15 @@ test.describe("authenticated patient journey", () => {
     // A fresh patient with no onboarding_completed_at lands on /onboarding.
     await page.waitForURL(/\/onboarding/, { timeout: 15_000 });
 
-    // --- Onboarding: consent -> demographics -> skip intake -> finish ---
+    // --- Onboarding: intent -> consent -> demographics -> skip intake -> finish ---
+    // Resequenced 2026-09-23 (onboarding-flow.tsx) to lead with "What brings
+    // you here" before consent — a brand-new patient (intent starts null,
+    // unlike a returning one whose consent/demographics are already on file)
+    // must answer it before the consent step ever renders. The exact option
+    // chosen doesn't matter here: it only changes IntakeStep's intro copy
+    // below, never which fields are required or which steps gate finishing.
+    await page.getByRole("button", { name: /not sure yet/i }).click();
+
     await page.getByRole("checkbox", { name: /accept|agree/i }).check();
     await page.getByRole("button", { name: /i agree, continue/i }).click();
 
