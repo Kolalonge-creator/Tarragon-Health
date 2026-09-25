@@ -184,8 +184,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
 
         <div className="flex flex-col gap-2">
           <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-            General guidance, not a diagnosis. For an emergency, call emergency services or go to
-            the nearest hospital.
+            General guidance, not a diagnosis. For an emergency, go to the nearest hospital.
           </p>
           {/* 40.12. Shown once there is something to report, and carrying the
               interaction id of the most recent turn when we have it, so the

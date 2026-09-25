@@ -31,7 +31,7 @@ export const COACH_SUGGESTION_SECTION: Record<Exclude<CoachSuggestedAction, "non
  * a literal here rather than a cross-package import, since apps/mobile
  * can't import from apps/web. */
 export const COACH_DISCLAIMER =
-  "General guidance, not a diagnosis. For an emergency, call emergency services or go to the nearest hospital.";
+  "General guidance, not a diagnosis. For an emergency, go to the nearest hospital.";
 
 export interface AiConversation {
   conversationId: string | undefined;

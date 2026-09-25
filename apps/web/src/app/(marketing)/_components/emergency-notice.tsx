@@ -17,8 +17,7 @@ export function EmergencyNotice({ className }: { className?: string }) {
       <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/75">
         TarragonHealth is for ongoing and preventive care; it does not provide emergency
         treatment. If you or someone you care for has severe symptoms such as chest pain, trouble
-        breathing, or signs of a stroke, go to the nearest hospital or call your local emergency
-        number right away.
+        breathing, or signs of a stroke, go to the nearest hospital right away.
       </p>
     </div>
   );
