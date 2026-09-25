@@ -38,7 +38,7 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
   }
 
   const { data: clinician } = await supabase
-    .from("clinical_staff")
+    .from("clinical_staff_directory")
     .select("profile_id")
     .eq("profile_id", assignment.clinician_id)
     .eq("active", true)
@@ -50,7 +50,7 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
 
   const { data: director } = assignment.clinical_director_id
     ? await supabase
-        .from("clinical_staff")
+        .from("clinical_staff_directory")
         .select("full_name")
         .eq("profile_id", assignment.clinical_director_id)
         .eq("active", true)

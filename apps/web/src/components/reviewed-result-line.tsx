@@ -33,7 +33,7 @@ export async function ReviewedResultLine({
 
   const supabase = await createClient();
   const { data: doctor } = await supabase
-    .from("clinical_staff")
+    .from("clinical_staff_directory")
     .select("full_name, credential_type, credential_number")
     .eq(reviewedByKey === "staff" ? "id" : "profile_id", reviewedBy)
     .eq("active", true)

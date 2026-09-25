@@ -54,7 +54,7 @@ export async function GET(
   let doctorCredentialNumber: string | null = null;
   if (doc.reviewed_by) {
     const { data: staff } = await supabase
-      .from("clinical_staff")
+      .from("clinical_staff_directory")
       .select("full_name, credential_type, credential_number")
       .eq("profile_id", doc.reviewed_by)
       .eq("active", true)

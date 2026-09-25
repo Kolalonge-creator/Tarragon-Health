@@ -30,7 +30,7 @@ export async function ReviewedByDoctor({ escalationId }: { escalationId: string 
   }
 
   const { data: doctor } = await supabase
-    .from("clinical_staff")
+    .from("clinical_staff_directory")
     .select("full_name, credential_type, credential_number, photo_url, specialty")
     .eq("profile_id", escalation.reviewed_by)
     .eq("active", true)
@@ -51,7 +51,7 @@ export async function ReviewedByDoctor({ escalationId }: { escalationId: string 
 
   return (
     <div className="flex items-start gap-3">
-      <ClinicalStaffAvatar fullName={doctor.full_name} photoUrl={doctor.photo_url} />
+      <ClinicalStaffAvatar fullName={doctor.full_name ?? ""} photoUrl={doctor.photo_url} />
       <p className="text-sm text-charcoal-ink dark:text-night-ink">
         Reviewed by <span className="font-medium">Dr. {doctor.full_name}</span>
         {doctor.specialty && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {doctor.specialty}</span>}
