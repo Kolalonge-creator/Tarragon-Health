@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Enums } from "@tarragon/shared";
+import { DOCTOR_ATTRIBUTION_FIELDS_WITH_TIER, type DoctorAttributionWithTier } from "@/lib/queries/clinical-staff";
 
 /**
  * Doctor-to-doctor "curbside consult" — an informal, in-app question between
@@ -11,13 +11,6 @@ import type { Enums } from "@tarragon/shared";
  * warning) — declaring the shape here avoids importing ~128 branches' worth
  * of unrelated schema drift for one new table.
  */
-export type DoctorTier = Enums<"doctor_tier">;
-
-export interface CurbsideConsultColleague {
-  id: string;
-  full_name: string;
-  doctor_tier: DoctorTier | null;
-}
 
 /** Re-export so callers only need to import from this module — the
  * underlying query is @/lib/queries/clinical-staff's useAssignableDoctors,
@@ -39,8 +32,8 @@ export interface CurbsideConsultThread {
   closed_at: string | null;
   closed_by: string | null;
   created_at: string;
-  initiator: CurbsideConsultColleague | null;
-  recipient: CurbsideConsultColleague | null;
+  initiator: DoctorAttributionWithTier | null;
+  recipient: DoctorAttributionWithTier | null;
   // Schema/RPC-ready (migration header: "regarding this patient" context
   // only, no new PHI-access grant) but deliberately not surfaced in the v1
   // UI — no compose-form field sets patientId and no view renders it yet.
@@ -54,19 +47,19 @@ export interface CurbsideConsultMessage {
   sender_clinical_staff_id: string | null;
   body: string;
   created_at: string;
-  sender: CurbsideConsultColleague | null;
+  sender: DoctorAttributionWithTier | null;
 }
 
 const THREAD_SELECT =
   "id, initiator_clinical_staff_id, recipient_clinical_staff_id, subject, status, patient_id, " +
   "last_message_at, last_message_sender_id, closed_at, closed_by, created_at, " +
-  "initiator:clinical_staff!curbside_consult_threads_initiator_clinical_staff_id_fkey(id, full_name, doctor_tier), " +
-  "recipient:clinical_staff!curbside_consult_threads_recipient_clinical_staff_id_fkey(id, full_name, doctor_tier), " +
+  `initiator:clinical_staff!curbside_consult_threads_initiator_clinical_staff_id_fkey(${DOCTOR_ATTRIBUTION_FIELDS_WITH_TIER}), ` +
+  `recipient:clinical_staff!curbside_consult_threads_recipient_clinical_staff_id_fkey(${DOCTOR_ATTRIBUTION_FIELDS_WITH_TIER}), ` +
   "patient:profiles!curbside_consult_threads_patient_id_fkey(full_name, patient_number)";
 
 const MESSAGE_SELECT =
   "id, thread_id, sender_clinical_staff_id, body, created_at, " +
-  "sender:clinical_staff!curbside_consult_messages_sender_clinical_staff_id_fkey(id, full_name, doctor_tier)";
+  `sender:clinical_staff!curbside_consult_messages_sender_clinical_staff_id_fkey(${DOCTOR_ATTRIBUTION_FIELDS_WITH_TIER})`;
 
 /** Every curbside consult the signed-in clinician is a party to — RLS already
  * scopes this to threads where they're the initiator or the recipient, so no

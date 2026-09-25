@@ -1,14 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { DOCTOR_ATTRIBUTION_FIELDS, type DoctorAttribution } from "@/lib/queries/clinical-staff";
 import type { Tables } from "@tarragon/shared";
 
 export type AsyncConsult = Tables<"async_consults">;
 
 export type AsyncConsultWithAnswerer = AsyncConsult & {
-  answerer: {
-    id: string;
-    full_name: string;
-  } | null;
+  answerer: DoctorAttribution | null;
 };
 
 export type AsyncConsultWithPatient = AsyncConsult & {
@@ -29,7 +27,7 @@ export function useMyAsyncConsults(patientId: string) {
       const { data, error } = await supabase
         .from("async_consults")
         .select(
-          "*, answerer:clinical_staff!async_consults_answered_by_fkey(id, full_name)"
+          `*, answerer:clinical_staff!async_consults_answered_by_fkey(${DOCTOR_ATTRIBUTION_FIELDS})`
         )
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false })
