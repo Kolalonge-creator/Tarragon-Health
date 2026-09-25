@@ -53,7 +53,7 @@ export async function ReviewedByDoctor({ escalationId }: { escalationId: string 
     <div className="flex items-start gap-3">
       <ClinicalStaffAvatar fullName={doctor.full_name ?? ""} photoUrl={doctor.photo_url} />
       <p className="text-sm text-charcoal-ink dark:text-night-ink">
-        Reviewed by <span className="font-medium">Dr. {doctor.full_name}</span>
+        Reviewed by <span className="font-medium">Dr. {doctor.full_name ?? ""}</span>
         {doctor.specialty && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {doctor.specialty}</span>}
         {credential && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {credential}</span>}
         <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {reviewedDate}</span>

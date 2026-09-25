@@ -54,7 +54,7 @@ export async function ReviewedResultLine({
 
   return (
     <p className="text-sm text-charcoal-ink dark:text-night-ink">
-      Reviewed by <span className="font-medium">Dr. {doctor.full_name}</span>
+      Reviewed by <span className="font-medium">Dr. {doctor.full_name ?? ""}</span>
       {credential && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {credential}</span>}
       <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {reviewedDate}</span>
     </p>
