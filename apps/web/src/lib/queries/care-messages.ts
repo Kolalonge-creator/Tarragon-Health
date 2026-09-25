@@ -17,16 +17,15 @@ export type CareThreadWithPatient = CareThread & {
  * a real doctor: a Care Coordinator carries an active clinical_staff row too
  * (doctor_tier = 'care_coordinator'), so a "Dr X" line must not be rendered
  * from a non-null actor alone. doctor_tier lets the UI run isClinicalTier
- * (lib/clinical/doctor-tier.ts) first — see authorLabel in
+ * (lib/clinical/doctor-tier.ts) first — see AuthorLabel in
  * components/care-message-thread.tsx. A patient/sponsor author has no actor.
  */
 export type CareMessageAttachment = Tables<"care_message_attachments">;
 
 export type CareMessage = Tables<"care_messages"> & {
   actor: {
+    id: string;
     full_name: string | null;
-    credential_type: string | null;
-    credential_number: string | null;
     doctor_tier: Enums<"doctor_tier"> | null;
   } | null;
   attachments: CareMessageAttachment[];
@@ -59,15 +58,14 @@ async function fetchMessageActors(
   if (actorIds.length === 0) return actorById;
   const { data, error } = await supabase
     .from("clinical_staff_directory")
-    .select("id, full_name, credential_type, credential_number, doctor_tier")
+    .select("id, full_name, doctor_tier")
     .in("id", actorIds);
   if (error) throw error;
   for (const row of data ?? []) {
     if (!row.id) continue;
     actorById.set(row.id, {
+      id: row.id,
       full_name: row.full_name,
-      credential_type: row.credential_type,
-      credential_number: row.credential_number,
       doctor_tier: row.doctor_tier,
     });
   }

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ClinicalStaffAvatar } from "@/components/clinical-staff-avatar";
+import { DoctorNameLink } from "@/components/doctor-name-link";
 
 function formatReviewedDate(reviewedAt: string): string {
   return new Date(reviewedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
@@ -12,9 +13,12 @@ function formatReviewedDate(reviewedAt: string): string {
  * reviewing doctor's own resolve action). If reviewed_by is set but no
  * matching clinical_staff record exists, falls back to a generic
  * clinician-attributed line rather than guessing a name — the guardrail
- * that makes false attribution structurally impossible. Photo/speciality are
- * per-case attribution only (this case's reviewer), never a standing "your
- * doctor" profile — see CLAUDE.md's no-continuous-named-doctor correction.
+ * that makes false attribution structurally impossible. Photo is per-case
+ * attribution only (this case's reviewer), never a standing "your doctor"
+ * profile — see CLAUDE.md's no-continuous-named-doctor correction. The name
+ * links to the doctor's profile page, which is the only place speciality and
+ * years of experience are shown (founder decision 2026-09-25/2026-09-26 —
+ * see doctor-name-link.tsx and doctor/[staffId]/page.tsx).
  */
 export async function ReviewedByDoctor({ escalationId }: { escalationId: string }) {
   const supabase = await createClient();
@@ -31,7 +35,7 @@ export async function ReviewedByDoctor({ escalationId }: { escalationId: string 
 
   const { data: doctor } = await supabase
     .from("clinical_staff_directory")
-    .select("full_name, credential_type, credential_number, photo_url, specialty")
+    .select("id, full_name, photo_url")
     .eq("profile_id", escalation.reviewed_by)
     .eq("active", true)
     .maybeSingle();
@@ -44,18 +48,14 @@ export async function ReviewedByDoctor({ escalationId }: { escalationId: string 
     );
   }
 
-  const credential =
-    doctor.credential_type && doctor.credential_number
-      ? `${doctor.credential_type} ${doctor.credential_number}`
-      : null;
-
   return (
     <div className="flex items-start gap-3">
       <ClinicalStaffAvatar fullName={doctor.full_name ?? ""} photoUrl={doctor.photo_url} />
       <p className="text-sm text-charcoal-ink dark:text-night-ink">
-        Reviewed by <span className="font-medium">Dr. {doctor.full_name ?? ""}</span>
-        {doctor.specialty && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {doctor.specialty}</span>}
-        {credential && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {credential}</span>}
+        Reviewed by{" "}
+        <span className="font-medium">
+          <DoctorNameLink staffId={doctor.id} fullName={doctor.full_name ?? ""} />
+        </span>
         <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {reviewedDate}</span>
         {escalation.resolution_note && (
           <span className="block text-charcoal-ink/70 dark:text-night-ink/70">{escalation.resolution_note}</span>

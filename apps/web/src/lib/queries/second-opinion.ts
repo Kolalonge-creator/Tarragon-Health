@@ -6,9 +6,8 @@ export type SecondOpinionRequest = Tables<"second_opinion_requests">;
 
 export type SecondOpinionRequestWithAnswerer = SecondOpinionRequest & {
   answerer: {
+    id: string;
     full_name: string;
-    credential_type: string | null;
-    credential_number: string | null;
   } | null;
 };
 
@@ -42,15 +41,14 @@ async function fetchAnswerers(
   if (answererIds.length === 0) return answererById;
   const { data, error } = await supabase
     .from("clinical_staff_directory")
-    .select("id, full_name, credential_type, credential_number")
+    .select("id, full_name")
     .in("id", answererIds);
   if (error) throw error;
   for (const row of data ?? []) {
     if (!row.id) continue;
     answererById.set(row.id, {
+      id: row.id,
       full_name: row.full_name ?? "",
-      credential_type: row.credential_type,
-      credential_number: row.credential_number,
     });
   }
   return answererById;

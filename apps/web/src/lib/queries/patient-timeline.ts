@@ -16,9 +16,8 @@ export type TimelineEventType = Enums<"timeline_event_type">;
  */
 export type TimelineEvent = Tables<"patient_timeline"> & {
   actor: {
+    id: string;
     full_name: string | null;
-    credential_type: string | null;
-    credential_number: string | null;
     doctor_tier: Enums<"doctor_tier"> | null;
   } | null;
 };
@@ -46,15 +45,14 @@ async function fetchTimelineActors(
   if (actorIds.length === 0) return actorById;
   const { data, error } = await supabase
     .from("clinical_staff_directory")
-    .select("id, full_name, credential_type, credential_number, doctor_tier")
+    .select("id, full_name, doctor_tier")
     .in("id", actorIds);
   if (error) throw error;
   for (const row of data ?? []) {
     if (!row.id) continue;
     actorById.set(row.id, {
+      id: row.id,
       full_name: row.full_name,
-      credential_type: row.credential_type,
-      credential_number: row.credential_number,
       doctor_tier: row.doctor_tier,
     });
   }
