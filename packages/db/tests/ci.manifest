@@ -605,6 +605,15 @@ voucher_redemption_cross_voucher_double_count_and_revrec_rounding.sql
 # (recreating the dropped overload) reproduces the exact 42725 ambiguity.
 finance_create_recognition_schedule_overload_ambiguity.sql
 
+# finance_create_recognition_schedule_anon_execute.sql: Release Integrity CI
+# flagged the same function as anon-executable (the anon-inherits-EXECUTE-
+# via-PUBLIC gotcha, recurred again) — its originating migration never
+# revoked the default PUBLIC grant. Fixed in
+# 20260925093358_revoke_anon_execute_finance_create_recognition_schedule.sql.
+# Proves anon lacks EXECUTE (authenticated retains it), with a sabotage step
+# reproducing the exact regression to confirm the check discriminates.
+finance_create_recognition_schedule_anon_execute.sql
+
 lab_location_reviews_rls.sql
 
 # account_lockouts_anon_execute_and_search_path.sql: 20260924215642 backfilled
