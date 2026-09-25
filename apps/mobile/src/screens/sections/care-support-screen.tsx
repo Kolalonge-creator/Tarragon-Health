@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
+import { formatDoctorName } from "@/lib/doctor-name";
 import {
   loadMyAsyncConsults,
   submitAsyncConsult,
@@ -880,7 +881,7 @@ function AskADoctorSection({ patientId, organisationId }: { patientId: string; o
                     <Text style={{ fontSize: 13.5, color: colors.ink }}>{c.answer}</Text>
                     {c.answerer && c.answered_at && (
                       <MutedText>
-                        Answered by Dr. {c.answerer.full_name} on {when(c.answered_at)}
+                        Answered by {formatDoctorName(c.answerer.full_name)} on {when(c.answered_at)}
                       </MutedText>
                     )}
                   </>
