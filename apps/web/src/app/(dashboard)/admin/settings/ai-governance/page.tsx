@@ -24,6 +24,7 @@ import {
   type AiSystemVersionRow,
   type AiClinicalAccuracyCaseRow,
 } from "./ai-governance-console";
+import { AI_SYSTEM_VERSION_COLUMNS, AI_EVALUATION_CASE_COLUMNS } from "./ai-governance-columns";
 
 export const metadata = { title: "AI governance" };
 
@@ -87,9 +88,7 @@ export default async function AiGovernancePage() {
       .limit(25),
     supabase
       .from("ai_system_versions")
-      .select(
-        "id, ai_system_id, version, model_identifier, intended_population, excluded_population, validation_summary, validation_completed_at, approved_at, deployed_at, retired_at, review_due_on, change_summary, created_at, validated_by_staff:clinical_staff!ai_system_versions_validated_by_fkey(full_name), approved_by_staff:clinical_staff!ai_system_versions_approved_by_fkey(full_name)"
-      )
+      .select(AI_SYSTEM_VERSION_COLUMNS)
       .order("created_at", { ascending: false }),
     // Cases for the "clinical" and "bias" evaluation suites — the ground-truth
     // tier lives only where an active Chief Medical Officer actually wrote it
@@ -102,9 +101,7 @@ export default async function AiGovernancePage() {
     // needs a label nobody can give is a suite that can never pass.
     supabase
       .from("ai_evaluation_cases")
-      .select(
-        "id, suite_id, case_code, scenario, expected_tier, labeled_at, label_rationale, ai_evaluation_suites!inner(name, kind, ai_system_id), labeled_by_staff:clinical_staff!ai_evaluation_cases_labeled_by_fkey(full_name)"
-      )
+      .select(AI_EVALUATION_CASE_COLUMNS)
       .in("ai_evaluation_suites.kind", ["clinical", "bias"])
       .order("case_code"),
   ]);

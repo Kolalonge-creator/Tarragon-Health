@@ -355,6 +355,19 @@ function CollapsibleSidebarNav({
     g.items.some((i) => isActive(pathname, i.href, i.exact))
   )?.label;
 
+  // This component was patient-only until now, so every persisted entry
+  // under OPEN_GROUPS_STORAGE_KEY was implicitly a patient section label.
+  // Generalizing it to any role means group labels can genuinely collide
+  // across roles (navigation.ts reuses "Operations" for admin, finance and
+  // payer-org nav, and "Setup" for two more) — without a namespace, a shared
+  // browser (QA accounts, a support "view-as" session, one person holding a
+  // delegated admin role) would have one role's collapse of "Operations"
+  // silently force the same state on an unrelated "Operations" group under a
+  // different role. The pathname's own top segment is the same scoping unit
+  // proxy.ts already uses to tell roles' routes apart.
+  const navScope = pathname.split("/")[1] || "root";
+  const scopePrefix = `${navScope}::`;
+
   // Manual overrides on top of the "only the active group is open" default:
   // true = opened by hand, false = collapsed by hand (session-local; only
   // opens persist). Previously-persisted opens arrive through
@@ -366,21 +379,26 @@ function CollapsibleSidebarNav({
     getStoredOpenGroupsRaw,
     getServerOpenGroupsRaw
   );
-  const storedOpen = React.useMemo<Record<string, boolean>>(() => {
-    if (!storedRaw) return {};
+  // Every scope's keys, unfiltered — needed so writing this scope's toggles
+  // never clobbers another scope's already-persisted entries under the same
+  // shared storage key (see navScope's comment above).
+  const allStoredKeys = React.useMemo<string[]>(() => {
+    if (!storedRaw) return [];
     try {
       const parsed: unknown = JSON.parse(storedRaw);
-      if (!Array.isArray(parsed)) return {};
-      const stored: Record<string, boolean> = {};
-      for (const label of parsed) {
-        if (typeof label === "string") stored[label] = true;
-      }
-      return stored;
+      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
     } catch {
       // Corrupt value — defaults are fine.
-      return {};
+      return [];
     }
   }, [storedRaw]);
+  const storedOpen = React.useMemo<Record<string, boolean>>(() => {
+    const stored: Record<string, boolean> = {};
+    for (const key of allStoredKeys) {
+      if (key.startsWith(scopePrefix)) stored[key.slice(scopePrefix.length)] = true;
+    }
+    return stored;
+  }, [allStoredKeys, scopePrefix]);
 
   // This session's toggles win over what was persisted.
   const overrideFor = (label: string): boolean | undefined =>
@@ -403,10 +421,10 @@ function CollapsibleSidebarNav({
     const next = { ...manualOpen, [label]: !currentlyOpen };
     setManualOpen(next);
     try {
-      const persisted = new Set(Object.keys(storedOpen).filter((key) => storedOpen[key]));
+      const persisted = new Set(allStoredKeys.filter((key) => !key.startsWith(scopePrefix)));
       for (const [key, value] of Object.entries(next)) {
-        if (value) persisted.add(key);
-        else persisted.delete(key);
+        if (value) persisted.add(`${scopePrefix}${key}`);
+        else persisted.delete(`${scopePrefix}${key}`);
       }
       window.localStorage.setItem(OPEN_GROUPS_STORAGE_KEY, JSON.stringify([...persisted]));
     } catch {

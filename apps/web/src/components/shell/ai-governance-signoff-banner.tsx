@@ -1,19 +1,22 @@
 import Link from "next/link";
 import { APP_ICON } from "@/lib/icons";
+import { formatNumber } from "@/lib/analytics/format";
 
 /**
  * Chief-Medical-Officer-only mirror of the amber "AI governance needs you"
  * banner admin/page.tsx renders — same copy, same counts (both read
- * readPendingAiGovernanceSignoff so they can never disagree), pointed at the
- * CMO's own reachable console (/clinician/ai-governance) instead of
- * /admin/settings/ai-governance, which a real CMO account (always
- * `profiles.role = "clinician"`) cannot open without a delegated grant.
+ * readPendingAiGovernanceSignoff so they can never disagree), same
+ * `formatNumber` digit-grouping, pointed at the CMO's own reachable console
+ * (/clinician/ai-governance) instead of /admin/settings/ai-governance, which
+ * a real CMO account (always `profiles.role = "clinician"`) cannot open
+ * without a delegated grant.
  *
- * Rendered from (dashboard)/layout.tsx, gated there on canAssignCases(staff)
- * so it only ever reaches an active Chief Medical Officer — the one account
- * that can actually act on either item. No dismiss control: unlike the MFA
- * nudge, this tracks real outstanding work, not a one-time setup step, and
- * it already disappears on its own the moment the count reaches zero.
+ * Rendered from (dashboard)/layout.tsx, gated there on
+ * isActiveChiefMedicalOfficer(staff) so it only ever reaches an active Chief
+ * Medical Officer — the one account that can actually act on either item. No
+ * dismiss control: unlike the MFA nudge, this tracks real outstanding work,
+ * not a one-time setup step, and it already disappears on its own the moment
+ * the count reaches zero.
  */
 export function AiGovernanceSignoffBanner({
   pendingVersionApprovalCount,
@@ -42,9 +45,9 @@ export function AiGovernanceSignoffBanner({
               <strong>AI governance needs your sign-off:</strong>{" "}
               {[
                 pendingVersionApprovalCount > 0 &&
-                  `${pendingVersionApprovalCount} AI system version${pendingVersionApprovalCount === 1 ? "" : "s"} awaiting your approval`,
+                  `${formatNumber(pendingVersionApprovalCount)} AI system version${pendingVersionApprovalCount === 1 ? "" : "s"} awaiting your approval`,
                 pendingClinicalAccuracyLabelCount > 0 &&
-                  `${pendingClinicalAccuracyLabelCount} clinical-accuracy scenario${pendingClinicalAccuracyLabelCount === 1 ? "" : "s"} awaiting your tier judgement`,
+                  `${formatNumber(pendingClinicalAccuracyLabelCount)} clinical-accuracy scenario${pendingClinicalAccuracyLabelCount === 1 ? "" : "s"} awaiting your tier judgement`,
               ]
                 .filter(Boolean)
                 .join(" and ")}

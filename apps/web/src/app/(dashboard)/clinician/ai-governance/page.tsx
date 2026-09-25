@@ -9,6 +9,10 @@ import {
   type AiClinicalAccuracyCaseRow,
   type AiSystemVersionRow,
 } from "@/app/(dashboard)/admin/settings/ai-governance/ai-governance-console";
+import {
+  AI_SYSTEM_VERSION_COLUMNS,
+  AI_EVALUATION_CASE_COLUMNS,
+} from "@/app/(dashboard)/admin/settings/ai-governance/ai-governance-columns";
 
 export const metadata = { title: "AI governance sign-off" };
 
@@ -44,17 +48,17 @@ export default async function ClinicianAiGovernancePage() {
   const [versionsRes, casesRes] = await Promise.all([
     supabase
       .from("ai_system_versions")
-      .select(
-        "id, ai_system_id, version, model_identifier, intended_population, excluded_population, validation_summary, validation_completed_at, approved_at, deployed_at, retired_at, review_due_on, change_summary, created_at, validated_by_staff:clinical_staff!ai_system_versions_validated_by_fkey(full_name), approved_by_staff:clinical_staff!ai_system_versions_approved_by_fkey(full_name), ai_systems(name, system_code)"
-      )
+      // Same column list the admin console's page.tsx queries
+      // (AI_SYSTEM_VERSION_COLUMNS), plus the ai_systems join this page needs
+      // for the system-name header the console instead builds from its own
+      // separate systemById map.
+      .select(`${AI_SYSTEM_VERSION_COLUMNS}, ai_systems(name, system_code)`)
       .is("approved_at", null)
       .is("retired_at", null)
       .order("created_at", { ascending: false }),
     supabase
       .from("ai_evaluation_cases")
-      .select(
-        "id, suite_id, case_code, scenario, expected_tier, labeled_at, label_rationale, ai_evaluation_suites!inner(name, kind, ai_system_id), labeled_by_staff:clinical_staff!ai_evaluation_cases_labeled_by_fkey(full_name)"
-      )
+      .select(AI_EVALUATION_CASE_COLUMNS)
       .eq("ai_evaluation_suites.kind", "clinical")
       .is("expected_tier", null)
       .order("case_code"),

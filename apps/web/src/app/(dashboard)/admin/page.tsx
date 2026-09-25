@@ -367,6 +367,13 @@ export default async function AdminPage() {
           icon: SEMANTIC_ICON.booking,
           visible: isSuperAdmin,
         },
+        {
+          href: "/admin/refund-requests",
+          label: "Refund requests",
+          blurb: "First-purchase money-back guarantee claims awaiting a decision",
+          icon: SEMANTIC_ICON.billing,
+          visible: isSuperAdmin,
+        },
       ],
     },
     {
@@ -436,10 +443,24 @@ export default async function AdminPage() {
           visible: isSuperAdmin,
         },
         {
+          href: "/admin/doctor-testimonials",
+          label: "Doctor testimonials",
+          blurb: "Add and publish a doctor's quote, with its off-platform consent on file",
+          icon: NAV_ICON.review,
+          visible: isSuperAdmin,
+        },
+        {
           href: "/admin/settings/platform-modules",
           label: "Platform modules",
           blurb: "Activate the payer or provider-organisation platform",
           icon: NAV_ICON.settings,
+          visible: isSuperAdmin,
+        },
+        {
+          href: "/admin/settings/ngo-programmes",
+          label: "NGO-funded programmes",
+          blurb: "Create a funded cohort for a signed NGO/PHC partner",
+          icon: SEMANTIC_ICON.corporate,
           visible: isSuperAdmin,
         },
       ],

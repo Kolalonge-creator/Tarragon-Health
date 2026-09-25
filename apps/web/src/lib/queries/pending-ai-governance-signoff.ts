@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import { anyQueryFailed } from "@/lib/queries/server-query-state";
 
 export type PendingAiGovernanceSignoff = {
   pendingVersionApprovalCount: number;
@@ -45,7 +46,7 @@ export async function readPendingAiGovernanceSignoff(
       .is("expected_tier", null),
   ]);
 
-  const failed = versionsRes.error !== null || casesRes.error !== null;
+  const failed = anyQueryFailed([versionsRes, casesRes]);
   const pendingVersionApprovalCount = versionsRes.count ?? 0;
   const pendingClinicalAccuracyLabelCount = casesRes.count ?? 0;
 

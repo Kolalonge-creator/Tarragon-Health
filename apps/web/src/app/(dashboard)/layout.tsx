@@ -5,9 +5,10 @@ import { asUiLanguage } from "@tarragon/shared";
 import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
 import { ConsentNudgeBanner } from "@/components/shell/consent-nudge-banner";
 import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
+import { OfflineBanner } from "@/components/shell/offline-banner";
 import { AiGovernanceSignoffBanner } from "@/components/shell/ai-governance-signoff-banner";
 import { getNavSections } from "@/lib/navigation";
-import { canAssignCases } from "@/lib/clinical/doctor-tier";
+import { isActiveChiefMedicalOfficer } from "@/lib/clinical/doctor-tier";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { isEmbeddedInApp } from "@/lib/embedded-webview";
@@ -53,12 +54,12 @@ export default async function DashboardLayout({
   if (profile?.role === "clinician" || profile?.role === "care_coordinator") {
     const { data: staff } = await supabase
       .from("clinical_staff")
-      .select("id, staff_number, doctor_tier")
+      .select("id, staff_number, doctor_tier, active")
       .eq("profile_id", user.id)
       .maybeSingle();
     staffNumber = staff?.staff_number ?? null;
     clinicalStaffId = staff?.id ?? null;
-    isChiefMedicalOfficer = canAssignCases(staff ?? null);
+    isChiefMedicalOfficer = isActiveChiefMedicalOfficer(staff ?? null);
   }
 
   // The two AI governance actions only an active Chief Medical Officer can
@@ -146,6 +147,7 @@ export default async function DashboardLayout({
         initialTheme={theme}
         signOutAction={signOut}
       >
+        <OfflineBanner />
         <MfaNudgeBanner role={profile?.role ?? null} />
         {/* Reachable at /patient/privacy for any signed-in patient, supporter-only
             accounts included (they consent to terms_of_service and can go stale
