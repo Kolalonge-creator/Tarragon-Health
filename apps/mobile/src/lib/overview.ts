@@ -104,8 +104,12 @@ export async function getCareTeam(patientId: string): Promise<QueryResult<CareTe
     if (assignmentError) return { ok: false, error: assignmentError.message };
     if (!assignment?.clinician_id) return { ok: true, data: null };
 
+    // Reads from clinical_staff_directory, not clinical_staff, since
+    // 2026-09-25's clinical_staff_select narrowing (see
+    // 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+    // stopped admitting a patient session to the base table.
     const { data: clinician, error: clinicianError } = await supabase
-      .from("clinical_staff")
+      .from("clinical_staff_directory")
       .select("full_name")
       .eq("profile_id", assignment.clinician_id)
       .eq("active", true)
@@ -116,7 +120,7 @@ export async function getCareTeam(patientId: string): Promise<QueryResult<CareTe
     return {
       ok: true,
       data: {
-        clinicianName: clinician.full_name,
+        clinicianName: clinician.full_name ?? "",
         clinicianProfileId: assignment.clinician_id,
       },
     };

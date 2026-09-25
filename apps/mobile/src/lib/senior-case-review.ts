@@ -17,6 +17,34 @@ export type SeniorCaseReviewWithReviewer = SeniorCaseReview & {
   reviewer: { full_name: string } | null;
 };
 
+type SeniorCaseReviewer = NonNullable<SeniorCaseReviewWithReviewer["reviewer"]>;
+
+/**
+ * `reviewed_by` used to be embedded directly via
+ * `clinical_staff!senior_case_reviews_reviewed_by_fkey(...)` — a PostgREST
+ * embedded join, which resolves against `clinical_staff`'s OWN RLS, not
+ * this query's own. Since 2026-09-25 (see
+ * 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+ * that policy no longer admits a patient session, so the embed would
+ * silently come back null for every patient viewing their own review.
+ * Fetching the reviewer separately from public.clinical_staff_directory
+ * (the safe-column view every patient-facing clinical_staff read now uses)
+ * restores the same attribution without reopening the column-exposure gap
+ * that migration fixed. Mirrors
+ * apps/web/src/lib/queries/senior-case-review.ts's fetchReviewers.
+ */
+async function fetchReviewers(reviewerIds: string[]): Promise<Map<string, SeniorCaseReviewer>> {
+  const reviewerById = new Map<string, SeniorCaseReviewer>();
+  if (reviewerIds.length === 0) return reviewerById;
+  const { data, error } = await supabase.from("clinical_staff_directory").select("id, full_name").in("id", reviewerIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    reviewerById.set(row.id, { full_name: row.full_name ?? "" });
+  }
+  return reviewerById;
+}
+
 /** Matches the trigger's raised text exactly: 'Buy a senior case review
  * credit to request this.' (senior_case_reviews_enforce_credit). */
 export const SENIOR_CASE_REVIEW_CREDIT_REQUIRED_MARKER = "senior case review credit";
@@ -28,16 +56,29 @@ export const SENIOR_CASE_REVIEW_CREDIT_CODE = "senior_case_review_credit";
 export async function loadMySeniorCaseReviews(
   patientId: string
 ): Promise<QueryResult<SeniorCaseReviewWithReviewer[]>> {
-  const { data, error } = await supabase
-    .from("senior_case_reviews")
-    .select(
-      "*, reviewer:clinical_staff!senior_case_reviews_reviewed_by_fkey(full_name)"
-    )
-    .eq("patient_id", patientId)
-    .order("created_at", { ascending: false })
-    .limit(10);
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, data: data as SeniorCaseReviewWithReviewer[] };
+  try {
+    const { data, error } = await supabase
+      .from("senior_case_reviews")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) return { ok: false, error: error.message };
+
+    const rows = data ?? [];
+    const reviewerIds = Array.from(new Set(rows.map((row) => row.reviewed_by).filter((id): id is string => !!id)));
+    const reviewerById = await fetchReviewers(reviewerIds);
+
+    return {
+      ok: true,
+      data: rows.map((row) => ({
+        ...row,
+        reviewer: row.reviewed_by ? (reviewerById.get(row.reviewed_by) ?? null) : null,
+      })) as SeniorCaseReviewWithReviewer[],
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 export async function submitSeniorCaseReview(input: {

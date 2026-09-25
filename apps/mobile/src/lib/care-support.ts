@@ -17,6 +17,35 @@ export type AsyncConsultWithAnswerer = AsyncConsult & {
   answerer: { full_name: string } | null;
 };
 
+type ConsultAnswerer = NonNullable<AsyncConsultWithAnswerer["answerer"]>;
+
+/**
+ * `answered_by` used to be embedded directly via
+ * `clinical_staff!async_consults_answered_by_fkey(...)` — a PostgREST
+ * embedded join, which resolves against `clinical_staff`'s OWN RLS, not this
+ * query's own. Since 2026-09-25 (see
+ * 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+ * that policy no longer admits a patient session, so the embed would
+ * silently come back null for every patient viewing their own answered
+ * consult. Fetching the answerer separately from
+ * public.clinical_staff_directory (the safe-column view every
+ * patient-facing clinical_staff read now uses) restores the same
+ * attribution without reopening the column-exposure gap that migration
+ * fixed. Mirrors apps/web/src/lib/queries/async-consults.ts's
+ * fetchAnswerers.
+ */
+async function fetchAnswerers(answererIds: string[]): Promise<Map<string, ConsultAnswerer>> {
+  const answererById = new Map<string, ConsultAnswerer>();
+  if (answererIds.length === 0) return answererById;
+  const { data, error } = await supabase.from("clinical_staff_directory").select("id, full_name").in("id", answererIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    answererById.set(row.id, { full_name: row.full_name ?? "" });
+  }
+  return answererById;
+}
+
 export const ASYNC_CONSULT_CATEGORIES: { value: string; label: string }[] = [
   { value: "medication", label: "A question about my medicines" },
   { value: "symptom", label: "A symptom I'm unsure about" },
@@ -34,16 +63,29 @@ export const ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER = "Ask a doctor";
 export const ASYNC_CONSULT_CREDIT_CODE = "async_consult_credit";
 
 export async function loadMyAsyncConsults(patientId: string): Promise<QueryResult<AsyncConsultWithAnswerer[]>> {
-  const { data, error } = await supabase
-    .from("async_consults")
-    .select(
-      "*, answerer:clinical_staff!async_consults_answered_by_fkey(full_name)"
-    )
-    .eq("patient_id", patientId)
-    .order("created_at", { ascending: false })
-    .limit(10);
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, data: data as AsyncConsultWithAnswerer[] };
+  try {
+    const { data, error } = await supabase
+      .from("async_consults")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) return { ok: false, error: error.message };
+
+    const rows = data ?? [];
+    const answererIds = Array.from(new Set(rows.map((row) => row.answered_by).filter((id): id is string => !!id)));
+    const answererById = await fetchAnswerers(answererIds);
+
+    return {
+      ok: true,
+      data: rows.map((row) => ({
+        ...row,
+        answerer: row.answered_by ? (answererById.get(row.answered_by) ?? null) : null,
+      })) as AsyncConsultWithAnswerer[],
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 export async function submitAsyncConsult(input: {
