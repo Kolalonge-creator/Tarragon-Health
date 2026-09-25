@@ -314,20 +314,6 @@ async function countOpenComplaints(supabase: Client) {
   return count ?? 0;
 }
 
-/** Exact same filter as usePendingEligibility (weight-management/eligibility-
- * queue.tsx) -- the more clinically load-bearing of weight management's two
- * sub-worklists (nothing happens for a patient clinically until this
- * decision is made); tolerability check-ins stay uncounted here for the
- * same reason affordability reports do above. */
-async function countWeightManagementPendingEligibility(supabase: Client) {
-  const { count, error } = await supabase
-    .from("weight_management_enrolments")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending_eligibility");
-  if (error) throw error;
-  return count ?? 0;
-}
-
 /** Exact same filter as therapy-approvals/queue.tsx's own psychiatry-request
  * query. Approving needs prescribing authority (a Senior Medical Officer+),
  * but the queue is visible to every tier -- see that page's own header
@@ -368,8 +354,8 @@ async function countUnreadSupportMessages(supabase: Client) {
  * apps/web/src/app/(dashboard)/clinician/orders/page.tsx). That page also
  * has a second sub-worklist (pharmacy orders needing a courier assigned, out
  * for delivery, or a failed delivery to retry), left uncounted here for the
- * same reason Medication issues/Weight management leave their second
- * sub-worklist uncounted: this file's counters issue exactly one query each,
+ * same reason Medication issues leaves its second sub-worklist uncounted:
+ * this file's counters issue exactly one query each,
  * and a home-visit collection blocks a diagnostic sample from ever being
  * taken -- the more clinically load-bearing of the two. Pharmacy orders stay
  * fully visible on the page itself, just not globally counted.
@@ -425,6 +411,26 @@ async function countCareThreadsAwaitingReply(supabase: Client) {
   return data ?? 0;
 }
 
+/**
+ * Preventive Health Check Reviews a patient has paid for but nobody has
+ * written back yet — exact same predicate as the preventive-health-check-
+ * reviews worklist page's own query. Before this counter/page existed
+ * (added 2026-09-22 alongside the Preventive Health Check Review SKU, see
+ * 20260922185300_preventive_health_check_review_sku.sql), a doctor could
+ * only find a check to review by already knowing the patientId and
+ * navigating straight to /clinician/patients/[patientId] — nothing
+ * surfaced "a patient is waiting on this" anywhere.
+ */
+async function countPreventiveHealthCheckReviewsWaiting(supabase: Client) {
+  const { count, error } = await supabase
+    .from("annual_health_checks")
+    .select("id", { count: "exact", head: true })
+    .not("review_requested_at", "is", null)
+    .is("reviewed_at", null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** Doctor-to-doctor curbside consults where the OTHER party sent last --
  * same "column-vs-caller" RPC shape as countCareThreadsAwaitingReply, and
  * the same reason: comparing last_message_sender_id to the caller's own
@@ -466,13 +472,13 @@ export type WorklistCountKey =
   | "openMedicationDispenseFlags"
   | "openSupportTickets"
   | "openComplaints"
-  | "weightManagementPendingEligibility"
   | "therapyApprovalsWaiting"
   | "unreadSupportMessages"
   | "careThreadsAwaitingReply"
   | "labOrdersAwaitingHomeVisitAssignment"
   | "labResultConsultsWaiting"
   | "fhirProposedResourcesPending"
+  | "preventiveHealthCheckReviewsWaiting"
   | "curbsideConsultsAwaitingReply";
 
 /**
@@ -509,13 +515,13 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   openMedicationDispenseFlags: countOpenMedicationDispenseFlags,
   openSupportTickets: countOpenSupportTickets,
   openComplaints: countOpenComplaints,
-  weightManagementPendingEligibility: countWeightManagementPendingEligibility,
   therapyApprovalsWaiting: countTherapyApprovalsWaiting,
   unreadSupportMessages: countUnreadSupportMessages,
   careThreadsAwaitingReply: countCareThreadsAwaitingReply,
   labOrdersAwaitingHomeVisitAssignment: countLabOrdersAwaitingHomeVisitAssignment,
   labResultConsultsWaiting: countLabResultConsultsWaiting,
   fhirProposedResourcesPending: countFhirProposedResourcesPending,
+  preventiveHealthCheckReviewsWaiting: countPreventiveHealthCheckReviewsWaiting,
   curbsideConsultsAwaitingReply: countCurbsideConsultsAwaitingReply,
 };
 

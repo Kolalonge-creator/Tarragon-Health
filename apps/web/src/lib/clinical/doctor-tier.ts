@@ -144,6 +144,25 @@ export function canAssignCases(staff: PrescribingAuthority | null): boolean {
 }
 
 /**
+ * canAssignCases alone doesn't check `active` — every other caller of it
+ * reaches it through getCurrentClinicalStaff() (apps/web/src/lib/auth/
+ * current-profile.ts), whose own query already filters `.eq("active", true)`,
+ * so an inactive row never even reaches canAssignCases in those call sites.
+ * (dashboard)/layout.tsx queries clinical_staff directly instead (it also
+ * needs staff_number/id for an inactive/offboarded member, which
+ * getCurrentClinicalStaff's active filter would hide), so it needs this
+ * explicit combined check to avoid showing an offboarded CMO the AI
+ * governance sign-off banner — a banner whose own "Review AI governance"
+ * link leads to a page gated on getCurrentClinicalStaff, which would
+ * immediately bounce them back out.
+ */
+export function isActiveChiefMedicalOfficer(
+  staff: (PrescribingAuthority & { active: boolean }) | null
+): boolean {
+  return staff?.active === true && canAssignCases(staff);
+}
+
+/**
  * Mirrors private.can_review_safeguarding_concern(org)
  * (20260829213100_safeguarding_concerns.sql) — resolving or closing a
  * safeguarding_concerns row requires Tier 3+ or the Clinical Director; Tier 1,

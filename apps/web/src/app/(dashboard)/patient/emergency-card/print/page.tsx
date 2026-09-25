@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { getActingFor } from "@/lib/acting/acting-for";
 import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
 import { buildEmergencyQrText } from "@/lib/emergency/qr-text";
 import { emergencyTextQrSvg } from "@/lib/emergency/qr-render";
@@ -32,6 +33,12 @@ export default async function EmergencyCardPrintPage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
+  // This feature is not yet extended to a dependent's account — the data
+  // below is always the CALLER's own, even while acting for someone else
+  // (see the matching note on the parent page). Warned on-screen, not
+  // printed: the print:hidden block below never reaches the physical card.
+  const acting = await getActingFor();
+
   const supabase = await createClient();
   const facts = await loadEmergencyDatasetForPatient(supabase, user.id);
 
@@ -46,6 +53,14 @@ export default async function EmergencyCardPrintPage() {
   return (
     <div>
       <div className="mx-auto max-w-2xl p-4 print:hidden">
+        {acting ? (
+          <p className="mb-3 rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+            This card below is <span className="font-semibold">your own</span>, not{" "}
+            {acting.fullName ? `${acting.fullName}'s` : "theirs"} — this feature does not yet
+            cover the people you support. Do not print or carry this if you meant to get one for
+            them.
+          </p>
+        ) : null}
         <PrintButton />
         <p className="mt-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           Print this, fold it into your wallet, and keep it with you. There is nothing to consent

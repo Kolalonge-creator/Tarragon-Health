@@ -105,8 +105,20 @@ export const MARKETING_MEDIA = {
       imageAlt: "Close-up of two people's hands sorting medication into a weekly pill organiser",
     } satisfies MarketingMediaSlot,
     solution: {
-      imageSrc: "/marketing/photos/body/how-it-works-log-reading.jpg",
-      imageAlt: "A hand holding a phone beside a home blood pressure cuff on a wooden table",
+      // A real, unedited screenshot of the patient app's "Your health, by
+      // area" card (apps/web/src/app/(dashboard)/patient/health-domains-card.tsx),
+      // captured on a real iOS Simulator against a QA fixture account
+      // (patient.complete.test@tarragon.test, temporarily renamed to a
+      // placeholder Nigerian name for the screenshot, reverted immediately
+      // after) — never a mockup or a generated image, per the standing
+      // "anatomically-wrong prevention hero clip" lesson on this codebase.
+      imageSrc: "/marketing/photos/app/how-it-works-health-domains.jpg",
+      // Only names domains lib/health-domains/domains.ts can actually
+      // populate today (RISK_SCORE_TO_DOMAIN/BIOMARKER_CATEGORY_TO_DOMAIN) —
+      // Fitness/Mind/Hormones/Inflammation/Brain have no feeding signal yet
+      // and always render "Not tracked yet", so naming them here as an
+      // example would describe a capability the shipped feature lacks.
+      imageAlt: "The Tarragon app's health domains screen, showing readings grouped into areas like Rhythm & recovery, Cardiovascular and Metabolic health",
     } satisfies MarketingMediaSlot,
     preventionCallout: {
       imageSrc: "/marketing/photos/body/prevention-reviewing-notes.jpg",

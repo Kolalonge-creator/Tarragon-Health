@@ -9,6 +9,16 @@ export type B2bStat = {
   pill?: { text: string; tone: "green" | "amber" | "red" };
 };
 
+export type B2bPartnerOffer = {
+  eyebrow: string;
+  title: string;
+  body: string;
+  points: string[];
+  ctaLabel: string;
+  /** Appended to the contact link, e.g. "ngo" to pre-select that role. */
+  ctaRole: string;
+};
+
 export type B2bPageContent = {
   slug: "corporate" | "hmo";
   headline: string;
@@ -23,6 +33,14 @@ export type B2bPageContent = {
   howItWorks: { title: string; body: string }[];
   ctaLabel: string;
   metadata: Metadata;
+  /**
+   * A second, distinct offer on the same page for a different kind of
+   * counterparty — currently used on the Corporate page for NGOs, PHC
+   * programmes, and government partners, who aren't "employers" but land on
+   * the same page (see docs/FUNDING_STRATEGY.md: NGOs are a customer /
+   * subcontracting / implementation-partner channel, not a grant source).
+   */
+  partnerOffer?: B2bPartnerOffer;
 };
 
 export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
@@ -73,6 +91,19 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
         "Corporate wellness plans that surface workforce chronic disease risk and close care gaps early, with anonymised reporting for HR.",
       path: MARKETING_ROUTES.corporate,
     }),
+    partnerOffer: {
+      eyebrow: "NGOs, PHC & government programmes",
+      title: "Fund care for a group you already serve.",
+      body: "Running a hypertension or diabetes programme, a screening drive, or a primary-care outreach effort? Tarragon can be the digital continuity-of-care layer for it: enrolment, care-team workflows, remote monitoring, adherence follow-up and anonymised outcome reporting, for a defined group over a defined term.",
+      points: [
+        "Your organisation funds a fixed, agreed number of people; each person's own care stays private and confidential",
+        "Tarragon provides the clinical review, escalation, and follow-up, the same pathway as any Tarragon patient",
+        "You receive aggregate programme reporting only: activations, follow-up completion, and outcome measures, never an individual's result or diagnosis",
+        "Works alongside a grant you already hold, a subcontracted programme, or a direct partnership, whichever fits your funding",
+      ],
+      ctaLabel: "Discuss a funded programme",
+      ctaRole: "ngo",
+    },
   },
   hmo: {
     slug: "hmo",

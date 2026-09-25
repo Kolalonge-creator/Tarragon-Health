@@ -21,6 +21,7 @@ const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
   care_messages: "Messages from your care team",
   education_wellness: "Health education & wellness",
   billing: "Billing & payments",
+  reputation_requests: "Review requests",
 };
 
 type Channel = "email" | "sms" | "push" | "whatsapp";
@@ -120,7 +121,10 @@ export function NotificationPreferencesForm({
             <Card key={category}>
               <CardHeader className="flex-row items-center justify-between gap-3 pb-3">
                 <CardTitle className="text-base">{CATEGORY_LABEL[category]}</CardTitle>
-                <div className="h-4 text-xs">
+                {/* role="status": a toggle's save outcome appears here purely
+                    as a visual flash — without a live region a screen-reader
+                    user gets no confirmation a preference actually saved. */}
+                <div className="h-4 text-xs" role="status">
                   {isSavingThis && <span className="text-charcoal-ink/50 dark:text-night-ink/55">Saving…</span>}
                   {isSavedFlash && <span className="font-medium text-brand-green dark:text-brand-green-bright">Saved</span>}
                 </div>

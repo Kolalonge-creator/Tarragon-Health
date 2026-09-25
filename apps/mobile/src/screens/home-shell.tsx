@@ -290,9 +290,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     activity: () => <ActivityScreen patientId={subjectId} />,
     smoking: () => <SmokingScreen patientId={subjectId} />,
     alcohol: () => <AlcoholScreen patientId={subjectId} />,
-    weightManagement: () => (
-      <WeightManagementScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
-    ),
+    weightManagement: () => <WeightManagementScreen userId={userId} onNavigate={handleSelect} />,
     learn: () => <LearnScreen userId={userId} organisationId={organisationId} />,
     wellness: () => (
       <WellnessScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />

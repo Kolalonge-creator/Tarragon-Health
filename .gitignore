@@ -81,3 +81,9 @@ supabase/.temp/
 # root-level duplicates of the specs already tracked under docs/
 /tarragon-build-spec-v3.md
 /tarragon-build-spec-v3-phase2.md
+
+# Playwright browser E2E suite (apps/web/e2e/*.spec.ts) run artifacts
+/apps/web/test-results/
+/apps/web/playwright-report/
+/apps/web/blob-report/
+/apps/web/playwright/.cache/

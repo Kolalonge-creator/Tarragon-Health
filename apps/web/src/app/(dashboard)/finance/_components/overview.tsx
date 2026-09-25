@@ -3,11 +3,13 @@
 import Link from "next/link";
 import {
   Banknote, Scale, Receipt, TrendingUp, Ticket, FileText, Landmark, AlertCircle,
-  Percent, Gauge, Clock, PiggyBank,
+  Percent, Gauge, Clock, PiggyBank, Gift,
 } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Badge } from "@/components/ui/badge";
-import { useFinanceDashboard, useKpiSummary, useRiskFlags } from "@/lib/finance/queries";
+import {
+  useFinanceDashboard, useKpiSummary, useRevenueByFundingSource, useRiskFlags,
+} from "@/lib/finance/queries";
 import { SectionCard, CenterNote, formatMinor, formatNumber } from "./primitives";
 
 function pct(v: number | null | undefined): string {
@@ -17,6 +19,7 @@ function pct(v: number | null | undefined): string {
 export function FinanceOverview() {
   const { data, isLoading, isError } = useFinanceDashboard();
   const kpis = useKpiSummary("NGN");
+  const funding = useRevenueByFundingSource("NGN");
   const flags = useRiskFlags();
 
   if (isError) {
@@ -107,6 +110,28 @@ export function FinanceOverview() {
             <StatTile icon={TrendingUp} label="YoY revenue growth" value={pct(kpis.data?.yoy_revenue_growth_pct)} />
             <StatTile icon={Clock} label="Days sales outstanding" value={kpis.data?.dso_days != null ? `${kpis.data.dso_days}d` : "—"} />
             <StatTile icon={PiggyBank} label="Cash runway" value={kpis.data?.cash_runway_months != null ? `${kpis.data.cash_runway_months} mo` : "—"} />
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="Revenue by funding source (NGN, month to date)"
+        description="How much of this month's revenue was actually collected vs. given away — a promo code, a reward voucher, or admin-granted platform credit never represent real cash in the door."
+      >
+        {funding.isLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <StatTile
+              icon={Banknote}
+              label="Cash collected"
+              value={formatMinor(funding.data?.cash_minor ?? 0, "NGN")}
+            />
+            <StatTile
+              icon={Gift}
+              label="Promo / voucher-funded"
+              value={formatMinor(funding.data?.promotional_minor ?? 0, "NGN")}
+            />
           </div>
         )}
       </SectionCard>

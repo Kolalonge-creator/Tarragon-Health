@@ -53,6 +53,14 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     group: "Financial",
   },
   {
+    id: "doctor-income",
+    href: "/analytics/doctor-income",
+    label: "Doctor income",
+    subtitle: "Paid jobs per doctor, for commission calculation",
+    icon: "doctorIncome",
+    group: "Financial",
+  },
+  {
     id: "investor",
     href: "/analytics/investor",
     label: "Investor",
@@ -98,6 +106,14 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     label: "Acquisition",
     subtitle: "Traffic, channels and conversion funnel",
     icon: "acquisition",
+    group: "Growth",
+  },
+  {
+    id: "reputation",
+    href: "/analytics/reputation",
+    label: "Reputation",
+    subtitle: "Review-request funnel: sent, engaged, clicked",
+    icon: "reputation",
     group: "Growth",
   },
   {

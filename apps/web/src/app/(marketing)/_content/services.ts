@@ -159,9 +159,9 @@ export const WHAT_WE_TRACK = [
  * Corrected in the same pass: step 5 promised doctor alerting "on the
  * doctor-supported programme", naming `chronic_doctor_supported_pack`, which
  * is_active = false in service_products (retired and unbundled 2026-09-10,
- * see _content/pricing.ts). The products that actually grant
- * `vitals_red_flag_doctor_escalation` today are Continuous Monitoring and
- * Supervised Weight Management (verified live 2026-09-22).
+ * see _content/pricing.ts). The product that actually grants
+ * `vitals_red_flag_doctor_escalation` today is Continuous Monitoring
+ * (verified live 2026-09-22).
  */
 export const HOW_IT_WORKS_STEPS = [
   { step: 1, title: "Create your account", body: "A couple of minutes, for yourself or for someone you look after." },
@@ -337,6 +337,12 @@ export const HOMEPAGE_FAQS = [
   },
   {
     category: "general",
+    question: "Can I add a family member or caregiver to help manage my care?",
+    answer:
+      "Yes. You can invite someone you trust, a spouse, an adult child, a caregiver, to help: they can follow your appointments and readings, or help with bookings and refills, depending on what you allow. You choose what they can see and do, they have to accept before it starts, and you can change or withdraw their access at any time. It's not a shared plan or a joint account: you each keep your own free Tarragon account.",
+  },
+  {
+    category: "general",
     question: "How much does it cost?",
     answer:
       "The app is free, with no time limit. You pay only when a doctor does a specific piece of work for you, at a price you see and confirm first, and you pay laboratories and pharmacies directly for tests and refills (we take nothing on those). See the pricing page for what a doctor's time costs.",
@@ -363,7 +369,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "Is there a Tarragon app?",
     answer:
-      "Tarragon works in any phone browser today, and you can add it to your home screen so it opens like an app. It's the same secure record as the web dashboard, so you can move between your phone and a computer without losing anything. Native apps for iPhone and Android are coming, and we'll say so here the day they land.",
+      "Tarragon works in any phone browser today, and you can add it to your home screen so it opens like an app. It's the same secure record as the web dashboard, so you can move between your phone and a computer without losing anything. Native apps for iPhone and Android are coming, and we'll say so here the day they're available to download.",
   },
   {
     category: "general",

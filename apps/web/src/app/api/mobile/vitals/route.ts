@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
 import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
@@ -139,6 +140,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!profile?.organisation_id) {
     return NextResponse.json({ error: "No organisation on file" }, { status: 400 });
   }
+  // Narrowed into its own const: TS can't carry the null-check above through
+  // the runBestEffort closures further down, which read this via a fresh
+  // arrow function rather than a direct access.
+  const organisationId = profile.organisation_id;
 
   // Same glucose_value/glucose_unit → glucose_mmol_l normalisation as
   // logVital — vitals_readings only ever stores the canonical mmol/L column.
@@ -176,16 +181,67 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
+  // From here on the reading is durably saved — every failure below is
+  // post-insert best-effort work, never a reason to report the save itself
+  // as failed. assessBpControlBestEffort/assessHeartRateBestEffort/
+  // assessGlucoseBestEffort are documented "never throws," but that isn't
+  // literally enforced by a try/catch inside any of them (confirmed by
+  // reading each), so a genuine network/DB drop right after the insert above
+  // can still throw here. Without runBestEffort, that throw would propagate
+  // out of this route handler as an uncaught exception — Next.js turns that
+  // into a 500 with no JSON body, which the mobile offline queue
+  // (offline-vitals-queue.ts) reads as "not synced" and keeps retrying. That
+  // retry is not free here: a retried client_reading_id hits the 23505
+  // dedupe branch above and returns early WITHOUT ever re-running this
+  // assessment, so a 500 buys nothing but a stuck queue entry for a reading
+  // that is, in fact, already safely stored. These three calls are the
+  // platform's actual red-flag/escalation detection for this reading (BP
+  // crisis, pulse EMERGENCY range, DKA/severe hypo) — CLAUDE.md is explicit
+  // that an abnormal-result event must "never deprioritise or silently
+  // swallow" it, so a failure here is reported to Sentry AND surfaced in the
+  // response body (never a silent, unqualified success), separately from the
+  // genuinely inert health-score bookkeeping below (only one branch below
+  // ever runs, per row.vital_type, so one runBestEffort call is enough).
+  let safetyAssessmentFailed = false;
+  // patientId/organisationId included so an on-call engineer triaging a
+  // spike of these Sentry events can tell whether it's one patient retried
+  // many times or many patients/orgs affected, without cross-referencing
+  // application logs first.
+  const safetyExtra = {
+    route: "api/mobile/vitals",
+    stage: "safety_assessment",
+    vitalType: row.vital_type,
+    patientId: subjectId,
+    organisationId,
+  };
   if (row.vital_type === "blood_pressure") {
-    await assessBpControlBestEffort(supabase, subjectId, profile.organisation_id);
+    safetyAssessmentFailed = await runBestEffort(
+      () => assessBpControlBestEffort(supabase, subjectId, organisationId),
+      safetyExtra
+    );
+  } else if (row.vital_type === "pulse") {
+    safetyAssessmentFailed = await runBestEffort(
+      () => assessHeartRateBestEffort(supabase, subjectId, organisationId),
+      safetyExtra
+    );
+  } else if (row.vital_type === "glucose") {
+    safetyAssessmentFailed = await runBestEffort(
+      () => assessGlucoseBestEffort(supabase, subjectId, organisationId),
+      safetyExtra
+    );
   }
-  if (row.vital_type === "pulse") {
-    await assessHeartRateBestEffort(supabase, subjectId, profile.organisation_id);
-  }
-  if (row.vital_type === "glucose") {
-    await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
-  }
-  await assessHealthScoreBestEffort(supabase, subjectId, profile.organisation_id);
 
-  return NextResponse.json({ success: true });
+  // Genuinely inert bookkeeping — a lost health-score refresh has no
+  // clinical-safety consequence, unlike the red-flag assessments above, so a
+  // failure here staying silent (Sentry-only, return value ignored) is the
+  // right call.
+  await runBestEffort(
+    () => assessHealthScoreBestEffort(supabase, subjectId, organisationId),
+    { route: "api/mobile/vitals", stage: "post_insert_best_effort" }
+  );
+
+  return NextResponse.json({
+    success: true,
+    ...(safetyAssessmentFailed ? { safetyAssessmentFailed: true } : {}),
+  });
 }

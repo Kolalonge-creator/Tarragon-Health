@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 /** Lets a patient set their own profile photo. Self-upload only (mirrors
  * PatientResultUpload) — a real photo, or the shared initials fallback when
@@ -70,6 +71,7 @@ export function AvatarUploadForm({
   }
 
   const displayError = validationError ?? (upload.error as Error | null)?.message ?? null;
+  const errorId = fieldErrorId(`${fieldId}-file`);
 
   return (
     <Card>
@@ -89,14 +91,20 @@ export function AvatarUploadForm({
               type="file"
               accept={PATIENT_AVATAR_ACCEPT}
               onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
+              {...fieldErrorProps(errorId, Boolean(displayError))}
             />
             <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">JPG, PNG, or WEBP, up to 5 MB.</p>
             <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
               <Button type="submit" size="sm" variant="outline" disabled={!file || upload.isPending}>
                 {upload.isPending ? "Saving…" : "Save photo"}
               </Button>
-              {success && <p className="text-xs font-medium text-brand-green dark:text-brand-green-bright">{success}</p>}
-              {displayError && <p className="text-xs text-red-600 dark:text-red-300">{displayError}</p>}
+              {/* role="status"/"alert" (via FormSuccess/FormError) so a save
+                  confirmation or failure that appears after the fact is
+                  announced to a screen-reader user, not just shown to a
+                  sighted one — same convention as every other form on the
+                  platform (components/ui/form-error.tsx). */}
+              <FormSuccess className="text-xs font-medium" message={success} />
+              <FormError id={errorId} className="text-xs" message={displayError} />
             </div>
           </div>
         </form>

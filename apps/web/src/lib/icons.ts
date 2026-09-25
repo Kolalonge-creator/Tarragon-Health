@@ -91,6 +91,7 @@ import {
   Flag,
   Siren,
   LifeBuoy,
+  WifiOff,
   type LucideIcon,
 } from "lucide-react";
 
@@ -212,6 +213,7 @@ export const NAV_ICON = {
   // which category gets which of these).
   business: BarChart3,
   financial: Wallet,
+  doctorIncome: PiggyBank,
   investor: Landmark,
   accounting: Calculator,
   users: UserRound,
@@ -219,6 +221,7 @@ export const NAV_ICON = {
   team: Clock4,
   engagement: Users,
   acquisition: Globe,
+  reputation: Star,
   operations: Activity,
   patientActivity: UserSearch,
   facilities: Building,
@@ -229,6 +232,7 @@ export const NAV_ICON = {
   patientFlow: Workflow,
   serviceLevels: Timer,
   geographicCapacity: Map,
+  offline: WifiOff,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Combined lookup for places that must reference icons by NAME (a plain

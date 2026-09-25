@@ -24,7 +24,7 @@ export function SleepClient({ patientId }: { patientId: string }) {
 
   return (
     <div className="space-y-6">
-      <GoalCard patientId={patientId} goal={goal.data} />
+      <GoalCard patientId={patientId} goal={goal.data} isLoading={goal.isLoading} />
       <LogCard patientId={patientId} />
 
       <LifestyleBarrierPicker domain="sleep" />
@@ -63,19 +63,28 @@ export function SleepClient({ patientId }: { patientId: string }) {
 function GoalCard({
   patientId,
   goal,
+  isLoading,
 }: {
   patientId: string;
   goal: ReturnType<typeof useSleepGoal>["data"];
+  isLoading: boolean;
 }) {
   const t = useT();
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState(!goal);
+  // Not seeded from `!goal` directly: `goal` is undefined before the query
+  // resolves (async), and useState's initializer only runs once -- seeding
+  // from it here would permanently show the edit form on every fresh load,
+  // even for a patient who already has a saved goal. Wait for the query to
+  // settle before deciding there's nothing to edit (same fix as
+  // weight-client.tsx's WeightGoalSection).
+  const [editingOverride, setEditingOverride] = useState<boolean | null>(null);
+  const editing = editingOverride ?? (!isLoading && !goal);
   const [state, formAction, pending] = useActionState<SleepActionState, FormData>(
     async (prev, formData) => {
       const result = await setSleepGoalAction(prev, formData);
       if (result?.success) {
         queryClient.invalidateQueries({ queryKey: [GOAL_KEY, patientId] });
-        setEditing(false);
+        setEditingOverride(false);
       }
       return result;
     },
@@ -86,7 +95,7 @@ function GoalCard({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle>{t("Your sleep goal")}</CardTitle>
-        <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
+        <Button size="sm" variant="outline" onClick={() => setEditingOverride(!editing)}>
           {editing ? t("Close") : goal ? t("Update") : t("Set a goal")}
         </Button>
       </CardHeader>

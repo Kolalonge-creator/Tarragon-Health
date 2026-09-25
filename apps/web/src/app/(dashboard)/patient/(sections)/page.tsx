@@ -1,4 +1,7 @@
 import { Suspense } from "react";
+import { LazyVitalsTrendChart } from "@/components/vitals-trend-chart-lazy";
+import { createClient } from "@/lib/supabase/server";
+import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
@@ -14,15 +17,17 @@ import { statTileValue } from "@/components/ui/stat-tile-value";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
 import { OverviewHero } from "@/app/(dashboard)/patient/overview-hero";
+import { ServiceStatusCard } from "@/app/(dashboard)/patient/service-status-card";
 import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-last-here-card";
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
+import { AskTarragonCard } from "@/app/(dashboard)/patient/ask-tarragon-card";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
-import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
 import { WeeklyPlanCard } from "@/app/(dashboard)/patient/weekly-plan-card";
 import { BiomarkerCategoriesCard } from "@/app/(dashboard)/patient/biomarker-categories-card";
 import { RiskSignalsCard } from "@/app/(dashboard)/patient/risk-signals-card";
+import { HealthDomainsCard } from "@/app/(dashboard)/patient/health-domains-card";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareScheduleCard } from "@/app/(dashboard)/patient/care-schedule-card";
 import { HealthScoreCard } from "@/components/health-score-card";
@@ -75,6 +80,13 @@ export default async function PatientOverviewPage() {
     await getPatientDashboardContext();
   const stats = await getPatientSummaryStats(subjectId);
   const prevention = await getPatientPreventionStats(subjectId);
+  // Same gate ai-coach-chat.tsx's own mount point (care/page.tsx) applies —
+  // runCoachTurn's own entitlement check would otherwise return a canned
+  // decline reply that AskTarragonCard has no way to distinguish from a real
+  // answer (it would render with the doctor/booking CTAs and a "report this
+  // answer" control, same as any other reply).
+  const supabase = await createClient();
+  const coachAccess = await hasCoachAccess(supabase);
 
   const greetingWord = getLagosGreetingWord();
   const actingSubject = acting ? (acting.fullName ? `${acting.fullName}'s` : "their") : null;
@@ -126,6 +138,15 @@ export default async function PatientOverviewPage() {
           DashboardPlaceholder's "Hi, {name}" already gave a moment ago. */}
       <OverviewHero patientId={subjectId} eyebrow={weekSummaryLine} />
 
+      {/* States plainly whether a clinician is actually watching this account
+          right now -- a founder-commissioned launch-scope audit's core
+          service-boundary rule (a local document, not tracked in this repo --
+          see the PR that introduced this card for the one it was written
+          against): a free/self-tracking patient must never be left to infer a
+          funded clinician relationship that doesn't exist. Right under the
+          hero, above the informational "since you were last here" reel. */}
+      <ServiceStatusCard patientId={subjectId} acting={!!acting} />
+
       {/* A short, honest "while you were away" highlight reel — only renders
           when the patient is returning after a real gap and something
           actually happened (engagement/retention gap #6, 2026-08-31). Below
@@ -150,6 +171,14 @@ export default async function PatientOverviewPage() {
           phone this row is what's on screen when the page opens. */}
       <QuickActions showCycle={shouldOfferCycleTracking(subjectSex)} />
 
+      {/* Prominent, single-screen "ask" entry point -- composes the already-
+          governed AI Coach (symptom text) and result-upload + AI summary
+          (lab result) pipelines that otherwise sit buried in Care & support
+          and Labs & bookings respectively. Above the !firstRun gate
+          deliberately: a brand-new patient with nothing logged yet is
+          exactly who most needs a fast way to ask a question or hand over a
+          result, and neither path depends on any existing record data. */}
+      <AskTarragonCard patientId={subjectId} coachAccess={coachAccess} />
 
       {/* On a genuinely empty account everything below this point can only
           report an absence, so it is not rendered at all until there is
@@ -312,7 +341,7 @@ export default async function PatientOverviewPage() {
       </Suspense>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
-        <VitalsTrendChart patientId={subjectId} />
+        <LazyVitalsTrendChart patientId={subjectId} />
         <TodaysDoses patientId={subjectId} />
       </div>
 
@@ -339,6 +368,12 @@ export default async function PatientOverviewPage() {
           an ML-only or orientation-only signal (lib/lab-reports/
           biomarker-categories.ts). */}
       <BiomarkerCategoriesCard patientId={subjectId} />
+      {/* Same underlying signals as RiskSignalsCard/BiomarkerCategoriesCard
+          above, regrouped into a patient-facing "today's energy / future
+          health" mental model rather than a clinical worklist framing.
+          canViewReproductive is never inferred for a caregiver/supporter —
+          `!acting` is only true when the viewer IS the patient. */}
+      <HealthDomainsCard patientId={subjectId} canViewReproductive={!acting} />
       {/* The thing a one-off lab visit structurally cannot tell someone: what
           has moved across several results. Renders nothing until there is
           genuinely enough history for a pattern. */}

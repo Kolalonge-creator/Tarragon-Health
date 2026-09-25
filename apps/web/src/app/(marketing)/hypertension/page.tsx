@@ -6,6 +6,9 @@ import { ResourceCarousel } from "../_components/resource-carousel";
 import { ConditionMonitoringGrid, HYPERTENSION_MONITORING } from "../_components/condition-monitoring";
 import { HowTestingWorks } from "../_components/how-testing-works";
 import { PhoneMockup } from "../_components/phone-mockup";
+import { TestimonialsSection } from "../_components/testimonials-section";
+import { DoctorTestimonialsSection } from "../_components/doctor-testimonials-section";
+import { ConditionRiskNote } from "../_components/condition-risk-note";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
 export const revalidate = 300;
@@ -23,7 +26,16 @@ export default async function HypertensionPage() {
   const bloodPressureArticles = articles.filter((a) => a.category === "Blood pressure");
 
   return (
-    <ProductPageTemplate content={content}>
+    <ProductPageTemplate
+      content={content}
+      riskNote={
+        <ConditionRiskNote
+          eyebrow="Why this matters"
+          statement="Most hypertension complications don't come from one bad reading. They come from months of drift nobody was watching."
+          support="A blood pressure cuff only tells you the truth the moment you use it. Tarragon's care team follows the trend between your visits, so a quiet climb gets a call, not a surprise."
+        />
+      }
+    >
       <Section>
         <SectionHeading
           eyebrow="What we monitor"
@@ -61,6 +73,10 @@ export default async function HypertensionPage() {
       <Section variant="sage">
         <HowTestingWorks current="chronic" />
       </Section>
+
+      <TestimonialsSection condition="hypertension" />
+
+      <DoctorTestimonialsSection condition="hypertension" />
 
       {bloodPressureArticles.length > 0 ? (
         <Section variant="sage">

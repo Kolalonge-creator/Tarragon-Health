@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getRoleHomePath } from "@/lib/auth/roles";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
+import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
 
 /** Exchanges an email-confirmation / magic-link code for a session. */
 export async function GET(request: NextRequest) {
@@ -19,39 +20,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login`);
   }
 
-  // Backfill profiles.phone from signup metadata now that we have a session
-  // (auth.users.phone is only auto-populated for phone-identity signups —
-  // see the note in apps/web/src/app/signup/actions.ts).
-  const metadataPhone = data.user.user_metadata?.phone;
-  const metadataState = data.user.user_metadata?.state;
-  const backfill: { phone?: string; state?: string; receives_care?: boolean } = {};
-  if (typeof metadataPhone === "string" && metadataPhone.length > 0) {
-    backfill.phone = metadataPhone;
-  }
-  // Optional state chosen at signup (non-gating) — pre-fills profiles.state.
-  if (typeof metadataState === "string" && metadataState.length > 0) {
-    backfill.state = metadataState;
-  }
-  // Someone who arrived to pay for a relative's care, not to be treated. Only
-  // ever narrows what we ask of them; becoming a patient later re-imposes
-  // every consent, enforced by enforce_care_purpose_switch.
-  if (data.user.user_metadata?.account_purpose === "support") {
-    backfill.receives_care = false;
-  }
-  if (Object.keys(backfill).length > 0) {
-    await supabase.from("profiles").update(backfill).eq("id", data.user.id);
-  }
-
-  // Auto-redeem a referral code carried from a shareable ?ref=CODE signup
-  // link, now that a session exists (redeem_referral_code reads auth.uid()).
-  // redeem_referral_code enforces its own rules (self-referral, 30-day
-  // window, one code per account) and returns { ok:false, error } rather
-  // than throwing for those — either way this must never block the redirect
-  // below, so failures are silently ignored here.
-  const metadataRefCode = data.user.user_metadata?.ref_code;
-  if (typeof metadataRefCode === "string" && metadataRefCode.length > 0) {
-    await supabase.rpc("redeem_referral_code", { p_code: metadataRefCode });
-  }
+  // Backfill phone/state/account_purpose and redeem a carried referral code
+  // now that a session exists — shared with signup/actions.ts's own redirect
+  // for when email confirmations are disabled and a session comes back
+  // directly from signUp(), never reaching this route at all.
+  await backfillSignupMetadata(supabase, data.user, "authCallback");
 
   const { data: profile } = await supabase
     .from("profiles")

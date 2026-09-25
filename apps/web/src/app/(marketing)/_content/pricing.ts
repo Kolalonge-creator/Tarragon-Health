@@ -248,22 +248,17 @@ export type PaidService = {
 export const PAID_SERVICES: PaidService[] = [
   {
     id: "continuous-monitoring",
-    code: "continuous_monitoring_3m",
+    code: "continuous_monitoring_90d",
     name: "Continuous Monitoring",
-    price: "₦7,500",
-    priceCaption: "for three months",
+    price: "₦30,000",
+    priceCaption: "for 90 days",
     description:
-      "Every reading you log is checked against care protocols whatever you pay. What this adds is that a dangerous one is put in front of a doctor on your care team, rather than sitting on your record waiting to be noticed. It also carries entry to the doctor-supported track of the chronic programme if you are managing hypertension or diabetes, and the twelve-month term includes your annual review. Paid once, for the term you choose, and then it stops. There is no card kept on file and nothing to cancel.",
+      "Every reading you log is checked against care protocols whatever you pay. What this adds is that a dangerous one is put in front of a doctor on your care team, rather than sitting on your record waiting to be noticed. It also carries entry to the doctor-supported track of the chronic programme if you are managing hypertension or diabetes. Paid once, for 90 days, and then it stops. There is no card kept on file and nothing to cancel. Buy it again if you want to keep the watch going.",
     breakdown: [
       "Every blood pressure, glucose, oxygen, temperature and pulse reading checked as you log it",
       "A dangerous reading raised to a doctor, not just flagged on your record",
       "Entry to the doctor-supported track if you are managing hypertension or diabetes",
       "We tell you before it runs out, so you always know where you stand",
-    ],
-    terms: [
-      { code: "continuous_monitoring_3m", label: "3 months", price: "₦7,500", perMonth: "₦2,500 a month" },
-      { code: "continuous_monitoring_6m", label: "6 months", price: "₦12,000", perMonth: "₦2,000 a month" },
-      { code: "continuous_monitoring_12m", label: "12 months", price: "₦18,000", perMonth: "₦1,500 a month, and includes your annual review" },
     ],
     conditions: [
       {
@@ -315,15 +310,6 @@ export const PAID_SERVICES: PaidService[] = [
     availability: "One-off. No programme needed.",
   },
   {
-    id: "confidential-message",
-    code: "confidential_message_credit",
-    name: "Confidential Doctor Message",
-    price: "₦2,500",
-    description:
-      "Opens a private message thread with your care team for a clinical question, whatever it is, including sexual or reproductive health. Nobody else linked to your account sees it, and a doctor replies in the thread.",
-    availability: "One-off. No programme needed.",
-  },
-  {
     id: "prescription-renewal",
     code: "prescription_renewal_credit",
     name: "Prescription Renewal Review",
@@ -360,24 +346,6 @@ export const PAID_SERVICES: PaidService[] = [
     availability: "One-off. No programme needed.",
   },
   {
-    id: "senior-case-review",
-    code: "senior_case_review_credit",
-    name: "Senior Case Review",
-    price: "₦25,000",
-    description:
-      "A senior doctor coordinates your case across every condition you are managing and delivers a single written plan in the app.",
-    availability: "One-off. No programme needed.",
-  },
-  {
-    id: "verified-document",
-    code: "verified_document_fit_to_work",
-    name: "Doctor-Signed Documents",
-    price: "₦7,500",
-    description:
-      "A verified document signed by a doctor: a fitness-to-work letter, a return-to-work letter, a travel health certificate, a school health form, a medication carry letter, an insurance medical summary, or a specialist referral letter. Priced by type, from this.",
-    availability: "One-off. No programme needed.",
-  },
-  {
     id: "ai-coach-pass",
     code: "ai_coach_daily_pass_30d",
     name: "AI Coach Daily Pass",
@@ -387,43 +355,6 @@ export const PAID_SERVICES: PaidService[] = [
     availability: "Optional. Buy it again any time; nothing renews on its own.",
   },
 ];
-
-/**
- * Supervised Weight Management, kept separate from PAID_SERVICES because it is
- * a different kind of thing: a course of medical supervision rather than a
- * piece of work, and it needs its own disclosure about what Tarragon does and
- * does not do.
- *
- * The disclosure is not marketing softening. Tarragon supervises people who
- * obtain the medicine themselves; it does not prescribe or supply it, and the
- * database refuses to enrol anyone on a medicine Tarragon started
- * (private.enforce_weight_management_supervision_only). Do not write copy here
- * that implies otherwise.
- */
-export const WEIGHT_MANAGEMENT = {
-  id: "weight-management",
-  name: "Supervised Weight Management",
-  price: "₦75,000",
-  priceCaption: "for three months",
-  description:
-    "Medical supervision while you are losing weight on medication you obtain yourself. A doctor confirms you are a suitable candidate, agrees the dose-escalation plan with you, watches for the side effects that matter, and reviews your progress every month. Your blood pressure, weight and glucose are monitored throughout, and a dangerous reading reaches a doctor. Continuous Monitoring is included for the length of the programme.",
-  disclosure:
-    "Tarragon does not prescribe, sell or supply weight-loss medication, and is not a pharmacy. You obtain your own prescription and your own medicine. What you are paying for is a doctor taking responsibility for how it is used: whether it is right for you, at what dose, and what to do when something changes.",
-  includes: [
-    "A suitability assessment before anything starts, and an honest answer if the answer is no",
-    "A dose-escalation plan agreed with a doctor, not copied off a leaflet",
-    "A tolerability check-in every two weeks, read by a clinician",
-    "A doctor review every month, in writing",
-    "Continuous Monitoring of your blood pressure, weight and glucose throughout",
-  ],
-  terms: [
-    { code: "weight_management_3m", label: "3 months", price: "₦75,000", perMonth: "₦25,000 a month" },
-    { code: "weight_management_6m", label: "6 months", price: "₦132,000", perMonth: "₦22,000 a month, and covers the full escalation for most people" },
-    { code: "weight_management_12m", label: "12 months", price: "₦240,000", perMonth: "₦20,000 a month" },
-  ],
-} as const;
-
-
 
 /** Repointed 2026-09-10: a voucher buys any paid service. The 12-week pack it
  * used to point at is retired and unbundled, so the natural thing to sponsor is
@@ -435,7 +366,7 @@ export const CARE_VOUCHER_INTRO =
 export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
   {
     title: "Pay a little at a time",
-    body: "Spread a paid service, such as twelve months of Continuous Monitoring or a course of Supervised Weight Management, over as many instalments as you like. It becomes usable once it is fully paid, and nothing runs out while you are still paying towards it.",
+    body: "Spread a paid service, such as twelve months of Continuous Monitoring, over as many instalments as you like. It becomes usable once it is fully paid, and nothing runs out while you are still paying towards it.",
   },
   {
     title: "Someone can buy it for you",
@@ -579,12 +510,6 @@ export function servicePrice(code: string, overrides?: ResolvedServicePrices): s
   return (
     overrides?.[code] ??
     PAID_SERVICES.find((s) => s.code === code)?.price ??
-    // Weight Management's terms live on their own export, not PAID_SERVICES
-    // (see that block's own comment for why), so a code like
-    // "weight_management_3m" falls through to here. Found while fixing the
-    // FAQ sentence below: this code was never in PAID_SERVICES, so it always
-    // resolved to "" and the live sentence read "...from for three months."
-    WEIGHT_MANAGEMENT.terms.find((t) => t.code === code)?.price ??
     ""
   );
 }
@@ -607,7 +532,7 @@ export function getPricingFaq(
   },
   {
     question: "What exactly do I pay for, then?",
-    answer: `A doctor's time, priced per piece of work, plus a standing watch on your readings. One-off: a written question to a doctor (${p("async_consult_credit")}), a confidential message to your care team for a clinical question, including sexual or reproductive health (${p("confidential_message_credit")}), having any laboratory result read and explained in writing (${p("written_result_interpretation")}), a chronic care review (${p("chronic_care_review_credit")}), a prescription renewal review (${p("prescription_renewal_credit")}), a video or audio visit (${p("video_visit_credit")}), a second opinion (${p("second_opinion_credit")}), a medication review (${p("medication_review_credit")}), a result consultation over video (${p("result_interpretation_credit")}), or a senior case review (${p("senior_case_review_credit")}). Ongoing: Continuous Monitoring from ${p("continuous_monitoring_3m")} for three months, where a dangerous reading reaches a doctor instead of sitting on your record, and Supervised Weight Management from ${p("weight_management_3m")} for three months. We also issue doctor-signed documents, priced by type from ${p("verified_document_fit_to_work")}. The one paid item that isn't a doctor's time is the optional AI Coach Daily Pass (${p("ai_coach_daily_pass_30d")}), which raises the free AI Health Coach's daily message limit for 30 days.`,
+    answer: `A doctor's time, priced per piece of work, plus a standing watch on your readings. One-off: a written question to a doctor (${p("async_consult_credit")}), having any laboratory result read and explained in writing (${p("written_result_interpretation")}), a chronic care review (${p("chronic_care_review_credit")}), a prescription renewal review (${p("prescription_renewal_credit")}), a video or audio visit (${p("video_visit_credit")}), a second opinion (${p("second_opinion_credit")}), a medication review (${p("medication_review_credit")}), or a result consultation over video (${p("result_interpretation_credit")}). Ongoing: Continuous Monitoring at ${p("continuous_monitoring_90d")} for 90 days, where a dangerous reading reaches a doctor instead of sitting on your record. The one paid item that isn't a doctor's time is the optional AI Coach Daily Pass (${p("ai_coach_daily_pass_30d")}), which raises the free AI Health Coach's daily message limit for 30 days.`,
   },
   {
     question: "There used to be Prevent, Essential and Complete Care plans. What happened to them?",
@@ -625,8 +550,8 @@ export function getPricingFaq(
       "You get the full emergency safety net, and it has always been yours regardless of payment: immediate, specific guidance to get to a hospital, your emergency contact notified, and a check-in with you afterwards. Your readings are checked against the same care protocols whatever you pay. What Continuous Monitoring adds is that a Tarragon doctor is alerted to it as well, and follows up with you personally.",
   },
   {
-    question: "Which conditions does Tarragon manage, and where does weight management fit?",
-    answer: `Hypertension and diabetes. Continuous Monitoring (from ${p("continuous_monitoring_3m")}) puts a doctor behind your readings, and a Chronic Care Review (${p("chronic_care_review_credit")}) is where one actually reviews your numbers, adjusts your care plan and writes back. Most people managing a condition buy a review every four to six weeks alongside their monitoring. Weight is different: managing it alongside hypertension or diabetes is part of the same review at no extra charge, weight and lifestyle coaching on their own stay free, and Supervised Weight Management (from ${p("weight_management_3m")}) exists only for people taking weight-loss medication they have obtained themselves and who want a doctor supervising how it is used.`,
+    question: "Which conditions does Tarragon manage, and where does weight fit?",
+    answer: `Hypertension and diabetes. Continuous Monitoring (${p("continuous_monitoring_90d")} for 90 days) puts your readings in front of your care team, and a Chronic Care Review (${p("chronic_care_review_credit")}) is where one actually reviews your numbers, adjusts your care plan and writes back. Most people managing a condition buy a review every four to six weeks alongside their monitoring. Weight is different: managing it alongside hypertension or diabetes is part of the same review at no extra charge, and weight and lifestyle coaching on their own stay free.`,
   },
   {
     question: "Will my card ever be charged automatically?",
