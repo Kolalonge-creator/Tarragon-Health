@@ -43878,6 +43878,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_member_active: {
+        Args: { p_active: boolean; p_member_id: string }
+        Returns: undefined
+      }
       set_monitoring_baseline: {
         Args: { p_baseline: Json; p_item_id: string }
         Returns: undefined

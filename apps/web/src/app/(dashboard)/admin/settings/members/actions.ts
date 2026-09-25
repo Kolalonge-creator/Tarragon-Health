@@ -7,7 +7,12 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission, hasAnyPermission, type PermissionKey } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { provisionMemberSchema, setMemberPhoneSchema, USER_ROLES } from "@/lib/validation/members";
+import {
+  provisionMemberSchema,
+  setMemberPhoneSchema,
+  setMemberActiveSchema,
+  USER_ROLES,
+} from "@/lib/validation/members";
 
 export type MemberActionState = { error?: string; message?: string } | undefined;
 
@@ -204,6 +209,53 @@ export async function setMemberPhoneAction(
   revalidatePath("/admin/settings/members");
   revalidatePath(`/admin/members/${parsed.data.memberId}`);
   return { message: "Phone number updated." };
+}
+
+/**
+ * Suspend or reinstate a member's login. Gated by `users.suspend`. This is
+ * deliberately distinct from clinical_staff's own Activate/Deactivate toggle
+ * (/admin/settings/clinical-staff): that one only controls a doctor's clinical
+ * authority (case assignment, prescribing, escalation handling); this one
+ * controls the underlying platform login itself, for every account role.
+ * profiles.is_active is read by private.is_org_staff/is_admin/has_permission
+ * (20260925093444_enforce_profiles_is_active_in_core_authz.sql), so setting it
+ * false here genuinely revokes RLS-level access, not just a UI badge.
+ *
+ * The actual guard+write is public.set_member_active (RPC), not a plain
+ * `.update()` here — a code review caught that profiles_update's RLS policy
+ * has no is_admin() branch and requires a non-null organisation_id, so a
+ * plain RLS-scoped update silently no-op'd (reported success, changed
+ * nothing) against any admin/lab_partner/payer_admin/provider_org_staff/
+ * ngo_admin target, all of which are null-org by design. The RPC also closes
+ * a TOCTOU race in the "don't suspend the last active Super Admin" guard
+ * (an advisory lock serializes concurrent callers) and self-authorizes
+ * internally, since it's reachable directly via supabase.rpc(), not only
+ * through this action. See 20260925100329_set_member_active_atomic_rpc.sql.
+ */
+export async function setMemberActiveAction(
+  _prev: MemberActionState,
+  formData: FormData
+): Promise<MemberActionState> {
+  const actor = await requirePermission("users.suspend");
+
+  const parsed = setMemberActiveSchema.safeParse({
+    memberId: formData.get("memberId"),
+    active: formData.get("active"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid request" };
+  }
+  const { memberId, active } = parsed.data;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_member_active", { p_member_id: memberId, p_active: active });
+  if (error) return { error: error.message };
+
+  await recordAudit(actor.id, actor.organisation_id, active ? "member.reinstated" : "member.suspended", "profiles", memberId, {});
+
+  revalidatePath("/admin/settings/members");
+  revalidatePath(`/admin/members/${memberId}`);
+  return { message: active ? "Login reinstated." : "Login suspended." };
 }
 
 /** Grant a single capability to a member (additive). Gated by `users.permissions.grant`. */
