@@ -9,7 +9,6 @@ import { firstIssue } from "@/lib/validation/first-issue";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
 import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
-import { runBestEffort } from "@/lib/sentry/run-best-effort";
 
 export type SignupActionState =
   | { error?: string; field?: string; success?: boolean }
@@ -106,14 +105,8 @@ export async function signUp(
     // right after a confirmation-link click — this path never reaches that
     // route, so it has to do the same backfill/redemption itself, or a
     // referral code and the phone/state typed into this very form would
-    // silently never be applied. Best-effort: the account and session
-    // already exist by this point, so a transport error redeeming a
-    // referral code must not turn a successful signup into an error page.
-    await runBestEffort(() => backfillSignupMetadata(supabase, user), {
-      action: "signUp",
-      stage: "metadata_backfill",
-      userId: user.id,
-    });
+    // silently never be applied.
+    await backfillSignupMetadata(supabase, user, "signUp");
     await redirectAfterLogin(supabase, user.id, redirectTo);
   }
 

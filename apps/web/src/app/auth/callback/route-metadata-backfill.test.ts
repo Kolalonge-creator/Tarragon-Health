@@ -1,18 +1,12 @@
 /**
- * backfillSignupMetadata's referral-code RPC call can reject on a transport
- * error rather than resolving with { ok:false, error } (the only failure
- * shape its own comment accounts for). Wrapped in runBestEffort (caught in
- * code review while fixing signup/actions.ts's misleading "check your
- * email" copy — see apps/web/src/app/signup/auto-confirm-redirect.test.ts)
- * so a confirmation-link click still completes and redirects the user in,
- * reporting to Sentry instead of surfacing a 500 for what is otherwise a
- * successful email confirmation.
+ * /auth/callback calls backfillSignupMetadata() (phone/state/account_purpose
+ * backfill, referral-code redemption) once a real confirmation-link session
+ * exists, tagging its Sentry report "authCallback" if that ever fails.
+ * backfillSignupMetadata's own never-throw guarantee (it can't turn a real
+ * confirmation into a 500) is tested directly in
+ * lib/auth/backfill-signup-metadata.test.ts, including its sabotage case —
+ * this file only has to confirm the route wires the call correctly.
  */
-
-const captureException = jest.fn();
-jest.mock("@sentry/nextjs", () => ({
-  captureException: (...args: unknown[]) => captureException(...args),
-}));
 
 const exchangeCodeForSessionMock = jest.fn();
 const singleMock = jest.fn().mockResolvedValue({ data: { role: "patient" } });
@@ -27,7 +21,7 @@ jest.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-const backfillSignupMetadataMock = jest.fn();
+const backfillSignupMetadataMock = jest.fn().mockResolvedValue(undefined);
 jest.mock("@/lib/auth/backfill-signup-metadata", () => ({
   backfillSignupMetadata: (...args: unknown[]) => backfillSignupMetadataMock(...args),
 }));
@@ -38,46 +32,39 @@ function requestFor(url: string) {
   return { url } as Parameters<typeof GET>[0];
 }
 
-describe("GET /auth/callback — metadata backfill is best-effort", () => {
+describe("GET /auth/callback — metadata backfill wiring", () => {
   beforeEach(() => {
     exchangeCodeForSessionMock.mockReset();
-    backfillSignupMetadataMock.mockReset();
-    captureException.mockClear();
+    backfillSignupMetadataMock.mockReset().mockResolvedValue(undefined);
   });
 
-  it("still redirects to the resolved destination when the metadata backfill rejects", async () => {
-    exchangeCodeForSessionMock.mockResolvedValue({
-      data: { user: { id: "user-123" } },
-      error: null,
-    });
-    const backfillError = new Error("redeem_referral_code: fetch failed");
-    backfillSignupMetadataMock.mockRejectedValue(backfillError);
-
-    // Sabotage check: without runBestEffort wrapping the call, this route
-    // would throw here instead of ever reaching NextResponse.redirect.
-    const response = await GET(
-      requestFor("https://app.tarragonhealth.ng/auth/callback?code=abc123")
-    );
-
-    expect(response.headers.get("location")).toBe("https://app.tarragonhealth.ng/patient");
-    expect(captureException).toHaveBeenCalledWith(
-      backfillError,
-      expect.objectContaining({ extra: expect.objectContaining({ userId: "user-123" }) })
-    );
-  });
-
-  it("redirects normally when the metadata backfill succeeds", async () => {
-    exchangeCodeForSessionMock.mockResolvedValue({
-      data: { user: { id: "user-123" } },
-      error: null,
-    });
-    backfillSignupMetadataMock.mockResolvedValue(undefined);
+  it("backfills signup metadata tagged 'authCallback' and redirects to the resolved destination", async () => {
+    const user = { id: "user-123" };
+    exchangeCodeForSessionMock.mockResolvedValue({ data: { user }, error: null });
 
     const response = await GET(
       requestFor("https://app.tarragonhealth.ng/auth/callback?code=abc123")
     );
 
+    expect(backfillSignupMetadataMock).toHaveBeenCalledWith(
+      expect.anything(),
+      user,
+      "authCallback"
+    );
     expect(response.headers.get("location")).toBe("https://app.tarragonhealth.ng/patient");
-    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("redirects to /login without calling the backfill when the code exchange fails", async () => {
+    exchangeCodeForSessionMock.mockResolvedValue({
+      data: { user: null },
+      error: new Error("invalid code"),
+    });
+
+    const response = await GET(
+      requestFor("https://app.tarragonhealth.ng/auth/callback?code=bad-code")
+    );
+
+    expect(backfillSignupMetadataMock).not.toHaveBeenCalled();
+    expect(response.headers.get("location")).toBe("https://app.tarragonhealth.ng/login");
   });
 });
