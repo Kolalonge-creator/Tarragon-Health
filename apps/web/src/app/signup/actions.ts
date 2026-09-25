@@ -1,12 +1,15 @@
 "use server";
 
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { signupSchema } from "@/lib/validation/auth";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
+import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
+import { recordLoginDevice } from "@/lib/auth/record-login-device";
 
 export type SignupActionState =
   | { error?: string; field?: string; success?: boolean }
@@ -62,7 +65,7 @@ export async function signUp(
   const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString());
   const emailRedirectTo = `${origin}/auth/callback${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`;
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
@@ -90,6 +93,16 @@ export async function signUp(
     // directly contradicted the 8-character rule this form enforces and is
     // now shown under the password field.
     return { error: authErrorMessage(error, "sign_up") };
+  }
+
+  // A project with email confirmations turned off (this one, currently) hands
+  // back a live session immediately — there is no confirmation email to wait
+  // for, and telling the visitor to go check one is actively wrong (worse,
+  // they're already signed in). Only show the "check your email" state when
+  // GoTrue actually deferred confirmation, i.e. there's no session yet.
+  if (data?.session && data?.user) {
+    await recordLoginDevice(supabase);
+    redirect(await resolveLoginDestination(supabase, data.user.id, redirectTo));
   }
 
   return { success: true };
