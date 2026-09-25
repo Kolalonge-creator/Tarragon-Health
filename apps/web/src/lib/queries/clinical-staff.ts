@@ -1,11 +1,51 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Tables } from "@tarragon/shared";
+import type { Enums, Tables } from "@tarragon/shared";
 
 export type ClinicalStaff = Tables<"clinical_staff">;
 
 const ALL_STAFF_QUERY_KEY = ["clinical-staff", "all"];
 const CLINICAL_STAFF_PHOTO_BUCKET = "clinical-staff-photos";
+
+/**
+ * The public-safe doctor-attribution join every per-case attribution surface
+ * embeds — senior-case-review, async-consults, second-opinion,
+ * patient-timeline, care-messages, reviewed-by-doctor, reviewed-result-line.
+ * id + full_name only: never credential_type/credential_number/staff_number/
+ * indemnity fields, which stay internal-only (docs/CLINICAL_TRUST_MODEL_SPEC.md).
+ * This is the second time this exact set of call sites needed a synchronized
+ * edit (credential_type/credential_number wired in, then pulled back out in
+ * favour of years_of_experience + a profile-page link) — change the fragment
+ * and the type here, once, instead of each call site's own hand-rolled
+ * `clinical_staff!<fk>(...)` string and inline type.
+ *
+ * `as const` keeps this a string *literal* type rather than widening to
+ * `string`, which is what lets a caller that interpolates it straight into a
+ * `.select(...)` call (reviewed-by-doctor.tsx, reviewed-result-line.tsx) keep
+ * Supabase's inferred row typing instead of needing an `as` cast. Callers
+ * that embed it inside a longer relational select string already cast their
+ * result explicitly (`as unknown as ...`), so the literal type buys them
+ * nothing extra but costs nothing either.
+ */
+export const DOCTOR_ATTRIBUTION_FIELDS = "id, full_name" as const;
+
+export type DoctorAttribution = {
+  id: string;
+  full_name: string;
+};
+
+/**
+ * Adds doctor_tier for the two consumers (patient-timeline.ts,
+ * care-messages.ts) that must run isClinicalTier before ever rendering
+ * "Dr. X" — a Care Coordinator carries an active clinical_staff row too
+ * (doctor_tier = 'care_coordinator'), so a real row alone isn't proof of a
+ * real doctor.
+ */
+export const DOCTOR_ATTRIBUTION_FIELDS_WITH_TIER = "id, full_name, doctor_tier" as const;
+
+export type DoctorAttributionWithTier = DoctorAttribution & {
+  doctor_tier: Enums<"doctor_tier"> | null;
+};
 
 /** Uploads to the public clinical-staff-photos bucket and returns the resulting public URL for clinical_staff.photo_url. */
 async function uploadClinicalStaffPhoto(
@@ -105,6 +145,7 @@ export function useCreateClinicalStaff() {
       credentialType?: string;
       credentialNumber?: string;
       specialty?: string;
+      yearsOfExperience?: number | null;
       bio?: string;
       profilePhone?: string;
       photoFile?: File;
@@ -138,6 +179,7 @@ export function useCreateClinicalStaff() {
         credential_type: input.credentialType || null,
         credential_number: input.credentialNumber || null,
         specialty: input.specialty || null,
+        years_of_experience: input.yearsOfExperience ?? null,
         bio: input.bio || null,
         photo_url: photoUrl,
         active: false,
@@ -377,6 +419,7 @@ export function useUpdateClinicalStaff() {
       organisationId,
       specialty,
       bio,
+      yearsOfExperience,
       photoFile,
       removePhoto,
     }: {
@@ -384,6 +427,7 @@ export function useUpdateClinicalStaff() {
       organisationId: string;
       specialty: string;
       bio: string;
+      yearsOfExperience?: number | null;
       photoFile?: File;
       removePhoto?: boolean;
     }) => {
@@ -401,6 +445,7 @@ export function useUpdateClinicalStaff() {
         .update({
           specialty: specialty.trim() || null,
           bio: bio.trim() || null,
+          ...(yearsOfExperience !== undefined ? { years_of_experience: yearsOfExperience } : {}),
           ...(photoUrl !== undefined ? { photo_url: photoUrl } : {}),
         })
         .eq("id", clinicalStaffId);

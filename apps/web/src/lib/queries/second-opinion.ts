@@ -1,15 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { DOCTOR_ATTRIBUTION_FIELDS, type DoctorAttribution } from "@/lib/queries/clinical-staff";
 import type { Tables } from "@tarragon/shared";
 
 export type SecondOpinionRequest = Tables<"second_opinion_requests">;
 
 export type SecondOpinionRequestWithAnswerer = SecondOpinionRequest & {
-  answerer: {
-    full_name: string;
-    credential_type: string | null;
-    credential_number: string | null;
-  } | null;
+  answerer: DoctorAttribution | null;
 };
 
 export type SecondOpinionRequestWithPatient = SecondOpinionRequest & {
@@ -31,7 +28,7 @@ export function useMySecondOpinionRequests(patientId: string) {
       const { data, error } = await supabase
         .from("second_opinion_requests")
         .select(
-          "*, answerer:clinical_staff!second_opinion_requests_answered_by_fkey(full_name, credential_type, credential_number)"
+          `*, answerer:clinical_staff!second_opinion_requests_answered_by_fkey(${DOCTOR_ATTRIBUTION_FIELDS})`
         )
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false })

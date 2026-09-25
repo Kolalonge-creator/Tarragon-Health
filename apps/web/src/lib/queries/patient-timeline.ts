@@ -1,5 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { DOCTOR_ATTRIBUTION_FIELDS_WITH_TIER, type DoctorAttributionWithTier } from "@/lib/queries/clinical-staff";
 import type { Tables, Enums } from "@tarragon/shared";
 
 export type TimelineEventType = Enums<"timeline_event_type">;
@@ -15,16 +16,11 @@ export type TimelineEventType = Enums<"timeline_event_type">;
  * ActorAttribution in components/patient-timeline.tsx.
  */
 export type TimelineEvent = Tables<"patient_timeline"> & {
-  actor: {
-    full_name: string | null;
-    credential_type: string | null;
-    credential_number: string | null;
-    doctor_tier: Enums<"doctor_tier"> | null;
-  } | null;
+  actor: DoctorAttributionWithTier | null;
 };
 
 const TIMELINE_SELECT =
-  "*, actor:clinical_staff!patient_timeline_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number, doctor_tier)";
+  `*, actor:clinical_staff!patient_timeline_actor_clinical_staff_id_fkey(${DOCTOR_ATTRIBUTION_FIELDS_WITH_TIER})`;
 
 /**
  * The unified activity feed for a single patient, newest first. Read by the

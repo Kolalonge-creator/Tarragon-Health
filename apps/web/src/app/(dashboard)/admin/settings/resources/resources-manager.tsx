@@ -175,7 +175,7 @@ function Editor({
             id="res-reviewer"
             value={draft.reviewedByName}
             onChange={(e) => setDraft({ ...draft, reviewedByName: e.target.value })}
-            placeholder="e.g. Dr Jane Okafor, MDCN 12345"
+            placeholder="e.g. Dr Jane Okafor, General Practice"
           />
         </div>
       </div>

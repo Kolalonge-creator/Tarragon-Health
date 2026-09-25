@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { generateDraftReplyAction } from "@/lib/care-messages/actions";
 import { compareThreads } from "@/lib/worklist/message-triage";
+import { DOCTOR_ATTRIBUTION_FIELDS_WITH_TIER, type DoctorAttributionWithTier } from "@/lib/queries/clinical-staff";
 import type { Tables, Enums } from "@tarragon/shared";
 
 export type CareThread = Tables<"care_message_threads">;
@@ -17,25 +18,20 @@ export type CareThreadWithPatient = CareThread & {
  * a real doctor: a Care Coordinator carries an active clinical_staff row too
  * (doctor_tier = 'care_coordinator'), so a "Dr X" line must not be rendered
  * from a non-null actor alone. doctor_tier lets the UI run isClinicalTier
- * (lib/clinical/doctor-tier.ts) first — see authorLabel in
+ * (lib/clinical/doctor-tier.ts) first — see AuthorLabel in
  * components/care-message-thread.tsx. A patient/sponsor author has no actor.
  */
 export type CareMessageAttachment = Tables<"care_message_attachments">;
 
 export type CareMessage = Tables<"care_messages"> & {
-  actor: {
-    full_name: string | null;
-    credential_type: string | null;
-    credential_number: string | null;
-    doctor_tier: Enums<"doctor_tier"> | null;
-  } | null;
+  actor: DoctorAttributionWithTier | null;
   attachments: CareMessageAttachment[];
 };
 
 export type CareMessageTemplate = Tables<"care_message_templates">;
 
 const MESSAGE_SELECT =
-  "*, actor:clinical_staff!care_messages_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number, doctor_tier), attachments:care_message_attachments(*)";
+  `*, actor:clinical_staff!care_messages_actor_clinical_staff_id_fkey(${DOCTOR_ATTRIBUTION_FIELDS_WITH_TIER}), attachments:care_message_attachments(*)`;
 const THREAD_PATIENT_SELECT =
   "*, patient:profiles!care_message_threads_patient_id_fkey(full_name, patient_number)";
 

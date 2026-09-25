@@ -1,20 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
-import { ClinicalStaffAvatar } from "@/components/clinical-staff-avatar";
-
-function formatReviewedDate(reviewedAt: string): string {
-  return new Date(reviewedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
-}
+import { ReviewedResultLine } from "@/components/reviewed-result-line";
 
 /**
- * The single shared "Reviewed by Dr. X" component — docs/CLINICAL_TRUST_MODEL_SPEC.md §2.
- * Null-gated: renders nothing unless escalations.reviewed_by AND reviewed_at
- * are both set (never invented, never set by anything other than the
- * reviewing doctor's own resolve action). If reviewed_by is set but no
- * matching clinical_staff record exists, falls back to a generic
- * clinician-attributed line rather than guessing a name — the guardrail
- * that makes false attribution structurally impossible. Photo/speciality are
- * per-case attribution only (this case's reviewer), never a standing "your
- * doctor" profile — see CLAUDE.md's no-continuous-named-doctor correction.
+ * The single shared "Reviewed by Dr. X" component for an escalation —
+ * docs/CLINICAL_TRUST_MODEL_SPEC.md §2. A thin wrapper around
+ * <ReviewedResultLine>: fetches the one thing that component doesn't already
+ * have (the escalation's own reviewed_by/reviewed_at/resolution_note — its
+ * other callers, lab_result_documents/annual_health_checks, already hold
+ * that pair themselves) and hands off the doctor lookup, the null-gating,
+ * and the "Reviewed by Dr. X · date" rendering to it. `avatar` gets the
+ * per-case attribution photo (never a standing "your doctor" profile — see
+ * CLAUDE.md's no-continuous-named-doctor correction); `note` appends the
+ * resolution text, which only this call site has.
  */
 export async function ReviewedByDoctor({ escalationId }: { escalationId: string }) {
   const supabase = await createClient();
@@ -25,42 +22,13 @@ export async function ReviewedByDoctor({ escalationId }: { escalationId: string 
     .eq("id", escalationId)
     .maybeSingle();
 
-  if (!escalation?.reviewed_by || !escalation?.reviewed_at) {
-    return null;
-  }
-
-  const { data: doctor } = await supabase
-    .from("clinical_staff")
-    .select("full_name, credential_type, credential_number, photo_url, specialty")
-    .eq("profile_id", escalation.reviewed_by)
-    .eq("active", true)
-    .maybeSingle();
-
-  const reviewedDate = formatReviewedDate(escalation.reviewed_at);
-
-  if (!doctor) {
-    return (
-      <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Reviewed by your care team · {reviewedDate}</p>
-    );
-  }
-
-  const credential =
-    doctor.credential_type && doctor.credential_number
-      ? `${doctor.credential_type} ${doctor.credential_number}`
-      : null;
-
   return (
-    <div className="flex items-start gap-3">
-      <ClinicalStaffAvatar fullName={doctor.full_name} photoUrl={doctor.photo_url} />
-      <p className="text-sm text-charcoal-ink dark:text-night-ink">
-        Reviewed by <span className="font-medium">Dr. {doctor.full_name}</span>
-        {doctor.specialty && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {doctor.specialty}</span>}
-        {credential && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {credential}</span>}
-        <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {reviewedDate}</span>
-        {escalation.resolution_note && (
-          <span className="block text-charcoal-ink/70 dark:text-night-ink/70">{escalation.resolution_note}</span>
-        )}
-      </p>
-    </div>
+    <ReviewedResultLine
+      reviewedBy={escalation?.reviewed_by ?? null}
+      reviewedAt={escalation?.reviewed_at ?? null}
+      reviewedByKey="profile"
+      avatar
+      note={escalation?.resolution_note}
+    />
   );
 }
