@@ -10,6 +10,7 @@ import {
 } from "@/lib/second-opinion";
 import { trySpendPlatformCreditForService } from "@/lib/platform-credit";
 import { formatCareDate } from "@/lib/care";
+import { formatDoctorName } from "@/lib/doctor-name";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { koboToNaira } from "@tarragon/shared";
 import { colors, radius } from "@/ui/theme";
@@ -175,7 +176,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
                     <Text style={{ fontSize: 13.5, color: colors.ink }}>{r.answer}</Text>
                     {r.answerer && r.answered_at && (
                       <MutedText>
-                        Answered by Dr. {r.answerer.full_name} on {formatCareDate(r.answered_at)}
+                        Answered by {formatDoctorName(r.answerer.full_name)} on {formatCareDate(r.answered_at)}
                       </MutedText>
                     )}
                   </>

@@ -8,6 +8,7 @@ import {
   type TimelineEventType,
 } from "@/lib/timeline";
 import { isClinicalTier } from "@tarragon/shared";
+import { formatDoctorName } from "@/lib/doctor-name";
 import type { SectionId } from "@/lib/sections";
 import { colors, spacing } from "@/ui/theme";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, SecondaryButton, ScreenTitle } from "@/ui/components";
@@ -61,7 +62,7 @@ function formatWhen(value: string): string {
 export function actorSubtitle(actor: TimelineEvent["actor"]): string | undefined {
   if (!actor?.full_name) return undefined;
   if (!isClinicalTier(actor)) return "By your care team";
-  return `By Dr. ${actor.full_name}`;
+  return `By ${formatDoctorName(actor.full_name)}`;
 }
 
 interface TimelineScreenProps {
