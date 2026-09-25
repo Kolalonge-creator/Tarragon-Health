@@ -15,7 +15,8 @@
     "test:e2e-browser": "playwright test",
     "lab-corpus": "tsx --tsconfig tsconfig.scripts.json scripts/run-lab-corpus.ts",
     "ai-coach-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-safety-eval.ts",
-    "ai-coach-governance-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-governance-suites-eval.ts"
+    "ai-coach-governance-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-governance-suites-eval.ts",
+    "ai016-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/eval-ai016-imaging-report.ts"
   },
   "dependencies": {
     "@langchain/anthropic": "^0.3.14",

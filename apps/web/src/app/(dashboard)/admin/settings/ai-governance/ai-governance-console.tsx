@@ -313,30 +313,38 @@ function MarkVersionDeployedForm({ versionId }: { versionId: string }) {
 }
 
 /**
- * Runs AI-001's four governance suites for real (real model calls, roughly
- * 1-3 minutes) and records the result -- this is the missing piece that
- * previously meant only an engineer running a local script, then writing a
- * migration by hand, could ever get a version's release gate closer to
- * satisfied. Deliberately does not itself approve anything; it only
- * measures and records, same as clicking a test-runner button records a
- * test result. Real Anthropic API usage -- each click costs real money and
- * needs ANTHROPIC_API_KEY configured with a positive credit balance in this
- * environment, or every suite will fail immediately with a billing error.
+ * Runs a system's registered governance suite(s) for real (real model calls,
+ * roughly seconds to a few minutes depending on the system) and records the
+ * result -- this is the missing piece that previously meant only an
+ * engineer running a local script, then writing a migration by hand, could
+ * ever get a version's release gate closer to satisfied. Deliberately does
+ * not itself approve anything; it only measures and records, same as
+ * clicking a test-runner button records a test result. Real Anthropic API
+ * usage -- each click costs real money and needs ANTHROPIC_API_KEY
+ * configured with a positive credit balance in this environment, or every
+ * suite will fail immediately with a billing error.
+ *
+ * Shared between AI-001 (four suites: safety baseline, red-team, fairness,
+ * clinical accuracy) and AI-016 (one suite: golden imaging report
+ * extraction) via the `systemCode` prop -- runAiEvalSuitesAction dispatches
+ * to the right harness module server-side.
  */
-function RunEvalSuitesForm() {
+function RunEvalSuitesForm({ systemCode }: { systemCode: "AI-001" | "AI-016" }) {
   const [state, action, pending] = useActionState<RunEvalSuitesState, FormData>(
     runAiEvalSuitesAction,
     undefined
   );
+  const suiteCountLabel = systemCode === "AI-001" ? "the four suites below" : "the suite below";
 
   return (
     <form action={action} className="min-w-[20rem] flex-1 space-y-2">
+      <input type="hidden" name="systemCode" value={systemCode} />
       <Button type="submit" size="sm" variant="outline" disabled={pending}>
-        {pending ? "Running evaluations… this takes a few minutes" : "Run evaluations"}
+        {pending ? "Running evaluations… this may take a few minutes" : "Run evaluations"}
       </Button>
       <p className="text-xs text-charcoal-ink/50">
-        Makes real model calls against the four suites below and records the result. Does not
-        approve anything by itself.
+        Makes real model calls against {suiteCountLabel} and records the result. Does not approve
+        anything by itself.
       </p>
       {state && "error" in state && <p className="text-sm text-red-600">{state.error}</p>}
       {state && "results" in state && (
@@ -949,7 +957,9 @@ export function AiGovernanceConsole({
 
                   <div className="flex flex-wrap items-start gap-4">
                     {row && <KillSwitchForm system={row} enabled={entry.is_enabled} />}
-                    {entry.system_code === "AI-001" && <RunEvalSuitesForm />}
+                    {(entry.system_code === "AI-001" || entry.system_code === "AI-016") && (
+                      <RunEvalSuitesForm systemCode={entry.system_code} />
+                    )}
                     {draftPrompt && !activePrompt && (
                       <div className="min-w-[20rem] flex-1">
                         <p className="text-sm text-charcoal-ink/70">
