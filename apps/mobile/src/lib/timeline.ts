@@ -10,29 +10,68 @@ export type TimelineEventType = Enums<"timeline_event_type">;
  * pagination strategy for the full-history screen. `actor` carries doctor_tier
  * so the UI can gate "Dr. X" attribution through isClinicalTier (from
  * @tarragon/shared) rather than showing it for a Care Coordinator's row too.
+ *
+ * No credential_type/credential_number here -- per docs/CLINICAL_TRUST_MODEL_SPEC.md's
+ * 2026-09-25/2026-09-26 correction, patients never see a doctor's MDCN/NMCN
+ * registration number (or an inline specialty/years-of-experience either),
+ * only "Dr. First Last".
  */
 export type TimelineEvent = Tables<"patient_timeline"> & {
   actor: {
     full_name: string | null;
-    credential_type: string | null;
-    credential_number: string | null;
     doctor_tier: Enums<"doctor_tier"> | null;
   } | null;
 };
 
-const TIMELINE_SELECT =
-  "*, actor:clinical_staff!patient_timeline_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number, doctor_tier)";
+type TimelineActor = NonNullable<TimelineEvent["actor"]>;
+
+/**
+ * `actor_clinical_staff_id` used to be embedded directly via
+ * `clinical_staff!patient_timeline_actor_clinical_staff_id_fkey(...)` — a
+ * PostgREST embedded join, which resolves against `clinical_staff`'s OWN
+ * RLS, not this query's own. Since 2026-09-25 (see
+ * 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+ * that policy no longer admits a patient session, so the embed would
+ * silently come back null for every patient viewing their own timeline.
+ * Fetching the actor separately from public.clinical_staff_directory (the
+ * safe-column view every patient-facing clinical_staff read now uses, on
+ * both web and mobile) restores the same attribution without reopening the
+ * column-exposure gap that migration fixed. Mirrors
+ * apps/web/src/lib/queries/patient-timeline.ts's fetchTimelineActors.
+ */
+async function fetchTimelineActors(actorIds: string[]): Promise<Map<string, TimelineActor>> {
+  const actorById = new Map<string, TimelineActor>();
+  if (actorIds.length === 0) return actorById;
+  const { data, error } = await supabase.from("clinical_staff_directory").select("id, full_name, doctor_tier").in("id", actorIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    actorById.set(row.id, { full_name: row.full_name, doctor_tier: row.doctor_tier });
+  }
+  return actorById;
+}
 
 export async function loadPatientTimeline(patientId: string, limit = 20): Promise<QueryResult<TimelineEvent[]>> {
   try {
     const { data, error } = await supabase
       .from("patient_timeline")
-      .select(TIMELINE_SELECT)
+      .select("*")
       .eq("patient_id", patientId)
       .order("occurred_at", { ascending: false })
       .range(0, limit - 1);
     if (error) return { ok: false, error: error.message };
-    return { ok: true, data: data as unknown as TimelineEvent[] };
+
+    const rows = data ?? [];
+    const actorIds = Array.from(new Set(rows.map((row) => row.actor_clinical_staff_id).filter((id): id is string => !!id)));
+    const actorById = await fetchTimelineActors(actorIds);
+
+    return {
+      ok: true,
+      data: rows.map((row) => ({
+        ...row,
+        actor: row.actor_clinical_staff_id ? (actorById.get(row.actor_clinical_staff_id) ?? null) : null,
+      })) as TimelineEvent[],
+    };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

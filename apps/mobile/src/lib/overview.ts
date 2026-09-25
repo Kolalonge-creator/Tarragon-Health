@@ -83,17 +83,16 @@ export async function getSummaryStats(patientId: string): Promise<QueryResult<Su
 
 export interface CareTeamInfo {
   clinicianName: string;
-  credential: string | null;
   clinicianProfileId: string;
 }
 
 /** Mirrors YourCareTeam in apps/web/src/components/your-care-team.tsx, minus
  * the care-coordinator name (that lookup needs the service-role client, which
  * the mobile app correctly has no access to — coordinator contact stays a
- * WebView-only surface for now). clinicianName/credential exist here purely
- * as the same existence-check web performs (does an active assignment exist
- * at all) — like web, the Overview card must never render this as a named
- * "your doctor" ahead of a review actually happening; see overview-screen.tsx.
+ * WebView-only surface for now). clinicianName exists here purely as the same
+ * existence-check web performs (does an active assignment exist at all) —
+ * like web, the Overview card must never render this as a named "your
+ * doctor" ahead of a review actually happening; see overview-screen.tsx.
  * ok:true with data:null means "no assignment"; ok:false means "unknown". */
 export async function getCareTeam(patientId: string): Promise<QueryResult<CareTeamInfo | null>> {
   try {
@@ -105,9 +104,13 @@ export async function getCareTeam(patientId: string): Promise<QueryResult<CareTe
     if (assignmentError) return { ok: false, error: assignmentError.message };
     if (!assignment?.clinician_id) return { ok: true, data: null };
 
+    // Reads from clinical_staff_directory, not clinical_staff, since
+    // 2026-09-25's clinical_staff_select narrowing (see
+    // 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+    // stopped admitting a patient session to the base table.
     const { data: clinician, error: clinicianError } = await supabase
-      .from("clinical_staff")
-      .select("full_name, credential_type, credential_number")
+      .from("clinical_staff_directory")
+      .select("full_name")
       .eq("profile_id", assignment.clinician_id)
       .eq("active", true)
       .maybeSingle();
@@ -117,11 +120,7 @@ export async function getCareTeam(patientId: string): Promise<QueryResult<CareTe
     return {
       ok: true,
       data: {
-        clinicianName: clinician.full_name,
-        credential:
-          clinician.credential_type && clinician.credential_number
-            ? `${clinician.credential_type} ${clinician.credential_number}`
-            : null,
+        clinicianName: clinician.full_name ?? "",
         clinicianProfileId: assignment.clinician_id,
       },
     };

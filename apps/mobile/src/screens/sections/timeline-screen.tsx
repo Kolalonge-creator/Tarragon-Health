@@ -8,6 +8,7 @@ import {
   type TimelineEventType,
 } from "@/lib/timeline";
 import { isClinicalTier } from "@tarragon/shared";
+import { formatDoctorName } from "@/lib/doctor-name";
 import type { SectionId } from "@/lib/sections";
 import { colors, spacing } from "@/ui/theme";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, SecondaryButton, ScreenTitle } from "@/ui/components";
@@ -54,12 +55,14 @@ function formatWhen(value: string): string {
 
 // Same null-gating as ActorAttribution on web: a real clinical_staff row
 // isn't the same as a real doctor -- a Care Coordinator carries one too.
-function actorSubtitle(actor: TimelineEvent["actor"]): string | undefined {
+// No credential number, specialty, or years-of-experience here -- per
+// docs/CLINICAL_TRUST_MODEL_SPEC.md's 2026-09-25/2026-09-26 correction,
+// per-case attribution is name-only ("Dr. First Last"); mobile has no
+// doctor-profile-page equivalent to link that detail to.
+export function actorSubtitle(actor: TimelineEvent["actor"]): string | undefined {
   if (!actor?.full_name) return undefined;
   if (!isClinicalTier(actor)) return "By your care team";
-  const credential =
-    actor.credential_type && actor.credential_number ? ` · ${actor.credential_type} ${actor.credential_number}` : "";
-  return `By Dr. ${actor.full_name}${credential}`;
+  return `By ${formatDoctorName(actor.full_name)}`;
 }
 
 interface TimelineScreenProps {

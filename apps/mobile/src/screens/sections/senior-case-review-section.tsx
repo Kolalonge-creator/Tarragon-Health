@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { loadMySeniorCaseReviews, type SeniorCaseReviewWithReviewer } from "@/lib/senior-case-review";
 import { formatCareDate } from "@/lib/care";
+import { formatDoctorName } from "@/lib/doctor-name";
 import { colors } from "@/ui/theme";
 import { Badge, Card, ErrorText, MutedText } from "@/ui/components";
 
@@ -57,7 +58,7 @@ export function SeniorCaseReviewSection({ patientId }: { patientId: string }) {
                   <Text style={{ fontSize: 13.5, color: colors.ink }}>{r.written_plan}</Text>
                   {r.reviewer && r.reviewed_at && (
                     <MutedText>
-                      Dr. {r.reviewer.full_name} · {formatCareDate(r.reviewed_at)}
+                      {formatDoctorName(r.reviewer.full_name)} · {formatCareDate(r.reviewed_at)}
                     </MutedText>
                   )}
                 </>
