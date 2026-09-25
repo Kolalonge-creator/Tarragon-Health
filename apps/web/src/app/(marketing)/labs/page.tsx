@@ -46,7 +46,9 @@ export default async function LabsPage() {
               Photograph a result, we read it into your record
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              You pay the lab directly and take the test wherever you trust. Snap a photo of the
+              You pay the lab directly and take the test wherever you like. We&apos;re partnered
+              with Synlab Nigeria and trust their results, so they&apos;re a solid default if you
+              don&apos;t already have a lab in mind, but any laboratory works. Snap a photo of the
               result and it&apos;s on your record, in plain language, with a doctor reviewing it.
             </p>
           </div>

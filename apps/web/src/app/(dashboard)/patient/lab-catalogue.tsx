@@ -96,6 +96,11 @@ export function LabCatalogue() {
               request to take to a laboratory of your choice. You pay the lab directly, at
               whatever they charge, and we take nothing on top.
             </p>
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+              We&apos;re partnered with Synlab Nigeria and trust their results, so if you
+              don&apos;t already have a lab in mind, they&apos;re a solid place to start. Any
+              laboratory works though, and a doctor reads your result either way.
+            </p>
           </>
         )}
       </CardContent>
