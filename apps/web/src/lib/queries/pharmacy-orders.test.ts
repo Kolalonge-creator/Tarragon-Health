@@ -8,7 +8,8 @@ import type { PharmacyMedication } from "./pharmacy-orders";
  * filtered `where is_active` and broke historical attribution elsewhere.
  * attachPharmacyPartners is the one caller that genuinely needs
  * active-only: it feeds a bookable catalogue, not an attribution read, so
- * it has to filter is_active itself rather than rely on the view to do it.
+ * it filters is_active itself (server-side, via `.eq("is_active", true)`)
+ * rather than rely on the view to do it.
  *
  * Before this fix, a medication belonging to a now-inactive pharmacy
  * partner stayed in the catalogue with `pharmacy_partner: null` — and
@@ -34,19 +35,29 @@ type FakeDirectoryRow = {
   is_active: boolean | null;
 };
 
+/**
+ * Mirrors the real chain fetchPharmacyPartners calls:
+ * `.from(...).select(...).eq("is_active", true).in("id", ids)` — the
+ * `.eq("is_active", true)` filter is server-side (query-level), matching
+ * the fix that moved it off a client-side `row.is_active === false` check.
+ * An inactive directory row is dropped here, at the `.eq()` step, the same
+ * way the real Postgres query would never return it in the first place.
+ */
 function fakeSupabase(directoryRows: FakeDirectoryRow[]) {
   const calls: { table: string; ids: string[] }[] = [];
   return {
     client: {
       from: (table: string) => ({
         select: () => ({
-          in: (_col: string, ids: string[]) => {
-            calls.push({ table, ids });
-            return Promise.resolve({
-              data: directoryRows.filter((r) => ids.includes(r.id)),
-              error: null,
-            });
-          },
+          eq: (_activeCol: string, isActive: boolean) => ({
+            in: (_col: string, ids: string[]) => {
+              calls.push({ table, ids });
+              return Promise.resolve({
+                data: directoryRows.filter((r) => r.is_active === isActive && ids.includes(r.id)),
+                error: null,
+              });
+            },
+          }),
         }),
       }),
     } as unknown as Parameters<typeof attachPharmacyPartners>[0],

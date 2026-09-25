@@ -28,13 +28,14 @@
 --      rolled-back transaction reproduces the leak on both tables, proving
 --      this test would have caught the original bug rather than passing
 --      vacuously.
---   7. A directory view keeps carrying a row after is_active flips to
---      false — proven, and sabotaged by reinstating a `where is_active`
---      clause (the directory views' own first, buggy version, found and
---      fixed same-day by /code-review high before merge — see
---      20260925024716_fix_lab_pharmacy_directory_active_filter_and_replay_
---      guard.sql) to confirm the row really does disappear without this
---      fix, i.e. this check would have caught that regression too.
+--   7. Both directory views keep carrying a row after is_active flips to
+--      false — proven for each, and each individually sabotaged by
+--      reinstating a `where is_active` clause (the views' own first, buggy
+--      version, found and fixed same-day by /code-review high before merge
+--      — see 20260925024716_fix_lab_pharmacy_directory_active_filter_and_
+--      replay_guard.sql) to confirm the row really does disappear without
+--      this fix. Both sides are sabotaged independently, not just one, so a
+--      regression on either view alone would still be caught.
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/lab_pharmacy_partner_directory_column_scoping.sql
 -- (or paste into execute_sql / the SQL editor — already wrapped in
@@ -295,6 +296,37 @@ begin
     select id, name, home_collection, regions, is_active, integration_status, accreditation,
            license_type, license_number, license_expires_at, license_verified_at
     from public.lab_providers;
+
+  -- Same sabotage, pharmacy side -- 7a's proof only covered lab_provider_
+  -- directory; without this, a future `where is_active` reintroduced on
+  -- pharmacy_partner_directory alone would pass PASS 7 vacuously (7b's
+  -- positive check ran before any sabotage, so it can't tell "correctly
+  -- unfiltered" from "never actually tested").
+  create or replace view public.pharmacy_partner_directory
+    with (security_invoker = false)
+    as
+    select id, name, delivery, regions, is_active, address, latitude, longitude, state, city, area,
+           delivery_fee_kobo, license_type, license_number, license_expires_at, license_verified_at
+    from public.pharmacy_partners
+    where is_active;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+
+  select count(*) into v_count from public.pharmacy_partner_directory where id = v_pharmacy_id;
+  if v_count <> 0 then
+    raise exception 'SABOTAGE FAILED (7b): reinstating `where is_active` on pharmacy_partner_directory did not reproduce the attribution regression — this test would not have caught it';
+  end if;
+  raise notice 'SABOTAGE CONFIRMED (7b): the buggy `where is_active` shape does drop an inactive partner''s row';
+
+  reset role;
+
+  create or replace view public.pharmacy_partner_directory
+    with (security_invoker = false)
+    as
+    select id, name, delivery, regions, is_active, address, latitude, longitude, state, city, area,
+           delivery_fee_kobo, license_type, license_number, license_expires_at, license_verified_at
+    from public.pharmacy_partners;
 
   raise notice 'ALL LAB_PROVIDERS / PHARMACY_PARTNERS COLUMN-SCOPING CHECKS PASSED';
 end $$;

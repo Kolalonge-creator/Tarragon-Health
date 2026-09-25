@@ -26,17 +26,18 @@ export type PharmacyMedicationWithPartner = PharmacyMedication & {
  * patient-facing read of pharmacy_partners now uses) and merged
  * client-side instead.
  *
- * `is_active` is selected deliberately, unlike every other column here: the
- * directory view itself carries every partner row regardless of status (see
+ * The `.eq("is_active", true)` filter below is deliberate and query-level,
+ * unlike every other filter on this table: the directory view itself
+ * carries every partner row regardless of status (see
  * 20260925024716_fix_lab_pharmacy_directory_active_filter_and_replay_guard.sql
  * — a patient's own past order still needs to show which partner it was
  * even after that partner goes inactive), so a bookable *catalogue* has to
- * filter it out itself. attachPharmacyPartners below does that by dropping
- * the row entirely, not by nulling the partner and leaving the medication
- * orderable — a medication whose partner had gone inactive was previously
- * still bookable with the patient shown no identifying info at all, because
- * the location filter's "no structured address, don't hide it" escape
- * hatch also matched a null partner.
+ * filter it out itself. Combined with attachPharmacyPartners below dropping
+ * any row whose partner id has no matching (i.e. active) directory row, a
+ * medication whose partner had gone inactive is excluded outright — it was
+ * previously still bookable with the patient shown no identifying info at
+ * all, because the location filter's "no structured address, don't hide
+ * it" escape hatch also matched a null partner.
  */
 async function fetchPharmacyPartners(
   supabase: ReturnType<typeof createClient>,
@@ -46,11 +47,12 @@ async function fetchPharmacyPartners(
   if (partnerIds.length === 0) return partnerById;
   const { data, error } = await supabase
     .from("pharmacy_partner_directory")
-    .select("id, name, delivery, regions, address, latitude, longitude, state, city, area, delivery_fee_kobo, is_active")
+    .select("id, name, delivery, regions, address, latitude, longitude, state, city, area, delivery_fee_kobo")
+    .eq("is_active", true)
     .in("id", partnerIds);
   if (error) throw error;
   for (const row of data ?? []) {
-    if (!row.id || row.is_active === false) continue;
+    if (!row.id) continue;
     partnerById.set(row.id, {
       id: row.id,
       name: row.name ?? "",
