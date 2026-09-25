@@ -319,16 +319,21 @@ function CollapsibleNavGroup({
 }
 
 /**
- * Progressive-disclosure variant of SidebarNav for the desktop patient
- * sidebar (the patient menu is ~30 links across five groups — expanded, it
- * reads like an admin panel). Labelled groups collapse to their headings;
+ * Progressive-disclosure variant of SidebarNav, used by every role whose nav
+ * has labelled groups (useCollapsibleNav in the component below) — the
+ * patient menu (~30 links across five groups), the clinician menu (~45+
+ * links across eight groups, including the Chief Medical Officer's own
+ * governance section), and admin's grouped sections all read like an
+ * unbroken wall expanded flat. Labelled groups collapse to their headings;
  * only the group holding the current route opens by default, manual opens
- * persist in localStorage, and navigation re-opens the group it lands in.
- * SAFETY EXCEPTION: any `variant: "danger"` link (the Emergency card) is
- * hoisted out of its group at render and pinned always-visible at the bottom
- * of the nav — a safety link must never sit behind a collapsed heading.
- * Staff roles keep the always-expanded SidebarNav above, and the phone
- * drawer stays fully expanded too (it is already disclosure-on-demand).
+ * persist in localStorage, and navigation re-opens the group it lands in —
+ * so everything is reachable at a glance (collapsed headings) or in full
+ * (expand any group), never truly hidden. SAFETY EXCEPTION: any
+ * `variant: "danger"` link (the patient's Emergency card) is hoisted out of
+ * its group at render and pinned always-visible at the bottom of the nav —
+ * a safety link must never sit behind a collapsed heading. A role whose nav
+ * is only unlabelled bands (pharmacist, lab_partner, …) has nothing to
+ * collapse and keeps the always-expanded SidebarNav instead.
  */
 function CollapsibleSidebarNav({
   sections,
@@ -350,6 +355,19 @@ function CollapsibleSidebarNav({
     g.items.some((i) => isActive(pathname, i.href, i.exact))
   )?.label;
 
+  // This component was patient-only until now, so every persisted entry
+  // under OPEN_GROUPS_STORAGE_KEY was implicitly a patient section label.
+  // Generalizing it to any role means group labels can genuinely collide
+  // across roles (navigation.ts reuses "Operations" for admin, finance and
+  // payer-org nav, and "Setup" for two more) — without a namespace, a shared
+  // browser (QA accounts, a support "view-as" session, one person holding a
+  // delegated admin role) would have one role's collapse of "Operations"
+  // silently force the same state on an unrelated "Operations" group under a
+  // different role. The pathname's own top segment is the same scoping unit
+  // proxy.ts already uses to tell roles' routes apart.
+  const navScope = pathname.split("/")[1] || "root";
+  const scopePrefix = `${navScope}::`;
+
   // Manual overrides on top of the "only the active group is open" default:
   // true = opened by hand, false = collapsed by hand (session-local; only
   // opens persist). Previously-persisted opens arrive through
@@ -361,21 +379,26 @@ function CollapsibleSidebarNav({
     getStoredOpenGroupsRaw,
     getServerOpenGroupsRaw
   );
-  const storedOpen = React.useMemo<Record<string, boolean>>(() => {
-    if (!storedRaw) return {};
+  // Every scope's keys, unfiltered — needed so writing this scope's toggles
+  // never clobbers another scope's already-persisted entries under the same
+  // shared storage key (see navScope's comment above).
+  const allStoredKeys = React.useMemo<string[]>(() => {
+    if (!storedRaw) return [];
     try {
       const parsed: unknown = JSON.parse(storedRaw);
-      if (!Array.isArray(parsed)) return {};
-      const stored: Record<string, boolean> = {};
-      for (const label of parsed) {
-        if (typeof label === "string") stored[label] = true;
-      }
-      return stored;
+      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
     } catch {
       // Corrupt value — defaults are fine.
-      return {};
+      return [];
     }
   }, [storedRaw]);
+  const storedOpen = React.useMemo<Record<string, boolean>>(() => {
+    const stored: Record<string, boolean> = {};
+    for (const key of allStoredKeys) {
+      if (key.startsWith(scopePrefix)) stored[key.slice(scopePrefix.length)] = true;
+    }
+    return stored;
+  }, [allStoredKeys, scopePrefix]);
 
   // This session's toggles win over what was persisted.
   const overrideFor = (label: string): boolean | undefined =>
@@ -398,10 +421,10 @@ function CollapsibleSidebarNav({
     const next = { ...manualOpen, [label]: !currentlyOpen };
     setManualOpen(next);
     try {
-      const persisted = new Set(Object.keys(storedOpen).filter((key) => storedOpen[key]));
+      const persisted = new Set(allStoredKeys.filter((key) => !key.startsWith(scopePrefix)));
       for (const [key, value] of Object.entries(next)) {
-        if (value) persisted.add(key);
-        else persisted.delete(key);
+        if (value) persisted.add(`${scopePrefix}${key}`);
+        else persisted.delete(`${scopePrefix}${key}`);
       }
       window.localStorage.setItem(OPEN_GROUPS_STORAGE_KEY, JSON.stringify([...persisted]));
     } catch {
@@ -625,6 +648,16 @@ export function AppShell({
   const hasNav = navSections.some((s) => s.items.length > 0);
   const homeHref = navSections[0]?.items[0]?.href ?? "/login";
   const allItems = navSections.flatMap((s) => s.items);
+  // Progressive disclosure whenever a role's nav actually has labelled
+  // groups to collapse — originally patient-only (surface === "warm"), but
+  // the clinician menu grew to 8 labelled sections (~45+ links) with no way
+  // to see it all at a glance without either scrolling past everything or
+  // losing the overview a fully-collapsed set of headings gives; admin's
+  // "Operations" section is a similar long flat list. A role whose nav is
+  // just one or two unlabelled bands (pharmacist, lab_partner, …) has
+  // nothing to collapse, so this falls through to the flat SidebarNav for
+  // them exactly as before.
+  const useCollapsibleNav = navSections.some((s) => s.label);
   const primaryItems = allItems.filter((item) => item.primary).slice(0, MAX_PRIMARY_NAV_ITEMS);
 
   // One batched fetch for every countKey any link in this role's nav sets,
@@ -696,7 +729,7 @@ export function AppShell({
       {hasNav && (
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex print:hidden dark:border-night-ink/15 dark:bg-night-card">
           <BrandLockup homeHref={homeHref} />
-          {surface === "warm" ? (
+          {useCollapsibleNav ? (
             <CollapsibleSidebarNav sections={navSections} pathname={pathname} navCounts={navCounts} />
           ) : (
             <SidebarNav sections={navSections} pathname={pathname} navCounts={navCounts} />
@@ -727,14 +760,15 @@ export function AppShell({
               </Button>
             </div>
             {/* The phone drawer gets the same progressive disclosure as the
-                desktop sidebar for the patient surface. It used to render
-                every link flat, which on the patient menu is a single
-                scrolling wall — the surface where that hurts most, since it
-                is also the smallest screen. The everyday band stays open
-                (CollapsibleSidebarNav never collapses the unlabelled top
-                group) and the Emergency card stays pinned, so nothing a
-                patient needs in a hurry moved behind a heading. */}
-            {surface === "warm" ? (
+                desktop sidebar, for any role whose nav has labelled groups
+                (see useCollapsibleNav above). It used to render every link
+                flat, which on a long menu is a single scrolling wall — the
+                surface where that hurts most, since it is also the smallest
+                screen. The everyday band stays open (CollapsibleSidebarNav
+                never collapses the unlabelled top group) and any
+                `variant: "danger"` link (the patient's Emergency card) stays
+                pinned, so nothing urgent moves behind a heading. */}
+            {useCollapsibleNav ? (
               <CollapsibleSidebarNav
                 sections={navSections}
                 pathname={pathname}

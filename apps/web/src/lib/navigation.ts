@@ -574,6 +574,12 @@ export function getNavSections(
                 // reachable only via /admin, which a real CMO account
                 // (always `profiles.role = "clinician"`) cannot open.
                 { label: "Clinical sign-off", href: "/clinician/clinical-signoff", icon: "review" },
+                // The AI governance console's two CMO-only actions (approving
+                // an ai_system_versions row, labelling an ai_evaluation_cases
+                // clinical-accuracy scenario) — same reachability gap as
+                // Clinical sign-off above, closed the same way. See that
+                // page's own comment for the admin-banner/proxy.ts history.
+                { label: "AI governance sign-off", href: "/clinician/ai-governance", icon: "review" },
                 { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
                 { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
