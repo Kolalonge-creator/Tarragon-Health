@@ -6,9 +6,8 @@ export type SecondOpinionRequest = Tables<"second_opinion_requests">;
 
 export type SecondOpinionRequestWithAnswerer = SecondOpinionRequest & {
   answerer: {
+    id: string;
     full_name: string;
-    credential_type: string | null;
-    credential_number: string | null;
   } | null;
 };
 
@@ -31,7 +30,7 @@ export function useMySecondOpinionRequests(patientId: string) {
       const { data, error } = await supabase
         .from("second_opinion_requests")
         .select(
-          "*, answerer:clinical_staff!second_opinion_requests_answered_by_fkey(full_name, credential_type, credential_number)"
+          "*, answerer:clinical_staff!second_opinion_requests_answered_by_fkey(id, full_name)"
         )
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false })

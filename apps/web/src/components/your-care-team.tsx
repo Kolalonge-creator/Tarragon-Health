@@ -75,16 +75,17 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
         <CardTitle>Your care team</CardTitle>
       </CardHeader>
       <CardContent className="space-y-1">
-        {/* Do not restore "a team of MDCN-registered doctors" here. Live
-            clinical_staff credential numbers are QA-000001 and TEST-0001 to
-            TEST-0006, so there is no real MDCN registration on the platform
-            yet and the claim is not one we can stand behind. The marketing
-            trust band carried the identical sentence and was corrected on
-            2026-09-05; this copy is the patient-facing twin of it and is
-            reachable from the Overview, Messages and onboarding. What is said
-            below is true and DB-enforced: clinical_staff cannot go active
-            without verification, and a CHECK constraint stops anyone
-            verifying their own record. */}
+        {/* Do not restore "a team of MDCN-registered doctors" here. Founder
+            decision 2026-09-25, narrowed 2026-09-26: a patient never sees a
+            credential number — Nigerian patients don't recognise an MDCN/NMCN
+            registration number as a trust signal, and live credential numbers
+            were still QA-000001/TEST-0001..TEST-0006 placeholders anyway.
+            Speciality + years of experience live only on the doctor's profile
+            page (doctor/[staffId]), never inline here or in
+            reviewed-by-doctor.tsx — see docs/CLINICAL_TRUST_MODEL_SPEC.md's
+            2026-09-26 note. What is said below is true and
+            DB-enforced: clinical_staff cannot go active without verification,
+            and a CHECK constraint stops anyone verifying their own record. */}
         <p className="text-sm text-charcoal-ink dark:text-night-ink">
           Your readings are followed by a team of doctors. Whoever reviews a reading or handles
           a check-in is named on that specific note, rather than being assigned to you as a
