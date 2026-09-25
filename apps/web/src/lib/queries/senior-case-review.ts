@@ -6,9 +6,8 @@ export type SeniorCaseReview = Tables<"senior_case_reviews">;
 
 export type SeniorCaseReviewWithAnswerer = SeniorCaseReview & {
   reviewer: {
+    id: string;
     full_name: string;
-    credential_type: string | null;
-    credential_number: string | null;
   } | null;
 };
 
@@ -29,7 +28,7 @@ export function useMySeniorCaseReviews(patientId: string) {
       const { data, error } = await supabase
         .from("senior_case_reviews")
         .select(
-          "*, reviewer:clinical_staff!senior_case_reviews_reviewed_by_fkey(full_name, credential_type, credential_number)"
+          "*, reviewer:clinical_staff!senior_case_reviews_reviewed_by_fkey(id, full_name)"
         )
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false })

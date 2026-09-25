@@ -7753,6 +7753,7 @@ export type Database = {
           staff_number: string | null
           updated_at: string
           verified_by: string | null
+          years_of_experience: number | null
         }
         Insert: {
           active?: boolean
@@ -7783,6 +7784,7 @@ export type Database = {
           staff_number?: string | null
           updated_at?: string
           verified_by?: string | null
+          years_of_experience?: number | null
         }
         Update: {
           active?: boolean
@@ -7813,6 +7815,7 @@ export type Database = {
           staff_number?: string | null
           updated_at?: string
           verified_by?: string | null
+          years_of_experience?: number | null
         }
         Relationships: [
           {
