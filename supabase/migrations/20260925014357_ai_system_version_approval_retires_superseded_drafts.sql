@@ -84,6 +84,15 @@ begin
   -- Retire every earlier, still-open draft of the same system -- approving
   -- this one settles them. A later-created version (in-progress follow-up
   -- work) is left untouched.
+  --
+  -- Known, accepted race: two concurrent approvals of different drafts of
+  -- the same ai_system could, under READ COMMITTED, retire a sibling at the
+  -- moment it is itself being approved (each transaction's snapshot may not
+  -- yet see the other's approved_at). Approval is a rare, deliberate,
+  -- single-Clinical-Director action, and the only consequence is a
+  -- contradictory retired_at+approved_at pair on that one row -- the release
+  -- gate and the CMO queue already key off approved_at, not retired_at, so
+  -- nothing unsafe is exposed. Not worth a lock for this likelihood.
   with retired as (
     update public.ai_system_versions
        set retired_at = now()
