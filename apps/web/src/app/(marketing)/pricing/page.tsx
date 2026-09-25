@@ -16,6 +16,7 @@ import {
   ALWAYS_FREE_NOTE,
   EMPLOYER_HMO_NOTE,
   getPricingFaq,
+  NAIRA_ONLY_STATEMENT,
   PAID_SERVICES,
 } from "../_content/pricing";
 
@@ -78,6 +79,9 @@ export default async function PricingPage() {
           title="The app is free. You pay for a doctor's time."
           description="Everything you can do yourself costs nothing, with no time limit and no card required. We charge only when a doctor does a specific piece of work for you, and you always see that price first."
         />
+        <p className="mx-auto mb-10 max-w-2xl text-center text-sm font-medium text-deep-forest">
+          {NAIRA_ONLY_STATEMENT}
+        </p>
         {/* The early exit for somebody who came here for one blood test, not to
             read a pricing page. The Health Check is genuinely pay-once and the
             lab sets its own price, so sending them straight out of this page is
