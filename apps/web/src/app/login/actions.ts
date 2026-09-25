@@ -1,42 +1,21 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   emailLoginSchema,
   phoneOtpRequestSchema,
   phoneOtpVerifySchema,
 } from "@/lib/validation/auth";
-import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
-import { recordLoginDevice } from "@/lib/auth/record-login-device";
+import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
 
 /** `field` names the control that failed, so the form can mark exactly that
  *  one `aria-invalid` and point its `aria-describedby` at the error text. */
 export type LoginActionState =
   | { error?: string; field?: string; step?: "verify"; phone?: string }
   | undefined;
-
-// If the account has a verified MFA factor, proxy.ts (the single choke
-// point for auth gating — see its own header comment) catches the
-// resulting aal1 session on the very next request and bounces it to
-// /login/mfa-challenge before it reaches whatever page this sends it to.
-// Nothing here needs to know about MFA at all.
-async function redirectAfterLogin(
-  supabase: SupabaseClient<Database>,
-  userId: string,
-  redirectTo: FormDataEntryValue | null
-) {
-  // Best-effort new-device detection/notification — never blocks a real
-  // sign-in (see record-login-device.ts). Runs for every successful login
-  // path that calls this shared helper.
-  await recordLoginDevice(supabase);
-  redirect(await resolveLoginDestination(supabase, userId, redirectTo?.toString()));
-}
 
 export async function signInWithEmail(
   _prevState: LoginActionState,

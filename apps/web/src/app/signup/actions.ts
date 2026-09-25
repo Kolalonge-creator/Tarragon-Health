@@ -1,15 +1,14 @@
 "use server";
 
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { signupSchema } from "@/lib/validation/auth";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
-import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
-import { recordLoginDevice } from "@/lib/auth/record-login-device";
+import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
+import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
 
 export type SignupActionState =
   | { error?: string; field?: string; success?: boolean }
@@ -101,8 +100,13 @@ export async function signUp(
   // they're already signed in). Only show the "check your email" state when
   // GoTrue actually deferred confirmation, i.e. there's no session yet.
   if (data?.session && data?.user) {
-    await recordLoginDevice(supabase);
-    redirect(await resolveLoginDestination(supabase, data.user.id, redirectTo));
+    // Normally /auth/callback's exchangeCodeForSession is what does this,
+    // right after a confirmation-link click — this path never reaches that
+    // route, so it has to do the same backfill/redemption itself, or a
+    // referral code and the phone/state typed into this very form would
+    // silently never be applied.
+    await backfillSignupMetadata(supabase, data.user);
+    await redirectAfterLogin(supabase, data.user.id, redirectTo);
   }
 
   return { success: true };

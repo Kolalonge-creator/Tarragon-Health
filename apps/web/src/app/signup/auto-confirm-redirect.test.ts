@@ -10,18 +10,16 @@
  * told them to go check an email that would never arrive.
  *
  * Fixed by redirecting straight to the resolved destination whenever
- * `signUp()` hands back a session, matching how login/actions.ts's
- * `redirectAfterLogin` behaves for a successful sign-in.
+ * `signUp()` hands back a session, via the same `redirectAfterLogin` helper
+ * login/actions.ts uses for a successful sign-in. That redirect means this
+ * path never reaches /auth/callback — the only other place that backfills
+ * profiles.phone/state and redeems a carried referral code — so signUp()
+ * must call backfillSignupMetadata() itself first (caught in code review
+ * before this fix ever merged; see backfill-signup-metadata.ts).
  */
 
 jest.mock("next/headers", () => ({
   headers: jest.fn().mockResolvedValue(new Map([["origin", "https://app.tarragonhealth.ng"]])),
-}));
-
-jest.mock("next/navigation", () => ({
-  redirect: jest.fn((url: string) => {
-    throw new Error(`NEXT_REDIRECT:${url}`);
-  }),
 }));
 
 jest.mock("@/lib/rate-limit", () => ({
@@ -34,14 +32,16 @@ jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({ auth: { signUp: signUpMock } }),
 }));
 
-const recordLoginDeviceMock = jest.fn().mockResolvedValue(undefined);
-jest.mock("@/lib/auth/record-login-device", () => ({
-  recordLoginDevice: (...args: unknown[]) => recordLoginDeviceMock(...args),
+const redirectAfterLoginMock = jest.fn().mockImplementation((_supabase, destination) => {
+  throw new Error(`NEXT_REDIRECT:${destination ?? "unset"}`);
+});
+jest.mock("@/lib/auth/redirect-after-login", () => ({
+  redirectAfterLogin: (...args: unknown[]) => redirectAfterLoginMock(...args),
 }));
 
-const resolveLoginDestinationMock = jest.fn().mockResolvedValue("/patient");
-jest.mock("@/lib/auth/redirect-after-login", () => ({
-  resolveLoginDestination: (...args: unknown[]) => resolveLoginDestinationMock(...args),
+const backfillSignupMetadataMock = jest.fn().mockResolvedValue(undefined);
+jest.mock("@/lib/auth/backfill-signup-metadata", () => ({
+  backfillSignupMetadata: (...args: unknown[]) => backfillSignupMetadataMock(...args),
 }));
 
 import { signUp } from "./actions";
@@ -62,20 +62,23 @@ function formDataFor(overrides: Record<string, string> = {}) {
 describe("signUp — auto-confirm redirects instead of claiming an email was sent", () => {
   beforeEach(() => {
     signUpMock.mockReset();
-    recordLoginDeviceMock.mockClear();
-    resolveLoginDestinationMock.mockClear();
+    redirectAfterLoginMock.mockClear();
+    backfillSignupMetadataMock.mockClear();
   });
 
-  it("redirects to the resolved destination when signUp hands back a live session", async () => {
+  it("backfills signup metadata and redirects when signUp hands back a live session", async () => {
+    const user = { id: "user-123", user_metadata: { ref_code: "FRIEND10" } };
     signUpMock.mockResolvedValue({
-      data: { user: { id: "user-123" }, session: { access_token: "tok" } },
+      data: { user, session: { access_token: "tok" } },
       error: null,
     });
 
-    await expect(signUp(undefined, formDataFor())).rejects.toThrow("NEXT_REDIRECT:/patient");
+    await expect(signUp(undefined, formDataFor())).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(recordLoginDeviceMock).toHaveBeenCalled();
-    expect(resolveLoginDestinationMock).toHaveBeenCalledWith(expect.anything(), "user-123", null);
+    // Must run before the redirect, not after — a thrown NEXT_REDIRECT from
+    // redirectAfterLogin would otherwise skip it entirely.
+    expect(backfillSignupMetadataMock).toHaveBeenCalledWith(expect.anything(), user);
+    expect(redirectAfterLoginMock).toHaveBeenCalledWith(expect.anything(), "user-123", null);
   });
 
   it("falls back to the 'check your email' success state when no session comes back", async () => {
@@ -87,7 +90,8 @@ describe("signUp — auto-confirm redirects instead of claiming an email was sen
     const result = await signUp(undefined, formDataFor());
 
     expect(result).toEqual({ success: true });
-    expect(resolveLoginDestinationMock).not.toHaveBeenCalled();
+    expect(backfillSignupMetadataMock).not.toHaveBeenCalled();
+    expect(redirectAfterLoginMock).not.toHaveBeenCalled();
   });
 
   it("still falls back to the success state when the mock omits data entirely", async () => {
