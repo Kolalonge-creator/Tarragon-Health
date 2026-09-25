@@ -34,8 +34,45 @@ export type CareMessage = Tables<"care_messages"> & {
 
 export type CareMessageTemplate = Tables<"care_message_templates">;
 
-const MESSAGE_SELECT =
-  "*, actor:clinical_staff!care_messages_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number, doctor_tier), attachments:care_message_attachments(*)";
+const MESSAGE_SELECT = "*, attachments:care_message_attachments(*)";
+
+type MessageActor = NonNullable<CareMessage["actor"]>;
+
+/**
+ * `actor_clinical_staff_id` used to be embedded directly via
+ * `clinical_staff!care_messages_actor_clinical_staff_id_fkey(...)` — a
+ * PostgREST embedded join, which resolves against `clinical_staff`'s OWN RLS,
+ * not this query's own. Since 2026-09-25 (see
+ * 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+ * that policy no longer admits a patient session, so the embed would silently
+ * come back null for every patient reading their own thread. Fetching the
+ * actor separately from public.clinical_staff_directory (the safe-column
+ * view every patient-facing clinical_staff read now uses) restores the same
+ * attribution without reopening the column-exposure gap that migration
+ * fixed.
+ */
+async function fetchMessageActors(
+  supabase: ReturnType<typeof createClient>,
+  actorIds: string[]
+): Promise<Map<string, MessageActor>> {
+  const actorById = new Map<string, MessageActor>();
+  if (actorIds.length === 0) return actorById;
+  const { data, error } = await supabase
+    .from("clinical_staff_directory")
+    .select("id, full_name, credential_type, credential_number, doctor_tier")
+    .in("id", actorIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    actorById.set(row.id, {
+      full_name: row.full_name,
+      credential_type: row.credential_type,
+      credential_number: row.credential_number,
+      doctor_tier: row.doctor_tier,
+    });
+  }
+  return actorById;
+}
 const THREAD_PATIENT_SELECT =
   "*, patient:profiles!care_message_threads_patient_id_fkey(full_name, patient_number)";
 
@@ -83,19 +120,36 @@ export function useOrgCareThreads() {
   });
 }
 
+export async function loadThreadMessages(
+  supabase: ReturnType<typeof createClient>,
+  threadId: string
+): Promise<CareMessage[]> {
+  const { data, error } = await supabase
+    .from("care_messages")
+    .select(MESSAGE_SELECT)
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+
+  const rows = data as unknown as (CareMessage & { actor_clinical_staff_id: string | null })[];
+  const actorIds = Array.from(
+    new Set(rows.map((row) => row.actor_clinical_staff_id).filter((id): id is string => !!id))
+  );
+  const actorById = await fetchMessageActors(supabase, actorIds);
+
+  return rows.map((row) => ({
+    ...row,
+    actor: row.actor_clinical_staff_id ? (actorById.get(row.actor_clinical_staff_id) ?? null) : null,
+  }));
+}
+
 /** Messages in a thread, oldest first (reading order). */
 export function useThreadMessages(threadId: string | null) {
   return useQuery({
     queryKey: ["care-messages", threadId],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("care_messages")
-        .select(MESSAGE_SELECT)
-        .eq("thread_id", threadId as string)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data as unknown as CareMessage[];
+      return loadThreadMessages(supabase, threadId as string);
     },
     enabled: !!threadId,
   });

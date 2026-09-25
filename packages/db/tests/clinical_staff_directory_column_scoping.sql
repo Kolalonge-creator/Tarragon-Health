@@ -13,7 +13,7 @@
 -- session before the fix (see 20260925015430_restrict_clinical_staff_patient_
 -- read_to_safe_columns.sql).
 --
--- Three things to prove:
+-- Six things to prove:
 --   1. A patient can no longer read any clinical_staff row directly (base
 --      table), including one in their own org.
 --   2. public.clinical_staff_directory (the safe-column replacement every
@@ -26,6 +26,11 @@
 --   5. Sabotage: reinstating the old broad policy inside this same rolled-
 --      back transaction reproduces the leak, proving this test would have
 --      caught the original bug rather than passing vacuously.
+--   6. A service-role caller (no auth.uid() at all — cron jobs, internal
+--      notification routes) still sees the view's rows, per
+--      20260925021440_fix_clinical_staff_directory_service_role_and_replay_
+--      guard.sql. Sabotaged the same way: drop the service-role clause,
+--      confirm the caller goes blind, restore it.
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/clinical_staff_directory_column_scoping.sql
 -- (or paste into execute_sql / the SQL editor — already wrapped in
@@ -154,6 +159,54 @@ begin
   raise notice 'SABOTAGE CONFIRMED: the old broad policy does leak indemnity_policy_number to a patient — this test would have caught it';
 
   reset role;
+
+  -- restore the fixed policy so section 6 below tests against the real,
+  -- current state rather than the sabotaged one from section 5.
+  drop policy clinical_staff_select on public.clinical_staff;
+  create policy clinical_staff_select on public.clinical_staff
+    for select to authenticated
+    using (
+      private.is_org_staff(organisation_id)
+      or ((profile_id is not null) and private.can_support_view(profile_id))
+    );
+
+  -- ======================================================================
+  -- 6) POSITIVE: a service-role caller (no auth.uid()) still sees the view.
+  --    NEGATIVE (sabotage): dropping the service-role clause reproduces the
+  --    "silent zero rows" regression this was fixed for, then it's restored.
+  -- ======================================================================
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  perform set_config('role', 'service_role', true);
+
+  select count(*) into v_count from public.clinical_staff_directory where id = v_staff_id;
+  if v_count <> 1 then
+    raise exception 'FAIL 6: a service-role caller could not see clinical_staff_directory — cron/internal-notification attribution is broken again';
+  end if;
+  raise notice 'PASS 6: a service-role caller can see clinical_staff_directory';
+
+  perform set_config('role', 'postgres', true);
+
+  create or replace view public.clinical_staff_directory
+    with (security_invoker = false)
+    as
+    select
+      id, organisation_id, profile_id, full_name, photo_url, credential_type,
+      credential_number, specialty, bio, active, doctor_tier, employment_type,
+      offers_therapy_sessions, years_of_experience
+    from public.clinical_staff
+    where organisation_id = private.current_org_id()
+       or private.is_org_staff(organisation_id)
+       or ((profile_id is not null) and private.can_support_view(profile_id));
+
+  perform set_config('role', 'service_role', true);
+
+  select count(*) into v_count from public.clinical_staff_directory where id = v_staff_id;
+  if v_count <> 0 then
+    raise exception 'SABOTAGE FAILED (section 6): removing the service-role clause did not reproduce the zero-rows regression — this test would not have caught it';
+  end if;
+  raise notice 'SABOTAGE CONFIRMED (section 6): without the service-role clause, a service-role caller sees zero rows — this test would have caught it';
+
+  perform set_config('role', 'postgres', true);
 
   raise notice 'ALL CLINICAL_STAFF COLUMN-SCOPING CHECKS PASSED';
 end $$;

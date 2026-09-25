@@ -661,5 +661,21 @@ supervised_weight_management_removed.sql
 # directory view structurally carries no sensitive column; org staff access
 # to the full base table is unaffected; and a sabotage step that reinstates
 # the old broad policy inside the same rolled-back transaction reproduces the
-# leak, confirming this test would have caught the original bug.
+# leak, confirming this test would have caught the original bug. Extended the
+# same day (still pre-merge, found by /code-review high) with a 6th section
+# proving a service-role caller (no auth.uid() at all -- cron jobs, internal
+# notification routes) still sees the view's rows, per
+# 20260925021440_fix_clinical_staff_directory_service_role_and_replay_guard.sql
+# -- the original view's predicate resolved entirely through auth.uid()-
+# dependent helpers, so a service-role caller silently got zero rows, not an
+# error, breaking the quarterly-report cron's and the lab-order-request-pdf
+# notification's doctor-attribution lines. Same-day review also found four
+# patient-facing PostgREST embedded joins (clinical_staff!<fkey>(...) in
+# patient_timeline/care_messages/second_opinion_requests/async_consults/
+# verified_documents reads) that resolved against clinical_staff's own RLS,
+# not this view -- fixed in application code (explicit follow-up query against
+# clinical_staff_directory, merged client-side) rather than here, since
+# PostgREST's "embedding through views" support couldn't be verified live in
+# this environment; see the Jest regression tests next to patient-timeline.ts
+# and care-messages.ts for that half of the fix.
 clinical_staff_directory_column_scoping.sql
