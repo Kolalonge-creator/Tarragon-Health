@@ -40066,27 +40066,6 @@ export type Database = {
         }
         Relationships: []
       }
-      clinical_staff_directory: {
-        Row: {
-          active: boolean | null
-          bio: string | null
-          credential_number: string | null
-          credential_type: string | null
-          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
-          employment_type:
-            | Database["public"]["Enums"]["staff_employment_type"]
-            | null
-          full_name: string | null
-          id: string | null
-          offers_therapy_sessions: boolean | null
-          organisation_id: string | null
-          photo_url: string | null
-          profile_id: string | null
-          specialty: string | null
-          years_of_experience: number | null
-        }
-        Relationships: []
-      }
       lab_provider_directory: {
         Row: {
           accreditation: string | null
