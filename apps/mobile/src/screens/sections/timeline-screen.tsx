@@ -57,9 +57,7 @@ function formatWhen(value: string): string {
 function actorSubtitle(actor: TimelineEvent["actor"]): string | undefined {
   if (!actor?.full_name) return undefined;
   if (!isClinicalTier(actor)) return "By your care team";
-  const credential =
-    actor.credential_type && actor.credential_number ? ` · ${actor.credential_type} ${actor.credential_number}` : "";
-  return `By Dr. ${actor.full_name}${credential}`;
+  return `By Dr. ${actor.full_name}`;
 }
 
 interface TimelineScreenProps {

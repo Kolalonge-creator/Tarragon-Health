@@ -3,11 +3,10 @@ import type { Tables } from "@tarragon/shared";
 
 export type CareThread = Tables<"care_message_threads">;
 export type CareMessage = Tables<"care_messages"> & {
-  actor: { full_name: string | null; credential_type: string | null; credential_number: string | null } | null;
+  actor: { full_name: string | null } | null;
 };
 
-const MESSAGE_SELECT =
-  "*, actor:clinical_staff!care_messages_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number)";
+const MESSAGE_SELECT = "*, actor:clinical_staff!care_messages_actor_clinical_staff_id_fkey(full_name)";
 
 /** Mirrors useCareThreads in apps/web/src/lib/queries/care-messages.ts. */
 export async function loadThreads(patientId: string): Promise<CareThread[]> {

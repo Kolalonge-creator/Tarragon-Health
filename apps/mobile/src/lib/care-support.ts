@@ -14,7 +14,7 @@ import type { Tables, Enums } from "@tarragon/shared";
 
 export type AsyncConsult = Tables<"async_consults">;
 export type AsyncConsultWithAnswerer = AsyncConsult & {
-  answerer: { full_name: string; credential_type: string | null; credential_number: string | null } | null;
+  answerer: { full_name: string } | null;
 };
 
 export const ASYNC_CONSULT_CATEGORIES: { value: string; label: string }[] = [
@@ -37,7 +37,7 @@ export async function loadMyAsyncConsults(patientId: string): Promise<QueryResul
   const { data, error } = await supabase
     .from("async_consults")
     .select(
-      "*, answerer:clinical_staff!async_consults_answered_by_fkey(full_name, credential_type, credential_number)"
+      "*, answerer:clinical_staff!async_consults_answered_by_fkey(full_name)"
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false })

@@ -183,10 +183,7 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
       </View>
 
       {data.protocolAuthorName ? (
-        <MutedText>
-          Protocols supervised by {protocolAuthorDisplay(data.protocolAuthorName)}
-          {data.protocolAuthorCredential ? ` · ${data.protocolAuthorCredential}` : ""}.
-        </MutedText>
+        <MutedText>Protocols supervised by {protocolAuthorDisplay(data.protocolAuthorName)}.</MutedText>
       ) : null}
     </ScrollView>
   );

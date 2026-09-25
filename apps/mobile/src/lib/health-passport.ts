@@ -27,7 +27,6 @@ export interface HealthPassportSummary {
   screenings: PassportScreening[];
   labReadings: PassportLabReading[];
   protocolAuthorName: string | null;
-  protocolAuthorCredential: string | null;
 }
 
 const PERIOD_MONTHS = 12;
@@ -97,18 +96,17 @@ export async function getHealthPassportSummary(
     .map((row) => ({ code: row.code, value: row.value, unit: row.unit, takenAt: row.taken_at }));
 
   let protocolAuthorName: string | null = null;
-  let protocolAuthorCredential: string | null = null;
   const directorId = careTeamRes.data?.clinical_director_id;
   const directorQuery = directorId
     ? supabase
         .from("clinical_staff")
-        .select("full_name, credential_type, credential_number")
+        .select("full_name")
         .eq("profile_id", directorId)
         .eq("active", true)
         .maybeSingle()
     : supabase
         .from("clinical_staff")
-        .select("full_name, credential_type, credential_number")
+        .select("full_name")
         .eq("organisation_id", organisationId)
         .eq("doctor_tier", "chief_medical_officer")
         .eq("active", true)
@@ -117,11 +115,7 @@ export async function getHealthPassportSummary(
   const { data: author } = await directorQuery;
   if (author) {
     protocolAuthorName = author.full_name;
-    protocolAuthorCredential =
-      author.credential_type && author.credential_number
-        ? `${author.credential_type} ${author.credential_number}`
-        : null;
   }
 
-  return { periodStart: periodStartIso, vitals, screenings, labReadings, protocolAuthorName, protocolAuthorCredential };
+  return { periodStart: periodStartIso, vitals, screenings, labReadings, protocolAuthorName };
 }

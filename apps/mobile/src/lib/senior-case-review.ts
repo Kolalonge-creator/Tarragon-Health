@@ -14,7 +14,7 @@ import type { Tables } from "@tarragon/shared";
 
 export type SeniorCaseReview = Tables<"senior_case_reviews">;
 export type SeniorCaseReviewWithReviewer = SeniorCaseReview & {
-  reviewer: { full_name: string; credential_type: string | null; credential_number: string | null } | null;
+  reviewer: { full_name: string } | null;
 };
 
 /** Matches the trigger's raised text exactly: 'Buy a senior case review
@@ -31,7 +31,7 @@ export async function loadMySeniorCaseReviews(
   const { data, error } = await supabase
     .from("senior_case_reviews")
     .select(
-      "*, reviewer:clinical_staff!senior_case_reviews_reviewed_by_fkey(full_name, credential_type, credential_number)"
+      "*, reviewer:clinical_staff!senior_case_reviews_reviewed_by_fkey(full_name)"
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false })

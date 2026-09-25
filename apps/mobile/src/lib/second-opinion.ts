@@ -14,7 +14,7 @@ import type { Tables } from "@tarragon/shared";
 
 export type SecondOpinionRequest = Tables<"second_opinion_requests">;
 export type SecondOpinionRequestWithAnswerer = SecondOpinionRequest & {
-  answerer: { full_name: string; credential_type: string | null; credential_number: string | null } | null;
+  answerer: { full_name: string } | null;
 };
 
 /** Matches the trigger's raised text exactly: 'Buy a second opinion credit
@@ -33,7 +33,7 @@ export async function loadMySecondOpinionRequests(
   const { data, error } = await supabase
     .from("second_opinion_requests")
     .select(
-      "*, answerer:clinical_staff!second_opinion_requests_answered_by_fkey(full_name, credential_type, credential_number)"
+      "*, answerer:clinical_staff!second_opinion_requests_answered_by_fkey(full_name)"
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false })
