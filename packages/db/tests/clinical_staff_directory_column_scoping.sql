@@ -192,7 +192,7 @@ begin
     select
       id, organisation_id, profile_id, full_name, photo_url, credential_type,
       credential_number, specialty, bio, active, doctor_tier, employment_type,
-      offers_therapy_sessions, years_of_experience
+      offers_therapy_sessions
     from public.clinical_staff
     where organisation_id = private.current_org_id()
        or private.is_org_staff(organisation_id)

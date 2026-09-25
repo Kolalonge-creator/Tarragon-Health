@@ -39709,7 +39709,6 @@ export type Database = {
           photo_url: string | null
           profile_id: string | null
           specialty: string | null
-          years_of_experience: number | null
         }
         Relationships: []
       }
