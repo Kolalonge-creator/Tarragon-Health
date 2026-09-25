@@ -94,3 +94,10 @@ export const setMemberPhoneSchema = z.object({
 });
 
 export type SetMemberPhoneInput = z.infer<typeof setMemberPhoneSchema>;
+
+export const setMemberActiveSchema = z.object({
+  memberId: z.string().uuid(),
+  active: z.enum(["true", "false"]).transform((v) => v === "true"),
+});
+
+export type SetMemberActiveInput = z.infer<typeof setMemberActiveSchema>;

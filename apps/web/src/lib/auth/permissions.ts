@@ -26,6 +26,7 @@ export const PERMISSION_KEYS = [
   "users.provision",
   "users.roles.assign",
   "users.contact.edit",
+  "users.suspend",
   "users.permissions.grant",
   "roles.manage",
   "clinical_staff.manage",

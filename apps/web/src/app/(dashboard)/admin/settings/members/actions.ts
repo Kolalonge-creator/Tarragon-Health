@@ -7,7 +7,12 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission, hasAnyPermission, type PermissionKey } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { provisionMemberSchema, setMemberPhoneSchema, USER_ROLES } from "@/lib/validation/members";
+import {
+  provisionMemberSchema,
+  setMemberPhoneSchema,
+  setMemberActiveSchema,
+  USER_ROLES,
+} from "@/lib/validation/members";
 
 export type MemberActionState = { error?: string; message?: string } | undefined;
 
@@ -204,6 +209,69 @@ export async function setMemberPhoneAction(
   revalidatePath("/admin/settings/members");
   revalidatePath(`/admin/members/${parsed.data.memberId}`);
   return { message: "Phone number updated." };
+}
+
+/**
+ * Suspend or reinstate a member's login. Gated by `users.suspend`. This is
+ * deliberately distinct from clinical_staff's own Activate/Deactivate toggle
+ * (/admin/settings/clinical-staff): that one only controls a doctor's clinical
+ * authority (case assignment, prescribing, escalation handling); this one
+ * controls the underlying platform login itself, for every account role.
+ * profiles.is_active is read by private.is_org_staff/is_admin/has_permission
+ * (20260925093444_enforce_profiles_is_active_in_core_authz.sql), so setting it
+ * false here genuinely revokes RLS-level access, not just a UI badge.
+ *
+ * Two hard-stop guards: an admin can't suspend their own account (an easy way
+ * to lock yourself out with no one left to undo it), and the platform's last
+ * remaining active super admin can't be suspended (that really would be an
+ * unrecoverable lockout — nobody would be left holding is_admin()/users.suspend
+ * to reinstate them).
+ */
+export async function setMemberActiveAction(
+  _prev: MemberActionState,
+  formData: FormData
+): Promise<MemberActionState> {
+  const actor = await requirePermission("users.suspend");
+
+  const parsed = setMemberActiveSchema.safeParse({
+    memberId: formData.get("memberId"),
+    active: formData.get("active"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid request" };
+  }
+  const { memberId, active } = parsed.data;
+
+  if (!active && memberId === actor.id) {
+    return { error: "You can't suspend your own account." };
+  }
+
+  const supabase = await createClient();
+
+  if (!active) {
+    const svc = createServiceRoleClient();
+    const { data: target } = await svc.from("profiles").select("role").eq("id", memberId).single();
+    if (target?.role === "admin") {
+      const { count } = await svc
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "admin")
+        .eq("is_active", true)
+        .neq("id", memberId);
+      if (!count) {
+        return { error: "Can't suspend the last remaining active Super Admin." };
+      }
+    }
+  }
+
+  const { error } = await supabase.from("profiles").update({ is_active: active }).eq("id", memberId);
+  if (error) return { error: error.message };
+
+  await recordAudit(actor.id, actor.organisation_id, active ? "member.reinstated" : "member.suspended", "profiles", memberId, {});
+
+  revalidatePath("/admin/settings/members");
+  revalidatePath(`/admin/members/${memberId}`);
+  return { message: active ? "Login reinstated." : "Login suspended." };
 }
 
 /** Grant a single capability to a member (additive). Gated by `users.permissions.grant`. */
