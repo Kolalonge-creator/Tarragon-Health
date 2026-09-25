@@ -1,14 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { DOCTOR_ATTRIBUTION_FIELDS, type DoctorAttribution } from "@/lib/queries/clinical-staff";
 import type { Tables } from "@tarragon/shared";
 
 export type SeniorCaseReview = Tables<"senior_case_reviews">;
 
 export type SeniorCaseReviewWithAnswerer = SeniorCaseReview & {
-  reviewer: {
-    id: string;
-    full_name: string;
-  } | null;
+  reviewer: DoctorAttribution | null;
 };
 
 export type SeniorCaseReviewWithPatient = SeniorCaseReview & {
@@ -28,7 +26,7 @@ export function useMySeniorCaseReviews(patientId: string) {
       const { data, error } = await supabase
         .from("senior_case_reviews")
         .select(
-          "*, reviewer:clinical_staff!senior_case_reviews_reviewed_by_fkey(id, full_name)"
+          `*, reviewer:clinical_staff!senior_case_reviews_reviewed_by_fkey(${DOCTOR_ATTRIBUTION_FIELDS})`
         )
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false })
