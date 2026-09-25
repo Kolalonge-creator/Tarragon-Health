@@ -655,3 +655,56 @@ supervised_weight_management_removed.sql
 # pre-fix function definition, reproduced in this migration's PR) confirming
 # the "earlier draft retired" check genuinely fails without the fix.
 ai_system_version_approval_retires_superseded_drafts.sql
+
+# --- Added 2026-09-25 (2) -----------------------------------------------------
+# lab_providers_select and pharmacy_partners_select both still carried the
+# original `for select to authenticated using (true)` shape from
+# 20260705211315_care_coordination.sql -- the exact same bug class as the
+# clinical_staff column-exposure fix (this file's other 2026-09-25 entry) and
+# as specialist_providers before its 2026-09-10 fix
+# (20260910172703_specialist_providers_commercial_columns_off_the_patient_
+# surface.sql). Confirmed live before the fix: a patient could read all 4
+# lab_providers rows including 4 populated cost_basis_note values (negotiated-
+# rate evidence). Fixed in
+# 20260925023144_restrict_lab_pharmacy_partner_read_to_safe_columns.sql:
+# narrowed both base tables to admin-or-partners.*.manage, added
+# public.lab_provider_directory / public.pharmacy_partner_directory (safe-
+# column views, no auth.uid()-dependent predicate so no service-role carve-out
+# is needed, unlike clinical_staff_directory), and repointed three PostgREST
+# embedded FK-joins that would otherwise have silently gone null
+# (lab-orders.ts's provider/ordered_by_staff, pharmacy-orders.ts's
+# pharmacy_partner, finance/partner-settlements's lab_providers(name)) at
+# follow-up queries against the new views, merged client-side. Proves: a
+# patient AND an ordinary org-staff/clinician session (deliberately narrower
+# than clinical_staff_directory's is_org_staff carve-out) are both refused
+# either base table directly, even an is_active row; the same patient still
+# sees the safe columns via both directory views; neither view structurally
+# carries a commercial/internal-workflow column; admin access to the full
+# base tables is unaffected; and a sabotage step that reinstates the old
+# `using (true)` policy on both tables inside the same rolled-back
+# transaction reproduces the leak on both, confirming this test would have
+# caught the original bug. Extended the same day (still pre-merge, found by
+# the same /code-review high pass) with a 7th section: both directory views
+# were originally defined `where is_active`, which the old `using (true)`
+# policy + plain PostgREST embed never enforced -- silently breaking
+# attribution (a patient's own past lab order, a finance officer's
+# historical settlement statement, a booked medication's pharmacy) the
+# moment the provider/partner it referenced went inactive, and in
+# pharmacy-orders.ts's usePharmacyCatalogue specifically letting a patient
+# book a now-inactive pharmacy partner's medication while shown none of its
+# identifying info (the location filter's "no structured address" escape
+# hatch also matched a null partner). Fixed in
+# 20260925024716_fix_lab_pharmacy_directory_active_filter_and_replay_guard.sql
+# by dropping the `where is_active` clause from both views; the picker call
+# sites that do need active-only (the finance page's new-statement lab
+# picker, pharmacy-orders.ts's attachPharmacyPartners, which now drops an
+# inactive-partner's medication outright rather than nulling the partner)
+# filter it themselves. Section 7 proves both views keep resolving a row
+# after is_active flips false, and sabotages by reinstating the buggy
+# `where is_active` shape on lab_provider_directory to confirm the
+# regression would have been caught. The application-level half of this fix
+# (attachPharmacyPartners dropping an inactive-partner medication) has its
+# own Jest regression test, apps/web/src/lib/queries/pharmacy-orders.test.ts,
+# per this repo's convention of a DB proof for the DB-level defect and a
+# Jest test for the application-level one.
+lab_pharmacy_partner_directory_column_scoping.sql

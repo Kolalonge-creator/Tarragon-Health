@@ -40043,6 +40043,66 @@ export type Database = {
         }
         Relationships: []
       }
+      clinical_staff_directory: {
+        Row: {
+          active: boolean | null
+          bio: string | null
+          credential_number: string | null
+          credential_type: string | null
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          employment_type:
+            | Database["public"]["Enums"]["staff_employment_type"]
+            | null
+          full_name: string | null
+          id: string | null
+          offers_therapy_sessions: boolean | null
+          organisation_id: string | null
+          photo_url: string | null
+          profile_id: string | null
+          specialty: string | null
+          years_of_experience: number | null
+        }
+        Relationships: []
+      }
+      lab_provider_directory: {
+        Row: {
+          accreditation: string | null
+          home_collection: boolean | null
+          id: string | null
+          integration_status:
+            | Database["public"]["Enums"]["lab_integration_status"]
+            | null
+          is_active: boolean | null
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          license_verified_at: string | null
+          name: string | null
+          regions: string[] | null
+        }
+        Relationships: []
+      }
+      pharmacy_partner_directory: {
+        Row: {
+          address: string | null
+          area: string | null
+          city: string | null
+          delivery: boolean | null
+          delivery_fee_kobo: number | null
+          id: string | null
+          is_active: boolean | null
+          latitude: number | null
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          license_verified_at: string | null
+          longitude: number | null
+          name: string | null
+          regions: string[] | null
+          state: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       abnormal_result_dashboard_counts: {
