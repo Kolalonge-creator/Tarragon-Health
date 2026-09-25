@@ -7,6 +7,8 @@ import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
+import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
+import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
 
 export type SignupActionState =
   | { error?: string; field?: string; success?: boolean }
@@ -62,7 +64,7 @@ export async function signUp(
   const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString());
   const emailRedirectTo = `${origin}/auth/callback${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`;
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
@@ -90,6 +92,22 @@ export async function signUp(
     // directly contradicted the 8-character rule this form enforces and is
     // now shown under the password field.
     return { error: authErrorMessage(error, "sign_up") };
+  }
+
+  // A project with email confirmations turned off (this one, currently) hands
+  // back a live session immediately — there is no confirmation email to wait
+  // for, and telling the visitor to go check one is actively wrong (worse,
+  // they're already signed in). Only show the "check your email" state when
+  // GoTrue actually deferred confirmation, i.e. there's no session yet.
+  if (data?.session && data?.user) {
+    const user = data.user;
+    // Normally /auth/callback's exchangeCodeForSession is what does this,
+    // right after a confirmation-link click — this path never reaches that
+    // route, so it has to do the same backfill/redemption itself, or a
+    // referral code and the phone/state typed into this very form would
+    // silently never be applied.
+    await backfillSignupMetadata(supabase, user, "signUp");
+    await redirectAfterLogin(supabase, user.id, redirectTo);
   }
 
   return { success: true };
