@@ -20,6 +20,40 @@ export const asyncConsultKeys = {
   org: ["async-consults", "org"] as const,
 };
 
+/**
+ * `answered_by` used to be embedded directly via
+ * `clinical_staff!async_consults_answered_by_fkey(...)` — a PostgREST
+ * embedded join, which resolves against `clinical_staff`'s OWN RLS, not this
+ * query's own. Since 2026-09-25 (see
+ * 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+ * that policy no longer admits a patient session, so the embed would
+ * silently come back null for every patient viewing their own answered
+ * consult. Fetching the answerer separately from
+ * public.clinical_staff_directory (the safe-column view every patient-facing
+ * clinical_staff read now uses) restores the same attribution without
+ * reopening the column-exposure gap that migration fixed.
+ */
+async function fetchAnswerers(
+  supabase: ReturnType<typeof createClient>,
+  answererIds: string[]
+): Promise<Map<string, NonNullable<AsyncConsultWithAnswerer["answerer"]>>> {
+  const answererById = new Map<string, NonNullable<AsyncConsultWithAnswerer["answerer"]>>();
+  if (answererIds.length === 0) return answererById;
+  const { data, error } = await supabase
+    .from("clinical_staff_directory")
+    .select("id, full_name")
+    .in("id", answererIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    answererById.set(row.id, {
+      id: row.id,
+      full_name: row.full_name ?? "",
+    });
+  }
+  return answererById;
+}
+
 /** The patient's own consult history, newest first — RLS returns only theirs. */
 export function useMyAsyncConsults(patientId: string) {
   return useQuery({
@@ -28,14 +62,22 @@ export function useMyAsyncConsults(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("async_consults")
-        .select(
-          "*, answerer:clinical_staff!async_consults_answered_by_fkey(id, full_name)"
-        )
+        .select("*")
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) throw error;
-      return data as AsyncConsultWithAnswerer[];
+
+      const rows = data ?? [];
+      const answererIds = Array.from(
+        new Set(rows.map((row) => row.answered_by).filter((id): id is string => !!id))
+      );
+      const answererById = await fetchAnswerers(supabase, answererIds);
+
+      return rows.map((row) => ({
+        ...row,
+        answerer: row.answered_by ? (answererById.get(row.answered_by) ?? null) : null,
+      })) as AsyncConsultWithAnswerer[];
     },
   });
 }

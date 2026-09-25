@@ -35,7 +35,7 @@ export async function ReviewedResultLine({
 
   const supabase = await createClient();
   const { data: doctor } = await supabase
-    .from("clinical_staff")
+    .from("clinical_staff_directory")
     .select("id, full_name")
     .eq(reviewedByKey === "staff" ? "id" : "profile_id", reviewedBy)
     .eq("active", true)
@@ -53,7 +53,7 @@ export async function ReviewedResultLine({
     <p className="text-sm text-charcoal-ink dark:text-night-ink">
       Reviewed by{" "}
       <span className="font-medium">
-        <DoctorNameLink staffId={doctor.id} fullName={doctor.full_name} />
+        <DoctorNameLink staffId={doctor.id} fullName={doctor.full_name ?? ""} />
       </span>
       <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {reviewedDate}</span>
     </p>

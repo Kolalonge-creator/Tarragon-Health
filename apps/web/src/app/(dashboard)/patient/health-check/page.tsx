@@ -117,7 +117,7 @@ export default async function HealthCheckPage() {
   let reviewerName: string | null = null;
   if (check?.reviewed_by) {
     const { data: reviewer } = await supabase
-      .from("clinical_staff")
+      .from("clinical_staff_directory")
       .select("full_name")
       .eq("id", check.reviewed_by)
       .maybeSingle();

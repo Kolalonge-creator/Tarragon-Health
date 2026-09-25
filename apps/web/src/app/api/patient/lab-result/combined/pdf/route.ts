@@ -57,7 +57,7 @@ export async function GET(request: Request): Promise<Response> {
   );
   const { data: staffRows } = reviewerIds.length
     ? await supabase
-        .from("clinical_staff")
+        .from("clinical_staff_directory")
         .select("profile_id, full_name, credential_type, credential_number")
         .in("profile_id", reviewerIds)
         .eq("active", true)
