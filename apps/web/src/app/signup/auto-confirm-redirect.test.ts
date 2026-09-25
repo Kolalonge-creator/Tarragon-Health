@@ -16,7 +16,19 @@
  * profiles.phone/state and redeems a carried referral code — so signUp()
  * must call backfillSignupMetadata() itself first (caught in code review
  * before this fix ever merged; see backfill-signup-metadata.ts).
+ *
+ * That backfill call is wrapped in runBestEffort (also caught in the same
+ * review round): backfillSignupMetadata's own referral-code RPC call can
+ * reject on a transport error rather than resolving with { ok:false, error }
+ * (the only failure shape its own comment accounts for) — without the
+ * wrapper, that would throw straight out of signUp() and turn an already-
+ * successful account creation into an error page instead of a redirect.
  */
+
+const captureException = jest.fn();
+jest.mock("@sentry/nextjs", () => ({
+  captureException: (...args: unknown[]) => captureException(...args),
+}));
 
 jest.mock("next/headers", () => ({
   headers: jest.fn().mockResolvedValue(new Map([["origin", "https://app.tarragonhealth.ng"]])),
@@ -63,7 +75,8 @@ describe("signUp — auto-confirm redirects instead of claiming an email was sen
   beforeEach(() => {
     signUpMock.mockReset();
     redirectAfterLoginMock.mockClear();
-    backfillSignupMetadataMock.mockClear();
+    backfillSignupMetadataMock.mockReset().mockResolvedValue(undefined);
+    captureException.mockClear();
   });
 
   it("backfills signup metadata and redirects when signUp hands back a live session", async () => {
@@ -78,6 +91,26 @@ describe("signUp — auto-confirm redirects instead of claiming an email was sen
     // Must run before the redirect, not after — a thrown NEXT_REDIRECT from
     // redirectAfterLogin would otherwise skip it entirely.
     expect(backfillSignupMetadataMock).toHaveBeenCalledWith(expect.anything(), user);
+    expect(redirectAfterLoginMock).toHaveBeenCalledWith(expect.anything(), "user-123", null);
+  });
+
+  it("still redirects, reporting to Sentry instead of throwing, when the metadata backfill rejects", async () => {
+    const user = { id: "user-123", user_metadata: { ref_code: "FRIEND10" } };
+    signUpMock.mockResolvedValue({
+      data: { user, session: { access_token: "tok" } },
+      error: null,
+    });
+    const backfillError = new Error("redeem_referral_code: fetch failed");
+    backfillSignupMetadataMock.mockRejectedValue(backfillError);
+
+    // Sabotage check: without runBestEffort wrapping the call, this would
+    // reject with backfillError instead of redirecting.
+    await expect(signUp(undefined, formDataFor())).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(captureException).toHaveBeenCalledWith(
+      backfillError,
+      expect.objectContaining({ extra: expect.objectContaining({ userId: "user-123" }) })
+    );
     expect(redirectAfterLoginMock).toHaveBeenCalledWith(expect.anything(), "user-123", null);
   });
 

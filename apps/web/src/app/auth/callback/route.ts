@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getRoleHomePath } from "@/lib/auth/roles";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 
 /** Exchanges an email-confirmation / magic-link code for a session. */
 export async function GET(request: NextRequest) {
@@ -23,8 +24,15 @@ export async function GET(request: NextRequest) {
   // Backfill phone/state/account_purpose and redeem a carried referral code
   // now that a session exists — shared with signup/actions.ts's own redirect
   // for when email confirmations are disabled and a session comes back
-  // directly from signUp(), never reaching this route at all.
-  await backfillSignupMetadata(supabase, data.user);
+  // directly from signUp(), never reaching this route at all. Best-effort:
+  // the account and session already exist by this point, so a transport
+  // error redeeming a referral code must not turn a real confirmation into
+  // an error page.
+  await runBestEffort(() => backfillSignupMetadata(supabase, data.user), {
+    action: "authCallback",
+    stage: "metadata_backfill",
+    userId: data.user.id,
+  });
 
   const { data: profile } = await supabase
     .from("profiles")

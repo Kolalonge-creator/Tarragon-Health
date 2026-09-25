@@ -9,6 +9,7 @@ import { firstIssue } from "@/lib/validation/first-issue";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
 import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 
 export type SignupActionState =
   | { error?: string; field?: string; success?: boolean }
@@ -100,13 +101,20 @@ export async function signUp(
   // they're already signed in). Only show the "check your email" state when
   // GoTrue actually deferred confirmation, i.e. there's no session yet.
   if (data?.session && data?.user) {
+    const user = data.user;
     // Normally /auth/callback's exchangeCodeForSession is what does this,
     // right after a confirmation-link click — this path never reaches that
     // route, so it has to do the same backfill/redemption itself, or a
     // referral code and the phone/state typed into this very form would
-    // silently never be applied.
-    await backfillSignupMetadata(supabase, data.user);
-    await redirectAfterLogin(supabase, data.user.id, redirectTo);
+    // silently never be applied. Best-effort: the account and session
+    // already exist by this point, so a transport error redeeming a
+    // referral code must not turn a successful signup into an error page.
+    await runBestEffort(() => backfillSignupMetadata(supabase, user), {
+      action: "signUp",
+      stage: "metadata_backfill",
+      userId: user.id,
+    });
+    await redirectAfterLogin(supabase, user.id, redirectTo);
   }
 
   return { success: true };
