@@ -8,13 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
+import { DoctorNameLink } from "@/components/doctor-name-link";
 
 function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
   const completed = review.status === "completed";
-  const credential =
-    review.reviewer?.credential_type && review.reviewer?.credential_number
-      ? `${review.reviewer.credential_type} ${review.reviewer.credential_number}`
-      : null;
 
   return (
     <li className="space-y-1 py-3">
@@ -47,8 +44,7 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
           </p>
           {review.reviewer && review.reviewed_at && (
             <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              Dr. {review.reviewer.full_name}
-              {credential ? ` (${credential})` : ""} ·{" "}
+              <DoctorNameLink staffId={review.reviewer.id} fullName={review.reviewer.full_name} /> ·{" "}
               {formatPatientDate(review.reviewed_at)}
             </p>
           )}

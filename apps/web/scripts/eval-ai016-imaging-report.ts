@@ -1,6 +1,7 @@
 /**
- * CLI entry point for AI-016's one DB-registered governance evaluation
- * suite ("AI-016 golden imaging report extraction"). The real runner logic
+ * CLI entry point for AI-016's two DB-registered governance evaluation
+ * suites ("AI-016 golden imaging report extraction" + its case pair on the
+ * shared "Platform AI safety baseline" suite). The real runner logic
  * (suite loading, fixture rendering, deterministic scoring) lives in
  * src/lib/ai-governance/run-imaging-eval-suites.ts, which the admin
  * console's "Run evaluations" button also calls -- this script is just the

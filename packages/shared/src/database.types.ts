@@ -7753,6 +7753,7 @@ export type Database = {
           staff_number: string | null
           updated_at: string
           verified_by: string | null
+          years_of_experience: number | null
         }
         Insert: {
           active?: boolean
@@ -7783,6 +7784,7 @@ export type Database = {
           staff_number?: string | null
           updated_at?: string
           verified_by?: string | null
+          years_of_experience?: number | null
         }
         Update: {
           active?: boolean
@@ -7813,6 +7815,7 @@ export type Database = {
           staff_number?: string | null
           updated_at?: string
           verified_by?: string | null
+          years_of_experience?: number | null
         }
         Relationships: [
           {
@@ -39691,6 +39694,26 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      clinical_staff_directory: {
+        Row: {
+          active: boolean | null
+          bio: string | null
+          credential_number: string | null
+          credential_type: string | null
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          employment_type:
+            | Database["public"]["Enums"]["staff_employment_type"]
+            | null
+          full_name: string | null
+          id: string | null
+          offers_therapy_sessions: boolean | null
+          organisation_id: string | null
+          photo_url: string | null
+          profile_id: string | null
+          specialty: string | null
+        }
+        Relationships: []
       }
       diabetes_quality_metrics: {
         Row: {

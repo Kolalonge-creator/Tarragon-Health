@@ -14,8 +14,37 @@ import type { Tables } from "@tarragon/shared";
 
 export type SecondOpinionRequest = Tables<"second_opinion_requests">;
 export type SecondOpinionRequestWithAnswerer = SecondOpinionRequest & {
-  answerer: { full_name: string; credential_type: string | null; credential_number: string | null } | null;
+  answerer: { full_name: string } | null;
 };
+
+type SecondOpinionAnswerer = NonNullable<SecondOpinionRequestWithAnswerer["answerer"]>;
+
+/**
+ * `answered_by` used to be embedded directly via
+ * `clinical_staff!second_opinion_requests_answered_by_fkey(...)` — a
+ * PostgREST embedded join, which resolves against `clinical_staff`'s OWN
+ * RLS, not this query's own. Since 2026-09-25 (see
+ * 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+ * that policy no longer admits a patient session, so the embed would
+ * silently come back null for every patient viewing their own answered
+ * request. Fetching the answerer separately from
+ * public.clinical_staff_directory (the safe-column view every
+ * patient-facing clinical_staff read now uses) restores the same
+ * attribution without reopening the column-exposure gap that migration
+ * fixed. Mirrors apps/web/src/lib/queries/second-opinion.ts's
+ * fetchAnswerers.
+ */
+async function fetchAnswerers(answererIds: string[]): Promise<Map<string, SecondOpinionAnswerer>> {
+  const answererById = new Map<string, SecondOpinionAnswerer>();
+  if (answererIds.length === 0) return answererById;
+  const { data, error } = await supabase.from("clinical_staff_directory").select("id, full_name").in("id", answererIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    answererById.set(row.id, { full_name: row.full_name ?? "" });
+  }
+  return answererById;
+}
 
 /** Matches the trigger's raised text exactly: 'Buy a second opinion credit
  * to send this request.' (second_opinion_requests_enforce_credit). */
@@ -30,16 +59,29 @@ export const SECOND_OPINION_CREDIT_CODE = "second_opinion_credit";
 export async function loadMySecondOpinionRequests(
   patientId: string
 ): Promise<QueryResult<SecondOpinionRequestWithAnswerer[]>> {
-  const { data, error } = await supabase
-    .from("second_opinion_requests")
-    .select(
-      "*, answerer:clinical_staff!second_opinion_requests_answered_by_fkey(full_name, credential_type, credential_number)"
-    )
-    .eq("patient_id", patientId)
-    .order("created_at", { ascending: false })
-    .limit(10);
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, data: data as SecondOpinionRequestWithAnswerer[] };
+  try {
+    const { data, error } = await supabase
+      .from("second_opinion_requests")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) return { ok: false, error: error.message };
+
+    const rows = data ?? [];
+    const answererIds = Array.from(new Set(rows.map((row) => row.answered_by).filter((id): id is string => !!id)));
+    const answererById = await fetchAnswerers(answererIds);
+
+    return {
+      ok: true,
+      data: rows.map((row) => ({
+        ...row,
+        answerer: row.answered_by ? (answererById.get(row.answered_by) ?? null) : null,
+      })) as SecondOpinionRequestWithAnswerer[],
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 export async function submitSecondOpinionRequest(input: {

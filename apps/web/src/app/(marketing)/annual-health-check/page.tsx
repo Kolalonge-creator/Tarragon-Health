@@ -37,19 +37,14 @@ export const metadata: Metadata = pageMetadata({
  * NOTE: this block intentionally does NOT repeat the "MDCN-registered
  * doctors" wording. The homepage TrustBand carried exactly that claim until
  * 2026-09-05, when it was corrected to describe the verification mechanism
- * instead; do not reintroduce it in either place. Re-checked live 2026-09-05:
- * clinical_staff holds 8 active rows whose credential numbers are QA-000001,
- * TEST-0001 through TEST-0006, and one null. Prior check, 2026-08-05: of 7 active
- * clinical_staff records, 6 carry a credential_number and a distinct
- * verified_by (all still QA test values — TEST-0001 etc, not real MDCN
- * numbers), and 1 has both credential_number and verified_by null (an older
- * record; license_verified_at is set, so it does not violate
- * clinical_staff_active_requires_verification, but nothing proves "someone
- * else" verified it, only that clinical_staff_no_self_verification's
- * `verified_by IS NULL OR ... verified_by <> profile_id` check trivially
- * allows a null verifier). The two CHECK constraints this block's claims rely
- * on are still live and unchanged. Still no real MDCN-registered doctor on
- * the platform, so still don't add the stronger wording here.
+ * instead; per the founder's 2026-09-25 decision a patient never sees an
+ * MDCN/NMCN registration number, which Nigerian patients don't recognise as a
+ * trust signal anyway — so don't reintroduce a credential-number claim here
+ * either. Per the 2026-09-26 narrowing, speciality + years of experience live
+ * only on a doctor's profile page (doctor/[staffId]), not inline
+ * anywhere, including reviewed-by-doctor.tsx. The two CHECK constraints this
+ * block's claims rely on (clinical_staff_active_requires_verification,
+ * clinical_staff_no_self_verification) are still live and unchanged.
  */
 const BOOKING_ASSURANCES = [
   {

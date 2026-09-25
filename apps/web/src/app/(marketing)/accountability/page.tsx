@@ -145,7 +145,7 @@ export default async function AccountabilityPage() {
           />
           <DataPoint
             title="Every clinical action is attributed"
-            body="When a doctor reviews your case, the record carries their name and their MDCN registration number. If no doctor has reviewed something, we show you nothing rather than a reassuring label."
+            body="When a doctor reviews your case, the record carries their name. If no doctor has reviewed something, we show you nothing rather than a reassuring label."
           />
         </div>
       </Section>
