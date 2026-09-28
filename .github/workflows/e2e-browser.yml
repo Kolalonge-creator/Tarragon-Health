@@ -129,7 +129,7 @@ jobs:
       - name: Cache Playwright's Chromium download
         if: steps.secrets-check.outputs.configured == 'true'
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           # Keyed on the exact @playwright/test version so a dependency bump
