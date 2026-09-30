@@ -35,6 +35,9 @@ tags:
 # `-e MOBILE_E2E_EMAIL=... -e MOBILE_E2E_PASSWORD=...` (see README) rather
 # than declaring its own `env:` block, so the same flow file works
 # unchanged against any account without editing it.
+# S03: sign-in opens on the Phone tab; switch to the Email tab first (its
+# accessibilityLabel is "Use email", distinct from the "Email" field).
+- tapOn: "Use email"
 - tapOn: "Email"
 - inputText: ${MOBILE_E2E_EMAIL}
 - tapOn: "Password"

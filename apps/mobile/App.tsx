@@ -12,6 +12,11 @@ import { flushPendingVitals } from "@/lib/offline-vitals-queue";
 import { syncThresholdsIfOnline } from "@/lib/threshold-sync";
 import { checkForPendingReviewPrompt } from "@/lib/review-prompts";
 import { loadPatientIdentity, type PatientIdentity } from "@/lib/identity";
+import { clearChosenAuthLocale } from "@/lib/auth/auth-locale";
+import { checkBiometricOfferEligible } from "@/lib/auth/biometric-offer";
+import { runPostSignIn } from "@/lib/auth/post-sign-in";
+import { clearUiLanguageCache } from "@/lib/ui-language";
+import { BiometricOfferScreen } from "@/screens/biometric-offer-screen";
 import { LoginScreen } from "@/screens/login-screen";
 import { AppLockScreen } from "@/screens/app-lock-screen";
 import { HomeShell } from "@/screens/home-shell";
@@ -55,6 +60,10 @@ function AppContent() {
   // below has been showing too long, offering a manual way out of a cold
   // start that never resolves.
   const [stuck, setStuck] = useState(false);
+  // One-time biometric unlock offer (S03): decided once per signed-in user.
+  const [offerBiometric, setOfferBiometric] = useState(false);
+  const offerCheckedFor = useRef<string | null>(null);
+  const postSignInFor = useRef<string | null>(null);
 
   useEffect(() => {
     const {
@@ -65,7 +74,34 @@ function AppContent() {
       // session. Clearing on SIGNED_OUT (never on the initial null) also
       // releases a patient who used the lock screen's "Sign out" escape
       // hatch after losing biometrics at the OS level.
-      if (event === "SIGNED_OUT") setLockState("unlocked");
+      if (event === "SIGNED_OUT") {
+        setLockState("unlocked");
+        postSignInFor.current = null;
+        offerCheckedFor.current = null;
+        setOfferBiometric(false);
+      }
+      if (event === "SIGNED_IN" && newSession?.user.id && postSignInFor.current !== newSession.user.id) {
+        const userId = newSession.user.id;
+        postSignInFor.current = userId;
+        // Deferred a tick: supabase-js must not be called from inside its own
+        // auth callback. Best effort, never blocks sign-in (see post-sign-in.ts).
+        setTimeout(() => {
+          void runPostSignIn({
+            userId,
+            rpc: supabase,
+            profiles: {
+              setLanguage: async (id, language) => {
+                const { error } = await supabase.from("profiles").update({ language }).eq("id", id);
+                return { error };
+              },
+            },
+            onLanguageWritten: () => {
+              clearUiLanguageCache();
+              void clearChosenAuthLocale();
+            },
+          }).catch(() => {});
+        }, 0);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -204,6 +240,14 @@ function AppContent() {
     }
   }, [session, identity]);
 
+  useEffect(() => {
+    const userId = session?.user.id;
+    if (!userId || !identity || lockState !== "unlocked") return;
+    if (offerCheckedFor.current === userId) return;
+    offerCheckedFor.current = userId;
+    void checkBiometricOfferEligible().then(setOfferBiometric);
+  }, [session, identity, lockState]);
+
   if (stuck) {
     return (
       <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: spacing.screen, gap: 12 }}>
@@ -269,6 +313,7 @@ function AppContent() {
         patientNumber={identity.patientNumber}
         initials={identity.initials}
       />
+      {offerBiometric ? <BiometricOfferScreen onDone={() => setOfferBiometric(false)} /> : null}
     </SafeAreaView>
   );
 }

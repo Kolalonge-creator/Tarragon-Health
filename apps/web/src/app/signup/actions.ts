@@ -2,7 +2,13 @@
 
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { signupSchema } from "@/lib/validation/auth";
+import { phoneOtpVerifySchema, phoneSignupSchema, signupSchema } from "@/lib/validation/auth";
+import { checkNewPassword } from "@/lib/auth/check-new-password";
+import { authErrorKey } from "@tarragon/auth/auth-error-key";
+import { t, type Locale, type MessageKey } from "@tarragon/i18n";
+import { getAuthLocale } from "@/lib/auth/auth-locale";
+import { isAlreadyRegisteredError } from "@/lib/auth/otp-errors";
+import { PASSWORD_MIN_LENGTH } from "@/lib/validation/password";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
@@ -11,7 +17,7 @@ import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
 
 export type SignupActionState =
-  | { error?: string; field?: string; success?: boolean }
+  | { error?: string; field?: string; success?: boolean; step?: "verify"; phone?: string; redirectTo?: string; sentAt?: number }
   | undefined;
 
 /**
@@ -51,6 +57,11 @@ export async function signUp(
   );
   if (!limited.success) {
     return { error: RATE_LIMIT_MESSAGE };
+  }
+
+  const verdict = await checkNewPassword(parsed.data.password);
+  if (!verdict.ok) {
+    return { error: verdict.message, field: "password" };
   }
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
@@ -111,4 +122,174 @@ export async function signUp(
   }
 
   return { success: true };
+}
+
+
+/**
+ * Validation messages from the shared Zod schemas are English. On the phone flows the two failures a person can
+ * actually hit (a number that cannot be real, a code that is not six digits) are replaced with the catalogue wording
+ * so they read in the chosen language too; `field` tells us which one it was.
+ */
+function localisedIssue(
+  issue: { error?: string; field?: string } | undefined,
+  locale: Locale,
+  fallbackKey?: MessageKey
+): { error?: string; field?: string } {
+  if (!issue) return {};
+  if (issue.field === "phone") return { ...issue, error: t("auth.error.invalid_phone", locale) };
+  if (issue.field === "token" && fallbackKey) return { ...issue, error: t(fallbackKey, locale) };
+  return issue;
+}
+/**
+ * Phone-first sign-up (S03, functions 1.1 and 1.2). Creates the account on the phone identity with a password; GoTrue
+ * then asks the Send SMS hook to deliver a six-digit code, and the account cannot sign in until that code is verified
+ * (`[auth.sms] enable_confirmations`), so a mistyped number is never attached to a usable account.
+ */
+export async function signUpWithPhone(
+  _prevState: SignupActionState,
+  formData: FormData
+): Promise<SignupActionState> {
+  const locale = await getAuthLocale();
+  const parsed = phoneSignupSchema.safeParse({
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    countryCode: formData.get("countryCode"),
+    phone: formData.get("phone"),
+    state: formData.get("state"),
+    refCode: formData.get("refCode"),
+    intent: formData.get("intent"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) {
+    return localisedIssue(firstIssue(parsed.error, "Check the details above and try again."), locale);
+  }
+
+  // Keyed on the phone as well as the IP: every attempt costs an SMS, and the hook's own per-phone hourly cap is the
+  // backstop, not the first line.
+  const limited = await checkAuthRateLimit(
+    "signup-phone",
+    parsed.data.phone,
+    { limit: 10, windowSeconds: 3600 },
+    { limit: 3, windowSeconds: 3600 }
+  );
+  if (!limited.success) {
+    return { error: t("auth.error.rate_limited", locale) };
+  }
+
+  const verdict = await checkNewPassword(parsed.data.password);
+  if (!verdict.ok) {
+    return {
+      error: verdict.reason === "breached" ? t("auth.password.breached", locale, { min: PASSWORD_MIN_LENGTH }) : verdict.message,
+      field: "password",
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signUp({
+    phone: parsed.data.phone,
+    password: parsed.data.password,
+    options: {
+      data: {
+        full_name: parsed.data.fullName,
+        ...(parsed.data.state ? { state: parsed.data.state } : {}),
+        ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
+        ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
+        ...(parsed.data.intent === "support" ? { account_purpose: "support" } : {}),
+      },
+    },
+  });
+  // An existing number gets the same code screen as a new one (the code simply never arrives for someone who is not
+  // its owner), so this form cannot be used to learn which numbers are registered. Mobile does the same.
+  if (error && !isAlreadyRegisteredError(error)) {
+    return { error: t(authErrorKey(error, "sign_up"), locale), field: "phone" };
+  }
+
+  return {
+    step: "verify",
+    phone: parsed.data.phone,
+    redirectTo: sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined,
+  };
+}
+
+/** Confirms the phone with the six-digit code. Success creates the session, so the usual post-signup work runs. */
+export async function verifySignupPhone(
+  _prevState: SignupActionState,
+  formData: FormData
+): Promise<SignupActionState> {
+  const locale = await getAuthLocale();
+  const parsed = phoneOtpVerifySchema.safeParse({
+    phone: formData.get("phone"),
+    token: formData.get("token"),
+  });
+  const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined;
+  if (!parsed.success) {
+    return {
+      ...localisedIssue(firstIssue(parsed.error, "Check the code and try again."), locale, "auth.error.wrong_code"),
+      step: "verify",
+      phone: formData.get("phone")?.toString(),
+      redirectTo,
+    };
+  }
+
+  // A six-digit code is only a million guesses, so the verify step is limited on the phone as well as the IP.
+  const limited = await checkAuthRateLimit(
+    "signup-phone-verify",
+    parsed.data.phone,
+    { limit: 20, windowSeconds: 300 },
+    { limit: 8, windowSeconds: 900 }
+  );
+  if (!limited.success) {
+    return { error: t("auth.error.rate_limited", locale), step: "verify", phone: parsed.data.phone, redirectTo };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone: parsed.data.phone,
+    token: parsed.data.token,
+    type: "sms",
+  });
+  if (error || !data.user) {
+    return {
+      error: t(authErrorKey(error, "otp_verify"), locale),
+      field: "token",
+      step: "verify",
+      phone: parsed.data.phone,
+      redirectTo,
+    };
+  }
+
+  await backfillSignupMetadata(supabase, data.user, "verifySignupPhone");
+  await redirectAfterLogin(supabase, data.user.id, redirectTo);
+}
+
+/** Asks for a fresh code. GoTrue enforces the 60 second gap; the hook enforces the per-phone hourly cap. */
+export async function resendSignupCode(
+  _prevState: SignupActionState,
+  formData: FormData
+): Promise<SignupActionState> {
+  const locale = await getAuthLocale();
+  const phone = formData.get("phone")?.toString() ?? "";
+  const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined;
+  const parsed = phoneOtpVerifySchema.shape.phone.safeParse(phone);
+  if (!parsed.success) {
+    return { error: t("auth.error.invalid_phone", locale), step: "verify", phone, redirectTo };
+  }
+
+  const limited = await checkAuthRateLimit(
+    "signup-phone-resend",
+    parsed.data,
+    { limit: 10, windowSeconds: 3600 },
+    { limit: 5, windowSeconds: 3600 }
+  );
+  if (!limited.success) {
+    return { error: t("auth.error.rate_limited", locale), step: "verify", phone: parsed.data, redirectTo };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({ type: "sms", phone: parsed.data });
+  if (error) {
+    return { error: t(authErrorKey(error, "otp_send"), locale), step: "verify", phone: parsed.data, redirectTo };
+  }
+  // sentAt changes on every successful resend; the client keys its countdown on it so each resend restarts at 60.
+  return { step: "verify", phone: parsed.data, redirectTo, sentAt: Date.now() };
 }

@@ -3,6 +3,8 @@ import {
   emailLoginSchema,
   phoneOtpRequestSchema,
   phoneOtpVerifySchema,
+  phonePasswordLoginSchema,
+  phoneSignupSchema,
   signupSchema,
 } from "./auth";
 
@@ -105,5 +107,56 @@ describe("signupSchema", () => {
 
   it("rejects a blank last name", () => {
     expect(signupSchema.safeParse({ ...valid, lastName: " " }).success).toBe(false);
+  });
+});
+
+describe("S03 Nigerian phone entry", () => {
+  const NG = "+2348031234567";
+
+  it.each(["0803 123 4567", "803-123-4567", "8031234567", "08031234567", "2348031234567", "+2340803 123 4567"])(
+    "phoneOtpRequestSchema turns %s into the one E.164 number",
+    (phone) => {
+      const parsed = phoneOtpRequestSchema.safeParse({ countryCode: "+234", phone });
+      expect(parsed.success && parsed.data.phone).toBe(NG);
+    },
+  );
+
+  it("rejects a Nigerian number that cannot be a mobile, so a code is never sent to a dead end", () => {
+    for (const phone of ["0603123456", "080312345", "0000000000"]) {
+      expect(phoneOtpRequestSchema.safeParse({ countryCode: "+234", phone }).success).toBe(false);
+    }
+  });
+
+  it("phoneSignupSchema needs no email, normalises the phone and builds the full name", () => {
+    const parsed = phoneSignupSchema.safeParse({
+      firstName: "Ada",
+      lastName: "Obi",
+      countryCode: "+234",
+      phone: "0803 123 4567",
+      password: "a-long-enough-password",
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.phone).toBe(NG);
+      expect(parsed.data.fullName).toBe("Ada Obi");
+      expect("email" in parsed.data).toBe(false);
+    }
+  });
+
+  it("phoneSignupSchema enforces the 8-character password floor", () => {
+    const parsed = phoneSignupSchema.safeParse({
+      firstName: "Ada",
+      lastName: "Obi",
+      countryCode: "+234",
+      phone: "8031234567",
+      password: "short",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("phonePasswordLoginSchema normalises the phone and does not length-check the password", () => {
+    const parsed = phonePasswordLoginSchema.safeParse({ countryCode: "+234", phone: "0803 123 4567", password: "abc" });
+    expect(parsed.success && parsed.data).toEqual({ phone: NG, password: "abc" });
+    expect(phonePasswordLoginSchema.safeParse({ countryCode: "+234", phone: "0803 123 4567", password: "" }).success).toBe(false);
   });
 });

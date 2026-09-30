@@ -754,3 +754,6 @@ remove_whatsapp.sql
 # audit every non-admin role, admit an active break-glass grant but never for
 # reproductive_health; patient_consents is patient-read-only; one sabotage per area.
 s02_identity_consent_audit_baseline.sql
+s03_sms_delivery_log.sql
+# S03 assisted recovery: two-admin rule, state machine, audit per step, masked outputs, neutral subject notices, SIM-swap second step, anon no EXECUTE; five sabotages.
+s03_assisted_recovery.sql

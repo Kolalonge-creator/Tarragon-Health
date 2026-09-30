@@ -1,21 +1,30 @@
 import { z } from "zod";
 import { E164_GENERIC } from "@tarragon/shared";
+import { normalisePhoneWithCountry } from "@tarragon/auth/phone";
 import { PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE } from "./password";
 
 export { emailLoginSchema, type EmailLoginInput, mfaCodeSchema, type MfaCodeInput } from "@tarragon/auth/credentials";
 
+const PHONE_INVALID_MESSAGE = "Enter a valid phone number for the selected country";
+
+// The national number is free text on purpose: people type "0803 123 4567", "803-123-4567" or paste the
+// whole "+2348031234567". normalisePhoneWithCountry (S03) turns every one of those into the same E.164 value,
+// including the stray-zero typo "+2340803...", so a code never goes to a different number than intended.
 const phoneCombineSchema = z.object({
   countryCode: z.string().regex(/^\+\d{1,4}$/, "Select a country code"),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\d{6,14}$/, "Enter a valid phone number"),
+  phone: z.string().trim().min(1, "Enter your phone number").max(24, "Enter a valid phone number"),
 });
 
+/** Normalised E.164 or "" when the pair cannot be a real number (the refine below turns "" into the error). */
+function toE164(countryCode: string, phone: string): string {
+  const result = normalisePhoneWithCountry(countryCode, phone);
+  return result.ok ? result.e164 : "";
+}
+
 export const phoneOtpRequestSchema = phoneCombineSchema
-  .transform((data) => ({ phone: `${data.countryCode}${data.phone}` }))
+  .transform((data) => ({ phone: toE164(data.countryCode, data.phone) }))
   .refine((data) => E164_GENERIC.test(data.phone), {
-    message: "Enter a valid phone number for the selected country",
+    message: PHONE_INVALID_MESSAGE,
     path: ["phone"],
   });
 export type PhoneOtpRequestInput = z.infer<typeof phoneOtpRequestSchema>;
@@ -43,7 +52,7 @@ export const newPasswordSchema = z
   });
 export type NewPasswordInput = z.infer<typeof newPasswordSchema>;
 
-export const signupSchema = z
+const signupObject = z
   .object({
     firstName: z.string().trim().min(1, "Enter your first name"),
     lastName: z.string().trim().min(1, "Enter your last name"),
@@ -52,10 +61,7 @@ export const signupSchema = z
     // as separate fields so diaspora family members without a Nigerian
     // number can still register for a family package; combined below.
     countryCode: z.string().regex(/^\+\d{1,4}$/, "Select a country code"),
-    phone: z
-      .string()
-      .trim()
-      .regex(/^\d{6,14}$/, "Enter a valid phone number"),
+    phone: z.string().trim().min(1, "Enter your phone number").max(24, "Enter a valid phone number"),
     // Optional at signup — a non-gating personalisation only (pre-fills profiles.state so
     // the first partner action knows the user's state). Onboarding captures the fuller
     // state/city/area later regardless. Empty string is normalised to undefined.
@@ -95,14 +101,48 @@ export const signupSchema = z
       .catch(undefined)
       .transform((v) => v ?? undefined),
     password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
-  })
+  });
+
+export const signupSchema = signupObject
   .transform((data) => ({
     ...data,
     fullName: `${data.firstName} ${data.lastName}`.trim(),
-    phone: `${data.countryCode}${data.phone}`,
+    phone: toE164(data.countryCode, data.phone),
   }))
   .refine((data) => E164_GENERIC.test(data.phone), {
-    message: "Enter a valid phone number for the selected country",
+    message: PHONE_INVALID_MESSAGE,
     path: ["phone"],
   });
 export type SignupInput = z.infer<typeof signupSchema>;
+
+/**
+ * Phone-first sign-up (S03, function 1.1): the same person fields, no email. The account is created on the
+ * phone identity and stays unusable until the six-digit code is verified (function 1.2).
+ */
+export const phoneSignupSchema = signupObject
+  .omit({ email: true })
+  .transform((data) => ({
+    ...data,
+    fullName: `${data.firstName} ${data.lastName}`.trim(),
+    phone: toE164(data.countryCode, data.phone),
+  }))
+  .refine((data) => E164_GENERIC.test(data.phone), {
+    message: PHONE_INVALID_MESSAGE,
+    path: ["phone"],
+  });
+export type PhoneSignupInput = z.infer<typeof phoneSignupSchema>;
+
+/** Sign in with a phone number and password (function 1.3). */
+export const phonePasswordLoginSchema = z
+  .object({
+    countryCode: z.string().regex(/^\+\d{1,4}$/, "Select a country code"),
+    phone: z.string().trim().min(1, "Enter your phone number").max(24, "Enter a valid phone number"),
+    // Not length-checked here: a sign-in is not the place to tell someone their old password is "too short".
+    password: z.string().min(1, "Enter your password"),
+  })
+  .transform((data) => ({ phone: toE164(data.countryCode, data.phone), password: data.password }))
+  .refine((data) => E164_GENERIC.test(data.phone), {
+    message: PHONE_INVALID_MESSAGE,
+    path: ["phone"],
+  });
+export type PhonePasswordLoginInput = z.infer<typeof phonePasswordLoginSchema>;

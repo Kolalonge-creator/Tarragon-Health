@@ -412,6 +412,17 @@ jobs:
         working-directory: supabase/functions/paystack-webhook
         run: deno lint --no-config .
 
+      # S03: the auth Send SMS hook. Clean under deno lint from day one, so it is widened in directory by directory.
+      - name: Test auth SMS hook
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        working-directory: supabase/functions/auth-send-sms-hook
+        run: deno test --no-config .
+
+      - name: Lint auth SMS hook
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        working-directory: supabase/functions/auth-send-sms-hook
+        run: deno lint --no-config .
+
   supabase-db:
     name: Supabase migration replay
     runs-on: ubuntu-latest

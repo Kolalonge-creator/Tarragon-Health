@@ -14,6 +14,92 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_recovery_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          executed_at: string | null
+          executed_by: string | null
+          expires_at: string
+          id: string
+          identity_checks: Json
+          method: string
+          organisation_id: string
+          outcome: string | null
+          outcome_at: string | null
+          reason: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejected_reason: string | null
+          requested_by: string
+          sim_swap_reviewed_at: string | null
+          sim_swap_reviewed_by: string | null
+          sim_swap_risk: boolean
+          state: string
+          subject_user_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          executed_at?: string | null
+          executed_by?: string | null
+          expires_at?: string
+          id?: string
+          identity_checks: Json
+          method: string
+          organisation_id: string
+          outcome?: string | null
+          outcome_at?: string | null
+          reason: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          requested_by: string
+          sim_swap_reviewed_at?: string | null
+          sim_swap_reviewed_by?: string | null
+          sim_swap_risk?: boolean
+          state?: string
+          subject_user_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          executed_at?: string | null
+          executed_by?: string | null
+          expires_at?: string
+          id?: string
+          identity_checks?: Json
+          method?: string
+          organisation_id?: string
+          outcome?: string | null
+          outcome_at?: string | null
+          reason?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          requested_by?: string
+          sim_swap_reviewed_at?: string | null
+          sim_swap_reviewed_by?: string | null
+          sim_swap_risk?: boolean
+          state?: string
+          subject_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_recovery_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_log_entries: {
         Row: {
           activity_name: string | null
@@ -37587,6 +37673,10 @@ export type Database = {
         Args: { p_deploy?: boolean; p_note?: string; p_version_id: string }
         Returns: Json
       }
+      approve_assisted_recovery: {
+        Args: { p_request: string }
+        Returns: Json
+      }
       approve_lab_order_refund: { Args: { p_refund_id: string }; Returns: Json }
       approve_notification_template: {
         Args: { p_key: string }
@@ -38026,6 +38116,10 @@ export type Database = {
         }
         Returns: Json
       }
+      confirm_sim_swap_review: {
+        Args: { p_note: string; p_request: string }
+        Returns: Json
+      }
       confirm_vaccination_card_extraction: {
         Args: { p_extraction_id: string; p_records: Json }
         Returns: number
@@ -38259,6 +38353,10 @@ export type Database = {
       enrol_in_wellness_challenge: {
         Args: { p_challenge_id: string }
         Returns: string
+      }
+      execute_assisted_recovery: {
+        Args: { p_request: string }
+        Returns: Json
       }
       execute_wearable_data_deletion: {
         Args: { p_request_id: string }
@@ -39169,6 +39267,27 @@ export type Database = {
         Args: { p_appointment_id: string; p_occurrence_id: string }
         Returns: undefined
       }
+      list_assisted_recovery_requests: {
+        Args: { p_state?: string }
+        Returns: {
+          approved_by: string
+          checks_done: string[]
+          created_at: string
+          email_hint: string
+          expires_at: string
+          id: string
+          method: string
+          outcome: string
+          phone_hint: string
+          reason: string
+          requested_by: string
+          sim_swap_reviewed: boolean
+          sim_swap_risk: boolean
+          state: string
+          subject_name: string
+          subject_user_id: string
+        }[]
+      }
       log_patient_data_export: {
         Args: { p_scope?: string }
         Returns: undefined
@@ -39731,6 +39850,10 @@ export type Database = {
         }
         Returns: string
       }
+      record_assisted_recovery_outcome: {
+        Args: { p_ok: boolean; p_request: string }
+        Returns: Json
+      }
       record_claim_adjudication: {
         Args: {
           p_claim_id: string
@@ -39848,6 +39971,10 @@ export type Database = {
         Args: { p_activate?: boolean; p_kid: string; p_public_key_spki: string }
         Returns: undefined
       }
+      reject_assisted_recovery: {
+        Args: { p_reason: string; p_request: string }
+        Returns: Json
+      }
       reject_outcomes_contract_request: {
         Args: { p_id: string; p_reason: string }
         Returns: undefined
@@ -39887,6 +40014,15 @@ export type Database = {
           p_type_code: Database["public"]["Enums"]["alert_type_code"]
         }
         Returns: string
+      }
+      request_assisted_recovery: {
+        Args: {
+          p_identity_checks: Json
+          p_method: string
+          p_reason: string
+          p_subject: string
+        }
+        Returns: Json
       }
       request_emergency_record_access: {
         Args: { p_patient_id: string; p_reason: string }

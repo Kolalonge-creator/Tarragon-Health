@@ -1,0 +1,189 @@
+import { expect, test, type Page } from "@playwright/test";
+import { adminClient } from "./helpers/supabase-admin";
+
+/**
+ * Phone sign-up, verification, sign-in and recovery (S03, functions 1.1 to 1.3 and 1.6), through the real UI.
+ *
+ * Runs against the local Supabase stack only (see README.md). The three phone numbers below are listed in
+ * supabase/config.toml under [auth.sms.test_otp] with the fixed code 123456, so GoTrue accepts that code and sends no
+ * SMS. The production path (Send SMS hook -> provider) is covered by the Deno tests in
+ * supabase/functions/auth-send-sms-hook; this suite proves the screens and the Auth wiring around it.
+ *
+ * NOT RUN in the session that wrote it (no Docker on that machine); CI's e2e-browser job is the first real run.
+ */
+const CODE = "123456";
+const SIGNUP_PHONE_LOCAL = "8031230001"; // +2348031230001
+const SIGNUP_PHONE_E164 = "+2348031230001";
+const SEEDED_PHONE_LOCAL = "8031230002"; // +2348031230002, a confirmed account
+const SEEDED_PHONE_E164 = "+2348031230002";
+const UNVERIFIED_PHONE_LOCAL = "8031230003"; // +2348031230003, created but never confirmed
+const UNVERIFIED_PHONE_E164 = "+2348031230003";
+const UNKNOWN_PHONE_LOCAL = "8031239999"; // not registered and not in test_otp
+const PASSWORD = "E2e-phone-pw-!Aa1-first";
+const NEW_PASSWORD = "E2e-phone-pw-!Aa1-second";
+
+async function deleteUserByPhone(phone: string): Promise<void> {
+  const { data } = await adminClient.auth.admin.listUsers();
+  const found = data?.users.find((u) => u.phone === phone.replace(/^\+/, ""));
+  if (found) await adminClient.auth.admin.deleteUser(found.id);
+}
+
+async function openPhonePasswordLogin(page: Page): Promise<void> {
+  await page.goto("/login");
+  await page.getByRole("button", { name: /^phone$/i }).click();
+}
+
+async function fillLogin(page: Page, local: string, password: string): Promise<void> {
+  await page.locator("#phone").fill(local);
+  await page.locator("#password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+}
+
+test.describe.configure({ mode: "serial" });
+
+test.beforeAll(async () => {
+  await deleteUserByPhone(SIGNUP_PHONE_E164);
+  await deleteUserByPhone(SEEDED_PHONE_E164);
+  await deleteUserByPhone(UNVERIFIED_PHONE_E164);
+
+  const seeded = await adminClient.auth.admin.createUser({
+    phone: SEEDED_PHONE_E164,
+    password: PASSWORD,
+    phone_confirm: true,
+    user_metadata: { full_name: "[e2e-test] Phone Patient" },
+  });
+  if (seeded.error) throw seeded.error;
+
+  const unverified = await adminClient.auth.admin.createUser({
+    phone: UNVERIFIED_PHONE_E164,
+    password: PASSWORD,
+    phone_confirm: false,
+    user_metadata: { full_name: "[e2e-test] Unverified Phone" },
+  });
+  if (unverified.error) throw unverified.error;
+});
+
+test.afterAll(async () => {
+  await deleteUserByPhone(SIGNUP_PHONE_E164);
+  await deleteUserByPhone(SEEDED_PHONE_E164);
+  await deleteUserByPhone(UNVERIFIED_PHONE_E164);
+});
+
+test.describe("phone sign-up", () => {
+  test("creates the account, shows the code step, and only a correct code signs the person in", async ({ page }) => {
+    await page.goto("/signup");
+    await page.getByRole("tab", { name: /^phone$/i }).click();
+    await page.locator("#firstName").fill("E2e");
+    await page.locator("#lastName").fill("Phone");
+    // Typed the way people actually type it, with the domestic leading zero and spaces.
+    await page.locator("#phone").fill("0803 123 0001");
+    await page.locator("#password").fill(PASSWORD);
+    await page.getByRole("button", { name: /create account/i }).click();
+
+    // Step 2: the code. The number is masked, never echoed in full.
+    await expect(page.locator("#token")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(SIGNUP_PHONE_LOCAL.slice(0, 3))).toHaveCount(0);
+
+    // Wrong code: stays on the code step, signs nobody in.
+    await page.locator("#token").fill("000000");
+    await page.getByRole("button", { name: /confirm/i }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page).toHaveURL(/\/signup/);
+
+    // Resend is held back by the visible 60 second countdown.
+    await expect(page.getByRole("button", { name: /send a new code/i })).toBeDisabled();
+
+    // Correct code: signed in, off the signup page.
+    await page.locator("#token").fill(CODE);
+    await page.getByRole("button", { name: /confirm/i }).click();
+    await page.waitForURL((url) => !url.pathname.startsWith("/signup"), { timeout: 20_000 });
+  });
+
+  test("an impossible number is refused on the form and creates no account", async ({ page }) => {
+    await page.goto("/signup");
+    await page.getByRole("tab", { name: /^phone$/i }).click();
+    await page.locator("#firstName").fill("E2e");
+    await page.locator("#lastName").fill("Bad");
+    await page.locator("#phone").fill("0603123456");
+    await page.locator("#password").fill(PASSWORD);
+    await page.getByRole("button", { name: /create account/i }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.locator("#token")).toHaveCount(0);
+  });
+});
+
+test.describe("phone sign-in", () => {
+  test("a confirmed number signs in with its password", async ({ page }) => {
+    await openPhonePasswordLogin(page);
+    await fillLogin(page, SEEDED_PHONE_LOCAL, PASSWORD);
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20_000 });
+  });
+
+  test("a wrong password and an unknown number show the same message", async ({ page }) => {
+    await openPhonePasswordLogin(page);
+    await fillLogin(page, SEEDED_PHONE_LOCAL, "definitely-wrong-password");
+    const wrong = await page.getByRole("alert").textContent();
+
+    await page.goto("/login");
+    await page.getByRole("button", { name: /^phone$/i }).click();
+    await fillLogin(page, UNKNOWN_PHONE_LOCAL, "definitely-wrong-password");
+    const unknown = await page.getByRole("alert").textContent();
+
+    expect(wrong).toBeTruthy();
+    expect(unknown).toBe(wrong);
+  });
+
+  test("a number that was never confirmed cannot sign in: it gets the code step instead of a session", async ({ page }) => {
+    await openPhonePasswordLogin(page);
+    await fillLogin(page, UNVERIFIED_PHONE_LOCAL, PASSWORD);
+    await expect(page.locator("#token")).toBeVisible({ timeout: 15_000 });
+    await expect(page).toHaveURL(/\/login/);
+
+    await page.locator("#token").fill(CODE);
+    await page.getByRole("button", { name: /confirm/i }).click();
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20_000 });
+  });
+});
+
+test.describe("recovery", () => {
+  test("a registered number: code, then a new password that really works", async ({ page }) => {
+    await page.goto("/forgot-password");
+    await page.getByRole("button", { name: /^phone$/i }).click();
+    await page.locator("#phone").fill(SEEDED_PHONE_LOCAL);
+    await page.getByRole("button", { name: /send code/i }).click();
+
+    await expect(page.locator("#token")).toBeVisible({ timeout: 15_000 });
+    await page.locator("#token").fill(CODE);
+    await page.getByRole("button", { name: /verify/i }).click();
+
+    await page.waitForURL(/\/reset-password/, { timeout: 15_000 });
+    await page.locator("#password").fill(NEW_PASSWORD);
+    await page.locator("#confirmPassword").fill(NEW_PASSWORD);
+    await page.getByRole("button", { name: /update password/i }).click();
+    await page.waitForURL((url) => !url.pathname.startsWith("/reset-password"), { timeout: 20_000 });
+
+    // The old password no longer works; the new one does.
+    await page.context().clearCookies();
+    await openPhonePasswordLogin(page);
+    await fillLogin(page, SEEDED_PHONE_LOCAL, PASSWORD);
+    await expect(page.getByRole("alert")).toBeVisible();
+    await page.goto("/login");
+    await page.getByRole("button", { name: /^phone$/i }).click();
+    await fillLogin(page, SEEDED_PHONE_LOCAL, NEW_PASSWORD);
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20_000 });
+  });
+
+  test("an unregistered number gets the same code screen and no account is created", async ({ page }) => {
+    await page.goto("/forgot-password");
+    await page.getByRole("button", { name: /^phone$/i }).click();
+    await page.locator("#phone").fill(UNKNOWN_PHONE_LOCAL);
+    await page.getByRole("button", { name: /send code/i }).click();
+
+    // Indistinguishable from the registered case: the code step appears.
+    await expect(page.locator("#token")).toBeVisible({ timeout: 15_000 });
+
+    // And asking for a code did not CREATE an account for that number (it used to).
+    const { data } = await adminClient.auth.admin.listUsers();
+    expect(data?.users.some((u) => u.phone === "2348031239999")).toBe(false);
+  });
+});

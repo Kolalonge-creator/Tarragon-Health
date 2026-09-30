@@ -132,6 +132,12 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.110.0
         version: 2.110.0
+      '@tarragon/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@tarragon/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@tarragon/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -271,6 +277,9 @@ importers:
       '@tarragon/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@tarragon/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@tarragon/lifestyle-engine':
         specifier: workspace:*
         version: link:../../packages/lifestyle-engine
