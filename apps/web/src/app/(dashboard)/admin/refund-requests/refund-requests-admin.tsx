@@ -24,8 +24,8 @@ function amountKoboFor(claim: AdminGuaranteeClaim): number {
  * First-purchase money-back guarantee claims, oldest first. Modelled on
  * BookingRequestsAdmin: a real money decision, so Approve/Deny both go
  * through ConfirmDialog rather than a bare button onClick — approving moves
- * real money (a Paystack refund is queued, or a platform credit balance is
- * restored, per decide_purchase_guarantee_refund's own return value).
+ * real money (a Paystack refund is queued, per decide_purchase_guarantee_refund's
+ * own return value).
  */
 export function RefundRequestsAdmin() {
   const claims = useAdminGuaranteeClaims();
@@ -127,7 +127,7 @@ export function RefundRequestsAdmin() {
         title={pending?.approve ? "Approve this refund?" : "Deny this refund request?"}
         description={
           pending?.approve
-            ? "The patient's card is refunded (or their platform credit balance is restored), and any access this purchase granted is withdrawn."
+            ? "The patient's card is refunded, and any access this purchase granted is withdrawn."
             : "The patient is told this request was declined. Nothing is refunded."
         }
         confirmLabel={decide.isPending ? "Saving…" : pending?.approve ? "Approve refund" : "Deny request"}

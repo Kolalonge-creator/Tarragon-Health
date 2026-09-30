@@ -74,19 +74,6 @@
  * webhook branches are removed in a later migration.
  */
 /**
- * 'platform_credit_topup' (2026-09-17) activates the same way, via
- * private.apply_platform_credit_topup_payment (an AFTER INSERT trigger on
- * payment_transactions, see
- * supabase/migrations/20260917100406_platform_credit_ledger_functions.sql).
- * A patient tops up a non-expiring, never-cashed-out platform credit
- * balance in any amount (suggested ₦10k/20k/50k/100k or custom); spending it
- * against a service_purchases row happens synchronously via
- * public.pay_service_purchase_on_platform_credit and never goes through
- * Paystack/this metadata shape at all — only funding the balance does.
- *
- * Same webhook-recognition correction as voucher_payment above.
- */
-/**
  * 'sponsored_service_reservation' (2026-09-23) activates via
  * private.activate_sponsored_service_reservation (an AFTER INSERT trigger on
  * payment_transactions, see
@@ -108,7 +95,6 @@ export type CheckoutKind =
   | "screening_day_payment"
   | "subsidy_contribution"
   | "service_purchase"
-  | "platform_credit_topup"
   | "sponsored_service_reservation";
 
 export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "lab_result_consult";

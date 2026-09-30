@@ -7,17 +7,10 @@ import { createClient } from "@/lib/supabase/server";
  * (20260829092227_platform_module_activation_gate.sql) and CLAUDE.md's
  * "build it fully but keep it dormant" instruction for modules 27/28.
  *
- * `platform_credit_topups` (added 2026-09-22, launch-scope audit
- * reconciliation — see 20260922185100_platform_credit_topups_kill_switch.sql)
- * gates only NEW Platform Credit top-ups, pending a Nigerian-fintech counsel
- * review; it does not touch existing balances, the ledger, or spending
- * already-funded credit.
- *
  * This is a UI convenience only. The real gate is in the database: every
  * payer/provider-org table's RLS policies and every write RPC call
  * `private.assert_module_enabled`/`private.module_enabled` independently
- * (record_platform_credit_topup_intent calls `private.module_enabled`
- * directly) — a bug in this file cannot leak data, at worst it mis-renders a
+ * — a bug in this file cannot leak data, at worst it mis-renders a
  * page/affordance that the database would refuse anyway. Keep it that way:
  * never use the result of `isPlatformModuleEnabled` as the ONLY check before
  * a write.
@@ -25,13 +18,7 @@ import { createClient } from "@/lib/supabase/server";
 export type PlatformModuleKey =
   | "payer_platform"
   | "provider_org_platform"
-  | "platform_credit_topups"
   | "ngo_funded_cohort";
-
-// The platform_credit_topups "disabled" message lives in
-// lib/billing/platform-credit-messages.ts, not here — this module carries
-// `import "server-only"`, and platform-credit-card.tsx (a client component)
-// needs that string too.
 
 export type PlatformModuleRow = {
   key: string;

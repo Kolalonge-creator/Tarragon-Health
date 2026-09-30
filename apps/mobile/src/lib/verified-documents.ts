@@ -11,7 +11,7 @@ import type { Tables, Enums } from "@tarragon/shared";
 // two-step RPC: the credit gate lives in a BEFORE INSERT trigger on
 // verified_documents (20260831171012_verified_documents.sql), which raises a
 // specific, catchable error when no credit exists — this file never
-// pre-checks credit balance client-side, same reasoning as care-support.ts's
+// pre-checks for a credit client-side, same reasoning as care-support.ts's
 // ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER.
 // ---------------------------------------------------------------------------
 

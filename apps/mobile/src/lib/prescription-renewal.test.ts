@@ -1,7 +1,7 @@
 /**
- * Coverage for the pharmacy-order read/pay data layer behind
+ * Coverage for the pharmacy-order read data layer behind
  * pharmacy-orders-section.tsx — mirrors emergency.test.ts's pattern of a
- * minimal chainable `supabase.from`/`.rpc` stub, since these functions need
+ * minimal chainable `supabase.from` stub, since these functions need
  * a real session to exercise the RLS/RPC side for real (that's covered by
  * schema/RLS review against the live project instead, same reasoning
  * medications.test.ts's header comment gives for its own supabase-calling
@@ -11,16 +11,14 @@ import { supabase } from "./supabase";
 import {
   getPharmacyOrders,
   isPharmacyOrderPayable,
-  payPharmacyOrderWithCredit,
   pharmacyOrderItemsSummary,
   PHARMACY_ORDER_STATUS_LABEL,
   type PharmacyOrderItem,
 } from "./prescription-renewal";
 
-jest.mock("./supabase", () => ({ supabase: { from: jest.fn(), rpc: jest.fn() } }));
+jest.mock("./supabase", () => ({ supabase: { from: jest.fn() } }));
 
 const mockFrom = supabase.from as unknown as jest.Mock;
-const mockRpc = supabase.rpc as unknown as jest.Mock;
 
 function ordersTable(data: unknown, error: unknown = null) {
   const builder: Record<string, unknown> = {
@@ -120,48 +118,6 @@ describe("getPharmacyOrders", () => {
   it("surfaces a query error rather than throwing", async () => {
     mockFrom.mockReturnValue(ordersTable(null, { message: "RLS denied" }));
     await expect(getPharmacyOrders("patient-1")).resolves.toEqual({ ok: false, error: "RLS denied" });
-  });
-});
-
-describe("payPharmacyOrderWithCredit", () => {
-  it("calls the RPC with the order id and returns its result", async () => {
-    mockRpc.mockResolvedValue({
-      data: { ok: true, pharmacy_order_id: "order-1", amount_kobo: 100000, new_balance_kobo: 400000 },
-      error: null,
-    });
-
-    await expect(payPharmacyOrderWithCredit("order-1")).resolves.toEqual({
-      ok: true,
-      data: { ok: true, pharmacy_order_id: "order-1", amount_kobo: 100000, new_balance_kobo: 400000 },
-    });
-    expect(mockRpc).toHaveBeenCalledWith("pay_pharmacy_order_on_platform_credit", {
-      p_pharmacy_order_id: "order-1",
-    });
-  });
-
-  it("passes through a business rejection (insufficient balance) as data, not an error", async () => {
-    mockRpc.mockResolvedValue({
-      data: { ok: false, reason: "insufficient_balance", balance_kobo: 10000, required_kobo: 100000, shortfall_kobo: 90000 },
-      error: null,
-    });
-
-    const result = await payPharmacyOrderWithCredit("order-1");
-    expect(result.ok).toBe(true);
-    expect(result.ok && result.data).toEqual({
-      ok: false,
-      reason: "insufficient_balance",
-      balance_kobo: 10000,
-      required_kobo: 100000,
-      shortfall_kobo: 90000,
-    });
-  });
-
-  it("surfaces an RPC-level error (network/RLS) as a technical failure", async () => {
-    mockRpc.mockResolvedValue({ data: null, error: { message: "not authorised to pay for this order" } });
-    await expect(payPharmacyOrderWithCredit("order-1")).resolves.toEqual({
-      ok: false,
-      error: "not authorised to pay for this order",
-    });
   });
 });
 

@@ -7,7 +7,7 @@ import {
   type AsyncConsultWithAnswerer,
 } from "@/lib/queries/async-consults";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
+import { PayByCard } from "@/components/billing/pay-by-card";
 import {
   asyncConsultSchema,
   ASYNC_CONSULT_CATEGORIES,
@@ -166,8 +166,7 @@ export function AskADoctor({
               access.
             </p>
             <FormError id={creditErrorId} message={formError} />
-            <PayWithCreditOrCard
-              patientId={patientId}
+            <PayByCard
               serviceProductCode={ASYNC_CONSULT_CREDIT_CODE}
               callbackPath="/patient/care"
               onError={setFormError}

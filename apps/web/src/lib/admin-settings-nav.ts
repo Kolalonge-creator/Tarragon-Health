@@ -297,13 +297,6 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
-        href: "/admin/settings/platform-credit",
-        label: "Platform credit",
-        blurb: "Top-up min/max and suggested amounts for the prepaid balance patients can spend on any service.",
-        icon: SEMANTIC_ICON.billing,
-        visible: adminOnly,
-      },
-      {
         href: "/admin/settings/service-margins",
         label: "Service margins",
         blurb:

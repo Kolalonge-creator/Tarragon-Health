@@ -57,7 +57,6 @@ type CheckoutKind =
   | "screening_day_payment"
   | "subsidy_contribution"
   | "service_purchase"
-  | "platform_credit_topup"
   | "sponsored_service_reservation";
 type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "lab_result_consult";
 
@@ -103,8 +102,7 @@ const BOOKING_TABLE: Record<
  *   - voucher_payment: 20260901200037_care_voucher_payments_rename_credit_to_instalment.sql
  *   - sponsored_subscription: 20260905060745_payment_activation_verifies_the_amount_and_the_reference.sql
  *   - screening_day_payment: 20260829003735_group_screening_days.sql
- *   - subsidy_contribution / platform_credit_topup: their own migrations,
- *     named in the branch below.
+ *   - subsidy_contribution: its own migration, named in the branch below.
  * `refFilter` is a Postgrest `.or()` expression (a single clause is valid
  * Postgrest, not just multiple) — two of the five null out
  * pending_payment_provider_ref and move the reference onto
@@ -116,7 +114,7 @@ const BOOKING_TABLE: Record<
  * genuinely-succeeded row).
  */
 const TRIGGER_ACTIVATED_KIND_TABLE: Record<
-  "voucher_payment" | "sponsored_subscription" | "screening_day_payment" | "subsidy_contribution" | "platform_credit_topup",
+  "voucher_payment" | "sponsored_subscription" | "screening_day_payment" | "subsidy_contribution",
   { table: string; refFilter: string; successStatus: string }
 > = {
   voucher_payment: {
@@ -138,11 +136,6 @@ const TRIGGER_ACTIVATED_KIND_TABLE: Record<
     table: "subsidy_contributions",
     refFilter: "pending_payment_provider_ref.eq.%ref%,payment_provider_ref.eq.%ref%",
     successStatus: "payment_confirmed",
-  },
-  platform_credit_topup: {
-    table: "platform_credit_topup_intents",
-    refFilter: "pending_payment_provider_ref.eq.%ref%,payment_provider_ref.eq.%ref%",
-    successStatus: "completed",
   },
 };
 
@@ -692,11 +685,10 @@ export async function handleWebhookRequest(
           metadata.kind === "voucher_payment" ||
           metadata.kind === "sponsored_subscription" ||
           metadata.kind === "screening_day_payment" ||
-          metadata.kind === "subsidy_contribution" ||
-          metadata.kind === "platform_credit_topup"
+          metadata.kind === "subsidy_contribution"
         ) {
           // Same shape as the service_purchase branch above, for the other
-          // five kinds whose activation is entirely trigger-based: a
+          // four kinds whose activation is entirely trigger-based: a
           // dedicated AFTER INSERT trigger on payment_transactions, gated on
           // event_type + raw_payload.metadata.kind, fires on the bare insert
           // above and does the real work before this switch ever runs —
@@ -705,11 +697,13 @@ export async function handleWebhookRequest(
           // finance_posting.sql), payment_transactions_apply_screening_day_
           // payment (20260829003735_group_screening_days.sql),
           // apply_subsidy_contribution_from_transaction
-          // (20260830113902_subsidy_split_engine.sql), and
-          // private.apply_platform_credit_topup_payment
-          // (20260917100406_platform_credit_ledger_functions.sql).
+          // (20260830113902_subsidy_split_engine.sql). (Platform Credit
+          // top-ups were a fifth kind until they were removed 2026-09-30; a
+          // stray late top-up charge now falls through to the else-branch
+          // below and is marked FAILED, which is the loud outcome we want
+          // for money with no handler.)
           //
-          // Until this branch existed, all five fell into the
+          // Until this branch existed, all of these fell into the
           // subscription_add_ons else-branch below, found no matching row,
           // and were marked FAILED with a misleading "no subscription_add_ons
           // row..." error even though the payment had already activated
@@ -725,8 +719,8 @@ export async function handleWebhookRequest(
           // CORRECTED 2026-09-23 (caught by /code-review high before this
           // branch's first version ever shipped): that first version called
           // bare markProcessed() with no re-verification, trusting the
-          // trigger blindly. Two of these five triggers (subsidy_
-          // contribution, platform_credit_topup) have a documented silent
+          // trigger blindly. One of these triggers (subsidy_
+          // contribution) has a documented silent
           // no-op path — `if not found then return new;`, and subsidy_
           // contribution's whole body is wrapped in
           // `exception when others then return new;` — so a stale/mismatched
@@ -755,6 +749,13 @@ export async function handleWebhookRequest(
           } else {
             await markProcessed({ organisation_id: triggerRow.organisation_id });
           }
+        } else if (String(metadata.kind) === "platform_credit_topup") {
+          // Platform Credit was removed 2026-09-30 (S01b). A top-up charge that was already in flight at
+          // Paystack has no handler, no balance to credit and no sweep left. Say so plainly (not the
+          // generic add-on lookup error) so finance refunds it in Paystack and reconciles by hand.
+          await markFailed(
+            `retired platform_credit_topup charge (reference=${event.data.reference}): Platform Credit no longer exists; refund this charge in Paystack and reconcile manually`,
+          );
         } else if (metadata.kind === "add_on") {
           const { data: row } = await supabase
             .from("subscription_add_ons")
