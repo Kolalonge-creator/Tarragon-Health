@@ -33,7 +33,7 @@ export function authErrorKey(error: unknown, context: AuthErrorKeyContext = "gen
   if (/for security purposes|rate limit|too many requests|over_request_rate_limit|over_sms_send_rate_limit|429/.test(raw)) {
     return "auth.error.rate_limited";
   }
-  if (/invalid phone|phone number is invalid|invalid format.*phone/.test(raw)) return "auth.error.invalid_phone";
+  if (/invalid phone|phone number is invalid|invalid format[^.]{0,40}phone/.test(raw)) return "auth.error.invalid_phone";
   if (/token has expired or is invalid|invalid token|otp_expired|token expired|expired token|invalid otp|otp is invalid/.test(raw)) {
     return "auth.error.wrong_code";
   }

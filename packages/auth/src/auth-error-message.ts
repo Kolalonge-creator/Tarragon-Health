@@ -117,7 +117,7 @@ const PATTERNS: Array<{
     message: "Too many attempts just now. Wait a minute, then try again.",
   },
   {
-    match: /invalid phone|phone number is invalid|invalid format.*phone/,
+    match: /invalid phone|phone number is invalid|invalid format[^.]{0,40}phone/,
     message: "That does not look like a valid phone number. Check the country code and try again.",
   },
   {

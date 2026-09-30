@@ -14,9 +14,16 @@ export interface SmsProvider {
   send(message: { to: string; text: string }): Promise<SendResult>;
 }
 
-/** Message text is the code and the brand name, nothing else (spec section 10, INV-07 spirit). */
+/**
+ * Termii's own OTP / Authentication template, with the brand filled in and nothing added:
+ *   "Your {{Company Name}} verification code is {{OTP}}. This code expires in 10 minutes. Do not share with anyone."
+ * The sender ID application is approved against exactly this sample, and Nigerian carriers route by template, so the text
+ * must not drift from it. It names no condition, reading or result (INV-07) and carries only the code and the brand, plus
+ * Termii's fixed expiry and do-not-share wording. The "10 minutes" is a promise: the Supabase phone OTP expiry must be
+ * set to 600 seconds (docs/OPEN-QUESTIONS.md OQ-44).
+ */
 export function buildOtpText(otp: string): string {
-  return `Your TarragonHealth code is ${otp}`;
+  return `Your TarragonHealth verification code is ${otp}. This code expires in 10 minutes. Do not share with anyone.`;
 }
 
 export class MockSmsProvider implements SmsProvider {
@@ -44,6 +51,8 @@ export class UnconfiguredSmsProvider implements SmsProvider {
 }
 
 export interface TermiiConfig {
+  /** The account's own base URL, shown on the Termii dashboard (for example https://v4.api.termii.com). Not a constant. */
+  baseUrl: string;
   apiKey: string;
   senderId: string;
   /** Termii route. "dnd" reaches numbers on the do-not-disturb list; OTPs must use it. */
@@ -61,7 +70,7 @@ export class TermiiSmsProvider implements SmsProvider {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.cfg.timeoutMs ?? 4000);
     try {
-      const response = await doFetch("https://api.ng.termii.com/api/sms/send", {
+      const response = await doFetch(`${this.cfg.baseUrl.replace(/\/+$/, "")}/api/sms/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
@@ -79,7 +88,11 @@ export class TermiiSmsProvider implements SmsProvider {
         return { ok: false, retryable: true, code: `http_${response.status}` };
       }
       if (!response.ok) return { ok: false, retryable: false, code: `http_${response.status}` };
-      const body = (await response.json().catch(() => ({}))) as { message_id?: string };
+      const body = (await response.json().catch(() => ({}))) as { code?: string; message_id?: string };
+      // Termii answers 200 with { code: "ok", message_id } on success. A 200 that says anything else did not send.
+      if (body.code !== undefined && body.code !== "ok") {
+        return { ok: false, retryable: false, code: `termii_${String(body.code).slice(0, 24)}` };
+      }
       return { ok: true, providerMessageId: body.message_id };
     } catch (error) {
       // A timeout or network failure is worth one retry; the error text is never surfaced (could echo the payload).
@@ -101,8 +114,15 @@ export function providerFromEnv(get: (key: string) => string | undefined): SmsPr
   if (selected === "termii") {
     const apiKey = get("TERMII_API_KEY");
     const senderId = get("TERMII_SENDER_ID");
-    if (!apiKey || !senderId) throw new Error("SMS_PROVIDER=termii requires TERMII_API_KEY and TERMII_SENDER_ID");
-    return new TermiiSmsProvider({ apiKey, senderId, channel: get("TERMII_CHANNEL") ?? "dnd" });
+    const baseUrl = get("TERMII_BASE_URL");
+    if (!apiKey || !senderId || !baseUrl) {
+      throw new Error("SMS_PROVIDER=termii requires TERMII_API_KEY, TERMII_SENDER_ID and TERMII_BASE_URL");
+    }
+    // The key goes in the request body, so a non-https base URL would send it in clear text.
+    if (!/^https:\/\/[a-z0-9.-]+$/i.test(baseUrl.replace(/\/+$/, ""))) {
+      throw new Error("TERMII_BASE_URL must be an https URL with no path, for example https://v4.api.termii.com");
+    }
+    return new TermiiSmsProvider({ baseUrl, apiKey, senderId, channel: get("TERMII_CHANNEL") ?? "dnd" });
   }
   throw new Error(`Unknown SMS_PROVIDER "${selected}"`);
 }

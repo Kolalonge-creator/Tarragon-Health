@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Page } from "@playwright/test";
 import { adminClient } from "./helpers/supabase-admin";
 
@@ -23,9 +24,19 @@ const PASSWORD = "E2e-phone-pw-!Aa1-first";
 const NEW_PASSWORD = "E2e-phone-pw-!Aa1-second";
 
 async function deleteUserByPhone(phone: string): Promise<void> {
-  const { data } = await adminClient.auth.admin.listUsers();
-  const found = data?.users.find((u) => u.phone === phone.replace(/^\+/, ""));
-  if (found) await adminClient.auth.admin.deleteUser(found.id);
+  // GoTrue stores and returns the number with or without the plus depending on version; compare digits only, and look
+  // past the first page so a busy stack cannot hide a leftover user (a leftover made every retry fail in CI).
+  const digits = phone.replace(/\D/g, "");
+  for (let page = 1; page <= 20; page++) {
+    const { data } = await adminClient.auth.admin.listUsers({ page, perPage: 200 });
+    const users = data?.users ?? [];
+    const found = users.find((u) => (u.phone ?? "").replace(/\D/g, "") === digits);
+    if (found) {
+      await adminClient.auth.admin.deleteUser(found.id);
+      return;
+    }
+    if (users.length < 200) return;
+  }
 }
 
 async function openPhonePasswordLogin(page: Page): Promise<void> {
@@ -70,6 +81,20 @@ test.afterAll(async () => {
 });
 
 test.describe("phone sign-up", () => {
+  // Isolates the Auth stack from the UI: if this passes and the UI test below fails, the problem is in the app; if this
+  // fails, the message says exactly what GoTrue rejected (status, code, text), which the UI deliberately hides.
+  test("Auth itself accepts a phone sign-up for a test-OTP number", async () => {
+    const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    const { error } = await anon.auth.signUp({
+      phone: SIGNUP_PHONE_E164,
+      password: PASSWORD,
+      options: { data: { full_name: "[e2e-test] Direct Sign-up" } },
+    });
+    const code = (error as { code?: string } | null)?.code;
+    expect(error, `Auth rejected a direct phone sign-up: status=${error?.status} code=${code} message=${error?.message}`).toBeNull();
+    await deleteUserByPhone(SIGNUP_PHONE_E164);
+  });
+
   test("creates the account, shows the code step, and only a correct code signs the person in", async ({ page }) => {
     await page.goto("/signup");
     await page.getByRole("tab", { name: /^phone$/i }).click();
@@ -80,7 +105,11 @@ test.describe("phone sign-up", () => {
     await page.locator("#password").fill(PASSWORD);
     await page.getByRole("button", { name: /create account/i }).click();
 
-    // Step 2: the code. The number is masked, never echoed in full.
+    // Step 2: the code. The number is masked, never echoed in full. If it does not appear, say WHY (the form's own error
+    // text) instead of only "element not found".
+    await page.locator("#token").or(page.getByRole("alert").filter({ hasText: /\S/ })).first().waitFor({ timeout: 15_000 });
+    const alertText = await page.getByRole("alert").filter({ hasText: /\S/ }).first().textContent().catch(() => null);
+    expect(alertText, `sign-up showed an error instead of the code step: ${alertText}`).toBeNull();
     await expect(page.locator("#token")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(SIGNUP_PHONE_LOCAL.slice(0, 3))).toHaveCount(0);
 
