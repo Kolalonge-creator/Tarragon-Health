@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Wait for this commit to be READY and promoted to production
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Compare deployed edge functions against origin/main
@@ -74,7 +74,7 @@ jobs:
           fetch-depth: 0
       - name: Fetch all branches (needed to trace an orphaned migration to its owning branch)
         run: git fetch origin '+refs/heads/*:refs/remotes/origin/*'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Compare applied migrations against committed migration files
@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Check no non-allowlisted public SECURITY DEFINER function is anon-executable
