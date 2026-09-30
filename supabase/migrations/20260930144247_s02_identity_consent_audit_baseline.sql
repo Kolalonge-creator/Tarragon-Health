@@ -212,6 +212,11 @@ create trigger audit_log_no_truncate
 
 revoke truncate on public.audit_log from service_role, postgres;
 revoke update, delete on public.audit_log from service_role, postgres;
+-- The hosted project only ever granted authenticated INSERT and SELECT here, but a fresh replay (local stack, CI)
+-- starts from the platform's default table ACL, which also gives authenticated and anon UPDATE, DELETE and TRUNCATE.
+-- RLS has no policy for those and the triggers above refuse them, but the privilege itself should not exist. No-op live.
+revoke all on public.audit_log from anon;
+revoke update, delete, truncate, references, trigger on public.audit_log from authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 6. Audited-read pattern (INV-10, OQ-03, OQ-04)
@@ -439,8 +444,12 @@ begin
   end if;
   if has_table_privilege('service_role', 'public.audit_log', 'TRUNCATE')
      or has_table_privilege('service_role', 'public.audit_log', 'UPDATE')
-     or has_table_privilege('service_role', 'public.audit_log', 'DELETE') then
-    raise exception 'S02: service_role can still mutate audit_log';
+     or has_table_privilege('service_role', 'public.audit_log', 'DELETE')
+     or has_table_privilege('authenticated', 'public.audit_log', 'TRUNCATE')
+     or has_table_privilege('authenticated', 'public.audit_log', 'UPDATE')
+     or has_table_privilege('authenticated', 'public.audit_log', 'DELETE')
+     or has_table_privilege('anon', 'public.audit_log', 'SELECT') then
+    raise exception 'S02: an application role can still mutate or read audit_log';
   end if;
   if not exists (select 1 from pg_policies where tablename = 'proxy_setups' and policyname = 'proxy_setups_select') then
     raise exception 'S02: proxy_setups policies missing';
