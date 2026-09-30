@@ -249,16 +249,14 @@ begin
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, reason, result)
   values (v_org, v_admin, 's02.proof_row', 'profile', 'immutability probe row for S02 proof', 'success') returning id into v_id;
 
-  -- The grants are revoked, so first hand them back to isolate the row triggers: the trigger, not the missing
-  -- privilege, must be what refuses (the message names the append-only rule).
-  grant update, delete on public.audit_log to postgres;
+  -- The owner keeps UPDATE/DELETE (fixture cleanup relies on it), so these are refused by the row triggers alone:
+  -- the message must name the append-only rule.
   v_failed := false; v_err := null;
   begin update public.audit_log set action = 'tampered' where id = v_id; exception when others then v_failed := true; v_err := sqlerrm; end;
   if not v_failed or v_err !~ 'append-only' then raise exception 'FAIL 3a: audit_log UPDATE was not stopped by the trigger (%)', v_err; end if;
   v_failed := false; v_err := null;
   begin delete from public.audit_log where id = v_id; exception when others then v_failed := true; v_err := sqlerrm; end;
   if not v_failed or v_err !~ 'append-only' then raise exception 'FAIL 3b: audit_log DELETE was not stopped by the trigger (%)', v_err; end if;
-  revoke update, delete on public.audit_log from postgres;
   -- (The table owner's own UPDATE/DELETE privilege is not asserted: on some stacks postgres also holds them through
   -- role membership, so only the application roles below are checked; the triggers above are what stop the owner.)
   declare

@@ -211,7 +211,11 @@ create trigger audit_log_no_truncate
   for each statement execute function private.reject_mutation();
 
 revoke truncate on public.audit_log from service_role, postgres;
-revoke update, delete on public.audit_log from service_role, postgres;
+-- UPDATE/DELETE are removed from service_role only. The table owner (postgres) keeps them on purpose: existing
+-- fixture-cleanup scripts (finance_reversal_concurrent_lock.sh, care_voucher_cancellation_concurrent_reversal.sh)
+-- delete their own audit rows as the owner with session_replication_role = replica, and the row triggers above stop
+-- every other path. Only a superuser-style session can get past them, which is the intended break-glass for ops.
+revoke update, delete on public.audit_log from service_role;
 -- The hosted project only ever granted authenticated INSERT and SELECT here, but a fresh replay (local stack, CI)
 -- starts from the platform's default table ACL, which also gives authenticated and anon UPDATE, DELETE and TRUNCATE.
 -- RLS has no policy for those and the triggers above refuse them, but the privilege itself should not exist. No-op live.
