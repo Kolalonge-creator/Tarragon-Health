@@ -218,3 +218,34 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) remove all patient SMS now in one follow-up change; (b) leave until a sender ID is approved (OQ-21); (c) remove only the templates that name clinical terms (OQ-06) first.
 - Recommend (a), as its own session: it is the same shape as this one and the data says it is safe.
 - Decision (founder, 2026-09-30): Remove all patient-facing SMS in its own session (count first, then remove), as the follow-on to OQ-05.
+
+## D. Raised by S01d (staff console split)
+
+### OQ-33 `lab-liaison` and `lab-partner` cannot move until the lab result stack is a package (raised by S01d)
+- Finding: both areas call `lib/lab-results/actions.ts` (the server actions patients and partners both use to upload and replace lab results). That file imports `lib/lab-reports/extraction-actions`, the AI extraction path, which imports the whole `lib/ai-governance` module (registry, audit, kill switch). The area itself is 2 to 7 files; its real dependency closure is about 25 more files, and one of them is a registered AI call site.
+- Why it matters: moving an AI call site changes where `runGovernedAi()` and the registry run from. Nothing in governance may be weakened, and the call site must keep consulting `public.ai_runtime_config()`. That is a change that needs its own review, not a side effect of an area move.
+- Options: (a) move `lib/ai-governance`, `lib/lab-reports` and `lib/lab-results` into `@tarragon/lab` and `@tarragon/ai-governance` packages in a dedicated step with the AI governance checks re-run; (b) leave both areas in `apps/web` until the lab work in the v5 sessions rebuilds them; (c) cut the two areas' dependency on extraction (they only need upload and status, not AI summarising) by splitting the actions file.
+- Recommend (c) if the split is clean, otherwise (a). Both areas currently have zero accounts (0 `lab_liaison`, 0 `lab_partner` profiles live), so there is no urgency.
+- Decision:
+
+### OQ-34 Console sign-in is email and password only (raised by S01d)
+- Finding: `apps/console` supports email and password plus the TOTP step-up. It has no phone OTP path and no password reset of its own; "Forgot your password?" links to the main app's reset page (from `WEB_APP_URL`), after which the person returns to the console.
+- Question: do any staff roles sign in by phone OTP today, and do you want a reset flow on the console host itself? Live check needed on how existing staff accounts authenticate.
+- Options: (a) keep as is (recommended: staff accounts are admin-provisioned with email and password); (b) add phone OTP; (c) add a reset flow on the console.
+- Decision:
+
+### OQ-35 Console has no Sentry yet (raised by S01d)
+- The spec wants Sentry in the console. `apps/web`'s PII scrubber (`lib/sentry/scrub-pii.ts`) must be shared, not copied. Not done in S01d because it needs a DSN decision (same project as web or separate) and a shared observability package.
+- Options: (a) new `@tarragon/observability` package (scrub, run-best-effort), separate Sentry project for the console (recommended: a console error must never mix into the patient project's alerts); (b) same project, tagged by app.
+- Decision:
+
+### OQ-36 Vercel project, domain and DNS for the console (raised by S01d, needs your action)
+- Nothing has been created. Needed: a second Vercel project for `apps/console` (root directory `apps/console`, not `main-dev`-coupled to the web project's settings), the `console.` DNS record, the env vars listed in `apps/console/.env.example`, and `CONSOLE_BASE_URL` on the web project (runtime; setting it switches the redirects on).
+- Rollout order per area (the dormant `ngo` area is safe in one step; every live area needs all four): (1) deploy the console with the area; (2) verify sign-in and the area on the console host with a real test account; (3) set or keep `CONSOLE_BASE_URL` on web so old links redirect; (4) only then delete the area's routes from `apps/web`. Steps 3 and 4 cannot be merged for an area that has live users.
+- Decision:
+
+### OQ-37 Retire the `apps/web` re-export shims (raised by S01d)
+- About 40 one-line files (`lib/supabase/*`, `lib/auth/*`, `components/ui/*`, `lib/utils.ts`, `lib/icons.ts`, and others) re-export from `@tarragon/*` so 800-plus patient-side imports did not change. They are deliberate debt.
+- Options: (a) one mechanical codemod later that rewrites imports and deletes the shims (recommended, once the areas have moved); (b) keep them permanently.
+- Decision:
+

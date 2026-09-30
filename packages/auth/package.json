@@ -1,0 +1,53 @@
+{
+  "name": "@tarragon/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Session, Supabase client and role-map layer shared by apps/web and apps/console. Web session cookies are host-only by design (S01d); nothing in this package may set a cookie domain.",
+  "exports": {
+    "./supabase/server": "./src/supabase/server.ts",
+    "./supabase/client": "./src/supabase/client.ts",
+    "./supabase/middleware": "./src/supabase/middleware.ts",
+    "./supabase/service-role": "./src/supabase/service-role.ts",
+    "./current-profile": "./src/current-profile.ts",
+    "./roles": "./src/roles.ts",
+    "./console-areas": "./src/console-areas.ts",
+    "./redirect": "./src/redirect.ts",
+    "./rate-limit": "./src/rate-limit.ts",
+    "./auth-error-message": "./src/auth-error-message.ts",
+    "./password-policy": "./src/password-policy.ts",
+    "./record-login-device": "./src/record-login-device.ts",
+    "./credentials": "./src/credentials.ts",
+    "./first-issue": "./src/first-issue.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.110.0",
+    "@tarragon/shared": "workspace:*",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.2",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "next": "16.3.3",
+    "react": "19.2.4"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.19.43",
+    "@types/react": "19.2.17",
+    "eslint": "^9",
+    "jest": "^30.4.2",
+    "next": "16.3.3",
+    "react": "19.2.4",
+    "ts-jest": "^29.4.11",
+    "typescript": "^5",
+    "typescript-eslint": "^8"
+  }
+}
