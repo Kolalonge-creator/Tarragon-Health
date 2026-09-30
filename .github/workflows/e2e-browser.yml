@@ -107,7 +107,7 @@ jobs:
 
       - name: Install pnpm
         if: steps.secrets-check.outputs.configured == 'true'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Set up Node
         if: steps.secrets-check.outputs.configured == 'true'
