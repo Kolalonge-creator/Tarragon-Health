@@ -183,4 +183,4 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Assumption: the non-clinical Care Coordinator account stays as it is; only `medical_officer` is folded into `senior_medical_officer`.
 - Options: (a) keep Care Coordinator unchanged; (b) remove it too (doctors do all coordination, matching the 2026-09-18 "direct doctor to patient" principle); (c) keep it but dormant until volume needs it.
 - Recommend (a) or (c): removing it is a separate staffing decision and the repo's own principle already treats coordinators as a later scaling lever, not a gate.
-- Decision:
+- Decision (founder, 2026-09-30): Keep the Care Coordinator account but dormant until patient volume needs it. No migration now; never a gate between patient and doctor.
