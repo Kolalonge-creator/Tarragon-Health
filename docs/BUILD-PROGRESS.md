@@ -81,3 +81,9 @@ Entry format:
 - **Applied to production 2026-09-30 (on the founder's go-ahead)**: both S03 migrations (each in its own transaction, ledger rows pinned to the filename versions, post-checks confirm RLS on, anon/authenticated have no access, helpers not callable, 7 public RPCs authenticated-only) and `auth-send-sms-hook` (deployed with `--no-verify-jwt`; `SMS_LOG_PEPPER` set; unsigned POST returns 503 `not_configured`, GET 405). **Not done, dashboard only:** issue and set `SEND_SMS_HOOK_SECRET`, enable Authentication > Hooks > Send SMS, password length 8, and leave `SMS_PROVIDER` unset until Termii.
 - **Follow-ups**: the rest of OQ-44 (hook secret and dashboard settings, in the stated order) (code first, schema second, secrets set before the hook is enabled); second admin before assisted recovery can be used; OQ-32 removes the remaining patient SMS paths and shrinks the INV-08 ratchet list; Pidgin strings need a native reviewer; real-device checks (SMS arrival and autofill, biometric prompt, new-device email).
 
+
+## S03 follow-up: Termii adapter and E2E diagnosis (2026-09-30)
+
+- **Dashboard (Supabase, production)**: Confirm email turned ON (it was OFF), minimum password length 8 (was 6). Phone provider left Disabled on purpose.
+- **Termii (checked, nothing submitted)**: see OQ-46. Adapter now uses the account base URL (`TERMII_BASE_URL`), Termii's exact OTP template, and treats a 200 that is not `code: "ok"` as a failure.
+- **CI on #815 (merged)**: migration replay, both DB proofs, Deno, TypeScript all passed; CodeQL raised one high alert (a polynomial regex copied from the older error mapper, fixed here) and the new browser E2E had 1 of 7 failing (phone sign-up showed a generic error; cause not visible from CI, so a direct Auth sign-up test and error-code reporting were added).

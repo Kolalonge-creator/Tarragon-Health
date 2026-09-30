@@ -1,5 +1,6 @@
 "use server";
 
+import * as Sentry from "@sentry/nextjs";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { phoneOtpVerifySchema, phoneSignupSchema, signupSchema } from "@/lib/validation/auth";
@@ -201,6 +202,12 @@ export async function signUpWithPhone(
   // An existing number gets the same code screen as a new one (the code simply never arrives for someone who is not
   // its owner), so this form cannot be used to learn which numbers are registered. Mobile does the same.
   if (error && !isAlreadyRegisteredError(error)) {
+    // The person sees a mapped message; we need the reason. Only the provider's error CODE and HTTP status are reported,
+    // never the number, the password or the provider's free text (which can echo them).
+    Sentry.captureMessage("phone sign-up rejected by Auth", {
+      level: "warning",
+      tags: { auth_code: String((error as { code?: unknown }).code ?? "none"), auth_status: String((error as { status?: unknown }).status ?? "none") },
+    });
     return { error: t(authErrorKey(error, "sign_up"), locale), field: "phone" };
   }
 

@@ -84,8 +84,8 @@ Deno.test("a validly signed request sends once and logs 'sent'", async () => {
   assertEquals(d.store.rows[0].status, "sent");
 });
 
-Deno.test("message text is only the code and the brand name", () => {
-  assertEquals(buildOtpText(OTP), "Your TarragonHealth code is 482913");
+Deno.test("message text is exactly Termii's approved OTP template with the brand filled in", () => {
+  assertEquals(buildOtpText(OTP), "Your TarragonHealth verification code is 482913. This code expires in 10 minutes. Do not share with anyone.");
 });
 
 Deno.test("unsigned, wrongly signed and stale requests are refused and nothing is sent or logged", async () => {

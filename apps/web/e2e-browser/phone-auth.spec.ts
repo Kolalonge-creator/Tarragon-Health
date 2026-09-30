@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Page } from "@playwright/test";
 import { adminClient } from "./helpers/supabase-admin";
 
@@ -18,14 +19,31 @@ const SEEDED_PHONE_LOCAL = "8031230002"; // +2348031230002, a confirmed account
 const SEEDED_PHONE_E164 = "+2348031230002";
 const UNVERIFIED_PHONE_LOCAL = "8031230003"; // +2348031230003, created but never confirmed
 const UNVERIFIED_PHONE_E164 = "+2348031230003";
+const DIRECT_PHONE_E164 = "+2348031230004"; // used only by the direct GoTrue sign-up test, never deleted
 const UNKNOWN_PHONE_LOCAL = "8031239999"; // not registered and not in test_otp
 const PASSWORD = "E2e-phone-pw-!Aa1-first";
 const NEW_PASSWORD = "E2e-phone-pw-!Aa1-second";
 
 async function deleteUserByPhone(phone: string): Promise<void> {
-  const { data } = await adminClient.auth.admin.listUsers();
-  const found = data?.users.find((u) => u.phone === phone.replace(/^\+/, ""));
-  if (found) await adminClient.auth.admin.deleteUser(found.id);
+  // GoTrue stores and returns the number with or without the plus depending on version; compare digits only, and look
+  // past the first page so a busy stack cannot hide a leftover user (a leftover made every retry fail in CI).
+  const digits = phone.replace(/\D/g, "");
+  for (let page = 1; page <= 20; page++) {
+    const { data } = await adminClient.auth.admin.listUsers({ page, perPage: 200 });
+    const users = data?.users ?? [];
+    const found = users.find((u) => (u.phone ?? "").replace(/\D/g, "") === digits);
+    if (found) {
+      // Warn, never swallow silently and never throw: CI showed deleting a user that has signed up fails on the stack
+      // (audit_log is append-only, so a profile that is an audit actor cannot be removed). A leftover is harmless on the
+      // fresh CI database; what it must not do is hide behind a generic error, so the reason is printed.
+      const { error } = await adminClient.auth.admin.deleteUser(found.id);
+      if (error) {
+        console.warn(`[e2e-test] could not delete ${phone}: status=${error.status} code=${(error as { code?: string }).code} message=${JSON.stringify(error.message)}`);
+      }
+      return;
+    }
+    if (users.length < 200) return;
+  }
 }
 
 async function openPhonePasswordLogin(page: Page): Promise<void> {
@@ -39,7 +57,9 @@ async function fillLogin(page: Page, local: string, password: string): Promise<v
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
-test.describe.configure({ mode: "serial" });
+// No retries: every attempt re-signs-up the same number, and phone sign-up is limited to 3 an hour per number in the
+// dev server's memory, so a retry only adds a "Too many attempts" failure on top of the real one.
+test.describe.configure({ mode: "serial", retries: 0 });
 
 test.beforeAll(async () => {
   await deleteUserByPhone(SIGNUP_PHONE_E164);
@@ -70,7 +90,24 @@ test.afterAll(async () => {
 });
 
 test.describe("phone sign-up", () => {
+  // Isolates the Auth stack from the UI: if this passes and the UI test below fails, the problem is in the app; if this
+  // fails, the message says exactly what GoTrue rejected (status, code, text), which the UI deliberately hides.
+  test("Auth itself accepts a phone sign-up for a test-OTP number", async () => {
+    const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    const { error } = await anon.auth.signUp({
+      phone: DIRECT_PHONE_E164,
+      password: PASSWORD,
+      options: { data: { full_name: "[e2e-test] Direct Sign-up" } },
+    });
+    const code = (error as { code?: string } | null)?.code;
+    expect(error, `Auth rejected a direct phone sign-up: status=${error?.status} code=${code} message=${error?.message}`).toBeNull();
+    // Deliberately not deleted: this number is separate from the UI test's, so a leftover cannot collide with it.
+  });
+
   test("creates the account, shows the code step, and only a correct code signs the person in", async ({ page }) => {
+    // First hits of /signup and /patient compile on demand in `next dev`; the default 30s cut this test off with the
+    // code step already on screen (PR 816 CI screenshot).
+    test.setTimeout(120_000);
     await page.goto("/signup");
     await page.getByRole("tab", { name: /^phone$/i }).click();
     await page.locator("#firstName").fill("E2e");
@@ -80,14 +117,23 @@ test.describe("phone sign-up", () => {
     await page.locator("#password").fill(PASSWORD);
     await page.getByRole("button", { name: /create account/i }).click();
 
-    // Step 2: the code. The number is masked, never echoed in full.
+    // Step 2: the code. The number is masked, never echoed in full. If it does not appear, say WHY (the form's own error
+    // text) instead of only "element not found".
+    await page.locator("#token").or(page.getByRole("alert").filter({ hasText: /\S/ })).first().waitFor({ timeout: 15_000 });
+    // Do not call textContent() on the alert here without a short timeout: when sign-up succeeds there is no alert, and
+    // textContent() then waits out the whole test timeout (this is what failed PR 816's CI after the code step was
+    // already on screen).
+    if (!(await page.locator("#token").isVisible())) {
+      const alertText = await page.getByRole("alert").filter({ hasText: /\S/ }).first().textContent({ timeout: 2_000 }).catch(() => null);
+      throw new Error(`sign-up showed an error instead of the code step: ${alertText}`);
+    }
     await expect(page.locator("#token")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(SIGNUP_PHONE_LOCAL.slice(0, 3))).toHaveCount(0);
 
     // Wrong code: stays on the code step, signs nobody in.
     await page.locator("#token").fill("000000");
     await page.getByRole("button", { name: /confirm/i }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toBeVisible();
     await expect(page).toHaveURL(/\/signup/);
 
     // Resend is held back by the visible 60 second countdown.
@@ -107,7 +153,7 @@ test.describe("phone sign-up", () => {
     await page.locator("#phone").fill("0603123456");
     await page.locator("#password").fill(PASSWORD);
     await page.getByRole("button", { name: /create account/i }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ }).first()).toBeVisible();
     await expect(page.locator("#token")).toHaveCount(0);
   });
 });
@@ -122,12 +168,13 @@ test.describe("phone sign-in", () => {
   test("a wrong password and an unknown number show the same message", async ({ page }) => {
     await openPhonePasswordLogin(page);
     await fillLogin(page, SEEDED_PHONE_LOCAL, "definitely-wrong-password");
-    const wrong = await page.getByRole("alert").textContent();
+    // Filter to an alert with text: Next's route announcer is an empty role=alert and was read first (empty string).
+    const wrong = await page.getByRole("alert").filter({ hasText: /\S/ }).first().textContent();
 
     await page.goto("/login");
     await page.getByRole("button", { name: /^phone$/i }).click();
     await fillLogin(page, UNKNOWN_PHONE_LOCAL, "definitely-wrong-password");
-    const unknown = await page.getByRole("alert").textContent();
+    const unknown = await page.getByRole("alert").filter({ hasText: /\S/ }).first().textContent();
 
     expect(wrong).toBeTruthy();
     expect(unknown).toBe(wrong);
@@ -166,7 +213,7 @@ test.describe("recovery", () => {
     await page.context().clearCookies();
     await openPhonePasswordLogin(page);
     await fillLogin(page, SEEDED_PHONE_LOCAL, PASSWORD);
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ }).first()).toBeVisible();
     await page.goto("/login");
     await page.getByRole("button", { name: /^phone$/i }).click();
     await fillLogin(page, SEEDED_PHONE_LOCAL, NEW_PASSWORD);
