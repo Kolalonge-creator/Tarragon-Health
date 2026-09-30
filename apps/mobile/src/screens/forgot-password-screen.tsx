@@ -1,8 +1,19 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { COUNTRY_CALLING_CODES, E164_GENERIC } from "@tarragon/shared";
+import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
+import { normalisePhoneWithCountry } from "@tarragon/auth/phone";
 import { supabase } from "@/lib/supabase";
+import { ta } from "@/lib/auth/auth-locale";
+import {
+  authErrorKey,
+  isOtpComplete,
+  requestPhoneCode,
+  sanitiseOtp,
+  verifyPhoneCode,
+} from "@/lib/auth/auth-flow";
+import { checkNewPassword } from "@/lib/auth/password-verdict";
+import { useAuthLocale } from "@/lib/auth/use-auth-locale";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
@@ -20,32 +31,7 @@ const inputStyle = {
   backgroundColor: colors.card,
 } as const;
 
-/** Same principle as login-screen.tsx's friendlySignInError — Supabase auth
- * error strings are developer-facing; map the common ones to warm plain
- * language with a safe generic fallback so no raw API string reaches a
- * patient. One mapper per step, since the helpful next action differs. */
-function friendlyCodeSendError(rawMessage: string): string {
-  const message = rawMessage.toLowerCase();
-  if (message.includes("rate limit") || message.includes("too many")) {
-    return "We've sent a few codes recently. Wait a couple of minutes, then try again.";
-  }
-  if (message.includes("network") || message.includes("fetch")) {
-    return "We couldn't reach the server. Check your connection and try again.";
-  }
-  return "We couldn't send a code to that number just now. Check the number and try again.";
-}
-
-function friendlyCodeVerifyError(rawMessage: string): string {
-  const message = rawMessage.toLowerCase();
-  if (message.includes("expired") || message.includes("invalid")) {
-    return "That code didn't match or has expired. Check the SMS and try again, or request a new code.";
-  }
-  if (message.includes("network") || message.includes("fetch")) {
-    return "We couldn't reach the server. Check your connection and try again.";
-  }
-  return "We couldn't check that code just now. Please try again.";
-}
-
+/** Supabase auth error strings are developer-facing; map them to warm plain language. */
 function friendlyPasswordUpdateError(rawMessage: string): string {
   const message = rawMessage.toLowerCase();
   if (message.includes("different from the old")) {
@@ -108,7 +94,11 @@ function PasswordField({
  * the emailed link still opens and completes fine in the device browser.
  */
 export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
+  const [locale] = useAuthLocale();
   const [tab, setTab] = useState<Tab>("phone");
+  // E.164 number the code was (apparently) sent to. Same screen whether or
+  // not the number is registered: recovery never reveals who has an account.
+  const [recoveryPhone, setRecoveryPhone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -123,39 +113,36 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
 
-  const fullPhone = `${countryCode}${localPhone.trim()}`;
-
   async function sendPhoneCode() {
     setError(null);
-    if (!E164_GENERIC.test(fullPhone)) {
-      setError("Enter a valid phone number for the selected country");
+    const phone = normalisePhoneWithCountry(countryCode, localPhone);
+    if (!phone.ok) {
+      setError(ta("auth.error.invalid_phone", locale));
       return;
     }
     setLoading(true);
-    const { error: otpError } = await supabase.auth.signInWithOtp({ phone: fullPhone });
+    // shouldCreateUser:false + unknown-user treated as sent (see requestPhoneCode).
+    const outcome = await requestPhoneCode(supabase.auth, phone.e164);
     setLoading(false);
-    if (otpError) {
-      setError(friendlyCodeSendError(otpError.message));
+    if (outcome.kind === "error") {
+      setError(ta(outcome.key, locale));
       return;
     }
+    setRecoveryPhone(phone.e164);
     setPhoneStep("verify");
   }
 
   async function verifyCode() {
     setError(null);
-    if (otp.length !== 6) {
-      setError("Enter the 6-digit code");
+    if (!recoveryPhone || !isOtpComplete(otp)) {
+      setError(ta("auth.error.wrong_code", locale));
       return;
     }
     setLoading(true);
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      phone: fullPhone,
-      token: otp,
-      type: "sms",
-    });
+    const outcome = await verifyPhoneCode(supabase.auth, { phone: recoveryPhone, code: otp });
     setLoading(false);
-    if (verifyError) {
-      setError(friendlyCodeVerifyError(verifyError.message));
+    if (outcome.kind === "error") {
+      setError(ta(outcome.key, locale));
       return;
     }
     setPhoneStep("new-password");
@@ -163,15 +150,18 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
 
   async function submitNewPassword() {
     setError(null);
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
     if (newPassword !== confirmPassword) {
+      // TODO-S03-I18N: auth.password.mismatch
       setError("Passwords do not match");
       return;
     }
     setLoading(true);
+    const pwCheck = await checkNewPassword(newPassword);
+    if (!pwCheck.ok) {
+      setLoading(false);
+      setError(ta(pwCheck.key, locale, { min: 8 }));
+      return;
+    }
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
     setLoading(false);
     if (updateError) {
@@ -194,7 +184,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
     });
     setLoading(false);
     if (resetError) {
-      setError("Could not send reset email. Please try again.");
+      setError(ta(authErrorKey(resetError.message, "recovery"), locale));
       return;
     }
     setEmailSent(true);
@@ -207,7 +197,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
 
         <View>
           <Text style={{ fontSize: 22, fontWeight: "700", color: colors.ink }}>
-            Reset your password
+            {ta("auth.recovery.title", locale)}
           </Text>
           <MutedText>We can text you a code, or email you a reset link.</MutedText>
         </View>
@@ -263,25 +253,27 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
                   />
                 </View>
                 {error ? <ErrorText>{error}</ErrorText> : null}
-                <PrimaryButton title="Send code" onPress={sendPhoneCode} loading={loading} />
+                <PrimaryButton title={ta("auth.signin.send_code", locale)} onPress={sendPhoneCode} loading={loading} />
               </>
             ) : phoneStep === "verify" ? (
               <>
-                <MutedText>Enter the 6-digit code sent to {fullPhone}.</MutedText>
+                <MutedText>{ta("auth.recovery.sent_generic", locale)}</MutedText>
                 <TextInput
-                  accessibilityLabel="Verification code"
-                  placeholder="123456"
+                  accessibilityLabel={ta("auth.field.code", locale)}
+                  placeholder={ta("auth.field.code", locale)}
                   placeholderTextColor={colors.faint}
                   keyboardType="number-pad"
-                  maxLength={6}
+                  textContentType="oneTimeCode"
+                  autoComplete="sms-otp"
+                  maxLength={10}
                   value={otp}
-                  onChangeText={setOtp}
+                  onChangeText={(v) => setOtp(sanitiseOtp(v))}
                   style={inputStyle}
                 />
                 {error ? <ErrorText>{error}</ErrorText> : null}
-                <PrimaryButton title="Verify code" onPress={verifyCode} loading={loading} />
+                <PrimaryButton title={ta("auth.verify.submit", locale)} onPress={verifyCode} loading={loading} />
                 <SecondaryButton
-                  title="Use a different number"
+                  title={ta("auth.verify.wrong_number", locale)}
                   onPress={() => {
                     setPhoneStep("request");
                     setOtp("");
@@ -291,7 +283,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
               </>
             ) : (
               <>
-                <MutedText>Choose a new password for your account.</MutedText>
+                <MutedText>{ta("auth.recovery.set_password", locale)}</MutedText>
                 <PasswordField
                   accessibilityLabel="New password"
                   placeholder="New password"
@@ -314,10 +306,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
             )}
           </View>
         ) : emailSent ? (
-          <MutedText>
-            If an account exists for that email, we&apos;ve sent a link to reset your password.
-            Open it on your phone or computer to finish. Check your inbox and spam folder.
-          </MutedText>
+          <MutedText>{ta("auth.recovery.sent_generic", locale)}</MutedText>
         ) : (
           <View style={{ gap: 10 }}>
             <TextInput

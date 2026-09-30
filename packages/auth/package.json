@@ -21,7 +21,8 @@
     "./first-issue": "./src/first-issue.ts",
     "./phone": "./src/phone.ts",
     "./breached-password": "./src/breached-password.ts",
-    "./password-check": "./src/password-check.ts"
+    "./password-check": "./src/password-check.ts",
+    "./auth-error-key": "./src/auth-error-key.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

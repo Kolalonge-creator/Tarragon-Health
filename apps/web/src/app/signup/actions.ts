@@ -4,6 +4,10 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { phoneOtpVerifySchema, phoneSignupSchema, signupSchema } from "@/lib/validation/auth";
 import { checkPasswordAcceptable } from "@tarragon/auth/password-check";
+import { authErrorKey } from "@tarragon/auth/auth-error-key";
+import { t, type Locale, type MessageKey } from "@tarragon/i18n";
+import { getAuthLocale } from "@/lib/auth/auth-locale";
+import { PASSWORD_MIN_LENGTH } from "@/lib/validation/password";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
@@ -12,7 +16,7 @@ import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
 
 export type SignupActionState =
-  | { error?: string; field?: string; success?: boolean; step?: "verify"; phone?: string; redirectTo?: string }
+  | { error?: string; field?: string; success?: boolean; step?: "verify"; phone?: string; redirectTo?: string; sentAt?: number }
   | undefined;
 
 /**
@@ -119,6 +123,22 @@ export async function signUp(
   return { success: true };
 }
 
+
+/**
+ * Validation messages from the shared Zod schemas are English. On the phone flows the two failures a person can
+ * actually hit (a number that cannot be real, a code that is not six digits) are replaced with the catalogue wording
+ * so they read in the chosen language too; `field` tells us which one it was.
+ */
+function localisedIssue(
+  issue: { error?: string; field?: string } | undefined,
+  locale: Locale,
+  fallbackKey?: MessageKey
+): { error?: string; field?: string } {
+  if (!issue) return {};
+  if (issue.field === "phone") return { ...issue, error: t("auth.error.invalid_phone", locale) };
+  if (issue.field === "token" && fallbackKey) return { ...issue, error: t(fallbackKey, locale) };
+  return issue;
+}
 /**
  * Phone-first sign-up (S03, functions 1.1 and 1.2). Creates the account on the phone identity with a password; GoTrue
  * then asks the Send SMS hook to deliver a six-digit code, and the account cannot sign in until that code is verified
@@ -128,6 +148,7 @@ export async function signUpWithPhone(
   _prevState: SignupActionState,
   formData: FormData
 ): Promise<SignupActionState> {
+  const locale = await getAuthLocale();
   const parsed = phoneSignupSchema.safeParse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
@@ -139,7 +160,7 @@ export async function signUpWithPhone(
     password: formData.get("password"),
   });
   if (!parsed.success) {
-    return firstIssue(parsed.error, "Check the details above and try again.");
+    return localisedIssue(firstIssue(parsed.error, "Check the details above and try again."), locale);
   }
 
   // Keyed on the phone as well as the IP: every attempt costs an SMS, and the hook's own per-phone hourly cap is the
@@ -151,12 +172,15 @@ export async function signUpWithPhone(
     { limit: 3, windowSeconds: 3600 }
   );
   if (!limited.success) {
-    return { error: RATE_LIMIT_MESSAGE };
+    return { error: t("auth.error.rate_limited", locale) };
   }
 
   const verdict = await checkPasswordAcceptable(parsed.data.password);
   if (!verdict.ok) {
-    return { error: verdict.message, field: "password" };
+    return {
+      error: verdict.reason === "breached" ? t("auth.password.breached", locale, { min: PASSWORD_MIN_LENGTH }) : verdict.message,
+      field: "password",
+    };
   }
 
   const supabase = await createClient();
@@ -174,7 +198,7 @@ export async function signUpWithPhone(
     },
   });
   if (error) {
-    return { error: authErrorMessage(error, "sign_up"), field: "phone" };
+    return { error: t(authErrorKey(error, "sign_up"), locale), field: "phone" };
   }
 
   return {
@@ -189,6 +213,7 @@ export async function verifySignupPhone(
   _prevState: SignupActionState,
   formData: FormData
 ): Promise<SignupActionState> {
+  const locale = await getAuthLocale();
   const parsed = phoneOtpVerifySchema.safeParse({
     phone: formData.get("phone"),
     token: formData.get("token"),
@@ -196,7 +221,7 @@ export async function verifySignupPhone(
   const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined;
   if (!parsed.success) {
     return {
-      ...firstIssue(parsed.error, "Check the code and try again."),
+      ...localisedIssue(firstIssue(parsed.error, "Check the code and try again."), locale, "auth.error.wrong_code"),
       step: "verify",
       phone: formData.get("phone")?.toString(),
       redirectTo,
@@ -211,7 +236,7 @@ export async function verifySignupPhone(
     { limit: 8, windowSeconds: 900 }
   );
   if (!limited.success) {
-    return { error: RATE_LIMIT_MESSAGE, step: "verify", phone: parsed.data.phone, redirectTo };
+    return { error: t("auth.error.rate_limited", locale), step: "verify", phone: parsed.data.phone, redirectTo };
   }
 
   const supabase = await createClient();
@@ -222,7 +247,7 @@ export async function verifySignupPhone(
   });
   if (error || !data.user) {
     return {
-      error: authErrorMessage(error, "otp_verify"),
+      error: t(authErrorKey(error, "otp_verify"), locale),
       field: "token",
       step: "verify",
       phone: parsed.data.phone,
@@ -239,11 +264,12 @@ export async function resendSignupCode(
   _prevState: SignupActionState,
   formData: FormData
 ): Promise<SignupActionState> {
+  const locale = await getAuthLocale();
   const phone = formData.get("phone")?.toString() ?? "";
   const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined;
   const parsed = phoneOtpVerifySchema.shape.phone.safeParse(phone);
   if (!parsed.success) {
-    return { error: "Check the phone number and try again.", step: "verify", phone, redirectTo };
+    return { error: t("auth.error.invalid_phone", locale), step: "verify", phone, redirectTo };
   }
 
   const limited = await checkAuthRateLimit(
@@ -253,13 +279,14 @@ export async function resendSignupCode(
     { limit: 5, windowSeconds: 3600 }
   );
   if (!limited.success) {
-    return { error: RATE_LIMIT_MESSAGE, step: "verify", phone: parsed.data, redirectTo };
+    return { error: t("auth.error.rate_limited", locale), step: "verify", phone: parsed.data, redirectTo };
   }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resend({ type: "sms", phone: parsed.data });
   if (error) {
-    return { error: authErrorMessage(error, "otp_send"), step: "verify", phone: parsed.data, redirectTo };
+    return { error: t(authErrorKey(error, "otp_send"), locale), step: "verify", phone: parsed.data, redirectTo };
   }
-  return { step: "verify", phone: parsed.data, redirectTo };
+  // sentAt changes on every successful resend; the client keys its countdown on it so each resend restarts at 60.
+  return { step: "verify", phone: parsed.data, redirectTo, sentAt: Date.now() };
 }
