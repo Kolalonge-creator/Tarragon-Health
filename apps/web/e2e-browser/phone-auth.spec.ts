@@ -120,15 +120,20 @@ test.describe("phone sign-up", () => {
     // Step 2: the code. The number is masked, never echoed in full. If it does not appear, say WHY (the form's own error
     // text) instead of only "element not found".
     await page.locator("#token").or(page.getByRole("alert").filter({ hasText: /\S/ })).first().waitFor({ timeout: 15_000 });
-    const alertText = await page.getByRole("alert").filter({ hasText: /\S/ }).first().textContent().catch(() => null);
-    expect(alertText, `sign-up showed an error instead of the code step: ${alertText}`).toBeNull();
+    // Do not call textContent() on the alert here without a short timeout: when sign-up succeeds there is no alert, and
+    // textContent() then waits out the whole test timeout (this is what failed PR 816's CI after the code step was
+    // already on screen).
+    if (!(await page.locator("#token").isVisible())) {
+      const alertText = await page.getByRole("alert").filter({ hasText: /\S/ }).first().textContent({ timeout: 2_000 }).catch(() => null);
+      throw new Error(`sign-up showed an error instead of the code step: ${alertText}`);
+    }
     await expect(page.locator("#token")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(SIGNUP_PHONE_LOCAL.slice(0, 3))).toHaveCount(0);
 
     // Wrong code: stays on the code step, signs nobody in.
     await page.locator("#token").fill("000000");
     await page.getByRole("button", { name: /confirm/i }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toBeVisible();
     await expect(page).toHaveURL(/\/signup/);
 
     // Resend is held back by the visible 60 second countdown.
