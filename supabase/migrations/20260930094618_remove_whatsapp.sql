@@ -4308,11 +4308,13 @@ begin
   end if;
 
   -- (plpgsql resolves references at execution, so this scan is what catches a missed caller.)
+  -- Line comments are stripped first: a fresh replay recreates older functions whose bodies
+  -- still mention whatsapp in a comment only, which is not a reference.
   -- The one deliberate exception is the shim that reads a legacy ladder token.
   select count(*) into v_n
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname in ('public', 'private', 'analytics')
-    and (p.prosrc ilike '%whatsapp%' or p.prosrc ilike '%support_messages%')
+    and (regexp_replace(p.prosrc, '--[^\n]*', '', 'g') ilike '%whatsapp%' or regexp_replace(p.prosrc, '--[^\n]*', '', 'g') ilike '%support_messages%')
     and not (n.nspname = 'private' and p.proname = 'normalize_escalation_channels');
   if v_n <> 0 then raise exception '% function(s) still reference whatsapp or support_messages', v_n; end if;
 
