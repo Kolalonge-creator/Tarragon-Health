@@ -20,8 +20,8 @@ test.describe("console sign-in", () => {
 
   test.beforeAll(async () => {
     helpers = await import("../../web/e2e-browser/helpers/supabase-admin");
-    ngoAdmin = await helpers.createTestPatient(`${runId}a`);
-    patient = await helpers.createTestPatient(`${runId}b`);
+    ngoAdmin = await helpers.createTestPatient(`${runId}1`);
+    patient = await helpers.createTestPatient(`${runId}2`);
     const { error } = await helpers.adminClient.from("profiles").update({ role: "ngo_admin" }).eq("id", ngoAdmin.userId);
     if (error) throw error;
   });
