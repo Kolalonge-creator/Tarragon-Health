@@ -249,3 +249,20 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) one mechanical codemod later that rewrites imports and deletes the shims (recommended, once the areas have moved); (b) keep them permanently.
 - Decision:
 
+## D. Raised by S02 (2026-09-30)
+
+### OQ-38 `scribe_consents` waits for a source-of-truth encounters table (raised by S02)
+- v5 4.2 links `scribe_consents` to `encounter_id`. Live `clinical_encounters` is a derived summary index (RECONCILIATION 6), not authoritative, and OQ-23 keeps live wins for encounters. Nothing in S02 can reference a real encounter.
+- Options: (a) build it in S21/S23 against whichever table S21 makes authoritative (recommended); (b) reference `video_consultations` now.
+- Decision:
+
+### OQ-39 `is_test` on orders and payments, and the existing metric surfaces (raised by S02)
+- OQ-09 asks for `is_test` on orders and payments. There is no single orders or payments table, and three `*_quality_metrics` views plus 56 `analytics_*` RPCs read patient data without an `is_test` filter. S02 delivered the column on `profiles` and `clinical_staff`, the write guard, the convention and a ratchet for new views.
+- Options: (a) do the column and the retrofit with S37/S38 when payouts and metrics are built (recommended); (b) a dedicated retrofit session now.
+- Decision:
+
+### OQ-40 Tied-patient read scope needs its data before it can be enforced (raised by S02)
+- The audited-read gate admits only support.view_as holders and active break-glass grants. INV-12's other ways in (active task, lead assignment, on-call page) need tables that S16 to S19 create. Until then no clinician has a routine audited read of identity or consent data.
+- Recommendation: extend `private.can_staff_read_patient_identity` in S16-S19; no S02 change needed. Confirm that a clinician needing a patient's identity before those sessions land should use break-glass.
+- Decision:
+
