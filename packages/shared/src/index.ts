@@ -238,3 +238,4 @@ export type ConsultationDurationType = Enums<"consultation_duration_type">;
 export * from "./ui-language";
 export * from "./clinical-tier";
 export * from "./specialist-type-options";
+export * from "./proposed-config";
