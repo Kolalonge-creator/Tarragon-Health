@@ -67,10 +67,13 @@ test.describe("authenticated patient journey", () => {
   }
 
   test("log in and complete onboarding", async ({ page }) => {
+    // The dev server compiles each route on first hit; /patient alone took 11s in CI, and /onboarding follows it, so
+    // the default 30s test timeout and a 15s URL wait were a coin flip on a cold server.
+    test.setTimeout(120_000);
     await loginAsPatient(page);
 
     // A fresh patient with no onboarding_completed_at lands on /onboarding.
-    await page.waitForURL(/\/onboarding/, { timeout: 15_000 });
+    await page.waitForURL(/\/onboarding/, { timeout: 60_000 });
 
     // --- Onboarding: intent -> consent -> demographics -> skip intake -> finish ---
     // Resequenced 2026-09-23 (onboarding-flow.tsx) to lead with "What brings

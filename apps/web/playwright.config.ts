@@ -47,7 +47,8 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   use: {
     baseURL: BASE_URL,
-    trace: "on-first-retry",
+    // Every failed attempt, not just retries: on-first-retry hid the first attempt's error in PR 816 CI.
+    trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   projects: [

@@ -32,7 +32,10 @@ async function deleteUserByPhone(phone: string): Promise<void> {
     const users = data?.users ?? [];
     const found = users.find((u) => (u.phone ?? "").replace(/\D/g, "") === digits);
     if (found) {
-      await adminClient.auth.admin.deleteUser(found.id);
+      // Throw rather than swallow: a delete that silently fails left the number registered and made every retry's
+      // beforeAll die with "Phone number already registered", hiding the first real failure (PR 816 CI).
+      const { error } = await adminClient.auth.admin.deleteUser(found.id);
+      if (error) throw new Error(`could not delete the test user for ${phone}: ${error.message}`);
       return;
     }
     if (users.length < 200) return;
@@ -50,7 +53,9 @@ async function fillLogin(page: Page, local: string, password: string): Promise<v
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
-test.describe.configure({ mode: "serial" });
+// No retries: every attempt re-signs-up the same number, and phone sign-up is limited to 3 an hour per number in the
+// dev server's memory, so a retry only adds a "Too many attempts" failure on top of the real one.
+test.describe.configure({ mode: "serial", retries: 0 });
 
 test.beforeAll(async () => {
   await deleteUserByPhone(SIGNUP_PHONE_E164);
