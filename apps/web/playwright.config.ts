@@ -58,6 +58,9 @@ export default defineConfig({
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    // DIAGNOSTIC (temporary): surface Next's own request log so a 404 shows which route matched.
+    stdout: "pipe",
+    stderr: "pipe",
     env: {
       ...process.env,
       PORT: String(PORT),
