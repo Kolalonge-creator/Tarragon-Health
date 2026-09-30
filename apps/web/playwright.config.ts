@@ -39,6 +39,11 @@ export default defineConfig({
   // here, unlike the removed `workers: 1` — DIFFERENT files (this one vs.
   // employer-eligibility.spec.ts) are independent and can run concurrently
   // across workers; only intra-file order needed protecting.
+  // One worker in CI. With two, the dev server compiled routes for both files at once and, in PR 816's CI, answered
+  // /patient with a 404 that never cleared (the same 404 the webServer comment below records), while the starved
+  // phone-auth test hit its 30s timeout with the code step already on screen. Serial is slower but was the only
+  // configuration that passed; revisit by running the suite against `next build` + `next start` instead of `next dev`.
+  workers: process.env.CI ? 1 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",

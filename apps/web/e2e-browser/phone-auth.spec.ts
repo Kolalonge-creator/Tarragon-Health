@@ -105,6 +105,9 @@ test.describe("phone sign-up", () => {
   });
 
   test("creates the account, shows the code step, and only a correct code signs the person in", async ({ page }) => {
+    // First hits of /signup and /patient compile on demand in `next dev`; the default 30s cut this test off with the
+    // code step already on screen (PR 816 CI screenshot).
+    test.setTimeout(120_000);
     await page.goto("/signup");
     await page.getByRole("tab", { name: /^phone$/i }).click();
     await page.locator("#firstName").fill("E2e");
