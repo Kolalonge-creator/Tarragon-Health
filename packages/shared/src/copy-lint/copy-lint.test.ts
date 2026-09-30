@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { fileURLToPath } from "node:url";
-import { copyLintMode, scanRepo, scanText, summarise } from "./scan";
+import { COPY_LINT_BASELINE } from "./baseline";
+import { copyLintMode, countSourceFiles, scanRepo, scanText, summarise } from "./scan";
 
 describe("copy-lint detector", () => {
   it.each([
@@ -35,18 +36,27 @@ describe("copy-lint detector", () => {
 describe("copy-lint repo scan", () => {
   const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 
-  it("WARN-ONLY: reports existing violations without failing, unless COPY_LINT_ENFORCE=1", () => {
-    const violations = scanRepo(repoRoot);
-    const summary = summarise(violations);
-    if (violations.length > 0) {
-      console.warn(`[copy-lint] ${violations.length} existing user-facing violations (warn-only): ${JSON.stringify(summary)}`);
-    }
-    if (copyLintMode() === "enforce") expect(violations).toEqual([]);
-    else expect(copyLintMode()).toBe("warn");
+  it("scans a meaningful number of files (a silently empty scan must fail)", () => {
+    expect(countSourceFiles(repoRoot)).toBeGreaterThan(300);
+    expect(countSourceFiles(repoRoot, ["packages/i18n/src"])).toBeGreaterThanOrEqual(3);
   });
 
-  it("scans a meaningful number of files (guards against a silently empty scan)", () => {
-    // The i18n catalogue is scanned and must be clean even in warn mode.
-    expect(scanRepo(repoRoot, ["packages/i18n/src"])).toEqual([]);
+  it("throws on a missing scan root instead of passing vacuously", () => {
+    expect(() => scanRepo(repoRoot, ["no/such/dir"])).toThrow();
+  });
+
+  it("RATCHET: existing violations may not increase; COPY_LINT_ENFORCE=1 requires zero", () => {
+    const violations = scanRepo(repoRoot);
+    const summary = summarise(violations);
+    console.warn(`[copy-lint] ${violations.length} existing user-facing violations (baseline ratchet): ${JSON.stringify(summary)}`);
+    if (copyLintMode() === "enforce") return expect(violations).toEqual([]);
+    for (const rule of Object.keys(summary)) {
+      expect([rule, summary[rule] <= (COPY_LINT_BASELINE[rule] ?? 0)]).toEqual([rule, true]);
+    }
+  });
+
+  it("the ratchet discriminates: a simulated extra violation exceeds the baseline", () => {
+    const extra = scanText("x.tsx", '<p>Ask your doctor</p>').length;
+    expect(COPY_LINT_BASELINE["your-doctor"] + extra).toBeGreaterThan(COPY_LINT_BASELINE["your-doctor"]);
   });
 });

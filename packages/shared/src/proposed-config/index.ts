@@ -24,7 +24,8 @@ export class UnknownConfigKeyError extends Error {
   }
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+/** Today in Africa/Lagos (UTC+1, no DST), as YYYY-MM-DD. The platform timezone is always Lagos, not UTC. */
+const today = () => new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
 
 /**
  * Resolve the entry in force for `key` on `asOf` (default today): the highest
@@ -57,7 +58,9 @@ export function listUnconfirmed(
   asOf: string = today(),
   entries: readonly ProposedConfigEntry[] = PROPOSED_CONFIG,
 ): ResolvedConfig[] {
-  const keys = [...new Set(entries.map((e) => e.key))];
+  // A key whose first version is not yet effective is skipped, not an error: one
+  // future-dated entry must not blank the whole go-live list.
+  const keys = [...new Set(entries.filter((e) => e.effectiveFrom <= asOf).map((e) => e.key))];
   return keys
     .map((k) => getProposedConfig(k, asOf, entries))
     .filter((r) => r.status === "proposed");

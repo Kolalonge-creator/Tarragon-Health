@@ -16,7 +16,7 @@ export type MessageParams = Record<string, string | number>;
 function interpolate(template: string, params?: MessageParams): string {
   if (!params) return template;
   return template.replace(/\{(\w+)\}/g, (whole, name: string) =>
-    name in params ? String(params[name]) : whole,
+    Object.hasOwn(params, name) ? String(params[name]) : whole,
   );
 }
 

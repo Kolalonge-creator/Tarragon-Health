@@ -60,6 +60,11 @@ describe("proposed config loader", () => {
     expect(listUnconfirmed("2026-03-01", entries)).toHaveLength(1);
   });
 
+  it("skips a future-dated key instead of throwing", () => {
+    const entries = [entry({ key: "a.now" }), entry({ key: "a.later", effectiveFrom: "2099-01-01" })];
+    expect(listUnconfirmed("2026-10-01", entries).map((r) => r.key)).toEqual(["a.now"]);
+  });
+
   it("lists entries awaiting confirmation, including the unset transcript retention", () => {
     const keys = listUnconfirmed("2026-10-01").map((r) => r.key);
     expect(keys).toContain("privacy.transcript_retention");
@@ -82,7 +87,7 @@ describe("proposed config loader", () => {
 /** Repo scan: a PROPOSED value must not be hard-coded in application code. */
 describe("no hard-coded PROPOSED values", () => {
   const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url));
-  const roots = ["apps", "packages"].map((d) => join(repoRoot, d));
+  const roots = ["apps", "packages", "supabase/functions"].map((d) => join(repoRoot, d));
   const SKIP_DIRS = new Set(["node_modules", ".next", "ios", "android", "dist", "build", ".turbo", "e2e", "e2e-browser"]);
 
   function* walk(dir: string): Generator<string> {
@@ -109,25 +114,27 @@ describe("no hard-coded PROPOSED values", () => {
   });
 
   it("finds no guard pattern in application code", () => {
+    const guards = PROPOSED_CONFIG.flatMap((e) =>
+      (e.guardPatterns ?? []).map((g) => ({ key: e.key, re: new RegExp(g, "i") })),
+    );
     const hits: string[] = [];
-    for (const e of PROPOSED_CONFIG) {
-      for (const g of e.guardPatterns ?? []) {
-        const re = new RegExp(g);
-        for (const file of sources) {
-          const lines = readFileSync(file, "utf8").split("\n");
-          lines.forEach((line, i) => {
-            if (re.test(line)) hits.push(`${relative(repoRoot, file)}:${i + 1} [${e.key}] ${line.trim()}`);
-          });
+    for (const file of sources) {
+      const lines = readFileSync(file, "utf8").split("\n");
+      lines.forEach((line, i) => {
+        for (const { key, re } of guards) {
+          if (re.test(line)) hits.push(`${relative(repoRoot, file)}:${i + 1} [${key}] ${line.trim()}`);
         }
-      }
+      });
     }
     expect(hits).toEqual([]);
   });
 
   it("the scan itself discriminates: a sabotaged snippet is caught", () => {
     const care = PROPOSED_CONFIG.find((e) => e.key === "commerce.care_pack_price_kobo");
-    const re = new RegExp(care!.guardPatterns![0]);
+    const re = new RegExp(care!.guardPatterns![0], "i");
     expect(re.test("const price = 1_200_000;")).toBe(true);
+    const silence = new RegExp(PROPOSED_CONFIG.find((e) => e.key === "triage.silence_rule_days")!.guardPatterns![0], "i");
+    expect(silence.test("const SILENCE_DAYS = 5;")).toBe(true);
     expect(re.test("const price = getProposedConfig('commerce.care_pack_price_kobo').value;")).toBe(false);
   });
 });

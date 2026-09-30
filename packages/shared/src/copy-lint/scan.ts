@@ -60,13 +60,8 @@ const isSource = (name: string) =>
   /\.(ts|tsx)$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name) && !name.endsWith(".d.ts") && name !== "database.types.ts";
 
 function* walk(dir: string): Generator<string> {
-  let names: string[];
-  try {
-    names = readdirSync(dir);
-  } catch {
-    return;
-  }
-  for (const name of names) {
+  // A missing root must fail loudly: swallowing it would let the lint pass while scanning nothing.
+  for (const name of readdirSync(dir)) {
     if (SKIP_DIRS.has(name)) continue;
     const p = join(dir, name);
     if (statSync(p).isDirectory()) yield* walk(p);
@@ -75,7 +70,15 @@ function* walk(dir: string): Generator<string> {
 }
 
 /** Scan the user-facing source roots. Paths in results are relative to `repoRoot`. */
-export function scanRepo(repoRoot: string, roots: readonly string[] = ["apps/web/src", "apps/mobile/src", "packages/notifications/src", "packages/i18n/src"]): CopyViolation[] {
+export function countSourceFiles(repoRoot: string, roots: readonly string[] = DEFAULT_ROOTS): number {
+  let n = 0;
+  for (const r of roots) for (const _ of walk(join(repoRoot, r))) n++;
+  return n;
+}
+
+export const DEFAULT_ROOTS = ["apps/web/src", "apps/mobile/src", "packages/notifications/src", "packages/i18n/src"] as const;
+
+export function scanRepo(repoRoot: string, roots: readonly string[] = DEFAULT_ROOTS): CopyViolation[] {
   const out: CopyViolation[] = [];
   for (const r of roots) {
     for (const file of walk(join(repoRoot, r))) {
