@@ -20,11 +20,13 @@ export function isConsolePath(pathname: string): boolean {
   return CONSOLE_AREAS.some((area) => pathname === area || pathname.startsWith(`${area}/`));
 }
 
+const CONSOLE_ROLES: readonly UserRole[] = (Object.entries(ROLE_HOME_PATH) as [UserRole, string][])
+  .filter(([, home]) => isConsolePath(home))
+  .map(([role]) => role);
+
 /** Roles whose own home is an extracted area. Nobody else signs in on the console. */
 export function consoleRoles(): UserRole[] {
-  return (Object.entries(ROLE_HOME_PATH) as [UserRole, string][])
-    .filter(([, home]) => isConsolePath(home))
-    .map(([role]) => role);
+  return [...CONSOLE_ROLES];
 }
 
 export type ConsoleAccess =
