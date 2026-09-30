@@ -20,7 +20,8 @@
     "./credentials": "./src/credentials.ts",
     "./first-issue": "./src/first-issue.ts",
     "./phone": "./src/phone.ts",
-    "./breached-password": "./src/breached-password.ts"
+    "./breached-password": "./src/breached-password.ts",
+    "./password-check": "./src/password-check.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

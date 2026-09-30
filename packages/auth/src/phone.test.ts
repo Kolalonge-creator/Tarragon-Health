@@ -51,6 +51,9 @@ describe("normalisePhoneWithCountry", () => {
   it("routes +234 through the Nigerian rules, including a leading zero", () => {
     expect(normalisePhoneWithCountry("+234", "0803 123 4567")).toEqual({ ok: true, e164: NG, country: "NG" });
     expect(normalisePhoneWithCountry("+234", "8031234567")).toEqual({ ok: true, e164: NG, country: "NG" });
+    // A full number pasted into the national field must not get the country code doubled.
+    expect(normalisePhoneWithCountry("+234", "2348031234567")).toEqual({ ok: true, e164: NG, country: "NG" });
+    expect(normalisePhoneWithCountry("+234", "+2340803 123 4567")).toEqual({ ok: true, e164: NG, country: "NG" });
   });
   it("concatenates other countries and validates as E.164", () => {
     expect(normalisePhoneWithCountry("+44", "7700 900123")).toEqual({ ok: true, e164: "+447700900123", country: "other" });

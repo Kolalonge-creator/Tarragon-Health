@@ -2,7 +2,8 @@
 
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { signupSchema } from "@/lib/validation/auth";
+import { phoneOtpVerifySchema, phoneSignupSchema, signupSchema } from "@/lib/validation/auth";
+import { checkPasswordAcceptable } from "@tarragon/auth/password-check";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
@@ -11,7 +12,7 @@ import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
 
 export type SignupActionState =
-  | { error?: string; field?: string; success?: boolean }
+  | { error?: string; field?: string; success?: boolean; step?: "verify"; phone?: string; redirectTo?: string }
   | undefined;
 
 /**
@@ -51,6 +52,11 @@ export async function signUp(
   );
   if (!limited.success) {
     return { error: RATE_LIMIT_MESSAGE };
+  }
+
+  const verdict = await checkPasswordAcceptable(parsed.data.password);
+  if (!verdict.ok) {
+    return { error: verdict.message, field: "password" };
   }
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
@@ -111,4 +117,149 @@ export async function signUp(
   }
 
   return { success: true };
+}
+
+/**
+ * Phone-first sign-up (S03, functions 1.1 and 1.2). Creates the account on the phone identity with a password; GoTrue
+ * then asks the Send SMS hook to deliver a six-digit code, and the account cannot sign in until that code is verified
+ * (`[auth.sms] enable_confirmations`), so a mistyped number is never attached to a usable account.
+ */
+export async function signUpWithPhone(
+  _prevState: SignupActionState,
+  formData: FormData
+): Promise<SignupActionState> {
+  const parsed = phoneSignupSchema.safeParse({
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    countryCode: formData.get("countryCode"),
+    phone: formData.get("phone"),
+    state: formData.get("state"),
+    refCode: formData.get("refCode"),
+    intent: formData.get("intent"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) {
+    return firstIssue(parsed.error, "Check the details above and try again.");
+  }
+
+  // Keyed on the phone as well as the IP: every attempt costs an SMS, and the hook's own per-phone hourly cap is the
+  // backstop, not the first line.
+  const limited = await checkAuthRateLimit(
+    "signup-phone",
+    parsed.data.phone,
+    { limit: 10, windowSeconds: 3600 },
+    { limit: 3, windowSeconds: 3600 }
+  );
+  if (!limited.success) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
+  const verdict = await checkPasswordAcceptable(parsed.data.password);
+  if (!verdict.ok) {
+    return { error: verdict.message, field: "password" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signUp({
+    phone: parsed.data.phone,
+    password: parsed.data.password,
+    options: {
+      data: {
+        full_name: parsed.data.fullName,
+        ...(parsed.data.state ? { state: parsed.data.state } : {}),
+        ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
+        ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
+        ...(parsed.data.intent === "support" ? { account_purpose: "support" } : {}),
+      },
+    },
+  });
+  if (error) {
+    return { error: authErrorMessage(error, "sign_up"), field: "phone" };
+  }
+
+  return {
+    step: "verify",
+    phone: parsed.data.phone,
+    redirectTo: sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined,
+  };
+}
+
+/** Confirms the phone with the six-digit code. Success creates the session, so the usual post-signup work runs. */
+export async function verifySignupPhone(
+  _prevState: SignupActionState,
+  formData: FormData
+): Promise<SignupActionState> {
+  const parsed = phoneOtpVerifySchema.safeParse({
+    phone: formData.get("phone"),
+    token: formData.get("token"),
+  });
+  const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined;
+  if (!parsed.success) {
+    return {
+      ...firstIssue(parsed.error, "Check the code and try again."),
+      step: "verify",
+      phone: formData.get("phone")?.toString(),
+      redirectTo,
+    };
+  }
+
+  // A six-digit code is only a million guesses, so the verify step is limited on the phone as well as the IP.
+  const limited = await checkAuthRateLimit(
+    "signup-phone-verify",
+    parsed.data.phone,
+    { limit: 20, windowSeconds: 300 },
+    { limit: 8, windowSeconds: 900 }
+  );
+  if (!limited.success) {
+    return { error: RATE_LIMIT_MESSAGE, step: "verify", phone: parsed.data.phone, redirectTo };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone: parsed.data.phone,
+    token: parsed.data.token,
+    type: "sms",
+  });
+  if (error || !data.user) {
+    return {
+      error: authErrorMessage(error, "otp_verify"),
+      field: "token",
+      step: "verify",
+      phone: parsed.data.phone,
+      redirectTo,
+    };
+  }
+
+  await backfillSignupMetadata(supabase, data.user, "verifySignupPhone");
+  await redirectAfterLogin(supabase, data.user.id, redirectTo);
+}
+
+/** Asks for a fresh code. GoTrue enforces the 60 second gap; the hook enforces the per-phone hourly cap. */
+export async function resendSignupCode(
+  _prevState: SignupActionState,
+  formData: FormData
+): Promise<SignupActionState> {
+  const phone = formData.get("phone")?.toString() ?? "";
+  const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined;
+  const parsed = phoneOtpVerifySchema.shape.phone.safeParse(phone);
+  if (!parsed.success) {
+    return { error: "Check the phone number and try again.", step: "verify", phone, redirectTo };
+  }
+
+  const limited = await checkAuthRateLimit(
+    "signup-phone-resend",
+    parsed.data,
+    { limit: 10, windowSeconds: 3600 },
+    { limit: 5, windowSeconds: 3600 }
+  );
+  if (!limited.success) {
+    return { error: RATE_LIMIT_MESSAGE, step: "verify", phone: parsed.data, redirectTo };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({ type: "sms", phone: parsed.data });
+  if (error) {
+    return { error: authErrorMessage(error, "otp_send"), step: "verify", phone: parsed.data, redirectTo };
+  }
+  return { step: "verify", phone: parsed.data, redirectTo };
 }

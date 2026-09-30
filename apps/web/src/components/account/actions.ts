@@ -4,6 +4,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { newPasswordSchema } from "@/lib/validation/auth";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
+import { checkPasswordAcceptable } from "@tarragon/auth/password-check";
 
 export type UpdateOwnPasswordState =
   | { error?: string; field?: string; success?: boolean }
@@ -25,6 +26,13 @@ export async function updateOwnPassword(
   });
   if (!parsed.success) {
     return firstIssue(parsed.error, "Check the password and try again.");
+  }
+
+  // Length is already checked above; this adds the breached-password range check (only a 5-character hash
+  // prefix leaves the server). It fails open if the range service is down, see packages/auth/src/breached-password.ts.
+  const verdict = await checkPasswordAcceptable(parsed.data.password);
+  if (!verdict.ok) {
+    return { error: verdict.message, field: "password" };
   }
 
   const user = await getCurrentUser();

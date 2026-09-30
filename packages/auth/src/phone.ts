@@ -64,7 +64,10 @@ export function normalisePhone(input: string): PhoneNormalisation {
  * any other country is concatenated and checked as generic E.164.
  */
 export function normalisePhoneWithCountry(countryCode: string, national: string): PhoneNormalisation {
-  if (countryCode === DEFAULT_COUNTRY_CODE) return normalisePhone(`${countryCode}${national.trim().replace(/^\+/, "")}`);
+  // The Nigerian picker is the default, so the national field often already holds a full number ("2348031234567",
+  // "+2340803...") or a trunk-prefixed one ("0803..."). normalisePhone reads every one of those on its own; gluing
+  // the picker's code on first would double the country code. An explicit "+44..." typed here is honoured as typed.
+  if (countryCode === DEFAULT_COUNTRY_CODE) return normalisePhone(national);
   const digits = (national ?? "").replace(/[\s\-.()]/g, "");
   if (digits === "") return { ok: false, reason: "empty" };
   if (!/^\d+$/.test(digits)) return { ok: false, reason: "invalid_characters" };

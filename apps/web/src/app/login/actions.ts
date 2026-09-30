@@ -10,6 +10,7 @@ import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
+import { isUnknownUserOtpError } from "@/lib/auth/otp-errors";
 
 /** `field` names the control that failed, so the form can mark exactly that
  *  one `aria-invalid` and point its `aria-describedby` at the error text. */
@@ -78,8 +79,14 @@ export async function requestPhoneOtp(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({ phone: parsed.data.phone });
-  if (error) {
+  // shouldCreateUser:false - asking for a code must never CREATE an account (it used to: an unknown number got a
+  // brand-new phone-only user). Whether the number is registered is never revealed: an unknown number gets the same
+  // "code sent" screen as a real one, and the code entry simply fails.
+  const { error } = await supabase.auth.signInWithOtp({
+    phone: parsed.data.phone,
+    options: { shouldCreateUser: false },
+  });
+  if (error && !isUnknownUserOtpError(error)) {
     return { error: authErrorMessage(error, "otp_send"), field: "phone" };
   }
 
