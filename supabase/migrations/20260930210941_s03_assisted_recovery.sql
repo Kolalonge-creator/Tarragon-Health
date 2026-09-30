@@ -175,12 +175,12 @@ begin
   if exists (select 1 from public.profiles where id = p_subject) then
     insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, priority)
     values (p_org, p_subject, 'in_app', 'pending', v_tpl, jsonb_build_object('message', v_msg, 'occurred_at', now()), 'non_clinical', 'critical');
-    v_channels := v_channels || 'in_app';
+    v_channels := array_append(v_channels, 'in_app'::text);
     select u.email into v_email from auth.users u where u.id = p_subject;
     if v_email is not null and btrim(v_email) <> '' then
       insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, priority)
       values (p_org, p_subject, 'email', 'pending', v_tpl, jsonb_build_object('message', v_msg, 'occurred_at', now()), 'non_clinical', 'critical');
-      v_channels := v_channels || 'email';
+      v_channels := array_append(v_channels, 'email'::text);
     end if;
   end if;
   return v_channels;
@@ -259,7 +259,8 @@ end;
 $$;
 
 -- Shared loader for the step RPCs: locks the row, applies the admin + org gate, lazily expires.
-create or replace function private.recovery_step_gate(p_request uuid, p_action text, p_reason text, out r public.account_recovery_requests, out refusal jsonb)
+create or replace function private.recovery_step_gate(p_request uuid, p_action text, p_reason text)
+returns jsonb
 language plpgsql
 security definer
 set search_path = ''
@@ -267,25 +268,23 @@ as $$
 declare
   v_uid uuid := (select auth.uid());
   v_org uuid := private.current_org_id();
+  r public.account_recovery_requests;
 begin
-  refusal := null;
   if v_uid is null or not private.is_admin() then
     perform private.audit_recovery_event(v_org, v_uid, p_action, p_request, null, p_reason, 'denied', jsonb_build_object('why', 'not_admin'));
-    refusal := jsonb_build_object('ok', false, 'error', 'not_authorised');
-    return;
+    return jsonb_build_object('ok', false, 'error', 'not_authorised');
   end if;
   select * into r from public.account_recovery_requests where id = p_request and organisation_id = v_org for update;
   if r.id is null then
     perform private.audit_recovery_event(v_org, v_uid, p_action, p_request, null, p_reason, 'denied', jsonb_build_object('why', 'not_found'));
-    refusal := jsonb_build_object('ok', false, 'error', 'not_found');
-    return;
+    return jsonb_build_object('ok', false, 'error', 'not_found');
   end if;
   if r.state in ('requested','approved') and r.expires_at <= now() then
     update public.account_recovery_requests set state = 'expired' where id = r.id;
     perform private.audit_recovery_event(v_org, v_uid, p_action, r.id, r.subject_user_id, p_reason, 'denied', jsonb_build_object('why', 'expired'));
-    refusal := jsonb_build_object('ok', false, 'error', 'expired');
-    return;
+    return jsonb_build_object('ok', false, 'error', 'expired');
   end if;
+  return null;
 end;
 $$;
 revoke all on function private.recovery_step_gate(uuid, text, text) from public, anon, authenticated;
@@ -297,24 +296,26 @@ security definer
 set search_path = ''
 as $$
 declare
-  g record;
+  v_r public.account_recovery_requests;
+  v_ref jsonb;
   v_uid uuid := (select auth.uid());
 begin
   if p_note is null or char_length(btrim(p_note)) < 20 then
     raise exception 'a review note of at least 20 characters is required' using errcode = '22023';
   end if;
-  select * into g from private.recovery_step_gate(p_request, 'admin.recovery_sim_swap_review', btrim(p_note));
-  if g.refusal is not null then return g.refusal; end if;
-  if g.r.state <> 'requested' or not g.r.sim_swap_risk or g.r.sim_swap_reviewed_at is not null then
-    perform private.audit_recovery_event(g.r.organisation_id, v_uid, 'admin.recovery_sim_swap_review', g.r.id, g.r.subject_user_id, btrim(p_note), 'denied', jsonb_build_object('why', 'not_reviewable'));
+  v_ref := private.recovery_step_gate(p_request, 'admin.recovery_sim_swap_review', btrim(p_note));
+  if v_ref is null then select * into v_r from public.account_recovery_requests where id = p_request; end if;
+  if v_ref is not null then return v_ref; end if;
+  if v_r.state <> 'requested' or not v_r.sim_swap_risk or v_r.sim_swap_reviewed_at is not null then
+    perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_sim_swap_review', v_r.id, v_r.subject_user_id, btrim(p_note), 'denied', jsonb_build_object('why', 'not_reviewable'));
     return jsonb_build_object('ok', false, 'error', 'not_reviewable');
   end if;
-  if v_uid = g.r.requested_by then
-    perform private.audit_recovery_event(g.r.organisation_id, v_uid, 'admin.recovery_sim_swap_review', g.r.id, g.r.subject_user_id, btrim(p_note), 'denied', jsonb_build_object('why', 'requester_cannot_review'));
+  if v_uid = v_r.requested_by then
+    perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_sim_swap_review', v_r.id, v_r.subject_user_id, btrim(p_note), 'denied', jsonb_build_object('why', 'requester_cannot_review'));
     return jsonb_build_object('ok', false, 'error', 'requester_cannot_review');
   end if;
-  update public.account_recovery_requests set sim_swap_reviewed_by = v_uid, sim_swap_reviewed_at = now() where id = g.r.id;
-  perform private.audit_recovery_event(g.r.organisation_id, v_uid, 'admin.recovery_sim_swap_review', g.r.id, g.r.subject_user_id, btrim(p_note), 'success', '{}'::jsonb);
+  update public.account_recovery_requests set sim_swap_reviewed_by = v_uid, sim_swap_reviewed_at = now() where id = v_r.id;
+  perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_sim_swap_review', v_r.id, v_r.subject_user_id, btrim(p_note), 'success', '{}'::jsonb);
   return jsonb_build_object('ok', true);
 end;
 $$;
@@ -326,25 +327,27 @@ security definer
 set search_path = ''
 as $$
 declare
-  g record;
+  v_r public.account_recovery_requests;
+  v_ref jsonb;
   v_uid uuid := (select auth.uid());
 begin
-  select * into g from private.recovery_step_gate(p_request, 'admin.recovery_approve', 'approve');
-  if g.refusal is not null then return g.refusal; end if;
-  if g.r.state <> 'requested' then
-    perform private.audit_recovery_event(g.r.organisation_id, v_uid, 'admin.recovery_approve', g.r.id, g.r.subject_user_id, g.r.reason, 'denied', jsonb_build_object('why', 'wrong_state', 'state', g.r.state));
+  v_ref := private.recovery_step_gate(p_request, 'admin.recovery_approve', 'approve');
+  if v_ref is null then select * into v_r from public.account_recovery_requests where id = p_request; end if;
+  if v_ref is not null then return v_ref; end if;
+  if v_r.state <> 'requested' then
+    perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_approve', v_r.id, v_r.subject_user_id, v_r.reason, 'denied', jsonb_build_object('why', 'wrong_state', 'state', v_r.state));
     return jsonb_build_object('ok', false, 'error', 'wrong_state');
   end if;
-  if v_uid = g.r.requested_by then
-    perform private.audit_recovery_event(g.r.organisation_id, v_uid, 'admin.recovery_approve', g.r.id, g.r.subject_user_id, g.r.reason, 'denied', jsonb_build_object('why', 'self_approval'));
+  if v_uid = v_r.requested_by then
+    perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_approve', v_r.id, v_r.subject_user_id, v_r.reason, 'denied', jsonb_build_object('why', 'self_approval'));
     return jsonb_build_object('ok', false, 'error', 'requester_cannot_approve');
   end if;
-  if g.r.sim_swap_risk and g.r.sim_swap_reviewed_at is null then
-    perform private.audit_recovery_event(g.r.organisation_id, v_uid, 'admin.recovery_approve', g.r.id, g.r.subject_user_id, g.r.reason, 'denied', jsonb_build_object('why', 'sim_swap_review_missing'));
+  if v_r.sim_swap_risk and v_r.sim_swap_reviewed_at is null then
+    perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_approve', v_r.id, v_r.subject_user_id, v_r.reason, 'denied', jsonb_build_object('why', 'sim_swap_review_missing'));
     return jsonb_build_object('ok', false, 'error', 'sim_swap_review_required');
   end if;
-  update public.account_recovery_requests set state = 'approved', approved_by = v_uid, approved_at = now() where id = g.r.id;
-  perform private.audit_recovery_event(g.r.organisation_id, v_uid, 'admin.recovery_approve', g.r.id, g.r.subject_user_id, g.r.reason, 'success', '{}'::jsonb);
+  update public.account_recovery_requests set state = 'approved', approved_by = v_uid, approved_at = now() where id = v_r.id;
+  perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_approve', v_r.id, v_r.subject_user_id, v_r.reason, 'success', '{}'::jsonb);
   return jsonb_build_object('ok', true);
 end;
 $$;
@@ -356,20 +359,22 @@ security definer
 set search_path = ''
 as $$
 declare
-  g record;
+  v_r public.account_recovery_requests;
+  v_ref jsonb;
   v_uid uuid := (select auth.uid());
 begin
   if p_reason is null or char_length(btrim(p_reason)) < 10 then
     raise exception 'a rejection reason of at least 10 characters is required' using errcode = '22023';
   end if;
-  select * into g from private.recovery_step_gate(p_request, 'admin.recovery_reject', btrim(p_reason));
-  if g.refusal is not null then return g.refusal; end if;
-  if g.r.state not in ('requested','approved') then
-    perform private.audit_recovery_event(g.r.organisation_id, v_uid, 'admin.recovery_reject', g.r.id, g.r.subject_user_id, btrim(p_reason), 'denied', jsonb_build_object('why', 'wrong_state'));
+  v_ref := private.recovery_step_gate(p_request, 'admin.recovery_reject', btrim(p_reason));
+  if v_ref is null then select * into v_r from public.account_recovery_requests where id = p_request; end if;
+  if v_ref is not null then return v_ref; end if;
+  if v_r.state not in ('requested','approved') then
+    perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_reject', v_r.id, v_r.subject_user_id, btrim(p_reason), 'denied', jsonb_build_object('why', 'wrong_state'));
     return jsonb_build_object('ok', false, 'error', 'wrong_state');
   end if;
-  update public.account_recovery_requests set state = 'rejected', rejected_by = v_uid, rejected_reason = btrim(p_reason), rejected_at = now() where id = g.r.id;
-  perform private.audit_recovery_event(g.r.organisation_id, v_uid, 'admin.recovery_reject', g.r.id, g.r.subject_user_id, btrim(p_reason), 'success', '{}'::jsonb);
+  update public.account_recovery_requests set state = 'rejected', rejected_by = v_uid, rejected_reason = btrim(p_reason), rejected_at = now() where id = v_r.id;
+  perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_reject', v_r.id, v_r.subject_user_id, btrim(p_reason), 'success', '{}'::jsonb);
   return jsonb_build_object('ok', true);
 end;
 $$;
@@ -383,21 +388,23 @@ security definer
 set search_path = ''
 as $$
 declare
-  g record;
+  v_r public.account_recovery_requests;
+  v_ref jsonb;
   v_uid uuid := (select auth.uid());
   v_ch  text[];
 begin
-  select * into g from private.recovery_step_gate(p_request, 'admin.recovery_execute', 'execute');
-  if g.refusal is not null then return g.refusal; end if;
-  if g.r.state <> 'approved' then
-    perform private.audit_recovery_event(g.r.organisation_id, v_uid, 'admin.recovery_execute', g.r.id, g.r.subject_user_id, g.r.reason, 'denied', jsonb_build_object('why', 'wrong_state', 'state', g.r.state));
+  v_ref := private.recovery_step_gate(p_request, 'admin.recovery_execute', 'execute');
+  if v_ref is null then select * into v_r from public.account_recovery_requests where id = p_request; end if;
+  if v_ref is not null then return v_ref; end if;
+  if v_r.state <> 'approved' then
+    perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_execute', v_r.id, v_r.subject_user_id, v_r.reason, 'denied', jsonb_build_object('why', 'wrong_state', 'state', v_r.state));
     return jsonb_build_object('ok', false, 'error', 'wrong_state');
   end if;
-  update public.account_recovery_requests set state = 'executed', executed_by = v_uid, executed_at = now() where id = g.r.id;
-  v_ch := private.queue_recovery_notice(g.r.subject_user_id, g.r.organisation_id, 'executed');
-  perform private.audit_recovery_event(g.r.organisation_id, v_uid, 'admin.recovery_execute', g.r.id, g.r.subject_user_id, g.r.reason, 'success',
-    jsonb_build_object('method', g.r.method, 'notice_channels', to_jsonb(v_ch), 'notice_queued', cardinality(v_ch) > 0));
-  return jsonb_build_object('ok', true, 'request_id', g.r.id, 'method', g.r.method, 'subject_user_id', g.r.subject_user_id);
+  update public.account_recovery_requests set state = 'executed', executed_by = v_uid, executed_at = now() where id = v_r.id;
+  v_ch := private.queue_recovery_notice(v_r.subject_user_id, v_r.organisation_id, 'executed');
+  perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_execute', v_r.id, v_r.subject_user_id, v_r.reason, 'success',
+    jsonb_build_object('method', v_r.method, 'notice_channels', to_jsonb(v_ch), 'notice_queued', cardinality(v_ch) > 0));
+  return jsonb_build_object('ok', true, 'request_id', v_r.id, 'method', v_r.method, 'subject_user_id', v_r.subject_user_id);
 end;
 $$;
 

@@ -215,8 +215,8 @@ begin
   r := pg_temp.call_as(a1, 'select jsonb_agg(to_jsonb(t)) from public.list_assisted_recovery_requests() t');
   if jsonb_array_length(r) < 3 then raise exception 'FAIL 9: admin list empty'; end if;
   v_txt := r::text;
-  if v_txt ~ '\+234801' or v_txt like '%example.invalid%' or v_txt like '%1990-%' or v_txt not like '%****0001%' or v_txt not like '%s***@example.invalid%' and false then raise exception 'FAIL 7: list leaked or unmasked: %', left(v_txt, 300); end if;
-  if v_txt not like '%p***@example.invalid%' then raise exception 'FAIL 7: email hint missing/unmasked'; end if;
+  if v_txt ~ '\+234801' or v_txt like '%s03r-pat@%' or v_txt like '%1990-%' then raise exception 'FAIL 7: list leaked a full phone, email or DOB: %', left(v_txt, 300); end if;
+  if v_txt not like '%****0001%' or v_txt not like '%s***@example.invalid%' then raise exception 'FAIL 7: masked hints missing'; end if;
   r := pg_temp.call_as(v_clin, 'select coalesce(jsonb_agg(to_jsonb(t)), ''[]'') from public.list_assisted_recovery_requests() t');
   if jsonb_array_length(r) <> 0 then raise exception 'FAIL 9: clinician list not empty'; end if;
   foreach rid in array array[v_pat, v_clin, v_partner] loop
@@ -275,14 +275,14 @@ begin
 
   -- S3: regrant a direct write path; a plain authenticated non-admin can then change a row.
   execute 'grant update on public.account_recovery_requests to authenticated';
+  execute 'create policy sab_sel on public.account_recovery_requests for select to authenticated using (true)';
   execute 'create policy sab_upd on public.account_recovery_requests for update to authenticated using (true) with check (true)';
   perform set_config('request.jwt.claims', json_build_object('sub', s, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  update public.account_recovery_requests set state = 'rejected' where id = rid;
-  get diagnostics v_ok = row_count;
+  update public.account_recovery_requests set reason = 'forged by a plain patient session' where id = rid;
   execute 'reset role';
-  select state into v_state from public.account_recovery_requests where id = rid;
-  if v_state <> 'rejected' then raise exception 'VACUOUS TEST: regranted UPDATE did not open a direct write path'; end if;
+  select reason into v_state from public.account_recovery_requests where id = rid;
+  if v_state <> 'forged by a plain patient session' then raise exception 'VACUOUS TEST: regranted UPDATE did not open a direct write path'; end if;
 
   -- S4: expose the audit helper; an authenticated caller can then forge audit rows.
   execute 'grant execute on function private.audit_recovery_event(uuid,uuid,text,uuid,uuid,text,text,jsonb) to authenticated';

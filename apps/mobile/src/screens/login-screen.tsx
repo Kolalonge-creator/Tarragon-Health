@@ -56,7 +56,8 @@ export function LoginScreen() {
   const [method, setMethod] = useState<SignInMethod>("phone");
   const [phoneMode, setPhoneMode] = useState<PhoneMode>("password");
   const [phoneStep, setPhoneStep] = useState<PhoneStep>("form");
-  const [countryCode, setCountryCode] = useState<string>(COUNTRY_CALLING_CODES[0].dialCode);
+  // Nigeria is the default; any other country can be typed with its +code in the number field.
+  const countryCode: string = COUNTRY_CALLING_CODES[0].dialCode;
   const [localPhone, setLocalPhone] = useState("");
   const [verifyPhone, setVerifyPhone] = useState<string | null>(null);
   const [email, setEmail] = useState("");

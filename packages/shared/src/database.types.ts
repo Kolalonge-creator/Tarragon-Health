@@ -14,6 +14,92 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_recovery_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          executed_at: string | null
+          executed_by: string | null
+          expires_at: string
+          id: string
+          identity_checks: Json
+          method: string
+          organisation_id: string
+          outcome: string | null
+          outcome_at: string | null
+          reason: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejected_reason: string | null
+          requested_by: string
+          sim_swap_reviewed_at: string | null
+          sim_swap_reviewed_by: string | null
+          sim_swap_risk: boolean
+          state: string
+          subject_user_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          executed_at?: string | null
+          executed_by?: string | null
+          expires_at?: string
+          id?: string
+          identity_checks: Json
+          method: string
+          organisation_id: string
+          outcome?: string | null
+          outcome_at?: string | null
+          reason: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          requested_by: string
+          sim_swap_reviewed_at?: string | null
+          sim_swap_reviewed_by?: string | null
+          sim_swap_risk?: boolean
+          state?: string
+          subject_user_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          executed_at?: string | null
+          executed_by?: string | null
+          expires_at?: string
+          id?: string
+          identity_checks?: Json
+          method?: string
+          organisation_id?: string
+          outcome?: string | null
+          outcome_at?: string | null
+          reason?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          requested_by?: string
+          sim_swap_reviewed_at?: string | null
+          sim_swap_reviewed_by?: string | null
+          sim_swap_risk?: boolean
+          state?: string
+          subject_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_recovery_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_log_entries: {
         Row: {
           activity_name: string | null
@@ -40087,6 +40173,39 @@ export type Database = {
         Returns: Json
       }
       admin_run_duplicate_patient_sweep: { Args: never; Returns: undefined }
+      approve_assisted_recovery: {
+        Args: { p_request: string }
+        Returns: Json
+      }
+      confirm_sim_swap_review: {
+        Args: { p_note: string; p_request: string }
+        Returns: Json
+      }
+      execute_assisted_recovery: {
+        Args: { p_request: string }
+        Returns: Json
+      }
+      list_assisted_recovery_requests: {
+        Args: { p_state?: string }
+        Returns: {
+          approved_by: string
+          checks_done: string[]
+          created_at: string
+          email_hint: string
+          expires_at: string
+          id: string
+          method: string
+          outcome: string
+          phone_hint: string
+          reason: string
+          requested_by: string
+          sim_swap_reviewed: boolean
+          sim_swap_risk: boolean
+          state: string
+          subject_name: string
+          subject_user_id: string
+        }[]
+      }
       open_patient_identity_audited: {
         Args: { p_patient: string; p_reason: string }
         Returns: {
@@ -40111,6 +40230,23 @@ export type Database = {
           version: string
           withdrawn_at: string
         }[]
+      }
+      record_assisted_recovery_outcome: {
+        Args: { p_ok: boolean; p_request: string }
+        Returns: Json
+      }
+      reject_assisted_recovery: {
+        Args: { p_reason: string; p_request: string }
+        Returns: Json
+      }
+      request_assisted_recovery: {
+        Args: {
+          p_identity_checks: Json
+          p_method: string
+          p_reason: string
+          p_subject: string
+        }
+        Returns: Json
       }
       revoke_care_access: { Args: { p_grant_id: string }; Returns: Json }
       admin_reject_pharmacy_partner_onboarding: {

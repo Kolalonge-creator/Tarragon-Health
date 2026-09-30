@@ -84,6 +84,15 @@ export const en = {
   "auth.biometric.offer_body": "Open the app faster on this phone. Your password always still works, and you can turn this off in Settings.",
   "auth.biometric.enable": "Turn on",
   "auth.biometric.not_now": "Not now",
+  "auth.phone_change.title": "Phone number",
+  "auth.phone_change.body": "Change the number we use to check it is you. We send a 6-digit code to the new number first, and nothing changes until you enter it.",
+  "auth.phone_change.submit": "Send code to new number",
+  "auth.phone_change.confirm": "Confirm new number",
+  "auth.phone_change.done": "Your phone number is updated.",
+  "auth.phone_change.same": "That is already your number.",
+  "auth.password.mismatch": "Passwords do not match.",
+  "auth.field.state": "State (optional)",
+  "auth.field.confirm_password": "Confirm new password",
   "auth.biometric.unavailable": "This phone has no fingerprint or face unlock set up.",
 } as const;
 

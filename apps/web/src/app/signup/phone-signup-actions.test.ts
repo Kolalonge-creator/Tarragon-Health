@@ -184,10 +184,10 @@ describe("resendSignupCode", () => {
   });
 
   it("refuses a non-E.164 phone and is rate limited per phone", async () => {
-    expect((await resendSignupCode(undefined, resendForm("0803"))).error).toBeTruthy();
+    expect((await resendSignupCode(undefined, resendForm("0803")))?.error).toBeTruthy();
     expect(resendMock).not.toHaveBeenCalled();
     rateLimitMock.mockResolvedValue({ success: false });
-    expect((await resendSignupCode(undefined, resendForm())).error).toBeTruthy();
+    expect((await resendSignupCode(undefined, resendForm()))?.error).toBeTruthy();
     expect(resendMock).not.toHaveBeenCalled();
   });
 });

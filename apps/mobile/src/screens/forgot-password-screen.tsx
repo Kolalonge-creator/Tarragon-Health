@@ -151,8 +151,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
   async function submitNewPassword() {
     setError(null);
     if (newPassword !== confirmPassword) {
-      // TODO-S03-I18N: auth.password.mismatch
-      setError("Passwords do not match");
+      setError(ta("auth.password.mismatch", locale));
       return;
     }
     setLoading(true);
