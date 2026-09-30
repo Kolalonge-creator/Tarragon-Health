@@ -261,12 +261,24 @@ begin
   revoke update, delete on public.audit_log from postgres;
   -- (The table owner's own UPDATE/DELETE privilege is not asserted: on some stacks postgres also holds them through
   -- role membership, so only the application roles below are checked; the triggers above are what stop the owner.)
-  if has_table_privilege('service_role', 'public.audit_log', 'UPDATE') or has_table_privilege('service_role', 'public.audit_log', 'DELETE')
-     or has_table_privilege('service_role', 'public.audit_log', 'TRUNCATE')
-     or has_table_privilege('authenticated', 'public.audit_log', 'UPDATE') or has_table_privilege('authenticated', 'public.audit_log', 'DELETE')
-     or has_table_privilege('authenticated', 'public.audit_log', 'TRUNCATE') or has_table_privilege('anon', 'public.audit_log', 'SELECT') then
-    raise exception 'FAIL 3c: an application role holds UPDATE/DELETE/TRUNCATE on audit_log (or anon can read it)';
-  end if;
+  declare
+    v_role text; v_priv text; v_offenders text := '';
+  begin
+    foreach v_role in array array['service_role', 'authenticated'] loop
+      foreach v_priv in array array['UPDATE', 'DELETE', 'TRUNCATE'] loop
+        if has_table_privilege(v_role, 'public.audit_log', v_priv) then v_offenders := v_offenders || v_role || ':' || v_priv || ' '; end if;
+      end loop;
+    end loop;
+    if v_offenders <> '' then raise exception 'FAIL 3c: application roles can mutate audit_log: %', v_offenders; end if;
+  end;
+  -- anon: a fresh local stack hands anon a default table ACL that the hosted project never had (see CLAUDE.md), so the
+  -- grant itself is not asserted; what matters is that anon can read nothing (RLS has no policy admitting it)
+  execute 'set local role anon';
+  begin
+    select count(*) into v_n from public.audit_log;
+  exception when insufficient_privilege then v_n := 0; end;
+  execute 'reset role';
+  if v_n <> 0 then raise exception 'FAIL 3c: anon can read % audit_log rows', v_n; end if;
 
   -- the TRUNCATE trigger really rejects: proved on a scratch copy wired to the same function, never on the live trail
   create temporary table _audit_scratch (id int);
