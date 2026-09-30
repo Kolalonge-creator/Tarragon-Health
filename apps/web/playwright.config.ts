@@ -58,6 +58,11 @@ export default defineConfig({
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    // Pipe the dev server's own output so Playwright's report carries Next's request log. Found 2026-09-30: with the
+    // default (stdout ignored) the b2c login test got a 404 for /patient on every attempt on the S01d branch; with
+    // this it passed. Cause not established, so this is a workaround that also makes the next failure diagnosable.
+    stdout: "pipe",
+    stderr: "pipe",
     env: {
       ...process.env,
       PORT: String(PORT),
