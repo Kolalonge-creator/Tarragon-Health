@@ -466,8 +466,6 @@ Deno.serve(async (req) => {
   // no `notifications` row was ever written, and this function still
   // returned ok: the patient was told nothing at all and nothing recorded
   // that. The in-app row below is the patient's copy.
-  // No external patient send exists any more (F-02), so this is always false.
-  const patientNotified = false;
   let patientInAppQueued = false;
   if (sensitive) {
     await auditEvent("abnormal_result.patient_notification_suppressed_sensitive", "profiles", patientId, {
@@ -498,7 +496,7 @@ Deno.serve(async (req) => {
     }
 
     // No external patient send (F-02). Audit records that only in-app was queued.
-    await auditEvent("abnormal_result.patient_notified", "profiles", patientId, {
+    await auditEvent("abnormal_result.patient_followup_in_app", "profiles", patientId, {
       sent: false,
       in_app_queued: patientInAppQueued,
       reason: "external patient channels removed (in-app only)",
@@ -511,7 +509,6 @@ Deno.serve(async (req) => {
     drafted: draftedEntity,
     clinician_alerts_queued: clinicianAlertsQueued,
     clinician_alerts_failed: clinicianAlertsFailed,
-    patient_notified: patientNotified,
     patient_in_app_queued: patientInAppQueued,
     patient_notification_suppressed_sensitive: Boolean(sensitive),
   });

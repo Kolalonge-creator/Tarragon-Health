@@ -51,6 +51,9 @@ export function useInAppNotifications() {
         )
         .eq("recipient_id", user.id)
         .eq("channel", "in_app")
+        // S01c relabelled old failed/suppressed WhatsApp rows as in_app (payload.legacy_channel) to keep
+        // history. They were never delivered to anyone, so they must not appear as new notifications.
+        .not("status", "in", "(failed,suppressed)")
         .order("created_at", { ascending: false })
         .limit(LIMIT);
       if (error) throw error;

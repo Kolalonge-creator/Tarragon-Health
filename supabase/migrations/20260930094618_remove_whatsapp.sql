@@ -2008,6 +2008,7 @@ AS $function$
 declare
   v_event   public.emergency_events%rowtype;
   v_patient public.profiles%rowtype;
+  v_ch      public.notification_channel;
 begin
   for v_event in
     select * from public.emergency_events e
@@ -2018,11 +2019,12 @@ begin
   loop
     select * into v_patient from public.profiles where id = v_event.patient_id;
     -- The in-app row below always lands. Also nudge on the patient's own push or email when they have one.
-    if private.patient_reminder_channel(v_event.patient_id) <> 'in_app' then
+    v_ch := private.patient_reminder_channel(v_event.patient_id);
+    if v_ch <> 'in_app' then
       insert into public.notifications
         (organisation_id, recipient_id, channel, status, template, payload)
       values (
-        v_event.organisation_id, v_event.patient_id, private.patient_reminder_channel(v_event.patient_id), 'pending',
+        v_event.organisation_id, v_event.patient_id, v_ch, 'pending',
         'emergency_followup',
         jsonb_build_object('patient_name', coalesce(v_patient.full_name, 'there'))
       );
@@ -4219,10 +4221,11 @@ begin
   nudge_notified as (
     -- The in-app row below always lands; also nudge on the patient's own push or email when they have one.
     insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
-    select i.organisation_id, i.patient_id, private.patient_reminder_channel(i.patient_id), 'pending', 'care_outreach_checkin',
+    select i.organisation_id, i.patient_id, c.ch, 'pending', 'care_outreach_checkin',
            jsonb_build_object('reasons', array['population_health_campaign'], 'population_name', v_name)
     from distinct_patients i
-    where private.patient_reminder_channel(i.patient_id) <> 'in_app'
+    cross join lateral (select private.patient_reminder_channel(i.patient_id) as ch) c
+    where c.ch <> 'in_app'
     returning recipient_id
   )
   insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)

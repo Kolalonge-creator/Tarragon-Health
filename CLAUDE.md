@@ -141,7 +141,7 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
   than passing vacuously; reconcile `seed.sql` too (it only runs on a local `db reset`, never against
   a remote project, so anything data-only silently survives there and resurrects on a fresh
   environment); and check the payment/partner-provider side as well as the database (Paystack has no
-  delete for a Plan, so "removed" there means "no live row references it anymore," not "gone").
+  delete for a Plan, so "removed" there means "no live row references it anymore," not "gone"). **Ship the code first and the schema change second**: a deployed edge function or app still querying a dropped enum value or column fails as a whole (S01c: the old `send-pending-notifications` would have stalled every notification), whereas code written without the removed thing works against the old schema too.
 - **`reproductive_health` is one of eight values in the `care_access_category` enum, and
   `private.has_emergency_access` deliberately excludes it from break-glass** — every other category
   allows an emergency read-through, this one never does (verified live 2026-09-05: every policy
