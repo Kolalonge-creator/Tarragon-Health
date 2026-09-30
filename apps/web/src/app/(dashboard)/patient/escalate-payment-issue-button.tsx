@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 /**
  * §91.10 payment-support escalation. Reuses the existing in-app care-message
  * system (start_care_thread) rather than a new support-ticket table — per
- * CLAUDE.md, two-way patient<->care-team contact is in-app only, never
- * WhatsApp, and this is that same channel, not a special case.
+ * CLAUDE.md, two-way patient<->care-team contact is in-app only, and this is that
+ * same channel, not a special case.
  */
 export function EscalatePaymentIssueButton({ servicePurchaseId }: { servicePurchaseId: string }) {
   const startThread = useStartThread();

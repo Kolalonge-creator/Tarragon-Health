@@ -12,7 +12,7 @@ const CARE_ITEMS = [
   {
     label: "Medication",
     value: "2 due today",
-    helper: "WhatsApp reminder sent",
+    helper: "In-app reminder sent",
   },
 ] as const;
 

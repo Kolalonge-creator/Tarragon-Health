@@ -184,8 +184,7 @@ maybeDescribe("abnormal screening result -> Category 1 escalation", () => {
         .maybeSingle();
       return data;
     });
-    // WHATSAPP_TOKEN/TERMII_API_KEY secrets aren't set on this project yet
-    // (CLAUDE.md "Current Sprint"), so sends fail closed — the pipeline's job
+    // The TERMII_API_KEY secret isn't set on this project yet, so sends fail closed — the pipeline's job
     // is to record that failure, not to have actually delivered a message.
     expect(clinicianAlertEvent.event.recipients).toBe(1);
     expect(clinicianAlertEvent.event.sent + clinicianAlertEvent.event.failed).toBe(1);

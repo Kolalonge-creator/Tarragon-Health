@@ -198,11 +198,23 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - What S01c did, without editing the signed config: `private.normalize_escalation_channels` now reads a `whatsapp` or `whatsapp_nudge` token as `email` (founder decision D-12: paging is push, in-console alarm and email), and the built-in fallback ladder is `push, email, sms`. The in-console alarm already exists independently (the `clinician_alerts` Priority 1 row, plus the admin alarm when a ladder is exhausted).
 - Options: (a) keep the shim and have the CMO sign a v9 that names `email` explicitly so the signed text matches behaviour; (b) sign v9 with a longer ladder (push, email, in-console alarm, then ops phone); (c) leave the shim as the permanent mapping.
 - Recommend (a) now, (b) when D-12's ops-escalation step is built (S19). Not signed or seeded by the agent; signing is the CMO's act.
-- Decision:
+- Decision (founder, 2026-09-30): Keep the compatibility shim (a whatsapp token in the signed ladder reads as email); the CMO publishes escalation_slas v9 naming email explicitly. Not signed or seeded by the agent.
 
 ### OQ-30 Emergency-contact alerts have no working channel (raised by S01c)
 - `private.notify_unacknowledged_emergencies` sent a patient's emergency contact both an SMS and a WhatsApp message. The WhatsApp half is removed. The SMS half has failed every time live (66 of 71 sms failures: "recipient has no phone number on file", and sms is deprioritised platform-wide with no provider approval), and OQ-05 limits SMS to verification codes and clinician paging, which does not include a patient's next of kin.
 - So after S01c a patient in an unacknowledged emergency can still reach their own care team (in-app safety net, clinician alert) but their listed emergency contact is not reliably told by any channel.
 - Options: (a) keep the contact SMS as a named exception to OQ-05 for real emergencies, to switch on when a sender ID is approved; (b) drop contact notification and rely on the care team calling the contact; (c) in-app invite to the contact once they have an account.
 - Recommend (a), plus (b) as the working procedure today.
-- Decision:
+- Decision (founder, 2026-09-30): Keep the emergency-contact SMS as a named exception to OQ-05 for real emergencies, switched on once a sender ID is approved (OQ-21); until then the care team phones the contact.
+
+### OQ-31 Legal and consent text that still names WhatsApp (raised by S01c)
+- Finding: 12 rows in `consent_versions` (terms of service and consent wording, versions from 2026-07-29 to 2026-09-02) still say things like "WhatsApp is notification-only" and list WhatsApp (and Stripe, already removed) among third-party services. Consent and terms versions are immutable legal records patients agreed to, so S01c did not edit them. The newest active versions therefore describe a channel that no longer exists.
+- Options: (a) publish new terms and consent versions that drop WhatsApp (and Stripe), with legal review, and decide whether existing users must re-accept or are only notified; (b) leave the current versions until the next planned legal refresh; (c) publish the new versions but do not require re-acceptance because the change removes a data flow rather than adding one.
+- Recommend (c) via (a)'s review: removing a channel reduces processing, so a notice rather than a forced re-consent is the likely outcome, but that is counsel's call. Also update the vendor register row "WhatsApp Cloud API (Meta)" in `vendor_assessments` to retired once counsel agrees.
+- Decision (founder, 2026-09-30): Publish new terms and consent versions without WhatsApp and Stripe after counsel review; notify users rather than forcing re-acceptance, since a data flow is being removed. Retire the WhatsApp vendor register row once counsel agrees.
+
+### OQ-32 Remaining SMS to patients (raised by S01c, implements OQ-05)
+- OQ-05 limited SMS to verification codes and clinician paging. S01c found these remaining patient-facing SMS paths and left them as they are (they were not WhatsApp): the routine push-failure fallback in `send-pending-notifications`, the patient join-link SMS (`send-patient-link`), the broadcast composer's SMS option, the patient-side emergency-contact SMS, and 59 active SMS templates. Live SMS has never delivered (71 failed, 0 sent), so nothing is lost by finishing OQ-05, but the code still allows it.
+- Options: (a) remove all patient SMS now in one follow-up change; (b) leave until a sender ID is approved (OQ-21); (c) remove only the templates that name clinical terms (OQ-06) first.
+- Recommend (a), as its own session: it is the same shape as this one and the data says it is safe.
+- Decision (founder, 2026-09-30): Remove all patient-facing SMS in its own session (count first, then remove), as the follow-on to OQ-05.

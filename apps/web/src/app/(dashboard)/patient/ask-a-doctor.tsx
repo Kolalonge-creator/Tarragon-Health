@@ -70,8 +70,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
 
 /**
  * "Ask a doctor" — the structured async visit (One Medical Treat-Me-Now on
- * Tarragon rails). Entirely in-app; WhatsApp support chat stays a separate,
- * human-routed channel. Deliberately NOT an emergency pathway — the red-flag
+ * Tarragon rails). Entirely in-app. Deliberately NOT an emergency pathway — the red-flag
  * line below routes urgent symptoms to the existing danger-symptom flow.
  */
 export function AskADoctor({

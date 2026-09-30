@@ -1,5 +1,5 @@
 /**
- * Vendor adapter interfaces (whatsapp, sms, voice, email, pay). Build spec v3 §2.1:
+ * Vendor adapter interfaces (sms, voice, email, pay). Build spec v3 §2.1:
  * "Every external vendor sits behind an adapter interface in packages/integrations.
  * No vendor SDK may be imported directly by application code."
  *

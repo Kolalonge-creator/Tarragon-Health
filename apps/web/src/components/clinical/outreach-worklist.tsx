@@ -92,9 +92,8 @@ const DEFAULT_COPY: TaskRowCopy = {
   notePlaceholder: "Outcome note (e.g. booked review, no answer ×2)",
 };
 
-/** Inline "message the patient" composer — an in-app care_messages thread,
- * never WhatsApp (see the two-way-conversation-stays-in-app rule in
- * CLAUDE.md). Any org staff account, including a Care Coordinator, may open
+/** Inline "message the patient" composer — an in-app care_messages thread.
+ * Any org staff account, including a Care Coordinator, may open
  * one via start_care_thread; nothing here needs clinical authority. */
 function MessagePatientPanel({
   patientId,

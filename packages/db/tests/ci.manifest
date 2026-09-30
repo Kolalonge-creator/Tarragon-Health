@@ -139,12 +139,11 @@ auto_generated_continuous_clinical_note.sql
 # Standing regression coverage for two of the four bug classes found in the
 # 2026-09-18 finance-console and notification-deliverability audits (PR #680,
 # #681), added so each stays closed by CI rather than only by memory/CLAUDE.md
-# prose. private.remap_notification_channel() no longer honours a dead
-# whatsapp/sms notification_channel_preference as a direct lock-in (both
-# channels are 100% failure live) -- proves sms/whatsapp preferences fall
-# through to the same push-or-fallback ladder no-preference already used,
-# email is still honoured, and a sabotage run (reinstating the old lock-in)
-# reopens the hole. The payment-activation fee-tolerance bug (PR #531) already
+# prose. a dead-channel (sms) notification_channel_preference is never
+# honoured as a direct lock-in -- private.patient_reminder_channel() resolves
+# it to push-or-in_app like no preference, email is still honoured when
+# allowed, and a sabotage run (a helper returning the stored preference
+# blindly) reopens the hole. The payment-activation fee-tolerance bug (PR #531) already
 # has standing coverage in payment_activation_amount_and_reference.sql above
 # (section 8); the false-consent onlyTypes bug (PR #661) is TypeScript-level
 # application logic, not DB logic, and is covered instead by
@@ -739,3 +738,10 @@ lab_pharmacy_partner_directory_column_scoping.sql
 # label, surviving finance/receipt/guarantee functions still work, recreated
 # functions keep their ACLs, and a sabotage run proves the checks discriminate.
 remove_platform_credit.sql
+
+# --- Added 2026-09-30 (S01c) --------------------------------------------------
+# WhatsApp removal: the clinician escalation ladder keeps its second hop (push,
+# email, sms for emergencies), an exhausted ladder still alarms the admins, the
+# naive fix is proven to shorten the ladder (sabotage), patient reminders never
+# land on a dead channel, and no function still refers to the removed label.
+remove_whatsapp.sql

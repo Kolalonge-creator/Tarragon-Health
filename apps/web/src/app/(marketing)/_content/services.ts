@@ -351,7 +351,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "How do I log my blood pressure, glucose, or weight?",
     answer:
-      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send reminders and alerts, and you can message your care team any time in the app for support.",
+      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. Reminders and alerts come through the app, and you can message your care team any time in the app for support.",
   },
   {
     category: "general",
@@ -363,7 +363,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "Do I need a smartphone?",
     answer:
-      "You need a smartphone or computer to use the app or web dashboard, where your health record, care actions, and messages with your care team all live. WhatsApp and SMS still bring you reminders and alerts.",
+      "You need a smartphone or computer to use the app or web dashboard, where your health record, care actions, and messages with your care team all live. Reminders and alerts come to you there too.",
   },
   {
     category: "general",
@@ -381,13 +381,13 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "What if I'm not comfortable with health tech?",
     answer:
-      "You don't need to be. Signing up takes a minute, logging a reading takes seconds, and WhatsApp or SMS will still remind you when something's due. If you ever get stuck, you can message your care team directly in the app and a person answers.",
+      "You don't need to be. Signing up takes a minute, logging a reading takes seconds, and the app will remind you when something's due. If you ever get stuck, you can message your care team directly in the app and a person answers.",
   },
   {
     category: "general",
     question: "I don't have time for another health app.",
     answer:
-      "You won't need much. Logging a blood pressure reading, a glucose check, or your weight takes under a minute in the app. WhatsApp or SMS tells you when something's due, and your care team does the reviewing in the background, not you.",
+      "You won't need much. Logging a blood pressure reading, a glucose check, or your weight takes under a minute in the app. The app tells you when something's due, and your care team does the reviewing in the background, not you.",
   },
   {
     category: "clinical",

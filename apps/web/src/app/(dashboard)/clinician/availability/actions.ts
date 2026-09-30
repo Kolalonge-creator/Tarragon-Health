@@ -70,9 +70,8 @@ export async function acceptVideoVisit(
  * convenient time" middle path between a flat accept and a flat decline.
  * The atomic validation (doctor-tier gate, slot availability) lives in the
  * propose_video_visit_alternate_slots RPC; this just notifies the patient
- * that times are waiting on them (in_app is the guaranteed leg — a patient
- * has a live 24h clock to pick one, so this can't wait on WhatsApp template
- * approval the way a routine reminder safely can).
+ * that times are waiting on them (in_app is the guaranteed leg, since a patient
+ * has a live 24h clock to pick one).
  */
 export async function proposeVideoVisitAlternates(
   _prev: VideoVisitDecisionState,
@@ -101,14 +100,6 @@ export async function proposeVideoVisitAlternates(
   if (request) {
     const service = createServiceRoleClient();
     await service.from("notifications").insert([
-      {
-        organisation_id: request.organisation_id,
-        recipient_id: request.patient_id,
-        channel: "whatsapp",
-        status: "pending",
-        template: "video_visit_alternate_proposed",
-        payload: {},
-      },
       {
         organisation_id: request.organisation_id,
         recipient_id: request.patient_id,
@@ -155,7 +146,7 @@ export async function declineVideoVisit(
     await service.from("notifications").insert({
       organisation_id: request.organisation_id,
       recipient_id: request.patient_id,
-      channel: "whatsapp",
+      channel: "in_app",
       status: "pending",
       template: "video_visit_declined",
       payload: { reason: reason || null },

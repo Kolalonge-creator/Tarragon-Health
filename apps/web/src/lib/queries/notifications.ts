@@ -7,8 +7,8 @@ import type { Tables } from "@tarragon/shared";
  * existed in the schema since 20260705211409, with RLS already written for
  * exactly this shape ("recipient sees own, may mark read") — but nothing in
  * the app ever displayed one until the NotificationBell. Intentionally
- * separate from WhatsApp/SMS/email delivery (send-pending-notifications only
- * ever queries channel IN (whatsapp, sms, email)): an in_app row is read
+ * separate from SMS/email delivery (send-pending-notifications only
+ * ever queries channel IN (sms, email)): an in_app row is read
  * directly by the client, never sent externally.
  */
 export type InAppNotification = Pick<
@@ -147,7 +147,7 @@ export function useMarkAllNotificationsRead() {
  * POST /api/notifications/[id]/respond, which stamps responded_at/
  * response_value server-side and, where a real action exists for the
  * template, performs it (see that route for the appointment_reminder
- * confirm/cancel wiring). Never parses an inbound WhatsApp/SMS reply. */
+ * confirm/cancel wiring). Never parses an inbound SMS reply. */
 export function useRespondToNotification() {
   const queryClient = useQueryClient();
   return useMutation({

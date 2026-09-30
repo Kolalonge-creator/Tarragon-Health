@@ -3,7 +3,7 @@
 // Authoritative source of truth for subscription/add-on activation — never
 // the browser redirect back from Paystack's hosted checkout (see
 // checkout-callback/page.tsx, which only does a same-request UX check).
-// Mirrors supabase/functions/whatsapp-webhook/index.ts's shape: signature-
+// Mirrors the shape of the other inbound webhooks: signature-
 // verified, never throws past its boundary, always returns 200 (Paystack
 // retries on non-2xx — a transient DB hiccup should not retry-storm them),
 // and every event is recorded to payment_transactions, including ones it
@@ -173,7 +173,7 @@ export async function verifySignature(
   signatureHeader: string | null,
   secret: string | undefined,
 ): Promise<boolean> {
-  // Fail closed, unlike whatsapp-webhook's degrade-open: a forged event here
+  // Fail closed (no degrade-open path): a forged event here
   // activates a real subscription/add-on for free, not just a fake chat
   // message, so an unconfigured secret must reject every request.
   if (!secret) {

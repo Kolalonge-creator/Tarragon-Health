@@ -14,24 +14,26 @@
 // specialist_referral for clinician review, and alert the org's clinicians
 // (60-second launch gate) + send the patient a follow-up message.
 //
-// 2026-07-30: the clinician alert is no longer a raw, untracked WhatsApp API
+// 2026-07-30: the clinician alert is no longer a raw, untracked external API
 // call — it now goes through private.enqueue_critical_notification (via the
 // public.* service-role wrapper), which starts each clinician's alert on
 // escalation_slas' configured first channel (push) and, if nobody confirms
-// it, force-escalates through whatsapp -> sms
-// (see critical_notification_engine.sql). This closes the exact gap this
-// pathway used to have: nothing previously confirmed a clinician actually
-// received or opened the alert, and nothing re-tried on a different channel
-// if the WhatsApp send silently failed.
+// it, force-escalates through push -> email -> sms (email replaces the former
+// chat-app hop via private.normalize_escalation_channels; SMS here is
+// clinician paging, which remains allowed — see critical_notification_engine.sql).
+// This closes the exact gap this pathway used to have: nothing previously
+// confirmed a clinician actually received or opened the alert, and nothing
+// re-tried on a different channel if the send silently failed.
 //
 // 2026-09-05: two further ways this function could page nobody at all were
 // closed. (1) The clinician recipient query filtered on `phone is not null`,
 // so on a platform where no clinician profile carries a phone it enqueued
 // nothing — even though the tracked path starts on push/in-app and needs no
-// phone. (2) The patient follow-up message was external-only, and both
-// external channels are blocked on third-party approvals, so the patient was
+// phone. (2) The patient follow-up message was external-only and the
+// external channel was blocked on third-party approvals, so the patient was
 // told nothing and no notifications row recorded the attempt; a `clinical`
-// in_app row is now always written for a non-sensitive result. The
+// in_app row is now always written for a non-sensitive result. Founder
+// decision F-02: patient follow-up is in-app only (no external patient send). The
 // sensitive-screen suppression is untouched and still absolute.
 //
 // ML /interpret/screening is deliberately not called here — Sprint 4 (the ML
@@ -104,41 +106,6 @@ async function withExternalCall(
   } finally {
     clearTimeout(timer);
   }
-}
-
-async function sendWhatsAppTemplate(
-  toPhone: string,
-  templateName: string,
-  bodyParams: string[],
-): Promise<SendResult> {
-  const token = Deno.env.get("WHATSAPP_TOKEN");
-  const phoneId = Deno.env.get("WHATSAPP_PHONE_ID");
-  if (!token || !phoneId) {
-    return { ok: false, error: "WHATSAPP_TOKEN/WHATSAPP_PHONE_ID not configured" };
-  }
-
-  return withExternalCall((signal) =>
-    fetch(`https://graph.facebook.com/v20.0/${phoneId}/messages`, {
-      method: "POST",
-      signal,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: toPhone,
-        type: "template",
-        template: {
-          name: templateName,
-          language: { code: "en" },
-          components: bodyParams.length
-            ? [{ type: "body", parameters: bodyParams.map((text) => ({ type: "text", text })) }]
-            : [],
-        },
-      }),
-    })
-  );
 }
 
 async function sendTermiiSms(toPhone: string, text: string): Promise<SendResult> {
@@ -239,15 +206,12 @@ function formatContactWindow(minutes: number): string {
   return `within ${rounded} day${rounded === 1 ? "" : "s"}`;
 }
 
-/** WhatsApp first, Termii SMS fallback on failure — same order as send-pending-notifications. */
-async function sendWithFallback(
-  toPhone: string,
-  templateName: string,
-  bodyParams: string[],
-  smsText: string,
-): Promise<SendResult> {
-  const waResult = await sendWhatsAppTemplate(toPhone, templateName, bodyParams);
-  if (waResult.ok) return waResult;
+/**
+ * Termii SMS clinician paging. The only external leg left in this function,
+ * used solely by the "clinician alert row missing" fallback, which pages
+ * CLINICIANS (an allowed SMS use). Never used for patients.
+ */
+function sendClinicianPageSms(toPhone: string, smsText: string): Promise<SendResult> {
   return sendTermiiSms(toPhone, smsText);
 }
 
@@ -401,8 +365,8 @@ Deno.serve(async (req) => {
   // Each clinician's alert is enqueued as a tracked, critical-priority
   // notification starting on escalation_slas' configured first channel
   // (push today) — private.escalate_unconfirmed_critical_notifications()
-  // force-escalates it through whatsapp -> sms if nobody confirms it, rather
-  // than this function firing one untracked WhatsApp blast and hoping.
+  // force-escalates it through push -> email -> sms if nobody confirms it,
+  // rather than this function firing one untracked blast and hoping.
   const clinicianList = clinicians ?? [];
   let clinicianAlertsQueued = 0;
   let clinicianAlertsFailed = 0;
@@ -445,10 +409,8 @@ Deno.serve(async (req) => {
         : `Contact ${formatContactWindow(slaMinutes)}. `;
       const results = await Promise.all(
         reachable.map((clinician) =>
-          sendWithFallback(
+          sendClinicianPageSms(
             clinician.phone,
-            "abnormal_result_clinician_alert",
-            [patientName, conditionLabel],
             `New Priority 1 alert: ${patientName}'s screening result needs review (${conditionLabel}). ` +
               `${contactSentence}See your Tarragon Health worklist. Tarragon Health`,
           )
@@ -498,16 +460,14 @@ Deno.serve(async (req) => {
   // point of the `sensitive` flag; do not "helpfully" send a generic message
   // here on the assumption it's harmless.
   //
-  // For every NON-sensitive result the message now always lands in-app as
-  // well as being attempted externally. Both external legs are blocked on
-  // someone else's approval process (Meta WhatsApp template approval, Termii
-  // sender-ID carrier approval — see CLAUDE.md), so before 2026-09-05 the
-  // WhatsApp call failed, the SMS fallback failed, no `notifications` row was
-  // ever written, and this function still returned ok: the patient was told
-  // nothing at all and nothing recorded that. In-app is this platform's
-  // documented fallback while those channels are pending, and it is written
-  // FIRST so the patient's copy does not depend on an external send.
-  let patientNotified = false;
+  // For every NON-sensitive result the message lands in-app ONLY (founder
+  // decision F-02: external patient channels removed; there is no external
+  // patient send here at all). Before 2026-09-05 the external legs failed,
+  // no `notifications` row was ever written, and this function still
+  // returned ok: the patient was told nothing at all and nothing recorded
+  // that. The in-app row below is the patient's copy.
+  // No external patient send exists any more (F-02), so this is always false.
+  const patientNotified = false;
   let patientInAppQueued = false;
   if (sensitive) {
     await auditEvent("abnormal_result.patient_notification_suppressed_sensitive", "profiles", patientId, {
@@ -521,7 +481,7 @@ Deno.serve(async (req) => {
       channel: "in_app",
       // Deliberately `clinical`: it says a result needs follow-up. The
       // notifications_no_clinical_on_open_rail CHECK allows clinical content
-      // on in_app (it only bars it from whatsapp/sms/email), which is exactly
+      // on in_app (it only bars it from sms/email), which is exactly
       // why in_app is the right fallback rail for this message.
       content_class: "clinical",
       priority: "critical",
@@ -537,24 +497,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (patient?.phone) {
-      const result = await sendWithFallback(
-        patient.phone,
-        "abnormal_result_patient_followup",
-        [],
-        "Your result needs a follow-up. Your care team will call you today. — Tarragon Health",
-      );
-      patientNotified = result.ok;
-      await auditEvent("abnormal_result.patient_notified", "profiles", patientId, {
-        sent: patientNotified,
-        in_app_queued: patientInAppQueued,
-      });
-    } else {
-      await auditEvent("abnormal_result.patient_notification_skipped", "profiles", patientId, {
-        reason: "no phone number on file",
-        in_app_queued: patientInAppQueued,
-      });
-    }
+    // No external patient send (F-02). Audit records that only in-app was queued.
+    await auditEvent("abnormal_result.patient_notified", "profiles", patientId, {
+      sent: false,
+      in_app_queued: patientInAppQueued,
+      reason: "external patient channels removed (in-app only)",
+    });
   }
 
   return Response.json({

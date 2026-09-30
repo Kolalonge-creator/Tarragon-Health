@@ -375,9 +375,9 @@ function PartnerNotifyFlow({ episode, patientId, organisationId }: { episode: St
             </Text>
           </View>
           <View style={{ gap: 4 }}>
-            <Text style={{ fontSize: 11, fontWeight: "700", textTransform: "uppercase", color: colors.muted }}>WhatsApp / longer message</Text>
+            <Text style={{ fontSize: 11, fontWeight: "700", textTransform: "uppercase", color: colors.muted }}>Longer message</Text>
             <Text selectable style={{ fontSize: 13, color: colors.ink, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
-              {templates.whatsappTemplate}
+              {templates.longerTemplate}
             </Text>
           </View>
           <SecondaryButton title="Done" onPress={() => setOpen(false)} />
@@ -450,8 +450,8 @@ export function SexualHealthResultsTab({ patientId, organisationId }: { patientI
             <StageTracker status={episode.status} />
             {showConfidentialNotice ? (
               <MutedText>
-                This result is confidential, visible only to you and your care team, never sent over
-                WhatsApp, SMS, or email.
+                This result is confidential, visible only to you and your care team, never sent by
+                SMS or email.
               </MutedText>
             ) : (
               <MutedText>

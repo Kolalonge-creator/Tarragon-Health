@@ -432,7 +432,7 @@ on conflict (code) do nothing;
 insert into public.add_ons (code, name, description, price_minor, currency, interval, features, restricted_to_plan_code)
 values
   ('prevention-screening', 'Prevention Screening Add-on',
-     'Personalised screening calendar, WhatsApp reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
+     'Personalised screening calendar, in-app reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
      2500000, 'NGN', 'yearly', array['prevention_coordination'], null),
   -- 'care-coordinator' (Dedicated Care Coordinator, ₦30,000/mo) removed
   -- 2026-07-31. It sold a named human assigned to one patient, and the founder
@@ -470,7 +470,7 @@ on conflict (code) do nothing;
 insert into public.add_ons (code, name, description, price_minor, currency, interval, features, restricted_to_plan_code, is_active)
 values
   ('prevention-screening_usd', 'Prevention Screening Add-on',
-     'Personalised screening calendar, WhatsApp reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
+     'Personalised screening calendar, in-app reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
      1500, 'USD', 'yearly', array['prevention_coordination'], null, false),
   -- 'care-coordinator_usd' removed 2026-07-31, same reason as its naira parent.
   ('expedited-response_usd', 'Expedited Clinician Response',

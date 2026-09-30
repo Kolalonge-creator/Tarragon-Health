@@ -7,10 +7,8 @@ import { formatNumber, formatPercent } from "@/lib/analytics/format";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 import { ExportButton } from "./export-button";
 
-/** CSS capitalize() alone turns "in_app" into "In_app" and "whatsapp" into
- * "Whatsapp" — this is the real, correctly-cased name for each channel. */
+/** CSS capitalize() alone turns "in_app" into "In_app" — this is the real, correctly-cased name for each channel. */
 const CHANNEL_LABEL: Record<string, string> = {
-  whatsapp: "WhatsApp",
   sms: "SMS",
   email: "Email",
   push: "Push",
@@ -121,7 +119,7 @@ export function OperationsDashboard() {
 
       <SectionCard
         title="Notification deliverability"
-        description="Send-success rate by channel (WhatsApp / SMS / email / in-app)."
+        description="Send-success rate by channel (SMS / email / push / in-app)."
         actions={<ExportButton filename="deliverability-by-channel" rows={d?.by_channel ?? []} />}
       >
         {deliver.isLoading ? (
@@ -159,7 +157,7 @@ export function OperationsDashboard() {
         <p className="mt-3 text-xs text-charcoal-ink/50">
           In-app has no external send step — a notification is visible to the patient the instant
           it&rsquo;s created, so its &ldquo;Pending&rdquo; count means unread, not undelivered,
-          unlike WhatsApp/SMS/email/push, which genuinely queue against a provider that can fail.
+          unlike SMS/email/push, which genuinely queue against a provider that can fail.
         </p>
       </SectionCard>
     </div>

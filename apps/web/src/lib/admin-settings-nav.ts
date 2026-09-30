@@ -328,7 +328,7 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
       {
         href: "/admin/settings/broadcasts",
         label: "Broadcasts & announcements",
-        blurb: "Email/WhatsApp/SMS to a targeted audience.",
+        blurb: "Email, SMS and in-app messages to a targeted audience.",
         icon: NAV_ICON.broadcast,
         visible: adminOnly,
       },
@@ -384,7 +384,7 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
       {
         href: "/admin/settings/notification-templates",
         label: "Notification templates",
-        blurb: "The wording behind every WhatsApp/SMS/email/in-app reminder and alert.",
+        blurb: "The wording behind every SMS/email/push/in-app reminder and alert.",
         icon: NAV_ICON.messages,
         visible: anyOf("notification_templates.manage"),
       },
