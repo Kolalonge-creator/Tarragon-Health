@@ -18,7 +18,9 @@
     "./password-policy": "./src/password-policy.ts",
     "./record-login-device": "./src/record-login-device.ts",
     "./credentials": "./src/credentials.ts",
-    "./first-issue": "./src/first-issue.ts"
+    "./first-issue": "./src/first-issue.ts",
+    "./phone": "./src/phone.ts",
+    "./breached-password": "./src/breached-password.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
