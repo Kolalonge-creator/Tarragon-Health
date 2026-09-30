@@ -31,6 +31,12 @@
 -- references at execution, so a missed one would only fail at runtime), drop the trigger, tables,
 -- functions and enum types, rebuild the payment_provider enum WITHOUT 'platform_credit', then assert.
 
+-- The enum rebuild (section 4) takes ACCESS EXCLUSIVE on the payment tables (payment_transactions,
+-- service_purchases, lab_orders, ...) and holds every lock until commit. Fail fast instead of queueing behind,
+-- or deadlocking with, a live Paystack webhook: if a lock is not free within 10 seconds the whole migration
+-- rolls back cleanly and can simply be re-run. Apply it in a quiet window.
+set local lock_timeout = '10s';
+
 -- ---------------------------------------------------------------------------------------------
 -- 1. Trigger that applied a paid top-up to a balance
 -- ---------------------------------------------------------------------------------------------

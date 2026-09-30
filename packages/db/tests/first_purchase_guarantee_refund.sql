@@ -330,13 +330,15 @@ begin
     end if;
     insert into _checks (msg) values ('PASS 15: the chronic-programme enrolment track is downgraded back to self_monitoring on refund');
 
-    -- S01b: Platform Credit is gone. The payment_provider enum no longer has the label, so a purchase can
-    -- never be recorded as credit-funded, and the claim RPC refuses anything that is not a Paystack payment.
-    if exists (select 1 from pg_enum where enumtypid = 'public.payment_provider'::regtype and enumlabel = 'platform_credit') then
-      raise exception 'FAIL 16: payment_provider still has the retired platform_credit label';
-    else
-      insert into _checks (msg) values ('PASS 16: payment_provider has no platform_credit label (Platform Credit removed)');
-    end if;
+  end if;
+
+  -- S01b: this check needs no fixtures, so it lives outside the skippable chronic-track block above.
+  -- S01b: Platform Credit is gone. The payment_provider enum no longer has the label, so a purchase can
+  -- never be recorded as credit-funded, and the claim RPC refuses anything that is not a Paystack payment.
+  if exists (select 1 from pg_enum where enumtypid = 'public.payment_provider'::regtype and enumlabel = 'platform_credit') then
+    raise exception 'FAIL 16: payment_provider still has the retired platform_credit label';
+  else
+    insert into _checks (msg) values ('PASS 16: payment_provider has no platform_credit label (Platform Credit removed)');
   end if;
 
   -- =========================================================================

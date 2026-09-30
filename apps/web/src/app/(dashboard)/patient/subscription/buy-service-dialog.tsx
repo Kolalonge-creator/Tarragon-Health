@@ -40,7 +40,7 @@ export function BuyServiceDialog({
       <ConfirmDialog
         open={open}
         title={product.name}
-        confirmLabel="Pay by card"
+        confirmLabel={product.price_kobo === 0 ? "Get this" : "Pay by card"}
         cancelLabel="Close"
         onCancel={close}
         onConfirm={() => formRef.current?.requestSubmit()}

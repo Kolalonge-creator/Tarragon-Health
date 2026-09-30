@@ -749,6 +749,13 @@ export async function handleWebhookRequest(
           } else {
             await markProcessed({ organisation_id: triggerRow.organisation_id });
           }
+        } else if (String(metadata.kind) === "platform_credit_topup") {
+          // Platform Credit was removed 2026-09-30 (S01b). A top-up charge that was already in flight at
+          // Paystack has no handler, no balance to credit and no sweep left. Say so plainly (not the
+          // generic add-on lookup error) so finance refunds it in Paystack and reconciles by hand.
+          await markFailed(
+            `retired platform_credit_topup charge (reference=${event.data.reference}): Platform Credit no longer exists; refund this charge in Paystack and reconcile manually`,
+          );
         } else if (metadata.kind === "add_on") {
           const { data: row } = await supabase
             .from("subscription_add_ons")

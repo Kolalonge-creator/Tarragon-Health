@@ -36,7 +36,7 @@ describe("PayByCard", () => {
   });
 
   it("calls onSuccess when the purchase was free and never left the page", async () => {
-    mockPurchase.mockResolvedValue({});
+    mockPurchase.mockResolvedValue({ activated: true });
     const onSuccess = jest.fn();
     render(
       <PayByCard
@@ -48,5 +48,22 @@ describe("PayByCard", () => {
     );
     fireEvent.click(screen.getByRole("button"));
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+  });
+
+  it("reports an error, never success, when the result has no checkout URL and is not activated", async () => {
+    mockPurchase.mockResolvedValue({});
+    const onSuccess = jest.fn();
+    const onError = jest.fn();
+    render(
+      <PayByCard
+        serviceProductCode="async_consult_credit"
+        callbackPath="/patient/care"
+        onError={onError}
+        onSuccess={onSuccess}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(onError).toHaveBeenCalled());
+    expect(onSuccess).not.toHaveBeenCalled();
   });
 });

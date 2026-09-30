@@ -742,6 +742,6 @@ Deno.test({
 
     const txn = client.rows("payment_transactions")[0];
     assertEquals(txn.processed_at, undefined);
-    assert(typeof txn.error === "string" && txn.error.length > 0);
+    assert(typeof txn.error === "string" && txn.error.includes("retired platform_credit_topup"));
   },
 });

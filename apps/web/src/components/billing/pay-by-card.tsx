@@ -42,10 +42,14 @@ export function PayByCard({
         window.location.href = result.checkoutUrl;
         return;
       }
-      // No checkout URL and no error means record_service_purchase_intent
-      // activated this for free (a fully promo/voucher-covered or zero-price
-      // product), so there is nothing left to pay for.
-      onSuccess?.();
+      // purchaseServiceProduct returns `activated: true` when the purchase was free or fully covered by a
+      // promo or voucher, so there is nothing left to pay. Anything else (no URL, no error, not activated)
+      // is an unexpected result: report it instead of pretending the purchase went through.
+      if (result?.activated) {
+        onSuccess?.();
+        return;
+      }
+      onError("We could not start this payment. Please try again.");
     } finally {
       setIsBuyingByCard(false);
     }
