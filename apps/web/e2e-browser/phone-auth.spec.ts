@@ -153,7 +153,7 @@ test.describe("phone sign-up", () => {
     await page.locator("#phone").fill("0603123456");
     await page.locator("#password").fill(PASSWORD);
     await page.getByRole("button", { name: /create account/i }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ }).first()).toBeVisible();
     await expect(page.locator("#token")).toHaveCount(0);
   });
 });
@@ -168,12 +168,13 @@ test.describe("phone sign-in", () => {
   test("a wrong password and an unknown number show the same message", async ({ page }) => {
     await openPhonePasswordLogin(page);
     await fillLogin(page, SEEDED_PHONE_LOCAL, "definitely-wrong-password");
-    const wrong = await page.getByRole("alert").textContent();
+    // Filter to an alert with text: Next's route announcer is an empty role=alert and was read first (empty string).
+    const wrong = await page.getByRole("alert").filter({ hasText: /\S/ }).first().textContent();
 
     await page.goto("/login");
     await page.getByRole("button", { name: /^phone$/i }).click();
     await fillLogin(page, UNKNOWN_PHONE_LOCAL, "definitely-wrong-password");
-    const unknown = await page.getByRole("alert").textContent();
+    const unknown = await page.getByRole("alert").filter({ hasText: /\S/ }).first().textContent();
 
     expect(wrong).toBeTruthy();
     expect(unknown).toBe(wrong);
@@ -212,7 +213,7 @@ test.describe("recovery", () => {
     await page.context().clearCookies();
     await openPhonePasswordLogin(page);
     await fillLogin(page, SEEDED_PHONE_LOCAL, PASSWORD);
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ }).first()).toBeVisible();
     await page.goto("/login");
     await page.getByRole("button", { name: /^phone$/i }).click();
     await fillLogin(page, SEEDED_PHONE_LOCAL, NEW_PASSWORD);
