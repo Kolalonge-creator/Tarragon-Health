@@ -22,7 +22,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Conflict: any active non-patient staff member in an org reads every patient on about 110 tables, including menstrual, pregnancy and contraception rows with no category check. INV-12 allows only patients with an active task, lead assignment or on-call page, plus audited break-glass.
 - Options: (a) per-patient assignment RLS everywhere now; (b) phase it: reproductive, mental and sexual health and clinical notes first, the rest later; (c) keep org-wide but add mandatory read logging.
 - Recommend (b) plus read logging (OQ-03). A full rewrite touches the highest-leverage security function in the codebase (`CLAUDE.md` warns twice); do it in tiers with simulated-session and sabotage tests. Needs `/code-review ultra`.
-- Decision (founder, 2026-09-30): All doctors are qualified for all cases (single clinical pool), but read access is to TIED patients only (active task, assignment or on-call page) plus audited break-glass with a reason that alerts the CMO. Founder remark 2026-09-30: "we only have a single tier of doctor"; live `doctor_tier` still has four values, so confirm with the founder whether the tier ladder is being collapsed before S15.
+- Decision (founder, 2026-09-30): All doctors are qualified for all cases (single clinical pool), but read access is to TIED patients only (active task, assignment or on-call page) plus audited break-glass with a reason that alerts the CMO. Founder remark 2026-09-30: "we only have a single tier of doctor"; live `doctor_tier` still has four values, Resolved same day by F-05: doctor tiers collapse to one (Senior Medical Officer level) plus the CMO.
 
 ### OQ-03 How clinical reads are logged (INV-10)
 - Blocks: S02, S35. Live: `audit_log` has only write-trigger rows.
@@ -175,3 +175,12 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: the founder or CI runs the script with a token and pastes the result; or accept the bound.
 - Recommend running it once in CI (release-integrity already does) before S02's first migration.
 - Decision (founder, 2026-09-30): Run the real drift script once in CI (release-integrity) before S02's first migration.
+
+## C. Follow-ups created by decision F-05 (doctor tiers collapse to one plus CMO)
+
+### OQ-27 Care Coordinator and the collapse migration
+- Blocks: the tier-removal migration, S15.
+- Assumption: the non-clinical Care Coordinator account stays as it is; only `medical_officer` is folded into `senior_medical_officer`.
+- Options: (a) keep Care Coordinator unchanged; (b) remove it too (doctors do all coordination, matching the 2026-09-18 "direct doctor to patient" principle); (c) keep it but dormant until volume needs it.
+- Recommend (a) or (c): removing it is a separate staffing decision and the repo's own principle already treats coordinators as a later scaling lever, not a gate.
+- Decision:
