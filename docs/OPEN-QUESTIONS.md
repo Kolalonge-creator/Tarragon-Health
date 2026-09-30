@@ -191,3 +191,18 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) post one dated adjustment entry that clears the 250,000 against an appropriate test-clean-up account, with a memo naming entries 289 to 371; (b) leave it and footnote it in the period close; (c) reverse the whole test set (entries 289, 290, 298, 299, 303, 304, 371) so the period shows no trace.
 - Recommend (a): posted entries are append-only, (c) rewrites history the audit trail should keep, (b) leaves a phantom liability on a balance sheet.
 - Decision:
+
+### OQ-29 WhatsApp hop in the CMO-signed escalation ladder (raised by S01c)
+- Blocks: nothing in S01c (a compatibility shim keeps alerting whole); needs CMO sign-off to finish properly.
+- Finding: `escalation_slas` v8 (signed 2026-09-05) gives every urgent pathway the ladder `push, whatsapp_nudge` and every emergency pathway `push, whatsapp, sms`. WhatsApp has delivered nothing, ever (77 attempts, 68 failed, 9 suppressed, 0 sent), so those ladders are effectively push-only today. Removing WhatsApp without a replacement would shorten every urgent ladder to a single hop. Live recipients: 2 clinicians (1 has an active push subscription, both have a real email), 1 admin (email, no push).
+- What S01c did, without editing the signed config: `private.normalize_escalation_channels` now reads a `whatsapp` or `whatsapp_nudge` token as `email` (founder decision D-12: paging is push, in-console alarm and email), and the built-in fallback ladder is `push, email, sms`. The in-console alarm already exists independently (the `clinician_alerts` Priority 1 row, plus the admin alarm when a ladder is exhausted).
+- Options: (a) keep the shim and have the CMO sign a v9 that names `email` explicitly so the signed text matches behaviour; (b) sign v9 with a longer ladder (push, email, in-console alarm, then ops phone); (c) leave the shim as the permanent mapping.
+- Recommend (a) now, (b) when D-12's ops-escalation step is built (S19). Not signed or seeded by the agent; signing is the CMO's act.
+- Decision:
+
+### OQ-30 Emergency-contact alerts have no working channel (raised by S01c)
+- `private.notify_unacknowledged_emergencies` sent a patient's emergency contact both an SMS and a WhatsApp message. The WhatsApp half is removed. The SMS half has failed every time live (66 of 71 sms failures: "recipient has no phone number on file", and sms is deprioritised platform-wide with no provider approval), and OQ-05 limits SMS to verification codes and clinician paging, which does not include a patient's next of kin.
+- So after S01c a patient in an unacknowledged emergency can still reach their own care team (in-app safety net, clinician alert) but their listed emergency contact is not reliably told by any channel.
+- Options: (a) keep the contact SMS as a named exception to OQ-05 for real emergencies, to switch on when a sender ID is approved; (b) drop contact notification and rely on the care team calling the contact; (c) in-app invite to the contact once they have an account.
+- Recommend (a), plus (b) as the working procedure today.
+- Decision:
