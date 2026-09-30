@@ -1,5 +1,6 @@
 "use server";
 
+import * as Sentry from "@sentry/nextjs";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
@@ -131,11 +132,18 @@ export async function executeRecovery(input: unknown): Promise<ActionResult<{ ne
 
   const method = String(res.method);
   const subjectId = String(res.subject_user_id);
-  const record = async (ok: boolean) => {
-    await supabase.rpc("record_assisted_recovery_outcome", { p_request: requestId, p_ok: ok });
+  // Nothing here carries an address, number, request id or provider text: only which step failed, so a failure is
+  // visible to us instead of swallowed, and never leaks what it was about.
+  const report = (step: string) => Sentry.captureMessage(`assisted recovery: ${step}`, { level: "error", tags: { method } });
+  const record = async (ok: boolean): Promise<boolean> => {
+    const { data: out, error: outErr } = await supabase.rpc("record_assisted_recovery_outcome", { p_request: requestId, p_ok: ok });
+    const recorded = !outErr && (out as RpcJson)?.ok === true;
+    if (!recorded) report("outcome could not be recorded");
     revalidatePath("/admin/account-recovery");
+    return recorded;
   };
-  const failed = async (): Promise<ActionResult<{ next: string }>> => {
+  const failed = async (step: string): Promise<ActionResult<{ next: string }>> => {
+    report(step);
     await record(false);
     return {
       ok: false,
@@ -148,22 +156,24 @@ export async function executeRecovery(input: unknown): Promise<ActionResult<{ ne
     if (method === "email_link_to_verified_email") {
       const { data: u, error: uErr } = await admin.auth.admin.getUserById(subjectId);
       const email = u?.user?.email;
-      if (uErr || !email || !u?.user?.email_confirmed_at) return await failed();
+      if (uErr || !email || !u?.user?.email_confirmed_at) return await failed("no verified email on the account");
       const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
       const { error: sendErr } = await admin.auth.resetPasswordForEmail(email, { redirectTo: `${origin}/reset-password` });
-      if (sendErr) return await failed();
-      await record(true);
+      if (sendErr) return await failed("recovery email was not sent");
+      const recorded = await record(true);
+      if (!recorded) return { ok: true, next: "We emailed a recovery link to the address on file, but could not save that note against the request. Tell the account owner to check their email." };
       return { ok: true, next: "We emailed a recovery link to the address on file. They can now reset their own password from it." };
     }
     if (method === "new_phone_reverification") {
-      if (!newPhone) return await failed();
+      if (!newPhone) return await failed("no new phone number");
       const { error: upErr } = await admin.auth.admin.updateUserById(subjectId, { phone: newPhone, phone_confirm: false });
-      if (upErr) return await failed();
-      await record(true);
+      if (upErr) return await failed("new phone number was not saved");
+      const recorded = await record(true);
+      if (!recorded) return { ok: true, next: "The new number is saved as unverified, but we could not save that note against the request. The account owner must sign in with the code sent to that number." };
       return { ok: true, next: "The new number is saved as unverified. The account owner must sign in with the code sent to that number before it is used." };
     }
-    return await failed();
+    return await failed("unknown method");
   } catch {
-    return await failed();
+    return await failed("the Auth step threw");
   }
 }

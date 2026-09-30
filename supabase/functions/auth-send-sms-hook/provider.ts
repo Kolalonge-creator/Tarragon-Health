@@ -10,7 +10,7 @@ export type SendResult =
   | { ok: false; retryable: boolean; code: string };
 
 export interface SmsProvider {
-  readonly name: "mock" | "termii";
+  readonly name: "mock" | "termii" | "unconfigured";
   send(message: { to: string; text: string }): Promise<SendResult>;
 }
 
@@ -28,6 +28,18 @@ export class MockSmsProvider implements SmsProvider {
     this.sent.push(message);
     const next = this.script.shift();
     return Promise.resolve(next ?? { ok: true, providerMessageId: `mock-${this.sent.length}` });
+  }
+}
+
+/**
+ * What the hook uses when SMS_PROVIDER is not set. It refuses every send (non-retryable), so enabling the hook before a
+ * provider is chosen fails LOUDLY (Auth reports a delivery failure) instead of telling people a code was sent when
+ * nothing was. The mock must be asked for by name (SMS_PROVIDER=mock), which belongs to local and test stacks only.
+ */
+export class UnconfiguredSmsProvider implements SmsProvider {
+  readonly name = "unconfigured" as const;
+  send(): Promise<SendResult> {
+    return Promise.resolve({ ok: false, retryable: false, code: "provider_not_configured" });
   }
 }
 
@@ -78,9 +90,13 @@ export class TermiiSmsProvider implements SmsProvider {
   }
 }
 
-/** Mock unless Termii is explicitly selected AND fully configured; a half-configured Termii fails loudly, never silently mocks. */
+/**
+ * Unset means "no provider": every send is refused (see UnconfiguredSmsProvider). "mock" (sends nothing, reports
+ * success) must be chosen explicitly; Termii only when fully configured. A half-configured Termii throws, never mocks.
+ */
 export function providerFromEnv(get: (key: string) => string | undefined): SmsProvider {
-  const selected = (get("SMS_PROVIDER") ?? "mock").toLowerCase();
+  const selected = (get("SMS_PROVIDER") ?? "").toLowerCase();
+  if (selected === "") return new UnconfiguredSmsProvider();
   if (selected === "mock") return new MockSmsProvider();
   if (selected === "termii") {
     const apiKey = get("TERMII_API_KEY");

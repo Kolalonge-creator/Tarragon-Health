@@ -27,6 +27,8 @@ jest.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
+jest.mock("@sentry/nextjs", () => ({ captureMessage: jest.fn() }));
+import * as Sentry from "@sentry/nextjs";
 import { confirmPhoneChange, requestPhoneChange } from "./actions";
 
 const NEW = "+2348099999999";
@@ -77,6 +79,15 @@ describe("confirmPhoneChange", () => {
     expect(verifyOtpMock).toHaveBeenCalledWith({ phone: NEW, token: "482913", type: "phone_change" });
     expect(profileUpdateMock).toHaveBeenCalledWith({ phone: NEW });
     expect(eqMock).toHaveBeenCalledWith("id", "u1");
+  });
+
+  it("when only the profile copy fails it retries once, reports it without the number, and does not strand the person on a spent code", async () => {
+    eqMock.mockResolvedValue({ error: { message: "rls" } });
+    const result = await confirmPhoneChange(undefined, form({ phone: NEW, token: "482913" }));
+    expect(result).toEqual({ success: true });
+    expect(profileUpdateMock).toHaveBeenCalledTimes(2);
+    expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify((Sentry.captureMessage as jest.Mock).mock.calls)).not.toContain("8099999999");
   });
 
   it("a wrong code leaves the stored number untouched and stays on the code step", async () => {

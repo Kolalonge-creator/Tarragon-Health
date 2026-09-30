@@ -167,9 +167,12 @@ export async function signInWithPhonePassword(
   const { error } = await auth.signInWithPassword(args);
   if (!error) return { kind: "signed_in" };
   if (isPhoneNotConfirmed(error.message)) {
-    // Best effort: even if the resend is throttled the verify step shows the
-    // countdown and lets the person ask again.
-    await auth.resend({ type: "sms", phone: args.phone }).catch(() => undefined);
+    // A code that could not be sent must not be announced as sent. A throttled resend is fine: a code from the last
+    // minute is on its way and the verify step shows the countdown.
+    const resent = await auth.resend({ type: "sms", phone: args.phone }).catch(() => ({ error: { message: "network" } }));
+    if (resent.error && !isRateLimited(resent.error.message)) {
+      return { kind: "error", key: authErrorKey(resent.error.message, "resend") };
+    }
     return { kind: "needs_verification" };
   }
   return { kind: "error", key: authErrorKey(error.message, "sign_in") };
@@ -186,6 +189,9 @@ export async function requestPhoneCode(auth: AuthApi, phone: string): Promise<Co
   const { error } = await auth.signInWithOtp({ phone, options: { shouldCreateUser: false } });
   if (!error) return { kind: "sent" };
   if (isUnknownUserOtpError(error.message)) return { kind: "sent" };
+  // GoTrue rate-limits a second request for a REAL number but never for an unknown one; showing that error would let
+  // the screen be used to learn which numbers are registered. The code from the last minute is already on its way.
+  if (isRateLimited(error.message)) return { kind: "sent" };
   return { kind: "error", key: authErrorKey(error.message, "recovery") };
 }
 

@@ -146,10 +146,14 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- audit_log is readable by every org staff account (S02 follow-up 4), so the admin's free-text reason, which can
+  -- describe identity evidence and the patient's circumstances, is NOT copied here. It lives only in
+  -- account_recovery_requests.reason, which only an org admin can read. p_reason is kept in the signature so every
+  -- call site stays the same; it is deliberately unused.
   insert into public.audit_log
     (organisation_id, actor_id, action, entity_type, entity_id, event, reason, result, subject_patient_id, ip)
   values (p_org, p_actor, p_action, 'account_recovery_request', p_request, coalesce(p_event, '{}'::jsonb),
-          p_reason, p_result, p_subject, private.request_ip());
+          'see account_recovery_requests (admins only)', p_result, p_subject, private.request_ip());
 end;
 $$;
 revoke all on function private.audit_recovery_event(uuid, uuid, text, uuid, uuid, text, text, jsonb) from public, anon, authenticated;
@@ -392,6 +396,7 @@ declare
   v_ref jsonb;
   v_uid uuid := (select auth.uid());
   v_ch  text[];
+  v_sessions integer;
 begin
   v_ref := private.recovery_step_gate(p_request, 'admin.recovery_execute', 'execute');
   if v_ref is null then select * into v_r from public.account_recovery_requests where id = p_request; end if;
@@ -401,9 +406,14 @@ begin
     return jsonb_build_object('ok', false, 'error', 'wrong_state');
   end if;
   update public.account_recovery_requests set state = 'executed', executed_by = v_uid, executed_at = now() where id = v_r.id;
+  -- A recovery that leaves existing sessions alive protects nothing when the account was compromised: whoever is already
+  -- signed in (and their refresh tokens, which cascade) keeps access. End every session now. An access token already
+  -- issued still works until it expires (at most jwt_expiry, one hour); that residue is stated in docs/design/S03.md.
+  with gone as (delete from auth.sessions where user_id = v_r.subject_user_id returning 1)
+  select count(*) into v_sessions from gone;
   v_ch := private.queue_recovery_notice(v_r.subject_user_id, v_r.organisation_id, 'executed');
   perform private.audit_recovery_event(v_r.organisation_id, v_uid, 'admin.recovery_execute', v_r.id, v_r.subject_user_id, v_r.reason, 'success',
-    jsonb_build_object('method', v_r.method, 'notice_channels', to_jsonb(v_ch), 'notice_queued', cardinality(v_ch) > 0));
+    jsonb_build_object('method', v_r.method, 'sessions_revoked', v_sessions, 'notice_channels', to_jsonb(v_ch), 'notice_queued', cardinality(v_ch) > 0));
   return jsonb_build_object('ok', true, 'request_id', v_r.id, 'method', v_r.method, 'subject_user_id', v_r.subject_user_id);
 end;
 $$;

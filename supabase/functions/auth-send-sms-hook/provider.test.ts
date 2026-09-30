@@ -2,7 +2,7 @@
 // Run: deno test --no-config supabase/functions/auth-send-sms-hook/provider.test.ts
 
 import { assert, assertEquals, assertThrows } from "jsr:@std/assert@1";
-import { MockSmsProvider, providerFromEnv, TermiiSmsProvider } from "./provider.ts";
+import { MockSmsProvider, providerFromEnv, TermiiSmsProvider, UnconfiguredSmsProvider } from "./provider.ts";
 
 function termii(response: () => Promise<Response>, calls: Array<{ url: string; body: Record<string, unknown> }> = []) {
   const fetchImpl = ((url: string, init?: RequestInit) => {
@@ -51,8 +51,10 @@ Deno.test("the provider result never echoes the api key or the payload", async (
   assert(!blob.includes('"k"'));
 });
 
-Deno.test("selection: mock by default; termii only when chosen and fully configured; anything else throws", () => {
-  assert(providerFromEnv(() => undefined) instanceof MockSmsProvider);
+Deno.test("selection: unset refuses every send; mock only when asked for by name; termii only when fully configured", async () => {
+  const unset = providerFromEnv(() => undefined);
+  assert(unset instanceof UnconfiguredSmsProvider);
+  assertEquals(await unset.send(), { ok: false, retryable: false, code: "provider_not_configured" });
   assert(providerFromEnv((k) => ({ SMS_PROVIDER: "mock" } as Record<string, string>)[k]) instanceof MockSmsProvider);
   assertThrows(() => providerFromEnv((k) => ({ SMS_PROVIDER: "termii" } as Record<string, string>)[k]));
   const env: Record<string, string> = { SMS_PROVIDER: "termii", TERMII_API_KEY: "k", TERMII_SENDER_ID: "Tarragon" };

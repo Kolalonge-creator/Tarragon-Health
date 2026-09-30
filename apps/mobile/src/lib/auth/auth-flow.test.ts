@@ -142,6 +142,17 @@ describe("verify and resend", () => {
   });
 });
 
+describe("code request is not a rate-limit oracle", () => {
+  it("a registered number inside GoTrue's resend gap looks exactly like an unknown number", async () => {
+    const registered = fakeAuth({ signInWithOtp: fail("For security purposes, you can only request this after 47 seconds") });
+    const unknown = fakeAuth({ signInWithOtp: fail("Signups not allowed for otp") });
+    expect(await requestPhoneCode(registered.auth, "+2348031234567")).toEqual(
+      await requestPhoneCode(unknown.auth, "+2348031234567"),
+    );
+    expect(await requestPhoneCode(registered.auth, "+2348031234567")).toEqual({ kind: "sent" });
+  });
+});
+
 describe("phone sign-in", () => {
   it("signs in with a confirmed number", async () => {
     const { auth } = fakeAuth();
@@ -159,9 +170,18 @@ describe("phone sign-in", () => {
     expect(calls.resend?.[0]).toEqual({ type: "sms", phone: "+2348031234567" });
   });
 
-  it("still moves to verify if the automatic resend throws", async () => {
+  it("does not announce a code that could not be sent: a failed resend is an error", async () => {
     const { auth } = fakeAuth({ signInWithPassword: fail("Phone not confirmed") });
     auth.resend.mockRejectedValueOnce(new Error("offline"));
+    const outcome = await signInWithPhonePassword(auth, { phone: "+2348031234567", password: "pw" });
+    expect(outcome.kind).toBe("error");
+  });
+
+  it("a throttled resend still moves to verify (a code from the last minute is on its way)", async () => {
+    const { auth } = fakeAuth({
+      signInWithPassword: fail("Phone not confirmed"),
+      resend: fail("For security purposes, you can only request this after 40 seconds"),
+    });
     expect(await signInWithPhonePassword(auth, { phone: "+2348031234567", password: "pw" })).toEqual({
       kind: "needs_verification",
     });
@@ -190,11 +210,8 @@ describe("recovery / code sign-in request", () => {
     expect(await requestPhoneCode(auth, "+2348031234567")).toEqual({ kind: "sent" });
   });
 
-  it("surfaces a throttle", async () => {
+  it("reports a throttle as 'sent' (surfacing it would tell an attacker the number is registered)", async () => {
     const { auth } = fakeAuth({ signInWithOtp: fail("Too many requests") });
-    expect(await requestPhoneCode(auth, "+2348031234567")).toEqual({
-      kind: "error",
-      key: "auth.error.rate_limited",
-    });
+    expect(await requestPhoneCode(auth, "+2348031234567")).toEqual({ kind: "sent" });
   });
 });

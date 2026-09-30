@@ -6,7 +6,10 @@
 --   2. service_role (the auth hook) can insert and read.
 --   3. The table refuses any purpose other than 'auth_otp' (INV-08 enforced in the database).
 --   4. phone_hash must be a 64-character digest (a raw phone number cannot be stored by mistake).
---   5. SABOTAGE: dropping the purpose CHECK lets a 'reminder' row in, proving check 3 can fail.
+--   5. reserve_auth_sms_slot: only service_role can execute it; it hands out exactly p_max reservations per phone per
+--      hour; failed and refused rows do not use the quota; another phone is unaffected.
+--   6. SABOTAGE: dropping the purpose CHECK lets a 'reminder' row in (check 3 can fail), and granting EXECUTE on the
+--      reservation function to PUBLIC reaches anon (check 5 can fail).
 --
 -- Wrapped in BEGIN/ROLLBACK.
 -- Run:  psql -f packages/db/tests/s03_sms_delivery_log.sql  (CI: scripts/run-db-proofs.sh)
@@ -73,6 +76,56 @@ begin
     v_accepted := true;
   exception when others then v_accepted := false; end;
   if not v_accepted then raise exception 'VACUOUS TEST: sabotage did not open the hole, so check 3 proves nothing'; end if;
+end $$;
+
+-- 5. The atomic hourly cap.
+do $$
+declare
+  v_a text := repeat('d', 64);
+  v_b text := repeat('e', 64);
+  v_id uuid;
+  v_n integer;
+  v_blocked boolean;
+begin
+  if has_function_privilege('anon', 'public.reserve_auth_sms_slot(text,uuid,text,integer)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.reserve_auth_sms_slot(text,uuid,text,integer)', 'EXECUTE') then
+    raise exception 'FAIL anon or authenticated can execute reserve_auth_sms_slot';
+  end if;
+
+  set local role service_role;
+  for v_n in 1..5 loop
+    v_id := public.reserve_auth_sms_slot(v_a, null, 'mock', 5);
+    if v_id is null then raise exception 'FAIL reservation % of 5 was refused', v_n; end if;
+  end loop;
+  if public.reserve_auth_sms_slot(v_a, null, 'mock', 5) is not null then
+    raise exception 'FAIL a sixth reservation was granted inside the hour';
+  end if;
+  -- Another phone is unaffected.
+  if public.reserve_auth_sms_slot(v_b, null, 'mock', 5) is null then
+    raise exception 'FAIL one phone exhausted another phone''s quota';
+  end if;
+  -- A failed send gives its slot back; refused attempts (rate_limited rows) never used one.
+  update public.sms_delivery_log set status = 'failed'
+   where id = (select id from public.sms_delivery_log where phone_hash = v_a and status = 'reserved' order by created_at limit 1);
+  if public.reserve_auth_sms_slot(v_a, null, 'mock', 5) is null then
+    raise exception 'FAIL a failed send did not free its slot';
+  end if;
+  if public.reserve_auth_sms_slot(v_a, null, 'mock', 5) is not null then
+    raise exception 'FAIL refused attempts extended the quota instead of being capped';
+  end if;
+  reset role;
+end $$;
+
+-- 6b. SABOTAGE: if EXECUTE on the reservation function reached PUBLIC, anon would get it. Prove the privilege check sees that.
+do $$
+declare v_reached boolean;
+begin
+  grant execute on function public.reserve_auth_sms_slot(text, uuid, text, integer) to public;
+  v_reached := has_function_privilege('anon', 'public.reserve_auth_sms_slot(text,uuid,text,integer)', 'EXECUTE');
+  if not v_reached then
+    raise exception 'VACUOUS TEST: granting PUBLIC did not reach anon, so the privilege check proves nothing';
+  end if;
+  revoke all on function public.reserve_auth_sms_slot(text, uuid, text, integer) from public;
 end $$;
 
 select 'PASS: s03_sms_delivery_log' as result;

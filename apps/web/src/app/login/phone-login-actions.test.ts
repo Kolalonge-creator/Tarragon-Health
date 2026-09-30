@@ -86,6 +86,21 @@ describe("signInWithPhonePassword", () => {
     expect(redirectAfterLoginMock).not.toHaveBeenCalled();
   });
 
+  it("does not announce a code that could not be sent: a failed resend is an error, not the verify step", async () => {
+    signInWithPasswordMock.mockResolvedValue({ data: { user: null }, error: { message: "Phone not confirmed" } });
+    resendMock.mockResolvedValue({ error: { message: "Error sending sms" } });
+    const result = await signInWithPhonePassword(undefined, passwordForm());
+    expect(result?.error).toBeTruthy();
+    expect(result?.step).toBeUndefined();
+  });
+
+  it("a rate-limited resend still shows the verify step (a code from the last minute is on its way)", async () => {
+    signInWithPasswordMock.mockResolvedValue({ data: { user: null }, error: { message: "Phone not confirmed" } });
+    resendMock.mockResolvedValue({ error: { message: "For security purposes, you can only request this after 30 seconds." } });
+    const result = await signInWithPhonePassword(undefined, passwordForm());
+    expect(result?.step).toBe("verify");
+  });
+
   it("does not send another code when the per-phone resend limit is hit, but still shows the verify step", async () => {
     signInWithPasswordMock.mockResolvedValue({ data: { user: null }, error: { message: "Phone not confirmed" } });
     rateLimitMock.mockResolvedValueOnce({ success: true }).mockResolvedValueOnce({ success: false });
@@ -134,6 +149,17 @@ describe.each([
     const unknown = await action(undefined, codeForm());
     expect(unknown).toEqual(registered);
     expect(unknown).toMatchObject({ step: "verify", phone: NG });
+  });
+
+  it("a registered number asked twice inside GoTrue's resend gap looks the same as an unknown one (no rate-limit oracle)", async () => {
+    signInWithOtpMock.mockResolvedValue({
+      error: { message: "For security purposes, you can only request this after 47 seconds." },
+    });
+    const limited = await action(undefined, codeForm());
+    signInWithOtpMock.mockResolvedValue({ error: { code: "otp_disabled", message: "Signups not allowed for otp" } });
+    const unknown = await action(undefined, codeForm());
+    expect(limited).toEqual(unknown);
+    expect(limited).toMatchObject({ step: "verify", phone: NG });
   });
 
   it("a genuine delivery failure is still reported", async () => {

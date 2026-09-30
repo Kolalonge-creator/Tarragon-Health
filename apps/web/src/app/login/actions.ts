@@ -14,7 +14,7 @@ import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
-import { isUnknownUserOtpError } from "@/lib/auth/otp-errors";
+import { isRateLimitOtpError, isUnknownUserOtpError } from "@/lib/auth/otp-errors";
 
 /** `field` names the control that failed, so the form can mark exactly that
  *  one `aria-invalid` and point its `aria-describedby` at the error text. */
@@ -90,7 +90,7 @@ export async function requestPhoneOtp(
     phone: parsed.data.phone,
     options: { shouldCreateUser: false },
   });
-  if (error && !isUnknownUserOtpError(error)) {
+  if (error && !isUnknownUserOtpError(error) && !isRateLimitOtpError(error)) {
     return { error: authErrorMessage(error, "otp_send"), field: "phone" };
   }
 
@@ -191,7 +191,12 @@ export async function signInWithPhonePassword(
         { limit: 5, windowSeconds: 3600 }
       );
       if (resendLimited.success) {
-        await supabase.auth.resend({ type: "sms", phone: parsed.data.phone });
+        const { error: resendError } = await supabase.auth.resend({ type: "sms", phone: parsed.data.phone });
+        // A code that could not be sent must not be announced as sent. A rate-limit answer is fine: a code from the
+        // last minute is already on its way and the verify step says so.
+        if (resendError && !isRateLimitOtpError(resendError)) {
+          return { error: t(authErrorKey(resendError, "otp_send"), locale) };
+        }
       }
       return { step: "verify", phone: parsed.data.phone, notice: t("auth.signin.unverified", locale) };
     }

@@ -3,6 +3,8 @@
  * receives a secret, failure paths do not leak provider text, and nothing is burned on a bad phone input.
  */
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
+jest.mock("@sentry/nextjs", () => ({ captureMessage: jest.fn() }));
+import * as Sentry from "@sentry/nextjs";
 jest.mock("next/headers", () => ({ headers: jest.fn().mockResolvedValue(new Map([["origin", "https://app.tarragonhealth.ng"]])) }));
 
 const getCurrentProfile = jest.fn();
@@ -139,5 +141,39 @@ describe("executeRecovery, phone method", () => {
     expect(updateUserById).toHaveBeenCalledWith(SUBJECT, { phone: "+2348012345678", phone_confirm: false });
     expect(Object.keys(updateUserById.mock.calls[0][1])).not.toContain("password");
     expect(JSON.stringify(res)).not.toContain("+2348012345678");
+  });
+});
+
+describe("failures are reported, never swallowed", () => {
+  beforeEach(() => {
+    rpc.mockImplementation(async (fn: string) =>
+      fn === "execute_assisted_recovery"
+        ? { data: { ok: true, method: "email_link_to_verified_email", subject_user_id: SUBJECT }, error: null }
+        : { data: { ok: true }, error: null });
+    getUserById.mockResolvedValue({ data: { user: { email: "owner@example.invalid", email_confirmed_at: "2026-01-01" } }, error: null });
+  });
+
+  it("an Auth exception is reported once with no address, id or provider text, and the admin gets a generic message", async () => {
+    resetPasswordForEmail.mockRejectedValue(new Error("smtp down for owner@example.invalid"));
+    const res = await executeRecovery({ requestId: RID });
+    expect(res.ok).toBe(false);
+    const reported = JSON.stringify((Sentry.captureMessage as jest.Mock).mock.calls);
+    expect(reported).toContain("assisted recovery");
+    expect(reported).not.toContain("example.invalid");
+    expect(reported).not.toContain(SUBJECT);
+    expect(reported).not.toContain(RID);
+    expect(JSON.stringify(res)).not.toContain("smtp");
+  });
+
+  it("when the outcome cannot be recorded it is reported and the admin is told the truth", async () => {
+    resetPasswordForEmail.mockResolvedValue({ error: null });
+    rpc.mockImplementation(async (fn: string) =>
+      fn === "execute_assisted_recovery"
+        ? { data: { ok: true, method: "email_link_to_verified_email", subject_user_id: SUBJECT }, error: null }
+        : { data: null, error: { message: "db down" } });
+    const res = await executeRecovery({ requestId: RID });
+    expect(res.ok).toBe(true);
+    expect(JSON.stringify(res)).toMatch(/could not save that note/);
+    expect((Sentry.captureMessage as jest.Mock).mock.calls.flat().join(" ")).toMatch(/outcome could not be recorded/);
   });
 });

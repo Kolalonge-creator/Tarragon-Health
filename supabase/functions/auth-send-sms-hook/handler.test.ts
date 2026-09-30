@@ -2,8 +2,8 @@
 // Run: deno test --no-config supabase/functions/auth-send-sms-hook/handler.test.ts
 
 import { assert, assertEquals, assertFalse } from "jsr:@std/assert@1";
-import { handleHookRequest, MAX_SENDS_PER_HOUR, type SmsLogRow, type SmsLogStore } from "./handler.ts";
-import { MockSmsProvider, buildOtpText } from "./provider.ts";
+import { handleHookRequest, MAX_SENDS_PER_HOUR, type SmsLogStore, type SmsOutcome } from "./handler.ts";
+import { MockSmsProvider, UnconfiguredSmsProvider, buildOtpText } from "./provider.ts";
 
 const RAW_SECRET = btoa("test-secret-not-for-prod-0123456789");
 const SECRET = `v1,whsec_${RAW_SECRET}`;
@@ -35,16 +35,37 @@ async function signedRequest(overrides: { body?: string; ts?: number; signature?
   });
 }
 
+interface Row {
+  id: string;
+  phoneHash: string;
+  userId: string | null;
+  provider: string;
+  status: "reserved" | "sent" | "failed" | "rate_limited";
+  attempts: number;
+  providerMessageId?: string;
+  errorCode?: string;
+}
+
+/** Mirrors reserve_auth_sms_slot: only 'reserved' and 'sent' rows count; a refusal is logged but never counts. */
 class MemoryStore implements SmsLogStore {
-  rows: SmsLogRow[] = [];
-  countOverride: number | null = null;
-  failRead = false;
-  countLastHour(_hash: string): Promise<number> {
-    if (this.failRead) return Promise.reject(new Error("down"));
-    return Promise.resolve(this.countOverride ?? this.rows.length);
+  rows: Row[] = [];
+  failReserve = false;
+  failFinish = false;
+  reserve(phoneHash: string, userId: string | null, provider: string): Promise<string | null> {
+    if (this.failReserve) return Promise.reject(new Error("down"));
+    const used = this.rows.filter((r) => r.phoneHash === phoneHash && (r.status === "reserved" || r.status === "sent")).length;
+    const id = `r${this.rows.length + 1}`;
+    if (used >= MAX_SENDS_PER_HOUR) {
+      this.rows.push({ id, phoneHash, userId, provider, status: "rate_limited", attempts: 1 });
+      return Promise.resolve(null);
+    }
+    this.rows.push({ id, phoneHash, userId, provider, status: "reserved", attempts: 1 });
+    return Promise.resolve(id);
   }
-  insert(row: SmsLogRow): Promise<void> {
-    this.rows.push(row);
+  finish(reservationId: string, outcome: SmsOutcome): Promise<void> {
+    if (this.failFinish) return Promise.reject(new Error("down"));
+    const row = this.rows.find((r) => r.id === reservationId)!;
+    Object.assign(row, outcome);
     return Promise.resolve();
   }
 }
@@ -104,25 +125,70 @@ Deno.test("non-POST is refused; missing secret or pepper fails closed", async ()
   assertEquals((await handleHookRequest(await signedRequest(), d2)).status, 503);
 });
 
-Deno.test("the phone-keyed limit refuses the sixth send in an hour and logs rate_limited", async () => {
+Deno.test("the phone-keyed limit refuses the sixth send in an hour, sends nothing, and another phone is unaffected", async () => {
   const d = deps();
-  d.store.countOverride = MAX_SENDS_PER_HOUR;
-  const res = await handleHookRequest(await signedRequest(), d);
-  assertEquals(res.status, 429);
-  assertEquals(d.provider.sent.length, 0);
-  assertEquals(d.store.rows[0].status, "rate_limited");
+  for (let i = 0; i < MAX_SENDS_PER_HOUR; i++) {
+    assertEquals((await handleHookRequest(await signedRequest(), d)).status, 200);
+  }
+  const sixth = await handleHookRequest(await signedRequest(), d);
+  assertEquals(sixth.status, 429);
+  assertEquals(d.provider.sent.length, MAX_SENDS_PER_HOUR);
+  assertEquals(d.store.rows[d.store.rows.length - 1].status, "rate_limited");
 
-  const ok = deps();
-  ok.store.countOverride = MAX_SENDS_PER_HOUR - 1;
-  assertEquals((await handleHookRequest(await signedRequest(), ok)).status, 200);
+  // Refused attempts never extend the lockout: rate_limited rows do not count.
+  for (let i = 0; i < 3; i++) assertEquals((await handleHookRequest(await signedRequest(), d)).status, 429);
+  assertEquals(d.store.rows.filter((r) => r.status === "sent").length, MAX_SENDS_PER_HOUR);
+
+  const other = JSON.stringify({ user: { id: "u-2", phone: "+2348099999999" }, sms: { otp: OTP } });
+  assertEquals((await handleHookRequest(await signedRequest({ body: other }), d)).status, 200);
 });
 
-Deno.test("an unreadable log fails closed (no send)", async () => {
+Deno.test("failed sends give their slot back, so a provider outage cannot burn a person's quota", async () => {
+  const failures = Array.from({ length: MAX_SENDS_PER_HOUR * 2 }, () => ({ ok: false as const, retryable: false, code: "http_400" }));
+  const d = deps(new MockSmsProvider(failures));
+  for (let i = 0; i < MAX_SENDS_PER_HOUR + 2; i++) {
+    const res = await handleHookRequest(await signedRequest(), d);
+    assertEquals(res.status, 502);
+  }
+  // Still no 429: none of those failed attempts used the quota.
+  assertFalse(d.store.rows.some((r) => r.status === "rate_limited"));
+});
+
+Deno.test("an unreachable reservation store fails closed (no send)", async () => {
   const d = deps();
-  d.store.failRead = true;
+  d.store.failReserve = true;
   const res = await handleHookRequest(await signedRequest(), d);
   assertEquals(res.status, 503);
   assertEquals(d.provider.sent.length, 0);
+});
+
+Deno.test("a failed outcome write is reported, the send still succeeds, and the slot stays counted", async () => {
+  const d = deps();
+  d.store.failFinish = true;
+  const logged: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => void logged.push(args);
+  try {
+    const res = await handleHookRequest(await signedRequest(), d);
+    assertEquals(res.status, 200);
+  } finally {
+    console.error = original;
+  }
+  assertEquals(logged.length, 1);
+  // The report carries no phone number, code or hash.
+  const text = JSON.stringify(logged);
+  assertFalse(text.includes(PHONE));
+  assertFalse(text.includes(OTP));
+  // Still 'reserved', which counts toward the cap: a broken log can only tighten the limit.
+  assertEquals(d.store.rows[0].status, "reserved");
+});
+
+Deno.test("with no provider configured every send is refused loudly, never reported as sent", async () => {
+  const d = { ...deps(), provider: new UnconfiguredSmsProvider() };
+  const res = await handleHookRequest(await signedRequest(), d);
+  assertEquals(res.status, 502);
+  assertEquals(d.store.rows[0].status, "failed");
+  assertEquals(d.store.rows[0].errorCode, "provider_not_configured");
 });
 
 Deno.test("a retryable failure is retried once and then succeeds", async () => {
@@ -161,7 +227,7 @@ Deno.test("the log row and every response carry neither the phone number nor the
   assert(d.store.rows[0].phoneHash.length === 64);
 
   const limited = deps();
-  limited.store.countOverride = MAX_SENDS_PER_HOUR;
+  for (let i = 0; i < MAX_SENDS_PER_HOUR; i++) await handleHookRequest(await signedRequest(), limited);
   const r2 = await handleHookRequest(await signedRequest(), limited);
   const blob = JSON.stringify(limited.store.rows) + (await r2.text());
   assertFalse(blob.includes(PHONE));

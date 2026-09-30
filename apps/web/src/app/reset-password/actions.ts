@@ -6,7 +6,7 @@ import { newPasswordSchema } from "@/lib/validation/auth";
 import { getRoleHomePath } from "@/lib/auth/roles";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
-import { checkPasswordAcceptable } from "@tarragon/auth/password-check";
+import { checkNewPassword } from "@/lib/auth/check-new-password";
 
 export type ResetPasswordActionState = { error?: string; field?: string } | undefined;
 
@@ -24,7 +24,7 @@ export async function updatePassword(
 
   // Length is already checked above; this adds the breached-password range check (only a 5-character hash
   // prefix leaves the server). It fails open if the range service is down, see packages/auth/src/breached-password.ts.
-  const verdict = await checkPasswordAcceptable(parsed.data.password);
+  const verdict = await checkNewPassword(parsed.data.password);
   if (!verdict.ok) {
     return { error: verdict.message, field: "password" };
   }

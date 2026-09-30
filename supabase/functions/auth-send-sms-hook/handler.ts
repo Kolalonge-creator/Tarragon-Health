@@ -16,20 +16,22 @@ import { buildOtpText } from "./provider.ts";
 export const MAX_SENDS_PER_HOUR = 5; // spec 8.2; mirrored in packages/shared proposed-config "auth.phone_otp".
 export const TIMESTAMP_TOLERANCE_SECONDS = 300;
 
-export interface SmsLogRow {
-  phoneHash: string;
-  userId: string | null;
-  provider: "mock" | "termii";
-  status: "sent" | "failed" | "rate_limited";
+export interface SmsOutcome {
+  status: "sent" | "failed";
   attempts: number;
   providerMessageId?: string;
   errorCode?: string;
 }
 
 export interface SmsLogStore {
-  /** Number of log rows for this phone hash in the last hour. Throws if unreadable. */
-  countLastHour(phoneHash: string): Promise<number>;
-  insert(row: SmsLogRow): Promise<void>;
+  /**
+   * Atomically takes one of the phone's hourly slots (sms_delivery_log via reserve_auth_sms_slot). Resolves to the
+   * reservation id, or null when the phone is over its cap (the refusal is recorded by the database). Throws if the
+   * database cannot be reached, which the handler treats as "refuse", never "allow".
+   */
+  reserve(phoneHash: string, userId: string | null, provider: string): Promise<string | null>;
+  /** Records how the send ended. A failed send gives its slot back. */
+  finish(reservationId: string, outcome: SmsOutcome): Promise<void>;
 }
 
 export interface HookDeps {
@@ -143,17 +145,14 @@ export async function handleHookRequest(req: Request, deps: HookDeps): Promise<R
 
   const hash = await phoneHash(to, deps.pepper);
 
-  // 2. Phone-keyed rate limit. Fail closed if the log is unreadable.
-  let recent: number;
+  // 2. Phone-keyed rate limit, taken atomically BEFORE sending. Fail closed if the database is unreachable.
+  let reservation: string | null;
   try {
-    recent = await deps.store.countLastHour(hash);
+    reservation = await deps.store.reserve(hash, userId, deps.provider.name);
   } catch {
     return hookError(503, "temporarily_unavailable");
   }
-  if (recent >= MAX_SENDS_PER_HOUR) {
-    await deps.store.insert({ phoneHash: hash, userId, provider: deps.provider.name, status: "rate_limited", attempts: 1 }).catch(() => {});
-    return hookError(429, "too_many_requests");
-  }
+  if (reservation === null) return hookError(429, "too_many_requests");
 
   // 3. Send, with one retry when the provider says the failure is transient.
   const text = buildOtpText(otp);
@@ -164,18 +163,19 @@ export async function handleHookRequest(req: Request, deps: HookDeps): Promise<R
     result = await deps.provider.send({ to, text });
   }
 
-  // 4. Record the outcome (never the code, never the number).
-  await deps.store
-    .insert({
-      phoneHash: hash,
-      userId,
-      provider: deps.provider.name,
-      status: result.ok ? "sent" : "failed",
-      attempts,
-      providerMessageId: result.ok ? result.providerMessageId : undefined,
-      errorCode: result.ok ? undefined : result.code,
-    })
-    .catch(() => {});
+  // 4. Record the outcome (never the code, never the number). If this write fails the row stays 'reserved', which still
+  // counts toward the cap, so a broken log can only make the limit stricter, never looser. The failure is reported
+  // without any identifying detail so it is not silent.
+  try {
+    await deps.store.finish(
+      reservation,
+      result.ok
+        ? { status: "sent", attempts, providerMessageId: result.providerMessageId }
+        : { status: "failed", attempts, errorCode: result.code },
+    );
+  } catch {
+    console.error("auth-send-sms-hook: could not record the send outcome");
+  }
 
   if (!result.ok) return hookError(502, "delivery_failed");
   return json(200, {});

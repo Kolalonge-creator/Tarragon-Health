@@ -87,6 +87,15 @@ describe("signUpWithPhone", () => {
     expect(backfillMock).not.toHaveBeenCalled();
   });
 
+  it("an already-registered number gets the same code step as a new one (no enumeration)", async () => {
+    signUpMock.mockResolvedValue({ data: {}, error: { code: "user_already_exists", message: "User already registered" } });
+    const existing = await signUpWithPhone(undefined, signupForm());
+    signUpMock.mockResolvedValue({ data: { user: { id: "u2" }, session: null }, error: null });
+    const fresh = await signUpWithPhone(undefined, signupForm());
+    expect(existing).toEqual(fresh);
+    expect(existing).toMatchObject({ step: "verify", phone: NG });
+  });
+
   it("refuses a breached password before any account is created", async () => {
     passwordCheckMock.mockResolvedValue({ ok: false, reason: "breached", message: "x" });
     const result = await signUpWithPhone(undefined, signupForm());

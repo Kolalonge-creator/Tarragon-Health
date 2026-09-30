@@ -3,10 +3,11 @@
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { phoneOtpVerifySchema, phoneSignupSchema, signupSchema } from "@/lib/validation/auth";
-import { checkPasswordAcceptable } from "@tarragon/auth/password-check";
+import { checkNewPassword } from "@/lib/auth/check-new-password";
 import { authErrorKey } from "@tarragon/auth/auth-error-key";
 import { t, type Locale, type MessageKey } from "@tarragon/i18n";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
+import { isAlreadyRegisteredError } from "@/lib/auth/otp-errors";
 import { PASSWORD_MIN_LENGTH } from "@/lib/validation/password";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
@@ -58,7 +59,7 @@ export async function signUp(
     return { error: RATE_LIMIT_MESSAGE };
   }
 
-  const verdict = await checkPasswordAcceptable(parsed.data.password);
+  const verdict = await checkNewPassword(parsed.data.password);
   if (!verdict.ok) {
     return { error: verdict.message, field: "password" };
   }
@@ -175,7 +176,7 @@ export async function signUpWithPhone(
     return { error: t("auth.error.rate_limited", locale) };
   }
 
-  const verdict = await checkPasswordAcceptable(parsed.data.password);
+  const verdict = await checkNewPassword(parsed.data.password);
   if (!verdict.ok) {
     return {
       error: verdict.reason === "breached" ? t("auth.password.breached", locale, { min: PASSWORD_MIN_LENGTH }) : verdict.message,
@@ -197,7 +198,9 @@ export async function signUpWithPhone(
       },
     },
   });
-  if (error) {
+  // An existing number gets the same code screen as a new one (the code simply never arrives for someone who is not
+  // its owner), so this form cannot be used to learn which numbers are registered. Mobile does the same.
+  if (error && !isAlreadyRegisteredError(error)) {
     return { error: t(authErrorKey(error, "sign_up"), locale), field: "phone" };
   }
 

@@ -6,9 +6,10 @@ import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 import { checkAuthRateLimit } from "@/lib/rate-limit";
 import { authErrorKey } from "@tarragon/auth/auth-error-key";
+import * as Sentry from "@sentry/nextjs";
 import { t } from "@tarragon/i18n";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
-import { checkPasswordAcceptable } from "@tarragon/auth/password-check";
+import { checkNewPassword } from "@/lib/auth/check-new-password";
 
 export type UpdateOwnPasswordState =
   | { error?: string; field?: string; success?: boolean }
@@ -34,7 +35,7 @@ export async function updateOwnPassword(
 
   // Length is already checked above; this adds the breached-password range check (only a 5-character hash
   // prefix leaves the server). It fails open if the range service is down, see packages/auth/src/breached-password.ts.
-  const verdict = await checkPasswordAcceptable(parsed.data.password);
+  const verdict = await checkNewPassword(parsed.data.password);
   if (!verdict.ok) {
     return { error: verdict.message, field: "password" };
   }
@@ -140,9 +141,16 @@ export async function confirmPhoneChange(
     return { error: t(authErrorKey(error, "otp_verify"), locale), field: "token", step: "verify", phone: parsed.data.phone };
   }
 
-  const { error: profileError } = await supabase.from("profiles").update({ phone: parsed.data.phone }).eq("id", user.id);
+  // The code is single-use and the sign-in number has ALREADY moved, so a failure here must not send the person back to
+  // a code step that can never succeed. Retry once, and if the profile still cannot be updated report it (no number, no
+  // id in the message) and carry on: auth.users.phone is what sign-in and recovery use, and the profile copy is repaired
+  // from the report. See OQ-45 for the database-side sync that makes this unnecessary.
+  let profileError = (await supabase.from("profiles").update({ phone: parsed.data.phone }).eq("id", user.id)).error;
   if (profileError) {
-    return { error: t("auth.error.generic", locale), step: "verify", phone: parsed.data.phone };
+    profileError = (await supabase.from("profiles").update({ phone: parsed.data.phone }).eq("id", user.id)).error;
+  }
+  if (profileError) {
+    Sentry.captureMessage("phone change verified but profiles.phone could not be updated", "error");
   }
   return { success: true };
 }

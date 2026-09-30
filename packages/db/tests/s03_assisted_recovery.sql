@@ -9,7 +9,8 @@
 --   4. Expired requests cannot be approved or executed (lazily marked expired).
 --   5. SIM-swap risk (phone reverified in the last 72 hours) needs a separate review step by someone other than
 --      the requester before approval; also enforced by a CHECK.
---   6. Every step writes audit_log with subject_patient_id, reason and the request id.
+--   6. Every step writes audit_log with subject_patient_id and the request id; the free-text reason is NOT copied into
+--      audit_log (every org staff account can read it); execute ends every session of the subject and only theirs.
 --   7. No RPC output contains a full phone, email or date of birth; list shows masked hints only.
 --   8. The subject is notified in-app (and by email when an address is on file), never SMS, in neutral wording.
 --   9. Read access: only an admin reads the table; anon has no table access and no EXECUTE anywhere.
@@ -125,8 +126,16 @@ begin
   if r->>'error' <> 'wrong_state' then raise exception 'FAIL 3c: executed before approval: %', r; end if;
   r := pg_temp.call_as(a2, format('select public.approve_assisted_recovery(%L)', rid));
   if not (r->>'ok')::boolean then raise exception 'FAIL 3d: second admin could not approve: %', r; end if;
+  -- Existing sessions: the subject has two (one could be an attacker's), an unrelated patient has one.
+  insert into auth.sessions (id, user_id) values (gen_random_uuid(), v_pat), (gen_random_uuid(), v_pat), (gen_random_uuid(), v_pat2);
   r := pg_temp.call_as(a1, format('select public.execute_assisted_recovery(%L)', rid));
   if not (r->>'ok')::boolean or r->>'method' <> 'email_link_to_verified_email' then raise exception 'FAIL 3e: execute failed: %', r; end if;
+  -- 3f. execute ended every session of the subject, and only the subject's.
+  if exists (select 1 from auth.sessions where user_id = v_pat) then raise exception 'FAIL 3f: the subject kept a live session after recovery'; end if;
+  if not exists (select 1 from auth.sessions where user_id = v_pat2) then raise exception 'FAIL 3f: recovery ended another account''s session'; end if;
+  if (select (event->>'sessions_revoked')::int from public.audit_log where action = 'admin.recovery_execute' and subject_patient_id = v_pat and result = 'success') <> 2 then
+    raise exception 'FAIL 3f: audit did not record the two revoked sessions';
+  end if;
   v_txt := r::text;
   if v_txt like '%example.invalid%' or v_txt like '%password%' or v_txt like '%token%' or v_txt like '%http%' then raise exception 'FAIL 7: execute output carries contact or a secret: %', v_txt; end if;
   select count(*) into v_n from public.notifications where recipient_id = v_pat and template = 'security.assisted_recovery_executed';
@@ -209,6 +218,13 @@ begin
      and action in ('admin.recovery_request','admin.recovery_approve','admin.recovery_execute','admin.recovery_outcome') and reason is not null and entity_id is not null;
   if v_n <> 4 then raise exception 'FAIL 6: expected 4 audited steps for the subject, got %', v_n; end if;
   if exists (select 1 from public.audit_log where entity_type = 'account_recovery_request' and event::text ~* '(example\.invalid|\+234|password|token)') then raise exception 'FAIL 6/7: audit event carries contact or secret'; end if;
+  -- 6b. the admin's free-text reason stays in the admin-only table; audit_log is readable by every org staff account.
+  if exists (select 1 from public.audit_log where entity_type = 'account_recovery_request' and reason ilike '%perfectly long enough%') then
+    raise exception 'FAIL 6b: the admin''s free-text reason was copied into audit_log';
+  end if;
+  if not exists (select 1 from public.account_recovery_requests where reason ilike '%perfectly long enough%') then
+    raise exception 'VACUOUS TEST 6b: the reason text is not stored anywhere, so the check above proves nothing';
+  end if;
   if not exists (select 1 from public.audit_log where action = 'admin.recovery_approve' and result = 'denied' and actor_id = a1 and event->>'why' = 'self_approval') then raise exception 'FAIL 6: self-approval refusal not audited'; end if;
 
   -- ===== 7/9. list: masked only; admin reads, others do not
