@@ -66,7 +66,7 @@ const CARE_COMPARISON: {
   {
     theOldWay: {
       label: "Scattered care",
-      body: "One doctor for medication, another lab for results, a WhatsApp thread for everything else, nobody connecting the dots.",
+      body: "One doctor for medication, another lab for results, a scattered chat for everything else, nobody connecting the dots.",
     },
     withTarragon: {
       label: "One record, one care team",
@@ -102,7 +102,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "Reminders keep you consistent",
-    body: "WhatsApp and SMS nudges arrive when a dose, reading, or check is due, so consistency stops depending on memory. You can also message your care team any time in the app.",
+    body: "In-app and push reminders arrive when a dose, reading, or check is due, so consistency stops depending on memory. You can also message your care team any time in the app.",
   },
   {
     title: "A doctor actually reviews your numbers",

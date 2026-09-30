@@ -239,7 +239,6 @@ export async function proxy(request: NextRequest) {
         "/clinician/messages",
         "/clinician/escalations",
         "/clinician/orders",
-        "/clinician/support-inbox",
         "/clinician/support-tickets",
         "/clinician/complaints",
         "/clinician/safety-incidents",

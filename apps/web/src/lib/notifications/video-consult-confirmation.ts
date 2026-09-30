@@ -15,9 +15,7 @@ const CANCELLATION_RULES =
  * doctor's proposed alternates) so the two can never drift on what
  * "booked" tells the patient.
  *
- * Sends both whatsapp (best-effort -- Meta template approval is still
- * pending platform-wide, see CLAUDE.md) and an in_app companion, same
- * guaranteed-delivery discipline as
+ * Sends an in_app confirmation, same guaranteed-delivery discipline as
  * 20260811235133_guarantee_in_app_notification_companions.sql applied to
  * every other patient-facing confirmation.
  */
@@ -73,14 +71,6 @@ export async function sendVideoConsultBookedConfirmation(params: {
   };
 
   await service.from("notifications").insert([
-    {
-      organisation_id: consult.organisation_id,
-      recipient_id: consult.patient_id,
-      channel: "whatsapp",
-      status: "pending",
-      template: "video_consult_booked",
-      payload,
-    },
     {
       organisation_id: consult.organisation_id,
       recipient_id: consult.patient_id,

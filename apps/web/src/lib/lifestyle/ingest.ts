@@ -61,7 +61,7 @@ export async function ingestMeasurement(params: IngestParams): Promise<IngestRes
     recent,
   } = params;
 
-  // 1. Validate (plausibility + the whatsapp-source guard). Never silently drop.
+  // 1. Validate (plausibility + allowed-source guard). Never silently drop.
   const validation = validateMeasurement(measurement);
   if (!validation.ok) {
     return { ok: false, reason: validation.reason };

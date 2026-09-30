@@ -25,7 +25,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   },
   "/dashboard/care-coordinator/contact-log": {
     title: "Contact log",
-    subtitle: "A record of call and WhatsApp outreach attempts, patient by patient.",
+    subtitle: "A record of call outreach attempts, patient by patient.",
   },
 };
 

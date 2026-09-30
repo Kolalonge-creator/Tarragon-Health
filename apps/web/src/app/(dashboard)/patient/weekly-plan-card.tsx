@@ -40,7 +40,7 @@ function TrendDots({ goal }: { goal: WeeklyPlanGoal }) {
 }
 
 /** Vitals-type metrics get a one-purpose quick-log page (same route the
- * WhatsApp/SMS vitals-reminder deep link uses); the vitals-form's own
+ * vitals-reminder deep link uses); the vitals-form's own
  * `VitalType` spells blood pressure differently than the LPE metric_key
  * does, so `bp` needs the one explicit remap. Diet/activity route to their
  * full section (meal planning, activity logging) rather than a bare form,

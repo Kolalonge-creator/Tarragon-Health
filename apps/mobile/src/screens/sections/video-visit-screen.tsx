@@ -32,8 +32,7 @@ interface VideoVisitScreenProps {
  * see lib/video-visit.ts's header for what's scoped down and why. Joining
  * itself is already native (Overview's "Join call" banner); this covers
  * visit details, prep notes, the post-visit summary, and reporting a
- * technical problem via the existing in-app Messages thread (never
- * WhatsApp -- see CLAUDE.md's Non-Negotiable Business Rules).
+ * technical problem via the existing in-app Messages thread.
  */
 export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenProps) {
   const [loading, setLoading] = useState(true);

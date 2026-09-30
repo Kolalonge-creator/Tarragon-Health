@@ -1213,7 +1213,7 @@ export async function acknowledgeEmergency(eventId: string): Promise<EmergencyEv
 }
 
 /**
- * Immediately messages the patient's saved emergency contact (SMS + WhatsApp)
+ * Immediately messages the patient's saved emergency contact (SMS)
  * for one of their own active events, without waiting for the acknowledge-gated
  * timeout. Ownership is verified via the patient's own RLS-scoped session
  * before any service-role write (same pattern as the AI-coach escalation) —
@@ -1281,14 +1281,6 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
       organisation_id: event.organisation_id,
       recipient_id: subjectId,
       channel: "sms",
-      status: "pending",
-      template: "emergency_contact_alert",
-      payload,
-    },
-    {
-      organisation_id: event.organisation_id,
-      recipient_id: subjectId,
-      channel: "whatsapp",
       status: "pending",
       template: "emergency_contact_alert",
       payload,

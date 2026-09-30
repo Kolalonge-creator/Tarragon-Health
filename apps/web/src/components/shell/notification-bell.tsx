@@ -408,7 +408,7 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "critical_notification_escalation_exhausted") {
     // From private.escalate_unconfirmed_critical_notifications() —
-    // every channel in a critical alert's ladder (push -> whatsapp -> sms)
+    // every channel in a critical alert's ladder
     // ran out with nobody confirming it. Admin-only visibility surface;
     // the underlying clinical SLA/worklist safety net is unaffected either
     // way, this is purely "a notification chain needs a human look."
@@ -612,7 +612,7 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     return {
       text: `${count} update${count === 1 ? "" : "s"} waiting for you today`,
       // Deliberately not payload.action_centre_url — that's a full external
-      // URL (appUrl() in the edge function), useful for a WhatsApp/email
+      // URL (appUrl() in the edge function), useful for an email
       // link, but router.push() here needs an internal relative path.
       href: "/patient/actions",
     };

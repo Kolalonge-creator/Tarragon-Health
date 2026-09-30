@@ -49,7 +49,7 @@ export function usePatientDueCheckins(patientId: string) {
   });
 }
 
-/** Patient answers a check-in in the app (WhatsApp/SMS only reminds). */
+/** Patient answers a check-in in the app (reminders only prompt). */
 export function useRespondToCheckin(patientId: string) {
   const queryClient = useQueryClient();
   return useMutation({

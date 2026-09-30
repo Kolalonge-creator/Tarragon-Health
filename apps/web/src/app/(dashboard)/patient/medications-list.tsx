@@ -503,7 +503,7 @@ function PrescriptionStatusTrail({
     {
       label: "Patient notified",
       done: true,
-      detail: "Email/WhatsApp sent at time of prescribing",
+      detail: "Email sent at time of prescribing",
     },
     {
       label: "Collected",

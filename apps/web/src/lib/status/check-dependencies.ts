@@ -27,7 +27,6 @@ export interface DependencyReport {
   checked_at: string;
   supabase: TimedCheck;
   ml_service: TimedCheck;
-  whatsapp: ConfiguredCheck;
   termii: ConfiguredCheck;
   paystack: ConfiguredCheck;
   resend: ConfiguredCheck;
@@ -93,7 +92,6 @@ export async function checkDependencies(): Promise<DependencyReport> {
     checked_at: new Date().toISOString(),
     supabase,
     ml_service,
-    whatsapp: checkConfigured(process.env.WHATSAPP_TOKEN),
     termii: checkConfigured(process.env.TERMII_API_KEY),
     paystack: checkConfigured(process.env.PAYSTACK_SECRET_KEY),
     resend: checkConfigured(process.env.RESEND_API_KEY),

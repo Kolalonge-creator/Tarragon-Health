@@ -8,7 +8,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
  * Cancel/Need help buttons) and, where a real action exists for the
  * template + chosen value, calls the same RPC the app's own UI would call
  * (advance_appointment_status/cancel_appointment) — never by parsing an
- * inbound WhatsApp/SMS reply into an action (see CLAUDE.md's standing rule
+ * inbound SMS reply into an action (see CLAUDE.md's standing rule
  * against that). Always stamps responded_at/response_value on the
  * notification row so 17.13's delivery/response tracking is complete even
  * for a template with no wired action yet.

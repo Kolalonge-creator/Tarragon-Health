@@ -10,7 +10,7 @@ independent of wall-clock time):
 - **Variability**: mean, SD, and coefficient of variation of systolic readings
   in the window — the standard summary stats used in home-BP variability
   literature.
-- **`morning_surge_flag`**: patients here log readings via WhatsApp/app, not
+- **`morning_surge_flag`**: patients here log readings in the app, not
   continuous ambulatory monitoring, so the literal Kario morning-surge metric
   (morning SBP minus the lowest *nocturnal* SBP, >=35-55 mmHg) isn't
   computable — we have no sleep-period reading. This flag is instead the

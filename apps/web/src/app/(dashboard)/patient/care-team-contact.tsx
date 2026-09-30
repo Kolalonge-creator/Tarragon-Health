@@ -5,14 +5,9 @@ import { MessagesFlow } from "./messages-flow";
 /**
  * Gated under 'doctor_checkin' (see RequiresEntitlement usage in page.tsx).
  *
- * Founder direction 2026-07-30: this used to promise a WhatsApp thread
- * ("your care team reaches out on WhatsApp... reply directly on that
- * thread"). Two problems with that: (1) it implied one continuous WhatsApp
- * conversation with no record on the platform itself, and (2) WhatsApp is a
- * notifications-only channel per CLAUDE.md's Non-Negotiable Business Rules —
- * two-way patient<->care-team conversation now happens exclusively in-app,
- * via care_messages (see messages-flow.tsx). WhatsApp/SMS may still *notify*
- * that a reply is waiting; the conversation itself always lives here.
+ * Two-way patient<->care-team conversation happens exclusively in-app, via
+ * care_messages (see messages-flow.tsx); a notification may say a reply is
+ * waiting, but the conversation itself always lives here.
  */
 export function CareTeamContact({ patientId }: { patientId: string }) {
   return (

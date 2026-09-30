@@ -335,7 +335,6 @@ export function getNavSections(
                   icon: "medication",
                 },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
-                { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
                 { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
                 {
@@ -401,12 +400,6 @@ export function getNavSections(
                   href: "/clinician/results-inbox",
                   icon: "labs",
                   countKey: "resultsInboxAwaitingAction",
-                },
-                {
-                  label: "Support inbox",
-                  href: "/clinician/support-inbox",
-                  icon: "inbox",
-                  countKey: "unreadSupportMessages",
                 },
                 {
                   label: "Support tickets",

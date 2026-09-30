@@ -16,9 +16,7 @@ const CANCELLATION_RULES =
  * video_visit_requests to join back through for the provider name/cost —
  * this walks lab_result_consult_requests instead.
  *
- * Sends both whatsapp (best-effort — Meta template approval is still
- * pending platform-wide, see CLAUDE.md) and an in_app companion, same
- * guaranteed-delivery discipline as
+ * Sends an in_app confirmation, same guaranteed-delivery discipline as
  * 20260811235133_guarantee_in_app_notification_companions.sql applied to
  * every other patient-facing confirmation. content_class is left at its
  * default ('non_clinical') — a booking confirmation is logistics, not a
@@ -88,14 +86,6 @@ export async function sendLabResultConsultBookedConfirmation(params: {
     {
       organisation_id: consult.organisation_id,
       recipient_id: consult.patient_id,
-      channel: "whatsapp",
-      status: "pending",
-      template,
-      payload,
-    },
-    {
-      organisation_id: consult.organisation_id,
-      recipient_id: consult.patient_id,
       channel: "in_app",
       status: "pending",
       template,
@@ -121,14 +111,6 @@ export async function sendLabResultConsultReleaseNotice(params: {
   const payload = { reason: "doctor_unavailable" };
 
   await service.from("notifications").insert([
-    {
-      organisation_id: organisationId,
-      recipient_id: patientId,
-      channel: "whatsapp",
-      status: "pending",
-      template: "lab_result_consult_needs_rescheduling",
-      payload,
-    },
     {
       organisation_id: organisationId,
       recipient_id: patientId,

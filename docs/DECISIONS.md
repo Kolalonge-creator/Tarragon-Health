@@ -48,6 +48,10 @@ Answered in a single prompt session. Full options and reasoning are in `docs/OPE
 | OQ-23 | Mixed per the audit: live wins for identity, health record, commerce, notifications, audit; v5 wins for outbox, pages, rota, credentialing, earnings, scribe consent, proxy setup, outcome snapshots, care_plan_changes, triage_events. |
 | OQ-24 | Keep the account-role rule; no `ops` role; add a separate credentialing-level column (not `doctor_tier`) and a clinician status column. |
 | OQ-25 | Add `subject_patient_id` and `ip`; revoke TRUNCATE from service_role and postgres, as part of the OQ-03 work. |
+| OQ-29 | Keep the compatibility shim (a whatsapp token in the signed ladder reads as email); the CMO publishes escalation_slas v9 naming email explicitly. Not signed or seeded by the agent. |
+| OQ-30 | Keep the emergency-contact SMS as a named exception to OQ-05 for real emergencies, switched on once a sender ID is approved (OQ-21); until then the care team phones the contact. |
+| OQ-31 | Publish new terms and consent versions without WhatsApp and Stripe after counsel review; notify users rather than forcing re-acceptance, since a data flow is being removed. Retire the WhatsApp vendor register row once counsel agrees. |
+| OQ-32 | Remove all patient-facing SMS in its own session (count first, then remove), as the follow-on to OQ-05. |
 | OQ-27 | Keep the Care Coordinator account but dormant until volume needs it; no migration now. |
 | OQ-26 | Run the real drift script once in CI (release-integrity) before S02's first migration. |
 

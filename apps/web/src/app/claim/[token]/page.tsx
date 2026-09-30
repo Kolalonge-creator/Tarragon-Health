@@ -9,7 +9,7 @@ import { ClaimCard } from "./claim-card";
  * Edge Function once the sponsor's payment lands — see
  * sponsored_service_reservations.invite_token). Deliberately requires the
  * visitor's OWN account, signed up the normal app/web way: this is not a
- * WhatsApp/SMS-driven signup path (CLAUDE.md's standing rule), just a link
+ * SMS-driven signup path, just a link
  * that happens to arrive by SMS. claim_sponsored_service_reservation itself
  * re-checks that the signed-in caller's phone matches the reservation's
  * recipient_phone, so there's nothing to authorise here beyond "are they

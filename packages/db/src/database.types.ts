@@ -24422,7 +24422,6 @@ export type Database = {
           push_enabled: boolean
           sms_enabled: boolean
           updated_at: string
-          whatsapp_enabled: boolean
         }
         Insert: {
           category: Database["public"]["Enums"]["notification_preference_category"]
@@ -24434,7 +24433,6 @@ export type Database = {
           push_enabled?: boolean
           sms_enabled?: boolean
           updated_at?: string
-          whatsapp_enabled?: boolean
         }
         Update: {
           category?: Database["public"]["Enums"]["notification_preference_category"]
@@ -24446,7 +24444,6 @@ export type Database = {
           push_enabled?: boolean
           sms_enabled?: boolean
           updated_at?: string
-          whatsapp_enabled?: boolean
         }
         Relationships: [
           {
@@ -33517,79 +33514,6 @@ export type Database = {
           },
         ]
       }
-      support_messages: {
-        Row: {
-          body: string | null
-          created_at: string
-          direction: string
-          from_phone: string
-          id: string
-          message_type: string
-          organisation_id: string
-          patient_id: string | null
-          raw_payload: Json
-          sender_id: string | null
-          status: string
-          to_phone: string | null
-          updated_at: string
-          wa_message_id: string | null
-        }
-        Insert: {
-          body?: string | null
-          created_at?: string
-          direction: string
-          from_phone: string
-          id?: string
-          message_type?: string
-          organisation_id: string
-          patient_id?: string | null
-          raw_payload?: Json
-          sender_id?: string | null
-          status?: string
-          to_phone?: string | null
-          updated_at?: string
-          wa_message_id?: string | null
-        }
-        Update: {
-          body?: string | null
-          created_at?: string
-          direction?: string
-          from_phone?: string
-          id?: string
-          message_type?: string
-          organisation_id?: string
-          patient_id?: string | null
-          raw_payload?: Json
-          sender_id?: string | null
-          status?: string
-          to_phone?: string | null
-          updated_at?: string
-          wa_message_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "support_messages_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "support_messages_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "support_messages_sender_id_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       support_ticket_comments: {
         Row: {
           author_profile_id: string | null
@@ -41771,7 +41695,7 @@ export type Database = {
         | "refer"
       lpe_red_flag_severity: "amber" | "red" | "emergency"
       lpe_red_flag_status: "open" | "stood_down"
-      lpe_task_channel: "app" | "whatsapp_reminder"
+      lpe_task_channel: "app"
       lpe_task_status: "pending" | "done" | "missed" | "skipped"
       masked_call_context:
         | "care_coordination"
@@ -41882,7 +41806,6 @@ export type Database = {
         | "email"
         | "sms"
         | "in_app"
-        | "whatsapp"
         | "push"
         | "voice"
       notification_content_class: "clinical" | "non_clinical"
@@ -41943,7 +41866,7 @@ export type Database = {
         | "protocol_partner"
         | "provider_org"
       outcomes_contract_type: "fee_at_risk" | "flat"
-      outreach_contact_channel: "call" | "whatsapp"
+      outreach_contact_channel: "call"
       outreach_task_status:
         | "open"
         | "in_progress"
@@ -42472,7 +42395,6 @@ export type Database = {
         | "email"
         | "faq"
         | "chatbot"
-        | "whatsapp"
       support_ticket_comment_author: "patient" | "staff"
       support_ticket_priority: "low" | "normal" | "high" | "critical"
       support_ticket_status:
@@ -44010,7 +43932,7 @@ export const Constants = {
       ],
       lpe_red_flag_severity: ["amber", "red", "emergency"],
       lpe_red_flag_status: ["open", "stood_down"],
-      lpe_task_channel: ["app", "whatsapp_reminder"],
+      lpe_task_channel: ["app"],
       lpe_task_status: ["pending", "done", "missed", "skipped"],
       masked_call_context: [
         "care_coordination",
@@ -44135,7 +44057,6 @@ export const Constants = {
         "email",
         "sms",
         "in_app",
-        "whatsapp",
         "push",
         "voice",
       ],
@@ -44204,7 +44125,7 @@ export const Constants = {
         "provider_org",
       ],
       outcomes_contract_type: ["fee_at_risk", "flat"],
-      outreach_contact_channel: ["call", "whatsapp"],
+      outreach_contact_channel: ["call"],
       outreach_task_status: [
         "open",
         "in_progress",
@@ -44798,7 +44719,6 @@ export const Constants = {
         "email",
         "faq",
         "chatbot",
-        "whatsapp",
       ],
       support_ticket_comment_author: ["patient", "staff"],
       support_ticket_priority: ["low", "normal", "high", "critical"],

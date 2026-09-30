@@ -3,6 +3,8 @@ import { ActivityIndicator, ScrollView, Switch, Text, View } from "react-native"
 import {
   loadNotificationPreferences,
   updateNotificationPreference,
+  channelTogglesFromRow,
+  type NotificationChannel,
   NOTIFICATION_PREFERENCE_CATEGORIES,
   type NotificationPreferenceCategory,
   type PatientNotificationPreferenceRow,
@@ -22,28 +24,13 @@ const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
 };
 
 /**
- * `sms`/`whatsapp` stay real, settable columns on `patient_notification_preferences`
- * (the shared table `notification-preferences.ts` reads/writes) — this app just
- * stopped rendering a toggle for them 2026-09-08, on explicit founder ask, once
- * push registration actually went live (see push-registration.ts). Whatever value
- * those two columns already held keeps flowing to send-pending-notifications
- * unchanged; this is a UI-only narrowing, not a data wipe, and not a change to the
- * platform-wide WhatsApp/SMS notification channel (CLAUDE.md's Non-Negotiable
- * Business Rules) — that stays live for the web app and for delivery-provider
- * fallback. Displayed channels here are just Email and Push now.
+ * `sms` stays a real, settable column on `patient_notification_preferences`
+ * (used for verification codes), but this app only renders Email and Push.
  */
-type Channel = "email" | "sms" | "push" | "whatsapp";
-const DISPLAYED_CHANNELS: { key: Channel; label: string }[] = [
+const DISPLAYED_CHANNELS: { key: NotificationChannel; label: string }[] = [
   { key: "email", label: "Email" },
   { key: "push", label: "Push" },
 ];
-
-const ALL_CHANNELS_ON: Record<Channel, boolean> = { email: true, sms: true, push: true, whatsapp: true };
-
-function togglesFromRow(row: PatientNotificationPreferenceRow | undefined): Record<Channel, boolean> {
-  if (!row) return ALL_CHANNELS_ON;
-  return { email: row.email_enabled, sms: row.sms_enabled, push: row.push_enabled, whatsapp: row.whatsapp_enabled };
-}
 
 interface NotificationSettingsScreenProps {
   patientId: string;
@@ -79,8 +66,8 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
 
   const rowsByCategory = new Map(rows.map((row) => [row.category, row]));
 
-  async function handleToggle(category: NotificationPreferenceCategory, channel: Channel, nextValue: boolean) {
-    const current = togglesFromRow(rowsByCategory.get(category));
+  async function handleToggle(category: NotificationPreferenceCategory, channel: NotificationChannel, nextValue: boolean) {
+    const current = channelTogglesFromRow(rowsByCategory.get(category));
     const next = { ...current, [channel]: nextValue };
     setSavingCategory(category);
     setError(null);
@@ -91,7 +78,6 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
       emailEnabled: next.email,
       smsEnabled: next.sms,
       pushEnabled: next.push,
-      whatsappEnabled: next.whatsapp,
     });
     setSavingCategory(null);
     if (!result.ok) {
@@ -134,7 +120,7 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
 
       {!loading &&
         NOTIFICATION_PREFERENCE_CATEGORIES.map((category) => {
-          const toggles = togglesFromRow(rowsByCategory.get(category));
+          const toggles = channelTogglesFromRow(rowsByCategory.get(category));
           const isSaving = savingCategory === category;
           return (
             <Card key={category} style={{ gap: 10 }}>

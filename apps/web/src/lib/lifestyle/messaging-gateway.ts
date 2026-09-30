@@ -2,7 +2,7 @@ import "server-only";
 /**
  * Outbound MessagingGateway (spec §3.1, §10) — the LPE's implementation of the
  * engine's injected messaging boundary, over the existing `notifications`
- * queue. Outbound only; WhatsApp is never a logging surface.
+ * queue. Outbound only, delivered in the app inbox.
  *
  * toneGuard runs at enqueue time on any free-text variables: a template that
  * would carry stigmatising or clinically-reassuring copy is refused rather than
@@ -14,11 +14,6 @@ import {
   type OutboundMessage,
 } from "@tarragon/lifestyle-engine";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-
-/** Message classes that go out over WhatsApp (all of them today). */
-function channelFor(): "whatsapp" {
-  return "whatsapp";
-}
 
 export function createLifestyleMessagingGateway(
   organisationId: string,
@@ -35,7 +30,7 @@ export function createLifestyleMessagingGateway(
       const { error } = await svc.from("notifications").insert({
         organisation_id: organisationId,
         recipient_id: message.patientId,
-        channel: channelFor(),
+        channel: "in_app",
         template: message.templateKey,
         payload: {
           message_class: message.messageClass,
