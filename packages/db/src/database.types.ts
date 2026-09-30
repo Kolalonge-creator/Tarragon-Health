@@ -3205,9 +3205,11 @@ export type Database = {
           entity_type: string | null
           event: Json
           id: string
+          ip: unknown | null
           organisation_id: string | null
           reason: string | null
           result: string
+          subject_patient_id: string | null
         }
         Insert: {
           action: string
@@ -3217,9 +3219,11 @@ export type Database = {
           entity_type?: string | null
           event?: Json
           id?: string
+          ip?: unknown | null
           organisation_id?: string | null
           reason?: string | null
           result?: string
+          subject_patient_id?: string | null
         }
         Update: {
           action?: string
@@ -3229,9 +3233,11 @@ export type Database = {
           entity_type?: string | null
           event?: Json
           id?: string
+          ip?: unknown | null
           organisation_id?: string | null
           reason?: string | null
           result?: string
+          subject_patient_id?: string | null
         }
         Relationships: [
           {
@@ -7152,6 +7158,7 @@ export type Database = {
           indemnity_expires_at: string | null
           indemnity_insurer: string | null
           indemnity_policy_number: string | null
+          is_test: boolean
           license_expires_at: string | null
           license_verified_at: string | null
           offers_therapy_sessions: boolean
@@ -7182,6 +7189,7 @@ export type Database = {
           indemnity_expires_at?: string | null
           indemnity_insurer?: string | null
           indemnity_policy_number?: string | null
+          is_test?: boolean
           license_expires_at?: string | null
           license_verified_at?: string | null
           offers_therapy_sessions?: boolean
@@ -7212,6 +7220,7 @@ export type Database = {
           indemnity_expires_at?: string | null
           indemnity_insurer?: string | null
           indemnity_policy_number?: string | null
+          is_test?: boolean
           license_expires_at?: string | null
           license_verified_at?: string | null
           offers_therapy_sessions?: boolean
@@ -8222,6 +8231,7 @@ export type Database = {
           id: string
           is_current: boolean
           published_at: string
+          text_key: string | null
           title: string
           version: string
         }
@@ -8232,6 +8242,7 @@ export type Database = {
           id?: string
           is_current?: boolean
           published_at?: string
+          text_key?: string | null
           title: string
           version: string
         }
@@ -8242,6 +8253,7 @@ export type Database = {
           id?: string
           is_current?: boolean
           published_at?: string
+          text_key?: string | null
           title?: string
           version?: string
         }
@@ -27512,6 +27524,7 @@ export type Database = {
           custom_role_id: string | null
           date_of_birth: string | null
           dependent_kind: Database["public"]["Enums"]["dependent_kind"] | null
+          discreet_mode: boolean
           emergency_contact_consent: boolean
           emergency_contact_consent_at: string | null
           emergency_contact_name: string | null
@@ -27524,8 +27537,10 @@ export type Database = {
           is_dependent_account: boolean
           is_partner_admin: boolean
           is_pregnant: boolean
+          is_test: boolean
           lab_provider_id: string | null
           language: string
+          low_data_mode: boolean
           majority_review_at: string | null
           marketing_opt_in: boolean
           merged_at: string | null
@@ -27560,6 +27575,7 @@ export type Database = {
           custom_role_id?: string | null
           date_of_birth?: string | null
           dependent_kind?: Database["public"]["Enums"]["dependent_kind"] | null
+          discreet_mode?: boolean
           emergency_contact_consent?: boolean
           emergency_contact_consent_at?: string | null
           emergency_contact_name?: string | null
@@ -27572,8 +27588,10 @@ export type Database = {
           is_dependent_account?: boolean
           is_partner_admin?: boolean
           is_pregnant?: boolean
+          is_test?: boolean
           lab_provider_id?: string | null
           language?: string
+          low_data_mode?: boolean
           majority_review_at?: string | null
           marketing_opt_in?: boolean
           merged_at?: string | null
@@ -27608,6 +27626,7 @@ export type Database = {
           custom_role_id?: string | null
           date_of_birth?: string | null
           dependent_kind?: Database["public"]["Enums"]["dependent_kind"] | null
+          discreet_mode?: boolean
           emergency_contact_consent?: boolean
           emergency_contact_consent_at?: string | null
           emergency_contact_name?: string | null
@@ -27620,8 +27639,10 @@ export type Database = {
           is_dependent_account?: boolean
           is_partner_admin?: boolean
           is_pregnant?: boolean
+          is_test?: boolean
           lab_provider_id?: string | null
           language?: string
+          low_data_mode?: boolean
           majority_review_at?: string | null
           marketing_opt_in?: boolean
           merged_at?: string | null
@@ -29424,6 +29445,70 @@ export type Database = {
           },
           {
             foreignKeyName: "provider_time_off_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proxy_setups: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_profile_id: string | null
+          created_at: string
+          created_by_profile_id: string
+          expires_at: string
+          id: string
+          organisation_id: string
+          state: string
+          target_full_name: string
+          target_phone_e164: string
+          updated_at: string | null
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_profile_id?: string | null
+          created_at?: string
+          created_by_profile_id: string
+          expires_at: string
+          id?: string
+          organisation_id: string
+          state?: string
+          target_full_name: string
+          target_phone_e164: string
+          updated_at?: string | null
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_profile_id?: string | null
+          created_at?: string
+          created_by_profile_id?: string
+          expires_at?: string
+          id?: string
+          organisation_id?: string
+          state?: string
+          target_full_name?: string
+          target_phone_e164?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proxy_setups_confirmed_profile_id_fkey"
+            columns: ["confirmed_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proxy_setups_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proxy_setups_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
@@ -36764,6 +36849,18 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_consent_state: {
+        Row: {
+          consent_type_code: Database["public"]["Enums"]["consent_type"] | null
+          granted: boolean | null
+          granted_at: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          version: string | null
+          withdrawn_at: string | null
+        }
+        Relationships: []
+      }
       triage_safety_monitoring: {
         Row: {
           any_escalation_rate: number | null
@@ -39201,6 +39298,21 @@ export type Database = {
         }[]
       }
       open_health_check: { Args: never; Returns: string }
+      open_patient_identity_audited: {
+        Args: { p_patient: string; p_reason: string }
+        Returns: {
+          city: string
+          created_at: string
+          full_name: string
+          id: string
+          is_active: boolean
+          is_test: boolean
+          organisation_id: string
+          patient_number: string
+          phone: string
+          state: string
+        }[]
+      }
       ops_exception_counts: { Args: never; Returns: Json }
       ops_exception_queue: {
         Args: { p_domain?: string; p_limit?: number }
@@ -39576,6 +39688,16 @@ export type Database = {
           p_reason: string
         }
         Returns: boolean
+      }
+      read_patient_consents_audited: {
+        Args: { p_patient: string; p_reason: string }
+        Returns: {
+          consent_type_code: Database["public"]["Enums"]["consent_type"]
+          granted: boolean
+          granted_at: string
+          version: string
+          withdrawn_at: string
+        }[]
       }
       record_ai_human_override: {
         Args: {
@@ -40125,6 +40247,17 @@ export type Database = {
           snippet: string
           table_name: string
           title: string
+        }[]
+      }
+      search_patients_audited: {
+        Args: { p_query: string; p_reason: string }
+        Returns: {
+          full_name: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_number: string
+          phone_masked: string
         }[]
       }
       select_video_visit_alternate_slot: {
@@ -41132,6 +41265,10 @@ export type Database = {
         | "marketing"
         | "research"
         | "wearable_device_data"
+        | "care"
+        | "care_circle_sharing"
+        | "sponsor_reporting"
+        | "scribe_default"
       consultation_duration_type: "standard" | "extended" | "follow_up"
       consultation_outcome:
         | "reassurance"
@@ -43295,6 +43432,10 @@ export const Constants = {
         "marketing",
         "research",
         "wearable_device_data",
+        "care",
+        "care_circle_sharing",
+        "sponsor_reporting",
+        "scribe_default",
       ],
       consultation_duration_type: ["standard", "extended", "follow_up"],
       consultation_outcome: [

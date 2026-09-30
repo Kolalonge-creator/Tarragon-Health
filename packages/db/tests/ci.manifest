@@ -745,3 +745,12 @@ remove_platform_credit.sql
 # naive fix is proven to shorten the ladder (sabotage), patient reminders never
 # land on a dead channel, and no function still refers to the removed label.
 remove_whatsapp.sql
+
+# --- Added 2026-09-30 (S02) ---------------------------------------------------
+# v5 identity/consent/audit baseline: is_test is admin-or-service-only (INV-13) and
+# a lint ratchet flags unfiltered metric/payout views; proxy_setups RLS and state
+# machine; audit_log cannot be UPDATEd/DELETEd/TRUNCATEd by any app role; audited
+# search/open/consent reads write audit_log (query text never stored), refuse and
+# audit every non-admin role, admit an active break-glass grant but never for
+# reproductive_health; patient_consents is patient-read-only; one sabotage per area.
+s02_identity_consent_audit_baseline.sql
