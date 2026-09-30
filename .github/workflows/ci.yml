@@ -203,7 +203,11 @@ jobs:
           filters: |
             e2e:
               - "apps/web/**"
+              - "apps/console/**"
               - "packages/shared/**"
+              - "packages/auth/**"
+              - "packages/ui/**"
+              - "packages/staff-core/**"
               - "supabase/migrations/**"
               - "supabase/seed.sql"
               - ".github/workflows/ci.yml"
@@ -300,7 +304,8 @@ jobs:
           source /tmp/supabase-env.txt
           set +a
           : > apps/web/.env.local
-          for f in "$GITHUB_ENV" apps/web/.env.local; do
+          : > apps/console/.env.local
+          for f in "$GITHUB_ENV" apps/web/.env.local apps/console/.env.local; do
             echo "NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}" >> "$f"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}" >> "$f"
             echo "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}" >> "$f"
@@ -319,12 +324,30 @@ jobs:
           PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
         run: pnpm test:e2e-browser
 
+      # The extracted staff console (S01d) has its own Playwright suite: anonymous
+      # boundary and header checks always run; the sign-in specs use the same
+      # local stack the web suite just used (they skip without a service-role
+      # key, which this job always has). It builds and starts a production
+      # console, so the security headers it asserts are the deployed ones.
+      - name: Run console browser E2E tests
+        if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
+        working-directory: apps/console
+        run: pnpm test:e2e-browser
+
       - name: Upload Playwright report
         if: always() && (github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: apps/web/playwright-report/
+          retention-days: 14
+
+      - name: Upload console Playwright report
+        if: always() && (github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true')
+        uses: actions/upload-artifact@v4
+        with:
+          name: console-playwright-report
+          path: apps/console/playwright-report/
           retention-days: 14
 
       - name: Stop local Supabase stack

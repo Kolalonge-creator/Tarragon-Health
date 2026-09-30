@@ -3,6 +3,17 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## S01d decisions, 2026-09-30
+
+Answered in a prompt during S01d. Reasoning is in `docs/design/S01d.md`.
+
+| ID | Decision |
+|---|---|
+| S01d-1 | **Console sessions are separate host-only sessions.** No parent-domain cookie. A staff token never travels to the marketing or patient host. Cost: staff sign in once more on the console at each area's cutover (announce it). |
+| S01d-2 | **Shared code moves into `packages/` in tiers, per area,** not in one big extraction. Old `apps/web` import paths stay as one-line re-export shims (no import churn in patient code), retired later by a mechanical codemod. |
+| S01d-3 | **Scope of this session:** shell plus the smallest areas. Delivered: `apps/console`, `@tarragon/auth`, `@tarragon/ui` (components, theme), `@tarragon/staff-core`, and the `ngo` area. `lab-liaison` and `lab-partner` were held back (OQ-33). Remaining areas follow in later sessions in the mapped order. |
+| S01d-4 | **Console host is a `console.` subdomain** of the platform domain. Creating the Vercel project, DNS and env is a production action and waits for an explicit go-ahead (OQ-36). |
+
 ## Founder decisions, 2026-09-30
 
 Source: `docs/v5-sessions/00-FOUNDER-DECISIONS.md`. These settle conflicts between the v5 spec

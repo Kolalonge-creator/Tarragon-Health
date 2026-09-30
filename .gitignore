@@ -36,6 +36,8 @@ out/
 
 # playwright
 apps/web/playwright-report/
+apps/console/playwright-report/
+apps/console/test-results/
 apps/web/test-results/
 
 # production

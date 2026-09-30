@@ -1,0 +1,40 @@
+{
+  "name": "@tarragon/console",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:e2e-browser": "playwright test"
+  },
+  "dependencies": {
+    "@tarragon/auth": "workspace:*",
+    "@tarragon/i18n": "workspace:*",
+    "@tarragon/shared": "workspace:*",
+    "@tarragon/staff-core": "workspace:*",
+    "@tarragon/ui": "workspace:*",
+    "next": "16.3.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "jest": "^30.4.2",
+    "tailwindcss": "^4",
+    "ts-jest": "^29.4.11",
+    "typescript": "^5"
+  }
+}

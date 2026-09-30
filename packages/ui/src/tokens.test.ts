@@ -13,9 +13,9 @@ describe("design tokens", () => {
     for (const hex of Object.values(brandColors)) expect(hex).toMatch(/^#[0-9A-F]{6}$/);
   });
 
-  it("match the CSS custom properties in apps/web globals.css", () => {
+  it("match the CSS custom properties in the shared theme.css", () => {
     const css = readFileSync(
-      fileURLToPath(new URL("../../../apps/web/src/app/globals.css", import.meta.url)),
+      fileURLToPath(new URL("./theme.css", import.meta.url)),
       "utf8",
     );
     for (const name of Object.keys(brandColors) as BrandColorName[]) {

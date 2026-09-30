@@ -244,3 +244,47 @@ describe("marketing pages on the app host", () => {
     expect(new URL(location as string).hostname).toBe("app.tarragonhealth.ng");
   });
 });
+
+describe("staff areas extracted to apps/console", () => {
+  const original = process.env.CONSOLE_BASE_URL;
+  afterEach(() => {
+    if (original === undefined) delete process.env.CONSOLE_BASE_URL;
+    else process.env.CONSOLE_BASE_URL = original;
+  });
+
+  it("redirects an extracted area to the console host, keeping path and query, before touching the session", async () => {
+    process.env.CONSOLE_BASE_URL = "https://console.tarragonhealth.ng";
+    const res = await proxy(request("/ngo/roster?tab=invites"));
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("https://console.tarragonhealth.ng/ngo/roster?tab=invites");
+    expect(updateSession).not.toHaveBeenCalled();
+  });
+
+  it("redirects even when the caller claims to be a prefetch", async () => {
+    process.env.CONSOLE_BASE_URL = "https://console.tarragonhealth.ng";
+    const res = await proxy(request("/ngo", PREFETCH_HEADERS));
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("https://console.tarragonhealth.ng/ngo");
+  });
+
+  it("does not redirect an area that has not been extracted", async () => {
+    process.env.CONSOLE_BASE_URL = "https://console.tarragonhealth.ng";
+    stubSession({
+      user: { id: "u1" },
+      profile: { role: "clinician", custom_role_id: null, receives_care: null },
+    });
+    const res = await proxy(request("/clinician/worklist"));
+
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("redirects nobody when no console is configured, so shipping this first is safe", async () => {
+    delete process.env.CONSOLE_BASE_URL;
+    stubSession({ user: null, profile: null });
+    const res = await proxy(request("/ngo"));
+
+    expect(res.headers.get("location")).not.toContain("console");
+  });
+});

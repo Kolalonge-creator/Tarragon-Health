@@ -23,7 +23,7 @@ let profileRow: { id: string; role: string; custom_role_id: string | null } | nu
 let grantRows: { permission_key: string }[] = [];
 let rolePermissionRows: { permission_key: string }[] = [];
 
-jest.mock("@/lib/supabase/server", () => ({
+jest.mock("@tarragon/auth/supabase/server", () => ({
   createClient: jest.fn().mockImplementation(async () => ({
     auth: {
       getUser: async () => ({ data: { user: currentUser } }),
