@@ -19,6 +19,7 @@ const SEEDED_PHONE_LOCAL = "8031230002"; // +2348031230002, a confirmed account
 const SEEDED_PHONE_E164 = "+2348031230002";
 const UNVERIFIED_PHONE_LOCAL = "8031230003"; // +2348031230003, created but never confirmed
 const UNVERIFIED_PHONE_E164 = "+2348031230003";
+const DIRECT_PHONE_E164 = "+2348031230004"; // used only by the direct GoTrue sign-up test, never deleted
 const UNKNOWN_PHONE_LOCAL = "8031239999"; // not registered and not in test_otp
 const PASSWORD = "E2e-phone-pw-!Aa1-first";
 const NEW_PASSWORD = "E2e-phone-pw-!Aa1-second";
@@ -32,10 +33,13 @@ async function deleteUserByPhone(phone: string): Promise<void> {
     const users = data?.users ?? [];
     const found = users.find((u) => (u.phone ?? "").replace(/\D/g, "") === digits);
     if (found) {
-      // Throw rather than swallow: a delete that silently fails left the number registered and made every retry's
-      // beforeAll die with "Phone number already registered", hiding the first real failure (PR 816 CI).
+      // Warn, never swallow silently and never throw: CI showed deleting a user that has signed up fails on the stack
+      // (audit_log is append-only, so a profile that is an audit actor cannot be removed). A leftover is harmless on the
+      // fresh CI database; what it must not do is hide behind a generic error, so the reason is printed.
       const { error } = await adminClient.auth.admin.deleteUser(found.id);
-      if (error) throw new Error(`could not delete the test user for ${phone}: ${error.message}`);
+      if (error) {
+        console.warn(`[e2e-test] could not delete ${phone}: status=${error.status} code=${(error as { code?: string }).code} message=${JSON.stringify(error.message)}`);
+      }
       return;
     }
     if (users.length < 200) return;
@@ -91,13 +95,13 @@ test.describe("phone sign-up", () => {
   test("Auth itself accepts a phone sign-up for a test-OTP number", async () => {
     const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
     const { error } = await anon.auth.signUp({
-      phone: SIGNUP_PHONE_E164,
+      phone: DIRECT_PHONE_E164,
       password: PASSWORD,
       options: { data: { full_name: "[e2e-test] Direct Sign-up" } },
     });
     const code = (error as { code?: string } | null)?.code;
     expect(error, `Auth rejected a direct phone sign-up: status=${error?.status} code=${code} message=${error?.message}`).toBeNull();
-    await deleteUserByPhone(SIGNUP_PHONE_E164);
+    // Deliberately not deleted: this number is separate from the UI test's, so a leftover cannot collide with it.
   });
 
   test("creates the account, shows the code step, and only a correct code signs the person in", async ({ page }) => {

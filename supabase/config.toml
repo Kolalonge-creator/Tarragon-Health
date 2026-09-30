@@ -62,6 +62,7 @@ max_frequency = "60s"
 2348031230001 = "123456"
 2348031230002 = "123456"
 2348031230003 = "123456"
+2348031230004 = "123456"  # the direct GoTrue sign-up test; that user is left in place (see phone-auth.spec.ts)
 
 # S03: the Supabase CLI DISABLES phone sign-up and sign-in on the local stack when no SMS provider is enabled ("WARN: no SMS
 # provider is enabled. Disabling phone login", seen in the CI log), which made every phone flow in the browser E2E suite fail
