@@ -63,6 +63,17 @@ max_frequency = "60s"
 2348031230002 = "123456"
 2348031230003 = "123456"
 
+# S03: the Supabase CLI DISABLES phone sign-up and sign-in on the local stack when no SMS provider is enabled ("WARN: no SMS
+# provider is enabled. Disabling phone login", seen in the CI log), which made every phone flow in the browser E2E suite fail
+# with "Phone signups are disabled". This placeholder satisfies that check. It is NEVER called: every number the E2E suite
+# uses is in [auth.sms.test_otp] above, which GoTrue answers without sending. Local stack only; the hosted project uses the
+# Send SMS hook instead (docs/OPEN-QUESTIONS.md OQ-44).
+[auth.sms.twilio]
+enabled = true
+account_sid = "local-e2e-placeholder"
+message_service_sid = "local-e2e-placeholder"
+auth_token = "local-e2e-placeholder"
+
 # S03: the Send SMS hook is enabled in the hosted project's dashboard (Authentication > Hooks), not here. Enabling it
 # locally needs SEND_SMS_HOOK_SECRET in the environment; leave it off so `supabase start` and CI stay hermetic.
 # [auth.hook.send_sms]
