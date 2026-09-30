@@ -55,6 +55,14 @@ template = "Your TarragonHealth code is {{ .Code }}"
 otp_length = 6
 max_frequency = "60s"
 
+# S03: fixed one-time codes for the browser E2E suite (apps/web/e2e-browser/phone-auth.spec.ts). GoTrue accepts the listed
+# code for exactly these numbers and sends no SMS, so the flows run with no provider. LOCAL STACK ONLY: this file is never
+# applied to the hosted project, and these numbers are reserved for tests.
+[auth.sms.test_otp]
+2348031230001 = "123456"
+2348031230002 = "123456"
+2348031230003 = "123456"
+
 # S03: the Send SMS hook is enabled in the hosted project's dashboard (Authentication > Hooks), not here. Enabling it
 # locally needs SEND_SMS_HOOK_SECRET in the environment; leave it off so `supabase start` and CI stay hermetic.
 # [auth.hook.send_sms]

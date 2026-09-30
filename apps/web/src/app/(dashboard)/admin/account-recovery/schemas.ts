@@ -35,7 +35,7 @@ export const executeSchema = requestIdSchema.extend({
   newPhone: z.string().trim().regex(/^\+[1-9][0-9]{7,14}$/, "Enter the new number in international format, like +2348012345678.").optional(),
 });
 
-export type ActionResult<T = Record<string, never>> = ({ ok: true } & T) | { ok: false; error: string };
+export type ActionResult<T extends object = object> = ({ ok: true } & T) | { ok: false; error: string };
 
 export const ERROR_COPY: Record<string, string> = {
   not_authorised: "Only an admin can do this.",
