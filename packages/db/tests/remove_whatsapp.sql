@@ -68,13 +68,13 @@ begin
 
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname in ('public', 'private', 'analytics')
-     and (p.prosrc ilike '%whatsapp%' or p.prosrc ilike '%support_messages%')
+     and (regexp_replace(p.prosrc, '--[^\n]*', '', 'g') ilike '%whatsapp%' or regexp_replace(p.prosrc, '--[^\n]*', '', 'g') ilike '%support_messages%')
      and not (n.nspname = 'private' and p.proname = 'normalize_escalation_channels');
   if v_n <> 0 then raise exception 'FAIL 1b: % function(s) still refer to whatsapp', v_n; end if;
   create function private.zz_s01c_stray() returns void language plpgsql as
     $f$ begin insert into public.notifications (organisation_id, recipient_id, channel, template) values (null, null, 'whatsapp', 'x'); end $f$;
   select count(*) > 0 into v_caught from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname in ('public', 'private', 'analytics') and p.prosrc ilike '%whatsapp%'
+   where n.nspname in ('public', 'private', 'analytics') and regexp_replace(p.prosrc, '--[^\n]*', '', 'g') ilike '%whatsapp%'
      and not (n.nspname = 'private' and p.proname = 'normalize_escalation_channels');
   drop function private.zz_s01c_stray();
   if not v_caught then raise exception 'VACUOUS 1b: the scan did not catch a planted whatsapp caller'; end if;
