@@ -25,6 +25,12 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = Number(process.env.PLAYWRIGHT_WEB_PORT ?? 3100);
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
+// CI runs a production build (`next build` + `next start`), like apps/console's own suite does. `next dev` compiles each
+// route on its first request, and in PR 816's CI that produced an intermittent /patient 404 that never cleared plus
+// slow first hits; a production server has nothing to compile on demand. Locally the default stays `next dev`, which
+// is quicker to start; set E2E_PRODUCTION_BUILD=1 to reproduce CI.
+const PRODUCTION_BUILD = !!process.env.CI || process.env.E2E_PRODUCTION_BUILD === "1";
+
 export default defineConfig({
   testDir: "./e2e-browser",
   // fullyParallel left at Playwright's own default (false): tests within
@@ -60,10 +66,10 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
-    command: "pnpm dev",
+    command: PRODUCTION_BUILD ? `pnpm build && pnpm exec next start -p ${PORT}` : "pnpm dev",
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: PRODUCTION_BUILD ? 600_000 : 120_000,
     // Pipe the dev server's own output so Playwright's report carries Next's request log. Found 2026-09-30: with the
     // default (stdout ignored) the b2c login test got a 404 for /patient on every attempt on the S01d branch; with
     // this it passed. Cause not established, so this is a workaround that also makes the next failure diagnosable.
@@ -78,7 +84,7 @@ export default defineConfig({
       // vars" step for the actual root cause this CI job hit: a naive
       // `cat >> $GITHUB_ENV` of the Supabase CLI's raw, quoted output left
       // literal quote characters inside NEXT_PUBLIC_SUPABASE_URL's value).
-      NODE_ENV: "development",
+      ...(PRODUCTION_BUILD ? {} : { NODE_ENV: "development" }),
     },
   },
 });
