@@ -630,3 +630,9 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
   engineering scope; distinct from the NGO-funded-cohort *product* mechanics (funding_programmes/
   funding_programme_invitations, dormant module `ngo_funded_cohort` — see the platform_modules
   activation gate), which this document assumes as the delivery model once a partnership is signed
+
+## v5 upgrade (started 2026-09-30)
+
+The v5 build spec lives at `docs/BUILD-SPEC-v5.md` (never edit it; sessions cite its line numbers). Session prompts are in `docs/v5-sessions/` (`00-INDEX.md`, `00-FOUNDER-DECISIONS.md`). Audit of spec vs live platform: `docs/RECONCILIATION.md`. Open conflicts awaiting a decision: `docs/OPEN-QUESTIONS.md`. Decisions: `docs/DECISIONS.md`. Progress log: `docs/BUILD-PROGRESS.md`. This file stays the operating contract; where v5 conflicts with it, write the conflict into `docs/OPEN-QUESTIONS.md` and stop that piece.
+
+Rule: **PROPOSED values live in versioned configuration** (`packages/shared/src/proposed-config`), never hard-coded; a repo scan test enforces it.
