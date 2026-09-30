@@ -7,8 +7,7 @@ export type PatientReceiptServiceType =
   | "pharmacy"
   | "referral"
   | "consultation"
-  | "care_voucher"
-  | "platform_credit_topup";
+  | "care_voucher";
 
 export type PatientReceiptStatus =
   "successful" | "pending" | "failed" | "refunded" | "pending_refund";

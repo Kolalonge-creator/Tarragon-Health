@@ -1,33 +1,27 @@
 /**
  * video-visit-booking.ts mixes two shapes: plain RLS-scoped Supabase reads
- * (slots/price/my requests/cancel) and two api.ts passthrough wrappers for
- * the writes that need more than the mobile client's own session (reserving
- * against platform credit, picking a doctor's alternate slot) — see the
- * module header. These tests cover the shaping/branching this file itself
- * does, not request()'s own auth/retry policy (api.test.ts) or the RPC/route
+ * (slots/price/my requests/cancel) and one api.ts passthrough wrapper for
+ * the write that needs more than the mobile client's own session (picking a
+ * doctor's alternate slot) — see the module header. These tests cover the
+ * shaping/branching this file itself does, not request()'s own auth/retry policy (api.test.ts) or the RPC/route
  * logic itself (exercised server-side).
  */
 import { supabase } from "./supabase";
-import { postVideoVisitRequestWithPlatformCredit, postSelectVideoVisitAlternateSlot } from "./api";
+import { postSelectVideoVisitAlternateSlot } from "./api";
 import {
   loadOpenVideoVisitSlots,
   loadVideoVisitPrice,
   loadMyVideoVisitRequests,
-  requestVideoVisitWithPlatformCredit,
   cancelVideoVisitRequest,
   selectVideoVisitAlternateSlot,
 } from "./video-visit-booking";
 
 jest.mock("./supabase", () => ({ supabase: { from: jest.fn() } }));
 jest.mock("./api", () => ({
-  postVideoVisitRequestWithPlatformCredit: jest.fn(),
   postSelectVideoVisitAlternateSlot: jest.fn(),
 }));
 
 const mockFrom = supabase.from as unknown as jest.Mock;
-const mockRequestWithCredit = postVideoVisitRequestWithPlatformCredit as jest.MockedFunction<
-  typeof postVideoVisitRequestWithPlatformCredit
->;
 const mockSelectAlternate = postSelectVideoVisitAlternateSlot as jest.MockedFunction<
   typeof postSelectVideoVisitAlternateSlot
 >;
@@ -152,32 +146,6 @@ describe("cancelVideoVisitRequest", () => {
   it("surfaces a delete error", async () => {
     seedTables({ video_visit_requests: table(null, { message: "not allowed" }) });
     await expect(cancelVideoVisitRequest("req-1")).resolves.toEqual({ ok: false, error: "not allowed" });
-  });
-});
-
-describe("requestVideoVisitWithPlatformCredit", () => {
-  it("maps a successful reservation", async () => {
-    mockRequestWithCredit.mockResolvedValue({ ok: true, request_id: "req-1", amount_kobo: 500000 });
-    await expect(requestVideoVisitWithPlatformCredit("slot-1")).resolves.toEqual({
-      ok: true,
-      data: { requestId: "req-1", amountKobo: 500000 },
-    });
-    expect(mockRequestWithCredit).toHaveBeenCalledWith("slot-1", undefined);
-  });
-
-  it("surfaces the server's human-readable error on insufficient balance", async () => {
-    mockRequestWithCredit.mockResolvedValue({
-      ok: false,
-      reason: "insufficient_balance",
-      balance_kobo: 100000,
-      required_kobo: 500000,
-      shortfall_kobo: 400000,
-      error: "You need ₦4,000 more in platform credit to reserve this visit.",
-    });
-    await expect(requestVideoVisitWithPlatformCredit("slot-1")).resolves.toEqual({
-      ok: false,
-      error: "You need ₦4,000 more in platform credit to reserve this visit.",
-    });
   });
 });
 

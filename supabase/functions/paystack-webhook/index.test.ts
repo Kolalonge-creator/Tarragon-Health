@@ -324,20 +324,19 @@ Deno.test({
   },
 });
 
-// Regression coverage for the 5 CheckoutKind values that had NO branch at
+// Regression coverage for the 4 CheckoutKind values that had NO branch at
 // all until this change (voucher_payment, sponsored_subscription,
-// screening_day_payment, subsidy_contribution, platform_credit_topup) —
+// screening_day_payment, subsidy_contribution) —
 // see handler.ts's charge.success handler for the full incident writeup,
 // including the CORRECTED 2026-09-23 note: the first version of this branch
 // trusted the trigger blindly (bare markProcessed(), no re-check), which a
 // code review caught as a SILENT FALSE SUCCESS risk — subsidy_contribution's
-// and platform_credit_topup's own triggers have documented silent no-op
-// paths. These fixtures mirror exactly what each trigger's OWN migration
+// own trigger has a documented silent no-op path. These fixtures mirror exactly what each trigger's OWN migration
 // leaves behind in its target table, both when it activated the row and
 // when it didn't (stale/mismatched reference, or the trigger's silent
 // no-op), so both directions are proven, not just the happy path.
 const TRIGGER_ACTIVATED_KIND_FIXTURES: Record<
-  "voucher_payment" | "sponsored_subscription" | "screening_day_payment" | "subsidy_contribution" | "platform_credit_topup",
+  "voucher_payment" | "sponsored_subscription" | "screening_day_payment" | "subsidy_contribution",
   { table: string; activatedRow: Record<string, unknown>; notYetActivatedRow: Record<string, unknown> | null }
 > = {
   voucher_payment: {
@@ -363,11 +362,6 @@ const TRIGGER_ACTIVATED_KIND_FIXTURES: Record<
     activatedRow: { id: "sc-1", organisation_id: "org-1", status: "payment_confirmed", payment_provider_ref: "TXN_REF_001" },
     notYetActivatedRow: { id: "sc-1", organisation_id: "org-1", status: "pending_payment", pending_payment_provider_ref: "TXN_REF_001" },
   },
-  platform_credit_topup: {
-    table: "platform_credit_topup_intents",
-    activatedRow: { id: "pct-1", organisation_id: "org-1", status: "completed", payment_provider_ref: "TXN_REF_001" },
-    notYetActivatedRow: { id: "pct-1", organisation_id: "org-1", status: "pending_payment", pending_payment_provider_ref: "TXN_REF_001" },
-  },
 };
 
 for (
@@ -376,7 +370,6 @@ for (
     "sponsored_subscription",
     "screening_day_payment",
     "subsidy_contribution",
-    "platform_credit_topup",
   ] as const
 ) {
   const fixture = TRIGGER_ACTIVATED_KIND_FIXTURES[kind];
@@ -734,5 +727,21 @@ Deno.test({
     assertEquals(client.rows("payment_transactions").length, 2);
     const [first, second] = client.rows("payment_transactions");
     assert(first.provider_event_id !== second.provider_event_id);
+  },
+});
+
+// Platform Credit was removed 2026-09-30 (S01b). A stray late top-up charge (one already in flight at
+// Paystack when the feature went away) has no handler any more. It must be marked FAILED loudly so
+// finance sees money that arrived with nowhere to go, never reported as successfully processed.
+Deno.test({
+  name: "charge.success (platform_credit_topup, retired kind): falls through and is marked failed, never silently processed",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+  async fn() {
+    const client = newClient();
+    await postWith(client, chargeSuccess({ metadata: { kind: "platform_credit_topup", profile_id: "profile-1" } }));
+
+    const txn = client.rows("payment_transactions")[0];
+    assertEquals(txn.processed_at, undefined);
+    assert(typeof txn.error === "string" && txn.error.length > 0);
   },
 });

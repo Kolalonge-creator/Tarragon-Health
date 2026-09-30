@@ -8,7 +8,7 @@ import type { Tables } from "@tarragon/shared";
 // two-step RPC: the credit gate lives in a BEFORE INSERT trigger on
 // second_opinion_requests (20260831165614_second_opinion_requests.sql),
 // which raises a specific, catchable error when no credit exists — this file
-// never pre-checks credit balance client-side, same reasoning as
+// never pre-checks for a credit client-side, same reasoning as
 // care-support.ts's ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER.
 // ---------------------------------------------------------------------------
 
@@ -49,12 +49,6 @@ async function fetchAnswerers(answererIds: string[]): Promise<Map<string, Second
 /** Matches the trigger's raised text exactly: 'Buy a second opinion credit
  * to send this request.' (second_opinion_requests_enforce_credit). */
 export const SECOND_OPINION_CREDIT_REQUIRED_MARKER = "second opinion credit";
-
-/** The service_products code this request spends — see
- * private.enforce_second_opinion_credit and platform-credit.ts's
- * trySpendPlatformCreditForService, which the section calls with this code
- * to settle the credit from platform credit in-app before retrying. */
-export const SECOND_OPINION_CREDIT_CODE = "second_opinion_credit";
 
 export async function loadMySecondOpinionRequests(
   patientId: string

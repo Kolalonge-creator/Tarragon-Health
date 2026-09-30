@@ -8,7 +8,7 @@ import type { Tables } from "@tarragon/shared";
 // two-step RPC: the credit gate lives in a BEFORE INSERT trigger on
 // senior_case_reviews (20260831171703_senior_case_reviews.sql), which raises
 // a specific, catchable error when no credit exists — this file never
-// pre-checks credit balance client-side, same reasoning as care-support.ts's
+// pre-checks for a credit client-side, same reasoning as care-support.ts's
 // ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER.
 // ---------------------------------------------------------------------------
 
@@ -48,10 +48,6 @@ async function fetchReviewers(reviewerIds: string[]): Promise<Map<string, Senior
 /** Matches the trigger's raised text exactly: 'Buy a senior case review
  * credit to request this.' (senior_case_reviews_enforce_credit). */
 export const SENIOR_CASE_REVIEW_CREDIT_REQUIRED_MARKER = "senior case review credit";
-
-/** The service_products code this request spends — see
- * platform-credit.ts's trySpendPlatformCreditForService. */
-export const SENIOR_CASE_REVIEW_CREDIT_CODE = "senior_case_review_credit";
 
 export async function loadMySeniorCaseReviews(
   patientId: string

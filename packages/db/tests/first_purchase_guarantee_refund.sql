@@ -5,9 +5,8 @@
 -- Exercises the REAL activation pipeline rather than hand-rolled fixtures
 -- where practical: a fixture purchase is created via
 -- record_service_purchase_intent() and then activated by inserting the same
--- shape of payment_transactions row the Paystack webhook would insert (for
--- the card-paid case) or via the real pay_service_purchase_on_platform_credit
--- RPC (for the credit-paid case) — so the fixtures also exercise
+-- shape of payment_transactions row the Paystack webhook would insert — so
+-- the fixtures also exercise
 -- apply_service_purchase_payment/finance_post_from_payment/
 -- finance_create_recognition_schedule/activate_chronic_programme_doctor_
 -- supported_track exactly as production would, not a guess at their shape.
@@ -18,8 +17,8 @@
 -- succeeds is unproven), GL reversal correctness including an
 -- ALREADY-RECOGNISED revenue tranche (the case 20260905204245_reverse_
 -- phantom_service_purchase_revenue.sql exists to warn about), the Paystack
--- refund queue shape, the platform-credit balance restoration + its GL
--- reversal, the chronic-programme track downgrade, and a repeat-decide
+-- refund queue shape, the chronic-programme track downgrade, the removal of
+-- the retired platform_credit payment provider (S01b), and a repeat-decide
 -- idempotency guard.
 --
 -- Run:  npx supabase db query --linked -f packages/db/tests/first_purchase_guarantee_refund.sql
@@ -52,7 +51,7 @@ declare
   v_entry_reversed     boolean;
   v_recog_entry_id     uuid;
   v_recog_reversed     boolean;
-  -- Platform-credit + chronic-programme-track fixture
+  -- Chronic-programme-track fixture (card-paid)
   v_patient2           uuid;
   v_org2               uuid;
   v_have_patient2      boolean := false;
@@ -60,9 +59,8 @@ declare
   v_product_c          public.service_products%rowtype;
   v_enrolment_id       uuid;
   v_purchase_c         uuid;
-  v_res_c              jsonb;
-  v_ledger_before      bigint;
-  v_ledger_after       bigint;
+  v_ref_c              text;
+  v_txn_c_amount       bigint;
   v_claim_id2          uuid;
   v_track_after        public.chronic_programme_track;
 begin
@@ -253,7 +251,7 @@ begin
   end if;
 
   -- =========================================================================
-  -- 4. Platform-credit path + chronic-programme track downgrade — a
+  -- 4. Chronic-programme track downgrade on a card-paid purchase — a
   --    separate, purchase-history-free patient so their guarantee-eligible
   --    "first purchase" is unambiguous.
   -- =========================================================================
@@ -269,7 +267,7 @@ begin
   v_have_patient2 := v_admin is not null and v_patient2 is not null and v_programme_id is not null and v_product_c.id is not null;
 
   if not v_have_patient2 then
-    raise notice 'SKIPPED platform-credit/chronic-track section: no second purchase-history-free patient / chronic programme / doctor-supported product fixture available';
+    raise notice 'SKIPPED chronic-track section: no second purchase-history-free patient / chronic programme / doctor-supported product fixture available';
   else
     insert into public.chronic_programme_enrolments (organisation_id, patient_id, programme_id, status)
     values (v_org2, v_patient2, v_programme_id, 'enrolled')
@@ -280,20 +278,22 @@ begin
     -- activation_check.sql already).
     update public.chronic_programme_enrolments set track = 'doctor_supported' where id = v_enrolment_id;
 
-    perform private.platform_credit_apply(
-      p_patient_id := v_patient2, p_organisation_id := v_org2, p_entry_type := 'topup',
-      p_amount_kobo := v_product_c.price_kobo + 500000, p_description := 'guarantee-test funding'
-    );
-    select balance_kobo into v_ledger_before from public.platform_credit_balances where patient_id = v_patient2;
-
+    -- Real card-paid activation: same payment_transactions row shape the Paystack webhook inserts.
     perform set_config('request.jwt.claims', json_build_object('sub', v_patient2, 'role', 'authenticated')::text, true);
     set local role authenticated;
     v_purchase_c := public.record_service_purchase_intent(v_patient2, v_product_c.code, 'chronic_programme_enrolments', v_enrolment_id);
-    select public.pay_service_purchase_on_platform_credit(v_purchase_c) into v_res_c;
     reset role;
+    v_ref_c := 'TEST-GUAR-C-' || v_purchase_c::text;
+    update public.service_purchases set pending_payment_provider_ref = v_ref_c where id = v_purchase_c;
+    insert into public.payment_transactions
+      (organisation_id, provider, provider_event_id, event_type, amount_minor, currency, raw_payload, processed_at)
+    values
+      (v_org2, 'paystack', 'test-evt-guar-c-' || v_purchase_c::text, 'charge.success', v_product_c.price_kobo, 'NGN',
+       jsonb_build_object('data', jsonb_build_object('reference', v_ref_c, 'metadata', jsonb_build_object('kind', 'service_purchase'))),
+       now());
 
-    if (v_res_c ->> 'ok')::boolean is distinct from true then
-      raise exception 'FIXTURE FAIL: platform-credit purchase of % did not succeed, got %', v_product_c.code, v_res_c;
+    if (select status from public.service_purchases where id = v_purchase_c) is distinct from 'active' then
+      raise exception 'FIXTURE FAIL: purchase C was not activated by the simulated webhook payment';
     end if;
     if (select track from public.chronic_programme_enrolments where id = v_enrolment_id) is distinct from 'doctor_supported' then
       raise exception 'FIXTURE FAIL: expected the enrolment to still be doctor_supported after the fixture purchase';
@@ -304,28 +304,25 @@ begin
     select public.request_purchase_guarantee_refund(v_purchase_c) into v_res;
     reset role;
     if (v_res ->> 'ok')::boolean is distinct from true then
-      raise exception 'FAIL 12: the platform-credit-paid first purchase should be claimable, got %', v_res;
+      raise exception 'FAIL 12: the card-paid first purchase of a chronic product should be claimable, got %', v_res;
     end if;
     v_claim_id2 := (v_res ->> 'claim_id')::uuid;
-    insert into _checks (msg) values ('PASS 12: a platform-credit-paid first purchase is claimable');
+    insert into _checks (msg) values ('PASS 12: a card-paid first purchase of a chronic product is claimable');
 
     perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
     set local role authenticated;
     select public.decide_purchase_guarantee_refund(v_claim_id2, true, 'approved for test') into v_res;
     reset role;
-    if (v_res ->> 'ok')::boolean is distinct from true or (v_res ->> 'refund_mode') is distinct from 'platform_credit_restored' then
-      raise exception 'FAIL 13: admin approval of a platform-credit-paid claim should succeed platform_credit_restored, got %', v_res;
+    if (v_res ->> 'ok')::boolean is distinct from true or (v_res ->> 'refund_mode') is distinct from 'queued' then
+      raise exception 'FAIL 13: admin approval of a card-paid claim should succeed with refund_mode=queued, got %', v_res;
     end if;
-    insert into _checks (msg) values ('PASS 13: an admin approves a platform-credit-paid claim, refund_mode=platform_credit_restored');
+    insert into _checks (msg) values ('PASS 13: an admin approves a card-paid chronic-product claim, refund_mode=queued');
 
-    select balance_kobo into v_ledger_after from public.platform_credit_balances where patient_id = v_patient2;
-    if v_ledger_after <= v_ledger_before - v_product_c.price_kobo then
-      -- Allow for the earlier topup fixture; the assertion that matters is
-      -- the balance went back UP by (about) the spend amount after refund,
-      -- not the exact absolute figure.
-      raise exception 'FAIL 14: platform credit balance was not restored by the refund (before=%, after=%)', v_ledger_before, v_ledger_after;
+    select amount_minor into v_txn_c_amount from public.service_purchase_refund_queue where service_purchase_id = v_purchase_c;
+    if v_txn_c_amount is distinct from v_product_c.price_kobo then
+      raise exception 'FAIL 14: the Paystack refund queue should carry the amount charged (%), got %', v_product_c.price_kobo, v_txn_c_amount;
     end if;
-    insert into _checks (msg) values ('PASS 14: the patient''s platform credit balance is restored');
+    insert into _checks (msg) values ('PASS 14: the Paystack refund is queued for the amount actually charged');
 
     select track into v_track_after from public.chronic_programme_enrolments where id = v_enrolment_id;
     if v_track_after is distinct from 'self_monitoring' then
@@ -333,20 +330,12 @@ begin
     end if;
     insert into _checks (msg) values ('PASS 15: the chronic-programme enrolment track is downgraded back to self_monitoring on refund');
 
-    -- Review fix: no duplicate GL posting on the liability account. The
-    -- 'spend-paid' entry must be left UN-reversed — correct_platform_credit
-    -- is now the sole reversal mechanism for a platform-credit-paid
-    -- purchase; also reversing the original spend entry would double-debit
-    -- account 2100/2600 for one restoration event.
-    if exists (
-      select 1 from public.finance_journal_entries e
-      join public.platform_credit_ledger_entries l
-        on e.source = 'platform_credit' and e.source_ref = 'spend-paid:' || l.id::text
-      where l.service_purchase_id = v_purchase_c and e.is_reversed = true
-    ) then
-      raise exception 'FAIL 16: the platform-credit spend entry was reversed — this is the double-GL-posting bug the review fix removed';
+    -- S01b: Platform Credit is gone. The payment_provider enum no longer has the label, so a purchase can
+    -- never be recorded as credit-funded, and the claim RPC refuses anything that is not a Paystack payment.
+    if exists (select 1 from pg_enum where enumtypid = 'public.payment_provider'::regtype and enumlabel = 'platform_credit') then
+      raise exception 'FAIL 16: payment_provider still has the retired platform_credit label';
     else
-      insert into _checks (msg) values ('PASS 16: the platform-credit spend entry is left untouched (correct_platform_credit is the sole reversal path, no double-debit)');
+      insert into _checks (msg) values ('PASS 16: payment_provider has no platform_credit label (Platform Credit removed)');
     end if;
   end if;
 

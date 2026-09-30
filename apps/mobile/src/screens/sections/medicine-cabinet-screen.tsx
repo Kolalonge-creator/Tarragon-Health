@@ -98,8 +98,8 @@ function Pill({ tone, children }: { tone: "green" | "amber" | "grey" | "red"; ch
  * reporting, prescription amendment, and past (stopped) medications
  * history. The paid prescription-renewal purchase flow (see
  * pharmacy-orders-section.tsx, rendered below) is now built: a patient can
- * see every pharmacy_orders row on file and pay a pending one with
- * Platform Credit or, via a system-browser fallback, by card — what's
+ * see every pharmacy_orders row on file and pay a pending one by card
+ * via the system browser — what's
  * still web-only is order CREATION from the pharmacy catalogue, because
  * every pharmacy_partners row is is_active=false platform-wide today (see
  * lib/prescription-renewal.ts's module comment). "Check my pack" keeps

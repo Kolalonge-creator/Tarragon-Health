@@ -139,58 +139,6 @@ export async function requestVideoVisit(
   redirect(result.checkoutUrl);
 }
 
-/**
- * Platform-credit twin of requestVideoVisit above. Same insert, same price
- * pinning — but instead of an external Paystack redirect, this calls
- * confirm_video_visit_request_on_platform_credit, which only CHECKS the
- * caller's platform credit balance covers the pinned price and, if so,
- * flips status straight to 'payment_confirmed' (payment_provider=
- * 'platform_credit', payment_provider_ref left null). Nothing is actually
- * spent yet — see that migration's header for why: the real spend is
- * deferred to the moment a doctor accepts (private.pay_video_visit_
- * request_on_platform_credit, called from accept_video_visit_request /
- * select_video_visit_alternate_slot). If the balance check fails, the
- * half-created request row is deleted rather than left dangling — the
- * patient sees the error and can pick a slot again, by card or by credit.
- */
-export async function requestVideoVisitWithPlatformCredit(
-  _prev: RequestVideoVisitState,
-  formData: FormData
-): Promise<RequestVideoVisitState> {
-  const inserted = await insertVideoVisitRequestRow(formData);
-  if (!inserted.ok) return inserted.error;
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("confirm_video_visit_request_on_platform_credit", {
-    p_request_id: inserted.requestId,
-  });
-
-  const result = data as
-    | { ok: true; request_id: string; amount_kobo: number }
-    | { ok: false; reason: "not_payable"; status: string }
-    | { ok: false; reason: "unsupported_currency"; currency: string }
-    | { ok: false; reason: "insufficient_balance"; balance_kobo: number; required_kobo: number; shortfall_kobo: number }
-    | null;
-
-  if (error || !result || !result.ok) {
-    // Never leave a half-created, unpaid request lingering — the patient
-    // can simply try again (by card, or after topping up).
-    await supabase
-      .from("video_visit_requests")
-      .delete()
-      .eq("id", inserted.requestId)
-      .in("status", ["requested", "pending_payment"]);
-
-    if (result && !result.ok && result.reason === "insufficient_balance") {
-      const shortfallNaira = Math.ceil(result.shortfall_kobo / 100).toLocaleString();
-      return { error: `You need ₦${shortfallNaira} more in platform credit to reserve this visit.` };
-    }
-    return { error: error?.message ?? "Could not reserve this visit with platform credit." };
-  }
-
-  redirect("/patient#book-video-visit");
-}
-
 /** Patient withdraws a request that hasn't been paid yet (RLS-enforced). */
 export async function cancelVideoVisitRequest(requestId: string): Promise<void> {
   const parsed = z.string().uuid().safeParse(requestId);

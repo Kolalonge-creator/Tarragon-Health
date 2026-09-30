@@ -26,7 +26,7 @@ const REFUSAL_COPY: Record<Exclude<RequestGuaranteeRefundResult, { ok: true }>["
   not_found: "We could not find that purchase on your account.",
   not_refundable_status: "This purchase is not in a state we can refund right now.",
   not_eligible_provider:
-    "This guarantee covers purchases paid with your own card or platform credit. This one was not.",
+    "This guarantee covers purchases paid with your own card. This one was not.",
   nothing_paid: "There is nothing to refund on this purchase.",
   window_expired: "This purchase is outside the 30-day guarantee window.",
   not_first_purchase: "This guarantee applies to your very first purchase only.",
@@ -38,7 +38,7 @@ const REFUSAL_COPY: Record<Exclude<RequestGuaranteeRefundResult, { ok: true }>["
  * money-back guarantee. Every refund goes through a pending-claim →
  * admin-decides flow — this only ever calls
  * request_purchase_guarantee_refund, never decide_purchase_guarantee_refund.
- * Eligibility (first-ever purchase, 30-day window, card/platform-credit
+ * Eligibility (first-ever purchase, 30-day window, card
  * paid) is entirely server-derived: this button is offered on every
  * active/expired purchase and simply reports back whatever reason the RPC
  * gives, rather than guessing eligibility client-side first.

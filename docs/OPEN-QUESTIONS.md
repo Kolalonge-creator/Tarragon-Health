@@ -184,3 +184,10 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) keep Care Coordinator unchanged; (b) remove it too (doctors do all coordination, matching the 2026-09-18 "direct doctor to patient" principle); (c) keep it but dormant until volume needs it.
 - Recommend (a) or (c): removing it is a separate staffing decision and the repo's own principle already treats coordinators as a later scaling lever, not a gate.
 - Decision (founder, 2026-09-30): Keep the Care Coordinator account but dormant until patient volume needs it. No migration now; never a gate between patient and doctor.
+
+### OQ-28 Leftover test balance on GL account 2100 (customer funds)
+- Raised by S01b (Platform Credit removal). Blocks: nothing in S01b; needs a finance decision.
+- Finding: every Platform Credit balance and ledger row is 0, but general-ledger account 2100 "customer funds" still nets to a 250,000 kobo (NGN 2,500) credit. It comes from the 2026-09-17 E2E test run: a 1,000,000 kobo test top-up (entry 289), a 750,000 spend (entry 290, later reversed by adjustment 370) and its corrected re-post (entry 371). Account 2600 "Promotional credit outstanding" nets to 0. The period (2026-09) is still open. No real money is involved (Paystack test mode).
+- Options: (a) post one dated adjustment entry that clears the 250,000 against an appropriate test-clean-up account, with a memo naming entries 289 to 371; (b) leave it and footnote it in the period close; (c) reverse the whole test set (entries 289, 290, 298, 299, 303, 304, 371) so the period shows no trace.
+- Recommend (a): posted entries are append-only, (c) rewrites history the audit trail should keep, (b) leaves a phantom liability on a balance sheet.
+- Decision:

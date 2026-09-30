@@ -132,15 +132,8 @@ diagnostic_episode_engine.sql
 # self-claim auto_generated=true (server-derived, no GUC leak).
 auto_generated_continuous_clinical_note.sql
 
-# --- Added 2026-09-17 --------------------------------------------------
-# Platform Credit: a patient session cannot write platform_credit_balances/
-# _ledger_entries/_topup_intents directly (only private.platform_credit_apply,
-# a SECURITY DEFINER RPC, can), a patient cannot read another patient's
-# balance/ledger, a spend consumes the promotional (admin-granted) bucket
-# before the paid (real-money) bucket, an overspend is refused without
-# partial application, and a sabotage run (restoring the old grant+policy
-# shape) proves the RLS checks actually discriminate.
-platform_credit_ledger.sql
+# --- 2026-09-30 (S01b): the Platform Credit proofs (platform_credit_ledger, platform_credit_spend_revenue_deferral,
+#     platform_credit_topups_kill_switch) were deleted with the feature; remove_platform_credit.sql is their replacement.
 
 # --- Added 2026-09-18 --------------------------------------------------
 # Standing regression coverage for two of the four bug classes found in the
@@ -158,16 +151,6 @@ platform_credit_ledger.sql
 # apps/web/src/app/onboarding/consent-onlytypes-scope.test.ts (Jest).
 notification_channel_preference_dead_channel_no_lockin.sql
 
-# private.finance_post_platform_credit_ledger_entry()'s 'spend' branch used to
-# credit revenue account 4100 (immediate) unconditionally, with no check for
-# whether the purchased service has a bounded access window -- the equivalent
-# card-payment path correctly defers to 2000 + a revenue_recognition_schedules
-# row when service_products.access_duration_days is set. Proves a bounded-
-# access spend defers to 2000 with a matching recognition schedule, a
-# genuinely unbounded (one-off) product still posts straight to 4100 with no
-# schedule created, and a sabotage run (reverting to unconditional 4100)
-# reopens the hole on the bounded case.
-platform_credit_spend_revenue_deferral.sql
 
 # The three DSAR request tables (data_export_requests, data_deletion_requests,
 # data_correction_requests) shipped with RLS/attribution triggers allowing an
@@ -309,13 +292,8 @@ ngo_funded_cohort.sql
 can_read_clinical_bare_literal_policy_cast.sql
 
 # --- Added 2026-09-22 — launch-scope audit reconciliation --------------------
-# Three standing proofs for the launch-scope audit reconciliation work
+# Standing proofs for the launch-scope audit reconciliation work
 # (see docs/LAUNCH_SCOPE_AND_PLATFORM_REBUILD_AUDIT_2026-09-21.md):
-#   platform_credit_topups_kill_switch.sql — the new platform_credit_topups
-#     module gates record_platform_credit_topup_intent (refuses while off,
-#     opens once a superadmin switches it on via set_platform_module, closes
-#     again on toggle-back) while spend and balance/ledger reads are always
-#     unaffected, proven with a real funded balance throughout.
 #   continuous_monitoring_90d_single_tier.sql — the retired 3/6/12-month
 #     tiers are inactive but an EXISTING active purchase against one still
 #     grants access (deactivating a product must never retroactively revoke
@@ -329,7 +307,6 @@ can_read_clinical_bare_literal_policy_cast.sql
 #     on activation is scoped to only this product's feature (an unrelated
 #     purchase never touches annual_health_checks) and works even for a
 #     patient who never started the free Health Check journey.
-platform_credit_topups_kill_switch.sql
 continuous_monitoring_90d_single_tier.sql
 preventive_health_check_review_sku.sql
 
@@ -472,8 +449,7 @@ diabetes_self_monitoring_acting_supporter.sql
 # about — reversing only the original entry would under-correct the ledger),
 # the Paystack refund queue row shape (incl. the customer-borne processor fee,
 # fixed by 20260924213420_fix_guarantee_refund_review_findings.sql), the
-# platform-credit path (correct_platform_credit as the sole reversal
-# mechanism, no double GL posting), the chronic-programme enrolment track
+# card-paid chronic-programme path, the chronic-programme enrolment track
 # downgrade on refund (a real gap: nothing previously reversed
 # activate_chronic_programme_doctor_supported_track's upgrade), and a
 # repeat-decide idempotency guard against a double refund.
@@ -757,3 +733,9 @@ clinical_staff_directory_column_scoping.sql
 # per this repo's convention of a DB proof for the DB-level defect and a
 # Jest test for the application-level one.
 lab_pharmacy_partner_directory_column_scoping.sql
+
+# --- Added 2026-09-30 (S01b) --------------------------------------------------
+# Platform Credit removal: objects gone, payment_provider rebuilt without the
+# label, surviving finance/receipt/guarantee functions still work, recreated
+# functions keep their ACLs, and a sabotage run proves the checks discriminate.
+remove_platform_credit.sql

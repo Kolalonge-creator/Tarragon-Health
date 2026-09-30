@@ -185,12 +185,7 @@ it) — Paystack (NGN) is now the only live payment provider. See the archive's
 2026-08-31/2026-09-03 entry. **Do not treat any specific price, rate, plan name, or
 feature-availability claim in this file's archive as current** — check the live database or the
 actual running code. The archive is a record of decisions and reasoning, not a source of current
-facts. **Platform Credit** (added 2026-09-17, `platform_credit_balances`/`platform_credit_ledger_entries`,
-see the archive's 2026-09-17 entry) is a third way to pay alongside a one-off card charge and a Care
-Voucher: a non-expiring prepaid balance a patient funds once via Paystack and spends on any
-`service_products` purchase, split from the ledger up into a `paid` bucket (real money) and a `promo`
-bucket (admin-granted goodwill, `grant_platform_credit`) so the two are never commingled — the same
-structural objection that killed the Health Wallet, answered this time by design rather than policy.
+facts. **Platform Credit was REMOVED 2026-09-30 (founder decision F-01, S01b; spec INV-09 "no stored balance").** It had been a prepaid, non-expiring balance (added 2026-09-17) and is gone: tables, RPCs, top-up flows, the `platform_credit` payment_provider value and the admin/patient/mobile UI. Live counts before removal were 0 balances, 0 ledger entries, 0 top-ups, so no money moved. Patients now pay per item at checkout via Paystack, or with a Care Voucher. Seven E2E-test journal entries with `source = 'platform_credit'` remain in the GL as read-only history (posted entries are never deleted), and account 2100 still nets to a 250,000 kobo test leftover awaiting a finance decision (OQ-28 in `docs/OPEN-QUESTIONS.md`). Do not confuse this with service-purchase credits ("Ask a doctor credit", `redeem_available_service_purchase`), which are a different, live feature.
 
 **Laboratory fulfilment model — reversed again 2026-08-29 (Laboratory Network & Diagnostic Services
 Platform build).** Three corrections in five weeks, each a real founder decision, none of them

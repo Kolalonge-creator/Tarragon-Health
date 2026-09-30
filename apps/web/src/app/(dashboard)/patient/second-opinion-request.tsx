@@ -7,7 +7,7 @@ import {
   type SecondOpinionRequestWithAnswerer,
 } from "@/lib/queries/second-opinion";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
+import { PayByCard } from "@/components/billing/pay-by-card";
 import { secondOpinionRequestSchema } from "@/lib/validation/second-opinion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -145,8 +145,7 @@ export function SecondOpinionRequestCard({
             <p className="text-sm text-charcoal-ink dark:text-night-ink">
               Buy a second opinion credit to send a request.
             </p>
-            <PayWithCreditOrCard
-              patientId={patientId}
+            <PayByCard
               serviceProductCode={SECOND_OPINION_CREDIT_CODE}
               callbackPath="/patient/care"
               onError={setFormError}
