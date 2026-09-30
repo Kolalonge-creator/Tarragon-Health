@@ -36,6 +36,9 @@ site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000"]
 jwt_expiry = 3600
 enable_signup = true
+# S03: the server-side floor matches the 8-character rule the forms show. Without it GoTrue's own default (6)
+# lets a direct API call bypass the form.
+minimum_password_length = 8
 
 [auth.email]
 enable_signup = true
@@ -46,7 +49,18 @@ enable_confirmations = true
 [auth.sms]
 enable_signup = true
 enable_confirmations = true
-template = "Your Tarragon Health code is {{ .Code }}"
+template = "Your TarragonHealth code is {{ .Code }}"
+# S03 (spec 8.2): six-digit code, 60 second resend. The per-phone hourly cap (5) is enforced in the hook
+# (supabase/functions/auth-send-sms-hook), keyed on the phone so rotating IPs cannot bypass it.
+otp_length = 6
+max_frequency = "60s"
+
+# S03: the Send SMS hook is enabled in the hosted project's dashboard (Authentication > Hooks), not here. Enabling it
+# locally needs SEND_SMS_HOOK_SECRET in the environment; leave it off so `supabase start` and CI stay hermetic.
+# [auth.hook.send_sms]
+# enabled = true
+# uri = "http://host.docker.internal:54321/functions/v1/auth-send-sms-hook"
+# secrets = "env(SEND_SMS_HOOK_SECRET)"
 
 [edge_runtime]
 enabled = true
@@ -61,4 +75,8 @@ verify_jwt = false
 # is set. Also answers Zoom's one-time endpoint.url_validation handshake
 # needed to activate the webhook subscription.
 [functions.zoom-webhook]
+verify_jwt = false
+
+# Supabase Auth calls this hook with a Standard Webhooks signature, not a JWT (handler.ts verifies it).
+[functions.auth-send-sms-hook]
 verify_jwt = false

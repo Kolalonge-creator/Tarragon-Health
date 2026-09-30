@@ -123,6 +123,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["maxLead\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "auth.phone_otp",
+    // Spec 8.2: six-digit code, resend after 60 seconds, maximum 5 attempts per hour. Mirrored (not imported) by
+    // supabase/functions/auth-send-sms-hook/handler.ts because a Deno function cannot import this package;
+    // a test in packages/auth pins the two together.
+    value: { codeLength: 6, resendSeconds: 60, maxSendsPerHour: 5 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: FROM,
+    source: `${SPEC.replace("Section 17", "Section 8.2")} (Verify: six-digit code, resend after 60 seconds, max 5 attempts per hour)`,
+  },
+  {
     key: "commerce.care_pack_price_kobo",
     // 12,000 naira pilot price, stored as integer kobo (INV-15).
     value: 1_200_000,
