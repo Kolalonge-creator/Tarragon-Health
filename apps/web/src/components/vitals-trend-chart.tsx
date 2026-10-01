@@ -146,8 +146,10 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
   const hba1cTrend = useHba1cTrend(patientId);
   const bmiTrend = useBmiTrend(patientId);
   const heightStatus = useHeightStatus(patientId);
-  const { data, isLoading, isError } =
+  const { data, isLoading, isError, error } =
     mode === "hba1c" ? hba1cTrend : mode === "bmi" ? bmiTrend : vitalsTrend;
+  // A refusal (not on the care team) is not a load failure and must not read as an empty chart (INV-10).
+  const notAvailable = isError && error instanceof Error && error.message.includes("not available to you");
   // Readings arrive in mmol/L (what vitals_readings stores) and are plotted in
   // the reader's own unit. Converting here rather than at the axis keeps the
   // tooltip, the dot labels and the axis all reporting the same number.
@@ -213,7 +215,11 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
 
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600 dark:text-red-300">Could not load the trend chart.</p>
+          <p className={notAvailable ? "text-sm text-amber-700" : "text-sm text-red-600 dark:text-red-300"}>
+            {notAvailable
+              ? "These readings are not available to you for this patient (you are not on their care team). This is not the same as no readings."
+              : "Could not load the trend chart."}
+          </p>
         )}
         {mode === "bmi" && !isLoading && !isError && noHeightOnFile && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">

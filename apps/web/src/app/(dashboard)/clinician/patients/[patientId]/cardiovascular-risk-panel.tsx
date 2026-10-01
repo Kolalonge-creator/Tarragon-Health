@@ -143,7 +143,8 @@ export function CardiovascularRiskPanel({
           </div>
         ) : (
           <p className="text-sm text-charcoal-ink/60">
-            Not enough data yet to assess cardiovascular risk.
+            Not enough data yet to assess cardiovascular risk, or the medication and blood-pressure readings it needs are not
+            available to you for this patient.
           </p>
         )}
 

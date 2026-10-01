@@ -112,7 +112,9 @@ export function MedicationsList({
    */
   isClinicianView?: boolean;
 }) {
-  const { data, isLoading, isError } = useMedications(patientId);
+  const { data, isLoading, isError, error } = useMedications(patientId);
+  // A refusal (not on the care team) is not a load failure and must not read as "none": say which it is (INV-10).
+  const notAvailable = isError && error instanceof Error && error.message.includes("not available to you");
   // Needed both for the clinician-view status trail and for the 64.6
   // refill-gap signal shown on both views — unlike repeatRequests below, this
   // one is never disabled by view.
@@ -147,7 +149,11 @@ export function MedicationsList({
         {!isClinicianView && <MedicationInteractionNote medications={data ?? []} />}
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600 dark:text-red-300">Could not load medications.</p>
+          <p className={notAvailable ? "text-sm text-amber-700" : "text-sm text-red-600 dark:text-red-300"}>
+            {notAvailable
+              ? "Medications are not available to you for this patient (you are not on their care team). This is not the same as no medications."
+              : "Could not load medications."}
+          </p>
         )}
         {data && data.length === 0 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No active medications.</p>

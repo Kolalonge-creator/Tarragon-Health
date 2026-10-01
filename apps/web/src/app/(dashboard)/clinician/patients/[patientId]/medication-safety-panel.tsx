@@ -54,9 +54,15 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
           {isPolypharmacy(medicationCount) && <Badge variant="amber">Polypharmacy</Badge>}
         </CardTitle>
         <CardDescription>
-          Interactions, duplicate therapy, allergy cross-checks, and kidney-function dosing across the{" "}
-          {medicationCount} active medicine{medicationCount === 1 ? "" : "s"} on file. Advisory:
-          nothing here changes a prescription.
+          {medicationsUnavailable ? (
+            "Interactions, duplicate therapy, allergy cross-checks, and kidney-function dosing. Advisory: nothing here changes a prescription."
+          ) : (
+            <>
+              Interactions, duplicate therapy, allergy cross-checks, and kidney-function dosing across the{" "}
+              {medicationCount} active medicine{medicationCount === 1 ? "" : "s"} on file. Advisory:
+              nothing here changes a prescription.
+            </>
+          )}
           {isPolypharmacy(medicationCount) &&
             ` ${POLYPHARMACY_THRESHOLD} or more active medicines at once is worth a deliberate review, not automatic discontinuation of any of them.`}
         </CardDescription>
@@ -139,7 +145,7 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
           )}
         </div>
 
-        {medicationCount === 0 ? (
+        {medicationsUnavailable ? null : medicationCount === 0 ? (
           <p className="text-sm text-charcoal-ink/60">No active medicines on file.</p>
         ) : report.findings.length === 0 ? (
           <p className="text-sm text-charcoal-ink/70">
