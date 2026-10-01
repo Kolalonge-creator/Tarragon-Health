@@ -2,8 +2,12 @@ import type { Metadata } from "next";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { recordSupplyAction } from "./actions";
 import {
   IDENTITY_NOTICE,
+  SUPPLY_OUTCOME_MESSAGE,
+  describeSupply,
+  isSupplyOutcome,
   NOT_FOUND_MESSAGE,
   RATE_LIMITED_MESSAGE,
   TOKEN_PATTERN,
@@ -70,8 +74,16 @@ function Row({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-export default async function VerifyPrescriptionPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function VerifyPrescriptionPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ result?: string }>;
+}) {
   const { token } = await params;
+  const { result: resultParam } = await searchParams;
+  const supplyResult = isSupplyOutcome(resultParam) ? SUPPLY_OUTCOME_MESSAGE[resultParam] : null;
   const result = await lookup(token);
 
   return (
@@ -108,6 +120,52 @@ export default async function VerifyPrescriptionPage({ params }: { params: Promi
                   <Row label="Prescribed by" value={`Dr. ${p.prescriber_name}`} />
                   <Row label="Registration" value={p.prescriber_credential} />
                 </dl>
+                {supplyResult && (
+                  <p
+                    role="status"
+                    className={`mt-6 rounded-md border-l-4 p-3 text-sm ${supplyResult.tone === "good" ? "border-emerald-600 bg-emerald-50" : "border-red-600 bg-red-50"}`}
+                  >
+                    {supplyResult.text}
+                  </p>
+                )}
+                {p.status === "active" && (
+                  <section className="mt-6 rounded-md border border-gray-300 p-4">
+                    <h2 className="text-base font-bold">Supplies</h2>
+                    <p className="mt-1 text-sm">
+                      Supplied {p.supplies_dispensed} of {p.supplies_permitted} permitted
+                      {p.last_supplied_on ? `, last on ${formatDate(p.last_supplied_on)}` : ""}.
+                    </p>
+                    <p className="mt-1 text-sm">{describeSupply(p)}</p>
+                    {p.supply_available && (
+                      <form action={recordSupplyAction} className="mt-4 space-y-3">
+                        <input type="hidden" name="token" value={token} />
+                        <p className="text-sm font-medium">Record that you are supplying this now</p>
+                        <label className="block text-sm">
+                          Pharmacy name
+                          <input name="pharmacyName" required minLength={2} maxLength={120} className="mt-1 w-full rounded border border-gray-300 p-2" />
+                        </label>
+                        <label className="block text-sm">
+                          Pharmacist&apos;s name
+                          <input name="pharmacistName" required minLength={2} maxLength={120} className="mt-1 w-full rounded border border-gray-300 p-2" />
+                        </label>
+                        <label className="block text-sm">
+                          Pharmacist registration number (optional)
+                          <input name="pharmacistRegistration" maxLength={40} className="mt-1 w-full rounded border border-gray-300 p-2" />
+                        </label>
+                        <label className="flex items-start gap-2 text-sm">
+                          <input type="checkbox" name="confirmed" required className="mt-1" />
+                          <span>I am a pharmacist or work for a pharmacy, and I am supplying this prescription now.</span>
+                        </label>
+                        <button type="submit" className="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white">
+                          Record this supply
+                        </button>
+                        <p className="text-xs text-gray-600">
+                          What you type is saved on the prescription and shown to the patient and their care team. It is not checked against a register.
+                        </p>
+                      </form>
+                    )}
+                  </section>
+                )}
                 <p className="mt-6 rounded-md bg-gray-100 p-3 text-xs text-gray-700">{IDENTITY_NOTICE}</p>
               </>
             );
