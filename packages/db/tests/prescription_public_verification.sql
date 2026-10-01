@@ -88,7 +88,10 @@ begin
   -- anon cannot read the table directly
   execute 'set local role anon';
   v_failed := false;
-  begin perform 1 from public.medications limit 1; exception when insufficient_privilege then v_failed := true; end;
+  begin
+    select count(*) into v_n from public.medications;
+    v_failed := (v_n = 0);  -- a fresh replay grants anon the table, so RLS may filter instead of raising; fixture rows exist, so 0 means refused
+  exception when insufficient_privilege then v_failed := true; end;
   execute 'reset role';
   if not v_failed then raise exception 'FAIL: anon read medications'; end if;
 
