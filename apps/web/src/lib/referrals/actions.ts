@@ -1,5 +1,6 @@
 "use server";
 
+import { ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -134,14 +135,14 @@ export async function uploadReferralOutcomeDocumentForPatient(
   }
 
   const supabase = await createClient();
-  // RLS (private.is_org_staff) is the real gate — a referral outside the
-  // caller's org simply doesn't come back.
-  const { data: referral } = await supabase
-    .from("specialist_referrals")
-    .select("id, patient_id")
-    .eq("id", parsed.data.referral_id)
-    .maybeSingle();
-  if (!referral) return { error: "Referral not found or not in your organisation." };
+  // INV-10 / INV-12: the audited read is the gate (tied, creator, assigned specialist or the referral desk).
+  const { data: referralPayload } = await supabase.rpc("get_referral_audited", {
+    p_referral: parsed.data.referral_id,
+    p_reason: ROUTINE_CHART_READ_REASON,
+  });
+  const readPayload = referralPayload as { status?: string; referral?: { id: string; patient_id: string } } | null;
+  const referral = readPayload?.status === "ok" ? readPayload.referral : undefined;
+  if (!referral) return { error: "Referral not found or not available to you." };
 
   const service = createServiceRoleClient();
   const ext = EXT_BY_MIME[file.type] ?? "bin";
@@ -155,10 +156,10 @@ export async function uploadReferralOutcomeDocumentForPatient(
   // Runs on the caller's own session (not service-role) so
   // outcome_document_uploaded_by is server-derived from THIS staff member's
   // auth.uid(), not lost to the service-role write path.
-  const { error: updateError } = await supabase
-    .from("specialist_referrals")
-    .update({ outcome_document_path: path })
-    .eq("id", parsed.data.referral_id);
+  const { error: updateError } = await supabase.rpc("set_referral_outcome_document", {
+    p_referral: parsed.data.referral_id,
+    p_path: path,
+  });
   if (updateError) {
     await service.storage.from(REFERRAL_OUTCOME_DOC_BUCKET).remove([path]);
     return { error: updateError.message };

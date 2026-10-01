@@ -372,8 +372,9 @@ begin
   -- =========================================================================
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  insert into public.specialist_referrals (organisation_id, patient_id, specialist_type, referral_reason, status)
-  values (v_org, v_pat, (enum_range(null::public.specialist_type))[1], 'S05 proof', 'draft') returning id into v_ref;
+  -- S05e closed the table to direct staff use: referrals are created and submitted through tie-gated functions.
+  select public.create_specialist_referral(v_pat, (enum_range(null::public.specialist_type))[1], 'clinician_initiated', 'routine',
+                                           'S05 proof', null, '[]'::jsonb, true) into v_ref;
   if (select signed_by from public.specialist_referrals where id = v_ref) is not null then
     raise exception 'FAIL 5a: a draft referral carries a signature';
   end if;
@@ -389,7 +390,7 @@ begin
   -- the clinician leaving draft is the signing act, stamped as herself
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  update public.specialist_referrals set status = 'pending' where id = v_ref;
+  perform public.submit_draft_referral(v_ref);
   execute 'reset role';
   select signed_by into v_signed_by from public.specialist_referrals where id = v_ref;
   if v_signed_by is distinct from v_tied or (select signed_at from public.specialist_referrals where id = v_ref) is null then

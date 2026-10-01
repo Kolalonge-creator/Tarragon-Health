@@ -40489,6 +40489,10 @@ export type Database = {
         Args: { p_request: string }
         Returns: Json
       }
+      close_referral: {
+        Args: { p_care_plan_update_note: string; p_referral: string }
+        Returns: undefined
+      }
       confirm_proxy_setup: {
         Args: {
           p_categories: Database["public"]["Enums"]["care_access_category"][]
@@ -40500,6 +40504,19 @@ export type Database = {
       confirm_sim_swap_review: {
         Args: { p_note: string; p_request: string }
         Returns: Json
+      }
+      create_specialist_referral: {
+        Args: {
+          p_as_draft: boolean
+          p_flags: Json
+          p_patient: string
+          p_reason: string
+          p_referral_source: Database["public"]["Enums"]["referral_source"]
+          p_requested_service: string
+          p_specialist_type: Database["public"]["Enums"]["specialist_type"]
+          p_urgency?: Database["public"]["Enums"]["referral_urgency"]
+        }
+        Returns: string
       }
       decline_proxy_setup: { Args: { p_setup_id: string }; Returns: undefined }
       create_encounter_note: {
@@ -40530,6 +40547,10 @@ export type Database = {
         }
         Returns: string
       }
+      decline_referral: {
+        Args: { p_declined_reason: string; p_referral: string }
+        Returns: undefined
+      }
       execute_assisted_recovery: {
         Args: { p_request: string }
         Returns: Json
@@ -40541,6 +40562,10 @@ export type Database = {
           p_outcome: Database["public"]["Enums"]["consultation_outcome"]
         }
         Returns: undefined
+      }
+      get_referral_audited: {
+        Args: { p_reason: string; p_referral: string }
+        Returns: Json
       }
       list_assisted_recovery_requests: {
         Args: { p_state?: string }
@@ -40562,6 +40587,14 @@ export type Database = {
           subject_name: string
           subject_user_id: string
         }[]
+      }
+      list_patient_referrals_audited: {
+        Args: { p_include_drafts?: boolean; p_patient: string; p_reason: string }
+        Returns: Json
+      }
+      list_referrals_audited: {
+        Args: { p_status?: Database["public"]["Enums"]["referral_status"] }
+        Returns: Json
       }
       my_pending_auto_drafted_notes: {
         Args: never
@@ -40623,6 +40656,12 @@ export type Database = {
         Args: { p_ok: boolean; p_request: string }
         Returns: Json
       }
+      record_referral_shared_care_handback: { Args: { p_referral: string }; Returns: undefined }
+      record_referral_treatment_plan: {
+        Args: { p_note: string; p_referral: string }
+        Returns: undefined
+      }
+      referral_worklist_count: { Args: { p_kind: string }; Returns: number }
       reject_assisted_recovery: {
         Args: { p_reason: string; p_request: string }
         Returns: Json
@@ -44192,6 +44231,14 @@ export type Database = {
         Args: { p_id: string; p_is_active: boolean }
         Returns: undefined
       }
+      set_referral_clinical_summary: {
+        Args: { p_referral: string; p_summary: Json }
+        Returns: undefined
+      }
+      set_referral_outcome_document: {
+        Args: { p_path: string; p_referral: string }
+        Returns: undefined
+      }
       set_referral_specialist_provider: {
         Args: { p_referral_id: string; p_specialist_provider_id: string }
         Returns: {
@@ -44250,6 +44297,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_referral_urgency: {
+        Args: { p_referral: string; p_urgency: Database["public"]["Enums"]["referral_urgency"] }
+        Returns: undefined
       }
       set_subsidy_contribution_pending_ref: {
         Args: { p_contribution_id: string; p_pending_ref: string }
@@ -44387,6 +44438,7 @@ export type Database = {
       }
       set_sexual_health_pin: { Args: { p_pin: string }; Returns: undefined }
       clear_sexual_health_pin: { Args: never; Returns: undefined }
+      submit_draft_referral: { Args: { p_referral: string }; Returns: undefined }
       verify_sexual_health_pin: { Args: { p_pin: string }; Returns: boolean }
       submit_consultation_prep: {
         Args: { p_consultation_id: string; p_notes: string }
@@ -44483,6 +44535,10 @@ export type Database = {
         }[]
       }
       video_visit_acceptance_stats: { Args: never; Returns: Json }
+      waitlist_referral: {
+        Args: { p_interim_management_plan: string; p_referral: string }
+        Returns: undefined
+      }
       wellness_challenge_progress: {
         Args: { p_enrolment_id: string }
         Returns: Json

@@ -32,34 +32,28 @@ async function countOpenEscalations(supabase: Client) {
   return count ?? 0;
 }
 
-async function countReferralsNeedingUrgency(supabase: Client) {
-  const { count, error } = await supabase
-    .from("specialist_referrals")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+/**
+ * The three referral counts come from one rule-applying function (S05e): a staff member counts only the referrals she may see (tied, the
+ * creator, the assigned specialist, or the referral desk), so the badge never advertises work she cannot open. Errors throw, as above.
+ */
+async function referralCount(supabase: Client, kind: "needing_urgency" | "waitlisted" | "awaiting_closure") {
+  const { data, error } = await supabase.rpc("referral_worklist_count", { p_kind: kind });
   if (error) throw error;
-  return count ?? 0;
+  return data ?? 0;
+}
+
+async function countReferralsNeedingUrgency(supabase: Client) {
+  return referralCount(supabase, "needing_urgency");
 }
 
 async function countWaitlistedReferrals(supabase: Client) {
-  const { count, error } = await supabase
-    .from("specialist_referrals")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "waitlisted");
-  if (error) throw error;
-  return count ?? 0;
+  return referralCount(supabase, "waitlisted");
 }
 
 /** A referral with an outcome on file (transcribed plan or uploaded
  * document) that hasn't been reviewed & closed yet — task spec §11.15. */
 async function countReferralsAwaitingClosure(supabase: Client) {
-  const { count, error } = await supabase
-    .from("specialist_referrals")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "completed")
-    .or("treatment_plan_received_at.not.is.null,outcome_document_path.not.is.null");
-  if (error) throw error;
-  return count ?? 0;
+  return referralCount(supabase, "awaiting_closure");
 }
 
 async function countOutreachTasks(supabase: Client) {
