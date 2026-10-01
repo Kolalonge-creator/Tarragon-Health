@@ -60,7 +60,8 @@ function PublishSummarySection({
   patientId: string;
   consultationId: string;
 }) {
-  const { data: notes } = usePatientEncounterNotes(patientId);
+  const { data: notesData } = usePatientEncounterNotes(patientId);
+  const notes = notesData?.notes;
   const { data: existingSummary } = useConsultationSummary(consultationId);
   const publish = usePublishConsultationSummary();
   const [open, setOpen] = useState(false);

@@ -38453,6 +38453,25 @@ export type Database = {
         Returns: number
       }
       create_emergency_card: { Args: never; Returns: string }
+      create_encounter_note: {
+        Args: {
+          p_assessment?: string
+          p_async_consult_id?: string
+          p_call_ended_at?: string
+          p_call_started_at?: string
+          p_diagnosis?: string
+          p_encounter_type: string
+          p_escalation_id?: string
+          p_examination?: string
+          p_follow_up?: string
+          p_history?: string
+          p_patient: string
+          p_plan?: string
+          p_reason: string
+          p_video_consultation_id?: string
+        }
+        Returns: string
+      }
       create_navigation_request: {
         Args: {
           p_category: Database["public"]["Enums"]["navigation_request_category"]
@@ -38814,6 +38833,14 @@ export type Database = {
       finance_approval_history: { Args: { p_limit?: number }; Returns: Json }
       finance_approval_settings_list: { Args: never; Returns: Json }
       finance_approve_bill: { Args: { p_id: string }; Returns: string }
+      finalize_encounter_note: {
+        Args: {
+          p_identity_confirmed: boolean
+          p_note: string
+          p_outcome: Database["public"]["Enums"]["consultation_outcome"]
+        }
+        Returns: undefined
+      }
       finance_approve_request: {
         Args: { p_id: string; p_note?: string }
         Returns: Json
@@ -39734,6 +39761,17 @@ export type Database = {
         }[]
       }
       my_feature_flags: { Args: never; Returns: Json }
+      my_pending_auto_drafted_notes: {
+        Args: never
+        Returns: {
+          encounter_date: string
+          encounter_type: string
+          id: string
+          patient_id: string
+          patient_name: string
+          reason_for_encounter: string
+        }[]
+      }
       my_pending_proxy_setups: {
         Args: never
         Returns: {
@@ -40163,6 +40201,10 @@ export type Database = {
           version: string
           withdrawn_at: string
         }[]
+      }
+      read_patient_encounter_notes_audited: {
+        Args: { p_patient: string; p_reason: string }
+        Returns: Json
       }
       record_ai_human_override: {
         Args: {
@@ -41142,6 +41184,10 @@ export type Database = {
       trigger_population_outreach: {
         Args: { p_population_id: string }
         Returns: number
+      }
+      update_encounter_note_draft: {
+        Args: { p_fields: Json; p_note: string }
+        Returns: undefined
       }
       upsert_lab_report_template: {
         Args: {

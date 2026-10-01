@@ -40502,6 +40502,25 @@ export type Database = {
         Returns: Json
       }
       decline_proxy_setup: { Args: { p_setup_id: string }; Returns: undefined }
+      create_encounter_note: {
+        Args: {
+          p_assessment?: string
+          p_async_consult_id?: string
+          p_call_ended_at?: string
+          p_call_started_at?: string
+          p_diagnosis?: string
+          p_encounter_type: string
+          p_escalation_id?: string
+          p_examination?: string
+          p_follow_up?: string
+          p_history?: string
+          p_patient: string
+          p_plan?: string
+          p_reason: string
+          p_video_consultation_id?: string
+        }
+        Returns: string
+      }
       create_proxy_setup: {
         Args: {
           p_full_name: string
@@ -40514,6 +40533,14 @@ export type Database = {
       execute_assisted_recovery: {
         Args: { p_request: string }
         Returns: Json
+      }
+      finalize_encounter_note: {
+        Args: {
+          p_identity_confirmed: boolean
+          p_note: string
+          p_outcome: Database["public"]["Enums"]["consultation_outcome"]
+        }
+        Returns: undefined
       }
       list_assisted_recovery_requests: {
         Args: { p_state?: string }
@@ -40534,6 +40561,17 @@ export type Database = {
           state: string
           subject_name: string
           subject_user_id: string
+        }[]
+      }
+      my_pending_auto_drafted_notes: {
+        Args: never
+        Returns: {
+          encounter_date: string
+          encounter_type: string
+          id: string
+          patient_id: string
+          patient_name: string
+          reason_for_encounter: string
         }[]
       }
       my_pending_proxy_setups: {
@@ -40576,6 +40614,10 @@ export type Database = {
           version: string
           withdrawn_at: string
         }[]
+      }
+      read_patient_encounter_notes_audited: {
+        Args: { p_patient: string; p_reason: string }
+        Returns: Json
       }
       record_assisted_recovery_outcome: {
         Args: { p_ok: boolean; p_request: string }
@@ -44396,6 +44438,10 @@ export type Database = {
       trigger_population_outreach: {
         Args: { p_population_id: string }
         Returns: number
+      }
+      update_encounter_note_draft: {
+        Args: { p_fields: Json; p_note: string }
+        Returns: undefined
       }
       upsert_lab_report_template: {
         Args: {

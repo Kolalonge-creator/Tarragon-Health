@@ -767,3 +767,5 @@ s05_health_record_data_model.sql
 s05b_allergies_conditions_audited_reads.sql
 # S05c closes direct staff reads on patient_allergies and patient_conditions: patient reads own, staff (tied, untied, admin) read nothing directly, the audited read opens for the tied clinician and denies the untied one, same-transaction read-back only; one sabotage.
 s05c_close_staff_reads_allergies_conditions.sql
+# S05d encounter notes: writes only via tie-gated functions, direct select/insert/update closed for staff and patients, ok / own_only / denied reads with audit basis, worklist own-only, amendment validator still works; two sabotages.
+s05d_encounter_notes_audited_reads_and_writes.sql
