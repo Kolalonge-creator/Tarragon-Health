@@ -220,3 +220,8 @@ Entry format:
 ## S05f live click-through, first findings (2026-10-01)
 
 - Signed in as a clinician NOT on the demo patient's care team (the untied case), the refusals worked (dose history, allergies and the medication-safety panel all said "not available to you"), but five places still read as "none": the chart's "Medications" card said "Could not load medications" (a generic failure, not a refusal); the medication-safety panel said "across the 0 active medicines on file" and "No active medicines on file" under its own not-available notice; the pre-visit summary said "Medication: 0 active"; the hypertension drug ladder said "not started"; the trend chart said "Could not load the trend chart"; the CV-risk panel said "Not enough data yet". All six now say the data is not available to the caller.
+
+## Fix: prescribing failed when "Repeats allowed" was left blank (found by the live click-through, 2026-10-01)
+
+- **Bug (from S05f-C2)**: `prescribe_medication` inserted an explicit NULL into `medications.repeats_allowed` (NOT NULL, default 0) when the form left it blank, so every prescription without a repeats value failed with 23502 ("We could not save this medication just then"). The C2 proof always passed a repeats value, so it never exercised the omitted case. Live from the C2 deployment until this fix.
+- **Fix**: `20261001194717_fix_prescribe_medication_null_repeats_allowed.sql` defaults it to 0; the proof now also calls the function with only the required arguments (and fails without the fix, checked). The only other NOT NULL-with-default column the function writes, `schedule_times`, was already coalesced.
