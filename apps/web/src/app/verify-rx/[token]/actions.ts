@@ -18,7 +18,10 @@ const inputSchema = z.object({
   token: z.string().regex(TOKEN_PATTERN),
   pharmacyName: z.string().trim().min(2).max(120),
   pharmacistName: z.string().trim().min(2).max(120),
-  pharmacistRegistration: z.string().trim().max(40).optional(),
+  pharmacistRegistration: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9][A-Za-z0-9 /.-]{1,38}[A-Za-z0-9]$/),
   confirmed: z.literal("on"),
 });
 
@@ -31,7 +34,7 @@ export async function recordSupplyAction(formData: FormData): Promise<void> {
     token: formData.get("token"),
     pharmacyName: formData.get("pharmacyName"),
     pharmacistName: formData.get("pharmacistName"),
-    pharmacistRegistration: formData.get("pharmacistRegistration") || undefined,
+    pharmacistRegistration: formData.get("pharmacistRegistration"),
     confirmed: formData.get("confirmed"),
   });
   const rawToken = String(formData.get("token") ?? "");
@@ -53,7 +56,7 @@ export async function recordSupplyAction(formData: FormData): Promise<void> {
     p_token: input.token,
     p_pharmacy_name: input.pharmacyName,
     p_pharmacist_name: input.pharmacistName,
-    ...(input.pharmacistRegistration ? { p_pharmacist_registration: input.pharmacistRegistration } : {}),
+    p_pharmacist_registration: input.pharmacistRegistration,
   });
   const outcome = Array.isArray(data) ? data[0]?.outcome : undefined;
   if (error || !isSupplyOutcome(outcome)) back(input.token, "error");

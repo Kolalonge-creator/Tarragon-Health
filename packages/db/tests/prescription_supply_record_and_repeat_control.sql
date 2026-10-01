@@ -23,6 +23,10 @@ declare
   r record;
   v_n integer;
   v_def text;
+  v_i integer;
+  v_disp uuid;
+  v_ok boolean;
+  v_failed boolean;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
@@ -72,12 +76,12 @@ begin
 
   -- 3. immediate repeat of the same recording is a duplicate; after the window it is refused for lack of an approved repeat
   execute 'set local role anon';
-  select * into r from public.record_prescription_supply_public(v_t1, 'Other Pharmacy', 'Bola Pharmacist');
+  select * into r from public.record_prescription_supply_public(v_t1, 'Other Pharmacy', 'Bola Pharmacist', 'PCN-1234');
   execute 'reset role';
   if r.outcome <> 'duplicate' then raise exception 'FAIL: duplicate not caught: %', r; end if;
   update public.pharmacy_order_dispenses set created_at = now() - interval '11 minutes' where medication_id = v_m1;
   execute 'set local role anon';
-  select * into r from public.record_prescription_supply_public(v_t1, 'Other Pharmacy', 'Bola Pharmacist');
+  select * into r from public.record_prescription_supply_public(v_t1, 'Other Pharmacy', 'Bola Pharmacist', 'PCN-1234');
   execute 'reset role';
   if r.outcome <> 'no_supply_available' or r.supplies_dispensed <> 1 or r.supplies_permitted <> 1 then raise exception 'FAIL: second supply without approval: %', r; end if;
   select count(*) into v_n from public.pharmacy_order_dispenses where medication_id = v_m1;
@@ -93,7 +97,7 @@ begin
   insert into public.medication_repeat_requests (organisation_id, patient_id, medication_id) values (v_org, v_pat, v_m1);
   update public.medication_repeat_requests set status = 'approved' where medication_id = v_m1;
   execute 'set local role anon';
-  select * into r from public.record_prescription_supply_public(v_t1, 'Other Pharmacy', 'Bola Pharmacist');
+  select * into r from public.record_prescription_supply_public(v_t1, 'Other Pharmacy', 'Bola Pharmacist', 'PCN-1234');
   execute 'reset role';
   if r.outcome <> 'recorded' or r.supplies_dispensed <> 2 or r.supplies_permitted <> 2 then raise exception 'FAIL: approved repeat supply: %', r; end if;
   execute 'set local role anon';
@@ -104,7 +108,7 @@ begin
   update public.pharmacy_order_dispenses set created_at = now() - interval '11 minutes' where medication_id = v_m1;
   update public.medications set repeats_allowed = 0 where id = v_m1;
   execute 'set local role anon';
-  select * into r from public.record_prescription_supply_public(v_t1, 'Third Pharmacy', 'Cy Pharmacist');
+  select * into r from public.record_prescription_supply_public(v_t1, 'Third Pharmacy', 'Cy Pharmacist', 'PCN-1234');
   execute 'reset role';
   if r.outcome <> 'no_supply_available' or r.supplies_permitted <> 1 then raise exception 'FAIL: cap beyond repeats_allowed: %', r; end if;
   update public.medications set repeats_allowed = 1 where id = v_m1;
@@ -113,19 +117,19 @@ begin
   insert into public.pharmacy_order_dispenses (organisation_id, patient_id, medication_id, drug_name, source, pharmacy_name)
   values (v_org, v_pat, v_m2, 'RxSup Patient Claimed', 'patient', 'Somewhere');
   execute 'set local role anon';
-  select * into r from public.record_prescription_supply_public(v_t2, 'Real Pharmacy', 'Di Pharmacist');
+  select * into r from public.record_prescription_supply_public(v_t2, 'Real Pharmacy', 'Di Pharmacist', 'PCN-1234');
   execute 'reset role';
   if r.outcome <> 'recorded' or r.supplies_dispensed <> 1 then raise exception 'FAIL: patient claim counted as a supply: %', r; end if;
 
   -- 6. superseded, expired, stopped, unknown, malformed, invalid
   execute 'set local role anon';
-  select * into r from public.record_prescription_supply_public(v_t3, 'Pharmacy', 'Ee Pharmacist'); if r.outcome <> 'not_active' then execute 'reset role'; raise exception 'FAIL: superseded supplied (%)', r.outcome; end if;
-  select * into r from public.record_prescription_supply_public(v_t4, 'Pharmacy', 'Ee Pharmacist'); if r.outcome <> 'not_active' then execute 'reset role'; raise exception 'FAIL: expired supplied (%)', r.outcome; end if;
-  select * into r from public.record_prescription_supply_public(v_t5, 'Pharmacy', 'Ee Pharmacist'); if r.outcome <> 'not_active' then execute 'reset role'; raise exception 'FAIL: stopped supplied (%)', r.outcome; end if;
-  select * into r from public.record_prescription_supply_public(repeat('0', 64), 'Pharmacy', 'Ee Pharmacist'); if r.outcome <> 'not_found' then execute 'reset role'; raise exception 'FAIL: unknown token (%)', r.outcome; end if;
-  select * into r from public.record_prescription_supply_public('nope', 'Pharmacy', 'Ee Pharmacist'); if r.outcome <> 'not_found' then execute 'reset role'; raise exception 'FAIL: malformed token (%)', r.outcome; end if;
-  select * into r from public.record_prescription_supply_public(v_t5, '', 'Ee Pharmacist'); if r.outcome <> 'invalid' then execute 'reset role'; raise exception 'FAIL: empty pharmacy (%)', r.outcome; end if;
-  select * into r from public.record_prescription_supply_public(v_t5, 'Pharmacy', repeat('x', 121)); if r.outcome <> 'invalid' then execute 'reset role'; raise exception 'FAIL: long name (%)', r.outcome; end if;
+  select * into r from public.record_prescription_supply_public(v_t3, 'Pharmacy', 'Ee Pharmacist', 'PCN-1234'); if r.outcome <> 'not_active' then execute 'reset role'; raise exception 'FAIL: superseded supplied (%)', r.outcome; end if;
+  select * into r from public.record_prescription_supply_public(v_t4, 'Pharmacy', 'Ee Pharmacist', 'PCN-1234'); if r.outcome <> 'not_active' then execute 'reset role'; raise exception 'FAIL: expired supplied (%)', r.outcome; end if;
+  select * into r from public.record_prescription_supply_public(v_t5, 'Pharmacy', 'Ee Pharmacist', 'PCN-1234'); if r.outcome <> 'not_active' then execute 'reset role'; raise exception 'FAIL: stopped supplied (%)', r.outcome; end if;
+  select * into r from public.record_prescription_supply_public(repeat('0', 64), 'Pharmacy', 'Ee Pharmacist', 'PCN-1234'); if r.outcome <> 'not_found' then execute 'reset role'; raise exception 'FAIL: unknown token (%)', r.outcome; end if;
+  select * into r from public.record_prescription_supply_public('nope', 'Pharmacy', 'Ee Pharmacist', 'PCN-1234'); if r.outcome <> 'not_found' then execute 'reset role'; raise exception 'FAIL: malformed token (%)', r.outcome; end if;
+  select * into r from public.record_prescription_supply_public(v_t5, '', 'Ee Pharmacist', 'PCN-1234'); if r.outcome <> 'invalid' then execute 'reset role'; raise exception 'FAIL: empty pharmacy (%)', r.outcome; end if;
+  select * into r from public.record_prescription_supply_public(v_t5, 'Pharmacy', repeat('x', 121), 'PCN-1234'); if r.outcome <> 'invalid' then execute 'reset role'; raise exception 'FAIL: long name (%)', r.outcome; end if;
   execute 'reset role';
   select count(*) into v_n from public.pharmacy_order_dispenses where medication_id in (v_m3, v_m4, v_m5);
   if v_n <> 0 then raise exception 'FAIL: a refused prescription gained % supply rows', v_n; end if;
@@ -147,14 +151,85 @@ begin
   execute 'reset role';
   if v_n <> 0 then raise exception 'FAIL: anon read % dispense rows', v_n; end if;
 
+  -- 8. HARDENING: registration required, attempts logged, patient notified, supply disputable
+  select count(*) into v_n from public.prescription_supply_attempts where medication_id = v_m1;
+  if v_n < 3 then raise exception 'FAIL: refused attempts against a real prescription were not logged (%)', v_n; end if;
+  select count(*) into v_n from public.prescription_supply_attempts where token_hash = v_t1 or pharmacy_name is null and false;
+  if v_n <> 0 then raise exception 'FAIL: a raw token was stored as the hash'; end if;
+  select count(*) into v_n from public.prescription_supply_attempts where token_hash = encode(sha256(convert_to(v_t1, 'UTF8')), 'hex') and medication_id = v_m1;
+  if v_n < 1 then raise exception 'FAIL: attempt hash is not the sha256 of the token'; end if;
+  select count(*) into v_n from public.prescription_supply_attempts where medication_id in (v_m3, v_m4, v_m5);
+  if v_n < 3 then raise exception 'FAIL: not_active attempts were not logged (%)', v_n; end if;
+  execute 'set local role anon';
+  select count(*) into v_n from public.record_prescription_supply_public(repeat('0', 64), 'Pharmacy', 'Ee Pharmacist', 'PCN-1234');
+  execute 'reset role';
+  select count(*) into v_n from public.prescription_supply_attempts where token_hash = encode(sha256(convert_to(repeat('0', 64), 'UTF8')), 'hex');
+  if v_n <> 0 then raise exception 'FAIL: an unknown token was logged'; end if;
+
+  -- the registration is required and shaped
+  update public.pharmacy_order_dispenses set created_at = now() - interval '11 minutes' where medication_id = v_m1;
+  execute 'set local role anon';
+  select * into r from public.record_prescription_supply_public(v_t2, 'Pharmacy', 'Ee Pharmacist'); if r.outcome <> 'invalid' then execute 'reset role'; raise exception 'FAIL: missing registration accepted (%)', r.outcome; end if;
+  select * into r from public.record_prescription_supply_public(v_t2, 'Pharmacy', 'Ee Pharmacist', '!!'); if r.outcome <> 'invalid' then execute 'reset role'; raise exception 'FAIL: malformed registration accepted (%)', r.outcome; end if;
+  execute 'reset role';
+
+  -- the log is capped per prescription per hour
+  for v_i in 1..30 loop
+    execute 'set local role anon';
+    perform public.record_prescription_supply_public(v_t3, 'Pharmacy', 'Ee Pharmacist', 'PCN-1234');
+    execute 'reset role';
+  end loop;
+  select count(*) into v_n from public.prescription_supply_attempts where medication_id = v_m3 and created_at > now() - interval '1 hour';
+  if v_n > 20 then raise exception 'FAIL: attempt log not capped (%)', v_n; end if;
+
+  -- the stored row is marked unverified, and the patient was notified in-app
+  select * into r from public.pharmacy_order_dispenses where medication_id = v_m2 and source = 'pharmacy';
+  if r.pharmacist_registration_verified is not false or r.pharmacist_registration is null then raise exception 'FAIL: registration verified flag wrong: %', r; end if;
+  select count(*) into v_n from public.notifications where recipient_id = v_pat and template = 'prescription_supply_recorded' and channel = 'in_app'
+     and payload->>'pharmacy_name' = 'Real Pharmacy' and payload->>'pharmacist_registration' = 'PCN-1234';
+  if v_n <> 1 then raise exception 'FAIL: patient notification missing or duplicated (%)', v_n; end if;
+
+  -- 9. dispute: only the patient, only a pharmacy supply; it stops counting and frees the supply
+  v_disp := (select id from public.pharmacy_order_dispenses where medication_id = v_m2 and source = 'pharmacy');
+  perform set_config('request.jwt.claims', json_build_object('sub', v_doc, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  select public.dispute_prescription_supply(v_disp, 'not me') into v_ok;
+  execute 'reset role';
+  if v_ok then raise exception 'FAIL: a clinician disputed the patient supply'; end if;
+  execute 'set local role anon';
+  v_failed := false;
+  begin perform public.dispute_prescription_supply(v_disp, 'x'); exception when insufficient_privilege then v_failed := true; end;
+  execute 'reset role';
+  if not v_failed then raise exception 'FAIL: anon can call dispute_prescription_supply'; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  select public.dispute_prescription_supply(v_disp, 'I was not there') into v_ok;
+  select count(*) into v_n from public.prescription_supply_attempts where patient_id = v_pat;
+  execute 'reset role';
+  if not v_ok then raise exception 'FAIL: the patient could not dispute their own supply'; end if;
+  if v_n < 1 then raise exception 'FAIL: the patient cannot see attempts on their prescriptions'; end if;
+  perform set_config('request.jwt.claims', '', true);
+  execute 'set local role anon';
+  select * into r from public.verify_prescription_public(v_t2);
+  execute 'reset role';
+  if r.supplies_dispensed <> 0 or r.supply_available is not true then raise exception 'FAIL: a disputed supply still counted: %', r; end if;
+  select count(*) into v_n from public.audit_log where action = 'prescription.supply_disputed' and entity_id = v_disp and actor_id = v_pat;
+  if v_n <> 1 then raise exception 'FAIL: dispute not audited (%)', v_n; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  select public.dispute_prescription_supply(v_disp, 'again') into v_ok;
+  execute 'reset role';
+  if v_ok then raise exception 'FAIL: a disputed supply was disputed twice'; end if;
+  perform set_config('request.jwt.claims', '', true);
+
   -- SABOTAGE: remove the permitted-supplies guard from a copy of the function; the exhausted prescription is then supplied again
   update public.pharmacy_order_dispenses set created_at = now() - interval '11 minutes' where medication_id = v_m1;
   select replace(pg_get_functiondef('public.record_prescription_supply_public(text,text,text,text,text)'::regprocedure),
-                 'if v_dispensed >= v_permitted then', 'if false then') into v_def;
-  if v_def not like '%if false then%' then raise exception 'SABOTAGE not applied'; end if;
+                 'when v_dispensed >= v_permitted then', 'when false then') into v_def;
+  if v_def not like '%when false then%' then raise exception 'SABOTAGE not applied'; end if;
   execute v_def;
   execute 'set local role anon';
-  select * into r from public.record_prescription_supply_public(v_t1, 'Sabotage Pharmacy', 'Sab Pharmacist');
+  select * into r from public.record_prescription_supply_public(v_t1, 'Sabotage Pharmacy', 'Sab Pharmacist', 'PCN-1234');
   execute 'reset role';
   if r.outcome <> 'recorded' then raise exception 'SABOTAGE not effective: exhausted prescription still refused (%)', r.outcome; end if;
 

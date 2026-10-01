@@ -91,7 +91,7 @@ export const SUPPLY_OUTCOME_MESSAGE: Record<SupplyOutcome, { tone: "good" | "bad
   no_supply_available: { tone: "bad", text: "No supply is available on this prescription now, so nothing was recorded. Do not dispense." },
   not_active: { tone: "bad", text: "This prescription can no longer be supplied. Nothing was recorded. Do not dispense." },
   not_found: { tone: "bad", text: "We could not find this prescription, so nothing was recorded." },
-  invalid: { tone: "bad", text: "Enter the pharmacy name and the pharmacist's name (at least two letters each)." },
+  invalid: { tone: "bad", text: "Enter the pharmacy name, the pharmacist's name and the pharmacist's registration number." },
   rate_limited: { tone: "bad", text: "Too many attempts from this connection. Please wait a while and try again." },
   error: { tone: "bad", text: "That could not be recorded just now. Please try again shortly." },
 };

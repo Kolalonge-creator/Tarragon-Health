@@ -395,3 +395,26 @@ export function useLogDose() {
     },
   });
 }
+
+/**
+ * The patient says a pharmacy-recorded supply did not happen (public.dispute_prescription_supply). A disputed supply stops
+ * counting toward the permitted supplies. Only the patient can do this; a false result (not theirs, not a pharmacy supply,
+ * already disputed) is an error, never a silent success.
+ */
+export function useDisputePrescriptionSupply(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ dispenseId, note }: { dispenseId: string; note?: string }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("dispute_prescription_supply", {
+        p_dispense_id: dispenseId,
+        ...(note?.trim() ? { p_note: note.trim() } : {}),
+      });
+      if (error) throw error;
+      if (data !== true) throw new Error("This supply could not be disputed. It may already have been.");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: medicationCollectionsKey(patientId) });
+    },
+  });
+}
