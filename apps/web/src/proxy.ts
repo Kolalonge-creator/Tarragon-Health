@@ -65,6 +65,14 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // No-login prescription check (QR on the prescription PDF). Same reasoning as /emergency/ and
+  // /verify-report: it needs no session, must not bounce a signed-in visitor (a pharmacist who is also a
+  // user), and the 64-hex token in the path must never leave through a Referer header.
+  if (pathname === "/verify-rx" || pathname.startsWith("/verify-rx/")) {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
   // The mobile app's WebView session bridge (apps/mobile/src/screens/
   // webview-screen.tsx) must run its own client-side setSession() exchange
   // and `next` redirect every time it's hit — authenticated or not. Without

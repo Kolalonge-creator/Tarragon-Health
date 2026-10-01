@@ -21,8 +21,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: PDF_CLINICAL_NAVY,
     fontFamily: PDF_FONT_FAMILY,
-    paddingTop: HEADER_HEIGHT + 20,
-    paddingBottom: 64,
+    paddingTop: HEADER_HEIGHT + 14,
+    paddingBottom: 56,
     paddingHorizontal: PAGE_PADDING,
   },
   headerBand: {
@@ -48,14 +48,14 @@ const styles = StyleSheet.create({
   headerDocLabel: { fontSize: 9, fontWeight: 700, color: "#ffffff", textTransform: "uppercase", letterSpacing: 1 },
   headerRef: { fontSize: 8, color: "#C9D7CF", marginTop: 2 },
 
-  title: { fontSize: 18, fontWeight: 700, marginBottom: 3 },
-  subtitle: { fontSize: 9.5, color: "#5b6b78", marginBottom: 16 },
+  title: { fontSize: 16, fontWeight: 700, marginBottom: 2 },
+  subtitle: { fontSize: 9.5, color: "#5b6b78", marginBottom: 10 },
 
-  section: { marginBottom: 12 },
+  section: { marginBottom: 8 },
   sectionTitle: {
     fontSize: 11,
     fontWeight: 700,
-    marginBottom: 6,
+    marginBottom: 4,
     color: PDF_BRAND_GREEN,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -63,14 +63,14 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderBottomWidth: 0.5,
     borderBottomColor: "#dfe3e6",
   },
   rowLabel: { color: "#5b6b78" },
   rowValue: { maxWidth: 330, textAlign: "right" },
 
-  drugBox: { padding: 10, backgroundColor: "#EEF6F1", borderLeftWidth: 3, borderLeftColor: PDF_BRAND_GREEN, marginBottom: 6 },
+  drugBox: { padding: 8, backgroundColor: "#EEF6F1", borderLeftWidth: 3, borderLeftColor: PDF_BRAND_GREEN, marginBottom: 6 },
   drugName: { fontSize: 14, fontWeight: 700 },
   drugLine: { fontSize: 10.5, marginTop: 2 },
 
@@ -78,11 +78,14 @@ const styles = StyleSheet.create({
   codeLabel: { fontSize: 8, color: "#5b6b78", textTransform: "uppercase", letterSpacing: 0.5 },
   codeValue: { fontSize: 14, fontWeight: 700, marginTop: 2, letterSpacing: 1 },
 
-  signatureBlock: { marginTop: 6, marginBottom: 6 },
+  signatureBlock: { marginTop: 2, marginBottom: 2 },
   signatureRule: { borderTopWidth: 0.75, borderTopColor: PDF_CLINICAL_NAVY, width: 220, marginBottom: 6 },
   signatureName: { fontSize: 11, fontWeight: 700 },
   signatureCaption: { fontSize: 8.5, color: "#5b6b78", marginTop: 1 },
 
+  qrRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 6 },
+  qr: { width: 64, height: 64 },
+  qrText: { flex: 1, fontSize: 8.5, color: "#5b6b78", lineHeight: 1.4 },
   noteBox: { marginTop: 4, padding: 10, backgroundColor: "#F4F1EA", borderLeftWidth: 3, borderLeftColor: PDF_CLINICAL_NAVY },
   noteText: { fontSize: 8.5, color: "#5b6b78", lineHeight: 1.4 },
 
@@ -107,6 +110,10 @@ const styles = StyleSheet.create({
 /** Controlled-medicine statement (founder decision 2026-10-01: none is prescribed on the platform, and patients should be told). */
 export const NOT_CONTROLLED_STATEMENT =
   "This prescription is not for a controlled medicine. TarragonHealth does not prescribe controlled medicines.";
+
+/** Printed beside the QR code: how a pharmacy checks this prescription with no account. */
+export const VERIFY_STATEMENT =
+  "Scan to check that this prescription is genuine and still valid. No account is needed. If the check says it is replaced, expired or stopped, do not dispense it.";
 
 /** Honest about reuse until a dispensing record exists. Never claims the prescription is single-use. */
 export const REPEAT_STATEMENT =
@@ -138,7 +145,7 @@ function Row({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function PrescriptionPage({ rx }: { rx: PrescriptionPdfData }) {
+function PrescriptionPage({ rx, qr }: { rx: PrescriptionPdfData; qr: string | null }) {
   const strength = [rx.dose, rx.route].filter(Boolean).join(" · ");
   return (
     <Page size="A4" style={styles.page} wrap>
@@ -203,6 +210,13 @@ function PrescriptionPage({ rx }: { rx: PrescriptionPdfData }) {
             <Text style={styles.codeValue}>{formatPrescriptionDate(rx.validUntil)}</Text>
           </View>
         </View>
+        {qr ? (
+          <View style={styles.qrRow}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            <Image style={styles.qr} src={qr} />
+            <Text style={styles.qrText}>{VERIFY_STATEMENT}</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.section}>
@@ -284,9 +298,12 @@ function NotIncludedPage({ skipped }: { skipped: SkippedPrescription[] }) {
 export function PrescriptionPdf({
   prescriptions,
   skipped = [],
+  qrByMedicationId = {},
 }: {
   prescriptions: PrescriptionPdfData[];
   skipped?: SkippedPrescription[];
+  /** Pre-rendered QR image (data URL) per prescription; a prescription without one prints without a QR. */
+  qrByMedicationId?: Record<string, string>;
 }) {
   const first = prescriptions[0];
   return (
@@ -300,7 +317,7 @@ export function PrescriptionPdf({
       subject="Prescription"
     >
       {prescriptions.map((rx) => (
-        <PrescriptionPage key={rx.medicationId} rx={rx} />
+        <PrescriptionPage key={rx.medicationId} rx={rx} qr={qrByMedicationId[rx.medicationId] ?? null} />
       ))}
       {skipped.length > 0 ? <NotIncludedPage skipped={skipped} /> : null}
     </Document>

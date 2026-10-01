@@ -30,6 +30,7 @@ const medication: PrescriptionSource = {
   superseded_at: null,
   created_at: "2026-10-01T09:00:00Z",
   amendment_reason: null,
+  public_token: "a".repeat(64),
 };
 const patient = { full_name: "First Patient", patient_number: "TH-002610", date_of_birth: "1985-03-04" };
 const prescriber: PrescriptionPrescriber = {
@@ -57,6 +58,7 @@ describe("buildPrescriptionPdfData", () => {
       prescriberName: "Ada Longe",
       prescriberCredential: "MDCN 123456",
       patientNumber: "TH-002610",
+      publicToken: "a".repeat(64),
     });
   });
 

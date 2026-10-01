@@ -22184,6 +22184,7 @@ export type Database = {
           prescriber_name: string | null
           prescription_id: string | null
           previous_version_id: string | null
+          public_token: string | null
           quantity: string | null
           refill_date: string | null
           repeats_allowed: number
@@ -22223,6 +22224,7 @@ export type Database = {
           prescriber_name?: string | null
           prescription_id?: string | null
           previous_version_id?: string | null
+          public_token?: string | null
           quantity?: string | null
           refill_date?: string | null
           repeats_allowed?: number
@@ -22262,6 +22264,7 @@ export type Database = {
           prescriber_name?: string | null
           prescription_id?: string | null
           previous_version_id?: string | null
+          public_token?: string | null
           quantity?: string | null
           refill_date?: string | null
           repeats_allowed?: number
@@ -44570,6 +44573,26 @@ export type Database = {
       verify_payer_board_report: {
         Args: { p_content_hash: string; p_report_number: string }
         Returns: Json
+      }
+      verify_prescription_public: {
+        Args: { p_token: string }
+        Returns: {
+          dose: string
+          drug_name: string
+          duration_days: number
+          expires_at: string
+          frequency: string
+          prescriber_credential: string
+          prescriber_name: string
+          quantity: string
+          repeats_allowed: number
+          repeats_remaining: number
+          repeats_used: number
+          rx_number: string
+          signed_at: string
+          status: string
+          version: number
+        }[]
       }
       verify_prescription: {
         Args: { p_rx_number: string; p_verification_code: string }

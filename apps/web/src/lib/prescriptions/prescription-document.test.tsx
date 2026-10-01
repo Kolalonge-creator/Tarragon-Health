@@ -15,7 +15,7 @@ jest.mock("@/lib/pdf/register-fonts", () => ({
   PDF_FONT_FAMILY: "Helvetica",
 }));
 
-import { NOT_CONTROLLED_STATEMENT, PrescriptionPdf, REPEAT_STATEMENT } from "./prescription-document";
+import { NOT_CONTROLLED_STATEMENT, PrescriptionPdf, REPEAT_STATEMENT, VERIFY_STATEMENT } from "./prescription-document";
 import type { PrescriptionPdfData } from "./prescription-pdf-data";
 
 /** Expands function components and gathers every string, so what a pharmacist would read is what is asserted. */
@@ -60,6 +60,7 @@ const rx = (n: number, overrides: Partial<PrescriptionPdfData> = {}): Prescripti
   instructions: "Take in the morning",
   rxNumber: `TRG-RX-2026-00036${n}`,
   verificationCode: `A1B2C${n}`,
+  publicToken: "d".repeat(64),
   version: 1,
   amendmentReason: null,
   signedAt: "2026-10-01T09:00:00Z",
@@ -136,5 +137,14 @@ describe("PrescriptionPdf", () => {
 
   it("has no extra page when nothing was skipped", () => {
     expect(countPages(PrescriptionPdf({ prescriptions: [rx(1)], skipped: [] }))).toBe(1);
+  });
+
+  it("prints the scan-to-check text only for a prescription that has a QR image", () => {
+    const withQr = collectText(
+      PrescriptionPdf({ prescriptions: [rx(1)], qrByMedicationId: { [rx(1).medicationId]: "data:image/png;base64,AAAA" } }),
+    ).join(" ");
+    expect(withQr).toContain(VERIFY_STATEMENT);
+    const without = collectText(PrescriptionPdf({ prescriptions: [rx(1)] })).join(" ");
+    expect(without).not.toContain(VERIFY_STATEMENT);
   });
 });
