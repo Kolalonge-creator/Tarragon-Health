@@ -6,7 +6,7 @@ jest.mock("./supabase", () => ({
   supabase: {
     from: (table: string) => ({
       select: () => ({
-        eq: (_c: string, _v: unknown) => {
+        eq: () => {
           const rows = table === "consent_versions" ? mockVersionsRows : mockEventRows;
           const result = Promise.resolve({ data: rows, error: null });
           (result as unknown as { order: () => Promise<unknown> }).order = () => Promise.resolve({ data: rows, error: null });
