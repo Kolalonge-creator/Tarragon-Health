@@ -7918,6 +7918,9 @@ export type Database = {
           photo_url: string | null
           profile_id: string | null
           red_flag_attested_at: string | null
+          signature_path: string | null
+          signature_updated_at: string | null
+          signature_updated_by: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"] | null
           specialty: string | null
           staff_number: string | null
@@ -7950,6 +7953,9 @@ export type Database = {
           photo_url?: string | null
           profile_id?: string | null
           red_flag_attested_at?: string | null
+          signature_path?: string | null
+          signature_updated_at?: string | null
+          signature_updated_by?: string | null
           specialist_type?: Database["public"]["Enums"]["specialist_type"] | null
           specialty?: string | null
           staff_number?: string | null
@@ -7982,6 +7988,9 @@ export type Database = {
           photo_url?: string | null
           profile_id?: string | null
           red_flag_attested_at?: string | null
+          signature_path?: string | null
+          signature_updated_at?: string | null
+          signature_updated_by?: string | null
           specialist_type?: Database["public"]["Enums"]["specialist_type"] | null
           specialty?: string | null
           staff_number?: string | null

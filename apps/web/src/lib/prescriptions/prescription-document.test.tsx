@@ -69,6 +69,7 @@ const rx = (n: number, overrides: Partial<PrescriptionPdfData> = {}): Prescripti
   validUntil: "2027-04-01T00:00:00Z",
   prescriberName: "Ada Longe",
   prescriberCredential: "MDCN 123456",
+  signatureImage: null,
   ...overrides,
 });
 
@@ -187,5 +188,20 @@ describe("PrescriptionPdf", () => {
     const text = collectText(PrescriptionPdf({ prescriptions: [rx(1)] })).join(" ");
     expect(text).toContain("TarragonHealth");
     expect(text).not.toContain("RC ");
+  });
+
+  it("prints the signature image above the signature line only when the prescriber has one", () => {
+    const imagesWithSrc = (node: unknown, prefix: string): number => {
+      if (node == null || typeof node !== "object") return 0;
+      if (Array.isArray(node)) return node.reduce((n: number, c) => n + imagesWithSrc(c, prefix), 0);
+      const el = node as ReactElement<{ children?: unknown; src?: unknown }>;
+      if (typeof el.type === "function") return imagesWithSrc((el.type as (p: unknown) => unknown)(el.props), prefix);
+      return (el.type === "Image" && typeof el.props?.src === "string" && el.props.src.startsWith(prefix) ? 1 : 0) + imagesWithSrc(el.props?.children, prefix);
+    };
+    const signed = PrescriptionPdf({ prescriptions: [rx(1, { signatureImage: "data:image/png;base64,SIG" })] });
+    const unsigned = PrescriptionPdf({ prescriptions: [rx(1)] });
+    expect(imagesWithSrc(signed, "data:image/png;base64,SIG")).toBe(1);
+    expect(imagesWithSrc(unsigned, "data:image/png;base64,SIG")).toBe(0);
+    expect(collectText(signed).join(" ")).toContain("ELECTRONICALLY SIGNED");
   });
 });

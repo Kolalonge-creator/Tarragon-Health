@@ -793,3 +793,5 @@ prescription_public_verification.sql
 prescription_supply_record_and_repeat_control.sql
 # Prescription PDF phase 4: a new prescription keeps its in-app 'prescribed' notice; an amendment gets 'prescription_updated_patient' and no second 'prescribed' in-app row, other channels unchanged; the daily expiry job queues one in-app notice for a current prescription expiring within 7 days (not later, expired, superseded, stopped or patient-sourced), never twice, not anon-executable; sabotage.
 prescription_amended_and_expiring_notices.sql
+# Doctor signature for the prescription PDF: only an admin (or the system) can set clinical_staff.signature_path, stamped with who and when, malformed paths refused; the private staff-signatures bucket accepts an admin's upload into their own organisation's folder and refuses a clinician, a patient and another organisation's folder; non-admins cannot read the object; the directory view exposes no signature column; sabotage drops the trigger.
+clinical_staff_prescription_signature.sql
