@@ -246,3 +246,9 @@ Entry format:
 - **Tests**: DB proof `prescription_public_verification.sql` (registered, sabotage); Jest for the presenter, token pattern, URL and QR text (46 in total in `lib/prescriptions`).
 - **Deploy order**: the migration MUST be applied before this ships: the PDF loader now selects `public_token`, so without the column every download fails.
 - **Not built**: phase 3 (dispensing record and repeat control), phase 4 (clinician reprint, stale-copy notice). A redirect is not offered for a superseded token (the page just says it was replaced).
+## Admin: edit a doctor's registration number (2026-10-01)
+
+- **Why**: the clinical-staff admin page could only set a credential at creation; the prescription PDF refuses a doctor with no real number, and the two live doctors had none (`NULL` and `MDCN-PENDING-...`).
+- **Built**: "Edit profile" on `/admin/settings/clinical-staff` now has Registration body and Registration number. Both are required together, a placeholder (`PENDING`, `TBC`, `n/a`, `test`, blank) is refused, and nothing is sent when unchanged. Changing either clears `credential_verified_at` (existing trigger), which the form says. `lib/clinical/credential-edit.ts` with 8 Jest tests.
+- **Data**: the two live numbers were set directly on 2026-10-01 (MDCN R2311 and R8919, supplied by the founder); `license_verified_at` was already set on both.
+- **Known**: `clinical_staff_update` allows any org staff to update the row, not only an admin; the page is admin-only but the policy is broader.
