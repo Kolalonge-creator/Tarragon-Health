@@ -126,9 +126,19 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
             <View key={`${c.consentType}-${c.version}`} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 13, color: colors.ink }}>{CONSENT_TYPE_LABEL[c.consentType] ?? c.consentType.replace(/_/g, " ")}</Text>
-                <MutedText>{c.accepted && c.acceptedAt ? `Accepted ${when(c.acceptedAt)} · v${c.version}` : "Not yet recorded"}</MutedText>
+                <MutedText>{c.accepted && c.acceptedAt
+                    ? `Accepted ${when(c.acceptedAt)} · v${c.version}`
+                    : c.state === "withdrawn"
+                      ? "You withdrew this. Nothing is shared under it."
+                      : c.state === "older_version"
+                        ? "A newer version is available. Review needed."
+                        : c.isOptional
+                          ? "Not shared"
+                          : "Not yet recorded"}</MutedText>
               </View>
-              <Badge tone={c.accepted ? "brand" : "neutral"}>{c.accepted ? "Accepted" : "Outstanding"}</Badge>
+              <Badge tone={c.accepted ? "brand" : "neutral"}>
+                {c.accepted ? "Accepted" : c.state === "withdrawn" ? "Withdrawn" : c.isOptional ? "Not shared" : "Outstanding"}
+              </Badge>
             </View>
           ))
         )}

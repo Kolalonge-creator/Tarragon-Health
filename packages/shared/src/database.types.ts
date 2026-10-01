@@ -8984,6 +8984,7 @@ export type Database = {
           created_at: string
           id: string
           is_current: boolean
+          is_optional: boolean
           published_at: string
           text_key: string | null
           title: string
@@ -8995,6 +8996,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_current?: boolean
+          is_optional?: boolean
           published_at?: string
           text_key?: string | null
           title: string
@@ -9006,6 +9008,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_current?: boolean
+          is_optional?: boolean
           published_at?: string
           text_key?: string | null
           title?: string
@@ -40177,9 +40180,27 @@ export type Database = {
         Args: { p_request: string }
         Returns: Json
       }
+      confirm_proxy_setup: {
+        Args: {
+          p_categories: Database["public"]["Enums"]["care_access_category"][]
+          p_permissions?: Database["public"]["Enums"]["caregiver_permission"][]
+          p_setup_id: string
+        }
+        Returns: string
+      }
       confirm_sim_swap_review: {
         Args: { p_note: string; p_request: string }
         Returns: Json
+      }
+      decline_proxy_setup: { Args: { p_setup_id: string }; Returns: undefined }
+      create_proxy_setup: {
+        Args: {
+          p_full_name: string
+          p_max_per_day: number
+          p_phone: string
+          p_ttl_hours: number
+        }
+        Returns: string
       }
       execute_assisted_recovery: {
         Args: { p_request: string }
@@ -40204,6 +40225,14 @@ export type Database = {
           state: string
           subject_name: string
           subject_user_id: string
+        }[]
+      }
+      my_pending_proxy_setups: {
+        Args: never
+        Returns: {
+          expires_at: string
+          id: string
+          requester_first_name: string
         }[]
       }
       open_patient_identity_audited: {

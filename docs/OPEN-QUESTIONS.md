@@ -297,3 +297,38 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The hook sends Termii's OTP template word for word ("Your TarragonHealth verification code is N. This code expires in 10 minutes. Do not share with anyone."), which is longer than spec section 10's "code and brand name only"; carriers route by approved template, so the template wins. It promises 10 minutes, so the Supabase phone OTP expiry must be set to 600 seconds when the Phone provider is enabled.
 - Options: (a) supply the documents and submit (recommended), then ask Termii support to activate DND; (b) try Termii's default sender for a pilot (their form says they may activate default IDs if the application is not approved), confirming first that default IDs work on the DND route.
 - Decision:
+
+### OQ-47 Add-elder proxy gives `manage` access before the elder has agreed (raised by S04)
+- `addElderProxyDependentAction` (`apps/web/src/app/(dashboard)/patient/family/add-elder-actions.ts`) creates a login-less elder profile and gives the proxy `manage` on it at once. Through the dependent bypass in `private.can_read_clinical` that covers every category, reproductive health included. That is the opposite of v5 8.2 and safety case 23 ("the proxy sees nothing until the parent confirms"). The new `proxy_setups` flow is the compliant path; the old one is unchanged by S04.
+- Options: (a) route "add a parent" through the new flow and keep the old action only for elders with no phone or capacity, with a recorded reason (recommended); (b) remove the old action; (c) leave both.
+- Decision:
+
+### OQ-48 The dependent-claim flow sends an SMS that is not a verification code (raised by S04)
+- `claimDependentAccountAction` inserts a `notifications` row on channel `sms` (`dependent_account_claimed`), which INV-08 forbids (SMS is for verification codes only). Extends OQ-32; S04 does not change it.
+- Decision:
+
+### OQ-49 Optional consent types have no approved wording (raised by S04)
+- `consent_versions` has rows only for the three original types. S04 adds the plumbing (`is_required`, withdrawal-aware logic, history) and seeds the optional purposes with `text_key`s, but the legal text (English) and the Pidgin equivalents need your approval and a native reviewer (OQ-19) before they are shown as real consent.
+- Options: (a) ship the keys with clearly marked draft text behind a config flag until signed off (recommended); (b) hold the optional purposes entirely.
+- Decision:
+
+### OQ-50 Self-serve account deletion and data export are not in S04 (raised by S04)
+- Live: export and deletion are admin-reviewed requests (`data_export_requests`, `data_deletion_requests`); there is no `delete_account` function and no self-serve download. Automated erasure needs a retention decision (clinical records, `audit_log` has no FK on purpose, finance ledger entries are never deleted).
+- Options: (a) keep the reviewed workflow and add a two-tap request and status view (recommended); (b) automate erasure after a legal retention ruling.
+- Decision:
+
+### OQ-51 Categories chosen by the parent do not set `profile_access.permissions` (raised by S04 review)
+- `confirm_proxy_setup` grants the chosen `care_access_category` rows but stores empty `permissions`. Tables or screens gated by the `can_read_clinical(uuid, caregiver_permission)` overload can still refuse the proxy, so "share Medicines" may not let them see medicines. The direction is safe (less access than shown), but the two models disagree.
+- Options: (a) define one mapping from category to permissions and write both at confirmation (recommended, needs a clinical and product decision on the mapping); (b) make the permission overload read the category rows.
+- Decision:
+
+### OQ-52 Starting a setup creates an unverified account for any phone number (raised by S04 review)
+- The proxy flow uses phone OTP with `shouldCreateUser: true`, as spec 8.2 describes, so any patient can create a password-less, unconfirmed account and profile for an arbitrary number (5 a day each). That also runs `handle_new_user`'s roster claim before verification (OQ-41).
+- Options: (a) accept and add per-number and per-caller limits plus a cleanup of never-verified setup accounts (recommended); (b) send no code to a number with no account and let the parent sign up normally, then show the pending request after verification (changes spec 8.2).
+- Decision:
+
+### OQ-53 "A required consent cannot be withdrawn" is enforced only in the web action (raised by S04 review)
+- `withdrawConsentAction` refuses required purposes, but the `patient_consents` insert policy and the withdrawal trigger still allow a patient to insert a withdrawn row for a required purpose directly.
+- Options: (a) enforce it in `enforce_patient_consent_withdrawal` for current required versions and route account-level withdrawal to the data rights flow (recommended); (b) leave it app-level.
+- Decision:
+

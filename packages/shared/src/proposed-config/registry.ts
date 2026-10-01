@@ -135,6 +135,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: `${SPEC.replace("Section 17", "Section 8.2")} (Verify: six-digit code, resend after 60 seconds, max 5 attempts per hour)`,
   },
   {
+    key: "proxy.setup",
+    // Spec 8.2 "Set up for my parent": the setup expires after 72 hours. The per-day cap on how many setups one person
+    // may start is not in the spec; it is a PROPOSED abuse limit (each setup costs a verification code SMS). Mirrored
+    // in SQL only as an upper bound (create_proxy_setup refuses ttl above 72 and a cap above 20).
+    value: { ttlHours: 72, maxPerDay: 5 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: FROM,
+    source: `${SPEC.replace("Section 17", "Section 8.2")} (Set up for my parent: expires after 72 hours); maxPerDay is a proposed abuse limit, not from the spec`,
+  },
+  {
     key: "commerce.care_pack_price_kobo",
     // 12,000 naira pilot price, stored as integer kobo (INV-15).
     value: 1_200_000,

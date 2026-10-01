@@ -8316,6 +8316,7 @@ export type Database = {
           created_at: string
           id: string
           is_current: boolean
+          is_optional: boolean
           published_at: string
           text_key: string | null
           title: string
@@ -8327,6 +8328,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_current?: boolean
+          is_optional?: boolean
           published_at?: string
           text_key?: string | null
           title: string
@@ -8338,6 +8340,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_current?: boolean
+          is_optional?: boolean
           published_at?: string
           text_key?: string | null
           title?: string
@@ -38107,6 +38110,14 @@ export type Database = {
         }
         Returns: number
       }
+      confirm_proxy_setup: {
+        Args: {
+          p_categories: Database["public"]["Enums"]["care_access_category"][]
+          p_permissions?: Database["public"]["Enums"]["caregiver_permission"][]
+          p_setup_id: string
+        }
+        Returns: string
+      }
       confirm_screening_day: {
         Args: {
           p_discount_percent: number
@@ -38186,6 +38197,15 @@ export type Database = {
         }
         Returns: string
       }
+      create_proxy_setup: {
+        Args: {
+          p_full_name: string
+          p_max_per_day: number
+          p_phone: string
+          p_ttl_hours: number
+        }
+        Returns: string
+      }
       create_subsidy_split_rule: {
         Args: {
           p_organisation_id: string
@@ -38228,6 +38248,7 @@ export type Database = {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
       }
+      decline_proxy_setup: { Args: { p_setup_id: string }; Returns: undefined }
       decline_video_visit_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
@@ -39404,6 +39425,14 @@ export type Database = {
         }[]
       }
       my_feature_flags: { Args: never; Returns: Json }
+      my_pending_proxy_setups: {
+        Args: never
+        Returns: {
+          expires_at: string
+          id: string
+          requester_first_name: string
+        }[]
+      }
       my_provider_performance: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json

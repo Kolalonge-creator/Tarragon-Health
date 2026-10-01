@@ -757,3 +757,7 @@ s02_identity_consent_audit_baseline.sql
 s03_sms_delivery_log.sql
 # S03 assisted recovery: two-admin rule, state machine, audit per step, masked outputs, neutral subject notices, SIM-swap second step, anon no EXECUTE; five sabotages.
 s03_assisted_recovery.sql
+# S04 "Set up for my parent": safety case 23 (proxy has no grant and sees nothing until the parent confirms on a verified number), identical refusals, parent-chosen categories only, decline/expiry terminal, anon no EXECUTE; four sabotages.
+s04_proxy_setup.sql
+# S04 consent is_optional: optional purposes never gate onboarding, a plain-INSERT version bump of a required purpose still gates, required withdrawal closes the gate, re-acceptance reopens it; one sabotage.
+s04_consent_is_optional.sql
