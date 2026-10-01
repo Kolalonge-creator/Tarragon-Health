@@ -57,8 +57,8 @@ export function PrescriptionDownload({
         </p>
       )}
       <p className="text-charcoal-ink/50 dark:text-night-ink/55">
-        Take this to any pharmacy. This is not a controlled medicine: TarragonHealth does not prescribe controlled
-        medicines. A pharmacy can check the Rx number and code with us before dispensing.
+        Take this to a pharmacy of your choice. This is not a controlled medicine: TarragonHealth does not prescribe
+        controlled medicines.
       </p>
     </div>
   );

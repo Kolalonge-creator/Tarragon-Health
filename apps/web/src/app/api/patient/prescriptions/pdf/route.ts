@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { loadPrescriptionBundle } from "@/lib/prescriptions/load-prescription-pdf-data";
+import { isUuid } from "@/lib/prescriptions/ids";
 import { prescriptionPdfResponse } from "@/lib/prescriptions/prescription-pdf-response";
 
 /**
@@ -14,7 +15,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!user) return new Response("Not signed in", { status: 401 });
 
   const requested = new URL(request.url).searchParams.get("patientId");
-  if (requested && !/^[0-9a-f-]{36}$/i.test(requested)) return new Response("Not found", { status: 404 });
+  if (requested && !isUuid(requested)) return new Response("Not found", { status: 404 });
 
   const result = await loadPrescriptionBundle(supabase, user.id, requested ?? user.id, "web");
   return prescriptionPdfResponse(result, { disposition: "attachment", filename: "prescriptions.pdf" });

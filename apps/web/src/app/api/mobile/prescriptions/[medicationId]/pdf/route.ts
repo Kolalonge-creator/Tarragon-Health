@@ -1,5 +1,6 @@
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { loadSinglePrescription } from "@/lib/prescriptions/load-prescription-pdf-data";
+import { isUuid } from "@/lib/prescriptions/ids";
 import { prescriptionPdfResponse } from "@/lib/prescriptions/prescription-pdf-response";
 
 /**
@@ -14,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ medicationId: string }> },
 ): Promise<Response> {
   const { medicationId } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(medicationId)) return new Response("Not found", { status: 404 });
+  if (!isUuid(medicationId)) return new Response("Not found", { status: 404 });
 
   const headerToken = request.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];
   const accessToken = headerToken ?? new URL(request.url).searchParams.get("token") ?? undefined;
