@@ -93,6 +93,9 @@ const styles = StyleSheet.create({
 export const NOT_CONTROLLED_STATEMENT =
   "This prescription is not for a controlled medicine. TarragonHealth does not prescribe controlled medicines.";
 
+/** Printed when an older prescription has no quantity or duration. New prescriptions cannot be issued without them. */
+export const NOT_SPECIFIED = "Not specified by the prescriber";
+
 /** The optional check, first line of the pharmacist panel: scan or open the link below. */
 export const VERIFY_STATEMENT =
   "Optional: scan the code, or open the link below, to confirm this prescription is genuine and still valid.";
@@ -205,8 +208,9 @@ function PrescriptionPage({ rx, qr, letterhead }: { rx: PrescriptionPdfData; qr:
           {strength ? <Text style={styles.strength}>{strength}</Text> : null}
           {rx.frequency ? <Text style={styles.sig}>{rx.frequency}</Text> : null}
           <View style={{ marginTop: 6 }}>
-            <Detail label="Quantity" value={rx.quantity} />
-            <Detail label="Duration" value={formatDuration(rx.durationDays)} />
+            {/* A prescription from before quantity and duration were required may have neither: say so rather than leave the pharmacy guessing. */}
+            <Detail label="Quantity" value={rx.quantity?.trim() ? rx.quantity : NOT_SPECIFIED} />
+            <Detail label="Duration" value={formatDuration(rx.durationDays) ?? NOT_SPECIFIED} />
             <Detail label="Repeats allowed" value={String(rx.repeatsAllowed)} />
             <Detail label="Reason" value={rx.indication} />
             <Detail label="Instructions" value={rx.instructions} />

@@ -87,7 +87,7 @@ begin
   --     is NOT NULL with a default of 0, and an explicit NULL does not take the default (this failed live before the fix)
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied_smo, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  v_min := public.prescribe_medication(v_pat, 'S05fC2 Minimal drug');
+  v_min := public.prescribe_medication(v_pat, 'S05fC2 Minimal drug', p_duration_days => 7, p_quantity => '7 tablets');
   execute 'reset role';
   select * into v_row from public.medications where id = v_min;
   if v_row.id is null or v_row.repeats_allowed <> 0 or v_row.source <> 'clinician' then
@@ -100,7 +100,7 @@ begin
     perform set_config('request.jwt.claims', json_build_object('sub', v_who, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     v_failed := false;
-    begin perform public.prescribe_medication(v_pat, 'S05fC2 Refused drug');
+    begin perform public.prescribe_medication(v_pat, 'S05fC2 Refused drug', p_duration_days => 7, p_quantity => '7 tablets');
     exception when insufficient_privilege then v_failed := true; end;
     execute 'reset role';
     if not v_failed then raise exception 'FAIL 2a: % was allowed to prescribe', v_who; end if;
