@@ -192,7 +192,8 @@ begin
     select
       id, organisation_id, profile_id, full_name, photo_url, credential_type,
       credential_number, specialty, bio, active, doctor_tier, employment_type,
-      offers_therapy_sessions
+      offers_therapy_sessions,
+      (license_verified_at is not null and (license_expires_at is null or license_expires_at > now())) as license_verified
     from public.clinical_staff
     where organisation_id = private.current_org_id()
        or private.is_org_staff(organisation_id)
