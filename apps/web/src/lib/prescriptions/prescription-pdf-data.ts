@@ -1,4 +1,5 @@
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
+import { stripDoctorTitle } from "./doctor-name";
 
 /**
  * The patient-side prescription PDF: eligibility rules and the data the document prints.
@@ -190,7 +191,7 @@ export function buildPrescriptionPdfData(input: {
       amendmentReason: medication.version > 1 ? medication.amendment_reason : null,
       signedAt: medication.created_at,
       validUntil: medication.expires_at,
-      prescriberName: prescriber.name.trim(),
+      prescriberName: stripDoctorTitle(prescriber.name),
       prescriberCredential: `${prescriber.credentialType} ${(prescriber.credentialNumber ?? "").trim()}`,
       signatureImage: null,
     },
