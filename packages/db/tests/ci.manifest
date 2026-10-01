@@ -777,3 +777,7 @@ s05f_medication_logs_symptoms_audited_and_closed.sql
 s05f_medications_audited_reads.sql
 # S05f-C2 medications writes: tie-gated prescribe / confirm-refill, closed table (staff read, insert, update, delete nothing directly), patient self-add and stop and reminder times kept, clinician-prescribed row immutable to the patient (OQ-11), acting supporter and caregiver paths kept; two sabotages. Existing trigger proofs re-expressed as owner-with-claims.
 s05f_medications_tie_gated_writes.sql
+# S05f-D1 vitals audited reads: patient/caregiver/service role read with no audit row, tied clinician ok (filters, paging, source) with audit basis, untied/admin/pharmacist/other org denied (audited), monitoring roster visible flag per patient, adherence refuses untied, hypertension quality view org-level for staff and intact for non-session callers; two sabotages.
+s05f_vitals_audited_reads.sql
+# S05f-D2 vitals_readings closed: staff read/insert/update/delete nothing directly, audited read opens for the tied clinician, patient/supporter/caregiver paths kept, red-flag and stamping triggers still fire for a patient insert (BP crisis, low SpO2, dangerous pulse); two sabotages.
+s05f_vitals_closed_and_triggers.sql

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { readPatientVitalsAudited } from "@/lib/clinical/vitals-audited";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { screeningResultSchema } from "@/lib/validation/screening-result";
 import { computeNonHdl } from "@/lib/lipids/analytes";
@@ -409,16 +410,9 @@ async function maybeComputeCvdRisk(
   const supabase = await createClient();
   const since = new Date(Date.now() - RECENT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  const [{ data: latestBp }, { data: smokingResponse }] = await Promise.all([
-    supabase
-      .from("vitals_readings")
-      .select("systolic")
-      .eq("patient_id", params.patientId)
-      .eq("vital_type", "blood_pressure")
-      .gte("taken_at", since)
-      .order("taken_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  const [bpResult, { data: smokingResponse }] = await Promise.all([
+    // INV-10: through the audited, tie-gated read, not the table.
+    readPatientVitalsAudited(supabase, params.patientId, { vitalType: "blood_pressure", since, limit: 1 }),
     supabase
       .from("risk_assessment_responses")
       .select("response")
@@ -428,6 +422,10 @@ async function maybeComputeCvdRisk(
       .limit(1)
       .maybeSingle(),
   ]);
+  // A refused or failed read of the blood pressure skips this best-effort score, exactly as "no recent reading" does; it is never scored
+  // from nothing. (An error is logged so a failed read is not invisible.)
+  if (bpResult.status === "error") console.error("screening-result: could not read blood pressure for the CVD risk score", bpResult.message);
+  const latestBp = bpResult.status === "ok" ? bpResult.rows[0] : undefined;
   if (!latestBp?.systolic || !smokingResponse) return;
 
   const isSmoker = smokingResponse.response === "current";

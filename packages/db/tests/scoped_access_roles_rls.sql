@@ -112,8 +112,10 @@ end $$;
 -- ==========================================================================
 do $$
 declare
+  -- S05f (INV-10): vitals_readings and medications are closed to every staff role (the clinician control included), so they can no
+  -- longer carry a "clinician sees rows" control here; they are proved closed in s05f_*.sql.
   v_tables text[] := array[
-    'vitals_readings','medications','lab_result_documents','profiles'
+    'lab_result_documents','profiles'
   ];
   v_roles  text[] := array['pharmacist','lab_liaison','finance','analyst'];
   v_tbl    text;

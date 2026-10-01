@@ -258,9 +258,13 @@ begin
   v_emergency_grant_id := (v_response->>'id')::uuid;
   insert into cat_result values ('emergency-access request returns a grant id', case when v_emergency_grant_id is not null then 'not null' else 'null' end, 'not null', case when v_emergency_grant_id is not null then 'PASS' else 'FAIL' end);
 
+  -- S05f (INV-10): vitals_readings is closed to direct staff reads; break-glass reads go through the audited function, which admits an
+  -- active emergency grant per category (private.can_staff_read_clinical -> has_emergency_access) and writes an audit row.
   perform set_config('request.jwt.claims', json_build_object('sub', v_cross_clinician::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  select count(*) into v_count from public.vitals_readings where patient_id = v_patient;
+  v_count := coalesce(jsonb_array_length(
+    case when (public.read_patient_vitals_audited(v_patient, 'S05f proof: break-glass vitals read') ->> 'status') = 'ok'
+         then public.read_patient_vitals_audited(v_patient, 'S05f proof: break-glass vitals read') -> 'rows' end), -1);
   reset role;
   insert into cat_result values ('cross-org clinician reads vitals after emergency grant', v_count::text, '1', case when v_count = 1 then 'PASS' else 'FAIL' end);
 
@@ -296,7 +300,7 @@ begin
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_cross_clinician::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  select count(*) into v_count from public.vitals_readings where patient_id = v_patient;
+  v_count := case when (public.read_patient_vitals_audited(v_patient, 'S05f proof: expired grant attempt') ->> 'status') = 'denied' then 0 else 1 end;
   reset role;
   insert into cat_result values ('expired emergency grant no longer grants access', v_count::text, '0', case when v_count = 0 then 'PASS' else 'FAIL' end);
 

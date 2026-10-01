@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
+import { readPatientVitalsOrThrow } from "@/lib/clinical/vitals-audited";
 
 export type CgmConnection = Tables<"cgm_connections">;
 export type CgmPartner = Tables<"cgm_partners">;
@@ -50,18 +51,13 @@ export function useCgmReadings(patientId: string, days = 14) {
   return useQuery({
     queryKey: ["cgm-readings", patientId, days],
     queryFn: async () => {
-      const supabase = createClient();
       const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      const { data, error } = await supabase
-        .from("vitals_readings")
-        .select("glucose_mmol_l, taken_at")
-        .eq("patient_id", patientId)
-        .eq("source", "cgm")
-        .gte("taken_at", cutoff)
-        .order("taken_at", { ascending: false });
-      if (error) throw error;
-      return data as CgmReading[];
+      const rows = await readPatientVitalsOrThrow(createClient(), patientId, { source: "cgm", since: cutoff, limit: 1000 });
+      return rows.map((r) => ({ glucose_mmol_l: r.glucose_mmol_l, taken_at: r.taken_at })) as CgmReading[];
     },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
     enabled: !!patientId,
   });
 }

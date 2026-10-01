@@ -40695,6 +40695,19 @@ export type Database = {
         }
         Returns: Json
       }
+      read_patient_vitals_audited: {
+        Args: {
+          p_ascending?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_patient: string
+          p_reason?: string
+          p_since?: string
+          p_source?: Database["public"]["Enums"]["vital_source"]
+          p_vital_type?: Database["public"]["Enums"]["vital_type"]
+        }
+        Returns: Json
+      }
       record_assisted_recovery_outcome: {
         Args: { p_ok: boolean; p_request: string }
         Returns: Json
@@ -43178,6 +43191,7 @@ export type Database = {
           systolic: number
           temperature_c: number
           temperature_taken_at: string
+          visible: boolean
           wearable_last_synced_at: string
           weight_kg: number
           weight_taken_at: string

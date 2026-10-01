@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import { readPatientVitalsAudited } from "@/lib/clinical/vitals-audited";
 
 /**
  * The minimised, structured data a case brief is grounded in -- deliberately
@@ -72,7 +73,7 @@ export async function buildCaseSnapshot(
 
   const patientId = alert.patient_id;
 
-  const [{ data: carePlans }, { data: riskScores }, { data: vitals }, { data: history }] =
+  const [{ data: carePlans }, { data: riskScores }, vitalsResult, { data: history }] =
     await Promise.all([
       supabase.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
       supabase
@@ -81,14 +82,8 @@ export async function buildCaseSnapshot(
         .eq("patient_id", patientId)
         .order("computed_at", { ascending: false })
         .limit(5),
-      supabase
-        .from("vitals_readings")
-        .select(
-          "vital_type, taken_at, systolic, diastolic, pulse_bpm, glucose_mmol_l, weight_kg, spo2_pct, temperature_c"
-        )
-        .eq("patient_id", patientId)
-        .order("taken_at", { ascending: false })
-        .limit(5),
+      // INV-10: through the audited, tie-gated read, not the table.
+      readPatientVitalsAudited(supabase, patientId, { limit: 5 }),
       supabase
         .from("escalations")
         .select("status, created_at, clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(level)")
@@ -97,6 +92,12 @@ export async function buildCaseSnapshot(
         .order("created_at", { ascending: false })
         .limit(5),
     ]);
+
+  // An unreadable vitals list must not be briefed as "no recent readings": not available to this caller (same answer as an unreadable
+  // alert), or a thrown read error.
+  if (vitalsResult.status === "denied") return null;
+  if (vitalsResult.status === "error") throw new Error(`case brief: could not read vitals (${vitalsResult.message})`);
+  const vitals = vitalsResult.rows;
 
   return {
     escalationReason,
@@ -111,7 +112,7 @@ export async function buildCaseSnapshot(
       riskLevel: r.risk_level,
       score: r.score,
     })),
-    recentVitals: (vitals ?? []).map((v) => {
+    recentVitals: vitals.map((v) => {
       const numericFields: Record<(typeof VITAL_VALUE_FIELDS)[number], number | null> = {
         systolic: v.systolic,
         diastolic: v.diastolic,
