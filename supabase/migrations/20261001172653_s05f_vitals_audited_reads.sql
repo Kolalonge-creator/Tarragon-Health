@@ -83,7 +83,7 @@ begin
 end;
 $$;
 
-revoke all on function public.read_patient_vitals_audited(uuid, text, public.vital_type, timestamptz, integer, integer, boolean, public.vital_source) from public;
+revoke all on function public.read_patient_vitals_audited(uuid, text, public.vital_type, timestamptz, integer, integer, boolean, public.vital_source) from public, anon;
 grant execute on function public.read_patient_vitals_audited(uuid, text, public.vital_type, timestamptz, integer, integer, boolean, public.vital_source) to authenticated;
 
 -- The roster core: the previous body of patient_monitoring_latest_readings, unchanged, now definer and callable only by the wrapper below
@@ -295,7 +295,7 @@ begin
     left join private.patient_monitoring_core(v_ids) c on c.patient_id = t.id;
 end;
 $function$;
-revoke all on function public.patient_monitoring_latest_readings(uuid[]) from public;
+revoke all on function public.patient_monitoring_latest_readings(uuid[]) from public, anon;
 grant execute on function public.patient_monitoring_latest_readings(uuid[]) to authenticated, service_role;
 
 create or replace function public.patient_vitals_adherence(p_patient_id uuid, p_window_days integer default 28)
@@ -346,7 +346,9 @@ begin
    order by e.vital_type;
 end;
 $$;
-revoke all on function public.patient_vitals_adherence(uuid, integer) from public;
+-- CREATE OR REPLACE keeps the function's existing ACL, and a fresh local replay's default privileges grant anon directly (the live
+-- project never did), so anon is revoked explicitly here, not only PUBLIC.
+revoke all on function public.patient_vitals_adherence(uuid, integer) from public, anon;
 grant execute on function public.patient_vitals_adherence(uuid, integer) to authenticated, service_role;
 
 create or replace function private.hqm_latest_bp_rows()
