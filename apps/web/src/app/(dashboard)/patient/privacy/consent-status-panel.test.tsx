@@ -35,10 +35,13 @@ const CURRENT_VERSIONS = [
 
 // data_processing accepted at v1 (stale — current is v2). terms_of_service
 // accepted at the current v1.
-const ACCEPTED = [
-  { consent_type: "data_processing", version: 1, accepted_at: "2026-01-01T00:00:00Z" },
-  { consent_type: "terms_of_service", version: 1, accepted_at: "2026-01-01T00:00:00Z" },
+const ROW = { action: "accepted", created_at: "2026-01-01T00:00:00Z", accepted_at: "2026-01-01T00:00:00Z" };
+// Mutable so a test can add a withdrawal or an optional purpose.
+let ACCEPTED: Record<string, unknown>[] = [
+  { id: "c1", consent_type: "data_processing", version: 1, ...ROW },
+  { id: "c2", consent_type: "terms_of_service", version: 1, ...ROW },
 ];
+let EXTRA_VERSIONS: Record<string, unknown>[] = [];
 
 jest.mock("@/lib/queries/consent", () => {
   const actual = jest.requireActual("@/lib/queries/consent");
@@ -46,13 +49,16 @@ jest.mock("@/lib/queries/consent", () => {
     ...actual,
     useCurrentConsentVersions: () => ({ data: CURRENT_VERSIONS, isLoading: false }),
     useOutstandingConsentTypes: () => ({
-      versions: CURRENT_VERSIONS,
+      versions: [...CURRENT_VERSIONS, ...EXTRA_VERSIONS],
       accepted: ACCEPTED,
       outstanding: CURRENT_VERSIONS.filter((v) => v.consent_type === "data_processing"),
       isLoading: false,
     }),
   };
 });
+
+const withdrawMock = jest.fn();
+jest.mock("./consent-actions", () => ({ withdrawConsentAction: (...a: unknown[]) => withdrawMock(...a) }));
 
 let capturedFormData: FormData | null = null;
 jest.mock("@/app/onboarding/actions", () => ({
@@ -66,6 +72,12 @@ describe("ConsentStatusPanel", () => {
   beforeEach(() => {
     capturedFormData = null;
     invalidateQueries.mockReset();
+    withdrawMock.mockReset().mockResolvedValue({ success: true });
+    EXTRA_VERSIONS = [];
+    ACCEPTED = [
+      { id: "c1", consent_type: "data_processing", version: 1, ...ROW },
+      { id: "c2", consent_type: "terms_of_service", version: 1, ...ROW },
+    ];
   });
 
   it("labels a stale (older-version) consent differently from a never-accepted one", () => {
@@ -114,5 +126,42 @@ describe("ConsentStatusPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(capturedFormData).toBeNull();
+  });
+
+  it("shows a withdrawn consent as Withdrawn, not Accepted (it used to read as accepted)", () => {
+    ACCEPTED = [
+      ...ACCEPTED,
+      { id: "c3", consent_type: "terms_of_service", version: 1, action: "withdrawn", created_at: "2026-02-01T00:00:00Z", accepted_at: "2026-02-01T00:00:00Z" },
+    ];
+    render(<ConsentStatusPanel patientId="patient-1" />);
+    expect(screen.getByText("Withdrawn")).toBeTruthy();
+    expect(screen.getByText(/You withdrew this/)).toBeTruthy();
+  });
+
+  it("lists the history, newest first, with withdrawals as well as acceptances", () => {
+    ACCEPTED = [
+      ...ACCEPTED,
+      { id: "c3", consent_type: "terms_of_service", version: 1, action: "withdrawn", created_at: "2026-02-01T00:00:00Z", accepted_at: "2026-02-01T00:00:00Z" },
+    ];
+    render(<ConsentStatusPanel patientId="patient-1" />);
+    const items = screen.getAllByText(/Withdrew|Accepted .* v/).map((n) => n.textContent ?? "");
+    expect(items.some((t) => /Withdrew Terms of service/.test(t))).toBe(true);
+    expect(items.some((t) => /Accepted Data processing/.test(t))).toBe(true);
+  });
+
+  it("withdrawing an optional purpose takes two taps and calls the action once", async () => {
+    EXTRA_VERSIONS = [{ id: "v-r-1", consent_type: "research", version: 1, is_required: false }];
+    ACCEPTED = [...ACCEPTED, { id: "c9", consent_type: "research", version: 1, ...ROW }];
+    render(<ConsentStatusPanel patientId="patient-1" />);
+    fireEvent.click(screen.getByRole("button", { name: "Withdraw" }));
+    expect(withdrawMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Yes, withdraw" }));
+    await waitFor(() => expect(withdrawMock).toHaveBeenCalledWith("research"));
+    expect(withdrawMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no withdraw button for a required purpose", () => {
+    render(<ConsentStatusPanel patientId="patient-1" />);
+    expect(screen.queryByRole("button", { name: "Withdraw" })).toBeNull();
   });
 });
