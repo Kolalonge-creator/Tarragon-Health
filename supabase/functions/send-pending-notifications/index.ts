@@ -143,6 +143,7 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   medication_adherence_checkin: "medications",
   medication_review_due: "medications",
   medication_prescribed_patient: "medications",
+  prescription_updated_patient: "medications",
   pharmacy_order_patient_confirmation: "medications",
   medication_dose_reminder: "medications",
 
@@ -1510,6 +1511,43 @@ const TEMPLATE_MAP: Record<
           (prescriberName ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Prescribed by</td><td style="padding:4px 0">${prescriberName}</td></tr>` : "") +
           `</table>` +
           `<p>Open the Tarragon Health app to see your full medication list, reminders, and refill dates.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
+  // Sent to the patient when a clinician AMENDS a prescription (the new version row goes through
+  // private.enqueue_medication_prescribed_notifications with previous_version_id set). It used to send the
+  // "new medication has been added" wording, which hid the fact that the patient's saved PDF is now out of date.
+  prescription_updated_patient: (payload) => {
+    const patientName = escapeHtmlForBroadcast(String(payload.patient_name ?? "there"));
+    const drugNameRaw = String(payload.drug_name ?? "your medication");
+    const drugName = escapeHtmlForBroadcast(drugNameRaw);
+    const dose = escapeHtmlForBroadcast(String(payload.dose ?? ""));
+    const frequency = escapeHtmlForBroadcast(String(payload.frequency ?? ""));
+    const prescriberName = escapeHtmlForBroadcast(String(payload.prescriber_name ?? ""));
+    const rxNumber = escapeHtmlForBroadcast(String(payload.rx_number ?? ""));
+    const smsText =
+      `Hi ${String(payload.patient_name ?? "there")}, your prescription for ${drugNameRaw} was updated. ` +
+      `Open the Tarragon Health app to download the new one: any copy you saved earlier no longer works. Tarragon Health`;
+    return {
+      smsText,
+      email: {
+        subject: `Your prescription for ${drugNameRaw} was updated`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${patientName},</p>` +
+          `<p>Your care team has updated your prescription. Here is the new version:</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Medication</td><td style="padding:4px 0"><strong>${drugName}</strong></td></tr>` +
+          (dose ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Dose</td><td style="padding:4px 0">${dose}</td></tr>` : "") +
+          (frequency ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">How to take it</td><td style="padding:4px 0">${frequency}</td></tr>` : "") +
+          (prescriberName ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Prescribed by</td><td style="padding:4px 0">${prescriberName}</td></tr>` : "") +
+          (rxNumber ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">New Rx number</td><td style="padding:4px 0">${rxNumber}</td></tr>` : "") +
+          `</table>` +
+          `<p><strong>Please download the new prescription from the Tarragon Health app.</strong> Any copy of the earlier prescription that you saved or printed no longer works: a pharmacy checking it will see that it has been replaced.</p>` +
           `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
           `</div>`,
