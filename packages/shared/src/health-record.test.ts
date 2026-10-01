@@ -31,10 +31,9 @@ describe("observation types", () => {
   it("maps the live vital types to the v5 names and back", () => {
     expect(observationTypeFromVitalType("blood_pressure")).toBe("bp");
     expect(observationTypeFromVitalType("glucose")).toBe("glucose");
-    const known = ["blood_pressure", "glucose", "waist_circumference"];
-    expect(vitalTypeFromObservationType("bp", known)).toBe("blood_pressure");
-    expect(vitalTypeFromObservationType("waist", known)).toBe("waist_circumference");
-    expect(vitalTypeFromObservationType("hba1c", known)).toBeNull();
+    expect(vitalTypeFromObservationType("bp")).toBe("blood_pressure");
+    expect(vitalTypeFromObservationType("waist")).toBe("waist_circumference");
+    expect(vitalTypeFromObservationType("hba1c")).toBeNull();
   });
 });
 

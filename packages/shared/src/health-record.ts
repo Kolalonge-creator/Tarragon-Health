@@ -6,7 +6,7 @@
  * mapping so app code can speak v5 without a second source of truth. Every constant here mirrors a database rule; the
  * database stays the enforcer and these only keep the clients honest.
  */
-import type { Enums } from "./database.types";
+import { Constants, type Enums } from "./database.types";
 
 /** v5 provenance (4.3). Stored as `public.record_source`; views map the older per-table source enums onto it. */
 export const RECORD_SOURCES = ["patient", "device", "ussd", "clinician", "partner", "system"] as const satisfies readonly Enums<"record_source">[];
@@ -42,9 +42,9 @@ const OBSERVATION_TO_VITAL: Record<string, Enums<"vital_type">> = {
   waist: "waist_circumference",
 };
 /** Inverse of observationTypeFromVitalType; null when the type is not a known live vital type. */
-export function vitalTypeFromObservationType(type: string, known: readonly string[]): Enums<"vital_type"> | null {
+export function vitalTypeFromObservationType(type: string): Enums<"vital_type"> | null {
   const mapped = OBSERVATION_TO_VITAL[type] ?? type;
-  return known.includes(mapped) ? (mapped as Enums<"vital_type">) : null;
+  return (Constants.public.Enums.vital_type as readonly string[]).includes(mapped) ? (mapped as Enums<"vital_type">) : null;
 }
 
 /**

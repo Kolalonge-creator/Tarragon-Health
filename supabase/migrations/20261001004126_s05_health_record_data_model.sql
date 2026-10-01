@@ -39,12 +39,8 @@ alter table public.symptoms          add column if not exists source public.reco
 alter table public.medication_logs   add column if not exists source public.record_source not null default 'patient';
 alter table public.patient_conditions add column if not exists source public.record_source not null default 'clinician';
 
--- Rows a supporter or staff member entered for the patient (logged_by_profile_id is set only when the actor is not
--- the patient, see private.stamp_acting_supporter). 1 symptom row and 0 log rows live at the time of writing.
-update public.symptoms        set source = 'clinician' where logged_by_profile_id is not null and logged_by_profile_id <> patient_id
-  and exists (select 1 from public.clinical_staff cs where cs.profile_id = symptoms.logged_by_profile_id);
-update public.medication_logs set source = 'clinician' where logged_by_profile_id is not null and logged_by_profile_id <> patient_id
-  and exists (select 1 from public.clinical_staff cs where cs.profile_id = medication_logs.logged_by_profile_id);
+-- No backfill: the column defaults to patient and the live tables hold no staff-entered symptom or dose rows (medication_logs is
+-- append-only, so an UPDATE here could not be replayed against a populated copy).
 
 comment on column public.symptoms.source is 'v5 provenance. recorded_by is logged_by_profile_id (null means the patient herself); see view symptom_reports.';
 comment on column public.medication_logs.source is 'v5 provenance. recorded_by is logged_by_profile_id (null means the patient herself); see view dose_events.';
@@ -199,7 +195,7 @@ create table if not exists public.prescriptions (
 
 comment on table public.prescriptions is
   'v5 4.3 prescriptions (INV-02). A prescription cannot leave draft, and so cannot be sent or dispensed, without signed_by and signed_at '
-  '(CHECK). Items are frozen once signed. Staff read it only through read_prescriptions_audited (INV-10). `medications` stays the patient''s '
+  '(CHECK). Items are frozen once signed. Staff read it only through the prescriptions section of read_patient_chart_audited (INV-10). `medications` stays the patient''s '
   'current-medicines projection (OQ-11); linking is medications.prescription_id.';
 
 create index if not exists prescriptions_patient_idx on public.prescriptions (patient_id, created_at desc);
@@ -217,7 +213,10 @@ declare
   v_uid uuid := (select auth.uid());
 begin
   if tg_op = 'INSERT' then
-    new.recorded_by := coalesce(new.recorded_by, v_uid);
+    if v_uid is not null then
+      new.recorded_by := v_uid;
+      new.source := 'clinician';
+    end if;
     if v_uid is not null and new.state <> 'draft' then
       raise exception 'a prescription is created as a draft and signed afterwards' using errcode = '23514';
     end if;
@@ -252,6 +251,16 @@ begin
     raise exception 'a prescription can only be signed by the clinician acting' using errcode = '42501';
   end if;
 
+  -- The named pharmacy may move a sent prescription to dispensed and nothing else: routing, pickup code and the other
+  -- timestamps are the prescriber's.
+  if tg_op = 'UPDATE' and v_uid is not null and not private.has_prescribing_authority(old.organisation_id) then
+    if new.pharmacy_partner_id is distinct from old.pharmacy_partner_id or new.collection_code is distinct from old.collection_code
+       or new.sent_at is distinct from old.sent_at or new.cancelled_at is distinct from old.cancelled_at
+       or new.recorded_by is distinct from old.recorded_by or new.source is distinct from old.source
+       or (new.dispensed_at is distinct from old.dispensed_at and old.dispensed_at is not null) then
+      raise exception 'only the prescriber can change routing or pickup details' using errcode = '42501';
+    end if;
+  end if;
   if new.state = 'sent'      and new.sent_at      is null then new.sent_at      := now(); end if;
   if new.state = 'dispensed' and new.dispensed_at is null then new.dispensed_at := now(); end if;
   if new.state = 'cancelled' and new.cancelled_at is null then new.cancelled_at := now(); end if;
@@ -308,12 +317,15 @@ as $$
            and cs.profile_id = (select auth.uid())
            and a.status in ('open', 'acknowledged', 'snoozed')
       )
-      -- a booked or in-progress appointment with me
+      -- a consultation in progress, or an upcoming one that has not ended (a stale booked row never ties a clinician)
       or exists (
         select 1 from public.appointments ap
          where ap.patient_id = p_patient
            and ap.clinician_id = (select auth.uid())
-           and ap.status in ('scheduled', 'booked', 'confirmed', 'checked_in', 'in_progress')
+           and (
+                ap.status = 'in_progress'
+             or (ap.status in ('scheduled', 'booked', 'confirmed', 'checked_in') and ap.ends_at >= now())
+           )
       )
     );
 $$;
@@ -340,7 +352,7 @@ $$;
 revoke all on function private.can_staff_read_clinical(uuid, public.care_access_category) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 7. Prescriptions RLS and grants (no staff SELECT: staff read through read_prescriptions_audited)
+-- 7. Prescriptions RLS and grants (no staff SELECT: staff read through read_patient_chart_audited)
 -- ---------------------------------------------------------------------------
 alter table public.prescriptions enable row level security;
 
@@ -349,11 +361,12 @@ create policy prescriptions_select_patient on public.prescriptions
   for select to authenticated
   using (patient_id = (select auth.uid()) and state <> 'draft');
 
--- The author reads back what she just wrote (INSERT ... RETURNING needs a SELECT policy).
+-- The author reads back what she just wrote (INSERT ... RETURNING needs a SELECT policy). Bounded to the inserting transaction
+-- (created_at defaults to now(), which is the transaction start), so it never becomes a standing direct read that outlives the tie.
 drop policy if exists prescriptions_select_author on public.prescriptions;
 create policy prescriptions_select_author on public.prescriptions
   for select to authenticated
-  using (recorded_by = (select auth.uid()));
+  using (recorded_by = (select auth.uid()) and created_at = now());
 
 drop policy if exists prescriptions_select_partner on public.prescriptions;
 create policy prescriptions_select_partner on public.prescriptions

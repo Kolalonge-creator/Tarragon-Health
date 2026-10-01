@@ -345,11 +345,27 @@ begin
   begin update public.prescriptions set items = '[]' where id = v_rx;
   exception when others then v_failed := true; end;
   if not v_failed then raise exception 'FAIL 4r: the pharmacist altered the signed items'; end if;
+  v_failed := false;
+  begin update public.prescriptions set pharmacy_partner_id = v_pp2, state = 'dispensed' where id = v_rx;
+  exception when others then v_failed := true; end;
+  if not v_failed then raise exception 'FAIL 4r2: the pharmacist rerouted the prescription to another partner'; end if;
   update public.prescriptions set state = 'dispensed' where id = v_rx;
   execute 'reset role';
   if (select state from public.prescriptions where id = v_rx) <> 'dispensed' then
     raise exception 'FAIL 4s: the named partner could not dispense (the gate does not open)';
   end if;
+
+  -- the author reads back her own row only within the inserting transaction; a later session no longer sees it directly
+  perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  select count(*) into v_n from public.prescriptions where id = v_rx;
+  if v_n <> 1 then raise exception 'FAIL 4t: the author could not read back the row she wrote'; end if;
+  execute 'reset role';
+  update public.prescriptions set created_at = now() - interval '1 day' where id = v_rx;
+  execute 'set local role authenticated';
+  select count(*) into v_n from public.prescriptions where id = v_rx;
+  execute 'reset role';
+  if v_n <> 0 then raise exception 'FAIL 4u: the author kept a standing direct read of a prescription from an earlier day'; end if;
 
   -- =========================================================================
   -- 5. Referrals (INV-02)
@@ -482,6 +498,23 @@ begin
    where action = 'staff.chart_read' and result = 'denied' and actor_id = v_untied and subject_patient_id = v_pat;
   if v_n < 1 then raise exception 'FAIL 7b: the refusal was not audited'; end if;
 
+  -- 7b2. a stale booked appointment never ties a clinician; an upcoming one does (the gate opens)
+  insert into public.appointments (organisation_id, patient_id, clinician_id, scheduled_for, ends_at, status, appointment_type, consultation_method)
+  values (v_org, v_pat, v_untied, now() - interval '30 days', now() - interval '30 days' + interval '30 minutes', 'booked', (enum_range(null::public.appointment_type))[1], (enum_range(null::public.appointment_consultation_method))[1]);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_untied, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  select public.read_patient_chart_audited(v_pat, array['vitals'], 'S05 proof: stale appointment attempt') into v_json;
+  execute 'reset role';
+  if v_json ->> 'status' <> 'denied' then raise exception 'FAIL 7b2: a stale booked appointment tied the clinician: %', v_json; end if;
+  insert into public.appointments (organisation_id, patient_id, clinician_id, scheduled_for, ends_at, status, appointment_type, consultation_method)
+  values (v_org, v_pat, v_untied, now() + interval '2 days', now() + interval '2 days' + interval '30 minutes', 'booked', (enum_range(null::public.appointment_type))[1], (enum_range(null::public.appointment_consultation_method))[1]);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_untied, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  select public.read_patient_chart_audited(v_pat, array['vitals'], 'S05 proof: upcoming appointment read') into v_json;
+  execute 'reset role';
+  if v_json ->> 'status' <> 'ok' then raise exception 'FAIL 7b2: an upcoming appointment did not tie the clinician: %', v_json; end if;
+  delete from public.appointments where clinician_id = v_untied and patient_id = v_pat;
+
   -- 7c. an admin with no support session is refused
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
@@ -509,6 +542,10 @@ begin
   begin perform public.read_patient_chart_audited(v_pat, array['vitals'], 'short');
   exception when others then v_failed := true; get stacked diagnostics v_sqlstate = returned_sqlstate; end;
   if not v_failed or v_sqlstate <> '22023' then raise exception 'FAIL 7e: a short reason was accepted'; end if;
+  v_failed := false; v_sqlstate := null;
+  begin perform public.read_patient_chart_audited(v_pat, array['vitals', null], 'S05 proof: null section');
+  exception when others then v_failed := true; get stacked diagnostics v_sqlstate = returned_sqlstate; end;
+  if not v_failed or v_sqlstate <> '22023' then raise exception 'FAIL 7e: a NULL section was accepted'; end if;
   v_failed := false; v_sqlstate := null;
   begin perform public.read_patient_chart_audited(v_pat, array['reproductive_health'], 'S05 proof: unknown section');
   exception when others then v_failed := true; get stacked diagnostics v_sqlstate = returned_sqlstate; end;

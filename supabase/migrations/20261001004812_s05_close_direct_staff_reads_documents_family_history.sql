@@ -13,8 +13,8 @@
 -- note), several through shared react-query hooks and security_invoker views. Narrowing them without moving those callers would blank
 -- the clinician chart, which is the failure PR #789 already taught this project. They are the follow-up list in the design note.
 --
--- Staff writes: staff can still INSERT a document or a family-history row and read back the row they wrote (own-entry policy, because
--- INSERT ... RETURNING needs a SELECT policy). UPDATE and DELETE by staff need a visible row, so a staff edit of someone else's row
+-- Staff writes: staff can still INSERT a document or a family-history row and read back the row they wrote in the same transaction
+-- (own-entry policy bounded to created_at = now(), because INSERT ... RETURNING needs a SELECT policy but it must not become a standing read). UPDATE and DELETE by staff need a visible row, so a staff edit of someone else's row
 -- now goes through a future audited write path; there are no callers today.
 
 drop policy if exists patient_documents_select on public.patient_documents;
@@ -25,7 +25,7 @@ create policy patient_documents_select on public.patient_documents
 drop policy if exists patient_documents_select_own_entry on public.patient_documents;
 create policy patient_documents_select_own_entry on public.patient_documents
   for select to authenticated
-  using (uploaded_by = (select auth.uid()));
+  using (uploaded_by = (select auth.uid()) and created_at = now());
 
 drop policy if exists family_history_select on public.family_history;
 create policy family_history_select on public.family_history
@@ -35,7 +35,7 @@ create policy family_history_select on public.family_history
 drop policy if exists family_history_select_own_entry on public.family_history;
 create policy family_history_select_own_entry on public.family_history
   for select to authenticated
-  using (recorded_by = (select auth.uid()));
+  using (recorded_by = (select auth.uid()) and created_at = now());
 
 do $$
 declare

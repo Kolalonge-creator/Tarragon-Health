@@ -60,7 +60,7 @@ begin
   if p_sections is null or cardinality(p_sections) = 0 then
     raise exception 'at least one section is required' using errcode = '22023';
   end if;
-  if exists (select 1 from unnest(p_sections) s where s <> all (v_known)) then
+  if exists (select 1 from unnest(p_sections) s where s is null or s <> all (v_known)) then
     raise exception 'unknown chart section' using errcode = '22023';
   end if;
   -- A patient reads her own record directly, never through the staff path; a refusal raises and writes nothing.
@@ -87,7 +87,7 @@ begin
 
   if cardinality(v_allowed) = 0 then
     perform private.audit_chart_read(p_patient, v_denied, p_reason, 'denied');
-    return jsonb_build_object('sections', '{}'::jsonb, 'denied', to_jsonb(v_denied));
+    return jsonb_build_object('status', 'denied', 'sections', '{}'::jsonb, 'denied', to_jsonb(v_denied));
   end if;
   perform private.audit_chart_read(p_patient, v_allowed, p_reason, 'success');
   if cardinality(v_denied) > 0 then
@@ -143,7 +143,8 @@ begin
       select * from public.clinical_referrals where patient_id = p_patient order by created_at desc limit c_page) x), '[]'::jsonb));
   end if;
 
-  return jsonb_build_object('sections', v_out, 'denied', to_jsonb(v_denied));
+  return jsonb_build_object('status', case when cardinality(v_denied) > 0 then 'partial' else 'ok' end,
+                            'sections', v_out, 'denied', to_jsonb(v_denied));
 end;
 $$;
 
