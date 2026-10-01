@@ -38423,6 +38423,10 @@ export type Database = {
         }
         Returns: number
       }
+      confirm_medication_refill: {
+        Args: { p_medication: string; p_refill_date?: string }
+        Returns: undefined
+      }
       confirm_proxy_setup: {
         Args: {
           p_categories: Database["public"]["Enums"]["care_access_category"][]
@@ -40060,6 +40064,24 @@ export type Database = {
       }
       post_care_message: {
         Args: { p_body: string; p_thread_id: string }
+        Returns: string
+      }
+      prescribe_medication: {
+        Args: {
+          p_care_plan_id?: string
+          p_dose?: string
+          p_drug_name: string
+          p_duration_days?: number
+          p_frequency?: string
+          p_indication?: string
+          p_instructions?: string
+          p_patient: string
+          p_quantity?: string
+          p_refill_date?: string
+          p_repeats_allowed?: number
+          p_route?: string
+          p_schedule_times?: Json
+        }
         Returns: string
       }
       price_review_for_patient: {
