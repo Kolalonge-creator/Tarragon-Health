@@ -130,6 +130,19 @@ export const en = {
   "care_category.messaging": "Messages with your care team",
   "care_category.reproductive_health": "Reproductive health",
   "care_category.medical_history": "Medical history",
+  "privacy.summary.title": "What we do with your information",
+  "privacy.summary.intro": "In plain words: what each choice means, who sees it, and how to stop it.",
+  "privacy.purpose.data_processing": "We keep the health details you give us so your care team can look after you. Only you and the people on your care team can see them.",
+  "privacy.purpose.telehealth": "You agree to see and speak with your care team by video, call or message in the app.",
+  "privacy.purpose.terms_of_service": "The rules for using TarragonHealth, written so you can read them.",
+  "privacy.purpose.care": "We use your information to give you care. This one is needed to use the app.",
+  "privacy.purpose.care_circle_sharing": "You choose people in your Care Circle and what each of them can see. You can change or stop this at any time.",
+  "privacy.purpose.research": "Your information, with your name removed, may help us learn how to improve care. Saying no changes nothing about your care.",
+  "privacy.purpose.sponsor_reporting": "If someone pays for your care, we tell them only that it was used, never your health details.",
+  "privacy.purpose.marketing": "News and offers from us. You can say no and still get every reminder you need for your care.",
+  "privacy.purpose.device_data": "Readings from a blood pressure monitor or glucose meter you connect.",
+  "privacy.purpose.wearable_device_data": "Readings from a watch or band you connect, such as steps and sleep.",
+  "privacy.purpose.scribe_default": "Your care team may ask to take notes by voice during a consultation. They ask you first each time, and you can say no.",
 } as const;
 
 export type MessageKey = keyof typeof en;
