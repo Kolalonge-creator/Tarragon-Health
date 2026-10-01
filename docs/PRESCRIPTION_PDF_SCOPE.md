@@ -1,6 +1,6 @@
 # Prescription PDF for the patient: scope (2026-10-01)
 
-Status: a scoping document, not a build order. Nothing here is built. Founder decisions are listed in section 7; none is assumed.
+Status: scope plus the founder's decisions (section 7). Phase 1 is being built; phases 2 and 3 follow.
 
 ## 1. The gap
 
@@ -77,17 +77,17 @@ Letterhead (TarragonHealth wordmark, locality-level headquarters only; no street
 - **Amended prescriptions.** v1's PDF stops downloading; a saved v1 verifies as superseded.
 - **Regulatory validity.** Whether an electronic, QR-verified document is accepted by Nigerian pharmacies and consistent with Pharmacists Council of Nigeria and MDCN expectations is not established. This is the same open founder item as the tier-ladder regulatory confirmation.
 
-## 7. Decisions needed (recommendation first)
+## 7. Decisions (founder, 2026-10-01)
 
-| ID | Decision | Recommendation |
+| ID | Decision | Outcome |
 |---|---|---|
-| D1 | Build phase 1 now, or wait for D2/D3? | Phase 1 now: it closes the visible gap, is low risk, and works for any pharmacy that accepts a printed copy |
-| D2 | Public verification: allow no-login checks? | Yes, proof-only, with a new high-entropy public token (not the 6-character code) and rate limiting; phase 2 |
-| D3 | Dispensing record and repeat control before partners are live? | No; wait for partner onboarding |
-| D4 | Does the PDF show the patient's address and phone? | No by default (not stored reliably); name, patient number and date of birth are enough for matching |
-| D5 | Controlled or opioid drugs (the drug-safety rules already recognise tramadol, codeine, morphine, pethidine and similar) | Refuse a PDF for these until counsel confirms the paper-form requirement; show "collect a paper prescription from your care team" |
-| D6 | One PDF per drug, or all active prescriptions in one document? | One per drug now (matches the data); an "all active" bundle later if wanted |
-| D7 | Counsel review of electronic-prescription validity in Nigeria | Yes, before marketing it as pharmacy-ready; not a blocker for building phase 1 |
+| D1 | Build phase 1 now | Yes. Built on `feat/prescription-pdf-phase1`. |
+| D2 | No-login verification | Yes, with a new high-entropy public token (not the 6-character code, not the sequential Rx number) and rate limiting. Phase 2. |
+| D3 | Dispensing record and repeat control before partners are live | Yes. Phase 3 is in scope now and no longer waits for partner onboarding. Design must work for a patient "I collected this" record and a logged-in pharmacist, with no partner integration. |
+| D4 | Patient address and phone on the PDF | No. Name, patient number and date of birth only. |
+| D5 | Controlled drugs | The platform does not prescribe controlled medicines, and the patient is told so: the PDF and the medication card state "This is not a controlled medicine. TarragonHealth does not prescribe controlled medicines." The builder still refuses a drug matching the curated controlled list (a guard, not a classification). Open point: nothing in the database stops a clinician prescribing one (the prescribing workspace only asks for an extra attestation), so the statement describes current practice rather than an enforced rule. |
+| D6 | One PDF per drug or a bundle | Both. One PDF per prescription, and a bundle of all current prescriptions with one page each, every page carrying its own Rx number, verification code, dose and signature. |
+| D7 | Counsel review of electronic-prescription validity | Accepted for non-controlled drugs. Counsel review is still needed before marketing it as pharmacy-ready; the document does not claim legal acceptance. |
 
 ## 8. Test plan
 
