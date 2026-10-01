@@ -765,3 +765,5 @@ s04_consent_is_optional.sql
 s05_health_record_data_model.sql
 # S05b allergies/conditions audited reads: extended chart sections, tied vs untied (denied, not empty), list-wide condition search (escaping, bounds, audit without the term, patient and anon refused); one sabotage.
 s05b_allergies_conditions_audited_reads.sql
+# S05c closes direct staff reads on patient_allergies and patient_conditions: patient reads own, staff (tied, untied, admin) read nothing directly, the audited read opens for the tied clinician and denies the untied one, same-transaction read-back only; one sabotage.
+s05c_close_staff_reads_allergies_conditions.sql
