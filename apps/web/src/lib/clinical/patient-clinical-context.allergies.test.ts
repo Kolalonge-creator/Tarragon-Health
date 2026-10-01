@@ -1,9 +1,11 @@
-import { describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
 jest.mock("./audited-chart", () => ({ readAuditedSection: jest.fn() }));
+jest.mock("./medications-audited", () => ({ readPatientMedicationsAudited: jest.fn() }));
 import { readAuditedSection } from "./audited-chart";
+import { readPatientMedicationsAudited } from "./medications-audited";
 import { assessMedicationSafetyBestEffort, loadMedicationSafety } from "./patient-clinical-context";
 
 // A chainable stand-in for the PostgREST builder: every method returns the builder, and awaiting it yields empty data.
@@ -20,6 +22,12 @@ function emptyClient() {
 }
 
 const mockRead = readAuditedSection as unknown as jest.Mock<(...args: unknown[]) => Promise<unknown>>;
+const mockMeds = readPatientMedicationsAudited as unknown as jest.Mock<(...args: unknown[]) => Promise<unknown>>;
+
+beforeEach(() => {
+  mockMeds.mockReset();
+  mockMeds.mockResolvedValue({ status: "ok", rows: [] });
+});
 
 describe("loadMedicationSafety allergies go through the audited read (INV-10)", () => {
   it("lists the recorded allergies from the chart section", async () => {
@@ -52,5 +60,33 @@ describe("assessMedicationSafetyBestEffort reports a skipped allergy check", () 
     expect(await assessMedicationSafetyBestEffort(emptyClient(), "p1", "org1")).toEqual({ allergyCheckSkipped: true });
     mockRead.mockResolvedValueOnce({ status: "ok", rows: [] });
     expect(await assessMedicationSafetyBestEffort(emptyClient(), "p1", "org1")).toEqual({ allergyCheckSkipped: false });
+  });
+});
+
+describe("medications go through the audited read (INV-10)", () => {
+  it("uses the rows from the audited read for the safety inputs", async () => {
+    mockRead.mockResolvedValueOnce({ status: "ok", rows: [] });
+    mockMeds.mockResolvedValueOnce({
+      status: "ok",
+      rows: [{ id: "m1", drug_name: "Amlodipine", dose: "5mg", prescriber_name: null, source: "clinician" }],
+    });
+    const view = await loadMedicationSafety(emptyClient(), "p1");
+    expect(view.medicationsUnavailable).toBeNull();
+    expect(view.medicationCount).toBe(1);
+    expect(mockMeds).toHaveBeenCalledWith(expect.anything(), "p1", { active: true });
+  });
+
+  it.each(["denied", "error"] as const)("a %s medication read is unavailable, not 'no medicines'", async (status) => {
+    mockRead.mockResolvedValueOnce({ status: "ok", rows: [] });
+    mockMeds.mockResolvedValueOnce(status === "denied" ? { status } : { status, message: "x" });
+    const view = await loadMedicationSafety(emptyClient(), "p1");
+    expect(view.medicationsUnavailable).toBe(status);
+    expect(view.medicationCount).toBe(0);
+  });
+
+  it("reports the safety check as skipped when the medication list could not be read", async () => {
+    mockRead.mockResolvedValueOnce({ status: "ok", rows: [] });
+    mockMeds.mockResolvedValueOnce({ status: "denied" });
+    expect(await assessMedicationSafetyBestEffort(emptyClient(), "p1", "org1")).toEqual({ allergyCheckSkipped: true });
   });
 });

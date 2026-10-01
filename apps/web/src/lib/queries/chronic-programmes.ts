@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { attachMedicationEmbeds } from "@/lib/clinical/medications-audited";
 import type { Enums, Tables } from "@tarragon/shared";
 
 export type ChronicProgramme = Tables<"chronic_condition_programmes">;
@@ -328,7 +329,7 @@ export function useMedicationDoseHistory(
       const supabase = createClient();
       let query = supabase
         .from("medication_dose_history")
-        .select("*, medication:medications(drug_name)")
+        .select("*")
         .eq("patient_id", patientId as string)
         .order("created_at", { ascending: false });
       if (window) {
@@ -336,7 +337,8 @@ export function useMedicationDoseHistory(
       }
       const { data, error } = await query;
       if (error) throw error;
-      return data as (MedicationDoseHistoryRow & { medication: { drug_name: string } | null })[];
+      // INV-10: the medication name comes from the audited read, not an embedded select of the closed table.
+      return (await attachMedicationEmbeds(supabase, data)) as (MedicationDoseHistoryRow & { medication: { drug_name: string } | null })[];
     },
   });
 }

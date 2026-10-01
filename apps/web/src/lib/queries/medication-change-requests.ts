@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { attachMedicationEmbeds } from "@/lib/clinical/medications-audited";
 import type { Tables } from "@tarragon/shared";
 import type {
   RequestMedicationChangeInput,
@@ -93,12 +94,12 @@ export function usePendingMedicationChangeRequests(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("medication_change_requests")
-        .select("*, medication:medications(drug_name, dose, frequency, rx_number)")
+        .select("*")
         .eq("patient_id", patientId)
         .eq("status", "pending")
         .order("requested_at", { ascending: true });
       if (error) throw error;
-      return data as (MedicationChangeRequest & {
+      return (await attachMedicationEmbeds(supabase, data)) as (MedicationChangeRequest & {
         medication: {
           drug_name: string;
           dose: string | null;

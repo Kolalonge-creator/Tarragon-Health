@@ -9,6 +9,7 @@ import {
   type CvRiskConfig,
   type RiskLevel,
 } from "@/lib/rules/cv-risk";
+import { readPatientMedicationsAudited } from "@/lib/clinical/medications-audited";
 import { estimateCvdRiskBand, type CvdRiskResult } from "@/lib/rules/cvd-risk-afro";
 
 type Client = SupabaseClient<Database>;
@@ -85,11 +86,8 @@ export async function loadCvRiskAssessment(
         .select("condition")
         .eq("patient_id", patientId)
         .eq("status", "active"),
-      supabase
-        .from("medications")
-        .select("drug_name")
-        .eq("patient_id", patientId)
-        .eq("is_active", true),
+      // INV-10: through the audited, tie-gated read, not the table.
+      readPatientMedicationsAudited(supabase, patientId, { active: true }),
       supabase
         .from("patient_cardiovascular_profile")
         .select(
@@ -121,10 +119,12 @@ export async function loadCvRiskAssessment(
         .maybeSingle(),
     ]);
 
+  // Not on lipid-lowering therapy is an input to the risk score: an unreadable medication list must not be scored as "not on it". No
+  // assessment is produced instead (the same null as an unreadable profile).
+  if (meds.status !== "ok") return null;
+
   const diabetes = (carePlans.data ?? []).some((c) => c.condition === "diabetes");
-  const onLipidLoweringTherapy = (meds.data ?? []).some((m) =>
-    isLipidLoweringDrug(m.drug_name)
-  );
+  const onLipidLoweringTherapy = meds.rows.some((m) => isLipidLoweringDrug(m.drug_name));
 
   const signedConfig = configRow.data?.config as CvRiskConfig | undefined;
   const config = signedConfig ?? PROVISIONAL_CV_RISK_CONFIG;

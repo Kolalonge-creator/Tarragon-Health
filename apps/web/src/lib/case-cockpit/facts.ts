@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { resolveProtocolsForPatient, primaryProtocol } from "./protocol";
 import { matchRedFlags, type CaseFacts } from "./propose";
+import { readPatientMedicationsAudited } from "@/lib/clinical/medications-audited";
 
 /**
  * Loads everything the deterministic rule engine needs for one case.
@@ -39,7 +40,7 @@ export async function loadCaseFacts(
 
   const [
     { data: escalation },
-    { data: medications },
+    medicationsResult,
     { data: schedules },
     { data: enrolments },
     { data: vitals },
@@ -51,11 +52,8 @@ export async function loadCaseFacts(
       .select("id, status")
       .eq("clinician_alert_id", clinicianAlertId)
       .maybeSingle(),
-    supabase
-      .from("medications")
-      .select("id, drug_name, dose, refill_date")
-      .eq("patient_id", patientId)
-      .eq("is_active", true),
+    // INV-10: medications are read through the audited, tie-gated function, not the table.
+    readPatientMedicationsAudited(supabase, patientId, { active: true }),
     // Due or overdue only. A schedule that is not yet due is not a finding,
     // and proposing an early order would be the engine inventing work.
     supabase
@@ -98,6 +96,12 @@ export async function loadCaseFacts(
   // schedules rather than per row.
   const dueScreenings = await resolveScreeningBundles(supabase, schedules ?? []);
 
+  // An unreadable medication list must not become "no medicines, so no refill to propose". A refusal means the case is not available to
+  // this caller (the same answer as an unreadable alert); a read error throws so the caller sees a failure, never a quiet empty cockpit.
+  if (medicationsResult.status === "denied") return null;
+  if (medicationsResult.status === "error") throw new Error(`case cockpit: could not read medications (${medicationsResult.message})`);
+  const medications = medicationsResult.rows;
+
   // The shortest cadence wins for a multi-condition patient: a 3-month
   // diabetes review and a 6-month hypertension review means the patient is
   // seen at 3 months, not 6.
@@ -115,7 +119,7 @@ export async function loadCaseFacts(
       detail: alert.detail,
     },
     escalation: escalation ? { id: escalation.id, status: escalation.status } : null,
-    medications: (medications ?? []).map((medication) => ({
+    medications: medications.map((medication) => ({
       id: medication.id,
       // Dose included in the label so a doctor confirming a refill sees
       // exactly what is being continued, not just a drug name.

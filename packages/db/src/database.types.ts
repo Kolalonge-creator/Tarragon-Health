@@ -39901,6 +39901,10 @@ export type Database = {
         }[]
       }
       patient_receipts: { Args: never; Returns: Json }
+      patient_record_counts_for_merge: {
+        Args: { p_patient: string }
+        Returns: Json
+      }
       patient_vitals_adherence: {
         Args: { p_patient_id: string; p_window_days?: number }
         Returns: {
@@ -40225,6 +40229,10 @@ export type Database = {
         Args: { p_patient: string; p_reason: string }
         Returns: Json
       }
+      read_medication_embeds_audited: {
+        Args: { p_ids: string[] }
+        Returns: Json
+      }
       read_patient_chart_audited: {
         Args: { p_patient: string; p_reason: string; p_sections: string[] }
         Returns: Json
@@ -40241,6 +40249,15 @@ export type Database = {
       }
       read_patient_encounter_notes_audited: {
         Args: { p_patient: string; p_reason: string }
+        Returns: Json
+      }
+      read_patient_medications_audited: {
+        Args: {
+          p_active?: boolean
+          p_medication?: string
+          p_patient: string
+          p_reason?: string
+        }
         Returns: Json
       }
       record_ai_human_override: {

@@ -40634,8 +40634,16 @@ export type Database = {
           state: string
         }[]
       }
+      patient_record_counts_for_merge: {
+        Args: { p_patient: string }
+        Returns: Json
+      }
       read_medication_dose_log_audited: {
         Args: { p_patient: string; p_reason: string }
+        Returns: Json
+      }
+      read_medication_embeds_audited: {
+        Args: { p_ids: string[] }
         Returns: Json
       }
       read_patient_chart_audited: {
@@ -40654,6 +40662,15 @@ export type Database = {
       }
       read_patient_encounter_notes_audited: {
         Args: { p_patient: string; p_reason: string }
+        Returns: Json
+      }
+      read_patient_medications_audited: {
+        Args: {
+          p_active?: boolean
+          p_medication?: string
+          p_patient: string
+          p_reason?: string
+        }
         Returns: Json
       }
       record_assisted_recovery_outcome: {
