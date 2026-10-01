@@ -121,4 +121,20 @@ describe("PrescriptionPdf", () => {
     expect(text).toContain("Version 2");
     expect(text).toContain("Dose reduced");
   });
+
+  it("lists a prescription that could not be included on a final page, by drug name", () => {
+    const doc = PrescriptionPdf({
+      prescriptions: [rx(1)],
+      skipped: [{ drugName: "Metformin", reason: "prescriber_unverified", message: "Contact your care team." }],
+    });
+    expect(countPages(doc)).toBe(2);
+    const text = collectText(doc).join(" ").replace(/\s+/g, " ");
+    expect(text).toContain("Not included in this document");
+    expect(text).toContain("Metformin");
+    expect(text).toContain("Contact your care team.");
+  });
+
+  it("has no extra page when nothing was skipped", () => {
+    expect(countPages(PrescriptionPdf({ prescriptions: [rx(1)], skipped: [] }))).toBe(1);
+  });
 });

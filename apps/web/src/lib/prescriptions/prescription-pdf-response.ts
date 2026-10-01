@@ -11,7 +11,7 @@ export async function prescriptionPdfResponse(
   if (result.status === "refused") return new Response(result.message, { status: 409, headers: { "X-Refusal-Reason": result.reason } });
   if (result.status === "error") return new Response(result.message, { status: 500 });
 
-  const buffer = await renderToBuffer(PrescriptionPdf({ prescriptions: result.prescriptions }));
+  const buffer = await renderToBuffer(PrescriptionPdf({ prescriptions: result.prescriptions, skipped: result.skipped }));
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",

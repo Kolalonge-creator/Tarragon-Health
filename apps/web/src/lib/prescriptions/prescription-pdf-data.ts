@@ -109,7 +109,7 @@ export const REFUSAL_MESSAGE: Record<PrescriptionRefusalReason, string> = {
 export function isPlaceholderCredentialNumber(value: string | null | undefined): boolean {
   const trimmed = (value ?? "").trim();
   if (trimmed.length === 0) return true;
-  return /pending|placeholder|tbc|tbd|n\/a|none|unknown|test/i.test(trimmed);
+  return /\b(pending|placeholder|tbc|tbd|none|unknown|test)\b|\bn\/a\b/i.test(trimmed);
 }
 
 function refuse(reason: PrescriptionRefusalReason): PrescriptionPdfResult {
@@ -171,7 +171,14 @@ export function buildPrescriptionPdfData(input: {
   };
 }
 
-/** Everything the bundle may print: the eligible rows, and how many active clinician prescriptions were left out and why. */
+/** A current prescription the document could not include, named so the patient is told rather than left to notice. */
+export interface SkippedPrescription {
+  drugName: string;
+  reason: PrescriptionRefusalReason;
+  message: string;
+}
+
+/** Everything the bundle may print: the eligible rows, and the refused ones (the caller attaches drug names). */
 export function buildPrescriptionBundle(
   items: ReadonlyArray<PrescriptionPdfResult>,
 ): { included: PrescriptionPdfData[]; refused: Extract<PrescriptionPdfResult, { status: "refused" }>[] } {

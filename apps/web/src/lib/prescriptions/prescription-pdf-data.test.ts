@@ -107,11 +107,12 @@ describe("buildPrescriptionPdfData", () => {
 });
 
 describe("isPlaceholderCredentialNumber", () => {
-  it.each(["", "  ", "MDCN-PENDING-123", "TBC", "n/a", "test-1"])("treats %j as a placeholder", (value) => {
+  it.each(["", "  ", "MDCN-PENDING-123", "TBC", "n/a", "test-1", "Unknown"])("treats %j as a placeholder", (value) => {
     expect(isPlaceholderCredentialNumber(value)).toBe(true);
   });
   it("accepts a real number and does not treat null as real", () => {
     expect(isPlaceholderCredentialNumber("MDCN/R/45219")).toBe(false);
+    expect(isPlaceholderCredentialNumber("MDCN-ATTESTA-7")).toBe(false);
     expect(isPlaceholderCredentialNumber(null)).toBe(true);
   });
 });

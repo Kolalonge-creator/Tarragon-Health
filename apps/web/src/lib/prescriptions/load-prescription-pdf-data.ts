@@ -9,6 +9,7 @@ import {
   type PrescriptionPrescriber,
   type PrescriptionRefusalReason,
   type PrescriptionSource,
+  type SkippedPrescription,
 } from "./prescription-pdf-data";
 
 /**
@@ -30,7 +31,7 @@ export const PRESCRIPTION_SELECT =
 type MedicationRow = PrescriptionSource & { organisation_id: string; added_by: string | null };
 
 export type PrescriptionLoadResult =
-  | { status: "ok"; prescriptions: PrescriptionPdfData[]; skipped: { reason: PrescriptionRefusalReason; message: string }[] }
+  | { status: "ok"; prescriptions: PrescriptionPdfData[]; skipped: SkippedPrescription[] }
   | { status: "not_found" }
   | { status: "refused"; reason: PrescriptionRefusalReason; message: string }
   | { status: "error"; message: string };
@@ -144,13 +145,21 @@ export async function loadPrescriptionBundle(
 
   const prescribers = new Map<string, PrescriptionPrescriber | null>();
   const results: PrescriptionPdfResult[] = [];
+  const names: string[] = [];
   for (const row of rows) {
+    names.push(row.drug_name);
     const key = row.added_by ?? "";
     if (!prescribers.has(key)) prescribers.set(key, await loadPrescriber(supabase, row.added_by));
     results.push(buildPrescriptionPdfData({ medication: row, patient, prescriber: prescribers.get(key) ?? null }));
   }
 
   const { included, refused } = buildPrescriptionBundle(results);
+  const skipped: SkippedPrescription[] = [];
+  results.forEach((result, index) => {
+    if (result.status === "refused") {
+      skipped.push({ drugName: names[index] ?? "Medicine", reason: result.reason, message: result.message });
+    }
+  });
   if (included.length === 0) {
     const reason = refused[0]?.reason ?? "missing_identifiers";
     return { status: "refused", reason, message: REFUSAL_MESSAGE[reason] };
@@ -171,6 +180,6 @@ export async function loadPrescriptionBundle(
   return {
     status: "ok",
     prescriptions: included,
-    skipped: refused.map((item) => ({ reason: item.reason, message: item.message })),
+    skipped,
   };
 }

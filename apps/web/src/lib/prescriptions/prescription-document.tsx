@@ -8,7 +8,7 @@ import {
   PDF_BRAND_GREEN,
   PDF_CLINICAL_NAVY,
 } from "@/lib/pdf/pdf-brand";
-import type { PrescriptionPdfData } from "./prescription-pdf-data";
+import type { PrescriptionPdfData, SkippedPrescription } from "./prescription-pdf-data";
 
 registerPdfFonts();
 
@@ -241,12 +241,53 @@ function PrescriptionPage({ rx }: { rx: PrescriptionPdfData }) {
   );
 }
 
+/** Last page of a bundle when a current prescription could not be included: the patient is told, never left to notice a gap. */
+function NotIncludedPage({ skipped }: { skipped: SkippedPrescription[] }) {
+  return (
+    <Page size="A4" style={styles.page} wrap>
+      <View style={styles.headerBand} fixed>
+        <View style={styles.brandRow}>
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
+          <Image style={styles.logo} src={PDF_LOGO_SRC} />
+          <View style={styles.brandTextCol}>
+            <Text style={styles.brandWordmark}>TarragonHealth</Text>
+            <Text style={styles.brandTagline}>{PDF_TAGLINE}</Text>
+          </View>
+        </View>
+        <View style={styles.headerRightCol}>
+          <Text style={styles.headerDocLabel}>Not included</Text>
+        </View>
+      </View>
+      <View style={styles.headerBandAccent} fixed />
+      <Text style={styles.title}>Not included in this document</Text>
+      <Text style={styles.subtitle}>
+        These current prescriptions could not be issued as a document. Contact your care team about each one.
+      </Text>
+      <View style={styles.section}>
+        {skipped.map((item, index) => (
+          <View key={`${item.drugName}-${index}`} style={styles.row}>
+            <Text style={styles.rowLabel}>{item.drugName}</Text>
+            <Text style={styles.rowValue}>{item.message}</Text>
+          </View>
+        ))}
+      </View>
+    </Page>
+  );
+}
+
 /**
  * One page per prescription. A single prescription is a one-page document; the bundle (every current
  * prescription for the patient) is one page each, so a pharmacist can separate them and every page still
- * carries its own Rx number, verification code, dose and signature.
+ * carries its own Rx number, verification code, dose and signature. Anything that could not be included is
+ * listed on a final page.
  */
-export function PrescriptionPdf({ prescriptions }: { prescriptions: PrescriptionPdfData[] }) {
+export function PrescriptionPdf({
+  prescriptions,
+  skipped = [],
+}: {
+  prescriptions: PrescriptionPdfData[];
+  skipped?: SkippedPrescription[];
+}) {
   const first = prescriptions[0];
   return (
     <Document
@@ -261,6 +302,7 @@ export function PrescriptionPdf({ prescriptions }: { prescriptions: Prescription
       {prescriptions.map((rx) => (
         <PrescriptionPage key={rx.medicationId} rx={rx} />
       ))}
+      {skipped.length > 0 ? <NotIncludedPage skipped={skipped} /> : null}
     </Document>
   );
 }

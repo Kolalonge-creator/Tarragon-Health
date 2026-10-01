@@ -153,7 +153,9 @@ describe("loadPrescriptionBundle", () => {
     expect(result.status).toBe("ok");
     if (result.status !== "ok") return;
     expect(result.prescriptions).toHaveLength(1);
-    expect(result.skipped).toEqual([expect.objectContaining({ reason: "controlled_medicine" })]);
+    expect(result.skipped).toEqual([
+      expect.objectContaining({ drugName: "Codeine phosphate", reason: "controlled_medicine" }),
+    ]);
   });
 
   it("returns not found when there are no current prescriptions", async () => {
