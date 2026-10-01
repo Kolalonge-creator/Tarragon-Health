@@ -380,6 +380,8 @@ export function useUpdateClinicalStaff() {
       specialty,
       bio,
       yearsOfExperience,
+      credentialType,
+      credentialNumber,
       photoFile,
       removePhoto,
     }: {
@@ -388,6 +390,9 @@ export function useUpdateClinicalStaff() {
       specialty: string;
       bio: string;
       yearsOfExperience?: number | null;
+      /** Only sent when changed (changing either clears credential_verified_at). */
+      credentialType?: string;
+      credentialNumber?: string;
       photoFile?: File;
       removePhoto?: boolean;
     }) => {
@@ -406,6 +411,9 @@ export function useUpdateClinicalStaff() {
           specialty: specialty.trim() || null,
           bio: bio.trim() || null,
           ...(yearsOfExperience !== undefined ? { years_of_experience: yearsOfExperience } : {}),
+          ...(credentialType !== undefined && credentialNumber !== undefined
+            ? { credential_type: credentialType, credential_number: credentialNumber }
+            : {}),
           ...(photoUrl !== undefined ? { photo_url: photoUrl } : {}),
         })
         .eq("id", clinicalStaffId);
