@@ -29,6 +29,7 @@ declare
   v_pa uuid;
   v_who uuid;
   v_id uuid;
+  v_min uuid;
   v_med uuid;
   v_pmed uuid;
   v_n integer;
@@ -81,6 +82,18 @@ begin
      or v_row.rx_number is null or v_row.schedule_times is null or v_row.patient_id <> v_pat or v_row.repeats_allowed <> 2 then
     raise exception 'FAIL 1a: the prescribed row is wrong: %', to_jsonb(v_row);
   end if;
+
+  -- 1b. the minimal call (only the required arguments, what the form sends when every optional field is blank) must work: repeats_allowed
+  --     is NOT NULL with a default of 0, and an explicit NULL does not take the default (this failed live before the fix)
+  perform set_config('request.jwt.claims', json_build_object('sub', v_tied_smo, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_min := public.prescribe_medication(v_pat, 'S05fC2 Minimal drug');
+  execute 'reset role';
+  select * into v_row from public.medications where id = v_min;
+  if v_row.id is null or v_row.repeats_allowed <> 0 or v_row.source <> 'clinician' then
+    raise exception 'FAIL 1b: the minimal prescribe call did not default repeats_allowed to 0: %', to_jsonb(v_row);
+  end if;
+  delete from public.medications where id = v_min;          -- keep the later row-count checks about the one prescribed row
 
   -- 2. everyone else is refused
   foreach v_who in array array[v_untied_smo, v_tied_mo, v_admin, v_pharm, v_other, v_pat] loop
