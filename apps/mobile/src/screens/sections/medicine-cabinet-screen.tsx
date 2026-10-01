@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as WebBrowser from "expo-web-browser";
 import {
   addMedication,
   checkPackAgainstPrescription,
   checkinQuestion,
+  getPrescriptionPdfUrl,
   loadDueCheckins,
   loadLabMonitoring,
   loadMedicationCabinet,
@@ -330,6 +332,16 @@ function MedicationCard({
           {new Date(medication.expires_at).getTime() < Date.now() ? "Expired" : "Valid until"} {formatDate(medication.expires_at)}
         </MutedText>
       ) : null}
+      {medication.source === "clinician" && medication.rx_number && medication.verification_code && !medication.superseded_at ? (
+        <View style={{ gap: 4, marginTop: 4 }}>
+          <MutedText>
+            Rx number {medication.rx_number} · Code {medication.verification_code}
+          </MutedText>
+          <MutedText>
+            This is not a controlled medicine. TarragonHealth does not prescribe controlled medicines.
+          </MutedText>
+        </View>
+      ) : null}
       {latestCollection ? (
         <MutedText>
           Last picked up {formatDate(latestCollection.dispensed_on)}
@@ -340,6 +352,19 @@ function MedicationCard({
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
         {!collectOpen ? (
           <SmallGhostButton title="I picked this up" onPress={() => setCollectOpen(true)} />
+        ) : null}
+        {medication.source === "clinician" &&
+        medication.rx_number &&
+        !medication.superseded_at &&
+        !(medication.expires_at && new Date(medication.expires_at).getTime() < Date.now()) ? (
+          <SmallGhostButton
+            title="Prescription (PDF)"
+            onPress={async () => {
+              const result = await getPrescriptionPdfUrl(medication.id);
+              if (result.ok) void WebBrowser.openBrowserAsync(result.data);
+              else setRequestError(result.error);
+            }}
+          />
         ) : null}
         {medication.source === "clinician" && medication.repeats_allowed > 0 ? (
           latestRequest?.status === "pending" ? (

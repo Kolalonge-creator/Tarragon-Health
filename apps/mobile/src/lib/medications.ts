@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { API_BASE_URL } from "./api";
 import type { Tables } from "@tarragon/shared";
 
 /**
@@ -140,10 +141,13 @@ export type MedicationCabinetItem = Pick<
   | "repeats_allowed"
   | "organisation_id"
   | "created_at"
+  | "rx_number"
+  | "verification_code"
+  | "superseded_at"
 > & { care_plan_condition: string | null };
 
 const MEDICATION_CABINET_SELECT =
-  "id, drug_name, dose, frequency, schedule_times, source, prescriber_name, prescriber_document_url, refill_date, last_confirmed_at, expires_at, repeats_allowed, organisation_id, created_at, care_plan:care_plans(condition)";
+  "id, drug_name, dose, frequency, schedule_times, source, prescriber_name, prescriber_document_url, refill_date, last_confirmed_at, expires_at, repeats_allowed, organisation_id, created_at, rx_number, verification_code, superseded_at, care_plan:care_plans(condition)";
 
 type MedicationCabinetRow = Omit<MedicationCabinetItem, "care_plan_condition"> & {
   care_plan: { condition: string } | { condition: string }[] | null;
@@ -537,3 +541,19 @@ export const NAFDAC_MAS = {
   caveat:
     "Not every genuine medicine carries a scratch panel, so no panel does not mean a fake. If anything about a pack worries you, take it back to the pharmacy you bought it from and tell your care team.",
 } as const;
+
+/**
+ * The prescription PDF for one clinician-prescribed medicine (or, with no id, every current one, one page each),
+ * opened in expo-web-browser exactly like the verified-document PDFs: a plain https URL carrying the caller's
+ * own short-lived access token, so Safari's viewer provides Print, Share and Save to Files. The server enforces
+ * the issuing rules and the RLS scope; a refusal comes back as plain text in the viewer.
+ */
+export async function getPrescriptionPdfUrl(medicationId?: string): Promise<QueryResult<string>> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return { ok: false, error: "Not signed in" };
+  const token = encodeURIComponent(session.access_token);
+  const path = medicationId ? `${medicationId}/pdf` : "pdf";
+  return { ok: true, data: `${API_BASE_URL}/api/mobile/prescriptions/${path}?token=${token}` };
+}

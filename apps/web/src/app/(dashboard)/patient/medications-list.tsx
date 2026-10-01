@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MedicationCollectionForm } from "./medication-collection-form";
 import { AmendMedicationForm } from "@/app/(dashboard)/clinician/patients/[patientId]/amend-medication-form";
 import { MedicationIssueReportForm } from "./medication-issue-report-form";
+import { PrescriptionDownload } from "./prescription-download";
 import { SymptomLogForm } from "./symptom-log-form";
 import { MedicationAccessBarrierForm } from "./medication-access-barrier-form";
 import { computeRefillGapSignal, REFILL_GAP_DISCLAIMER } from "@/lib/rules/adherence-signals";
@@ -147,6 +148,16 @@ export function MedicationsList({
       <CardContent>
         <CabinetSummary patientId={patientId} />
         {!isClinicianView && <MedicationInteractionNote medications={data ?? []} />}
+        {!isClinicianView && (data ?? []).filter((m) => m.source === "clinician" && m.rx_number && !m.superseded_at).length > 1 && (
+          <p className="mb-3 text-xs">
+            <a
+              href={`/api/patient/prescriptions/pdf?patientId=${patientId}`}
+              className="font-medium text-brand-green underline dark:text-brand-green-bright"
+            >
+              Download all current prescriptions (one page each)
+            </a>
+          </p>
+        )}
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
           <p className={notAvailable ? "text-sm text-amber-700" : "text-sm text-red-600 dark:text-red-300"}>
@@ -252,6 +263,14 @@ export function MedicationsList({
                         subjectKey={medication.id}
                         label={medication.drug_name}
                       />
+                      {medication.source === "clinician" && !medication.superseded_at && (
+                        <PrescriptionDownload
+                          medicationId={medication.id}
+                          rxNumber={medication.rx_number}
+                          verificationCode={medication.verification_code}
+                          expiresAt={medication.expires_at}
+                        />
+                      )}
                       <MedicationCollectionForm medication={medication} patientId={patientId} />
                       <MedicationIssueReportForm medication={medication} patientId={patientId} />
                       <RequestChangeButton

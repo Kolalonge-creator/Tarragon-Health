@@ -39745,6 +39745,7 @@ export type Database = {
             | null
           full_name: string | null
           id: string | null
+          license_verified: boolean | null
           offers_therapy_sessions: boolean | null
           organisation_id: string | null
           photo_url: string | null

@@ -785,3 +785,5 @@ s05f_vitals_closed_and_triggers.sql
 s05f_four_tables_staff_writes_dropped.sql
 # S05f review follow-up: consultation_prep_bundle, search_patient_record and clear_vitals_validation_flag require the tie (INV-12) instead of any org staff; the two readers audit (basis tied); patient, caregiver grant and support-view paths kept; anon cannot execute; unknown reading id answers like an untied caller; one sabotage.
 s05f_review_tie_gate_definer_functions.sql
+# Prescription PDF phase 1: clinical_staff_directory.license_verified readable by a same-org patient (true / never verified false / expired false), no sensitive columns, anon refused, other org sees none; a patient's own download audit row insert works and a forged actor is refused; one sabotage.
+prescription_pdf_license_flag_and_download_audit.sql
