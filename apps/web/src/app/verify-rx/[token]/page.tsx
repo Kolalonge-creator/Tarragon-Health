@@ -13,6 +13,7 @@ import {
   TOKEN_PATTERN,
   parseProof,
   presentStatus,
+  stripDoctorTitle,
   type PublicPrescriptionProof,
 } from "@/lib/prescriptions/public-verification";
 
@@ -117,7 +118,7 @@ export default async function VerifyPrescriptionPage({
                   <Row label="Signed" value={formatDate(p.signed_at)} />
                   <Row label="Valid until" value={formatDate(p.expires_at)} />
                   <Row label="Version" value={p.version > 1 ? `${p.version} (amended)` : "1"} />
-                  <Row label="Prescribed by" value={`Dr. ${p.prescriber_name}`} />
+                  <Row label="Prescribed by" value={`Dr. ${stripDoctorTitle(p.prescriber_name)}`} />
                   <Row label="Registration" value={p.prescriber_credential} />
                 </dl>
                 {supplyResult && (

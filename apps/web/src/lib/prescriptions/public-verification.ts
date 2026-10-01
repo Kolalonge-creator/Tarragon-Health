@@ -126,3 +126,5 @@ export function parseProof(data: unknown): PublicPrescriptionProof | null {
   const row = Array.isArray(data) ? data[0] : data;
   return isProof(row) ? row : null;
 }
+
+export { stripDoctorTitle } from "./doctor-name";

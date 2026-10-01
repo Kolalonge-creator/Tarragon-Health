@@ -71,19 +71,22 @@ async function loadPatient(supabase: Client, patientId: string) {
   return data;
 }
 
+/**
+ * The prescriber, from clinical_staff_directory only. The name used to come from `profiles`, which row-level security hides from a
+ * patient (a patient may not read a clinician's profile), so every patient download was refused as "prescriber not confirmed".
+ * The directory is the safe-column view every patient-facing staff read goes through, and it carries the name, credential and the
+ * derived licence flag together.
+ */
 async function loadPrescriber(supabase: Client, profileId: string | null): Promise<PrescriptionPrescriber | null> {
   if (!profileId) return null;
-  const [{ data: staff }, { data: profile }] = await Promise.all([
-    supabase
-      .from("clinical_staff_directory")
-      .select("credential_type, credential_number, license_verified")
-      .eq("profile_id", profileId)
-      .maybeSingle(),
-    supabase.from("profiles").select("full_name").eq("id", profileId).maybeSingle(),
-  ]);
+  const { data: staff } = await supabase
+    .from("clinical_staff_directory")
+    .select("full_name, credential_type, credential_number, license_verified")
+    .eq("profile_id", profileId)
+    .maybeSingle();
   if (!staff) return null;
   return {
-    name: profile?.full_name ?? null,
+    name: staff.full_name,
     credentialType: staff.credential_type,
     credentialNumber: staff.credential_number,
     licenseVerified: staff.license_verified === true,

@@ -25,6 +25,7 @@ declare
   v_n integer;
   v_failed boolean;
   v_cols text;
+  v_name text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   if v_org is null then raise exception 'fixture FAIL: no organisation'; end if;
@@ -54,6 +55,11 @@ begin
   if v_flag is distinct from false then raise exception 'FAIL: never-verified licence did not read as false (%)', v_flag; end if;
   select license_verified into v_flag from public.clinical_staff_directory where profile_id = v_exp;
   if v_flag is distinct from false then raise exception 'FAIL: expired licence did not read as false (%)', v_flag; end if;
+  select full_name into v_name from public.clinical_staff_directory where profile_id = v_ok;
+  if v_name is distinct from 'RxPdf Verified Dr' then raise exception 'FAIL: a patient could not read the prescriber name from the directory (%)', v_name; end if;
+  -- a patient may NOT read a clinician's profile, which is why the PDF takes the name from the directory
+  select count(*) into v_n from public.profiles where id = v_ok;
+  if v_n <> 0 then raise exception 'FAIL: a patient can read a clinician profile (%)', v_n; end if;
   execute 'reset role';
 
   -- 2. no sensitive column leaked into the view

@@ -75,11 +75,25 @@ function fakeClient(fixture: Fixture, rpcResult?: { data: unknown; error: { mess
   return { client: { from, rpc } as unknown as SupabaseClient<Database>, audit };
 }
 
-const goodStaff = { credential_type: "MDCN", credential_number: "123456", license_verified: true };
+const goodStaff = { full_name: "Dr Ada Longe", credential_type: "MDCN", credential_number: "123456", license_verified: true };
 const goodPatient = { full_name: "First Patient", patient_number: "TH-002610", date_of_birth: "1985-03-04" };
 
 beforeEach(() => {
   signatureMock.mockReset().mockResolvedValue(null);
+});
+
+describe("prescriber name", () => {
+  it("comes from the staff directory, not from profiles (which a patient cannot read), with a leading title removed", async () => {
+    const { client } = fakeClient({ meds: [med()], patient: goodPatient, staff: goodStaff, auditError: null });
+    const result = await loadSinglePrescription(client, ACTOR, "11111111-1111-4111-8111-111111111111", "web");
+    expect(result.status === "ok" && result.prescriptions[0]?.prescriberName).toBe("Ada Longe");
+    expect(result.status === "ok" && result.prescriptions[0]?.prescriberName).not.toBe("First Patient");
+  });
+
+  it("is refused when the directory row has no name, rather than printing a blank prescriber", async () => {
+    const { client } = fakeClient({ meds: [med()], patient: goodPatient, staff: { ...goodStaff, full_name: null }, auditError: null });
+    expect(await loadSinglePrescription(client, ACTOR, "11111111-1111-4111-8111-111111111111", "web")).toMatchObject({ reason: "prescriber_unverified" });
+  });
 });
 
 describe("signature embedding", () => {
