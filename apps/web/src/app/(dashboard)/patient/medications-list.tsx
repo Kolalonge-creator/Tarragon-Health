@@ -576,6 +576,14 @@ function PrescriptionStatusTrail({
             </span>
           </span>
         ))}
+        {!medication.superseded_at && medication.is_active && medication.rx_number && !isExpired && (
+          <a
+            href={`/api/clinician/prescriptions/${medication.id}/pdf?patientId=${patientId}`}
+            className="text-charcoal-ink/50 dark:text-night-ink/55 underline hover:text-charcoal-ink dark:hover:text-night-ink"
+          >
+            Reprint (PDF)
+          </a>
+        )}
         {canAmend && !amending && (
           <button
             type="button"

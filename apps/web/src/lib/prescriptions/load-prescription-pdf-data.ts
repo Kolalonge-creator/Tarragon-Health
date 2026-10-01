@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import { readPatientMedicationsAudited } from "@/lib/clinical/medications-audited";
 import {
   buildPrescriptionBundle,
   buildPrescriptionPdfData,
@@ -70,6 +71,7 @@ async function recordDownloads(
   rows: { organisationId: string; patientId: string; medicationId: string; rxNumber: string; version: number }[],
   channel: "web" | "mobile",
   bundle: boolean,
+  via: "patient" | "clinician" = "patient",
 ): Promise<string | null> {
   const { error } = await supabase.from("audit_log").insert(
     rows.map((row) => ({
@@ -80,7 +82,7 @@ async function recordDownloads(
       entity_id: row.medicationId,
       subject_patient_id: row.patientId,
       result: "success",
-      event: { rx_number: row.rxNumber, version: row.version, channel, bundle },
+      event: { rx_number: row.rxNumber, version: row.version, channel, bundle, via },
     })),
   );
   return error ? error.message : null;
@@ -182,4 +184,47 @@ export async function loadPrescriptionBundle(
     prescriptions: included,
     skipped,
   };
+}
+
+/**
+ * A clinician reprinting a patient's prescription from the chart (phase 4). Staff do not read `medications`
+ * directly, so the row comes from the audited, tie-gated read: an untied clinician is refused and gets "not found"
+ * (the same answer as a prescription that does not exist). The read writes its own `staff.chart_read` row, and the
+ * download writes `prescription.pdf_downloaded` with `via: "clinician"`. The issuing rules are exactly the patient's.
+ */
+export async function loadPrescriptionForClinician(
+  supabase: Client,
+  actorId: string,
+  patientId: string,
+  medicationId: string,
+): Promise<PrescriptionLoadResult> {
+  const read = await readPatientMedicationsAudited(supabase, patientId, {
+    medicationId,
+    reason: "Reprint prescription",
+  });
+  if (read.status === "error") return { status: "error", message: read.message };
+  if (read.status === "denied") return { status: "not_found" };
+  const row = read.rows.find((candidate) => candidate.id === medicationId && candidate.patient_id === patientId);
+  if (!row) return { status: "not_found" };
+  const medication = row as unknown as MedicationRow;
+
+  const [patient, prescriber] = await Promise.all([
+    loadPatient(supabase, patientId),
+    loadPrescriber(supabase, medication.added_by),
+  ]);
+  if (!patient) return { status: "not_found" };
+
+  const built = buildPrescriptionPdfData({ medication, patient, prescriber });
+  if (built.status === "refused") return { status: "refused", reason: built.reason, message: built.message };
+
+  const auditError = await recordDownloads(
+    supabase,
+    actorId,
+    [{ organisationId: medication.organisation_id, patientId, medicationId: medication.id, rxNumber: built.data.rxNumber, version: built.data.version }],
+    "web",
+    false,
+    "clinician",
+  );
+  if (auditError) return { status: "error", message: "Could not record this download, so the document was not issued." };
+  return { status: "ok", prescriptions: [built.data], skipped: [] };
 }

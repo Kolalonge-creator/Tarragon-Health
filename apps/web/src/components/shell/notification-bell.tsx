@@ -495,6 +495,21 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     const drug = String(payload.drug_name ?? "A medication");
     return { text: `${drug} was prescribed for you`, href: "/patient/medications" };
   }
+  if (n.template === "prescription_updated_patient") {
+    const drug = String(payload.drug_name ?? "Your prescription");
+    return {
+      text: `${drug} was updated. Download the new prescription: any copy you saved earlier no longer works.`,
+      href: "/patient/medications",
+    };
+  }
+  if (n.template === "prescription_expiring_soon") {
+    const drug = String(payload.drug_name ?? "Your prescription");
+    const when = typeof payload.expires_at === "string" ? ` on ${new Date(payload.expires_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" })}` : " soon";
+    return {
+      text: `Your prescription for ${drug} expires${when}. Request a renewal if you still need it.`,
+      href: "/patient/medications",
+    };
+  }
   if (n.template === "pharmacy_order_patient_confirmation") {
     const items = String(payload.items_summary ?? "your medication");
     // /patient/pharmacy has no page — Medications is where a patient's

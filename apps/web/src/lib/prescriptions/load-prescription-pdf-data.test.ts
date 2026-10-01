@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import { loadPrescriptionBundle, loadSinglePrescription } from "./load-prescription-pdf-data";
+import { loadPrescriptionBundle, loadPrescriptionForClinician, loadSinglePrescription } from "./load-prescription-pdf-data";
 
 const PATIENT = "22222222-2222-4222-8222-222222222222";
 const ACTOR = "33333333-3333-4333-8333-333333333333";
@@ -43,7 +43,7 @@ interface Fixture {
 }
 
 /** A chainable stand-in for the query builder: every filter returns itself, awaiting or maybeSingle() resolves the fixture. */
-function fakeClient(fixture: Fixture) {
+function fakeClient(fixture: Fixture, rpcResult?: { data: unknown; error: { message: string } | null }) {
   const audit: unknown[][] = [];
   const from = (table: string) => {
     const chain: Record<string, unknown> = {};
@@ -67,7 +67,8 @@ function fakeClient(fixture: Fixture) {
     }
     return chain;
   };
-  return { client: { from } as unknown as SupabaseClient<Database>, audit };
+  const rpc = async () => rpcResult ?? { data: null, error: null };
+  return { client: { from, rpc } as unknown as SupabaseClient<Database>, audit };
 }
 
 const goodStaff = { credential_type: "MDCN", credential_number: "123456", license_verified: true };
@@ -86,7 +87,7 @@ describe("loadSinglePrescription", () => {
         entity_type: "medications",
         subject_patient_id: PATIENT,
         result: "success",
-        event: { rx_number: "TRG-RX-2026-000366", version: 1, channel: "web", bundle: false },
+        event: { rx_number: "TRG-RX-2026-000366", version: 1, channel: "web", bundle: false, via: "patient" },
       }),
     ]);
   });
@@ -167,5 +168,41 @@ describe("loadPrescriptionBundle", () => {
   it("refuses with the reason when nothing in the bundle may be issued", async () => {
     const { client } = fakeClient({ meds: [med({ drug_name: "Tramadol" })], patient: goodPatient, staff: goodStaff, auditError: null });
     expect(await loadPrescriptionBundle(client, ACTOR, PATIENT, "web")).toMatchObject({ status: "refused", reason: "controlled_medicine" });
+  });
+});
+
+describe("loadPrescriptionForClinician", () => {
+  const ok = (rows: unknown[]) => ({ data: { status: "ok", rows }, error: null });
+  const MED = "11111111-1111-4111-8111-111111111111";
+
+  it("issues through the audited read and audits the clinician as actor with via: clinician", async () => {
+    const { client, audit } = fakeClient({ meds: [], patient: goodPatient, staff: goodStaff, auditError: null }, ok([med()]));
+    const result = await loadPrescriptionForClinician(client, ACTOR, PATIENT, MED);
+    expect(result.status).toBe("ok");
+    expect(audit[0]?.[0]).toMatchObject({ actor_id: ACTOR, action: "prescription.pdf_downloaded", event: { via: "clinician", bundle: false } });
+  });
+
+  it("answers not found when the tie gate denies the read, and writes no download audit", async () => {
+    const { client, audit } = fakeClient({ meds: [], patient: goodPatient, staff: goodStaff, auditError: null }, { data: { status: "denied" }, error: null });
+    expect(await loadPrescriptionForClinician(client, ACTOR, PATIENT, MED)).toEqual({ status: "not_found" });
+    expect(audit).toHaveLength(0);
+  });
+
+  it("does not trust a row for a different patient or a different medication", async () => {
+    const wrongPatient = fakeClient({ meds: [], patient: goodPatient, staff: goodStaff, auditError: null }, ok([med({ patient_id: "99999999-9999-4999-8999-999999999999" })]));
+    expect(await loadPrescriptionForClinician(wrongPatient.client, ACTOR, PATIENT, MED)).toEqual({ status: "not_found" });
+    const wrongMed = fakeClient({ meds: [], patient: goodPatient, staff: goodStaff, auditError: null }, ok([med({ id: "88888888-8888-4888-8888-888888888888" })]));
+    expect(await loadPrescriptionForClinician(wrongMed.client, ACTOR, PATIENT, MED)).toEqual({ status: "not_found" });
+  });
+
+  it("applies the same issuing rules: a superseded prescription is refused", async () => {
+    const { client, audit } = fakeClient({ meds: [], patient: goodPatient, staff: goodStaff, auditError: null }, ok([med({ superseded_at: "2026-09-30T00:00:00Z", is_active: false })]));
+    expect(await loadPrescriptionForClinician(client, ACTOR, PATIENT, MED)).toMatchObject({ status: "refused", reason: "superseded" });
+    expect(audit).toHaveLength(0);
+  });
+
+  it("surfaces a read error rather than reading it as none", async () => {
+    const { client } = fakeClient({ meds: [], patient: goodPatient, staff: goodStaff, auditError: null }, { data: null, error: { message: "boom" } });
+    expect((await loadPrescriptionForClinician(client, ACTOR, PATIENT, MED)).status).toBe("error");
   });
 });

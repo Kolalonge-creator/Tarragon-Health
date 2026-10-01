@@ -791,3 +791,5 @@ prescription_pdf_license_flag_and_download_audit.sql
 prescription_public_verification.sql
 # Prescription PDF phase 3: anon pharmacy records a supply (source pharmacy, self-declared names, no recorder); duplicate window; second supply needs a clinician-approved repeat, capped at 1+repeats_allowed; patient collection claim not counted; superseded/expired/stopped/unknown/malformed/invalid refused; verify reports supplies and availability; anon cannot touch the table; sabotage.
 prescription_supply_record_and_repeat_control.sql
+# Prescription PDF phase 4: a new prescription keeps its in-app 'prescribed' notice; an amendment gets 'prescription_updated_patient' and no second 'prescribed' in-app row, other channels unchanged; the daily expiry job queues one in-app notice for a current prescription expiring within 7 days (not later, expired, superseded, stopped or patient-sourced), never twice, not anon-executable; sabotage.
+prescription_amended_and_expiring_notices.sql
