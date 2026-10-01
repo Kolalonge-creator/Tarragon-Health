@@ -25,7 +25,7 @@ export interface VitalsReadOptions {
   vitalType?: VitalType;
   /** Only readings taken at or after this instant (ISO string). */
   since?: string;
-  /** Page size (default 20, at most 1000). */
+  /** Page size (default 20, at most 5000). The newest rows are selected; `ascending` only reorders them. */
   limit?: number;
   offset?: number;
   /** Oldest first (charts). Default: newest first. */

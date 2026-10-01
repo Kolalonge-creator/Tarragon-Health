@@ -340,7 +340,7 @@ export async function loadMedicationEffectiveness(
   // INV-10: through the audited read, one call per vital type (the function takes a single type). A refusal or error builds no
   // effectiveness view, the same as an unreadable medication list.
   const readingResults = await Promise.all(
-    vitalTypes.map((vitalType) => readPatientVitalsAudited(supabase, patientId, { vitalType, ascending: true, limit: 1000 })),
+    vitalTypes.map((vitalType) => readPatientVitalsAudited(supabase, patientId, { vitalType, ascending: true, limit: 5000 })),
   );
   if (readingResults.some((r) => r.status !== "ok")) return [];
   const readings = readingResults.flatMap((r) => (r.status === "ok" ? r.rows : []));

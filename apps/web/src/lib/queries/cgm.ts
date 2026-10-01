@@ -52,7 +52,7 @@ export function useCgmReadings(patientId: string, days = 14) {
     queryKey: ["cgm-readings", patientId, days],
     queryFn: async () => {
       const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      const rows = await readPatientVitalsOrThrow(createClient(), patientId, { source: "cgm", since: cutoff, limit: 1000 });
+      const rows = await readPatientVitalsOrThrow(createClient(), patientId, { source: "cgm", since: cutoff, limit: 5000 });
       return rows.map((r) => ({ glucose_mmol_l: r.glucose_mmol_l, taken_at: r.taken_at })) as CgmReading[];
     },
     staleTime: 60_000,

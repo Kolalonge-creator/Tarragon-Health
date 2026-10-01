@@ -38,7 +38,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  c_max constant integer := 1000;                      -- technical cap, not a clinical value
+  c_max constant integer := 5000;                      -- technical cap (a 14-day CGM window is about 4000 readings), not a clinical value
   v_uid uuid := (select auth.uid());
   v_service boolean := coalesce((select auth.role()), '') = 'service_role';
   v_own boolean;
@@ -63,18 +63,18 @@ begin
     end if;
   end if;
 
-  select coalesce(jsonb_agg(to_jsonb(x) order by x.sort_taken), '[]'::jsonb) into v_rows from (
-    select v.*, case when p_ascending then extract(epoch from v.taken_at) else -extract(epoch from v.taken_at) end as sort_taken
+  -- Newest first always selects the page (a trend that asks for the whole window must get the NEWEST rows when it exceeds the cap, never
+  -- the oldest); `p_ascending` only reorders that page for charting.
+  select coalesce(jsonb_agg(to_jsonb(x) - 'sort_taken' order by case when p_ascending then x.sort_taken end asc, case when not p_ascending then x.sort_taken end desc), '[]'::jsonb) into v_rows from (
+    select v.*, v.taken_at as sort_taken
       from public.vitals_readings v
      where v.patient_id = p_patient
        and (p_vital_type is null or v.vital_type = p_vital_type)
        and (p_since is null or v.taken_at >= p_since)
        and (p_source is null or v.source = p_source)
-     order by case when p_ascending then v.taken_at end asc, case when not p_ascending then v.taken_at end desc
+     order by v.taken_at desc
      offset greatest(coalesce(p_offset, 0), 0)
      limit least(greatest(coalesce(p_limit, 20), 1), c_max)) x;
-  -- the helper sort column is not part of the row
-  v_rows := (select coalesce(jsonb_agg(elem - 'sort_taken'), '[]'::jsonb) from jsonb_array_elements(v_rows) elem);
 
   if not v_own then
     perform private.audit_chart_read(p_patient, array['vitals'], p_reason, 'success');

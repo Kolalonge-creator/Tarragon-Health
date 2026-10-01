@@ -90,6 +90,11 @@ begin
   if v_json -> 'rows' -> 0 ? 'sort_taken' then raise exception 'FAIL 1c: the helper sort column leaked'; end if;
   select public.read_patient_vitals_audited(v_pat, null, 'blood_pressure', null, 20, 0, true) into v_json;
   if jsonb_array_length(v_json -> 'rows') <> 2 or (v_json -> 'rows' -> 0 ->> 'systolic')::integer <> 150 then raise exception 'FAIL 1d: type filter / ascending: %', v_json; end if;
+  -- a limit with ascending keeps the NEWEST rows (then orders them oldest first): never the oldest, which would drop the latest from a chart
+  select public.read_patient_vitals_audited(v_pat, null, null, null, 2, 0, true) into v_json;
+  if jsonb_array_length(v_json -> 'rows') <> 2 or (v_json -> 'rows' -> 0 ->> 'vital_type') <> 'weight' or (v_json -> 'rows' -> 1 ->> 'systolic')::integer <> 128 then
+    raise exception 'FAIL 1d2: ascending + limit must return the newest two oldest-first: %', v_json -> 'rows';
+  end if;
   select public.read_patient_vitals_audited(v_pat, null, 'blood_pressure', now() - interval '2 days') into v_json;
   if jsonb_array_length(v_json -> 'rows') <> 1 then raise exception 'FAIL 1e: since filter: %', v_json; end if;
   select public.read_patient_vitals_audited(v_pat, null, null, null, 1, 1) into v_json;

@@ -60,7 +60,7 @@ export function useVitalsTrend(
     queryKey: ["vitals-trend", patientId, vitalType, windowDays],
     queryFn: async () => {
       const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
-      const rows = await readPatientVitalsOrThrow(createClient(), patientId, { vitalType, since, ascending: true, limit: 1000 });
+      const rows = await readPatientVitalsOrThrow(createClient(), patientId, { vitalType, since, ascending: true, limit: 5000 });
       return rows.map((r) => ({
         taken_at: r.taken_at,
         systolic: r.systolic,
@@ -124,7 +124,7 @@ export function useBmiTrend(patientId: string, windowDays: number = TREND_WINDOW
       const supabase = createClient();
       const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
       const [weightRows, heightStatus] = await Promise.all([
-        readPatientVitalsOrThrow(supabase, patientId, { vitalType: "weight", since, ascending: true, limit: 1000 }),
+        readPatientVitalsOrThrow(supabase, patientId, { vitalType: "weight", since, ascending: true, limit: 5000 }),
         fetchHeightStatus(supabase, patientId),
       ]);
 
