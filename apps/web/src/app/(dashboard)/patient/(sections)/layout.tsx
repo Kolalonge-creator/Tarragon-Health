@@ -5,6 +5,9 @@ import { EmergencyAlert } from "@/app/(dashboard)/patient/emergency-alert";
 import { DangerSymptomCheck } from "@/app/(dashboard)/patient/danger-symptom-check";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { GlucoseUnitProvider } from "@/components/glucose-unit-provider";
+import { createClient } from "@/lib/supabase/server";
+import { getAuthLocale } from "@/lib/auth/auth-locale";
+import { ProxyConfirmationCard } from "@/app/(dashboard)/patient/family/proxy-confirmation-card";
 
 /**
  * Shared chrome for the patient dashboard's routed sections (Overview,
@@ -39,6 +42,12 @@ export default async function PatientSectionsLayout({
     glucoseUnit,
   } = await getPatientDashboardContext();
 
+  // A request from someone who wants to help look after this person (v5 8.2 "Set up for my parent"). Matched in the
+  // database on this account's own verified number, so only its holder ever sees it, and it shows a first name only.
+  const supabase = await createClient();
+  const { data: pendingProxySetups } = await supabase.rpc("my_pending_proxy_setups");
+  const locale = await getAuthLocale();
+
   return (
     <DashboardPlaceholder
       greeting={
@@ -48,6 +57,8 @@ export default async function PatientSectionsLayout({
       }
       roleLabel={acting ? "Acting for them" : "Patient"}
     >
+      <ProxyConfirmationCard setups={pendingProxySetups ?? []} locale={locale} />
+
       {/* Whose account this is must never be in doubt. It sits above the
           safety surfaces because mistaking one person's record for another is
           itself the safety problem. */}

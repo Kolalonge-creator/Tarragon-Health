@@ -115,7 +115,7 @@ describe("startProxySetupAction", () => {
   });
 
   it("rejects an invalid number or empty name before touching the database or the SMS provider", async () => {
-    for (const bad of [{ phone: "12" }, { fullName: "   " }, { countryCode: "234" }]) {
+    for (const bad of [{ phone: "12" }, { fullName: "   " }, { countryCode: "234" }] as Record<string, string>[]) {
       const result = await startProxySetupAction(undefined, startForm(bad));
       expect(result?.error).toBeTruthy();
     }

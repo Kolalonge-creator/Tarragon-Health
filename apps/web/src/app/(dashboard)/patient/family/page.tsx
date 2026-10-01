@@ -6,6 +6,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { AddChildForm } from "./add-child-form";
 import { AddElderProxyForm } from "./add-elder-form";
+import { ProxySetupForm } from "./proxy-setup-form";
+import { ProxySetupList, type ProxySetupRow } from "./proxy-setup-list";
+import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { MaturedDependentBanner } from "./matured-dependent-banner";
 import { HouseholdOverview } from "./household-overview";
 import { NextOfKinForm, type NextOfKinState } from "./next-of-kin-form";
@@ -134,6 +137,15 @@ export default async function CareCirclePage() {
     subjectName: row.subject?.full_name ?? null,
   }));
 
+  // The caller's own "set up for my parent" requests (RLS: creator or admin only). Name and state, nothing clinical.
+  const { data: proxyRows } = await supabase
+    .from("proxy_setups")
+    .select("id, target_full_name, state, expires_at")
+    .eq("created_by_profile_id", profile.id)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const locale = await getAuthLocale();
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -159,6 +171,8 @@ export default async function CareCirclePage() {
         <div className="space-y-4">
           <AdultsYouManageList />
           <AddElderProxyForm />
+          <ProxySetupForm locale={locale} />
+          <ProxySetupList rows={(proxyRows ?? []) as ProxySetupRow[]} locale={locale} />
         </div>
       </div>
 
