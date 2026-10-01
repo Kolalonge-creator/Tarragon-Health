@@ -19,7 +19,7 @@ function form(fields: Record<string, string>): FormData {
   for (const [k, v] of Object.entries(fields)) f.set(k, v);
   return f;
 }
-const valid = { token: TOKEN, pharmacyName: "City Pharmacy", pharmacistName: "Ada Obi", confirmed: "on" };
+const valid = { token: TOKEN, pharmacyName: "City Pharmacy", pharmacistName: "Ada Obi", pharmacistRegistration: "PCN-1234", confirmed: "on" };
 
 async function run(fields: Record<string, string>): Promise<string> {
   try {
@@ -41,18 +41,20 @@ beforeEach(() => {
 describe("recordSupplyAction", () => {
   it("passes the typed names to the database and redirects with the outcome", async () => {
     rpcMock.mockResolvedValue({ data: [{ outcome: "recorded", supplies_dispensed: 1, supplies_permitted: 1 }], error: null });
-    expect(await run({ ...valid, pharmacistRegistration: "PCN-1" })).toBe(`REDIRECT:/verify-rx/${TOKEN}?result=recorded`);
+    expect(await run(valid)).toBe(`REDIRECT:/verify-rx/${TOKEN}?result=recorded`);
     expect(rpcMock).toHaveBeenCalledWith("record_prescription_supply_public", {
       p_token: TOKEN,
       p_pharmacy_name: "City Pharmacy",
       p_pharmacist_name: "Ada Obi",
-      p_pharmacist_registration: "PCN-1",
+      p_pharmacist_registration: "PCN-1234",
     });
   });
 
   it("requires the confirmation box, a name of at least two letters, and never calls the database otherwise", async () => {
     expect(await run({ ...valid, confirmed: "" })).toBe(`REDIRECT:/verify-rx/${TOKEN}?result=invalid`);
     expect(await run({ ...valid, pharmacyName: "A" })).toBe(`REDIRECT:/verify-rx/${TOKEN}?result=invalid`);
+    expect(await run({ ...valid, pharmacistRegistration: "" })).toBe(`REDIRECT:/verify-rx/${TOKEN}?result=invalid`);
+    expect(await run({ ...valid, pharmacistRegistration: "!!" })).toBe(`REDIRECT:/verify-rx/${TOKEN}?result=invalid`);
     expect(rpcMock).not.toHaveBeenCalled();
   });
 

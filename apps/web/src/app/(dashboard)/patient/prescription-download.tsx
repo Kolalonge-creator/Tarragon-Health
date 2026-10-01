@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { useDisputePrescriptionSupply } from "@/lib/queries/medications";
 import { formatPatientDate } from "@/lib/format-date";
 
 /**
@@ -10,19 +14,76 @@ import { formatPatientDate } from "@/lib/format-date";
  * The "not a controlled medicine" line is the founder's wording (2026-10-01): TarragonHealth does not
  * prescribe controlled medicines, and patients should be told.
  */
+export interface RecordedSupply {
+  id: string;
+  dispensed_on: string;
+  pharmacy_name: string | null;
+  pharmacist_name: string | null;
+  pharmacist_registration: string | null;
+  pharmacist_registration_verified: boolean;
+  disputed_at: string | null;
+}
+
+function SupplyLine({ supply, patientId }: { supply: RecordedSupply; patientId: string }) {
+  const dispute = useDisputePrescriptionSupply(patientId);
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  return (
+    <li className="space-y-1">
+      <span>
+        Supplied {formatPatientDate(supply.dispensed_on)}
+        {supply.pharmacy_name ? ` by ${supply.pharmacy_name}` : ""}
+        {supply.pharmacist_name ? `, pharmacist ${supply.pharmacist_name}` : ""}
+        {supply.pharmacist_registration
+          ? ` (registration ${supply.pharmacist_registration}${supply.pharmacist_registration_verified ? "" : ", not checked"})`
+          : ""}
+      </span>
+      {supply.disputed_at ? (
+        <span className="ml-2 text-amber-700 dark:text-amber-300">You reported this as not supplied</span>
+      ) : open ? (
+        <span className="mt-1 block space-y-1">
+          <input
+            aria-label="What was wrong (optional)"
+            placeholder="What was wrong? (optional)"
+            value={note}
+            maxLength={500}
+            onChange={(event) => setNote(event.target.value)}
+            className="w-full rounded border border-charcoal-ink/20 px-2 py-1"
+          />
+          <button
+            type="button"
+            disabled={dispute.isPending}
+            onClick={() => dispute.mutate({ dispenseId: supply.id, note }, { onSuccess: () => setOpen(false) })}
+            className="rounded border border-red-600 px-2 py-1 font-medium text-red-700 dark:text-red-300"
+          >
+            {dispute.isPending ? "Sending…" : "Report this supply"}
+          </button>
+          {dispute.isError && <span className="block text-red-600">{(dispute.error as Error).message}</span>}
+        </span>
+      ) : (
+        <button type="button" onClick={() => setOpen(true)} className="ml-2 underline text-charcoal-ink/60 dark:text-night-ink/60">
+          This wasn&apos;t me
+        </button>
+      )}
+    </li>
+  );
+}
+
 export function PrescriptionDownload({
   medicationId,
   rxNumber,
   verificationCode,
   expiresAt,
   supplies,
+  patientId,
 }: {
   medicationId: string;
   rxNumber: string | null;
   verificationCode: string | null;
   expiresAt: string | null;
   /** Supplies a pharmacy has recorded against this prescription (source 'pharmacy'), newest first. */
-  supplies: { dispensed_on: string; pharmacy_name: string | null }[];
+  supplies: RecordedSupply[];
+  patientId: string;
 }) {
   if (!rxNumber || !verificationCode) return null;
   const expired = !!expiresAt && new Date(expiresAt).getTime() < new Date().getTime();
@@ -46,12 +107,9 @@ export function PrescriptionDownload({
         )}
       </div>
       {supplies.length > 0 && (
-        <ul className="space-y-0.5 text-charcoal-ink/70 dark:text-night-ink/70">
-          {supplies.map((supply, index) => (
-            <li key={`${supply.dispensed_on}-${index}`}>
-              Supplied {formatPatientDate(supply.dispensed_on)}
-              {supply.pharmacy_name ? ` by ${supply.pharmacy_name}` : ""}
-            </li>
+        <ul className="space-y-1.5 text-charcoal-ink/70 dark:text-night-ink/70">
+          {supplies.map((supply) => (
+            <SupplyLine key={supply.id} supply={supply} patientId={patientId} />
           ))}
         </ul>
       )}

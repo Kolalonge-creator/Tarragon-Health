@@ -507,6 +507,11 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     const when = typeof payload.expires_at === "string" ? ` on ${new Date(payload.expires_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" })}` : " soon";
     return {
       text: `Your prescription for ${drug} expires${when}. Request a renewal if you still need it.`,
+  if (n.template === "prescription_supply_recorded") {
+    const drug = String(payload.drug_name ?? "Your prescription");
+    const pharmacy = String(payload.pharmacy_name ?? "a pharmacy");
+    return {
+      text: `${pharmacy} recorded a supply of ${drug}. If that was not you, open your medicines and tap "This wasn't me".`,
       href: "/patient/medications",
     };
   }
