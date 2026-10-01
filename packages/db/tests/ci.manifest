@@ -761,3 +761,5 @@ s03_assisted_recovery.sql
 s04_proxy_setup.sql
 # S04 consent is_optional: optional purposes never gate onboarding, a plain-INSERT version bump of a required purpose still gates, required withdrawal closes the gate, re-acceptance reopens it; one sabotage.
 s04_consent_is_optional.sql
+# S05 health record data model: idempotency keys, v5 views, triggers intact, prescriptions/referrals signature (INV-02), signed notes only (INV-11), audited chart reads and tied-patient gate (INV-10/12), closed direct staff reads; four sabotages.
+s05_health_record_data_model.sql
