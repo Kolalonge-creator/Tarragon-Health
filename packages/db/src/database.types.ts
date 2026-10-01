@@ -8316,6 +8316,7 @@ export type Database = {
           created_at: string
           id: string
           is_current: boolean
+          is_required: boolean
           published_at: string
           text_key: string | null
           title: string
@@ -8327,6 +8328,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_current?: boolean
+          is_required?: boolean
           published_at?: string
           text_key?: string | null
           title: string
@@ -8338,6 +8340,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_current?: boolean
+          is_required?: boolean
           published_at?: string
           text_key?: string | null
           title?: string
