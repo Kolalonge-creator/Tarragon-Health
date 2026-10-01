@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { SIGNATURE_BUCKET, signatureObjectPath, validateSignatureFile } from "@/lib/clinical/signature-image";
 import type { Tables } from "@tarragon/shared";
 
 export type ClinicalStaff = Tables<"clinical_staff">;
@@ -676,6 +677,66 @@ export function useAssignCareTeam() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["care-team", variables.patientId] });
+    },
+  });
+}
+
+/**
+ * Admin only (the bucket policies and a database trigger enforce it, not just this screen): uploads a doctor's signature
+ * image to the PRIVATE staff-signatures bucket and points clinical_staff.signature_path at it. The previous image, if any, is
+ * deleted afterwards (best effort: a leftover object is harmless, the path no longer references it).
+ */
+export function useSetClinicalStaffSignature() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ staff, file }: { staff: Pick<ClinicalStaff, "id" | "organisation_id" | "signature_path">; file: File }) => {
+      const checked = validateSignatureFile(file);
+      if (checked.status === "error") throw new Error(checked.message);
+      const supabase = createClient();
+      const path = signatureObjectPath(staff.organisation_id, crypto.randomUUID(), checked.format);
+      const { error: uploadError } = await supabase.storage
+        .from(SIGNATURE_BUCKET)
+        .upload(path, file, { contentType: checked.contentType, upsert: false });
+      if (uploadError) throw uploadError;
+      const { error } = await supabase.from("clinical_staff").update({ signature_path: path }).eq("id", staff.id);
+      if (error) {
+        await supabase.storage.from(SIGNATURE_BUCKET).remove([path]);
+        throw error;
+      }
+      if (staff.signature_path) await supabase.storage.from(SIGNATURE_BUCKET).remove([staff.signature_path]);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+export function useRemoveClinicalStaffSignature() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (staff: Pick<ClinicalStaff, "id" | "signature_path">) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("clinical_staff").update({ signature_path: null }).eq("id", staff.id);
+      if (error) throw error;
+      if (staff.signature_path) await supabase.storage.from(SIGNATURE_BUCKET).remove([staff.signature_path]);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/** A short-lived signed URL so an admin can see the signature on file; the bucket is private and this is the only way to view it. */
+export function useSignaturePreviewUrl(path: string | null) {
+  return useQuery({
+    queryKey: ["clinical-staff", "signature-preview", path],
+    enabled: !!path,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.storage.from(SIGNATURE_BUCKET).createSignedUrl(path!, 60);
+      if (error) throw error;
+      return data.signedUrl;
     },
   });
 }

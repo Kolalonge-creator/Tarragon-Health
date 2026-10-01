@@ -27,6 +27,7 @@ import {
 type Client = SupabaseClient<Database>;
 
 import { DEFAULT_LETTERHEAD, type Letterhead } from "./letterhead";
+import { loadPrescriberSignature } from "./signature";
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -144,7 +145,8 @@ export async function loadSinglePrescription(
     false,
   );
   if (auditError) return { status: "error", message: "Could not record this download, so the document was not issued." };
-  return { status: "ok", prescriptions: [built.data], skipped: [], letterhead: await loadLetterhead(supabase) };
+  const signature = await loadPrescriberSignature(medication.added_by);
+  return { status: "ok", prescriptions: [{ ...built.data, signatureImage: signature }], skipped: [], letterhead: await loadLetterhead(supabase) };
 }
 
 /** Every current clinician prescription for one patient, one page each. Rows that fail an issuing rule are skipped and reported. */
@@ -203,9 +205,14 @@ export async function loadPrescriptionBundle(
     true,
   );
   if (auditError) return { status: "error", message: "Could not record this download, so the document was not issued." };
+  const signatures = new Map<string, string | null>();
+  for (const row of rows) {
+    const key = row.added_by ?? "";
+    if (!signatures.has(key)) signatures.set(key, await loadPrescriberSignature(row.added_by));
+  }
   return {
     status: "ok",
-    prescriptions: included,
+    prescriptions: included.map((rx) => ({ ...rx, signatureImage: signatures.get(byId.get(rx.medicationId)?.added_by ?? "") ?? null })),
     skipped,
     letterhead: await loadLetterhead(supabase),
   };
@@ -251,5 +258,6 @@ export async function loadPrescriptionForClinician(
     "clinician",
   );
   if (auditError) return { status: "error", message: "Could not record this download, so the document was not issued." };
-  return { status: "ok", prescriptions: [built.data], skipped: [], letterhead: await loadLetterhead(supabase) };
+  const signature = await loadPrescriberSignature(medication.added_by);
+  return { status: "ok", prescriptions: [{ ...built.data, signatureImage: signature }], skipped: [], letterhead: await loadLetterhead(supabase) };
 }

@@ -96,6 +96,8 @@ export interface PrescriptionPdfData {
   validUntil: string | null;
   prescriberName: string;
   prescriberCredential: string;
+  /** The prescriber's signature as a data URL, set by the loader after the issuing rules pass; null prints the stamp alone. */
+  signatureImage: string | null;
 }
 
 export const REFUSAL_MESSAGE: Record<PrescriptionRefusalReason, string> = {
@@ -190,6 +192,7 @@ export function buildPrescriptionPdfData(input: {
       validUntil: medication.expires_at,
       prescriberName: prescriber.name.trim(),
       prescriberCredential: `${prescriber.credentialType} ${(prescriber.credentialNumber ?? "").trim()}`,
+      signatureImage: null,
     },
   };
 }

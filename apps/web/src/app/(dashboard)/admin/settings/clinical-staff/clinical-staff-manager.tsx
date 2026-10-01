@@ -6,6 +6,9 @@ import {
   useAllClinicalStaff,
   useCreateClinicalStaff,
   useUpdateClinicalStaff,
+  useSetClinicalStaffSignature,
+  useRemoveClinicalStaffSignature,
+  useSignaturePreviewUrl,
   useVerifyClinicalStaff,
   useSetClinicalStaffActive,
   useSetClinicalStaffOffersTherapy,
@@ -268,6 +271,79 @@ function IndemnityForm({
   );
 }
 
+
+/**
+ * The doctor's signature image, printed on their prescriptions. Admin-only (enforced in the database and the private
+ * bucket, not just here). It is the doctor's own signature, so the admin confirms the doctor has agreed before an upload.
+ */
+function SignatureSection({ staff }: { staff: ClinicalStaff }) {
+  const setSignature = useSetClinicalStaffSignature();
+  const removeSignature = useRemoveClinicalStaffSignature();
+  const preview = useSignaturePreviewUrl(staff.signature_path);
+  const [file, setFile] = useState<File | null>(null);
+  const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div className="mt-3 rounded-lg border border-charcoal-ink/10 p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/60">Signature on prescriptions</p>
+      {staff.signature_path ? (
+        <div className="mt-2 flex items-center gap-3">
+          {preview.data ? (
+            // The bucket is private, so this is a short-lived signed URL; a plain img is the right element.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview.data} alt={`${staff.full_name}'s signature`} className="h-12 max-w-[200px] rounded border border-charcoal-ink/10 bg-white object-contain p-1" />
+          ) : (
+            <span className="text-sm text-charcoal-ink/60">{preview.isError ? "Could not load the preview." : "Loading…"}</span>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={removeSignature.isPending}
+            onClick={() => removeSignature.mutate(staff, { onError: (e) => setError((e as Error).message) })}
+          >
+            {removeSignature.isPending ? "Removing…" : "Remove signature"}
+          </Button>
+        </div>
+      ) : (
+        <p className="mt-1 text-sm text-charcoal-ink/60">None on file. Prescriptions print the electronic-signature stamp only.</p>
+      )}
+      <div className="mt-3 space-y-2">
+        <Input
+          type="file"
+          accept="image/png,image/jpeg"
+          aria-label="Signature image"
+          onChange={(event) => {
+            setFile(event.target.files?.[0] ?? null);
+            setError(null);
+          }}
+        />
+        <p className="text-xs text-charcoal-ink/60">
+          PNG or JPG up to 1 MB, signed in dark ink on white paper or a transparent background, photographed or scanned straight on.
+        </p>
+        <label className="flex items-start gap-2 text-sm text-charcoal-ink/70">
+          <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} className="mt-1" />
+          <span>This doctor has agreed to their signature being printed on their prescriptions.</span>
+        </label>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {setSignature.isError && <p className="text-sm text-red-600">{(setSignature.error as Error).message}</p>}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!file || !agreed || setSignature.isPending}
+          onClick={() => {
+            if (!file) return;
+            setError(null);
+            setSignature.mutate({ staff, file }, { onSuccess: () => { setFile(null); setAgreed(false); } });
+          }}
+        >
+          {setSignature.isPending ? "Uploading…" : staff.signature_path ? "Replace signature" : "Upload signature"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** Edits speciality/bio/years-of-experience/photo on an existing record — the fields the manager had no way to change after "Add clinical staff". Years of experience (alongside speciality) is the patient-facing credibility line — see reviewed-by-doctor.tsx — replacing the MDCN/NMCN credential number, which stays below for internal licence verification only. */
 function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone: () => void }) {
   const update = useUpdateClinicalStaff();
@@ -396,6 +472,7 @@ function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone
           Cancel
         </Button>
       </div>
+      <SignatureSection staff={staff} />
     </div>
   );
 }

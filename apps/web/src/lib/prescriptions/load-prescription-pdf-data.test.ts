@@ -1,3 +1,6 @@
+const signatureMock = jest.fn();
+jest.mock("./signature", () => ({ loadPrescriberSignature: (...args: unknown[]) => signatureMock(...args) }));
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { loadLetterhead, loadPrescriptionBundle, loadPrescriptionForClinician, loadSinglePrescription } from "./load-prescription-pdf-data";
@@ -74,6 +77,50 @@ function fakeClient(fixture: Fixture, rpcResult?: { data: unknown; error: { mess
 
 const goodStaff = { credential_type: "MDCN", credential_number: "123456", license_verified: true };
 const goodPatient = { full_name: "First Patient", patient_number: "TH-002610", date_of_birth: "1985-03-04" };
+
+beforeEach(() => {
+  signatureMock.mockReset().mockResolvedValue(null);
+});
+
+describe("signature embedding", () => {
+  const MEDID = "11111111-1111-4111-8111-111111111111";
+  it("attaches the prescriber's signature to an issued prescription, looked up by the prescriber's profile", async () => {
+    signatureMock.mockResolvedValue("data:image/png;base64,AAAA");
+    const { client } = fakeClient({ meds: [med()], patient: goodPatient, staff: goodStaff, auditError: null });
+    const result = await loadSinglePrescription(client, ACTOR, MEDID, "web");
+    expect(result.status === "ok" && result.prescriptions[0]?.signatureImage).toBe("data:image/png;base64,AAAA");
+    expect(signatureMock).toHaveBeenCalledWith(PRESCRIBER);
+  });
+
+  it("issues with no signature when there is none", async () => {
+    const { client } = fakeClient({ meds: [med()], patient: goodPatient, staff: goodStaff, auditError: null });
+    const result = await loadSinglePrescription(client, ACTOR, MEDID, "web");
+    expect(result.status === "ok" && result.prescriptions[0]?.signatureImage).toBeNull();
+  });
+
+  it("never fetches the signature for a prescription that is refused, or when the audit write fails", async () => {
+    const refused = fakeClient({ meds: [med({ superseded_at: "2026-09-30T00:00:00Z", is_active: false })], patient: goodPatient, staff: goodStaff, auditError: null });
+    await loadSinglePrescription(refused.client, ACTOR, MEDID, "web");
+    const unaudited = fakeClient({ meds: [med()], patient: goodPatient, staff: goodStaff, auditError: { message: "denied" } });
+    await loadSinglePrescription(unaudited.client, ACTOR, MEDID, "web");
+    const hiddenRow = fakeClient({ meds: [], patient: goodPatient, staff: goodStaff, auditError: null });
+    await loadSinglePrescription(hiddenRow.client, ACTOR, MEDID, "web");
+    expect(signatureMock).not.toHaveBeenCalled();
+  });
+
+  it("looks up each prescriber once for a bundle", async () => {
+    signatureMock.mockResolvedValue("data:image/png;base64,BBBB");
+    const { client } = fakeClient({
+      meds: [med(), med({ id: "66666666-6666-4666-8666-666666666666", drug_name: "Metformin", rx_number: "TRG-RX-2026-000367" })],
+      patient: goodPatient,
+      staff: goodStaff,
+      auditError: null,
+    });
+    const result = await loadPrescriptionBundle(client, ACTOR, PATIENT, "web");
+    expect(result.status === "ok" && result.prescriptions.every((p) => p.signatureImage === "data:image/png;base64,BBBB")).toBe(true);
+    expect(signatureMock).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("loadLetterhead", () => {
   it("reads the registered company details and falls back to the TarragonHealth name when unavailable", async () => {

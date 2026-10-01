@@ -54,7 +54,9 @@ const styles = StyleSheet.create({
 
   signRow: { flexDirection: "row", marginTop: 18, gap: 18, alignItems: "flex-end" },
   signLeft: { flex: 1 },
+  signImage: { height: 40, maxWidth: 190, objectFit: "contain", objectPositionX: 0, marginBottom: -4 },
   signLine: { borderTopWidth: 0.75, borderTopColor: PDF_CLINICAL_NAVY, marginTop: 30, paddingTop: 3 },
+  signLineWithImage: { borderTopWidth: 0.75, borderTopColor: PDF_CLINICAL_NAVY, marginTop: 0, paddingTop: 3 },
   signCaption: { fontSize: 8, color: "#5b6b78" },
   signName: { fontSize: 11.5, fontWeight: 700, marginTop: 1 },
   signCredential: { fontSize: 9.5, marginTop: 1 },
@@ -200,7 +202,11 @@ function PrescriptionPage({ rx, qr, letterhead }: { rx: PrescriptionPdfData; qr:
 
       <View style={styles.signRow}>
         <View style={styles.signLeft}>
-          <View style={styles.signLine}>
+          {rx.signatureImage ? (
+            // eslint-disable-next-line jsx-a11y/alt-text
+            <Image style={styles.signImage} src={rx.signatureImage} />
+          ) : null}
+          <View style={rx.signatureImage ? styles.signLineWithImage : styles.signLine}>
             <Text style={styles.signCaption}>Prescriber</Text>
             <Text style={styles.signName}>Dr. {rx.prescriberName}</Text>
             <Text style={styles.signCredential}>{rx.prescriberCredential}</Text>
