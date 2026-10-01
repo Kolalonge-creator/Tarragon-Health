@@ -4,7 +4,7 @@ import type { Database } from "@tarragon/shared";
 
 jest.mock("./audited-chart", () => ({ readAuditedSection: jest.fn() }));
 import { readAuditedSection } from "./audited-chart";
-import { loadMedicationSafety } from "./patient-clinical-context";
+import { assessMedicationSafetyBestEffort, loadMedicationSafety } from "./patient-clinical-context";
 
 // A chainable stand-in for the PostgREST builder: every method returns the builder, and awaiting it yields empty data.
 function emptyClient() {
@@ -43,5 +43,14 @@ describe("loadMedicationSafety allergies go through the audited read (INV-10)", 
     expect(view.allergies).toEqual([]);
     // the engine was told the allergy list was never loaded, so its own caveat says the check did not run
     expect(view.report.allergyCheckNote).toMatch(/./);
+  });
+});
+
+describe("assessMedicationSafetyBestEffort reports a skipped allergy check", () => {
+  it("says the allergy check was skipped when the list is denied, and not when it was read", async () => {
+    mockRead.mockResolvedValueOnce({ status: "denied" });
+    expect(await assessMedicationSafetyBestEffort(emptyClient(), "p1", "org1")).toEqual({ allergyCheckSkipped: true });
+    mockRead.mockResolvedValueOnce({ status: "ok", rows: [] });
+    expect(await assessMedicationSafetyBestEffort(emptyClient(), "p1", "org1")).toEqual({ allergyCheckSkipped: false });
   });
 });

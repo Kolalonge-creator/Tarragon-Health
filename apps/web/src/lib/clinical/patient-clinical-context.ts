@@ -263,11 +263,13 @@ export async function assessMedicationSafetyBestEffort(
   supabase: SupabaseClient<Database>,
   patientId: string,
   organisationId: string,
-): Promise<void> {
+): Promise<{ allergyCheckSkipped: boolean }> {
   try {
-    const { report } = await loadMedicationSafety(supabase, patientId);
+    const { report, allergiesUnavailable } = await loadMedicationSafety(supabase, patientId);
+    // The allergy cross-check cannot run on a list that could not be read. Callers must show this: a quiet result here is not a clearance.
+    const outcome = { allergyCheckSkipped: allergiesUnavailable !== null };
     const contraindicated = report.findings.filter((f) => f.severity === "contraindicated");
-    if (contraindicated.length === 0) return;
+    if (contraindicated.length === 0) return outcome;
 
     const typeCode = contraindicated.some((f) => f.kind === "interaction")
       ? "potential_interaction"
@@ -286,10 +288,12 @@ export async function assessMedicationSafetyBestEffort(
       p_detail: detail,
       p_type_code: typeCode,
     });
+    return outcome;
   } catch {
     // Advisory-only follow-up — a failed alert must never surface as a
     // failure of the medication add itself. The safety panel still shows
     // the finding even when this best-effort alert couldn't be raised.
+    return { allergyCheckSkipped: false };
   }
 }
 

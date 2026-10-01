@@ -230,6 +230,9 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
       return [...result.rows].sort((a, b) => (b.date_identified ?? "").localeCompare(a.date_identified ?? ""));
     },
     retry: false,
+    // Every audited read writes an audit row: do not refetch on focus or remount within the visit.
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const { data: medications } = useQuery({
     queryKey: ["care-management", "case-file", "medications", patientId],
