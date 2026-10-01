@@ -263,6 +263,13 @@ Entry format:
 - **Not built**: a notification to the patient when a pharmacy records a supply (a new template needs the notification edge function redeployed, which has drifted before; the supply shows on the card instead); phase 4 (clinician reprint, stale-copy notice); verifying a pharmacist's registration against a register.
 - **Known**: anyone holding the prescription token can record a supply; the checks are the token, active status, approved repeats, the duplicate window and rate limits, and everything typed is unverified.
 
+## Prescription PDF, phase 4: clinician reprint, amended-copy notice, expiring reminder (2026-10-01)
+
+- **Clinician reprint**: `GET /api/clinician/prescriptions/[medicationId]/pdf?patientId=` plus a "Reprint (PDF)" link on the chart's prescription row. Staff do not read `medications` directly, so it goes through the audited, tie-gated read: an untied clinician gets "not found" (same as a missing prescription), a care coordinator is refused (logistics only), and the issuing rules are exactly the patient's. The download writes `prescription.pdf_downloaded` with `via: "clinician"` besides the read's own `staff.chart_read`.
+- **Stale-copy notice**: an amendment used to tell the patient "X was prescribed for you" (the new row went through the same trigger as a new prescription). The in-app notice for an amendment is now `prescription_updated_patient` ("updated: download the new version; any copy you saved earlier no longer works"). The old PDF was already refused and a saved copy already verifies as superseded. Email and reminder-channel rows are unchanged (their templates live in the edge function, not redeployed), so the email for an amendment still reads "prescribed".
+- **Expiring soon**: `private.queue_prescription_expiry_reminders()` via pg_cron daily at 06:35 UTC queues one in-app `prescription_expiring_soon` per current clinician prescription expiring within 7 days (never twice; an amended prescription is a new row and can remind again).
+- **Tests**: DB proof `prescription_amended_and_expiring_notices.sql` (registered; the dedupe clause is removed in the sabotage); Jest for the staff loader (audit actor and via, denied read, row for another patient or medication, issuing rules, read error).
+- **Not built**: a reprint for a prescription the clinician sees only as a bundle; a clinician-side "send to patient" action; changing the amendment email wording.
 ## Prescription supply record, hardening (2026-10-01)
 
 - **Why**: the phase 3 review left three gaps (founder instruction: fix all): recording was unverified, a QR holder could record a fake supply, and refused attempts left no trace.
