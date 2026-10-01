@@ -60,7 +60,7 @@ function PublishSummarySection({
   patientId: string;
   consultationId: string;
 }) {
-  const { data: notesData } = usePatientEncounterNotes(patientId);
+  const { data: notesData, isError: notesUnavailable } = usePatientEncounterNotes(patientId);
   const notes = notesData?.notes;
   const { data: existingSummary } = useConsultationSummary(consultationId);
   const publish = usePublishConsultationSummary();
@@ -106,8 +106,9 @@ function PublishSummarySection({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-charcoal-ink/60">
-            Sign and finalise a clinical note for this call above before publishing a summary for
-            the patient.
+            {notesUnavailable
+              ? "The clinical notes could not be loaded for this patient, so it is not possible to tell whether this call has a signed note. Reload, or check your access to this patient."
+              : "Sign and finalise a clinical note for this call above before publishing a summary for the patient."}
           </p>
         </CardContent>
       </Card>

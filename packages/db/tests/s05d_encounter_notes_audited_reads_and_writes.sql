@@ -35,6 +35,7 @@ declare
   v_n integer;
   v_failed boolean;
   v_sqlstate text;
+  v_vc uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   if v_org is null then raise exception 'fixture FAIL: no organisation'; end if;
@@ -138,6 +139,23 @@ begin
     execute 'reset role';
     if not v_failed then raise exception 'FAIL 1g: session % inserted a note directly', v_n; end if;
   end loop;
+
+  -- a video consultation I am hosting ties me to the patient for the call (the gate opens), and a finished one does not
+  insert into public.video_consultations (organisation_id, patient_id, context, initiated_by, status, scheduled_at)
+  values (v_org, v_pat, 'general_checkin', v_untied, 'started', now()) returning id into v_vc;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_untied, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  perform public.create_encounter_note(v_pat, 'video_consult', 'S05d mid-call note', p_video_consultation_id => v_vc);
+  execute 'reset role';
+  update public.video_consultations set status = 'completed', ended_at = now() where id = v_vc;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_untied, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_failed := false; v_sqlstate := null;
+  begin perform public.create_encounter_note(v_pat, 'phone', 'S05d after the call');
+  exception when others then v_failed := true; get stacked diagnostics v_sqlstate = returned_sqlstate; end;
+  execute 'reset role';
+  if not v_failed or v_sqlstate <> '42501' then raise exception 'FAIL 1h: a finished video consultation still tied the doctor'; end if;
+  delete from public.clinical_encounter_notes where patient_id = v_pat and authored_by_staff = (select id from public.clinical_staff where profile_id = v_untied);
 
   -- ===== 2. reads =====
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
