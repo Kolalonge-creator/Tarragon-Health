@@ -29,7 +29,12 @@ export async function prescriptionPdfResponse(
     if (qr) qrByMedicationId[rx.medicationId] = qr;
   }
   const buffer = await renderToBuffer(
-    PrescriptionPdf({ prescriptions: result.prescriptions, skipped: result.skipped, qrByMedicationId }),
+    PrescriptionPdf({
+      prescriptions: result.prescriptions,
+      skipped: result.skipped,
+      qrByMedicationId,
+      letterhead: result.letterhead,
+    }),
   );
   return new Response(new Uint8Array(buffer), {
     headers: {

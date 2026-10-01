@@ -44,6 +44,7 @@ export interface PrescriptionPatient {
   full_name: string | null;
   patient_number: string | null;
   date_of_birth: string | null;
+  sex?: string | null;
 }
 
 export interface PrescriptionPrescriber {
@@ -72,6 +73,9 @@ export interface PrescriptionPdfData {
   patientName: string;
   patientNumber: string | null;
   dateOfBirth: string | null;
+  /** Whole years at the time the document is issued; null when the date of birth is missing or implausible. */
+  patientAge: number | null;
+  patientSex: string | null;
   drugName: string;
   dose: string | null;
   frequency: string | null;
@@ -116,6 +120,18 @@ export function isPlaceholderCredentialNumber(value: string | null | undefined):
   return /\b(pending|placeholder|tbc|tbd|none|unknown|test)\b|\bn\/a\b/i.test(trimmed);
 }
 
+/** Whole years between a date of birth and `now`; null for a missing, unparseable or future date. */
+export function ageInYears(dateOfBirth: string | null | undefined, now: Date): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime()) || dob.getTime() > now.getTime()) return null;
+  let years = now.getUTCFullYear() - dob.getUTCFullYear();
+  const beforeBirthday =
+    now.getUTCMonth() < dob.getUTCMonth() || (now.getUTCMonth() === dob.getUTCMonth() && now.getUTCDate() < dob.getUTCDate());
+  if (beforeBirthday) years -= 1;
+  return years >= 0 && years <= 130 ? years : null;
+}
+
 function refuse(reason: PrescriptionRefusalReason): PrescriptionPdfResult {
   return { status: "refused", reason, message: REFUSAL_MESSAGE[reason] };
 }
@@ -154,6 +170,8 @@ export function buildPrescriptionPdfData(input: {
       patientName: patient.full_name?.trim() || "Patient",
       patientNumber: patient.patient_number,
       dateOfBirth: patient.date_of_birth,
+      patientAge: ageInYears(patient.date_of_birth, now),
+      patientSex: patient.sex?.trim() ? patient.sex.trim() : null,
       drugName: medication.drug_name,
       dose: medication.dose,
       frequency: medication.frequency,

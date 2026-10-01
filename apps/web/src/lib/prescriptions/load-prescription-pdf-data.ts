@@ -26,13 +26,37 @@ import {
 
 type Client = SupabaseClient<Database>;
 
+import { DEFAULT_LETTERHEAD, type Letterhead } from "./letterhead";
+
+function text(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+export async function loadLetterhead(supabase: Client): Promise<Letterhead> {
+  try {
+    const { data, error } = await supabase.rpc("invoice_letterhead_details");
+    if (error || !data || typeof data !== "object" || Array.isArray(data)) return DEFAULT_LETTERHEAD;
+    const row = data as Record<string, unknown>;
+    return {
+      tradingName: text(row.trading_name) ?? DEFAULT_LETTERHEAD.tradingName,
+      legalName: text(row.legal_name),
+      rcNumber: text(row.rc_number),
+      address: text(row.registered_address),
+      email: text(row.registered_email),
+      phone: text(row.registered_phone),
+    };
+  } catch {
+    return DEFAULT_LETTERHEAD;
+  }
+}
+
 export const PRESCRIPTION_SELECT =
   "id, organisation_id, patient_id, source, is_active, drug_name, dose, frequency, route, quantity, duration_days, repeats_allowed, indication, instructions, rx_number, verification_code, expires_at, version, superseded_at, created_at, amendment_reason, public_token, added_by";
 
 type MedicationRow = PrescriptionSource & { organisation_id: string; added_by: string | null };
 
 export type PrescriptionLoadResult =
-  | { status: "ok"; prescriptions: PrescriptionPdfData[]; skipped: SkippedPrescription[] }
+  | { status: "ok"; prescriptions: PrescriptionPdfData[]; skipped: SkippedPrescription[]; letterhead: Letterhead }
   | { status: "not_found" }
   | { status: "refused"; reason: PrescriptionRefusalReason; message: string }
   | { status: "error"; message: string };
@@ -40,7 +64,7 @@ export type PrescriptionLoadResult =
 async function loadPatient(supabase: Client, patientId: string) {
   const { data } = await supabase
     .from("profiles")
-    .select("full_name, patient_number, date_of_birth")
+    .select("full_name, patient_number, date_of_birth, sex")
     .eq("id", patientId)
     .maybeSingle();
   return data;
@@ -120,7 +144,7 @@ export async function loadSinglePrescription(
     false,
   );
   if (auditError) return { status: "error", message: "Could not record this download, so the document was not issued." };
-  return { status: "ok", prescriptions: [built.data], skipped: [] };
+  return { status: "ok", prescriptions: [built.data], skipped: [], letterhead: await loadLetterhead(supabase) };
 }
 
 /** Every current clinician prescription for one patient, one page each. Rows that fail an issuing rule are skipped and reported. */
@@ -183,6 +207,7 @@ export async function loadPrescriptionBundle(
     status: "ok",
     prescriptions: included,
     skipped,
+    letterhead: await loadLetterhead(supabase),
   };
 }
 
@@ -226,5 +251,5 @@ export async function loadPrescriptionForClinician(
     "clinician",
   );
   if (auditError) return { status: "error", message: "Could not record this download, so the document was not issued." };
-  return { status: "ok", prescriptions: [built.data], skipped: [] };
+  return { status: "ok", prescriptions: [built.data], skipped: [], letterhead: await loadLetterhead(supabase) };
 }

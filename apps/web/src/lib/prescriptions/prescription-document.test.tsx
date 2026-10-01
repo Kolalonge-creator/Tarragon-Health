@@ -49,6 +49,8 @@ const rx = (n: number, overrides: Partial<PrescriptionPdfData> = {}): Prescripti
   patientName: "First Patient",
   patientNumber: "TH-002610",
   dateOfBirth: "1985-03-04",
+  patientAge: 41,
+  patientSex: "female",
   drugName: n === 1 ? "Amlodipine" : "Metformin",
   dose: n === 1 ? "5 mg" : "500 mg",
   frequency: "Once daily",
@@ -118,7 +120,7 @@ describe("PrescriptionPdf", () => {
   it("marks an amended prescription with its version and the reason", () => {
     const text = collectText(
       PrescriptionPdf({ prescriptions: [rx(1, { version: 2, amendmentReason: "Dose reduced" })] }),
-    ).join("\n");
+    ).join(" ").replace(/\s+/g, " ");
     expect(text).toContain("Version 2");
     expect(text).toContain("Dose reduced");
   });
@@ -139,12 +141,51 @@ describe("PrescriptionPdf", () => {
     expect(countPages(PrescriptionPdf({ prescriptions: [rx(1)], skipped: [] }))).toBe(1);
   });
 
-  it("prints the scan-to-check text only for a prescription that has a QR image", () => {
-    const withQr = collectText(
-      PrescriptionPdf({ prescriptions: [rx(1)], qrByMedicationId: { [rx(1).medicationId]: "data:image/png;base64,AAAA" } }),
-    ).join(" ");
-    expect(withQr).toContain(VERIFY_STATEMENT);
-    const without = collectText(PrescriptionPdf({ prescriptions: [rx(1)] })).join(" ");
-    expect(without).not.toContain(VERIFY_STATEMENT);
+  it("always prints the optional check wording (scan or contact), and an image only when a QR was rendered", () => {
+    const withQr = PrescriptionPdf({ prescriptions: [rx(1)], qrByMedicationId: { [rx(1).medicationId]: "data:image/png;base64,AAAA" } });
+    const without = PrescriptionPdf({ prescriptions: [rx(1)] });
+    expect(collectText(withQr).join(" ")).toContain(VERIFY_STATEMENT);
+    expect(collectText(without).join(" ")).toContain(VERIFY_STATEMENT);
+    const countImages = (node: unknown): number => {
+      if (node == null || typeof node !== "object") return 0;
+      if (Array.isArray(node)) return node.reduce((n: number, c) => n + countImages(c), 0);
+      const el = node as ReactElement<{ children?: unknown; src?: string }>;
+      if (typeof el.type === "function") return countImages((el.type as (p: unknown) => unknown)(el.props));
+      return (el.type === "Image" && typeof el.props?.src === "string" && el.props.src.startsWith("data:") ? 1 : 0) + countImages(el.props?.children);
+    };
+    expect(countImages(withQr)).toBe(1);
+    expect(countImages(without)).toBe(0);
+  });
+
+  it("is a text prescription first: company, signature, patient details and medicine are all printed, and the scan is only an optional extra", () => {
+    const text = collectText(
+      PrescriptionPdf({
+        prescriptions: [rx(1)],
+        letterhead: { tradingName: "TarragonHealth", legalName: "Tarragon Health Limited", rcNumber: "1234567", address: "Victoria Island, Lagos", email: "admin@tarragonhealth.ng", phone: "+234 806 119 7940" },
+      }),
+    ).join(" ").replace(/\s+/g, " ");
+    for (const expected of [
+      "TarragonHealth",
+      "Tarragon Health Limited",
+      "RC 1234567",
+      "Victoria Island, Lagos",
+      "PRESCRIPTION",
+      "41 years",
+      "Female",
+      "Rx",
+      "ELECTRONICALLY SIGNED",
+      "Dr. Ada Longe",
+      "MDCN 123456",
+      "Optional: scan",
+    ]) {
+      expect(text).toContain(expected);
+    }
+    expect(VERIFY_STATEMENT).toMatch(/^Optional/);
+  });
+
+  it("falls back to the TarragonHealth name when no company details are available", () => {
+    const text = collectText(PrescriptionPdf({ prescriptions: [rx(1)] })).join(" ");
+    expect(text).toContain("TarragonHealth");
+    expect(text).not.toContain("RC ");
   });
 });
