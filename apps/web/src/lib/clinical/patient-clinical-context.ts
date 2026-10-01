@@ -11,6 +11,7 @@ import {
 } from "@/lib/rules/drug-safety";
 import { analyseRecord, type TrendFinding } from "@/lib/rules/longitudinal";
 import { readPatientMedicationsAudited } from "./medications-audited";
+import { readPatientVitalsAudited } from "./vitals-audited";
 import { readAuditedSection } from "./audited-chart";
 import {
   medicationEffectivenessVitalType,
@@ -336,15 +337,16 @@ export async function loadMedicationEffectiveness(
   if (relevant.length === 0) return [];
 
   const vitalTypes = [...new Set(relevant.map((m) => m.vitalType))];
-  const { data: readings } = await supabase
-    .from("vitals_readings")
-    .select("vital_type, systolic, diastolic, glucose_mmol_l, taken_at")
-    .eq("patient_id", patientId)
-    .in("vital_type", vitalTypes)
-    .order("taken_at", { ascending: true });
+  // INV-10: through the audited read, one call per vital type (the function takes a single type). A refusal or error builds no
+  // effectiveness view, the same as an unreadable medication list.
+  const readingResults = await Promise.all(
+    vitalTypes.map((vitalType) => readPatientVitalsAudited(supabase, patientId, { vitalType, ascending: true, limit: 5000 })),
+  );
+  if (readingResults.some((r) => r.status !== "ok")) return [];
+  const readings = readingResults.flatMap((r) => (r.status === "ok" ? r.rows : []));
 
   return relevant.map((m) => {
-    const readingsForType = (readings ?? [])
+    const readingsForType = readings
       .filter((r) => r.vital_type === m.vitalType)
       .map((r) => ({
         takenAt: r.taken_at,

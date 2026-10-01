@@ -43,7 +43,11 @@ function makePatients(count: number): ProfileRow[] {
  * on a `.limit(limit)`-capped result but the fixture would already have been
  * pre-shaped to `limit` and never `limit + 1` rows.
  */
-function stubClient(profiles: ProfilesResult, assignments?: AssignmentsResult): Client {
+function stubClient(
+  profiles: ProfilesResult,
+  assignments?: AssignmentsResult,
+  rpcResult: { data: unknown; error: { message: string } | null } = { data: [], error: null },
+): Client {
   let requestedLimit: number | null = null;
   const profilesBuilder: Record<string, unknown> = {
     then: (resolve: (value: ProfilesResult) => unknown) => {
@@ -70,7 +74,7 @@ function stubClient(profiles: ProfilesResult, assignments?: AssignmentsResult): 
 
   return {
     from: (table: string) => (table === "care_team_assignment" ? assignmentsBuilder : profilesBuilder),
-    rpc: () => Promise.resolve({ data: [], error: null }),
+    rpc: () => Promise.resolve(rpcResult),
   } as unknown as Client;
 }
 
@@ -154,5 +158,28 @@ describe("loadPatientMonitoringRoster truncation", () => {
     expect(result.truncated).toBe(false);
     expect(result.rosterFailed).toBe(false);
     expect(result.rows).toHaveLength(0);
+  });
+});
+
+describe("loadPatientMonitoringRoster visibility (INV-12)", () => {
+  it("marks a patient the caller is not tied to as not visible, and a tied one as visible", async () => {
+    const patients = makePatients(2);
+    const client = stubClient({ data: patients, error: null }, undefined, {
+      data: [
+        { patient_id: patients[0].id, visible: true, systolic: 120, diastolic: 80, open_alert_count: 0 },
+        { patient_id: patients[1].id, visible: false, systolic: null, diastolic: null, open_alert_count: 0 },
+      ],
+      error: null,
+    });
+    const result = await loadPatientMonitoringRoster(client, { limit: 10 });
+    expect(result.rows.map((r) => r.visible)).toEqual([true, false]);
+    expect(result.rows[1].vitals.bp.systolic).toBeNull();
+  });
+
+  it("a failed readings call keeps rows visible so the page's own failure banner is the signal", async () => {
+    const client = stubClient({ data: makePatients(1), error: null }, undefined, { data: null, error: { message: "boom" } });
+    const result = await loadPatientMonitoringRoster(client, { limit: 10 });
+    expect(result.readingsFailed).toBe(true);
+    expect(result.rows[0].visible).toBe(true);
   });
 });

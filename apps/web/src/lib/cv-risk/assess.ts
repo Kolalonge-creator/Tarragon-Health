@@ -10,6 +10,7 @@ import {
   type RiskLevel,
 } from "@/lib/rules/cv-risk";
 import { readPatientMedicationsAudited } from "@/lib/clinical/medications-audited";
+import { readPatientVitalsAudited } from "@/lib/clinical/vitals-audited";
 import { estimateCvdRiskBand, type CvdRiskResult } from "@/lib/rules/cvd-risk-afro";
 
 type Client = SupabaseClient<Database>;
@@ -101,14 +102,8 @@ export async function loadCvRiskAssessment(
         .eq("organisation_id", organisationId)
         .eq("is_active", true)
         .maybeSingle(),
-      supabase
-        .from("vitals_readings")
-        .select("systolic")
-        .eq("patient_id", patientId)
-        .eq("vital_type", "blood_pressure")
-        .order("taken_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+      // INV-10: through the audited, tie-gated read (the service role and the patient read as owner), not the table.
+      readPatientVitalsAudited(supabase, patientId, { vitalType: "blood_pressure", limit: 1 }),
       supabase
         .from("risk_assessment_responses")
         .select("response")
@@ -121,7 +116,7 @@ export async function loadCvRiskAssessment(
 
   // Not on lipid-lowering therapy is an input to the risk score: an unreadable medication list must not be scored as "not on it". No
   // assessment is produced instead (the same null as an unreadable profile).
-  if (meds.status !== "ok") return null;
+  if (meds.status !== "ok" || latestBp.status !== "ok") return null;
 
   const diabetes = (carePlans.data ?? []).some((c) => c.condition === "diabetes");
   const onLipidLoweringTherapy = meds.rows.some((m) => isLipidLoweringDrug(m.drug_name));
@@ -146,7 +141,7 @@ export async function loadCvRiskAssessment(
       sex,
       smoker: smokingResponse.data ? smokingResponse.data.response === "current" : null,
       diabetic: diabetes,
-      systolic: latestBp.data?.systolic ?? null,
+      systolic: latestBp.rows[0]?.systolic ?? null,
       totalCholesterolMmol:
         totalCholesterols[0] != null ? totalCholesterols[0] / MG_DL_PER_MMOL_L_CHOLESTEROL : null,
     });

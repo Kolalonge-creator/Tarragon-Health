@@ -3,6 +3,7 @@ import type { Database } from "@tarragon/shared";
 import { resolveProtocolsForPatient, primaryProtocol } from "./protocol";
 import { matchRedFlags, type CaseFacts } from "./propose";
 import { readPatientMedicationsAudited } from "@/lib/clinical/medications-audited";
+import { readPatientVitalsAudited } from "@/lib/clinical/vitals-audited";
 
 /**
  * Loads everything the deterministic rule engine needs for one case.
@@ -43,7 +44,7 @@ export async function loadCaseFacts(
     medicationsResult,
     { data: schedules },
     { data: enrolments },
-    { data: vitals },
+    vitalsResult,
     { data: unaddressedEmergencyEvents },
     protocols,
   ] = await Promise.all([
@@ -68,13 +69,8 @@ export async function loadCaseFacts(
       .select("programme:chronic_condition_programmes(review_cadence_months)")
       .eq("patient_id", patientId)
       .eq("status", "enrolled"),
-    supabase
-      .from("vitals_readings")
-      .select("systolic, diastolic")
-      .eq("patient_id", patientId)
-      .eq("vital_type", "blood_pressure")
-      .order("taken_at", { ascending: false })
-      .limit(5),
+    // INV-10: through the audited, tie-gated read, not the table.
+    readPatientVitalsAudited(supabase, patientId, { vitalType: "blood_pressure", limit: 5 }),
     // Same "unaddressed" predicate as useActiveEmergency (lib/queries/emergency.ts):
     // status='active' AND acknowledged_at IS NULL, index-backed by
     // emergency_events_active_idx. Deliberately not scoped to blood_pressure or
@@ -98,9 +94,12 @@ export async function loadCaseFacts(
 
   // An unreadable medication list must not become "no medicines, so no refill to propose". A refusal means the case is not available to
   // this caller (the same answer as an unreadable alert); a read error throws so the caller sees a failure, never a quiet empty cockpit.
-  if (medicationsResult.status === "denied") return null;
+  if (medicationsResult.status === "denied" || vitalsResult.status === "denied") return null;
   if (medicationsResult.status === "error") throw new Error(`case cockpit: could not read medications (${medicationsResult.message})`);
+  // The same for the blood-pressure readings: "no readings" would switch off the red-flag matching for this case.
+  if (vitalsResult.status === "error") throw new Error(`case cockpit: could not read vitals (${vitalsResult.message})`);
   const medications = medicationsResult.rows;
+  const vitals = vitalsResult.rows;
 
   // The shortest cadence wins for a multi-condition patient: a 3-month
   // diabetes review and a 6-month hypertension review means the patient is
@@ -128,7 +127,7 @@ export async function loadCaseFacts(
     })),
     dueScreenings,
     reviewCadenceMonths: cadences.length > 0 ? Math.min(...cadences) : null,
-    redFlags: matchRedFlags(protocol, vitals ?? []),
+    redFlags: matchRedFlags(protocol, vitals),
     protocol,
     unaddressedEmergencyEvents: (unaddressedEmergencyEvents ?? []).map((event) => ({
       id: event.id,

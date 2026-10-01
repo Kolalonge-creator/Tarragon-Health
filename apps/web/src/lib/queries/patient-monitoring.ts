@@ -23,6 +23,11 @@ export interface PatientMonitoringRow {
   sex: Sex | null;
   ageYears: number | null;
   status: MonitoringStatus;
+  /**
+   * false: the caller is not tied to this patient (INV-12), so no readings or alerts were returned for her. The row is listed, but it
+   * must never be drawn as "Normal" with empty tiles: that is "not available to you", not a quiet patient.
+   */
+  visible: boolean;
   vitals: {
     bp: { systolic: number | null; diastolic: number | null; level: VitalLevel; takenAt: string | null };
     spo2: { value: number | null; level: VitalLevel; takenAt: string | null };
@@ -160,6 +165,9 @@ export async function loadPatientMonitoringRoster(
 
     return {
       id: p.id,
+      // When the whole readings call failed the page shows its own failure banner, so rows stay "visible"; a per-patient `false` is the
+      // tie refusal.
+      visible: readingsError ? true : (r?.visible ?? false),
       fullName: p.full_name ?? "Unnamed patient",
       patientNumber: p.patient_number,
       avatarUrl: p.avatar_url,
