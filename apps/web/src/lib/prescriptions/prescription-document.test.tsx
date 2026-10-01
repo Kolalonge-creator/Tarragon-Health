@@ -15,7 +15,7 @@ jest.mock("@/lib/pdf/register-fonts", () => ({
   PDF_FONT_FAMILY: "Helvetica",
 }));
 
-import { NOT_CONTROLLED_STATEMENT, PrescriptionPdf, REPEAT_STATEMENT, VERIFY_STATEMENT } from "./prescription-document";
+import { CONTACT_STATEMENT, NOT_CONTROLLED_STATEMENT, PrescriptionPdf, RECORD_STATEMENT, REPEAT_STATEMENT, VERIFY_STATEMENT, verifyLinkText } from "./prescription-document";
 import type { PrescriptionPdfData } from "./prescription-pdf-data";
 
 /** Expands function components and gathers every string, so what a pharmacist would read is what is asserted. */
@@ -203,5 +203,29 @@ describe("PrescriptionPdf", () => {
     expect(imagesWithSrc(signed, "data:image/png;base64,SIG")).toBe(1);
     expect(imagesWithSrc(unsigned, "data:image/png;base64,SIG")).toBe(0);
     expect(collectText(signed).join(" ")).toContain("ELECTRONICALLY SIGNED");
+  });
+
+  it("has a pharmacist panel for a pharmacy that cannot scan: the check address as text, a phone and email, and a request to record the supply", () => {
+    const token = "ab12".repeat(16);
+    const text = collectText(
+      PrescriptionPdf({
+        prescriptions: [rx(1, { publicToken: token })],
+        letterhead: { tradingName: "TarragonHealth", legalName: null, rcNumber: null, address: null, email: "pharmacy@example.ng", phone: "+234 700 000 0000" },
+      }),
+    ).join(" ").replace(/\s+/g, " ");
+    expect(text).toContain("FOR THE PHARMACIST");
+    expect(text).toContain(`tarragonhealth.ng/verify-rx/${token}`);
+    expect(verifyLinkText(token)).not.toMatch(/^https?:/);
+    expect(text).toContain(`${CONTACT_STATEMENT} +234 700 000 0000 or pharmacy@example.ng`);
+    expect(text).toContain(RECORD_STATEMENT);
+    expect(text).toContain("quoting the Rx number and verification code");
+    expect(text).toContain("TRG-RX-2026-000361");
+    expect(text).toContain("A1B2C1");
+  });
+
+  it("prints no check link for a prescription that has no token, but still prints the contact route", () => {
+    const text = collectText(PrescriptionPdf({ prescriptions: [rx(1, { publicToken: null })] })).join(" ");
+    expect(text).not.toContain("verify-rx/");
+    expect(text).toContain(CONTACT_STATEMENT);
   });
 });
