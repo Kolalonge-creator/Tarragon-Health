@@ -36853,11 +36853,13 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string | null
+          noted_at: string | null
           organisation_id: string | null
           patient_id: string | null
           reaction: string | null
           recorded_by: string | null
           severity: Database["public"]["Enums"]["allergy_severity"] | null
+          source: Database["public"]["Enums"]["allergy_source"] | null
           substance: string | null
           verification_status: Database["public"]["Enums"]["allergy_verification_status"] | null
         }
@@ -36932,8 +36934,11 @@ export type Database = {
         Row: {
           code: string | null
           created_at: string | null
+          date_identified: string | null
           display: string | null
           id: string | null
+          last_reviewed_at: string | null
+          next_review_due_at: string | null
           organisation_id: string | null
           patient_id: string | null
           recorded_by: string | null
@@ -40714,6 +40719,12 @@ export type Database = {
           p_signed_payload: string
         }
         Returns: undefined
+      }
+      search_patient_ids_by_condition: {
+        Args: { p_cap?: number; p_condition: string; p_scope?: string[] }
+        Returns: {
+          patient_id: string
+        }[]
       }
       search_patient_record: {
         Args: { p_patient: string; p_query: string }

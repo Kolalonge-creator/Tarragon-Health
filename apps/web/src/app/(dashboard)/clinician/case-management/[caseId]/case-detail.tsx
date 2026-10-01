@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { readAuditedSection } from "@/lib/clinical/audited-chart";
 import {
   useCase,
   useAssignCaseManager,
@@ -220,17 +221,15 @@ function CaseHeader({ caseRow, canClose }: { caseRow: NonNullable<ReturnType<typ
 /** 74.4 case file — read live from each table's own canonical source, never duplicated. */
 function CaseFilePanel({ patientId, organisationId }: { patientId: string; organisationId: string }) {
   const supabase = createClient();
-  const { data: conditions } = useQuery({
+  // INV-10: the problem list is read through the audited chart function. A refusal or error is shown as unavailable, never as "none".
+  const { data: conditions, isError: conditionsUnavailable } = useQuery({
     queryKey: ["care-management", "case-file", "conditions", patientId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("patient_conditions")
-        .select("id, condition_name, status")
-        .eq("patient_id", patientId)
-        .order("date_identified", { ascending: false });
-      if (error) throw error;
-      return data;
+      const result = await readAuditedSection(supabase, patientId, "conditions");
+      if (result.status !== "ok") throw new Error(`conditions ${result.status}`);
+      return [...result.rows].sort((a, b) => (b.date_identified ?? "").localeCompare(a.date_identified ?? ""));
     },
+    retry: false,
   });
   const { data: medications } = useQuery({
     queryKey: ["care-management", "case-file", "medications", patientId],
@@ -293,8 +292,9 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
       <CardContent className="grid gap-4 sm:grid-cols-2">
         <CaseFileList
           title="Conditions"
-          items={(conditions ?? []).map((c) => `${c.condition_name} (${c.status})`)}
+          items={(conditions ?? []).map((c) => `${c.display} (${c.status})`)}
           organisationId={organisationId}
+          unavailable={conditionsUnavailable}
         />
         <CaseFileList
           title="Medications"
@@ -322,11 +322,22 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
   );
 }
 
-function CaseFileList({ title, items }: { title: string; items: string[]; organisationId?: string }) {
+function CaseFileList({
+  title,
+  items,
+  unavailable = false,
+}: {
+  title: string;
+  items: string[];
+  organisationId?: string;
+  unavailable?: boolean;
+}) {
   return (
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">{title}</p>
-      {items.length === 0 ? (
+      {unavailable ? (
+        <p className="text-xs text-amber-700">Not available to you for this patient. This is not the same as none on file.</p>
+      ) : items.length === 0 ? (
         <p className="text-xs text-charcoal-ink/40">None on file.</p>
       ) : (
         <ul className="mt-1 space-y-0.5">
