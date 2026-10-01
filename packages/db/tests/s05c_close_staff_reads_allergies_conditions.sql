@@ -3,8 +3,7 @@
 --
 -- Proves, with simulated sessions: the patient reads her own allergies and conditions; a tied clinician, an untied clinician and an
 -- admin read NOTHING directly from either table; the tied clinician still gets both through the audited chart function (the gate
--- opens) and the untied one is denied there; a staff member reads back the row she inserted in the same transaction but not an earlier
--- one; another patient reads none. SABOTAGE: restoring the old org-staff policy lets the untied clinician read, so the refusal checks
+-- opens) and the untied one is denied there; a staff member's direct insert is refused (S05f); another patient reads none. SABOTAGE: restoring the old org-staff policy lets the untied clinician read, so the refusal checks
 -- can fail.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures.
 -- ===========================================================================
@@ -22,6 +21,7 @@ declare
   v_json jsonb;
   v_n integer;
   v_id uuid;
+  v_failed boolean;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   if v_org is null then raise exception 'fixture FAIL: no organisation'; end if;
@@ -96,22 +96,17 @@ begin
   execute 'reset role';
   if v_n <> 0 then raise exception 'FAIL 2e: an admin read % rows directly', v_n; end if;
 
-  -- a staff member reads back her own insert in the same transaction, but not an earlier entry
+  -- S05f: the staff write policies are gone, so there is nothing for a staff member to read back: a direct staff insert is refused outright
+  -- (the same-transaction own-entry read-back this check used to prove only existed to support that insert).
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  insert into public.patient_allergies (organisation_id, patient_id, allergen, reaction, severity, source, recorded_by)
-  values (v_org, v_pat, 'S05c sulfa', 'rash', 'mild', 'clinician', v_tied) returning id into v_id;
-  select count(*) into v_n from public.patient_allergies where id = v_id;
+  v_failed := false;
+  begin
+    insert into public.patient_allergies (organisation_id, patient_id, allergen, reaction, severity, source, recorded_by)
+    values (v_org, v_pat, 'S05c sulfa', 'rash', 'mild', 'clinician', v_tied);
+  exception when insufficient_privilege then v_failed := true; end;
   execute 'reset role';
-  if v_n <> 1 then raise exception 'FAIL 3a: the clinician could not read back the allergy she just inserted'; end if;
-  perform set_config('app.change_reason', 'S05c proof: age the entry', true);   -- the correction trail requires a reason
-  perform set_config('request.jwt.claims', null, true);
-  update public.patient_allergies set created_at = now() - interval '1 day' where id = v_id;
-  perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
-  select count(*) into v_n from public.patient_allergies where id = v_id;
-  execute 'reset role';
-  if v_n <> 0 then raise exception 'FAIL 3b: the clinician kept a standing read of an earlier entry'; end if;
+  if not v_failed then raise exception 'FAIL 3a: a clinician inserted an allergy directly'; end if;
 
   -- SABOTAGE: the old org-staff policy would let the untied clinician read directly
   create policy s05c_sabotage_old_staff_read on public.patient_allergies for select to authenticated using (private.is_org_staff(organisation_id));

@@ -781,3 +781,5 @@ s05f_medications_tie_gated_writes.sql
 s05f_vitals_audited_reads.sql
 # S05f-D2 vitals_readings closed: staff read/insert/update/delete nothing directly, audited read opens for the tied clinician, patient/supporter/caregiver paths kept, red-flag and stamping triggers still fire for a patient insert (BP crisis, low SpO2, dangerous pulse); two sabotages.
 s05f_vitals_closed_and_triggers.sql
+# S05f follow-up: staff write policies dropped on patient_documents, family_history, patient_allergies, patient_conditions: no staff role inserts directly, patient own writes kept (allergies, family history, patient-sourced documents), patient cannot add a condition or a clinician-sourced document; two sabotages.
+s05f_four_tables_staff_writes_dropped.sql

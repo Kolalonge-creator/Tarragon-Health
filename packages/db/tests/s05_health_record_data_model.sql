@@ -53,6 +53,7 @@ declare
   v_note_ai uuid;
   v_doc uuid;
   v_doc_staff uuid;
+  v_staff_insert_refused boolean;
   v_bp uuid;
   v_n integer;
   v_failed boolean;
@@ -602,14 +603,18 @@ begin
   if v_n <> 0 then raise exception 'FAIL 8a: staff read % documents directly', v_n; end if;
   select count(*) into v_n from public.family_history;
   if v_n <> 0 then raise exception 'FAIL 8b: staff read % family-history rows directly', v_n; end if;
-  -- own-entry: a document the clinician uploaded herself reads back (INSERT ... RETURNING needs the policy)
-  insert into public.patient_documents (organisation_id, patient_id, document_type, file_path, source, uploaded_by)
-  values (v_org, v_pat, 'specialist_letter', v_pat::text || '/s05-letter.pdf', 'clinician', v_tied) returning id into v_doc_staff;
+  -- S05f: staff have no write policy on patient_documents either, so a clinician's direct upload row is refused
+  v_staff_insert_refused := false;
+  begin
+    insert into public.patient_documents (organisation_id, patient_id, document_type, file_path, source, uploaded_by)
+    values (v_org, v_pat, 'specialist_letter', v_pat::text || '/s05-letter.pdf', 'clinician', v_tied);
+  exception when insufficient_privilege then v_staff_insert_refused := true; end;
   execute 'reset role';
+  if not v_staff_insert_refused then raise exception 'FAIL 8d: a clinician inserted a patient document directly'; end if;
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   select count(*) into v_n from public.patient_documents;
-  if v_n <> 2 then raise exception 'FAIL 8c: the patient reads % documents, expected her 2', v_n; end if;
+  if v_n <> 1 then raise exception 'FAIL 8c: the patient reads % documents, expected her 1', v_n; end if;
   select count(*) into v_n from public.family_history;
   if v_n <> 1 then raise exception 'FAIL 8c: the patient reads % family-history rows, expected 1', v_n; end if;
   execute 'reset role';
