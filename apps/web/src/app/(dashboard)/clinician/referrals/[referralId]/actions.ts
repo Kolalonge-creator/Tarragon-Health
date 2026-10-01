@@ -1,6 +1,7 @@
 "use server";
 
 import { ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
+import { readPatientMedicationsAudited } from "@/lib/clinical/medications-audited";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@tarragon/shared";
@@ -60,23 +61,31 @@ export async function assembleAndSaveClinicalSummary(
     screening_result: payload.referral.screening_result,
   };
 
-  const [{ data: vitals }, { data: medications }] = await Promise.all([
+  const [{ data: vitals }, medicationsResult] = await Promise.all([
     supabase
       .from("vitals_readings")
       .select("vital_type, systolic, diastolic, glucose_mmol_l, pulse_bpm, weight_kg, spo2_pct, taken_at")
       .eq("patient_id", referral.patient_id)
       .order("taken_at", { ascending: false })
       .limit(RECENT_VITALS_LIMIT),
-    supabase
-      .from("medications")
-      .select("drug_name, dose, frequency")
-      .eq("patient_id", referral.patient_id)
-      .eq("is_active", true),
+    // INV-10: through the audited, tie-gated read, not the table.
+    readPatientMedicationsAudited(supabase, referral.patient_id, { active: true }),
   ]);
+
+  // An unreadable medication list must not be saved into the clinical summary as "no medicines".
+  if (medicationsResult.status !== "ok") {
+    return {
+      error:
+        medicationsResult.status === "denied"
+          ? "The medication list is not available to you for this patient, so the summary was not assembled"
+          : "The medication list could not be read just now, so the summary was not assembled. Please try again",
+    };
+  }
+  const medications = medicationsResult.rows.map((m) => ({ drug_name: m.drug_name, dose: m.dose, frequency: m.frequency }));
 
   const clinicalSummary = {
     vitals: vitals ?? [],
-    medications: medications ?? [],
+    medications,
     triggering_result: referral.screening_result ?? null,
     clinical_question: referral.clinical_question,
     assembled_at: new Date().toISOString(),

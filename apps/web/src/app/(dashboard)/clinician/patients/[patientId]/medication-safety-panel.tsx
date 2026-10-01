@@ -42,7 +42,7 @@ const CKD_RISK_VARIANT: Record<string, "red" | "amber" | "grey" | "green"> = {
  */
 export async function MedicationSafetyPanel({ patientId }: { patientId: string }) {
   const supabase = await createClient();
-  const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount, allergies, allergiesUnavailable } =
+  const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount, allergies, allergiesUnavailable, medicationsUnavailable } =
     await loadMedicationSafety(supabase, patientId);
   const { pregnancyCheckNote } = report;
 
@@ -62,6 +62,13 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {medicationsUnavailable ? (
+          <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+            {medicationsUnavailable === "denied"
+              ? "The medication list is not available to you for this patient (you are not on their care team), so none of these checks ran. A quiet panel is not a clearance. Ask the care team, or use emergency access if this is an emergency."
+              : "The medication list could not be read just now, so none of these checks ran. A quiet panel is not a clearance. Try again."}
+          </p>
+        ) : null}
         {/* Allergies next to the medicine count so a clean findings list below can never be misread as "no allergies". */}
         <div className="rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
           <p className="text-sm font-medium text-charcoal-ink">Recorded allergies</p>

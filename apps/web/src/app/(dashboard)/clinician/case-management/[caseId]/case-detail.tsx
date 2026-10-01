@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { readAuditedSection, ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
+import { readPatientMedicationsOrThrow } from "@/lib/clinical/medications-audited";
 import { parseReferralList } from "@/lib/queries/specialist-referrals";
 import {
   useCase,
@@ -235,17 +236,16 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-  const { data: medications } = useQuery({
+  const { data: medications, isError: medicationsUnavailable } = useQuery({
     queryKey: ["care-management", "case-file", "medications", patientId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("medications")
-        .select("id, drug_name, dose, frequency")
-        .eq("patient_id", patientId)
-        .eq("is_active", true);
-      if (error) throw error;
-      return data;
+      // INV-10: through the audited read; a refusal or error throws, so the card shows its error state, not "no medicines".
+      return readPatientMedicationsOrThrow(supabase, patientId, { active: true });
     },
+    retry: false,
+    // Every audited read writes an audit row: do not refetch on focus or remount within the visit.
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const { data: labOrders } = useQuery({
     queryKey: ["care-management", "case-file", "lab-orders", patientId],
@@ -306,6 +306,7 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
         <CaseFileList
           title="Medications"
           items={(medications ?? []).map((m) => `${m.drug_name}${m.dose ? " " + m.dose : ""}${m.frequency ? ", " + m.frequency : ""}`)}
+          unavailable={medicationsUnavailable}
         />
         <CaseFileList
           title="Investigations"

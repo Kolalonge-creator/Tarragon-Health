@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { attachMedicationEmbeds } from "@/lib/clinical/medications-audited";
 import type { Tables } from "@tarragon/shared";
 
 export type PrescriptionRenewalRequest = Tables<"prescription_renewal_requests">;
@@ -81,12 +82,13 @@ export function useOrgPrescriptionRenewalRequests() {
       const { data, error } = await supabase
         .from("prescription_renewal_requests")
         .select(
-          "*, patient:profiles!prescription_renewal_requests_patient_id_fkey(full_name, patient_number), medication:medications!prescription_renewal_requests_medication_id_fkey(drug_name, dose)"
+          "*, patient:profiles!prescription_renewal_requests_patient_id_fkey(full_name, patient_number)"
         )
         .in("status", ["submitted", "in_review"])
         .order("sla_due_at", { ascending: true });
       if (error) throw error;
-      return data as PrescriptionRenewalRequestWithPatient[];
+      // INV-10: the medication comes from the audited read, not an embedded select of the closed table.
+      return (await attachMedicationEmbeds(supabase, data)) as PrescriptionRenewalRequestWithPatient[];
     },
   });
 }

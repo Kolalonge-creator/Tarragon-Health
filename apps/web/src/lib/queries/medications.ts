@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { handleIfPermissionDenied } from "@/lib/audit/log-denied-action";
+import { readPatientMedicationsOrThrow, type AuditedMedication } from "@/lib/clinical/medications-audited";
 import type { Tables } from "@tarragon/shared";
 import type { AmendMedicationInput, MedicationInput } from "@/lib/validation/medications";
 import type { MedicationLogInput } from "@/lib/validation/medication-logs";
@@ -16,13 +17,7 @@ export type MedicationCollection = Tables<"pharmacy_order_dispenses">;
  * lets the "digital medicines cabinet" show what each drug is treating.
  * added_by_profile resolves the prescriber's name for the "Signed by"
  * step of the prescription status trail (added_by is a bare uuid). */
-export type MedicationWithCarePlan = Medication & {
-  care_plan: { condition: string; status: string } | null;
-  added_by_profile: { full_name: string | null } | null;
-};
-
-const MEDICATION_SELECT =
-  "*, care_plan:care_plans(condition, status), added_by_profile:profiles!medications_added_by_fkey(full_name)";
+export type MedicationWithCarePlan = AuditedMedication;
 
 function medicationsKey(patientId: string) {
   return ["medications", patientId];
@@ -50,16 +45,14 @@ export function todayIsoDate(): string {
 export function useMedications(patientId: string) {
   return useQuery({
     queryKey: medicationsKey(patientId),
+    // Each staff read writes an audit row: no refetch on focus and no retries of a refusal (mutations invalidate explicitly).
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("medications")
-        .select(MEDICATION_SELECT)
-        .eq("patient_id", patientId)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as MedicationWithCarePlan[];
+      // INV-10: staff no longer read the table directly. The audited read serves the patient, a granted caregiver and a tied clinician
+      // alike; a refusal throws, so it can never read as "no medicines".
+      return readPatientMedicationsOrThrow(createClient(), patientId, { active: true });
     },
     enabled: !!patientId,
   });
@@ -75,17 +68,12 @@ export function useMedications(patientId: string) {
 export function useStoppedMedications(patientId: string) {
   return useQuery({
     queryKey: stoppedMedicationsKey(patientId),
+    // Each staff read writes an audit row: no refetch on focus and no retries of a refusal (mutations invalidate explicitly).
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("medications")
-        .select(MEDICATION_SELECT)
-        .eq("patient_id", patientId)
-        .eq("is_active", false)
-        .order("stopped_at", { ascending: false, nullsFirst: false })
-        .order("updated_at", { ascending: false });
-      if (error) throw error;
-      return data as MedicationWithCarePlan[];
+      return readPatientMedicationsOrThrow(createClient(), patientId, { active: false });
     },
     enabled: !!patientId,
   });

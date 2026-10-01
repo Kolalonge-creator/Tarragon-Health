@@ -773,3 +773,5 @@ s05d_encounter_notes_audited_reads_and_writes.sql
 s05e_referrals_audited_reads_and_writes.sql
 # S05f medication_logs and symptoms: patient/caregiver/acting-supporter paths keep working, staff (tied, untied, admin, pharmacist, other org) read and write nothing directly, audited dose log and symptoms section open for the tied clinician only with audit basis, red-flag trigger intact; two sabotages.
 s05f_medication_logs_symptoms_audited_and_closed.sql
+# S05f-C1 medications audited reads: patient/caregiver/supporter read through the function with no audit row, tied clinician ok with audit basis, untied/admin/pharmacist/other org denied (audited), embeds served only where visible with one summary audit row, merge counts admin-only, search_vector not leaked; two sabotages.
+s05f_medications_audited_reads.sql
