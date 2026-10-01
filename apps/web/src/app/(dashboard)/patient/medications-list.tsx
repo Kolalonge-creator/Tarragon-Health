@@ -269,6 +269,9 @@ export function MedicationsList({
                           rxNumber={medication.rx_number}
                           verificationCode={medication.verification_code}
                           expiresAt={medication.expires_at}
+                          supplies={(collections ?? [])
+                            .filter((c) => c.medication_id === medication.id && c.source === "pharmacy")
+                            .sort((a, b) => (a.dispensed_on < b.dispensed_on ? 1 : -1))}
                         />
                       )}
                       <MedicationCollectionForm medication={medication} patientId={patientId} />

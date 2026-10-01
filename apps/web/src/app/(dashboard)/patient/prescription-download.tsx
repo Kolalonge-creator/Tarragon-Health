@@ -15,11 +15,14 @@ export function PrescriptionDownload({
   rxNumber,
   verificationCode,
   expiresAt,
+  supplies,
 }: {
   medicationId: string;
   rxNumber: string | null;
   verificationCode: string | null;
   expiresAt: string | null;
+  /** Supplies a pharmacy has recorded against this prescription (source 'pharmacy'), newest first. */
+  supplies: { dispensed_on: string; pharmacy_name: string | null }[];
 }) {
   if (!rxNumber || !verificationCode) return null;
   const expired = !!expiresAt && new Date(expiresAt).getTime() < new Date().getTime();
@@ -42,6 +45,16 @@ export function PrescriptionDownload({
           </span>
         )}
       </div>
+      {supplies.length > 0 && (
+        <ul className="space-y-0.5 text-charcoal-ink/70 dark:text-night-ink/70">
+          {supplies.map((supply, index) => (
+            <li key={`${supply.dispensed_on}-${index}`}>
+              Supplied {formatPatientDate(supply.dispensed_on)}
+              {supply.pharmacy_name ? ` by ${supply.pharmacy_name}` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
       {expired ? (
         <p className="text-charcoal-ink/60 dark:text-night-ink/60">
           This prescription has expired. Use “Request renewal” to ask your care team for a new one.

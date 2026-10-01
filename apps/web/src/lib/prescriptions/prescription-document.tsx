@@ -115,9 +115,9 @@ export const NOT_CONTROLLED_STATEMENT =
 export const VERIFY_STATEMENT =
   "Scan to check that this prescription is genuine and still valid. No account is needed. If the check says it is replaced, expired or stopped, do not dispense it.";
 
-/** Honest about reuse until a dispensing record exists. Never claims the prescription is single-use. */
+/** How reuse is controlled: pharmacies record each supply (phase 3) and a repeat needs approval. Never claims the prescription is single-use. */
 export const REPEAT_STATEMENT =
-  "The pharmacy should note each supply on this prescription and check the repeats allowed. Do not use it at more than one pharmacy for the same supply.";
+  "The pharmacy records each supply on this prescription (scan the QR). A repeat is only available once the care team has approved it. Do not use it at more than one pharmacy for the same supply.";
 
 export function formatPrescriptionDate(value: string | null | undefined, withTime = false): string {
   if (!value) return "Not recorded";

@@ -19,6 +19,10 @@ export interface PublicPrescriptionProof {
   repeats_allowed: number;
   repeats_used: number;
   repeats_remaining: number;
+  supplies_dispensed: number;
+  supplies_permitted: number;
+  supply_available: boolean;
+  last_supplied_on: string | null;
   signed_at: string;
   expires_at: string | null;
   version: number;
@@ -69,7 +73,41 @@ export const NOT_FOUND_MESSAGE =
 export const RATE_LIMITED_MESSAGE = "Too many checks from this connection. Please wait a minute and try again.";
 
 export const IDENTITY_NOTICE =
-  "This check shows the prescription and its current state. It does not show who it was issued to: check the person in front of you against the name on the paper. It does not record that you have dispensed it.";
+  "This check shows the prescription and its current state. It does not show who it was issued to: check the person in front of you against the name on the paper.";
+
+export type SupplyOutcome =
+  | "recorded"
+  | "duplicate"
+  | "no_supply_available"
+  | "not_active"
+  | "not_found"
+  | "invalid"
+  | "rate_limited"
+  | "error";
+
+export const SUPPLY_OUTCOME_MESSAGE: Record<SupplyOutcome, { tone: "good" | "bad"; text: string }> = {
+  recorded: { tone: "good", text: "Recorded. This supply is now on the prescription. Thank you." },
+  duplicate: { tone: "bad", text: "A supply was recorded for this prescription a few minutes ago, so this was not recorded again." },
+  no_supply_available: { tone: "bad", text: "No supply is available on this prescription now, so nothing was recorded. Do not dispense." },
+  not_active: { tone: "bad", text: "This prescription can no longer be supplied. Nothing was recorded. Do not dispense." },
+  not_found: { tone: "bad", text: "We could not find this prescription, so nothing was recorded." },
+  invalid: { tone: "bad", text: "Enter the pharmacy name and the pharmacist's name (at least two letters each)." },
+  rate_limited: { tone: "bad", text: "Too many attempts from this connection. Please wait a while and try again." },
+  error: { tone: "bad", text: "That could not be recorded just now. Please try again shortly." },
+};
+
+export function isSupplyOutcome(value: unknown): value is SupplyOutcome {
+  return typeof value === "string" && value in SUPPLY_OUTCOME_MESSAGE;
+}
+
+/** What the supply panel says for an ACTIVE prescription, from the three numbers the check returns. */
+export function describeSupply(proof: Pick<PublicPrescriptionProof, "supplies_dispensed" | "supplies_permitted" | "supply_available" | "repeats_allowed" | "repeats_remaining">): string {
+  if (proof.supply_available) return "A supply is available on this prescription.";
+  if (proof.repeats_remaining > 0) {
+    return "No supply is available now. The patient can request their next supply in the TarragonHealth app, and a doctor has to approve it.";
+  }
+  return "Every supply of this prescription has been dispensed. Do not dispense again.";
+}
 
 export function isProof(value: unknown): value is PublicPrescriptionProof {
   if (!value || typeof value !== "object") return false;
@@ -77,7 +115,9 @@ export function isProof(value: unknown): value is PublicPrescriptionProof {
   return (
     (v.status === "active" || v.status === "superseded" || v.status === "expired" || v.status === "cancelled") &&
     typeof v.rx_number === "string" &&
-    typeof v.drug_name === "string"
+    typeof v.drug_name === "string" &&
+    typeof v.supplies_dispensed === "number" &&
+    typeof v.supply_available === "boolean"
   );
 }
 

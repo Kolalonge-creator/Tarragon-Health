@@ -1,4 +1,12 @@
-import { NOT_FOUND_MESSAGE, TOKEN_PATTERN, parseProof, presentStatus } from "./public-verification";
+import {
+  NOT_FOUND_MESSAGE,
+  SUPPLY_OUTCOME_MESSAGE,
+  TOKEN_PATTERN,
+  describeSupply,
+  isSupplyOutcome,
+  parseProof,
+  presentStatus,
+} from "./public-verification";
 import { prescriptionVerifyUrl } from "./verify-url";
 
 const proof = {
@@ -12,6 +20,10 @@ const proof = {
   repeats_allowed: 2,
   repeats_used: 1,
   repeats_remaining: 1,
+  supplies_dispensed: 1,
+  supplies_permitted: 2,
+  supply_available: true,
+  last_supplied_on: "2026-10-01",
   signed_at: "2026-10-01T09:00:00Z",
   expires_at: "2027-04-01T00:00:00Z",
   version: 1,
@@ -54,5 +66,25 @@ describe("token and URL", () => {
   it("builds the QR address from the site URL without a double slash", () => {
     const token = "b".repeat(64);
     expect(prescriptionVerifyUrl(token)).toBe(`https://tarragonhealth.ng/verify-rx/${token}`);
+  });
+});
+
+describe("supply wording", () => {
+  const base = { supplies_dispensed: 1, supplies_permitted: 1, supply_available: false, repeats_allowed: 1, repeats_remaining: 1 };
+  it("says a supply is available only when one is", () => {
+    expect(describeSupply({ ...base, supply_available: true })).toMatch(/available/);
+    expect(describeSupply(base)).toMatch(/request their next supply/);
+    expect(describeSupply({ ...base, repeats_remaining: 0 })).toMatch(/Do not dispense again/);
+  });
+  it("every refusal outcome is a bad tone and only 'recorded' is good", () => {
+    for (const [outcome, message] of Object.entries(SUPPLY_OUTCOME_MESSAGE)) {
+      expect(message.tone).toBe(outcome === "recorded" ? "good" : "bad");
+    }
+    expect(isSupplyOutcome("recorded")).toBe(true);
+    expect(isSupplyOutcome("<script>")).toBe(false);
+    expect(isSupplyOutcome(undefined)).toBe(false);
+  });
+  it("a check that predates the supply fields is treated as not found rather than valid", () => {
+    expect(parseProof([{ ...proof, supplies_dispensed: undefined }])).toBeNull();
   });
 });

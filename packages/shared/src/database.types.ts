@@ -28415,10 +28415,13 @@ export type Database = {
           organisation_id: string
           outstanding_note: string | null
           patient_id: string
+          pharmacist_name: string | null
+          pharmacist_registration: string | null
           pharmacy_name: string | null
           pharmacy_order_id: string | null
           quantity: string | null
           quantity_prescribed: string | null
+          recorded_via: string
           recorded_by: string | null
           source: Database["public"]["Enums"]["dispense_source"]
           strength: string | null
@@ -28441,10 +28444,13 @@ export type Database = {
           organisation_id: string
           outstanding_note?: string | null
           patient_id: string
+          pharmacist_name?: string | null
+          pharmacist_registration?: string | null
           pharmacy_name?: string | null
           pharmacy_order_id?: string | null
           quantity?: string | null
           quantity_prescribed?: string | null
+          recorded_via?: string
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
           strength?: string | null
@@ -28467,10 +28473,13 @@ export type Database = {
           organisation_id?: string
           outstanding_note?: string | null
           patient_id?: string
+          pharmacist_name?: string | null
+          pharmacist_registration?: string | null
           pharmacy_name?: string | null
           pharmacy_order_id?: string | null
           quantity?: string | null
           quantity_prescribed?: string | null
+          recorded_via?: string
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
           strength?: string | null
@@ -44588,10 +44597,28 @@ export type Database = {
           repeats_allowed: number
           repeats_remaining: number
           repeats_used: number
+          supplies_dispensed: number
+          supplies_permitted: number
+          supply_available: boolean
+          last_supplied_on: string
           rx_number: string
           signed_at: string
           status: string
           version: number
+        }[]
+      }
+      record_prescription_supply_public: {
+        Args: {
+          p_token: string
+          p_pharmacy_name: string
+          p_pharmacist_name: string
+          p_pharmacist_registration?: string
+          p_quantity_supplied?: string
+        }
+        Returns: {
+          outcome: string
+          supplies_dispensed: number
+          supplies_permitted: number
         }[]
       }
       verify_prescription: {
