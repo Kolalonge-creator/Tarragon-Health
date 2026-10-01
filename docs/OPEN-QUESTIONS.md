@@ -332,3 +332,30 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) enforce it in `enforce_patient_consent_withdrawal` for current required versions and route account-level withdrawal to the data rights flow (recommended); (b) leave it app-level.
 - Decision:
 
+
+## E. Raised by S05 (2026-10-01)
+
+### OQ-54 Audited staff reads on the remaining eight health-record tables need their screens moved first (raised by S05)
+- Founder ruling 2026-10-01 was audited reads on all live clinical tables in S05. The call-site inventory (docs/design/S05.md section 5) found about 100 staff user-session reads across `vitals_readings` (about 17), `medications` (about 17, 8 of them embeds), `specialist_referrals` (about 22, including the sidebar counts on every clinician page), `clinical_encounter_notes` (6), `patient_conditions` (3), `patient_allergies` (2), `medication_logs` and `symptoms` (via `patient_timeline`), several through shared react-query hooks and four `security_invoker` views. Narrowing their SELECT policies without moving those would blank the clinician chart (the PR #789 failure). S05 delivered the audited path for all of them (`read_patient_chart_audited`) and closed the direct path only on `patient_documents` and `family_history` (0 callers).
+- Options: (a) one follow-up session per surface, chart page first, then list screens with their own tied-list functions, closing each table's direct policy in the same change with a proof (recommended); (b) one large session with the staff Playwright suite running in CI; (c) keep org-wide staff reads on the list screens and rely on read logging only for them.
+- Decision:
+
+### OQ-55 A new observation type is an enum value, not a zero-schema change (raised by S05)
+- v5 says `observations.type` accepts new types without schema change. Live `vital_type` is an enum and the red-flag triggers are keyed off its values. Adding glucose-like types later is one `ALTER TYPE vital_type ADD VALUE` (the view already passes an unknown type through and reads the generic `value_numeric` / `value_unit`).
+- Options: (a) keep the enum, one-line migration per new type (recommended: a lookup table would not make the triggers safer); (b) replace the enum with a `vital_types` lookup table (large change under about 15 triggers and 39 files).
+- Decision:
+
+### OQ-56 `dose_events` has no `pending` row (raised by S05)
+- v5 `dose_events.status` includes `pending`; live `medication_logs` rows exist only once a dose is logged and are append-only. The view maps delayed to taken and not_available to skipped.
+- Options: (a) S08 computes pending slots from `medications.schedule_times` and the Today screen shows them without storing a row (recommended); (b) pre-create pending rows nightly (breaks append-only).
+- Decision:
+
+### OQ-57 Prescriptions have a `draft` state v5 does not list (raised by S05)
+- v5 states are signed, sent, dispensed, cancelled, so a prescription would exist only once signed. The database enforces INV-02 as a transition (leaving draft stamps the prescriber), which needs a draft to leave.
+- Options: (a) keep `draft` (recommended; the patient never sees it); (b) create the row only at signing, giving up the DB-enforced transition.
+- Decision:
+
+### OQ-58 Patients now read finalized clinical notes; supporters have no path to notes or referrals (raised by S05)
+- INV-11 says the patient view shows signed notes only. Until now she saw only the published `consultation_patient_summaries`; she can now read the full finalized note (history, examination, assessment, plan). A Care Circle supporter reads prescriptions through the `medications` category, but no category is defined for notes or referrals, so they stay patient-only.
+- Options: (a) keep the full finalized note readable and have the app show the plain-language summary first (recommended); (b) revoke the policy and expose notes only as the summary; and for supporters, map notes and referrals to `appointments_care_plan`.
+- Decision:
