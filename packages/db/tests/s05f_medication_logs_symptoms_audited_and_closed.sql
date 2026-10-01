@@ -216,14 +216,18 @@ begin
   drop policy s05f_sabotage_old_staff_read on public.medication_logs;
   drop policy s05f_sabotage_old_staff_read on public.symptoms;
 
-  -- SABOTAGE 2: a function that skips the tie check would give the untied clinician the dose log
-  create function public.s05f_sabotage_untied_dose_log(p_patient uuid) returns integer language sql security definer set search_path = ''
-    as 'select count(*)::integer from public.medication_logs where patient_id = p_patient';
+  -- SABOTAGE 2: the real function with its tie check removed would give the untied clinician the dose log, so check 3b can fail
+  create or replace function public.read_medication_dose_log_audited(p_patient uuid, p_reason text) returns jsonb
+    language sql security definer set search_path = ''
+    as $f$ select jsonb_build_object('status', 'ok', 'rows', coalesce(jsonb_agg(to_jsonb(l)), '[]'::jsonb))
+             from public.medication_logs l where l.patient_id = p_patient $f$;
   perform set_config('request.jwt.claims', json_build_object('sub', v_untied, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  select public.s05f_sabotage_untied_dose_log(v_pat) into v_n;
+  select public.read_medication_dose_log_audited(v_pat, 'S05f proof: sabotage') into v_json;
   execute 'reset role';
-  if v_n = 0 then raise exception 'SABOTAGE 2 FAIL: the untied-read sabotage returned nothing, so check 3b proves nothing'; end if;
+  if v_json ->> 'status' <> 'ok' or jsonb_array_length(v_json -> 'rows') = 0 then
+    raise exception 'SABOTAGE 2 FAIL: removing the tie check did not let the untied clinician read, so check 3b proves nothing';
+  end if;
 end $$;
 
 rollback;
