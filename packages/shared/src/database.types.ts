@@ -40493,6 +40493,10 @@ export type Database = {
         Args: { p_care_plan_update_note: string; p_referral: string }
         Returns: undefined
       }
+      confirm_medication_refill: {
+        Args: { p_medication: string; p_refill_date?: string }
+        Returns: undefined
+      }
       confirm_proxy_setup: {
         Args: {
           p_categories: Database["public"]["Enums"]["care_access_category"][]
@@ -40637,6 +40641,24 @@ export type Database = {
       patient_record_counts_for_merge: {
         Args: { p_patient: string }
         Returns: Json
+      }
+      prescribe_medication: {
+        Args: {
+          p_care_plan_id?: string
+          p_dose?: string
+          p_drug_name: string
+          p_duration_days?: number
+          p_frequency?: string
+          p_indication?: string
+          p_instructions?: string
+          p_patient: string
+          p_quantity?: string
+          p_refill_date?: string
+          p_repeats_allowed?: number
+          p_route?: string
+          p_schedule_times?: Json
+        }
+        Returns: string
       }
       read_medication_dose_log_audited: {
         Args: { p_patient: string; p_reason: string }

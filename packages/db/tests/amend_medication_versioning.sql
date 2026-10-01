@@ -16,9 +16,14 @@
 --   4. Empty amendment_reason        -> BLOCKED
 --   5. Patient cannot amend a clinician-issued prescription -> BLOCKED
 --
--- TO CONFIRM THIS TEST DISCRIMINATES, break it on purpose: change
--- amend_medication's SECURITY INVOKER to SECURITY DEFINER. Case 1 must FAIL,
--- showing a Medical Officer amending a prescription under an elevated identity.
+-- Case 7 (S05f, INV-12): a Senior Medical Officer who is NOT tied to the patient is blocked
+-- (amend_medication is SECURITY DEFINER since S05f and checks the prescribing authority and the tie
+-- itself; it no longer leans on medications' staff UPDATE policy, which is gone).
+--
+-- TO CONFIRM THIS TEST DISCRIMINATES, break it on purpose: delete the
+-- clinician_has_patient_access line from amend_medication's authorisation check and case 7 must
+-- FAIL. (Deleting the has_prescribing_authority line does NOT fail case 1: the confirm-only trigger
+-- independently blocks a Medical Officer's amendment, which is deliberate defence in depth.)
 --
 -- Case 6 (added 2026-09-18, 20260918085308_wire_audit_reason_and_denied_action_logging.sql):
 -- proves public.log_denied_action() durably records case 1's denial the way the app layer
@@ -70,6 +75,11 @@ begin
     'medical_officer',
     'Probe Indemnity Ltd', 'PROBE-AMEND-RX', now() + interval '1 year'
   ) returning id into v_staff_id;
+
+  -- S05f: a prescriber must be tied to the patient (INV-12)
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
+  values (v_org, v_pat, v_clin, now())
+  on conflict (patient_id) do update set clinician_id = v_clin;
 
   insert into public.medications (
     organisation_id, patient_id, drug_name, dose, frequency, source, is_active
@@ -200,6 +210,24 @@ begin
 
   insert into test_result values (5, 'Patient cannot amend a clinician-issued prescription -> BLOCKED',
     case when v_raised is not null and (select version from public.medications where id = v_new_id) = 2
+      then 'PASS' else 'FAIL' end, coalesce(v_raised, 'no error raised'));
+
+  ---------------------------------------------------------------- case 7
+  delete from public.care_team_assignment where patient_id = v_pat;
+  v_raised := null;
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
+    perform set_config('role', 'authenticated', true);
+    perform public.amend_medication(v_new_id, 'Untied Senior Medical Officer attempt');
+  exception when others then
+    v_raised := sqlerrm;
+  end;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
+  insert into test_result values (7, 'Senior Medical Officer NOT tied to the patient -> BLOCKED',
+    case when v_raised like '%Not authorised to amend%' and (select version from public.medications where id = v_new_id) = 2
       then 'PASS' else 'FAIL' end, coalesce(v_raised, 'no error raised'));
 end $$;
 

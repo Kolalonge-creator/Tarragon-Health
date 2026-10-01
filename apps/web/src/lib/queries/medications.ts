@@ -132,9 +132,10 @@ export function useTodaysDoseLogs(patientId: string) {
 }
 
 /**
- * Shared by both the patient self-add and clinician-prescribe flows — RLS
- * enforces who may write what, so the two call sites just pass a different
- * `patientId`/`source`, not different query logic.
+ * Shared by the patient self-add and the clinician prescribe flows. A clinician-sourced add goes through public.prescribe_medication
+ * (INV-10, INV-12): the function checks the prescribing authority and the tie to the patient, stamps the attribution and returns the new
+ * id; staff can no longer insert into the table directly. A patient or specialist-sourced add is the patient's own insert under her
+ * own policy.
  */
 export function useAddMedication() {
   const queryClient = useQueryClient();
@@ -146,6 +147,27 @@ export function useAddMedication() {
       }
     ) => {
       const supabase = createClient();
+
+      if (input.source === "clinician") {
+        const { error } = await supabase.rpc("prescribe_medication", {
+          p_patient: input.patientId,
+          p_drug_name: input.drug_name,
+          p_dose: input.dose || undefined,
+          p_frequency: input.frequency || undefined,
+          p_refill_date: input.refill_date || undefined,
+          p_schedule_times: input.schedule_times && input.schedule_times.length > 0 ? input.schedule_times : undefined,
+          p_care_plan_id: input.care_plan_id || undefined,
+          p_route: input.route || undefined,
+          p_duration_days: input.duration_days ?? undefined,
+          p_quantity: input.quantity || undefined,
+          p_repeats_allowed: input.repeats_allowed ?? undefined,
+          p_indication: input.indication || undefined,
+          p_instructions: input.instructions || undefined,
+        });
+        if (error) throw error;
+        return;
+      }
+
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("organisation_id")
@@ -251,10 +273,12 @@ export function useConfirmMedicationRefill() {
       refillDate: string | null;
     }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("medications")
-        .update({ refill_date: refillDate })
-        .eq("id", medicationId);
+      // INV-10: staff cannot update the table directly (RLS would match zero rows and report success); the function checks the
+      // authority and the tie, and stamps last_confirmed_by/at.
+      const { error } = await supabase.rpc("confirm_medication_refill", {
+        p_medication: medicationId,
+        p_refill_date: refillDate ?? undefined,
+      });
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {

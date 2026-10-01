@@ -775,3 +775,5 @@ s05e_referrals_audited_reads_and_writes.sql
 s05f_medication_logs_symptoms_audited_and_closed.sql
 # S05f-C1 medications audited reads: patient/caregiver/supporter read through the function with no audit row, tied clinician ok with audit basis, untied/admin/pharmacist/other org denied (audited), embeds served only where visible with one summary audit row, merge counts admin-only, search_vector not leaked; two sabotages.
 s05f_medications_audited_reads.sql
+# S05f-C2 medications writes: tie-gated prescribe / confirm-refill, closed table (staff read, insert, update, delete nothing directly), patient self-add and stop and reminder times kept, clinician-prescribed row immutable to the patient (OQ-11), acting supporter and caregiver paths kept; two sabotages. Existing trigger proofs re-expressed as owner-with-claims.
+s05f_medications_tie_gated_writes.sql
