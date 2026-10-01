@@ -216,3 +216,7 @@ Entry format:
 - **Tests**: new proof (registered, one sabotage).
 
 - **Click-through checklist** for the S05f staff screens (tied, untied, Medical Officer, admin, patient, caregiver, plus read-only database spot checks): `docs/S05F_CLICK_THROUGH_CHECKLIST.md`.
+
+## S05f live click-through, first findings (2026-10-01)
+
+- Signed in as a clinician NOT on the demo patient's care team (the untied case), the refusals worked (dose history, allergies and the medication-safety panel all said "not available to you"), but five places still read as "none": the chart's "Medications" card said "Could not load medications" (a generic failure, not a refusal); the medication-safety panel said "across the 0 active medicines on file" and "No active medicines on file" under its own not-available notice; the pre-visit summary said "Medication: 0 active"; the hypertension drug ladder said "not started"; the trend chart said "Could not load the trend chart"; the CV-risk panel said "Not enough data yet". All six now say the data is not available to the caller.
