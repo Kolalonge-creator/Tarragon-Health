@@ -16,7 +16,7 @@ const SETUP = { id: "6f1c2a52-8c0e-4d57-9b7f-0d2b6a1f4e11", requester_first_name
 describe("ProxyConfirmationCard", () => {
   it("renders nothing without a pending request", () => {
     const { container } = render(<ProxyConfirmationCard setups={[]} locale="en" />);
-    expect(container).toBeEmptyDOMElement();
+    expect(container.innerHTML).toBe("");
   });
 
   it("starts with every category unticked and shows only the requester's first name", () => {
