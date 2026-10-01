@@ -783,3 +783,5 @@ s05f_vitals_audited_reads.sql
 s05f_vitals_closed_and_triggers.sql
 # S05f follow-up: staff write policies dropped on patient_documents, family_history, patient_allergies, patient_conditions: no staff role inserts directly, patient own writes kept (allergies, family history, patient-sourced documents), patient cannot add a condition or a clinician-sourced document; two sabotages.
 s05f_four_tables_staff_writes_dropped.sql
+# S05f review follow-up: consultation_prep_bundle, search_patient_record and clear_vitals_validation_flag require the tie (INV-12) instead of any org staff; the two readers audit (basis tied); patient, caregiver grant and support-view paths kept; anon cannot execute; unknown reading id answers like an untied caller; one sabotage.
+s05f_review_tie_gate_definer_functions.sql
