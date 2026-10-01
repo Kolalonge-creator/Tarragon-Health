@@ -403,13 +403,17 @@ begin
   -- =========================================================================
   -- 6. Notes (INV-11, OQ-58: patients read the published summary only)
   -- =========================================================================
+  -- S05d closed the table to direct staff use: notes are written through create_encounter_note / finalize_encounter_note (tie-gated).
+  -- AI drafts and amendments (no function parameter for them yet) are inserted as the table owner, authored as the tied doctor.
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter)
-  values (v_org, v_pat, 'phone', 'S05 review') returning id into v_note;
+  select public.create_encounter_note(v_pat, 'phone', 'S05 review') into v_note;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', null, true);
+  perform set_config('app.trusted_clinical_staff_author', (select id::text from public.clinical_staff where profile_id = v_tied), true);
   insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter, ai_drafted)
   values (v_org, v_pat, 'phone', 'S05 AI draft', true) returning id into v_note_ai;
-  execute 'reset role';
+  perform set_config('app.trusted_clinical_staff_author', '', true);
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
@@ -417,19 +421,20 @@ begin
   execute 'reset role';
   if v_n <> 0 then raise exception 'FAIL 6a: the patient saw % draft notes (INV-11)', v_n; end if;
 
-  -- an amendment of a draft is refused
-  perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
+  -- an amendment of a draft is refused (the validator is SECURITY DEFINER, so it still sees the original)
+  perform set_config('request.jwt.claims', null, true);
+  perform set_config('app.trusted_clinical_staff_author', (select id::text from public.clinical_staff where profile_id = v_tied), true);
   v_failed := false;
   begin
     insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter, amends_note_id)
     values (v_org, v_pat, 'phone', 'S05 amend draft', v_note);
   exception when others then v_failed := true; end;
   if not v_failed then raise exception 'FAIL 6b: a draft note was amended'; end if;
-  -- finalize the first note
-  update public.clinical_encounter_notes
-     set status = 'finalized', identity_confirmed = true, outcome = (enum_range(null::public.consultation_outcome))[1]
-   where id = v_note;
+  perform set_config('app.trusted_clinical_staff_author', '', true);
+  -- finalize the first note through the function
+  perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  perform public.finalize_encounter_note(v_note, (enum_range(null::public.consultation_outcome))[1], true);
   execute 'reset role';
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
@@ -446,8 +451,8 @@ begin
   if v_n <> 0 then raise exception 'FAIL 6e: another patient saw % notes', v_n; end if;
 
   -- an amendment of a finalized note: allowed for the same patient, refused across patients
-  perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
+  perform set_config('request.jwt.claims', null, true);
+  perform set_config('app.trusted_clinical_staff_author', (select id::text from public.clinical_staff where profile_id = v_tied), true);
   v_failed := false;
   begin
     insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter, amends_note_id)
@@ -456,9 +461,10 @@ begin
   if not v_failed then raise exception 'FAIL 6f: a note amended another patient''s note'; end if;
   insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter, amends_note_id)
   values (v_org, v_pat, 'phone', 'S05 amendment', v_note) returning id into v_note2;
-  update public.clinical_encounter_notes
-     set status = 'finalized', identity_confirmed = true, outcome = (enum_range(null::public.consultation_outcome))[1]
-   where id = v_note2;
+  perform set_config('app.trusted_clinical_staff_author', '', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  perform public.finalize_encounter_note(v_note2, (enum_range(null::public.consultation_outcome))[1], true);
   execute 'reset role';
   select count(*) into v_n from public.notes where id = v_note and state = 'amended';
   if v_n <> 1 then raise exception 'FAIL 6g: the original did not read as amended'; end if;

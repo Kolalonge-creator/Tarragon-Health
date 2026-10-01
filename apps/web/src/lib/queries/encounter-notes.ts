@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
+import { ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
 
 export type ClinicalEncounterNote = Tables<"clinical_encounter_notes">;
 
@@ -20,32 +21,56 @@ export function useMyPendingAutoDraftedNotes(staffId: string | undefined) {
     enabled: Boolean(staffId),
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("clinical_encounter_notes")
-        .select("id, patient_id, encounter_type, encounter_date, reason_for_encounter, patient:profiles!clinical_encounter_notes_patient_id_fkey(full_name)")
-        .eq("authored_by_staff", staffId as string)
-        .eq("auto_generated", true)
-        .eq("status", "draft")
-        .order("encounter_date", { ascending: true });
+      // INV-10: the table is closed to direct reads; this returns only the caller's own auto-drafted notes.
+      const { data, error } = await supabase.rpc("my_pending_auto_drafted_notes");
       if (error) throw error;
-      return data;
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        patient_id: row.patient_id,
+        encounter_type: row.encounter_type,
+        encounter_date: row.encounter_date,
+        reason_for_encounter: row.reason_for_encounter,
+        patient: { full_name: row.patient_name },
+      }));
     },
   });
 }
 
-/** All encounter notes for one patient, newest encounter first. */
+/** Turns the audited read's response into notes, throwing for a refusal or a malformed response so neither can read as "no notes". */
+export function parseEncounterNotesPayload(data: unknown): PatientEncounterNotes {
+  const payload = data as { status?: string; notes?: unknown } | null;
+  if (!payload || payload.status === "denied") throw new Error("encounter notes denied");
+  if ((payload.status !== "ok" && payload.status !== "own_only") || !Array.isArray(payload.notes)) {
+    throw new Error("unexpected encounter notes response");
+  }
+  return { notes: payload.notes as ClinicalEncounterNote[], scope: payload.status === "ok" ? "all" : "own_only" };
+}
+
+export interface PatientEncounterNotes {
+  notes: ClinicalEncounterNote[];
+  /** `all`: the caller is tied to the patient. `own_only`: not tied, so only the notes she wrote (to finish signing them). */
+  scope: "all" | "own_only";
+}
+
+/**
+ * All encounter notes for one patient, newest encounter first, through the audited read (INV-10). A refusal or error throws, so the
+ * screen shows "not available" rather than "No clinical notes yet".
+ */
 export function usePatientEncounterNotes(patientId: string) {
   return useQuery({
     queryKey: notesQueryKey(patientId),
-    queryFn: async () => {
+    // Every read writes an audit row: do not refetch on focus or remount within the visit (mutations invalidate explicitly).
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: false,
+    queryFn: async (): Promise<PatientEncounterNotes> => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("clinical_encounter_notes")
-        .select("*")
-        .eq("patient_id", patientId)
-        .order("encounter_date", { ascending: false });
+      const { data, error } = await supabase.rpc("read_patient_encounter_notes_audited", {
+        p_patient: patientId,
+        p_reason: ROUTINE_CHART_READ_REASON,
+      });
       if (error) throw error;
-      return data as ClinicalEncounterNote[];
+      return parseEncounterNotesPayload(data);
     },
   });
 }
@@ -78,29 +103,25 @@ export function useCreateEncounterNote() {
       callEndedAt?: string;
     }) => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("clinical_encounter_notes")
-        .insert({
-          organisation_id: input.organisationId,
-          patient_id: input.patientId,
-          encounter_type: input.encounterType,
-          reason_for_encounter: input.reasonForEncounter,
-          history: input.history || null,
-          examination_findings: input.examinationFindings || null,
-          assessment: input.assessment || null,
-          diagnosis: input.diagnosis || null,
-          plan: input.plan || null,
-          follow_up_instructions: input.followUpInstructions || null,
-          video_consultation_id: input.videoConsultationId || null,
-          escalation_id: input.escalationId || null,
-          async_consult_id: input.asyncConsultId || null,
-          call_started_at: input.callStartedAt || null,
-          call_ended_at: input.callEndedAt || null,
-        })
-        .select("id")
-        .single();
+      // The organisation is derived from the patient on the server, never taken from the client (input.organisationId is unused).
+      const { data, error } = await supabase.rpc("create_encounter_note", {
+        p_patient: input.patientId,
+        p_encounter_type: input.encounterType,
+        p_reason: input.reasonForEncounter,
+        p_history: input.history || undefined,
+        p_examination: input.examinationFindings || undefined,
+        p_assessment: input.assessment || undefined,
+        p_diagnosis: input.diagnosis || undefined,
+        p_plan: input.plan || undefined,
+        p_follow_up: input.followUpInstructions || undefined,
+        p_video_consultation_id: input.videoConsultationId || undefined,
+        p_escalation_id: input.escalationId || undefined,
+        p_async_consult_id: input.asyncConsultId || undefined,
+        p_call_started_at: input.callStartedAt || undefined,
+        p_call_ended_at: input.callEndedAt || undefined,
+      });
       if (error) throw error;
-      return data;
+      return { id: data };
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: notesQueryKey(variables.patientId) });
@@ -132,10 +153,7 @@ export function useUpdateEncounterNoteDraft() {
       >;
     }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("clinical_encounter_notes")
-        .update(fields)
-        .eq("id", noteId);
+      const { error } = await supabase.rpc("update_encounter_note_draft", { p_note: noteId, p_fields: fields });
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {
@@ -171,10 +189,11 @@ export function useFinalizeEncounterNote() {
       identityConfirmed: boolean;
     }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("clinical_encounter_notes")
-        .update({ status: "finalized", outcome, identity_confirmed: identityConfirmed })
-        .eq("id", noteId);
+      const { error } = await supabase.rpc("finalize_encounter_note", {
+        p_note: noteId,
+        p_outcome: outcome,
+        p_identity_confirmed: identityConfirmed,
+      });
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {
