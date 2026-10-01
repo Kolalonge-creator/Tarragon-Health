@@ -9,6 +9,7 @@ import {
 } from "@/lib/pdf/pdf-brand";
 import type { PrescriptionPdfData, SkippedPrescription } from "./prescription-pdf-data";
 import { DEFAULT_LETTERHEAD, type Letterhead } from "./letterhead";
+import { prescriptionVerifyUrl } from "./verify-url";
 
 registerPdfFonts();
 
@@ -37,24 +38,25 @@ const styles = StyleSheet.create({
   docMeta: { fontSize: 9, color: "#44525f", marginTop: 2 },
 
   label: { fontSize: 7.5, color: "#5b6b78", textTransform: "uppercase", letterSpacing: 0.5 },
-  value: { fontSize: 11, fontWeight: 700, marginTop: 1 },
+  value: { fontSize: 10.5, fontWeight: 700, marginTop: 1 },
 
-  patientBox: { flexDirection: "row", flexWrap: "wrap", marginTop: 12, padding: 10, borderWidth: 0.75, borderColor: "#c9d2d8", borderRadius: 3, gap: 8 },
-  patientCell: { width: "47%" },
+  patientBox: { flexDirection: "row", marginTop: 10, padding: 8, borderWidth: 0.75, borderColor: "#c9d2d8", borderRadius: 3, gap: 8 },
+  patientCell: { flexGrow: 1, flexBasis: 0 },
+  patientCellWide: { flexGrow: 1.6, flexBasis: 0 },
 
-  rxRow: { flexDirection: "row", marginTop: 14, gap: 12 },
+  rxRow: { flexDirection: "row", marginTop: 10, gap: 12 },
   rxMark: { fontSize: 34, fontWeight: 700, color: PDF_BRAND_GREEN, width: 56 },
   rxBody: { flex: 1 },
-  drugName: { fontSize: 20, fontWeight: 700 },
+  drugName: { fontSize: 19, fontWeight: 700 },
   strength: { fontSize: 13, marginTop: 2 },
   sig: { fontSize: 12.5, marginTop: 6, fontWeight: 700 },
-  detailRow: { flexDirection: "row", paddingVertical: 4, borderBottomWidth: 0.5, borderBottomColor: "#dfe3e6" },
+  detailRow: { flexDirection: "row", paddingVertical: 3, borderBottomWidth: 0.5, borderBottomColor: "#dfe3e6" },
   detailLabel: { width: 110, color: "#5b6b78", fontSize: 10 },
   detailValue: { flex: 1, fontSize: 10.5 },
 
-  signRow: { flexDirection: "row", marginTop: 18, gap: 18, alignItems: "flex-end" },
+  signRow: { flexDirection: "row", marginTop: 10, gap: 18, alignItems: "flex-end" },
   signLeft: { flex: 1 },
-  signImage: { height: 40, maxWidth: 190, objectFit: "contain", objectPositionX: 0, marginBottom: -4 },
+  signImage: { height: 64, maxWidth: 160, objectFit: "contain", objectPositionX: 0, marginBottom: -2 },
   signLine: { borderTopWidth: 0.75, borderTopColor: PDF_CLINICAL_NAVY, marginTop: 30, paddingTop: 3 },
   signLineWithImage: { borderTopWidth: 0.75, borderTopColor: PDF_CLINICAL_NAVY, marginTop: 0, paddingTop: 3 },
   signCaption: { fontSize: 8, color: "#5b6b78" },
@@ -64,14 +66,17 @@ const styles = StyleSheet.create({
   stampTitle: { fontSize: 8, fontWeight: 700, color: PDF_BRAND_GREEN, letterSpacing: 1 },
   stampText: { fontSize: 9, marginTop: 2 },
 
-  notes: { marginTop: 14 },
+  notes: { marginTop: 8 },
   noteText: { fontSize: 8, color: "#5b6b78", lineHeight: 1.4 },
 
-  // The check is deliberately small and last: most pharmacies read the text above and never scan.
-  checkRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 12, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: "#dfe3e6" },
-  checkText: { flex: 1, fontSize: 8, color: "#5b6b78", lineHeight: 1.4 },
-  checkStrong: { fontSize: 9, color: PDF_CLINICAL_NAVY, fontWeight: 700 },
-  qr: { width: 52, height: 52 },
+  // For a pharmacy that reads the text and sells from it. The check is a second, optional step, small and last.
+  pharmacistBox: { flexDirection: "row", gap: 10, marginTop: 8, padding: 8, borderWidth: 0.75, borderColor: "#c9d2d8", borderRadius: 3 },
+  pharmacistText: { flex: 1 },
+  pharmacistTitle: { fontSize: 8, fontWeight: 700, color: PDF_BRAND_GREEN, letterSpacing: 1, marginBottom: 2 },
+  pharmacistLine: { fontSize: 7.8, color: "#44525f", lineHeight: 1.35, marginTop: 1 },
+  pharmacistStrong: { fontSize: 8.5, color: PDF_CLINICAL_NAVY, fontWeight: 700 },
+  pharmacistLink: { fontSize: 7.2, color: PDF_CLINICAL_NAVY, marginTop: 1 },
+  qr: { width: 56, height: 56 },
 
   footer: { position: "absolute", bottom: 18, left: PAGE_PADDING, right: PAGE_PADDING, flexDirection: "row", justifyContent: "space-between" },
   footerLine: { fontSize: 7, color: "#7a8792" },
@@ -88,9 +93,21 @@ const styles = StyleSheet.create({
 export const NOT_CONTROLLED_STATEMENT =
   "This prescription is not for a controlled medicine. TarragonHealth does not prescribe controlled medicines.";
 
-/** Printed beside the small QR: an optional second way to check, never the main one. */
+/** The optional check, first line of the pharmacist panel: scan or open the link below. */
 export const VERIFY_STATEMENT =
-  "Optional: scan to confirm this prescription is genuine and still valid, or contact us quoting the Rx number and verification code.";
+  "Optional: scan the code, or open the link below, to confirm this prescription is genuine and still valid.";
+
+/** The no-smartphone route: a person at TarragonHealth answers from the Rx number and verification code. */
+export const CONTACT_STATEMENT = "Contact TarragonHealth on";
+
+/** Asks the pharmacy to record the supply, which is what stops the same prescription being filled twice. */
+export const RECORD_STATEMENT =
+  "Please record each supply on the check page, or note it on this prescription, so it cannot be filled twice.";
+
+/** The address printed as text for a paper copy. The token is the credential, so the whole address is shown. */
+export function verifyLinkText(publicToken: string): string {
+  return prescriptionVerifyUrl(publicToken).replace(/^https?:\/\//, "");
+}
 
 /** How reuse is controlled: pharmacies record each supply and a repeat needs approval. Never claims the prescription is single-use. */
 export const REPEAT_STATEMENT =
@@ -159,7 +176,7 @@ function PrescriptionPage({ rx, qr, letterhead }: { rx: PrescriptionPdfData; qr:
       <LetterheadBlock letterhead={letterhead} rxNumber={rx.rxNumber} signedAt={rx.signedAt} />
 
       <View style={styles.patientBox}>
-        <View style={styles.patientCell}>
+        <View style={styles.patientCellWide}>
           <Text style={styles.label}>Patient</Text>
           <Text style={styles.value}>{rx.patientName}</Text>
         </View>
@@ -167,7 +184,7 @@ function PrescriptionPage({ rx, qr, letterhead }: { rx: PrescriptionPdfData; qr:
           <Text style={styles.label}>Patient number</Text>
           <Text style={styles.value}>{rx.patientNumber ?? "Not recorded"}</Text>
         </View>
-        <View style={styles.patientCell}>
+        <View style={styles.patientCellWide}>
           <Text style={styles.label}>Age · Date of birth</Text>
           <Text style={styles.value}>
             {[age, rx.dateOfBirth ? formatPrescriptionDate(rx.dateOfBirth) : null].filter(Boolean).join(" · ") || "Not recorded"}
@@ -187,7 +204,7 @@ function PrescriptionPage({ rx, qr, letterhead }: { rx: PrescriptionPdfData; qr:
           <Text style={styles.drugName}>{rx.drugName}</Text>
           {strength ? <Text style={styles.strength}>{strength}</Text> : null}
           {rx.frequency ? <Text style={styles.sig}>{rx.frequency}</Text> : null}
-          <View style={{ marginTop: 8 }}>
+          <View style={{ marginTop: 6 }}>
             <Detail label="Quantity" value={rx.quantity} />
             <Detail label="Duration" value={formatDuration(rx.durationDays)} />
             <Detail label="Repeats allowed" value={String(rx.repeatsAllowed)} />
@@ -225,16 +242,20 @@ function PrescriptionPage({ rx, qr, letterhead }: { rx: PrescriptionPdfData; qr:
         <Text style={[styles.noteText, { marginTop: 2 }]}>{REPEAT_STATEMENT}</Text>
       </View>
 
-      <View style={styles.checkRow}>
+      <View style={styles.pharmacistBox}>
         {qr ? (
           // eslint-disable-next-line jsx-a11y/alt-text
           <Image style={styles.qr} src={qr} />
         ) : null}
-        <View style={styles.checkText}>
-          <Text>
-            <Text style={styles.checkStrong}>Rx number {rx.rxNumber} · Verification code {rx.verificationCode}</Text>
+        <View style={styles.pharmacistText}>
+          <Text style={styles.pharmacistTitle}>FOR THE PHARMACIST</Text>
+          <Text style={styles.pharmacistStrong}>Rx number {rx.rxNumber} · Verification code {rx.verificationCode}</Text>
+          <Text style={styles.pharmacistLine}>{VERIFY_STATEMENT}</Text>
+          {rx.publicToken ? <Text style={styles.pharmacistLink}>{verifyLinkText(rx.publicToken)}</Text> : null}
+          <Text style={styles.pharmacistLine}>
+            No smartphone? {CONTACT_STATEMENT} {letterhead.phone ?? PDF_CONTACT_PHONE} or {letterhead.email ?? PDF_CONTACT_EMAIL}, quoting the Rx number and verification code.
           </Text>
-          <Text style={{ marginTop: 2 }}>{VERIFY_STATEMENT}</Text>
+          <Text style={styles.pharmacistLine}>{RECORD_STATEMENT}</Text>
         </View>
       </View>
 

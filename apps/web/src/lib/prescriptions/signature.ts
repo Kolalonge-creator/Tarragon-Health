@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { SIGNATURE_BUCKET, signatureDataUrl } from "@/lib/clinical/signature-image";
+import { SIGNATURE_BUCKET, signatureDataUrl, sniffImageFormat } from "@/lib/clinical/signature-image";
+import { trimPngMargins } from "@/lib/clinical/png-trim";
 
 /**
  * The prescriber's signature image as a data URL, for embedding in a prescription PDF.
@@ -23,7 +24,9 @@ export async function loadPrescriberSignature(prescriberProfileId: string | null
     if (!staff?.signature_path) return null;
     const { data: blob, error } = await service.storage.from(SIGNATURE_BUCKET).download(staff.signature_path);
     if (error || !blob) return null;
-    return signatureDataUrl(new Uint8Array(await blob.arrayBuffer()));
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    // Crop empty margins off a PNG so the ink prints at a useful size; any problem returns the original bytes.
+    return signatureDataUrl(sniffImageFormat(bytes) === "png" ? trimPngMargins(bytes) : bytes);
   } catch {
     return null;
   }
