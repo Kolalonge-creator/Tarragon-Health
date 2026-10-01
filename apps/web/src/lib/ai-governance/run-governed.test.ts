@@ -61,7 +61,7 @@ describe("runGovernedAi", () => {
     const run = jest.fn(async () => ({ value: "answer", modelIdentifier: "claude-sonnet-5" }));
     const fallback = jest.fn(() => "fallback");
 
-    const result = await runGovernedAi({
+    const result = await runGovernedAi<string>({
       supabase,
       systemCode: "AI-001",
       inputCategory: "symptom_question",
@@ -85,7 +85,7 @@ describe("runGovernedAi", () => {
     const run = jest.fn(async () => ({ value: "answer", modelIdentifier: "claude-sonnet-5" }));
     const fallback = jest.fn(() => "fallback");
 
-    const result = await runGovernedAi({
+    const result = await runGovernedAi<string>({
       supabase,
       systemCode: "AI-001",
       inputCategory: "symptom_question",
@@ -112,7 +112,7 @@ describe("runGovernedAi", () => {
     });
     const fallback = jest.fn(() => "fallback");
 
-    const result = await runGovernedAi({
+    const result = await runGovernedAi<string>({
       supabase,
       systemCode: "AI-001",
       inputCategory: "symptom_question",
@@ -128,7 +128,7 @@ describe("runGovernedAi", () => {
   it("records a guardrail-suppressed answer as blocked, not completed", async () => {
     const supabase = client(registered());
 
-    const result = await runGovernedAi({
+    const result = await runGovernedAi<string>({
       supabase,
       systemCode: "AI-001",
       inputCategory: "symptom_question",
@@ -158,7 +158,7 @@ describe("runGovernedAi", () => {
     // as completed model calls on a real model identifier because of it.
     const supabase = client(registered());
 
-    const result = await runGovernedAi({
+    const result = await runGovernedAi<string>({
       supabase,
       systemCode: "AI-001",
       inputCategory: "symptom_question",
@@ -191,7 +191,7 @@ describe("runGovernedAi", () => {
     // rather than classifying everything as degraded.
     const supabase = client(registered());
 
-    const result = await runGovernedAi({
+    const result = await runGovernedAi<string>({
       supabase,
       systemCode: "AI-001",
       inputCategory: "symptom_question",
@@ -213,7 +213,7 @@ describe("runGovernedAi", () => {
       }),
     } as unknown as AiGovernanceClient;
 
-    const result = await runGovernedAi({
+    const result = await runGovernedAi<string>({
       supabase,
       systemCode: "AI-001",
       inputCategory: "symptom_question",
@@ -241,7 +241,7 @@ describe("runGovernedAi", () => {
       })
     );
 
-    await runGovernedAi({
+    await runGovernedAi<string>({
       supabase,
       systemCode: "AI-001",
       inputCategory: "symptom_question",

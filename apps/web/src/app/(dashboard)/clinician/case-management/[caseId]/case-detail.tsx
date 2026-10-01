@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { readAuditedSection } from "@/lib/clinical/audited-chart";
+import { readAuditedSection, ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
+import { parseReferralList } from "@/lib/queries/specialist-referrals";
 import {
   useCase,
   useAssignCaseManager,
@@ -259,18 +260,21 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
       return data;
     },
   });
-  const { data: referrals } = useQuery({
+  // INV-10: through the audited read. A refusal is shown as unavailable, never as "none on file".
+  const { data: referrals, isError: referralsUnavailable } = useQuery({
     queryKey: ["care-management", "case-file", "referrals", patientId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("specialist_referrals")
-        .select("id, specialist_type, status")
-        .eq("patient_id", patientId)
-        .order("created_at", { ascending: false })
-        .limit(5);
+      const { data, error } = await supabase.rpc("list_patient_referrals_audited", {
+        p_patient: patientId,
+        p_reason: ROUTINE_CHART_READ_REASON,
+        p_include_drafts: true,
+      });
       if (error) throw error;
-      return data;
+      return parseReferralList(data, "referrals").slice(0, 5);
     },
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const { data: admissions } = useQuery({
     queryKey: ["care-management", "case-file", "admissions", patientId],
@@ -310,6 +314,7 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
         <CaseFileList
           title="Specialists"
           items={(referrals ?? []).map((r) => `${r.specialist_type} (${r.status})`)}
+          unavailable={referralsUnavailable}
         />
         <CaseFileList
           title="Hospitalisations"

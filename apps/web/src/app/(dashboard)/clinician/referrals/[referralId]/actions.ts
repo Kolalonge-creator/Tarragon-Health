@@ -1,5 +1,6 @@
 "use server";
 
+import { ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@tarragon/shared";
@@ -35,18 +36,29 @@ export async function assembleAndSaveClinicalSummary(
     return { error: "Not signed in" };
   }
 
-  // RLS (private.is_org_staff) is the real gate here — an out-of-org
-  // referral simply doesn't come back, same as the escalation detail page.
-  const { data: referral } = await supabase
-    .from("specialist_referrals")
-    .select(
-      "id, patient_id, clinical_question:referral_reason, screening_upgrade:screening_upgrades!specialist_referrals_screening_upgrade_id_fkey(screening_result:screening_results!screening_upgrades_screening_result_id_fkey(id, result_status, result_summary, abnormal_flags, created_at))"
-    )
-    .eq("id", parsedId.data)
-    .maybeSingle();
-  if (!referral) {
-    return { error: "Referral not found or not in your organisation" };
+  // INV-10 / INV-12: the audited read is the gate (tied, creator, assigned specialist or the referral desk).
+  const { data: referralPayload } = await supabase.rpc("get_referral_audited", {
+    p_referral: parsedId.data,
+    p_reason: ROUTINE_CHART_READ_REASON,
+  });
+  const payload = referralPayload as {
+    status?: string;
+    referral?: {
+      id: string;
+      patient_id: string;
+      referral_reason: string | null;
+      screening_result: unknown;
+    };
+  } | null;
+  if (payload?.status !== "ok" || !payload.referral) {
+    return { error: "Referral not found or not available to you" };
   }
+  const referral = {
+    id: payload.referral.id,
+    patient_id: payload.referral.patient_id,
+    clinical_question: payload.referral.referral_reason,
+    screening_result: payload.referral.screening_result,
+  };
 
   const [{ data: vitals }, { data: medications }] = await Promise.all([
     supabase
@@ -65,18 +77,15 @@ export async function assembleAndSaveClinicalSummary(
   const clinicalSummary = {
     vitals: vitals ?? [],
     medications: medications ?? [],
-    triggering_result: referral.screening_upgrade?.screening_result ?? null,
+    triggering_result: referral.screening_result ?? null,
     clinical_question: referral.clinical_question,
     assembled_at: new Date().toISOString(),
   };
 
-  const { error } = await supabase
-    .from("specialist_referrals")
-    .update({
-      clinical_summary: clinicalSummary as unknown as Json,
-      set_by: user.id,
-    })
-    .eq("id", parsedId.data);
+  const { error } = await supabase.rpc("set_referral_clinical_summary", {
+    p_referral: parsedId.data,
+    p_summary: clinicalSummary as unknown as Json,
+  });
   if (error) {
     return { error: error.message };
   }
