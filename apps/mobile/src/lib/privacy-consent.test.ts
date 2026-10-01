@@ -1,13 +1,13 @@
 /** loadConsentStatus (S04): a withdrawn consent is not "accepted", and an optional purpose that was never answered is "Not shared", not outstanding. */
-let versionsRows: unknown[] = [];
-let eventRows: unknown[] = [];
+let mockVersionsRows: unknown[] = [];
+let mockEventRows: unknown[] = [];
 
 jest.mock("./supabase", () => ({
   supabase: {
     from: (table: string) => ({
       select: () => ({
         eq: (_c: string, _v: unknown) => {
-          const rows = table === "consent_versions" ? versionsRows : eventRows;
+          const rows = table === "consent_versions" ? mockVersionsRows : mockEventRows;
           const result = Promise.resolve({ data: rows, error: null });
           (result as unknown as { order: () => Promise<unknown> }).order = () => Promise.resolve({ data: rows, error: null });
           return result;
@@ -23,12 +23,12 @@ const ev = (type: string, action: string, at: string) => ({ consent_type: type, 
 
 describe("loadConsentStatus", () => {
   it("reports granted, withdrawn and never-answered correctly", async () => {
-    versionsRows = [
+    mockVersionsRows = [
       { consent_type: "data_processing", version: "v1", is_required: true },
       { consent_type: "telehealth", version: "v1", is_required: true },
       { consent_type: "research", version: "v1", is_required: false },
     ];
-    eventRows = [
+    mockEventRows = [
       ev("data_processing", "accepted", "2026-10-01T10:00:00Z"),
       ev("telehealth", "accepted", "2026-10-01T10:00:00Z"),
       ev("telehealth", "withdrawn", "2026-10-02T10:00:00Z"),
