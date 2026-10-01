@@ -401,7 +401,7 @@ begin
   if not v_failed then raise exception 'FAIL 5d: the referral signature was reassigned'; end if;
 
   -- =========================================================================
-  -- 6. Notes (INV-11)
+  -- 6. Notes (INV-11, OQ-58: patients read the published summary only)
   -- =========================================================================
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
@@ -435,9 +435,9 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   select count(*) into v_n from public.clinical_encounter_notes;
-  if v_n <> 1 then raise exception 'FAIL 6c: the patient sees % notes, expected only the finalized one', v_n; end if;
-  select count(*) into v_n from public.notes where state = 'signed';
-  if v_n <> 1 then raise exception 'FAIL 6d: the notes view did not report the signed note'; end if;
+  if v_n <> 0 then raise exception 'FAIL 6c: the patient reads % clinical notes, summary-only means 0 (OQ-58)', v_n; end if;
+  select count(*) into v_n from public.notes;
+  if v_n <> 0 then raise exception 'FAIL 6d: the notes view showed the patient % notes', v_n; end if;
   execute 'reset role';
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat2, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
@@ -640,8 +640,7 @@ begin
     raise exception 'FAIL SABOTAGE 9c: with the tie stubbed to true the untied clinician was still refused, so check 7b proves nothing';
   end if;
 
-  -- 9d. relax the signed-notes-only patient policy: the patient would see the drafts
-  drop policy clinical_encounter_notes_select_own_signed on public.clinical_encounter_notes;
+  -- 9d. admit the patient to her own notes: she would see the drafts
   create policy clinical_encounter_notes_select_own_signed on public.clinical_encounter_notes
     for select to authenticated using (patient_id = (select auth.uid()));
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
