@@ -1,4 +1,5 @@
 import {
+  ageInYears,
   buildPrescriptionBundle,
   buildPrescriptionPdfData,
   isPlaceholderCredentialNumber,
@@ -127,5 +128,21 @@ describe("buildPrescriptionBundle", () => {
     expect(included).toHaveLength(1);
     expect(refused).toHaveLength(1);
     expect(refused[0]?.reason).toBe("stopped");
+  });
+});
+
+describe("ageInYears", () => {
+  const now = new Date("2026-10-01T12:00:00Z");
+  it("counts whole years and the birthday not yet reached", () => {
+    expect(ageInYears("1985-03-04", now)).toBe(41);
+    expect(ageInYears("1985-10-02", now)).toBe(40);
+    expect(ageInYears("1985-10-01", now)).toBe(41);
+  });
+  it("is null for a missing, unparseable, future or implausible date", () => {
+    for (const bad of [null, undefined, "", "not a date", "2030-01-01", "1800-01-01"]) expect(ageInYears(bad, now)).toBeNull();
+  });
+  it("is carried onto the document data with the sex", () => {
+    const result = buildPrescriptionPdfData({ medication, patient: { ...patient, sex: "female" }, prescriber, now });
+    expect(result.status === "ok" && [result.data.patientAge, result.data.patientSex]).toEqual([41, "female"]);
   });
 });

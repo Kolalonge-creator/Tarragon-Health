@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import { loadPrescriptionBundle, loadPrescriptionForClinician, loadSinglePrescription } from "./load-prescription-pdf-data";
+import { loadLetterhead, loadPrescriptionBundle, loadPrescriptionForClinician, loadSinglePrescription } from "./load-prescription-pdf-data";
+import { DEFAULT_LETTERHEAD } from "./letterhead";
 
 const PATIENT = "22222222-2222-4222-8222-222222222222";
 const ACTOR = "33333333-3333-4333-8333-333333333333";
@@ -73,6 +74,19 @@ function fakeClient(fixture: Fixture, rpcResult?: { data: unknown; error: { mess
 
 const goodStaff = { credential_type: "MDCN", credential_number: "123456", license_verified: true };
 const goodPatient = { full_name: "First Patient", patient_number: "TH-002610", date_of_birth: "1985-03-04" };
+
+describe("loadLetterhead", () => {
+  it("reads the registered company details and falls back to the TarragonHealth name when unavailable", async () => {
+    const good = { client: { rpc: async () => ({ data: { trading_name: "TarragonHealth", legal_name: "Tarragon Health Ltd", rc_number: "123456", registered_address: "Lagos", registered_email: "a@b.ng", registered_phone: "+234" }, error: null }) } as unknown as SupabaseClient<Database> };
+    expect(await loadLetterhead(good.client)).toMatchObject({ tradingName: "TarragonHealth", legalName: "Tarragon Health Ltd", rcNumber: "123456", address: "Lagos" });
+    const failing = { rpc: async () => ({ data: null, error: { message: "x" } }) } as unknown as SupabaseClient<Database>;
+    expect(await loadLetterhead(failing)).toEqual(DEFAULT_LETTERHEAD);
+    const throwing = { rpc: async () => { throw new Error("boom"); } } as unknown as SupabaseClient<Database>;
+    expect(await loadLetterhead(throwing)).toEqual(DEFAULT_LETTERHEAD);
+    const empty = { rpc: async () => ({ data: {}, error: null }) } as unknown as SupabaseClient<Database>;
+    expect(await loadLetterhead(empty)).toEqual(DEFAULT_LETTERHEAD);
+  });
+});
 
 describe("loadSinglePrescription", () => {
   it("issues and writes one audit row naming the caller, the patient and the Rx number", async () => {
