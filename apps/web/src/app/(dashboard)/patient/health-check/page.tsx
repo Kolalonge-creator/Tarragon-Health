@@ -1,3 +1,4 @@
+import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
@@ -121,7 +122,7 @@ export default async function HealthCheckPage() {
       .select("full_name")
       .eq("id", check.reviewed_by)
       .maybeSingle();
-    reviewerName = reviewer?.full_name ? `Dr. ${reviewer.full_name}` : null;
+    reviewerName = reviewer?.full_name ? `Dr. ${stripDoctorTitle(reviewer.full_name)}` : null;
   }
 
   const tierName = check?.lab_order?.panel_bundle?.name ?? null;

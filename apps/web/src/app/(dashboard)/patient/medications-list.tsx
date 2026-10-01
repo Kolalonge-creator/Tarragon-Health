@@ -1,5 +1,6 @@
 "use client";
 
+import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
 import { useMemo, useState, type FormEvent } from "react";
 import {
   useConfirmMedicationRefill,
@@ -514,7 +515,7 @@ function PrescriptionStatusTrail({
     .sort((a, b) => (a.dispensed_on < b.dispensed_on ? 1 : -1))[0];
 
   const signedBy = medication.added_by_profile?.full_name
-    ? `Dr. ${medication.added_by_profile.full_name}`
+    ? `Dr. ${stripDoctorTitle(medication.added_by_profile.full_name)}`
     : "Tarragon care team";
 
   const steps: { label: string; done: boolean; detail: string }[] = [
