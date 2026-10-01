@@ -1,8 +1,8 @@
 -- ===========================================================================
 -- Proof: *_prescription_amended_and_expiring_notices.sql (prescription PDF phase 4).
 --
--- Proves: a brand-new prescription still gives the patient the in-app "prescribed" notice; an AMENDMENT (previous_version_id set) gives the in-app
--- 'prescription_updated_patient' notice and NOT a second "prescribed" one; the email/reminder-channel rows for the amendment are unchanged. The expiry
+-- Proves: a brand-new prescription still gives the patient the in-app "prescribed" notice; an AMENDMENT (previous_version_id set) gives the 'prescription_updated_patient'
+-- notice on every channel (email included, so the wording says the prescription was updated) and NOT a "prescribed" one; the template is registered. The expiry
 -- job queues one in-app notice for a current prescription expiring within 7 days, none for one expiring later, already expired, superseded, stopped or
 -- patient-sourced, and never queues the same prescription twice; it is not anon-executable. SABOTAGE: removing the dedupe clause from a copy of the
 -- function makes a second run queue a duplicate, so the one-per-prescription assertion is not vacuous.
@@ -17,7 +17,7 @@ declare
   v_pat uuid := gen_random_uuid();
   v_doc uuid := gen_random_uuid();
   v_m1 uuid; v_m2 uuid; v_soon uuid; v_later uuid; v_expired uuid; v_sup uuid; v_stop uuid; v_self uuid;
-  v_n integer; v_q integer; v_a integer; v_def text;
+  v_n integer; v_q integer; v_a integer; v_e integer; v_ia integer; v_def text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
@@ -39,17 +39,30 @@ begin
   select count(*) into v_n from public.notifications where recipient_id = v_pat and channel = 'in_app' and template = 'medication_prescribed_patient'
      and payload->>'drug_name' = 'RxAmd Original';
   if v_n < 1 then raise exception 'FAIL: new prescription has no in-app prescribed notice'; end if;
+  v_ia := v_n;
 
-  -- 2. an amendment: the explicit in-app "prescribed" row is replaced by the "updated" row; every other row is unchanged
+  -- 2. an amendment: EVERY channel's "prescribed" notice is replaced by the "updated" one (email wording included), nothing else changes
   update public.medications set superseded_at = now(), is_active = false where id = v_m1;
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, added_by, previous_version_id, version, amendment_reason)
   values (v_org, v_pat, 'RxAmd Original', '2.5 mg', 'Daily', 'clinician', v_doc, v_m1, 2, 'Dose reduced') returning id into v_m2;
+  select count(*) into v_n from public.notifications where recipient_id = v_pat and template = 'prescription_updated_patient'
+     and payload->>'drug_name' = 'RxAmd Original';
+  if v_n <> v_a then raise exception 'FAIL: amendment updated-notice count % (expected %, one per channel the original had)', v_n, v_a; end if;
   select count(*) into v_n from public.notifications where recipient_id = v_pat and channel = 'in_app' and template = 'prescription_updated_patient'
-     and payload->>'drug_name' = 'RxAmd Original' and (payload->>'version')::int = 2;
-  if v_n <> 1 then raise exception 'FAIL: amendment updated-notice count % (expected 1)', v_n; end if;
+     and payload->>'drug_name' = 'RxAmd Original' and (payload->>'version')::int = 2 and payload->>'rx_number' is not null;
+  if v_n <> v_ia then raise exception 'FAIL: amendment in-app updated-notice count % (expected %, as the original had)', v_n, v_ia; end if;
+  select count(*) into v_n from public.notifications where recipient_id = v_pat and channel = 'email' and template = 'prescription_updated_patient'
+     and payload->>'drug_name' = 'RxAmd Original' and payload ? 'to_email';
+  select count(*) into v_e from public.notifications where recipient_id = v_pat and channel = 'email' and template = 'medication_prescribed_patient'
+     and payload->>'drug_name' = 'RxAmd Original';
+  if v_n <> 1 or v_e <> 1 then raise exception 'FAIL: amendment email must be the updated template (%), the original keeps the prescribed one (%)', v_n, v_e; end if;
   select count(*) into v_n from public.notifications where recipient_id = v_pat and template = 'medication_prescribed_patient'
      and payload->>'drug_name' = 'RxAmd Original';
-  if v_n <> (2 * v_a - 1) then raise exception 'FAIL: amendment prescribed-row count % (expected %: the original % plus all but the in-app row)', v_n, 2 * v_a - 1, v_a; end if;
+  if v_n <> v_a then raise exception 'FAIL: the amendment added a "prescribed" notice (% rows, expected the original %)', v_n, v_a; end if;
+  if not exists (select 1 from public.notification_templates where key = 'prescription_updated_patient' and is_active)
+     or (select count(*) from public.notification_template_locales where template_key = 'prescription_updated_patient' and is_active) < 3 then
+    raise exception 'FAIL: prescription_updated_patient is not registered with its locale rows';
+  end if;
 
   -- 3. expiry reminders
   insert into public.medications (organisation_id, patient_id, drug_name, source, added_by) values (v_org, v_pat, 'RxAmd Soon', 'clinician', v_doc) returning id into v_soon;
