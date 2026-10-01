@@ -795,3 +795,7 @@ prescription_supply_record_and_repeat_control.sql
 prescription_amended_and_expiring_notices.sql
 # Doctor signature for the prescription PDF: only an admin (or the system) can set clinical_staff.signature_path, stamped with who and when, malformed paths refused; the private staff-signatures bucket accepts an admin's upload into their own organisation's folder and refuses a clinician, a patient and another organisation's folder; non-admins cannot read the object; the directory view exposes no signature column; sabotage drops the trigger.
 clinical_staff_prescription_signature.sql
+# A prescription must say how much and for how long: prescribe_medication refuses a missing/blank quantity and a missing/zero/negative duration (nothing written); both present are stored trimmed; an untied caller still gets the authorisation refusal first; amend_medication needs both effective values (an older prescription without them is refused until supplied, a blank cannot clear one); sabotage removes the checks.
+prescription_quantity_duration_required.sql
+# Prescription phone desk: staff (admin or active clinical staff) look a prescription up by Rx number + code and record a supply (desk_phone, recorded by the staff member, patient notified, duplicates refused); no patient-name column, the name on the paper only yields matches / does not match; patients, non-staff clinicians and anon refused; lookups audited and the code never stored; sabotage makes the name matcher always true.
+prescription_phone_desk.sql

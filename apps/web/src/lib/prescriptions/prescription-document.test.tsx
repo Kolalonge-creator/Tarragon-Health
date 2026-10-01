@@ -15,7 +15,7 @@ jest.mock("@/lib/pdf/register-fonts", () => ({
   PDF_FONT_FAMILY: "Helvetica",
 }));
 
-import { CONTACT_STATEMENT, NOT_CONTROLLED_STATEMENT, PrescriptionPdf, RECORD_STATEMENT, REPEAT_STATEMENT, VERIFY_STATEMENT, verifyLinkText } from "./prescription-document";
+import { CONTACT_STATEMENT, NOT_SPECIFIED, NOT_CONTROLLED_STATEMENT, PrescriptionPdf, RECORD_STATEMENT, REPEAT_STATEMENT, VERIFY_STATEMENT, verifyLinkText } from "./prescription-document";
 import type { PrescriptionPdfData } from "./prescription-pdf-data";
 
 /** Expands function components and gathers every string, so what a pharmacist would read is what is asserted. */
@@ -227,5 +227,15 @@ describe("PrescriptionPdf", () => {
     const text = collectText(PrescriptionPdf({ prescriptions: [rx(1, { publicToken: null })] })).join(" ");
     expect(text).not.toContain("verify-rx/");
     expect(text).toContain(CONTACT_STATEMENT);
+  });
+
+  it("says 'Not specified' for an older prescription with no quantity or duration, and prints them when present", () => {
+    const missing = collectText(PrescriptionPdf({ prescriptions: [rx(1, { quantity: null, durationDays: null })] })).join(" ").replace(/\s+/g, " ");
+    expect(missing).toContain(`Quantity ${NOT_SPECIFIED}`);
+    expect(missing).toContain(`Duration ${NOT_SPECIFIED}`);
+    const present = collectText(PrescriptionPdf({ prescriptions: [rx(1)] })).join(" ").replace(/\s+/g, " ");
+    expect(present).toContain("Quantity 30 tablets");
+    expect(present).toContain("Duration 30 days");
+    expect(present).not.toContain(NOT_SPECIFIED);
   });
 });

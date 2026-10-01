@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useAddMedication } from "@/lib/queries/medications";
 import { checkMedicationSafetyAfterAdd } from "./actions";
-import { medicationSchema, type MedicationInput } from "@/lib/validation/medications";
+import { prescriptionDetailSchema, medicationSchema, type MedicationInput } from "@/lib/validation/medications";
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
 import { Button } from "@/components/ui/button";
@@ -156,6 +156,13 @@ export function AddMedicationForm({
     if (!parsed.success) {
       setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
       return;
+    }
+    if (source === "clinician") {
+      const detail = prescriptionDetailSchema.safeParse({ quantity, duration_days: durationDays });
+      if (!detail.success) {
+        setValidationError(detail.error.issues[0]?.message ?? "Enter the quantity and duration");
+        return;
+      }
     }
     setValidationError(null);
     setSuccess(false);
@@ -360,20 +367,22 @@ export function AddMedicationForm({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="duration_days">Duration (days)</Label>
+                  <Label htmlFor="duration_days">Duration (days) *</Label>
                   <Input
                     id="duration_days"
                     type="number"
                     min={1}
-                    placeholder="Leave blank if ongoing"
+                    required
+                    placeholder="Days this supply covers, e.g. 30"
                     value={durationDays}
                     onChange={(event) => setDurationDays(event.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <Label htmlFor="quantity">Quantity *</Label>
                   <Input
                     id="quantity"
+                    required
                     placeholder="e.g. 30 tablets"
                     value={quantity}
                     onChange={(event) => setQuantity(event.target.value)}

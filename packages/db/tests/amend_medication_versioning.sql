@@ -82,9 +82,9 @@ begin
   on conflict (patient_id) do update set clinician_id = v_clin;
 
   insert into public.medications (
-    organisation_id, patient_id, drug_name, dose, frequency, source, is_active
+    organisation_id, patient_id, drug_name, dose, frequency, source, is_active, quantity, duration_days
   ) values (
-    v_org, v_pat, 'Amend Probe Drug', '5mg', 'daily', 'clinician', true
+    v_org, v_pat, 'Amend Probe Drug', '5mg', 'daily', 'clinician', true, '30 tablets', 30
   ) returning id, rx_number into v_med, v_rx1;
 
   ---------------------------------------------------------------- case 1

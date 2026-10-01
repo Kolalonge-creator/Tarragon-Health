@@ -44628,6 +44628,45 @@ export type Database = {
           version: number
         }[]
       }
+      desk_record_prescription_supply: {
+        Args: {
+          p_rx_number: string
+          p_verification_code: string
+          p_pharmacy_name: string
+          p_pharmacist_name: string
+          p_pharmacist_registration: string
+        }
+        Returns: {
+          outcome: string
+          supplies_dispensed: number
+          supplies_permitted: number
+        }[]
+      }
+      desk_verify_prescription: {
+        Args: { p_rx_number: string; p_verification_code: string; p_name_on_paper?: string }
+        Returns: {
+          drug_name: string
+          dose: string
+          duration_days: number
+          expires_at: string
+          found: boolean
+          frequency: string
+          last_supplied_on: string
+          name_checked: boolean
+          name_matches: boolean
+          prescriber_credential: string
+          prescriber_name: string
+          quantity: string
+          repeats_allowed: number
+          rx_number: string
+          signed_at: string
+          status: string
+          supplies_dispensed: number
+          supplies_permitted: number
+          supply_available: boolean
+          version: number
+        }[]
+      }
       dispute_prescription_supply: {
         Args: { p_dispense_id: string; p_note?: string }
         Returns: boolean
