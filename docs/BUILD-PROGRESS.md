@@ -236,3 +236,10 @@ Entry format:
 - **Tests**: 37 Jest tests (eligibility matrix, loader with audit and fail-closed, document text including the controlled-medicine statement, no address or phone, one page per bundle item); DB proof `prescription_pdf_license_flag_and_download_audit.sql` (registered, one sabotage). Controlled-drug guard sabotaged once: four tests fail.
 - **Not built yet**: phase 2 (no-login verification with a high-entropy public token and QR), phase 3 (dispensing record and repeat control), phase 4 (clinician reprint, stale-copy notice).
 - **Known**: the statement "TarragonHealth does not prescribe controlled medicines" describes practice, not an enforced rule; nothing in the database blocks a clinician prescribing one.
+
+## Admin: edit a doctor's registration number (2026-10-01)
+
+- **Why**: the clinical-staff admin page could only set a credential at creation; the prescription PDF refuses a doctor with no real number, and the two live doctors had none (`NULL` and `MDCN-PENDING-...`).
+- **Built**: "Edit profile" on `/admin/settings/clinical-staff` now has Registration body and Registration number. Both are required together, a placeholder (`PENDING`, `TBC`, `n/a`, `test`, blank) is refused, and nothing is sent when unchanged. Changing either clears `credential_verified_at` (existing trigger), which the form says. `lib/clinical/credential-edit.ts` with 8 Jest tests.
+- **Data**: the two live numbers were set directly on 2026-10-01 (MDCN R2311 and R8919, supplied by the founder); `license_verified_at` was already set on both.
+- **Known**: `clinical_staff_update` allows any org staff to update the row, not only an admin; the page is admin-only but the policy is broader.

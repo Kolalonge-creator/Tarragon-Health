@@ -1,5 +1,6 @@
 "use client";
 
+import { parseCredentialEdit } from "@/lib/clinical/credential-edit";
 import { useEffect, useMemo, useState } from "react";
 import {
   useAllClinicalStaff,
@@ -275,6 +276,9 @@ function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone
   const [yearsOfExperience, setYearsOfExperience] = useState(
     staff.years_of_experience != null ? String(staff.years_of_experience) : ""
   );
+  const [credType, setCredType] = useState(staff.credential_type ?? "");
+  const [credNumber, setCredNumber] = useState(staff.credential_number ?? "");
+  const [credError, setCredError] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
 
@@ -330,6 +334,25 @@ function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone
           onChange={(e) => setYearsOfExperience(e.target.value)}
         />
       </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <Input
+          aria-label="Registration body"
+          placeholder="Registration body (e.g. MDCN)"
+          value={credType}
+          onChange={(e) => setCredType(e.target.value)}
+        />
+        <Input
+          aria-label="Registration number"
+          placeholder="Registration number"
+          value={credNumber}
+          onChange={(e) => setCredNumber(e.target.value)}
+        />
+      </div>
+      <p className="mt-1 text-xs text-charcoal-ink/60">
+        The number printed on this doctor&apos;s prescriptions. Changing it clears the &ldquo;credential verified&rdquo; mark until
+        it is checked again.
+      </p>
+      {credError && <p className="mt-1 text-sm text-red-600">{credError}</p>}
       <Textarea
         className="mt-2"
         placeholder="Bio"
@@ -343,7 +366,13 @@ function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone
           size="sm"
           variant="outline"
           disabled={update.isPending}
-          onClick={() =>
+          onClick={() => {
+            const credential = parseCredentialEdit({ credentialType: credType, credentialNumber: credNumber }, staff);
+            if (credential.status === "error") {
+              setCredError(credential.message);
+              return;
+            }
+            setCredError(null);
             update.mutate(
               {
                 clinicalStaffId: staff.id,
@@ -351,12 +380,15 @@ function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone
                 specialty,
                 bio,
                 yearsOfExperience: parseYearsOfExperience(yearsOfExperience),
+                ...(credential.status === "ok"
+                  ? { credentialType: credential.credentialType, credentialNumber: credential.credentialNumber }
+                  : {}),
                 photoFile: photoFile ?? undefined,
                 removePhoto,
               },
               { onSuccess: onDone }
-            )
-          }
+            );
+          }}
         >
           {update.isPending ? "Saving…" : "Save"}
         </Button>
