@@ -27,15 +27,18 @@ as $$
 declare
   c_page constant integer := 500;                      -- technical page size, not a clinical value
   v_uid uuid := (select auth.uid());
+  -- The service role has no user and already bypasses RLS (server jobs such as the CV-risk escalation sweep read through here); it is
+  -- admitted like an owner, with no audit row, exactly as its direct table read was.
+  v_service boolean := coalesce((select auth.role()), '') = 'service_role';
   v_own boolean;
   v_rows jsonb;
 begin
-  if v_uid is null then
+  if v_uid is null and not v_service then
     raise exception 'not authorised' using errcode = '42501';
   end if;
 
   -- The same non-staff admissions the table's SELECT policy has: the patient, a category grant, a view_medication supporter.
-  v_own := p_patient = v_uid
+  v_own := v_service or p_patient = v_uid
         or private.can_read_clinical(p_patient, 'medications'::public.care_access_category)
         or private.can_read_clinical(p_patient, 'view_medication'::public.caregiver_permission);
 
@@ -84,11 +87,12 @@ as $$
 declare
   c_max constant integer := 1000;                      -- technical cap on ids per call, not a clinical value
   v_uid uuid := (select auth.uid());
+  v_service boolean := coalesce((select auth.role()), '') = 'service_role';   -- see read_patient_medications_audited
   v_out jsonb := '{}'::jsonb;
   v_staff integer := 0;
   r record;
 begin
-  if v_uid is null then
+  if v_uid is null and not v_service then
     raise exception 'not authorised' using errcode = '42501';
   end if;
   if p_ids is null or cardinality(p_ids) = 0 then
@@ -100,7 +104,7 @@ begin
 
   for r in
     select m.id, m.patient_id, m.drug_name, m.dose, m.frequency, m.rx_number, m.repeats_allowed,
-           (m.patient_id = v_uid
+           (v_service or m.patient_id = v_uid
             or private.can_read_clinical(m.patient_id, 'medications'::public.care_access_category)
             or private.can_read_clinical(m.patient_id, 'view_medication'::public.caregiver_permission)) as own
       from public.medications m

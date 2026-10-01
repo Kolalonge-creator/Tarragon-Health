@@ -186,6 +186,25 @@ begin
   end loop;
   if has_function_privilege('anon', 'public.patient_record_counts_for_merge(uuid)', 'EXECUTE') then raise exception 'FAIL 7c: anon can execute the merge counts'; end if;
 
+  -- 8. the service role (server jobs) reads like an owner, with no audit row; with no user and no service role claim it is refused
+  select count(*) into v_audits from public.audit_log;
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  execute 'set local role service_role';
+  select public.read_patient_medications_audited(v_pat, null, true) into v_json;
+  if v_json ->> 'status' <> 'ok' or jsonb_array_length(v_json -> 'rows') <> 1 then execute 'reset role'; raise exception 'FAIL 8a: service role read: %', v_json; end if;
+  select public.read_medication_embeds_audited(array[v_med1]) into v_json;
+  execute 'reset role';
+  if v_json -> v_med1::text ->> 'drug_name' is null then raise exception 'FAIL 8b: service role embeds: %', v_json; end if;
+  select count(*) into v_n from public.audit_log;
+  if v_n <> v_audits then raise exception 'FAIL 8c: the service role reads wrote % audit rows', v_n - v_audits; end if;
+  perform set_config('request.jwt.claims', '{"role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  v_failed := false;
+  begin perform public.read_patient_medications_audited(v_pat);
+  exception when insufficient_privilege then v_failed := true; end;
+  execute 'reset role';
+  if not v_failed then raise exception 'FAIL 8d: a caller with no user and no service role was admitted'; end if;
+
   -- SABOTAGE: the read without its tie check lets an untied clinician in, so 4a can fail
   create or replace function public.read_patient_medications_audited(p_patient uuid, p_reason text default null, p_active boolean default null, p_medication uuid default null)
     returns jsonb language sql security definer set search_path = ''
