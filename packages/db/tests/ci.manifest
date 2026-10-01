@@ -771,3 +771,5 @@ s05c_close_staff_reads_allergies_conditions.sql
 s05d_encounter_notes_audited_reads_and_writes.sql
 # S05e specialist referrals: visibility rule (tied / creator / assigned / desk), tie-gated writes, ok vs denied reads with audit, counts, closed table, patient_care_gaps overdue-referral branch (service role keeps it); two sabotages.
 s05e_referrals_audited_reads_and_writes.sql
+# S05f medication_logs and symptoms: patient/caregiver/acting-supporter paths keep working, staff (tied, untied, admin, pharmacist, other org) read and write nothing directly, audited dose log and symptoms section open for the tied clinician only with audit basis, red-flag trigger intact; two sabotages.
+s05f_medication_logs_symptoms_audited_and_closed.sql

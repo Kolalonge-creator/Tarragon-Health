@@ -40221,6 +40221,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      read_medication_dose_log_audited: {
+        Args: { p_patient: string; p_reason: string }
+        Returns: Json
+      }
       read_patient_chart_audited: {
         Args: { p_patient: string; p_reason: string; p_sections: string[] }
         Returns: Json
