@@ -495,6 +495,14 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     const drug = String(payload.drug_name ?? "A medication");
     return { text: `${drug} was prescribed for you`, href: "/patient/medications" };
   }
+  if (n.template === "prescription_supply_recorded") {
+    const drug = String(payload.drug_name ?? "Your prescription");
+    const pharmacy = String(payload.pharmacy_name ?? "a pharmacy");
+    return {
+      text: `${pharmacy} recorded a supply of ${drug}. If that was not you, open your medicines and tap "This wasn't me".`,
+      href: "/patient/medications",
+    };
+  }
   if (n.template === "pharmacy_order_patient_confirmation") {
     const items = String(payload.items_summary ?? "your medication");
     // /patient/pharmacy has no page — Medications is where a patient's

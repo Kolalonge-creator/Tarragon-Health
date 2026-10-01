@@ -28405,6 +28405,10 @@ export type Database = {
           batch_number: string | null
           controlled_tier: string | null
           created_at: string
+          disputed_at: string | null
+          disputed_by: string | null
+          dispute_note: string | null
+          pharmacist_registration_verified: boolean
           dispensed_on: string
           drug_name: string
           enhanced_verification_confirmed: boolean
@@ -28434,6 +28438,10 @@ export type Database = {
           batch_number?: string | null
           controlled_tier?: string | null
           created_at?: string
+          disputed_at?: string | null
+          disputed_by?: string | null
+          dispute_note?: string | null
+          pharmacist_registration_verified?: boolean
           dispensed_on?: string
           drug_name: string
           enhanced_verification_confirmed?: boolean
@@ -28463,6 +28471,10 @@ export type Database = {
           batch_number?: string | null
           controlled_tier?: string | null
           created_at?: string
+          disputed_at?: string | null
+          disputed_by?: string | null
+          dispute_note?: string | null
+          pharmacist_registration_verified?: boolean
           dispensed_on?: string
           drug_name?: string
           enhanced_verification_confirmed?: boolean
@@ -44606,6 +44618,10 @@ export type Database = {
           status: string
           version: number
         }[]
+      }
+      dispute_prescription_supply: {
+        Args: { p_dispense_id: string; p_note?: string }
+        Returns: boolean
       }
       record_prescription_supply_public: {
         Args: {

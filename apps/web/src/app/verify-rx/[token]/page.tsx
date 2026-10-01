@@ -149,8 +149,8 @@ export default async function VerifyPrescriptionPage({
                           <input name="pharmacistName" required minLength={2} maxLength={120} className="mt-1 w-full rounded border border-gray-300 p-2" />
                         </label>
                         <label className="block text-sm">
-                          Pharmacist registration number (optional)
-                          <input name="pharmacistRegistration" maxLength={40} className="mt-1 w-full rounded border border-gray-300 p-2" />
+                          Pharmacist registration number
+                          <input name="pharmacistRegistration" required minLength={3} maxLength={40} className="mt-1 w-full rounded border border-gray-300 p-2" />
                         </label>
                         <label className="flex items-start gap-2 text-sm">
                           <input type="checkbox" name="confirmed" required className="mt-1" />
@@ -160,7 +160,7 @@ export default async function VerifyPrescriptionPage({
                           Record this supply
                         </button>
                         <p className="text-xs text-gray-600">
-                          What you type is saved on the prescription and shown to the patient and their care team. It is not checked against a register.
+                          What you type is saved on the prescription, and the patient is told straight away. It is not checked against a register, and the patient can report a supply that did not happen.
                         </p>
                       </form>
                     )}
