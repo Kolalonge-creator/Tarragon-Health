@@ -202,6 +202,24 @@ begin
     if v_sqlstate::int <> (array[1, 0, 1])[v_n] then raise exception 'FAIL 3a: session % counts % pending referrals', v_n, v_sqlstate; end if;
   end loop;
 
+  v_failed := false;
+  begin perform public.referral_worklist_count('nonsense');
+  exception when others then v_failed := true; end;
+  if not v_failed then raise exception 'FAIL 3b: an unknown count kind returned a quiet number'; end if;
+  -- the outcome document may only live in the patient's own folder
+  perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_failed := false;
+  begin perform public.set_referral_outcome_document(v_ref, v_other::text || '/someone-elses.pdf');
+  exception when others then v_failed := true; end;
+  if not v_failed then raise exception 'FAIL 3c: an outcome document path in another folder was accepted'; end if;
+  perform public.set_referral_outcome_document(v_ref, v_pat::text || '/letter.pdf');
+  execute 'reset role';
+  if not exists (select 1 from public.specialist_referrals where id = v_ref and outcome_document_path = v_pat::text || '/letter.pdf') then
+    raise exception 'FAIL 3c: the right path was not saved (the gate does not open)';
+  end if;
+  update public.specialist_referrals set outcome_document_path = null where id = v_ref;
+
   -- ===== 4. the table is closed =====
   for v_n in 1..3 loop
     perform set_config('request.jwt.claims', json_build_object('sub', (array[v_tied, v_untied, v_desk])[v_n], 'role', 'authenticated')::text, true);
@@ -238,6 +256,11 @@ begin
   perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
   select count(*) into v_n from public.patient_care_gaps where gap_type = 'overdue_referral' and patient_id = v_pat;
   if v_n <> 1 then raise exception 'FAIL 5c: the service role (aggregate) lost the overdue-referral gap'; end if;
+  -- a SECURITY DEFINER function behind analytics / outreach queueing runs as the table owner even when an untied staff session called
+  -- it, and must keep seeing every overdue referral (current_user is the owner here, not `authenticated`)
+  perform set_config('request.jwt.claims', json_build_object('sub', v_untied, 'role', 'authenticated')::text, true);
+  select count(*) into v_n from public.patient_care_gaps where gap_type = 'overdue_referral' and patient_id = v_pat;
+  if v_n <> 1 then raise exception 'FAIL 5d: a definer-run reader lost the overdue-referral gap for an untied caller'; end if;
 
   -- ===== 6. SABOTAGE =====
   create policy s05e_sabotage_old_read on public.specialist_referrals for select to authenticated using (private.is_org_staff(organisation_id));

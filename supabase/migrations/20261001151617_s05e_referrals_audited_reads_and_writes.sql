@@ -15,8 +15,9 @@
 --   submit_draft_referral, set_referral_urgency, record_referral_treatment_plan, record_referral_shared_care_handback, waitlist_referral,
 --   decline_referral, close_referral, set_referral_clinical_summary, set_referral_outcome_document; set_referral_specialist_provider now
 --   uses the same rule instead of any org staff.
--- patient_care_gaps: its overdue_referral branch reads through a definer function that applies the rule (and lets the service role
--- through, because the employer / HMO aggregate reads the view that way), so closing the table cannot silently drop those gaps.
+-- patient_care_gaps: its overdue_referral branch reads through a definer function. An end user's own session sees only the referrals the
+-- rule lets her see; every other reader (service role, cron, the definer functions behind analytics, population and outreach queueing)
+-- keeps seeing all of them, so closing the table cannot silently drop gaps from those.
 
 create or replace function private.referral_desk()
 returns boolean
@@ -193,21 +194,30 @@ $$;
 
 create or replace function public.referral_worklist_count(p_kind text)
 returns integer
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
-  select count(*)::integer
-    from public.specialist_referrals sr
-   where case p_kind
-           when 'needing_urgency'  then sr.status = 'pending'
-           when 'waitlisted'       then sr.status = 'waitlisted'
-           when 'awaiting_closure' then sr.status = 'completed'
-                                         and (sr.treatment_plan_received_at is not null or sr.outcome_document_path is not null)
-           else null
-         end
-     and private.referral_visible(sr.patient_id, sr.organisation_id, sr.referred_by, sr.assigned_specialist_id);
+declare
+  v_n integer;
+begin
+  if p_kind is null or p_kind not in ('needing_urgency', 'waitlisted', 'awaiting_closure') then
+    raise exception 'unknown referral count kind' using errcode = '22023';     -- an error, not a quiet zero
+  end if;
+  select count(*)::integer into v_n from (
+    select sr.patient_id, sr.organisation_id, sr.referred_by, sr.assigned_specialist_id
+      from public.specialist_referrals sr
+     where case p_kind
+             when 'needing_urgency'  then sr.status = 'pending'
+             when 'waitlisted'       then sr.status = 'waitlisted'
+             else sr.status = 'completed' and (sr.treatment_plan_received_at is not null or sr.outcome_document_path is not null)
+           end
+     offset 0                             -- status filter first: the visibility rule is the expensive part
+  ) s
+  where private.referral_visible(s.patient_id, s.organisation_id, s.referred_by, s.assigned_specialist_id);
+  return v_n;
+end;
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -306,8 +316,14 @@ end; $$;
 
 create or replace function public.set_referral_outcome_document(p_referral uuid, p_path text)
 returns void language plpgsql security definer set search_path = '' as $$
+declare
+  v_patient uuid;
 begin
-  perform private.may_work_on_referral(p_referral);
+  v_patient := private.may_work_on_referral(p_referral);
+  -- The referral page signs this path with the service role, so it may only name a file in this patient's own folder.
+  if p_path is null or p_path not like v_patient::text || '/%' or p_path like '%..%' then
+    raise exception 'the outcome document must be stored in this patient''s folder' using errcode = '22023';
+  end if;
   -- outcome_document_uploaded_by is stamped from auth.uid() by the existing trigger, as it was for the direct update.
   update public.specialist_referrals set outcome_document_path = p_path where id = p_referral;
 end; $$;
@@ -361,7 +377,7 @@ $$;
 -- patient_care_gaps: the overdue_referral branch reads through a rule-applying definer function
 -- ---------------------------------------------------------------------------
 create or replace function private.overdue_referral_gap_rows()
-returns table (gap_type text, patient_id uuid, organisation_id uuid, condition_or_type text, opened_at timestamptz, detail jsonb)
+returns table (gap_type text, patient_id uuid, organisation_id uuid, condition_or_type text, opened_at timestamptz, detail jsonb, visible boolean)
 language sql
 stable
 security definer
@@ -370,16 +386,13 @@ as $$
   select 'overdue_referral'::text, sr3.patient_id, sr3.organisation_id, sr3.specialist_type::text,
          coalesce(sr3.submitted_at, sr3.created_at),
          jsonb_build_object('referral_id', sr3.id, 'referral_number', sr3.referral_number, 'status', sr3.status,
-                            'specialist_type', sr3.specialist_type)
+                            'specialist_type', sr3.specialist_type),
+         private.referral_visible(sr3.patient_id, sr3.organisation_id, sr3.referred_by, sr3.assigned_specialist_id)
     from public.specialist_referrals sr3
    where sr3.status <> all (array['completed'::public.referral_status, 'closed'::public.referral_status,
                                    'declined'::public.referral_status, 'draft'::public.referral_status])
      and sr3.closed_at is null and sr3.treatment_plan_received_at is null
-     and coalesce(sr3.submitted_at, sr3.created_at) < (now() - interval '30 days')
-     and (
-          -- the employer / HMO aggregate reads this view through the service role, which has no auth.uid()
-          (select auth.role()) = 'service_role'
-       or private.referral_visible(sr3.patient_id, sr3.organisation_id, sr3.referred_by, sr3.assigned_specialist_id));
+     and coalesce(sr3.submitted_at, sr3.created_at) < (now() - interval '30 days');
 $$;
 revoke all on function private.overdue_referral_gap_rows() from public, anon;
 grant execute on function private.overdue_referral_gap_rows() to authenticated, service_role;
@@ -464,6 +477,10 @@ UNION ALL
     g.opened_at,
     g.detail
    FROM private.overdue_referral_gap_rows() g
+  -- The rule applies to an end user's own session (current_user = authenticated, the invoker's role in a security_invoker view).
+  -- Anything else reads the unfiltered rows exactly as it did before: the service role (employer / HMO aggregate), cron and the
+  -- SECURITY DEFINER functions that summarise gaps (analytics, population, outreach queueing), which run as the table owner.
+  WHERE g.visible OR current_user <> 'authenticated'
 UNION ALL
  SELECT 'overdue_medication_review'::text AS gap_type,
     mr.patient_id,
