@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
@@ -138,12 +139,15 @@ export default async function CareCirclePage() {
   }));
 
   // The caller's own "set up for my parent" requests (RLS: creator or admin only). Name and state, nothing clinical.
-  const { data: proxyRows } = await supabase
+  const { data: proxyRows, error: proxyRowsError } = await supabase
     .from("proxy_setups")
     .select("id, target_full_name, state, expires_at")
     .eq("created_by_profile_id", profile.id)
     .order("created_at", { ascending: false })
     .limit(10);
+  if (proxyRowsError) {
+    Sentry.captureMessage("proxy_setups read failed", { level: "warning", tags: { pg_code: proxyRowsError.code ?? "none" } });
+  }
   const locale = await getAuthLocale();
 
   return (

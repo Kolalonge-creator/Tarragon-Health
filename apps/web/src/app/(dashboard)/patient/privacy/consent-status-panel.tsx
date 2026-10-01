@@ -66,7 +66,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                   c.version === version.version &&
                   c.action === "accepted"
               );
-              const optional = version.is_required === false;
+              const optional = version.is_optional === true;
               const subtitle =
                 state === "granted" && record
                   ? `Accepted ${formatDate(record.accepted_at)} · v${version.version}`

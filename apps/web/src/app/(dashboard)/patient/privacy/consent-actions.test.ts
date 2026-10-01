@@ -4,7 +4,7 @@
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 
 const insertMock = jest.fn();
-let versionRow: { id: string; version: string; is_required: boolean } | null;
+let versionRow: { id: string; version: string; is_optional: boolean } | null;
 let user: { id: string } | null;
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -27,7 +27,7 @@ import { withdrawConsentAction } from "./consent-actions";
 
 beforeEach(() => {
   insertMock.mockReset().mockResolvedValue({ error: null });
-  versionRow = { id: "cv-1", version: "v1", is_required: false };
+  versionRow = { id: "cv-1", version: "v1", is_optional: true };
   user = { id: "patient-1" };
 });
 
@@ -46,7 +46,7 @@ describe("withdrawConsentAction", () => {
   });
 
   it("refuses a required purpose and writes nothing", async () => {
-    versionRow = { id: "cv-2", version: "v1", is_required: true };
+    versionRow = { id: "cv-2", version: "v1", is_optional: false };
     const result = await withdrawConsentAction("data_processing");
     expect(result?.error).toMatch(/needed to use your account/i);
     expect(insertMock).not.toHaveBeenCalled();

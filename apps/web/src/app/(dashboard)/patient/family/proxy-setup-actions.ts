@@ -39,9 +39,10 @@ export async function startProxySetupAction(_prev: ProxySetupState, formData: Fo
   if (!profile) return { error: t("proxy.setup.error.invalid", locale) };
 
   // Every setup costs a verification-code SMS, so the number is limited as well as the caller.
+  // Keyed on the caller AND the number: a limit on the number alone lets anyone use up a stranger's budget.
   const limited = await checkAuthRateLimit(
     "proxy-setup",
-    parsed.data.phone,
+    `${profile.id}:${parsed.data.phone}`,
     { limit: 10, windowSeconds: 3600 },
     { limit: 3, windowSeconds: 3600 }
   );
@@ -71,12 +72,14 @@ export async function startProxySetupAction(_prev: ProxySetupState, formData: Fo
     options: { shouldCreateUser: true },
   });
   if (otpError) {
-    // Reported, not swallowed: the proxy still sees the same hedged message ("if that number can receive our text"),
-    // so this cannot be used to learn anything about the number.
+    // Never report success when no code went out (the SMS provider can be unset or capped): the proxy would wait for
+    // a parent who has nothing to enter. The setup row exists, so trying again returns it and sends a fresh code. The
+    // message is the same for every number, so it tells the proxy nothing about the number itself.
     Sentry.captureMessage("proxy setup code not sent", {
       level: "warning",
       tags: { auth_code: String((otpError as { code?: unknown }).code ?? "none"), auth_status: String((otpError as { status?: unknown }).status ?? "none") },
     });
+    return { error: t("proxy.setup.error.not_sent", locale) };
   }
 
   revalidatePath("/patient/family");

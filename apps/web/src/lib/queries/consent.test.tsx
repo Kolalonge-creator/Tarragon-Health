@@ -98,7 +98,7 @@ describe("useOutstandingConsentTypes", () => {
   });
 
   it("a withdrawn required consent is outstanding again (it used to read as accepted)", async () => {
-    const versions = [{ id: "v-tel-1", consent_type: "telehealth", version: 1, is_required: true }];
+    const versions = [{ id: "v-tel-1", consent_type: "telehealth", version: 1, is_optional: false }];
     const accepted = [
       { consent_type: "telehealth", version: 1, accepted_at: "2026-01-01", action: "accepted", created_at: "2026-01-01T00:00:00Z" },
       { consent_type: "telehealth", version: 1, accepted_at: "2026-02-01", action: "withdrawn", created_at: "2026-02-01T00:00:00Z" },
@@ -110,7 +110,7 @@ describe("useOutstandingConsentTypes", () => {
   });
 
   it("an optional purpose the patient never answered is not outstanding", async () => {
-    const versions = [{ id: "v-r-1", consent_type: "research", version: 1, is_required: false }];
+    const versions = [{ id: "v-r-1", consent_type: "research", version: 1, is_optional: true }];
     mockFrom.mockImplementation((table: string) => fromTable(table === "consent_versions" ? versions : []));
     const { result } = renderHook(() => useOutstandingConsentTypes("patient-1"), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));

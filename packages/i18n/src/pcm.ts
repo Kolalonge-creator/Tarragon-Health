@@ -102,6 +102,7 @@ export const pcm: Record<MessageKey, string> = {
   "proxy.setup.error.invalid": "Check the name and number well, then try again.",
   "proxy.setup.error.own_number": "Na your own number be that. Put your parent number.",
   "proxy.setup.error.rate_limited": "You don start plenty setup today. Abeg try again tomorrow.",
+  "proxy.setup.error.not_sent": "We no fit send the code just now. Abeg try again after small time.",
   "proxy.setup.list.title": "Your requests",
   "proxy.setup.state.pending_confirmation": "We dey wait for your parent",
   "proxy.setup.state.confirmed": "E don confirm",

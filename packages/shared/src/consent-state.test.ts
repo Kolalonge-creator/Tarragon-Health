@@ -51,8 +51,8 @@ describe("consentStateFor", () => {
 
 describe("outstandingRequired", () => {
   const versions = [
-    { consent_type: "data_processing", version: "d1", is_required: true },
-    { consent_type: "research", version: "r1", is_required: false },
+    { consent_type: "data_processing", version: "d1", is_optional: false },
+    { consent_type: "research", version: "r1", is_optional: true },
     { consent_type: "telehealth", version: "t1" },
   ];
 

@@ -6,18 +6,16 @@
 --
 -- private.has_required_consents gates onboarding on EVERY current consent version. The moment an optional purpose
 -- (care_circle_sharing, research, sponsor_reporting, marketing, device_data, ...) gets a current row, that would block
--- every patient who declines it. is_required says which purposes gate onboarding; the other purposes are a choice, and
--- the patient's answer is still recorded and withdrawable. The three existing types are required, as they are now.
+-- every patient who declines it. is_optional says which purposes are a choice. It is deliberately the flag that must be
+-- SET, not the one that must be remembered: a new version of a required purpose is published by a plain INSERT (twelve
+-- such migrations exist), so a column defaulting to "optional" would silently drop the gate on the next legal bump.
+-- Default false means every row, old or new, stays required unless someone explicitly declares it optional.
 -- The wording for the optional purposes is NOT seeded here: it needs your approval (OQ-49).
 -- ===========================================================================
-alter table public.consent_versions add column if not exists is_required boolean not null default false;
+alter table public.consent_versions add column if not exists is_optional boolean not null default false;
 
-update public.consent_versions
-   set is_required = true
- where consent_type in ('data_processing', 'telehealth', 'terms_of_service');
-
-comment on column public.consent_versions.is_required is
-  'true: onboarding cannot finish without an in-force acceptance of this purpose (private.has_required_consents). false: an optional purpose, recorded and withdrawable but never a gate.';
+comment on column public.consent_versions.is_optional is
+  'false (the default, so every new version of a required purpose stays required): onboarding cannot finish without an in-force acceptance of this purpose (private.has_required_consents). true: an optional purpose, recorded and withdrawable but never a gate. Set it explicitly when seeding an optional purpose.';
 
 create or replace function private.has_required_consents(p_patient uuid)
 returns boolean
@@ -30,7 +28,7 @@ as $$
     select 1
     from public.consent_versions cv
     where cv.is_current
-      and cv.is_required
+      and not cv.is_optional
       and not exists (
         select 1
         from public.patient_consents pc
@@ -48,15 +46,10 @@ as $$
   );
 $$;
 
--- Proof, not hope: the three original types stayed required, and only they.
+-- Proof, not hope: every existing row is required (nothing was declared optional), so behaviour is unchanged today.
 do $$
 begin
-  if exists (select 1 from public.consent_versions
-              where consent_type in ('data_processing', 'telehealth', 'terms_of_service') and is_current and not is_required) then
-    raise exception 'S04: a current original consent type lost is_required';
-  end if;
-  if exists (select 1 from public.consent_versions
-              where consent_type not in ('data_processing', 'telehealth', 'terms_of_service') and is_required) then
-    raise exception 'S04: an optional consent type is marked required';
+  if exists (select 1 from public.consent_versions where is_optional) then
+    raise exception 'S04: a consent version is marked optional by this migration';
   end if;
 end $$;

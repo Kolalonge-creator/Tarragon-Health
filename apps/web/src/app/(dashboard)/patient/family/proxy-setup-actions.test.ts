@@ -127,7 +127,7 @@ describe("startProxySetupAction", () => {
     rateLimitMock.mockResolvedValue({ success: false });
     const result = await startProxySetupAction(undefined, startForm());
     expect(result?.error).toMatch(/several setups|try again/i);
-    expect(rateLimitMock.mock.calls[0]![1]).toBe(PARENT);
+    expect(String(rateLimitMock.mock.calls[0]![1])).toContain(PARENT);
     expect(rpcMock).not.toHaveBeenCalled();
     expect(signInWithOtpMock).not.toHaveBeenCalled();
   });
@@ -140,12 +140,19 @@ describe("startProxySetupAction", () => {
     expect(signInWithOtpMock).not.toHaveBeenCalled();
   });
 
-  it("gives the same answer when the code could not be sent, and reports the failure without the number", async () => {
+  it("does not report success when the code could not be sent, and reports the failure without the number", async () => {
     signInWithOtpMock.mockResolvedValue({ error: { code: "sms_send_failed", status: 500, message: `could not text ${PARENT}` } });
     const result = await startProxySetupAction(undefined, startForm());
-    expect(result).toEqual({ sent: true, hours: 72 });
+    expect(result?.sent).toBeUndefined();
+    expect(result?.error).toMatch(/could not send the code/i);
+    expect(result?.error).not.toContain("8031234567");
     expect(captureMessageMock).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(captureMessageMock.mock.calls[0])).not.toContain("8031234567");
+  });
+
+  it("keys the rate limit on the caller and the number, not the number alone", async () => {
+    await startProxySetupAction(undefined, startForm());
+    expect(rateLimitMock.mock.calls[0]![1]).toBe(`proxy-1:${PARENT}`);
   });
 });
 

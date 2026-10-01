@@ -17,8 +17,8 @@ export interface ConsentEventRow {
 export interface ConsentVersionRef {
   consent_type: string;
   version: string;
-  /** Absent on rows loaded before is_required existed: treated as required, the safer reading. */
-  is_required?: boolean;
+  /** True only for a purpose declared optional. Absent or false means required, the safer reading. */
+  is_optional?: boolean;
 }
 
 export type ConsentState =
@@ -54,5 +54,5 @@ export function outstandingRequired<V extends ConsentVersionRef>(
   versions: readonly V[],
   rows: readonly ConsentEventRow[]
 ): V[] {
-  return versions.filter((v) => v.is_required !== false && consentStateFor(rows, v) !== "granted");
+  return versions.filter((v) => !v.is_optional && consentStateFor(rows, v) !== "granted");
 }

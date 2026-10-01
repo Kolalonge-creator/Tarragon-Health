@@ -150,7 +150,7 @@ describe("ConsentStatusPanel", () => {
   });
 
   it("withdrawing an optional purpose takes two taps and calls the action once", async () => {
-    EXTRA_VERSIONS = [{ id: "v-r-1", consent_type: "research", version: 1, is_required: false }];
+    EXTRA_VERSIONS = [{ id: "v-r-1", consent_type: "research", version: 1, is_optional: true }];
     ACCEPTED = [...ACCEPTED, { id: "c9", consent_type: "research", version: 1, ...ROW }];
     render(<ConsentStatusPanel patientId="patient-1" />);
     fireEvent.click(screen.getByRole("button", { name: "Withdraw" }));

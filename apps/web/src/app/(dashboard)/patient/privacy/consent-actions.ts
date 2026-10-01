@@ -30,13 +30,13 @@ export async function withdrawConsentAction(consentType: string): Promise<Withdr
     supabase.from("profiles").select("organisation_id").eq("id", user.id).single(),
     supabase
       .from("consent_versions")
-      .select("id, version, is_required")
+      .select("id, version, is_optional")
       .eq("consent_type", parsed.data.consentType)
       .eq("is_current", true)
       .maybeSingle(),
   ]);
   if (!profile?.organisation_id || !version) return { error: "We could not find that consent." };
-  if (version.is_required) {
+  if (!version.is_optional) {
     return { error: "This one is needed to use your account. To stop it, use the data rights options on this page." };
   }
 

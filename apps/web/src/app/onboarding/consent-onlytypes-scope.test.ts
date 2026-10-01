@@ -108,4 +108,15 @@ describe("acceptConsents — onlyTypes scoping (PR #661 regression)", () => {
     const rows = insert.mock.calls[0][0] as Array<{ consent_type: string }>;
     expect(rows.length).not.toBe(1);
   });
+
+  it("never records an OPTIONAL purpose through the single onboarding checkbox (S04)", async () => {
+    consentVersionsSelect.mockResolvedValue({
+      data: [...CURRENT_VERSIONS, { id: "v-res", consent_type: "research", version: 1, is_optional: true }],
+      error: null,
+    });
+    await acceptConsents(undefined, formDataFor());
+    const rows = insert.mock.calls[0][0] as Array<{ consent_type: string }>;
+    expect(rows.map((r) => r.consent_type)).not.toContain("research");
+    expect(rows).toHaveLength(3);
+  });
 });

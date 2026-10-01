@@ -132,12 +132,12 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
                       ? "You withdrew this. Nothing is shared under it."
                       : c.state === "older_version"
                         ? "A newer version is available. Review needed."
-                        : c.isRequired
-                          ? "Not yet recorded"
-                          : "Not shared"}</MutedText>
+                        : c.isOptional
+                          ? "Not shared"
+                          : "Not yet recorded"}</MutedText>
               </View>
               <Badge tone={c.accepted ? "brand" : "neutral"}>
-                {c.accepted ? "Accepted" : c.state === "withdrawn" ? "Withdrawn" : c.isRequired ? "Outstanding" : "Not shared"}
+                {c.accepted ? "Accepted" : c.state === "withdrawn" ? "Withdrawn" : c.isOptional ? "Not shared" : "Outstanding"}
               </Badge>
             </View>
           ))

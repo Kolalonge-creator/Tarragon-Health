@@ -24,9 +24,9 @@ const ev = (type: string, action: string, at: string) => ({ consent_type: type, 
 describe("loadConsentStatus", () => {
   it("reports granted, withdrawn and never-answered correctly", async () => {
     mockVersionsRows = [
-      { consent_type: "data_processing", version: "v1", is_required: true },
-      { consent_type: "telehealth", version: "v1", is_required: true },
-      { consent_type: "research", version: "v1", is_required: false },
+      { consent_type: "data_processing", version: "v1", is_optional: false },
+      { consent_type: "telehealth", version: "v1", is_optional: false },
+      { consent_type: "research", version: "v1", is_optional: true },
     ];
     mockEventRows = [
       ev("data_processing", "accepted", "2026-10-01T10:00:00Z"),
@@ -36,8 +36,8 @@ describe("loadConsentStatus", () => {
     const result = await loadConsentStatus("p1");
     if (!result.ok) throw new Error("expected ok");
     const byType = Object.fromEntries(result.data.map((r) => [r.consentType, r]));
-    expect(byType.data_processing).toMatchObject({ accepted: true, state: "granted", isRequired: true });
+    expect(byType.data_processing).toMatchObject({ accepted: true, state: "granted", isOptional: false });
     expect(byType.telehealth).toMatchObject({ accepted: false, state: "withdrawn", acceptedAt: null });
-    expect(byType.research).toMatchObject({ accepted: false, state: "never", isRequired: false });
+    expect(byType.research).toMatchObject({ accepted: false, state: "never", isOptional: true });
   });
 });

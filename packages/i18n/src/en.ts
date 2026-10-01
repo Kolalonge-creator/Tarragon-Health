@@ -103,6 +103,7 @@ export const en = {
   "proxy.setup.error.invalid": "Check the name and number and try again.",
   "proxy.setup.error.own_number": "That is your own number. Enter your parent's number.",
   "proxy.setup.error.rate_limited": "You have started several setups today. Please try again tomorrow.",
+  "proxy.setup.error.not_sent": "We could not send the code just now. Please try again in a few minutes.",
   "proxy.setup.list.title": "Your requests",
   "proxy.setup.state.pending_confirmation": "Waiting for your parent",
   "proxy.setup.state.confirmed": "Confirmed",
