@@ -36,6 +36,8 @@ export interface PrescriptionSource {
   superseded_at: string | null;
   created_at: string;
   amendment_reason: string | null;
+  /** High-entropy token behind the QR code; null only for a row that predates it. */
+  public_token: string | null;
 }
 
 export interface PrescriptionPatient {
@@ -81,6 +83,8 @@ export interface PrescriptionPdfData {
   instructions: string | null;
   rxNumber: string;
   verificationCode: string;
+  /** Carried by the QR code. Null means the document prints without one. */
+  publicToken: string | null;
   version: number;
   /** Set for an amendment: why the earlier version was replaced. */
   amendmentReason: string | null;
@@ -161,6 +165,7 @@ export function buildPrescriptionPdfData(input: {
       instructions: medication.instructions,
       rxNumber: medication.rx_number,
       verificationCode: medication.verification_code,
+      publicToken: medication.public_token,
       version: medication.version,
       amendmentReason: medication.version > 1 ? medication.amendment_reason : null,
       signedAt: medication.created_at,

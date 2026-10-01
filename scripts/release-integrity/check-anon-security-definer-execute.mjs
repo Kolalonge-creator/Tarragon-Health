@@ -64,6 +64,10 @@ const ALLOWLIST = new Set([
   // holds, and may do nothing else": a third party holding a printed report checks the
   // report-number + content-hash pair with no account and sees no figures.
   "public.verify_payer_board_report(p_report_number text, p_content_hash text)",
+  // *_prescription_public_verification_token.sql -- revokes from public then grants anon explicitly, and
+  // asserts it in a DO block: a pharmacy holding a printed prescription checks its 64-hex token with no
+  // account and sees proof only (status, drug, dose, repeats, prescriber), never a patient identifier.
+  "public.verify_prescription_public(p_token text)",
 ]);
 
 const QUERY = `

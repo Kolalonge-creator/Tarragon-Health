@@ -787,3 +787,5 @@ s05f_four_tables_staff_writes_dropped.sql
 s05f_review_tie_gate_definer_functions.sql
 # Prescription PDF phase 1: clinical_staff_directory.license_verified readable by a same-org patient (true / never verified false / expired false), no sensitive columns, anon refused, other org sees none; a patient's own download audit row insert works and a forged actor is refused; one sabotage.
 prescription_pdf_license_flag_and_download_audit.sql
+# Prescription PDF phase 2: public_token stamped (64 hex, distinct) for clinician prescriptions only; anon holder of the token gets proof with no patient column; unknown, malformed, upper-case, null, truncated and non-clinician tokens return nothing; status follows superseded/expired/cancelled; patient cannot rewrite the token; sabotage.
+prescription_public_verification.sql

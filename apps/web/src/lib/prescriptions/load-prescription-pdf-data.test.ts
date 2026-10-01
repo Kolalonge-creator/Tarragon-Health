@@ -29,6 +29,7 @@ function med(overrides: Record<string, unknown> = {}) {
     superseded_at: null,
     created_at: "2026-10-01T09:00:00Z",
     amendment_reason: null,
+    public_token: "c".repeat(64),
     added_by: PRESCRIBER,
     ...overrides,
   };

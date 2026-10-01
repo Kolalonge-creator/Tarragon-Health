@@ -26,7 +26,7 @@ import {
 type Client = SupabaseClient<Database>;
 
 export const PRESCRIPTION_SELECT =
-  "id, organisation_id, patient_id, source, is_active, drug_name, dose, frequency, route, quantity, duration_days, repeats_allowed, indication, instructions, rx_number, verification_code, expires_at, version, superseded_at, created_at, amendment_reason, added_by";
+  "id, organisation_id, patient_id, source, is_active, drug_name, dose, frequency, route, quantity, duration_days, repeats_allowed, indication, instructions, rx_number, verification_code, expires_at, version, superseded_at, created_at, amendment_reason, public_token, added_by";
 
 type MedicationRow = PrescriptionSource & { organisation_id: string; added_by: string | null };
 

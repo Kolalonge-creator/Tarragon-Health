@@ -237,6 +237,15 @@ Entry format:
 - **Not built yet**: phase 2 (no-login verification with a high-entropy public token and QR), phase 3 (dispensing record and repeat control), phase 4 (clinician reprint, stale-copy notice).
 - **Known**: the statement "TarragonHealth does not prescribe controlled medicines" describes practice, not an enforced rule; nothing in the database blocks a clinician prescribing one.
 
+## Prescription PDF, phase 2: no-login verification (2026-10-01)
+
+- **Why**: a pharmacy that receives a TarragonHealth prescription has no account, and the existing `verify_prescription(rx_number, code)` only answers a logged-in pharmacist (founder decision D2).
+- **Built**: migration `*_prescription_public_verification_token.sql` adds `medications.public_token` (64 hex, two random UUIDs, unique, stamped at insert by the lifecycle trigger, backfilled for the 2 live clinician prescriptions with user triggers disabled for that one UPDATE so no refill confirmation is stamped) and `public.verify_prescription_public(p_token)`, deliberately anon-executable and added to the release-integrity allowlist. It returns proof only (status, Rx number, drug, dose, frequency, quantity, duration, repeats allowed/used/remaining, validity, version, prescriber name and verified credential) and NO patient identifier. Unknown, malformed, upper-case, truncated, null and non-clinician tokens all return zero rows.
+- **Page**: `/verify-rx/[token]` (no login; bare anon client; `no-referrer` set in `proxy.ts`; never indexed or cached; rate limited 30 per minute per connection through the shared limiter, which is in-memory until Upstash is configured). Wording in `lib/prescriptions/public-verification.ts`: only "active" reads as good; superseded, expired and stopped all say do not dispense; the page states it does not show who the prescription was issued to and does not record dispensing.
+- **PDF**: the QR code beside the Rx number points at the page; a missing QR degrades the document, never fails the download. Spacing tightened so the worst case (amended, with a reason) still fits one page.
+- **Tests**: DB proof `prescription_public_verification.sql` (registered, sabotage); Jest for the presenter, token pattern, URL and QR text (46 in total in `lib/prescriptions`).
+- **Deploy order**: the migration MUST be applied before this ships: the PDF loader now selects `public_token`, so without the column every download fails.
+- **Not built**: phase 3 (dispensing record and repeat control), phase 4 (clinician reprint, stale-copy notice). A redirect is not offered for a superseded token (the page just says it was replaced).
 ## Admin: edit a doctor's registration number (2026-10-01)
 
 - **Why**: the clinical-staff admin page could only set a credential at creation; the prescription PDF refuses a doctor with no real number, and the two live doctors had none (`NULL` and `MDCN-PENDING-...`).
