@@ -9,6 +9,8 @@ type Client = SupabaseClient<Database>;
 
 export interface CdsView extends PrioritisedCds {
   medicationCount: number;
+  /** Set when the allergy list could not be read: the allergy cross-check did NOT run, so a quiet panel must not read as cleared. */
+  allergiesUnavailable: "denied" | "error" | null;
 }
 
 /**
@@ -92,5 +94,9 @@ export async function loadCdsView(supabase: Client, patientId: string): Promise<
 
   const prioritised = prioritiseCdsRecommendations(recommendations, decisions);
 
-  return { ...prioritised, medicationCount: medicationSafety.medicationCount };
+  return {
+    ...prioritised,
+    medicationCount: medicationSafety.medicationCount,
+    allergiesUnavailable: medicationSafety.allergiesUnavailable,
+  };
 }

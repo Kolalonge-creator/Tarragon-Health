@@ -763,3 +763,5 @@ s04_proxy_setup.sql
 s04_consent_is_optional.sql
 # S05 health record data model: idempotency keys, v5 views, triggers intact, prescriptions/referrals signature (INV-02), signed notes only (INV-11), audited chart reads and tied-patient gate (INV-10/12), closed direct staff reads; four sabotages.
 s05_health_record_data_model.sql
+# S05b allergies/conditions audited reads: extended chart sections, tied vs untied (denied, not empty), list-wide condition search (escaping, bounds, audit without the term, patient and anon refused); one sabotage.
+s05b_allergies_conditions_audited_reads.sql

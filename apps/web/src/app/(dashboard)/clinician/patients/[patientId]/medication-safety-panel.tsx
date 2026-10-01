@@ -42,7 +42,7 @@ const CKD_RISK_VARIANT: Record<string, "red" | "amber" | "grey" | "green"> = {
  */
 export async function MedicationSafetyPanel({ patientId }: { patientId: string }) {
   const supabase = await createClient();
-  const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount, allergies } =
+  const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount, allergies, allergiesUnavailable } =
     await loadMedicationSafety(supabase, patientId);
   const { pregnancyCheckNote } = report;
 
@@ -65,7 +65,13 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
         {/* Allergies next to the medicine count so a clean findings list below can never be misread as "no allergies". */}
         <div className="rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
           <p className="text-sm font-medium text-charcoal-ink">Recorded allergies</p>
-          {allergies.length === 0 ? (
+          {allergiesUnavailable ? (
+            <p className="mt-0.5 text-xs text-amber-700">
+              {allergiesUnavailable === "denied"
+                ? "The allergy list is not available to you for this patient (you are not on their care team). Do not treat this as no allergies. Ask the care team, or use emergency access if this is an emergency."
+                : "The allergy list could not be read just now. Do not treat this as no allergies. Try again."}
+            </p>
+          ) : allergies.length === 0 ? (
             <p className="mt-0.5 text-xs text-charcoal-ink/60">
               None on file; this means none has been recorded, not that the patient is confirmed
               allergy-free.

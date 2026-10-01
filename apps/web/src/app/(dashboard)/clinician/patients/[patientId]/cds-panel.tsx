@@ -13,7 +13,7 @@ import { CdsRecommendationCard } from "./cds-recommendation-card";
  */
 export async function CdsPanel({ patientId, organisationId }: { patientId: string; organisationId: string }) {
   const supabase = await createClient();
-  const { visible, settled, overflow } = await loadCdsView(supabase, patientId);
+  const { visible, settled, overflow, allergiesUnavailable } = await loadCdsView(supabase, patientId);
 
   return (
     <Card>
@@ -26,6 +26,12 @@ export async function CdsPanel({ patientId, organisationId }: { patientId: strin
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {allergiesUnavailable ? (
+          <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+            The allergy cross-check did not run because this patient&apos;s allergy list is not available to you. A quiet panel
+            here does not mean allergies were checked.
+          </p>
+        ) : null}
         {visible.length === 0 ? (
           <p className="text-sm text-charcoal-ink/60">
             Nothing in the curated rule set fired for this patient right now.

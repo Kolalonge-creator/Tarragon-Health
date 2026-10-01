@@ -44,6 +44,8 @@ export function AddMedicationForm({
   const [newTime, setNewTime] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  // The allergy list was not readable by this clinician, so the post-add allergy cross-check did not run (INV-10: unknown, not none).
+  const [allergyCheckSkipped, setAllergyCheckSkipped] = useState(false);
   // Patients can log a medication a specialist started (pathway Scenario 3),
   // attributing it to the specialist by name + optional consultation document.
   const [startedBySpecialist, setStartedBySpecialist] = useState(false);
@@ -124,7 +126,8 @@ export function AddMedicationForm({
           // own self-add, even one attributed to a specialist. Fire-and-forget:
           // never awaited, never blocks or affects the success state above.
           if (source === "clinician") {
-            void checkMedicationSafetyAfterAdd(patientId);
+            setAllergyCheckSkipped(false);
+            void checkMedicationSafetyAfterAdd(patientId).then((outcome) => setAllergyCheckSkipped(outcome.allergyCheckSkipped));
           }
         },
       }
@@ -506,6 +509,12 @@ export function AddMedicationForm({
           )}
           <FormError id={errorId} message={displayError} />
           <FormSuccess message={success && "Medication added."} />
+          {success && allergyCheckSkipped ? (
+            <p role="alert" className="text-sm text-amber-700">
+              The allergy cross-check did not run: this patient&apos;s allergy list is not available to you. Check allergies with the care
+              team before the patient takes this medicine.
+            </p>
+          ) : null}
           <Button type="submit" disabled={addMedication.isPending}>
             {source === "clinician"
               ? "Continue to review"

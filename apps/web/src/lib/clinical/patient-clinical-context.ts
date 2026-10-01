@@ -10,6 +10,7 @@ import {
   type SafetyReport,
 } from "@/lib/rules/drug-safety";
 import { analyseRecord, type TrendFinding } from "@/lib/rules/longitudinal";
+import { readAuditedSection } from "./audited-chart";
 import {
   medicationEffectivenessVitalType,
   computeMedicationEffectiveness,
@@ -155,6 +156,11 @@ export interface MedicationSafetyView {
   medicationCount: number;
   /** The patient's recorded allergies, for the UI to list independently of any finding firing. */
   allergies: AllergyInput[];
+  /**
+   * Set when the allergy list could not be read (not tied to this patient, or a read error). `allergies` is then empty and means
+   * "unknown", never "none": the panel must say so and the allergy cross-check did not run.
+   */
+  allergiesUnavailable: "denied" | "error" | null;
 }
 
 /**
@@ -168,17 +174,14 @@ export async function loadMedicationSafety(
 ): Promise<MedicationSafetyView> {
   const context = await loadPatientClinicalContext(supabase, patientId);
 
-  const [{ data: medications }, { data: allergyRows }, { data: pregnancy }] = await Promise.all([
+  const [{ data: medications }, allergyResult, { data: pregnancy }] = await Promise.all([
     supabase
       .from("medications")
       .select("id, drug_name, dose, prescriber_name, source")
       .eq("patient_id", patientId)
       .eq("is_active", true),
-    supabase
-      .from("patient_allergies")
-      .select("id, allergen, reaction, severity, source")
-      .eq("patient_id", patientId)
-      .order("allergen"),
+    // INV-10: staff read allergies through the audited chart function, not the table.
+    readAuditedSection(supabase, patientId, "allergies"),
     // The same `patient_pregnancy` row AddMedicationForm already reads
     // (clinician/patients/[patientId]/page.tsx) to drive the diabetes-ladder
     // pregnancy warnings — reused here rather than reproductive_health_profiles
@@ -199,13 +202,18 @@ export async function loadMedicationSafety(
     source: m.source,
   }));
 
-  const allergies: AllergyInput[] = (allergyRows ?? []).map((a) => ({
-    id: a.id,
-    allergen: a.allergen,
-    reaction: a.reaction,
-    severity: a.severity,
-    source: a.source,
-  }));
+  const allergyRows = allergyResult.status === "ok" ? allergyResult.rows : [];
+  const allergiesUnavailable = allergyResult.status === "ok" ? null : allergyResult.status;
+  const allergies: AllergyInput[] = allergyRows
+    .flatMap((a) => (a.id && a.substance ? [{ ...a, id: a.id, substance: a.substance }] : []))
+    .sort((a, b) => a.substance.localeCompare(b.substance))
+    .map((a) => ({
+      id: a.id,
+      allergen: a.substance,
+      reaction: a.reaction,
+      severity: a.severity,
+      source: a.source,
+    }));
 
   // Matches the existing `?? false` default everywhere else this table is
   // read (clinician/patients/[patientId]/page.tsx, patient/pregnancy-status.tsx)
@@ -218,7 +226,8 @@ export async function loadMedicationSafety(
   const report = assessMedicationSafety(inputs, {
     egfr: context.egfr?.egfr ?? null,
     egfrStale: context.egfr?.stale ?? false,
-    allergies,
+    // Unknown is not empty: when the list could not be read the engine is told it was never loaded, so it says so (allergyCheckNote).
+    allergies: allergiesUnavailable ? undefined : allergies,
     pregnant,
   });
 
@@ -230,6 +239,7 @@ export async function loadMedicationSafety(
     ckdRiskUnavailableReason: context.ckdRiskUnavailableReason,
     medicationCount: inputs.length,
     allergies,
+    allergiesUnavailable,
   };
 }
 
@@ -253,11 +263,13 @@ export async function assessMedicationSafetyBestEffort(
   supabase: SupabaseClient<Database>,
   patientId: string,
   organisationId: string,
-): Promise<void> {
+): Promise<{ allergyCheckSkipped: boolean }> {
   try {
-    const { report } = await loadMedicationSafety(supabase, patientId);
+    const { report, allergiesUnavailable } = await loadMedicationSafety(supabase, patientId);
+    // The allergy cross-check cannot run on a list that could not be read. Callers must show this: a quiet result here is not a clearance.
+    const outcome = { allergyCheckSkipped: allergiesUnavailable !== null };
     const contraindicated = report.findings.filter((f) => f.severity === "contraindicated");
-    if (contraindicated.length === 0) return;
+    if (contraindicated.length === 0) return outcome;
 
     const typeCode = contraindicated.some((f) => f.kind === "interaction")
       ? "potential_interaction"
@@ -276,10 +288,12 @@ export async function assessMedicationSafetyBestEffort(
       p_detail: detail,
       p_type_code: typeCode,
     });
+    return outcome;
   } catch {
     // Advisory-only follow-up — a failed alert must never surface as a
     // failure of the medication add itself. The safety panel still shows
     // the finding even when this best-effort alert couldn't be raised.
+    return { allergyCheckSkipped: false };
   }
 }
 
