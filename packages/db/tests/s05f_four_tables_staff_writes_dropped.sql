@@ -127,6 +127,20 @@ begin
   get diagnostics v_n = row_count;
   execute 'reset role';
   if v_n = 0 then raise exception 'SABOTAGE 2 FAIL: the old staff UPDATE policy did not let an untied clinician update, so the closed-write checks prove nothing'; end if;
+
+  -- 3. (follow-up migration) the four same-transaction own-entry SELECT policies are gone; the supporter-type ones stay; the patient
+  --    still reads her own rows through her main policy, including the row she just inserted
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename in ('patient_documents', 'family_history', 'patient_allergies', 'patient_conditions') and policyname like '%own_entry%') then
+    raise exception 'FAIL 3a: an own-entry policy remains on one of the four tables';
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'vitals_readings' and policyname = 'vitals_readings_select_own_entry') then
+    raise exception 'FAIL 3b: the supporter own-entry policy on vitals_readings was removed';
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  select count(*) into v_n from public.patient_allergies where id = v_allergy;
+  execute 'reset role';
+  if v_n <> 1 then raise exception 'FAIL 3c: the patient cannot read back her own allergy without the own-entry policy'; end if;
 end $$;
 
 rollback;
