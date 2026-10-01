@@ -78,7 +78,11 @@ begin
   insert into public.care_plans (organisation_id, patient_id, condition, status) values (v_org, v_pat, 'hypertension', 'active');
   insert into public.patient_bp_targets (organisation_id, patient_id, home_systolic, home_diastolic, office_systolic, office_diastolic)
   values (v_org, v_pat, 135, 85, 140, 90);
-  -- (the BP insert above already created an active monitoring schedule item through vitals_readings_set_monitoring_baseline)
+  -- the BP insert may already have created an active schedule item through vitals_readings_set_monitoring_baseline (live does, a fresh
+  -- replay may not), so create one only when it is missing
+  insert into public.monitoring_schedule_items (organisation_id, patient_id, vital_type, frequency_per_week)
+  select v_org, v_pat, 'blood_pressure', 7
+   where not exists (select 1 from public.monitoring_schedule_items where patient_id = v_pat and vital_type = 'blood_pressure' and status = 'active');
 
   -- 1. patient: all, filtered by type, since, paged, ascending; no audit row; another patient raises
   select count(*) into v_audits from public.audit_log where actor_id = v_pat;
