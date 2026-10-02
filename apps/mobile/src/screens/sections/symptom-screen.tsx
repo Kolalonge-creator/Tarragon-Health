@@ -333,7 +333,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
           <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Note (optional)</Text>
           <TextInput
             placeholder="Anything else worth telling your care team"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             value={description}
             onChangeText={setDescription}
             maxLength={500}

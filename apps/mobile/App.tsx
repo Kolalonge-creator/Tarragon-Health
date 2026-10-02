@@ -1,7 +1,11 @@
 import { flushOutbox } from "@/lib/outbox";
 import { clearLocalMirror } from "@/lib/offline-store";
 import { clearAllDrafts } from "@/lib/drafts";
+import { FONT_ASSETS, ThemeProvider } from "@/ui/design";
+import { ToastProvider } from "@/ui/kit";
 import { useEffect, useRef, useState } from "react";
+import { useFonts } from "expo-font";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ActivityIndicator, AppState, InteractionManager, Image, StatusBar, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -372,6 +376,16 @@ function AppContent() {
  */
 export default function App() {
   const [iconsReady, setIconsReady] = useState(false);
+  // Brand fonts (Sora, Inter). The same rule as the icon font above: never let a
+  // font that fails or stalls hold the app on the splash. On error or timeout the
+  // app carries on in the system font and every kit text still renders.
+  const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
+  const [fontsTimedOut, setFontsTimedOut] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setFontsTimedOut(true), STUCK_LOADING_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  const fontsReady = fontsLoaded || !!fontError || fontsTimedOut;
 
   useEffect(() => {
     let settled = false;
@@ -387,7 +401,7 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  if (!iconsReady) {
+  if (!iconsReady || !fontsReady) {
     return (
       <SafeAreaProvider>
         <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand }}>
@@ -399,8 +413,14 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <AppContent />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <AppContent />
+          </ToastProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

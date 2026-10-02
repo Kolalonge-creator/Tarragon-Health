@@ -159,7 +159,7 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
               }}
             />
           ) : (
-            <Text style={{ textAlign: "center", color: colors.faint, fontSize: 13 }}>
+            <Text style={{ textAlign: "center", color: colors.subtle, fontSize: 13 }}>
               You&apos;ve reached the beginning of your record.
             </Text>
           )}

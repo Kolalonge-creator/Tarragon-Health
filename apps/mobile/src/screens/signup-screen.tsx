@@ -330,7 +330,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
           <TextInput
             accessibilityLabel="First name"
             placeholder="First name"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             autoCapitalize="words"
             autoComplete="given-name"
             value={firstName}
@@ -340,7 +340,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
           <TextInput
             accessibilityLabel="Last name"
             placeholder="Last name"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             autoCapitalize="words"
             autoComplete="family-name"
             value={lastName}
@@ -353,7 +353,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
           <TextInput
             accessibilityLabel="Email"
             placeholder="Email"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
@@ -376,7 +376,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
             <TextInput
               accessibilityLabel="Phone number"
               placeholder="8012345678"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               keyboardType="phone-pad"
               autoComplete="tel-national"
               value={localPhone}
@@ -410,7 +410,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
             <TextInput
               accessibilityLabel="Password"
               placeholder="Password"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               secureTextEntry={!showPassword}
               autoComplete="new-password"
               value={password}

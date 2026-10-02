@@ -2207,6 +2207,7 @@ These apply to every module and are part of each module's definition of done.
 - Offline-first: every log, dose confirmation, questionnaire and symptom-check answer saves on the phone and syncs through a queue when connectivity returns. *(Nigeria-specific)*
 - Low-data mode: text first, compressed images, audio and video only on request, heavy downloads on Wi-Fi only. *(Nigeria-specific)*
 - Targets: installed app under 40 MB; cold start under 3 seconds on a 2 GB RAM Android phone; typical daily data use under 1 MB without media; Android 8 and above. *(Nigeria-specific)*
+  - **Superseded 2026-10-02 (decisions DG-1 to DG-6):** the minimum device is 4 GB RAM Android on Android 10 or later and iPhone on iOS 16 or later; the 40 MB, 3 second and 1 MB targets are no longer design constraints. Low-data habits (no auto-download of images or audio) and offline behaviour are unchanged.
 - Power-cut resilience: nothing is lost if the phone dies mid-entry. *(Nigeria-specific)*
 
 ## D.2 Language and accessibility

@@ -132,21 +132,21 @@ function LocationSection({
       <Card style={{ gap: 10 }}>
         <TextInput
           placeholder="State, e.g. Lagos"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={state}
           onChangeText={setState}
           style={inputStyle}
         />
         <TextInput
           placeholder="City, e.g. Ikeja"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={city}
           onChangeText={setCity}
           style={inputStyle}
         />
         <TextInput
           placeholder="Area (optional), e.g. Allen Avenue"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={area}
           onChangeText={setArea}
           style={inputStyle}
@@ -457,14 +457,14 @@ function EmergencyContactSection({
       <Card style={{ gap: 10 }}>
         <TextInput
           placeholder="Emergency contact name"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={name}
           onChangeText={setName}
           style={inputStyle}
         />
         <TextInput
           placeholder="Emergency contact phone, +2348012345678"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           keyboardType="phone-pad"
           value={phone}
           onChangeText={setPhone}
@@ -472,7 +472,7 @@ function EmergencyContactSection({
         />
         <TextInput
           placeholder="Relationship (optional), e.g. Spouse"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={relationship}
           onChangeText={setRelationship}
           style={inputStyle}
@@ -485,14 +485,14 @@ function EmergencyContactSection({
         <SectionDivider />
         <TextInput
           placeholder="Next of kin name (optional)"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={nokName}
           onChangeText={setNokName}
           style={inputStyle}
         />
         <TextInput
           placeholder="Next of kin phone (optional)"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           keyboardType="phone-pad"
           value={nokPhone}
           onChangeText={setNokPhone}
@@ -606,7 +606,7 @@ function ChangePasswordSection() {
       <Card style={{ gap: 10 }}>
         <TextInput
           placeholder="New password"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           secureTextEntry
           autoComplete="password-new"
           value={password}
@@ -615,7 +615,7 @@ function ChangePasswordSection() {
         />
         <TextInput
           placeholder="Confirm new password"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           secureTextEntry
           autoComplete="password-new"
           value={confirmPassword}
@@ -798,21 +798,21 @@ function DataPrivacySection({
           <View style={{ gap: 8 }}>
             <TextInput
               placeholder="Which record? e.g. my date of birth"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               value={recordDescription}
               onChangeText={setRecordDescription}
               style={inputStyle}
             />
             <TextInput
               placeholder="What's wrong with it?"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               value={whatIsWrong}
               onChangeText={setWhatIsWrong}
               style={inputStyle}
             />
             <TextInput
               placeholder="What should it say instead? (optional)"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               value={requestedChange}
               onChangeText={setRequestedChange}
               style={inputStyle}
@@ -855,7 +855,7 @@ function DataPrivacySection({
           <View style={{ gap: 8 }}>
             <TextInput
               placeholder="What would you like deleted, and why? (optional)"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               value={deletionReason}
               onChangeText={setDeletionReason}
               style={inputStyle}

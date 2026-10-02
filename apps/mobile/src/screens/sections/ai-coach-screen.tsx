@@ -258,7 +258,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
       <View style={{ flexDirection: "row", gap: 8, padding: spacing.screen, paddingTop: 8 }}>
         <TextInput
           placeholder="Type a message…"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={draft}
           onChangeText={setDraft}
           editable={!sending}

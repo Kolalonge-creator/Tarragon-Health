@@ -84,7 +84,7 @@ export function VerifyCodeStep({
       <TextInput
         accessibilityLabel={ta("auth.field.code", locale)}
         placeholder={ta("auth.field.code", locale)}
-        placeholderTextColor={colors.faint}
+        placeholderTextColor={colors.subtle}
         keyboardType="number-pad"
         // Lets the OS offer the code from the incoming SMS.
         textContentType="oneTimeCode"

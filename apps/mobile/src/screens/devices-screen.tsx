@@ -369,7 +369,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
                 multiline
                 numberOfLines={4}
                 placeholder="Describe the problem…"
-                placeholderTextColor={colors.faint}
+                placeholderTextColor={colors.subtle}
                 value={faultDescription}
                 onChangeText={setFaultDescription}
                 style={{

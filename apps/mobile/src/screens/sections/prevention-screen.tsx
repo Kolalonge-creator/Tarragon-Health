@@ -610,7 +610,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                         {trend.latestValue}
                         {trend.latestUnit ? ` ${trend.latestUnit}` : ""}
                       </Text>
-                      {deltaLabel ? <Text style={{ fontSize: 11.5, color: colors.faint }}>{deltaLabel}</Text> : null}
+                      {deltaLabel ? <Text style={{ fontSize: 11.5, color: colors.subtle }}>{deltaLabel}</Text> : null}
                     </View>
                   }
                 />
@@ -645,7 +645,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                 <MutedText>What date was this test actually done?</MutedText>
                 <TextInput
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.faint}
+                  placeholderTextColor={colors.subtle}
                   value={performedDateInput}
                   onChangeText={setPerformedDateInput}
                   style={{
@@ -660,7 +660,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                 />
                 <TextInput
                   placeholder="Note (optional): e.g. which lab"
-                  placeholderTextColor={colors.faint}
+                  placeholderTextColor={colors.subtle}
                   value={note}
                   onChangeText={setNote}
                   style={{
@@ -688,7 +688,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                 <MutedText>Let us know why (e.g. already had this elsewhere, not applicable to me).</MutedText>
                 <TextInput
                   placeholder="Reason"
-                  placeholderTextColor={colors.faint}
+                  placeholderTextColor={colors.subtle}
                   value={declineReason}
                   onChangeText={setDeclineReason}
                   multiline

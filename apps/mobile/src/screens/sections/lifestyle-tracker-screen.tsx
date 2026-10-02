@@ -208,7 +208,7 @@ export function LifestyleTrackerScreen<S>({ config }: { config: LifestyleTracker
               value={values[field.key] ?? ""}
               onChangeText={(text) => setValues((v) => ({ ...v, [field.key]: text }))}
               keyboardType={field.keyboard === "numeric" ? "decimal-pad" : "default"}
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               placeholder={field.hint}
               style={{
                 borderWidth: 1,

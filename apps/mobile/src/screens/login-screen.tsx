@@ -214,7 +214,7 @@ export function LoginScreen() {
               <TextInput
                 accessibilityLabel={ta("auth.field.phone", locale)}
                 placeholder={ta("auth.field.phone", locale)}
-                placeholderTextColor={colors.faint}
+                placeholderTextColor={colors.subtle}
                 keyboardType="phone-pad"
                 autoComplete="tel"
                 value={localPhone}
@@ -250,7 +250,7 @@ export function LoginScreen() {
         <TextInput
           accessibilityLabel="Email"
           placeholder="Email"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           autoCapitalize="none"
           keyboardType="email-address"
           value={email}
@@ -263,7 +263,7 @@ export function LoginScreen() {
           <TextInput
             accessibilityLabel="Password"
             placeholder="Password"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             secureTextEntry={!showPassword}
             value={password}
             onChangeText={setPassword}

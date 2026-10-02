@@ -149,30 +149,30 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
         <Card style={{ gap: 8 }}>
           <SectionLabel>Your visit summary</SectionLabel>
           <View>
-            <Text style={{ fontSize: 12, color: colors.faint }}>What we discussed</Text>
+            <Text style={{ fontSize: 12, color: colors.subtle }}>What we discussed</Text>
             <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.what_we_discussed}</Text>
           </View>
           {summary.what_you_need_to_do && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.faint }}>What you need to do</Text>
+              <Text style={{ fontSize: 12, color: colors.subtle }}>What you need to do</Text>
               <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.what_you_need_to_do}</Text>
             </View>
           )}
           {summary.medicines_note && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.faint }}>Medicines</Text>
+              <Text style={{ fontSize: 12, color: colors.subtle }}>Medicines</Text>
               <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.medicines_note}</Text>
             </View>
           )}
           {summary.tests_note && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.faint }}>Tests</Text>
+              <Text style={{ fontSize: 12, color: colors.subtle }}>Tests</Text>
               <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.tests_note}</Text>
             </View>
           )}
           {summary.next_appointment_note && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.faint }}>Next appointment</Text>
+              <Text style={{ fontSize: 12, color: colors.subtle }}>Next appointment</Text>
               <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.next_appointment_note}</Text>
             </View>
           )}
@@ -191,7 +191,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
               value={notes}
               onChangeText={setNotes}
               placeholder="Reason for the visit, symptoms, anything you want your doctor to know beforehand…"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               multiline
               numberOfLines={3}
               style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 14, color: colors.ink }}
@@ -216,7 +216,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
                   value={reportText}
                   onChangeText={setReportText}
                   placeholder="What's going wrong? (e.g. camera won't turn on, can't hear the doctor)"
-                  placeholderTextColor={colors.faint}
+                  placeholderTextColor={colors.subtle}
                   multiline
                   numberOfLines={2}
                   style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 14, color: colors.ink }}
