@@ -169,4 +169,22 @@ describe("recent blood pressure readings with unsent readings on the phone", () 
     await flushOutbox();
     expect((await loadRecentBpReadings("p1")).some((r) => r.pending)).toBe(false);
   });
+
+  it("does not label a rejected reading as waiting", async () => {
+    const { postVitalReading } = jest.requireMock("./api") as { postVitalReading: jest.Mock };
+    postVitalReading.mockResolvedValueOnce({ success: false, error: "Invalid", status: 400 });
+    await enqueue({ kind: "vital", subjectId: "p1", payload: BP });
+    await flushOutbox();
+    expect((await loadRecentBpReadings("p1")).some((r) => r.pending)).toBe(false);
+  });
+
+  it("does not show a reading twice when the server already has it but the row has not been removed yet", async () => {
+    const queued = await enqueue({ kind: "vital", subjectId: "p1", payload: BP });
+    mockTables.vitals_readings = [
+      { id: "srv1", systolic: 126, diastolic: 84, taken_at: new Date().toISOString(), vital_type: "blood_pressure", patient_id: "p1", client_reading_id: queued.clientId },
+    ];
+    const list = await loadRecentBpReadings("p1");
+    expect(list.filter((r) => r.systolic === 126)).toHaveLength(1);
+    expect(list[0].pending).toBeUndefined();
+  });
 });

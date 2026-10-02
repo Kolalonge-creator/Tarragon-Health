@@ -20,14 +20,14 @@ export interface BpReading {
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-type BpRow = { id: string; systolic: number | null; diastolic: number | null; taken_at: string };
+type BpRow = { id: string; systolic: number | null; diastolic: number | null; taken_at: string; client_reading_id?: string | null };
 
 export async function loadRecentBpReadings(patientId: string, limit = 10): Promise<BpReading[]> {
   let rows: BpRow[];
   try {
     const { data, error } = await supabase
       .from("vitals_readings")
-      .select("id, systolic, diastolic, taken_at")
+      .select("id, systolic, diastolic, taken_at, client_reading_id")
       .eq("patient_id", patientId)
       .eq("vital_type", "blood_pressure")
       .order("taken_at", { ascending: false })
@@ -54,8 +54,18 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
     }));
   // Readings logged on this phone and not yet sent (S06): shown at their logged
   // time, marked pending, so an offline reading does not look lost.
+  // Only rows still waiting: a rejected row is never retried, the banner reports
+  // it, and the list must not promise it will arrive. A row whose id is already on
+  // the server (flush in flight between insert and delete) is not shown twice.
+  const serverIds = new Set(rows.map((r) => r.client_reading_id).filter((id): id is string => !!id));
   const queued: BpReading[] = (await listOutbox("vital").catch(() => []))
-    .filter((q) => q.subjectId === patientId && (q.payload as VitalReadingPayload).vital_type === "blood_pressure")
+    .filter(
+      (q) =>
+        q.state === "pending" &&
+        !serverIds.has(q.clientId) &&
+        q.subjectId === patientId &&
+        (q.payload as VitalReadingPayload).vital_type === "blood_pressure"
+    )
     .map((q) => {
       const p = q.payload as Extract<VitalReadingPayload, { vital_type: "blood_pressure" }>;
       return {
