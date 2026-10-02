@@ -3,6 +3,17 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## Device floor decision, 2026-10-02
+
+Founder, in chat after S06 merged: build a fully functioning, superior platform even if it needs more powerful phones; 2 GB Android phones are dropped.
+
+| ID | Decision |
+|---|---|
+| DF-1 | **The minimum supported device is raised above a 2 GB Android phone.** This supersedes the 2 GB RAM, 40 MB install and 1 MB per day targets in spec D.1 as design constraints. Design for modern phones first (richer screens, charts, motion, more on-device data). |
+| DF-2 | **The exact floor is not yet set.** Proposed for confirmation: 4 GB RAM Android on Android 10 or later, and iPhone on iOS 16 or later. Until confirmed, nothing is removed that currently works on lower devices. |
+| DF-3 | **Unchanged by this decision:** offline logging, the outbox rules, emergency guidance working offline (INV-06), and the low-data habits (no auto-download of images or audio). They are safety and cost properties, not device-size properties. |
+| DF-4 | **Consequences to carry out:** update spec D.1 and the S06 performance budget (`apps/mobile/src/lib/offline-budget.ts`, `offline-budget.test.ts`) to the new floor once it is set; run the device lab on the new floor device; check app store minimum OS settings and `app.json` / `eas.json` (Android `minSdkVersion`, iOS deployment target). |
+
 ## S06 open-question decisions, 2026-10-02
 
 Answered in a prompt after S06 merged (PR #853). Full text in `docs/OPEN-QUESTIONS.md`.
