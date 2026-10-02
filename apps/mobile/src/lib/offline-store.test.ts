@@ -208,4 +208,21 @@ describe("purgeMirror", () => {
     const result = await pullChanges("p1");
     expect(result.pulled).toBe(1);
   });
+
+  it("never purges another account's rows or another subject's rows", async () => {
+    // a second account on the same phone, and a second subject for the first
+    mockTables.vitals_readings = [aged("u2-old", 80), aged("u2-new", 1)];
+    mockUser = "user-2";
+    await pullChanges("p1");
+    mockUser = "user-1";
+    mockTables.vitals_readings = [aged("p2-old", 80, "p2"), aged("p2-new", 1, "p2")];
+    await pullChanges("p2");
+    // user-1 / p1 gets a far newer row, so ITS old rows fall outside the window
+    mockTables.vitals_readings = [aged("p1-old", 80), { id: "p1-fresh", created_at: new Date(Date.now() + 40 * 86_400_000).toISOString(), patient_id: "p1" }];
+    await pullChanges("p1");
+    expect((await readLocalRecords<Row>("vital", "p1")).map((r) => r.id)).toEqual(["p1-fresh"]);
+    expect((await readLocalRecords<Row>("vital", "p2")).map((r) => r.id).sort()).toEqual(["p2-new", "p2-old"]);
+    mockUser = "user-2";
+    expect((await readLocalRecords<Row>("vital", "p1")).map((r) => r.id).sort()).toEqual(["u2-new", "u2-old"]);
+  });
 });
