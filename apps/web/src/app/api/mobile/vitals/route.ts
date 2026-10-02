@@ -165,7 +165,12 @@ export async function POST(request: Request): Promise<NextResponse> {
           ...reading,
           note: reading.note ?? null,
         };
-  row.taken_at = taken_at ? new Date(taken_at).toISOString() : new Date().toISOString();
+  // taken_at is always set to server time for a manual reading by
+  // private.stamp_manual_vitals_timestamp. The phone's own clock goes in
+  // client_recorded_at instead (S06); the trigger keeps it as the effective
+  // time only inside the bounded offline window, else falls back to server time.
+  row.taken_at = new Date().toISOString();
+  row.client_recorded_at = taken_at ? new Date(taken_at).toISOString() : null;
   row.client_reading_id = clientReadingId ?? null;
 
   const { error: insertError } = await supabase.from("vitals_readings").insert(row);

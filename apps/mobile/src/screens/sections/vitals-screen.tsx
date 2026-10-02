@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { BP_LEVEL_COLORS, BP_LEVEL_LABEL } from "@/lib/bp-classification";
 import { GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
@@ -12,7 +12,6 @@ import {
   type BpReading,
 } from "@/lib/vitals";
 import type { VitalReadingPayload } from "@/lib/api";
-import { getPendingCount } from "@/lib/offline-vitals-queue";
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import {
@@ -27,6 +26,8 @@ import {
   SectionLabel,
 } from "@/ui/components";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
+import { SyncBanner } from "@/screens/sync-banner";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
 
@@ -174,7 +175,6 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [symptomOpen, setSymptomOpen] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
@@ -183,19 +183,32 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setReadings(await loadRecentBpReadings(patientId));
   }, [patientId]);
 
-  const refreshPending = useCallback(async () => {
-    setPendingCount(await getPendingCount());
-  }, []);
+  const draftKey = `bp:${patientId}`;
+  const draftRestored = useRef(false);
+  useEffect(() => {
+    void loadDraft<{ sys: string; dia: string }>(draftKey).then((d) => {
+      if (d) {
+        setSys((cur) => cur || d.sys);
+        setDia((cur) => cur || d.dia);
+      }
+      draftRestored.current = true;
+    });
+  }, [draftKey]);
+  // Saved on every change, so a power cut or a killed app loses nothing typed.
+  useEffect(() => {
+    if (!draftRestored.current) return;
+    if (sys === "" && dia === "") void clearDraft(draftKey);
+    else void saveDraft(draftKey, { sys, dia });
+  }, [sys, dia, draftKey]);
 
   useEffect(() => {
     load()
       .catch(() => {})
       .finally(() => setLoading(false));
-    refreshPending().catch(() => {});
     loadCachedEmergencyFacts()
       .then((facts) => setEmergencyContact(facts?.emergencyContact ?? null))
       .catch(() => {});
-  }, [load, refreshPending, patientId]);
+  }, [load, patientId]);
 
   async function handleSave() {
     const systolic = parseStrictNumber(sys);
@@ -228,7 +241,6 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 
     const result = await logBpReading(systolic, diastolic, beneficiaryProfileId);
     setSaving(false);
-    await refreshPending();
     if (result.error) {
       setError(result.error);
       // Deliberately NOT clearing the emergency guidance here: a crisis-range
@@ -254,24 +266,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 
       <MonitoringCoverCard />
 
-      {pendingCount > 0 ? (
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 8,
-            backgroundColor: colors.groupBg,
-            borderRadius: radius.control,
-            paddingVertical: 8,
-            paddingHorizontal: 12,
-          }}
-        >
-          <ActivityIndicator size="small" color={colors.muted} />
-          <Text style={{ fontSize: 12.5, color: colors.muted }}>
-            {pendingCount} reading{pendingCount === 1 ? "" : "s"} saved on this device, waiting to sync.
-          </Text>
-        </View>
-      ) : null}
+      <SyncBanner />
 
       <Card style={{ gap: 10 }}>
         <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Log a blood pressure reading</Text>
@@ -340,8 +335,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       <OtherVitalCard
         beneficiaryProfileId={beneficiaryProfileId}
         onLogged={async () => {
-          await refreshPending();
-        }}
+              }}
         onEmergency={(detail, synced) => setGuidance({ detail, synced })}
       />
 

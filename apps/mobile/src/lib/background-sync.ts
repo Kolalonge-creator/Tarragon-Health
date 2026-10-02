@@ -6,7 +6,8 @@ import { configureIOSBackgroundDelivery, subscribeToIOSHealthChanges } from "./h
 import { syncAppleHealth, syncHealthConnect } from "./health-sync";
 import { flushDeviceReadingsQueue } from "./offline-queue";
 import { recordSyncError } from "./sync-diagnostics";
-import { flushPendingVitals } from "./offline-vitals-queue";
+import { flushOutbox } from "./outbox";
+import { refreshOfflineSyncConfig } from "./offline-sync-config";
 import { syncThresholdsIfOnline } from "./threshold-sync";
 
 /**
@@ -73,7 +74,8 @@ TaskManager.defineTask(TASK_NAME, async () => {
     // and are the "usually don't have to think about it" layer for the
     // Vitals screen's own opportunistic flush-on-save/flush-on-mount.
     try {
-      await flushPendingVitals();
+      await flushOutbox();
+      await refreshOfflineSyncConfig();
       await syncThresholdsIfOnline();
     } catch (error) {
       recordSyncError("offline_vitals", `${Platform.OS}:backgroundFlush`, error);

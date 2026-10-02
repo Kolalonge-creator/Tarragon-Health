@@ -15,6 +15,10 @@ import { classifyVitalOffline, computeSevenDayAverage, logBpReading, type BpRead
 import { syncThresholdsIfOnline } from "./threshold-sync";
 import { fetchVitalsThresholds } from "./api";
 
+jest.mock("./supabase", () => ({
+  supabase: { auth: { getSession: async () => ({ data: { session: { user: { id: "user-1" } } } }) } },
+}));
+
 jest.mock("./api", () => ({
   ...(jest.requireActual("./api") as object),
   postVitalReading: jest.fn(),

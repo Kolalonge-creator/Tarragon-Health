@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { asLocale, t } from "@tarragon/i18n";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
+import { useUiLanguage } from "@/lib/ui-language";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -72,6 +75,25 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedLabel, setSavedLabel] = useState<string | null>(null);
+  const locale = asLocale(useUiLanguage());
+  const draftKey = `symptom:${patientId}`;
+  const draftRestored = useRef(false);
+  useEffect(() => {
+    void loadDraft<{ symptomType: AdultSymptomType; severity: number; description: string }>(draftKey).then((d) => {
+      if (d) {
+        setSymptomType(d.symptomType);
+        setSeverity(d.severity);
+        setDescription((cur) => cur || d.description);
+      }
+      draftRestored.current = true;
+    });
+  }, [draftKey]);
+  // Saved on every change (power-cut resilience).
+  useEffect(() => {
+    if (!draftRestored.current) return;
+    if (description === "" && symptomType === "other" && severity === 5) void clearDraft(draftKey);
+    else void saveDraft(draftKey, { symptomType, severity, description });
+  }, [symptomType, severity, description, draftKey]);
 
   const [guidance, setGuidance] = useState<{ detail: string; synced: boolean } | null>(null);
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
@@ -139,8 +161,18 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
       setError(result.error);
       return;
     }
-    setSavedLabel("Symptom logged.");
+    setSavedLabel(
+      result.rejectedSupportCode
+        ? t("outbox.rejected", locale, { count: 1, code: result.rejectedSupportCode })
+        : result.synced === false
+          ? t("outbox.saved_on_phone", locale)
+          : "Symptom logged."
+    );
+    // Reset the whole form so the draft effect sees an empty form and clears the draft.
+    setSymptomType("other");
+    setSeverity(5);
     setDescription("");
+    void clearDraft(draftKey);
     await refreshHistory();
   }
 

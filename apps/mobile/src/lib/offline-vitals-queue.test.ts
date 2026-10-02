@@ -16,6 +16,10 @@ import {
   getPendingVitals,
 } from "./offline-vitals-queue";
 
+jest.mock("./supabase", () => ({
+  supabase: { auth: { getSession: async () => ({ data: { session: { user: { id: "user-1" } } } }) } },
+}));
+
 jest.mock("./api", () => ({
   ...(jest.requireActual("./api") as object),
   postVitalReading: jest.fn(),
@@ -27,9 +31,11 @@ const BP: VitalReadingPayload = { vital_type: "blood_pressure", systolic: 210, d
 const WEIGHT: VitalReadingPayload = { vital_type: "weight", weight_kg: 74 };
 
 /** Reads the columns the module writes but never exposes. */
-async function rawRows(): Promise<{ client_reading_id: string; attempts: number; last_error: string | null }[]> {
+async function rawRows(): Promise<
+  { client_id: string; attempts: number; last_error: string | null; state: string }[]
+> {
   const db = await openDatabaseAsync("tarragon-offline.db");
-  return db.getAllAsync("select client_reading_id, attempts, last_error from pending_vitals order by created_at asc");
+  return db.getAllAsync("select client_id, attempts, last_error, state from outbox order by created_at asc");
 }
 
 describe("enqueueVitalReading", () => {
@@ -73,8 +79,9 @@ describe("flushPendingVitals", () => {
     mockPost.mockResolvedValue({ success: true });
     await flushPendingVitals();
 
-    expect(mockPost).toHaveBeenNthCalledWith(1, BP, undefined, queued.clientReadingId);
-    expect(mockPost).toHaveBeenNthCalledWith(2, BP, undefined, queued.clientReadingId);
+    // Same key AND same device time on every replay: the time the patient logged it.
+    expect(mockPost).toHaveBeenNthCalledWith(1, BP, undefined, queued.clientReadingId, queued.createdAt);
+    expect(mockPost).toHaveBeenNthCalledWith(2, BP, undefined, queued.clientReadingId, queued.createdAt);
   });
 
   it("stops the whole run on a network failure and keeps everything queued", async () => {
@@ -93,7 +100,7 @@ describe("flushPendingVitals", () => {
     await enqueueVitalReading(BP);
     await enqueueVitalReading(WEIGHT);
     mockPost
-      .mockResolvedValueOnce({ success: false, error: "Invalid systolic value" })
+      .mockResolvedValueOnce({ success: false, error: "Invalid systolic value", status: 400 })
       .mockResolvedValueOnce({ success: true });
 
     await expect(flushPendingVitals()).resolves.toMatchObject({ synced: 1, stoppedOffline: false });
@@ -103,37 +110,23 @@ describe("flushPendingVitals", () => {
   });
 
   /**
-   * FINDING (confirmed defect, behaviour left unchanged deliberately).
-   *
-   * A reading the server will NEVER accept — a validation rejection, a
-   * revoked acting-for grant, a payload shape the route no longer supports —
-   * is retried forever. `attempts` is incremented on every flush and
-   * `last_error` is recorded, but nothing in the app ever reads either
-   * column (grep: they have no reader outside this file), and FlushResult
-   * has no field that distinguishes "permanently rejected" from "not tried
-   * yet". The only patient-visible consequence is that vitals-screen.tsx's
-   * pending badge never returns to zero, with no explanation and no way to
-   * clear it.
-   *
-   * Left as-is rather than "fixed" here because every candidate fix is a
-   * product decision this test cannot make: deleting after N attempts throws
-   * away a clinical reading; a terminal `failed` state needs a screen to
-   * surface it and an action for the patient to take. This test exists so
-   * that whoever makes that decision sees exactly what today's behaviour is.
+   * S06 fixed the old FINDING (a reading the server will never accept was
+   * retried forever, with no terminal state). A 4xx refusal now moves the row
+   * to a terminal `rejected` state: it is kept (never dropped), no longer
+   * retried automatically, and visible to the patient and support.
    */
-  it("FINDING: retries a permanently-rejected reading forever, with no terminal state", async () => {
+  it("moves a permanently-rejected reading to a terminal state and keeps it", async () => {
     await enqueueVitalReading(BP);
-    mockPost.mockResolvedValue({ success: false, error: "Request failed (400)" });
+    mockPost.mockResolvedValue({ success: false, error: "Request failed (400)", status: 400 });
 
-    for (let i = 0; i < 5; i++) {
-      const result = await flushPendingVitals();
-      // Nothing in the result ever changes to signal "this will never work".
-      expect(result).toEqual({ synced: 0, remaining: 1, stoppedOffline: false });
-    }
+    const first = await flushPendingVitals();
+    expect(first).toEqual({ synced: 0, remaining: 1, stoppedOffline: false });
+    for (let i = 0; i < 3; i++) await flushPendingVitals();
 
+    // Sent exactly once: a rejected row is not hammered.
+    expect(mockPost).toHaveBeenCalledTimes(1);
     const rows = await rawRows();
-    expect(rows[0].attempts).toBe(5);
-    expect(rows[0].last_error).toBe("Request failed (400)");
+    expect(rows[0]).toMatchObject({ state: "rejected", attempts: 1, last_error: "Request failed (400)" });
     expect(await getPendingCount()).toBe(1);
   });
 

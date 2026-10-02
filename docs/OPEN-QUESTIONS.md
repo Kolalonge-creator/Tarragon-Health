@@ -359,3 +359,23 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - INV-11 says the patient view shows signed notes only. Until now she saw only the published `consultation_patient_summaries`; she can now read the full finalized note (history, examination, assessment, plan). A Care Circle supporter reads prescriptions through the `medications` category, but no category is defined for notes or referrals, so they stay patient-only.
 - Options: (a) keep the full finalized note readable and have the app show the plain-language summary first (recommended); (b) revoke the policy and expose notes only as the summary; and for supporters, map notes and referrals to `appointments_care_plan`.
 - Decision (founder, 2026-10-01): patients see the published consultation summary only, not the clinical note. The finalized-note patient policy was dropped (migration `20261001065758_s05_patient_notes_summary_only.sql`). Supporters stay without a path to notes and referrals.
+
+### OQ-59 A replayed vitals reading skips the app-layer pattern assessors (raised by S06)
+- `POST /api/mobile/vitals` returns success on a duplicate `client_reading_id` (23505) without re-running `assessBpControlBestEffort`, `assessHeartRateBestEffort` or `assessGlucoseBestEffort`. The database red-flag triggers fire on the first insert, so an emergency is never missed or doubled. The gap is narrower: if the first request inserted the row and the phone never received the reply, and the server process died before the pattern assessors ran, the retry will not run them. Existing behaviour, not changed in S06 (it does not conflict with an invariant).
+- Options: (a) leave it, the pattern assessors also run on the next reading and in the nightly pass (recommended while volume is low); (b) on a duplicate, re-run the assessors idempotently; (c) move the assessors into an event handler off `observation.recorded` (S11 and S12 scope).
+- Decision: not yet asked.
+
+### OQ-60 Offline tuning values live in code, not in versioned configuration (raised by S06)
+- The clinical values (backdate window, stuck-notice hours, pull overlap) are versioned in `public.offline_sync_config`. Three engineering knobs are constants in `apps/mobile/src/lib/offline-budget.ts`: pull page size 200, at most 10 pages per run, first pull reads 90 days. They are performance tuning, not clinical, but the build rule says PROPOSED values live in configuration.
+- Options: (a) leave as constants and revisit after a device lab run (recommended: they change with measurements, and a wrong value cannot harm care); (b) add three columns to `offline_sync_config` now.
+- Decision: not yet asked.
+
+### OQ-61 Nigerian Pidgin outbox strings need native review (raised by S06)
+- The eight `outbox.*` strings in `packages/i18n/src/pcm.ts` (waiting, stuck, rejected, held, retry, remove, confirm, saved on phone) were written by the build session. They carry no clinical meaning, but "it has not reached your care team" is a promise about care, and OQ-19 requires native review before clinical Pidgin ships.
+- Options: (a) a native Pidgin reviewer signs the eight strings before the next store build (recommended); (b) ship English only for these until reviewed.
+- Decision: not yet asked.
+
+### OQ-62 A dose logged offline for a medicine amended or stopped before sync (raised by S06)
+- A dose log records what the patient did, so it is sent as logged even if the care team has since amended or stopped that prescription. The row keeps its device time (inside the bounded window) and its medication id. A log for a medication the patient has since deleted is refused by the foreign key and shows as "could not be saved" with a support code.
+- Options: (a) keep as built, the log is a fact about what happened (recommended); (b) have the server refuse a dose log for a superseded medication and show a plainer message.
+- Decision: not yet asked.

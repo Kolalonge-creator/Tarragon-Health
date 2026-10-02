@@ -21683,6 +21683,9 @@ export type Database = {
       medication_logs: {
         Row: {
           client_id: string | null
+          client_recorded_at: string | null
+          received_at: string | null
+          time_basis: string | null
           created_at: string
           id: string
           logged_at: string
@@ -21701,6 +21704,9 @@ export type Database = {
         }
         Insert: {
           client_id?: string | null
+          client_recorded_at?: string | null
+          received_at?: string | null
+          time_basis?: string | null
           created_at?: string
           id?: string
           logged_at?: string
@@ -21719,6 +21725,9 @@ export type Database = {
         }
         Update: {
           client_id?: string | null
+          client_recorded_at?: string | null
+          received_at?: string | null
+          time_basis?: string | null
           created_at?: string
           id?: string
           logged_at?: string
@@ -23351,6 +23360,42 @@ export type Database = {
             referencedColumns: ["key"]
           },
         ]
+      }
+      offline_sync_config: {
+        Row: {
+          backdate_window_hours: number
+          created_at: string
+          future_skew_minutes: number
+          is_active: boolean
+          note: string | null
+          pull_overlap_minutes: number
+          stuck_notice_danger_hours: number
+          stuck_notice_hours: number
+          version: number
+        }
+        Insert: {
+          backdate_window_hours: number
+          created_at?: string
+          future_skew_minutes: number
+          is_active?: boolean
+          note?: string | null
+          pull_overlap_minutes: number
+          stuck_notice_danger_hours: number
+          stuck_notice_hours: number
+          version: number
+        }
+        Update: {
+          backdate_window_hours?: number
+          created_at?: string
+          future_skew_minutes?: number
+          is_active?: boolean
+          note?: string | null
+          pull_overlap_minutes?: number
+          stuck_notice_danger_hours?: number
+          stuck_notice_hours?: number
+          version?: number
+        }
+        Relationships: []
       }
       notification_templates: {
         Row: {
@@ -37091,6 +37136,9 @@ export type Database = {
       symptoms: {
         Row: {
           client_id: string | null
+          client_recorded_at: string | null
+          received_at: string | null
+          time_basis: string | null
           created_at: string
           description: string | null
           id: string
@@ -37106,6 +37154,9 @@ export type Database = {
         }
         Insert: {
           client_id?: string | null
+          client_recorded_at?: string | null
+          received_at?: string | null
+          time_basis?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -37121,6 +37172,9 @@ export type Database = {
         }
         Update: {
           client_id?: string | null
+          client_recorded_at?: string | null
+          received_at?: string | null
+          time_basis?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -38433,6 +38487,9 @@ export type Database = {
           arm: string | null
           cgm_connection_id: string | null
           client_reading_id: string | null
+          client_recorded_at: string | null
+          received_at: string | null
+          time_basis: string | null
           created_at: string
           device_id: string | null
           diastolic: number | null
@@ -38471,6 +38528,9 @@ export type Database = {
           arm?: string | null
           cgm_connection_id?: string | null
           client_reading_id?: string | null
+          client_recorded_at?: string | null
+          received_at?: string | null
+          time_basis?: string | null
           created_at?: string
           device_id?: string | null
           diastolic?: number | null
@@ -38511,6 +38571,9 @@ export type Database = {
           arm?: string | null
           cgm_connection_id?: string | null
           client_reading_id?: string | null
+          client_recorded_at?: string | null
+          received_at?: string | null
+          time_basis?: string | null
           created_at?: string
           device_id?: string | null
           diastolic?: number | null
