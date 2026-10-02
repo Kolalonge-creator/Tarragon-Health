@@ -3,6 +3,19 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## Design decisions, 2026-10-02
+
+Answered in a prompt after the mobile design audit (`docs/design/MOBILE-DESIGN-AUDIT.md`). They settle DF-2 and set Phase 0 of the design plan.
+
+| ID | Decision |
+|---|---|
+| DG-1 | **Device floor confirmed (settles DF-2): 4 GB RAM Android on Android 10 or later, and iPhone on iOS 16 or later.** Android `minSdkVersion` becomes 29 (from 26); iOS deployment target 16. Spec D.1 and the S06 budget tests are updated to this floor when the change is built. |
+| DG-2 | **Dark mode ships in Phase 0**, built together with the light theme in the new kit, so every moved screen has both. |
+| DG-3 | **Brand fonts in the app: Sora for headlines, Inter for the interface**, bundled (about 1 MB). |
+| DG-4 | **One rounded 2 px outline icon set** replaces the mixed Ionicons, as brand guide section 7 says; screens change icons as they move onto the new kit. The specific set (for example Lucide) is chosen in Phase 0 and must be licence-checked. |
+| DG-5 | **Charts use Skia** (animated trend charts with target bands and tap to inspect). |
+| DG-6 | **One new native build and one runtime version bump (from `0.1.0-native3`) are approved for Phase 0**, carrying fonts, animation, gestures, haptics, charts and icons together. The build itself is not started without a further go-ahead. |
+
 ## Device floor decision, 2026-10-02
 
 Founder, in chat after S06 merged: build a fully functioning, superior platform even if it needs more powerful phones; 2 GB Android phones are dropped.
