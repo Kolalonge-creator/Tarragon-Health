@@ -3,6 +3,17 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## S06 open-question decisions, 2026-10-02
+
+Answered in a prompt after S06 merged (PR #853). Full text in `docs/OPEN-QUESTIONS.md`.
+
+| ID | Decision |
+|---|---|
+| OQ-59 | Leave the replayed-vitals gap; the next reading and nightly pass re-run the assessors. |
+| OQ-60 | Offline tuning constants stay in code until a device lab run. |
+| OQ-61 | Native Pidgin review of the eight `outbox.*` strings before the next store build. |
+| OQ-62 | A dose log is accepted as logged even if the medicine was since amended or stopped. |
+
 ## S06 decisions, 2026-10-02
 
 Answered in a prompt at the start of S06 (offline store and outbox sync). Reasoning is in `docs/design/S06.md`.
