@@ -64,7 +64,7 @@ function PasswordField({
       <TextInput
         accessibilityLabel={accessibilityLabel}
         placeholder={placeholder}
-        placeholderTextColor={colors.faint}
+        placeholderTextColor={colors.subtle}
         secureTextEntry={!visible}
         value={value}
         onChangeText={onChangeText}
@@ -244,7 +244,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
                   <TextInput
                     accessibilityLabel="Phone number"
                     placeholder="XXXXXXXXXX"
-                    placeholderTextColor={colors.faint}
+                    placeholderTextColor={colors.subtle}
                     keyboardType="phone-pad"
                     value={localPhone}
                     onChangeText={setLocalPhone}
@@ -260,7 +260,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
                 <TextInput
                   accessibilityLabel={ta("auth.field.code", locale)}
                   placeholder={ta("auth.field.code", locale)}
-                  placeholderTextColor={colors.faint}
+                  placeholderTextColor={colors.subtle}
                   keyboardType="number-pad"
                   textContentType="oneTimeCode"
                   autoComplete="sms-otp"
@@ -311,7 +311,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
             <TextInput
               accessibilityLabel="Email"
               placeholder="Email"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               autoCapitalize="none"
               keyboardType="email-address"
               value={email}

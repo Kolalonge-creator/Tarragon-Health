@@ -320,7 +320,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
               )}
             </View>
           </View>
-          <Text style={{ fontSize: 11.5, color: colors.faint }}>{FERTILE_WINDOW_DISCLAIMER}</Text>
+          <Text style={{ fontSize: 11.5, color: colors.subtle }}>{FERTILE_WINDOW_DISCLAIMER}</Text>
         </Card>
       )}
 
@@ -440,7 +440,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
         </Card>
       )}
 
-      <Text style={{ fontSize: 11.5, color: colors.faint }}>
+      <Text style={{ fontSize: 11.5, color: colors.subtle }}>
         Your cycle information is part of your health record. Your care team can see it; nobody
         else can. It plays no part in scoring your health risk.
       </Text>

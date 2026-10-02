@@ -541,7 +541,7 @@ function CareAccessLogCard({ events }: { events: CareAccessLogRow[] }) {
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}
         >
           <Text style={{ fontSize: 12.5, color: colors.ink, flex: 1 }}>{describeCareAccessEvent(row)}</Text>
-          <Text style={{ fontSize: 11, color: colors.faint, flexShrink: 0 }}>{shortDate(row.occurredAt)}</Text>
+          <Text style={{ fontSize: 11, color: colors.subtle, flexShrink: 0 }}>{shortDate(row.occurredAt)}</Text>
         </View>
       ))}
       {hasMore && (

@@ -276,7 +276,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         <View style={{ flexDirection: "row", gap: 10 }}>
           <TextInput
             placeholder="Systolic"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             keyboardType="number-pad"
             value={sys}
             onChangeText={setSys}
@@ -284,7 +284,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           />
           <TextInput
             placeholder="Diastolic"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             keyboardType="number-pad"
             value={dia}
             onChangeText={setDia}
@@ -300,7 +300,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         <Card style={{ gap: 4 }}>
           <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Your 7-day home BP average</Text>
           <Text style={{ fontSize: 24, fontWeight: "700", color: colors.ink }}>
-            {average.systolic}/{average.diastolic} <Text style={{ fontSize: 12, fontWeight: "400", color: colors.faint }}>mmHg</Text>
+            {average.systolic}/{average.diastolic} <Text style={{ fontSize: 12, fontWeight: "400", color: colors.subtle }}>mmHg</Text>
           </Text>
           <MutedText>Average of {average.readingCount} reading{average.readingCount === 1 ? "" : "s"} over the last 7 days.</MutedText>
         </Card>
@@ -502,7 +502,7 @@ function OtherVitalCard({
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
         <TextInput
           placeholder={`Value (${selected.unit})`}
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           keyboardType="decimal-pad"
           value={value}
           onChangeText={setValue}

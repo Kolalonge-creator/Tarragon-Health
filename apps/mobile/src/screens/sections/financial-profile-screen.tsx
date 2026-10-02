@@ -150,7 +150,7 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
             <Card key={v.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
               <Text style={{ fontSize: 13, color: colors.ink, flex: 1 }}>
                 {v.sku_name ?? (v.kind === "reward_discount" ? "Reward credit" : "Care voucher")}{" "}
-                <Text style={{ color: colors.faint }}>{v.voucher_number}</Text>
+                <Text style={{ color: colors.subtle }}>{v.voucher_number}</Text>
                 {"\n"}
                 <Text style={{ color: colors.muted, fontSize: 12 }}>
                   {naira(v.amount_paid_kobo)} of {naira(v.face_value_kobo)}

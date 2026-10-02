@@ -447,7 +447,7 @@ export function MealsScreen({ patientId }: { patientId: string }) {
             value={description}
             onChangeText={setDescription}
             placeholder="Like: jollof rice and chicken"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             style={{
               borderWidth: 1,
               borderColor: colors.border,

@@ -5,10 +5,10 @@
     "owner": "worldbest",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "scheme": "tarragonhealth",
     "icon": "./assets/icon.png",
-    "runtimeVersion": "0.1.0-native3",
+    "runtimeVersion": "0.1.0-native4",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -56,12 +56,16 @@
         "expo-build-properties",
         {
           "android": {
-            "minSdkVersion": 26
+            "minSdkVersion": 29
+          },
+          "ios": {
+            "deploymentTarget": "16.0"
           }
         }
       ],
       "react-native-health-connect",
-      "./plugins/withHealthConnectMainActivity.js"
+      "./plugins/withHealthConnectMainActivity.js",
+      "expo-font"
     ],
     "ios": {
       "bundleIdentifier": "com.tarragonhealth.mobile",

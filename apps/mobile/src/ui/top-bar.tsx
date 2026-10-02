@@ -172,7 +172,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
               const body = (
                 <>
                   <Text style={{ fontSize: 12.5, color: colors.ink }}>{text}</Text>
-                  <Text style={{ fontSize: 10.5, color: colors.faint, marginTop: 2 }}>{relativeTime(n.createdAt)}</Text>
+                  <Text style={{ fontSize: 10.5, color: colors.subtle, marginTop: 2 }}>{relativeTime(n.createdAt)}</Text>
                 </>
               );
               const itemStyle = {

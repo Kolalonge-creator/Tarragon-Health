@@ -4,8 +4,10 @@
  * the targets the budget tests in offline-budget.test.ts hold the code to on
  * the Jest SQLite stand-in.
  *
- * NOT MEASURED ON A DEVICE: cold start under 3 s, installed size under 40 MB
- * and real memory on a 2 GB Android phone have no device here. Those three
+ * NOT MEASURED ON A DEVICE: cold start, installed size and real memory have no
+ * device here. (Decision DG-1, 2026-10-02: the floor is now a 4 GB Android 10+
+ * or iOS 16+ phone, not the 2 GB phone the original targets named; the stand-in
+ * budgets below are still a useful order-of-magnitude guard.) Those three
  * stay open until a device lab run; nothing in this file or its tests claims
  * them as met.
  */

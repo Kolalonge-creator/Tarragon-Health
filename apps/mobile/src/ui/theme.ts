@@ -19,6 +19,8 @@ export const colors = {
   ink: "#1C1917",
   muted: "#57534E",
   faint: "#A8A29E",
+  /** Tertiary TEXT and placeholders that must stay readable: 4.9 to 1 or better on card, background and grouped fills. `faint` is for decorative marks only (icons, dividers); it is 2.1 to 2.5 to 1 and fails AA as text. */
+  subtle: "#6B6560",
   border: "#E7E5E4",
   background: "#FAFAFA",
   card: "#FFFFFF",

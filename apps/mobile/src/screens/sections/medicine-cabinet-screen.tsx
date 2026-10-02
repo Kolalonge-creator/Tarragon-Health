@@ -391,7 +391,7 @@ function MedicationCard({
         <View style={{ gap: 8, marginTop: 6, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
           <View>
             <MutedText>Date collected (YYYY-MM-DD)</MutedText>
-            <TextInput value={collectedOn} onChangeText={setCollectedOn} style={inputStyle} placeholder="YYYY-MM-DD" placeholderTextColor={colors.faint} />
+            <TextInput value={collectedOn} onChangeText={setCollectedOn} style={inputStyle} placeholder="YYYY-MM-DD" placeholderTextColor={colors.subtle} />
           </View>
           <View>
             <MutedText>Pharmacy (optional)</MutedText>
@@ -400,7 +400,7 @@ function MedicationCard({
               onChangeText={setPharmacyName}
               style={inputStyle}
               placeholder="e.g. HealthPlus"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
             />
           </View>
           {collectError ? <ErrorText>{collectError}</ErrorText> : null}
@@ -518,12 +518,12 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
         <Card style={{ gap: 10 }}>
           <View>
             <MutedText>Drug name</MutedText>
-            <TextInput value={drugName} onChangeText={setDrugName} style={inputStyle} placeholderTextColor={colors.faint} />
+            <TextInput value={drugName} onChangeText={setDrugName} style={inputStyle} placeholderTextColor={colors.subtle} />
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
               <MutedText>Dose</MutedText>
-              <TextInput value={dose} onChangeText={setDose} style={inputStyle} placeholder="e.g. 10mg" placeholderTextColor={colors.faint} />
+              <TextInput value={dose} onChangeText={setDose} style={inputStyle} placeholder="e.g. 10mg" placeholderTextColor={colors.subtle} />
             </View>
             <View style={{ flex: 1 }}>
               <MutedText>Frequency</MutedText>
@@ -532,7 +532,7 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
                 onChangeText={setFrequency}
                 style={inputStyle}
                 placeholder="e.g. Twice daily"
-                placeholderTextColor={colors.faint}
+                placeholderTextColor={colors.subtle}
               />
             </View>
           </View>
@@ -543,7 +543,7 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
               onChangeText={setRefillDate}
               style={inputStyle}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
             />
           </View>
           <View style={{ gap: 6 }}>
@@ -559,7 +559,7 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
                 onChangeText={setNewTime}
                 style={[inputStyle, { flex: 1 }]}
                 placeholder="HH:MM"
-                placeholderTextColor={colors.faint}
+                placeholderTextColor={colors.subtle}
               />
               <SmallGhostButton
                 title="Add"
@@ -609,7 +609,7 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
                 onChangeText={setPrescriberName}
                 style={inputStyle}
                 placeholder="e.g. Dr. Adeyemi (Cardiologist)"
-                placeholderTextColor={colors.faint}
+                placeholderTextColor={colors.subtle}
               />
             </View>
           ) : null}
@@ -658,7 +658,7 @@ function CheckinCard({ checkin, onAnswered }: { checkin: AdherenceCheckinItem; o
           onChangeText={setAnswer}
           style={[inputStyle, { flex: 1 }]}
           placeholder="Your answer"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
         />
         <SmallGhostButton title={pending ? "Sending…" : "Send"} onPress={send} disabled={pending || !answer.trim()} />
       </View>
@@ -805,11 +805,11 @@ function CheckMyPackSection({ medications }: { medications: MedicationCabinetIte
         </View>
         <View>
           <MutedText>Drug name on pack</MutedText>
-          <TextInput value={packDrugName} onChangeText={setPackDrugName} style={inputStyle} placeholderTextColor={colors.faint} />
+          <TextInput value={packDrugName} onChangeText={setPackDrugName} style={inputStyle} placeholderTextColor={colors.subtle} />
         </View>
         <View>
           <MutedText>Strength on pack (optional, e.g. 10mg)</MutedText>
-          <TextInput value={packStrength} onChangeText={setPackStrength} style={inputStyle} placeholderTextColor={colors.faint} />
+          <TextInput value={packStrength} onChangeText={setPackStrength} style={inputStyle} placeholderTextColor={colors.subtle} />
         </View>
         {error ? <ErrorText>{error}</ErrorText> : null}
         <PrimaryButton title="Check this pack" onPress={check} />
@@ -830,7 +830,7 @@ function CheckMyPackSection({ medications }: { medications: MedicationCabinetIte
             <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10, gap: 4 }}>
               <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>Is it genuine? We cannot tell you that. NAFDAC can.</Text>
               <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 17 }}>{NAFDAC_MAS.howTo}</Text>
-              <Text style={{ fontSize: 11.5, color: colors.faint, lineHeight: 16 }}>{NAFDAC_MAS.caveat}</Text>
+              <Text style={{ fontSize: 11.5, color: colors.subtle, lineHeight: 16 }}>{NAFDAC_MAS.caveat}</Text>
             </View>
           </View>
         ) : null}

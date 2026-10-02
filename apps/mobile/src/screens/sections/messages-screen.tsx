@@ -160,7 +160,7 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
       <View style={{ flexDirection: "row", gap: 8, padding: spacing.screen, paddingTop: 8 }}>
         <TextInput
           placeholder="Message your care team…"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={draft}
           onChangeText={setDraft}
           style={{

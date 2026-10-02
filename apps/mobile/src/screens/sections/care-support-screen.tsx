@@ -350,7 +350,7 @@ function TaskRow({ task, onChanged }: { task: CareTask; onChanged: () => void })
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <Text style={{ flex: 1, fontSize: 14, fontWeight: "500", color: colors.ink }}>{task.title}</Text>
         {task.status === "missed" ? <Badge tone="neutral">Overdue</Badge> : null}
-        {due ? <Text style={{ fontSize: 11, color: colors.faint }}>Due {due}</Text> : null}
+        {due ? <Text style={{ fontSize: 11, color: colors.subtle }}>Due {due}</Text> : null}
       </View>
       {task.description ? <MutedText>{task.description}</MutedText> : null}
       {!showUnable ? (
@@ -363,7 +363,7 @@ function TaskRow({ task, onChanged }: { task: CareTask; onChanged: () => void })
           <TextInput
             style={textInputStyle}
             placeholder="What's stopping you? (optional)"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             value={reason}
             onChangeText={setReason}
           />
@@ -408,12 +408,12 @@ function EscalationsSection({ patientId }: { patientId: string }) {
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
               <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>{escalation.reason}</Text>
-              <Text style={{ fontSize: 11, color: colors.faint }}>{formatCareDate(escalation.createdAt)}</Text>
+              <Text style={{ fontSize: 11, color: colors.subtle }}>{formatCareDate(escalation.createdAt)}</Text>
             </View>
             <MutedText>{ESCALATION_STATUS_COPY[escalation.status]}</MutedText>
             {(() => {
               const next = whatHappensNext(escalation.status, escalation.slaDueAt);
-              return next ? <Text style={{ fontSize: 12, color: colors.faint }}>{next}</Text> : null;
+              return next ? <Text style={{ fontSize: 12, color: colors.subtle }}>{next}</Text> : null;
             })()}
           </View>
         ))}
@@ -454,7 +454,7 @@ function ReferralsSection({ patientId }: { patientId: string }) {
               <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>
                 {humanizeCareLabel(referral.specialistType)}
               </Text>
-              <Text style={{ fontSize: 11, color: colors.faint }}>{formatCareDate(referral.createdAt)}</Text>
+              <Text style={{ fontSize: 11, color: colors.subtle }}>{formatCareDate(referral.createdAt)}</Text>
             </View>
             <MutedText>{REFERRAL_STATUS_COPY[referral.status]}</MutedText>
             {referral.appointmentDate ? (
@@ -465,7 +465,7 @@ function ReferralsSection({ patientId }: { patientId: string }) {
             {referral.status === "closed" && referral.carePlanUpdateNote ? (
               <Text style={{ fontSize: 12, color: colors.ink }}>What changed: {referral.carePlanUpdateNote}</Text>
             ) : (
-              <Text style={{ fontSize: 11.5, color: colors.faint, lineHeight: 16 }}>
+              <Text style={{ fontSize: 11.5, color: colors.subtle, lineHeight: 16 }}>
                 Take this to any {referral.specialistType.replace(/_/g, " ")} you like — you pay that clinic
                 directly. Download your referral letter and upload what they give you back on web.
               </Text>
@@ -595,7 +595,7 @@ function HospitalAdmissionForm({
         <TextInput
           style={dateInputStyle}
           placeholder={todayDateInput()}
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={admittedOn}
           onChangeText={setAdmittedOn}
           keyboardType="numbers-and-punctuation"
@@ -607,7 +607,7 @@ function HospitalAdmissionForm({
         <TextInput
           style={dateInputStyle}
           placeholder="Leave blank if still admitted"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={dischargedOn}
           onChangeText={setDischargedOn}
           keyboardType="numbers-and-punctuation"
@@ -618,7 +618,7 @@ function HospitalAdmissionForm({
         <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Hospital (optional)</Text>
         <TextInput
           style={textInputStyle}
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={facilityName}
           onChangeText={setFacilityName}
           maxLength={200}
@@ -630,7 +630,7 @@ function HospitalAdmissionForm({
         </Text>
         <TextInput
           style={textInputStyle}
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={diagnosis}
           onChangeText={setDiagnosis}
           maxLength={500}
@@ -692,7 +692,7 @@ function AdmissionRow({
             {admission.is_current ? "Currently admitted" : "Discharged"}
           </Badge>
         </View>
-        <Text style={{ fontSize: 11, color: colors.faint }}>{admissionDurationLabel(admission)}</Text>
+        <Text style={{ fontSize: 11, color: colors.subtle }}>{admissionDurationLabel(admission)}</Text>
       </View>
       <MutedText>
         Admitted {formatCareDate(admission.admitted_on)}
@@ -713,7 +713,7 @@ function AdmissionRow({
           <TextInput
             style={dateInputStyle}
             placeholder="Discharge date (YYYY-MM-DD)"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             value={dischargedOn}
             onChangeText={setDischargedOn}
             keyboardType="numbers-and-punctuation"
@@ -722,7 +722,7 @@ function AdmissionRow({
           <TextInput
             style={textInputStyle}
             placeholder="Discharge notes (optional)"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             value={summary}
             onChangeText={setSummary}
             multiline
@@ -1099,7 +1099,7 @@ function VouchersSection({ patientId }: { patientId: string }) {
             value={redeemInput}
             onChangeText={setRedeemInput}
             placeholder="Enter a referral code"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             style={[textInputStyle, { flex: 1 }]}
           />
           <SecondaryButton title="Apply" disabled={!redeemInput} loading={applyingCode} onPress={() => void handleApplyCode()} />
@@ -1149,7 +1149,7 @@ function TestimonialSection() {
               value={displayName}
               onChangeText={setDisplayName}
               placeholder="e.g. Amina O."
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               maxLength={80}
               style={textInputStyle}
             />
@@ -1160,7 +1160,7 @@ function TestimonialSection() {
               value={quote}
               onChangeText={setQuote}
               placeholder="What made a difference for you?"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               maxLength={500}
               multiline
               numberOfLines={3}

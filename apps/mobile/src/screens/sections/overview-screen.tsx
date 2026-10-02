@@ -464,7 +464,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
                 key={`${item.type}:${item.title}:${item.dueDate}`}
                 title={item.title}
                 subtitle={`${item.type.charAt(0).toUpperCase()}${item.type.slice(1)}`}
-                trailing={<Text style={{ fontSize: 12, color: colors.faint }}>{daysLabel(item.dueDate)}</Text>}
+                trailing={<Text style={{ fontSize: 12, color: colors.subtle }}>{daysLabel(item.dueDate)}</Text>}
               />
             ))}
           </GroupedList>
@@ -566,7 +566,7 @@ function StatTile({
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: typeScale.caption, color: colors.muted }}>{label}</Text>
           <Text style={{ fontSize: typeScale.stat, fontWeight: "600", color: colors.ink }}>
-            {value} {unit ? <Text style={{ fontSize: typeScale.caption, fontWeight: "400", color: colors.faint }}>{unit}</Text> : null}
+            {value} {unit ? <Text style={{ fontSize: typeScale.caption, fontWeight: "400", color: colors.subtle }}>{unit}</Text> : null}
           </Text>
         </View>
       </Card>

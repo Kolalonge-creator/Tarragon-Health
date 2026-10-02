@@ -146,7 +146,7 @@ function VoucherRow({ voucher, trailing }: { voucher: SupportedPersonVoucher; tr
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
       <Text style={{ fontSize: 13, color: colors.muted, flex: 1 }} numberOfLines={1}>
         {voucher.label}
-        <Text style={{ color: colors.faint }}> · {voucher.voucherNumber}</Text>
+        <Text style={{ color: colors.subtle }}> · {voucher.voucherNumber}</Text>
       </Text>
       {trailing}
     </View>
@@ -265,7 +265,7 @@ function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
               trailing={
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.ink }}>{naira(v.faceValueKobo)}</Text>
-                  {v.redeemedAt && <Text style={{ fontSize: 10.5, color: colors.faint }}>{shortDate(v.redeemedAt)}</Text>}
+                  {v.redeemedAt && <Text style={{ fontSize: 10.5, color: colors.subtle }}>{shortDate(v.redeemedAt)}</Text>}
                 </View>
               }
             />

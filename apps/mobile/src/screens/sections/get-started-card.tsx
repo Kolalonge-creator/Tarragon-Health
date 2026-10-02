@@ -212,7 +212,7 @@ export function GetStartedCard({
         </View>
       ))}
 
-      <Text style={{ fontSize: typeScale.caption, lineHeight: 17, color: colors.faint }}>
+      <Text style={{ fontSize: typeScale.caption, lineHeight: 17, color: colors.subtle }}>
         {copy.footer}
       </Text>
     </View>

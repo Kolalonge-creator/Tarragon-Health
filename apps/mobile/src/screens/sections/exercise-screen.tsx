@@ -181,7 +181,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
             ))}
             <TextInput
               placeholder="Anything else your care team should know? (optional)"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               value={answers.other_concern}
               onChangeText={(v) => setAnswers((a) => ({ ...a, other_concern: v }))}
               maxLength={300}

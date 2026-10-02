@@ -69,7 +69,7 @@ function PharmacyOrderCard({ order, onChanged }: { order: PharmacyOrderListItem;
     <Card style={{ gap: 6 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <StatusPill status={order.status} />
-        {order.orderNumber ? <Text style={{ fontSize: 11, color: colors.faint }}>{order.orderNumber}</Text> : null}
+        {order.orderNumber ? <Text style={{ fontSize: 11, color: colors.subtle }}>{order.orderNumber}</Text> : null}
       </View>
       <Text style={{ fontSize: 14.5, fontWeight: "600", color: colors.ink }}>
         {pharmacyOrderItemsSummary(order.items) || "Pharmacy order"}

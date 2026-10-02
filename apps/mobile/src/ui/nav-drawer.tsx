@@ -184,12 +184,12 @@ export function NavDrawer({
               </View>
               <View>
                 <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>{patientName}</Text>
-                <Text style={{ fontSize: 11, color: colors.faint }}>
+                <Text style={{ fontSize: 11, color: colors.subtle }}>
                   Patient{patientNumber ? ` · ${patientNumber}` : ""}
                 </Text>
               </View>
             </View>
-            <Text style={{ fontSize: 10.5, color: colors.faint }}>
+            <Text style={{ fontSize: 10.5, color: colors.subtle }}>
               Version {Constants.expoConfig?.version ?? "—"}
             </Text>
             <Pressable
