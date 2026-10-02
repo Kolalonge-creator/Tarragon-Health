@@ -16,6 +16,8 @@ export const OFFLINE_BUDGET = {
   maxPagesPerPull: 10,
   /** First pull on a new phone reads this much history only, not everything. */
   initialPullDays: 90,
+  /** Mirror rows older than this, measured back from the newest mirrored row, are purged. */
+  mirrorRetentionDays: 90,
   /** Stand-in budgets (milliseconds / bytes) for the jest tests. */
   enqueueMsMax: 50,
   pullUpsertMsPer1000Rows: 1500,
