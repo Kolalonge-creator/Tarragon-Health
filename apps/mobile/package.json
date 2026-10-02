@@ -31,7 +31,7 @@
     "@tarragon/i18n": "workspace:*",
     "@tarragon/shared": "workspace:*",
     "expo": "~54.0.36",
-    "expo-background-task": "~1.0.10",
+    "expo-background-task": "~58.0.7",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.9",
     "expo-dev-client": "~6.0.21",
