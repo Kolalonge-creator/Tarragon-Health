@@ -6,6 +6,7 @@ import { classifyGlucoseOffline, type GlucoseFlag } from "./glucose-red-flags";
 import { enqueueVitalReading, flushPendingVitals, getPendingVitals } from "./offline-vitals-queue";
 import { loadActiveThresholds } from "./threshold-sync";
 import { pullChangesThrottled, readLocalRecords } from "./offline-store";
+import { listOutbox } from "./outbox";
 
 export interface BpReading {
   id: string;
@@ -13,18 +14,20 @@ export interface BpReading {
   diastolic: number;
   takenAt: string;
   level: BpLevel;
+  /** True for a reading saved on this phone that has not reached the server yet. */
+  pending?: boolean;
 }
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-type BpRow = { id: string; systolic: number | null; diastolic: number | null; taken_at: string };
+type BpRow = { id: string; systolic: number | null; diastolic: number | null; taken_at: string; client_reading_id?: string | null };
 
 export async function loadRecentBpReadings(patientId: string, limit = 10): Promise<BpReading[]> {
   let rows: BpRow[];
   try {
     const { data, error } = await supabase
       .from("vitals_readings")
-      .select("id, systolic, diastolic, taken_at")
+      .select("id, systolic, diastolic, taken_at, client_reading_id")
       .eq("patient_id", patientId)
       .eq("vital_type", "blood_pressure")
       .order("taken_at", { ascending: false })
@@ -40,7 +43,7 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
       .sort((a, b) => b.taken_at.localeCompare(a.taken_at))
       .slice(0, limit);
   }
-  return rows
+  const synced: BpReading[] = rows
     .filter((r): r is BpRow & { systolic: number; diastolic: number } => r.systolic !== null && r.diastolic !== null)
     .map((r) => ({
       id: r.id,
@@ -49,6 +52,34 @@ export async function loadRecentBpReadings(patientId: string, limit = 10): Promi
       takenAt: r.taken_at,
       level: classifyBpLevel(r.systolic, r.diastolic),
     }));
+  // Readings logged on this phone and not yet sent (S06): shown at their logged
+  // time, marked pending, so an offline reading does not look lost.
+  // Only rows still waiting: a rejected row is never retried, the banner reports
+  // it, and the list must not promise it will arrive. A row whose id is already on
+  // the server (flush in flight between insert and delete) is not shown twice.
+  const serverIds = new Set(rows.map((r) => r.client_reading_id).filter((id): id is string => !!id));
+  const queued: BpReading[] = (await listOutbox("vital").catch(() => []))
+    .filter(
+      (q) =>
+        q.state === "pending" &&
+        !serverIds.has(q.clientId) &&
+        q.subjectId === patientId &&
+        (q.payload as VitalReadingPayload).vital_type === "blood_pressure"
+    )
+    .map((q) => {
+      const p = q.payload as Extract<VitalReadingPayload, { vital_type: "blood_pressure" }>;
+      return {
+        id: q.clientId,
+        systolic: p.systolic,
+        diastolic: p.diastolic,
+        takenAt: q.clientRecordedAt,
+        level: classifyBpLevel(p.systolic, p.diastolic),
+        pending: true,
+      };
+    });
+  return [...queued, ...synced]
+    .sort((a, b) => b.takenAt.localeCompare(a.takenAt))
+    .slice(0, limit);
 }
 
 export interface SevenDayAverage {

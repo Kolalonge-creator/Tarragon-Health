@@ -83,9 +83,9 @@ TaskManager.defineTask(TASK_NAME, async () => {
 
     const result =
       Platform.OS === "ios"
-        ? await syncAppleHealth()
+        ? await syncAppleHealth({ promptForPermission: false })
         : Platform.OS === "android"
-          ? await syncHealthConnect()
+          ? await syncHealthConnect({ promptForPermission: false })
           : null;
 
     // A HealthSyncResult of "error", or a device-readings flush that made no
@@ -150,7 +150,7 @@ export async function registerBackgroundHealthSync(): Promise<void> {
       await configureIOSBackgroundDelivery();
       iosChangeSubscriptionRemove?.();
       iosChangeSubscriptionRemove = subscribeToIOSHealthChanges(() => {
-        syncAppleHealth();
+        void syncAppleHealth({ promptForPermission: false });
       });
     } catch {
       iosChangeSubscriptionRemove = null;
