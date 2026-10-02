@@ -13,6 +13,9 @@ Implements decisions DG-1 to DG-6 (`docs/DECISIONS.md`) from `docs/design/MOBILE
 - **Native packages added** (all Expo SDK 54 compatible): `react-native-reanimated` 4.1, `react-native-worklets`, `react-native-gesture-handler`, `react-native-svg`, `@shopify/react-native-skia`, `expo-haptics`, `expo-font`, `lucide-react-native` (ISC), `@expo-google-fonts/sora` and `inter`. Gesture handler is imported first in `index.js` and wraps the app root.
 - **Runtime version** bumped `0.1.0-native3` to `0.1.0-native4`: every phone needs the one new build (DG-6) and OTA cannot reach old binaries.
 
+## A build break the review found, and its fix
+`react-native-worklets` (the Reanimated 4 Babel plugin) requires `@babel/types` and `@babel/traverse` from inside its own folder but declares neither, which only works under npm's flat layout. Under pnpm, Babel failed with "Cannot find module '@babel/types'" for any file it compiled fresh. Jest's transform cache hid it (most suites kept passing) while the same Babel config feeds Metro, so the real app bundle would have failed. Found when two suites failed to start after a new test file was added. Fixed at the source with a `packageExtensions` entry in `pnpm-workspace.yaml` (giving the plugin those two dependencies on the 7.x line). Verified with `jest --no-cache` (45 of 45 suites, 455 tests) and a real `expo export --platform ios` (the app bundles to 8.4 MB of Hermes bytecode). CI starts cold, so it catches a regression of this.
+
 ## Not done, on purpose
 - **The native build was not started** (DG-6 says not without a further go-ahead). Until that build exists, this code cannot run on a phone: the simulator and any old dev build lack the new native modules. The Mobile OTA Publish workflow skips native-affecting pushes, so nothing reaches current phones.
 - **Skia charts** are installed but unused; the BP and glucose trend chart is a Phase 1 deliverable.

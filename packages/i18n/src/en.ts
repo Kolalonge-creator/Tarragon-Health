@@ -103,6 +103,8 @@ export const en = {
   "outbox.remove_confirm": "Remove this entry from this phone? It will not be sent to your care team.",
   "outbox.saved_on_phone": "Saved on this phone. It will send when you are back online.",
   "outbox.row_waiting": "Waiting to send",
+  "kit.close": "Close",
+  "kit.tap_to_dismiss": "Tap to dismiss",
   "proxy.setup.title": "Set up for my parent",
   "proxy.setup.intro": "We will text a verification code to your parent's phone. Only they can use it. You will see nothing about them until they say yes on their own phone, and they choose what you can see.",
   "proxy.setup.name_label": "Your parent's name",

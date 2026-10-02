@@ -2,6 +2,7 @@ import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from "
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { MIN_TARGET, PRESS_SCALE, spring, useTheme } from "../design";
 import { haptic } from "./haptics";
+import { splitLayoutStyle } from "./layout";
 
 const AnimatedView = Animated.View;
 
@@ -13,11 +14,12 @@ interface PressableScaleProps extends Omit<PressableProps, "style"> {
 }
 
 /**
- * A pressable that sinks slightly under the finger and gives a light haptic.
+ * A pressable that sinks slightly under the finger and gives a light haptic on a completed press.
  * Skips the animation when the patient asked for reduced motion. Always at least
  * 44 points to hit (hitSlop pads smaller content).
  */
-export function PressableScale({ style, withHaptic = true, scaleTo = PRESS_SCALE, onPressIn, onPressOut, children, ...rest }: PressableScaleProps) {
+export function PressableScale({ style, withHaptic = true, scaleTo = PRESS_SCALE, onPress, onPressIn, onPressOut, children, ...rest }: PressableScaleProps) {
+  const { outer, inner } = splitLayoutStyle(style);
   const { reducedMotion } = useTheme();
   const scale = useSharedValue(1);
   const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -25,9 +27,19 @@ export function PressableScale({ style, withHaptic = true, scaleTo = PRESS_SCALE
   return (
     <Pressable
       hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+      style={outer}
+      // Haptic on a completed press, never on touch-down: a finger that lands on a row
+      // to start a scroll must not buzz.
+      onPress={
+        onPress
+          ? (e) => {
+              if (withHaptic) haptic.light();
+              onPress(e);
+            }
+          : undefined
+      }
       onPressIn={(e) => {
         if (!reducedMotion) scale.value = withSpring(scaleTo, spring.press);
-        if (withHaptic) haptic.light();
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
@@ -36,7 +48,7 @@ export function PressableScale({ style, withHaptic = true, scaleTo = PRESS_SCALE
       }}
       {...rest}
     >
-      <AnimatedView style={[{ minHeight: MIN_TARGET }, animated, style]}>{children as React.ReactNode}</AnimatedView>
+      <AnimatedView style={[{ minHeight: MIN_TARGET }, animated, inner]}>{children as React.ReactNode}</AnimatedView>
     </Pressable>
   );
 }

@@ -7,6 +7,12 @@ import { palettes, type Palette, type Scheme } from "./tokens";
 
 const PREFERENCE_KEY = "@tarragon/theme-preference/v1";
 
+// With dark mode switched off, pin the OS-level appearance to light as soon as this
+// module loads (before the first render), not in an effect after the loading gate:
+// native keyboards, alerts and system sheets must never draw dark against the light
+// legacy screens, even for the first frames of a launch.
+if (!DARK_MODE_ENABLED) Appearance.setColorScheme("light");
+
 interface ThemeValue {
   scheme: Scheme;
   colors: Palette;

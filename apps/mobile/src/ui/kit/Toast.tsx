@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { AccessibilityInfo, View } from "react-native";
+import { asLocale, t } from "@tarragon/i18n";
+import { useUiLanguage } from "@/lib/ui-language";
 import Animated, { FadeInDown, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { elevation, radii, space, useTheme } from "../design";
@@ -32,6 +34,7 @@ const ICON: Record<ToastTone, IconName> = { info: "info", success: "done", warn:
 export function ToastProvider({ children }: { children: ReactNode }) {
   const { colors, scheme, reducedMotion } = useTheme();
   const insets = useSafeAreaInsets();
+  const locale = asLocale(useUiLanguage());
   const [toast, setToast] = useState<(ToastOptions & { id: number }) | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -44,6 +47,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     ({ message, tone = "info" }: ToastOptions) => {
       if (timer.current) clearTimeout(timer.current);
       setToast({ message, tone, id: Date.now() });
+      // iOS VoiceOver ignores accessibilityLiveRegion, so announce explicitly.
+      AccessibilityInfo.announceForAccessibility(message);
       if (tone === "success") haptic.success();
       else if (tone === "warn") haptic.warning();
       else if (tone === "error") haptic.error();
@@ -79,7 +84,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             accessibilityRole="alert"
             accessibilityLiveRegion="assertive"
             accessibilityLabel={toast.message}
-            accessibilityHint="Tap to dismiss"
+            accessibilityHint={t("kit.tap_to_dismiss", locale)}
             style={[{ backgroundColor: fill, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: space.md, paddingHorizontal: space.lg }, elevation(scheme, 2)]}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
