@@ -193,10 +193,44 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
       await pullKind(db, kind, owner, subjectId, config, { pagesLeft: OFFLINE_BUDGET.maxPagesPerPull }, result);
     }
     if (!result.stoppedOffline) await pullMedications(db, owner, subjectId, result);
+    // Local housekeeping, safe offline. Never lets a purge failure fail the pull.
+    await purgeMirror(owner).catch((error) => recordSyncError("offline_outbox", "purgeMirror", error));
   } catch (error) {
     recordSyncError("offline_outbox", "pull", error);
   }
   return result;
+}
+
+/**
+ * Keeps the read mirror from growing without limit on a low-storage phone.
+ * Deletes mirror rows older than mirrorRetentionDays, measured back from the
+ * NEWEST mirrored row of the same kind and subject, not from the phone's clock:
+ * server created_at is the only clock we trust, and a phone whose clock jumped
+ * forward (a power cut can reset it) must never be able to wipe the mirror.
+ * Touches local_records only. The outbox (unsent logs), drafts and the
+ * medication list are never purged here.
+ */
+export async function purgeMirror(owner: string): Promise<number> {
+  const db = await getDb();
+  const groups = await db.getAllAsync<{ kind: string; subject_id: string; newest: string }>(
+    "select kind, subject_id, max(created_at) as newest from local_records where owner_user_id = ? group by kind, subject_id",
+    [owner]
+  );
+  let purged = 0;
+  for (const group of groups) {
+    const cutoff = new Date(new Date(group.newest).getTime() - OFFLINE_BUDGET.mirrorRetentionDays * 86_400_000).toISOString();
+    const before = await db.getFirstAsync<{ n: number }>(
+      "select count(*) as n from local_records where kind = ? and owner_user_id = ? and subject_id = ? and created_at < ?",
+      [group.kind, owner, group.subject_id, cutoff]
+    );
+    if (!before?.n) continue;
+    await db.runAsync(
+      "delete from local_records where kind = ? and owner_user_id = ? and subject_id = ? and created_at < ?",
+      [group.kind, owner, group.subject_id, cutoff]
+    );
+    purged += before.n;
+  }
+  return purged;
 }
 
 /** Newest first, scoped to the signed-in account and the subject. */

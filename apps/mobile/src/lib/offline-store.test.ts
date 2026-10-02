@@ -4,7 +4,7 @@
  * keyset or, order, limit) so the cursor rules are exercised for real.
  */
 import { OFFLINE_BUDGET } from "./offline-budget";
-import { clearLocalMirror, pullChanges, readLocalMedications, readLocalRecords } from "./offline-store";
+import { clearLocalMirror, pullChanges, purgeMirror, readLocalMedications, readLocalRecords } from "./offline-store";
 
 type Row = { id: string; created_at: string; patient_id: string; [k: string]: unknown };
 
@@ -160,5 +160,52 @@ describe("account isolation", () => {
     await pullChanges("p1");
     await clearLocalMirror();
     expect(await readLocalRecords("vital", "p1")).toEqual([]);
+  });
+});
+
+describe("purgeMirror", () => {
+  const daysAgoIso = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
+  const aged = (id: string, days: number, patient = "p1"): Row => ({ id, created_at: daysAgoIso(days), patient_id: patient });
+
+  it("deletes mirror rows older than the retention window, automatically after a pull, and keeps the rest", async () => {
+    mockTables.vitals_readings = [aged("new", 1), aged("mid", 60), aged("edge", 85)];
+    await pullChanges("p1");
+    // all three are within 90 days of the newest row, so none is purged yet
+    expect((await readLocalRecords<Row>("vital", "p1")).map((r) => r.id).sort()).toEqual(["edge", "mid", "new"]);
+    // a much newer row arrives (40 days on): the pull stores it and purges what fell outside the window
+    mockTables.vitals_readings.push({ id: "fresh", created_at: new Date(Date.now() + 40 * 86_400_000).toISOString(), patient_id: "p1" });
+    await pullChanges("p1");
+    expect((await readLocalRecords<Row>("vital", "p1")).map((r) => r.id).sort()).toEqual(["fresh", "new"]);
+    expect(await purgeMirror("user-1")).toBe(0); // idempotent
+  });
+
+  it("measures from the newest mirrored row, so a phone clock jump cannot wipe the mirror", async () => {
+    mockTables.vitals_readings = [aged("a", 5), aged("b", 2)];
+    await pullChanges("p1");
+    const realNow = Date.now;
+    Date.now = () => realNow() + 400 * 86_400_000; // phone clock leaps a year ahead
+    try {
+      expect(await purgeMirror("user-1")).toBe(0);
+    } finally {
+      Date.now = realNow;
+    }
+    expect(await readLocalRecords("vital", "p1")).toHaveLength(2);
+  });
+
+  it("keeps kinds and subjects apart, and never touches medications or the outbox", async () => {
+    mockTables.vitals_readings = [aged("v", 3)];
+    mockTables.symptoms = [aged("s", 3)];
+    mockTables.medications = [{ id: "m1", created_at: daysAgoIso(1), patient_id: "p1", is_active: true } as Row];
+    await pullChanges("p1");
+    await purgeMirror("user-1");
+    expect(await readLocalRecords("vital", "p1")).toHaveLength(1);
+    expect(await readLocalRecords("symptom", "p1")).toHaveLength(1);
+    expect(await readLocalMedications("p1")).toHaveLength(1);
+  });
+
+  it("a purge failure never fails the pull", async () => {
+    mockTables.vitals_readings = [aged("v", 3)];
+    const result = await pullChanges("p1");
+    expect(result.pulled).toBe(1);
   });
 });
