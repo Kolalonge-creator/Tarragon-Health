@@ -4,7 +4,8 @@
  */
 import { logDose, loadTodaysDoses, todayIsoDate } from "./medications";
 import { logSymptom, loadSymptomHistory } from "./symptoms";
-import { getPendingCount, flushOutbox } from "./outbox";
+import { enqueue, getPendingCount, flushOutbox } from "./outbox";
+import { loadRecentBpReadings } from "./vitals";
 import { clearLocalMirror, pullChanges } from "./offline-store";
 
 type Row = Record<string, unknown> & { id?: string; created_at?: string; patient_id?: string };
@@ -12,6 +13,11 @@ const mockTables: Record<string, Row[]> = {};
 let mockOnline = true;
 let mockInsertError: { code?: string; message?: string } | null = null;
 const mockInserted: { table: string; row: Row }[] = [];
+
+jest.mock("./api", () => ({
+  ...(jest.requireActual("./api") as object),
+  postVitalReading: jest.fn().mockResolvedValue({ success: true }),
+}));
 
 jest.mock("./supabase", () => ({
   supabase: {
@@ -134,5 +140,33 @@ describe("logging a symptom", () => {
     mockOnline = true;
     await flushOutbox();
     expect(mockInserted[0].row.scheduled_for_date).toBe(todayIsoDate());
+  });
+});
+
+describe("recent blood pressure readings with unsent readings on the phone", () => {
+  const BP = { vital_type: "blood_pressure", systolic: 126, diastolic: 84 } as const;
+
+  it("shows a reading logged offline straight away, marked pending, at the top", async () => {
+    mockTables.vitals_readings = [
+      { id: "v1", systolic: 120, diastolic: 80, taken_at: new Date(Date.now() - 3_600_000).toISOString(), vital_type: "blood_pressure", patient_id: "p1" },
+    ];
+    mockOnline = false;
+    await enqueue({ kind: "vital", subjectId: "p1", payload: BP });
+    const list = await loadRecentBpReadings("p1");
+    expect(list[0]).toMatchObject({ systolic: 126, diastolic: 84, pending: true });
+  });
+
+  it("shows it online too while it waits, and not another subject's reading", async () => {
+    await enqueue({ kind: "vital", subjectId: "p2", payload: BP });
+    const list = await loadRecentBpReadings("p1");
+    expect(list.some((r) => r.pending)).toBe(false);
+  });
+
+  it("drops the pending marker once it has been sent", async () => {
+    mockTables.vitals_readings = [];
+    await enqueue({ kind: "vital", subjectId: "p1", payload: BP });
+    expect((await loadRecentBpReadings("p1")).some((r) => r.pending)).toBe(true);
+    await flushOutbox();
+    expect((await loadRecentBpReadings("p1")).some((r) => r.pending)).toBe(false);
   });
 });

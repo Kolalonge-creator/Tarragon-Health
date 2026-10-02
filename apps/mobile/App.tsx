@@ -138,6 +138,24 @@ function AppContent() {
       .catch(() => setLockState("unlocked"));
   }, []);
 
+  // Offline outbox (S06): the app has no reconnect listener, so retry whenever
+  // it returns to the foreground and once a minute while it is open. Rows wait
+  // for their owner and for backoff inside flushOutbox, so this is cheap.
+  useEffect(() => {
+    if (!session?.user.id) return;
+    const run = () => void flushOutbox().catch(() => {});
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "active") run();
+    });
+    const timer = setInterval(() => {
+      if (AppState.currentState === "active") run();
+    }, 60_000);
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
+  }, [session?.user.id]);
+
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "background") {

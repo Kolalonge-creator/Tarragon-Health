@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { asLocale, t } from "@tarragon/i18n";
+import { useUiLanguage } from "@/lib/ui-language";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { BP_LEVEL_COLORS, BP_LEVEL_LABEL } from "@/lib/bp-classification";
 import { GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
@@ -168,6 +170,7 @@ const GLUCOSE_BOUNDS: Record<"mmol_l" | "mg_dl", { min: number; max: number; mes
 };
 
 export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenProps) {
+  const locale = asLocale(useUiLanguage());
   const [readings, setReadings] = useState<BpReading[]>([]);
   const [loading, setLoading] = useState(true);
   const [sys, setSys] = useState("");
@@ -319,7 +322,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
                 <GroupedListRow
                   key={r.id}
                   title={`${r.systolic}/${r.diastolic} mmHg`}
-                  subtitle={new Date(r.takenAt).toLocaleString()}
+                  subtitle={`${new Date(r.takenAt).toLocaleString()}${r.pending ? ` · ${t("outbox.row_waiting", locale)}` : ""}`}
                   trailing={
                     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
                       <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{BP_LEVEL_LABEL[r.level]}</Text>
