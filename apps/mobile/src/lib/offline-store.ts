@@ -187,10 +187,10 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
     if (!owner) return result;
     const db = await getDb();
     const config = await loadOfflineSyncConfig();
-    const budget = { pagesLeft: OFFLINE_BUDGET.maxPagesPerPull };
     for (const kind of ["vital", "symptom", "dose"] as const) {
       if (result.stoppedOffline) break;
-      await pullKind(db, kind, owner, subjectId, config, budget, result);
+      // Each table gets its own page budget so a big vitals backlog cannot starve the others.
+      await pullKind(db, kind, owner, subjectId, config, { pagesLeft: OFFLINE_BUDGET.maxPagesPerPull }, result);
     }
     if (!result.stoppedOffline) await pullMedications(db, owner, subjectId, result);
   } catch (error) {

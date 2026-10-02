@@ -112,8 +112,18 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           last_error text
         );`
       );
-      await migrateLegacyVitals(db);
+      try {
+        await migrateLegacyVitals(db);
+      } catch (error) {
+        // Adopting old rows is best effort and retried next open; it must never
+        // take the whole outbox down with it.
+        recordSyncError("offline_outbox", "migrateLegacyVitals", error);
+      }
       return db;
+    }).catch((error) => {
+      // Do not memoise a failed open: the next call tries again.
+      dbPromise = null;
+      throw error;
     });
   }
   return dbPromise;
@@ -250,8 +260,8 @@ export async function enqueue(input: EnqueueInput): Promise<OutboxItem> {
   });
 }
 
-/** Every row not yet on the server (waiting or rejected), oldest first. */
-export async function listOutbox(kind?: OutboxKind): Promise<OutboxItem[]> {
+/** Every row on the phone for every account, oldest first. Internal: the sync worker needs all owners to count held rows. */
+async function listAllOutbox(kind?: OutboxKind): Promise<OutboxItem[]> {
   const db = await getDb();
   const rows = kind
     ? await db.getAllAsync<OutboxRow>("select * from outbox where kind = ? order by created_at asc", [kind])
@@ -259,10 +269,18 @@ export async function listOutbox(kind?: OutboxKind): Promise<OutboxItem[]> {
   return rows.map(toItem);
 }
 
+/**
+ * Rows not yet on the server (waiting or rejected) that belong to the account
+ * signed in now, oldest first. Another account's rows are never listed, shown
+ * or counted here (they are only counted as "held").
+ */
+export async function listOutbox(kind?: OutboxKind): Promise<OutboxItem[]> {
+  const [items, userId] = await Promise.all([listAllOutbox(kind), currentUserId()]);
+  return items.filter((item) => mayFlushUnder(item.ownerUserId, userId));
+}
+
 export async function getPendingCount(): Promise<number> {
-  const db = await getDb();
-  const row = await db.getFirstAsync<{ count: number }>("select count(*) as count from outbox");
-  return row?.count ?? 0;
+  return (await listOutbox()).length;
 }
 
 export interface OutboxSummary {
@@ -276,10 +294,13 @@ export interface OutboxSummary {
 }
 
 export async function getOutboxSummary(now: Date = new Date()): Promise<OutboxSummary> {
-  const [items, config, userId] = await Promise.all([listOutbox(), loadOfflineSyncConfig(), currentUserId()]);
+  const [items, config, userId] = await Promise.all([listAllOutbox(), loadOfflineSyncConfig(), currentUserId()]);
   const summary: OutboxSummary = { waiting: 0, rejected: 0, stuck: 0, heldForOtherAccount: 0, oldestWaitingAt: null };
   for (const item of items) {
-    if (!mayFlushUnder(item.ownerUserId, userId)) summary.heldForOtherAccount += 1;
+    if (!mayFlushUnder(item.ownerUserId, userId)) {
+      summary.heldForOtherAccount += 1;
+      continue;
+    }
     if (item.state === "rejected") summary.rejected += 1;
     else {
       summary.waiting += 1;
@@ -294,10 +315,11 @@ export async function getOutboxSummary(now: Date = new Date()): Promise<OutboxSu
 
 /** Patient pressed Retry on a rejected row: back to waiting, due now. */
 export async function retryRow(clientId: string): Promise<void> {
-  const db = await getDb();
+  const [db, userId] = await Promise.all([getDb(), currentUserId()]);
+  if (!userId) return;
   await db.runAsync(
-    "update outbox set state = 'pending', attempts = 0, next_attempt_at = ?, last_error = null where client_id = ?",
-    [new Date().toISOString(), clientId]
+    "update outbox set state = 'pending', attempts = 0, next_attempt_at = ?, last_error = null where client_id = ? and owner_user_id = ?",
+    [new Date().toISOString(), clientId, userId]
   );
 }
 
@@ -306,10 +328,14 @@ export async function retryRow(clientId: string): Promise<void> {
  * confirmed patient action on a REJECTED row. Never called by the sync worker.
  */
 export async function discardRejectedRow(clientId: string): Promise<boolean> {
-  const db = await getDb();
-  const row = await db.getFirstAsync<{ state: OutboxState }>("select state from outbox where client_id = ?", [clientId]);
+  const [db, userId] = await Promise.all([getDb(), currentUserId()]);
+  if (!userId) return false;
+  const row = await db.getFirstAsync<{ state: OutboxState }>(
+    "select state from outbox where client_id = ? and owner_user_id = ?",
+    [clientId, userId]
+  );
   if (!row || row.state !== "rejected") return false;
-  await db.runAsync("delete from outbox where client_id = ? and state = 'rejected'", [clientId]);
+  await db.runAsync("delete from outbox where client_id = ? and state = 'rejected' and owner_user_id = ?", [clientId, userId]);
   recordSyncError("offline_outbox", `discard:${supportCode(clientId)}`, "removed by the patient after rejection");
   return true;
 }
@@ -407,7 +433,7 @@ async function runFlush(): Promise<FlushResult> {
   const db = await getDb();
   const userId = await currentUserId();
   const now = new Date();
-  const items = await listOutbox();
+  const items = await listAllOutbox();
   const result: FlushResult = { synced: 0, remaining: items.length, stoppedOffline: false, held: 0, newlyRejected: 0 };
 
   for (const item of items) {

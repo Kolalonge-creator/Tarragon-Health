@@ -168,6 +168,9 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
           ? t("outbox.saved_on_phone", locale)
           : "Symptom logged."
     );
+    // Reset the whole form so the draft effect sees an empty form and clears the draft.
+    setSymptomType("other");
+    setSeverity(5);
     setDescription("");
     void clearDraft(draftKey);
     await refreshHistory();

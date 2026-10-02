@@ -238,7 +238,10 @@ describe("account ownership", () => {
     await enqueue({ kind: "vital", subjectId: "p1", payload: BP });
     mockSessionUser = null;
     await flushOutbox();
-    expect(await getPendingCount()).toBe(1);
+    // Signed out, nothing is listed for anyone, but nothing was deleted either.
+    expect(await getPendingCount()).toBe(0);
+    const db = await openDatabaseAsync("tarragon-offline.db");
+    expect((await db.getFirstAsync<{ n: number }>("select count(*) as n from outbox"))?.n).toBe(1);
     mockSessionUser = "user-1";
     await expect(flushOutbox()).resolves.toMatchObject({ synced: 1 });
   });
@@ -258,6 +261,21 @@ describe("account ownership", () => {
     expect(result).toMatchObject({ synced: 1, held: 1, remaining: 1 });
     expect(mockPost).not.toHaveBeenCalled();
     expect(mockInserts[0].table).toBe("medication_logs");
+  });
+});
+
+describe("another account on the same phone", () => {
+  it("cannot list, count, retry or remove the first account's rows", async () => {
+    mockPost.mockResolvedValue({ success: false, error: "Invalid", status: 400 });
+    const row = await enqueue({ kind: "vital", subjectId: "p1", payload: BP });
+    await flushOutbox();
+    mockSessionUser = "user-2";
+    expect(await listOutbox()).toEqual([]);
+    expect(await getPendingCount()).toBe(0);
+    expect(await discardRejectedRow(row.clientId)).toBe(false);
+    await retryRow(row.clientId);
+    mockSessionUser = "user-1";
+    expect((await listOutbox())[0]).toMatchObject({ clientId: row.clientId, state: "rejected" });
   });
 });
 

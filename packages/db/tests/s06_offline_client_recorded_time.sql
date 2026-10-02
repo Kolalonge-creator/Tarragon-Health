@@ -20,10 +20,21 @@ create temp table results(phase text, check_name text, expected text, actual tex
 create or replace function pg_temp.run_checks(p_phase text) returns void
 language plpgsql as $f$
 declare
-  v_p uuid := (select id from public.profiles order by created_at limit 1);
-  v_org uuid := (select organisation_id from public.profiles where id = (select id from public.profiles order by created_at limit 1));
+  v_p uuid;
+  v_org uuid;
   v_s record; v_v record; v_old record; v_fut record; v_spoof record; v_dev record;
 begin
+  select id into v_org from public.organisations order by created_at limit 1;
+  if v_org is null then
+    raise exception 'S06 proof needs one organisation (seed fixture missing)';
+  end if;
+  v_p := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_p, 's06-time-' || v_p || '@example.invalid', 'x', now(), '{}', '{}')
+  on conflict (id) do nothing;
+  insert into public.profiles (id, organisation_id, role, full_name, date_of_birth)
+  values (v_p, v_org, 'patient', 'S06 Time Test', (current_date - interval '40 years')::date)
+  on conflict (id) do nothing;
   insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, client_recorded_at)
     values (v_org, v_p, 'fatigue', 1, now() - interval '6 hours') returning * into v_s;
   insert into results values (p_phase, 'in-window client time becomes reported_at', 'true',
