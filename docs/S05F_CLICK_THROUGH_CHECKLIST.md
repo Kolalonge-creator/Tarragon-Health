@@ -115,3 +115,21 @@ Run each with `npx supabase db query --linked`.
 | Patient merge page counts read 0 | Counts must come from `patient_record_counts_for_merge`, not a head-count |
 
 Report any failing item with the login used, the screen and the exact text shown. Where an item fails only for U and shows a clear refusal, that is correct behaviour, not a bug.
+
+
+## Results of the live run (2026-10-02)
+
+Run against production by an agent with the founder signed in. Production has no Medical Officer, untied Senior Medical Officer, caregiver or supporter account, so those rows were proved with the rolled-back probes in `docs/s05f-live-probes/` (the database side only; they do not show how a screen renders the answer).
+
+| Section | Result | Evidence |
+|---|---|---|
+| 1 Tied Senior Medical Officer (T) | Pass. 1.14 passed: 6 rounds of focus events wrote 0 audit rows, a reload wrote 14. | Browser as Dr Isaac Longe; `audit_log` counts |
+| 2 Escalation page and worklists | Pass. 2.7 structural only (no hypertension patient); 2.4, 2.8 database only. | Browser; probe 2 |
+| 3 Untied | Pass (database level) | Probes 1 and 2; plus Isaac against the 5 patients he is not tied to on the monitoring page |
+| 4 Medical Officer | Pass (database level) | Probe 1 |
+| 5 Admin | Pass; 5.3 not run live (no corporate organisation with enough enrolled people) | Browser as admin; 5.4 by a rolled-back query as the admin (direct reads returned 0 rows) |
+| 6 Patient | Pass | Browser as First Patient; probe 3 |
+| 7 Caregiver and supporter | Pass (database level) | Probe 4 |
+| 8 Database spot checks | 8.1 pass (`clinical_encounter_notes` has no policies: closed to all direct readers), 8.2 pass for vitals (17); medications has 20, not 21; 8.3 pass (52 functions, none executable by `anon` or `PUBLIC`) | Queries |
+
+Failures found and fixed on the way: blank "Repeats allowed", patient PDF refused, "Dr. Dr" (#848), case brief claiming no medications (#849). Full list and the known unfixed items: `docs/BUILD-PROGRESS.md`, entry "S05: CLOSED".
