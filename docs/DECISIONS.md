@@ -3,6 +3,17 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## S06 decisions, 2026-10-02
+
+Answered in a prompt at the start of S06 (offline store and outbox sync). Reasoning is in `docs/design/S06.md`.
+
+| ID | Decision |
+|---|---|
+| S06-1 | **Offline times are kept as two times.** The server stamp stays trusted. A new `client_recorded_at` is stored beside it. One defined effective time (the client time only when it is not in the future and within a window of the server receipt time, else the server time) is what trends and red-flag windows read. Window PROPOSED 72 hours, in versioned configuration, never in code. A patient still cannot backdate past the window. |
+| S06-2 | **A stop or reminder change on a prescribed medicine never queues offline.** Offline the medication list is read-only. Only logs, readings and symptoms queue (INV-02). |
+| S06-3 | **Stuck-row notice at 12 hours** (PROPOSED, versioned configuration): a row not synced after 12 hours tells the patient plainly it has not reached their care team, with Retry and a support code. A row that looks dangerous on device gets the notice at 1 hour. |
+| S06-4 | **Pull cursor is `created_at` with an overlap window and an id tiebreak,** no migration. Overlap PROPOSED 10 minutes (configuration). The local store upserts by id so a repeat read is harmless. Pull from the live tables, not the S05 aliasing views. |
+
 ## S01d decisions, 2026-09-30
 
 Answered in a prompt during S01d. Reasoning is in `docs/design/S01d.md`.
