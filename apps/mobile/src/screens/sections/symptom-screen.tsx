@@ -161,7 +161,13 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
       setError(result.error);
       return;
     }
-    setSavedLabel(result.synced === false ? t("outbox.saved_on_phone", locale) : "Symptom logged.");
+    setSavedLabel(
+      result.rejectedSupportCode
+        ? t("outbox.rejected", locale, { count: 1, code: result.rejectedSupportCode })
+        : result.synced === false
+          ? t("outbox.saved_on_phone", locale)
+          : "Symptom logged."
+    );
     setDescription("");
     void clearDraft(draftKey);
     await refreshHistory();

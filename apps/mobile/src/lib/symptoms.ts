@@ -199,6 +199,8 @@ export interface LogSymptomResult {
    * phone and waiting (offline-outbox, S06). */
   synced?: boolean;
   clientId?: string;
+  /** Set when the server refused this symptom; it is kept on the phone, not sent again automatically. */
+  rejectedSupportCode?: string;
 }
 
 /**
@@ -239,7 +241,7 @@ export async function logSymptom(
   await flushOutbox();
   const stillThere = (await listOutbox("symptom")).find((row) => row.clientId === queued.clientId);
   if (stillThere?.state === "rejected") {
-    return { success: true, synced: false, clientId: queued.clientId };
+    return { success: true, synced: false, clientId: queued.clientId, rejectedSupportCode: stillThere.supportCode };
   }
   return { success: true, synced: !stillThere, clientId: queued.clientId };
 }
