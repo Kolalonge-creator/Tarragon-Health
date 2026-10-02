@@ -1,3 +1,4 @@
+import { enqueue, flushOutbox, listOutbox } from "./outbox";
 import { supabase } from "./supabase";
 import { API_BASE_URL } from "./api";
 import type { Tables } from "@tarragon/shared";
@@ -101,17 +102,28 @@ export async function logDose(
   organisationId: string,
   item: DoseChecklistItem,
   status: Exclude<DoseStatus, "pending">
-): Promise<{ error?: string }> {
-  const scheduled_for_date = todayIsoDate();
-  const { error } = await supabase.from("medication_logs").insert({
-    medication_id: item.medicationId,
-    scheduled_time: item.time,
-    scheduled_for_date,
-    status,
-    patient_id: patientId,
-    organisation_id: organisationId,
-  });
-  return error ? { error: error.message } : {};
+): Promise<{ error?: string; synced?: boolean; clientId?: string }> {
+  // S06: on-device outbox first (works with no signal), then sent at once. The
+  // client id makes a blind retry a no-op, so a dose is never logged twice.
+  let queued;
+  try {
+    queued = await enqueue({
+      kind: "dose",
+      subjectId: patientId,
+      payload: {
+        medication_id: item.medicationId,
+        scheduled_time: item.time,
+        scheduled_for_date: todayIsoDate(),
+        status,
+        organisation_id: organisationId,
+      },
+    });
+  } catch {
+    return { error: "Couldn't save this on your phone. Try again." };
+  }
+  await flushOutbox();
+  const stillThere = (await listOutbox("dose")).find((row) => row.clientId === queued.clientId);
+  return { synced: !stillThere, clientId: queued.clientId };
 }
 
 // ---------------------------------------------------------------------------

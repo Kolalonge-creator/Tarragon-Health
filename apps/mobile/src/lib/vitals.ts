@@ -96,7 +96,9 @@ async function enqueueAndSync(
 ): Promise<LogVitalResult> {
   let queued;
   try {
-    queued = await enqueueVitalReading(payload, beneficiaryProfileId);
+    // Classification must never stand between a patient and a saved reading.
+    const flag = await classifyVitalOffline(payload).catch(() => null);
+    queued = await enqueueVitalReading(payload, beneficiaryProfileId, flag !== null);
   } catch {
     return { error: "Couldn't save the reading on this device. Try again." };
   }

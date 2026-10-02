@@ -29,6 +29,8 @@ export async function postDeviceReading(payload: Record<string, unknown>): Promi
 export interface PostVitalReadingResult {
   success: boolean;
   error?: string;
+  /** HTTP status of a failed call, so the outbox can tell a refusal from an outage. */
+  status?: number;
 }
 
 /** Mirrors the mobileVitalsSchema union in
@@ -64,15 +66,19 @@ export type VitalReadingPayload =
 export async function postVitalReading(
   payload: VitalReadingPayload,
   beneficiaryProfileId?: string,
-  clientReadingId?: string
+  clientReadingId?: string,
+  clientRecordedAt?: string
 ): Promise<PostVitalReadingResult> {
   const body = {
     ...payload,
+    // The device clock at logging (S06). The database keeps it only inside a
+    // bounded window, see private.resolve_offline_event_time.
+    ...(clientRecordedAt ? { taken_at: clientRecordedAt } : {}),
     ...(beneficiaryProfileId ? { beneficiary_profile_id: beneficiaryProfileId } : {}),
     ...(clientReadingId ? { client_reading_id: clientReadingId } : {}),
   };
   const result = await request<Record<string, never>>("/api/mobile/vitals", "POST", body);
-  return result.ok ? { success: true } : { success: false, error: result.error };
+  return result.ok ? { success: true } : { success: false, error: result.error, status: result.status };
 }
 
 export interface MobileThresholds {
@@ -433,7 +439,7 @@ export async function postSelectVideoVisitAlternateSlot(
  */
 export const NETWORK_ERROR_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
 
-type RequestResult<T> = { ok: true; data: T } | { ok: false; error: string };
+type RequestResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
 
 /** Nigerian mobile networks routinely go slow-but-not-dead rather than
  * cleanly failing, and React Native's fetch has no built-in timeout — left
@@ -492,7 +498,7 @@ async function request<T>(
     data: { session },
   } = await supabase.auth.getSession();
   if (!session?.access_token) {
-    return { ok: false, error: "Not signed in" };
+    return { ok: false, error: "Not signed in", status: 401 };
   }
 
   const url = `${API_BASE_URL}${path}`;
@@ -523,13 +529,13 @@ async function request<T>(
       return request<T>(path, method, body, true);
     }
     await supabase.auth.signOut();
-    return { ok: false, error: "Your session expired — please sign in again." };
+    return { ok: false, error: "Your session expired — please sign in again.", status: 401 };
   }
 
   try {
     const json = (await response.json()) as T & { error?: string };
     if (!response.ok) {
-      return { ok: false, error: json.error ?? `Request failed (${response.status})` };
+      return { ok: false, error: json.error ?? `Request failed (${response.status})`, status: response.status };
     }
     return { ok: true, data: json };
   } catch {

@@ -1,3 +1,4 @@
+import { enqueue, flushOutbox, listOutbox } from "./outbox";
 import type { Enums, Tables } from "@tarragon/shared";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
@@ -176,6 +177,10 @@ export interface LogSymptomInput {
 export interface LogSymptomResult {
   success?: boolean;
   error?: string;
+  /** True once this symptom is on the server; false means it is saved on this
+   * phone and waiting (offline-outbox, S06). */
+  synced?: boolean;
+  clientId?: string;
 }
 
 /**
@@ -185,26 +190,40 @@ export interface LogSymptomResult {
  * trigger a web-logged symptom fires) derives it server-side from
  * symptom_type/severity and raises the clinician_alerts escalation, so a
  * client on either platform can't under-report a red flag by omission.
+ *
+ * S06: saved to the on-device outbox first (works with no signal), then sent
+ * at once. The organisation lookup and the supporter permission check happen
+ * at send time, so they no longer block logging offline; the database
+ * (RLS, can_act_for) is still the real gate and a refusal shows as a row that
+ * could not be saved, never as a silent loss.
  */
 export async function logSymptom(
   patientId: string,
   input: LogSymptomInput,
   beneficiaryProfileId?: string
 ): Promise<LogSymptomResult> {
-  const subject = await resolveWriteSubject(patientId, beneficiaryProfileId);
-  if ("error" in subject) return { error: subject.error };
-  const org = await resolveOrganisationId(subject.subjectId);
-  if ("error" in org) return { error: org.error };
-
-  const { error } = await supabase.from("symptoms").insert({
-    organisation_id: org.organisationId,
-    patient_id: subject.subjectId,
-    symptom_type: input.symptomType,
-    severity: input.severity,
-    description: input.description?.trim() || null,
-  });
-  if (error) return { error: error.message };
-  return { success: true };
+  const subjectId = beneficiaryProfileId && beneficiaryProfileId !== patientId ? beneficiaryProfileId : patientId;
+  let queued;
+  try {
+    queued = await enqueue({
+      kind: "symptom",
+      subjectId,
+      beneficiaryProfileId: subjectId === patientId ? undefined : subjectId,
+      payload: {
+        symptom_type: input.symptomType,
+        severity: input.severity,
+        description: input.description?.trim() || null,
+      },
+    });
+  } catch {
+    return { error: "Couldn't save this on your phone. Try again." };
+  }
+  await flushOutbox();
+  const stillThere = (await listOutbox("symptom")).find((row) => row.clientId === queued.clientId);
+  if (stillThere?.state === "rejected") {
+    return { success: true, synced: false, clientId: queued.clientId };
+  }
+  return { success: true, synced: !stillThere, clientId: queued.clientId };
 }
 
 export interface ReportDangerSymptomsResult {
