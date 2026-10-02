@@ -136,6 +136,7 @@ export const pcm: Record<MessageKey, string> = {
   "outbox.retry": "Try again",
   "outbox.remove": "Comot am for this phone",
   "outbox.remove_confirm": "Comot this one for this phone? We no go send am give your care team.",
+  "outbox.saved_on_phone": "Dem don save am for this phone. E go send when network come back.",
   "care_category.medical_history": "Medical history",
   "privacy.summary.title": "Wetin we dey do with your information",
   "privacy.summary.intro": "For simple words: wetin each choice mean, who fit see am, and how to stop am.",

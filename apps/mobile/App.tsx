@@ -1,5 +1,6 @@
 import { flushOutbox } from "@/lib/outbox";
 import { clearLocalMirror } from "@/lib/offline-store";
+import { clearAllDrafts } from "@/lib/drafts";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AppState, InteractionManager, Image, StatusBar, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -85,6 +86,7 @@ function AppContent() {
         // shared phone does not keep it readable. The outbox is NOT cleared:
         // unsent logs must survive sign-out and go out when their owner is back.
         void clearLocalMirror().catch(() => {});
+        void clearAllDrafts();
       }
       if (event === "SIGNED_IN" && newSession?.user.id && postSignInFor.current !== newSession.user.id) {
         const userId = newSession.user.id;

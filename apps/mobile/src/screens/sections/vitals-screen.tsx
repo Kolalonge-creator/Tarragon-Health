@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { BP_LEVEL_COLORS, BP_LEVEL_LABEL } from "@/lib/bp-classification";
 import { GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
@@ -26,6 +26,7 @@ import {
   SectionLabel,
 } from "@/ui/components";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
 import { SyncBanner } from "@/screens/sync-banner";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
@@ -181,6 +182,24 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const load = useCallback(async () => {
     setReadings(await loadRecentBpReadings(patientId));
   }, [patientId]);
+
+  const draftKey = `bp:${patientId}`;
+  const draftRestored = useRef(false);
+  useEffect(() => {
+    void loadDraft<{ sys: string; dia: string }>(draftKey).then((d) => {
+      if (d) {
+        setSys((cur) => cur || d.sys);
+        setDia((cur) => cur || d.dia);
+      }
+      draftRestored.current = true;
+    });
+  }, [draftKey]);
+  // Saved on every change, so a power cut or a killed app loses nothing typed.
+  useEffect(() => {
+    if (!draftRestored.current) return;
+    if (sys === "" && dia === "") void clearDraft(draftKey);
+    else void saveDraft(draftKey, { sys, dia });
+  }, [sys, dia, draftKey]);
 
   useEffect(() => {
     load()
