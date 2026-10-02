@@ -1,4 +1,5 @@
 import { enqueue, flushOutbox, listOutbox } from "./outbox";
+import { pullChangesThrottled, readLocalRecords } from "./offline-store";
 import type { Enums, Tables } from "@tarragon/shared";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
@@ -122,14 +123,31 @@ export function dangerSignsSummary(signs: DangerSign[]): string {
 
 /** Mirrors useSymptomLogs in apps/web/src/lib/queries/symptoms.ts. */
 export async function loadSymptomHistory(patientId: string, limit = 20): Promise<QueryResult<SymptomLog[]>> {
-  const { data, error } = await supabase
-    .from("symptoms")
-    .select("*")
-    .eq("patient_id", patientId)
-    .order("reported_at", { ascending: false })
-    .limit(limit);
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, data: data ?? [] };
+  try {
+    const { data, error } = await supabase
+      .from("symptoms")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("reported_at", { ascending: false })
+      .limit(limit);
+    if (!error) {
+      pullChangesThrottled(patientId);
+      return { ok: true, data: data ?? [] };
+    }
+    return await localSymptoms(patientId, limit, error.message);
+  } catch (e) {
+    return await localSymptoms(patientId, limit, e instanceof Error ? e.message : String(e));
+  }
+}
+
+/** Offline read (S06): the last copy pulled from the server. With none, report the failure. */
+async function localSymptoms(patientId: string, limit: number, serverError: string): Promise<QueryResult<SymptomLog[]>> {
+  const local = await readLocalRecords<SymptomLog>("symptom", patientId, limit);
+  if (local.length === 0) return { ok: false, error: serverError };
+  return {
+    ok: true,
+    data: [...local].sort((a, b) => b.reported_at.localeCompare(a.reported_at)).slice(0, limit),
+  };
 }
 
 /**

@@ -77,6 +77,11 @@ export interface OutboxItem {
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
+/** Test hook: forget the opened database so the next call re-runs setup and the legacy migration. */
+export function __resetOutboxForTests(): void {
+  dbPromise = null;
+}
+
 function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (!dbPromise) {
     dbPromise = SQLite.openDatabaseAsync("tarragon-offline.db").then(async (db) => {

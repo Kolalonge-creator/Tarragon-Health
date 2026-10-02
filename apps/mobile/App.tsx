@@ -1,3 +1,5 @@
+import { flushOutbox } from "@/lib/outbox";
+import { clearLocalMirror } from "@/lib/offline-store";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AppState, InteractionManager, Image, StatusBar, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -79,10 +81,18 @@ function AppContent() {
         postSignInFor.current = null;
         offerCheckedFor.current = null;
         setOfferBiometric(false);
+        // The read mirror holds the previous account's record: wipe it so a
+        // shared phone does not keep it readable. The outbox is NOT cleared:
+        // unsent logs must survive sign-out and go out when their owner is back.
+        void clearLocalMirror().catch(() => {});
       }
       if (event === "SIGNED_IN" && newSession?.user.id && postSignInFor.current !== newSession.user.id) {
         const userId = newSession.user.id;
         postSignInFor.current = userId;
+        // Rows this account logged while signed out or expired were held, not
+        // lost (outbox.ts): send them now. A failed flush is retried by the
+        // background task.
+        setTimeout(() => void flushOutbox().catch(() => {}), 0);
         // Deferred a tick: supabase-js must not be called from inside its own
         // auth callback. Best effort, never blocks sign-in (see post-sign-in.ts).
         setTimeout(() => {

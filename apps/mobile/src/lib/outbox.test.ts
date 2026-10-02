@@ -6,6 +6,7 @@ import { NETWORK_ERROR_MESSAGE, postVitalReading, type VitalReadingPayload } fro
 import { openDatabaseAsync } from "../test/mocks/expo-sqlite";
 import {
   NotSignedInError,
+  __resetOutboxForTests,
   discardRejectedRow,
   enqueue,
   flushOutbox,
@@ -304,29 +305,26 @@ describe("concurrent flushes", () => {
 
 describe("legacy pending_vitals", () => {
   it("is adopted into the outbox under the signed-in account, then removed from the old table", async () => {
-    await jest.isolateModulesAsync(async () => {
-      const sqlite = require("expo-sqlite") as typeof import("../test/mocks/expo-sqlite");
-      const db = await sqlite.openDatabaseAsync("tarragon-offline.db");
-      await db.execAsync(
-        "create table if not exists pending_vitals (client_reading_id text primary key, payload text not null, beneficiary_profile_id text, created_at text not null, attempts integer not null default 0, last_error text)"
-      );
-      await db.runAsync("insert into pending_vitals values (?, ?, null, ?, 2, 'old error')", [
-        "legacy-1",
-        JSON.stringify(BP),
-        "2026-10-01T08:00:00.000Z",
-      ]);
-      const fresh = require("./outbox") as typeof import("./outbox");
-      const items = await fresh.listOutbox();
-      expect(items).toHaveLength(1);
-      expect(items[0]).toMatchObject({
-        clientId: "legacy-1",
-        kind: "vital",
-        ownerUserId: "user-1",
-        createdAt: "2026-10-01T08:00:00.000Z",
-        attempts: 2,
-      });
-      expect(await db.getAllAsync("select * from pending_vitals")).toHaveLength(0);
+    const db = await openDatabaseAsync("tarragon-offline.db");
+    await db.execAsync(
+      "create table if not exists pending_vitals (client_reading_id text primary key, payload text not null, beneficiary_profile_id text, created_at text not null, attempts integer not null default 0, last_error text)"
+    );
+    await db.runAsync("insert into pending_vitals values (?, ?, null, ?, 2, 'old error')", [
+      "legacy-1",
+      JSON.stringify(BP),
+      "2026-10-01T08:00:00.000Z",
+    ]);
+    __resetOutboxForTests();
+    const items = await listOutbox();
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      clientId: "legacy-1",
+      kind: "vital",
+      ownerUserId: "user-1",
+      createdAt: "2026-10-01T08:00:00.000Z",
+      attempts: 2,
     });
+    expect(await db.getAllAsync("select * from pending_vitals")).toHaveLength(0);
   });
 });
 

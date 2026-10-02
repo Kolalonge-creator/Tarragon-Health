@@ -5,6 +5,7 @@ import { loadTodaysDoses, logDose, type DoseChecklistItem, type DoseStatus } fro
 import { syncDoseReminders } from "@/lib/dose-reminders";
 import { colors, inkAlpha, spacing } from "@/ui/theme";
 import { CalloutCard, Card, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
+import { SyncBanner } from "@/screens/sync-banner";
 import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-screen";
 
 interface MedicationsScreenProps {
@@ -105,6 +106,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
             : "Today's doses and your medicines cabinet."}
         </MutedText>
       </View>
+
+      <SyncBanner />
 
       <View style={{ gap: 10 }}>
         <SectionLabel>Today&apos;s doses</SectionLabel>

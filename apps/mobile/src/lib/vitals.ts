@@ -5,6 +5,7 @@ import { classifyBpLevel, type BpLevel } from "./bp-classification";
 import { classifyGlucoseOffline, type GlucoseFlag } from "./glucose-red-flags";
 import { enqueueVitalReading, flushPendingVitals, getPendingVitals } from "./offline-vitals-queue";
 import { loadActiveThresholds } from "./threshold-sync";
+import { pullChangesThrottled, readLocalRecords } from "./offline-store";
 
 export interface BpReading {
   id: string;
@@ -16,16 +17,31 @@ export interface BpReading {
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
+type BpRow = { id: string; systolic: number | null; diastolic: number | null; taken_at: string };
+
 export async function loadRecentBpReadings(patientId: string, limit = 10): Promise<BpReading[]> {
-  const { data } = await supabase
-    .from("vitals_readings")
-    .select("id, systolic, diastolic, taken_at")
-    .eq("patient_id", patientId)
-    .eq("vital_type", "blood_pressure")
-    .order("taken_at", { ascending: false })
-    .limit(limit);
-  return (data ?? [])
-    .filter((r): r is typeof r & { systolic: number; diastolic: number } => r.systolic !== null && r.diastolic !== null)
+  let rows: BpRow[];
+  try {
+    const { data, error } = await supabase
+      .from("vitals_readings")
+      .select("id, systolic, diastolic, taken_at")
+      .eq("patient_id", patientId)
+      .eq("vital_type", "blood_pressure")
+      .order("taken_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    rows = data ?? [];
+    pullChangesThrottled(patientId);
+  } catch {
+    // Offline read (S06): the last copy pulled from the server.
+    const local = await readLocalRecords<BpRow & { vital_type: string }>("vital", patientId, 200);
+    rows = local
+      .filter((r) => r.vital_type === "blood_pressure")
+      .sort((a, b) => b.taken_at.localeCompare(a.taken_at))
+      .slice(0, limit);
+  }
+  return rows
+    .filter((r): r is BpRow & { systolic: number; diastolic: number } => r.systolic !== null && r.diastolic !== null)
     .map((r) => ({
       id: r.id,
       systolic: r.systolic,

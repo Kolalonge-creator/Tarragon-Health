@@ -1,0 +1,164 @@
+/**
+ * S06 pull and read mirror. A small in-memory fake stands in for the Supabase
+ * query builder and applies the same filters the real one would (eq, gte,
+ * keyset or, order, limit) so the cursor rules are exercised for real.
+ */
+import { OFFLINE_BUDGET } from "./offline-budget";
+import { clearLocalMirror, pullChanges, readLocalMedications, readLocalRecords } from "./offline-store";
+
+type Row = { id: string; created_at: string; patient_id: string; [k: string]: unknown };
+
+const mockTables: Record<string, Row[]> = {};
+let mockUser: string | null = "user-1";
+let mockFail: { message: string; code?: string } | null = null;
+const mockCalls: { table: string; gte?: string }[] = [];
+
+jest.mock("./supabase", () => {
+  function builder(table: string) {
+    const state: { eq: [string, unknown][]; gte?: string; or?: string; limit?: number } = { eq: [] };
+    const run = async () => {
+      if (mockFail) return { data: null, error: mockFail };
+      let rows = [...(mockTables[table] ?? [])];
+      for (const [k, v] of state.eq) rows = rows.filter((r) => r[k] === v);
+      if (state.gte) rows = rows.filter((r) => r.created_at >= state.gte!);
+      if (state.or) {
+        const m = /created_at\.gt\.(.+?),and\(created_at\.eq\.(.+?),id\.gt\.(.+?)\)/.exec(state.or)!;
+        rows = rows.filter((r) => r.created_at > m[1] || (r.created_at === m[2] && r.id > m[3]));
+      }
+      rows.sort((a, b) => (a.created_at === b.created_at ? a.id.localeCompare(b.id) : a.created_at.localeCompare(b.created_at)));
+      if (state.limit) rows = rows.slice(0, state.limit);
+      return { data: rows, error: null };
+    };
+    const q: Record<string, unknown> = {
+      select: () => q,
+      eq: (k: string, v: unknown) => (state.eq.push([k, v]), q),
+      gte: (_k: string, v: string) => ((state.gte = v), mockCalls.push({ table, gte: v }), q),
+      or: (v: string) => ((state.or = v), q),
+      order: () => q,
+      limit: (n: number) => ((state.limit = n), q),
+      then: (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) => run().then(res, rej),
+    };
+    return q;
+  }
+  return {
+    supabase: {
+      auth: { getSession: async () => ({ data: { session: mockUser ? { user: { id: mockUser } } : null } }) },
+      from: (table: string) => builder(table),
+    },
+  };
+});
+
+const iso = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+const row = (id: string, minutesAgo: number, extra: Record<string, unknown> = {}): Row => ({
+  id,
+  created_at: iso(minutesAgo),
+  patient_id: "p1",
+  ...extra,
+});
+
+beforeEach(async () => {
+  for (const k of Object.keys(mockTables)) delete mockTables[k];
+  mockTables.vitals_readings = [];
+  mockTables.symptoms = [];
+  mockTables.medication_logs = [];
+  mockTables.medications = [];
+  mockUser = "user-1";
+  mockFail = null;
+  mockCalls.length = 0;
+  await clearLocalMirror();
+});
+
+describe("pullChanges", () => {
+  it("mirrors the patient's own rows and reads them back newest first", async () => {
+    mockTables.vitals_readings = [row("v1", 30), row("v2", 10)];
+    mockTables.symptoms = [row("s1", 20)];
+    const result = await pullChanges("p1");
+    expect(result.pulled).toBe(3);
+    const vitals = await readLocalRecords<Row>("vital", "p1");
+    expect(vitals.map((v) => v.id)).toEqual(["v2", "v1"]);
+  });
+
+  it("a repeat pull re-reads the overlap and upserts by id, never duplicating", async () => {
+    mockTables.vitals_readings = [row("v1", 30)];
+    await pullChanges("p1");
+    await pullChanges("p1");
+    expect(await readLocalRecords<Row>("vital", "p1")).toHaveLength(1);
+  });
+
+  it("catches a row that committed late with an older created_at inside the overlap", async () => {
+    mockTables.vitals_readings = [row("v1", 30), row("v3", 2)];
+    await pullChanges("p1");
+    // v2 was inserted at minute 5 but only became visible after the pull
+    mockTables.vitals_readings.push(row("v2", 5));
+    await pullChanges("p1");
+    const ids = (await readLocalRecords<Row>("vital", "p1")).map((v) => v.id).sort();
+    expect(ids).toEqual(["v1", "v2", "v3"]);
+  });
+
+  it("misses a late row older than the overlap (the documented limit of the window)", async () => {
+    mockTables.vitals_readings = [row("v1", 2)];
+    await pullChanges("p1");
+    mockTables.vitals_readings.push(row("v0", 60));
+    await pullChanges("p1");
+    expect((await readLocalRecords<Row>("vital", "p1")).map((v) => v.id)).toEqual(["v1"]);
+  });
+
+  it("pages with an id tiebreak when many rows share one created_at", async () => {
+    const same = iso(5);
+    const total = OFFLINE_BUDGET.pullPageSize + 50;
+    mockTables.vitals_readings = Array.from({ length: total }, (_, i) => ({
+      id: `id-${String(i).padStart(4, "0")}`,
+      created_at: same,
+      patient_id: "p1",
+    }));
+    const result = await pullChanges("p1");
+    expect(result.pulled).toBeGreaterThanOrEqual(total);
+    expect(await readLocalRecords("vital", "p1", 1000)).toHaveLength(total);
+  });
+
+  it("the first pull reads only the initial window, not all history", async () => {
+    await pullChanges("p1");
+    const floor = new Date(mockCalls[0].gte!).getTime();
+    const days = (Date.now() - floor) / 86_400_000;
+    expect(Math.round(days)).toBe(OFFLINE_BUDGET.initialPullDays);
+  });
+
+  it("a network failure stops cleanly, keeps what is there, and never throws", async () => {
+    mockTables.vitals_readings = [row("v1", 30)];
+    await pullChanges("p1");
+    mockFail = { message: "Network request failed" };
+    const result = await pullChanges("p1");
+    expect(result.stoppedOffline).toBe(true);
+    expect(await readLocalRecords("vital", "p1")).toHaveLength(1);
+  });
+
+  it("replaces the medication list whole, so a stopped medicine disappears", async () => {
+    mockTables.medications = [{ id: "m1", created_at: iso(1), patient_id: "p1", is_active: true } as Row];
+    await pullChanges("p1");
+    expect(await readLocalMedications("p1")).toHaveLength(1);
+    mockTables.medications = [];
+    await pullChanges("p1");
+    expect(await readLocalMedications("p1")).toHaveLength(0);
+  });
+
+  it("does nothing with nobody signed in", async () => {
+    mockUser = null;
+    expect(await pullChanges("p1")).toMatchObject({ pulled: 0, pages: 0 });
+  });
+});
+
+describe("account isolation", () => {
+  it("a second account on the same phone cannot read the first account's mirror", async () => {
+    mockTables.vitals_readings = [row("v1", 30)];
+    await pullChanges("p1");
+    mockUser = "user-2";
+    expect(await readLocalRecords("vital", "p1")).toEqual([]);
+  });
+
+  it("clearLocalMirror empties records, medications and cursors", async () => {
+    mockTables.vitals_readings = [row("v1", 30)];
+    await pullChanges("p1");
+    await clearLocalMirror();
+    expect(await readLocalRecords("vital", "p1")).toEqual([]);
+  });
+});
