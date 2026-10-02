@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { readPatientVitalsAudited } from "@/lib/clinical/vitals-audited";
+import { readPatientMedicationsAudited } from "@/lib/clinical/medications-audited";
 
 /**
  * The minimised, structured data a case brief is grounded in -- deliberately
@@ -20,6 +21,12 @@ export interface CaseSnapshot {
   activeCarePlans: { condition: string }[];
   latestRiskScores: { scoreType: string; riskLevel: string | null; score: number | null }[];
   recentVitals: { vitalType: string; takenAt: string; values: Record<string, number | null> }[];
+  /**
+   * The patient's active medicines (name, dose, frequency only). `null` means the list could not be read,
+   * which is a different statement from "none": the brief must never tell a doctor a patient takes no medicines
+   * because a read failed, or because an escalation reason written before the first prescription says so.
+   */
+  activeMedications: { drugName: string; dose: string | null; frequency: string | null }[] | null;
   recentEscalationHistory: { level: string | null; status: string; createdAt: string }[];
   /**
    * The Clinical Director-signed protocol this case is being reviewed
@@ -73,7 +80,7 @@ export async function buildCaseSnapshot(
 
   const patientId = alert.patient_id;
 
-  const [{ data: carePlans }, { data: riskScores }, vitalsResult, { data: history }] =
+  const [{ data: carePlans }, { data: riskScores }, vitalsResult, medicationsResult, { data: history }] =
     await Promise.all([
       supabase.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
       supabase
@@ -84,6 +91,8 @@ export async function buildCaseSnapshot(
         .limit(5),
       // INV-10: through the audited, tie-gated read, not the table.
       readPatientVitalsAudited(supabase, patientId, { limit: 5 }),
+      // INV-10: the same audited, tie-gated read. Active medicines only; a refusal means the case is not available to this caller.
+      readPatientMedicationsAudited(supabase, patientId, { active: true }),
       supabase
         .from("escalations")
         .select("status, created_at, clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(level)")
@@ -98,6 +107,12 @@ export async function buildCaseSnapshot(
   if (vitalsResult.status === "denied") return null;
   if (vitalsResult.status === "error") throw new Error(`case brief: could not read vitals (${vitalsResult.message})`);
   const vitals = vitalsResult.rows;
+  if (medicationsResult.status === "denied") return null;
+  // A failed medications read leaves the section as "could not be read" (null), never as an empty list.
+  const activeMedications =
+    medicationsResult.status === "ok"
+      ? medicationsResult.rows.map((m) => ({ drugName: m.drug_name, dose: m.dose, frequency: m.frequency }))
+      : null;
 
   return {
     escalationReason,
@@ -112,6 +127,7 @@ export async function buildCaseSnapshot(
       riskLevel: r.risk_level,
       score: r.score,
     })),
+    activeMedications,
     recentVitals: vitals.map((v) => {
       const numericFields: Record<(typeof VITAL_VALUE_FIELDS)[number], number | null> = {
         systolic: v.systolic,
@@ -180,6 +196,16 @@ export function formatSnapshotForPrompt(snapshot: CaseSnapshot): string {
           )
           .join(" | ")}`
       : "Recent vitals: none on file"
+  );
+
+  lines.push(
+    snapshot.activeMedications === null
+      ? "Active medications: could not be read. Say nothing about whether the patient takes any medicines."
+      : snapshot.activeMedications.length > 0
+        ? `Active medications: ${snapshot.activeMedications
+            .map((m) => [m.drugName, m.dose, m.frequency].filter(Boolean).join(" "))
+            .join("; ")}`
+        : "Active medications: none on file"
   );
 
   lines.push(

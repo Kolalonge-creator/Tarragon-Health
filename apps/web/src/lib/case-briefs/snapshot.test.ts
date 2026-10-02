@@ -1,5 +1,14 @@
-import { describe, expect, it } from "@jest/globals";
-import { formatSnapshotForPrompt, type CaseSnapshot } from "./snapshot";
+import { describe, expect, it, jest } from "@jest/globals";
+import { buildCaseSnapshot, formatSnapshotForPrompt, type CaseSnapshot } from "./snapshot";
+
+const mockVitals = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const mockMedications = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+jest.mock("@/lib/clinical/vitals-audited", () => ({
+  readPatientVitalsAudited: (...args: unknown[]) => mockVitals(...args),
+}));
+jest.mock("@/lib/clinical/medications-audited", () => ({
+  readPatientMedicationsAudited: (...args: unknown[]) => mockMedications(...args),
+}));
 
 function snapshot(overrides: Partial<CaseSnapshot> = {}): CaseSnapshot {
   return {
@@ -8,6 +17,7 @@ function snapshot(overrides: Partial<CaseSnapshot> = {}): CaseSnapshot {
     activeCarePlans: [],
     latestRiskScores: [],
     recentVitals: [],
+    activeMedications: [],
     recentEscalationHistory: [],
     ...overrides,
   };
@@ -39,6 +49,7 @@ describe("formatSnapshotForPrompt", () => {
     expect(text).toContain("Active care plans: none");
     expect(text).toContain("Recent risk scores: none on file");
     expect(text).toContain("Recent vitals: none on file");
+    expect(text).toContain("Active medications: none on file");
     expect(text).toContain("Recent escalation history: none");
   });
 
@@ -104,5 +115,67 @@ describe("formatSnapshotForPrompt", () => {
       })
     );
     expect(text).not.toContain("null");
+  });
+});
+
+describe("active medications in the brief", () => {
+  it("lists the active medicines, so a brief cannot say there are none when there are some", () => {
+    const text = formatSnapshotForPrompt(
+      snapshot({
+        escalationReason: "Medication: None on file",
+        activeMedications: [
+          { drugName: "Fake paracetamol", dose: "1g", frequency: "twice daily" },
+          { drugName: "Fake vitamin C", dose: null, frequency: "once daily" },
+        ],
+      })
+    );
+    expect(text).toContain("Active medications: Fake paracetamol 1g twice daily; Fake vitamin C once daily");
+    expect(text).not.toContain("Active medications: none on file");
+  });
+
+  it("states that the list could not be read, and does not say none, when the read failed", () => {
+    const text = formatSnapshotForPrompt(snapshot({ activeMedications: null }));
+    expect(text).toContain("Active medications: could not be read");
+    expect(text).not.toContain("Active medications: none on file");
+  });
+});
+
+describe("buildCaseSnapshot medications", () => {
+  // A table-shaped stub: every query chain resolves to empty data except the alert lookup.
+  function client() {
+    const chain: Record<string, unknown> = {};
+    const result = { data: [], error: null };
+    for (const m of ["select", "eq", "neq", "order", "limit"]) chain[m] = () => chain;
+    chain.maybeSingle = async () => ({
+      data: { title: "High BP", detail: null, level: "urgent_escalation", override_level: null, patient_id: "patient-1" },
+    });
+    (chain as { then: unknown }).then = (resolve: (v: unknown) => unknown) => resolve(result);
+    return { from: () => chain } as never;
+  }
+  const okVitals = { status: "ok", rows: [] };
+
+  it("maps the audited active medicines into the snapshot", async () => {
+    mockVitals.mockResolvedValue(okVitals);
+    mockMedications.mockResolvedValue({
+      status: "ok",
+      rows: [{ drug_name: "Fake paracetamol", dose: "1g", frequency: "twice daily" }],
+    });
+    const snap = await buildCaseSnapshot(client(), "alert-1");
+    expect(snap?.activeMedications).toEqual([{ drugName: "Fake paracetamol", dose: "1g", frequency: "twice daily" }]);
+    expect(mockMedications).toHaveBeenCalledWith(expect.anything(), "patient-1", { active: true });
+  });
+
+  it("returns null (case not available) when the caller is refused the medications", async () => {
+    mockVitals.mockResolvedValue(okVitals);
+    mockMedications.mockResolvedValue({ status: "denied" });
+    expect(await buildCaseSnapshot(client(), "alert-1")).toBeNull();
+  });
+
+  it("records the list as could-not-be-read, never as empty, when the medications read errors", async () => {
+    mockVitals.mockResolvedValue(okVitals);
+    mockMedications.mockResolvedValue({ status: "error", message: "boom" });
+    const snap = await buildCaseSnapshot(client(), "alert-1");
+    expect(snap).not.toBeNull();
+    expect(snap?.activeMedications).toBeNull();
   });
 });
