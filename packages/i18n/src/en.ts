@@ -246,6 +246,20 @@ export const en = {
   "meds.cabinet.title": "Your medicines cabinet",
   "meds.cabinet.subtitle": "Active medications, refills, check-ins, and check my pack.",
   "meds.cabinet.a11y_hint": "Opens your medicines cabinet",
+  "messages.title": "Messages",
+  "messages.subtitle": "Talk to your care team here in the app.",
+  "messages.loading": "Loading your messages",
+  "messages.empty.title": "Start a conversation",
+  "messages.empty.body": "Send a message to your care team. Their replies show up here.",
+  "messages.sender.team": "Care team",
+  "messages.sender.you": "You",
+  "messages.message.a11y": "{sender}, {time}. {body}",
+  "messages.composer.label": "Message your care team",
+  "messages.send": "Send message",
+  "messages.send_error": "We couldn't send that. Your message is still here, so you can try again.",
+  "messages.load_error.title": "We couldn't load your messages right now",
+  "messages.load_error.body": "Your conversation is safe. Check your connection and try again.",
+  "messages.load_error.retry": "Try again",
 } as const;
 
 export type MessageKey = keyof typeof en;

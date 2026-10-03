@@ -16,6 +16,7 @@ import {
   MessageCircle,
   Pill,
   Plus,
+  Send,
   Settings,
   ShieldCheck,
   User,
@@ -53,6 +54,7 @@ export const ICONS = {
   info: Info,
   time: Clock,
   private: Lock,
+  send: Send,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;
