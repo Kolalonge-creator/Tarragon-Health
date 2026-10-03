@@ -27,6 +27,7 @@ export function useLegacyColors() {
     pressed: p.surfaceMuted,
     groupBg: p.surfaceMuted,
     danger: p.dangerText,
+    dangerBg: p.dangerBg,
     status: { warn: p.warnText, warnBg: p.warnBg, critical: p.dangerText, emergency: p.emergency },
   };
 }

@@ -10,8 +10,9 @@ import {
 import { isClinicalTier } from "@tarragon/shared";
 import { formatDoctorName } from "@/lib/doctor-name";
 import type { SectionId } from "@/lib/sections";
-import { colors, spacing } from "@/ui/theme";
-import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, SecondaryButton, ScreenTitle } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, SecondaryButton, ScreenTitle } from "@/ui/legacy-kit";
 
 const PAGE_SIZE = 20;
 
@@ -71,6 +72,7 @@ interface TimelineScreenProps {
 }
 
 export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
+  const colors = useLegacyColors();
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);

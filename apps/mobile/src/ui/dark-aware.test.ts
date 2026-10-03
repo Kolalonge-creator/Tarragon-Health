@@ -12,6 +12,12 @@ const FILES = [
   "screens/sections/prevention-screen.tsx",
   "screens/sections/lab-orders-screen.tsx",
   "screens/sections/symptom-screen.tsx",
+  "screens/sections/medicine-cabinet-screen.tsx",
+  "screens/sections/actions-screen.tsx",
+  "screens/sections/health-summary-screen.tsx",
+  "screens/sections/timeline-screen.tsx",
+  "screens/sections/receipts-screen.tsx",
+  "screens/sections/notification-settings-screen.tsx",
 ];
 
 describe("scheme-aware legacy screens stay fully switched", () => {
