@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Modal, View } from "react-native";
+import { View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { loadTodaysDoses, logDose, type DoseChecklistItem, type DoseStatus } from "@/lib/medications";
 import { syncDoseReminders } from "@/lib/dose-reminders";
-import { ForceLight, radii, space, useTheme } from "@/ui/design";
-import { AppText, Badge, Button, Card, EmptyState, Icon, InlineAlert, ListItem, PressableScale, Screen, Skeleton, SkeletonGroup, useToast } from "@/ui/kit";
+import { radii, space, useTheme } from "@/ui/design";
+import { AppText, Badge, Button, Card, EmptyState, Icon, InlineAlert, LegacySheet, ListItem, PressableScale, Screen, Skeleton, SkeletonGroup, useToast } from "@/ui/kit";
 import { SyncBanner } from "@/screens/sync-banner";
 import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-screen";
 
@@ -239,26 +239,9 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
         />
       </Card>
 
-      <Modal visible={cabinetOpen} animationType="slide" onRequestClose={() => setCabinetOpen(false)}>
-        {/* The cabinet has not moved onto the kit yet and is light-only, so this whole sheet stays light. */}
-        <ForceLight>
-          <CabinetSheet onClose={() => setCabinetOpen(false)} closeLabel={tr("kit.close")}>
-            <MedicineCabinetScreen patientId={patientId} organisationId={organisationId} />
-          </CabinetSheet>
-        </ForceLight>
-      </Modal>
+      <LegacySheet visible={cabinetOpen} onClose={() => setCabinetOpen(false)} closeLabel={tr("kit.close")}>
+        <MedicineCabinetScreen patientId={patientId} organisationId={organisationId} />
+      </LegacySheet>
     </Screen>
-  );
-}
-
-function CabinetSheet({ onClose, closeLabel, children }: { onClose: () => void; closeLabel: string; children: React.ReactNode }) {
-  const { colors } = useTheme();
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <View style={{ padding: space.xl, paddingTop: 56 }}>
-        <Button title={closeLabel} variant="secondary" onPress={onClose} />
-      </View>
-      {children}
-    </View>
   );
 }

@@ -9,6 +9,7 @@ export { ListItem } from "./ListItem";
 export { PressableScale } from "./PressableScale";
 export { Screen } from "./Screen";
 export { Sheet } from "./Sheet";
+export { LegacySheet } from "./LegacySheet";
 export { Skeleton, SkeletonGroup } from "./Skeleton";
 export { ToastProvider, useToast, type ToastTone } from "./Toast";
 export { Badge, type BadgeTone } from "./Badge";

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
+import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { useUiLanguage } from "@/lib/ui-language";
 import {
   loadUpcomingAppointments,
   loadAvailableSlots,
@@ -13,24 +15,25 @@ import {
   type AppointmentType,
 } from "@/lib/appointments";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius, spacing } from "@/ui/theme";
-import {
-  Badge,
-  Card,
-  ErrorText,
-  GroupedList,
-  GroupedListRow,
-  MutedText,
-  PrimaryButton,
-  SecondaryButton,
-} from "@/ui/components";
+import { radii, space, useTheme } from "@/ui/design";
+import { AppText, Badge, Button, Card, EmptyState, InlineAlert, ListItem, Screen, SegmentedControl, Skeleton, SkeletonGroup, useToast, type BadgeTone } from "@/ui/kit";
 
-const STATUS_LABEL: Record<string, { label: string; tone: "brand" | "neutral" }> = {
-  held: { label: "Holding your slot…", tone: "neutral" },
-  booked: { label: "Awaiting payment", tone: "neutral" },
-  confirmed: { label: "Confirmed", tone: "brand" },
-  checked_in: { label: "Checked in", tone: "brand" },
-  in_progress: { label: "In progress", tone: "brand" },
+const STATUS_KEY: Record<string, MessageKey> = {
+  held: "appts.status.held",
+  booked: "appts.status.booked",
+  confirmed: "appts.status.confirmed",
+  checked_in: "appts.status.checked_in",
+  in_progress: "appts.status.in_progress",
+};
+const STATUS_TONE: Record<string, BadgeTone> = {
+  confirmed: "positive",
+  checked_in: "positive",
+  in_progress: "positive",
+};
+
+const TYPE_KEY: Partial<Record<AppointmentType, MessageKey>> = {
+  telemedicine: "appts.type.telemedicine",
+  result_interpretation: "appts.type.result_interpretation",
 };
 
 function formatSlot(iso: string): string {
@@ -50,32 +53,38 @@ interface AppointmentsScreenProps {
 }
 
 /**
- * Basic native Appointments — book a telemedicine visit or a result
+ * Basic native Appointments: book a telemedicine visit or a result
  * interpretation session, see what's upcoming, cancel, or pay for one
  * that's awaiting payment. Everything that needs Zoom/checkout
  * infrastructure this screen doesn't reimplement (setting up a join link,
  * running a card charge, the waiting list) opens the web appointments page
- * in the system browser instead — the same "one real native action, browser
+ * in the system browser instead: the same "one real native action, browser
  * for the rest" shape as Labs' camera capture, not a WebView embed.
  */
 export function AppointmentsScreen({ patientId, organisationId }: AppointmentsScreenProps) {
+  const { colors } = useTheme();
+  const toast = useToast();
+  const locale = asLocale(useUiLanguage());
+  const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
+
   const [appointments, setAppointments] = useState<AppointmentWithClinician[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const [type, setType] = useState<AppointmentType>("telemedicine");
   const [slots, setSlots] = useState<AvailableSlot[] | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [booking, setBooking] = useState(false);
-  const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const refreshAppointments = useCallback(async () => {
     const result = await loadUpcomingAppointments(patientId);
     if (!result.ok) {
-      setLoadError(result.error);
+      setLoadFailed(true);
       return;
     }
-    setLoadError(null);
+    setLoadFailed(false);
     setAppointments(result.data);
   }, [patientId]);
 
@@ -84,18 +93,18 @@ export function AppointmentsScreen({ patientId, organisationId }: AppointmentsSc
   }, [refreshAppointments]);
 
   const refreshSlots = useCallback(
-    async (t: AppointmentType) => {
+    async (appointmentType: AppointmentType) => {
       setSlotsLoading(true);
       setSlots(null);
-      const result = await loadAvailableSlots(organisationId, t);
+      const result = await loadAvailableSlots(organisationId, appointmentType);
       setSlotsLoading(false);
       if (!result.ok) {
-        setMessage({ tone: "error", text: result.error });
+        setError(result.error || t("appts.action_failed", locale));
         return;
       }
       setSlots(result.data);
     },
-    [organisationId]
+    [organisationId, locale]
   );
 
   useEffect(() => {
@@ -103,8 +112,9 @@ export function AppointmentsScreen({ patientId, organisationId }: AppointmentsSc
   }, [type, refreshSlots]);
 
   async function book(slot: AvailableSlot) {
+    if (booking) return;
     setBooking(true);
-    setMessage(null);
+    setError(null);
     const result = await bookAppointment({
       organisationId,
       patientId,
@@ -115,30 +125,40 @@ export function AppointmentsScreen({ patientId, organisationId }: AppointmentsSc
     });
     setBooking(false);
     if (!result.ok) {
-      setMessage({ tone: "error", text: result.error });
+      setError(result.error || tr("appts.action_failed"));
       return;
     }
-    setMessage(
+    const when = formatSlot(slot.slot_start);
+    toast.show(
       result.data.status === "confirmed"
-        ? { tone: "success", text: `Booked for ${formatSlot(slot.slot_start)}.` }
-        : { tone: "success", text: `Time held for ${formatSlot(slot.slot_start)}. Pay to confirm below.` }
+        ? { message: tr("appts.booked", { when }), tone: "success" }
+        : { message: tr("appts.held", { when }), tone: "info" }
     );
     void refreshAppointments();
     void refreshSlots(type);
   }
 
   async function payToConfirm(appointmentId: string) {
-    await WebBrowser.openBrowserAsync(
-      `${PLATFORM_URL}/patient/appointments?resume_appointment=${appointmentId}`
-    );
+    await WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/appointments?resume_appointment=${appointmentId}`);
     void refreshAppointments();
   }
 
+  function confirmCancel(appt: AppointmentWithClinician) {
+    // Cancelling releases the slot (and may touch a payment), so it is never one stray tap.
+    Alert.alert(tr("appts.cancel_confirm.title"), tr("appts.cancel_confirm.body", { when: formatSlot(appt.scheduled_for) }), [
+      { text: tr("appts.cancel_confirm.keep"), style: "cancel" },
+      { text: tr("appts.cancel_confirm.go"), style: "destructive", onPress: () => void cancel(appt.id) },
+    ]);
+  }
+
   async function cancel(appointmentId: string) {
-    setMessage(null);
+    if (cancellingId) return;
+    setCancellingId(appointmentId);
+    setError(null);
     const result = await cancelAppointment(appointmentId);
+    setCancellingId(null);
     if (!result.ok) {
-      setMessage({ tone: "error", text: result.error });
+      setError(result.error || tr("appts.action_failed"));
       return;
     }
     void refreshAppointments();
@@ -148,133 +168,114 @@ export function AppointmentsScreen({ patientId, organisationId }: AppointmentsSc
     void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/appointments`);
   }
 
+  const typeLabel = (appointmentType: string) => {
+    const key = TYPE_KEY[appointmentType as AppointmentType];
+    return key ? tr(key) : appointmentType.replace(/_/g, " ");
+  };
+
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: spacing.screen, gap: 18 }}
-    >
-      <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Appointments</Text>
-        <MutedText>
-          A video or audio visit, or a result consultation, always with a Tarragon doctor.
-        </MutedText>
+    <Screen>
+      <View style={{ gap: space.xs }}>
+        <AppText variant="headline" heading>
+          {tr("appts.title")}
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          {tr("appts.subtitle")}
+        </AppText>
       </View>
 
-      <View style={{ gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Your upcoming appointments</Text>
-        {loading && <ActivityIndicator color={colors.brand} />}
-        {loadError && <ErrorText>{loadError}</ErrorText>}
-        {!loading && !loadError && appointments.length === 0 && (
-          <MutedText>No upcoming appointments yet.</MutedText>
-        )}
-        {appointments.length > 0 && (
-          <GroupedList>
-            {appointments.map((appt) => {
-              const status = STATUS_LABEL[appt.status] ?? { label: appt.status.replace(/_/g, " "), tone: "neutral" as const };
+      {error ? <InlineAlert tone="warn" message={error} /> : null}
+
+      <View style={{ gap: space.md }}>
+        <AppText variant="title" heading>
+          {tr("appts.upcoming")}
+        </AppText>
+        {loading ? (
+          <SkeletonGroup label={tr("appts.upcoming")}>
+            <Card style={{ gap: space.md }}>
+              <Skeleton height={20} width="55%" />
+              <Skeleton height={16} width="40%" />
+            </Card>
+          </SkeletonGroup>
+        ) : loadFailed ? (
+          // A failed read must never look like "no appointments".
+          <InlineAlert tone="info" message={tr("appts.load_error")} />
+        ) : appointments.length === 0 ? (
+          <Card>
+            <EmptyState icon="appointment" title={tr("appts.empty")} />
+          </Card>
+        ) : (
+          <Card padded={false}>
+            {appointments.map((appt, index) => {
+              const statusKey = STATUS_KEY[appt.status];
+              const statusLabel = statusKey ? tr(statusKey) : appt.status.replace(/_/g, " ");
               const productCode = paidProductCodeFor(appt.appointment_type);
+              const cancellable = ["held", "booked", "confirmed"].includes(appt.status);
               return (
-                <View key={appt.id} style={{ padding: spacing.card, gap: 6 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <Text style={{ fontSize: 14.5, fontWeight: "600", color: colors.ink }}>
-                      {formatSlot(appt.scheduled_for)}
-                    </Text>
-                    <Badge tone={status.tone}>{status.label}</Badge>
-                  </View>
-                  <MutedText>{appt.clinician?.full_name ?? "Care team"} · Telemedicine</MutedText>
-                  <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
-                    {appt.status === "booked" && productCode && (
-                      <SecondaryButton title="Pay to confirm" onPress={() => void payToConfirm(appt.id)} />
-                    )}
-                    {["held", "booked", "confirmed"].includes(appt.status) && (
-                      <Pressable onPress={() => void cancel(appt.id)}>
-                        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.danger }}>Cancel</Text>
-                      </Pressable>
-                    )}
-                  </View>
+                <View
+                  key={appt.id}
+                  style={[{ padding: space.lg, gap: space.sm }, index > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : null]}
+                >
+                  <AppText variant="bodyStrong">{formatSlot(appt.scheduled_for)}</AppText>
+                  <AppText variant="body" tone="textMuted">
+                    {`${appt.clinician?.full_name ?? tr("appts.care_team")}, ${typeLabel(appt.appointment_type)}`}
+                  </AppText>
+                  <Badge label={statusLabel} tone={STATUS_TONE[appt.status] ?? "neutral"} />
+                  {appt.status === "booked" && productCode ? (
+                    <Button title={tr("appts.pay")} variant="secondary" onPress={() => void payToConfirm(appt.id)} />
+                  ) : null}
+                  {cancellable ? (
+                    <Button
+                      title={tr("appts.cancel")}
+                      variant="ghost"
+                      fullWidth={false}
+                      loading={cancellingId === appt.id}
+                      disabled={cancellingId !== null}
+                      onPress={() => confirmCancel(appt)}
+                    />
+                  ) : null}
                 </View>
               );
             })}
-          </GroupedList>
-        )}
-      </View>
-
-      <View style={{ gap: 10 }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Book a new appointment</Text>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          {PATIENT_BOOKABLE_APPOINTMENT_TYPES.map((option) => {
-            const selected = option.type === type;
-            return (
-              <Pressable
-                key={option.type}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                onPress={() => setType(option.type)}
-                style={{
-                  flex: 1,
-                  borderRadius: radius.control,
-                  paddingVertical: 10,
-                  paddingHorizontal: 10,
-                  backgroundColor: selected ? colors.brandTint : colors.groupBg,
-                  borderWidth: selected ? 1 : 0,
-                  borderColor: colors.brand,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 12.5,
-                    fontWeight: "700",
-                    textAlign: "center",
-                    color: selected ? colors.brandPressed : colors.ink,
-                  }}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {message && (
-          <Card style={{ backgroundColor: message.tone === "error" ? colors.status.warnBg : colors.brandTint }}>
-            <Text style={{ fontSize: 13, color: message.tone === "error" ? colors.status.warn : colors.brandPressed }}>
-              {message.text}
-            </Text>
           </Card>
         )}
-
-        {slotsLoading && <ActivityIndicator color={colors.brand} />}
-        {!slotsLoading && slots && slots.length === 0 && (
-          <MutedText>
-            No open times in the next two weeks for this type. Try the other type, or open the full
-            scheduler to join the waiting list.
-          </MutedText>
-        )}
-        {!slotsLoading && slots && slots.length > 0 && (
-          <GroupedList>
-            {slots.slice(0, 12).map((slot) => (
-              <GroupedListRow
-                key={`${slot.clinician_id}-${slot.slot_start}`}
-                title={formatSlot(slot.slot_start)}
-                subtitle={slot.clinician_name}
-                trailing={
-                  <PrimaryButton
-                    title="Book"
-                    onPress={() => void book(slot)}
-                    disabled={booking}
-                    loading={booking}
-                  />
-                }
-              />
-            ))}
-          </GroupedList>
-        )}
       </View>
 
-      <Pressable onPress={openInBrowser}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brand, textAlign: "center" }}>
-          Manage all appointments in the full scheduler
-        </Text>
-      </Pressable>
-    </ScrollView>
+      <View style={{ gap: space.md }}>
+        <AppText variant="title" heading>
+          {tr("appts.book.heading")}
+        </AppText>
+        <SegmentedControl
+          accessibilityLabel={tr("appts.type.group")}
+          options={PATIENT_BOOKABLE_APPOINTMENT_TYPES.map((option) => ({ value: option.type, label: typeLabel(option.type) }))}
+          value={type}
+          onChange={setType}
+        />
+
+        {slotsLoading ? (
+          <Skeleton height={64} radius={radii.lg} />
+        ) : null}
+        {!slotsLoading && slots && slots.length === 0 ? (
+          <AppText variant="body" tone="textMuted">
+            {tr("appts.slots.empty")}
+          </AppText>
+        ) : null}
+        {!slotsLoading && slots && slots.length > 0 ? (
+          <Card padded={false}>
+            {slots.slice(0, 12).map((slot, index) => (
+              <View key={`${slot.clinician_id}-${slot.slot_start}`} style={index > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : undefined}>
+                <ListItem
+                  title={formatSlot(slot.slot_start)}
+                  subtitle={slot.clinician_name}
+                  trailing={<Button title={tr("appts.book")} fullWidth={false} onPress={() => void book(slot)} disabled={booking} loading={booking} />}
+                />
+              </View>
+            ))}
+          </Card>
+        ) : null}
+      </View>
+
+      <Button title={tr("appts.full_scheduler")} variant="ghost" onPress={openInBrowser} />
+    </Screen>
   );
 }
