@@ -5,7 +5,8 @@ import * as WebBrowser from "expo-web-browser";
 import { startThread } from "@/lib/messages";
 import { cancelPendingServicePurchase, formatPrice, type PendingPaymentIssue } from "@/lib/services";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius, spacing } from "@/ui/theme";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
 
 interface PaymentIssueCardProps {
   issue: PendingPaymentIssue;
@@ -30,6 +31,7 @@ interface PaymentIssueCardProps {
  * cancel_pending_service_purchase) a native screen can call directly.
  */
 export function PaymentIssueCard({ issue, onResolved }: PaymentIssueCardProps) {
+  const colors = useLegacyColors();
   const [retrying, setRetrying] = useState(false);
   const [messaging, setMessaging] = useState(false);
   const [messageSent, setMessageSent] = useState(false);
@@ -126,6 +128,7 @@ function ActionPill({
   loading?: boolean;
   onPress: () => void;
 }) {
+  const colors = useLegacyColors();
   const toneStyle =
     tone === "brand"
       ? { backgroundColor: colors.brand }

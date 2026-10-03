@@ -9,7 +9,7 @@ import { TopBar } from "@/ui/top-bar";
 import { NavDrawer } from "@/ui/nav-drawer";
 import { BottomTabBar } from "@/ui/bottom-tab-bar";
 import { ActingForBanner } from "@/ui/acting-for-banner";
-import { colors } from "@/ui/theme";
+import { useTheme } from "@/ui/design";
 import { OverviewScreen } from "@/screens/sections/overview-screen";
 import { VitalsScreen } from "@/screens/sections/vitals-screen";
 import { MedicationsScreen } from "@/screens/sections/medications-screen";
@@ -153,6 +153,7 @@ interface HomeShellProps {
  *   lib/healthy-ageing.ts's own comment on loadCoordinatedCareSummary.
  */
 export function HomeShell({ userId, organisationId, patientName, patientNumber, initials }: HomeShellProps) {
+  const { colors: theme } = useTheme();
   const [section, setSection] = useState<SectionId>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [acting, setActing] = useState<ActingFor | null>(null);
@@ -305,7 +306,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: theme.canvas }}>
       <TopBar
         userId={userId}
         patientName={patientName}

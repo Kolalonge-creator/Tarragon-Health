@@ -22,7 +22,7 @@ import { PaymentIssueCard } from "@/screens/sections/payment-issue-card";
 import { HowYoureDoingCard } from "@/screens/sections/how-youre-doing-card";
 import { todayIsoDate } from "@/lib/medications";
 import { agoLine, dueLine, formatVisitTime, heroMetric, nextBestStep, type Line } from "@/lib/home-model";
-import { radii, space, useTheme } from "@/ui/design";
+import { lightPalette, radii, space, useTheme } from "@/ui/design";
 import { AppText, Button, Card, Icon, InlineAlert, ListItem, PressableScale, Screen, Skeleton, SkeletonGroup, type IconName } from "@/ui/kit";
 import type { SectionId } from "@/lib/sections";
 
@@ -203,9 +203,10 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
             onPress={() => onNavigate(step.target)}
             accessibilityRole="button"
             accessibilityLabel={line(step.cta)}
-            style={{ alignSelf: "flex-start", backgroundColor: colors.surface, borderRadius: radii.pill, paddingHorizontal: space.xl, justifyContent: "center", marginTop: space.sm }}
+            style={{ alignSelf: "flex-start", backgroundColor: lightPalette.surface, borderRadius: radii.pill, paddingHorizontal: space.xl, justifyContent: "center", marginTop: space.sm }}
           >
-            <AppText variant="bodyStrong" tone="brandText">
+            {/* A white pill on the brand band in both schemes, so its text is the light palette's green. */}
+            <AppText variant="bodyStrong" style={{ color: lightPalette.brandText }}>
               {line(step.cta)}
             </AppText>
           </PressableScale>

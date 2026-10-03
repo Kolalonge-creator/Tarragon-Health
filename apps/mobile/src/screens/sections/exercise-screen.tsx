@@ -118,7 +118,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <View>
         <ScreenTitle>Exercise programmes</ScreenTitle>
         <MutedText>

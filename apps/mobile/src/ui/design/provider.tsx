@@ -1,17 +1,20 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { AccessibilityInfo, Appearance, useColorScheme } from "react-native";
+import { AccessibilityInfo, Appearance } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { DARK_MODE_ENABLED } from "./config";
+import { DARK_MODE_ENABLED, DEFAULT_PREFERENCE } from "./config";
 import { isSchemePreference, resolveScheme, type SchemePreference } from "./resolve";
 import { palettes, type Palette, type Scheme } from "./tokens";
 
 const PREFERENCE_KEY = "@tarragon/theme-preference/v1";
 
-// With dark mode switched off, pin the OS-level appearance to light as soon as this
-// module loads (before the first render), not in an effect after the loading gate:
-// native keyboards, alerts and system sheets must never draw dark against the light
-// legacy screens, even for the first frames of a launch.
-if (!DARK_MODE_ENABLED) Appearance.setColorScheme("light");
+// The OS-level appearance stays pinned to light on purpose, even with dark mode on.
+// The in-app scheme (the palette) is what goes dark. Pinning keeps every native default
+// that legacy screens rely on (default text colour, switches, pickers, the first frames
+// of a launch) light, so an old screen can never render white text on a white card.
+// Kit inputs ask for a dark keyboard themselves (keyboardAppearance). The cost: native
+// alerts and the share sheet stay light in dark mode, which is acceptable. This also
+// means the OS dark setting cannot be read, so the choice is Light or Dark, never System.
+Appearance.setColorScheme("light");
 
 interface ThemeValue {
   scheme: Scheme;
@@ -25,22 +28,24 @@ interface ThemeValue {
 const ThemeContext = createContext<ThemeValue>({
   scheme: "light",
   colors: palettes.light,
-  preference: "system",
+  preference: DEFAULT_PREFERENCE,
   setPreference: () => {},
   reducedMotion: false,
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const system = useColorScheme();
-  const [preference, setPreferenceState] = useState<SchemePreference>("system");
+  const [preference, setPreferenceState] = useState<SchemePreference>(DEFAULT_PREFERENCE);
   const [reducedMotion, setReducedMotion] = useState(false);
+  // Held until the saved choice is read, so a patient on Dark never sees a flash of Light at launch.
+  const [preferenceLoaded, setPreferenceLoaded] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(PREFERENCE_KEY)
       .then((value) => {
         if (isSchemePreference(value)) setPreferenceState(value);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setPreferenceLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -57,13 +62,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const scheme = resolveScheme(preference, system, DARK_MODE_ENABLED);
-
-  // With dark mode off, pin the whole OS-level appearance to light so native
-  // chrome matches; with it on, follow the preference (null means follow the system).
-  useEffect(() => {
-    Appearance.setColorScheme(DARK_MODE_ENABLED ? (preference === "system" ? null : preference) : "light");
-  }, [preference]);
+  const scheme = resolveScheme(preference, null, DARK_MODE_ENABLED);
 
   const setPreference = useCallback((next: SchemePreference) => {
     setPreferenceState(next);
@@ -75,6 +74,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     [scheme, preference, setPreference, reducedMotion]
   );
 
+  if (!preferenceLoaded) return null;
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+/**
+ * Draws its children in the light scheme whatever the patient chose. For a surface that
+ * holds a screen which has not moved onto the kit yet (it is light-only), so the kit
+ * parts around it (a header, a Close button) match it instead of fighting it.
+ */
+export function ForceLight({ children }: { children: ReactNode }) {
+  const base = useContext(ThemeContext);
+  const value = useMemo<ThemeValue>(() => ({ ...base, scheme: "light", colors: palettes.light }), [base]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 

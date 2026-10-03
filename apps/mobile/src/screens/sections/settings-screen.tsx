@@ -7,6 +7,7 @@ import * as WebBrowser from "expo-web-browser";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { CalloutCard, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionDivider, SectionLabel } from "@/ui/components";
 import { ProfileScreen } from "@/screens/sections/profile-screen";
+import { AppearanceSetting } from "@/screens/sections/appearance-setting";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { authenticate, readAppLockEnabled, writeAppLockEnabled } from "@/lib/app-lock";
 import { supabase } from "@/lib/supabase";
@@ -130,6 +131,10 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
           onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/subscription`)}
         />
       </View>
+
+      <SectionDivider />
+
+      <AppearanceSetting />
 
       <SectionDivider />
 

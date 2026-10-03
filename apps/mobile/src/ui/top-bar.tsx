@@ -9,7 +9,7 @@ import {
   type InAppNotification,
 } from "@/lib/notifications";
 import type { SectionId } from "@/lib/sections";
-import { colors, inkAlpha } from "./theme";
+import { useLegacyColors } from "./design";
 
 interface TopBarProps {
   userId: string;
@@ -24,6 +24,7 @@ interface TopBarProps {
 /** Hamburger + wordmark + notification bell + profile avatar — the header
  * mounted above every section of the signed-in app. */
 export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSettings, onSignOut, onNavigate }: TopBarProps) {
+  const colors = useLegacyColors();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
@@ -89,7 +90,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
           hitSlop={12}
           style={{ position: "relative" }}
         >
-          <Ionicons name="notifications-outline" size={20} color={inkAlpha(0.6)} />
+          <Ionicons name="notifications-outline" size={20} color={colors.muted} />
           {hasUnread ? (
             <View
               style={{
@@ -253,6 +254,7 @@ function DropdownModal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const colors = useLegacyColors();
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <Pressable accessibilityRole="button" onPress={onClose} style={{ flex: 1 }}>

@@ -71,3 +71,12 @@ describe("every Home key exists in English and Pidgin", () => {
     for (const l of lines) expect(en[l.key]).toBeTruthy();
   });
 });
+
+describe("score card dynamic keys", () => {
+  const words = ["morning", "afternoon", "evening"];
+  const levels = ["low", "moderate", "high", "very_high"];
+  it.each([...words.map((w) => `home.score.eyebrow.${w}`), ...levels.map((l) => `home.score.word.${l}`)])("%s exists in English and Pidgin", (key) => {
+    expect(en[key as keyof typeof en]).toBeTruthy();
+    expect(pcm[key as keyof typeof pcm]).toBeTruthy();
+  });
+});
