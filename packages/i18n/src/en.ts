@@ -172,6 +172,7 @@ export const en = {
   "vitals.symptom.body": "Check for danger signs, log a symptom, and see your recent history.",
   "vitals.symptom.cta": "Log a symptom",
   "vitals.symptom.close": "Close",
+  "vitals.a11y.reading": "{systolic} over {diastolic} millimetres of mercury",
   "proxy.setup.title": "Set up for my parent",
   "proxy.setup.intro": "We will text a verification code to your parent's phone. Only they can use it. You will see nothing about them until they say yes on their own phone, and they choose what you can see.",
   "proxy.setup.name_label": "Your parent's name",

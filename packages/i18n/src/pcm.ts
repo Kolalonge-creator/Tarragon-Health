@@ -207,6 +207,7 @@ export const pcm: Record<MessageKey, string> = {
   "vitals.symptom.body": "Check for danger signs, write symptom, and see your recent history.",
   "vitals.symptom.cta": "Write symptom",
   "vitals.symptom.close": "Close",
+  "vitals.a11y.reading": "{systolic} over {diastolic} millimetres of mercury",
   "care_category.medical_history": "Medical history",
   "privacy.summary.title": "Wetin we dey do with your information",
   "privacy.summary.intro": "For simple words: wetin each choice mean, who fit see am, and how to stop am.",

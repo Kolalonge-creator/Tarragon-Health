@@ -14,6 +14,7 @@ const TYPES: OtherVitalType[] = ["glucose", "weight", "temperature", "spo2", "pu
 const CONTEXTS = ["random", "fasting", "pre_meal", "post_meal", "bedtime", "night"];
 
 const keys: string[] = [
+  "vitals.a11y.reading",
   ...LEVELS.map((l) => `vitals.level.${l}`),
   ...BP_ERRORS.map((e) => `vitals.error.${e}`),
   ...OTHER_ERRORS.map((e) => `vitals.other.error.${e}`),

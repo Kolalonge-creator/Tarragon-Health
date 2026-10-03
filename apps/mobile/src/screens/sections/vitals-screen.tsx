@@ -4,7 +4,7 @@ import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
-import { BP_THRESHOLDS, type BpLevel } from "@/lib/bp-classification";
+import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
 import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-trend";
 import { loadActiveThresholds } from "@/lib/threshold-sync";
 import {
@@ -70,6 +70,9 @@ const LEVEL_TONE: Record<BpLevel, BadgeTone> = {
   unknown: "neutral",
 };
 
+/** 30 days at up to four readings a day. */
+const HISTORY_LIMIT = 120;
+
 const OTHER_VITAL_TYPES: { id: OtherVitalType; unit: string }[] = [
   // Glucose's unit follows the patient's own toggle, see OtherVitalCard.
   { id: "glucose", unit: "mg/dL" },
@@ -103,10 +106,10 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const { colors } = useTheme();
   const toast = useToast();
 
-  const [readings, setReadings] = useState<BpReading[]>([]);
+  const [rawReadings, setRawReadings] = useState<BpReading[]>([]);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
-  const [amber, setAmber] = useState<{ systolic: number; diastolic: number }>(BP_THRESHOLDS.amber);
+  const [thresholds, setThresholds] = useState<BpThresholds>(BP_THRESHOLDS);
   const [windowDays, setWindowDays] = useState<TrendWindowDays>(7);
   const [selected, setSelected] = useState<BpReading | null>(null);
 
@@ -121,8 +124,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
 
   const load = useCallback(async () => {
-    const list = await loadRecentBpReadings(patientId, 30);
-    setReadings(list);
+    // Enough for a 30 day chart even for someone who logs several times a day.
+    const list = await loadRecentBpReadings(patientId, HISTORY_LIMIT);
+    setRawReadings(list);
     setNowMs(Date.now());
   }, [patientId]);
 
@@ -149,14 +153,23 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       .catch(() => {})
       .finally(() => setLoading(false));
     loadActiveThresholds()
-      .then((active) => setAmber(active.bp.amber))
+      .then((active) => setThresholds(active.bp))
       .catch(() => {});
     loadCachedEmergencyFacts()
       .then((facts) => setEmergencyContact(facts?.emergencyContact ?? null))
       .catch(() => {});
   }, [load, patientId]);
 
-  useEffect(() => setSelected(null), [windowDays]);
+  // The status badge and the chart's reference lines must agree, so every reading is
+  // rated against the same (server-synced) thresholds the chart draws.
+  const readings = useMemo(
+    () => rawReadings.map((r) => ({ ...r, level: classifyBpLevel(r.systolic, r.diastolic, thresholds) })),
+    [rawReadings, thresholds]
+  );
+  const amber = thresholds.amber;
+
+  // The chart clears its own highlight when the data or window changes; clear the readout too.
+  useEffect(() => setSelected(null), [windowDays, readings]);
 
   async function handleSave() {
     const entry = validateBpEntry(sys, dia);
@@ -204,7 +217,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         maxS: summary.maxSystolic,
         minD: summary.minDiastolic,
         maxD: summary.maxDiastolic,
-        latest: `${summary.latest.systolic} over ${summary.latest.diastolic}`,
+        latest: tr("vitals.a11y.reading", { systolic: summary.latest.systolic, diastolic: summary.latest.diastolic }),
       })
     : "";
   const levelLabel = (level: BpLevel) => tr(`vitals.level.${level}` as MessageKey);
@@ -235,7 +248,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         ) : latest ? (
           <>
             <View style={{ flexDirection: "row", alignItems: "baseline", gap: space.sm }}>
-              <AppText variant="hero" accessibilityLabel={`${latest.systolic} over ${latest.diastolic} millimetres of mercury`}>
+              <AppText variant="hero" accessibilityLabel={tr("vitals.a11y.reading", { systolic: latest.systolic, diastolic: latest.diastolic })}>
                 {latest.systolic}/{latest.diastolic}
               </AppText>
               <AppText variant="body" tone="textMuted">
