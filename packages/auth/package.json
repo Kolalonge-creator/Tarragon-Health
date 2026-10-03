@@ -30,27 +30,27 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules jest"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.12.0",
-    "@supabase/supabase-js": "^2.110.0",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.2",
     "@tarragon/shared": "workspace:*",
-    "@upstash/ratelimit": "^2.0.8",
-    "@upstash/redis": "^1.38.2",
-    "zod": "^4.4.3"
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
-    "next": "16.3.3",
-    "react": "19.2.4"
+    "next": "16.3.7",
+    "react": "19.3.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^20.19.43",
-    "@types/react": "19.2.17",
+    "@types/react": "19.3.0",
     "eslint": "^9",
     "jest": "^30.4.2",
-    "next": "16.3.3",
-    "react": "19.2.4",
-    "ts-jest": "^29.4.11",
+    "next": "16.3.7",
+    "react": "19.3.0",
+    "ts-jest": "^29.4.14",
     "typescript": "^5",
     "typescript-eslint": "^8"
   }
