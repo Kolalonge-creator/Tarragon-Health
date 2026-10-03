@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
+import { DoctorNameLink } from "@/components/doctor-name-link";
 const SECOND_OPINION_CREDIT_CODE = "second_opinion_credit";
 
 function RequestRow({
@@ -25,10 +26,6 @@ function RequestRow({
   request: SecondOpinionRequestWithAnswerer;
 }) {
   const answered = request.status === "answered" || request.status === "closed";
-  const credential =
-    request.answerer?.credential_type && request.answerer?.credential_number
-      ? `${request.answerer.credential_type} ${request.answerer.credential_number}`
-      : null;
 
   return (
     <li className="space-y-1 py-3">
@@ -56,8 +53,7 @@ function RequestRow({
               never rendered without a real clinical_staff match. */}
           {request.answerer && request.answered_at && (
             <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              Answered by Dr. {request.answerer.full_name}
-              {credential ? ` (${credential})` : ""} on{" "}
+              Answered by <DoctorNameLink staffId={request.answerer.id} fullName={request.answerer.full_name} /> on{" "}
               {formatPatientDate(request.answered_at)}
             </p>
           )}

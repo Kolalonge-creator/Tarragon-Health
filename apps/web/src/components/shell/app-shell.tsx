@@ -319,16 +319,21 @@ function CollapsibleNavGroup({
 }
 
 /**
- * Progressive-disclosure variant of SidebarNav for the desktop patient
- * sidebar (the patient menu is ~30 links across five groups — expanded, it
- * reads like an admin panel). Labelled groups collapse to their headings;
+ * Progressive-disclosure variant of SidebarNav, used by every role whose nav
+ * has labelled groups (useCollapsibleNav in the component below) — the
+ * patient menu (~30 links across five groups), the clinician menu (~45+
+ * links across eight groups, including the Chief Medical Officer's own
+ * governance section), and admin's grouped sections all read like an
+ * unbroken wall expanded flat. Labelled groups collapse to their headings;
  * only the group holding the current route opens by default, manual opens
- * persist in localStorage, and navigation re-opens the group it lands in.
- * SAFETY EXCEPTION: any `variant: "danger"` link (the Emergency card) is
- * hoisted out of its group at render and pinned always-visible at the bottom
- * of the nav — a safety link must never sit behind a collapsed heading.
- * Staff roles keep the always-expanded SidebarNav above, and the phone
- * drawer stays fully expanded too (it is already disclosure-on-demand).
+ * persist in localStorage, and navigation re-opens the group it lands in —
+ * so everything is reachable at a glance (collapsed headings) or in full
+ * (expand any group), never truly hidden. SAFETY EXCEPTION: any
+ * `variant: "danger"` link (the patient's Emergency card) is hoisted out of
+ * its group at render and pinned always-visible at the bottom of the nav —
+ * a safety link must never sit behind a collapsed heading. A role whose nav
+ * is only unlabelled bands (pharmacist, lab_partner, …) has nothing to
+ * collapse and keeps the always-expanded SidebarNav instead.
  */
 function CollapsibleSidebarNav({
   sections,
@@ -625,6 +630,16 @@ export function AppShell({
   const hasNav = navSections.some((s) => s.items.length > 0);
   const homeHref = navSections[0]?.items[0]?.href ?? "/login";
   const allItems = navSections.flatMap((s) => s.items);
+  // Progressive disclosure whenever a role's nav actually has labelled
+  // groups to collapse — originally patient-only (surface === "warm"), but
+  // the clinician menu grew to 8 labelled sections (~45+ links) with no way
+  // to see it all at a glance without either scrolling past everything or
+  // losing the overview a fully-collapsed set of headings gives; admin's
+  // "Operations" section is a similar long flat list. A role whose nav is
+  // just one or two unlabelled bands (pharmacist, lab_partner, …) has
+  // nothing to collapse, so this falls through to the flat SidebarNav for
+  // them exactly as before.
+  const useCollapsibleNav = navSections.some((s) => s.label);
   const primaryItems = allItems.filter((item) => item.primary).slice(0, MAX_PRIMARY_NAV_ITEMS);
 
   // One batched fetch for every countKey any link in this role's nav sets,
@@ -696,7 +711,7 @@ export function AppShell({
       {hasNav && (
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex print:hidden dark:border-night-ink/15 dark:bg-night-card">
           <BrandLockup homeHref={homeHref} />
-          {surface === "warm" ? (
+          {useCollapsibleNav ? (
             <CollapsibleSidebarNav sections={navSections} pathname={pathname} navCounts={navCounts} />
           ) : (
             <SidebarNav sections={navSections} pathname={pathname} navCounts={navCounts} />
@@ -727,14 +742,15 @@ export function AppShell({
               </Button>
             </div>
             {/* The phone drawer gets the same progressive disclosure as the
-                desktop sidebar for the patient surface. It used to render
-                every link flat, which on the patient menu is a single
-                scrolling wall — the surface where that hurts most, since it
-                is also the smallest screen. The everyday band stays open
-                (CollapsibleSidebarNav never collapses the unlabelled top
-                group) and the Emergency card stays pinned, so nothing a
-                patient needs in a hurry moved behind a heading. */}
-            {surface === "warm" ? (
+                desktop sidebar, for any role whose nav has labelled groups
+                (see useCollapsibleNav above). It used to render every link
+                flat, which on a long menu is a single scrolling wall — the
+                surface where that hurts most, since it is also the smallest
+                screen. The everyday band stays open (CollapsibleSidebarNav
+                never collapses the unlabelled top group) and any
+                `variant: "danger"` link (the patient's Emergency card) stays
+                pinned, so nothing urgent moves behind a heading. */}
+            {useCollapsibleNav ? (
               <CollapsibleSidebarNav
                 sections={navSections}
                 pathname={pathname}

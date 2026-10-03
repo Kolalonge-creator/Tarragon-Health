@@ -356,7 +356,14 @@ function RunEvalSuitesForm() {
   );
 }
 
-function AiSystemVersionCard({ version }: { version: AiSystemVersionRow }) {
+/**
+ * Exported (not just used inline below) so /clinician/ai-governance — the
+ * Chief Medical Officer's own reachable mirror of this console, same reason
+ * /clinician/clinical-signoff exists — can render the same card for a
+ * version awaiting approval without duplicating its markup or its approve/
+ * mark-deployed forms.
+ */
+export function AiSystemVersionCard({ version }: { version: AiSystemVersionRow }) {
   const status = version.retired_at
     ? { variant: "grey" as const, label: `Retired ${formatDate(version.retired_at)}` }
     : version.deployed_at
@@ -510,7 +517,8 @@ function LabeledCaseRow({ caseData: c }: { caseData: AiClinicalAccuracyCaseRow }
  * shows each scenario blind (no hint at an expected answer) so labelling
  * here is a real, independent second opinion, not a rubber stamp.
  */
-function ClinicalAccuracyReviewSection({ cases }: { cases: AiClinicalAccuracyCaseRow[] }) {
+/** Exported for the same reason as AiSystemVersionCard above — see its comment. */
+export function ClinicalAccuracyReviewSection({ cases }: { cases: AiClinicalAccuracyCaseRow[] }) {
   if (cases.length === 0) return null;
   const unlabeled = cases.filter((c) => !c.expected_tier);
   const labeled = cases.filter((c) => c.expected_tier);

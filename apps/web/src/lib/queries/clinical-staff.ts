@@ -105,6 +105,7 @@ export function useCreateClinicalStaff() {
       credentialType?: string;
       credentialNumber?: string;
       specialty?: string;
+      yearsOfExperience?: number | null;
       bio?: string;
       profilePhone?: string;
       photoFile?: File;
@@ -138,6 +139,7 @@ export function useCreateClinicalStaff() {
         credential_type: input.credentialType || null,
         credential_number: input.credentialNumber || null,
         specialty: input.specialty || null,
+        years_of_experience: input.yearsOfExperience ?? null,
         bio: input.bio || null,
         photo_url: photoUrl,
         active: false,
@@ -377,6 +379,7 @@ export function useUpdateClinicalStaff() {
       organisationId,
       specialty,
       bio,
+      yearsOfExperience,
       photoFile,
       removePhoto,
     }: {
@@ -384,6 +387,7 @@ export function useUpdateClinicalStaff() {
       organisationId: string;
       specialty: string;
       bio: string;
+      yearsOfExperience?: number | null;
       photoFile?: File;
       removePhoto?: boolean;
     }) => {
@@ -401,6 +405,7 @@ export function useUpdateClinicalStaff() {
         .update({
           specialty: specialty.trim() || null,
           bio: bio.trim() || null,
+          ...(yearsOfExperience !== undefined ? { years_of_experience: yearsOfExperience } : {}),
           ...(photoUrl !== undefined ? { photo_url: photoUrl } : {}),
         })
         .eq("id", clinicalStaffId);

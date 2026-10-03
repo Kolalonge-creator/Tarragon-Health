@@ -9,6 +9,12 @@ import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { runAiCoachGovernanceSuites } from "@/lib/ai-governance/run-coach-eval-suites";
 
 const PATH = "/admin/settings/ai-governance";
+// The Chief Medical Officer's own reachable mirror of this console (a real
+// CMO's account is always `profiles.role = 'clinician'`, per CLAUDE.md —
+// they cannot reach /admin/* without a delegated grant). Approving a version
+// or labelling a case from either page must revalidate both, or one of them
+// keeps showing stale "still awaiting your approval" state.
+const CLINICIAN_PATH = "/clinician/ai-governance";
 
 export type AiGovernanceActionState = { error?: string; success?: string } | undefined;
 
@@ -205,6 +211,7 @@ export async function approveAiSystemVersionAction(
   if (error) return { error: error.message };
 
   revalidatePath(PATH);
+  revalidatePath(CLINICIAN_PATH);
   return {
     success: parsed.data.deploy
       ? "Marked deployed."
@@ -247,6 +254,7 @@ export async function labelAiEvaluationCaseTierAction(
   if (error) return { error: error.message };
 
   revalidatePath(PATH);
+  revalidatePath(CLINICIAN_PATH);
   return { success: "Recorded. Once every case in this suite is labelled, it can be run against the coach." };
 }
 

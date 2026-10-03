@@ -26,14 +26,11 @@ import {
 } from "@/components/ui/form-error";
 
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
+import { DoctorNameLink } from "@/components/doctor-name-link";
 const ASYNC_CONSULT_CREDIT_CODE = "async_consult_credit";
 
 function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
   const answered = consult.status === "answered" || consult.status === "closed";
-  const credential =
-    consult.answerer?.credential_type && consult.answerer?.credential_number
-      ? `${consult.answerer.credential_type} ${consult.answerer.credential_number}`
-      : null;
 
   return (
     <li className="space-y-1 py-3">
@@ -61,8 +58,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
               never rendered without a real clinical_staff match. */}
           {consult.answerer && consult.answered_at && (
             <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              Answered by Dr. {consult.answerer.full_name}
-              {credential ? ` (${credential})` : ""} on{" "}
+              Answered by <DoctorNameLink staffId={consult.answerer.id} fullName={consult.answerer.full_name} /> on{" "}
               {formatPatientDate(consult.answered_at)}
             </p>
           )}

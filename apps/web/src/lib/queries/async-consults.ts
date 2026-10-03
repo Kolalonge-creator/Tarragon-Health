@@ -6,9 +6,8 @@ export type AsyncConsult = Tables<"async_consults">;
 
 export type AsyncConsultWithAnswerer = AsyncConsult & {
   answerer: {
+    id: string;
     full_name: string;
-    credential_type: string | null;
-    credential_number: string | null;
   } | null;
 };
 
@@ -30,7 +29,7 @@ export function useMyAsyncConsults(patientId: string) {
       const { data, error } = await supabase
         .from("async_consults")
         .select(
-          "*, answerer:clinical_staff!async_consults_answered_by_fkey(full_name, credential_type, credential_number)"
+          "*, answerer:clinical_staff!async_consults_answered_by_fkey(id, full_name)"
         )
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false })

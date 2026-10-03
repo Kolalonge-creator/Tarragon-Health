@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { DoctorNameLink } from "@/components/doctor-name-link";
 
 function formatReviewedDate(reviewedAt: string): string {
   return new Date(reviewedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
@@ -12,7 +13,8 @@ function formatReviewedDate(reviewedAt: string): string {
  * (lab_result_documents, annual_health_checks, ...). Renders nothing unless
  * BOTH are set (server-stamped, never invented). Falls back to a generic
  * care-team line when reviewed_by maps to no active clinical_staff record,
- * rather than guessing a name.
+ * rather than guessing a name. The name links to the doctor's profile page —
+ * speciality/years of experience live there only, not inline here.
  *
  * `reviewedByKey` picks which column reviewed_by actually holds — the
  * codebase has two conventions in use (e.g. lab_result_documents.reviewed_by
@@ -34,7 +36,7 @@ export async function ReviewedResultLine({
   const supabase = await createClient();
   const { data: doctor } = await supabase
     .from("clinical_staff")
-    .select("full_name, credential_type, credential_number")
+    .select("id, full_name")
     .eq(reviewedByKey === "staff" ? "id" : "profile_id", reviewedBy)
     .eq("active", true)
     .maybeSingle();
@@ -47,15 +49,12 @@ export async function ReviewedResultLine({
     );
   }
 
-  const credential =
-    doctor.credential_type && doctor.credential_number
-      ? `${doctor.credential_type} ${doctor.credential_number}`
-      : null;
-
   return (
     <p className="text-sm text-charcoal-ink dark:text-night-ink">
-      Reviewed by <span className="font-medium">Dr. {doctor.full_name}</span>
-      {credential && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {credential}</span>}
+      Reviewed by{" "}
+      <span className="font-medium">
+        <DoctorNameLink staffId={doctor.id} fullName={doctor.full_name} />
+      </span>
       <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {reviewedDate}</span>
     </p>
   );

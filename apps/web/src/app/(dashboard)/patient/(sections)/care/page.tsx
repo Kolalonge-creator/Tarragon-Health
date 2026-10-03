@@ -92,8 +92,11 @@ export default async function PatientCarePage() {
           {/* Pure pay-per-service — no plan bypass, the card carries its own
               buy-a-credit prompt. */}
           <SecondOpinionRequestCard patientId={subjectId} organisationId={profile.organisation_id} />
-          <VerifiedDocumentsCard patientId={subjectId} organisationId={profile.organisation_id} />
-          <SeniorCaseReviewCard patientId={subjectId} organisationId={profile.organisation_id} />
+          {/* Both retired from purchase 2026-09-24 (no request form left) —
+              read-only history, so each renders nothing once a patient has
+              none of its own. */}
+          <VerifiedDocumentsCard patientId={subjectId} />
+          <SeniorCaseReviewCard patientId={subjectId} />
           {coachAccess && <AiCoachChat patientId={subjectId} />}
           <ServiceNavigationAssistant />
           <CareCircleCard />

@@ -1,28 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import {
   useMySeniorCaseReviews,
-  useRequestSeniorCaseReview,
   type SeniorCaseReviewWithAnswerer,
 } from "@/lib/queries/senior-case-review";
-import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
-const SENIOR_CASE_REVIEW_CREDIT_CODE = "senior_case_review_credit";
+import { DoctorNameLink } from "@/components/doctor-name-link";
 
 function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
   const completed = review.status === "completed";
-  const credential =
-    review.reviewer?.credential_type && review.reviewer?.credential_number
-      ? `${review.reviewer.credential_type} ${review.reviewer.credential_number}`
-      : null;
 
   return (
     <li className="space-y-1 py-3">
@@ -55,8 +44,7 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
           </p>
           {review.reviewer && review.reviewed_at && (
             <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              Dr. {review.reviewer.full_name}
-              {credential ? ` (${credential})` : ""} ·{" "}
+              <DoctorNameLink staffId={review.reviewer.id} fullName={review.reviewer.full_name} /> ·{" "}
               {formatPatientDate(review.reviewed_at)}
             </p>
           )}
@@ -67,105 +55,30 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
 }
 
 /**
- * Senior Case Review — pay-per-service item, no plan bypass: a Tier 3+
- * senior doctor (or Clinical Director) coordinates a complex, often
- * multi-condition case and delivers a written plan in-app. Renamed from
- * "multi-disciplinary case review" to avoid colliding with the separate
- * external specialist-network initiative (founder decision, 2026-08-31).
+ * Senior Case Review — retired from patient purchase 2026-09-24 (founder
+ * decision; see migration
+ * 20260924055301_retire_senior_case_review_verified_documents_confidential_message.sql).
+ * There is no request form here any more, only a read-only history so a
+ * patient with a review already requested or completed before the
+ * retirement still has somewhere to find their written plan. Renders
+ * nothing once a patient has no reviews at all.
  */
-export function SeniorCaseReviewCard({
-  patientId,
-  organisationId,
-}: {
-  patientId: string;
-  organisationId: string | null;
-}) {
+export function SeniorCaseReviewCard({ patientId }: { patientId: string }) {
   const { data: reviews } = useMySeniorCaseReviews(patientId);
-  const { data: hasCredit, isLoading: isCheckingCredit } =
-    useHasAvailableServicePurchase(patientId, SENIOR_CASE_REVIEW_CREDIT_CODE);
-  const request = useRequestSeniorCaseReview();
-  const [situationSummary, setSituationSummary] = useState("");
-  const [formError, setFormError] = useState<string | null>(null);
 
-  if (!organisationId) return null;
-
-  function onSubmit() {
-    setFormError(null);
-    if (situationSummary.trim().length < 20) {
-      setFormError(
-        "Tell us a bit more about your situation so a senior doctor can prepare properly.",
-      );
-      return;
-    }
-    if (!organisationId) return;
-    request.mutate(
-      { patientId, organisationId, situationSummary: situationSummary.trim() },
-      {
-        onSuccess: () => setSituationSummary(""),
-        onError: (error) =>
-          setFormError(
-            (error as Error).message || "Could not send this request.",
-          ),
-      },
-    );
-  }
+  if (!reviews || reviews.length === 0) return null;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Senior case review</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Managing more than one condition, or feel your plan isn&apos;t quite
-          right? A senior doctor reviews your whole record and sends you a
-          written plan, coordinated across everything you&apos;re managing.
-        </p>
-
-        {!isCheckingCredit && !hasCredit && (
-          <div className="space-y-2 rounded-md border border-brand-green/30 dark:border-brand-green-bright/30 bg-brand-green/5 dark:bg-brand-green/15 p-3">
-            <p className="text-sm text-charcoal-ink dark:text-night-ink">
-              Buy a credit to request a review.
-            </p>
-            <PayWithCreditOrCard
-              patientId={patientId}
-              serviceProductCode={SENIOR_CASE_REVIEW_CREDIT_CODE}
-              callbackPath="/patient/care"
-              onError={setFormError}
-            />
-          </div>
-        )}
-
-        <div className="space-y-2">
-          <Label htmlFor="senior-case-review-summary">Your situation</Label>
-          <Textarea
-            id="senior-case-review-summary"
-            value={situationSummary}
-            onChange={(e) => setSituationSummary(e.target.value)}
-            rows={4}
-            placeholder="e.g. I'm managing diabetes and hypertension together and my energy levels have dropped since my last medication change. I'd like someone to look at the whole picture."
-            disabled={!hasCredit}
-          />
-        </div>
-        {formError && (
-          <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>
-        )}
-        {request.isSuccess && (
-          <p className="text-sm text-brand-green dark:text-brand-green-bright">
-            Sent to a senior doctor. Expect a written plan within 5 days.
-          </p>
-        )}
-        <Button onClick={onSubmit} disabled={request.isPending || !hasCredit}>
-          {request.isPending ? "Sending…" : "Request review"}
-        </Button>
-
-        {reviews && reviews.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 border-t border-charcoal-ink/10 dark:border-night-ink/15">
-            {reviews.map((r) => (
-              <ReviewRow key={r.id} review={r} />
-            ))}
-          </ul>
-        )}
+      <CardContent>
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
+          {reviews.map((r) => (
+            <ReviewRow key={r.id} review={r} />
+          ))}
+        </ul>
       </CardContent>
     </Card>
   );

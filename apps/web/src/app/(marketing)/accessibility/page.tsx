@@ -96,7 +96,7 @@ export default function AccessibilityPage() {
             <p className="mt-3 leading-relaxed text-charcoal-ink/80">
               This page is for reporting accessibility problems with our website and platform, not
               for medical emergencies. TarragonHealth does not provide emergency care; in a
-              medical emergency, go to your nearest hospital or call your local emergency number.
+              medical emergency, go to your nearest hospital.
             </p>
           </section>
         </div>

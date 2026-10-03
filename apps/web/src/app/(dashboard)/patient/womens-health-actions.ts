@@ -16,7 +16,13 @@ import {
 export type WomensHealthActionState = { error?: string; success?: boolean } | undefined;
 
 async function currentSubjectOrg(): Promise<
-  { supabase: Awaited<ReturnType<typeof createClient>>; subjectId: string; organisationId: string } | { error: string }
+  | {
+      supabase: Awaited<ReturnType<typeof createClient>>;
+      userId: string;
+      subjectId: string;
+      organisationId: string;
+    }
+  | { error: string }
 > {
   const supabase = await createClient();
   const {
@@ -30,7 +36,32 @@ async function currentSubjectOrg(): Promise<
     .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) return { error: "No organisation on file" };
-  return { supabase, subjectId, organisationId: profile.organisation_id };
+  return { supabase, userId: user.id, subjectId, organisationId: profile.organisation_id };
+}
+
+/**
+ * patient_pregnancy / postnatal_profiles / postnatal_checkins deliberately
+ * have no caregiver access at all -- not even guardian-gated -- per the
+ * 2026-09-02 pre-launch security review (see the "no caregiver access,
+ * matching patient_pregnancy" self-check assertions in
+ * 20260829121135_pregnancy_antenatal_extension.sql and
+ * 20260829121137_postnatal_programme.sql). A supporter's own RLS session
+ * can't write these tables under someone else's patient_id, so this turns
+ * that into a clear error instead of a raw Postgres policy-violation
+ * message, and stops a supporter's submission from silently landing on
+ * their OWN record instead (the bug this guard replaces). Does not apply to
+ * reportPregnancyDangerSymptoms below -- emergency_events already has a
+ * working acting-for policy (emergency_events_insert_acting), matching every
+ * other emergency-reporting pathway a supporter can use on someone's behalf.
+ */
+function assertNoActingFor(ctx: {
+  userId: string;
+  subjectId: string;
+}): { error: string } | null {
+  if (ctx.subjectId !== ctx.userId) {
+    return { error: "Pregnancy and postnatal records can only be managed on your own account, not for someone you support." };
+  }
+  return null;
 }
 
 // --- Menstrual cycle log (§44.3/44.4) ---------------------------------------
@@ -73,18 +104,15 @@ export async function setLastMenstrualPeriod(
   const lmp = lmpRaw && !Number.isNaN(Date.parse(lmpRaw)) ? lmpRaw : null;
   if (!lmp) return { error: "Enter a valid date" };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
-  const { data: profile } = await supabase.from("profiles").select("organisation_id").eq("id", user.id).single();
-  if (!profile?.organisation_id) return { error: "No organisation on file" };
+  const ctx = await currentSubjectOrg();
+  if ("error" in ctx) return { error: ctx.error };
+  const guardError = assertNoActingFor(ctx);
+  if (guardError) return guardError;
 
-  const { error } = await supabase.from("patient_pregnancy").upsert(
+  const { error } = await ctx.supabase.from("patient_pregnancy").upsert(
     {
-      patient_id: user.id,
-      organisation_id: profile.organisation_id,
+      patient_id: ctx.subjectId,
+      organisation_id: ctx.organisationId,
       is_pregnant: true,
       last_menstrual_period_date: lmp,
     },
@@ -103,6 +131,10 @@ export async function setLastMenstrualPeriod(
  * trigger raises the Priority-1 clinician_alerts row exactly as it does for
  * every other emergency source, and the same acknowledge-gated
  * "go to the nearest hospital now" guidance (EmergencyAlert) picks it up.
+ * Attributed to the resolved subject (not the caller) so a supporter acting
+ * for someone they support raises THAT patient's emergency, never their
+ * own -- emergency_events already has an acting-for INSERT policy
+ * (emergency_events_insert_acting) for exactly this.
  */
 export async function reportPregnancyDangerSymptoms(
   _prev: WomensHealthActionState,
@@ -111,17 +143,12 @@ export async function reportPregnancyDangerSymptoms(
   const parsed = pregnancyDangerReportSchema.safeParse({ signs: formData.getAll("signs") });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Select at least one sign" };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
-  const { data: profile } = await supabase.from("profiles").select("organisation_id").eq("id", user.id).single();
-  if (!profile?.organisation_id) return { error: "No organisation on file" };
+  const ctx = await currentSubjectOrg();
+  if ("error" in ctx) return { error: ctx.error };
 
-  const { error } = await supabase.from("emergency_events").insert({
-    patient_id: user.id,
-    organisation_id: profile.organisation_id,
+  const { error } = await ctx.supabase.from("emergency_events").insert({
+    patient_id: ctx.subjectId,
+    organisation_id: ctx.organisationId,
     source: "pregnancy_symptom_checklist",
     trigger_detail: pregnancyDangerSignsSummary(parsed.data.signs as PregnancyDangerSign[]),
     status: "active",
@@ -236,23 +263,20 @@ export async function recordDelivery(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
-  const { data: profile } = await supabase.from("profiles").select("organisation_id").eq("id", user.id).single();
-  if (!profile?.organisation_id) return { error: "No organisation on file" };
+  const ctx = await currentSubjectOrg();
+  if ("error" in ctx) return { error: ctx.error };
+  const guardError = assertNoActingFor(ctx);
+  if (guardError) return guardError;
 
-  const { error: pregnancyError } = await supabase.from("patient_pregnancy").upsert(
-    { patient_id: user.id, organisation_id: profile.organisation_id, is_pregnant: false },
+  const { error: pregnancyError } = await ctx.supabase.from("patient_pregnancy").upsert(
+    { patient_id: ctx.subjectId, organisation_id: ctx.organisationId, is_pregnant: false },
     { onConflict: "patient_id" }
   );
   if (pregnancyError) return { error: pregnancyError.message };
 
-  const { error } = await supabase.from("postnatal_profiles").insert({
-    patient_id: user.id,
-    organisation_id: profile.organisation_id,
+  const { error } = await ctx.supabase.from("postnatal_profiles").insert({
+    patient_id: ctx.subjectId,
+    organisation_id: ctx.organisationId,
     delivery_date: parsed.data.delivery_date,
     delivery_mode: parsed.data.delivery_mode,
     complications: parsed.data.complications,
@@ -274,17 +298,14 @@ export async function logPostnatalCheckin(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
-  const { data: profile } = await supabase.from("profiles").select("organisation_id").eq("id", user.id).single();
-  if (!profile?.organisation_id) return { error: "No organisation on file" };
+  const ctx = await currentSubjectOrg();
+  if ("error" in ctx) return { error: ctx.error };
+  const guardError = assertNoActingFor(ctx);
+  if (guardError) return guardError;
 
-  const { error } = await supabase.from("postnatal_checkins").insert({
-    patient_id: user.id,
-    organisation_id: profile.organisation_id,
+  const { error } = await ctx.supabase.from("postnatal_checkins").insert({
+    patient_id: ctx.subjectId,
+    organisation_id: ctx.organisationId,
     postnatal_profile_id: postnatalProfileId,
     checkin_window: parsed.data.checkin_window,
     breastfeeding_status: parsed.data.breastfeeding_status,

@@ -153,7 +153,7 @@ export const DISCLAIMER_LINE =
   "This is general guidance, not a diagnosis. For anything urgent, contact your care team.";
 
 export const EMERGENCY_SAFETY_REPLY =
-  "What you're describing needs attention right now. Please call emergency services or go to the nearest hospital. I've also let your care team know so they can follow up. This isn't a diagnosis, just a precaution.";
+  "What you're describing needs attention right now. Please go to the nearest hospital. I've also let your care team know so they can follow up. This isn't a diagnosis, just a precaution.";
 
 export const COACH_UNAVAILABLE_REPLY =
   "I'm having trouble reaching the coach right now. If this feels urgent, please contact your care team directly. Otherwise, try again in a few minutes.";

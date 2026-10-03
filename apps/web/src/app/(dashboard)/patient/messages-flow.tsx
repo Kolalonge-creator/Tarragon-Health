@@ -19,9 +19,6 @@ import {
   careMessageCategories,
   type CareMessageCategory,
 } from "@/lib/validation/care-messages";
-import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
-
-const CONFIDENTIAL_MESSAGE_CREDIT_CODE = "confidential_message_credit";
 
 const CATEGORY_LABEL: Record<CareMessageCategory, string> = {
   clinical: "Clinical question",
@@ -72,11 +69,9 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
   const [category, setCategory] = useState<CareMessageCategory>("general");
   const [error, setError] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
-  const [needsCredit, setNeedsCredit] = useState(false);
 
   const startThread = () => {
     setError(null);
-    setNeedsCredit(false);
     start.mutate(
       { subject, body, category, patientId },
       {
@@ -85,19 +80,9 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
           setBody("");
           setCategory("general");
           setComposing(false);
-          setNeedsCredit(false);
           setOpenId(id);
         },
-        onError: (err) => {
-          const message = (err as Error).message ?? "";
-          // A "Clinical question" thread needs a doctor's time —
-          // 20260907132010 gates it behind one confidential_message_credit
-          // (₦2,500). Every other category stays free — see that
-          // migration's own message-vs-detection convention.
-          if (message.includes("confidential message credit")) {
-            setNeedsCredit(true);
-            return;
-          }
+        onError: () => {
           // Was `err.message`, i.e. the raw PostgREST string, under the Send
           // button. Nothing in it is actionable for a patient.
           setError("We could not send that just then. Please try again.");
@@ -240,13 +225,6 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                     </option>
                   ))}
                 </select>
-                {category === "clinical" && (
-                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                    A clinical question needs a doctor&apos;s time, so this is a
-                    paid message (₦2,500). Pick a different category for routine
-                    bookings, refills, or check-ins.
-                  </p>
-                )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="body">Message</Label>
@@ -260,36 +238,20 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                   {...fieldErrorProps(composeErrorId, Boolean(error))}
                 />
               </div>
-              {needsCredit ? (
-                <PayWithCreditOrCard
-                  patientId={patientId}
-                  serviceProductCode={CONFIDENTIAL_MESSAGE_CREDIT_CODE}
-                  callbackPath="/patient/messages"
-                  buyLabel="Pay ₦2,500 and send"
-                  creditLabel="Pay with credit and send"
-                  onError={setError}
-                  onSuccess={() => {
-                    setNeedsCredit(false);
-                    startThread();
-                  }}
-                />
-              ) : (
-                <div className="flex items-center gap-3">
-                  <Button
-                    type="button"
-                    disabled={
-                      start.isPending ||
-                      subject.trim().length < 3 ||
-                      body.trim().length === 0
-                    }
-                    onClick={startThread}
-                  >
-                    {start.isPending ? "Sending…" : "Send"}
-                  </Button>
-                  <FormError id={composeErrorId} message={error} />
-                </div>
-              )}
-              {needsCredit && <FormError id={composeErrorId} message={error} />}
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  disabled={
+                    start.isPending ||
+                    subject.trim().length < 3 ||
+                    body.trim().length === 0
+                  }
+                  onClick={startThread}
+                >
+                  {start.isPending ? "Sending…" : "Send"}
+                </Button>
+                <FormError id={composeErrorId} message={error} />
+              </div>
             </div>
           </div>
         ) : openThread ? (
