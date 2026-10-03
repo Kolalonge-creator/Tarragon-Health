@@ -12,6 +12,7 @@ import {
   Home,
   Info,
   Lock,
+  LogOut,
   Menu,
   MessageCircle,
   Pill,
@@ -63,6 +64,7 @@ export const ICONS = {
   card: CreditCard,
   support: LifeBuoy,
   video: Video,
+  signOut: LogOut,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

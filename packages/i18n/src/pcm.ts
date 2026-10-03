@@ -404,4 +404,12 @@ export const pcm: Record<MessageKey, string> = {
   "services.cancel_error": "We no fit close dis one. Abeg try again.",
   "services.load_error": "We no fit load your services now. Abeg try again.",
   "services.retry": "Try again",
+  "drawer.menu": "Menu",
+  "drawer.home_a11y": "Go to Overview",
+  "drawer.close_a11y": "Close menu",
+  "drawer.patient": "Patient",
+  "drawer.version": "Version {version}",
+  "drawer.sign_out": "Sign out",
+  "drawer.expanded": "{group}, don open",
+  "drawer.collapsed": "{group}, don close",
 };
