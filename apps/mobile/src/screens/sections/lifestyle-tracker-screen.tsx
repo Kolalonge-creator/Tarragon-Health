@@ -17,8 +17,9 @@ import {
   PrimaryButton,
   ScreenTitle,
   SectionLabel,
-} from "@/ui/components";
-import { colors, radius, spacing, typeScale } from "@/ui/theme";
+} from "@/ui/legacy-kit";
+import { radius, spacing, typeScale } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
 import { useT } from "@/lib/ui-language";
 
 /**
@@ -72,6 +73,8 @@ export interface LifestyleTrackerConfig<S> {
 }
 
 export function LifestyleTrackerScreen<S>({ config }: { config: LifestyleTrackerConfig<S> }) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const t = useT();
   const [state, setState] = useState<S | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,7 +206,7 @@ export function LifestyleTrackerScreen<S>({ config }: { config: LifestyleTracker
                 })}
               </View>
             ) : (
-            <TextInput
+            <TextInput keyboardAppearance={scheme}
               accessibilityLabel={field.label}
               value={values[field.key] ?? ""}
               onChangeText={(text) => setValues((v) => ({ ...v, [field.key]: text }))}

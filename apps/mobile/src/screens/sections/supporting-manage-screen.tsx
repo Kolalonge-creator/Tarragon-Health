@@ -9,8 +9,9 @@ import {
 } from "@/lib/supporting-finance";
 import { loadSponsorCareReport, type SponsorCareReport } from "@/lib/sponsor-care-report";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -55,6 +56,7 @@ function shortDate(iso: string): string {
  * people, so it is not duplicated here.
  */
 export function SupportingManageScreen({ userId }: { userId: string }) {
+  const colors = useLegacyColors();
   const [people, setPeople] = useState<SupportedPersonFinance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +144,7 @@ export function SupportingManageScreen({ userId }: { userId: string }) {
 }
 
 function VoucherRow({ voucher, trailing }: { voucher: SupportedPersonVoucher; trailing: ReactNode }) {
+  const colors = useLegacyColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
       <Text style={{ fontSize: 13, color: colors.muted, flex: 1 }} numberOfLines={1}>
@@ -163,6 +166,7 @@ function VoucherRow({ voucher, trailing }: { voucher: SupportedPersonVoucher; tr
  * (sponsor_care_report) keyed by beneficiary, not a table read.
  */
 function SponsorActivitySection({ beneficiaryId }: { beneficiaryId: string }) {
+  const colors = useLegacyColors();
   const [report, setReport] = useState<SponsorCareReport | null>(null);
   const [error, setError] = useState(false);
 
@@ -208,6 +212,7 @@ function SponsorActivitySection({ beneficiaryId }: { beneficiaryId: string }) {
 }
 
 function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
+  const colors = useLegacyColors();
   const name = person.fullName ?? "This person";
 
   return (

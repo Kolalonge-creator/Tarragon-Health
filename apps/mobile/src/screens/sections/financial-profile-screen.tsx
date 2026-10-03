@@ -4,8 +4,9 @@ import * as WebBrowser from "expo-web-browser";
 import { koboToNaira } from "@tarragon/shared";
 import { loadFinancialProfile, type FinancialProfile } from "@/lib/financial-profile";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const naira = (kobo: number) => `₦${koboToNaira(kobo).toLocaleString()}`;
 
@@ -44,6 +45,7 @@ interface FinancialProfileScreenProps {
  * system browser rather than reimplementing Paystack initiation here.
  */
 export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) {
+  const colors = useLegacyColors();
   const [profile, setProfile] = useState<FinancialProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

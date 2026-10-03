@@ -18,6 +18,16 @@ const FILES = [
   "screens/sections/timeline-screen.tsx",
   "screens/sections/receipts-screen.tsx",
   "screens/sections/notification-settings-screen.tsx",
+  "screens/sections/health-passport-screen.tsx",
+  "screens/sections/financial-profile-screen.tsx",
+  "screens/sections/supporting-screen.tsx",
+  "screens/sections/supporting-manage-screen.tsx",
+  "screens/sections/technical-support-screen.tsx",
+  "screens/sections/find-a-specialist-screen.tsx",
+  "screens/sections/lifestyle-screen.tsx",
+  "screens/sections/lifestyle-tracker-screen.tsx",
+  "screens/sections/lifestyle-shared.tsx",
+  "screens/sections/screening-days-screen.tsx",
 ];
 
 describe("scheme-aware legacy screens stay fully switched", () => {
