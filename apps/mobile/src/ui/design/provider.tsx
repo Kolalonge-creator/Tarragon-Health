@@ -36,13 +36,16 @@ const ThemeContext = createContext<ThemeValue>({
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [preference, setPreferenceState] = useState<SchemePreference>(DEFAULT_PREFERENCE);
   const [reducedMotion, setReducedMotion] = useState(false);
+  // Held until the saved choice is read, so a patient on Dark never sees a flash of Light at launch.
+  const [preferenceLoaded, setPreferenceLoaded] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(PREFERENCE_KEY)
       .then((value) => {
         if (isSchemePreference(value)) setPreferenceState(value);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setPreferenceLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -71,6 +74,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     [scheme, preference, setPreference, reducedMotion]
   );
 
+  if (!preferenceLoaded) return null;
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
