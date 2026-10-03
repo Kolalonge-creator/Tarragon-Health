@@ -204,8 +204,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
                           <AppText variant="caption" tone="textMuted">
                             {item.time}
                           </AppText>
+                          {taken ? <Badge label={tr("meds.status.taken")} tone="positive" /> : null}
                         </View>
-                        {taken ? <Badge label={tr("meds.status.taken")} tone="positive" /> : null}
                       </View>
                     </PressableScale>
                     {rowErrors.has(key) ? (

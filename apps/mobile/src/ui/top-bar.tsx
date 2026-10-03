@@ -75,7 +75,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
         <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={onOpenDrawer} hitSlop={8}>
           <Ionicons name="menu-outline" size={22} color={colors.ink} />
         </Pressable>
-        <Text style={{ fontWeight: "700", fontSize: 16, color: colors.navy }}>
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={{ fontWeight: "700", fontSize: 16, color: colors.navy, flexShrink: 1 }}>
           TarragonHealth
         </Text>
       </View>
@@ -107,7 +107,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
                 justifyContent: "center",
               }}
             >
-              <Text style={{ fontSize: 9.5, fontWeight: "700", color: "#fff" }}>
+              <Text maxFontSizeMultiplier={1.2} style={{ fontSize: 9.5, fontWeight: "700", color: "#fff" }}>
                 {notifications.filter((n) => n.status !== "read").length > 9
                   ? "9+"
                   : notifications.filter((n) => n.status !== "read").length}
@@ -127,7 +127,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
               justifyContent: "center",
             }}
           >
-            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.brandPressed }}>{initials}</Text>
+            <Text maxFontSizeMultiplier={1.2} style={{ fontSize: 12, fontWeight: "700", color: colors.brandPressed }}>{initials}</Text>
           </View>
         </Pressable>
       </View>

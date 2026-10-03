@@ -48,8 +48,9 @@ export const textStyles: Record<TextVariant, TextStyleSpec> = {
 };
 
 /**
- * Cap on how far system text size can scale a layout (large text settings).
- * Text still grows, but not enough to break a card; accessibility sizes beyond
- * this are handled by letting containers grow, not by clipping.
+ * Cap on how far system text size can scale. 2.0 is the WCAG 1.4.4 floor (text must
+ * resize to 200 percent without loss), so this must never go below it. Past 2.0 the
+ * system's largest accessibility sizes stop growing, but every container grows with
+ * its text (no fixed heights on text), so nothing is clipped.
  */
-export const MAX_FONT_SCALE = 1.5;
+export const MAX_FONT_SCALE = 2;
