@@ -29,8 +29,9 @@ import {
 } from "@/lib/prevention";
 import { todayIsoDate } from "@/lib/medications";
 import type { Tables } from "@tarragon/shared";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
+import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 interface PreventionScreenProps {
   /** The subject whose prevention record this is — the acting-for subject's
@@ -123,6 +124,8 @@ interface SectionState<T> {
 const EMPTY_SECTION = { data: null, error: null } as const;
 
 export function PreventionScreen({ patientId, organisationId }: PreventionScreenProps) {
+  const { scheme } = useTheme();
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -644,6 +647,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
               <>
                 <MutedText>What date was this test actually done?</MutedText>
                 <TextInput
+            keyboardAppearance={scheme}
                   placeholder="YYYY-MM-DD"
                   placeholderTextColor={colors.subtle}
                   value={performedDateInput}
@@ -659,6 +663,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                   }}
                 />
                 <TextInput
+            keyboardAppearance={scheme}
                   placeholder="Note (optional): e.g. which lab"
                   placeholderTextColor={colors.subtle}
                   value={note}
@@ -687,6 +692,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
               <>
                 <MutedText>Let us know why (e.g. already had this elsewhere, not applicable to me).</MutedText>
                 <TextInput
+            keyboardAppearance={scheme}
                   placeholder="Reason"
                   placeholderTextColor={colors.subtle}
                   value={declineReason}
