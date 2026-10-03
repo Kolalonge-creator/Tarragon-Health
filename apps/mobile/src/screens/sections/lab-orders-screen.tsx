@@ -25,7 +25,8 @@ import { replaceLabResult, testTypeLabel } from "@/lib/labs";
 import { resolveSubjectId } from "@/lib/acting";
 import { supabase } from "@/lib/supabase";
 import { LabOrderTestChecklist } from "@/screens/sections/lab-order-test-checklist";
-import { colors, radius, spacing } from "@/ui/theme";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
 import {
   Card,
   ErrorText,
@@ -35,7 +36,7 @@ import {
   PrimaryButton,
   SecondaryButton,
   SectionLabel,
-} from "@/ui/components";
+} from "@/ui/legacy-kit";
 
 interface CapturedPhoto {
   uri: string;
@@ -51,6 +52,7 @@ interface CapturedPhoto {
  * itself enforces (20260912220345_lab_result_documents_patient_self_replace.sql).
  */
 function ReplaceDocumentControl({ documentId, onReplaced }: { documentId: string; onReplaced: () => void }) {
+  const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -257,6 +259,7 @@ function LabCatalogueRow({
   organisationId: string | null;
   onOrdered: () => void;
 }) {
+  const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
   const [ordering, setOrdering] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -344,6 +347,7 @@ const EMPTY_SECTION = { data: null, error: null } as const;
  * change.
  */
 export function LabOrdersScreen() {
+  const colors = useLegacyColors();
   const [patientId, setPatientId] = useState<string | null>(null);
   const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);

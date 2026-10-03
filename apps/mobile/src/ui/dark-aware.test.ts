@@ -7,7 +7,12 @@ import { join } from "path";
  * switched: one stray import of the static light `colors` or of the light-only components
  * puts dark text on a dark card in Dark mode. Add a screen here when it moves.
  */
-const FILES = ["screens/sections/profile-screen.tsx"];
+const FILES = [
+  "screens/sections/profile-screen.tsx",
+  "screens/sections/prevention-screen.tsx",
+  "screens/sections/lab-orders-screen.tsx",
+  "screens/sections/symptom-screen.tsx",
+];
 
 describe("scheme-aware legacy screens stay fully switched", () => {
   it.each(FILES)("%s", (file) => {

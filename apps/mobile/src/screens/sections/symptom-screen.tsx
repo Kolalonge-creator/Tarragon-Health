@@ -19,8 +19,9 @@ import {
   type SymptomLog,
 } from "@/lib/symptoms";
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
-import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SectionLabel } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { lightPalette, useLegacyColors, useTheme } from "@/ui/design";
+import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 
 interface SymptomScreenProps {
@@ -35,9 +36,10 @@ interface SymptomScreenProps {
 const SEVERITY_SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
 
 function severityChipColor(severity: number): string {
-  if (severity >= 8) return colors.status.critical;
-  if (severity >= 6) return colors.status.warn;
-  return colors.brand;
+  // Fills under white text, so the same in both schemes (the light palette's solid colours).
+  if (severity >= 8) return lightPalette.dangerText;
+  if (severity >= 6) return lightPalette.warnText;
+  return lightPalette.brand;
 }
 
 /**
@@ -60,6 +62,8 @@ function severityChipColor(severity: number): string {
  * would be inventing a feature, not porting one.
  */
 export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreenProps) {
+  const { scheme } = useTheme();
+  const colors = useLegacyColors();
   const [history, setHistory] = useState<SymptomLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -277,7 +281,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                 paddingVertical: 6,
                 paddingHorizontal: 12,
                 borderRadius: 999,
-                backgroundColor: symptomType === t ? colors.brand : inkAlpha(0.05),
+                backgroundColor: symptomType === t ? colors.brand : colors.pressed,
               }}
             >
               <Text style={{ fontSize: 12.5, fontWeight: "600", color: symptomType === t ? "#FFFFFF" : colors.muted }}>
@@ -318,7 +322,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                     borderRadius: 999,
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: isOn ? severityChipColor(n) : inkAlpha(0.05),
+                    backgroundColor: isOn ? severityChipColor(n) : colors.pressed,
                   }}
                 >
                   <Text style={{ fontSize: 12.5, fontWeight: "700", color: isOn ? "#FFFFFF" : colors.muted }}>{n}</Text>
@@ -332,6 +336,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
         <View style={{ gap: 6 }}>
           <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Note (optional)</Text>
           <TextInput
+            keyboardAppearance={scheme}
             placeholder="Anything else worth telling your care team"
             placeholderTextColor={colors.subtle}
             value={description}
