@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
@@ -77,6 +77,9 @@ export function AppointmentsScreen({ patientId, organisationId }: AppointmentsSc
   const [booking, setBooking] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Only the newest open-times request may fill the list: a slow answer for the type the
+  // patient has already left must never be bookable under the type they switched to.
+  const latestSlotsRequest = useRef(0);
 
   const refreshAppointments = useCallback(async () => {
     const result = await loadUpcomingAppointments(patientId);
@@ -94,9 +97,12 @@ export function AppointmentsScreen({ patientId, organisationId }: AppointmentsSc
 
   const refreshSlots = useCallback(
     async (appointmentType: AppointmentType) => {
+      const requestId = ++latestSlotsRequest.current;
       setSlotsLoading(true);
       setSlots(null);
+      setError(null);
       const result = await loadAvailableSlots(organisationId, appointmentType);
+      if (requestId !== latestSlotsRequest.current) return;
       setSlotsLoading(false);
       if (!result.ok) {
         setError(result.error || t("appts.action_failed", locale));
