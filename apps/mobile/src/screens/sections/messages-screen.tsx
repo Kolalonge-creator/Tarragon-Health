@@ -141,6 +141,18 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
     }
   }
 
+  // Scrolls away with the conversation, so at large text sizes the messages keep the screen.
+  const header = (
+    <View style={{ paddingBottom: space.sm, gap: space.xs }}>
+      <AppText variant="headline" heading>
+        {tr("messages.title")}
+      </AppText>
+      <AppText variant="body" tone="textMuted">
+        {tr("messages.subtitle")}
+      </AppText>
+    </View>
+  );
+
   const canSend = !sending && draft.trim().length > 0;
 
   return (
@@ -149,17 +161,9 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={90}
     >
-      <View style={{ padding: space.xl, paddingBottom: space.sm, gap: space.xs }}>
-        <AppText variant="headline" heading>
-          {tr("messages.title")}
-        </AppText>
-        <AppText variant="body" tone="textMuted">
-          {tr("messages.subtitle")}
-        </AppText>
-      </View>
-
       {loading ? (
-        <View style={{ padding: space.xl }}>
+        <View style={{ padding: space.xl, gap: space.lg }}>
+          {header}
           <SkeletonGroup label={tr("messages.loading")}>
             <View style={{ gap: space.md }}>
               <Skeleton height={48} width="70%" radius={radii.lg} />
@@ -169,6 +173,7 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
         </View>
       ) : loadError ? (
         <View style={{ flex: 1, padding: space.xl, gap: space.md }}>
+          {header}
           <InlineAlert tone="info" message={`${tr("messages.load_error.title")}. ${tr("messages.load_error.body")}`} />
           <Button title={tr("messages.load_error.retry")} variant="secondary" onPress={retryLoad} />
         </View>
@@ -176,8 +181,9 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
         <FlatList
           ref={listRef}
           data={messages}
+          ListHeaderComponent={header}
           keyExtractor={(m) => m.id}
-          contentContainerStyle={{ paddingHorizontal: space.xl, gap: space.sm, paddingBottom: space.md, flexGrow: 1 }}
+          contentContainerStyle={{ paddingTop: space.xl, paddingHorizontal: space.xl, gap: space.sm, paddingBottom: space.md, flexGrow: 1 }}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           ListEmptyComponent={<EmptyState icon="messages" title={tr("messages.empty.title")} body={tr("messages.empty.body")} />}
           renderItem={({ item }) => {

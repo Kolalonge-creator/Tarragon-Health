@@ -28,6 +28,9 @@ interface BottomTabBarProps {
  * when the device reports no real inset (e.g. older Android with a hardware
  * back button and no gesture bar). Real devices use useSafeAreaInsets()
  * below instead of a guessed per-platform constant. */
+/** Five labelled tabs share one row, so their labels scale less than body text (as the system tab bar does); the full name is still spoken by the screen reader. */
+const TAB_LABEL_MAX_SCALE = 1.2;
+
 const MIN_BOTTOM_INSET = Platform.OS === "ios" ? 22 : 8;
 
 export function BottomTabBar({ activeSection, onSelect, onMore }: BottomTabBarProps) {
@@ -92,6 +95,7 @@ function Tab({
       <Ionicons name={icon} size={21} color={active ? colors.brand : colors.muted} />
       <Text
         numberOfLines={1}
+        maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE}
         style={{
           fontSize: 10.5,
           fontWeight: active ? "700" : "500",

@@ -1,4 +1,4 @@
-import { radii, space, useTheme } from "../design";
+import { MIN_TARGET, radii, space, useTheme } from "../design";
 import { AppText } from "./AppText";
 import { PressableScale } from "./PressableScale";
 
@@ -21,7 +21,7 @@ export function Chip({ label, selected, onPress, accessibilityLabel }: ChipProps
       accessibilityState={{ selected, checked: selected }}
       scaleTo={0.96}
       style={{
-        minHeight: 40,
+        minHeight: MIN_TARGET,
         justifyContent: "center",
         paddingHorizontal: space.lg,
         borderRadius: radii.pill,

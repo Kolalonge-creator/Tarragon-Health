@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { radii, space, useTheme } from "../design";
+import { MIN_TARGET, radii, space, useTheme } from "../design";
 import { AppText } from "./AppText";
 import { PressableScale } from "./PressableScale";
 
@@ -31,7 +31,7 @@ export function SegmentedControl<T extends string | number>({ options, value, on
             scaleTo={0.98}
             style={{
               flex: 1,
-              minHeight: 40,
+              minHeight: MIN_TARGET,
               alignItems: "center",
               justifyContent: "center",
               borderRadius: radii.md - 2,
