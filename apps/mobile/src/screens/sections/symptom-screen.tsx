@@ -201,12 +201,12 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 }}>
-            <Ionicons name="warning" size={18} color={colors.status.emergency} />
-            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.status.emergency, flexShrink: 1 }}>
+            <Ionicons name="warning" size={18} color={colors.danger} />
+            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.danger, flexShrink: 1 }}>
               Feeling something serious right now?
             </Text>
           </View>
-          <Ionicons name={dangerExpanded ? "chevron-up" : "chevron-down"} size={18} color={colors.status.emergency} />
+          <Ionicons name={dangerExpanded ? "chevron-up" : "chevron-down"} size={18} color={colors.danger} />
         </Pressable>
 
         {dangerExpanded ? (
