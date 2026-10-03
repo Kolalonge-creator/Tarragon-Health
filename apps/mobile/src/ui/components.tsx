@@ -151,7 +151,7 @@ export function SectionDivider() {
 export function SectionLabel({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
     <Text
-        maxFontSizeMultiplier={MAX_FONT_SCALE}
+      maxFontSizeMultiplier={MAX_FONT_SCALE}
       style={[
         {
           fontSize: 12.5,

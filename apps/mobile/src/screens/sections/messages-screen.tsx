@@ -161,7 +161,6 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={90}
     >
-
       {loading ? (
         <View style={{ padding: space.xl, gap: space.lg }}>
           {header}
