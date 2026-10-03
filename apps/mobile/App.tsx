@@ -1,7 +1,7 @@
 import { flushOutbox } from "@/lib/outbox";
 import { clearLocalMirror } from "@/lib/offline-store";
 import { clearAllDrafts } from "@/lib/drafts";
-import { FONT_ASSETS, ThemeProvider } from "@/ui/design";
+import { FONT_ASSETS, ThemeProvider, useTheme } from "@/ui/design";
 import { ToastProvider } from "@/ui/kit";
 import { useEffect, useRef, useState } from "react";
 import { useFonts } from "expo-font";
@@ -54,6 +54,7 @@ type LockState = "unknown" | "locked" | "unlocked";
  * back to a plain View) everywhere else — see react-native-safe-area-context.
  */
 function AppContent() {
+  const { scheme, colors: theme } = useTheme();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [identity, setIdentity] = useState<PatientIdentity | null | undefined>(undefined);
   const [lockState, setLockState] = useState<LockState>("unknown");
@@ -338,8 +339,8 @@ function AppContent() {
   return (
     // Bottom excluded: BottomTabBar (inside HomeShell) insets its own bottom
     // edge, so a bottom inset here would double up the gesture-area padding.
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.surface }} edges={["top", "left", "right"]}>
+      <StatusBar barStyle={scheme === "dark" ? "light-content" : "dark-content"} />
       <HomeShell
         userId={session.user.id}
         organisationId={identity.organisationId}

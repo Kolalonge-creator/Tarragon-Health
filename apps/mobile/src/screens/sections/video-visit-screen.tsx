@@ -106,7 +106,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
 
   if (!consult) {
     return (
-      <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+      <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
         <SecondaryButton title="Back" onPress={onBack} />
         <MutedText>Visit not found.</MutedText>
       </ScrollView>
@@ -117,7 +117,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
   const isPast = consult.status !== "scheduled";
 
   return (
-    <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <SecondaryButton title="Back" onPress={onBack} />
 
       <Card style={{ gap: 10 }}>

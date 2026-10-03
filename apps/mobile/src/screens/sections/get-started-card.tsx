@@ -2,7 +2,8 @@ import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { SectionId } from "@/lib/sections";
 import { type UiLanguage } from "@tarragon/shared";
-import { colors, radius, spacing, typeScale } from "@/ui/theme";
+import { radius, spacing, typeScale } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
 
 /**
  * The native twin of web's GetStartedCard -- see that file for the full
@@ -48,6 +49,7 @@ export function GetStartedCard({
   onNavigate: (id: SectionId) => void;
   language?: UiLanguage;
 }) {
+  const colors = useLegacyColors();
   // Written per-language rather than looked up string-by-string, matching
   // web's get-started-card.tsx. Setup guidance only -- no clinical content,
   // per the boundary in packages/shared/src/ui-language.ts.

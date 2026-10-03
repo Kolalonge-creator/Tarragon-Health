@@ -17,7 +17,7 @@ interface FieldProps extends Omit<TextInputProps, "style"> {
  * carries an icon and text).
  */
 export function Field({ label, hint, error, onFocus, onBlur, ...input }: FieldProps) {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const [focused, setFocused] = useState(false);
   const borderColor = error ? colors.dangerText : focused ? colors.focus : colors.border;
 
@@ -29,6 +29,7 @@ export function Field({ label, hint, error, onFocus, onBlur, ...input }: FieldPr
       <TextInput
         accessibilityLabel={label}
         accessibilityHint={hint}
+        keyboardAppearance={scheme}
         placeholderTextColor={colors.textSubtle}
         maxFontSizeMultiplier={MAX_FONT_SCALE}
         onFocus={(e) => {

@@ -320,6 +320,22 @@ export const en = {
   "home.ago.minutes": "{count}m ago",
   "home.ago.hours": "{count}h ago",
   "home.ago.days": "{count}d ago",
+  "appearance.title": "Appearance",
+  "appearance.light": "Light",
+  "appearance.dark": "Dark",
+  "appearance.note": "Dark applies to Home, Vitals, Medications and Messages, and to the top and bottom bars. Other screens stay light for now, and we are moving them across.",
+  "home.score.eyebrow.morning": "Good morning. Here's how this week is going.",
+  "home.score.eyebrow.afternoon": "Good afternoon. Here's how this week is going.",
+  "home.score.eyebrow.evening": "Good evening. Here's how this week is going.",
+  "home.score.title": "How you're doing",
+  "home.score.error": "Your Health Score is taking a moment to load. Pull to refresh to try again.",
+  "home.score.empty": "Log your first readings and your score appears here. It builds from the everyday numbers you already track.",
+  "home.score.word.low": "Stable",
+  "home.score.word.moderate": "Improving",
+  "home.score.word.high": "Needs attention",
+  "home.score.word.very_high": "Needs urgent attention",
+  "home.score.a11y": "Health Score",
+  "home.score.note": "A summary of your recent numbers, not a diagnosis.",
 } as const;
 
 export type MessageKey = keyof typeof en;

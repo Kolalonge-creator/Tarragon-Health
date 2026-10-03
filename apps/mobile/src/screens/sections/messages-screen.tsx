@@ -24,7 +24,7 @@ function formatSentAt(iso: string): string {
 }
 
 export function MessagesScreen({ patientId }: MessagesScreenProps) {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const locale = asLocale(useUiLanguage());
   const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
 
@@ -240,6 +240,7 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
           value={draft}
           onChangeText={onChangeDraft}
           multiline
+          keyboardAppearance={scheme}
           maxFontSizeMultiplier={MAX_FONT_SCALE}
           style={[
             textStyles.body,

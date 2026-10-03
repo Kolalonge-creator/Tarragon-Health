@@ -101,7 +101,7 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
   const hasMore = events.length === limit;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <View>
         <ScreenTitle>Full activity timeline</ScreenTitle>
         <MutedText>Every update to your record, newest first.</MutedText>

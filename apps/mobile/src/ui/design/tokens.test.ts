@@ -5,7 +5,7 @@
  * the stricter 4.5 so a variant change cannot silently drop below it.)
  */
 import { contrastRatio, darkPalette, lightPalette, palettes, radii, space, type Palette } from "./tokens";
-import { DARK_MODE_ENABLED } from "./config";
+import { DARK_MODE_ENABLED, DEFAULT_PREFERENCE } from "./config";
 import { resolveScheme } from "./resolve";
 import { textStyles } from "./typography";
 
@@ -104,7 +104,8 @@ describe("resolveScheme", () => {
     expect(resolveScheme("system", null, true)).toBe("light");
   });
 
-  it("ships with dark mode off until the flagship screens move (decision DG-2 note in config.ts)", () => {
-    expect(DARK_MODE_ENABLED).toBe(false);
+  it("ships dark mode opt-in: available, but light until a patient chooses it (decision DG-2, 2026-10-03)", () => {
+    expect(DARK_MODE_ENABLED).toBe(true);
+    expect(DEFAULT_PREFERENCE).toBe("light");
   });
 });

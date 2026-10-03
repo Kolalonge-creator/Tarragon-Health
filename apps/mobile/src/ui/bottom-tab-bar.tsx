@@ -3,7 +3,7 @@ import { useT } from "@/lib/ui-language";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { PRIMARY_SECTIONS, type SectionId } from "@/lib/sections";
-import { colors } from "./theme";
+import { useLegacyColors } from "./design";
 
 interface BottomTabBarProps {
   activeSection: SectionId;
@@ -35,6 +35,7 @@ const MIN_BOTTOM_INSET = Platform.OS === "ios" ? 22 : 8;
 
 export function BottomTabBar({ activeSection, onSelect, onMore }: BottomTabBarProps) {
   const tr = useT();
+  const colors = useLegacyColors();
   const moreActive = !PRIMARY_SECTIONS.some((s) => s.id === activeSection);
   const insets = useSafeAreaInsets();
 
@@ -77,6 +78,7 @@ function Tab({
   active: boolean;
   onPress: () => void;
 }) {
+  const colors = useLegacyColors();
   return (
     <Pressable
       accessibilityRole="tab"
@@ -92,7 +94,7 @@ function Tab({
         opacity: pressed ? 0.6 : 1,
       })}
     >
-      <Ionicons name={icon} size={21} color={active ? colors.brand : colors.muted} />
+      <Ionicons name={icon} size={21} color={active ? colors.brandPressed : colors.muted} />
       <Text
         numberOfLines={1}
         maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE}
