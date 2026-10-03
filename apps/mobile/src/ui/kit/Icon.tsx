@@ -15,12 +15,16 @@ import {
   Menu,
   MessageCircle,
   Pill,
+  CreditCard,
+  FlaskConical,
+  LifeBuoy,
   Plus,
   Send,
   Settings,
   ShieldCheck,
   User,
   WifiOff,
+  Video,
   X,
   type LucideIcon,
 } from "lucide-react-native";
@@ -55,6 +59,10 @@ export const ICONS = {
   time: Clock,
   private: Lock,
   send: Send,
+  labs: FlaskConical,
+  card: CreditCard,
+  support: LifeBuoy,
+  video: Video,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;
