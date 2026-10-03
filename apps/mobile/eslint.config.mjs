@@ -30,6 +30,26 @@ export default defineConfig([
     },
   },
   {
+    // Screens already moved onto the design kit (design Phase 1). For these the
+    // warnings above become errors, and the legacy colour and component modules are
+    // off limits, so a moved screen cannot slip back. Add each screen here as it moves.
+    files: ["src/screens/sections/vitals-screen.tsx", "src/screens/sync-banner.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        { selector: "Literal[value=/^#[0-9a-fA-F]{3,8}$/]", message: "Use a palette role from ui/design, not a raw hex colour." },
+        { selector: "Property[key.name='fontSize'][value.type='Literal']", message: "Use AppText with a text variant, not a literal fontSize." },
+      ],
+      "no-restricted-imports": [
+        "error",
+        { paths: [
+          { name: "@/ui/theme", message: "Moved screens use the design tokens (@/ui/design), not the legacy colours." },
+          { name: "@/ui/components", message: "Moved screens use the kit (@/ui/kit), not the legacy components." },
+        ] },
+      ],
+    },
+  },
+  {
     // metro.config.js must be CommonJS — Metro loads it directly with
     // Node's `require`, before any bundler/transpiler is available. Expo
     // config plugins (plugins/**) are loaded the same way, by `expo

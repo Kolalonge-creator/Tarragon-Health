@@ -379,3 +379,14 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - A dose log records what the patient did, so it is sent as logged even if the care team has since amended or stopped that prescription. The row keeps its device time (inside the bounded window) and its medication id. A log for a medication the patient has since deleted is refused by the foreign key and shows as "could not be saved" with a support code.
 - Options: (a) keep as built, the log is a fact about what happened (recommended); (b) have the server refuse a dose log for a superseded medication and show a plainer message.
 - Decision (founder, 2026-10-02): (a) accept the dose log as logged; only a deleted medication is refused.
+
+### OQ-63 Nigerian Pidgin strings for the Vitals screen need native review (raised by design Phase 1)
+- 66 new `vitals.*` strings in `packages/i18n/src/pcm.ts` were written by the build session (labels, errors, status words such as "E dey target" and "E pass target", the trend summary a screen reader reads). OQ-19 requires native review before clinical Pidgin ships, and these words carry clinical meaning.
+- Options: (a) a native Pidgin reviewer with clinician input signs the strings before the next store build (recommended; the same reviewer pass as OQ-61); (b) show English for the clinical status words until reviewed.
+- Decision: not yet asked.
+
+### OQ-64 The monitoring-cover card's wording against the house voice (raised by design Phase 1)
+- The card shown on Vitals is headed "Nobody is alerted when one of your readings is dangerous" and its body contains an em dash. The house voice is warm with no fear-based urgency and no em dashes. The wording also implements a legal-accuracy rule (never imply an uncovered patient is unmonitored; the emergency safety net applies regardless of payment), so a rewrite is not a styling change.
+- Options: (a) keep the facts, rewrite in the house voice, and have counsel confirm the accuracy rule still holds (recommended); (b) leave as is and only restyle it.
+- Decision: not yet asked. Until then the card is only moved below the readings.
+

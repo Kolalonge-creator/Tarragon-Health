@@ -369,3 +369,13 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Not done**: the native build (DG-6: needs a further go-ahead), any screen on the kit, Skia charts, dark mode switch-on. The code cannot run on a phone until the build exists.
 - **Follow-ups**: (1) go-ahead for the EAS build and a device lab on the 4 GB floor phone; (2) Phase 1: Home, Vitals (with the Skia trend chart), Medications, Messages on the kit, then flip `DARK_MODE_ENABLED`; (3) Phase 2: the other screens, counting down the 830 lint warnings; (4) check the real font and install size after the build.
 
+## Design Phase 1: the Vitals screen (2026-10-03)
+
+- **Built**: see `docs/design/DESIGN-PHASE-1-VITALS.md`. The Vitals screen moved onto the kit with a Skia trend chart (7 and 30 days, tap or drag to inspect, dashed lines at the app's own above-target levels), a latest-reading hero, status badges with icons, skeleton loading, toasts with haptics, and 66 new en and pcm strings; SyncBanner moved onto the kit; Badge, Chip, SegmentedControl, InlineAlert and TrendChart added.
+- **Extracted and tested**: `lib/bp-trend.ts` (15 tests), `lib/vitals-entry.ts` (27 tests, including every phone limit run through the web server's schema), `lib/vitals-i18n.test.ts` (27).
+- **Ratchet**: the two moved files are lint errors for raw colours, literal font sizes and legacy theme or component imports.
+- **Checked** on the iOS simulator build (with sample readings through a temporary local fixture, removed; nothing saved). **Not checked**: Android device, dark mode, screen readers, large text, saving from the new form, the offline path in the new layout.
+- **`/code-review high`**: 4 findings, all fixed (the 30 day chart loaded only 30 readings so it silently covered fewer days; the readout kept a stale selection after a reload; two screen-reader labels were hard-coded English; the badges used the bundled thresholds while the chart used the server-synced ones). The monitoring-cover card was also moved below the readings without being asked: that placement is the founder's to confirm (OQ-64).
+- **Open questions**: OQ-63 (Pidgin review of the vitals strings), OQ-64 (the monitoring-cover wording and placement). Not yet asked.
+- **Follow-ups**: Home, Medications and Messages onto the kit; then flip `DARK_MODE_ENABLED`; screen reader and large-text pass; an Android device check.
+

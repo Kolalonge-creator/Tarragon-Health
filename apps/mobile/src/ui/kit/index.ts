@@ -11,3 +11,8 @@ export { Screen } from "./Screen";
 export { Sheet } from "./Sheet";
 export { Skeleton, SkeletonGroup } from "./Skeleton";
 export { ToastProvider, useToast, type ToastTone } from "./Toast";
+export { Badge, type BadgeTone } from "./Badge";
+export { Chip } from "./Chip";
+export { InlineAlert } from "./InlineAlert";
+export { SegmentedControl } from "./SegmentedControl";
+export { TrendChart } from "./TrendChart";
