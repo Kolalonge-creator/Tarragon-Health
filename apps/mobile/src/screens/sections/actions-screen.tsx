@@ -9,10 +9,12 @@ import {
   type BucketedActionItems,
 } from "@/lib/actions";
 import type { SectionId } from "@/lib/sections";
-import { colors, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText } from "@/ui/legacy-kit";
 
 function ActionRow({ item, onPress }: { item: ActionItem; onPress: () => void }) {
+  const colors = useLegacyColors();
   const today = new Date().toISOString().slice(0, 10);
   const isOverdue = item.dueDate !== null && item.dueDate < today;
   return (
@@ -64,6 +66,7 @@ function Bucket({
   danger?: boolean;
   onNavigate: (section: SectionId) => void;
 }) {
+  const colors = useLegacyColors();
   if (items.length === 0) return null;
   return (
     <View style={{ gap: 4 }}>
@@ -92,6 +95,7 @@ interface ActionsScreenProps {
  * here — a shortcut card links there instead.
  */
 export function ActionsScreen({ patientId, onNavigate }: ActionsScreenProps) {
+  const colors = useLegacyColors();
   const [buckets, setBuckets] = useState<BucketedActionItems | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

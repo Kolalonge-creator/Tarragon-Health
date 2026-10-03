@@ -239,7 +239,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
         />
       </Card>
 
-      <LegacySheet visible={cabinetOpen} onClose={() => setCabinetOpen(false)} closeLabel={tr("kit.close")}>
+      <LegacySheet visible={cabinetOpen} onClose={() => setCabinetOpen(false)} closeLabel={tr("kit.close")} forceLight={false}>
         <MedicineCabinetScreen patientId={patientId} organisationId={organisationId} />
       </LegacySheet>
     </Screen>

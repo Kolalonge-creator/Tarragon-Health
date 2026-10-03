@@ -9,8 +9,9 @@ import {
   type NotificationPreferenceCategory,
   type PatientNotificationPreferenceRow,
 } from "@/lib/notification-preferences";
-import { colors, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, SectionDivider } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, SectionDivider } from "@/ui/legacy-kit";
 
 const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
   appointments: "Appointment reminders",
@@ -45,6 +46,7 @@ interface NotificationSettingsScreenProps {
  * scoped strictly to the routine send path.
  */
 export function NotificationSettingsScreen({ patientId, organisationId }: NotificationSettingsScreenProps) {
+  const colors = useLegacyColors();
   const [rows, setRows] = useState<PatientNotificationPreferenceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
