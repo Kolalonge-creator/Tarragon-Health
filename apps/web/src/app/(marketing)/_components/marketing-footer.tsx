@@ -220,8 +220,7 @@ export function MarketingFooter() {
       <div className="border-t border-white/10 px-4 py-5 sm:px-6">
         <p className="mx-auto max-w-3xl text-center text-xs leading-relaxed text-white/80">
           <span className="font-semibold text-white">TarragonHealth does not provide emergency care.</span>{" "}
-          In a medical emergency, go to your nearest hospital immediately or call your local
-          emergency number.
+          In a medical emergency, go to your nearest hospital immediately.
         </p>
       </div>
 

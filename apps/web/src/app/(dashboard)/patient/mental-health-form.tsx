@@ -99,8 +99,8 @@ export function MentalHealthScreenForm({ patientId }: { patientId: string }) {
           {state.crisis && (
             <p className="rounded-md bg-red-50 dark:bg-red-500/15 p-3 text-red-700 dark:text-red-300">
               You told us you have had thoughts of harming yourself. You are not alone. A member
-              of your care team will reach out. If you are in immediate danger, please contact
-              emergency services or go to the nearest hospital now.
+              of your care team will reach out. If you are in immediate danger, please go to the
+              nearest hospital now.
             </p>
           )}
         </CardContent>
