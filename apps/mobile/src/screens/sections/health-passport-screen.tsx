@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Share, Text, View } from "react-native";
 import { getHealthPassportSummary, type HealthPassportSummary } from "@/lib/health-passport";
 import { formatDoctorName } from "@/lib/doctor-name";
-import { colors, spacing } from "@/ui/theme";
-import { Card, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Card, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 interface HealthPassportScreenProps {
   patientId: string;
@@ -38,6 +39,7 @@ const VITAL_LABELS: Record<string, { label: string; format: (v: Record<string, u
 const MAX_LAB_READINGS = 8;
 
 export function HealthPassportScreen({ patientId, organisationId, subjectName }: HealthPassportScreenProps) {
+  const colors = useLegacyColors();
   const [data, setData] = useState<HealthPassportSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);

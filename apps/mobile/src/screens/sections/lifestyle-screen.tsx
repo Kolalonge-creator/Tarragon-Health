@@ -10,8 +10,9 @@ import {
 } from "@/lib/weight-management";
 import { EnrollCta, EnrollmentCard, when } from "@/screens/sections/lifestyle-shared";
 import type { SectionId } from "@/lib/sections";
-import { colors, spacing } from "@/ui/theme";
-import { Badge, CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const STARTABLE: { key: LpeConditionKey; title: string; description: string }[] = [
   {
@@ -64,6 +65,7 @@ interface LifestyleScreenProps {
  * system browser, closed 2026-09-12 (exercise-screen.tsx).
  */
 export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [enrollments, setEnrollments] = useState<LifestyleEnrollment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -168,6 +170,7 @@ export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps)
  * inside the modal rather than up front on the main screen, since it's a
  * look-back list nobody needs on first paint. */
 function PastGoalsList({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [goals, setGoals] = useState<PastLifestyleGoal[] | null>(null);
   const [error, setError] = useState<string | null>(null);

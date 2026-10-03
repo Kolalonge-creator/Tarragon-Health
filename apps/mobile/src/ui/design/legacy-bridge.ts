@@ -1,4 +1,5 @@
 import { useTheme } from "./provider";
+import { textStyles } from "./typography";
 
 /**
  * The legacy `colors` names (ui/theme.ts) mapped to palette roles, for chrome and
@@ -30,4 +31,23 @@ export function useLegacyColors() {
     dangerBg: p.dangerBg,
     status: { warn: p.warnText, warnBg: p.warnBg, critical: p.dangerText, emergency: p.emergency },
   };
+}
+
+/**
+ * The text field style every old screen declared for itself as a module-level
+ * `textInputStyle` (border, radius, padding, 14px text), drawn in the active scheme: border,
+ * text and background follow the palette. Used by scripts/port-to-scheme-aware.py.
+ */
+export function useTextInputStyle() {
+  const colors = useLegacyColors();
+  return {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    ...textStyles.body,
+    color: colors.ink,
+    backgroundColor: colors.card,
+  } as const;
 }
