@@ -26,8 +26,9 @@ import {
   type WellnessPointsLedgerEntry,
 } from "@/lib/wellness";
 import type { SectionId } from "@/lib/sections";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
+import { Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 function classDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -40,13 +41,15 @@ function classDateTime(iso: string): string {
   });
 }
 
-const TONE_COLOR = {
+const toneColor = (colors: ReturnType<typeof useLegacyColors>) => ({
   brand: { bg: colors.brandTint, text: colors.brandPressed },
   neutral: { bg: colors.groupBg, text: colors.muted },
-} as const;
+}) as const;
+type Tone = keyof ReturnType<typeof toneColor>;
 
-function StatusBadge({ text, tone }: { text: string; tone: keyof typeof TONE_COLOR }) {
-  const c = TONE_COLOR[tone];
+function StatusBadge({ text, tone }: { text: string; tone: Tone }) {
+  const colors = useLegacyColors();
+  const c = toneColor(colors)[tone];
   return (
     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
       <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{text}</Text>
@@ -70,6 +73,7 @@ interface WellnessScreenProps {
  * granted to authenticated.
  */
 export function WellnessScreen({ patientId, organisationId, onNavigate }: WellnessScreenProps) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState<WellnessPointsBalance | null>(null);
   const [ledger, setLedger] = useState<WellnessPointsLedgerEntry[]>([]);
@@ -154,6 +158,8 @@ function PointsCard({
   onChanged: () => void;
   onNavigate: (section: SectionId) => void;
 }) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -200,7 +206,7 @@ function PointsCard({
 
       <View style={{ gap: 8 }}>
         <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Redeem for a voucher</Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme}
           value={amount}
           onChangeText={setAmount}
           placeholder="e.g. 100"
@@ -238,6 +244,7 @@ function PointsCard({
 }
 
 function BadgesCard({ catalogue, earned }: { catalogue: WellnessBadge[]; earned: PatientWellnessBadge[] }) {
+  const colors = useLegacyColors();
   const earnedIds = new Set(earned.map((b) => b.badge_id));
 
   return (
@@ -279,6 +286,7 @@ function BadgesCard({ catalogue, earned }: { catalogue: WellnessBadge[]; earned:
 }
 
 function ProgressBar({ value, target }: { value: number; target: number }) {
+  const colors = useLegacyColors();
   const pct = target > 0 ? Math.min(100, Math.round((value / target) * 100)) : 0;
   return (
     <View style={{ height: 8, width: "100%", borderRadius: 999, backgroundColor: colors.groupBg, overflow: "hidden" }}>
@@ -288,6 +296,7 @@ function ProgressBar({ value, target }: { value: number; target: number }) {
 }
 
 function ActiveEnrolmentRow({ enrolment }: { enrolment: ChallengeEnrolment }) {
+  const colors = useLegacyColors();
   const [progress, setProgress] = useState<{ progress: number; target: number } | null>(null);
   const challenge = enrolment.wellness_challenges;
 
@@ -327,6 +336,7 @@ function ChallengesCard({
   enrolments: ChallengeEnrolment[];
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
   const [joining, setJoining] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -404,6 +414,7 @@ function ClassesCard({
   organisationId: string;
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 

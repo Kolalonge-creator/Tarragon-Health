@@ -12,8 +12,9 @@ import {
   sendCoachMessage,
 } from "@/lib/ai-coach";
 import type { SectionId } from "@/lib/sections";
-import { colors, radius, spacing } from "@/ui/theme";
-import { ErrorText, MutedText, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
+import { ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 
 interface AiCoachScreenProps {
   patientId: string;
@@ -26,9 +27,9 @@ const QUICK_ACTIONS: { kind: "explain_record" | "care_plan_summary" | "appointme
   { kind: "appointment_prep", label: "Help me prepare for my appointment" },
 ];
 
-function tierStyle(tier: CoachChatMessage["tier"]) {
+function tierStyle(tier: CoachChatMessage["tier"], colors: ReturnType<typeof useLegacyColors>) {
   if (tier === "emergency") {
-    return { borderColor: colors.status.emergency, borderWidth: 1.5, backgroundColor: "#FEF1F1" };
+    return { borderColor: colors.status.emergency, borderWidth: 1.5, backgroundColor: colors.dangerBg };
   }
   if (tier === "clinician_review") {
     return { borderColor: colors.status.warn, borderWidth: 1, backgroundColor: colors.status.warnBg };
@@ -51,6 +52,8 @@ function tierStyle(tier: CoachChatMessage["tier"]) {
  * closing the "no native AI Coach at all" gap this screen closes.
  */
 export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const [access, setAccess] = useState<"checking" | "denied" | "granted">("checking");
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [messages, setMessages] = useState<CoachChatMessage[]>([]);
@@ -195,7 +198,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
                   borderRadius: 14,
                   ...(fromMe
                     ? { backgroundColor: colors.brand }
-                    : tierStyle(item.tier)),
+                    : tierStyle(item.tier, colors)),
                 }}
               >
                 <Text style={{ fontSize: 13.5, color: fromMe ? "#fff" : colors.ink }}>{item.content}</Text>
@@ -256,7 +259,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
       </View>
 
       <View style={{ flexDirection: "row", gap: 8, padding: spacing.screen, paddingTop: 8 }}>
-        <TextInput
+        <TextInput keyboardAppearance={scheme}
           placeholder="Type a message…"
           placeholderTextColor={colors.subtle}
           value={draft}

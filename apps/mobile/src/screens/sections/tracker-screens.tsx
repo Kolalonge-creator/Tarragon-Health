@@ -33,8 +33,9 @@ import {
   ScreenTitle,
   SecondaryButton,
   SectionLabel,
-} from "@/ui/components";
-import { colors, radius, spacing, typeScale } from "@/ui/theme";
+} from "@/ui/legacy-kit";
+import { radius, spacing, typeScale } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
 import { useT } from "@/lib/ui-language";
 
 /**
@@ -261,6 +262,8 @@ function estimateSummary(estimate: MealPhotoEstimate): string {
  * rather than a client-side AI call.
  */
 export function MealsScreen({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const t = useT();
   const [state, setState] = useState<MealsState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -442,7 +445,7 @@ export function MealsScreen({ patientId }: { patientId: string }) {
           <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>
             {t("What did you eat?")}
           </Text>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             accessibilityLabel={t("What did you eat?")}
             value={description}
             onChangeText={setDescription}
@@ -536,6 +539,7 @@ function PrimaryButtonChip({
   selected: boolean;
   onPress: () => void;
 }) {
+  const colors = useLegacyColors();
   return (
     <Pressable
       accessibilityRole="radio"

@@ -16,8 +16,9 @@ import {
 } from "@/lib/privacy";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import type { SectionId } from "@/lib/sections";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { Badge, CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const CONSENT_TYPE_LABEL: Record<string, string> = {
   data_processing: "Data processing",
@@ -29,16 +30,6 @@ const CONSENT_TYPE_LABEL: Record<string, string> = {
 };
 
 const POSITIVE_STATUSES = new Set(["applied", "completed", "fulfilled", "approved", "approved_partial", "approved_full"]);
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -58,6 +49,7 @@ interface PrivacyScreenProps {
  * record) links to "family" rather than being duplicated here.
  */
 export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScreenProps) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [consents, setConsents] = useState<ConsentRow[]>([]);
   const [devices, setDevices] = useState<ConnectedDevice[]>([]);
@@ -187,6 +179,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
 }
 
 function RequestList({ requests }: { requests: DataRightsRequest[] }) {
+  const colors = useLegacyColors();
   if (requests.length === 0) return null;
   return (
     <View style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
@@ -213,6 +206,9 @@ function ExportRequestCard({
   requests: DataRightsRequest[];
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -242,7 +238,7 @@ function ExportRequestCard({
       {error && <ErrorText>{error}</ErrorText>}
       {open ? (
         <>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             value={note}
             onChangeText={setNote}
             placeholder="Anything specific you need? (optional)"
@@ -274,6 +270,9 @@ function CorrectionRequestCard({
   requests: DataRightsRequest[];
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [recordDescription, setRecordDescription] = useState("");
   const [whatIsWrong, setWhatIsWrong] = useState("");
@@ -312,7 +311,7 @@ function CorrectionRequestCard({
       {open ? (
         <>
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Which record?</Text>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             value={recordDescription}
             onChangeText={setRecordDescription}
             placeholder="e.g. my date of birth, a blood pressure reading from last week"
@@ -321,9 +320,9 @@ function CorrectionRequestCard({
             style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]}
           />
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>What&apos;s wrong with it?</Text>
-          <TextInput value={whatIsWrong} onChangeText={setWhatIsWrong} multiline numberOfLines={2} style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]} />
+          <TextInput keyboardAppearance={scheme} value={whatIsWrong} onChangeText={setWhatIsWrong} multiline numberOfLines={2} style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]} />
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>What should it say instead? (optional)</Text>
-          <TextInput value={requestedChange} onChangeText={setRequestedChange} multiline numberOfLines={2} style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]} />
+          <TextInput keyboardAppearance={scheme} value={requestedChange} onChangeText={setRequestedChange} multiline numberOfLines={2} style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]} />
           <View style={{ flexDirection: "row", gap: 8 }}>
             <PrimaryButton
               title="Submit request"
@@ -353,6 +352,9 @@ function DeletionRequestCard({
   requests: DataRightsRequest[];
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -383,7 +385,7 @@ function DeletionRequestCard({
       {error && <ErrorText>{error}</ErrorText>}
       {open ? (
         <>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             value={reason}
             onChangeText={setReason}
             placeholder="Tell us what you'd like deleted and why (optional)"
