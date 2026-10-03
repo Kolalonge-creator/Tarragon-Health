@@ -386,7 +386,7 @@ function ConsentRow({ checked, onToggle, label }: { checked: boolean; onToggle: 
           borderRadius: 5,
           marginTop: 1,
           borderWidth: 1.5,
-          borderColor: checked ? colors.brand : colors.border,
+          borderColor: checked ? colors.brand : colors.subtle,
           backgroundColor: checked ? colors.brand : "transparent",
           alignItems: "center",
           justifyContent: "center",
@@ -516,7 +516,7 @@ const VERIFICATION_LABEL: Record<string, string> = {
 };
 
 const verificationColor = (colors: ReturnType<typeof useLegacyColors>): Record<string, string> => ({
-  verified: colors.brand,
+  verified: colors.brandPressed,
   pending: colors.status.warn,
   failed: colors.danger,
   not_started: colors.muted,
@@ -636,12 +636,12 @@ function formatRequestStatus(status: string): string {
 
 const requestStatusColor = (colors: ReturnType<typeof useLegacyColors>): Record<string, string> => ({
   pending: colors.status.warn,
-  under_review: colors.brand,
-  approved: colors.brand,
-  approved_partial: colors.brand,
-  approved_full: colors.brand,
-  applied: colors.brand,
-  completed: colors.brand,
+  under_review: colors.brandPressed,
+  approved: colors.brandPressed,
+  approved_partial: colors.brandPressed,
+  approved_full: colors.brandPressed,
+  applied: colors.brandPressed,
+  completed: colors.brandPressed,
   denied: colors.danger,
 });
 
