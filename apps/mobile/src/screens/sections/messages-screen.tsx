@@ -1,16 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, FlatList, KeyboardAvoidingView, Platform, Text, TextInput, View } from "react-native";
+import { AppState, FlatList, KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
+import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { useUiLanguage } from "@/lib/ui-language";
 import { loadThreadMessages, loadThreads, postMessage, startThread, type CareMessage } from "@/lib/messages";
-import { colors, radius, spacing } from "@/ui/theme";
-import { ErrorText, MutedText, SecondaryButton } from "@/ui/components";
-import { Ionicons } from "@expo/vector-icons";
-import { Pressable } from "react-native";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
+import { MAX_FONT_SCALE, MIN_TARGET, radii, space, textStyles, useTheme } from "@/ui/design";
+import { AppText, Button, EmptyState, Icon, InlineAlert, PressableScale, Skeleton, SkeletonGroup } from "@/ui/kit";
 
 interface MessagesScreenProps {
   patientId: string;
 }
 
+const draftKey = (patientId: string) => `messages:draft:${patientId}`;
+
+function formatSentAt(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    timeZone: "Africa/Lagos",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function MessagesScreen({ patientId }: MessagesScreenProps) {
+  const { colors } = useTheme();
+  const locale = asLocale(useUiLanguage());
+  const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
+
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<CareMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -20,12 +37,12 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
   // the list with an explicit retry state instead.
   const [loadError, setLoadError] = useState(false);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const listRef = useRef<FlatList>(null);
+  const [sendFailed, setSendFailed] = useState(false);
+  const listRef = useRef<FlatList<CareMessage>>(null);
 
   const load = useCallback(async () => {
     const threads = await loadThreads(patientId);
-    const openThread = threads.find((t) => t.status === "open") ?? threads[0] ?? null;
+    const openThread = threads.find((th) => th.status === "open") ?? threads[0] ?? null;
     setThreadId(openThread?.id ?? null);
     if (openThread) {
       setMessages(await loadThreadMessages(openThread.id));
@@ -38,6 +55,19 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [load]);
+
+  // A half-written message survives the app being closed (power cuts, calls).
+  useEffect(() => {
+    let cancelled = false;
+    loadDraft<string>(draftKey(patientId))
+      .then((saved) => {
+        if (!cancelled && typeof saved === "string" && saved) setDraft((current) => current || saved);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId]);
 
   const retryLoad = useCallback(() => {
     setLoading(true);
@@ -76,78 +106,113 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
     };
   }, [threadId]);
 
+  function onChangeDraft(text: string) {
+    setDraft(text);
+    void saveDraft(draftKey(patientId), text);
+  }
+
   async function handleSend() {
     const body = draft.trim();
-    if (!body) return;
+    if (!body || sending) return;
     setSending(true);
-    setError(null);
+    setSendFailed(false);
+    let sent = false;
     try {
-      if (threadId) {
-        await postMessage(threadId, body);
-        setMessages(await loadThreadMessages(threadId));
+      let activeThreadId = threadId;
+      if (activeThreadId) {
+        await postMessage(activeThreadId, body);
       } else {
-        const newThreadId = await startThread("Message from patient", body);
-        setThreadId(newThreadId);
-        setMessages(await loadThreadMessages(newThreadId));
+        activeThreadId = await startThread("Message from patient", body);
+        setThreadId(activeThreadId);
       }
-      setDraft("");
+      sent = true;
+      // Sent. Clear the box now (unless more was typed meanwhile), so a failed refresh below
+      // can never leave the same text there to be sent twice.
+      setDraft((current) => (current.trim() === body ? "" : current));
+      void clearDraft(draftKey(patientId));
+      setMessages(await loadThreadMessages(activeThreadId));
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't send that. Try again.");
+    } catch {
+      // A failed send keeps the draft in the box so nothing the patient wrote is lost.
+      // A send that went through but whose refresh failed is not a failed send: the next poll catches up.
+      if (!sent) setSendFailed(true);
     } finally {
       setSending(false);
     }
   }
 
+  const canSend = !sending && draft.trim().length > 0;
+
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1, backgroundColor: colors.canvas }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={90}
     >
-      <View style={{ padding: spacing.screen, paddingBottom: 8 }}>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Messages</Text>
-        <MutedText>Your care team, in-app only.</MutedText>
+      <View style={{ padding: space.xl, paddingBottom: space.sm, gap: space.xs }}>
+        <AppText variant="headline" heading>
+          {tr("messages.title")}
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          {tr("messages.subtitle")}
+        </AppText>
       </View>
 
       {loading ? (
-        <ActivityIndicator color={colors.brand} style={{ marginTop: 20 }} />
+        <View style={{ padding: space.xl }}>
+          <SkeletonGroup label={tr("messages.loading")}>
+            <View style={{ gap: space.md }}>
+              <Skeleton height={48} width="70%" radius={radii.lg} />
+              <Skeleton height={48} width="55%" radius={radii.lg} style={{ alignSelf: "flex-end" }} />
+            </View>
+          </SkeletonGroup>
+        </View>
       ) : loadError ? (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: spacing.screen, gap: 12 }}>
-          <Ionicons name="cloud-offline-outline" size={26} color={colors.faint} />
-          <Text style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>
-            We couldn&apos;t load your messages right now
-          </Text>
-          <MutedText>Your conversation is safe. Check your connection and try again.</MutedText>
-          <SecondaryButton title="Tap to retry" onPress={retryLoad} />
+        <View style={{ flex: 1, padding: space.xl, gap: space.md }}>
+          <InlineAlert tone="info" message={`${tr("messages.load_error.title")}. ${tr("messages.load_error.body")}`} />
+          <Button title={tr("messages.load_error.retry")} variant="secondary" onPress={retryLoad} />
         </View>
       ) : (
         <FlatList
           ref={listRef}
           data={messages}
           keyExtractor={(m) => m.id}
-          contentContainerStyle={{ paddingHorizontal: spacing.screen, gap: 8, paddingBottom: 12 }}
+          contentContainerStyle={{ paddingHorizontal: space.xl, gap: space.sm, paddingBottom: space.md, flexGrow: 1 }}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-          ListEmptyComponent={<MutedText>Send a message to start a conversation with your care team.</MutedText>}
+          ListEmptyComponent={<EmptyState icon="messages" title={tr("messages.empty.title")} body={tr("messages.empty.body")} />}
           renderItem={({ item }) => {
             const fromMe = item.author_role === "patient";
+            // Attribution is null-gated: a care-team message shows the real name only when
+            // the record carries one, otherwise the plain team label. Never an invented name.
+            const sender = fromMe ? tr("messages.sender.you") : (item.actor?.full_name ?? tr("messages.sender.team"));
+            const sentAt = formatSentAt(item.created_at);
             return (
               <View style={{ flexDirection: "row", justifyContent: fromMe ? "flex-end" : "flex-start" }}>
                 <View
+                  accessible
+                  accessibilityLabel={tr("messages.message.a11y", { sender, time: sentAt, body: item.body })}
                   style={{
-                    maxWidth: "80%",
-                    paddingVertical: 8,
-                    paddingHorizontal: 12,
-                    borderRadius: 14,
-                    backgroundColor: fromMe ? colors.brand : colors.card,
+                    maxWidth: "85%",
+                    gap: space.xs,
+                    paddingVertical: space.md,
+                    paddingHorizontal: space.lg,
+                    borderRadius: radii.lg,
+                    backgroundColor: fromMe ? colors.brand : colors.surface,
                     borderWidth: fromMe ? 0 : 1,
                     borderColor: colors.border,
                   }}
                 >
-                  <Text style={{ fontSize: 13, color: fromMe ? "#fff" : colors.ink }}>{item.body}</Text>
-                  <Text style={{ fontSize: 10, marginTop: 2, color: fromMe ? "rgba(255,255,255,0.7)" : colors.faint }}>
-                    {new Date(item.created_at).toLocaleString()}
-                  </Text>
+                  {fromMe ? null : (
+                    <AppText variant="label" tone="brandText">
+                      {sender}
+                    </AppText>
+                  )}
+                  <AppText variant="body" tone={fromMe ? "textOnBrand" : "text"}>
+                    {item.body}
+                  </AppText>
+                  <AppText variant="caption" tone={fromMe ? "textOnBrand" : "textSubtle"}>
+                    {sentAt}
+                  </AppText>
                 </View>
               </View>
             );
@@ -155,42 +220,53 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
         />
       )}
 
-      {error ? <View style={{ paddingHorizontal: spacing.screen }}><ErrorText>{error}</ErrorText></View> : null}
+      {sendFailed ? (
+        <View style={{ paddingHorizontal: space.xl, paddingBottom: space.sm }}>
+          <InlineAlert tone="danger" message={tr("messages.send_error")} />
+        </View>
+      ) : null}
 
-      <View style={{ flexDirection: "row", gap: 8, padding: spacing.screen, paddingTop: 8 }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm, padding: space.xl, paddingTop: space.sm }}>
         <TextInput
-          placeholder="Message your care team…"
-          placeholderTextColor={colors.subtle}
+          accessibilityLabel={tr("messages.composer.label")}
+          placeholder={tr("messages.composer.label")}
+          placeholderTextColor={colors.textSubtle}
           value={draft}
-          onChangeText={setDraft}
-          style={{
-            flex: 1,
-            height: 42,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: radius.control,
-            paddingHorizontal: 12,
-            fontSize: 13.5,
-            color: colors.ink,
-            backgroundColor: colors.card,
-          }}
+          onChangeText={onChangeDraft}
+          multiline
+          maxFontSizeMultiplier={MAX_FONT_SCALE}
+          style={[
+            textStyles.body,
+            {
+              flex: 1,
+              minHeight: MIN_TARGET,
+              maxHeight: 120,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: radii.md,
+              paddingHorizontal: space.lg,
+              paddingVertical: space.md,
+              color: colors.text,
+              backgroundColor: colors.surface,
+            },
+          ]}
         />
-        <Pressable
+        <PressableScale
+          onPress={() => void handleSend()}
+          disabled={!canSend}
           accessibilityRole="button"
-          accessibilityLabel="Send message"
-          accessibilityState={{ disabled: sending || !draft.trim() }}
-          onPress={handleSend}
-          disabled={sending || !draft.trim()}
+          accessibilityLabel={tr("messages.send")}
+          accessibilityState={{ disabled: !canSend, busy: sending }}
           style={{
-            backgroundColor: sending || !draft.trim() ? colors.faint : colors.brand,
-            borderRadius: radius.control,
-            paddingHorizontal: 16,
+            width: MIN_TARGET,
+            borderRadius: radii.md,
             alignItems: "center",
             justifyContent: "center",
+            backgroundColor: canSend ? colors.brand : colors.surfaceMuted,
           }}
         >
-          <Ionicons name="send" size={16} color="#fff" />
-        </Pressable>
+          <Icon name="send" size={18} tone={canSend ? "textOnBrand" : "textSubtle"} />
+        </PressableScale>
       </View>
     </KeyboardAvoidingView>
   );
