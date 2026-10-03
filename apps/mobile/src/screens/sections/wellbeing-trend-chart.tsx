@@ -8,8 +8,9 @@ import {
   type WellbeingTrendPoint,
   type WellbeingBand,
 } from "@/lib/wellbeing";
-import { colors, radius } from "@/ui/theme";
-import { Card, ErrorText, MutedText } from "@/ui/components";
+import { radius } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Card, ErrorText, MutedText } from "@/ui/legacy-kit";
 
 type TrendMode = "mood_score" | "stress_score" | "sleep_quality";
 
@@ -19,11 +20,11 @@ const MODE_CONFIG: Record<TrendMode, { label: string; band: (score: number) => W
   sleep_quality: { label: "Sleep", band: bandHigherIsBetter },
 };
 
-const BAND_COLOR: Record<WellbeingBand, string> = {
+const bandColor = (colors: ReturnType<typeof useLegacyColors>): Record<WellbeingBand, string> => ({
   attention: colors.status.critical,
   moderate: colors.status.warn,
   stable: colors.brand,
-};
+});
 
 const BAR_MAX_HEIGHT = 84;
 const BAR_WIDTH = 18;
@@ -49,6 +50,7 @@ function formatShortDate(checkedInAt: string): string {
  * escalation/risk scoring.
  */
 export function WellbeingTrendChart({ patientId, reloadToken }: { patientId: string; reloadToken: number }) {
+  const colors = useLegacyColors();
   const [mode, setMode] = useState<TrendMode>("mood_score");
   const [points, setPoints] = useState<WellbeingTrendPoint[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -138,7 +140,7 @@ export function WellbeingTrendChart({ patientId, reloadToken }: { patientId: str
                           width: BAR_WIDTH,
                           height: barHeight,
                           borderRadius: radius.control / 2,
-                          backgroundColor: BAND_COLOR[band],
+                          backgroundColor: bandColor(colors)[band],
                         }}
                       />
                     </View>

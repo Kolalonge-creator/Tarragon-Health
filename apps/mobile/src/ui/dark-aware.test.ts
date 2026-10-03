@@ -28,6 +28,12 @@ const FILES = [
   "screens/sections/lifestyle-tracker-screen.tsx",
   "screens/sections/lifestyle-shared.tsx",
   "screens/sections/screening-days-screen.tsx",
+  "screens/sections/family-screen.tsx",
+  "screens/sections/learn-screen.tsx",
+  "screens/sections/wellbeing-screen.tsx",
+  "screens/sections/wellbeing-trend-chart.tsx",
+  "screens/sections/cycle-screen.tsx",
+  "screens/sections/weight-management-screen.tsx",
 ];
 
 describe("scheme-aware legacy screens stay fully switched", () => {
