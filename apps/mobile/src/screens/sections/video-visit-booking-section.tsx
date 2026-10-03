@@ -13,7 +13,8 @@ import {
 } from "@/lib/video-visit-booking";
 import { formatPrice } from "@/lib/services";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius } from "@/ui/theme";
+import { radius } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
 import {
   Badge,
   Card,
@@ -23,7 +24,7 @@ import {
   PrimaryButton,
   SecondaryButton,
   SectionLabel,
-} from "@/ui/components";
+} from "@/ui/legacy-kit";
 import type { Currency } from "@tarragon/shared";
 
 function formatSlot(iso: string): string {
@@ -96,6 +97,7 @@ export function VideoVisitBookingSection({
   organisationId,
   onOpenVideoVisit,
 }: VideoVisitBookingSectionProps) {
+  const colors = useLegacyColors();
   const [slots, setSlots] = useState<ConsultSlotWithClinician[] | null>(null);
   const [price, setPrice] = useState<VideoVisitPrice | null>(null);
   const [requests, setRequests] = useState<VideoVisitRequestWithSlots[]>([]);
@@ -167,8 +169,8 @@ export function VideoVisitBookingSection({
       <SectionLabel>Book a video visit</SectionLabel>
       <MutedText>A paid, self-serve 15-minute online consultation with a Tarragon doctor, over video.</MutedText>
 
-      <View style={{ backgroundColor: "#FEF2F2", borderRadius: radius.card, padding: 12 }}>
-        <Text style={{ color: "#B91C1C", fontSize: 13.5, fontWeight: "600" }}>
+      <View style={{ backgroundColor: colors.dangerBg, borderRadius: radius.card, padding: 12 }}>
+        <Text style={{ color: colors.danger, fontSize: 13.5, fontWeight: "600" }}>
           Not for emergencies. If this is an emergency, go to the nearest emergency department now.
         </Text>
       </View>

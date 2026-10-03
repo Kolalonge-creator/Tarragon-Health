@@ -8,8 +8,9 @@ import {
   type ConsultationSummary,
 } from "@/lib/video-visit";
 import { startThread } from "@/lib/messages";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 function formatSlot(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -35,6 +36,8 @@ interface VideoVisitScreenProps {
  * technical problem via the existing in-app Messages thread.
  */
 export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenProps) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [consult, setConsult] = useState<VideoConsultation | null>(null);
   const [summary, setSummary] = useState<ConsultationSummary | null>(null);
@@ -129,8 +132,8 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
         </View>
         <MutedText>{consult.scheduled_at ? formatSlot(consult.scheduled_at) : "Time to be confirmed"}</MutedText>
 
-        <View style={{ backgroundColor: "#FEF2F2", borderRadius: radius.card, padding: 12 }}>
-          <Text style={{ color: "#B91C1C", fontSize: 13.5, fontWeight: "600" }}>
+        <View style={{ backgroundColor: colors.dangerBg, borderRadius: radius.card, padding: 12 }}>
+          <Text style={{ color: colors.danger, fontSize: 13.5, fontWeight: "600" }}>
             Not for emergencies. If this is an emergency, go to the nearest emergency department now.
           </Text>
         </View>
@@ -187,7 +190,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
             <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>
               What would you like to talk about? (optional)
             </Text>
-            <TextInput
+            <TextInput keyboardAppearance={scheme}
               value={notes}
               onChangeText={setNotes}
               placeholder="Reason for the visit, symptoms, anything you want your doctor to know beforehand…"
@@ -212,7 +215,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
               <MutedText>Reported. Your care team will follow up in Messages.</MutedText>
             ) : reportOpen ? (
               <View style={{ gap: 8 }}>
-                <TextInput
+                <TextInput keyboardAppearance={scheme}
                   value={reportText}
                   onChangeText={setReportText}
                   placeholder="What's going wrong? (e.g. camera won't turn on, can't hear the doctor)"

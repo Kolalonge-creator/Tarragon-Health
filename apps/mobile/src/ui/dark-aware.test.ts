@@ -41,6 +41,13 @@ const FILES = [
   "screens/sections/ai-coach-screen.tsx",
   "screens/sections/exercise-screen.tsx",
   "screens/sections/tracker-screens.tsx",
+  "screens/sections/care-support-screen.tsx",
+  "screens/sections/womens-health-screen.tsx",
+  "screens/sections/sexual-health-screen.tsx",
+  "screens/sections/sexual-health-testing-tab.tsx",
+  "screens/sections/video-visit-screen.tsx",
+  "screens/sections/video-visit-booking-section.tsx",
+  "screens/sections/lab-order-test-checklist.tsx",
 ];
 
 describe("scheme-aware legacy screens stay fully switched", () => {

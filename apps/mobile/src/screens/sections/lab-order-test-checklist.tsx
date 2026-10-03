@@ -8,8 +8,9 @@ import {
 } from "@/lib/lab-orders";
 import { uploadEcgReport, uploadLabResult } from "@/lib/labs";
 import { testCodeLabel } from "@/lib/lab-catalogue-content";
-import { colors, radius, spacing } from "@/ui/theme";
-import { ErrorText, MutedText, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 
 const STATUS_OPTIONS: { value: LabOrderTestStatusValue; label: string }[] = [
   { value: "not_yet_done", label: "Not yet done" },
@@ -17,11 +18,11 @@ const STATUS_OPTIONS: { value: LabOrderTestStatusValue; label: string }[] = [
   { value: "will_not_do", label: "Will not be doing" },
 ];
 
-const TONE_BY_STATUS: Record<LabOrderTestStatusValue, { bg: string; border: string }> = {
-  not_yet_done: { bg: "#FEF3C733", border: "#FDE68A" },
+const toneByStatus = (colors: ReturnType<typeof useLegacyColors>): Record<LabOrderTestStatusValue, { bg: string; border: string }> => ({
+  not_yet_done: { bg: colors.status.warnBg, border: colors.status.warn },
   done: { bg: colors.brandTint, border: colors.brand },
   will_not_do: { bg: colors.groupBg, border: colors.border },
-};
+});
 
 interface CapturedPhoto {
   uri: string;
@@ -51,6 +52,7 @@ export function LabOrderTestChecklist({
   labOrderId: string;
   testCodes: readonly string[];
 }) {
+  const colors = useLegacyColors();
   const [statusByCode, setStatusByCode] = useState<Record<string, LabOrderTestStatusValue>>({});
   const [openCode, setOpenCode] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -128,7 +130,7 @@ export function LabOrderTestChecklist({
         const status = statusByCode[code] ?? "not_yet_done";
         const isEcg = code === "ecg_resting";
         const isOpen = openCode === code;
-        const tone = TONE_BY_STATUS[status];
+        const tone = toneByStatus(colors)[status];
         return (
           <View
             key={code}
