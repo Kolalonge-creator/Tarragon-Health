@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { ScrollView, View } from "react-native";
+import type { ReactElement, ReactNode } from "react";
+import { ScrollView, View, type RefreshControlProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { space, useTheme } from "../design";
 
@@ -9,10 +9,12 @@ interface ScreenProps {
   scroll?: boolean;
   /** Safe-area edges to respect. The app shell already pads the top, so screens inside it usually pass none. */
   edges?: ("top" | "bottom" | "left" | "right")[];
+  /** Pull to refresh, for screens that load data. */
+  refreshControl?: ReactElement<RefreshControlProps>;
 }
 
 /** The canvas every kit screen sits on: theme background, standard gutter, keyboard-friendly scrolling. */
-export function Screen({ children, scroll = true, edges = ["left", "right"] }: ScreenProps) {
+export function Screen({ children, scroll = true, edges = ["left", "right"], refreshControl }: ScreenProps) {
   const { colors } = useTheme();
   return (
     <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.canvas }}>
@@ -21,6 +23,7 @@ export function Screen({ children, scroll = true, edges = ["left", "right"] }: S
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: space.xl, gap: space.lg }}
           showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
         >
           {children}
         </ScrollView>

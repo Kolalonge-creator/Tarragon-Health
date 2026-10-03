@@ -33,7 +33,7 @@ export default defineConfig([
     // Screens already moved onto the design kit (design Phase 1). For these the
     // warnings above become errors, and the legacy colour and component modules are
     // off limits, so a moved screen cannot slip back. Add each screen here as it moves.
-    files: ["src/screens/sections/vitals-screen.tsx", "src/screens/sections/medications-screen.tsx", "src/screens/sections/messages-screen.tsx", "src/screens/sync-banner.tsx"],
+    files: ["src/screens/sections/vitals-screen.tsx", "src/screens/sections/medications-screen.tsx", "src/screens/sections/messages-screen.tsx", "src/screens/sections/overview-screen.tsx", "src/screens/sync-banner.tsx"],
     rules: {
       "no-restricted-syntax": [
         "error",
