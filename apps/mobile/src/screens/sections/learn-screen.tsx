@@ -27,8 +27,9 @@ import {
   type HealthEducationReadingLevel,
   type KnowledgeCheckQuestion,
 } from "@/lib/health-education";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const CONDITION_LABEL: Record<string, string> = {
   hypertension: "blood pressure",
@@ -41,16 +42,6 @@ const CONDITION_LABEL: Record<string, string> = {
   obesity: "weight",
   other: "condition",
 };
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
 
 interface LearnScreenProps {
   userId: string;
@@ -67,6 +58,9 @@ interface LearnScreenProps {
  * from-lesson).
  */
 export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [feed, setFeed] = useState<AnyEducationItem[]>([]);
   const [lockedCount, setLockedCount] = useState(0);
@@ -194,7 +188,7 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
           <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>
             {HEALTH_EDUCATION_CATEGORIES.find((c) => c.value === activeCategory)?.label ?? activeCategory}
           </Text>
-          <TextInput value={query} onChangeText={setQuery} placeholder="Search this topic…" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} value={query} onChangeText={setQuery} placeholder="Search this topic…" style={textInputStyle} />
           {hasMultipleLevels && (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               <LevelChip label="All" active={readingLevel === null} onPress={() => setReadingLevel(null)} />
@@ -241,6 +235,7 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
 }
 
 function LevelChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const colors = useLegacyColors();
   return (
     <Text
       onPress={onPress}
@@ -260,6 +255,7 @@ function LevelChip({ label, active, onPress }: { label: string; active: boolean;
 }
 
 function RecommendationRow({ rec, onChanged }: { rec: EducationRecommendation; onChanged: () => void }) {
+  const colors = useLegacyColors();
   async function dismiss() {
     await dismissRecommendation(rec.id);
     onChanged();
@@ -296,6 +292,7 @@ function HealthLiteracyPrompt({
   label: string;
   onDone: () => void;
 }) {
+  const colors = useLegacyColors();
   const [submitting, setSubmitting] = useState<number | null>(null);
   const [skipped, setSkipped] = useState(false);
 
@@ -358,6 +355,7 @@ function EducationItemRow({
   organisationId: string;
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
   const [marking, setMarking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -438,6 +436,7 @@ function KnowledgeCheck({
   pending: boolean;
   onComplete: (questions: KnowledgeCheckQuestion[], answers: Array<number | undefined>) => Promise<{ score: number; total: number; allCorrect: boolean }>;
 }) {
+  const colors = useLegacyColors();
   const [answers, setAnswers] = useState<Array<number | undefined>>(() => questions.map(() => undefined));
   const [result, setResult] = useState<{ score: number; total: number; allCorrect: boolean } | null>(null);
   const answeredAll = answers.every((a) => a !== undefined);
@@ -488,6 +487,7 @@ function KnowledgeCheck({
 }
 
 function ContentFeedbackRow({ contentId, userId, organisationId }: { contentId: string; userId: string; organisationId: string }) {
+  const colors = useLegacyColors();
   const [sent, setSent] = useState<HealthEducationFeedbackType | null>(null);
 
   async function send(value: HealthEducationFeedbackType) {
