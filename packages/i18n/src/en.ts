@@ -405,6 +405,14 @@ export const en = {
   "services.cancel_error": "We couldn't close this. Please try again.",
   "services.load_error": "We couldn't load your services just now. Please try again.",
   "services.retry": "Try again",
+  "drawer.menu": "Menu",
+  "drawer.home_a11y": "Go to Overview",
+  "drawer.close_a11y": "Close menu",
+  "drawer.patient": "Patient",
+  "drawer.version": "Version {version}",
+  "drawer.sign_out": "Sign out",
+  "drawer.expanded": "{group}, expanded",
+  "drawer.collapsed": "{group}, collapsed",
 } as const;
 
 export type MessageKey = keyof typeof en;

@@ -8,6 +8,8 @@ interface LegacySheetProps {
   onClose: () => void;
   closeLabel: string;
   children: ReactNode;
+  /** Set false for a screen that already follows the scheme (it uses the colour bridge), so the sheet follows it too. */
+  forceLight?: boolean;
 }
 
 /**
@@ -15,14 +17,15 @@ interface LegacySheetProps {
  * Drawn entirely in the light scheme with a Close button, so the kit parts around the
  * old screen match it. Delete a use of this when the screen inside it moves.
  */
-export function LegacySheet({ visible, onClose, closeLabel, children }: LegacySheetProps) {
+export function LegacySheet({ visible, onClose, closeLabel, children, forceLight = true }: LegacySheetProps) {
+  const body = (
+    <Body onClose={onClose} closeLabel={closeLabel}>
+      {children}
+    </Body>
+  );
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <ForceLight>
-        <Body onClose={onClose} closeLabel={closeLabel}>
-          {children}
-        </Body>
-      </ForceLight>
+      {forceLight ? <ForceLight>{body}</ForceLight> : body}
     </Modal>
   );
 }

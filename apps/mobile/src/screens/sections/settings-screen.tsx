@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
-import { CalloutCard, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionDivider, SectionLabel } from "@/ui/components";
+import { CalloutCard, GroupedList, GroupedListRow, MutedText, SectionDivider, SectionLabel } from "@/ui/components";
+import { asLocale, t } from "@tarragon/i18n";
+import { useUiLanguage } from "@/lib/ui-language";
+import { LegacySheet } from "@/ui/kit";
 import { ProfileScreen } from "@/screens/sections/profile-screen";
 import { AppearanceSetting } from "@/screens/sections/appearance-setting";
 import { PLATFORM_URL } from "@/lib/platform-url";
@@ -35,6 +38,7 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
   const [appLockEnabled, setAppLockEnabled] = useState(false);
   const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_PREFS);
   const [profileOpen, setProfileOpen] = useState(false);
+  const locale = asLocale(useUiLanguage());
 
   useEffect(() => {
     // Every read here is best-effort: a rejected probe leaves the safe
@@ -225,14 +229,10 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
         <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Sign out</Text>
       </Pressable>
 
-      <Modal visible={profileOpen} animationType="slide" onRequestClose={() => setProfileOpen(false)}>
-        <View style={{ flex: 1 }}>
-          <View style={{ padding: spacing.screen, paddingTop: 56 }}>
-            <SecondaryButton title="Close" onPress={() => setProfileOpen(false)} />
-          </View>
-          <ProfileScreen />
-        </View>
-      </Modal>
+      {/* Profile follows the scheme, so its sheet does too. */}
+      <LegacySheet visible={profileOpen} onClose={() => setProfileOpen(false)} closeLabel={t("kit.close", locale)} forceLight={false}>
+        <ProfileScreen />
+      </LegacySheet>
     </ScrollView>
   );
 }
