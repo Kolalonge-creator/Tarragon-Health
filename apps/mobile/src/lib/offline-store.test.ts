@@ -4,7 +4,7 @@
  * keyset or, order, limit) so the cursor rules are exercised for real.
  */
 import { OFFLINE_BUDGET } from "./offline-budget";
-import { clearLocalMirror, pullChanges, purgeMirror, readLocalMedications, readLocalRecords } from "./offline-store";
+import { clearLocalMirror, pullChanges, purgeMirror, readLocalMedications, readLocalRecords, readLocalTasks } from "./offline-store";
 
 type Row = { id: string; created_at: string; patient_id: string; [k: string]: unknown };
 
@@ -224,5 +224,60 @@ describe("purgeMirror", () => {
     expect((await readLocalRecords<Row>("vital", "p2")).map((r) => r.id).sort()).toEqual(["p2-new", "p2-old"]);
     mockUser = "user-2";
     expect((await readLocalRecords<Row>("vital", "p1")).map((r) => r.id).sort()).toEqual(["u2-new", "u2-old"]);
+  });
+});
+
+describe("task mirror (S07)", () => {
+  const task = (id: string, extra: Record<string, unknown> = {}): Row =>
+    row(id, 5, { kind: "log_bp", title: `Task ${id}`, state: "open", status: "not_started", updated_at: iso(5), ...extra });
+
+  it("mirrors the patient's own tasks and not another patient's", async () => {
+    mockTables.patient_tasks = [task("t1"), task("t2"), { ...task("t3"), patient_id: "someone-else" }];
+    await pullChanges("p1");
+    const local = await readLocalTasks<{ id: string }>("p1");
+    expect(local.map((t) => t.id).sort()).toEqual(["t1", "t2"]);
+    expect(await readLocalTasks("someone-else")).toEqual([]);
+  });
+
+  it("replaces the whole set: a task that changed is updated and one that is gone disappears", async () => {
+    mockTables.patient_tasks = [task("t1"), task("t2")];
+    await pullChanges("p1");
+    mockTables.patient_tasks = [task("t1", { state: "done", status: "completed" })];
+    await pullChanges("p1");
+    const local = await readLocalTasks<{ id: string; state: string }>("p1");
+    expect(local).toEqual([expect.objectContaining({ id: "t1", state: "done" })]);
+  });
+
+  it("keeps the last good copy when a later pull fails, so a missing view or a dropped connection never empties the list", async () => {
+    mockTables.patient_tasks = [task("t1"), task("t2")];
+    await pullChanges("p1");
+    mockFail = { message: 'relation "public.patient_tasks" does not exist', code: "42P01" };
+    await pullChanges("p1");
+    mockFail = null;
+    expect((await readLocalTasks<{ id: string }>("p1")).map((t) => t.id).sort()).toEqual(["t1", "t2"]);
+  });
+
+  it("does not show one account's tasks to another account on the same phone", async () => {
+    mockTables.patient_tasks = [task("t1")];
+    await pullChanges("p1");
+    mockUser = "user-2";
+    expect(await readLocalTasks("p1")).toEqual([]);
+    mockUser = "user-1";
+    expect(await readLocalTasks("p1")).toHaveLength(1);
+  });
+
+  it("is cleared on sign-out with the rest of the mirror", async () => {
+    mockTables.patient_tasks = [task("t1")];
+    await pullChanges("p1");
+    await clearLocalMirror();
+    expect(await readLocalTasks("p1")).toEqual([]);
+  });
+
+  it("an empty server list clears the mirror (the care team closed everything)", async () => {
+    mockTables.patient_tasks = [task("t1")];
+    await pullChanges("p1");
+    mockTables.patient_tasks = [];
+    await pullChanges("p1");
+    expect(await readLocalTasks("p1")).toEqual([]);
   });
 });
