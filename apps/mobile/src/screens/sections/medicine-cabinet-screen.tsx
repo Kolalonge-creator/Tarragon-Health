@@ -765,9 +765,9 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
               ))}
             </View>
           </View>
-          <View style={{ gap: 6 }}>
-            {kind === "taper" || kind === "as_needed" ? null : <MutedText>Dose times</MutedText>}
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, display: kind === "taper" || kind === "as_needed" ? "none" : "flex" }}>
+          <View style={{ gap: 6, display: kind === "taper" || kind === "as_needed" ? "none" : "flex" }}>
+            <MutedText>Dose times</MutedText>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {DOSE_TIME_PRESETS.map((preset) => (
                 <SmallGhostButton key={preset.label} title={preset.label} onPress={() => addScheduleTime(preset.time)} />
               ))}

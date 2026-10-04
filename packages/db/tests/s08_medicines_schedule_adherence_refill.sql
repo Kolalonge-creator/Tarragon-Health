@@ -1,6 +1,6 @@
 -- S08 proof: medicines schedules, the server "missed" job, late-synced taken,
 -- weekly adherence, pill count and refill, the signals, and the access rules
--- (migration *_s08_medicines_schedules_supply_missed_adherence.sql).
+-- (migrations *_s08_medicines_schedules_supply_missed_adherence.sql and *_s08_review_schedule_edit_refill_suspended.sql).
 --
 -- Proves in one rolled-back transaction:
 --   1. The shared schedule expansion cases (packages/medicines schedule.fixtures.ts).
@@ -18,6 +18,8 @@
 --   8. Access: a stranger sees no pill count and cannot write one; the owner can; a
 --      patient cannot change a clinician-prescribed dose or its structured schedule
 --      but can change a patient-added medicine's; the adherence RPC refuses a stranger.
+--   8b. Review fixes: a schedule edit invents no missed history, a stale refill date does not
+--       hide a pill-count run-out, a suspended account is left alone.
 --   9. SABOTAGE: with the view's "person beats server missed" ordering removed, the
 --      late-synced taken check must FAIL, proving it discriminates.
 begin;
@@ -40,7 +42,7 @@ do $$
 declare
   v_org uuid; v_p uuid; v_other uuid;
   v_today date := (now() at time zone 'Africa/Lagos')::date;
-  v_med uuid; v_med2 uuid; v_rx uuid;
+  v_med uuid; v_med2 uuid; v_med3 uuid; v_med4 uuid; v_susp uuid; v_rx uuid;
   v_n integer; v_n2 integer; v_slot date; v_status text; v_adh jsonb;
   v_miss_logged timestamptz; v_taken_logged timestamptz; v_run date; v_left numeric;
   v_supply record; v_err text; v_payload jsonb;
@@ -171,6 +173,43 @@ begin
   insert into results values ('real', 'adherence below threshold emits the signal', 'true',
     (exists (select 1 from public.clinical_rule_events where patient_id = v_p and event_type = 'medication_adherence_low'))::text);
   insert into results values ('real', 'the signal is deduplicated within the week', '0', v_n2::text);
+
+  -- 7b. Review fixes: a schedule edit invents no history, a stale refill date hides nothing,
+  --     a suspended account is left alone. ---------------------------------------------------------
+  perform set_config('request.jwt.claim.sub', v_p::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  update public.medications set schedule_times = '["08:00","09:00"]' where id = v_med;
+  reset role;
+  perform private.mark_overdue_doses_missed();
+  insert into results values ('real', 'a time added by a schedule edit gets no missed rows from before the edit', '0',
+    (select count(*)::text from public.medication_logs where medication_id = v_med and scheduled_time = '09:00'));
+  insert into results values ('real', 'the edit stamps schedule_effective_from', 'true',
+    ((select schedule_effective_from from public.medications where id = v_med) > now() - interval '1 minute')::text);
+  insert into results values ('real', 'the adherence count ignores slots from before the edit', 'true',
+    ((private.weekly_adherence(v_p) ->> 'due')::int <= 7)::text);
+
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, source, is_active, refill_date, created_at)
+    values (v_org, v_p, 'S08 Stale Refill', '1', 'twice daily', '["08:00","20:00"]', 'patient', true, v_today - 30, now() - interval '1 day')
+    returning id into v_med3;
+  insert into public.medication_supply (medication_id, organisation_id, patient_id, pills_on_hand, pills_per_dose)
+    values (v_med3, v_org, v_p, 3, 1);
+  perform private.queue_medication_refill_reminders();
+  insert into results values ('real', 'a stale past refill date does not hide a pill-count run-out', 'true',
+    ((select count(*) from public.notifications where recipient_id = v_p and template = 'medication_refill_reminder'
+        and payload ->> 'medication_id' = v_med3::text) >= 2)::text);
+
+  v_susp := pg_temp.mkpatient(v_org, 'suspended');
+  update public.profiles set is_active = false where id = v_susp;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, source, is_active, created_at)
+    values (v_org, v_susp, 'S08 Suspended', '1', 'daily', '["08:00"]', 'patient', true, now() - interval '5 days')
+    returning id into v_med4;
+  perform private.mark_overdue_doses_missed();
+  insert into results values ('real', 'a suspended account gets no server missed rows', '0',
+    (select count(*)::text from public.medication_logs where medication_id = v_med4));
+  perform private.emit_adherence_signals();
+  insert into results values ('real', 'a suspended account gets no weekly adherence signal', 'false',
+    (exists (select 1 from public.clinical_rule_events where patient_id = v_susp and event_type = 'medication_adherence_low'))::text);
 
   -- 8. Access --------------------------------------------------------------------------------------
   -- Stranger: no pill count visible, cannot write one.

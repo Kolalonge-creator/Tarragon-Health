@@ -13,7 +13,7 @@ import {
   type DoseChecklistItem,
   type LoggableStatus,
 } from "@/lib/medications";
-import { cancelSnooze, checkReminderHealth, replanDoseReminders, sendTestReminder, snoozeDose } from "@/lib/dose-reminders";
+import { cancelSnooze, checkReminderHealth, replanDoseReminders, sendTestReminder, snoozeDose, type ReplanResult } from "@/lib/dose-reminders";
 import { loadAdherenceBand, loadMedicineRules } from "@/lib/medicines-config";
 import { loadReminderBehaviour } from "@/lib/s07-config";
 import { space, useTheme } from "@/ui/design";
@@ -102,11 +102,14 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
 
   const ownsReminders = !subjectName;
 
-  const refreshSide = useCallback(async () => {
-    const week = await loadWeeklyAdherence(patientId);
-    setAdherence(week.ok ? week.data : null);
-    if (ownsReminders) setIssues(await checkReminderHealth(patientId));
-  }, [patientId, ownsReminders]);
+  const refreshSide = useCallback(
+    async (replanned?: ReplanResult) => {
+      const week = await loadWeeklyAdherence(patientId);
+      setAdherence(week.ok ? week.data : null);
+      if (ownsReminders) setIssues(await checkReminderHealth(patientId, Date.now(), replanned));
+    },
+    [patientId, ownsReminders]
+  );
 
   const load = useCallback(async () => {
     const result = await loadTodaysDoses(patientId);
@@ -116,8 +119,9 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     }
     setLoadError(false);
     setDoses(result.data);
-    if (ownsReminders) await replanDoseReminders(patientId);
-    await refreshSide();
+    // The screen is something the patient opened, so it may ask for notification permission.
+    const replanned = ownsReminders ? await replanDoseReminders(patientId, Date.now(), { prompt: true }) : undefined;
+    await refreshSide(replanned);
   }, [patientId, ownsReminders, refreshSide]);
 
   useEffect(() => {
@@ -191,8 +195,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
           setNow(Date.now());
         }
         await cancelSnooze(key);
-        if (ownsReminders) void replanDoseReminders(patientId);
-        void refreshSide();
+        const replanned = ownsReminders ? await replanDoseReminders(patientId) : undefined;
+        void refreshSide(replanned);
       }
     } catch {
       setRowErrors((prev) => new Set(prev).add(key));
@@ -237,8 +241,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
       const t0 = Date.now();
       setState(key, "pending", t0 < due ? "upcoming" : t0 < due + missedAfterMinutes * 60_000 ? "due" : "missed");
       toast.show({ message: tr("meds.undo.done"), tone: "info" });
-      if (ownsReminders) void replanDoseReminders(patientId);
-      void refreshSide();
+      const replanned = ownsReminders ? await replanDoseReminders(patientId) : undefined;
+      void refreshSide(replanned);
     } else {
       toast.show({ message: tr("meds.undo.too_late"), tone: "warn" });
     }

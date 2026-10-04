@@ -90,9 +90,11 @@ describe("reminderIssues", () => {
     expect(reminderIssues({ ...ok, lastPlannedAtMs: now - 25 * 3600_000 })).toEqual(["plan_out_of_date"]);
     expect(reminderIssues({ ...ok, lastPlannedAtMs: null, plannedCount: 0, pendingCount: 0 })).toEqual([]);
   });
-  it("flags makers known to stop background apps, case-insensitively, and ignores a missing maker", () => {
-    expect(reminderIssues({ ...ok, manufacturer: "TECNO" })).toEqual(["maker_may_stop_reminders"]);
-    expect(reminderIssues({ ...ok, manufacturer: "Infinix mobility" })).toEqual(["maker_may_stop_reminders"]);
-    expect(reminderIssues({ ...ok, manufacturer: null })).toEqual([]);
+  it("flags a maker known to stop background apps only when reminders look stopped", () => {
+    expect(reminderIssues({ ...ok, manufacturer: "TECNO" })).toEqual([]);
+    expect(reminderIssues({ ...ok, manufacturer: "TECNO", pendingCount: 0 })).toEqual(["nothing_scheduled", "maker_may_stop_reminders"]);
+    expect(reminderIssues({ ...ok, manufacturer: "Infinix mobility", lastPlannedAtMs: null })).toEqual(["plan_out_of_date", "maker_may_stop_reminders"]);
+    expect(reminderIssues({ ...ok, manufacturer: "google", pendingCount: 0 })).toEqual(["nothing_scheduled"]);
+    expect(reminderIssues({ ...ok, manufacturer: null, pendingCount: 0 })).toEqual(["nothing_scheduled"]);
   });
 });

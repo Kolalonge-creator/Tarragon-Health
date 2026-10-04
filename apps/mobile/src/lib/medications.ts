@@ -54,6 +54,8 @@ export interface DoseChecklistItem {
   doseText?: string | null;
   foodNote?: FoodNote | null;
   origin?: DoseOrigin;
+  /** The Lagos date of the slot. A screen left open past midnight must log against this, not against "today". */
+  date?: string;
   /** The strength and dose the medicine record carries, shown as read-only text. */
   doseLabel?: string | null;
 }
@@ -62,8 +64,17 @@ type MedicationForChecklist = Pick<Tables<"medications">, "id" | "drug_name" | "
   schedule_spec?: unknown;
   source?: string | null;
   created_at?: string | null;
+  /** Stamped when the schedule is edited, so a newly added time owes nothing from before the edit. */
+  schedule_effective_from?: string | null;
   dose?: string | null;
 };
+
+/** When a medicine's current schedule began to apply: the later of when it was added and when its times last changed. */
+export function activeFromMs(m: { created_at?: string | null; schedule_effective_from?: string | null }): number {
+  const created = m.created_at ? Date.parse(m.created_at) : 0;
+  const edited = m.schedule_effective_from ? Date.parse(m.schedule_effective_from) : 0;
+  return Math.max(Number.isFinite(created) ? created : 0, Number.isFinite(edited) ? edited : 0);
+}
 // Sourced from medication_logs_latest_per_slot (20261004214531), not the raw
 // append-only table: it keeps one row per slot and lets a row a person wrote beat
 // the server's own "missed". A view's columns are nullable regardless of the
@@ -102,12 +113,12 @@ export function buildTodaysDoseChecklist(
   const { missedAfterMinutes } = loadReminderBehaviour();
   const items: DoseChecklistItem[] = [];
   for (const medication of medications) {
-    const addedAtMs = medication.created_at ? Date.parse(medication.created_at) : 0;
+    const startedAtMs = activeFromMs(medication);
     const spec = scheduleOf(medication);
     for (const slot of slotsOn(spec, today)) {
       const dueAtMs = lagosTimeToUtcMs(slot.date, slot.time);
-      // A medicine added at noon owes no 08:00 dose that morning.
-      if (Number.isFinite(addedAtMs) && dueAtMs < addedAtMs) continue;
+      // A medicine added at noon owes no 08:00 dose that morning, and a time added by an edit owes nothing from before it.
+      if (dueAtMs < startedAtMs) continue;
       const log = logs.find((l) => l.medication_id === medication.id && l.scheduled_time === slot.time);
       const doseLogs: DoseLog[] = log?.status
         ? [{ status: log.status as LogStatus, source: "patient", loggedAtMs: nowMs }]
@@ -122,6 +133,7 @@ export function buildTodaysDoseChecklist(
         doseText: slot.doseText,
         foodNote: spec.foodNote,
         origin: medication.source === "clinician" ? "prescription" : "patient_added",
+        date: slot.date,
         doseLabel: medication.dose ?? null,
       });
     }
@@ -156,7 +168,7 @@ export async function loadTodaysDoses(patientId: string): Promise<QueryResult<Do
     const [medsRes, logsRes] = await Promise.all([
       supabase
         .from("medications")
-        .select("id, drug_name, dose, source, created_at, schedule_times, schedule_spec")
+        .select("id, drug_name, dose, source, created_at, schedule_effective_from, schedule_times, schedule_spec")
         .eq("patient_id", patientId)
         .eq("is_active", true)
         .is("superseded_at", null),
@@ -241,7 +253,7 @@ export async function logDose(
       payload: {
         medication_id: item.medicationId,
         scheduled_time: item.time,
-        scheduled_for_date: todayIsoDate(),
+        scheduled_for_date: item.date ?? todayIsoDate(),
         status,
         organisation_id: organisationId,
         reason: opts.reason ?? null,
@@ -281,6 +293,7 @@ export function statusForTakenAt(dueAtMs: number, takenAtMs: number): "taken" | 
 interface AdherenceMedRow {
   id: string;
   created_at: string | null;
+  schedule_effective_from?: string | null;
   schedule_times: unknown;
   schedule_spec: unknown;
 }
@@ -306,7 +319,7 @@ export async function loadWeeklyAdherence(patientId: string, nowMs: number = Dat
     const [medsRes, logsRes] = await Promise.all([
       supabase
         .from("medications")
-        .select("id, created_at, schedule_times, schedule_spec")
+        .select("id, created_at, schedule_effective_from, schedule_times, schedule_spec")
         .eq("patient_id", patientId)
         .eq("is_active", true)
         .is("superseded_at", null),
@@ -359,7 +372,7 @@ export async function loadWeeklyAdherence(patientId: string, nowMs: number = Dat
       id: m.id,
       spec: scheduleOf(m),
       logs: groupLogsBySlot(byMed.get(m.id) ?? []),
-      activeFromMs: m.created_at ? Date.parse(m.created_at) : 0,
+      activeFromMs: activeFromMs(m),
     })),
     nowMs,
     {
@@ -384,7 +397,7 @@ export interface SupplyView extends SupplyRow {
   low: boolean;
 }
 
-/** The pill counts the patient has set, each with how long it lasts at the current schedule. */
+/** The pill counts the patient has set, each with how long it lasts at the current schedule. Two reads for the logs however many counts there are. */
 export async function loadSupplies(
   patientId: string,
   medications: { id: string; schedule_times: unknown; schedule_spec?: unknown }[],
@@ -398,33 +411,43 @@ export async function loadSupplies(
       .select("medication_id, pills_on_hand, pills_per_dose, counted_at")
       .eq("patient_id", patientId);
     if (error) return { ok: false, error: error.message };
+    const rows = (data ?? []).filter((r) => medications.some((m) => m.id === r.medication_id));
     const out = new Map<string, SupplyView>();
-    for (const row of data ?? []) {
-      const med = medications.find((m) => m.id === row.medication_id);
-      if (!med) continue;
-      const [taken, answered] = await Promise.all([
-        supabase
-          .from("medication_logs_latest_per_slot")
-          .select("medication_id", { count: "exact", head: true })
-          .eq("medication_id", row.medication_id)
-          .gte("logged_at", row.counted_at)
-          .in("status", ["taken", "delayed"]),
-        supabase
-          .from("medication_logs_latest_per_slot")
-          .select("scheduled_for_date, scheduled_time")
-          .eq("medication_id", row.medication_id)
-          .gte("scheduled_for_date", today)
-          .in("status", ["taken", "delayed", "skipped", "not_available"]),
-      ]);
-      if (taken.error || answered.error) return { ok: false, error: (taken.error ?? answered.error)!.message };
+    if (rows.length === 0) return { ok: true, data: out };
+
+    const ids = rows.map((r) => r.medication_id);
+    const earliest = rows.reduce((min, r) => (r.counted_at < min ? r.counted_at : min), rows[0].counted_at);
+    const [takenRes, answeredRes] = await Promise.all([
+      supabase
+        .from("medication_logs_latest_per_slot")
+        .select("medication_id, logged_at")
+        .in("medication_id", ids)
+        .gte("logged_at", earliest)
+        .in("status", ["taken", "delayed"]),
+      supabase
+        .from("medication_logs_latest_per_slot")
+        .select("medication_id, scheduled_for_date, scheduled_time")
+        .in("medication_id", ids)
+        .gte("scheduled_for_date", today)
+        .in("status", ["taken", "delayed", "skipped", "not_available"]),
+    ]);
+    const failure = takenRes.error ?? answeredRes.error;
+    if (failure) return { ok: false, error: failure.message };
+
+    for (const row of rows) {
+      const med = medications.find((m) => m.id === row.medication_id)!;
+      const taken = (takenRes.data ?? []).filter((l) => l.medication_id === row.medication_id && l.logged_at !== null && l.logged_at >= row.counted_at).length;
+      const answered = new Set(
+        (answeredRes.data ?? []).filter((r) => r.medication_id === row.medication_id).map((r) => `${r.scheduled_for_date}|${r.scheduled_time}`)
+      );
       const estimate = estimateSupply({
         pillsOnHand: Number(row.pills_on_hand),
         countedAtMs: Date.parse(row.counted_at),
         pillsPerDose: Number(row.pills_per_dose),
         spec: scheduleOf(med),
-        dosesTakenSinceCount: taken.count ?? 0,
+        dosesTakenSinceCount: taken,
         nowMs,
-        answeredSlots: new Set((answered.data ?? []).map((r) => `${r.scheduled_for_date}|${r.scheduled_time}`)),
+        answeredSlots: answered,
       });
       out.set(row.medication_id, {
         medicationId: row.medication_id,

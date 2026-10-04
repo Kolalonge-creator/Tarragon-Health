@@ -6,6 +6,7 @@
  */
 import { t } from "@tarragon/i18n";
 import {
+  activeFromMs,
   buildTodaysDoseChecklist,
   loadSupplies,
   loadWeeklyAdherence,
@@ -136,6 +137,18 @@ describe("today's list with structured schedules", () => {
     expect(items.map((i) => i.time)).toEqual(["20:00"]);
   });
 
+  it("owes nothing from before the schedule was edited", () => {
+    const edited = { ...daily, created_at: "2026-09-01T00:00:00Z", schedule_effective_from: "2026-10-05T09:30:00Z" };
+    expect(buildTodaysDoseChecklist([edited], [], NOW).map((i) => i.time)).toEqual(["20:00"]);
+    expect(activeFromMs({ created_at: "2026-09-01T00:00:00Z", schedule_effective_from: null })).toBe(Date.parse("2026-09-01T00:00:00Z"));
+    expect(activeFromMs({})).toBe(0);
+  });
+
+  it("carries the slot's own date so a screen left open past midnight logs the right day", () => {
+    const [first] = buildTodaysDoseChecklist([daily], [], NOW);
+    expect(first.date).toBe("2026-10-05");
+  });
+
   it("falls back to the plain list of times when the structured schedule does not parse", () => {
     expect(scheduleOf({ schedule_times: ["08:00"], schedule_spec: { kind: "nonsense" } })).toMatchObject({ kind: "daily", times: ["08:00"] });
     expect(scheduleOf({ schedule_times: [], schedule_spec: null })).toMatchObject({ kind: "as_needed" });
@@ -190,6 +203,11 @@ describe("logging with the undo window", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it("logs against the slot's date, not today's", async () => {
+    await logDose("p1", "org-1", { ...item, date: "2026-10-04" }, "taken");
+    expect(mockInserted[0].row).toMatchObject({ scheduled_for_date: "2026-10-04" });
   });
 
   it("without a hold it still sends at once and records the time now (older behaviour unchanged)", async () => {
@@ -277,9 +295,18 @@ describe("local dose reminders", () => {
   it("plans nothing, and says so, when notifications are not allowed", async () => {
     mockPermission = "denied";
     const res = await replanDoseReminders("p1", NOW);
-    expect(res).toEqual({ ok: false, planned: 0, pending: 0 });
+    expect(res).toEqual({ ok: false, planned: 0, pending: 0, allowed: false });
     expect(scheduled).toHaveLength(0);
     expect(await checkReminderHealth("p1", NOW)).toContain("notifications_off");
+  });
+
+  it("never raises the OS permission prompt on its own, only when the screen asks", async () => {
+    const Notifications = jest.requireMock("expo-notifications");
+    mockPermission = "undetermined";
+    await replanDoseReminders("p1", NOW);
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+    await replanDoseReminders("p1", NOW, { prompt: true });
+    expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1);
   });
 
   it("reports a plan that never reached the phone", async () => {

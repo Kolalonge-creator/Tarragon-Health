@@ -127,7 +127,8 @@ export const AGGRESSIVE_BACKGROUND_MAKERS: readonly string[] = [
 /**
  * The reasons reminders on this phone may be unreliable, in the order to fix
  * them. An empty list means nothing is known to be wrong, not that delivery is
- * guaranteed: the Today list still shows every dose.
+ * guaranteed: the Today list still shows every dose. The phone-maker note is added
+ * only alongside evidence that reminders are not being kept.
  */
 export function reminderIssues(input: ReminderHealthInput): ReminderIssue[] {
   const out: ReminderIssue[] = [];
@@ -137,7 +138,11 @@ export function reminderIssues(input: ReminderHealthInput): ReminderIssue[] {
   const stale =
     input.lastPlannedAtMs === null || input.nowMs - input.lastPlannedAtMs > input.stalePlanHours * 60 * 60 * 1000;
   if (stale && input.plannedCount > 0) out.push("plan_out_of_date");
+  // A maker known to stop background apps is only worth warning about when something shows it
+  // happening (nothing scheduled, or a plan that has not been rebuilt). Otherwise the card would
+  // sit on most Android phones forever and the warnings that matter would be ignored.
   const maker = input.manufacturer?.toLowerCase() ?? "";
-  if (AGGRESSIVE_BACKGROUND_MAKERS.some((m) => maker.includes(m))) out.push("maker_may_stop_reminders");
+  const lookingStopped = out.includes("nothing_scheduled") || out.includes("plan_out_of_date");
+  if (lookingStopped && AGGRESSIVE_BACKGROUND_MAKERS.some((m) => maker.includes(m))) out.push("maker_may_stop_reminders");
   return out;
 }

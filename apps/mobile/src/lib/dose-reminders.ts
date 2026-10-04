@@ -61,6 +61,13 @@ async function ensureChannel(): Promise<void> {
   });
 }
 
+/** Whether the patient has already allowed notifications. Never prompts. */
+async function notificationsAllowed(): Promise<boolean> {
+  const { status } = await Notifications.getPermissionsAsync();
+  return status === "granted";
+}
+
+/** Asks the OS for notification permission when it has not been decided. Call only from something the patient did. */
 export async function ensureDoseReminderPermission(): Promise<boolean> {
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === "granted") return true;
@@ -121,6 +128,8 @@ export interface ReplanResult {
   ok: boolean;
   planned: number;
   pending: number;
+  /** False when notifications are not allowed. */
+  allowed?: boolean;
 }
 
 /**
@@ -128,10 +137,16 @@ export interface ReplanResult {
  * throws: a failure leaves the previous plan in place and reports ok:false so the
  * health check can say reminders may be unreliable.
  */
-export async function replanDoseReminders(patientId: string, nowMs: number = Date.now()): Promise<ReplanResult> {
+export async function replanDoseReminders(
+  patientId: string,
+  nowMs: number = Date.now(),
+  opts: { prompt?: boolean } = {}
+): Promise<ReplanResult> {
   try {
-    const granted = await ensureDoseReminderPermission();
-    if (!granted) return { ok: false, planned: 0, pending: 0 };
+    // Opening the app or returning to it must never raise the OS prompt (S06 fixed the same
+    // pattern for Health): only the Medications screen, which the patient chose to open, may ask.
+    const granted = opts.prompt ? await ensureDoseReminderPermission() : await notificationsAllowed();
+    if (!granted) return { ok: false, planned: 0, pending: 0, allowed: false };
     await ensureChannel();
 
     const cfg = loadReminderBehaviour();
@@ -155,7 +170,7 @@ export async function replanDoseReminders(patientId: string, nowMs: number = Dat
     }
     await AsyncStorage.setItem(PLANNED_AT_KEY, String(nowMs));
     const pending = (await Notifications.getAllScheduledNotificationsAsync()).filter((n) => n.identifier.startsWith(DOSE_NOTIFICATION_PREFIX)).length;
-    return { ok: true, planned: planned.length, pending };
+    return { ok: true, planned: planned.length, pending, allowed: true };
   } catch {
     // Best effort: the Today list still shows every dose.
     return { ok: false, planned: 0, pending: 0 };
@@ -213,26 +228,34 @@ export async function sendTestReminder(): Promise<boolean> {
 }
 
 /** Why reminders may be unreliable on this phone, in the order to fix them. Empty means nothing is known to be wrong. */
-export async function checkReminderHealth(patientId: string, nowMs: number = Date.now()): Promise<ReminderIssue[]> {
+export async function checkReminderHealth(patientId: string, nowMs: number = Date.now(), known?: ReplanResult): Promise<ReminderIssue[]> {
   try {
-    const { status } = await Notifications.getPermissionsAsync();
-    const meds = await loadMedicines(patientId);
-    const closed = await loadClosedSlots(patientId, nowMs);
-    const cfg = loadReminderBehaviour();
-    const planned = planDoseNotifications(
-      meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) })),
-      closed,
-      nowMs,
-      { maxPending: cfg.maxPending, horizonDays: cfg.horizonDays }
-    );
-    const pending = (await Notifications.getAllScheduledNotificationsAsync()).filter((n) => n.identifier.startsWith(DOSE_NOTIFICATION_PREFIX)).length;
+    const status = (await notificationsAllowed()) ? "granted" : "denied";
+    let plannedCount: number;
+    let pending: number;
+    if (known && known.ok) {
+      // The plan that was just built: no need to read the medicines and logs a second time.
+      plannedCount = known.planned;
+      pending = known.pending;
+    } else {
+      const meds = await loadMedicines(patientId);
+      const closed = await loadClosedSlots(patientId, nowMs);
+      const cfg = loadReminderBehaviour();
+      plannedCount = planDoseNotifications(
+        meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) })),
+        closed,
+        nowMs,
+        { maxPending: cfg.maxPending, horizonDays: cfg.horizonDays }
+      ).length;
+      pending = (await Notifications.getAllScheduledNotificationsAsync()).filter((n) => n.identifier.startsWith(DOSE_NOTIFICATION_PREFIX)).length;
+    }
     const plannedAt = Number(await AsyncStorage.getItem(PLANNED_AT_KEY));
     const manufacturer =
       Platform.OS === "android" ? ((Platform.constants as { Manufacturer?: string }).Manufacturer ?? null) : null;
     return reminderIssues({
       notificationsAllowed: status === "granted",
       exactAlarmsAllowed: null,
-      plannedCount: planned.length,
+      plannedCount,
       pendingCount: pending,
       lastPlannedAtMs: Number.isFinite(plannedAt) && plannedAt > 0 ? plannedAt : null,
       nowMs,

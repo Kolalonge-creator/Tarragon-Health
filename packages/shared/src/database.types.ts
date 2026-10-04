@@ -22303,6 +22303,7 @@ export type Database = {
           route: string | null
           rx_number: string | null
           schedule_times: Json
+          schedule_effective_from: string | null
           schedule_spec: Json | null
           search_vector: unknown
           source: Database["public"]["Enums"]["medication_source"]
@@ -22344,6 +22345,7 @@ export type Database = {
           route?: string | null
           rx_number?: string | null
           schedule_times?: Json
+          schedule_effective_from?: string | null
           schedule_spec?: Json | null
           search_vector?: unknown
           source?: Database["public"]["Enums"]["medication_source"]
@@ -22385,6 +22387,7 @@ export type Database = {
           route?: string | null
           rx_number?: string | null
           schedule_times?: Json
+          schedule_effective_from?: string | null
           schedule_spec?: Json | null
           search_vector?: unknown
           source?: Database["public"]["Enums"]["medication_source"]
