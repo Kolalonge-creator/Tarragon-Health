@@ -2,8 +2,9 @@ import { Pressable, Text, View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { DARK_MODE_ENABLED, useTheme, type SchemePreference } from "@/ui/design";
-import { colors, radius } from "@/ui/theme";
-import { MutedText, SectionLabel } from "@/ui/components";
+import { radius } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { MutedText, SectionLabel } from "@/ui/legacy-kit";
 
 const CHOICES: { value: SchemePreference; label: "appearance.light" | "appearance.dark" }[] = [
   { value: "light", label: "appearance.light" },
@@ -17,6 +18,7 @@ const CHOICES: { value: SchemePreference; label: "appearance.light" | "appearanc
  * anyone who never opens this.
  */
 export function AppearanceSetting() {
+  const colors = useLegacyColors();
   const { preference, setPreference } = useTheme();
   const locale = asLocale(useUiLanguage());
   if (!DARK_MODE_ENABLED) return null;

@@ -57,6 +57,9 @@ const FILES = [
   "screens/sections/monitoring-cover-card.tsx",
   "screens/devices-screen.tsx",
   "screens/sync-screen.tsx",
+  "screens/sections/emergency-card-screen.tsx",
+  "screens/sections/settings-screen.tsx",
+  "screens/sections/appearance-setting.tsx",
   "screens/apple-health-card.tsx",
   "screens/android-health-connect-card.tsx",
   "screens/health-connect-rationale-modal.tsx",
@@ -68,5 +71,25 @@ describe("scheme-aware legacy screens stay fully switched", () => {
     expect(source).not.toMatch(/import\s*\{[^}]*\bcolors\b[^}]*\}\s*from\s*"@\/ui\/theme"/);
     expect(source).not.toMatch(/from\s*"@\/ui\/components"/);
     expect(source).toMatch(/useLegacyColors/);
+  });
+});
+
+/**
+ * Deliberately light in every scheme: the emergency guidance mirrors the web EmergencyAlert
+ * and must look identical whatever the patient chose, and the sign-in screens come before a
+ * preference exists. They must keep drawing themselves from the static light theme.
+ */
+const LIGHT_ON_PURPOSE = [
+  "screens/emergency-guidance-modal.tsx",
+  "screens/login-screen.tsx",
+  "screens/signup-screen.tsx",
+  "screens/forgot-password-screen.tsx",
+];
+
+describe("light-on-purpose screens stay light", () => {
+  it.each(LIGHT_ON_PURPOSE)("%s", (file) => {
+    const source = readFileSync(join(__dirname, "..", file), "utf8");
+    expect(source).not.toMatch(/useLegacyColors|useTheme/);
+    expect(source).not.toMatch(/from\s*"@\/ui\/legacy-kit"/);
   });
 });

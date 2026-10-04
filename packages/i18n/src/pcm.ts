@@ -322,7 +322,7 @@ export const pcm: Record<MessageKey, string> = {
   "appearance.title": "How di app dey look",
   "appearance.light": "Light",
   "appearance.dark": "Dark",
-  "appearance.note": "Dark go work for Home, Vitals, Medications and Messages, and di top and bottom bars. Other screens go still dey light for now, we dey move dem come.",
+  "appearance.note": "Dark go work for di whole app. Sign-in and di emergency alert go always dey light so e go easy to see.",
   "home.score.eyebrow.morning": "Good morning. Na how dis week dey go.",
   "home.score.eyebrow.afternoon": "Good afternoon. Na how dis week dey go.",
   "home.score.eyebrow.evening": "Good evening. Na how dis week dey go.",
