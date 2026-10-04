@@ -5,7 +5,7 @@ Decision DG-2, answered by the founder 2026-10-03: **opt-in switch, Light by def
 ## What a patient sees
 - Settings, Appearance: **Light** (default) or **Dark**. Nobody changes unless they choose Dark.
 - Dark applies to Home, Vitals, Medications, Messages, the top bar, the tab bar, the acting-for banner, the profile and notification dropdowns, and the status bar.
-- Everything else stays light on purpose, and Settings says so: the other ~65 screens, the menu drawer, the medicines cabinet sheet (drawn light via `ForceLight`), the emergency guidance, sign-in and app lock.
+- Only these stay light on purpose, and Settings says so: the emergency guidance (identical in every scheme, like the web alert), sign-in, sign-up, forgot password, verify code, the biometric offer and app lock. Everything else follows the setting. The Emergency card follows it too, except its red card, which is the same red with white text in both schemes so a first responder recognises it. `src/ui/dark-aware.test.ts` guards both lists.
 
 ## How it works, and the rules that keep it safe
 - The OS-level appearance stays **pinned to light** even in Dark. Only the in-app palette goes dark. That keeps every native default the old screens rely on (default text colour, switches, pickers) light, so an old screen can never show white text on a white card. Cost: native alerts and the share sheet stay light, and the OS dark setting cannot be read, so there is no "System" option.
