@@ -110,3 +110,10 @@ describe("light-on-purpose screens stay light", () => {
     expect(source).not.toMatch(/from\s*"@\/ui\/legacy-kit"/);
   });
 });
+
+describe("app lock follows the theme", () => {
+  it("reads the scheme", () => {
+    const source = readFileSync(join(__dirname, "..", "screens/app-lock-screen.tsx"), "utf8");
+    expect(source).toMatch(/useTheme/);
+  });
+});
