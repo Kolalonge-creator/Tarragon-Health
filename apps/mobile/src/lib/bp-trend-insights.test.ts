@@ -20,6 +20,7 @@ const suggestion: StartingSuggestionTarget = { version: 0, systolicBelow: 135, d
 
 const TODAY = "2026-10-04"; // a Sunday
 const NOW = lagosTimeToUtcMs(TODAY, "12:00") as number;
+const LATE = lagosTimeToUtcMs(TODAY, "22:00") as number; // after an evening reading today, which the chart (and so the card) would otherwise treat as the future
 const r = (date: string, time: string, systolic: number, diastolic: number, id = `${date}-${time}`): BpReading => ({
   id,
   systolic,
@@ -53,7 +54,7 @@ describe("average and the gate", () => {
       r("2026-10-03", "08:00", 130, 80),
       r("2026-10-04", "07:00", 135, 85),
       r("2026-10-04", "19:00", 135, 85),
-    ]);
+    ], { nowMs: LATE });
     expect(out.average).toEqual({ readings: 4, days: 3, systolic: 135, diastolic: 85 });
     expect(out.shortfall).toBeNull();
     expect(out.morningAverage?.count).toBe(3);
@@ -65,6 +66,29 @@ describe("average and the gate", () => {
     expect(out.average).toBeNull();
     expect(out.morningAverage).toBeNull();
     expect(out.shortfall).toEqual({ moreDays: 1, moreReadings: 1, minPerDay: 1 });
+  });
+
+  it("counts exactly what the chart draws, including a reading from the afternoon of the earliest day", () => {
+    // Now is noon on 4 Oct. The chart's 7 day window starts at noon on 27 Sep (Lagos).
+    const edge = r("2026-09-27", "13:00", 150, 95); // inside the chart window, on the earliest calendar day
+    const before = r("2026-09-27", "11:00", 150, 95); // an hour before the chart window starts
+    const out = build([edge, before, r("2026-10-03", "08:00", 120, 78), r("2026-10-04", "08:00", 120, 78)]);
+    expect(out.readingCount).toBe(3);
+    expect(out.displayMode).toBe("chart");
+    expect(out.days.map((d) => d.localDate)).toContain("2026-09-27");
+    expect(out.days.find((d) => d.localDate === "2026-09-27")?.count).toBe(1);
+  });
+
+  it("leaves out a reading from the future, as the chart does", () => {
+    expect(build([r("2026-10-04", "19:00", 150, 95)]).readingCount).toBe(0); // now is noon
+    expect(build([r("2026-10-04", "19:00", 150, 95)], { nowMs: LATE }).readingCount).toBe(1);
+  });
+
+  it("does not hide a lone reading from the chart window by calling it too few and showing nothing", () => {
+    const out = build([r("2026-09-27", "13:00", 190, 118)]);
+    expect(out.readingCount).toBe(1);
+    expect(out.days).toHaveLength(1);
+    expect(out.days[0]).toMatchObject({ meanSystolic: 190, aboveCount: 1, status: "above" });
   });
 
   it("uses the 30 day window when asked, so older readings count there and not in the 7 day view", () => {
@@ -108,7 +132,7 @@ describe("the per-day list", () => {
     const d = days.find((x) => x.localDate === "2026-10-02");
     expect(d).toMatchObject({ count: 2, meanSystolic: 134, aboveCount: 1, status: "above" });
     // The day's average (134/86) is above here too, so check a case where it is not:
-    const masked = build([r("2026-10-04", "08:00", 131, 81), r("2026-10-04", "19:00", 100, 60)]).days[0];
+    const masked = build([r("2026-10-04", "08:00", 131, 81), r("2026-10-04", "19:00", 100, 60)], { nowMs: LATE }).days[0];
     expect(masked).toMatchObject({ meanSystolic: 116, aboveCount: 1, status: "above" });
   });
 

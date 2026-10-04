@@ -3,7 +3,7 @@ import { summariseHomeBp, type AveragingProtocol, type GateResult, type HomeAver
 import { bandStatus, resolveTargetBand, trendDisplayMode, type BandStatus, type PersonalBpTarget, type TrendDisplay } from "./bp-trend-rules";
 import { lagosLocalDate, weekdayOf, type LocalDate } from "./lagos-date";
 import type { AverageGateConfig, StartingSuggestionTarget, TrendDisplayConfig } from "./s07-config";
-import type { TrendWindowDays } from "./bp-trend";
+import { windowReadings, type TrendWindowDays } from "./bp-trend";
 import type { BpReading } from "./vitals";
 
 /**
@@ -85,11 +85,19 @@ export function buildTrendInsights(input: TrendInsightsInput): TrendInsights {
   const band = resolveTargetBand(input.personal, input.suggestion);
   const confirmed = band.confirmed;
 
+  // Exactly the readings the chart draws: the same window function, applied first. The Lagos-day
+  // window inside summariseHomeBp is then widened by a day so it can only include more, never
+  // fewer, than that. Without this a reading from the afternoon of the earliest day could be in
+  // the chart but missing from the card, and the chart hidden: a reading in neither.
   const summary = summariseHomeBp(
-    input.readings.map((r) => ({ systolic: r.systolic, diastolic: r.diastolic, atMs: Date.parse(r.takenAt) })),
+    windowReadings([...input.readings], input.windowDays, input.nowMs).map((r) => ({
+      systolic: r.systolic,
+      diastolic: r.diastolic,
+      atMs: Date.parse(r.takenAt),
+    })),
     input.nowMs,
     input.protocol,
-    { ...input.gate, windowDays: input.windowDays },
+    { ...input.gate, windowDays: input.windowDays + 1 },
   );
 
   const aboveByDay = new Map<LocalDate, number>();

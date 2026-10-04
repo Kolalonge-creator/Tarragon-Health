@@ -45,11 +45,11 @@ import {
   type BadgeTone,
 } from "@/ui/kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { MIN_READINGS_FOR_CHART, useTrendInsights } from "@/lib/use-trend-insights";
+import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
 import { SyncBanner } from "@/screens/sync-banner";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
-import { MIN_READINGS_FOR_CHART, useTrendInsights } from "@/lib/use-trend-insights";
-import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
 
 interface GuidanceState {
   detail: string;
@@ -344,7 +344,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 
       {/* What the readings add up to, as words and a per-day list. Shown even with too few readings for a chart. */}
       {!loading && windowed.length > 0 ? (
-        <TrendInsightsCard insights={insights} tr={tr} minReadingsForChart={MIN_READINGS_FOR_CHART} />
+        <TrendInsightsCard insights={insights} tr={tr} minReadingsForChart={MIN_READINGS_FOR_CHART} targetKnowable={!beneficiaryProfileId} />
       ) : null}
 
       {/* Log a reading */}

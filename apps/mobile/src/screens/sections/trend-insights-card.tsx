@@ -17,7 +17,18 @@ type Tr = (key: MessageKey, params?: Record<string, string | number>) => string;
  * With too few readings for a chart the list is shown straight away, because a
  * line through two dots would imply a trend that is not there.
  */
-export function TrendInsightsCard({ insights, tr, minReadingsForChart }: { insights: TrendInsights; tr: Tr; minReadingsForChart: number }) {
+export function TrendInsightsCard({
+  insights,
+  tr,
+  minReadingsForChart,
+  targetKnowable,
+}: {
+  insights: TrendInsights;
+  tr: Tr;
+  minReadingsForChart: number;
+  /** False while acting for someone else: the care team's target is not readable from here, so the card must not claim there is none. */
+  targetKnowable: boolean;
+}) {
   const [showList, setShowList] = useState(false);
   const listVisible = showList || insights.displayMode === "list";
   const value = (s: number, d: number) => `${s}/${d}`;
@@ -73,11 +84,13 @@ export function TrendInsightsCard({ insights, tr, minReadingsForChart }: { insig
         </View>
       )}
 
-      <AppText variant="body" tone="textMuted">
-        {insights.target.confirmed
-          ? tr("trends.target.set", { systolic: insights.target.systolicBelow, diastolic: insights.target.diastolicBelow })
-          : tr("trends.target.none")}
-      </AppText>
+      {insights.target.confirmed || targetKnowable ? (
+        <AppText variant="body" tone="textMuted">
+          {insights.target.confirmed
+            ? tr("trends.target.set", { systolic: insights.target.systolicBelow, diastolic: insights.target.diastolicBelow })
+            : tr("trends.target.none")}
+        </AppText>
+      ) : null}
 
       {insights.ignoredClose > 0 ? (
         <AppText variant="caption" tone="textSubtle">
