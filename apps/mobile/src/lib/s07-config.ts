@@ -19,6 +19,8 @@ export interface HomeProtocolConfig {
   minGapMinutes: number;
   targetDays: number;
   restMinutes: number;
+  /** No caffeine, tobacco, exercise or food for this many minutes before measuring. */
+  avoidBeforeMinutes: number;
   /** Local hour range [start, end), end 24 meaning midnight. */
   morningHours: readonly [number, number];
   eveningHours: readonly [number, number];
@@ -55,6 +57,12 @@ export interface ReminderBehaviourConfig {
   missedAfterMinutes: number;
   maxPending: number;
   horizonDays: number;
+}
+
+export interface BpSymptomChecklistConfig {
+  version: number;
+  /** Severity (1 to 10) recorded for a symptom that was ticked, not rated. */
+  severity: number;
 }
 
 export interface StreakRulesConfig {
@@ -106,6 +114,7 @@ export function loadHomeProtocol(asOf?: string): HomeProtocolConfig {
     minGapMinutes: num(raw, "minGapMinutes", key),
     targetDays: num(raw, "targetDays", key, 1),
     restMinutes: num(raw, "restMinutes", key),
+    avoidBeforeMinutes: num(raw, "avoidBeforeMinutes", key),
     morningHours: hours(raw, "morningHours", key),
     eveningHours: hours(raw, "eveningHours", key),
   };
@@ -172,4 +181,12 @@ export function loadStreakRules(asOf?: string): StreakRulesConfig {
     freezeEarnEveryDays: num(raw, "freezeEarnEveryDays", key, 1),
     freezeCap: num(raw, "freezeCap", key),
   };
+}
+
+export function loadBpSymptomChecklist(asOf?: string): BpSymptomChecklistConfig {
+  const key = "bp.symptom_checklist";
+  const { raw, version } = obj(key, asOf);
+  const severity = num(raw, "severity", key, 1);
+  if (severity > 10) throw new Error(`Config ${key}.severity must be 1 to 10`);
+  return { version, severity };
 }

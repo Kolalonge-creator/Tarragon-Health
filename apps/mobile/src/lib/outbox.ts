@@ -57,10 +57,13 @@ interface OutboxRow {
   last_error: string | null;
   last_status: number | null;
   danger: number;
+  group_id: string | null;
 }
 
 export interface OutboxItem {
   clientId: string;
+  /** Rows saved together (one blood pressure log with its pulse and symptoms) share a group id. */
+  groupId?: string;
   kind: OutboxKind;
   ownerUserId: string;
   subjectId: string;
@@ -112,6 +115,11 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           last_error text
         );`
       );
+      // Added after the first release of the outbox: a phone that already has the table gets the column.
+      const columns = await db.getAllAsync<{ name: string }>("pragma table_info(outbox)");
+      if (!columns.some((c) => c.name === "group_id")) {
+        await db.execAsync("alter table outbox add column group_id text");
+      }
       try {
         await migrateLegacyVitals(db);
       } catch (error) {
@@ -185,6 +193,7 @@ async function currentUserId(): Promise<string | null> {
 function toItem(row: OutboxRow): OutboxItem {
   return {
     clientId: row.client_id,
+    groupId: row.group_id ?? undefined,
     kind: row.kind,
     ownerUserId: row.owner_user_id,
     subjectId: row.subject_id,
@@ -217,33 +226,9 @@ export class NotSignedInError extends Error {
   }
 }
 
-/** Instant, zero-network write. Durable the moment it resolves. */
-export async function enqueue(input: EnqueueInput): Promise<OutboxItem> {
-  const owner = await currentUserId();
-  if (!owner) throw new NotSignedInError();
-  const db = await getDb();
-  const clientId = Crypto.randomUUID();
-  const now = new Date().toISOString();
-  await db.runAsync(
-    `insert into outbox
-      (client_id, kind, owner_user_id, subject_id, beneficiary_profile_id, payload, client_recorded_at,
-       created_at, attempts, next_attempt_at, state, last_error, danger)
-     values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'pending', null, ?)`,
-    [
-      clientId,
-      input.kind,
-      owner,
-      input.subjectId,
-      input.beneficiaryProfileId ?? null,
-      JSON.stringify(input.payload),
-      now,
-      now,
-      now,
-      input.danger ? 1 : 0,
-    ]
-  );
-  return toItem({
-    client_id: clientId,
+function buildRow(owner: string, input: EnqueueInput, now: string, groupId: string | null): OutboxRow {
+  return {
+    client_id: Crypto.randomUUID(),
     kind: input.kind,
     owner_user_id: owner,
     subject_id: input.subjectId,
@@ -257,15 +242,65 @@ export async function enqueue(input: EnqueueInput): Promise<OutboxItem> {
     last_error: null,
     last_status: null,
     danger: input.danger ? 1 : 0,
+    group_id: groupId,
+  };
+}
+
+const INSERT_ROW_SQL = `insert into outbox
+  (client_id, kind, owner_user_id, subject_id, beneficiary_profile_id, payload, client_recorded_at,
+   created_at, attempts, next_attempt_at, state, last_error, danger, group_id)
+ values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'pending', null, ?, ?)`;
+
+function insertParams(r: OutboxRow): (string | number | null)[] {
+  return [
+    r.client_id, r.kind, r.owner_user_id, r.subject_id, r.beneficiary_profile_id, r.payload,
+    r.client_recorded_at, r.created_at, r.next_attempt_at, r.danger, r.group_id,
+  ];
+}
+
+/** Instant, zero-network write. Durable the moment it resolves. */
+export async function enqueue(input: EnqueueInput): Promise<OutboxItem> {
+  const owner = await currentUserId();
+  if (!owner) throw new NotSignedInError();
+  const db = await getDb();
+  const row = buildRow(owner, input, new Date().toISOString(), null);
+  await db.runAsync(INSERT_ROW_SQL, insertParams(row));
+  return toItem(row);
+}
+
+/**
+ * Saves several rows as one unit: all of them are on the phone, or none are.
+ * Used when one action produces more than one record (a blood pressure reading
+ * with its pulse and the symptoms ticked beside it), so a crash or a full disk
+ * can never leave the reading saved and its symptoms lost.
+ *
+ * Rows are written in the order given and sync oldest first, so put the rows
+ * that must reach the care team first (a red-flag symptom before the reading).
+ * They share a group id and a timestamp. The sync still sends one row at a time
+ * and never drops one silently: a row that has not gone stays listed (and, if
+ * it was marked danger, raises the one-hour "not yet reached your care team"
+ * notice on its own).
+ */
+export async function enqueueGroup(inputs: readonly EnqueueInput[]): Promise<OutboxItem[]> {
+  if (inputs.length === 0) return [];
+  const owner = await currentUserId();
+  if (!owner) throw new NotSignedInError();
+  const db = await getDb();
+  const groupId = Crypto.randomUUID();
+  const now = new Date().toISOString();
+  const rows = inputs.map((input) => buildRow(owner, input, now, groupId));
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    for (const row of rows) await txn.runAsync(INSERT_ROW_SQL, insertParams(row));
   });
+  return rows.map(toItem);
 }
 
 /** Every row on the phone for every account, oldest first. Internal: the sync worker needs all owners to count held rows. */
 async function listAllOutbox(kind?: OutboxKind): Promise<OutboxItem[]> {
   const db = await getDb();
   const rows = kind
-    ? await db.getAllAsync<OutboxRow>("select * from outbox where kind = ? order by created_at asc", [kind])
-    : await db.getAllAsync<OutboxRow>("select * from outbox order by created_at asc");
+    ? await db.getAllAsync<OutboxRow>("select * from outbox where kind = ? order by created_at asc, rowid asc", [kind])
+    : await db.getAllAsync<OutboxRow>("select * from outbox order by created_at asc, rowid asc");
   return rows.map(toItem);
 }
 

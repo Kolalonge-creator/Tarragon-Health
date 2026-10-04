@@ -182,6 +182,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       minGapMinutes: 1,
       targetDays: 7,
       restMinutes: 5,
+      avoidBeforeMinutes: 30,
       morningHours: [4, 12],
       eveningHours: [17, 24],
     },
@@ -232,6 +233,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-03",
     source: "docs/research/S07.md section 3 (home thresholds differ by guideline)",
+  },
+  {
+    key: "bp.symptom_checklist",
+    // A symptom ticked on the blood pressure form is stored as a symptoms row. The form does
+    // not ask the patient to rate it, so it is recorded at this severity, with a description
+    // saying it was ticked rather than rated. 6 is the existing server paging line for
+    // chest pain, severe headache, vision change and confusion (handle_symptom_red_flag).
+    // The CMO confirms the value; grading itself stays with S11/S12 (OQ-67).
+    value: { severity: 6 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-04",
+    source: "docs/design/S07.md section 3; supabase 20260905011852_symptom_red_flag_handler_pages_a_clinician.sql",
   },
   {
     key: "reminders.behaviour",

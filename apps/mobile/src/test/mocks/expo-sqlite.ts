@@ -18,6 +18,8 @@ export interface SQLiteDatabase {
   runAsync(sql: string, params?: Params): Promise<void>;
   getAllAsync<T>(sql: string, params?: Params): Promise<T[]>;
   getFirstAsync<T>(sql: string, params?: Params): Promise<T | null>;
+  /** Runs the task inside one transaction: all of its writes commit together or none do. */
+  withExclusiveTransactionAsync(task: (txn: SQLiteDatabase) => Promise<void>): Promise<void>;
 }
 
 const databases = new Map<string, DatabaseSync>();
@@ -35,6 +37,16 @@ function wrap(db: DatabaseSync): SQLiteDatabase {
     },
     async getFirstAsync<T>(sql: string, params: Params = []) {
       return (db.prepare(sql).get(...params) as T | undefined) ?? null;
+    },
+    async withExclusiveTransactionAsync(task) {
+      db.exec("begin");
+      try {
+        await task(wrap(db));
+        db.exec("commit");
+      } catch (error) {
+        db.exec("rollback");
+        throw error;
+      }
     },
   };
 }
