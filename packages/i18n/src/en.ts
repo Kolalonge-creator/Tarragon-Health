@@ -323,7 +323,7 @@ export const en = {
   "appearance.title": "Appearance",
   "appearance.light": "Light",
   "appearance.dark": "Dark",
-  "appearance.note": "Dark applies to Home, Vitals, Medications and Messages, and to the top and bottom bars. Other screens stay light for now, and we are moving them across.",
+  "appearance.note": "Dark applies across the app. Sign-in and the emergency alert always stay light so they are easy to see.",
   "home.score.eyebrow.morning": "Good morning. Here's how this week is going.",
   "home.score.eyebrow.afternoon": "Good afternoon. Here's how this week is going.",
   "home.score.eyebrow.evening": "Good evening. Here's how this week is going.",
