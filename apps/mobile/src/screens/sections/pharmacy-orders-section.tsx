@@ -11,8 +11,8 @@ import {
   type PharmacyOrderStatus,
 } from "@/lib/prescription-renewal";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, inkAlpha } from "@/ui/theme";
-import { Card, MutedText, PrimaryButton, SectionLabel } from "@/ui/components";
+import { useLegacyColors } from "@/ui/design";
+import { Card, MutedText, PrimaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 const naira = (kobo: number) => `₦${koboToNaira(kobo).toLocaleString()}`;
 
@@ -39,12 +39,13 @@ const STATUS_TONE: Record<PharmacyOrderStatus, "green" | "amber" | "grey" | "red
 };
 
 function StatusPill({ status }: { status: PharmacyOrderStatus }) {
+  const colors = useLegacyColors();
   const tone = STATUS_TONE[status];
   const styles: Record<string, { bg: string; text: string }> = {
     green: { bg: colors.brandTint, text: colors.brandPressed },
     amber: { bg: colors.status.warnBg, text: colors.status.warn },
-    grey: { bg: inkAlpha(0.08), text: colors.muted },
-    red: { bg: "#FBE9E7", text: colors.danger },
+    grey: { bg: colors.pressed, text: colors.muted },
+    red: { bg: colors.dangerBg, text: colors.danger },
   };
   const s = styles[tone];
   return (
@@ -55,6 +56,7 @@ function StatusPill({ status }: { status: PharmacyOrderStatus }) {
 }
 
 function PharmacyOrderCard({ order, onChanged }: { order: PharmacyOrderListItem; onChanged: () => Promise<void> }) {
+  const colors = useLegacyColors();
   async function openCardPayment() {
     // No native card-payment flow exists for pharmacy orders — hand off to
     // the real web payment page (card form + voucher/promo redemption),
@@ -103,6 +105,7 @@ function PharmacyOrderCard({ order, onChanged }: { order: PharmacyOrderListItem;
  * header comment used to flag.
  */
 export function PharmacyOrdersSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
   const [orders, setOrders] = useState<PharmacyOrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
