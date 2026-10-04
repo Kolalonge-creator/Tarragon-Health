@@ -135,3 +135,9 @@ D-02 to D-04 are not defined in the spec.
 - v5 spec copied verbatim to `docs/BUILD-SPEC-v5.md`; never edited, later sessions cite its line numbers.
 - PROPOSED values live in versioned configuration (`packages/shared/src/proposed-config`), never in code.
 - Copy-lint starts in warn-only mode; existing violations are inventoried in `docs/RECONCILIATION.md`, not mass-edited.
+
+### S07, 2026-10-03
+- OQ-65: `patient_tasks` is a `security_invoker` view over `care_tasks` (+ nullable `kind`, `source_event_id`); the recurrence trigger is updated to copy `kind`; no second task table.
+- OQ-66: keep the live BP plausibility limits (60-260 / 30-160, pathway TH-CP-HTN-001 s5.4); add a safety line to the blocked-value message only after CMO, house-voice and native Pidgin review.
+- OQ-67: S07 does not change BP grading; S12 aligns the bands through versioned, CMO-signed thresholds.
+- OQ-68: the dose reminder uses generic keyed copy with no medicine name (INV-07).
