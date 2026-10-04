@@ -294,6 +294,8 @@ end $$;
 
 select phase, check_name, expected, actual,
        case when expected = actual then 'PASS' else 'FAIL' end as result
-from results order by phase desc, check_name;
+from results where phase = 'real' order by check_name;
+-- The sabotaged row is asserted to FAIL inside the DO block above (a vacuous test raises). It is
+-- deliberately not printed: the runner treats any FAIL verdict in the output as a failed proof.
 
 rollback;
