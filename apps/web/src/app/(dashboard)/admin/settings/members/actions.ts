@@ -24,6 +24,12 @@ async function requirePermission(perm: PermissionKey) {
   return profile;
 }
 
+/**
+ * Supabase Auth's ban_duration takes a duration string ("24h", "none"), with no
+ * "forever" value, so a suspension is a ~100-year ban, lifted with "none".
+ */
+const SUSPENDED_BAN_DURATION = "876000h";
+
 /** Append an immutable audit_log entry (system write — service role). */
 async function recordAudit(
   actorId: string,
@@ -221,22 +227,32 @@ export async function setMemberPhoneAction(
  * (20260925093444_enforce_profiles_is_active_in_core_authz.sql), so setting it
  * false here genuinely revokes RLS-level access, not just a UI badge.
  *
- * The actual guard+write is public.set_member_active (RPC), not a plain
- * `.update()` here — a code review caught that profiles_update's RLS policy
- * has no is_admin() branch and requires a non-null organisation_id, so a
- * plain RLS-scoped update silently no-op'd (reported success, changed
- * nothing) against any admin/lab_partner/payer_admin/provider_org_staff/
- * ngo_admin target, all of which are null-org by design. The RPC also closes
- * a TOCTOU race in the "don't suspend the last active Super Admin" guard
- * (an advisory lock serializes concurrent callers) and self-authorizes
- * internally, since it's reachable directly via supabase.rpc(), not only
- * through this action. See 20260925100329_set_member_active_atomic_rpc.sql.
+ * The authorisation, guards, write and audit_log entry are all one
+ * public.set_member_active RPC call, not a plain `.update()` here: a code review
+ * caught that profiles_update's RLS policy has no is_admin() branch and
+ * requires a non-null organisation_id, so a plain RLS-scoped update silently
+ * no-op'd against any admin/lab_partner/payer_admin/provider_org_staff/
+ * ngo_admin target. The RPC also scopes a delegated users.suspend holder to
+ * their own organisation (never a Super Admin or a null-organisation account),
+ * serializes the "last active Super Admin" guard against concurrent callers,
+ * and writes the audit row in the same transaction, so a failed audit write can
+ * no longer leave a suspension with no trail. See
+ * 20260925100329_set_member_active_atomic_rpc.sql.
+ *
+ * After the RPC succeeds this also bans / unbans the auth user. is_active gates
+ * the database and getCurrentProfile(), but it does not touch Supabase Auth: a
+ * suspended member could otherwise keep refreshing a still-valid session. The
+ * ban stops new sign-ins and token refreshes. It runs AFTER the RPC on purpose:
+ * the RPC is what authorises the caller, so an out-of-scope caller must never
+ * reach the auth call. If the auth call fails the database change has already
+ * taken effect and the member is still locked out by is_active; the error says
+ * so and a retry is safe, since the RPC is idempotent.
  */
 export async function setMemberActiveAction(
   _prev: MemberActionState,
   formData: FormData
 ): Promise<MemberActionState> {
-  const actor = await requirePermission("users.suspend");
+  await requirePermission("users.suspend");
 
   const parsed = setMemberActiveSchema.safeParse({
     memberId: formData.get("memberId"),
@@ -251,7 +267,17 @@ export async function setMemberActiveAction(
   const { error } = await supabase.rpc("set_member_active", { p_member_id: memberId, p_active: active });
   if (error) return { error: error.message };
 
-  await recordAudit(actor.id, actor.organisation_id, active ? "member.reinstated" : "member.suspended", "profiles", memberId, {});
+  const svc = createServiceRoleClient();
+  const { error: banError } = await svc.auth.admin.updateUserById(memberId, {
+    ban_duration: active ? "none" : SUSPENDED_BAN_DURATION,
+  });
+  if (banError) {
+    return {
+      error: active
+        ? `Login reinstated in the database, but sign-in could not be re-enabled (${banError.message}). Try again.`
+        : `Login suspended and database access is blocked, but the sign-in session could not be revoked (${banError.message}). Try again.`,
+    };
+  }
 
   revalidatePath("/admin/settings/members");
   revalidatePath(`/admin/members/${memberId}`);
