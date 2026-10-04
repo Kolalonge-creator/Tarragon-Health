@@ -7,8 +7,8 @@ import {
   markHealthConnectRationaleAccepted,
 } from "@/lib/health-connect-consent";
 import { syncHealthConnect, type HealthSyncResult } from "@/lib/health-sync";
-import { colors } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/components";
+import { useLegacyColors } from "@/ui/design";
+import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/legacy-kit";
 import { HealthConnectRationaleModal } from "@/screens/health-connect-rationale-modal";
 
 /**
@@ -33,6 +33,7 @@ import { HealthConnectRationaleModal } from "@/screens/health-connect-rationale-
  * straight through, same as HealthKit's side.
  */
 export function AndroidHealthConnectCard() {
+  const colors = useLegacyColors();
   const [available, setAvailable] = useState<boolean | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<HealthSyncResult | null>(null);
@@ -130,6 +131,7 @@ export function AndroidHealthConnectCard() {
 }
 
 function SyncMessage({ result }: { result: HealthSyncResult }) {
+  const colors = useLegacyColors();
   if (result.status === "error") return <ErrorText>{result.message}</ErrorText>;
 
   if (result.status === "no_new_data") {

@@ -8,8 +8,9 @@ import {
   type TherapyProvider,
   type TherapySession,
 } from "@/lib/therapy";
-import { colors, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const MODALITY_LABEL: Record<Enums<"therapy_modality">, string> = {
   video: "Video",
@@ -28,6 +29,7 @@ interface ProviderRowProps {
 }
 
 function ProviderRow({ provider, organisationId, patientId }: ProviderRowProps) {
+  const colors = useLegacyColors();
   const modalities: Enums<"therapy_modality">[] = [
     ...(provider.supports_telemedicine ? (["video", "audio"] as const) : []),
     ...(provider.supports_in_person ? (["in_person"] as const) : []),
@@ -152,6 +154,7 @@ interface TherapyNetworkScreenProps {
  * nothing.
  */
 export function TherapyNetworkScreen({ organisationId, patientId, onClose }: TherapyNetworkScreenProps) {
+  const colors = useLegacyColors();
   const [providers, setProviders] = useState<TherapyProvider[]>([]);
   const [sessions, setSessions] = useState<TherapySession[]>([]);
   const [type, setType] = useState<Enums<"specialist_type"> | undefined>(undefined);

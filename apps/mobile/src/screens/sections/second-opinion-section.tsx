@@ -10,18 +10,8 @@ import {
 import { formatCareDate } from "@/lib/care";
 import { formatDoctorName } from "@/lib/doctor-name";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
+import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
  * Native "Second opinion" — mirrors apps/web/src/app/(dashboard)/patient/
@@ -31,6 +21,9 @@ const textInputStyle = {
  * which stays web-only (App Store 3.1.1).
  */
 export function SecondOpinionSection({ patientId, organisationId }: { patientId: string; organisationId: string }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [requests, setRequests] = useState<SecondOpinionRequestWithAnswerer[]>([]);
   const [loading, setLoading] = useState(true);
   const [existingDiagnosisOrResult, setExistingDiagnosisOrResult] = useState("");
@@ -105,7 +98,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
         </Card>
       )}
 
-      <TextInput
+      <TextInput keyboardAppearance={scheme}
         value={existingDiagnosisOrResult}
         onChangeText={setExistingDiagnosisOrResult}
         placeholder="e.g. My GP diagnosed me with X and suggested Y. I'd like another doctor's view."
@@ -113,13 +106,13 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
         numberOfLines={3}
         style={[textInputStyle, { minHeight: 70, textAlignVertical: "top" }]}
       />
-      <TextInput
+      <TextInput keyboardAppearance={scheme}
         value={sourceDescription}
         onChangeText={setSourceDescription}
         placeholder="Where is this from? (optional)"
         style={textInputStyle}
       />
-      <TextInput
+      <TextInput keyboardAppearance={scheme}
         value={specificQuestion}
         onChangeText={setSpecificQuestion}
         placeholder="A specific question? (optional)"

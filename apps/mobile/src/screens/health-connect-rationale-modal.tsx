@@ -1,7 +1,8 @@
 import { Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing } from "@/ui/theme";
-import { PrimaryButton, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 const PRIVACY_POLICY_URL = "https://tarragonhealth.ng/privacy";
 
@@ -33,6 +34,7 @@ export function HealthConnectRationaleModal({
   onAccept,
   onDecline,
 }: HealthConnectRationaleModalProps) {
+  const colors = useLegacyColors();
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onDecline}>
       <ScrollView
@@ -103,6 +105,7 @@ export function HealthConnectRationaleModal({
 }
 
 function RationaleRow({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
+  const colors = useLegacyColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
       <Ionicons name={icon} size={18} color={colors.brand} style={{ marginTop: 2 }} />

@@ -48,6 +48,18 @@ const FILES = [
   "screens/sections/video-visit-screen.tsx",
   "screens/sections/video-visit-booking-section.tsx",
   "screens/sections/lab-order-test-checklist.tsx",
+  "screens/sections/second-opinion-section.tsx",
+  "screens/sections/senior-case-review-section.tsx",
+  "screens/sections/verified-documents-section.tsx",
+  "screens/sections/sponsor-sharing-control.tsx",
+  "screens/sections/pharmacy-orders-section.tsx",
+  "screens/sections/therapy-network-screen.tsx",
+  "screens/sections/monitoring-cover-card.tsx",
+  "screens/devices-screen.tsx",
+  "screens/sync-screen.tsx",
+  "screens/apple-health-card.tsx",
+  "screens/android-health-connect-card.tsx",
+  "screens/health-connect-rationale-modal.tsx",
 ];
 
 describe("scheme-aware legacy screens stay fully switched", () => {
