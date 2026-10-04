@@ -29,8 +29,9 @@ import {
   type SocialDeterminantView,
 } from "@/lib/healthy-ageing";
 import type { SectionId } from "@/lib/sections";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
+import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -39,15 +40,16 @@ function when(iso: string): string {
 /** Mobile has only Badge's brand/neutral tones; this local helper reproduces
  * web's green/amber/red/grey status colours (falls-risk level, check-in
  * outcome) without extending the shared component for one screen's needs. */
-const TONE_COLOR: Record<"brand" | "warn" | "danger" | "neutral", { bg: string; text: string }> = {
+const toneColor = (colors: ReturnType<typeof useLegacyColors>): Record<"brand" | "warn" | "danger" | "neutral", { bg: string; text: string }> => ({
   brand: { bg: colors.brandTint, text: colors.brandPressed },
   warn: { bg: colors.status.warnBg, text: colors.status.warn },
-  danger: { bg: "#FBE9E7", text: colors.danger },
+  danger: { bg: colors.dangerBg, text: colors.danger },
   neutral: { bg: colors.groupBg, text: colors.muted },
-};
+});
 
 function StatusBadge({ text, tone }: { text: string; tone: "brand" | "warn" | "danger" | "neutral" }) {
-  const c = TONE_COLOR[tone];
+  const colors = useLegacyColors();
+  const c = toneColor(colors)[tone];
   return (
     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
       <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{text}</Text>
@@ -56,6 +58,7 @@ function StatusBadge({ text, tone }: { text: string; tone: "brand" | "warn" | "d
 }
 
 function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
+  const colors = useLegacyColors();
   return (
     <Text onPress={onToggle} style={{ fontSize: 13, color: colors.ink, paddingVertical: 4 }}>
       <Text style={{ fontWeight: "700", color: checked ? colors.brand : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
@@ -65,6 +68,7 @@ function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: ()
 }
 
 function Stat({ label, value, badge }: { label: string; value: string; badge?: { text: string; tone: "brand" | "warn" | "danger" | "neutral" } }) {
+  const colors = useLegacyColors();
   return (
     <View style={{ flexBasis: "47%", flexGrow: 1, gap: 4 }}>
       <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>
@@ -93,6 +97,7 @@ interface HealthyAgeingScreenProps {
  * mobile has no charting library yet — replaced with a link to Vitals.
  */
 export function HealthyAgeingScreen({ patientId, organisationId, onNavigate }: HealthyAgeingScreenProps) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [isOlderAdult, setIsOlderAdult] = useState(true);
   const [summary, setSummary] = useState<CoordinatedCareSummary | null>(null);
@@ -241,6 +246,8 @@ function AgeingAssessmentCard({
   organisationId: string;
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const [answers, setAnswers] = useState<Record<string, { outcome: AgeingAssessmentOutcome | null; note: string }>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -303,7 +310,7 @@ function AgeingAssessmentCard({
                 />
               ))}
               {answers[domain]?.outcome && answers[domain]?.outcome !== "no_concern" && (
-                <TextInput
+                <TextInput keyboardAppearance={scheme}
                   placeholder="Anything you'd like your care team to know (optional)"
                   maxLength={500}
                   multiline
@@ -354,6 +361,7 @@ function FallsRiskCard({
   organisationId: string;
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
   const [factors, setFactors] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -430,6 +438,7 @@ function SocialDeterminantsCard({
   organisationId: string;
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
   const [factors, setFactors] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -501,6 +510,8 @@ function HomeCareCard({
   organisationId: string;
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -530,7 +541,7 @@ function HomeCareCard({
       ) : (
         <View style={{ gap: 8 }}>
           <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>What&apos;s going on?</Text>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             value={reason}
             onChangeText={setReason}
             maxLength={500}

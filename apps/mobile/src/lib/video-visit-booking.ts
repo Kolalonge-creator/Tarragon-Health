@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { postVideoVisitRequestWithPlatformCredit, postSelectVideoVisitAlternateSlot } from "./api";
+import { postSelectVideoVisitAlternateSlot } from "./api";
 import type { QueryResult } from "./medications";
 import type { Tables } from "@tarragon/shared";
 
@@ -11,22 +11,17 @@ import type { Tables } from "@tarragon/shared";
  * hold_appointment_slot/confirm_appointment_booking flow (an instant
  * hold-then-confirm against the `appointments` table) — video_visit_requests
  * is a HELD-payment, doctor-acceptance model: request a published
- * consult_availability_slots time, pay (here: reserve against platform
- * credit, or hand off to the web checkout for a card payment), and only once
+ * consult_availability_slots time, pay (hand off to the web checkout for a
+ * card payment), and only once
  * a doctor accepts (or offers, then the patient picks, an alternate time) is
  * a real video_consultations row created. See
- * 20260723120000_video_visit_requests.sql and the platform-credit migrations
- * this ships alongside (20260917230244/230328/230403) for the full model.
+ * 20260723120000_video_visit_requests.sql for the full model.
  *
  * All reads here are plain RLS-scoped client reads, same convention as every
  * other native screen's data layer (lib/appointments.ts, lib/video-visit.ts).
- * The two writes that need more than the mobile client's own RLS-scoped
- * session (spending platform credit is deferred to acceptance, so the
- * request-time call is safe directly — but reserving a request needs a
- * service-role-adjacent RPC in one atomic step, and picking an alternate
- * slot needs a real Zoom meeting created via service role) go through the
- * bearer-authenticated passthrough routes in api.ts, never a raw client RPC
- * call for those two — see each function's own comment below.
+ * Picking an alternate slot needs a real Zoom meeting created via service
+ * role, so it goes through the bearer-authenticated passthrough route in
+ * api.ts, never a raw client RPC call — see its own comment below.
  */
 
 export type ConsultSlot = Tables<"consult_availability_slots">;
@@ -104,29 +99,6 @@ export async function loadMyVideoVisitRequests(
         .filter((s): s is ProposedSlot => !!s),
     })),
   };
-}
-
-/**
- * Reserves a published slot against the patient's platform credit balance.
- * Goes through /api/mobile/platform-credit/video-visit-request rather than
- * a raw client insert + RPC call: creating the request row and calling
- * confirm_video_visit_request_on_platform_credit is the same two-step
- * sequence the web server action runs, and keeping it server-side (still
- * under the caller's own RLS, never service role — see that route's own
- * comment) means a half-created, unpaid request is always cleaned up in the
- * same place regardless of which client called it, rather than duplicating
- * that cleanup logic here. Nothing is actually spent by this call — see the
- * module header.
- */
-export async function requestVideoVisitWithPlatformCredit(
-  slotId: string,
-  note?: string
-): Promise<QueryResult<{ requestId: string; amountKobo: number }>> {
-  const result = await postVideoVisitRequestWithPlatformCredit(slotId, note);
-  if (result.ok) {
-    return { ok: true, data: { requestId: result.request_id, amountKobo: result.amount_kobo } };
-  }
-  return { ok: false, error: result.error };
 }
 
 /** Patient withdraws a request that hasn't been paid yet (RLS-enforced —

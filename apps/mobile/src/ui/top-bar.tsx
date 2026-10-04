@@ -9,7 +9,7 @@ import {
   type InAppNotification,
 } from "@/lib/notifications";
 import type { SectionId } from "@/lib/sections";
-import { colors, inkAlpha } from "./theme";
+import { useLegacyColors } from "./design";
 
 interface TopBarProps {
   userId: string;
@@ -24,6 +24,7 @@ interface TopBarProps {
 /** Hamburger + wordmark + notification bell + profile avatar — the header
  * mounted above every section of the signed-in app. */
 export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSettings, onSignOut, onNavigate }: TopBarProps) {
+  const colors = useLegacyColors();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
@@ -75,7 +76,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
         <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={onOpenDrawer} hitSlop={8}>
           <Ionicons name="menu-outline" size={22} color={colors.ink} />
         </Pressable>
-        <Text style={{ fontWeight: "700", fontSize: 16, color: colors.navy }}>
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={{ fontWeight: "700", fontSize: 16, color: colors.navy, flexShrink: 1 }}>
           TarragonHealth
         </Text>
       </View>
@@ -89,7 +90,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
           hitSlop={12}
           style={{ position: "relative" }}
         >
-          <Ionicons name="notifications-outline" size={20} color={inkAlpha(0.6)} />
+          <Ionicons name="notifications-outline" size={20} color={colors.muted} />
           {hasUnread ? (
             <View
               style={{
@@ -107,7 +108,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
                 justifyContent: "center",
               }}
             >
-              <Text style={{ fontSize: 9.5, fontWeight: "700", color: "#fff" }}>
+              <Text maxFontSizeMultiplier={1.2} style={{ fontSize: 9.5, fontWeight: "700", color: "#fff" }}>
                 {notifications.filter((n) => n.status !== "read").length > 9
                   ? "9+"
                   : notifications.filter((n) => n.status !== "read").length}
@@ -127,7 +128,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
               justifyContent: "center",
             }}
           >
-            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.brandPressed }}>{initials}</Text>
+            <Text maxFontSizeMultiplier={1.2} style={{ fontSize: 12, fontWeight: "700", color: colors.brandPressed }}>{initials}</Text>
           </View>
         </Pressable>
       </View>
@@ -172,7 +173,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
               const body = (
                 <>
                   <Text style={{ fontSize: 12.5, color: colors.ink }}>{text}</Text>
-                  <Text style={{ fontSize: 10.5, color: colors.faint, marginTop: 2 }}>{relativeTime(n.createdAt)}</Text>
+                  <Text style={{ fontSize: 10.5, color: colors.subtle, marginTop: 2 }}>{relativeTime(n.createdAt)}</Text>
                 </>
               );
               const itemStyle = {
@@ -253,6 +254,7 @@ function DropdownModal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const colors = useLegacyColors();
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <Pressable accessibilityRole="button" onPress={onClose} style={{ flex: 1 }}>

@@ -34,6 +34,12 @@ begin
   end if;
   select id into v_patient from public.profiles where role = 'patient' and organisation_id = v_org limit 1;
 
+  -- Pin the fixture patient to a deterministic reminder channel: no email
+  -- preference and one active push subscription, so the helper returns push.
+  update public.profiles set notification_channel_preference = null where id = v_patient;
+  insert into public.push_subscriptions (organisation_id, profile_id, endpoint, p256dh_key, auth_key)
+  values (v_org, v_patient, 'https://push.example.invalid/mlmr-' || gen_random_uuid()::text, 'k', 'a');
+
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source)
   values (v_org, v_patient, 'MLMR Test Warfarin', '5mg', 'once daily', true, 'clinician')
   returning id into v_med;
@@ -64,35 +70,40 @@ begin
 end $$;
 
 -- ==========================================================================
--- 1. Due within 7 days: reminder_sent_at stamped + BOTH a whatsapp and an
---    in_app notification queued (20260829190140 — the in_app companion is
---    not optional: it's the only channel that needs no external provider
---    approval, and Meta/Termii approval is still pending platform-wide).
+-- 1. Due within 7 days: reminder_sent_at stamped + BOTH a notification on the
+--    patient's reminder channel (private.patient_reminder_channel(), push for
+--    this fixture) and an in_app notification queued (the in_app companion is
+--    not optional: it needs no external provider).
 -- ==========================================================================
 do $$
 declare
   v_id uuid := (select v from mlmr_fixture where k = 'due_soon');
   v_patient uuid := (select v from mlmr_fixture where k = 'patient');
   v_reminder_sent timestamptz;
-  v_whatsapp_count bigint;
+  v_chan_count bigint;
   v_in_app_count bigint;
+  v_ch public.notification_channel := private.patient_reminder_channel(v_patient);
 begin
+  if v_ch <> 'push' then
+    raise exception 'VACUOUS: fixture patient resolved to % instead of push', v_ch;
+  end if;
   select reminder_sent_at into v_reminder_sent from public.medication_lab_monitoring where id = v_id;
-  select count(*) into v_whatsapp_count from public.notifications
-  where recipient_id = v_patient and template = 'medication_lab_monitoring_due' and channel = 'whatsapp'
+  select count(*) into v_chan_count from public.notifications
+  where recipient_id = v_patient and template = 'medication_lab_monitoring_due' and channel = v_ch
+    and channel in ('push', 'email', 'in_app')
     and payload->>'monitoring_label' = 'INR monitoring (due soon)';
   select count(*) into v_in_app_count from public.notifications
   where recipient_id = v_patient and template = 'medication_lab_monitoring_due' and channel = 'in_app'
     and payload->>'monitoring_label' = 'INR monitoring (due soon)';
 
   insert into mlmr_result values
-    ('a monitoring row due in 3 days gets a stamped reminder + whatsapp + in_app notifications', 'system',
-     format('stamped=%s/whatsapp=%s/in_app=%s',
-       case when v_reminder_sent is not null then 'yes' else 'no' end, v_whatsapp_count, v_in_app_count),
-     'stamped=yes/whatsapp=1/in_app=1',
-     case when v_reminder_sent is not null and v_whatsapp_count = 1 and v_in_app_count = 1
+    ('a monitoring row due in 3 days gets a stamped reminder + push (reminder channel) + in_app notifications', 'system',
+     format('stamped=%s/push=%s/in_app=%s',
+       case when v_reminder_sent is not null then 'yes' else 'no' end, v_chan_count, v_in_app_count),
+     'stamped=yes/push=1/in_app=1',
+     case when v_reminder_sent is not null and v_chan_count = 1 and v_in_app_count = 1
           then 'PASS' else 'FAIL' end);
-  if v_reminder_sent is null or v_whatsapp_count <> 1 or v_in_app_count <> 1 then
+  if v_reminder_sent is null or v_chan_count <> 1 or v_in_app_count <> 1 then
     raise exception 'BROKEN: a due-soon medication_lab_monitoring row did not get reminded on both channels';
   end if;
 end $$;
@@ -133,6 +144,39 @@ begin
      case when v_reminder_sent is null then 'PASS' else 'FAIL' end);
   if v_reminder_sent is not null then
     raise exception 'BROKEN: a monitoring row with no fixed due_date was incorrectly reminded';
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 4. SABOTAGE: a sweep not using the patient's reminder channel (helper forced
+--    to sms) must fail the push check of section 1. Redo the sweep for the
+--    due-soon row under the sabotaged helper; the changes are undone.
+-- ==========================================================================
+do $$
+declare
+  v_id uuid := (select v from mlmr_fixture where k = 'due_soon');
+  v_patient uuid := (select v from mlmr_fixture where k = 'patient');
+  v_push bigint;
+begin
+  begin
+    delete from public.notifications
+     where recipient_id = v_patient and template = 'medication_lab_monitoring_due';
+    update public.medication_lab_monitoring set reminder_sent_at = null where id = v_id;
+    create or replace function private.patient_reminder_channel(p_recipient uuid, p_allow_email boolean default true)
+    returns public.notification_channel language sql stable as $f$ select 'sms'::public.notification_channel $f$;
+    perform private.queue_medication_lab_monitoring_reminders();
+    select count(*) into v_push from public.notifications
+     where recipient_id = v_patient and template = 'medication_lab_monitoring_due' and channel = 'push'
+       and payload->>'monitoring_label' = 'INR monitoring (due soon)';
+    raise exception 'sabotage_undo';
+  exception when others then
+    if sqlerrm <> 'sabotage_undo' then raise; end if;
+  end;
+  insert into mlmr_result values
+    ('SABOTAGE: a sweep not using the patient reminder channel fails the push check', 'system',
+     v_push::text, '0', case when v_push = 0 then 'PASS' else 'FAIL' end);
+  if v_push <> 0 then
+    raise exception 'VACUOUS TEST: a push row still appeared with the helper sabotaged';
   end if;
 end $$;
 

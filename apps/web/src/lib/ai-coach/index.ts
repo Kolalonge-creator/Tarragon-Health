@@ -72,8 +72,7 @@ const CONTEXT_HISTORY_LIMIT = 20;
 
 /** Transport-agnostic AI Coach turn — takes a profile + message, runs the
  * LangGraph flow, and returns the reply. Callable from a server action
- * today; the same function is what a future WhatsApp webhook route would
- * call too, so it doesn't assume anything about how it was invoked.
+ * today and assumes nothing about how it was invoked.
  *
  * Every return path also writes one ai_assistant_turns audit row
  * (audit.ts) — the §36.17 provenance record docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md

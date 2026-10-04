@@ -43,14 +43,13 @@ export function useAdminGuaranteeClaims() {
 }
 
 export type DecideGuaranteeRefundResult =
-  | { ok: true; status: "approved"; refund_mode: "queued" | "platform_credit_restored"; amount_kobo: number }
+  | { ok: true; status: "approved"; refund_mode: "queued"; amount_kobo: number }
   | { ok: true; status: "denied" }
   | { ok: false; reason: "already_decided" | "purchase_no_longer_refundable"; status?: string };
 
 /**
  * Approve or deny a pending guarantee claim — public.decide_purchase_guarantee_refund
- * does the real work (GL reversal, refund-queue insert or platform-credit
- * restoration) atomically; this only invalidates the pending list afterward.
+ * does the real work (GL reversal, refund-queue insert) atomically; this only invalidates the pending list afterward.
  * Admin-only at the DB layer (raises 42501 for anyone else) — this page
  * never exposes the control to a non-admin, so that error path is never
  * expected to trigger here.

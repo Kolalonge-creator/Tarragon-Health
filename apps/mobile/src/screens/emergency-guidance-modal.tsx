@@ -74,7 +74,7 @@ export function EmergencyGuidanceModal({
               the fastest, surest way to get help.
             </Text>
 
-            <Text style={{ fontSize: 13, color: colors.faint }}>Reported: {detail}</Text>
+            <Text style={{ fontSize: 13, color: colors.subtle }}>Reported: {detail}</Text>
 
             {emergencyContact?.phone ? (
               <Pressable

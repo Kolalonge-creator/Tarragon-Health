@@ -4,9 +4,9 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { startThread } from "@/lib/messages";
 import { cancelPendingServicePurchase, formatPrice, type PendingPaymentIssue } from "@/lib/services";
-import { loadPlatformCreditState, spendPlatformCreditOnService, hasEnoughPlatformCredit } from "@/lib/platform-credit";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius, spacing } from "@/ui/theme";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
 
 interface PaymentIssueCardProps {
   issue: PendingPaymentIssue;
@@ -22,51 +22,28 @@ interface PaymentIssueCardProps {
  * patient started and never finished (still 'pending_payment' after the
  * same 30-minute grace period, see getPendingPaymentIssue).
  *
- * "Retry payment" tries platform credit first (added 2026-09-18): retrying
- * is literally the same operation as buying the product again
- * (record_service_purchase_intent always opens a fresh pending row — see
- * RetryPaymentButton on web), so if the caller's balance already covers
- * issue.payableKobo, this settles a fresh purchase straight from credit and
- * never opens a browser. Otherwise it falls back to the same WebBrowser
- * handoff as before — the same /patient/subscription page every other
- * native "Pay" entry point opens (Screening Days, Financial Profile,
- * Services), not a bespoke "resume this checkout" implementation.
+ * "Retry payment" hands off to the same WebBrowser page every other native
+ * "Pay" entry point opens (/patient/subscription — Screening Days,
+ * Financial Profile, Services), not a bespoke "resume this checkout"
+ * implementation.
  * "Message the care team" and "Not right now" are real native actions —
  * both already have a plain RPC (start_care_thread /
  * cancel_pending_service_purchase) a native screen can call directly.
  */
 export function PaymentIssueCard({ issue, onResolved }: PaymentIssueCardProps) {
+  const colors = useLegacyColors();
   const [retrying, setRetrying] = useState(false);
   const [messaging, setMessaging] = useState(false);
   const [messageSent, setMessageSent] = useState(false);
   const [dismissing, setDismissing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function openCheckoutInBrowser() {
-    await WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/subscription`);
-    onResolved();
-  }
-
   async function handleRetry() {
     setRetrying(true);
     setError(null);
     try {
-      const balanceResult = await loadPlatformCreditState();
-      const balanceKobo = balanceResult.ok ? balanceResult.data.balanceKobo : 0;
-      if (!hasEnoughPlatformCredit(balanceKobo, issue.payableKobo)) {
-        await openCheckoutInBrowser();
-        return;
-      }
-      const spendResult = await spendPlatformCreditOnService(issue.serviceProductCode);
-      if (spendResult.ok && spendResult.data.ok) {
-        onResolved();
-        return;
-      }
-      if (spendResult.ok && !spendResult.data.ok && spendResult.data.reason === "insufficient_balance") {
-        await openCheckoutInBrowser();
-        return;
-      }
-      setError("Could not retry with your platform credit — try again, or use a card.");
+      await WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/subscription`);
+      onResolved();
     } finally {
       setRetrying(false);
     }
@@ -151,6 +128,7 @@ function ActionPill({
   loading?: boolean;
   onPress: () => void;
 }) {
+  const colors = useLegacyColors();
   const toneStyle =
     tone === "brand"
       ? { backgroundColor: colors.brand }

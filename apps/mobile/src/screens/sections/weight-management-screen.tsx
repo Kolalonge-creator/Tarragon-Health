@@ -13,18 +13,9 @@ import {
   type LpeGoalModule,
 } from "@/lib/weight-management";
 import type { SectionId } from "@/lib/sections";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const OBESITY_STATUS_COPY: Record<string, string> = {
   preclinical:
@@ -63,6 +54,7 @@ function when(iso: string): string {
 }
 
 function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
+  const colors = useLegacyColors();
   return (
     <Text onPress={onToggle} style={{ fontSize: 13, color: colors.ink, paddingVertical: 4 }}>
       <Text style={{ fontWeight: "700", color: checked ? colors.brand : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
@@ -89,6 +81,7 @@ interface WeightManagementScreenProps {
  * are plain RLS-scoped RPCs, called directly.
  */
 export function WeightManagementScreen({ userId, onNavigate }: WeightManagementScreenProps) {
+  const colors = useLegacyColors();
   const [assessment, setAssessment] = useState<ObesityAssessment | null>(null);
   const [referral, setReferral] = useState<BariatricReferral | null>(null);
   const [enrollment, setEnrollment] = useState<LifestyleEnrollment | null>(null);
@@ -178,6 +171,7 @@ export function WeightManagementScreen({ userId, onNavigate }: WeightManagementS
 }
 
 function EnrollCta({ onEnrolled }: { onEnrolled: () => void }) {
+  const colors = useLegacyColors();
   const [consented, setConsented] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [needsEdScreen, setNeedsEdScreen] = useState(false);
@@ -222,6 +216,9 @@ function EnrollCta({ onEnrolled }: { onEnrolled: () => void }) {
 }
 
 function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [behaviours, setBehaviours] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
@@ -290,7 +287,7 @@ function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () =>
       <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink, marginTop: 4 }}>
         Anything else you&apos;d like your care team to know?
       </Text>
-      <TextInput
+      <TextInput keyboardAppearance={scheme}
         value={notes}
         onChangeText={setNotes}
         multiline
@@ -305,6 +302,7 @@ function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () =>
 }
 
 function EnrollmentCard({ enrollment, onChanged }: { enrollment: LifestyleEnrollment; onChanged: () => void }) {
+  const colors = useLegacyColors();
   return (
     <Card style={{ gap: 10 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -338,6 +336,7 @@ function EnrollmentCard({ enrollment, onChanged }: { enrollment: LifestyleEnroll
 }
 
 function GoalRow({ goal, onChanged }: { goal: { id: string; module: string; title: string; personalised: boolean }; onChanged: () => void }) {
+  const colors = useLegacyColors();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
 
@@ -373,6 +372,9 @@ function GoalRow({ goal, onChanged }: { goal: { id: string; module: string; titl
 }
 
 function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [type, setType] = useState<"mood" | "weight" | "activity_minutes">("mood");
   const [value, setValue] = useState("");
   const [strugglingWithFood, setStrugglingWithFood] = useState(false);
@@ -429,7 +431,7 @@ function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }) {
           </Text>
         ))}
       </View>
-      <TextInput value={value} onChangeText={setValue} placeholder="Value (e.g. 3)" keyboardType="numeric" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} value={value} onChangeText={setValue} placeholder="Value (e.g. 3)" keyboardType="numeric" style={textInputStyle} />
       <Checkbox
         checked={strugglingWithFood}
         onToggle={() => setStrugglingWithFood((v) => !v)}
@@ -445,6 +447,9 @@ function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }) {
 const GOAL_MODULES: LpeGoalModule[] = ["diet", "activity", "behaviour", "sleep", "stress", "smoking"];
 
 function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; onAdded: () => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [module, setModule] = useState<LpeGoalModule>("diet");
   const [title, setTitle] = useState("");
@@ -495,7 +500,7 @@ function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; onAdded:
           </Text>
         ))}
       </View>
-      <TextInput value={title} onChangeText={setTitle} placeholder="Describe your goal" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} value={title} onChangeText={setTitle} placeholder="Describe your goal" style={textInputStyle} />
       {error && <ErrorText>{error}</ErrorText>}
       <SecondaryButton title="Save goal" onPress={submit} loading={submitting} />
     </View>

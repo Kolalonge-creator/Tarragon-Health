@@ -1,4 +1,7 @@
+import { enqueue, flushOutbox, listOutbox, type DosePayload } from "./outbox";
+import { pullChangesThrottled, readLocalMedications, readLocalRecords } from "./offline-store";
 import { supabase } from "./supabase";
+import { API_BASE_URL } from "./api";
 import type { Tables } from "@tarragon/shared";
 
 /**
@@ -66,6 +69,16 @@ export function todayIsoDate(): string {
  */
 export async function loadTodaysDoses(patientId: string): Promise<QueryResult<DoseChecklistItem[]>> {
   const today = todayIsoDate();
+  // Doses logged on this phone and not yet sent. Listed first so they win over
+  // an older server row for the same slot (buildTodaysDoseChecklist takes the first match).
+  const pendingLogs = async (): Promise<LogForChecklist[]> =>
+    (await listOutbox("dose"))
+      .filter((r) => r.subjectId === patientId && (r.payload as DosePayload).scheduled_for_date === today)
+      .map((r) => {
+        const p = r.payload as DosePayload;
+        return { medication_id: p.medication_id, scheduled_time: p.scheduled_time, status: p.status as never };
+      })
+      .reverse();
   try {
     const [medsRes, logsRes] = await Promise.all([
       supabase
@@ -80,11 +93,39 @@ export async function loadTodaysDoses(patientId: string): Promise<QueryResult<Do
         .eq("scheduled_for_date", today),
     ]);
     const failure = medsRes.error ?? logsRes.error;
-    if (failure) return { ok: false, error: failure.message };
-    return { ok: true, data: buildTodaysDoseChecklist(medsRes.data ?? [], logsRes.data ?? []) };
+    if (failure) return await localDoses(patientId, today, await pendingLogs(), failure.message);
+    pullChangesThrottled(patientId);
+    return {
+      ok: true,
+      data: buildTodaysDoseChecklist(medsRes.data ?? [], [...(await pendingLogs()), ...(logsRes.data ?? [])]),
+    };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    return await localDoses(patientId, today, await pendingLogs().catch(() => []), e instanceof Error ? e.message : String(e));
   }
+}
+
+/**
+ * Offline read (S06): the medication list is the last copy pulled from the
+ * server, read-only (INV-02: nothing here changes a treatment plan), with this
+ * phone's unsent dose logs on top. With no copy yet, say so rather than show an
+ * empty list as if it were a fact.
+ */
+async function localDoses(
+  patientId: string,
+  today: string,
+  pending: LogForChecklist[],
+  serverError: string
+): Promise<QueryResult<DoseChecklistItem[]>> {
+  const meds = await readLocalMedications<MedicationForChecklist>(patientId);
+  if (meds.length === 0) return { ok: false, error: serverError };
+  const mirrored = (await readLocalRecords<{ medication_id: string; scheduled_time: string | null; status: string; scheduled_for_date: string }>(
+    "dose",
+    patientId,
+    200
+  ))
+    .filter((r) => r.scheduled_for_date === today)
+    .map((r) => ({ medication_id: r.medication_id, scheduled_time: r.scheduled_time, status: r.status as never }));
+  return { ok: true, data: buildTodaysDoseChecklist(meds, [...pending, ...mirrored]) };
 }
 
 /**
@@ -100,17 +141,28 @@ export async function logDose(
   organisationId: string,
   item: DoseChecklistItem,
   status: Exclude<DoseStatus, "pending">
-): Promise<{ error?: string }> {
-  const scheduled_for_date = todayIsoDate();
-  const { error } = await supabase.from("medication_logs").insert({
-    medication_id: item.medicationId,
-    scheduled_time: item.time,
-    scheduled_for_date,
-    status,
-    patient_id: patientId,
-    organisation_id: organisationId,
-  });
-  return error ? { error: error.message } : {};
+): Promise<{ error?: string; synced?: boolean; clientId?: string }> {
+  // S06: on-device outbox first (works with no signal), then sent at once. The
+  // client id makes a blind retry a no-op, so a dose is never logged twice.
+  let queued;
+  try {
+    queued = await enqueue({
+      kind: "dose",
+      subjectId: patientId,
+      payload: {
+        medication_id: item.medicationId,
+        scheduled_time: item.time,
+        scheduled_for_date: todayIsoDate(),
+        status,
+        organisation_id: organisationId,
+      },
+    });
+  } catch {
+    return { error: "Couldn't save this on your phone. Try again." };
+  }
+  await flushOutbox();
+  const stillThere = (await listOutbox("dose")).find((row) => row.clientId === queued.clientId);
+  return { synced: !stillThere, clientId: queued.clientId };
 }
 
 // ---------------------------------------------------------------------------
@@ -140,10 +192,13 @@ export type MedicationCabinetItem = Pick<
   | "repeats_allowed"
   | "organisation_id"
   | "created_at"
+  | "rx_number"
+  | "verification_code"
+  | "superseded_at"
 > & { care_plan_condition: string | null };
 
 const MEDICATION_CABINET_SELECT =
-  "id, drug_name, dose, frequency, schedule_times, source, prescriber_name, prescriber_document_url, refill_date, last_confirmed_at, expires_at, repeats_allowed, organisation_id, created_at, care_plan:care_plans(condition)";
+  "id, drug_name, dose, frequency, schedule_times, source, prescriber_name, prescriber_document_url, refill_date, last_confirmed_at, expires_at, repeats_allowed, organisation_id, created_at, rx_number, verification_code, superseded_at, care_plan:care_plans(condition)";
 
 type MedicationCabinetRow = Omit<MedicationCabinetItem, "care_plan_condition"> & {
   care_plan: { condition: string } | { condition: string }[] | null;
@@ -537,3 +592,19 @@ export const NAFDAC_MAS = {
   caveat:
     "Not every genuine medicine carries a scratch panel, so no panel does not mean a fake. If anything about a pack worries you, take it back to the pharmacy you bought it from and tell your care team.",
 } as const;
+
+/**
+ * The prescription PDF for one clinician-prescribed medicine (or, with no id, every current one, one page each),
+ * opened in expo-web-browser exactly like the verified-document PDFs: a plain https URL carrying the caller's
+ * own short-lived access token, so Safari's viewer provides Print, Share and Save to Files. The server enforces
+ * the issuing rules and the RLS scope; a refusal comes back as plain text in the viewer.
+ */
+export async function getPrescriptionPdfUrl(medicationId?: string): Promise<QueryResult<string>> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return { ok: false, error: "Not signed in" };
+  const token = encodeURIComponent(session.access_token);
+  const path = medicationId ? `${medicationId}/pdf` : "pdf";
+  return { ok: true, data: `${API_BASE_URL}/api/mobile/prescriptions/${path}?token=${token}` };
+}

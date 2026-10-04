@@ -1,5 +1,6 @@
 "use client";
 
+import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
 import { useState } from "react";
 import {
   useCurbsideConsultMessages,
@@ -18,7 +19,7 @@ function when(iso: string): string {
 
 function senderLabel(message: CurbsideConsultMessage, myClinicalStaffId: string): string {
   if (!message.sender) return "Colleague";
-  const name = message.sender_clinical_staff_id === myClinicalStaffId ? `You` : `Dr. ${message.sender.full_name}`;
+  const name = message.sender_clinical_staff_id === myClinicalStaffId ? `You` : `Dr. ${stripDoctorTitle(message.sender.full_name)}`;
   const tier = message.sender.doctor_tier ? DOCTOR_TIER_LABEL[message.sender.doctor_tier] : null;
   return tier ? `${name} · ${tier}` : name;
 }

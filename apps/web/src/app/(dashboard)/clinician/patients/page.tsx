@@ -386,25 +386,14 @@ async function loadConditionPatientIds(
   scopeToPatientIds: string[] | null,
 ): Promise<FilteredPatientIds & { truncated: boolean }> {
   const CAP = 300;
-  let query = supabase
-    .from("patient_conditions")
-    .select("patient_id")
-    .ilike("condition_name", `%${condition}%`);
-  if (scopeToPatientIds !== null) {
-    query = query.in("patient_id", scopeToPatientIds);
-  }
-  const { data, error } = await query.order("patient_id", { ascending: true }).limit(CAP + 1);
+  // INV-10: a list-wide filter cannot use the per-patient chart read, so it has its own audited function (one audit row per search,
+  // the term never stored). It returns distinct patient ids, ordered, capped at CAP + 1 so truncation is detectable.
+  const { data, error } = await supabase.rpc("search_patient_ids_by_condition", {
+    p_condition: condition,
+    p_scope: scopeToPatientIds ?? undefined,
+    p_cap: CAP + 1,
+  });
   if (error) return { ids: [], failed: true, truncated: false };
-  const rows = data ?? [];
-  const truncated = rows.length > CAP;
-  return {
-    // `rows` carries duplicate patient_ids when one patient has more than
-    // one matching condition row — dedupe for the id list itself, but
-    // `truncated` is decided on the raw row count (capped fetch), since
-    // that's what determines whether more matching rows exist beyond what
-    // was fetched, independent of how many distinct patients they belong to.
-    ids: [...new Set(rows.slice(0, CAP).map((row) => row.patient_id))],
-    failed: false,
-    truncated,
-  };
+  const ids = (data ?? []).map((row) => row.patient_id);
+  return { ids: ids.slice(0, CAP), failed: false, truncated: ids.length > CAP };
 }

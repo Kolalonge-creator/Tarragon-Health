@@ -2,21 +2,19 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { computeBmi } from "@/lib/obesity/classify";
 import { fetchHeightStatus, type HeightStatus } from "@/lib/health-metrics/height";
+import { readPatientVitalsOrThrow } from "@/lib/clinical/vitals-audited";
 
 export function useVitalsReadings(patientId: string) {
   return useQuery({
     queryKey: ["vitals-readings", patientId],
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("vitals_readings")
-        .select("*")
-        .eq("patient_id", patientId)
-        .order("taken_at", { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      return data;
+      // INV-10: staff read vitals through the audited, tie-gated function; a refusal throws, never "no readings".
+      return readPatientVitalsOrThrow(createClient(), patientId, { limit: 20 });
     },
+    // Each staff read writes an audit row: no refetch on focus, no retry of a refusal.
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
     enabled: !!patientId,
   });
 }
@@ -30,18 +28,15 @@ export function useVitalsReadingsPage(patientId: string) {
   return useInfiniteQuery({
     queryKey: ["vitals-readings-page", patientId],
     queryFn: async ({ pageParam }) => {
-      const supabase = createClient();
-      const from = pageParam * VITALS_HISTORY_PAGE_SIZE;
-      const to = from + VITALS_HISTORY_PAGE_SIZE - 1;
-      const { data, error } = await supabase
-        .from("vitals_readings")
-        .select("*")
-        .eq("patient_id", patientId)
-        .order("taken_at", { ascending: false })
-        .range(from, to);
-      if (error) throw error;
-      return { rows: data ?? [], hasMore: (data?.length ?? 0) === VITALS_HISTORY_PAGE_SIZE };
+      const rows = await readPatientVitalsOrThrow(createClient(), patientId, {
+        limit: VITALS_HISTORY_PAGE_SIZE,
+        offset: pageParam * VITALS_HISTORY_PAGE_SIZE,
+      });
+      return { rows, hasMore: rows.length === VITALS_HISTORY_PAGE_SIZE };
     },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
     initialPageParam: 0,
     getNextPageParam: (lastPage, pages) => (lastPage.hasMore ? pages.length : undefined),
     enabled: !!patientId,
@@ -64,18 +59,21 @@ export function useVitalsTrend(
   return useQuery({
     queryKey: ["vitals-trend", patientId, vitalType, windowDays],
     queryFn: async () => {
-      const supabase = createClient();
       const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
-      const { data, error } = await supabase
-        .from("vitals_readings")
-        .select("taken_at, systolic, diastolic, glucose_mmol_l, glucose_context, weight_kg, pulse_bpm")
-        .eq("patient_id", patientId)
-        .eq("vital_type", vitalType)
-        .gte("taken_at", since)
-        .order("taken_at", { ascending: true });
-      if (error) throw error;
-      return data;
+      const rows = await readPatientVitalsOrThrow(createClient(), patientId, { vitalType, since, ascending: true, limit: 5000 });
+      return rows.map((r) => ({
+        taken_at: r.taken_at,
+        systolic: r.systolic,
+        diastolic: r.diastolic,
+        glucose_mmol_l: r.glucose_mmol_l,
+        glucose_context: r.glucose_context,
+        weight_kg: r.weight_kg,
+        pulse_bpm: r.pulse_bpm,
+      }));
     },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
     enabled: !!patientId,
   });
 }
@@ -86,18 +84,13 @@ export function useLatestWeightKg(patientId: string) {
   return useQuery({
     queryKey: ["latest-weight-kg", patientId],
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("vitals_readings")
-        .select("weight_kg, taken_at")
-        .eq("patient_id", patientId)
-        .eq("vital_type", "weight")
-        .order("taken_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      const rows = await readPatientVitalsOrThrow(createClient(), patientId, { vitalType: "weight", limit: 1 });
+      const latest = rows[0];
+      return latest ? { weight_kg: latest.weight_kg, taken_at: latest.taken_at } : null;
     },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
     enabled: !!patientId,
   });
 }
@@ -130,22 +123,15 @@ export function useBmiTrend(patientId: string, windowDays: number = TREND_WINDOW
     queryFn: async (): Promise<BmiTrendPoint[]> => {
       const supabase = createClient();
       const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
-      const [{ data: weightRows, error: weightError }, heightStatus] = await Promise.all([
-        supabase
-          .from("vitals_readings")
-          .select("taken_at, weight_kg")
-          .eq("patient_id", patientId)
-          .eq("vital_type", "weight")
-          .gte("taken_at", since)
-          .order("taken_at", { ascending: true }),
+      const [weightRows, heightStatus] = await Promise.all([
+        readPatientVitalsOrThrow(supabase, patientId, { vitalType: "weight", since, ascending: true, limit: 5000 }),
         fetchHeightStatus(supabase, patientId),
       ]);
-      if (weightError) throw weightError;
 
       const heightCm = heightStatus.heightCm;
       if (!heightCm) return [];
 
-      return (weightRows ?? []).flatMap((row) => {
+      return weightRows.flatMap((row) => {
         const rawBmi = row.weight_kg != null ? computeBmi(row.weight_kg, heightCm) : null;
         // Round to 1dp at the source (matches the "Latest: 24.2" display) —
         // weight/height² otherwise carries long floating-point tails (e.g.

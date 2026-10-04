@@ -44,7 +44,7 @@ export async function queueRiskSignalAttentionBestEffort(
     await serviceRoleClient.from("notifications").insert({
       organisation_id: organisationId,
       recipient_id: patientId,
-      channel: "whatsapp",
+      channel: "in_app",
       status: "pending",
       template: "risk_signal_attention",
       payload: { score_type: scoreType, signal_label: signalLabel, reason },

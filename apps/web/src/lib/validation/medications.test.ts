@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { medicationSchema } from "./medications";
+import { medicationSchema, prescriptionDetailSchema } from "./medications";
 
 describe("medicationSchema", () => {
   const valid = { drug_name: "Lisinopril" };
@@ -56,5 +56,27 @@ describe("medicationSchema", () => {
     expect(
       medicationSchema.safeParse({ ...valid, refill_date: "not-a-date" }).success
     ).toBe(false);
+  });
+});
+
+describe("prescriptionDetailSchema", () => {
+  it("accepts a quantity and a positive whole number of days", () => {
+    expect(prescriptionDetailSchema.safeParse({ quantity: " 30 tablets ", duration_days: "30" })).toMatchObject({
+      success: true,
+      data: { quantity: "30 tablets", duration_days: 30 },
+    });
+  });
+  it.each([
+    [{ quantity: "", duration_days: "30" }, /quantity/i],
+    [{ quantity: "   ", duration_days: "30" }, /quantity/i],
+    [{ quantity: "30 tablets", duration_days: "" }, /days/i],
+    [{ quantity: "30 tablets", duration_days: "0" }, /days/i],
+    [{ quantity: "30 tablets", duration_days: "-5" }, /days/i],
+    [{ quantity: "30 tablets", duration_days: "2.5" }, /whole number/i],
+    [{ quantity: "30 tablets" }, /days/i],
+  ])("refuses %j with a readable message", (input, message) => {
+    const result = prescriptionDetailSchema.safeParse(input);
+    expect(result.success).toBe(false);
+    expect(!result.success && result.error.issues[0]?.message).toMatch(message);
   });
 });

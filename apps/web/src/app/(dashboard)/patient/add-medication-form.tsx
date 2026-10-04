@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useAddMedication } from "@/lib/queries/medications";
 import { checkMedicationSafetyAfterAdd } from "./actions";
-import { medicationSchema, type MedicationInput } from "@/lib/validation/medications";
+import { prescriptionDetailSchema, medicationSchema, type MedicationInput } from "@/lib/validation/medications";
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,8 @@ export function AddMedicationForm({
   const [newTime, setNewTime] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  // The allergy list was not readable by this clinician, so the post-add allergy cross-check did not run (INV-10: unknown, not none).
+  const [allergyCheckSkipped, setAllergyCheckSkipped] = useState(false);
   // Patients can log a medication a specialist started (pathway Scenario 3),
   // attributing it to the specialist by name + optional consultation document.
   const [startedBySpecialist, setStartedBySpecialist] = useState(false);
@@ -124,7 +126,8 @@ export function AddMedicationForm({
           // own self-add, even one attributed to a specialist. Fire-and-forget:
           // never awaited, never blocks or affects the success state above.
           if (source === "clinician") {
-            void checkMedicationSafetyAfterAdd(patientId);
+            setAllergyCheckSkipped(false);
+            void checkMedicationSafetyAfterAdd(patientId).then((outcome) => setAllergyCheckSkipped(outcome.allergyCheckSkipped));
           }
         },
       }
@@ -153,6 +156,13 @@ export function AddMedicationForm({
     if (!parsed.success) {
       setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
       return;
+    }
+    if (source === "clinician") {
+      const detail = prescriptionDetailSchema.safeParse({ quantity, duration_days: durationDays });
+      if (!detail.success) {
+        setValidationError(detail.error.issues[0]?.message ?? "Enter the quantity and duration");
+        return;
+      }
     }
     setValidationError(null);
     setSuccess(false);
@@ -357,20 +367,22 @@ export function AddMedicationForm({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="duration_days">Duration (days)</Label>
+                  <Label htmlFor="duration_days">Duration (days) *</Label>
                   <Input
                     id="duration_days"
                     type="number"
                     min={1}
-                    placeholder="Leave blank if ongoing"
+                    required
+                    placeholder="Days this supply covers, e.g. 30"
                     value={durationDays}
                     onChange={(event) => setDurationDays(event.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="quantity">Quantity</Label>
+                  <Label htmlFor="quantity">Quantity *</Label>
                   <Input
                     id="quantity"
+                    required
                     placeholder="e.g. 30 tablets"
                     value={quantity}
                     onChange={(event) => setQuantity(event.target.value)}
@@ -506,6 +518,12 @@ export function AddMedicationForm({
           )}
           <FormError id={errorId} message={displayError} />
           <FormSuccess message={success && "Medication added."} />
+          {success && allergyCheckSkipped ? (
+            <p role="alert" className="text-sm text-amber-700">
+              The allergy cross-check did not run: this patient&apos;s allergy list is not available to you. Check allergies with the care
+              team before the patient takes this medicine.
+            </p>
+          ) : null}
           <Button type="submit" disabled={addMedication.isPending}>
             {source === "clinician"
               ? "Continue to review"

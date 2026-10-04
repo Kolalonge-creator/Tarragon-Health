@@ -3,6 +3,13 @@
 -- reschedule the patient's appointment, and is reminded about it in-app —
 -- a 'view' grantee and a stranger must not.
 --
+-- NOTE: this proof is listed in ci.excluded. Its steps 1-4 (grantee visibility)
+-- predate the category-scoped caregiver model and fail on the live policy for
+-- reasons unrelated to notifications; the reminder steps (5+) were reworked
+-- 2026-09-30 for the removal of the retired external chat channel (patient reminders now go
+-- to private.patient_reminder_channel()) and count the '2h' milestone only,
+-- since a 1h50m-out appointment is due for both the 24h and 2h milestones.
+--
 -- Run inside a transaction that is ROLLED BACK. Nothing here persists.
 --
 --   patient    the person whose appointment it is
@@ -106,6 +113,7 @@ begin
   select count(*) into v_n from public.notifications
    where recipient_id = v_manager and channel = 'in_app'
      and template = 'appointment_reminder_for_dependent'
+     and payload->>'milestone' = '2h'
      and payload->>'appointment_id' = v_appt::text;
   if v_n <> 1 then
     raise exception 'FAIL: manage grantee got % in_app reminders, expected 1', v_n;
@@ -120,12 +128,36 @@ begin
   raise notice 'PASS  view-only grantee not reminded (control)';
 
   select count(*) into v_n from public.notifications
-   where recipient_id = v_patient and channel = 'whatsapp' and template = 'appointment_reminder'
+   where recipient_id = v_patient and template = 'appointment_reminder'
+     and channel = private.patient_reminder_channel(v_patient)
+     and channel in ('push', 'email', 'in_app')
+     and payload->>'milestone' = '2h'
      and payload->>'appointment_id' = v_appt::text;
   if v_n <> 1 then
-    raise exception 'FAIL: the patient''s own whatsapp reminder regressed, found %', v_n;
+    raise exception 'FAIL: the patient''s own reminder (on the patient_reminder_channel) regressed, found %', v_n;
   end if;
   raise notice 'PASS  patient''s own reminder unaffected';
+
+  -- SABOTAGE: if the helper disagreed with the channel the sweep really used,
+  -- the check above must stop matching. Swap the helper for one returning a
+  -- channel nothing was queued on, re-run the same predicate, then undo.
+  begin
+    create or replace function private.patient_reminder_channel(p_recipient uuid, p_allow_email boolean default true)
+    returns public.notification_channel language sql stable as $f$ select 'voice'::public.notification_channel $f$;
+    select count(*) into v_n from public.notifications
+     where recipient_id = v_patient and template = 'appointment_reminder'
+       and channel = private.patient_reminder_channel(v_patient)
+       and channel in ('push', 'email', 'in_app')
+       and payload->>'milestone' = '2h'
+       and payload->>'appointment_id' = v_appt::text;
+    raise exception 'sabotage_undo';
+  exception when others then
+    if sqlerrm <> 'sabotage_undo' then raise; end if;
+  end;
+  if v_n <> 0 then
+    raise exception 'VACUOUS: the reminder-channel check still matched with a sabotaged helper';
+  end if;
+  raise notice 'PASS  sabotage: a helper/queue channel mismatch is detected';
 
   raise notice '--- all checks passed ---';
 end $$;

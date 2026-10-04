@@ -3,7 +3,7 @@
 --
 -- THE GAP. Nothing on the finance dashboard distinguished real cash revenue
 -- (Paystack, or platform-credit paid_balance) from promo/voucher-funded
--- revenue (a reward_discount voucher, or platform-credit promo_balance) --
+-- revenue (a reward_discount voucher) --
 -- everything blended into the same "Revenue" tiles, even though the GL's own
 -- account-level segregation (1020/2100 = real money, 2600 = promotional,
 -- never commingled) already makes the split possible.
@@ -12,17 +12,16 @@
 -- sale revenue by its journal entry's own debit leg (1020/2100 -> cash,
 -- 2600 -> promotional), and recognised (previously-deferred) revenue by
 -- tracing the schedule back to whatever actually funded the underlying
--- service_purchase (card remainder + platform-credit paid_balance + a
--- prepaid_service voucher = cash; platform-credit promo_balance + a
--- reward_discount voucher = promotional), proportioned onto the amount
+-- service_purchase (card payment + a prepaid_service voucher = cash;
+-- a reward_discount voucher = promotional), proportioned onto the amount
 -- recognised this period.
 --
--- This script proves, against the real function + the real voucher/
--- platform-credit machinery:
+-- This script proves, against the real function + the real voucher
+-- machinery:
 --   * a reward-voucher-funded bounded-duration purchase's recognised
 --     revenue lands entirely in promotional_minor;
---   * a platform-credit-paid_balance-funded bounded-duration purchase's
---     recognised revenue lands entirely in cash_minor;
+--   * a card-funded bounded-duration purchase's recognised revenue lands
+--     entirely in cash_minor;
 --   * a plain point-of-sale card payment lands in cash_minor, a plain
 --     point-of-sale voucher/promo redemption lands in promotional_minor;
 --   * nothing lands in unclassified_minor;
@@ -86,19 +85,18 @@ begin
   perform public.redeem_care_voucher(v_voucher_id, 'service_purchase', v_sp_promo);
   reset role;
 
-  -- sp_cash: bounded purchase fully covered by platform-credit PAID balance.
+  -- sp_cash: bounded purchase funded by real cash (card), no voucher.
   insert into public.service_purchases
     (id, organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency)
   values (gen_random_uuid(), v_org, v_pat, v_pat, v_bounded_prod, 'pending_payment', 500000, 'NGN')
   returning id into v_sp_cash;
 
-  perform private.platform_credit_apply(
-    p_patient_id := v_pat, p_organisation_id := v_org, p_entry_type := 'topup', p_amount_kobo := 500000,
-    p_description := 'rfs fixture funding'
-  );
-  perform private.platform_credit_apply(
-    p_patient_id := v_pat, p_organisation_id := v_org, p_entry_type := 'spend', p_amount_kobo := 500000,
-    p_service_purchase_id := v_sp_cash, p_description := 'rfs test cash spend'
+  -- A card-funded (no voucher) bounded purchase: its recognition schedule carries promo_minor = 0, which is
+  -- what the real activation path (finance_post_from_payment) writes for real cash. Built directly so this
+  -- script stays isolated to the classification query under test.
+  perform private.finance_create_recognition_schedule(
+    'service_purchase', v_sp_cash, null, v_org, '4020', 'NGN'::public.currency, 500000,
+    current_date, current_date + 90, 0
   );
 
   select id into v_sched_promo from public.revenue_recognition_schedules where source_id = v_sp_promo;
@@ -150,7 +148,7 @@ begin
   reset role;
 
   insert into rfs_result values
-    ('cash_minor = 111000 (immediate card) + 150000 (recognised, platform-credit paid_balance)',
+    ('cash_minor = 111000 (immediate card) + 150000 (recognised, card-funded)',
      (v_res ->> 'cash_minor'), '261000',
      case when (v_res ->> 'cash_minor')::bigint = 261000 then 'PASS' else 'FAIL' end);
   if (v_res ->> 'cash_minor')::bigint <> 261000 then

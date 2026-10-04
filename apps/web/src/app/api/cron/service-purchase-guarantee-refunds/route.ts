@@ -25,11 +25,6 @@ import { recordRefundLedgerEntry } from "@/lib/billing/refund-posting";
  * processes the refund (Dr 4900 Refunds / Cr 1020 Cash, via the same
  * finance_post_from_payment refund branch every other refund cron uses).
  *
- * The platform_credit-paid half of a guarantee refund never reaches this
- * queue at all — decide_purchase_guarantee_refund() restores that balance
- * synchronously via public.correct_platform_credit(), so this cron only
- * ever sees provider='paystack' rows.
- *
  * Paystack only, same as every other refund cron on this platform — Stripe
  * was removed 2026-09-03 and never had a live account behind it.
  *

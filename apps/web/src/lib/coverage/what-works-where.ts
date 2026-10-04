@@ -62,7 +62,7 @@ export const COVERAGE_ITEMS: CoverageItem[] = [
   {
     key: "medication",
     label: "Medication reminders and adherence check-ins",
-    detail: "Reminders arrive in the app, and by WhatsApp or SMS where those reach.",
+    detail: "Reminders arrive in the app, with push and email as a backup.",
     locality: "anywhere",
     gatedBy: null,
   },

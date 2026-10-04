@@ -15,7 +15,7 @@ import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
 import { refreshQueryState } from "@/lib/queries/list-query-state";
 
-const CHANNEL_LABEL = { call: "Call", whatsapp: "WhatsApp" } as const;
+const CHANNEL_LABEL = { call: "Call" } as const;
 
 function timeAgo(iso: string): string {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);

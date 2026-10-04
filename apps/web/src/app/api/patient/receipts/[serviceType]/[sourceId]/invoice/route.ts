@@ -11,7 +11,6 @@ const paramsSchema = z.object({
     "referral",
     "consultation",
     "care_voucher",
-    "platform_credit_topup",
   ]),
   sourceId: z.string().uuid(),
 });

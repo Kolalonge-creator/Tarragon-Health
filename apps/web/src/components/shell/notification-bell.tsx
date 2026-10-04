@@ -51,7 +51,6 @@ const ROUTINE_TEMPLATES = new Set<string>([
   "care_voucher_expiring",
   "service_purchase_expiring",
   "reward_voucher_issued",
-  "platform_credit_balance_adjusted",
   "sponsor_monthly_report",
   "sponsor_care_reviewed",
   "sponsor_person_quiet",
@@ -325,27 +324,6 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/care",
     };
   }
-  if (n.template === "platform_credit_balance_adjusted") {
-    // From private.platform_credit_apply(), admin_grant/admin_correction
-    // only — an admin can move a patient's platform credit balance without
-    // the patient ever touching it themselves; this is how they find out.
-    // amount_naira arrives already converted server-side, same pattern as
-    // reward_voucher_issued's value_naira.
-    const amount = String(payload.amount_naira ?? "");
-    const decreased = payload.direction === "decrease";
-    const reason = payload.reason ? String(payload.reason) : null;
-    const base = amount
-      ? decreased
-        ? `₦${amount} was deducted from your platform credit balance`
-        : `₦${amount} was added to your platform credit balance`
-      : decreased
-        ? "Your platform credit balance was adjusted down"
-        : "Your platform credit balance was adjusted up";
-    return {
-      text: reason ? `${base} — ${reason}` : base,
-      href: "/patient/care",
-    };
-  }
   if (n.template === "sponsor_monthly_report") {
     // From private.queue_sponsor_monthly_reports(). The standing monthly
     // summary to whoever is paying for someone else's care: what they have
@@ -430,7 +408,7 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "critical_notification_escalation_exhausted") {
     // From private.escalate_unconfirmed_critical_notifications() —
-    // every channel in a critical alert's ladder (push -> whatsapp -> sms)
+    // every channel in a critical alert's ladder
     // ran out with nobody confirming it. Admin-only visibility surface;
     // the underlying clinical SLA/worklist safety net is unaffected either
     // way, this is purely "a notification chain needs a human look."
@@ -516,6 +494,29 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   if (n.template === "medication_prescribed_patient") {
     const drug = String(payload.drug_name ?? "A medication");
     return { text: `${drug} was prescribed for you`, href: "/patient/medications" };
+  }
+  if (n.template === "prescription_updated_patient") {
+    const drug = String(payload.drug_name ?? "Your prescription");
+    return {
+      text: `${drug} was updated. Download the new prescription: any copy you saved earlier no longer works.`,
+      href: "/patient/medications",
+    };
+  }
+  if (n.template === "prescription_expiring_soon") {
+    const drug = String(payload.drug_name ?? "Your prescription");
+    const when = typeof payload.expires_at === "string" ? ` on ${new Date(payload.expires_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" })}` : " soon";
+    return {
+      text: `Your prescription for ${drug} expires${when}. Request a renewal if you still need it.`,
+      href: "/patient/medications",
+    };
+  }
+  if (n.template === "prescription_supply_recorded") {
+    const drug = String(payload.drug_name ?? "Your prescription");
+    const pharmacy = String(payload.pharmacy_name ?? "a pharmacy");
+    return {
+      text: `${pharmacy} recorded a supply of ${drug}. If that was not you, open your medicines and tap "This wasn't me".`,
+      href: "/patient/medications",
+    };
   }
   if (n.template === "pharmacy_order_patient_confirmation") {
     const items = String(payload.items_summary ?? "your medication");
@@ -634,7 +635,7 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     return {
       text: `${count} update${count === 1 ? "" : "s"} waiting for you today`,
       // Deliberately not payload.action_centre_url — that's a full external
-      // URL (appUrl() in the edge function), useful for a WhatsApp/email
+      // URL (appUrl() in the edge function), useful for an email
       // link, but router.push() here needs an internal relative path.
       href: "/patient/actions",
     };

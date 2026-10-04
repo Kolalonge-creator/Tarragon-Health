@@ -10,7 +10,6 @@ import { SearchableList } from "@/components/ui/searchable-list";
 import { downloadCsv } from "@/lib/analytics/download-csv";
 import type { CsvRow } from "@/lib/analytics/to-csv";
 import { logPatientDirectoryExport } from "./actions";
-import { PlatformCreditPanel } from "./platform-credit-panel";
 
 export type PatientPurchase = {
   label: string;
@@ -39,8 +38,6 @@ export type PatientRow = {
   lastPurchaseAt: string | null;
   /** Full itemised history, every status included — shown in the row detail and the CSV export. */
   purchases: PatientPurchase[];
-  platformCreditBalanceKobo: number;
-  platformCreditPromoBalanceKobo: number;
 };
 
 function naira(kobo: number): string {
@@ -89,7 +86,6 @@ export function PatientsDirectory({ rows }: { rows: PatientRow[] }) {
       "Purchases (paid)": r.purchaseCount,
       "Total spent (NGN)": koboToNaira(r.totalSpentKobo),
       "Last purchase": r.lastPurchaseAt ?? "",
-      "Platform credit balance (NGN)": koboToNaira(r.platformCreditBalanceKobo),
       "Purchase history": r.purchases
         .map((p) => `${p.label} — ${naira(p.amountKobo)} (${p.status}, ${shortDate(p.purchasedAt)})`)
         .join(" | "),
@@ -147,7 +143,6 @@ export function PatientsDirectory({ rows }: { rows: PatientRow[] }) {
                   <th className="px-3 py-2">Age / sex</th>
                   <th className="px-3 py-2">Joined</th>
                   <th className="px-3 py-2">Purchases</th>
-                  <th className="px-3 py-2">Platform credit</th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -205,12 +200,6 @@ function PatientTableRow({ row }: { row: PatientRow }) {
             </>
           )}
         </td>
-        <td className="px-3 py-2 text-charcoal-ink/80">
-          {naira(row.platformCreditBalanceKobo)}
-          {row.platformCreditPromoBalanceKobo > 0 && (
-            <p className="text-xs text-charcoal-ink/50">incl. {naira(row.platformCreditPromoBalanceKobo)} promo</p>
-          )}
-        </td>
         <td className="px-3 py-2 text-right">
           <Button type="button" size="sm" variant="ghost" onClick={() => setExpanded((v) => !v)}>
             {expanded ? "Hide" : "Manage"}
@@ -219,7 +208,7 @@ function PatientTableRow({ row }: { row: PatientRow }) {
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={7} className="space-y-3 bg-charcoal-ink/[0.03] px-3 py-3">
+          <td colSpan={6} className="space-y-3 bg-charcoal-ink/[0.03] px-3 py-3">
             {row.purchases.length > 0 && (
               <ul className="space-y-1">
                 {row.purchases.map((p, i) => (
@@ -233,11 +222,6 @@ function PatientTableRow({ row }: { row: PatientRow }) {
                 ))}
               </ul>
             )}
-            <PlatformCreditPanel
-              patientId={row.id}
-              balanceKobo={row.platformCreditBalanceKobo}
-              promoBalanceKobo={row.platformCreditPromoBalanceKobo}
-            />
           </td>
         </tr>
       )}

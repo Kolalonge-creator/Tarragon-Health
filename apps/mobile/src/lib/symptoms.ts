@@ -1,3 +1,5 @@
+import { enqueue, flushOutbox, listOutbox } from "./outbox";
+import { pullChangesThrottled, readLocalRecords } from "./offline-store";
 import type { Enums, Tables } from "@tarragon/shared";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
@@ -121,14 +123,31 @@ export function dangerSignsSummary(signs: DangerSign[]): string {
 
 /** Mirrors useSymptomLogs in apps/web/src/lib/queries/symptoms.ts. */
 export async function loadSymptomHistory(patientId: string, limit = 20): Promise<QueryResult<SymptomLog[]>> {
-  const { data, error } = await supabase
-    .from("symptoms")
-    .select("*")
-    .eq("patient_id", patientId)
-    .order("reported_at", { ascending: false })
-    .limit(limit);
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, data: data ?? [] };
+  try {
+    const { data, error } = await supabase
+      .from("symptoms")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("reported_at", { ascending: false })
+      .limit(limit);
+    if (!error) {
+      pullChangesThrottled(patientId);
+      return { ok: true, data: data ?? [] };
+    }
+    return await localSymptoms(patientId, limit, error.message);
+  } catch (e) {
+    return await localSymptoms(patientId, limit, e instanceof Error ? e.message : String(e));
+  }
+}
+
+/** Offline read (S06): the last copy pulled from the server. With none, report the failure. */
+async function localSymptoms(patientId: string, limit: number, serverError: string): Promise<QueryResult<SymptomLog[]>> {
+  const local = await readLocalRecords<SymptomLog>("symptom", patientId, limit);
+  if (local.length === 0) return { ok: false, error: serverError };
+  return {
+    ok: true,
+    data: [...local].sort((a, b) => b.reported_at.localeCompare(a.reported_at)).slice(0, limit),
+  };
 }
 
 /**
@@ -176,6 +195,12 @@ export interface LogSymptomInput {
 export interface LogSymptomResult {
   success?: boolean;
   error?: string;
+  /** True once this symptom is on the server; false means it is saved on this
+   * phone and waiting (offline-outbox, S06). */
+  synced?: boolean;
+  clientId?: string;
+  /** Set when the server refused this symptom; it is kept on the phone, not sent again automatically. */
+  rejectedSupportCode?: string;
 }
 
 /**
@@ -185,26 +210,40 @@ export interface LogSymptomResult {
  * trigger a web-logged symptom fires) derives it server-side from
  * symptom_type/severity and raises the clinician_alerts escalation, so a
  * client on either platform can't under-report a red flag by omission.
+ *
+ * S06: saved to the on-device outbox first (works with no signal), then sent
+ * at once. The organisation lookup and the supporter permission check happen
+ * at send time, so they no longer block logging offline; the database
+ * (RLS, can_act_for) is still the real gate and a refusal shows as a row that
+ * could not be saved, never as a silent loss.
  */
 export async function logSymptom(
   patientId: string,
   input: LogSymptomInput,
   beneficiaryProfileId?: string
 ): Promise<LogSymptomResult> {
-  const subject = await resolveWriteSubject(patientId, beneficiaryProfileId);
-  if ("error" in subject) return { error: subject.error };
-  const org = await resolveOrganisationId(subject.subjectId);
-  if ("error" in org) return { error: org.error };
-
-  const { error } = await supabase.from("symptoms").insert({
-    organisation_id: org.organisationId,
-    patient_id: subject.subjectId,
-    symptom_type: input.symptomType,
-    severity: input.severity,
-    description: input.description?.trim() || null,
-  });
-  if (error) return { error: error.message };
-  return { success: true };
+  const subjectId = beneficiaryProfileId && beneficiaryProfileId !== patientId ? beneficiaryProfileId : patientId;
+  let queued;
+  try {
+    queued = await enqueue({
+      kind: "symptom",
+      subjectId,
+      beneficiaryProfileId: subjectId === patientId ? undefined : subjectId,
+      payload: {
+        symptom_type: input.symptomType,
+        severity: input.severity,
+        description: input.description?.trim() || null,
+      },
+    });
+  } catch {
+    return { error: "Couldn't save this on your phone. Try again." };
+  }
+  await flushOutbox();
+  const stillThere = (await listOutbox("symptom")).find((row) => row.clientId === queued.clientId);
+  if (stillThere?.state === "rejected") {
+    return { success: true, synced: false, clientId: queued.clientId, rejectedSupportCode: stillThere.supportCode };
+  }
+  return { success: true, synced: !stillThere, clientId: queued.clientId };
 }
 
 export interface ReportDangerSymptomsResult {

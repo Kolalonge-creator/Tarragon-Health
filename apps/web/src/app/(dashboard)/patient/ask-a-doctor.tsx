@@ -7,7 +7,7 @@ import {
   type AsyncConsultWithAnswerer,
 } from "@/lib/queries/async-consults";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
+import { PayByCard } from "@/components/billing/pay-by-card";
 import {
   asyncConsultSchema,
   ASYNC_CONSULT_CATEGORIES,
@@ -70,8 +70,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
 
 /**
  * "Ask a doctor" — the structured async visit (One Medical Treat-Me-Now on
- * Tarragon rails). Entirely in-app; WhatsApp support chat stays a separate,
- * human-routed channel. Deliberately NOT an emergency pathway — the red-flag
+ * Tarragon rails). Entirely in-app. Deliberately NOT an emergency pathway — the red-flag
  * line below routes urgent symptoms to the existing danger-symptom flow.
  */
 export function AskADoctor({
@@ -166,8 +165,7 @@ export function AskADoctor({
               access.
             </p>
             <FormError id={creditErrorId} message={formError} />
-            <PayWithCreditOrCard
-              patientId={patientId}
+            <PayByCard
               serviceProductCode={ASYNC_CONSULT_CREDIT_CODE}
               callbackPath="/patient/care"
               onError={setFormError}

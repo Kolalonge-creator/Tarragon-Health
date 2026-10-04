@@ -10,8 +10,9 @@ import {
 import { isClinicalTier } from "@tarragon/shared";
 import { formatDoctorName } from "@/lib/doctor-name";
 import type { SectionId } from "@/lib/sections";
-import { colors, spacing } from "@/ui/theme";
-import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, SecondaryButton, ScreenTitle } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, SecondaryButton, ScreenTitle } from "@/ui/legacy-kit";
 
 const PAGE_SIZE = 20;
 
@@ -71,6 +72,7 @@ interface TimelineScreenProps {
 }
 
 export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
+  const colors = useLegacyColors();
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -101,7 +103,7 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
   const hasMore = events.length === limit;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <View>
         <ScreenTitle>Full activity timeline</ScreenTitle>
         <MutedText>Every update to your record, newest first.</MutedText>
@@ -159,7 +161,7 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
               }}
             />
           ) : (
-            <Text style={{ textAlign: "center", color: colors.faint, fontSize: 13 }}>
+            <Text style={{ textAlign: "center", color: colors.subtle, fontSize: 13 }}>
               You&apos;ve reached the beginning of your record.
             </Text>
           )}

@@ -139,7 +139,8 @@ export function PreVisitSummary({
         {!isLoading && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-md bg-charcoal-ink/5 p-2.5 text-xs">
             <span className="text-charcoal-ink/70">
-              Medication: {activeMedCount} active
+              {/* A refused or failed read is not "0 active": say so (INV-10). */}
+              Medication: {medications.isError ? "not available to you" : `${activeMedCount} active`}
             </span>
             <span className={nextAction?.urgent ? "font-medium text-red-700" : "text-charcoal-ink/70"}>
               Next action: {nextAction?.text ?? "None flagged"}

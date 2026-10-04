@@ -2,6 +2,7 @@
 
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { loadCohortAnalytics } from "@/lib/corporate/load-cohort-analytics";
 import { getContractPerformance } from "@/lib/outcomes-contracts/get-contract-performance";
 import { loadCareGaps } from "@/lib/care-gaps/load-care-gaps";
@@ -77,7 +78,10 @@ export async function generateOutcomeReport(
   const [careGaps, costAvoided, medicationOutcomes] = await Promise.all([
     loadCareGaps(reader, organisationId, minCohortSize),
     estimateCostAvoided(reader, organisationId, analytics.abnormal_findings_count),
-    loadMedicationOutcomes(reader, organisationId),
+    // INV-10: medications are closed to direct staff reads, so a care-team session would silently count zero stops and the saved report
+    // would record "no de-prescribing". The caller is already authorised for this organisation above (admin, or a non-patient of this
+    // organisation); the loader returns counts only, filtered by that organisation, the same aggregate the institution dashboards use.
+    loadMedicationOutcomes(access?.client ?? createServiceRoleClient(), organisationId),
   ]);
 
   const { error } = await supabase.from("outcome_reports").insert({

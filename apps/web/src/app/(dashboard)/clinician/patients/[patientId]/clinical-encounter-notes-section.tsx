@@ -484,7 +484,8 @@ export function ClinicalEncounterNotesSection({
   patientName: string;
   patientDateOfBirth: string | null;
 }) {
-  const { data: notes, isLoading } = usePatientEncounterNotes(patientId);
+  const { data: notesData, isLoading, isError } = usePatientEncounterNotes(patientId);
+  const notes = notesData?.notes;
 
   const body = (
     <div className="space-y-4">
@@ -498,7 +499,18 @@ export function ClinicalEncounterNotesSection({
         />
       )}
       {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-      {!isLoading && (notes?.length ?? 0) === 0 && (
+      {isError && (
+        <p role="alert" className="text-sm text-amber-700">
+          The clinical notes are not available to you for this patient (you are not on their care team), or could not be loaded. This is
+          not the same as no notes.
+        </p>
+      )}
+      {notesData?.scope === "own_only" && (
+        <p className="text-xs text-amber-700">
+          You are not on this patient&apos;s care team, so only the notes you wrote are shown.
+        </p>
+      )}
+      {!isLoading && !isError && (notes?.length ?? 0) === 0 && (
         <p className="text-sm text-charcoal-ink/60">No clinical notes yet.</p>
       )}
       {notes?.map((note) =>

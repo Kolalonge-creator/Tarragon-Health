@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Check, Gift } from "lucide-react";
 import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { NIGERIAN_STATES } from "@/lib/nigeria-states";
@@ -13,10 +13,14 @@ import { Select } from "@/components/ui/select";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULE_HINT } from "@/lib/validation/password";
+import { t, type Locale } from "@tarragon/i18n";
+import { cn } from "@/lib/utils";
+import { LanguageSwitch } from "@/components/auth/language-switch";
+import { PhoneSignupForm } from "./phone-signup-form";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
-export function SignupForm({
+function EmailSignupForm({
   refCode,
   intent,
   redirectTo,
@@ -194,5 +198,45 @@ export function SignupForm({
         {pending ? "Creating account…" : "Create account"}
       </Button>
     </form>
+  );
+}
+
+/**
+ * Sign-up with a phone number or an email address (S03, function 1.1). Email stays the default so every existing
+ * link and test lands where it always did; the Phone tab is the phone-first path with a six-digit code.
+ */
+export function SignupForm({
+  locale = "en",
+  ...props
+}: {
+  locale?: Locale;
+  refCode?: string;
+  intent?: "health_check" | "support";
+  redirectTo?: string;
+}) {
+  const [method, setMethod] = useState<"email" | "phone">("email");
+
+  return (
+    <div className="space-y-5">
+      <LanguageSwitch locale={locale} />
+      <div role="tablist" aria-label={t("auth.signup.title", locale)} className="grid grid-cols-2 rounded-xl bg-charcoal-ink/5 p-1 text-sm font-medium">
+        {(["email", "phone"] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={method === value}
+            onClick={() => setMethod(value)}
+            className={cn(
+              "rounded-lg py-1.5 transition-colors",
+              method === value ? "bg-white text-brand-green shadow-sm" : "text-charcoal-ink/60"
+            )}
+          >
+            {t(value === "email" ? "auth.method.email" : "auth.method.phone", locale)}
+          </button>
+        ))}
+      </div>
+      {method === "email" ? <EmailSignupForm {...props} /> : <PhoneSignupForm locale={locale} {...props} />}
+    </div>
   );
 }

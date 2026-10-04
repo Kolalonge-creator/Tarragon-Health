@@ -30,6 +30,11 @@ const consentTypeSchema = z.enum([
   "marketing",
   "research",
   "wearable_device_data",
+  // v5 (S02): recorded by later sessions; no consent_versions row exists for these yet.
+  "care",
+  "care_circle_sharing",
+  "sponsor_reporting",
+  "scribe_default",
 ]);
 
 /**

@@ -24,9 +24,7 @@ export async function recordWeight(
   supabase: Awaited<ReturnType<typeof createClient>>,
   profileId: string
 ): Promise<RecordWeight> {
-  const count = async (
-    table: "vitals_readings" | "medications" | "screening_results" | "lab_result_documents" | "appointments"
-  ) => {
+  const count = async (table: "screening_results" | "lab_result_documents" | "appointments") => {
     const { count: rows, error } = await supabase
       .from(table)
       .select("id", { count: "exact", head: true })
@@ -37,9 +35,19 @@ export async function recordWeight(
     if (error) throw error;
     return rows ?? 0;
   };
-  const [vitals, medications, screeningResults, resultDocuments, appointments] = await Promise.all([
-    count("vitals_readings"),
-    count("medications"),
+  // Medications and vitals are closed to direct staff reads (INV-10): a head-count through RLS would silently read 0, so they are counted by
+  // a permission-gated function that returns counts only.
+  const clinicalCounts = async () => {
+    const { data, error } = await supabase.rpc("patient_record_counts_for_merge", { p_patient: profileId });
+    if (error) throw error;
+    const counts = data as { medications?: unknown; vitals_readings?: unknown } | null;
+    if (!counts || typeof counts.medications !== "number" || typeof counts.vitals_readings !== "number") {
+      throw new Error("unexpected merge counts response");
+    }
+    return { medications: counts.medications, vitals: counts.vitals_readings };
+  };
+  const [{ medications, vitals }, screeningResults, resultDocuments, appointments] = await Promise.all([
+    clinicalCounts(),
     count("screening_results"),
     count("lab_result_documents"),
     count("appointments"),

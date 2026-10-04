@@ -48,14 +48,7 @@ export const MEASUREMENT_TYPES = [
 ] as const;
 export type MeasurementType = (typeof MEASUREMENT_TYPES)[number];
 
-/**
- * How a measurement entered the system.
- *
- * NON-NEGOTIABLE: `whatsapp` is intentionally NOT a member. Inbound WhatsApp is
- * parsed for intent only and is never promoted to an authoritative measurement
- * (spec §4.3 rule, §10.4; CLAUDE.md WhatsApp business rule). Enforced in code
- * and covered by tests.
- */
+/** How a measurement entered the system. */
 export const MEASUREMENT_SOURCES = ["app", "web", "coordinator", "device"] as const;
 export type MeasurementSource = (typeof MEASUREMENT_SOURCES)[number];
 
@@ -198,7 +191,7 @@ export interface MonitoringItem {
 }
 export type MonitoringSchedule = MonitoringItem[];
 
-export interface WhatsAppCadenceConfig {
+export interface NudgeCadenceConfig {
   /** Per-phase reminder/nudge frequency, keyed by phase key. */
   byPhase: Record<string, { remindersPerWeek: number; nudgesPerWeek: number }>;
 }
@@ -222,7 +215,7 @@ export interface ConditionAdapter {
   targets: TargetSet;
   monitoring: MonitoringSchedule;
   redFlags: RedFlagRule[];
-  cadence: WhatsAppCadenceConfig;
+  cadence: NudgeCadenceConfig;
   contentPackId: string;
   guardrails: AdapterGuardrails;
 }

@@ -1,8 +1,9 @@
 -- ===========================================================================
 -- Verification: private.queue_medication_dose_reminders() (20260829190315)
 -- — medication safety pathway 64.7/64.8. A schedule_times entry matching
--- "right now" (Africa/Lagos) queues a whatsapp + in_app reminder and is
--- deduped on a second run; a slot already logged, or far outside the
+-- "right now" (Africa/Lagos) queues a reminder on the channel
+-- private.patient_reminder_channel() returns (push, email or in_app) plus an
+-- in_app reminder, and is deduped on a second run; a slot already logged, or far outside the
 -- window, is never reminded.
 --
 -- Uses the ACTUAL current Africa/Lagos time (truncated to the minute) as
@@ -40,6 +41,12 @@ begin
   end if;
   select id into v_patient from public.profiles where role = 'patient' and organisation_id = v_org limit 1;
 
+  -- Pin the fixture patient to a deterministic channel: no email preference and
+  -- one active push subscription, so the helper must return push.
+  update public.profiles set notification_channel_preference = null where id = v_patient;
+  insert into public.push_subscriptions (organisation_id, profile_id, endpoint, p256dh_key, auth_key)
+  values (v_org, v_patient, 'https://push.example.invalid/mdtr-' || gen_random_uuid()::text, 'k', 'a');
+
   -- Due right now: schedule_times contains the current minute.
   insert into public.medications
     (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, schedule_times)
@@ -70,22 +77,28 @@ begin
 end $$;
 
 -- ==========================================================================
--- 1. A schedule_times entry matching now queues whatsapp + in_app and
+-- 1. A schedule_times entry matching now queues push (the patient's reminder
+--    channel) + in_app and
 --    stamps the dedup table; a second run does not double-send.
 -- ==========================================================================
 do $$
 declare
   v_patient uuid := (select v from mdtr_fixture where k = 'patient')::uuid;
   v_med uuid := (select v from mdtr_fixture where k = 'med_due')::uuid;
-  v_whatsapp_1 bigint;
+  v_chan_1 bigint;
   v_in_app_1 bigint;
   v_dedup_1 bigint;
-  v_whatsapp_2 bigint;
+  v_chan_2 bigint;
+  v_ch public.notification_channel := private.patient_reminder_channel(v_patient);
 begin
+  if v_ch <> 'push' then
+    raise exception 'VACUOUS: fixture patient resolved to % instead of push', v_ch;
+  end if;
   perform private.queue_medication_dose_reminders();
 
-  select count(*) into v_whatsapp_1 from public.notifications
-  where recipient_id = v_patient and template = 'medication_dose_reminder' and channel = 'whatsapp'
+  select count(*) into v_chan_1 from public.notifications
+  where recipient_id = v_patient and template = 'medication_dose_reminder' and channel = v_ch
+    and channel in ('push', 'email', 'in_app')
     and (payload->>'medication_id')::uuid = v_med;
   select count(*) into v_in_app_1 from public.notifications
   where recipient_id = v_patient and template = 'medication_dose_reminder' and channel = 'in_app'
@@ -93,23 +106,23 @@ begin
   select count(*) into v_dedup_1 from public.medication_dose_reminders where medication_id = v_med;
 
   insert into mdtr_result values
-    ('a dose due right now queues whatsapp + in_app and stamps the dedup table', 'system',
-     format('whatsapp=%s/in_app=%s/dedup=%s', v_whatsapp_1, v_in_app_1, v_dedup_1),
-     'whatsapp=1/in_app=1/dedup=1',
-     case when v_whatsapp_1 = 1 and v_in_app_1 = 1 and v_dedup_1 = 1 then 'PASS' else 'FAIL' end);
-  if v_whatsapp_1 <> 1 or v_in_app_1 <> 1 or v_dedup_1 <> 1 then
-    raise exception 'BROKEN: a due-now dose did not queue exactly one whatsapp + one in_app reminder';
+    ('a dose due right now queues a push (reminder channel) + in_app and stamps the dedup table', 'system',
+     format('push=%s/in_app=%s/dedup=%s', v_chan_1, v_in_app_1, v_dedup_1),
+     'push=1/in_app=1/dedup=1',
+     case when v_chan_1 = 1 and v_in_app_1 = 1 and v_dedup_1 = 1 then 'PASS' else 'FAIL' end);
+  if v_chan_1 <> 1 or v_in_app_1 <> 1 or v_dedup_1 <> 1 then
+    raise exception 'BROKEN: a due-now dose did not queue exactly one reminder-channel + one in_app reminder';
   end if;
 
   perform private.queue_medication_dose_reminders();
-  select count(*) into v_whatsapp_2 from public.notifications
-  where recipient_id = v_patient and template = 'medication_dose_reminder' and channel = 'whatsapp'
+  select count(*) into v_chan_2 from public.notifications
+  where recipient_id = v_patient and template = 'medication_dose_reminder' and channel = v_ch
     and (payload->>'medication_id')::uuid = v_med;
 
   insert into mdtr_result values
     ('running the sweep again does not double-send for the same slot', 'system',
-     v_whatsapp_2::text, '1', case when v_whatsapp_2 = 1 then 'PASS' else 'FAIL' end);
-  if v_whatsapp_2 <> 1 then
+     v_chan_2::text, '1', case when v_chan_2 = 1 then 'PASS' else 'FAIL' end);
+  if v_chan_2 <> 1 then
     raise exception 'BROKEN: re-running the sweep sent a duplicate reminder for the same slot';
   end if;
 end $$;
@@ -156,6 +169,41 @@ begin
      v_count::text, '0', case when v_count = 0 then 'PASS' else 'FAIL' end);
   if v_count <> 0 then
     raise exception 'BROKEN: an already-logged dose was incorrectly reminded';
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 4. SABOTAGE: if the sweep queued on a channel other than the helper's
+--    (here a helper forced to sms), the reminder-channel check of section 1
+--    must fail. Redo the sweep for the due medication under the sabotaged
+--    helper and evaluate the same predicate; the DDL and rows are undone.
+-- ==========================================================================
+do $$
+declare
+  v_patient uuid := (select v from mdtr_fixture where k = 'patient')::uuid;
+  v_med uuid := (select v from mdtr_fixture where k = 'med_due')::uuid;
+  v_push bigint;
+begin
+  begin
+    delete from public.notifications
+     where recipient_id = v_patient and template = 'medication_dose_reminder'
+       and (payload->>'medication_id')::uuid = v_med;
+    delete from public.medication_dose_reminders where medication_id = v_med;
+    create or replace function private.patient_reminder_channel(p_recipient uuid, p_allow_email boolean default true)
+    returns public.notification_channel language sql stable as $f$ select 'sms'::public.notification_channel $f$;
+    perform private.queue_medication_dose_reminders();
+    select count(*) into v_push from public.notifications
+     where recipient_id = v_patient and template = 'medication_dose_reminder' and channel = 'push'
+       and (payload->>'medication_id')::uuid = v_med;
+    raise exception 'sabotage_undo';
+  exception when others then
+    if sqlerrm <> 'sabotage_undo' then raise; end if;
+  end;
+  insert into mdtr_result values
+    ('SABOTAGE: a sweep not using the patient reminder channel fails the push check', 'system',
+     v_push::text, '0', case when v_push = 0 then 'PASS' else 'FAIL' end);
+  if v_push <> 0 then
+    raise exception 'VACUOUS TEST: a push row still appeared with the helper sabotaged';
   end if;
 end $$;
 

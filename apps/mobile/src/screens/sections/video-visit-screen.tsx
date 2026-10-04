@@ -8,8 +8,9 @@ import {
   type ConsultationSummary,
 } from "@/lib/video-visit";
 import { startThread } from "@/lib/messages";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 function formatSlot(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -32,10 +33,11 @@ interface VideoVisitScreenProps {
  * see lib/video-visit.ts's header for what's scoped down and why. Joining
  * itself is already native (Overview's "Join call" banner); this covers
  * visit details, prep notes, the post-visit summary, and reporting a
- * technical problem via the existing in-app Messages thread (never
- * WhatsApp -- see CLAUDE.md's Non-Negotiable Business Rules).
+ * technical problem via the existing in-app Messages thread.
  */
 export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenProps) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [consult, setConsult] = useState<VideoConsultation | null>(null);
   const [summary, setSummary] = useState<ConsultationSummary | null>(null);
@@ -107,7 +109,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
 
   if (!consult) {
     return (
-      <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+      <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
         <SecondaryButton title="Back" onPress={onBack} />
         <MutedText>Visit not found.</MutedText>
       </ScrollView>
@@ -118,7 +120,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
   const isPast = consult.status !== "scheduled";
 
   return (
-    <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <SecondaryButton title="Back" onPress={onBack} />
 
       <Card style={{ gap: 10 }}>
@@ -130,8 +132,8 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
         </View>
         <MutedText>{consult.scheduled_at ? formatSlot(consult.scheduled_at) : "Time to be confirmed"}</MutedText>
 
-        <View style={{ backgroundColor: "#FEF2F2", borderRadius: radius.card, padding: 12 }}>
-          <Text style={{ color: "#B91C1C", fontSize: 13.5, fontWeight: "600" }}>
+        <View style={{ backgroundColor: colors.dangerBg, borderRadius: radius.card, padding: 12 }}>
+          <Text style={{ color: colors.danger, fontSize: 13.5, fontWeight: "600" }}>
             Not for emergencies. If this is an emergency, go to the nearest emergency department now.
           </Text>
         </View>
@@ -150,30 +152,30 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
         <Card style={{ gap: 8 }}>
           <SectionLabel>Your visit summary</SectionLabel>
           <View>
-            <Text style={{ fontSize: 12, color: colors.faint }}>What we discussed</Text>
+            <Text style={{ fontSize: 12, color: colors.subtle }}>What we discussed</Text>
             <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.what_we_discussed}</Text>
           </View>
           {summary.what_you_need_to_do && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.faint }}>What you need to do</Text>
+              <Text style={{ fontSize: 12, color: colors.subtle }}>What you need to do</Text>
               <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.what_you_need_to_do}</Text>
             </View>
           )}
           {summary.medicines_note && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.faint }}>Medicines</Text>
+              <Text style={{ fontSize: 12, color: colors.subtle }}>Medicines</Text>
               <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.medicines_note}</Text>
             </View>
           )}
           {summary.tests_note && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.faint }}>Tests</Text>
+              <Text style={{ fontSize: 12, color: colors.subtle }}>Tests</Text>
               <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.tests_note}</Text>
             </View>
           )}
           {summary.next_appointment_note && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.faint }}>Next appointment</Text>
+              <Text style={{ fontSize: 12, color: colors.subtle }}>Next appointment</Text>
               <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.next_appointment_note}</Text>
             </View>
           )}
@@ -188,11 +190,11 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
             <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>
               What would you like to talk about? (optional)
             </Text>
-            <TextInput
+            <TextInput keyboardAppearance={scheme}
               value={notes}
               onChangeText={setNotes}
               placeholder="Reason for the visit, symptoms, anything you want your doctor to know beforehand…"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               multiline
               numberOfLines={3}
               style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 14, color: colors.ink }}
@@ -213,11 +215,11 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
               <MutedText>Reported. Your care team will follow up in Messages.</MutedText>
             ) : reportOpen ? (
               <View style={{ gap: 8 }}>
-                <TextInput
+                <TextInput keyboardAppearance={scheme}
                   value={reportText}
                   onChangeText={setReportText}
                   placeholder="What's going wrong? (e.g. camera won't turn on, can't hear the doctor)"
-                  placeholderTextColor={colors.faint}
+                  placeholderTextColor={colors.subtle}
                   multiline
                   numberOfLines={2}
                   style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 14, color: colors.ink }}

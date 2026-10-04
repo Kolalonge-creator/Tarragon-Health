@@ -8,21 +8,9 @@ import type { Enums } from "@tarragon/shared";
  * deliberately not ported ("the paid prescription-renewal purchase flow").
  * Mirrors apps/web/src/lib/queries/pharmacy-orders.ts's
  * usePatientPharmacyOrders (a plain RLS-scoped read, same client every
- * other native screen already uses — see e.g. lib/lab-orders.ts) and
- * apps/web/src/lib/queries/platform-credit.ts's usePayPharmacyOrderWithCredit
- * (a direct `supabase.rpc()` call against
- * public.pay_pharmacy_order_on_platform_credit).
- *
- * Deliberately no mobile-passthrough Next.js route for the payment step:
- * that RPC is already SECURITY DEFINER, `grant execute ... to authenticated`,
- * and re-checks caller ownership/status/balance itself — exactly like every
- * other RPC this app already calls directly from the client (see e.g.
- * lib/appointments.ts's hold_appointment_slot, lib/care.ts's
- * complete_care_task). Adding a Next.js route that re-wraps a call this
- * client can already make safely and directly would be a redundant hop, not
- * a security boundary — same reasoning the web app already follows for this
- * exact RPC (apps/web/src/lib/queries/platform-credit.ts calls it straight
- * from the browser client, not through a server action).
+ * other native screen already uses — see e.g. lib/lab-orders.ts). Payment
+ * is by card only, handed off to the web payment page in the system browser
+ * (see pharmacy-orders-section.tsx); there is no in-app payment call here.
  *
  * Read-only for order CREATION, deliberately: private.enforce_pharmacy_order_origin
  * does let a patient self-initiate an order (origin='patient_initiated',
@@ -37,7 +25,7 @@ import type { Enums } from "@tarragon/shared";
  * replacement. What's real and live is a pharmacy_orders row a clinician/
  * system already created (the ordered_by path) sitting at pending_payment —
  * this file covers what a patient needs to do with one of those: see it,
- * and pay for it.
+ * and open the web page to pay for it.
  */
 
 export type PharmacyOrderStatus = Enums<"pharmacy_order_status">;
@@ -93,45 +81,6 @@ export async function getPharmacyOrders(patientId: string): Promise<QueryResult<
         fulfilmentMethod: row.fulfilment_method,
       })),
     };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
-  }
-}
-
-/** Mirrors apps/web/src/lib/queries/platform-credit.ts's
- * PayPharmacyOrderWithCreditResult exactly — the RPC's own jsonb shape. */
-export type PayPharmacyOrderWithCreditResult =
-  | { ok: true; pharmacy_order_id: string; amount_kobo: number; new_balance_kobo: number }
-  | { ok: true; already_active: boolean }
-  | { ok: false; reason: "not_payable"; status: string }
-  | {
-      ok: false;
-      reason: "insufficient_balance";
-      balance_kobo: number;
-      required_kobo: number;
-      shortfall_kobo: number;
-    };
-
-/**
- * Pays a pending_payment pharmacy order entirely out of the caller's
- * platform credit balance — the same single RPC the web "Pay with Platform
- * Credit" dialog calls (public.pay_pharmacy_order_on_platform_credit checks
- * ownership/status/balance and activates the order atomically; see that
- * migration's header for the full mechanism). The `ok`/`error` envelope here
- * is only for a technical failure (network drop, RLS denial, RPC threw) — a
- * legitimate business rejection (not payable any more, insufficient
- * balance) comes back as `{ ok: true, data: { ok: false, reason: ... } }`,
- * exactly like every other QueryResult-wrapped RPC call in this app.
- */
-export async function payPharmacyOrderWithCredit(
-  pharmacyOrderId: string
-): Promise<QueryResult<PayPharmacyOrderWithCreditResult>> {
-  try {
-    const { data, error } = await supabase.rpc("pay_pharmacy_order_on_platform_credit", {
-      p_pharmacy_order_id: pharmacyOrderId,
-    });
-    if (error) return { ok: false, error: error.message };
-    return { ok: true, data: data as PayPharmacyOrderWithCreditResult };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

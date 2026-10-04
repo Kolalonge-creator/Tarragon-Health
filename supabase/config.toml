@@ -30,32 +30,60 @@ enabled = true
 
 [auth]
 enabled = true
-# Every patient must be reachable via WhatsApp/SMS; phone is a first-class
+# Every patient must be reachable via in-app/push/email; phone is a first-class
 # identity alongside email.
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000"]
 jwt_expiry = 3600
 enable_signup = true
+# S03: the server-side floor matches the 8-character rule the forms show. Without it GoTrue's own default (6)
+# lets a direct API call bypass the form.
+minimum_password_length = 8
 
 [auth.email]
 enable_signup = true
 enable_confirmations = true
 
-# Phone OTP (Termii/WhatsApp in production; see ARCHITECTURE.md §8). Numbers
+# Phone OTP (Termii SMS in production; see ARCHITECTURE.md §8). Numbers
 # are always stored E.164 (+234XXXXXXXXXX).
 [auth.sms]
 enable_signup = true
 enable_confirmations = true
-template = "Your Tarragon Health code is {{ .Code }}"
+template = "Your TarragonHealth code is {{ .Code }}"
+# S03 (spec 8.2): six-digit code, 60 second resend. The per-phone hourly cap (5) is enforced in the hook
+# (supabase/functions/auth-send-sms-hook), keyed on the phone so rotating IPs cannot bypass it.
+otp_length = 6
+max_frequency = "60s"
+
+# S03: fixed one-time codes for the browser E2E suite (apps/web/e2e-browser/phone-auth.spec.ts). GoTrue accepts the listed
+# code for exactly these numbers and sends no SMS, so the flows run with no provider. LOCAL STACK ONLY: this file is never
+# applied to the hosted project, and these numbers are reserved for tests.
+[auth.sms.test_otp]
+2348031230001 = "123456"
+2348031230002 = "123456"
+2348031230003 = "123456"
+2348031230004 = "123456"  # the direct GoTrue sign-up test; that user is left in place (see phone-auth.spec.ts)
+
+# S03: the Supabase CLI DISABLES phone sign-up and sign-in on the local stack when no SMS provider is enabled ("WARN: no SMS
+# provider is enabled. Disabling phone login", seen in the CI log), which made every phone flow in the browser E2E suite fail
+# with "Phone signups are disabled". This placeholder satisfies that check. It is NEVER called: every number the E2E suite
+# uses is in [auth.sms.test_otp] above, which GoTrue answers without sending. Local stack only; the hosted project uses the
+# Send SMS hook instead (docs/OPEN-QUESTIONS.md OQ-44).
+[auth.sms.twilio]
+enabled = true
+account_sid = "local-e2e-placeholder"
+message_service_sid = "local-e2e-placeholder"
+auth_token = "local-e2e-placeholder"
+
+# S03: the Send SMS hook is enabled in the hosted project's dashboard (Authentication > Hooks), not here. Enabling it
+# locally needs SEND_SMS_HOOK_SECRET in the environment; leave it off so `supabase start` and CI stay hermetic.
+# [auth.hook.send_sms]
+# enabled = true
+# uri = "http://host.docker.internal:54321/functions/v1/auth-send-sms-hook"
+# secrets = "env(SEND_SMS_HOOK_SECRET)"
 
 [edge_runtime]
 enabled = true
-
-# Meta calls this unauthenticated (no Supabase JWT) — GET handshake uses
-# hub.verify_token, POST is validated via X-Hub-Signature-256 when
-# WHATSAPP_APP_SECRET is set (docs/ARCHITECTURE.md §8).
-[functions.whatsapp-webhook]
-verify_jwt = false
 
 # Paystack calls this unauthenticated (no Supabase JWT) — validated instead
 # via HMAC-SHA512 x-paystack-signature when PAYSTACK_WEBHOOK_SECRET is set.
@@ -67,4 +95,8 @@ verify_jwt = false
 # is set. Also answers Zoom's one-time endpoint.url_validation handshake
 # needed to activate the webhook subscription.
 [functions.zoom-webhook]
+verify_jwt = false
+
+# Supabase Auth calls this hook with a Standard Webhooks signature, not a JWT (handler.ts verifies it).
+[functions.auth-send-sms-hook]
 verify_jwt = false

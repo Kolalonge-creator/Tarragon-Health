@@ -1213,7 +1213,7 @@ export async function acknowledgeEmergency(eventId: string): Promise<EmergencyEv
 }
 
 /**
- * Immediately messages the patient's saved emergency contact (SMS + WhatsApp)
+ * Immediately messages the patient's saved emergency contact (SMS)
  * for one of their own active events, without waiting for the acknowledge-gated
  * timeout. Ownership is verified via the patient's own RLS-scoped session
  * before any service-role write (same pattern as the AI-coach escalation) —
@@ -1281,14 +1281,6 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
       organisation_id: event.organisation_id,
       recipient_id: subjectId,
       channel: "sms",
-      status: "pending",
-      template: "emergency_contact_alert",
-      payload,
-    },
-    {
-      organisation_id: event.organisation_id,
-      recipient_id: subjectId,
-      channel: "whatsapp",
       status: "pending",
       template: "emergency_contact_alert",
       payload,
@@ -1601,7 +1593,7 @@ export async function setPatientReportedDiabetesType(
  * Fire-and-forget from the client's point of view: this never throws, so a
  * failed safety check can never make "medication added" look like it failed.
  */
-export async function checkMedicationSafetyAfterAdd(patientId: string): Promise<void> {
+export async function checkMedicationSafetyAfterAdd(patientId: string): Promise<{ allergyCheckSkipped: boolean }> {
   try {
     const { assessMedicationSafetyBestEffort } = await import("@/lib/clinical/patient-clinical-context");
     const supabase = await createClient();
@@ -1610,9 +1602,10 @@ export async function checkMedicationSafetyAfterAdd(patientId: string): Promise<
       .select("organisation_id")
       .eq("id", patientId)
       .single();
-    if (!profile?.organisation_id) return;
-    await assessMedicationSafetyBestEffort(supabase, patientId, profile.organisation_id);
+    if (!profile?.organisation_id) return { allergyCheckSkipped: false };
+    return await assessMedicationSafetyBestEffort(supabase, patientId, profile.organisation_id);
   } catch {
     // Best-effort follow-up — never let this surface to the caller.
+    return { allergyCheckSkipped: false };
   }
 }

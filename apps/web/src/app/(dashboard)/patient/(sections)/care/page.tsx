@@ -23,7 +23,6 @@ import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
 import { ServiceNavigationAssistant } from "@/app/(dashboard)/patient/service-navigation-assistant";
 import { CareCircleCard } from "@/app/(dashboard)/patient/care-circle-card";
 import { CareVouchersCard } from "@/components/care-vouchers-card";
-import { PlatformCreditCard } from "@/components/platform-credit-card";
 import { WellnessPointsSummary } from "@/app/(dashboard)/patient/wellness-points-summary";
 import { GoalsAndMilestonesCard } from "@/app/(dashboard)/patient/goals-and-milestones-card";
 import { TestimonialForm } from "@/components/testimonial-form";
@@ -107,7 +106,6 @@ export default async function PatientCarePage() {
 
       {/* Discretionary / engagement surfaces — real features, deliberately
           lower priority than anything above. */}
-      <PlatformCreditCard patientId={subjectId} />
       <CareVouchersCard patientId={subjectId} />
       <WellnessPointsSummary patientId={subjectId} />
       <GoalsAndMilestonesCard patientId={subjectId} />

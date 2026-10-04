@@ -1,3 +1,4 @@
+import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
@@ -62,7 +63,7 @@ export default async function DoctorProfilePage({
 
   return (
     <div className="space-y-6">
-      <PageHeader title={`Dr. ${doctor.full_name}`} />
+      <PageHeader title={`Dr. ${stripDoctorTitle(doctor.full_name)}`} />
       <Card>
         <CardContent className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-start">
           <ClinicalStaffAvatar fullName={doctor.full_name} photoUrl={doctor.photo_url} />

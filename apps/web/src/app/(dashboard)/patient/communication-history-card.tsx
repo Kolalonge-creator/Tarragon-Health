@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 
 import { formatPatientDateTime } from "@/lib/format-date";
 const CHANNEL_LABEL: Record<string, string> = {
-  whatsapp: "WhatsApp",
   sms: "SMS",
   email: "Email",
   push: "App notification",

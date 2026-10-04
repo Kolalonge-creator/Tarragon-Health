@@ -461,15 +461,18 @@ begin
   --     changed, exactly the same shape corporate_admin/hmo_admin needed
   --     excluding for (their patients DO share the institution's org).
   -- =========================================================================
-  insert into public.vitals_readings (organisation_id, patient_id, vital_type, source, logged_by_profile_id, systolic, diastolic)
-  values (v_org_ngo_a, v_patient_2, 'blood_pressure', 'manual', v_patient_2, 121, 79);
+  -- S05f (INV-10): vitals_readings is closed to org staff (its policy no longer references is_org_staff), so it can no longer probe the
+  -- is_org_staff ngo_admin exclusion. patient_timeline's SELECT still goes through is_org_staff, so a timeline row filed under the NGO's own
+  -- organisation_id is the probe for checks 9b and 10 below.
+  insert into public.patient_timeline (organisation_id, patient_id, event_type, event_category, source_table, title)
+  values (v_org_ngo_a, v_patient_2, 'escalation_raised', 'medical_history', 'escalations', 'S05f probe row');
 
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_ngo_admin_a::text, 'role', 'authenticated')::text, true);
-  select count(*) into v_n from public.vitals_readings where organisation_id = v_org_ngo_a;
+  select count(*) into v_n from public.patient_timeline where organisation_id = v_org_ngo_a;
   reset role;
   if v_n <> 0 then
-    raise exception 'FAIL: ngo_admin can read a clinical row filed under its own organisation_id';
+    raise exception 'FAIL: ngo_admin can read a timeline row filed under its own organisation_id';
   end if;
   raise notice 'PASS  ngo_admin reads zero rows even for a clinical row filed under its OWN organisation_id (the exclusion, not org isolation, is what blocks this one)';
 
@@ -499,7 +502,7 @@ begin
 
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_ngo_admin_a::text, 'role', 'authenticated')::text, true);
-  select count(*) into v_n from public.vitals_readings where organisation_id = v_org_ngo_a;
+  select count(*) into v_n from public.patient_timeline where organisation_id = v_org_ngo_a;
   reset role;
 
   if v_n = 0 then
@@ -529,11 +532,11 @@ begin
 
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_ngo_admin_a::text, 'role', 'authenticated')::text, true);
-  select count(*) into v_n from public.vitals_readings where organisation_id = v_org_ngo_a;
+  select count(*) into v_n from public.patient_timeline where organisation_id = v_org_ngo_a;
   reset role;
 
   if v_n <> 0 then
-    raise exception 'FAIL: restored is_org_staff still leaks own-org vitals_readings to ngo_admin';
+    raise exception 'FAIL: restored is_org_staff still leaks own-org patient_timeline rows to ngo_admin';
   end if;
   raise notice 'PASS  restoring is_org_staff''s ngo_admin exclusion closes the own-org read again';
 

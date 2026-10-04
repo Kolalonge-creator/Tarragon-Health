@@ -6,7 +6,8 @@ import { configureIOSBackgroundDelivery, subscribeToIOSHealthChanges } from "./h
 import { syncAppleHealth, syncHealthConnect } from "./health-sync";
 import { flushDeviceReadingsQueue } from "./offline-queue";
 import { recordSyncError } from "./sync-diagnostics";
-import { flushPendingVitals } from "./offline-vitals-queue";
+import { flushOutbox } from "./outbox";
+import { refreshOfflineSyncConfig } from "./offline-sync-config";
 import { syncThresholdsIfOnline } from "./threshold-sync";
 
 /**
@@ -73,7 +74,8 @@ TaskManager.defineTask(TASK_NAME, async () => {
     // and are the "usually don't have to think about it" layer for the
     // Vitals screen's own opportunistic flush-on-save/flush-on-mount.
     try {
-      await flushPendingVitals();
+      await flushOutbox();
+      await refreshOfflineSyncConfig();
       await syncThresholdsIfOnline();
     } catch (error) {
       recordSyncError("offline_vitals", `${Platform.OS}:backgroundFlush`, error);
@@ -81,9 +83,9 @@ TaskManager.defineTask(TASK_NAME, async () => {
 
     const result =
       Platform.OS === "ios"
-        ? await syncAppleHealth()
+        ? await syncAppleHealth({ promptForPermission: false })
         : Platform.OS === "android"
-          ? await syncHealthConnect()
+          ? await syncHealthConnect({ promptForPermission: false })
           : null;
 
     // A HealthSyncResult of "error", or a device-readings flush that made no
@@ -148,7 +150,7 @@ export async function registerBackgroundHealthSync(): Promise<void> {
       await configureIOSBackgroundDelivery();
       iosChangeSubscriptionRemove?.();
       iosChangeSubscriptionRemove = subscribeToIOSHealthChanges(() => {
-        syncAppleHealth();
+        void syncAppleHealth({ promptForPermission: false });
       });
     } catch {
       iosChangeSubscriptionRemove = null;

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { readMedicationDoseLogAudited } from "@/lib/clinical/dose-log";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -11,21 +12,16 @@ const STATUS_BADGE: Record<string, { variant: "green" | "red" | "amber"; label: 
 /**
  * medication_logs is append-only (20260830224528): every dose-taken/missed/
  * skipped action stands on its own, including corrections — so this is the
- * raw table, not medication_logs_latest_per_slot, and deliberately shows
+ * raw table (read through the audited function), not medication_logs_latest_per_slot, and deliberately shows
  * every entry rather than collapsing to one-per-slot. That full history,
  * not a same-day snapshot, is the actual point of the append-only change
  * (spec §1.4) — it feeds clinical review the same way the readings do.
  */
 export async function MedicationAdherenceHistory({ patientId }: { patientId: string }) {
   const supabase = await createClient();
-  const { data: logs } = await supabase
-    .from("medication_logs")
-    .select(
-      "id, status, reason, logged_at, scheduled_for_date, scheduled_time, logged_by_profile_id, medication:medications!medication_logs_medication_id_fkey(drug_name)"
-    )
-    .eq("patient_id", patientId)
-    .order("logged_at", { ascending: false })
-    .limit(100);
+  // INV-10: the table is closed to staff. A refusal or error shows as "not available", never as "No doses logged yet".
+  const result = await readMedicationDoseLogAudited(supabase, patientId);
+  const logs = result.status === "ok" ? result.rows : [];
 
   return (
     <Card>
@@ -38,7 +34,13 @@ export async function MedicationAdherenceHistory({ patientId }: { patientId: str
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!logs || logs.length === 0 ? (
+        {result.status !== "ok" ? (
+          <p className="text-sm text-charcoal-ink/60">
+            {result.status === "denied"
+              ? "Dose history is not available to you for this patient."
+              : "Dose history could not be loaded just now. Please try again."}
+          </p>
+        ) : logs.length === 0 ? (
           <p className="text-sm text-charcoal-ink/60">No doses logged yet.</p>
         ) : (
           <ul className="divide-y divide-charcoal-ink/10">

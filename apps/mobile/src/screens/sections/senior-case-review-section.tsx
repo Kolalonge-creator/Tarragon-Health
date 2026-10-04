@@ -3,8 +3,8 @@ import { ActivityIndicator, Text, View } from "react-native";
 import { loadMySeniorCaseReviews, type SeniorCaseReviewWithReviewer } from "@/lib/senior-case-review";
 import { formatCareDate } from "@/lib/care";
 import { formatDoctorName } from "@/lib/doctor-name";
-import { colors } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText } from "@/ui/components";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText } from "@/ui/legacy-kit";
 
 /**
  * Native "Senior case review" — retired from patient purchase 2026-09-24
@@ -18,6 +18,7 @@ import { Badge, Card, ErrorText, MutedText } from "@/ui/components";
  * no reviews at all.
  */
 export function SeniorCaseReviewSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
   const [reviews, setReviews] = useState<SeniorCaseReviewWithReviewer[]>([]);
   const [loading, setLoading] = useState(true);
 

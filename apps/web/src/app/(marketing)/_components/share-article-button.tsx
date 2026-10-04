@@ -5,8 +5,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Uses the native share sheet where available (the common case on mobile,
- * where it naturally surfaces WhatsApp — the channel most Nigerian readers
- * would actually share a health article through). Falls back to a
+ * where readers pick their own app to share with). Falls back to a
  * clipboard-copy with inline confirmation on desktop / unsupported browsers.
  * No article content leaves the device beyond the title/url a user already
  * chose to share.

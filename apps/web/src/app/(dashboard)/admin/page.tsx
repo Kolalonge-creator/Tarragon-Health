@@ -44,7 +44,6 @@ function statusBadgeVariant(status: string): "green" | "red" | "grey" {
 const DEPENDENCY_LABELS: Record<keyof Omit<DependencyReport, "checked_at">, string> = {
   supabase: "Supabase",
   ml_service: "ML service",
-  whatsapp: "WhatsApp",
   termii: "Termii SMS",
   paystack: "Paystack",
   resend: "Resend (email)",
@@ -403,7 +402,7 @@ export default async function AdminPage() {
         {
           href: "/admin/settings/broadcasts",
           label: "Broadcasts & announcements",
-          blurb: "Email/WhatsApp/SMS to a targeted audience",
+          blurb: "Email and in-app announcements to a targeted audience",
           icon: NAV_ICON.broadcast,
           visible: can("broadcasts.send"),
         },

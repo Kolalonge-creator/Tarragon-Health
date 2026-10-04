@@ -5,17 +5,16 @@ import {
   loadOpenVideoVisitSlots,
   loadVideoVisitPrice,
   loadMyVideoVisitRequests,
-  requestVideoVisitWithPlatformCredit,
   cancelVideoVisitRequest,
   selectVideoVisitAlternateSlot,
   type ConsultSlotWithClinician,
   type VideoVisitPrice,
   type VideoVisitRequestWithSlots,
 } from "@/lib/video-visit-booking";
-import { loadPlatformCreditState } from "@/lib/platform-credit";
 import { formatPrice } from "@/lib/services";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius } from "@/ui/theme";
+import { radius } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
 import {
   Badge,
   Card,
@@ -25,7 +24,7 @@ import {
   PrimaryButton,
   SecondaryButton,
   SectionLabel,
-} from "@/ui/components";
+} from "@/ui/legacy-kit";
 import type { Currency } from "@tarragon/shared";
 
 function formatSlot(iso: string): string {
@@ -81,15 +80,11 @@ interface VideoVisitBookingSectionProps {
  * Native slot-pick-and-pay Video Visit booking — replaces the
  * browser-only "Book a video visit" callout that used to be the one
  * remaining gap here (see care-support-screen.tsx's header comment).
- * Two payment paths, same as web's BookVideoVisit:
- *
- * 1. Reserve with Platform Credit, in-app end to end (checks the balance
- *    covers the price, reserves the request, never actually spends — see
- *    video-visit-booking.ts's header for why).
- * 2. Otherwise, pay by card — opens the existing web booking page in the
- *    system browser for the Paystack checkout, same "system browser for a
- *    real card charge" pattern every other paid mobile flow here uses
- *    (App Store Review 3.1.1). No native card-entry UI is built here.
+ * Payment is by card only: the patient picks a time here, then the
+ * existing web booking page opens in the system browser for the Paystack
+ * checkout, same "system browser for a real card charge" pattern every
+ * other paid mobile flow here uses (App Store Review 3.1.1). No native
+ * card-entry UI is built here.
  *
  * A doctor accepting the request (or the patient picking one of the
  * doctor's proposed alternate times, both handled below) is what actually
@@ -102,53 +97,30 @@ export function VideoVisitBookingSection({
   organisationId,
   onOpenVideoVisit,
 }: VideoVisitBookingSectionProps) {
+  const colors = useLegacyColors();
   const [slots, setSlots] = useState<ConsultSlotWithClinician[] | null>(null);
   const [price, setPrice] = useState<VideoVisitPrice | null>(null);
   const [requests, setRequests] = useState<VideoVisitRequestWithSlots[]>([]);
-  const [creditBalanceKobo, setCreditBalanceKobo] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
-  const [reserving, setReserving] = useState(false);
   const [alternatePicking, setAlternatePicking] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const refresh = useCallback(async () => {
-    const [slotsResult, priceResult, requestsResult, creditResult] = await Promise.all([
+    const [slotsResult, priceResult, requestsResult] = await Promise.all([
       loadOpenVideoVisitSlots(),
       loadVideoVisitPrice(organisationId),
       loadMyVideoVisitRequests(patientId),
-      loadPlatformCreditState(),
     ]);
     if (slotsResult.ok) setSlots(slotsResult.data);
     if (priceResult.ok) setPrice(priceResult.data);
     if (requestsResult.ok) setRequests(requestsResult.data);
-    if (creditResult.ok) setCreditBalanceKobo(creditResult.data.balanceKobo);
   }, [organisationId, patientId]);
 
   useEffect(() => {
     refresh().finally(() => setLoading(false));
   }, [refresh]);
-
-  const hasEnoughCredit = !!price && creditBalanceKobo >= price.amount_minor;
-
-  async function reserveWithCredit() {
-    if (!selectedSlotId) return;
-    setReserving(true);
-    setMessage(null);
-    const result = await requestVideoVisitWithPlatformCredit(selectedSlotId);
-    setReserving(false);
-    if (!result.ok) {
-      setMessage({ tone: "error", text: result.error });
-      return;
-    }
-    setSelectedSlotId(null);
-    setMessage({
-      tone: "success",
-      text: "Reserved from your platform credit. You'll only be charged once a doctor accepts.",
-    });
-    void refresh();
-  }
 
   async function payByCard() {
     await WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care#book-video-visit`);
@@ -197,8 +169,8 @@ export function VideoVisitBookingSection({
       <SectionLabel>Book a video visit</SectionLabel>
       <MutedText>A paid, self-serve 15-minute online consultation with a Tarragon doctor, over video.</MutedText>
 
-      <View style={{ backgroundColor: "#FEF2F2", borderRadius: radius.card, padding: 12 }}>
-        <Text style={{ color: "#B91C1C", fontSize: 13.5, fontWeight: "600" }}>
+      <View style={{ backgroundColor: colors.dangerBg, borderRadius: radius.card, padding: 12 }}>
+        <Text style={{ color: colors.danger, fontSize: 13.5, fontWeight: "600" }}>
           Not for emergencies. If this is an emergency, go to the nearest emergency department now.
         </Text>
       </View>
@@ -288,28 +260,14 @@ export function VideoVisitBookingSection({
           </GroupedList>
 
           <PrimaryButton
-            title={
-              hasEnoughCredit
-                ? "Reserve with Platform Credit"
-                : price
-                  ? `Need ₦${Math.ceil((price.amount_minor - creditBalanceKobo) / 100).toLocaleString()} more credit`
-                  : "Reserve with Platform Credit"
-            }
-            onPress={() => void reserveWithCredit()}
-            disabled={!selectedSlotId || reserving || !hasEnoughCredit}
-            loading={reserving}
-          />
-          <MutedText>
-            You&apos;re only charged from your platform credit once a doctor accepts — never at request time.
-          </MutedText>
-          <SecondaryButton
-            title={selectedSlotId ? "Pay by card instead" : "Pick a time, then pay by card"}
+            title={selectedSlotId ? "Pay by card" : "Pick a time, then pay by card"}
             onPress={() => void payByCard()}
             disabled={!selectedSlotId}
           />
-          {!hasEnoughCredit && (
-            <MutedText>Card payment opens the booking page in your browser to complete checkout.</MutedText>
-          )}
+          <MutedText>
+            Card payment opens the booking page in your browser to complete checkout. If a time can&apos;t be
+            confirmed, you are refunded in full.
+          </MutedText>
         </View>
       )}
 

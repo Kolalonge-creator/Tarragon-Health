@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as WebBrowser from "expo-web-browser";
 import {
   addMedication,
   checkPackAgainstPrescription,
   checkinQuestion,
+  getPrescriptionPdfUrl,
   loadDueCheckins,
   loadLabMonitoring,
   loadMedicationCabinet,
@@ -23,8 +25,9 @@ import {
   type PackCheckResult,
   type RepeatRequestItem,
 } from "@/lib/medications";
-import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
+import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { PharmacyOrdersSection } from "@/screens/sections/pharmacy-orders-section";
 
 interface MedicineCabinetScreenProps {
@@ -32,16 +35,17 @@ interface MedicineCabinetScreenProps {
   organisationId: string;
 }
 
-const inputStyle = {
-  height: 40,
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 12,
-  fontSize: 14,
-  color: colors.ink,
-  backgroundColor: colors.card,
-} as const;
+const inputStyle = (colors: ReturnType<typeof useLegacyColors>) =>
+  ({
+    height: 40,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.control,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: colors.ink,
+    backgroundColor: colors.card,
+  }) as const;
 
 const SOURCE_LABEL: Record<string, string> = {
   clinician: "Prescribed",
@@ -70,11 +74,12 @@ function formatDate(dateStr: string): string {
 }
 
 function Pill({ tone, children }: { tone: "green" | "amber" | "grey" | "red"; children: string }) {
+  const colors = useLegacyColors();
   const styles: Record<string, { bg: string; text: string }> = {
     green: { bg: colors.brandTint, text: colors.brandPressed },
     amber: { bg: colors.status.warnBg, text: colors.status.warn },
-    grey: { bg: inkAlpha(0.08), text: colors.muted },
-    red: { bg: "#FBE9E7", text: colors.danger },
+    grey: { bg: colors.pressed, text: colors.muted },
+    red: { bg: colors.dangerBg, text: colors.danger },
   };
   const s = styles[tone];
   return (
@@ -98,8 +103,8 @@ function Pill({ tone, children }: { tone: "green" | "amber" | "grey" | "red"; ch
  * reporting, prescription amendment, and past (stopped) medications
  * history. The paid prescription-renewal purchase flow (see
  * pharmacy-orders-section.tsx, rendered below) is now built: a patient can
- * see every pharmacy_orders row on file and pay a pending one with
- * Platform Credit or, via a system-browser fallback, by card — what's
+ * see every pharmacy_orders row on file and pay a pending one by card
+ * via the system browser — what's
  * still web-only is order CREATION from the pharmacy catalogue, because
  * every pharmacy_partners row is is_active=false platform-wide today (see
  * lib/prescription-renewal.ts's module comment). "Check my pack" keeps
@@ -108,6 +113,7 @@ function Pill({ tone, children }: { tone: "green" | "amber" | "grey" | "red"; ch
  * header comment in lib/medications.ts for why.
  */
 export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCabinetScreenProps) {
+  const colors = useLegacyColors();
   const [medications, setMedications] = useState<MedicationCabinetItem[]>([]);
   const [medsLoading, setMedsLoading] = useState(true);
   const [medsError, setMedsError] = useState(false);
@@ -259,6 +265,8 @@ function MedicationCard({
   latestRequest: RepeatRequestItem | null;
   onChanged: () => Promise<void>;
 }) {
+  const { scheme } = useTheme();
+  const colors = useLegacyColors();
   const [collectOpen, setCollectOpen] = useState(false);
   const [collectedOn, setCollectedOn] = useState(todayIsoDate());
   const [pharmacyName, setPharmacyName] = useState("");
@@ -330,6 +338,16 @@ function MedicationCard({
           {new Date(medication.expires_at).getTime() < Date.now() ? "Expired" : "Valid until"} {formatDate(medication.expires_at)}
         </MutedText>
       ) : null}
+      {medication.source === "clinician" && medication.rx_number && medication.verification_code && !medication.superseded_at ? (
+        <View style={{ gap: 4, marginTop: 4 }}>
+          <MutedText>
+            Rx number {medication.rx_number} · Code {medication.verification_code}
+          </MutedText>
+          <MutedText>
+            This is not a controlled medicine. TarragonHealth does not prescribe controlled medicines.
+          </MutedText>
+        </View>
+      ) : null}
       {latestCollection ? (
         <MutedText>
           Last picked up {formatDate(latestCollection.dispensed_on)}
@@ -340,6 +358,19 @@ function MedicationCard({
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
         {!collectOpen ? (
           <SmallGhostButton title="I picked this up" onPress={() => setCollectOpen(true)} />
+        ) : null}
+        {medication.source === "clinician" &&
+        medication.rx_number &&
+        !medication.superseded_at &&
+        !(medication.expires_at && new Date(medication.expires_at).getTime() < Date.now()) ? (
+          <SmallGhostButton
+            title="Prescription (PDF)"
+            onPress={async () => {
+              const result = await getPrescriptionPdfUrl(medication.id);
+              if (result.ok) void WebBrowser.openBrowserAsync(result.data);
+              else setRequestError(result.error);
+            }}
+          />
         ) : null}
         {medication.source === "clinician" && medication.repeats_allowed > 0 ? (
           latestRequest?.status === "pending" ? (
@@ -366,16 +397,16 @@ function MedicationCard({
         <View style={{ gap: 8, marginTop: 6, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
           <View>
             <MutedText>Date collected (YYYY-MM-DD)</MutedText>
-            <TextInput value={collectedOn} onChangeText={setCollectedOn} style={inputStyle} placeholder="YYYY-MM-DD" placeholderTextColor={colors.faint} />
+            <TextInput keyboardAppearance={scheme} value={collectedOn} onChangeText={setCollectedOn} style={inputStyle(colors)} placeholder="YYYY-MM-DD" placeholderTextColor={colors.subtle} />
           </View>
           <View>
             <MutedText>Pharmacy (optional)</MutedText>
-            <TextInput
+            <TextInput keyboardAppearance={scheme}
               value={pharmacyName}
               onChangeText={setPharmacyName}
-              style={inputStyle}
+              style={inputStyle(colors)}
               placeholder="e.g. HealthPlus"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
             />
           </View>
           {collectError ? <ErrorText>{collectError}</ErrorText> : null}
@@ -394,6 +425,7 @@ function MedicationCard({
 }
 
 function SmallGhostButton({ title, onPress, disabled }: { title: string; onPress: () => void; disabled?: boolean }) {
+  const colors = useLegacyColors();
   return (
     <Pressable
       accessibilityRole="button"
@@ -423,6 +455,8 @@ const DOSE_TIME_PRESETS: { label: string; time: string }[] = [
 ];
 
 function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdded: () => Promise<void> }) {
+  const { scheme } = useTheme();
+  const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
   const [drugName, setDrugName] = useState("");
   const [dose, setDose] = useState("");
@@ -493,32 +527,32 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
         <Card style={{ gap: 10 }}>
           <View>
             <MutedText>Drug name</MutedText>
-            <TextInput value={drugName} onChangeText={setDrugName} style={inputStyle} placeholderTextColor={colors.faint} />
+            <TextInput keyboardAppearance={scheme} value={drugName} onChangeText={setDrugName} style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
               <MutedText>Dose</MutedText>
-              <TextInput value={dose} onChangeText={setDose} style={inputStyle} placeholder="e.g. 10mg" placeholderTextColor={colors.faint} />
+              <TextInput keyboardAppearance={scheme} value={dose} onChangeText={setDose} style={inputStyle(colors)} placeholder="e.g. 10mg" placeholderTextColor={colors.subtle} />
             </View>
             <View style={{ flex: 1 }}>
               <MutedText>Frequency</MutedText>
-              <TextInput
+              <TextInput keyboardAppearance={scheme}
                 value={frequency}
                 onChangeText={setFrequency}
-                style={inputStyle}
+                style={inputStyle(colors)}
                 placeholder="e.g. Twice daily"
-                placeholderTextColor={colors.faint}
+                placeholderTextColor={colors.subtle}
               />
             </View>
           </View>
           <View>
             <MutedText>Refill date (optional, YYYY-MM-DD)</MutedText>
-            <TextInput
+            <TextInput keyboardAppearance={scheme}
               value={refillDate}
               onChangeText={setRefillDate}
-              style={inputStyle}
+              style={inputStyle(colors)}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
             />
           </View>
           <View style={{ gap: 6 }}>
@@ -529,12 +563,12 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
               ))}
             </View>
             <View style={{ flexDirection: "row", gap: 8 }}>
-              <TextInput
+              <TextInput keyboardAppearance={scheme}
                 value={newTime}
                 onChangeText={setNewTime}
-                style={[inputStyle, { flex: 1 }]}
+                style={[inputStyle(colors), { flex: 1 }]}
                 placeholder="HH:MM"
-                placeholderTextColor={colors.faint}
+                placeholderTextColor={colors.subtle}
               />
               <SmallGhostButton
                 title="Add"
@@ -547,7 +581,7 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
             {scheduleTimes.length > 0 ? (
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                 {scheduleTimes.map((time) => (
-                  <Pressable key={time} onPress={() => removeTime(time)} style={{ backgroundColor: inkAlpha(0.08), borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}>
+                  <Pressable key={time} onPress={() => removeTime(time)} style={{ backgroundColor: colors.pressed, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}>
                     <Text style={{ fontSize: 12, color: colors.ink }}>{time} ×</Text>
                   </Pressable>
                 ))}
@@ -579,12 +613,12 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
           {startedBySpecialist ? (
             <View>
               <MutedText>Specialist name</MutedText>
-              <TextInput
+              <TextInput keyboardAppearance={scheme}
                 value={prescriberName}
                 onChangeText={setPrescriberName}
-                style={inputStyle}
+                style={inputStyle(colors)}
                 placeholder="e.g. Dr. Adeyemi (Cardiologist)"
-                placeholderTextColor={colors.faint}
+                placeholderTextColor={colors.subtle}
               />
             </View>
           ) : null}
@@ -606,6 +640,8 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
 // --- Adherence check-in -------------------------------------------------------
 
 function CheckinCard({ checkin, onAnswered }: { checkin: AdherenceCheckinItem; onAnswered: () => Promise<void> }) {
+  const { scheme } = useTheme();
+  const colors = useLegacyColors();
   const [answer, setAnswer] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
@@ -628,12 +664,12 @@ function CheckinCard({ checkin, onAnswered }: { checkin: AdherenceCheckinItem; o
     <Card style={{ gap: 8 }}>
       <Text style={{ fontSize: 13.5, color: colors.ink }}>{checkinQuestion(checkin.checkin_type, checkin.drug_name)}</Text>
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <TextInput
+        <TextInput keyboardAppearance={scheme}
           value={answer}
           onChangeText={setAnswer}
-          style={[inputStyle, { flex: 1 }]}
+          style={[inputStyle(colors), { flex: 1 }]}
           placeholder="Your answer"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
         />
         <SmallGhostButton title={pending ? "Sending…" : "Send"} onPress={send} disabled={pending || !answer.trim()} />
       </View>
@@ -645,6 +681,7 @@ function CheckinCard({ checkin, onAnswered }: { checkin: AdherenceCheckinItem; o
 // --- Lab monitoring row --------------------------------------------------------
 
 function LabMonitoringRow({ item, isFirst }: { item: LabMonitoringItem; isFirst: boolean }) {
+  const colors = useLegacyColors();
   const overdue = item.due_date != null && new Date(item.due_date) < new Date(new Date().toDateString());
   return (
     <View
@@ -712,6 +749,8 @@ const VERDICT_COPY: Record<PackCheckResult["verdict"], { tone: "green" | "amber"
  * checkPackAgainstPrescription's header comment in lib/medications.ts).
  */
 function CheckMyPackSection({ medications }: { medications: MedicationCabinetItem[] }) {
+  const { scheme } = useTheme();
+  const colors = useLegacyColors();
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [packDrugName, setPackDrugName] = useState("");
   const [packStrength, setPackStrength] = useState("");
@@ -780,11 +819,11 @@ function CheckMyPackSection({ medications }: { medications: MedicationCabinetIte
         </View>
         <View>
           <MutedText>Drug name on pack</MutedText>
-          <TextInput value={packDrugName} onChangeText={setPackDrugName} style={inputStyle} placeholderTextColor={colors.faint} />
+          <TextInput keyboardAppearance={scheme} value={packDrugName} onChangeText={setPackDrugName} style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
         </View>
         <View>
           <MutedText>Strength on pack (optional, e.g. 10mg)</MutedText>
-          <TextInput value={packStrength} onChangeText={setPackStrength} style={inputStyle} placeholderTextColor={colors.faint} />
+          <TextInput keyboardAppearance={scheme} value={packStrength} onChangeText={setPackStrength} style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
         </View>
         {error ? <ErrorText>{error}</ErrorText> : null}
         <PrimaryButton title="Check this pack" onPress={check} />
@@ -805,7 +844,7 @@ function CheckMyPackSection({ medications }: { medications: MedicationCabinetIte
             <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10, gap: 4 }}>
               <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>Is it genuine? We cannot tell you that. NAFDAC can.</Text>
               <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 17 }}>{NAFDAC_MAS.howTo}</Text>
-              <Text style={{ fontSize: 11.5, color: colors.faint, lineHeight: 16 }}>{NAFDAC_MAS.caveat}</Text>
+              <Text style={{ fontSize: 11.5, color: colors.subtle, lineHeight: 16 }}>{NAFDAC_MAS.caveat}</Text>
             </View>
           </View>
         ) : null}

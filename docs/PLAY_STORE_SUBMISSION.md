@@ -21,8 +21,9 @@
 >   no meal-photo/AI-vision capture was added to mobile (deliberately web-only, per
 >   `apps/mobile`'s own governance rationale), the new "Verified Documents" native screens are a
 >   request/view flow for doctor-issued documents (no new personal-data type, payment stays
->   browser-side per App Store 3.1.1), and the new web-only "Platform Credit" prepaid balance
->   never reached mobile so it doesn't change this submission at all.
+>   browser-side per App Store 3.1.1), and the "Platform Credit" prepaid balance added on
+>   2026-09-17 has since been removed entirely (2026-09-30, S01b), including its mobile screens,
+>   so the mobile app no longer has any stored-value or top-up surface.
 
 > **Combined Android+iOS release-readiness audit, 2026-09-18** — a separate, in-flight session
 > (branch `feat/health-connect-full-build-20260918`, PR #670) is independently re-enabling Health

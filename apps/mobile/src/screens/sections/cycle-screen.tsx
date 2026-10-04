@@ -23,8 +23,9 @@ import {
   type ReproductiveLifeStage,
 } from "@/lib/cycle-prediction";
 import type { SectionId } from "@/lib/sections";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
  * The cycle tracker's native screen (spec §44's large sub-feature —
@@ -78,14 +79,15 @@ const CONFIDENCE_LABEL: Record<CycleConfidence, string> = {
   high: "Confident",
 };
 
-const CONFIDENCE_COLOR: Record<CycleConfidence, string> = {
+const confidenceColor = (colors: ReturnType<typeof useLegacyColors>): Record<CycleConfidence, string> => ({
   none: colors.faint,
   low: colors.status.warn,
   medium: colors.brand,
   high: colors.brand,
-};
+});
 
 function Chip({ label, active, onPress, tone = "neutral" }: { label: string; active: boolean; onPress: () => void; tone?: "neutral" | "period" }) {
+  const colors = useLegacyColors();
   return (
     <Text
       onPress={onPress}
@@ -103,16 +105,6 @@ function Chip({ label, active, onPress, tone = "neutral" }: { label: string; act
     </Text>
   );
 }
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
 
 const FLOW_OPTIONS: { value: MenstrualFlowLevel; label: string }[] = [
   { value: "none", label: "None" },
@@ -159,6 +151,9 @@ function toggle<T>(list: T[], value: T): T[] {
 }
 
 export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScreenProps) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tracker, setTracker] = useState<CycleTrackerData | null>(null);
@@ -252,7 +247,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
       <Card style={{ gap: 10 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Where you are now</Text>
-          <Text style={{ fontSize: 11.5, fontWeight: "700", color: CONFIDENCE_COLOR[prediction.confidence] }}>
+          <Text style={{ fontSize: 11.5, fontWeight: "700", color: confidenceColor(colors)[prediction.confidence] }}>
             {CONFIDENCE_LABEL[prediction.confidence]}
           </Text>
         </View>
@@ -320,7 +315,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
               )}
             </View>
           </View>
-          <Text style={{ fontSize: 11.5, color: colors.faint }}>{FERTILE_WINDOW_DISCLAIMER}</Text>
+          <Text style={{ fontSize: 11.5, color: colors.subtle }}>{FERTILE_WINDOW_DISCLAIMER}</Text>
         </Card>
       )}
 
@@ -332,7 +327,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
         <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
           <View style={{ flex: 1, gap: 4 }}>
             <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Date</Text>
-            <TextInput value={dateDraft} onChangeText={setDateDraft} placeholder="YYYY-MM-DD" style={textInputStyle} />
+            <TextInput keyboardAppearance={scheme} value={dateDraft} onChangeText={setDateDraft} placeholder="YYYY-MM-DD" style={textInputStyle} />
           </View>
           <SecondaryButton
             title="Go"
@@ -440,7 +435,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
         </Card>
       )}
 
-      <Text style={{ fontSize: 11.5, color: colors.faint }}>
+      <Text style={{ fontSize: 11.5, color: colors.subtle }}>
         Your cycle information is part of your health record. Your care team can see it; nobody
         else can. It plays no part in scoring your health risk.
       </Text>
@@ -449,6 +444,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
 }
 
 function FlagsCard({ flags, onNavigate }: { flags: CycleClinicalFlag[]; onNavigate: (section: SectionId) => void }) {
+  const colors = useLegacyColors();
   if (flags.length === 0) return null;
   const urgent = flags.filter((f) => f.severity === "urgent");
   const rest = flags.filter((f) => f.severity !== "urgent");
@@ -498,6 +494,9 @@ function DayLogForm({
   dateLabel: string;
   onSaved: () => Promise<void>;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [flow, setFlow] = useState<MenstrualFlowLevel | null>(existing?.flow ?? null);
   const [symptoms, setSymptoms] = useState<MenstrualSymptom[]>((existing?.symptoms as MenstrualSymptom[]) ?? []);
   const [moods, setMoods] = useState<MenstrualMood[]>((existing?.moods as MenstrualMood[]) ?? []);
@@ -580,7 +579,7 @@ function DayLogForm({
       <View style={{ flexDirection: "row", gap: 10 }}>
         <View style={{ flex: 1, gap: 4 }}>
           <MutedText>Waking temperature (°C)</MutedText>
-          <TextInput value={bbt} onChangeText={setBbt} placeholder="36.50" keyboardType="decimal-pad" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} value={bbt} onChangeText={setBbt} placeholder="36.50" keyboardType="decimal-pad" style={textInputStyle} />
         </View>
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
@@ -599,7 +598,7 @@ function DayLogForm({
       </MutedText>
 
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Anything else (optional)</Text>
-      <TextInput
+      <TextInput keyboardAppearance={scheme}
         value={notes}
         onChangeText={setNotes}
         placeholder="Only you and your care team can see this."

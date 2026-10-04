@@ -10,9 +10,7 @@ import { sendVideoConsultBookedConfirmation } from "@/lib/notifications/video-co
  * Mobile equivalent of apps/web/.../patient/video-visit-actions.ts's
  * selectVideoVisitAlternateSlot. public.select_video_visit_alternate_slot
  * alone is a safe direct RPC (SECURITY DEFINER, ownership + offered-slot
- * validation, and — since 20260917230403_video_visit_platform_credit_spend_
- * on_acceptance.sql — the platform-credit spend for a credit-funded
- * request), but the real action wraps more: creating a real Zoom meeting and
+ * validation), but the real action wraps more: creating a real Zoom meeting and
  * writing zoom_meeting_id/join_url/host_start_url via a service-role client,
  * then a booked-confirmation notification. None of that is reachable from an
  * RLS-scoped mobile client, which is the one reason this route exists at all

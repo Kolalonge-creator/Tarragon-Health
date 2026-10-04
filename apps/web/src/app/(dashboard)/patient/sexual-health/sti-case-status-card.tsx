@@ -172,7 +172,7 @@ function PartnerNotifyFlow({ episode }: { episode: StiCaseEpisode }) {
             your result, or Tarragon.
           </p>
           <CopyBox label="Text message" text={templates.smsTemplate} />
-          <CopyBox label="WhatsApp / longer message" text={templates.whatsappTemplate} />
+          <CopyBox label="Longer message" text={templates.longTemplate} />
           <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
             Done
           </Button>

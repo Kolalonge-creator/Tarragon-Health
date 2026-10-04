@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { readAuditedSection, ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
+import { readPatientMedicationsOrThrow } from "@/lib/clinical/medications-audited";
+import { parseReferralList } from "@/lib/queries/specialist-referrals";
 import {
   useCase,
   useAssignCaseManager,
@@ -220,29 +223,29 @@ function CaseHeader({ caseRow, canClose }: { caseRow: NonNullable<ReturnType<typ
 /** 74.4 case file — read live from each table's own canonical source, never duplicated. */
 function CaseFilePanel({ patientId, organisationId }: { patientId: string; organisationId: string }) {
   const supabase = createClient();
-  const { data: conditions } = useQuery({
+  // INV-10: the problem list is read through the audited chart function. A refusal or error is shown as unavailable, never as "none".
+  const { data: conditions, isError: conditionsUnavailable } = useQuery({
     queryKey: ["care-management", "case-file", "conditions", patientId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("patient_conditions")
-        .select("id, condition_name, status")
-        .eq("patient_id", patientId)
-        .order("date_identified", { ascending: false });
-      if (error) throw error;
-      return data;
+      const result = await readAuditedSection(supabase, patientId, "conditions");
+      if (result.status !== "ok") throw new Error(`conditions ${result.status}`);
+      return [...result.rows].sort((a, b) => (b.date_identified ?? "").localeCompare(a.date_identified ?? ""));
     },
+    retry: false,
+    // Every audited read writes an audit row: do not refetch on focus or remount within the visit.
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
-  const { data: medications } = useQuery({
+  const { data: medications, isError: medicationsUnavailable } = useQuery({
     queryKey: ["care-management", "case-file", "medications", patientId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("medications")
-        .select("id, drug_name, dose, frequency")
-        .eq("patient_id", patientId)
-        .eq("is_active", true);
-      if (error) throw error;
-      return data;
+      // INV-10: through the audited read; a refusal or error throws, so the card shows its error state, not "no medicines".
+      return readPatientMedicationsOrThrow(supabase, patientId, { active: true });
     },
+    retry: false,
+    // Every audited read writes an audit row: do not refetch on focus or remount within the visit.
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const { data: labOrders } = useQuery({
     queryKey: ["care-management", "case-file", "lab-orders", patientId],
@@ -257,18 +260,21 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
       return data;
     },
   });
-  const { data: referrals } = useQuery({
+  // INV-10: through the audited read. A refusal is shown as unavailable, never as "none on file".
+  const { data: referrals, isError: referralsUnavailable } = useQuery({
     queryKey: ["care-management", "case-file", "referrals", patientId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("specialist_referrals")
-        .select("id, specialist_type, status")
-        .eq("patient_id", patientId)
-        .order("created_at", { ascending: false })
-        .limit(5);
+      const { data, error } = await supabase.rpc("list_patient_referrals_audited", {
+        p_patient: patientId,
+        p_reason: ROUTINE_CHART_READ_REASON,
+        p_include_drafts: true,
+      });
       if (error) throw error;
-      return data;
+      return parseReferralList(data, "referrals").slice(0, 5);
     },
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const { data: admissions } = useQuery({
     queryKey: ["care-management", "case-file", "admissions", patientId],
@@ -293,12 +299,14 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
       <CardContent className="grid gap-4 sm:grid-cols-2">
         <CaseFileList
           title="Conditions"
-          items={(conditions ?? []).map((c) => `${c.condition_name} (${c.status})`)}
+          items={(conditions ?? []).map((c) => `${c.display} (${c.status})`)}
           organisationId={organisationId}
+          unavailable={conditionsUnavailable}
         />
         <CaseFileList
           title="Medications"
           items={(medications ?? []).map((m) => `${m.drug_name}${m.dose ? " " + m.dose : ""}${m.frequency ? ", " + m.frequency : ""}`)}
+          unavailable={medicationsUnavailable}
         />
         <CaseFileList
           title="Investigations"
@@ -307,6 +315,7 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
         <CaseFileList
           title="Specialists"
           items={(referrals ?? []).map((r) => `${r.specialist_type} (${r.status})`)}
+          unavailable={referralsUnavailable}
         />
         <CaseFileList
           title="Hospitalisations"
@@ -322,11 +331,22 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
   );
 }
 
-function CaseFileList({ title, items }: { title: string; items: string[]; organisationId?: string }) {
+function CaseFileList({
+  title,
+  items,
+  unavailable = false,
+}: {
+  title: string;
+  items: string[];
+  organisationId?: string;
+  unavailable?: boolean;
+}) {
   return (
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">{title}</p>
-      {items.length === 0 ? (
+      {unavailable ? (
+        <p className="text-xs text-amber-700">Not available to you for this patient. This is not the same as none on file.</p>
+      ) : items.length === 0 ? (
         <p className="text-xs text-charcoal-ink/40">None on file.</p>
       ) : (
         <ul className="mt-1 space-y-0.5">

@@ -1,6 +1,4 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
 import { failsClosedWhenGovernanceUnavailable } from "./system-codes";
 import {
   aiRuntimeConfigResponseSchema,
@@ -50,7 +48,20 @@ export function __clearAiGovernanceCache(): void {
  * governance helper that could reach a table directly would be a helper that
  * could bypass the RPC's server-derived organisation and actor.
  */
-export type AiGovernanceClient = Pick<SupabaseClient<Database>, "rpc">;
+export interface AiGovernanceClient {
+  /**
+   * Structural on purpose. Typing this as `Pick<SupabaseClient<Database>, "rpc">`
+   * pulls the whole generated function union into every governed call and was
+   * what pushed TypeScript to its instantiation-depth limit as the types grew.
+   * Method syntax keeps the real client assignable (parameter bivariance); each
+   * caller validates `data` itself (zod, or a typeof check) so nothing relies on
+   * a generated return type.
+   */
+  rpc(
+    fn: string,
+    args?: Record<string, unknown>
+  ): PromiseLike<{ data: unknown; error: { message: string } | null }>;
+}
 
 async function fetchConfig(
   supabase: AiGovernanceClient,
