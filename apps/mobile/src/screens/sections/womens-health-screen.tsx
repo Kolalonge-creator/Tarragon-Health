@@ -52,8 +52,9 @@ import {
 import type { SectionId } from "@/lib/sections";
 import { CycleScreen } from "@/screens/sections/cycle-screen";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -65,17 +66,8 @@ interface NextScreening {
   isOverdue: boolean;
 }
 
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
-
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const colors = useLegacyColors();
   return (
     <Text
       onPress={onPress}
@@ -95,6 +87,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 function CautionNote({ text }: { text: string }) {
+  const colors = useLegacyColors();
   return (
     <View style={{ backgroundColor: colors.status.warnBg, borderRadius: radius.control, padding: 10, gap: 2 }}>
       <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.status.warn }}>Worth discussing with your care team</Text>
@@ -127,6 +120,7 @@ interface WomensHealthScreenProps {
  * lib/womens-health.ts, or in lib/cycle.ts/cycle-screen.tsx.**
  */
 export function WomensHealthScreen({ patientId, organisationId, onNavigate }: WomensHealthScreenProps) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [sex, setSex] = useState<string | null>(null);
   const [reproProfile, setReproProfile] = useState<ReproductiveHealthProfile | null>(null);
@@ -383,6 +377,9 @@ function ReproductiveHealthCard({
   onChanged: () => void;
   onOpenCycleTracker: () => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [lifeStage, setLifeStage] = useState<ReproductiveLifeStage>(profile?.life_stage ?? "not_applicable");
   const [lastPeriodDate, setLastPeriodDate] = useState(profile?.last_period_date ?? "");
   const [cycleLength, setCycleLength] = useState(profile?.average_cycle_length_days?.toString() ?? "");
@@ -453,11 +450,11 @@ function ReproductiveHealthCard({
         <View style={{ flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1, gap: 4 }}>
             <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Last period start date</Text>
-            <TextInput value={lastPeriodDate} onChangeText={setLastPeriodDate} placeholder="YYYY-MM-DD" style={textInputStyle} />
+            <TextInput keyboardAppearance={scheme} value={lastPeriodDate} onChangeText={setLastPeriodDate} placeholder="YYYY-MM-DD" style={textInputStyle} />
           </View>
           <View style={{ flex: 1, gap: 4 }}>
             <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Avg. cycle length (days)</Text>
-            <TextInput value={cycleLength} onChangeText={setCycleLength} placeholder="28" keyboardType="numeric" style={textInputStyle} />
+            <TextInput keyboardAppearance={scheme} value={cycleLength} onChangeText={setCycleLength} placeholder="28" keyboardType="numeric" style={textInputStyle} />
           </View>
         </View>
       )}
@@ -482,6 +479,9 @@ function ContraceptionCard({
   cautionNote: string | null;
   onNavigate: (section: SectionId) => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [method, setMethod] = useState(initialMethod ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -507,7 +507,7 @@ function ContraceptionCard({
         full picture.
       </MutedText>
       {cautionNote && <CautionNote text={cautionNote} />}
-      <TextInput value={method} onChangeText={setMethod} placeholder="e.g. combined pill, implant, condoms, none" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} value={method} onChangeText={setMethod} placeholder="e.g. combined pill, implant, condoms, none" style={textInputStyle} />
       {error && <ErrorText>{error}</ErrorText>}
       {saved && <MutedText>Saved.</MutedText>}
       <SecondaryButton title="Save" onPress={submit} loading={submitting} />
@@ -534,6 +534,9 @@ function AntenatalCard({
   pregnancy: PatientPregnancy;
   onNavigate: (section: SectionId) => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [visits, setVisits] = useState<AntenatalVisit[]>([]);
   const [lmp, setLmp] = useState(pregnancy.last_menstrual_period_date ?? "");
   const [submitting, setSubmitting] = useState(false);
@@ -583,7 +586,7 @@ function AntenatalCard({
       <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Last menstrual period date</Text>
-          <TextInput value={lmp} onChangeText={setLmp} placeholder="YYYY-MM-DD" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} value={lmp} onChangeText={setLmp} placeholder="YYYY-MM-DD" style={textInputStyle} />
         </View>
         <SecondaryButton title="Save" onPress={submit} loading={submitting} />
       </View>
@@ -616,6 +619,7 @@ function AntenatalCard({
 }
 
 function PregnancyRedFlagCheck({ patientId, organisationId }: { patientId: string; organisationId: string }) {
+  const colors = useLegacyColors();
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<Set<PregnancyDangerSign>>(new Set());
   const [submitting, setSubmitting] = useState(false);
@@ -694,6 +698,9 @@ function PostnatalCard({
   organisationId: string;
   onNavigate: (section: SectionId) => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [profiles, setProfiles] = useState<PostnatalProfile[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -757,7 +764,7 @@ function PostnatalCard({
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Delivery date</Text>
-              <TextInput value={deliveryDate} onChangeText={setDeliveryDate} placeholder="YYYY-MM-DD" style={textInputStyle} />
+              <TextInput keyboardAppearance={scheme} value={deliveryDate} onChangeText={setDeliveryDate} placeholder="YYYY-MM-DD" style={textInputStyle} />
             </View>
           </View>
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Delivery mode</Text>
@@ -767,7 +774,7 @@ function PostnatalCard({
             ))}
           </View>
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Complications (optional)</Text>
-          <TextInput value={complications} onChangeText={setComplications} style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} value={complications} onChangeText={setComplications} style={textInputStyle} />
           {error && <ErrorText>{error}</ErrorText>}
           <PrimaryButton title="Save" onPress={submit} loading={submitting} />
         </View>
@@ -791,6 +798,9 @@ function PostnatalCheckinSection({
   organisationId: string;
   postnatalProfileId: string;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [checkins, setCheckins] = useState<PostnatalCheckin[]>([]);
   const [window, setWindowValue] = useState<CheckinWindow>("week_1");
   const [breastfeeding, setBreastfeeding] = useState<BreastfeedingStatus | "">("");
@@ -851,7 +861,7 @@ function PostnatalCheckinSection({
         ))}
       </View>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How are you recovering?</Text>
-      <TextInput value={notes} onChangeText={setNotes} style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} value={notes} onChangeText={setNotes} style={textInputStyle} />
       <Text
         onPress={() => setDiscussed((v) => !v)}
         style={{ fontSize: 13, color: colors.ink }}
@@ -866,6 +876,9 @@ function PostnatalCheckinSection({
 }
 
 function BreastSymptomCard({ patientId, organisationId }: { patientId: string; organisationId: string }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [reports, setReports] = useState<BreastSymptomReport[]>([]);
   const [types, setTypes] = useState<Set<BreastSymptomType>>(new Set());
   const [laterality, setLaterality] = useState<"left" | "right" | "both" | "unsure" | "">("");
@@ -940,9 +953,9 @@ function BreastSymptomCard({ patientId, organisationId }: { patientId: string; o
         </View>
       </View>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How long?</Text>
-      <TextInput value={duration} onChangeText={setDuration} placeholder="e.g. about a week" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} value={duration} onChangeText={setDuration} placeholder="e.g. about a week" style={textInputStyle} />
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Anything else?</Text>
-      <TextInput value={notes} onChangeText={setNotes} style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} value={notes} onChangeText={setNotes} style={textInputStyle} />
 
       {error && <ErrorText>{error}</ErrorText>}
       {saved && <MutedText>Reported. Your care team has been notified for clinical assessment.</MutedText>}
@@ -965,6 +978,9 @@ function BreastSymptomCard({ patientId, organisationId }: { patientId: string; o
 }
 
 function MenopauseSymptomCard({ patientId, organisationId }: { patientId: string; organisationId: string }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [logs, setLogs] = useState<MenopauseSymptomLog[]>([]);
   const [types, setTypes] = useState<Set<MenopauseSymptomType>>(new Set());
   const [severity, setSeverity] = useState("");
@@ -1027,7 +1043,7 @@ function MenopauseSymptomCard({ patientId, organisationId }: { patientId: string
       </View>
 
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Overall severity (0–10)</Text>
-      <TextInput value={severity} onChangeText={setSeverity} keyboardType="numeric" style={[textInputStyle, { maxWidth: 90 }]} />
+      <TextInput keyboardAppearance={scheme} value={severity} onChangeText={setSeverity} keyboardType="numeric" style={[textInputStyle, { maxWidth: 90 }]} />
 
       <Text
         onPress={() => setBleeding((v) => !v)}
@@ -1043,7 +1059,7 @@ function MenopauseSymptomCard({ patientId, organisationId }: { patientId: string
       )}
 
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Notes (optional)</Text>
-      <TextInput value={notes} onChangeText={setNotes} style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} value={notes} onChangeText={setNotes} style={textInputStyle} />
 
       {error && <ErrorText>{error}</ErrorText>}
       {saved && <MutedText>Logged.</MutedText>}
@@ -1073,6 +1089,9 @@ function FertilityRequestCard({
   organisationId: string;
   onNavigate: (section: SectionId) => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [requests, setRequests] = useState<FertilityAssessmentRequest[]>([]);
   const [months, setMonths] = useState("");
   const [notes, setNotes] = useState("");
@@ -1132,11 +1151,11 @@ function FertilityRequestCard({
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>
             How many months have you been trying to conceive? (optional)
           </Text>
-          <TextInput value={months} onChangeText={setMonths} keyboardType="numeric" style={[textInputStyle, { maxWidth: 110 }]} />
+          <TextInput keyboardAppearance={scheme} value={months} onChangeText={setMonths} keyboardType="numeric" style={[textInputStyle, { maxWidth: 110 }]} />
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>
             What would you like your care team to know? (optional)
           </Text>
-          <TextInput value={notes} onChangeText={setNotes} style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} value={notes} onChangeText={setNotes} style={textInputStyle} />
           {error && <ErrorText>{error}</ErrorText>}
           <PrimaryButton title="Request a fertility assessment" onPress={submit} loading={submitting} />
         </View>

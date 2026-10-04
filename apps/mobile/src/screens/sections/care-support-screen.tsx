@@ -56,7 +56,8 @@ import {
   type CareVoucher,
 } from "@/lib/vouchers";
 import { submitTestimonial } from "@/lib/testimonials";
-import { colors, radius, spacing } from "@/ui/theme";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import {
   Badge,
   CalloutCard,
@@ -66,27 +67,11 @@ import {
   PrimaryButton,
   SecondaryButton,
   SectionLabel,
-} from "@/ui/components";
+} from "@/ui/legacy-kit";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
-
-const dateInputStyle = {
-  ...textInputStyle,
-  paddingVertical: 0,
-  height: 38,
-} as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -135,6 +120,7 @@ interface CareSupportScreenProps {
  * as lower priority than the content above.
  */
 export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit }: CareSupportScreenProps) {
+  const colors = useLegacyColors();
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -171,6 +157,7 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit 
 // ---------------------------------------------------------------------------
 
 function CarePlanSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [plans, setPlans] = useState<CarePlanSummaryItem[]>([]);
@@ -311,6 +298,7 @@ function CarePlanSection({ patientId }: { patientId: string }) {
 }
 
 function TaskGroup({ title, tasks, onChanged }: { title: string; tasks: CareTask[]; onChanged: () => void }) {
+  const colors = useLegacyColors();
   if (tasks.length === 0) return null;
   return (
     <View style={{ gap: 8 }}>
@@ -327,6 +315,9 @@ function TaskGroup({ title, tasks, onChanged }: { title: string; tasks: CareTask
 }
 
 function TaskRow({ task, onChanged }: { task: CareTask; onChanged: () => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [showUnable, setShowUnable] = useState(false);
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
@@ -360,7 +351,7 @@ function TaskRow({ task, onChanged }: { task: CareTask; onChanged: () => void })
         </View>
       ) : (
         <View style={{ gap: 6 }}>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             style={textInputStyle}
             placeholder="What's stopping you? (optional)"
             placeholderTextColor={colors.subtle}
@@ -383,6 +374,7 @@ function TaskRow({ task, onChanged }: { task: CareTask; onChanged: () => void })
 // ---------------------------------------------------------------------------
 
 function EscalationsSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
   const [escalations, setEscalations] = useState<EscalationItem[] | null>(null);
 
   useEffect(() => {
@@ -427,6 +419,7 @@ function EscalationsSection({ patientId }: { patientId: string }) {
 // ---------------------------------------------------------------------------
 
 function ReferralsSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
   const [referrals, setReferrals] = useState<ReferralItem[] | null>(null);
 
   useEffect(() => {
@@ -482,6 +475,7 @@ function ReferralsSection({ patientId }: { patientId: string }) {
 // ---------------------------------------------------------------------------
 
 function HospitalAdmissionsSection({ patientId, organisationId }: { patientId: string; organisationId: string }) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [admissions, setAdmissions] = useState<HospitalAdmission[]>([]);
   const [formOpen, setFormOpen] = useState(false);
@@ -542,6 +536,10 @@ function HospitalAdmissionForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const dateInputStyle = { ...textInputStyle, paddingVertical: 0, height: 38 } as const;
+  const { scheme } = useTheme();
   const [admittedOn, setAdmittedOn] = useState("");
   const [dischargedOn, setDischargedOn] = useState("");
   const [facilityName, setFacilityName] = useState("");
@@ -592,7 +590,7 @@ function HospitalAdmissionForm({
     <Card style={{ gap: 10 }}>
       <View style={{ gap: 4 }}>
         <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Admission date (YYYY-MM-DD)</Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme}
           style={dateInputStyle}
           placeholder={todayDateInput()}
           placeholderTextColor={colors.subtle}
@@ -604,7 +602,7 @@ function HospitalAdmissionForm({
       </View>
       <View style={{ gap: 4 }}>
         <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Discharge date (optional)</Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme}
           style={dateInputStyle}
           placeholder="Leave blank if still admitted"
           placeholderTextColor={colors.subtle}
@@ -616,7 +614,7 @@ function HospitalAdmissionForm({
       </View>
       <View style={{ gap: 4 }}>
         <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Hospital (optional)</Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme}
           style={textInputStyle}
           placeholderTextColor={colors.subtle}
           value={facilityName}
@@ -628,7 +626,7 @@ function HospitalAdmissionForm({
         <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>
           What were you admitted for? (optional)
         </Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme}
           style={textInputStyle}
           placeholderTextColor={colors.subtle}
           value={diagnosis}
@@ -655,6 +653,10 @@ function AdmissionRow({
   first: boolean;
   onDischarged: () => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const dateInputStyle = { ...textInputStyle, paddingVertical: 0, height: 38 } as const;
+  const { scheme } = useTheme();
   const [dischargedOn, setDischargedOn] = useState("");
   const [summary, setSummary] = useState("");
   const [saving, setSaving] = useState(false);
@@ -710,7 +712,7 @@ function AdmissionRow({
 
       {admission.is_current ? (
         <View style={{ gap: 6, marginTop: 4 }}>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             style={dateInputStyle}
             placeholder="Discharge date (YYYY-MM-DD)"
             placeholderTextColor={colors.subtle}
@@ -719,7 +721,7 @@ function AdmissionRow({
             keyboardType="numbers-and-punctuation"
             maxLength={10}
           />
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             style={textInputStyle}
             placeholder="Discharge notes (optional)"
             placeholderTextColor={colors.subtle}
@@ -742,6 +744,9 @@ function AdmissionRow({
 // ---------------------------------------------------------------------------
 
 function AskADoctorSection({ patientId, organisationId }: { patientId: string; organisationId: string }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [consults, setConsults] = useState<AsyncConsultWithAnswerer[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState(ASYNC_CONSULT_CATEGORIES[0].value);
@@ -826,7 +831,7 @@ function AskADoctorSection({ patientId, organisationId }: { patientId: string; o
         })}
       </View>
 
-      <TextInput
+      <TextInput keyboardAppearance={scheme}
         value={question}
         onChangeText={setQuestion}
         placeholder="e.g. I've felt dizzy in the mornings since my dose changed. Is that expected?"
@@ -874,6 +879,9 @@ function AskADoctorSection({ patientId, organisationId }: { patientId: string; o
 // ---------------------------------------------------------------------------
 
 function NeedHelpSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [requests, setRequests] = useState<NavigationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -944,7 +952,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
               );
             })}
           </View>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             value={description}
             onChangeText={setDescription}
             placeholder="e.g. My pharmacy doesn't have my usual medicine in stock"
@@ -1029,6 +1037,9 @@ const STATUS_LABEL: Record<string, string> = {
  * get care" callout below this section already does for video visits etc.
  */
 function VouchersSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [vouchers, setVouchers] = useState<CareVoucher[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1095,7 +1106,7 @@ function VouchersSection({ patientId }: { patientId: string }) {
         </MutedText>
         {referralCode && <Text style={{ fontSize: 13, color: colors.ink, fontFamily: "monospace" }}>{referralCode}</Text>}
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             value={redeemInput}
             onChangeText={setRedeemInput}
             placeholder="Enter a referral code"
@@ -1116,6 +1127,9 @@ function VouchersSection({ patientId }: { patientId: string }) {
  * before anything appears on the marketing site.
  */
 function TestimonialSection() {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [displayName, setDisplayName] = useState("");
   const [quote, setQuote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1145,7 +1159,7 @@ function TestimonialSection() {
           </MutedText>
           <View>
             <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 4 }}>How should we credit you?</Text>
-            <TextInput
+            <TextInput keyboardAppearance={scheme}
               value={displayName}
               onChangeText={setDisplayName}
               placeholder="e.g. Amina O."
@@ -1156,7 +1170,7 @@ function TestimonialSection() {
           </View>
           <View>
             <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 4 }}>Your words</Text>
-            <TextInput
+            <TextInput keyboardAppearance={scheme}
               value={quote}
               onChangeText={setQuote}
               placeholder="What made a difference for you?"

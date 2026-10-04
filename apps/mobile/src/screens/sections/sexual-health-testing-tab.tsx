@@ -24,24 +24,16 @@ import {
   type StiSymptom,
 } from "@/lib/sti";
 import type { PanelBundle } from "@/lib/labs";
-import { colors, radius } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import { radius } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
 }
 
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
-
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const colors = useLegacyColors();
   return (
     <Text
       onPress={onPress}
@@ -69,6 +61,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
  * to be Paystack's own hosted checkout, never ours, on web either.
  */
 function StiBookingPanel() {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [bundles, setBundles] = useState<PanelBundle[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -130,6 +123,7 @@ function StiBookingPanel() {
  * always both visible, not gated behind the check-in result).
  */
 export function SexualHealthTestingTab() {
+  const colors = useLegacyColors();
   const [active, setActive] = useState(false);
   const [newPartner, setNewPartner] = useState(false);
   const [partnerCount, setPartnerCount] = useState<StiPartnerCount | undefined>();
@@ -266,6 +260,7 @@ const STI_CODE_LABEL: { [code: string]: string } = { chlamydia_gonorrhoea: "Chla
 const PARTNER_NOTIFY_ELIGIBLE_STATUSES: StiCaseStatus[] = ["patient_notified", "treatment_in_progress", "treatment_completed"];
 
 function StageTracker({ status }: { status: StiCaseStatus }) {
+  const colors = useLegacyColors();
   const found = STAGE_ORDER.indexOf(status);
   const currentIndex = found === -1 ? STAGE_ORDER.length - 1 : found;
   return (
@@ -293,6 +288,9 @@ function StageTracker({ status }: { status: StiCaseStatus }) {
 }
 
 function PartnerNotifyFlow({ episode, patientId, organisationId }: { episode: StiCaseEpisode; patientId: string; organisationId: string }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"choose" | "self_notify" | "clinician_assisted" | "done">("choose");
   const [templates, setTemplates] = useState<PartnerCopyTemplates | null>(null);
@@ -387,9 +385,9 @@ function PartnerNotifyFlow({ episode, patientId, organisationId }: { episode: St
       {mode === "clinician_assisted" && (
         <View style={{ gap: 8 }}>
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>What should we call them? (optional)</Text>
-          <TextInput value={partnerLabel} onChangeText={setPartnerLabel} placeholder="e.g. my partner" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} value={partnerLabel} onChangeText={setPartnerLabel} placeholder="e.g. my partner" style={textInputStyle} />
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Their phone number or contact detail</Text>
-          <TextInput value={partnerContact} onChangeText={setPartnerContact} placeholder="+234…" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} value={partnerContact} onChangeText={setPartnerContact} placeholder="+234…" style={textInputStyle} />
           {error && <ErrorText>{error}</ErrorText>}
           <View style={{ flexDirection: "row", gap: 8 }}>
             <PrimaryButton title="Send to my care team" onPress={submitClinicianAssisted} disabled={!partnerContact} loading={pending} />
@@ -417,6 +415,7 @@ function PartnerNotifyFlow({ episode, patientId, organisationId }: { episode: St
  * sponsor/supporter.
  */
 export function SexualHealthResultsTab({ patientId, organisationId }: { patientId: string; organisationId: string }) {
+  const colors = useLegacyColors();
   const [episodes, setEpisodes] = useState<StiCaseEpisode[]>([]);
   const [loading, setLoading] = useState(true);
 
