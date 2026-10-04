@@ -14,6 +14,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { SignupForm } from "./signup-form";
 
+// SignupForm renders LanguageSwitch, which calls next/navigation's useRouter.
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn(), push: jest.fn(), replace: jest.fn() }),
+}));
+
 let callCount = 0;
 jest.mock("./actions", () => ({
   signUp: jest.fn(async () => {
