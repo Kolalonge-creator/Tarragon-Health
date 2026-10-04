@@ -83,6 +83,19 @@ let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 /** Test hook: forget the opened database so the next call re-runs setup and the legacy migration. */
 export function __resetOutboxForTests(): void {
   dbPromise = null;
+  groupColumnReady = true;
+}
+
+/**
+ * False only if adding the group_id column failed on this phone. Single-row saves never
+ * name the column, and a group save falls back to ungrouped rows (still all or none),
+ * so a failed upgrade can never stop a patient logging.
+ */
+let groupColumnReady = true;
+
+/** Test hook. */
+export function __setGroupColumnReadyForTests(ready: boolean): void {
+  groupColumnReady = ready;
 }
 
 function getDb(): Promise<SQLite.SQLiteDatabase> {
@@ -116,9 +129,14 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
         );`
       );
       // Added after the first release of the outbox: a phone that already has the table gets the column.
-      const columns = await db.getAllAsync<{ name: string }>("pragma table_info(outbox)");
-      if (!columns.some((c) => c.name === "group_id")) {
-        await db.execAsync("alter table outbox add column group_id text");
+      try {
+        const columns = await db.getAllAsync<{ name: string }>("pragma table_info(outbox)");
+        if (!columns.some((c) => c.name === "group_id")) {
+          await db.execAsync("alter table outbox add column group_id text");
+        }
+      } catch (error) {
+        groupColumnReady = false;
+        recordSyncError("offline_outbox", "addGroupColumn", error);
       }
       try {
         await migrateLegacyVitals(db);
@@ -246,16 +264,23 @@ function buildRow(owner: string, input: EnqueueInput, now: string, groupId: stri
   };
 }
 
+// The single-row insert does not name group_id, so it works on a phone that has no such column.
 const INSERT_ROW_SQL = `insert into outbox
+  (client_id, kind, owner_user_id, subject_id, beneficiary_profile_id, payload, client_recorded_at,
+   created_at, attempts, next_attempt_at, state, last_error, danger)
+ values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'pending', null, ?)`;
+
+const INSERT_GROUPED_ROW_SQL = `insert into outbox
   (client_id, kind, owner_user_id, subject_id, beneficiary_profile_id, payload, client_recorded_at,
    created_at, attempts, next_attempt_at, state, last_error, danger, group_id)
  values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'pending', null, ?, ?)`;
 
-function insertParams(r: OutboxRow): (string | number | null)[] {
-  return [
+function insertParams(r: OutboxRow, grouped: boolean): (string | number | null)[] {
+  const base = [
     r.client_id, r.kind, r.owner_user_id, r.subject_id, r.beneficiary_profile_id, r.payload,
-    r.client_recorded_at, r.created_at, r.next_attempt_at, r.danger, r.group_id,
+    r.client_recorded_at, r.created_at, r.next_attempt_at, r.danger,
   ];
+  return grouped ? [...base, r.group_id] : base;
 }
 
 /** Instant, zero-network write. Durable the moment it resolves. */
@@ -264,7 +289,7 @@ export async function enqueue(input: EnqueueInput): Promise<OutboxItem> {
   if (!owner) throw new NotSignedInError();
   const db = await getDb();
   const row = buildRow(owner, input, new Date().toISOString(), null);
-  await db.runAsync(INSERT_ROW_SQL, insertParams(row));
+  await db.runAsync(INSERT_ROW_SQL, insertParams(row, false));
   return toItem(row);
 }
 
@@ -276,22 +301,37 @@ export async function enqueue(input: EnqueueInput): Promise<OutboxItem> {
  *
  * Rows are written in the order given and sync oldest first, so put the rows
  * that must reach the care team first (a red-flag symptom before the reading).
- * They share a group id and a timestamp. The sync still sends one row at a time
- * and never drops one silently: a row that has not gone stays listed (and, if
- * it was marked danger, raises the one-hour "not yet reached your care team"
- * notice on its own).
+ * They share a group id and a timestamp. The sync sends one row at a time, and
+ * a row the server errors on is retried later without holding the others back,
+ * so the order is "first when the network and server allow", not a guarantee.
+ * What is guaranteed is that no row is dropped silently: a row that has not
+ * gone stays listed (and, if it was marked danger, raises the one-hour "not yet
+ * reached your care team" notice on its own).
  */
 export async function enqueueGroup(inputs: readonly EnqueueInput[]): Promise<OutboxItem[]> {
   if (inputs.length === 0) return [];
   const owner = await currentUserId();
   if (!owner) throw new NotSignedInError();
   const db = await getDb();
+  const grouped = groupColumnReady;
   const groupId = Crypto.randomUUID();
   const now = new Date().toISOString();
-  const rows = inputs.map((input) => buildRow(owner, input, now, groupId));
-  await db.withExclusiveTransactionAsync(async (txn) => {
-    for (const row of rows) await txn.runAsync(INSERT_ROW_SQL, insertParams(row));
-  });
+  const rows = inputs.map((input) => buildRow(owner, input, now, grouped ? groupId : null));
+  const sql = grouped ? INSERT_GROUPED_ROW_SQL : INSERT_ROW_SQL;
+  try {
+    await db.withExclusiveTransactionAsync(async (txn) => {
+      for (const row of rows) await txn.runAsync(sql, insertParams(row, grouped));
+    });
+  } catch (error) {
+    // The exclusive transaction opens a second connection and can fail while another statement
+    // holds the write lock (a flush deleting a sent row). Retry once on the main connection:
+    // all or none still holds, and a flush statement that interleaves is harmless because sends
+    // are idempotent. A real failure (a duplicate id, a full disk) fails again and is thrown.
+    recordSyncError("offline_outbox", "enqueueGroup:exclusiveTransaction", error);
+    await db.withTransactionAsync(async () => {
+      for (const row of rows) await db.runAsync(sql, insertParams(row, grouped));
+    });
+  }
   return rows.map(toItem);
 }
 

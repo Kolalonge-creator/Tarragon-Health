@@ -7,7 +7,7 @@ import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
 import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-trend";
 import { loadActiveThresholds } from "@/lib/threshold-sync";
-import { BP_CHECKLIST_SYMPTOMS, planBpLog, type BpChecklistSymptom } from "@/lib/bp-checklist";
+import { BP_CHECKLIST_SYMPTOMS, planBpLog, redFlagsAmong, type BpChecklistSymptom } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
 import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
 import {
@@ -184,6 +184,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 
   async function handleSave() {
     const plan = planBpLog({ systolic: sys, diastolic: dia, pulse, symptoms: ticked }, SYMPTOM_CHECKLIST.severity);
+    const symptomList = (list: readonly BpChecklistSymptom[]) => list.map((s) => tr(`vitals.symptom.${s}` as MessageKey)).join(", ");
     if (!plan.ok) {
       setSaveError(null);
       setErrorKey(
@@ -191,6 +192,11 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           ? (plan.error === "number" ? "vitals.error.pulse_number" : "vitals.error.pulse_range")
           : (`vitals.error.${plan.error}` as MessageKey)
       );
+      // Guidance for a ticked red-flag symptom never waits for a valid reading: someone with chest
+      // pain who has not typed the numbers (or mistyped them) still sees it. Nothing was saved, so
+      // the guidance says plainly that the care team has not been told.
+      const flagged = redFlagsAmong(ticked);
+      if (flagged.length > 0) setGuidance({ detail: tr("vitals.guidance.symptom_detail", { symptoms: symptomList(flagged) }), synced: false });
       return;
     }
     setSaving(true);
@@ -201,7 +207,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     // The emergency guidance and the urgent banner come from the on-device check and appear at
     // once, before anything is sent: a crisis-range reading or a red-flag symptom is dangerous
     // whether or not the save reaches the server.
-    const symptomLabels = plan.redFlagTicked.map((s) => tr(`vitals.symptom.${s}` as MessageKey)).join(", ");
+    const symptomLabels = symptomList(plan.redFlagTicked);
     const result = await logBpWithExtras(plan, beneficiaryProfileId, undefined, (outcome) => {
       if (outcome.severity === "emergency") {
         const detail = outcome.symptomFlag

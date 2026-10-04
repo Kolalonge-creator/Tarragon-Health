@@ -5,8 +5,16 @@
  */
 import * as Crypto from "expo-crypto";
 import { postVitalReading, type VitalReadingPayload } from "./api";
-import { openDatabaseAsync } from "../test/mocks/expo-sqlite";
-import { __resetOutboxForTests, discardRejectedRow, enqueue, enqueueGroup, flushOutbox, listOutbox } from "./outbox";
+import { __failNextExclusiveTransaction, openDatabaseAsync } from "../test/mocks/expo-sqlite";
+import {
+  __resetOutboxForTests,
+  __setGroupColumnReadyForTests,
+  discardRejectedRow,
+  enqueue,
+  enqueueGroup,
+  flushOutbox,
+  listOutbox,
+} from "./outbox";
 
 const order: string[] = [];
 let mockInsertError: { code?: string; message?: string } | null = null;
@@ -149,5 +157,38 @@ describe("enqueueGroup", () => {
     order.length = 0;
     await flushOutbox();
     expect(order).toEqual(["symptoms", "vital"]);
+  });
+
+  it("falls back to the main connection when the exclusive transaction is busy, still all or none", async () => {
+    await flushOutbox();
+    __failNextExclusiveTransaction();
+    const before = (await listOutbox()).length;
+    const items = await enqueueGroup([
+      { kind: "symptom", subjectId: "p1", payload: HEADACHE, danger: true },
+      { kind: "vital", subjectId: "p1", payload: BP },
+    ]);
+    expect(items).toHaveLength(2);
+    expect((await listOutbox()).length).toBe(before + 2);
+  });
+
+  it("keeps saving, ungrouped, if the group_id column could not be added", async () => {
+    await flushOutbox();
+    const db = await openDatabaseAsync("tarragon-offline.db");
+    await db.execAsync("alter table outbox drop column group_id");
+    __setGroupColumnReadyForTests(false);
+    try {
+      const single = await enqueue({ kind: "vital", subjectId: "p1", payload: BP });
+      expect(single.clientId).toBeDefined();
+      const items = await enqueueGroup([
+        { kind: "symptom", subjectId: "p1", payload: HEADACHE },
+        { kind: "vital", subjectId: "p1", payload: PULSE },
+      ]);
+      expect(items.map((i) => i.groupId)).toEqual([undefined, undefined]);
+      const listed = await listOutbox();
+      expect(listed.map((r) => r.clientId)).toEqual(expect.arrayContaining([single.clientId, ...items.map((i) => i.clientId)]));
+    } finally {
+      __setGroupColumnReadyForTests(true);
+      await db.execAsync("alter table outbox add column group_id text");
+    }
   });
 });

@@ -1,5 +1,6 @@
 import {
   BP_CHECKLIST_SYMPTOMS,
+  redFlagsAmong,
   RED_FLAG_CHECKLIST_SYMPTOMS,
   TICKED_ON_BP_FORM_NOTE,
   planBpLog,
@@ -73,6 +74,20 @@ describe("planBpLog", () => {
 
   it("never records a tick as a patient-rated severity", () => {
     expect(TICKED_ON_BP_FORM_NOTE).toMatch(/not rated/i);
+  });
+});
+
+describe("redFlagsAmong", () => {
+  it("picks out the red-flag ticks without needing any numbers", () => {
+    expect(redFlagsAmong(["dizziness", "chest_pain", "palpitations"])).toEqual(["chest_pain"]);
+    expect(redFlagsAmong(["dizziness"])).toEqual([]);
+    expect(redFlagsAmong([])).toEqual([]);
+  });
+
+  it("is what the form asks first, so an invalid reading with a red-flag tick still has something to show", () => {
+    const invalid = planBpLog({ systolic: "", diastolic: "", pulse: "", symptoms: ["chest_pain"] }, SEVERITY);
+    expect(invalid.ok).toBe(false);
+    expect(redFlagsAmong(["chest_pain"])).toEqual(["chest_pain"]);
   });
 });
 

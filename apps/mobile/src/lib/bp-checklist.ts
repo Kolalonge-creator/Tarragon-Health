@@ -45,6 +45,15 @@ export const RED_FLAG_CHECKLIST_SYMPTOMS: readonly BpChecklistSymptom[] = [
   "confusion",
 ];
 
+/**
+ * The red-flag ticks among whatever was ticked. Used on its own when the numbers
+ * are blank or invalid: guidance for a red-flag symptom must never depend on the
+ * reading being valid, so the screen asks this before it asks for the numbers.
+ */
+export function redFlagsAmong(symptoms: readonly BpChecklistSymptom[]): BpChecklistSymptom[] {
+  return RED_FLAG_CHECKLIST_SYMPTOMS.filter((s) => symptoms.includes(s));
+}
+
 /** Written on every ticked symptom so the severity is never mistaken for a patient rating. */
 export const TICKED_ON_BP_FORM_NOTE = "Ticked on the blood pressure form (not rated by the patient).";
 
@@ -94,6 +103,6 @@ export function planBpLog(input: BpLogInput, tickedSeverity: number): BpLogPlan 
     diastolic: bp.diastolic,
     pulse,
     symptoms: ticked.map((symptom_type) => ({ symptom_type, severity: tickedSeverity, description: TICKED_ON_BP_FORM_NOTE })),
-    redFlagTicked: ticked.filter((s) => RED_FLAG_CHECKLIST_SYMPTOMS.includes(s)),
+    redFlagTicked: redFlagsAmong(ticked),
   };
 }

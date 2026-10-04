@@ -37,16 +37,23 @@ export interface TriageOutcome {
 export type TriageEvaluator = (input: TriageInput) => Promise<TriageOutcome>;
 
 export const evaluateOnDevice: TriageEvaluator = async (input) => {
+  // A failed blood pressure check must not hide the red-flag symptom check, which needs no thresholds.
   const [bpFlag, thresholds] = await Promise.all([
-    classifyVitalOffline({ vital_type: "blood_pressure", systolic: input.systolic, diastolic: input.diastolic }),
-    loadActiveThresholds(),
+    classifyVitalOffline({ vital_type: "blood_pressure", systolic: input.systolic, diastolic: input.diastolic }).catch(
+      () => null,
+    ),
+    loadActiveThresholds().catch(() => null),
   ]);
   const symptomFlag = input.redFlagTicked.length > 0;
   const severity = symptomFlag || bpFlag?.severity === "emergency" ? "emergency" : (bpFlag?.severity ?? null);
-  return { severity, bpFlag, symptomFlag, thresholdVersion: thresholds.version };
+  return { severity, bpFlag, symptomFlag, thresholdVersion: thresholds?.version ?? "unavailable" };
 };
 
-const NO_OUTCOME: TriageOutcome = { severity: null, bpFlag: null, symptomFlag: false, thresholdVersion: "unavailable" };
+/** What to use when the evaluator itself fails: nothing from the reading, but a ticked red flag still counts. */
+function fallbackOutcome(input: TriageInput): TriageOutcome {
+  const symptomFlag = input.redFlagTicked.length > 0;
+  return { severity: symptomFlag ? "emergency" : null, bpFlag: null, symptomFlag, thresholdVersion: "unavailable" };
+}
 
 export interface LogBpResult {
   error?: string;
@@ -68,7 +75,9 @@ type OkPlan = Extract<BpLogPlan, { ok: true }>;
 /**
  * Saves every row of the log on the phone in one step (all or none), then
  * tries to send. A red-flag symptom is queued before the reading, so it is
- * sent first and is never left behind a reading that already went. Triage can
+ * sent first when the network and server allow. A symptom the server errors on is
+ * retried later and does not hold the reading back: it stays listed and, as a
+ * danger row, raises the one-hour "not yet reached your care team" notice. Triage can
  * fail or be slow and never stands between the patient and a saved reading.
  *
  * `onOutcome` is called the moment the on-device check is done, before anything
@@ -81,11 +90,12 @@ export async function logBpWithExtras(
   evaluate: TriageEvaluator = evaluateOnDevice,
   onOutcome?: (outcome: TriageOutcome) => void,
 ): Promise<LogBpResult> {
-  const outcome = await evaluate({
+  const triageInput: TriageInput = {
     systolic: plan.systolic,
     diastolic: plan.diastolic,
     redFlagTicked: plan.redFlagTicked,
-  }).catch(() => NO_OUTCOME);
+  };
+  const outcome = await evaluate(triageInput).catch(() => fallbackOutcome(triageInput));
   onOutcome?.(outcome);
 
   let subjectId = beneficiaryProfileId;

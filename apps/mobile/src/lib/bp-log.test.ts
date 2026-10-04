@@ -8,6 +8,7 @@ import { NETWORK_ERROR_MESSAGE, postVitalReading, type VitalReadingPayload } fro
 import { planBpLog, type BpLogInput } from "./bp-checklist";
 import { evaluateOnDevice, logBpWithExtras, type TriageEvaluator } from "./bp-log";
 import { discardRejectedRow, flushOutbox, listOutbox } from "./outbox";
+import { classifyVitalOffline } from "./vitals";
 
 const order: string[] = [];
 const symptomRows: Record<string, unknown>[] = [];
@@ -31,6 +32,11 @@ jest.mock("./api", () => ({
   ...(jest.requireActual("./api") as object),
   postVitalReading: jest.fn(),
 }));
+jest.mock("./vitals", () => {
+  const actual = jest.requireActual("./vitals") as typeof import("./vitals");
+  return { ...actual, classifyVitalOffline: jest.fn(actual.classifyVitalOffline) };
+});
+const mockClassify = classifyVitalOffline as jest.MockedFunction<typeof classifyVitalOffline>;
 const mockPost = postVitalReading as jest.MockedFunction<typeof postVitalReading>;
 const posted: VitalReadingPayload[] = [];
 
@@ -120,6 +126,21 @@ describe("logBpWithExtras", () => {
       ]),
     );
     expect(byKey).toEqual({ chest_pain: true, dizziness: false, blood_pressure: true, pulse: false });
+  });
+
+  it("keeps a ticked red flag even when the evaluator itself fails", async () => {
+    const broken: TriageEvaluator = async () => {
+      throw new Error("threshold cache unreadable");
+    };
+    const res = await logBpWithExtras(plan({ symptoms: ["chest_pain"] }), undefined, broken);
+    expect(res.outcome).toMatchObject({ severity: "emergency", symptomFlag: true });
+    expect(res).toMatchObject({ saved: 2, syncedAll: true });
+  });
+
+  it("still shows the red-flag guidance when only the blood pressure check fails", async () => {
+    mockClassify.mockRejectedValueOnce(new Error("boom"));
+    const out = await evaluateOnDevice({ systolic: 120, diastolic: 80, redFlagTicked: ["confusion"] });
+    expect(out).toMatchObject({ severity: "emergency", symptomFlag: true, bpFlag: null });
   });
 
   it("never lets a failing triage stand between the patient and a saved reading", async () => {

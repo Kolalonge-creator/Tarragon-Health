@@ -20,6 +20,14 @@ export interface SQLiteDatabase {
   getFirstAsync<T>(sql: string, params?: Params): Promise<T | null>;
   /** Runs the task inside one transaction: all of its writes commit together or none do. */
   withExclusiveTransactionAsync(task: (txn: SQLiteDatabase) => Promise<void>): Promise<void>;
+  /** Same connection as everything else: other statements can interleave, as in expo-sqlite. */
+  withTransactionAsync(task: () => Promise<void>): Promise<void>;
+}
+
+let failNextExclusive = false;
+/** Test hook: the next exclusive transaction fails as it would when another connection holds the write lock. */
+export function __failNextExclusiveTransaction(): void {
+  failNextExclusive = true;
 }
 
 const databases = new Map<string, DatabaseSync>();
@@ -38,7 +46,21 @@ function wrap(db: DatabaseSync): SQLiteDatabase {
     async getFirstAsync<T>(sql: string, params: Params = []) {
       return (db.prepare(sql).get(...params) as T | undefined) ?? null;
     },
+    async withTransactionAsync(task) {
+      db.exec("begin");
+      try {
+        await task();
+        db.exec("commit");
+      } catch (error) {
+        db.exec("rollback");
+        throw error;
+      }
+    },
     async withExclusiveTransactionAsync(task) {
+      if (failNextExclusive) {
+        failNextExclusive = false;
+        throw new Error("database is locked");
+      }
       db.exec("begin");
       try {
         await task(wrap(db));
