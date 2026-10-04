@@ -18,7 +18,8 @@
  * rolled-back proof against real accounts).
  *
  * The RPC now also scopes a delegated users.suspend holder to their own
- * organisation and writes the audit_log row itself, in the same transaction.
+ * organisation and writes the audit_log row itself, in the same transaction
+ * (20261004194229_set_member_active_scope_and_audit.sql).
  *
  * This test covers the action's own remaining jobs: call the RPC with the
  * right arguments; surface an RPC-raised error as {error} WITHOUT reaching the

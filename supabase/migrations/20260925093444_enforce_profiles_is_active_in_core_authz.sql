@@ -34,12 +34,12 @@
 -- exclusion list; the live function already carries an `ngo_admin` exclusion
 -- with no matching migration file on this branch, preserved verbatim below).
 --
--- App-layer note: getCurrentProfile() (packages/auth/src/current-profile.ts,
--- re-exported by apps/web/src/lib/auth/current-profile.ts) also treats
--- is_active=false as signed-out, so every page guard and server action
--- redirects a deactivated account instead of reading empty RLS results. That
--- is the UX and defence-in-depth layer; the security boundary stays RLS at the
--- Postgres level (CLAUDE.md), which is what this migration changes.
+-- App-layer note: apps/web/src/lib/auth/current-profile.ts's getCurrentProfile()
+-- is deliberately NOT changed here to also treat is_active=false as signed-out.
+-- That would improve the UX (a clean "your account was deactivated" redirect
+-- instead of a series of empty-result RLS reads) but isn't the security
+-- boundary -- CLAUDE.md is explicit that RLS at the Postgres level is that
+-- boundary, never application-code filtering. Worth doing as a follow-up.
 
 create or replace function private.is_admin()
 returns boolean

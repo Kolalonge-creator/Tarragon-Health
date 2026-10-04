@@ -236,8 +236,10 @@ export async function setMemberPhoneAction(
  * their own organisation (never a Super Admin or a null-organisation account),
  * serializes the "last active Super Admin" guard against concurrent callers,
  * and writes the audit row in the same transaction, so a failed audit write can
- * no longer leave a suspension with no trail. See
- * 20260925100329_set_member_active_atomic_rpc.sql.
+ * no longer leave a suspension with no trail. The atomic RPC is
+ * 20260925100329_set_member_active_atomic_rpc.sql; the scoping and in-function
+ * audit are 20261004194229_set_member_active_scope_and_audit.sql, which must be
+ * applied before this action deploys (the action no longer writes the audit row).
  *
  * After the RPC succeeds this also bans / unbans the auth user. is_active gates
  * the database and getCurrentProfile(), but it does not touch Supabase Auth: a
