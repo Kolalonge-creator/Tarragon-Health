@@ -59,6 +59,8 @@ export interface HomeBpSummary {
   windowStart: LocalDate;
   windowEnd: LocalDate;
   readingsInWindow: number;
+  /** The readings that were counted (inside the window, close duplicates removed), oldest first. */
+  readings: HomeBpReading[];
   /** Readings ignored because they were taken closer than minGapMinutes to the previous counted one (a double save or a retype). */
   ignoredCloseReadings: number;
   byDay: DaySummary[];
@@ -69,6 +71,9 @@ export interface HomeBpSummary {
   morningAverage: PartSummary | null;
   eveningAverage: PartSummary | null;
 }
+
+/** The only protocol fields the averaging reads, so callers and tests need not carry the rest. */
+export type AveragingProtocol = Pick<HomeProtocolConfig, "minGapMinutes" | "morningHours" | "eveningHours">;
 
 export function sessionPart(atMs: number, protocol: Pick<HomeProtocolConfig, "morningHours" | "eveningHours">): SessionPart {
   const h = lagosHour(atMs);
@@ -121,7 +126,7 @@ export function evaluateAverageGate(countsByDay: readonly number[], gate: Averag
 export function summariseHomeBp(
   readings: readonly HomeBpReading[],
   nowMs: number,
-  protocol: HomeProtocolConfig,
+  protocol: AveragingProtocol,
   gate: AverageGateConfig,
 ): HomeBpSummary {
   const windowEnd = lagosLocalDate(nowMs);
@@ -180,6 +185,7 @@ export function summariseHomeBp(
     windowStart,
     windowEnd,
     readingsInWindow: all.length,
+    readings: inWindow,
     ignoredCloseReadings: candidates.length - inWindow.length,
     byDay,
     gate: gateResult,
