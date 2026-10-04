@@ -167,4 +167,91 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: FROM,
     source: `${SPEC} (Transcript retention: to confirm with counsel)`,
   },
+  // S07 (Today screen, BP logging, trends, reminders). Every value below is a
+  // proposal for the Chief Medical Officer or founder to confirm; none is a
+  // clinical threshold the app grades on (grading stays with S11/S12, OQ-67).
+  {
+    key: "bp.home_protocol",
+    // Home self-measurement routine (AHA/AMA, ISH, ESH, WHO HEARTS read for S07):
+    // 2 readings at least 1 minute apart, morning and evening, 7 days. The 3-day minimum
+    // lives in bp.average_gate. minGapMinutes is applied by the averaging code; the others
+    // are read by the guided technique and reminder screens (not built yet).
+    // Session hours are local (Africa/Lagos) hour-of-day, start inclusive, end exclusive.
+    value: {
+      readingsPerSession: 2,
+      minGapMinutes: 1,
+      targetDays: 7,
+      restMinutes: 5,
+      morningHours: [4, 12],
+      eveningHours: [17, 24],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 3",
+  },
+  {
+    key: "bp.average_gate",
+    // An average is shown only when one rule is met: at least `minDays` days that
+    // each hold at least `minPerDay` readings, with at least `minReadings` readings
+    // across those days (the published Omada eligibility rule). Below the gate the
+    // app says "not enough readings yet".
+    value: {
+      windowDays: 7,
+      rules: [
+        { minReadings: 3, minDays: 3, minPerDay: 1 },
+        { minReadings: 4, minDays: 2, minPerDay: 2 },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 3 (Omada averaging gate)",
+  },
+  {
+    key: "bp.trend_display",
+    // Fewer than `minReadingsForChart` readings in the window shows a list, not a
+    // trend line; a gap of more than `gapBreakDays` days breaks the line.
+    value: { minReadingsForChart: 3, gapBreakDays: 2 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 4",
+  },
+  {
+    key: "bp.starting_suggestion_target",
+    // Home target shown as a "starting suggestion, not yet confirmed" until a
+    // clinician has set a personal target (who and when). Home guidelines differ
+    // (135/85 ISH, 135/75 ESH, 130/80 AHA/ACC), so this is a pair to confirm, not a rule.
+    value: { systolicBelow: 135, diastolicBelow: 85 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 3 (home thresholds differ by guideline)",
+  },
+  {
+    key: "reminders.behaviour",
+    value: { snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 60, horizonDays: 14 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 5 (MyTherapy snooze default; iOS 64 pending cap)",
+  },
+  {
+    key: "streaks.rules",
+    // Consecutive local days with at least one reading. A freeze is earned every
+    // `freezeEarnEveryDays` days of a run, held up to `freezeCap`, and is shown as a
+    // freeze, never as a reading.
+    value: { freezeEarnEveryDays: 7, freezeCap: 2 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 6",
+  },
 ];
