@@ -55,6 +55,7 @@ export const SECTION_ICONS: Record<SectionId, LucideIcon> = {
   medications: Pill,
   labs: FlaskConical,
   devices: Bluetooth,
+  reminders: Clock,
   prevention: ShieldCheck,
   healthSummary: FileText,
   timeline: Clock,

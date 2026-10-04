@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { loadTodaysDoses, logDose, type DoseChecklistItem, type DoseStatus } from "@/lib/medications";
-import { syncDoseReminders } from "@/lib/dose-reminders";
+import { syncReminders } from "@/lib/reminder-notifications";
 import { radii, space, useTheme } from "@/ui/design";
 import { AppText, Badge, Button, Card, EmptyState, Icon, InlineAlert, LegacySheet, ListItem, PressableScale, Screen, Skeleton, SkeletonGroup, useToast } from "@/ui/kit";
 import { SyncBanner } from "@/screens/sync-banner";
@@ -50,7 +50,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     }
     setLoadError(false);
     setDoses(result.data);
-    void syncDoseReminders(result.data);
+    void syncReminders({ askPermission: true, doses: result.data });
   }, [patientId]);
 
   useEffect(() => {
@@ -81,13 +81,13 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     // Optimistic — this is the highest-frequency native write in the app.
     const next: DoseChecklistItem[] = doses.map((d) => (d === item ? { ...d, status: nextStatus } : d));
     setDoses(next);
-    void syncDoseReminders(next);
+    void syncReminders({ doses: next });
     // Put this one row back to what it was. Reloading instead could flip the whole
     // screen to "couldn't load" while offline, hiding the row's own error.
     const revert = () => {
       setDoses((prev) => {
         const restored = prev.map((d) => (doseKey(d) === key ? { ...d, status: item.status } : d));
-        void syncDoseReminders(restored);
+        void syncReminders({ doses: restored });
         return restored;
       });
     };
