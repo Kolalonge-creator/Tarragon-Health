@@ -1,0 +1,143 @@
+import { addDays, lagosLocalDate, lagosTimeToUtcMs, DAY_MS } from "./lagos";
+import { slotsBetween, slotKey } from "./schedule";
+import type { ScheduleSpec } from "./types";
+
+/**
+ * Which local notifications a phone should hold for doses, and how to bring the
+ * phone's pending list in line with that plan.
+ *
+ * Rules (docs/research/S08.md sections 3 and 5):
+ * - The Today list is the source of truth. A notification is a convenience, so
+ *   nothing here assumes one was delivered.
+ * - iOS keeps at most 64 pending local notifications, so only the earliest
+ *   `maxPending` future ones inside `horizonDays` are planned, and the app plans
+ *   again on launch, on foreground, after any dose is logged or edited, on a
+ *   timezone or clock change, and in the background task.
+ * - Doses of different medicines due at the same minute share one notification,
+ *   which also spends fewer of the 64.
+ * - This module carries no wording. The notification text is a keyed generic
+ *   string with no medicine, dose or condition (INV-07).
+ */
+export const DOSE_NOTIFICATION_PREFIX = "dose|";
+
+export interface ReminderMedicine {
+  id: string;
+  active: boolean;
+  spec: ScheduleSpec;
+}
+
+export interface PlannedNotification {
+  /** Stable id: the same dose minute always gets the same id, so planning twice never duplicates. */
+  id: string;
+  fireAtMs: number;
+  /** The slots this notification covers, as `${medicationId}|${date}|${time}`. Carried in the payload, never in the text. */
+  slotKeys: string[];
+}
+
+export interface PlanConfig {
+  maxPending: number;
+  horizonDays: number;
+}
+
+export function planDoseNotifications(
+  medicines: readonly ReminderMedicine[],
+  closedSlots: ReadonlySet<string>,
+  nowMs: number,
+  cfg: PlanConfig,
+): PlannedNotification[] {
+  const today = lagosLocalDate(nowMs);
+  const last = addDays(today, cfg.horizonDays);
+  const horizonMs = nowMs + cfg.horizonDays * DAY_MS;
+  const byFire = new Map<number, string[]>();
+
+  for (const med of medicines) {
+    if (!med.active) continue;
+    for (const slot of slotsBetween(med.spec, today, last)) {
+      const fireAt = lagosTimeToUtcMs(slot.date, slot.time);
+      if (fireAt <= nowMs || fireAt > horizonMs) continue;
+      const key = slotKey(med.id, slot);
+      if (closedSlots.has(key)) continue;
+      const list = byFire.get(fireAt);
+      if (list) list.push(key);
+      else byFire.set(fireAt, [key]);
+    }
+  }
+
+  return [...byFire.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .slice(0, cfg.maxPending)
+    .map(([fireAtMs, slotKeys]) => ({ id: `${DOSE_NOTIFICATION_PREFIX}${fireAtMs}`, fireAtMs, slotKeys: slotKeys.sort() }));
+}
+
+export interface NotificationDiff {
+  toSchedule: PlannedNotification[];
+  /** Pending dose notifications that are no longer wanted (logged, stopped, edited away). */
+  toCancel: string[];
+}
+
+/** Compare the plan with the ids the phone currently holds. Ids outside the dose prefix are never touched. */
+export function diffNotifications(planned: readonly PlannedNotification[], pendingIds: readonly string[]): NotificationDiff {
+  const have = new Set(pendingIds);
+  const want = new Set(planned.map((p) => p.id));
+  return {
+    toSchedule: planned.filter((p) => !have.has(p.id)),
+    toCancel: pendingIds.filter((id) => id.startsWith(DOSE_NOTIFICATION_PREFIX) && !want.has(id)),
+  };
+}
+
+export type ReminderIssue =
+  | "notifications_off"
+  | "exact_alarms_off"
+  | "nothing_scheduled"
+  | "plan_out_of_date"
+  | "maker_may_stop_reminders";
+
+export interface ReminderHealthInput {
+  notificationsAllowed: boolean;
+  /** Android 12+ exact-alarm permission. Null where it does not apply (iOS, older Android). */
+  exactAlarmsAllowed: boolean | null;
+  /** Dose notifications the plan wants right now, and how many the phone actually holds. */
+  plannedCount: number;
+  pendingCount: number;
+  /** When the plan was last rebuilt, UTC ms, or null if never. */
+  lastPlannedAtMs: number | null;
+  nowMs: number;
+  /** Phone maker, lower case, from the device (for example "tecno"), or null. */
+  manufacturer: string | null;
+  /** Rebuild older than this is stale. */
+  stalePlanHours: number;
+}
+
+/** Makers whose phones are known to stop apps and their alarms in the background (docs/research/S08.md section 3). */
+export const AGGRESSIVE_BACKGROUND_MAKERS: readonly string[] = [
+  "tecno",
+  "infinix",
+  "itel",
+  "transsion",
+  "samsung",
+  "xiaomi",
+  "oppo",
+  "realme",
+  "vivo",
+  "oneplus",
+  "huawei",
+  "honor",
+];
+
+/**
+ * The reasons reminders on this phone may be unreliable, in the order to fix
+ * them. An empty list means nothing is known to be wrong, not that delivery is
+ * guaranteed: the Today list still shows every dose.
+ */
+export function reminderIssues(input: ReminderHealthInput): ReminderIssue[] {
+  const out: ReminderIssue[] = [];
+  if (!input.notificationsAllowed) out.push("notifications_off");
+  if (input.exactAlarmsAllowed === false) out.push("exact_alarms_off");
+  if (input.notificationsAllowed && input.plannedCount > 0 && input.pendingCount === 0) out.push("nothing_scheduled");
+  const stale =
+    input.lastPlannedAtMs === null || input.nowMs - input.lastPlannedAtMs > input.stalePlanHours * 60 * 60 * 1000;
+  if (stale && input.plannedCount > 0) out.push("plan_out_of_date");
+  const maker = input.manufacturer?.toLowerCase() ?? "";
+  if (AGGRESSIVE_BACKGROUND_MAKERS.some((m) => maker.includes(m))) out.push("maker_may_stop_reminders");
+  return out;
+}

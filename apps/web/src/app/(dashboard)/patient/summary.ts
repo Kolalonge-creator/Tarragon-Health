@@ -38,7 +38,7 @@ export async function getPatientSummaryStats(patientId: string): Promise<Patient
         .limit(1),
       supabase
         .from("medications")
-        .select("id, drug_name, schedule_times")
+        .select("id, drug_name, schedule_times, schedule_spec")
         .eq("patient_id", patientId)
         .eq("is_active", true),
       // medication_logs is append-only (20260830224528) — a slot can carry

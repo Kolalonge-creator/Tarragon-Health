@@ -413,3 +413,31 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) S07 changes the reminder to keyed generic copy ("Time for your care plan check", no drug name) through `@tarragon/i18n`, and moves the strings of any file it touches; files it does not touch stay in the copy-lint baseline (recommended); (b) leave the medicine name and record it as accepted (conflicts with INV-07); (c) fix every legacy string in one pass (large, unrelated to S07).
 - Pidgin versions of any new string need a native reviewer before the next store build (the OQ-61 pattern).
 - Decision (founder, 2026-10-03): (a) the dose reminder becomes keyed generic copy with no medicine name, through `@tarragon/i18n`; strings in files S07 touches move to i18n; the Pidgin version needs native review.
+
+### OQ-69 A due dose can raise two reminders: the one on the phone and the server's push (raised by S08)
+- The phone holds its own local notification at the dose time. The existing cron `medication-dose-reminders-every-15-min` also queues a push and an in-app notice for the same dose, up to 15 minutes later if nothing has been logged. The server copy is useful when a phone maker has stopped the local one (docs/research/S08.md section 3), but a phone where both work shows the patient two reminders for one dose. S08 only removed the medicine name from the server text (INV-07).
+- Options: (a) keep both: the server one is the backup for a killed local reminder (recommended until the real-device check shows how often local reminders are lost); (b) send the server one only to a patient whose phone has not reported a recent reminder plan (needs a new report from the phone); (c) drop the server dose reminder.
+- Blocks nothing in S08. Related: OQ-05, OQ-21.
+
+### OQ-70 Local reminders are planned only for the device owner's own medicines (raised by S08)
+- A guardian who manages a dependant can view and log that person's doses, and the dependant's schedule is their own (8.15), but `replanDoseReminders` plans for the signed-in account only. Planning for dependants on the guardian's phone needs a neutral way to tell the doses apart without naming a medicine (a first name is not a condition, so INV-07 allows it) and a rule for which phone reminds, since the dependant may have their own.
+- Options: (a) plan for every dependant the guardian manages, generic text plus the dependant's first name (recommended); (b) leave it: the Today list for that person is still correct, only the reminder is missing; (c) remind only on the dependant's own phone.
+
+### OQ-71 Other server notification templates still name a medicine (raised by S08)
+- S08 made `medication_dose_reminder` and `medication_refill_reminder` neutral and added a test (`packages/medicines/src/notification-wording.test.ts`). These still put `drug_name` in wording that reaches a push, an email or the in-app inbox: `medication_adherence_checkin`, `medication_review_due`, `medication_prescribed_patient`, `prescription_updated_patient`, `pharmacy_order_patient_confirmation`, `missed_dose_behavioural_nudge` (written by `private.route_missed_dose_reason`, whose wording is also a behavioural nudge the research would reject if it shames), and the `send-pending-notifications` lines that build text from `payload.drug_name`.
+- Options: (a) S13 (notifications framework with the INV-07 lint) owns all of them (recommended); (b) fix them now in S08 (touches the prescription flow, which S24 changes).
+
+### OQ-72 A skipped dose with a reason does not reach the care team as its own signal (raised by S08)
+- The phone records a skip with a short key in `medication_logs.reason` (`side_effect`, `felt_well`, `other`; "I do not have it" is logged as `not_available`). `private.route_missed_dose_reason` only reads `status = 'missed'` with `missed_reason`, so a skip because of a side effect is stored and visible in the dose log but does not raise a review task. `not_available` already counts toward the 3 and 6 missed-dose alerts.
+- Options: (a) a "side_effect" skip raises a care-team review task through the existing `care_outreach_tasks` path (recommended; needs the Chief Medical Officer's wording); (b) leave it for S11/S12 to read from the `medication_dose_recorded` signal, which carries the status but not the reason.
+
+### OQ-73 Android exact alarms and boot persistence need a native build (raised by S08)
+- `expo-notifications` 0.32 (SDK 54) does not expose `canScheduleExactAlarms`, and its `delivery: 'alarmClock'` option arrived in a later SDK (docs/research/S08.md section 3). On Android 12 and later, exact timing needs `SCHEDULE_EXACT_ALARM` in the manifest (not `USE_EXACT_ALARM`, which Play restricts), and alarms survive a reboot only with a boot receiver. `app.json` declares neither. The health check passes "unknown" for exact alarms and does not warn about them.
+- Options: (a) declare `SCHEDULE_EXACT_ALARM`, add the in-context explanation and settings link, bump `runtimeVersion` and build (recommended, after the first real-device test on a Tecno or Infinix phone); (b) wait for the SDK upgrade that carries the newer `expo-notifications`. Either is a native-affecting change, so the OTA publisher will not ship it.
+
+### OQ-74 Pidgin wording for the S08 strings needs a native reviewer (raised by S08)
+- About 90 new keys (`medicines.notify.*`, `meds.*`) were written in English and a first Pidgin version. Same rule as OQ-61 and OQ-63: a native reviewer before the next store build. The reminder text and the skip reasons matter most.
+
+### OQ-75 Adherence below the line: what the care team sees and when (raised by S08)
+- The weekly percentage is shown to the patient as a plain count with supportive wording and to tied clinicians as "doses marked taken". The `medication_adherence_low` signal fires once a week for a patient under 80 percent (the proposed line). The existing 3 and 6 missed-dose alerts still run separately. Whether the weekly signal should create a task, and the Chief Medical Officer's confirmation of 80 percent over 7 days, wait for S11 and S12; S08 never changes treatment or messages the patient about it.
+- Options: (a) signal only until S12 defines the task (recommended); (b) also notify the patient's care team inbox now.

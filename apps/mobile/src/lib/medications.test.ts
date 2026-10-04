@@ -170,7 +170,13 @@ describe("buildTodaysDoseChecklist", () => {
 
   it("stays lock-step with the web copy's ordering and status resolution", () => {
     const logs = [{ medication_id: "med-2", scheduled_time: "13:00", status: "missed" as const }];
-    const mine: DoseChecklistItem[] = buildTodaysDoseChecklist(medications, logs);
+    // S08 added fields (dueAtMs, state, origin ...) on top of the older shape; the older four must still match the web copy.
+    const mine: DoseChecklistItem[] = buildTodaysDoseChecklist(medications, logs).map(({ medicationId, drugName, time, status }) => ({
+      medicationId,
+      drugName,
+      time,
+      status,
+    }));
     const theirs = webBuildTodaysDoseChecklist(medications, logs);
     expect(mine).toEqual(theirs);
   });

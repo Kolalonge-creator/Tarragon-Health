@@ -5952,6 +5952,100 @@ export type Database = {
           },
         ]
       }
+      medication_supply: {
+        Row: {
+          count_source: string
+          counted_at: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          pills_on_hand: number
+          pills_per_dose: number
+          updated_at: string
+        }
+        Insert: {
+          count_source?: string
+          counted_at?: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          pills_on_hand: number
+          pills_per_dose?: number
+          updated_at?: string
+        }
+        Update: {
+          count_source?: string
+          counted_at?: string
+          medication_id?: string
+          organisation_id?: string
+          patient_id?: string
+          pills_on_hand?: number
+          pills_per_dose?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_supply_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: true
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_supply_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_supply_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medicine_config: {
+        Row: {
+          adherence_min_doses: number
+          adherence_threshold_percent: number
+          adherence_window_days: number
+          created_at: string
+          is_active: boolean
+          low_supply_days: number
+          missed_after_minutes: number
+          note: string | null
+          server_missed_after_minutes: number
+          version: number
+        }
+        Insert: {
+          adherence_min_doses: number
+          adherence_threshold_percent: number
+          adherence_window_days: number
+          created_at?: string
+          is_active?: boolean
+          low_supply_days: number
+          missed_after_minutes: number
+          note?: string | null
+          server_missed_after_minutes: number
+          version: number
+        }
+        Update: {
+          adherence_min_doses?: number
+          adherence_threshold_percent?: number
+          adherence_window_days?: number
+          created_at?: string
+          is_active?: boolean
+          low_supply_days?: number
+          missed_after_minutes?: number
+          note?: string | null
+          server_missed_after_minutes?: number
+          version?: number
+        }
+        Relationships: []
+      }
       proxy_setups: {
         Row: {
           confirmed_at: string | null
@@ -22209,6 +22303,7 @@ export type Database = {
           route: string | null
           rx_number: string | null
           schedule_times: Json
+          schedule_spec: Json | null
           search_vector: unknown
           source: Database["public"]["Enums"]["medication_source"]
           stopped_at: string | null
@@ -22249,6 +22344,7 @@ export type Database = {
           route?: string | null
           rx_number?: string | null
           schedule_times?: Json
+          schedule_spec?: Json | null
           search_vector?: unknown
           source?: Database["public"]["Enums"]["medication_source"]
           stopped_at?: string | null
@@ -22289,6 +22385,7 @@ export type Database = {
           route?: string | null
           rx_number?: string | null
           schedule_times?: Json
+          schedule_spec?: Json | null
           search_vector?: unknown
           source?: Database["public"]["Enums"]["medication_source"]
           stopped_at?: string | null
@@ -40697,6 +40794,10 @@ export type Database = {
         Args: { p_status?: Database["public"]["Enums"]["referral_status"] }
         Returns: Json
       }
+      medication_weekly_adherence: {
+        Args: { p_patient: string; p_reason?: string }
+        Returns: Json
+      }
       my_pending_auto_drafted_notes: {
         Args: never
         Returns: {
@@ -45366,6 +45467,9 @@ export type Database = {
         | "risk_score_updated"
         | "care_plan_updated"
         | "consultation_completed"
+        | "medication_dose_recorded"
+        | "medication_refill_due"
+        | "medication_adherence_low"
       clinical_rule_execution_mode: "active" | "shadow"
       clinical_rule_execution_outcome:
         | "actions_emitted"
@@ -47678,6 +47782,9 @@ export const Constants = {
         "risk_score_updated",
         "care_plan_updated",
         "consultation_completed",
+        "medication_dose_recorded",
+        "medication_refill_due",
+        "medication_adherence_low",
       ],
       clinical_rule_execution_mode: ["active", "shadow"],
       clinical_rule_execution_outcome: [
