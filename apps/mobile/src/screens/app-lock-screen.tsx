@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { authenticate } from "@/lib/app-lock";
 import { supabase } from "@/lib/supabase";
 import { colors, radius, spacing } from "@/ui/theme";
+import { useTheme } from "@/ui/design";
 import logoMarkWhite from "../../assets/logo-mark-white.png";
 
 interface AppLockScreenProps {
@@ -20,6 +21,11 @@ export function AppLockScreen({ onUnlocked }: AppLockScreenProps) {
   const [authenticating, setAuthenticating] = useState(false);
   const [failedOnce, setFailedOnce] = useState(false);
   const inFlight = useRef(false);
+  // Light keeps the brand-green splash; Dark uses the dark canvas with the same layout.
+  const { scheme, colors: palette } = useTheme();
+  const dark = scheme === "dark";
+  const textColor = dark ? palette.text : "#FFFFFF";
+  const mutedColor = dark ? palette.textMuted : "rgba(255,255,255,0.85)";
 
   const tryUnlock = useCallback(async () => {
     // Ref guard rather than state: authenticateAsync must never run twice
@@ -47,7 +53,7 @@ export function AppLockScreen({ onUnlocked }: AppLockScreenProps) {
   }, [tryUnlock]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.brand }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: dark ? palette.canvas : colors.brand }}>
       <StatusBar barStyle="light-content" />
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.screen }}>
         <Image
@@ -55,14 +61,14 @@ export function AppLockScreen({ onUnlocked }: AppLockScreenProps) {
           style={{ width: 96, height: 133, marginBottom: 32 }}
           resizeMode="contain"
         />
-        <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF", marginBottom: 8 }}>
+        <Text style={{ fontSize: 22, fontWeight: "800", color: textColor, marginBottom: 8 }}>
           Welcome back
         </Text>
         <Text
           style={{
             fontSize: 15,
             lineHeight: 22,
-            color: "rgba(255,255,255,0.85)",
+            color: mutedColor,
             textAlign: "center",
             marginBottom: 28,
             maxWidth: 300,
@@ -78,7 +84,7 @@ export function AppLockScreen({ onUnlocked }: AppLockScreenProps) {
           disabled={authenticating}
           onPress={() => void tryUnlock()}
           style={({ pressed }) => ({
-            backgroundColor: pressed ? "rgba(255,255,255,0.85)" : "#FFFFFF",
+            backgroundColor: dark ? (pressed ? palette.brandPressed : palette.brand) : pressed ? "rgba(255,255,255,0.85)" : "#FFFFFF",
             borderRadius: radius.control,
             paddingVertical: 14,
             paddingHorizontal: 48,
@@ -87,14 +93,14 @@ export function AppLockScreen({ onUnlocked }: AppLockScreenProps) {
             opacity: authenticating ? 0.6 : 1,
           })}
         >
-          <Text style={{ color: colors.brand, fontSize: 16, fontWeight: "700" }}>Unlock</Text>
+          <Text style={{ color: dark ? palette.textOnBrand : colors.brand, fontSize: 16, fontWeight: "700" }}>Unlock</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={() => void supabase.auth.signOut()}
           style={({ pressed }) => ({ marginTop: 20, padding: 8, opacity: pressed ? 0.6 : 1 })}
         >
-          <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: "600" }}>
+          <Text style={{ color: mutedColor, fontSize: 14, fontWeight: "600" }}>
             Sign out
           </Text>
         </Pressable>
