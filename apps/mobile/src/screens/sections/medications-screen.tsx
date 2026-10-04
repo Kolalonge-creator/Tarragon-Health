@@ -50,7 +50,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     }
     setLoadError(false);
     setDoses(result.data);
-    void syncReminders({ askPermission: true, doses: result.data });
+    void syncReminders({ askPermission: true, doses: result.data, dosesFor: patientId });
   }, [patientId]);
 
   useEffect(() => {
@@ -81,13 +81,13 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     // Optimistic — this is the highest-frequency native write in the app.
     const next: DoseChecklistItem[] = doses.map((d) => (d === item ? { ...d, status: nextStatus } : d));
     setDoses(next);
-    void syncReminders({ doses: next });
+    void syncReminders({ doses: next, dosesFor: patientId });
     // Put this one row back to what it was. Reloading instead could flip the whole
     // screen to "couldn't load" while offline, hiding the row's own error.
     const revert = () => {
       setDoses((prev) => {
         const restored = prev.map((d) => (doseKey(d) === key ? { ...d, status: item.status } : d));
-        void syncReminders({ doses: restored });
+        void syncReminders({ doses: restored, dosesFor: patientId });
         return restored;
       });
     };

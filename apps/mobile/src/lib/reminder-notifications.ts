@@ -3,13 +3,15 @@ import { Platform } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { loadTodaysDoses, type DoseChecklistItem } from "./medications";
 import {
-  REMINDER_ID_PREFIX,
   dosesToPlanInputs,
+  ownDosesOnly,
+  planCoverage,
   planReminderNotifications,
+  withLanguage,
   type PlannedNotification,
 } from "./reminder-plan";
 import { loadReminderPrefs } from "./reminder-prefs";
-import { applyPlan, cancelAllReminders, type NotificationsPort, type PermissionState, type SyncResult } from "./reminder-sync";
+import { applyPlan, createSerialQueue, type NotificationsPort, type PermissionState, type SyncResult } from "./reminder-sync";
 import { loadReminderBehaviour } from "./s07-config";
 import { supabase } from "./supabase";
 import { getUiLanguage } from "./ui-language";
@@ -96,7 +98,13 @@ interface BuiltPlan {
   language: string;
 }
 
-async function buildPlan(nowMs: number, knownDoses?: readonly DoseChecklistItem[]): Promise<BuiltPlan | null> {
+/** Every sync goes through one queue: two at once can apply an older plan after a newer one. */
+const queue = createSerialQueue();
+
+async function buildPlan(
+  nowMs: number,
+  supplied?: { forPatientId: string; doses: readonly DoseChecklistItem[] },
+): Promise<BuiltPlan | null> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -106,13 +114,16 @@ async function buildPlan(nowMs: number, knownDoses?: readonly DoseChecklistItem[
   // The medicine list is only read when medicine reminders are on, and not at all when the
   // caller (the Medications screen) already has today's list, which also lets a dose that was
   // just marked taken drop its reminder before the log itself has finished saving.
+  // A supplied list counts only when it is the signed-in user's own (not someone she is acting for).
+  const knownDoses = ownDosesOnly(userId, supplied);
   const doses = !prefs.doseOn ? null : knownDoses ? ({ ok: true, data: [...knownDoses] } as const) : await loadTodaysDoses(userId);
   const inputs = doses && doses.ok ? dosesToPlanInputs(doses.data) : { doseSchedules: [], handledDoseSlots: new Set<string>() };
   return {
     userId,
     language,
     doseUnknown: prefs.doseOn && !(doses && doses.ok),
-    plan: planReminderNotifications({ prefs, ...inputs }, nowMs, loadReminderBehaviour()),
+    // The language is part of each identifier, so a language change replaces the scheduled text.
+    plan: withLanguage(planReminderNotifications({ prefs, ...inputs }, nowMs, loadReminderBehaviour()), language),
   };
 }
 
@@ -124,35 +135,37 @@ const NO_USER: SyncResult = { status: "nothing_to_do", permission: "undetermined
  * logged, the background task) and never throws. Pass `askPermission` only
  * from something the patient just did.
  */
-export async function syncReminders(options: { askPermission?: boolean; doses?: readonly DoseChecklistItem[] } = {}): Promise<SyncResult> {
+export function syncReminders(
+  options: { askPermission?: boolean; doses?: readonly DoseChecklistItem[]; dosesFor?: string } = {},
+): Promise<SyncResult> {
+  const supplied = options.doses && options.dosesFor ? { forPatientId: options.dosesFor, doses: options.doses } : undefined;
+  return queue
+    .run(async () => {
+      const built = await buildPlan(Date.now(), supplied);
+      if (!built) return NO_USER;
+      return applyPlan(makePort(built.language), built.plan, {
+        askPermission: options.askPermission === true,
+        preserve: built.doseUnknown ? ["dose"] : [],
+      });
+    })
+    .catch(() => ({ ...NO_USER, status: "failed" as const }));
+}
+
+export interface UpcomingReminders {
+  items: PlannedNotification[];
+  /** The last notification currently scheduled, or null when there are none. */
+  coveredUntilMs: number | null;
+  /** True when the plan hit its cap, so it stops before the horizon and needs the app opened to top it up. */
+  capped: boolean;
+}
+
+/** The next few reminders and how far ahead they reach, for the screen. Empty on any failure. */
+export async function upcomingReminders(count = 4): Promise<UpcomingReminders> {
   try {
-    const built = await buildPlan(Date.now(), options.doses);
-    if (!built) return NO_USER;
-    return await applyPlan(makePort(built.language), built.plan, {
-      askPermission: options.askPermission === true,
-      preserve: built.doseUnknown ? ["dose"] : [],
-    });
+    const built = await queue.run(() => buildPlan(Date.now()));
+    if (!built) return { items: [], coveredUntilMs: null, capped: false };
+    return { items: built.plan.slice(0, count), ...planCoverage(built.plan, loadReminderBehaviour()) };
   } catch {
-    return { ...NO_USER, status: "failed" };
+    return { items: [], coveredUntilMs: null, capped: false };
   }
 }
-
-/** The next few reminders, for the screen's "Coming up" list. Empty on any failure. */
-export async function upcomingReminders(count = 4): Promise<PlannedNotification[]> {
-  try {
-    const built = await buildPlan(Date.now());
-    return built ? built.plan.slice(0, count) : [];
-  } catch {
-    return [];
-  }
-}
-
-/** Cancels this feature's scheduled notifications. Called on sign-out so a shared phone does not keep firing the previous account's reminders. */
-export async function cancelAllReminderNotifications(): Promise<void> {
-  await cancelAllReminders({
-    listScheduledIds: async () => (await Notifications.getAllScheduledNotificationsAsync()).map((n) => n.identifier),
-    cancel: (id) => Notifications.cancelScheduledNotificationAsync(id),
-  });
-}
-
-export { REMINDER_ID_PREFIX };

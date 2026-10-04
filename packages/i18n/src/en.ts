@@ -467,6 +467,8 @@ export const en = {
   "reminders.error.too_many_reminders": "You can have up to {max} reminders.",
   "reminders.error.quiet": "Choose two different hours between 0 and 23.",
   "reminders.error.save_failed": "Could not save that. Try again.",
+  "reminders.coverage": "Reminders are set up until {date}. Opening the app tops them up.",
+  "reminders.permission.undetermined": "Allow notifications so reminders can reach you.",
   "reminders.saved": "Saved",
 } as const;
 

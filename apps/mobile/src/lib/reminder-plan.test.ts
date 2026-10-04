@@ -3,6 +3,9 @@ import {
   REMINDER_ID_PREFIX,
   doseSlotKey,
   dosesToPlanInputs,
+  ownDosesOnly,
+  planCoverage,
+  withLanguage,
   planReminderNotifications,
   type PlanInput,
   type ReminderPrefs,
@@ -151,5 +154,46 @@ describe("dosesToPlanInputs", () => {
 
   it("is empty for no doses", () => {
     expect(dosesToPlanInputs([])).toEqual({ doseSchedules: [], handledDoseSlots: new Set() });
+  });
+});
+
+describe("withLanguage", () => {
+  it("changes every identifier when the language changes, so scheduled text is refreshed", () => {
+    const plan = planReminderNotifications(input({ prefs: prefs({ bp: [bp("a", ["20:00"])] }) }), NOW, cfg);
+    const en = withLanguage(plan, "en").map((p) => p.identifier);
+    const pcm = withLanguage(plan, "pcm").map((p) => p.identifier);
+    expect(en.every((id) => id.endsWith("@en"))).toBe(true);
+    expect(en.filter((id) => pcm.includes(id))).toEqual([]);
+    expect(en.every((id) => id.startsWith(REMINDER_ID_PREFIX))).toBe(true);
+  });
+
+  it("keeps the kind readable from the identifier", () => {
+    const plan = planReminderNotifications(input({ prefs: prefs({ doseOn: true }), doseSchedules: [{ medicationId: "m1", times: ["20:00"] }] }), NOW, cfg);
+    expect(withLanguage(plan, "pcm")[0]?.identifier).toContain(`${REMINDER_ID_PREFIX}dose:m1:`);
+  });
+});
+
+describe("ownDosesOnly", () => {
+  const doses = [{ x: 1 }];
+  it("uses a supplied list only when it belongs to the signed-in user", () => {
+    expect(ownDosesOnly("me", { forPatientId: "me", doses })).toBe(doses);
+    expect(ownDosesOnly("me", { forPatientId: "dependant", doses })).toBeUndefined();
+    expect(ownDosesOnly("me", undefined)).toBeUndefined();
+  });
+});
+
+describe("planCoverage", () => {
+  it("says when the cap was hit and how far the plan reaches", () => {
+    const many = Array.from({ length: 10 }, (_, i) => bp(`r${i}`, ["06:00", "09:00", "12:00", "15:00", "18:00", "21:00"]));
+    const plan = planReminderNotifications(input({ prefs: prefs({ bp: many }) }), NOW, cfg);
+    const cov = planCoverage(plan, cfg);
+    expect(cov.capped).toBe(true);
+    expect(cov.coveredUntilMs).toBe(plan[plan.length - 1]?.notifyAtMs);
+  });
+
+  it("is not capped for an ordinary setup, and has no end for an empty plan", () => {
+    const plan = planReminderNotifications(input({ prefs: prefs({ bp: [bp("a", ["08:00"])] }) }), NOW, cfg);
+    expect(planCoverage(plan, cfg).capped).toBe(false);
+    expect(planCoverage([], cfg)).toEqual({ capped: false, coveredUntilMs: null });
   });
 });

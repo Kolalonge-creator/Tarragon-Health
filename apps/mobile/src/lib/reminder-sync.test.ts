@@ -1,5 +1,5 @@
 import { REMINDER_ID_PREFIX, type PlannedNotification } from "./reminder-plan";
-import { applyPlan, cancelAllReminders, type NotificationsPort, type PermissionState } from "./reminder-sync";
+import { applyPlan, createSerialQueue, type NotificationsPort, type PermissionState } from "./reminder-sync";
 
 const note = (id: string, kind: "bp" | "dose" = "bp", at = 1_000): PlannedNotification => ({
   identifier: `${REMINDER_ID_PREFIX}${kind}:${id}:${at}`,
@@ -155,14 +155,43 @@ describe("applyPlan", () => {
   });
 });
 
-describe("cancelAllReminders", () => {
-  it("cancels only this feature's notifications (for sign-out) and never throws", async () => {
-    const mine = note("a");
-    const other = "something-else";
-    const { port, scheduled, fail } = fakePort({ scheduled: [mine.identifier, other] });
-    expect(await cancelAllReminders(port)).toBe(1);
-    expect([...scheduled]).toEqual([other]);
-    fail.list = true;
-    await expect(cancelAllReminders(port)).resolves.toBe(0);
+describe("permission after a refusal", () => {
+  it("never asks again once it was denied, even when allowed to ask", async () => {
+    const { port, calls } = fakePort({ permission: "denied" });
+    const res = await applyPlan(port, [note("a")], { askPermission: true });
+    expect(res.status).toBe("no_permission");
+    expect(calls).not.toContain("request");
+  });
+});
+
+describe("createSerialQueue", () => {
+  it("runs jobs one at a time in the order asked, never overlapping", async () => {
+    const q = createSerialQueue();
+    const log: string[] = [];
+    let running = 0;
+    let overlapped = false;
+    const job = (name: string, ms: number) => async () => {
+      running += 1;
+      if (running > 1) overlapped = true;
+      log.push(`start:${name}`);
+      await new Promise((r) => setTimeout(r, ms));
+      log.push(`end:${name}`);
+      running -= 1;
+      return name;
+    };
+    const results = await Promise.all([q.run(job("a", 20)), q.run(job("b", 1)), q.run(job("c", 1))]);
+    expect(results).toEqual(["a", "b", "c"]);
+    expect(overlapped).toBe(false);
+    expect(log).toEqual(["start:a", "end:a", "start:b", "end:b", "start:c", "end:c"]);
+  });
+
+  it("does not let a failing job stop the ones behind it, and still reports the failure to its caller", async () => {
+    const q = createSerialQueue();
+    const bad = q.run(async () => {
+      throw new Error("boom");
+    });
+    const good = q.run(async () => "ok");
+    await expect(bad).rejects.toThrow("boom");
+    await expect(good).resolves.toBe("ok");
   });
 });

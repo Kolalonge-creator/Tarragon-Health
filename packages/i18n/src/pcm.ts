@@ -466,5 +466,7 @@ export const pcm: Record<MessageKey, string> = {
   "reminders.error.too_many_reminders": "You fit get up to {max} reminders.",
   "reminders.error.quiet": "Choose two different hours between 0 and 23.",
   "reminders.error.save_failed": "E no save. Try again.",
+  "reminders.coverage": "Reminders don set until {date}. If you open the app, e go add more.",
+  "reminders.permission.undetermined": "Allow notifications so reminders fit reach you.",
   "reminders.saved": "E don save",
 };

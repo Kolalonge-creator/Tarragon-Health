@@ -67,6 +67,41 @@ export interface PlanInput {
   handledDoseSlots: ReadonlySet<string>;
 }
 
+/**
+ * Puts the language into every identifier. The notification text is fixed when it
+ * is scheduled, so without this a language change would keep every old-language
+ * notification (the diff compares identifiers only). With it, the old ones are
+ * stale and are cancelled and rescheduled.
+ */
+export function withLanguage(plan: readonly PlannedNotification[], language: string): PlannedNotification[] {
+  return plan.map((p) => ({ ...p, identifier: `${p.identifier}@${language}` }));
+}
+
+/**
+ * A dose list supplied by a screen is used only when it is the signed-in user's own.
+ * While she is acting for someone else, the Medications screen holds THEIR doses; using
+ * those would schedule their medicines on her phone and cancel her own reminders.
+ */
+export function ownDosesOnly<T>(
+  userId: string,
+  supplied: { forPatientId: string; doses: readonly T[] } | undefined,
+): readonly T[] | undefined {
+  return supplied && supplied.forPatientId === userId ? supplied.doses : undefined;
+}
+
+/**
+ * How far ahead the plan reaches. When the cap is hit the window ends before the
+ * horizon, and the patient should be told, because reminders stop silently once
+ * the last planned one has fired if the app is never opened to top them up.
+ */
+export function planCoverage(
+  plan: readonly PlannedNotification[],
+  cfg: Pick<ReminderBehaviourConfig, "maxPending">,
+): { capped: boolean; coveredUntilMs: number | null } {
+  const last = plan[plan.length - 1];
+  return { capped: plan.length >= cfg.maxPending, coveredUntilMs: last ? last.notifyAtMs : null };
+}
+
 export function doseSlotKey(medicationId: string, hhmm: string): string {
   return `${medicationId}@${hhmm}`;
 }

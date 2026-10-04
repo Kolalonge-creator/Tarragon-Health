@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Linking, Platform, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import type { PlannedNotification } from "@/lib/reminder-plan";
 import { DAY_KEYS, daysSummary, describeUpcoming } from "@/lib/reminder-format";
 import {
   DEFAULT_PREFS,
@@ -21,7 +20,7 @@ import {
 } from "@/lib/reminder-prefs";
 import type { BpReminder, ReminderPrefs } from "@/lib/reminder-plan";
 import type { PermissionState } from "@/lib/reminder-sync";
-import { getNotificationPermission, syncReminders, upcomingReminders } from "@/lib/reminder-notifications";
+import { getNotificationPermission, syncReminders, upcomingReminders, type UpcomingReminders } from "@/lib/reminder-notifications";
 import { MIN_TARGET, radii, space, useTheme } from "@/ui/design";
 import { AppText, Button, Card, Field, Icon, InlineAlert, PressableScale, Screen, SegmentedControl, useToast } from "@/ui/kit";
 
@@ -62,7 +61,9 @@ export function RemindersScreen({ userId }: { userId: string }) {
   const [prefs, setPrefs] = useState<ReminderPrefs>(DEFAULT_PREFS);
   const [loaded, setLoaded] = useState(false);
   const [permission, setPermission] = useState<PermissionState>("undetermined");
-  const [upcoming, setUpcoming] = useState<PlannedNotification[]>([]);
+  const [upcoming, setUpcoming] = useState<UpcomingReminders>({ items: [], coveredUntilMs: null, capped: false });
+  // What is typed in the quiet-hours fields, kept apart from the saved value so a half-typed or empty field is not snapped back.
+  const [quietText, setQuietText] = useState({ start: "22", end: "7" });
   const [editing, setEditing] = useState<Editing | null>(null);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   const [errorParams, setErrorParams] = useState<Record<string, number>>({});
@@ -79,6 +80,7 @@ export function RemindersScreen({ userId }: { userId: string }) {
       const p = await loadReminderPrefs(userId);
       if (!alive) return;
       setPrefs(p);
+      if (p.quiet) setQuietText({ start: String(p.quiet.startHour), end: String(p.quiet.endHour) });
       setLoaded(true);
       void refresh();
     })();
@@ -149,12 +151,14 @@ export function RemindersScreen({ userId }: { userId: string }) {
     );
   }
 
-  function changeQuiet(field: "startHour" | "endHour", raw: string) {
-    const current = prefs.quiet ?? { startHour: 22, endHour: 7 };
-    const value = Number(raw);
-    const candidate = { ...current, [field]: raw.trim() === "" ? Number.NaN : value };
-    const next = setQuiet(prefs, candidate);
+  /** Saves quiet hours once both fields hold two different whole hours; until then the typed text stays as typed. */
+  function changeQuiet(field: "start" | "end", raw: string) {
+    const text = { ...quietText, [field]: raw };
+    setQuietText(text);
+    if (text.start.trim() === "" || text.end.trim() === "") return setErrorKey(null);
+    const next = setQuiet(prefs, { startHour: Number(text.start), endHour: Number(text.end) });
     if (next === prefs) return showError("reminders.error.quiet");
+    setErrorKey(null);
     void persist(next, false);
   }
 
@@ -181,7 +185,10 @@ export function RemindersScreen({ userId }: { userId: string }) {
 
       {needsPermission ? (
         <Card style={{ gap: space.sm }}>
-          <InlineAlert tone={permission === "denied" ? "warn" : "info"} message={tr("reminders.permission.denied")} />
+          <InlineAlert
+            tone={permission === "denied" ? "warn" : "info"}
+            message={tr(permission === "denied" ? "reminders.permission.denied" : "reminders.permission.undetermined")}
+          />
           {permission === "denied" ? (
             <Button title={tr("reminders.permission.open_settings")} variant="secondary" onPress={() => void Linking.openSettings()} />
           ) : (
@@ -220,11 +227,12 @@ export function RemindersScreen({ userId }: { userId: string }) {
               ]}
             />
             <View style={{ flexDirection: "row", gap: space.sm }}>
-              <Button title={tr("reminders.bp.edit")} variant="secondary" fullWidth={false} onPress={() => startEditing(r)} />
+              <Button title={tr("reminders.bp.edit")} variant="secondary" fullWidth={false} accessibilityHint={summarise(r)} onPress={() => startEditing(r)} />
               <Button
                 title={tr("reminders.bp.delete")}
                 variant="ghost"
                 fullWidth={false}
+                accessibilityHint={summarise(r)}
                 onPress={() => {
                   if (editing?.id === r.id) setEditing(null);
                   void persist(removeBpReminder(prefs, r.id), false);
@@ -350,7 +358,10 @@ export function RemindersScreen({ userId }: { userId: string }) {
         <SegmentedControl
           accessibilityLabel={tr("reminders.quiet.title")}
           value={prefs.quiet ? "on" : "off"}
-          onChange={(v) => void persist(setQuiet(prefs, v === "on" ? { startHour: 22, endHour: 7 } : null), false)}
+          onChange={(v) => {
+            if (v === "on") setQuietText({ start: "22", end: "7" });
+            void persist(setQuiet(prefs, v === "on" ? { startHour: 22, endHour: 7 } : null), false);
+          }}
           options={[
             { value: "on", label: tr("reminders.bp.on") },
             { value: "off", label: tr("reminders.bp.off") },
@@ -362,16 +373,16 @@ export function RemindersScreen({ userId }: { userId: string }) {
               <Field
                 label={tr("reminders.quiet.from")}
                 keyboardType="number-pad"
-                value={String(prefs.quiet.startHour)}
-                onChangeText={(v) => changeQuiet("startHour", v)}
+                value={quietText.start}
+                onChangeText={(v) => changeQuiet("start", v)}
               />
             </View>
             <View style={{ flex: 1 }}>
               <Field
                 label={tr("reminders.quiet.to")}
                 keyboardType="number-pad"
-                value={String(prefs.quiet.endHour)}
-                onChangeText={(v) => changeQuiet("endHour", v)}
+                value={quietText.end}
+                onChangeText={(v) => changeQuiet("end", v)}
               />
             </View>
           </View>
@@ -383,12 +394,12 @@ export function RemindersScreen({ userId }: { userId: string }) {
         <AppText variant="title" heading>
           {tr("reminders.upcoming.title")}
         </AppText>
-        {upcoming.length === 0 ? (
+        {upcoming.items.length === 0 ? (
           <AppText variant="body" tone="textMuted">
             {tr("reminders.upcoming.empty")}
           </AppText>
         ) : (
-          upcoming.map((n) => {
+          upcoming.items.map((n) => {
             const d = describeUpcoming(n);
             return (
               <AppText key={n.identifier} variant="body">
@@ -402,6 +413,18 @@ export function RemindersScreen({ userId }: { userId: string }) {
           })
         )}
       </Card>
+
+      {upcoming.capped && upcoming.coveredUntilMs !== null ? (
+        <InlineAlert
+          tone="info"
+          message={tr("reminders.coverage", {
+            date: (() => {
+              const d = describeUpcoming({ identifier: "", kind: "bp", notifyAtMs: upcoming.coveredUntilMs, dueAtMs: upcoming.coveredUntilMs });
+              return `${tr(d.weekdayKey)} ${d.date}`;
+            })(),
+          })}
+        />
+      ) : null}
 
       {Platform.OS === "android" ? (
         <Card style={{ gap: space.sm }}>

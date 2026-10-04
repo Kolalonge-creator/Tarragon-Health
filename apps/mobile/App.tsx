@@ -1,5 +1,5 @@
 import { flushOutbox } from "@/lib/outbox";
-import { cancelAllReminderNotifications, syncReminders } from "@/lib/reminder-notifications";
+import { syncReminders } from "@/lib/reminder-notifications";
 import { clearLocalMirror } from "@/lib/offline-store";
 import { clearAllDrafts } from "@/lib/drafts";
 import { FONT_ASSETS, ThemeProvider, useTheme } from "@/ui/design";
@@ -93,8 +93,6 @@ function AppContent() {
         // unsent logs must survive sign-out and go out when their owner is back.
         void clearLocalMirror().catch(() => {});
         void clearAllDrafts();
-        // Scheduled reminders belong to the account that set them: stop them firing on a shared phone.
-        void cancelAllReminderNotifications().catch(() => {});
       }
       if (event === "SIGNED_IN" && newSession?.user.id && postSignInFor.current !== newSession.user.id) {
         const userId = newSession.user.id;

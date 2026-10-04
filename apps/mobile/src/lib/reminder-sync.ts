@@ -16,7 +16,9 @@ import { REMINDER_ID_PREFIX, type PlannedNotification, type ReminderKind } from 
  * - One failed schedule never stops the rest. The result says how many failed
  *   and the next run tries again.
  * - It asks for notification permission only when told it may (the patient has
- *   just switched something on) and only when there is something to schedule.
+ *   just switched something on), only when there is something to schedule, and only
+ *   when she has never been asked. After a refusal it never asks again (that is for
+ *   the phone's settings), so a screen cannot keep prompting.
  * - `preserve` names kinds that must NOT be cancelled this time, for when the
  *   plan for that kind could not be worked out (for example the medicine list was
  *   unreadable): losing every dose reminder because of a failed read is worse
@@ -65,7 +67,7 @@ export async function applyPlan(
     if (plan.length === 0 && existing.length === 0) return { ...result, status: "nothing_to_do" };
 
     result.permission = await port.getPermission();
-    if (result.permission !== "granted" && options.askPermission && plan.length > 0) {
+    if (result.permission === "undetermined" && options.askPermission && plan.length > 0) {
       result.permission = await port.requestPermission();
     }
     if (result.permission !== "granted") return { ...result, status: "no_permission" };
@@ -104,21 +106,21 @@ export async function applyPlan(
   }
 }
 
-/** Cancels everything this feature scheduled, for sign-out. Never throws. */
-export async function cancelAllReminders(port: Pick<NotificationsPort, "listScheduledIds" | "cancel">): Promise<number> {
-  let cancelled = 0;
-  try {
-    for (const id of await port.listScheduledIds()) {
-      if (!id.startsWith(REMINDER_ID_PREFIX)) continue;
-      try {
-        await port.cancel(id);
-        cancelled += 1;
-      } catch {
-        // keep going
-      }
-    }
-  } catch {
-    // nothing to cancel
-  }
-  return cancelled;
+/**
+ * Runs jobs one at a time, in the order they were asked for. Reminder syncs can be
+ * requested together (the app coming to the foreground, an edit on the Reminders
+ * screen, the Medications screen, the background task), and two running at once
+ * can apply an older plan after a newer one and bring back a reminder the patient
+ * just switched off. Each job builds its plan when its turn comes, so it sees the
+ * latest settings. A job that throws does not stop the ones behind it.
+ */
+export function createSerialQueue(): { run<T>(job: () => Promise<T>): Promise<T> } {
+  let tail: Promise<unknown> = Promise.resolve();
+  return {
+    run<T>(job: () => Promise<T>): Promise<T> {
+      const result = tail.then(job, job);
+      tail = result.catch(() => undefined);
+      return result;
+    },
+  };
 }
