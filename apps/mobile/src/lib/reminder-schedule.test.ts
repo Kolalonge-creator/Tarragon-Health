@@ -9,9 +9,10 @@ import {
   type ReminderSchedule,
 } from "./reminder-schedule";
 import { lagosTimeToUtcMs } from "./lagos-date";
-import { loadReminderBehaviour } from "./s07-config";
+import type { ReminderBehaviourConfig } from "./s07-config";
 
-const cfg = loadReminderBehaviour();
+// Pinned on purpose: see bp-average.test.ts.
+const cfg: ReminderBehaviourConfig = { version: 0, snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 60, horizonDays: 14 };
 const MIN = 60_000;
 const lagos = (date: string, time: string): number => lagosTimeToUtcMs(date, time) as number;
 const due = lagos("2026-10-03", "08:00");
@@ -52,6 +53,13 @@ describe("applyReminderAction", () => {
     });
   });
 
+  it("refuses a snooze once the missed window has passed instead of wasting one", () => {
+    expect(applyReminderAction(open(), "snooze", due + cfg.missedAfterMinutes * MIN, cfg)).toEqual({
+      ok: false,
+      reason: "already_missed",
+    });
+  });
+
   it("still lets a missed reminder be marked taken afterwards", () => {
     const res = applyReminderAction(open({ status: "missed" }), "take", due + 600 * MIN, cfg);
     expect(res).toMatchObject({ ok: true, instance: { status: "taken" } });
@@ -83,6 +91,12 @@ describe("deriveReminderStatus and isOverdue", () => {
     expect(isOverdue(open(), due - 1)).toBe(false);
     expect(isOverdue(open(), due)).toBe(true);
     expect(isOverdue(open({ status: "taken" }), due + MIN)).toBe(false);
+  });
+
+  it("is not overdue during a snooze the patient asked for, and is again when it ends", () => {
+    const snoozed = open({ status: "snoozed", snoozeCount: 1, snoozedUntilMs: due + 30 * MIN });
+    expect(isOverdue(snoozed, due + 10 * MIN)).toBe(false);
+    expect(isOverdue(snoozed, due + 30 * MIN)).toBe(true);
   });
 });
 
@@ -146,9 +160,9 @@ describe("planRollingWindow", () => {
 
   it("plans only future occurrences, earliest first", () => {
     const plan = planRollingWindow([daily], now, cfg);
-    expect(plan[0]).toEqual({ reminderId: "bp", dueAtMs: lagos("2026-10-03", "20:00") });
-    expect(plan.every((o) => o.dueAtMs > now)).toBe(true);
-    expect([...plan].sort((a, b) => a.dueAtMs - b.dueAtMs)).toEqual(plan);
+    expect(plan[0]).toEqual({ reminderId: "bp", dueAtMs: lagos("2026-10-03", "20:00"), notifyAtMs: lagos("2026-10-03", "20:00") });
+    expect(plan.every((o) => o.notifyAtMs > now)).toBe(true);
+    expect([...plan].sort((a, b) => a.notifyAtMs - b.notifyAtMs)).toEqual(plan);
   });
 
   it("caps the plan at the pending limit so the phone never exceeds its own limit", () => {
@@ -163,12 +177,26 @@ describe("planRollingWindow", () => {
 
   it("stays inside the horizon", () => {
     const horizon = now + cfg.horizonDays * 86_400_000;
-    expect(planRollingWindow([daily], now, cfg).every((o) => o.dueAtMs < horizon)).toBe(true);
+    expect(planRollingWindow([daily], now, cfg).every((o) => o.notifyAtMs < horizon)).toBe(true);
   });
 
-  it("shifts quiet-hour reminders later and never into the past", () => {
+  it("shifts only the notification time for quiet hours; the due time stays so the reminder still goes missed on schedule", () => {
     const late: ReminderSchedule = { id: "late", times: ["23:00"], days: null, active: true };
     const plan = planRollingWindow([late], now, cfg, { startHour: 22, endHour: 7 });
-    expect(plan[0]?.dueAtMs).toBe(lagos("2026-10-04", "07:00"));
+    expect(plan[0]?.notifyAtMs).toBe(lagos("2026-10-04", "07:00"));
+    expect(plan[0]?.dueAtMs).toBe(lagos("2026-10-03", "23:00"));
+  });
+
+  it("does not delay a reminder that opts out of quiet hours (medicine reminders)", () => {
+    const dose: ReminderSchedule = { id: "dose", times: ["23:00"], days: null, active: true, respectQuietHours: false };
+    const plan = planRollingWindow([dose], now, cfg, { startHour: 22, endHour: 7 });
+    expect(plan[0]?.notifyAtMs).toBe(lagos("2026-10-03", "23:00"));
+  });
+
+  it("collapses occurrences of one reminder that quiet hours push onto the same instant", () => {
+    const two: ReminderSchedule = { id: "two", times: ["23:00", "02:00"], days: null, active: true };
+    const plan = planRollingWindow([two], now, cfg, { startHour: 22, endHour: 7 });
+    const sevenAm = plan.filter((o) => o.notifyAtMs === lagos("2026-10-04", "07:00"));
+    expect(sevenAm).toHaveLength(1);
   });
 });

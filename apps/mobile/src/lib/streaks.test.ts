@@ -1,8 +1,9 @@
 import { computeStreak, type StreakEvent } from "./streaks";
 import { addDays } from "./lagos-date";
-import { loadStreakRules } from "./s07-config";
+import type { StreakRulesConfig } from "./s07-config";
 
-const rules = loadStreakRules();
+// Pinned on purpose: see bp-average.test.ts.
+const rules: StreakRulesConfig = { version: 0, freezeEarnEveryDays: 7, freezeCap: 2 };
 const TODAY = "2026-10-03"; // a Saturday
 const run = (from: number, to: number): string[] => {
   const out: string[] = [];
@@ -91,6 +92,18 @@ describe("computeStreak", () => {
     const d = addDays(TODAY, -1);
     const s = state([d], [{ localDate: d, kind: "freeze" }]);
     expect(s.current).toBe(1);
+  });
+
+  it("drops malformed dates instead of throwing, and reports how many", () => {
+    const s = state([...run(1, 2), "", "2026-13-40", "yesterday"], [{ localDate: "bad", kind: "freeze" }]);
+    expect(s.current).toBe(2);
+    expect(s.ignoredInvalidDates).toBe(4);
+  });
+
+  it("resets the run a day later if a proposed freeze was never recorded (caller contract)", () => {
+    const next = computeStreak({ doneDates: run(2, 8), events: [], todayLocal: addDays(TODAY, 1), rules });
+    expect(next.current).toBe(0); // the missed day is now two days old and unprotected
+    expect(next.proposedFreezeDate).toBeNull();
   });
 
   it("builds the Monday to Sunday week and counts only logged days", () => {

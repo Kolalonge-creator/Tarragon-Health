@@ -1,9 +1,10 @@
 import { bandStatus, resolveTargetBand, splitAtGaps, trendDisplayMode } from "./bp-trend-rules";
 import { lagosTimeToUtcMs } from "./lagos-date";
-import { loadStartingSuggestionTarget, loadTrendDisplay } from "./s07-config";
+import type { StartingSuggestionTarget, TrendDisplayConfig } from "./s07-config";
 
-const cfg = loadTrendDisplay();
-const suggestion = loadStartingSuggestionTarget();
+// Pinned on purpose: see bp-average.test.ts.
+const cfg: TrendDisplayConfig = { version: 0, minReadingsForChart: 3, gapBreakDays: 2 };
+const suggestion: StartingSuggestionTarget = { version: 0, systolicBelow: 135, diastolicBelow: 85 };
 const at = (date: string) => lagosTimeToUtcMs(date, "08:00") as number;
 
 describe("trendDisplayMode", () => {
@@ -80,8 +81,13 @@ describe("resolveTargetBand", () => {
 describe("bandStatus", () => {
   const band = resolveTargetBand({ systolicBelow: 130, diastolicBelow: 80, setBy: "Dr A", setAt: "2026-09-30" }, suggestion);
 
-  it("is within when both numbers are under the limits", () => {
-    expect(bandStatus(129, 79, band)).toBe("within");
+  it("is not_above when both numbers are under the limits", () => {
+    expect(bandStatus(129, 79, band)).toBe("not_above");
+  });
+
+  it("never reports a very low reading as within range (the band has no lower limit)", () => {
+    expect(bandStatus(70, 40, band)).toBe("not_above");
+    expect(bandStatus(70, 40, band)).not.toBe("within");
   });
 
   it("is above when either number reaches its limit", () => {

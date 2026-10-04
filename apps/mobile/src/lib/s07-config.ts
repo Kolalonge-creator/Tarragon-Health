@@ -6,13 +6,18 @@ import { getProposedConfig } from "@tarragon/shared";
  * Chief Medical Officer or founder to confirm, so call sites take a config
  * object and never a literal. Each loader validates the shape it reads, so a
  * malformed registry entry fails loudly in a test, not silently on a phone.
+ *
+ * Known limit (recorded in the S07 PR): these values ship inside the app. When
+ * the Chief Medical Officer confirms or changes one, installed phones only pick
+ * it up with the next build or OTA update. S06 chose a server table for its
+ * equivalent values (offline-sync-config.ts); moving these reads to a
+ * server-synced config is a follow-up decision, not made here.
  */
 export interface HomeProtocolConfig {
   version: number;
   readingsPerSession: number;
   minGapMinutes: number;
   targetDays: number;
-  minDays: number;
   restMinutes: number;
   /** Local hour range [start, end), end 24 meaning midnight. */
   morningHours: readonly [number, number];
@@ -100,7 +105,6 @@ export function loadHomeProtocol(asOf?: string): HomeProtocolConfig {
     readingsPerSession: num(raw, "readingsPerSession", key, 1),
     minGapMinutes: num(raw, "minGapMinutes", key),
     targetDays: num(raw, "targetDays", key, 1),
-    minDays: num(raw, "minDays", key, 1),
     restMinutes: num(raw, "restMinutes", key),
     morningHours: hours(raw, "morningHours", key),
     eveningHours: hours(raw, "eveningHours", key),

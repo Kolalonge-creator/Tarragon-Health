@@ -95,9 +95,16 @@ export function resolveTargetBand(
   };
 }
 
-export type BandStatus = "within" | "above";
+/**
+ * "not_above" is deliberately not "within": the band has an upper limit only, so
+ * a very low reading is also "not_above". The word "in range" or "on target"
+ * must never be shown from this status. Hypotension is not judged here (it has no
+ * confirmed threshold; the spec's low-BP rules belong to S11/S12), and low
+ * readings reach the care team through the existing red-flag path, not this label.
+ */
+export type BandStatus = "not_above" | "above";
 
-/** A reading (or a day mean) against the band. Either number at or above its limit is "above". */
+/** A reading (or a day mean) against the band's upper limits. Either number at or above its limit is "above"; anything else is only "not above", never "within range". */
 export function bandStatus(systolic: number, diastolic: number, band: TargetBand): BandStatus {
-  return systolic >= band.systolicBelow || diastolic >= band.diastolicBelow ? "above" : "within";
+  return systolic >= band.systolicBelow || diastolic >= band.diastolicBelow ? "above" : "not_above";
 }

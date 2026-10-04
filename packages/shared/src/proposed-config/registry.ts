@@ -173,13 +173,14 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   {
     key: "bp.home_protocol",
     // Home self-measurement routine (AHA/AMA, ISH, ESH, WHO HEARTS read for S07):
-    // 2 readings at least 1 minute apart, morning and evening, 7 days, 3 days minimum.
+    // 2 readings at least 1 minute apart, morning and evening, 7 days. The 3-day minimum
+    // lives in bp.average_gate. minGapMinutes is applied by the averaging code; the others
+    // are read by the guided technique and reminder screens (not built yet).
     // Session hours are local (Africa/Lagos) hour-of-day, start inclusive, end exclusive.
     value: {
       readingsPerSession: 2,
       minGapMinutes: 1,
       targetDays: 7,
-      minDays: 3,
       restMinutes: 5,
       morningHours: [4, 12],
       eveningHours: [17, 24],

@@ -1,9 +1,25 @@
 import { evaluateAverageGate, sessionPart, summariseHomeBp, type HomeBpReading } from "./bp-average";
 import { lagosTimeToUtcMs } from "./lagos-date";
-import { loadAverageGate, loadHomeProtocol } from "./s07-config";
+import type { AverageGateConfig, HomeProtocolConfig } from "./s07-config";
 
-const protocol = loadHomeProtocol();
-const gate = loadAverageGate();
+// Pinned on purpose: these tests cover the logic, not the current proposed numbers, so a confirmed registry version does not break them.
+const protocol: HomeProtocolConfig = {
+  version: 0,
+  readingsPerSession: 2,
+  minGapMinutes: 1,
+  targetDays: 7,
+  restMinutes: 5,
+  morningHours: [4, 12],
+  eveningHours: [17, 24],
+};
+const gate: AverageGateConfig = {
+  version: 0,
+  windowDays: 7,
+  rules: [
+    { minReadings: 3, minDays: 3, minPerDay: 1 },
+    { minReadings: 4, minDays: 2, minPerDay: 2 },
+  ],
+};
 const NOW = Date.parse("2026-10-03T14:00:00Z"); // 15:00 Lagos on 2026-10-03
 
 const at = (date: string, time: string): number => {
@@ -15,14 +31,6 @@ const r = (date: string, time: string, systolic: number, diastolic: number): Hom
   systolic,
   diastolic,
   atMs: at(date, time),
-});
-
-describe("config loaders", () => {
-  it("read the registry and validate its shape", () => {
-    expect(protocol.version).toBeGreaterThanOrEqual(1);
-    expect(protocol.morningHours[0]).toBeLessThan(protocol.morningHours[1]);
-    expect(gate.rules.length).toBeGreaterThan(0);
-  });
 });
 
 describe("sessionPart", () => {
@@ -124,6 +132,24 @@ describe("summariseHomeBp", () => {
     // 23:30 UTC on 10-02 is 00:30 Lagos on 10-03.
     const s = summariseHomeBp([{ systolic: 120, diastolic: 80, atMs: Date.parse("2026-10-02T23:30:00Z") }], NOW, protocol, gate);
     expect(s.byDay[0]?.localDate).toBe("2026-10-03");
+  });
+
+  it("ignores a second reading closer than the protocol gap (a double save) so it cannot satisfy the gate", () => {
+    const s = summariseHomeBp(
+      [r("2026-10-02", "08:00", 140, 90), r("2026-10-02", "08:00", 140, 90), r("2026-10-03", "08:00", 138, 88), r("2026-10-03", "08:00", 138, 88)],
+      NOW,
+      protocol,
+      gate,
+    );
+    expect(s.ignoredCloseReadings).toBe(2);
+    expect(s.readingsInWindow).toBe(2);
+    expect(s.gate.met).toBe(false); // two real readings on two days, not two on each
+  });
+
+  it("counts two readings a full gap apart as two measurements", () => {
+    const s = summariseHomeBp([r("2026-10-02", "08:00", 140, 90), r("2026-10-02", "08:01", 138, 88)], NOW, protocol, gate);
+    expect(s.ignoredCloseReadings).toBe(0);
+    expect(s.readingsInWindow).toBe(2);
   });
 
   it("ignores readings with a non-finite number instead of poisoning the average", () => {

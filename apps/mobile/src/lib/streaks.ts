@@ -1,4 +1,4 @@
-import { addDays, daysBetween, weekStart, type LocalDate } from "./lagos-date";
+import { addDays, daysBetween, isValidLocalDate, weekStart, type LocalDate } from "./lagos-date";
 import type { StreakRulesConfig } from "./s07-config";
 
 /**
@@ -18,6 +18,13 @@ import type { StreakRulesConfig } from "./s07-config";
  *   it as applied; the caller persists it as a `streak_events` row.
  * - An excused day (for example a documented outage) neither breaks nor extends.
  * - There is no shame state: a day with nothing on it is "open", never "missed".
+ *
+ * Caller contract for freezes: `proposedFreezeDate` must be written as a
+ * `streak_events` row before the Lagos day rolls over. If it is not recorded,
+ * the next computation sees that day as an older missed day (only yesterday can
+ * be frozen) and the run resets. A malformed date in the input is dropped and
+ * counted in `ignoredInvalidDates`, never thrown, so one bad local row cannot
+ * crash the Today screen.
  */
 export type StreakEventKind = "freeze" | "excused";
 
@@ -38,6 +45,8 @@ export interface StreakState {
   current: number;
   best: number;
   freezesAvailable: number;
+  /** Dates or events dropped because they were not a valid YYYY-MM-DD date. Never throws on bad rows. */
+  ignoredInvalidDates: number;
   todayDone: boolean;
   lastDoneDate: LocalDate | null;
   /** Yesterday, when a freeze should be recorded to protect the run; otherwise null. */
@@ -57,10 +66,13 @@ export interface StreakInput {
 
 export function computeStreak(input: StreakInput): StreakState {
   const { todayLocal, rules } = input;
-  const done = new Set(input.doneDates);
+  const validDone = input.doneDates.filter(isValidLocalDate);
+  const validEvents = input.events.filter((e) => isValidLocalDate(e.localDate));
+  const ignoredInvalidDates = input.doneDates.length - validDone.length + (input.events.length - validEvents.length);
+  const done = new Set(validDone);
   const frozen = new Set<LocalDate>();
   const excused = new Set<LocalDate>();
-  for (const e of input.events) {
+  for (const e of validEvents) {
     if (done.has(e.localDate)) continue; // a logged day is a logged day
     (e.kind === "freeze" ? frozen : excused).add(e.localDate);
   }
@@ -125,5 +137,5 @@ export function computeStreak(input: StreakInput): StreakState {
     week.push({ localDate: d, state });
   }
 
-  return { current: run, best, freezesAvailable: available, todayDone, lastDoneDate, proposedFreezeDate, week, daysDoneThisWeek };
+  return { current: run, best, freezesAvailable: available, ignoredInvalidDates, todayDone, lastDoneDate, proposedFreezeDate, week, daysDoneThisWeek };
 }

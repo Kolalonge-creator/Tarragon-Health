@@ -59,6 +59,8 @@ export interface HomeBpSummary {
   windowStart: LocalDate;
   windowEnd: LocalDate;
   readingsInWindow: number;
+  /** Readings ignored because they were taken closer than minGapMinutes to the previous counted one (a double save or a retype). */
+  ignoredCloseReadings: number;
   byDay: DaySummary[];
   gate: GateResult;
   /** Null until the gate is met. */
@@ -125,11 +127,23 @@ export function summariseHomeBp(
   const windowEnd = lagosLocalDate(nowMs);
   const windowStart = addDays(windowEnd, -(gate.windowDays - 1));
 
-  const inWindow = readings.filter((r) => {
-    if (!Number.isFinite(r.systolic) || !Number.isFinite(r.diastolic) || !Number.isFinite(r.atMs)) return false;
-    const d = lagosLocalDate(r.atMs);
-    return d >= windowStart && d <= windowEnd;
-  });
+  const candidates = readings
+    .filter((r) => {
+      if (!Number.isFinite(r.systolic) || !Number.isFinite(r.diastolic) || !Number.isFinite(r.atMs)) return false;
+      const d = lagosLocalDate(r.atMs);
+      return d >= windowStart && d <= windowEnd;
+    })
+    .sort((a, b) => a.atMs - b.atMs);
+
+  // A second reading closer than the protocol gap to the last counted one is the same
+  // measurement saved twice or retyped, so it must not count toward the gate or the average.
+  const minGapMs = protocol.minGapMinutes * 60 * 1000;
+  const inWindow: HomeBpReading[] = [];
+  for (const r of candidates) {
+    const last = inWindow[inWindow.length - 1];
+    if (last && r.atMs - last.atMs < minGapMs) continue;
+    inWindow.push(r);
+  }
 
   const groups = new Map<LocalDate, HomeBpReading[]>();
   for (const r of inWindow) {
@@ -166,6 +180,7 @@ export function summariseHomeBp(
     windowStart,
     windowEnd,
     readingsInWindow: all.length,
+    ignoredCloseReadings: candidates.length - inWindow.length,
     byDay,
     gate: gateResult,
     average,

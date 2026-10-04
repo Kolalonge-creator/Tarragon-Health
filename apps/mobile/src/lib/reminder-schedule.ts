@@ -30,7 +30,7 @@ export interface ReminderInstance {
   actedAtMs: number | null;
 }
 
-export type ActionRefusal = "already_closed" | "snooze_limit";
+export type ActionRefusal = "already_closed" | "snooze_limit" | "already_missed";
 
 export type ActionResult =
   | { ok: true; instance: ReminderInstance }
@@ -50,9 +50,11 @@ export function deriveReminderStatus(inst: ReminderInstance, nowMs: number, cfg:
   return inst.status === "missed" ? "scheduled" : inst.status;
 }
 
-/** Due and still open. Based only on the clock and the schedule. */
+/** Due, still open, and not inside a snooze the patient asked for. Based only on the clock and the schedule. */
 export function isOverdue(inst: ReminderInstance, nowMs: number): boolean {
-  return !isClosed(inst.status) && nowMs >= inst.dueAtMs;
+  if (isClosed(inst.status) || nowMs < inst.dueAtMs) return false;
+  if (inst.status === "snoozed" && inst.snoozedUntilMs !== null && nowMs < inst.snoozedUntilMs) return false;
+  return true;
 }
 
 export function applyReminderAction(
@@ -63,6 +65,8 @@ export function applyReminderAction(
 ): ActionResult {
   if (isClosed(inst.status)) return { ok: false, reason: "already_closed" };
   if (action === "snooze") {
+    // Past the missed window the status derives as "missed" whatever is stored, so a snooze would do nothing.
+    if (deriveReminderStatus(inst, nowMs, cfg) === "missed") return { ok: false, reason: "already_missed" };
     if (inst.snoozeCount >= cfg.maxSnoozes) return { ok: false, reason: "snooze_limit" };
     return {
       ok: true,
@@ -87,6 +91,12 @@ export interface ReminderSchedule {
   /** 0 = Sunday ... 6 = Saturday. Null means every day. */
   days: readonly number[] | null;
   active: boolean;
+  /**
+   * Whether quiet hours may delay this reminder. Defaults to true. Set false for
+   * medicine reminders: a dose reminder held until morning would arrive after the
+   * dose is already derived as missed.
+   */
+  respectQuietHours?: boolean;
 }
 
 export interface QuietHours {
@@ -98,7 +108,10 @@ export interface QuietHours {
 
 export interface Occurrence {
   reminderId: string;
+  /** When the reminder is due. Overdue and missed are derived from this, never from the notification time. */
   dueAtMs: number;
+  /** When the phone is asked to notify: dueAtMs, or later if quiet hours delayed it. */
+  notifyAtMs: number;
 }
 
 /** Expand a schedule into UTC instants within [fromMs, toMs). Sorted, de-duplicated. */
@@ -134,9 +147,11 @@ export function applyQuietHours(ms: number, quiet: QuietHours | null): number {
 }
 
 /**
- * The occurrences that get a local notification: future, inside the horizon,
- * earliest first, capped at `maxPending`. Quiet hours shift a notification
- * later, never earlier, and never past the horizon.
+ * The occurrences that get a local notification: notifying in the future and
+ * inside the horizon, earliest first, capped at `maxPending`. Quiet hours move
+ * only `notifyAtMs`, later and never past the horizon; `dueAtMs` is unchanged so
+ * the instance still goes overdue and missed on its own schedule. Occurrences of
+ * one reminder that land on the same notification instant are collapsed to one.
  */
 export function planRollingWindow(
   schedules: readonly ReminderSchedule[],
@@ -146,12 +161,17 @@ export function planRollingWindow(
 ): Occurrence[] {
   const horizonMs = nowMs + cfg.horizonDays * 24 * 60 * MINUTE;
   const all: Occurrence[] = [];
+  const seen = new Set<string>();
   for (const s of schedules) {
     for (const ms of expandOccurrences(s, nowMs, horizonMs)) {
-      const shifted = applyQuietHours(ms, quiet);
-      if (shifted > nowMs && shifted < horizonMs) all.push({ reminderId: s.id, dueAtMs: shifted });
+      const notifyAtMs = s.respectQuietHours === false ? ms : applyQuietHours(ms, quiet);
+      if (notifyAtMs <= nowMs || notifyAtMs >= horizonMs) continue;
+      const id = `${s.id}@${notifyAtMs}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      all.push({ reminderId: s.id, dueAtMs: ms, notifyAtMs });
     }
   }
-  all.sort((a, b) => a.dueAtMs - b.dueAtMs || a.reminderId.localeCompare(b.reminderId));
+  all.sort((a, b) => a.notifyAtMs - b.notifyAtMs || a.reminderId.localeCompare(b.reminderId));
   return all.slice(0, cfg.maxPending);
 }
