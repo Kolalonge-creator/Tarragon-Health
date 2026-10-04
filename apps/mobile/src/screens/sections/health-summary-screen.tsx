@@ -12,7 +12,7 @@ import {
 import type { Enums } from "@tarragon/shared";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, ScreenTitle } from "@/ui/legacy-kit";
 
 type ConditionStatus = Enums<"condition_clinical_status">;
@@ -192,7 +192,7 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
           <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Allergies</Text>
           <Text
             onPress={() => setFormOpen((v) => !v)}
-            style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}
+            style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}
           >
             {formOpen ? "Cancel" : "+ Add"}
           </Text>
@@ -200,13 +200,13 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
 
         {formOpen && (
           <Card style={{ gap: 10, marginBottom: 8 }}>
-            <TextInput keyboardAppearance={scheme}
+            <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
               value={allergen}
               onChangeText={setAllergen}
               placeholder="Allergen (e.g. Penicillin)"
               style={textInputStyle(colors)}
             />
-            <TextInput keyboardAppearance={scheme}
+            <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
               value={reaction}
               onChangeText={setReaction}
               placeholder="Reaction (optional)"

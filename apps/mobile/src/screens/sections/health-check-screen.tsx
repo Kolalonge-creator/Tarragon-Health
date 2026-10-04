@@ -157,7 +157,7 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
               {stage.state !== "neutral" && (
                 <StatusBadge text={stage.state === "done" ? "Done" : "To do"} tone={stage.state === "done" ? "brand" : "warn"} />
               )}
-              <Text onPress={() => onNavigate(STAGE_NAV[i])} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand }}>
+              <Text onPress={() => onNavigate(STAGE_NAV[i])} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
                 Open →
               </Text>
             </View>
@@ -193,7 +193,7 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
             {state.reviewSummary && <Text style={{ fontSize: 13, color: colors.ink }}>{state.reviewSummary}</Text>}
             <Text
               onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/api/patient/health-check/report`)}
-              style={{ fontSize: 13, fontWeight: "700", color: colors.brand, marginTop: 4 }}
+              style={{ fontSize: 13, fontWeight: "700", color: colors.brandPressed, marginTop: 4 }}
             >
               Download your Health Check report (PDF) →
             </Text>

@@ -213,7 +213,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
                 </Text>
                 {suggestion && (
                   <Pressable onPress={() => onNavigate(suggestion.section as SectionId)} style={{ marginTop: 4 }}>
-                    <Text style={{ fontSize: 12, color: colors.brand, textDecorationLine: "underline" }}>
+                    <Text style={{ fontSize: 12, color: colors.brandPressed, textDecorationLine: "underline" }}>
                       {suggestion.label} →
                     </Text>
                   </Pressable>
@@ -302,7 +302,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
       <View style={{ paddingHorizontal: spacing.screen, paddingBottom: spacing.screen }}>
         {handoff === "idle" && (
           <Pressable onPress={() => void handleHandoff()}>
-            <Text style={{ fontSize: 12, color: colors.brand, textDecorationLine: "underline" }}>
+            <Text style={{ fontSize: 12, color: colors.brandPressed, textDecorationLine: "underline" }}>
               I want to speak to someone
             </Text>
           </Pressable>
@@ -312,7 +312,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
           <Pressable onPress={() => onNavigate("messages")}>
             <Text style={{ fontSize: 12, color: colors.ink }}>
               Sent. Your care team has what you&apos;ve talked about here.{" "}
-              <Text style={{ color: colors.brand, textDecorationLine: "underline" }}>Continue in Messages</Text>
+              <Text style={{ color: colors.brandPressed, textDecorationLine: "underline" }}>Continue in Messages</Text>
             </Text>
           </Pressable>
         )}

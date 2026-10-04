@@ -10,7 +10,7 @@ import {
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SectionDivider } from "@/ui/legacy-kit";
 
 const STATUS_TONE: Record<SupportTicketStatus, "brand" | "neutral"> = {
@@ -102,7 +102,7 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
 
       <Card style={{ gap: 10 }}>
         <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Subject</Text>
-        <TextInput keyboardAppearance={scheme}
+        <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={subject}
           onChangeText={setSubject}
           placeholder="Short summary of the issue"
@@ -110,7 +110,7 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
           style={textInputStyle}
         />
         <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Tell us what&apos;s happening</Text>
-        <TextInput keyboardAppearance={scheme}
+        <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={description}
           onChangeText={setDescription}
           placeholder="e.g. The app crashes every time I try to log a blood pressure reading."

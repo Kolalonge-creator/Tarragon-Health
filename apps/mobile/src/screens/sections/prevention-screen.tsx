@@ -640,7 +640,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
             </Text>
             {actionDoneLabel ? (
               <>
-                <Text style={{ fontSize: 13.5, color: colors.brand, lineHeight: 19 }}>{actionDoneLabel}</Text>
+                <Text style={{ fontSize: 13.5, color: colors.brandPressed, lineHeight: 19 }}>{actionDoneLabel}</Text>
                 <SecondaryButton title="Close" onPress={closeAction} />
               </>
             ) : actionTarget?.mode === "confirm" ? (

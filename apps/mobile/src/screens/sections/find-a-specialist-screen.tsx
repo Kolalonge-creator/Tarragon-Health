@@ -9,7 +9,7 @@ import {
   type SpecialistType,
 } from "@/lib/find-a-specialist";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, MutedText, ScreenTitle } from "@/ui/legacy-kit";
 
 function specialtyLabel(t: SpecialistType): string {
@@ -99,13 +99,13 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
         </ScrollView>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <TextInput keyboardAppearance={scheme}
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={state}
             onChangeText={setState}
             placeholder="State (e.g. Lagos)"
             style={[textInputStyle, { flex: 1 }]}
           />
-          <TextInput keyboardAppearance={scheme}
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={city}
             onChangeText={setCity}
             placeholder="City (e.g. Ikeja)"
@@ -113,14 +113,14 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
           />
         </View>
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <TextInput keyboardAppearance={scheme}
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={maxFeeNaira}
             onChangeText={setMaxFeeNaira}
             placeholder="Max fee (₦, optional)"
             keyboardType="numeric"
             style={[textInputStyle, { flex: 1 }]}
           />
-          <TextInput keyboardAppearance={scheme}
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={language}
             onChangeText={setLanguage}
             placeholder="Language (optional)"

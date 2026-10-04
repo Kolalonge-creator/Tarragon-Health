@@ -75,6 +75,23 @@ describe("scheme-aware legacy screens stay fully switched", () => {
 });
 
 /**
+ * Two things the visual pass found in Dark: a field with no placeholder colour shows an
+ * invisible placeholder, and the brand fill green used as TEXT is too dim on a dark card.
+ */
+describe("scheme-aware legacy screens keep text readable in Dark", () => {
+  it.each(FILES)("%s", (file) => {
+    const source = readFileSync(join(__dirname, "..", file), "utf8");
+    for (const match of source.matchAll(/<TextInput\b[\s\S]*?(?=\/>|>\s*\n)/g)) {
+      if (match[0].includes("keyboardAppearance")) expect(match[0]).toMatch(/placeholderTextColor/);
+    }
+    for (const line of source.split("\n")) {
+      if (/backgroundColor|borderColor/.test(line)) continue;
+      expect(line).not.toMatch(/\bcolor: [^,}]*colors\.brand\b(?!Pressed|Tint)/);
+    }
+  });
+});
+
+/**
  * Deliberately light in every scheme: the emergency guidance mirrors the web EmergencyAlert
  * and must look identical whatever the patient chose, and the sign-in screens come before a
  * preference exists. They must keep drawing themselves from the static light theme.

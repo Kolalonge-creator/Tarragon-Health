@@ -28,7 +28,7 @@ import {
   type KnowledgeCheckQuestion,
 } from "@/lib/health-education";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -182,13 +182,13 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
 
       {activeCategory ? (
         <Card style={{ gap: 10 }}>
-          <Text onPress={() => setActiveCategory(null)} style={{ fontSize: 12.5, fontWeight: "600", color: colors.brand }}>
+          <Text onPress={() => setActiveCategory(null)} style={{ fontSize: 12.5, fontWeight: "600", color: colors.brandPressed }}>
             ← All topics
           </Text>
           <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>
             {HEALTH_EDUCATION_CATEGORIES.find((c) => c.value === activeCategory)?.label ?? activeCategory}
           </Text>
-          <TextInput keyboardAppearance={scheme} value={query} onChangeText={setQuery} placeholder="Search this topic…" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={query} onChangeText={setQuery} placeholder="Search this topic…" style={textInputStyle} />
           {hasMultipleLevels && (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               <LevelChip label="All" active={readingLevel === null} onPress={() => setReadingLevel(null)} />
@@ -269,7 +269,7 @@ function RecommendationRow({ rec, onChanged }: { rec: EducationRecommendation; o
     <Card style={{ borderColor: colors.brand, gap: 4 }}>
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 11, fontWeight: "700", color: colors.brand, textTransform: "uppercase" }}>{rec.trigger_reason}</Text>
+          <Text style={{ fontSize: 11, fontWeight: "700", color: colors.brandPressed, textTransform: "uppercase" }}>{rec.trigger_reason}</Text>
           <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{rec.content?.title}</Text>
           {rec.content?.summary && <MutedText>{rec.content.summary}</MutedText>}
         </View>

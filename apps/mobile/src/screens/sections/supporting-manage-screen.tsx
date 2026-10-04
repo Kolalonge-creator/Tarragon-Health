@@ -110,7 +110,7 @@ export function SupportingManageScreen({ userId }: { userId: string }) {
               <MutedText>{people.length === 1 ? "person you support" : "people you support"}</MutedText>
             </View>
             <View>
-              <Text style={{ fontSize: 22, fontWeight: "700", color: colors.brand }}>{totalUsed}</Text>
+              <Text style={{ fontSize: 22, fontWeight: "700", color: colors.brandPressed }}>{totalUsed}</Text>
               <MutedText>
                 {totalUsed === 1 ? "check has been used" : "checks have been used"}
                 {totalFunded > 0 ? ` of ${naira(totalFunded)} paid` : ""}
@@ -298,7 +298,7 @@ function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
           opacity: pressed ? 0.7 : 1,
         })}
       >
-        <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand }}>
+        <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
           Pay a bill or fund their plan for {name.trim().split(/\s+/)[0] || "them"}
         </Text>
       </Pressable>

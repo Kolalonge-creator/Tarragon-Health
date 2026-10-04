@@ -29,7 +29,7 @@ import {
 } from "@/lib/mental-health";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { WellbeingTrendChart } from "./wellbeing-trend-chart";
 
@@ -300,7 +300,7 @@ function CheckinForm({
       ))}
       <View style={{ gap: 6 }}>
         <Text style={{ fontSize: 13, color: colors.ink }}>Anything else you&apos;d like to note? (optional)</Text>
-        <TextInput keyboardAppearance={scheme}
+        <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={note}
           onChangeText={setNote}
           multiline
@@ -511,7 +511,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   const colors = useLegacyColors();
   return (
     <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: colors.brand, textTransform: "uppercase", letterSpacing: 0.5 }}>
+      <Text style={{ fontSize: 11, fontWeight: "700", color: colors.brandPressed, textTransform: "uppercase", letterSpacing: 0.5 }}>
         {title}
       </Text>
       {children}

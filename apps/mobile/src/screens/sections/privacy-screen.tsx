@@ -17,7 +17,7 @@ import {
 import { PLATFORM_URL } from "@/lib/platform-url";
 import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const CONSENT_TYPE_LABEL: Record<string, string> = {
@@ -238,7 +238,7 @@ function ExportRequestCard({
       {error && <ErrorText>{error}</ErrorText>}
       {open ? (
         <>
-          <TextInput keyboardAppearance={scheme}
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={note}
             onChangeText={setNote}
             placeholder="Anything specific you need? (optional)"
@@ -311,7 +311,7 @@ function CorrectionRequestCard({
       {open ? (
         <>
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Which record?</Text>
-          <TextInput keyboardAppearance={scheme}
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={recordDescription}
             onChangeText={setRecordDescription}
             placeholder="e.g. my date of birth, a blood pressure reading from last week"
@@ -320,9 +320,9 @@ function CorrectionRequestCard({
             style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]}
           />
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>What&apos;s wrong with it?</Text>
-          <TextInput keyboardAppearance={scheme} value={whatIsWrong} onChangeText={setWhatIsWrong} multiline numberOfLines={2} style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={whatIsWrong} onChangeText={setWhatIsWrong} multiline numberOfLines={2} style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]} />
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>What should it say instead? (optional)</Text>
-          <TextInput keyboardAppearance={scheme} value={requestedChange} onChangeText={setRequestedChange} multiline numberOfLines={2} style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={requestedChange} onChangeText={setRequestedChange} multiline numberOfLines={2} style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]} />
           <View style={{ flexDirection: "row", gap: 8 }}>
             <PrimaryButton
               title="Submit request"
@@ -385,7 +385,7 @@ function DeletionRequestCard({
       {error && <ErrorText>{error}</ErrorText>}
       {open ? (
         <>
-          <TextInput keyboardAppearance={scheme}
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={reason}
             onChangeText={setReason}
             placeholder="Tell us what you'd like deleted and why (optional)"
