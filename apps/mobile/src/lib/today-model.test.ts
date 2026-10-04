@@ -73,9 +73,9 @@ describe("what is shown", () => {
     expect(out.open[0]?.title).toEqual({ line: { key: "today.kind.book_test" } });
   });
 
-  it("treats an unknown kind as a task from the care team that opens My actions", () => {
+  it("treats an unknown kind as a task from the care team that opens the Care section, where tasks are listed", () => {
     const out = build({ tasks: [task({ kind: "something_new", title: "" })] });
-    expect(out.open[0]).toMatchObject({ kind: "other", target: "myActions", title: { line: { key: "today.kind.other" } } });
+    expect(out.open[0]).toMatchObject({ kind: "other", target: "care", title: { line: { key: "today.kind.other" } } });
   });
 });
 
@@ -120,6 +120,14 @@ describe("medicines", () => {
     expect(byId["dose:m1:08:00"]).toEqual({ key: "today.due.earlier", params: { time: "08:00" } });
     expect(byId["dose:m2:20:00"]).toEqual({ key: "today.due.at", params: { time: "20:00" } });
     expect(out.open.every((i) => i.status === "due")).toBe(true);
+  });
+
+  it("reads a stored time that carries seconds (08:00:00) as 08:00", () => {
+    const out = build({ doses: [dose({ time: "08:00:00" }), dose({ medicationId: "m2", time: "20:00:00" })] });
+    const byId = Object.fromEntries(out.open.map((i) => [i.id, i]));
+    expect(byId["dose:m1:08:00"]?.due).toEqual({ key: "today.due.earlier", params: { time: "08:00" } });
+    expect(byId["dose:m2:20:00"]?.due).toEqual({ key: "today.due.at", params: { time: "20:00" } });
+    expect(byId["dose:m2:20:00"]?.dueAtMs).toBe(lagosTimeToUtcMs(TODAY, "20:00"));
   });
 
   it("names the drug in the title line", () => {

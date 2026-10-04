@@ -214,8 +214,6 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
         </View>
       </View>
 
-      <TodayCard patientId={patientId} onNavigate={onNavigate} reloadToken={scoreReloadToken} />
-
       {videoVisit ? (
         <Card style={{ gap: space.md }}>
           <View style={{ flexDirection: "row", gap: space.md, alignItems: "center" }}>
@@ -239,6 +237,9 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
           <Button title={tr("home.visit.details")} variant="secondary" onPress={() => onOpenVideoVisit(videoVisit.id)} />
         </Card>
       ) : null}
+
+      {/* After the video visit card: a visit that starts soon must stay near the top. */}
+      <TodayCard patientId={patientId} onNavigate={onNavigate} reloadToken={scoreReloadToken} />
 
       {showGetStarted ? <GetStartedCard progress={progress} onNavigate={onNavigate} language={uiLanguage} /> : null}
 

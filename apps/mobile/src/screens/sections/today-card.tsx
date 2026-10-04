@@ -104,7 +104,7 @@ export function TodayCard({
         <Button
           title={`${tr("today.more", { count: list.moreCount })}. ${tr("today.view_all")}`}
           variant="ghost"
-          onPress={() => onNavigate("myActions")}
+          onPress={() => onNavigate("care")}
         />
       ) : null}
       {state.partial ? <InlineAlert tone="info" message={tr("today.partial")} /> : null}

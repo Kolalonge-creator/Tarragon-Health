@@ -417,10 +417,9 @@ export const pcm: Record<MessageKey, string> = {
   "today.summary": "{done} for {total} don finish today",
   "today.partial": "Some things fit dey miss until network come back.",
   "today.more": "{count} more",
-  "today.view_all": "See all your actions",
+  "today.view_all": "See all your tasks",
   "today.dose": "Take {drug}",
   "today.kind.log_bp": "Write your blood pressure",
-  "today.kind.take_medicine": "Take your medicine",
   "today.kind.book_test": "Book test",
   "today.kind.join_consultation": "Join your appointment",
   "today.kind.read_lesson": "Read today lesson",
@@ -434,5 +433,4 @@ export const pcm: Record<MessageKey, string> = {
   "today.due.logged": "You don write am today",
   "today.due.earlier": "E don pass, na {time}",
   "today.due.at": "Na {time}",
-  "today.a11y.item": "{title}. {due}.",
 };

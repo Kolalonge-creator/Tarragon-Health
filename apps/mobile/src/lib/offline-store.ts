@@ -4,6 +4,7 @@ import { recordSyncError } from "./sync-diagnostics";
 import { loadOfflineSyncConfig } from "./offline-sync-config";
 import { OFFLINE_BUDGET } from "./offline-budget";
 import { classifyFailure, pullFloor, type OfflineSyncConfig } from "./outbox-rules";
+import { fetchPatientTasks } from "./task-source";
 
 /**
  * Read mirror of the patient's own records on the phone (S06), so logging
@@ -190,24 +191,17 @@ async function pullMedications(db: SQLite.SQLiteDatabase, owner: string, subject
 /**
  * The patient's own tasks (the patient_tasks view: the caller's patient-owned care_tasks).
  * Tasks change status in place, so the cursor pull used for append-only rows does not fit:
- * replace the whole small set instead. Open tasks plus whatever changed recently, newest
- * change first, capped. On any error the mirror is left exactly as it was, so a missing
+ * replace the whole small set instead (every open task plus what changed since yesterday, see task-source.ts). On any error the mirror is left exactly as it was, so a missing
  * view (before the S07 migration is applied) or a dropped connection never wipes a good copy.
  */
 async function pullTasks(db: SQLite.SQLiteDatabase, owner: string, subjectId: string, result: PullResult) {
-  const { data, error } = await supabase
-    .from("patient_tasks")
-    .select("id, kind, title, priority, due_at, recurrence, owner_role, state, status, care_plan_id, source_event_id, updated_at")
-    .eq("patient_id", subjectId)
-    .order("updated_at", { ascending: false })
-    .limit(OFFLINE_BUDGET.taskPullLimit);
+  const { rows, error } = await fetchPatientTasks(subjectId);
   result.pages += 1;
   if (error) {
     if (classifyFailure({ code: error.code, message: error.message }) === "network") result.stoppedOffline = true;
     recordSyncError("offline_outbox", "pull:tasks", error.message);
     return;
   }
-  const rows = (data ?? []) as unknown as { id: string }[];
   result.bytes += JSON.stringify(rows).length;
   await db.execAsync("begin");
   try {

@@ -418,10 +418,9 @@ export const en = {
   "today.summary": "{done} of {total} done today",
   "today.partial": "Some items may be missing until you are back online.",
   "today.more": "{count} more",
-  "today.view_all": "See all your actions",
+  "today.view_all": "See all your tasks",
   "today.dose": "Take {drug}",
   "today.kind.log_bp": "Log your blood pressure",
-  "today.kind.take_medicine": "Take your medicine",
   "today.kind.book_test": "Book a test",
   "today.kind.join_consultation": "Join your appointment",
   "today.kind.read_lesson": "Read today's lesson",
@@ -435,7 +434,6 @@ export const en = {
   "today.due.logged": "Logged today",
   "today.due.earlier": "Earlier today, {time}",
   "today.due.at": "At {time}",
-  "today.a11y.item": "{title}. {due}.",
 } as const;
 
 export type MessageKey = keyof typeof en;

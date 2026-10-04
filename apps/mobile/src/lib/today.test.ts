@@ -18,6 +18,8 @@ jest.mock("./supabase", () => ({
       const q: Record<string, unknown> = {
         select: () => q,
         eq: () => q,
+        neq: () => q,
+        gte: () => q,
         order: () => q,
         limit: async () => {
           if (mockRemote === "throw") throw new Error("Network request failed");
@@ -80,18 +82,20 @@ describe("loadToday", () => {
     expect(pulls).toEqual(["p1"]);
   });
 
-  it("uses the mirrored copy when the connection fails, without calling it partial", async () => {
+  it("uses the mirrored copy when the connection fails, and says it may be out of date", async () => {
     mockRemote = "throw";
     mockMirror = [row("m1")];
     const out = await loadToday("p1", NOW);
     expect(out.list.open.map((i) => i.id)).toEqual(["task:m1"]);
-    expect(out.partial).toBe(false);
+    expect(out.partial).toBe(true);
   });
 
   it("also uses the mirror when the server answers with an error", async () => {
     mockRemote = { data: null, error: { code: "PGRST301", message: "JWT expired" } };
     mockMirror = [row("m1")];
-    expect((await loadToday("p1", NOW)).list.open).toHaveLength(1);
+    const out = await loadToday("p1", NOW);
+    expect(out.list.open).toHaveLength(1);
+    expect(out.partial).toBe(true);
   });
 
   it("says partial, not 'nothing today', when the tasks failed and nothing was mirrored", async () => {

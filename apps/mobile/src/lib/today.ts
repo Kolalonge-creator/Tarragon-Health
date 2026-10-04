@@ -1,7 +1,7 @@
 import { lagosLocalDate } from "./lagos-date";
 import { loadTodaysDoses } from "./medications";
 import { pullChangesThrottled, readLocalTasks } from "./offline-store";
-import { supabase } from "./supabase";
+import { fetchPatientTasks } from "./task-source";
 import { buildTodayList, toTodayTasks, type TodayList, type TodayTask } from "./today-model";
 import { loadRecentBpReadings } from "./vitals";
 
@@ -15,40 +15,35 @@ import { loadRecentBpReadings } from "./vitals";
  *
  * A view that does not exist yet (the S07 migration is applied to production on
  * the founder's go-ahead) is not an error the patient should see: the list simply
- * has no task source yet and shows doses only. A real failure with nothing
- * mirrored is reported as `partial`, so the screen can say some items may be
- * missing instead of showing an empty list as if it were a fact.
+ * has no task source yet and shows doses only. A real failure is reported as
+ * `partial`, whether or not a mirrored copy was used, so the screen can say some
+ * items may be missing or out of date instead of passing an old or empty list
+ * off as current.
  */
 export interface TodayLoad {
   list: TodayList;
-  /** True when a source failed and there was no earlier copy to use. */
+  /** True when a source failed: what is shown may be missing or out of date. */
   partial: boolean;
 }
 
 /** PostgREST and Postgres codes for "that table or view is not there". */
 const MISSING_RELATION_CODES = new Set(["PGRST205", "42P01", "PGRST200"]);
 
-const TASK_COLUMNS = "id, kind, title, priority, due_at, recurrence, owner_role, state, status, updated_at";
-
-async function loadTasks(patientId: string): Promise<{ tasks: TodayTask[]; partial: boolean }> {
+async function loadTasks(patientId: string, nowMs: number): Promise<{ tasks: TodayTask[]; partial: boolean }> {
   try {
-    const { data, error } = await supabase
-      .from("patient_tasks")
-      .select(TASK_COLUMNS)
-      .eq("patient_id", patientId)
-      .order("updated_at", { ascending: false })
-      .limit(100);
+    const { rows, error } = await fetchPatientTasks(patientId, nowMs);
     if (!error) {
       pullChangesThrottled(patientId);
-      return { tasks: toTodayTasks(data ?? []), partial: false };
+      return { tasks: toTodayTasks(rows), partial: false };
     }
     if (error.code && MISSING_RELATION_CODES.has(error.code)) return { tasks: [], partial: false };
   } catch {
     // fall through to the mirrored copy
   }
+  // The request failed. A mirrored copy is better than nothing, but it may be out of date, so say so.
   try {
     const local = await readLocalTasks<Parameters<typeof toTodayTasks>[0][number]>(patientId);
-    if (local.length > 0) return { tasks: toTodayTasks(local), partial: false };
+    if (local.length > 0) return { tasks: toTodayTasks(local), partial: true };
   } catch {
     // no mirror either
   }
@@ -57,7 +52,7 @@ async function loadTasks(patientId: string): Promise<{ tasks: TodayTask[]; parti
 
 export async function loadToday(patientId: string, nowMs: number = Date.now()): Promise<TodayLoad> {
   const [tasksRes, dosesRes, bpRes] = await Promise.allSettled([
-    loadTasks(patientId),
+    loadTasks(patientId, nowMs),
     loadTodaysDoses(patientId),
     loadRecentBpReadings(patientId, 5),
   ]);

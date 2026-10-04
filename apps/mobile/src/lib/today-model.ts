@@ -82,7 +82,7 @@ const TARGET_FOR_KIND: Record<TodayTaskKind | "other", SectionId> = {
   book_test: "labs",
   join_consultation: "appointments",
   read_lesson: "learn",
-  other: "myActions",
+  other: "care",
 };
 
 function asKind(kind: string | null): TodayTaskKind | "other" {
@@ -135,9 +135,11 @@ export function buildTodayList(input: TodayInput): TodayList {
 
   for (const d of input.doses) {
     if (d.status !== "pending" && d.status !== "taken") continue;
-    const dueAtMs = lagosTimeToUtcMs(today, d.time);
+    // A stored time can carry seconds (08:00:00); only HH:MM is used.
+    const time = /^\d{2}:\d{2}/.exec(d.time)?.[0] ?? d.time;
+    const dueAtMs = lagosTimeToUtcMs(today, time);
     const base = {
-      id: `dose:${d.medicationId}:${d.time}`,
+      id: `dose:${d.medicationId}:${time}`,
       source: "dose" as const,
       kind: "take_medicine" as const,
       title: { line: { key: "today.dose" as const, params: { drug: d.drugName } } },
@@ -147,9 +149,9 @@ export function buildTodayList(input: TodayInput): TodayList {
     if (d.status === "taken") {
       done.push({ ...base, due: { key: "today.due.done" }, status: "done" });
     } else if (dueAtMs !== null && dueAtMs < input.nowMs) {
-      open.push({ ...base, due: { key: "today.due.earlier", params: { time: d.time } }, status: "due" });
+      open.push({ ...base, due: { key: "today.due.earlier", params: { time } }, status: "due" });
     } else {
-      open.push({ ...base, due: { key: "today.due.at", params: { time: d.time } }, status: "due" });
+      open.push({ ...base, due: { key: "today.due.at", params: { time } }, status: "due" });
     }
   }
 

@@ -20,6 +20,8 @@ export const OFFLINE_BUDGET = {
   initialPullDays: 90,
   /** Tasks mirrored per pull (open ones plus recent changes). A patient has tens, not thousands. */
   taskPullLimit: 100,
+  /** Recently changed closed tasks mirrored (enough to say "done today"). */
+  taskRecentLimit: 50,
   /** Mirror rows older than this, measured back from the newest mirrored row, are purged. */
   mirrorRetentionDays: 90,
   /** Stand-in budgets (milliseconds / bytes) for the jest tests. */
