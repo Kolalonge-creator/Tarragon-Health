@@ -119,11 +119,14 @@ begin
   select id, organisation_id into v_clinician_id, v_clinician_org
   from public.profiles where role = 'clinician' and organisation_id is not null order by id limit 1;
 
-  if v_admin_a is null or v_clinician_id is null then
-    raise exception 'SKIP_NO_FIXTURE';
-  end if;
-
   begin
+    -- Raised inside this block on purpose: the handler below swallows
+    -- SKIP_NO_FIXTURE, so an empty database (CI replay) skips the behavioural
+    -- proof instead of aborting the whole migration.
+    if v_admin_a is null or v_clinician_id is null then
+      raise exception 'SKIP_NO_FIXTURE';
+    end if;
+
     -- ---- 1. Self-authorization: a caller with no users.suspend cannot call
     --         this at all, even though it's SECURITY DEFINER. ---------------
     perform set_config('request.jwt.claims',
