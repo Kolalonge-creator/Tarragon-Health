@@ -29,6 +29,7 @@ export function PrimaryButton({ title, onPress, disabled, loading }: ButtonProps
         backgroundColor: disabled ? colors.faint : pressed ? colors.brandPressed : colors.brand,
         borderRadius: radius.control,
         paddingVertical: 14,
+        paddingHorizontal: 16,
         alignItems: "center",
         justifyContent: "center",
       })}

@@ -28,7 +28,7 @@ import * as WebBrowser from "expo-web-browser";
 import type { SectionId } from "@/lib/sections";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 function shortDateTime(iso: string): string {
@@ -407,7 +407,7 @@ function NextOfKinCard({ current, userId, onChanged }: { current: NextOfKinState
       <View style={{ flexDirection: "row", gap: 8 }}>
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Their name</Text>
-          <TextInput keyboardAppearance={scheme} value={fullName} onChangeText={setFullName} style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={fullName} onChangeText={setFullName} style={textInputStyle} />
         </View>
       </View>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Relationship to you</Text>
@@ -417,7 +417,7 @@ function NextOfKinCard({ current, userId, onChanged }: { current: NextOfKinState
         ))}
       </View>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Their phone number</Text>
-      <TextInput keyboardAppearance={scheme} value={phone} onChangeText={setPhone} placeholder="+2348012345678" keyboardType="phone-pad" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={phone} onChangeText={setPhone} placeholder="+2348012345678" keyboardType="phone-pad" style={textInputStyle} />
       <MutedText>If this number belongs to a Tarragon account, they&apos;ll be able to follow your care straight away.</MutedText>
 
       <PrimaryButton title={current.name ? "Update next of kin" : "Save next of kin"} onPress={submit} loading={submitting} />
@@ -484,7 +484,7 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
                     onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, cat.value)))}
                     style={{ fontSize: 13, color: colors.ink, paddingVertical: 3 }}
                   >
-                    <Text style={{ fontWeight: "700", color: follower.categories.includes(cat.value) ? colors.brand : colors.faint }}>
+                    <Text style={{ fontWeight: "700", color: follower.categories.includes(cat.value) ? colors.brandPressed : colors.faint }}>
                       {follower.categories.includes(cat.value) ? "☑ " : "☐ "}
                     </Text>
                     {cat.label}
@@ -495,7 +495,7 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
                     onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, "reproductive_health")))}
                     style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}
                   >
-                    <Text style={{ fontWeight: "700", color: reproductiveHealthOn ? colors.brand : colors.faint }}>
+                    <Text style={{ fontWeight: "700", color: reproductiveHealthOn ? colors.brandPressed : colors.faint }}>
                       {reproductiveHealthOn ? "☑ " : "☐ "}
                     </Text>
                     Reproductive health

@@ -39,6 +39,7 @@ export function PrimaryButton({ title, onPress, disabled, loading }: ButtonProps
         backgroundColor: disabled ? colors.faint : pressed ? colors.brandPressed : colors.brand,
         borderRadius: radius.control,
         paddingVertical: 14,
+        paddingHorizontal: 16,
         alignItems: "center",
         justifyContent: "center",
       })}
@@ -359,7 +360,7 @@ export function CalloutCard({
         <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{title}</Text>
       </View>
       <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 13, color: colors.muted, lineHeight: 18 }}>{subtitle}</Text>
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand, alignSelf: "flex-end", marginTop: 2 }}>
+      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, alignSelf: "flex-end", marginTop: 2 }}>
         {ctaLabel.toUpperCase()}
       </Text>
     </Pressable>

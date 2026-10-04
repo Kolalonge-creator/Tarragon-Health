@@ -107,7 +107,7 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
         ) : shareLink ? (
           <>
             <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Your live link</Text>
-            <Text selectable style={{ fontSize: 12, color: colors.brand, textAlign: "center" }}>
+            <Text selectable style={{ fontSize: 12, color: colors.brandPressed, textAlign: "center" }}>
               {shareLink.url}
             </Text>
             <MutedText>

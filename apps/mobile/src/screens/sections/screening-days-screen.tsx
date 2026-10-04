@@ -14,7 +14,7 @@ import {
 } from "@/lib/screening-days";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const STATUS_LABEL: Record<ScreeningDay["status"], string> = {
@@ -136,10 +136,10 @@ function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone
   return (
     <Card style={{ gap: 10 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Request a screening day</Text>
-      <TextInput keyboardAppearance={scheme} value={hostName} onChangeText={setHostName} placeholder="Group name (e.g. Redeemer's Church, Lekki)" style={textInputStyle} />
-      <TextInput keyboardAppearance={scheme} value={contactPhone} onChangeText={setContactPhone} placeholder="Contact phone" style={textInputStyle} keyboardType="phone-pad" />
-      <TextInput keyboardAppearance={scheme} value={location} onChangeText={setLocation} placeholder="Where will this happen?" style={textInputStyle} />
-      <TextInput keyboardAppearance={scheme} value={eventDate} onChangeText={setEventDate} placeholder="Event date (YYYY-MM-DD)" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={hostName} onChangeText={setHostName} placeholder="Group name (e.g. Redeemer's Church, Lekki)" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={contactPhone} onChangeText={setContactPhone} placeholder="Contact phone" style={textInputStyle} keyboardType="phone-pad" />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={location} onChangeText={setLocation} placeholder="Where will this happen?" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={eventDate} onChangeText={setEventDate} placeholder="Event date (YYYY-MM-DD)" style={textInputStyle} />
 
       <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Which check?</Text>
       <View style={{ gap: 6 }}>
@@ -165,14 +165,14 @@ function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone
         })}
       </View>
 
-      <TextInput keyboardAppearance={scheme}
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={slotsRequested}
         onChangeText={setSlotsRequested}
         placeholder="How many people?"
         keyboardType="numeric"
         style={textInputStyle}
       />
-      <TextInput keyboardAppearance={scheme}
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={notes}
         onChangeText={setNotes}
         placeholder="Anything else we should know? (optional)"
@@ -283,8 +283,8 @@ function AddSlotSection({ day, onChanged }: { day: ScreeningDay; onChanged: () =
       ))}
       {remaining > 0 && (
         <View style={{ gap: 8 }}>
-          <TextInput keyboardAppearance={scheme} value={fullName} onChangeText={setFullName} placeholder="Attendee name" style={textInputStyle} />
-          <TextInput keyboardAppearance={scheme} value={phone} onChangeText={setPhone} placeholder="Phone (optional)" style={textInputStyle} keyboardType="phone-pad" />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={fullName} onChangeText={setFullName} placeholder="Attendee name" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={phone} onChangeText={setPhone} placeholder="Phone (optional)" style={textInputStyle} keyboardType="phone-pad" />
           {error && <ErrorText>{error}</ErrorText>}
           <SecondaryButton title="Add to the list" onPress={submit} loading={saving} />
         </View>

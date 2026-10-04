@@ -27,7 +27,7 @@ import {
 } from "@/lib/wellness";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 function classDateTime(iso: string): string {
@@ -206,7 +206,7 @@ function PointsCard({
 
       <View style={{ gap: 8 }}>
         <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Redeem for a voucher</Text>
-        <TextInput keyboardAppearance={scheme}
+        <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={amount}
           onChangeText={setAmount}
           placeholder="e.g. 100"
@@ -217,7 +217,7 @@ function PointsCard({
         {message && <MutedText>{message}</MutedText>}
         <SecondaryButton title="Redeem" onPress={submit} disabled={currentBalance <= 0} loading={submitting} />
         {redeemed && (
-          <Text onPress={() => onNavigate("financialProfile")} style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}>
+          <Text onPress={() => onNavigate("financialProfile")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
             See your voucher in Your finances →
           </Text>
         )}
@@ -231,7 +231,7 @@ function PointsCard({
           {ledger.map((entry) => (
             <View key={entry.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
               <Text style={{ fontSize: 13, color: colors.ink }}>{reasonLabel(entry.reason)}</Text>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: entry.points > 0 ? colors.brand : colors.muted }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: entry.points > 0 ? colors.brandPressed : colors.muted }}>
                 {entry.points > 0 ? "+" : ""}
                 {entry.points}
               </Text>
@@ -387,7 +387,7 @@ function ChallengesCard({
               </View>
               <Text
                 onPress={() => (joining ? null : join(challenge.id))}
-                style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand, opacity: joining === challenge.id ? 0.5 : 1 }}
+                style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, opacity: joining === challenge.id ? 0.5 : 1 }}
               >
                 Join
               </Text>
@@ -470,7 +470,7 @@ function ClassesCard({
                 {!registration && (
                   <Text
                     onPress={() => (busyId ? null : register(cls.id))}
-                    style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand, opacity: busyId === cls.id ? 0.5 : 1 }}
+                    style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, opacity: busyId === cls.id ? 0.5 : 1 }}
                   >
                     Register
                   </Text>
@@ -478,7 +478,7 @@ function ClassesCard({
                 {registration && registration.status === "registered" && (
                   <Text
                     onPress={() => (busyId ? null : markAttended(registration.id))}
-                    style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand, opacity: busyId === registration.id ? 0.5 : 1 }}
+                    style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, opacity: busyId === registration.id ? 0.5 : 1 }}
                   >
                     Mark attended
                   </Text>

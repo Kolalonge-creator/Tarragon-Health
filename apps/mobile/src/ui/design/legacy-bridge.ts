@@ -1,4 +1,5 @@
 import { useTheme } from "./provider";
+import { darkPalette, type Scheme } from "./tokens";
 import { textStyles } from "./typography";
 
 /**
@@ -52,4 +53,13 @@ export function useTextInputStyle() {
     color: colors.ink,
     backgroundColor: colors.card,
   } as const;
+}
+
+/**
+ * Placeholder colour for a legacy TextInput. React Native's default placeholder grey is
+ * near-invisible on a dark field, so Dark gets the palette's subtle text role; Light keeps
+ * the platform default (undefined) so nothing changes there.
+ */
+export function placeholderColorFor(scheme: Scheme): string | undefined {
+  return scheme === "dark" ? darkPalette.textSubtle : undefined;
 }

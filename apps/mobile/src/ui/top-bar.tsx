@@ -142,7 +142,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
             hitSlop={10}
             onPress={handleMarkAllRead}
           >
-            <Text style={{ fontSize: 11.5, fontWeight: "600", color: colors.brand }}>Mark all read</Text>
+            <Text style={{ fontSize: 11.5, fontWeight: "600", color: colors.brandPressed }}>Mark all read</Text>
           </Pressable>
         </View>
         {markError ? (
@@ -163,7 +163,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
               <Text style={{ fontSize: 12.5, color: colors.ink, fontWeight: "600" }}>
                 We couldn&apos;t load your notifications right now.
               </Text>
-              <Text style={{ fontSize: 12, color: colors.brand, fontWeight: "600" }}>Tap to retry</Text>
+              <Text style={{ fontSize: 12, color: colors.brandPressed, fontWeight: "600" }}>Tap to retry</Text>
             </Pressable>
           ) : notifications.length === 0 ? (
             <Text style={{ padding: 16, fontSize: 12.5, color: colors.muted }}>You&apos;re all caught up.</Text>

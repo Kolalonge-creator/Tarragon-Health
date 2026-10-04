@@ -42,7 +42,7 @@ import { loadHealthEducationLibrary, type LibraryItem as HealthEducationLibraryI
 import { SexualHealthResultsTab, SexualHealthTestingTab } from "@/screens/sections/sexual-health-testing-tab";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
@@ -178,7 +178,7 @@ function PrivacyGate({
         <MutedText>Too many attempts. Try again shortly, or reset your PIN below.</MutedText>
       ) : (
         <View style={{ width: "100%", maxWidth: 240, gap: 10 }}>
-          <TextInput keyboardAppearance={scheme}
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={pin}
             onChangeText={(t) => setPin(t.replace(/\D/g, ""))}
             secureTextEntry
@@ -308,8 +308,8 @@ function PrivacySettingsRow({ status, onChanged }: { status: SexualHealthPrivacy
         </View>
       ) : (
         <View style={{ gap: 8 }}>
-          <TextInput keyboardAppearance={scheme} value={pin} onChangeText={(t) => setPin(t.replace(/\D/g, ""))} secureTextEntry keyboardType="number-pad" maxLength={6} placeholder="New PIN (4-6 digits)" style={textInputStyle} />
-          <TextInput keyboardAppearance={scheme} value={confirmPin} onChangeText={(t) => setConfirmPin(t.replace(/\D/g, ""))} secureTextEntry keyboardType="number-pad" maxLength={6} placeholder="Confirm PIN" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={pin} onChangeText={(t) => setPin(t.replace(/\D/g, ""))} secureTextEntry keyboardType="number-pad" maxLength={6} placeholder="New PIN (4-6 digits)" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={confirmPin} onChangeText={(t) => setConfirmPin(t.replace(/\D/g, ""))} secureTextEntry keyboardType="number-pad" maxLength={6} placeholder="Confirm PIN" style={textInputStyle} />
           {error && <ErrorText>{error}</ErrorText>}
           <View style={{ flexDirection: "row", gap: 8 }}>
             <PrimaryButton title="Save PIN" onPress={save} loading={submitting} />
@@ -370,7 +370,7 @@ function EmergencyContraceptionCard({ userId, organisationId }: { userId: string
         when, and we&apos;ll tell you what to get and where — plus your care team will follow up fast.
       </MutedText>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Hours since intercourse</Text>
-      <TextInput keyboardAppearance={scheme}
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={hours}
         onChangeText={setHours}
         keyboardType="numeric"
@@ -379,7 +379,7 @@ function EmergencyContraceptionCard({ userId, organisationId }: { userId: string
         style={[textInputStyle, notSure ? { opacity: 0.5 } : null]}
       />
       <Text onPress={() => setNotSure((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
-        <Text style={{ fontWeight: "700", color: notSure ? colors.brand : colors.faint }}>{notSure ? "☑ " : "☐ "}</Text>
+        <Text style={{ fontWeight: "700", color: notSure ? colors.brandPressed : colors.faint }}>{notSure ? "☑ " : "☐ "}</Text>
         I&apos;m not sure
       </Text>
       {error && <ErrorText>{error}</ErrorText>}
@@ -533,7 +533,7 @@ function FertilityCard() {
         tests, or a specialist. Not a diagnosis.
       </MutedText>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How many months have you been trying to conceive?</Text>
-      <TextInput keyboardAppearance={scheme} value={months} onChangeText={setMonths} keyboardType="numeric" placeholder="e.g. 8" style={[textInputStyle, { maxWidth: 120 }]} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={months} onChangeText={setMonths} keyboardType="numeric" placeholder="e.g. 8" style={[textInputStyle, { maxWidth: 120 }]} />
 
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Is your menstrual cycle regular? (Skip if this doesn&apos;t apply)</Text>
       <View style={{ flexDirection: "row", gap: 8 }}>
@@ -748,9 +748,9 @@ function ConfidentialMessageCard() {
       {open && (
         <View style={{ gap: 8 }}>
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Subject</Text>
-          <TextInput keyboardAppearance={scheme} value={subject} onChangeText={setSubject} placeholder="e.g. Question about my result" maxLength={150} style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={subject} onChangeText={setSubject} placeholder="e.g. Question about my result" maxLength={150} style={textInputStyle} />
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Message</Text>
-          <TextInput keyboardAppearance={scheme} value={body} onChangeText={setBody} multiline numberOfLines={4} maxLength={4000} style={[textInputStyle, { minHeight: 90, textAlignVertical: "top" }]} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={body} onChangeText={setBody} multiline numberOfLines={4} maxLength={4000} style={[textInputStyle, { minHeight: 90, textAlignVertical: "top" }]} />
           {error && <ErrorText>{error}</ErrorText>}
 
           <View style={{ flexDirection: "row", gap: 8 }}>

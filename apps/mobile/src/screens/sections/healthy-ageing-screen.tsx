@@ -30,7 +30,7 @@ import {
 } from "@/lib/healthy-ageing";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 function when(iso: string): string {
@@ -61,7 +61,7 @@ function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: ()
   const colors = useLegacyColors();
   return (
     <Text onPress={onToggle} style={{ fontSize: 13, color: colors.ink, paddingVertical: 4 }}>
-      <Text style={{ fontWeight: "700", color: checked ? colors.brand : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
+      <Text style={{ fontWeight: "700", color: checked ? colors.brandPressed : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
       {label}
     </Text>
   );
@@ -204,16 +204,16 @@ export function HealthyAgeingScreen({ patientId, organisationId, onNavigate }: H
 
       <Card style={{ gap: 6 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Related</Text>
-        <Text onPress={() => onNavigate("emergency")} style={{ fontSize: 13, fontWeight: "600", color: colors.brand, paddingVertical: 3 }}>
+        <Text onPress={() => onNavigate("emergency")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, paddingVertical: 3 }}>
           Emergency card: allergies, medicines, and contacts for a stranger to find →
         </Text>
-        <Text onPress={() => onNavigate("lifestyle")} style={{ fontSize: 13, fontWeight: "600", color: colors.brand, paddingVertical: 3 }}>
+        <Text onPress={() => onNavigate("lifestyle")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, paddingVertical: 3 }}>
           Nutrition and lifestyle coaching →
         </Text>
-        <Text onPress={() => onNavigate("prevention")} style={{ fontSize: 13, fontWeight: "600", color: colors.brand, paddingVertical: 3 }}>
+        <Text onPress={() => onNavigate("prevention")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, paddingVertical: 3 }}>
           Vaccinations and preventive screening →
         </Text>
-        <Text onPress={() => onNavigate("family")} style={{ fontSize: 13, fontWeight: "600", color: colors.brand, paddingVertical: 3 }}>
+        <Text onPress={() => onNavigate("family")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, paddingVertical: 3 }}>
           Caregivers who can help manage this →
         </Text>
       </Card>
@@ -310,7 +310,7 @@ function AgeingAssessmentCard({
                 />
               ))}
               {answers[domain]?.outcome && answers[domain]?.outcome !== "no_concern" && (
-                <TextInput keyboardAppearance={scheme}
+                <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
                   placeholder="Anything you'd like your care team to know (optional)"
                   maxLength={500}
                   multiline
@@ -541,7 +541,7 @@ function HomeCareCard({
       ) : (
         <View style={{ gap: 8 }}>
           <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>What&apos;s going on?</Text>
-          <TextInput keyboardAppearance={scheme}
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={reason}
             onChangeText={setReason}
             maxLength={500}

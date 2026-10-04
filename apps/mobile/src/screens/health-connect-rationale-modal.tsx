@@ -90,7 +90,7 @@ export function HealthConnectRationaleModal({
           onPress={() => void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {})}
           hitSlop={8}
         >
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.brand }}>
+          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.brandPressed }}>
             Read our privacy policy
           </Text>
         </Pressable>
