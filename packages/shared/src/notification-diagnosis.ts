@@ -29,6 +29,9 @@ export interface DiagnosisInput {
   readonly os: string;
   readonly brand?: string | null;
   readonly manufacturer?: string | null;
+  /** Android `Build.MODEL` and `Build.FINGERPRINT`. Some Transsion builds report a generic brand, but the fingerprint starts with the real one. */
+  readonly model?: string | null;
+  readonly fingerprint?: string | null;
   readonly permission: PermissionLevel;
   readonly health: DeliveryHealth | null;
 }
@@ -40,14 +43,16 @@ export const MIN_PUSHES_FOR_VERDICT = 5;
 
 const TRANSSION = /(tecno|infinix|itel|transsion)/i;
 
-export function makerGroup(os: string, brand?: string | null, manufacturer?: string | null): MakerGroup {
+export function makerGroup(os: string, brand?: string | null, manufacturer?: string | null, model?: string | null, fingerprint?: string | null): MakerGroup {
   if (os === "ios") return "ios";
   if (os !== "android") return "unknown";
-  return TRANSSION.test(`${brand ?? ""} ${manufacturer ?? ""}`) ? "transsion" : "other_android";
+  // The fingerprint is "brand/product/device:...", so only its first segment is the brand.
+  const fingerprintBrand = (fingerprint ?? "").split("/")[0];
+  return TRANSSION.test(`${brand ?? ""} ${manufacturer ?? ""} ${model ?? ""} ${fingerprintBrand}`) ? "transsion" : "other_android";
 }
 
 export function diagnose(i: DiagnosisInput): Diagnosis {
-  const maker = makerGroup(i.os, i.brand, i.manufacturer);
+  const maker = makerGroup(i.os, i.brand, i.manufacturer, i.model, i.fingerprint);
   const findings: DiagnosisFinding[] = [];
   if (i.permission === "denied") findings.push("permission_off");
   const h = i.health;

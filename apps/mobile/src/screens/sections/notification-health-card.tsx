@@ -19,13 +19,15 @@ const FINDING_KEY: Record<DiagnosisFinding, MessageKey> = {
   all_good: "notif.diag.all_good",
 };
 
-const androidConstants = (): { Brand?: string; Manufacturer?: string } =>
-  Platform.OS === "android" ? ((Platform.constants as { Brand?: string; Manufacturer?: string }) ?? {}) : {};
+type AndroidConstants = { Brand?: string; Manufacturer?: string; Model?: string; Fingerprint?: string };
+const androidConstants = (): AndroidConstants => (Platform.OS === "android" ? ((Platform.constants as AndroidConstants) ?? {}) : {});
 
 /**
  * "Notifications not arriving?" (S13b). Reads the phone's permission and the person's own delivery counts, names the
  * most likely cause, and shows steps for this make of phone (Tecno, Infinix and Itel stop apps in the background).
- * Never run on a real phone yet: the brand strings come from Platform.constants and need a check on a Tecno handset.
+ * The make comes from Platform.constants (Brand, Manufacturer, Model and the Fingerprint prefix), tested against the strings real
+ * Tecno, Infinix and Itel handsets report. Not yet run on hardware: if a handset reports something else, other Android phones
+ * still see the Tecno, Infinix and Itel steps under "not sure which phone".
  */
 export function NotificationHealthCard() {
   const colors = useLegacyColors();
@@ -43,8 +45,8 @@ export function NotificationHealthCard() {
   }, [check]);
 
   if (!state) return null;
-  const { Brand, Manufacturer } = androidConstants();
-  const d = diagnose({ os: Platform.OS, brand: Brand, manufacturer: Manufacturer, permission: state.permission, health: state.health });
+  const { Brand, Manufacturer, Model, Fingerprint } = androidConstants();
+  const d = diagnose({ os: Platform.OS, brand: Brand, manufacturer: Manufacturer, model: Model, fingerprint: Fingerprint, permission: state.permission, health: state.health });
   const needsSteps = d.findings.some((f) => f !== "all_good" && f !== "not_enough_data");
   const steps: MessageKey = d.maker === "transsion" ? "notif.diag.steps_transsion" : d.maker === "ios" ? "notif.diag.steps_ios" : "notif.diag.steps_android";
 
@@ -61,6 +63,12 @@ export function NotificationHealthCard() {
         <View style={{ gap: 6 }}>
           <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{tr("notif.diag.steps_title")}</Text>
           <MutedText>{tr(steps)}</MutedText>
+          {d.maker === "other_android" && (
+            <>
+              <MutedText>{tr("notif.diag.not_sure_maker")}</MutedText>
+              <MutedText>{tr("notif.diag.steps_transsion")}</MutedText>
+            </>
+          )}
           <PrimaryButton title={tr("notif.diag.open_settings")} onPress={() => void Linking.openSettings()} />
         </View>
       )}

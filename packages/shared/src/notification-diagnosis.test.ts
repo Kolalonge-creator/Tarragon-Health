@@ -9,6 +9,23 @@ describe("makerGroup", () => {
     for (const b of ["TECNO", "Infinix", "itel", "TRANSSION"]) expect(makerGroup("android", b, null)).toBe("transsion");
     expect(makerGroup("android", null, "Tecno Mobile Limited")).toBe("transsion");
   });
+  it("recognises real handset strings (Brand, Manufacturer, Model, Fingerprint as Android reports them)", () => {
+    const handsets: Array<[string, string, string, string, string]> = [
+      ["TECNO", "TECNO", "TECNO KG7h", "TECNO/KG7h-GL/TECNO-KG7h:13/TP1A.220624.014/260101:user/release-keys", "tecno spark"],
+      ["Infinix", "INFINIX", "Infinix X6525", "Infinix/X6525-GL/Infinix-X6525:13/TP1A:user/release-keys", "infinix hot"],
+      ["itel", "ITEL", "itel A662L", "itel/A662L-GL/itel-A662L:12/SP1A:user/release-keys", "itel a60"],
+      ["TRANSSION", "Transsion Holdings", "X6830", "Infinix/X6830-GL/Infinix-X6830:14/UP1A:user/release-keys", "generic brand, real fingerprint"],
+    ];
+    for (const [brand, manufacturer, model, fingerprint] of handsets) expect(makerGroup("android", brand, manufacturer, model, fingerprint)).toBe("transsion");
+    expect(makerGroup("android", "google", "Google", "Pixel 8", "google/shiba/shiba:14/UD1A:user/release-keys")).toBe("other_android");
+  });
+  it("finds the brand from the fingerprint or model alone", () => {
+    expect(makerGroup("android", "generic", "generic", "KG7h", "TECNO/KG7h-GL/x:13/y")).toBe("transsion");
+    expect(makerGroup("android", "generic", "generic", "Infinix X6525", null)).toBe("transsion");
+  });
+  it("does not match a brand that only appears later in the fingerprint", () => {
+    expect(makerGroup("android", "samsung", "samsung", "SM-A135F", "samsung/a13nsxx/a13:13/TP1A:user/tecno-notes")).toBe("other_android");
+  });
   it("tells other Android, iOS and unknown platforms apart", () => {
     expect(makerGroup("android", "samsung", "samsung")).toBe("other_android");
     expect(makerGroup("android")).toBe("other_android");

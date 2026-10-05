@@ -773,6 +773,7 @@ export const en = {
   "notif.diag.inbox_note": "Everything also appears in the app inbox, so nothing is lost.",
   "notif.diag.open_settings": "Open phone settings",
   "notif.diag.check_again": "Check again",
+  "notif.diag.not_sure_maker": "Not sure which phone this is, or using a Tecno, Infinix or Itel? Try this too:",
 } as const;
 
 export type MessageKey = keyof typeof en;

@@ -772,4 +772,5 @@ export const pcm: Record<MessageKey, string> = {
   "notif.diag.inbox_note": "Everything dey show for the app inbox too, so nothing go loss.",
   "notif.diag.open_settings": "Open phone settings",
   "notif.diag.check_again": "Check again",
+  "notif.diag.not_sure_maker": "You no sure which phone be this, or you dey use Tecno, Infinix or Itel? Try this one too:",
 };
