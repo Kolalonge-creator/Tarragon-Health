@@ -75,11 +75,13 @@ export function retryDelayMs(attempt: number): number | null {
  * which tries again a few times and then waits for the next app open. The Today list stays correct
  * throughout, so the patient is not interrupted about it.
  */
-export async function runCatchUpCheck(patientId: string, nowMs: number): Promise<CatchUpCheck> {
+export async function runCatchUpCheck(patientId: string, nowMs: number, recordFailure = true): Promise<CatchUpCheck> {
   if (!mayOfferCatchUp(await loadLastOffered(), nowMs)) return { status: "skipped" };
   const res = await loadCatchUpDoses(patientId, nowMs);
   if (!res.ok) {
-    recordSyncError("catch_up", "read", res.error);
+    // Only the first failure of a run of retries is recorded: an offline phone would otherwise fill
+    // the 50-entry diagnostics buffer and push out the Bluetooth and health-sync entries support needs.
+    if (recordFailure) recordSyncError("catch_up", "read", res.error);
     return { status: "failed", error: res.error };
   }
   const items = selectCatchUp(res.data, await loadDismissed());

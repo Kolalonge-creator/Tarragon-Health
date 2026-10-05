@@ -30,12 +30,24 @@ export function CatchUpSheet({ patientId, organisationId, enabled }: CatchUpShee
   const [failed, setFailed] = useState(false);
   const shown = useRef<string[]>([]);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped whenever the effect is torn down, so a read that was still running cannot act on a stale account.
+  const generation = useRef(0);
+  const running = useRef(false);
 
   const check = useCallback(
     async (attempt = 0) => {
-      if (!enabled) return;
+      // One read at a time: the mount and the first "active" event can arrive together on a cold start.
+      if (!enabled || running.current) return;
+      const mine = generation.current;
+      running.current = true;
       if (retryTimer.current) clearTimeout(retryTimer.current);
-      const result = await runCatchUpCheck(patientId, Date.now());
+      let result;
+      try {
+        result = await runCatchUpCheck(patientId, Date.now(), attempt === 0);
+      } finally {
+        running.current = false;
+      }
+      if (mine !== generation.current) return;
       if (result.status === "failed") {
         // A failed read is not "nothing to catch up": try again a few times, then wait for the next open.
         const delay = retryDelayMs(attempt);
@@ -60,6 +72,7 @@ export function CatchUpSheet({ patientId, organisationId, enabled }: CatchUpShee
       if (state === "active") void check();
     });
     return () => {
+      generation.current += 1;
       sub.remove();
       if (retryTimer.current) clearTimeout(retryTimer.current);
     };

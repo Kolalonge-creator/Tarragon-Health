@@ -71,6 +71,17 @@ describe("runCatchUpCheck", () => {
     expect(mayOfferCatchUp(await loadLastOffered(), NOW)).toBe(true);
   });
 
+  it("records only the first failure of a run of retries, so an offline phone cannot fill the diagnostics", async () => {
+    mockTables.medications = [med];
+    mockFailTable = "medications";
+    const before = getRecentSyncDiagnostics().filter((e) => e.source === "catch_up").length;
+    expect((await runCatchUpCheck("p1", NOW, false)).status).toBe("failed");
+    expect((await runCatchUpCheck("p1", NOW, false)).status).toBe("failed");
+    expect(getRecentSyncDiagnostics().filter((e) => e.source === "catch_up").length).toBe(before);
+    await runCatchUpCheck("p1", NOW, true);
+    expect(getRecentSyncDiagnostics().filter((e) => e.source === "catch_up").length).toBe(before + 1);
+  });
+
   it("also fails when the dose log read fails, not just the medicines", async () => {
     mockTables.medications = [med];
     mockFailTable = "medication_logs_latest_per_slot";
