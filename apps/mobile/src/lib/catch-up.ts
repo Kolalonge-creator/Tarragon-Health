@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { logDose, type DoseChecklistItem, type LoggableStatus } from "./medications";
+import { loadCatchUpDoses, logDose, type DoseChecklistItem, type LoggableStatus } from "./medications";
+import { recordSyncError } from "./sync-diagnostics";
 import { loadMedicineRules } from "./medicines-config";
 
 /**
@@ -54,6 +55,37 @@ export async function saveLastOffered(nowMs: number): Promise<void> {
   } catch {
     // Best effort: at worst the sheet may be offered a little sooner next time.
   }
+}
+
+export type CatchUpCheck =
+  | { status: "skipped" }
+  | { status: "none" }
+  | { status: "show"; items: DoseChecklistItem[] }
+  | { status: "failed"; error: string };
+
+/** How long to wait before the next try after attempt number `attempt` (0 for the first) failed, or null once the tries are used up. */
+export function retryDelayMs(attempt: number): number | null {
+  const seconds = loadMedicineRules().catchUpRetrySeconds[attempt];
+  return seconds === undefined ? null : seconds * 1000;
+}
+
+/**
+ * One look for doses to ask about. A failed read is its own answer, never "nothing to catch up":
+ * it is recorded in the sync diagnostics (so support can see it) and reported to the caller,
+ * which tries again a few times and then waits for the next app open. The Today list stays correct
+ * throughout, so the patient is not interrupted about it.
+ */
+export async function runCatchUpCheck(patientId: string, nowMs: number, recordFailure = true): Promise<CatchUpCheck> {
+  if (!mayOfferCatchUp(await loadLastOffered(), nowMs)) return { status: "skipped" };
+  const res = await loadCatchUpDoses(patientId, nowMs);
+  if (!res.ok) {
+    // Only the first failure of a run of retries is recorded: an offline phone would otherwise fill
+    // the 50-entry diagnostics buffer and push out the Bluetooth and health-sync entries support needs.
+    if (recordFailure) recordSyncError("catch_up", "read", res.error);
+    return { status: "failed", error: res.error };
+  }
+  const items = selectCatchUp(res.data, await loadDismissed());
+  return items.length === 0 ? { status: "none" } : { status: "show", items };
 }
 
 export async function loadDismissed(): Promise<Set<string>> {

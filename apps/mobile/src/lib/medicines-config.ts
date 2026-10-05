@@ -20,6 +20,7 @@ export interface MedicineRulesConfig {
   followUpMinWindowMinutes: number;
   catchUpMaxItems: number;
   catchUpMinGapMinutes: number;
+  catchUpRetrySeconds: readonly number[];
   serverMissedAfterMinutes: number;
   backdateWindowHours: number;
   futureSkewMinutes: number;
@@ -49,6 +50,14 @@ function num(raw: Raw, field: string, key: string, min = 0): number {
   return v;
 }
 
+function numList(raw: Raw, field: string, key: string): readonly number[] {
+  const v = raw[field];
+  if (!Array.isArray(v) || v.length > 5 || v.some((x) => typeof x !== "number" || !Number.isFinite(x) || x < 1)) {
+    throw new Error(`Config ${key}.${field} must be a list of up to 5 numbers >= 1`);
+  }
+  return v as number[];
+}
+
 export function loadMedicineRules(asOf?: string): MedicineRulesConfig {
   const key = "medicines.dose_rules";
   const { raw, version } = obj(key, asOf);
@@ -62,6 +71,7 @@ export function loadMedicineRules(asOf?: string): MedicineRulesConfig {
     followUpMinWindowMinutes: num(raw, "followUpMinWindowMinutes", key, 1),
     catchUpMaxItems: num(raw, "catchUpMaxItems", key, 1),
     catchUpMinGapMinutes: num(raw, "catchUpMinGapMinutes", key, 1),
+    catchUpRetrySeconds: numList(raw, "catchUpRetrySeconds", key),
     serverMissedAfterMinutes: num(raw, "serverMissedAfterMinutes", key, 1),
     backdateWindowHours: num(raw, "backdateWindowHours", key, 1),
     futureSkewMinutes: num(raw, "futureSkewMinutes", key),
