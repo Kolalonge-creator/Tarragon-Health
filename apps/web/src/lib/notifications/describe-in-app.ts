@@ -84,31 +84,27 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     };
   }
   if (n.template === "clinician_new_referral") {
-    const specialist = String(payload.specialist_type ?? "a specialist").replace(/_/g, " ");
     return {
-      text: `New referral to triage: ${specialist}`,
+      text: "New referral to triage",
       href: "/clinician/referrals",
     };
   }
   if (n.template === "clinician_referral_outcome_received") {
-    const specialist = String(payload.specialist_type ?? "a specialist").replace(/_/g, " ");
     const referralId = String(payload.referral_id ?? "");
     return {
-      text: `Specialist outcome came back: ${specialist}`,
+      text: "A specialist outcome came back",
       href: referralId ? `/clinician/referrals/${referralId}` : "/clinician/referrals",
     };
   }
   if (n.template === "referral_closed") {
-    const specialist = String(payload.specialist_type ?? "your specialist").replace(/_/g, " ");
     return {
-      text: `Your ${specialist} referral is closed. Your care plan was updated`,
+      text: "Your referral is closed. Your care plan was updated",
       href: "/patient",
     };
   }
   if (n.template === "referral_reminder") {
-    const specialist = String(payload.specialist_type ?? "your specialist").replace(/_/g, " ");
     return {
-      text: `Don't forget your ${specialist} referral. Bring back what they find`,
+      text: "Don't forget your referral. Bring back what they find",
       href: "/patient",
     };
   }
@@ -361,9 +357,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // flag_escalation_to_paid_plans.sql). Deterministic self-care copy, not a
     // doctor's assessment — the full text lives in payload.self_care_note so
     // it can be specific to what was actually flagged.
-    const vital = String(payload.vital_label ?? "a reading");
+    // INV-07: the preview never carries the reading or the note (OQ-94). The full self-care text is shown in the app.
     return {
-      text: `${vital}: ${String(payload.self_care_note ?? "please take a moment to check on this.")}`,
+      text: "Something needs your attention. Open the app to see what to do next",
       href: "/patient/subscription",
     };
   }
@@ -417,10 +413,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     };
   }
   if (n.template === "pharmacy_order_patient_confirmation") {
-    const items = String(payload.items_summary ?? "your medication");
     // /patient/pharmacy has no page — Medications is where a patient's
     // pharmacy orders and refills actually live.
-    return { text: `Your pharmacy order is confirmed: ${items}`, href: "/patient/medications" };
+    return { text: "Your pharmacy order is confirmed", href: "/patient/medications" };
   }
   if (n.template === "pharmacy_order_ready_for_collection") {
     const pharmacy = String(payload.pharmacy_name ?? "the pharmacy");
@@ -459,10 +454,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "Your Annual Health Review is due", href: "/patient/health-check" };
   }
   if (n.template === "booking_reminder") {
-    const service = String(payload.service_type ?? "your appointment");
     const days = Number(payload.days_before ?? 0);
     return {
-      text: days > 0 ? `${service} is coming up in ${days} day${days === 1 ? "" : "s"}` : `${service} is coming up`,
+      text: days > 0 ? `Your request is coming up in ${days} day${days === 1 ? "" : "s"}` : "Your request is coming up",
       href: "/patient/care",
     };
   }
@@ -479,12 +473,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: `Your ${checkType} check is due`, href: "/patient/care" };
   }
   if (n.template === "health_check_due_soon") {
-    const bundle = String(payload.bundle_name ?? "your health check");
-    return { text: `${bundle} is due again soon`, href: "/patient/health-check" };
+    return { text: "Your annual check-up is due again soon", href: "/patient/health-check" };
   }
   if (n.template === "health_check_rebook_due") {
-    const bundle = String(payload.bundle_name ?? "your health check");
-    return { text: `Time to rebook ${bundle}`, href: "/patient/health-check" };
+    return { text: "Time to rebook your annual check-up", href: "/patient/health-check" };
   }
   if (n.template === "lifestyle_review_due") {
     return { text: "Your lifestyle review is due", href: "/patient/lifestyle" };
@@ -496,8 +488,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "Your preventive review is due", href: "/patient/prevention" };
   }
   if (n.template === "screening_due") {
-    const screen = String(payload.screen_type_name ?? "A screening");
-    return { text: `${screen} is due`, href: "/patient/prevention" };
+    return { text: "A reminder is due", href: "/patient/prevention" };
   }
   if (n.template === "vaccination_due") {
     return { text: "A reminder is due", href: "/patient/prevention" };
@@ -624,12 +615,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "screening_upcoming" || n.template === "screening_overdue" || n.template === "screening_escalated") {
     // From escalating_preventive_reminders.sql -- the overdue/escalated
     // siblings of screening_due above, same payload shape.
-    const screen = String(payload.screen_type_name ?? "A screening");
     const label =
-      n.template === "screening_upcoming" ? "is coming up soon"
-      : n.template === "screening_overdue" ? "is overdue"
-      : "is overdue: your care team may follow up";
-    return { text: `${screen} ${label}`, href: "/patient/prevention" };
+      n.template === "screening_upcoming" ? "A reminder is coming up soon"
+      : n.template === "screening_overdue" ? "A reminder is still waiting"
+      : "A reminder is still waiting: your care team may follow up";
+    return { text: label, href: "/patient/prevention" };
   }
   if (n.template === "vaccination_upcoming" || n.template === "vaccination_overdue" || n.template === "vaccination_escalated") {
     // From escalating_preventive_reminders.sql -- the overdue/escalated

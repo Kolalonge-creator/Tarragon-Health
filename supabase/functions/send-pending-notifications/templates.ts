@@ -280,8 +280,8 @@ export const TEMPLATE_MAP: Record<
     const path = suggestedType ? `/patient/quick-log/${suggestedType}` : "/patient/vitals";
     return {
       smsText:
-        `Hi, it's time to log your vitals (due ${dueDate}). ` +
-        `Tap to log it: ${appUrl(path)} Tarragon Health`,
+        `Hi, it's time for your check-in (due ${dueDate}). ` +
+        "Open the Tarragon Health app to log it. Tarragon Health",
       pushUrl: path,
     };
   },
@@ -320,7 +320,7 @@ export const TEMPLATE_MAP: Record<
     const daysBefore = String(payload.days_before ?? "");
     return {
       smsText:
-        `Hi, reminder: your ${serviceType} request at ${facilityName} is for ${requestedDate} ` +
+        `Hi, reminder: your request at ${facilityName} is for ${requestedDate} ` +
         `(${daysBefore} day${daysBefore === "1" ? "" : "s"} from now). ` +
         `Open the app to reply. Tarragon Health`,
     };
@@ -354,7 +354,7 @@ export const TEMPLATE_MAP: Record<
     const path = "/patient/prevention";
     return {
       smsText:
-        `Hi, your ${screenTypeName} is due ${dueDate}. Open the Tarragon Health app to book it. ` +
+        `Hi, a reminder is due ${dueDate}. Open the Tarragon Health app to book it. ` +
         `Tarragon Health`,
       pushUrl: path,
     };
@@ -370,7 +370,7 @@ export const TEMPLATE_MAP: Record<
     const path = "/patient/prevention#health-check";
     return {
       smsText:
-        `Hi, your ${bundleName} is due ${dueDate}, about a month from now. Open the Tarragon ` +
+        `Hi, your annual check-up is due ${dueDate}, about a month from now. Open the Tarragon ` +
         `Health app to book it in good time. Tarragon Health`,
       pushUrl: path,
     };
@@ -388,13 +388,10 @@ export const TEMPLATE_MAP: Record<
     };
   },
   risk_signal_attention: (payload) => {
-    const label = String(payload.signal_label ?? "Something in your recent readings");
-    const reason = String(payload.reason ?? "has needed some extra attention");
     const path = "/patient";
     return {
       smsText:
-        `Hi, ${label} ${reason}. Your care team is aware; open the Tarragon Health app to see ` +
-        `more. Tarragon Health`,
+        "Hi, your care team noticed something that needs a little attention. They are aware; open the Tarragon Health app to see more. Tarragon Health",
       pushUrl: path,
     };
   },
@@ -594,10 +591,9 @@ export const TEMPLATE_MAP: Record<
   // confirmed a time within 24h (decline action / video-visit-refunds cron).
   // The refund is automatic; this just tells the patient honestly what happened.
   video_visit_declined: (payload) => {
-    const reason = String(payload.reason ?? "").trim();
     return {
       smsText:
-        `We couldn't schedule your video visit${reason ? ` (${reason})` : ""}. ` +
+        "We couldn't schedule your video visit. " +
         `Your payment will be refunded in full. You can request another time in the app. Tarragon Health`,
     };
   },
@@ -717,7 +713,7 @@ export const TEMPLATE_MAP: Record<
     const coldChainNote = payload.requires_cold_chain === true ? " Keep it refrigerated once it arrives." : "";
     const path = "/patient/medications";
     const smsText =
-      `Hi, your Tarragon Health order ${orderNumber} (${itemsSummary}) is out for delivery with ${courierName}` +
+      `Hi, your Tarragon Health order ${orderNumber} is out for delivery with ${courierName}` +
       `${eta ? `, estimated ${eta}` : ""}.${coldChainNote} Tarragon Health`;
     return {
       smsText,
@@ -727,7 +723,7 @@ export const TEMPLATE_MAP: Record<
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Hi,</p>` +
           `<p>Your order is on its way with <strong>${courierName}</strong>${eta ? `, estimated ${eta}` : ""}.</p>` +
-          `<p style="color:#5b6b78">Order ${orderNumber}: ${itemsSummary}</p>` +
+          `<p style="color:#5b6b78">Order ${orderNumber}</p>` +
           `${coldChainNote ? `<p style="color:#b45309">${coldChainNote.trim()}</p>` : ""}` +
           `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
@@ -741,7 +737,7 @@ export const TEMPLATE_MAP: Record<
     const orderNumber = String(payload.order_number ?? "your order");
     const itemsSummary = String(payload.items_summary ?? "your medication");
     const path = "/patient/medications";
-    const smsText = `Hi, your Tarragon Health order ${orderNumber} (${itemsSummary}) has been delivered. Tarragon Health`;
+    const smsText = `Hi, your Tarragon Health order ${orderNumber} has been delivered. Tarragon Health`;
     return {
       smsText,
       email: {
@@ -750,7 +746,7 @@ export const TEMPLATE_MAP: Record<
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Hi,</p>` +
           `<p>Your order has been delivered.</p>` +
-          `<p style="color:#5b6b78">Order ${orderNumber}: ${itemsSummary}</p>` +
+          `<p style="color:#5b6b78">Order ${orderNumber}</p>` +
           `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
           `</div>`,
@@ -772,7 +768,7 @@ export const TEMPLATE_MAP: Record<
     const reason = reasonCopy[String(payload.failure_reason ?? "other")] ?? reasonCopy.other;
     const path = "/patient/medications";
     const smsText =
-      `Hi, delivery of your Tarragon Health order ${orderNumber} (${itemsSummary}) did not succeed: ${reason}. ` +
+      `Hi, delivery of your Tarragon Health order ${orderNumber} did not succeed. ` +
       `We'll be in touch to arrange redelivery. Tarragon Health`;
     return {
       smsText,
@@ -783,7 +779,7 @@ export const TEMPLATE_MAP: Record<
           `<p>Hi,</p>` +
           `<p>We tried to deliver your order but ${reason}. We'll be in touch to arrange redelivery — no action ` +
           `needed from you right now, but you can update your delivery address in the app.</p>` +
-          `<p style="color:#5b6b78">Order ${orderNumber}: ${itemsSummary}</p>` +
+          `<p style="color:#5b6b78">Order ${orderNumber}</p>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
           `</div>`,
         text: smsText,
@@ -1025,7 +1021,7 @@ export const TEMPLATE_MAP: Record<
     const referralReason = String(payload.referral_reason ?? "");
     const smsText =
       `New Tarragon Health referral ${referralNumber}: ${patientName} (patient ID ${patientNumber}): ` +
-      `${specialistType}. Please expect contact to arrange this patient's appointment. Tarragon Health`;
+      `Please expect contact to arrange this patient's appointment. Tarragon Health`;
     return {
       smsText,
       email: {
@@ -1039,10 +1035,6 @@ export const TEMPLATE_MAP: Record<
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Referral number</td><td style="padding:4px 0"><strong>${referralNumber}</strong></td></tr>` +
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Patient</td><td style="padding:4px 0">${patientName}</td></tr>` +
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Patient ID</td><td style="padding:4px 0"><strong>${patientNumber}</strong></td></tr>` +
-          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Referral type</td><td style="padding:4px 0">${specialistType}</td></tr>` +
-          (referralReason
-            ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Reason</td><td style="padding:4px 0">${referralReason}</td></tr>`
-            : "") +
           `</table>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health: Care that stays with you.</p>` +
           `</div>`,
@@ -1077,7 +1069,7 @@ export const TEMPLATE_MAP: Record<
     const forWhom = careRecipient ? ` for ${careRecipient}` : "";
     const smsText =
       `Good news ${requesterName}, TarragonHealth is now live in ${state}${forWhom}. ` +
-      `You can now book ${servicesPretty} in the app. Tarragon Health`;
+      `You can now book the services you asked about in the app. Tarragon Health`;
 
     return {
       smsText,
@@ -1088,7 +1080,6 @@ export const TEMPLATE_MAP: Record<
           `<p>Hi ${requesterName},</p>` +
           `<p>Great news, TarragonHealth is now live in <strong>${state}</strong>${careRecipient ? ` for ${careRecipient}` : ""}. ` +
           `The services you asked us to tell you about are ready to book:</p>` +
-          `<p style="margin:16px 0"><strong>${servicesPretty}</strong></p>` +
           `<p>Open the Tarragon Health app to book; everything is in one place.</p>` +
           `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
@@ -1226,8 +1217,7 @@ export const TEMPLATE_MAP: Record<
     const sourceLabel = String(payload.source_label ?? "an emergency");
     return {
       smsText:
-        `New Priority 1 alert: ${patientName}'s case needs review (${sourceLabel}). ` +
-        `See your Tarragon Health worklist. Tarragon Health`,
+        "New priority case. Open your Tarragon Health worklist. Tarragon Health",
     };
   },
   // Sent to org clinicians when a RED/AMBER vitals red-flag trigger raises or
@@ -1241,8 +1231,7 @@ export const TEMPLATE_MAP: Record<
     const levelLabel = String(payload.level_label ?? "Review needed");
     return {
       smsText:
-        `${levelLabel}: ${patientName}'s ${vitalLabel} needs review. ` +
-        `See your Tarragon Health worklist. Tarragon Health`,
+        "New priority case. Open your Tarragon Health worklist. Tarragon Health",
     };
   },
   // Sent to the patient after the follow-up window on an emergency event
@@ -1382,10 +1371,8 @@ export const TEMPLATE_MAP: Record<
   appointment_provider_cancelled: (payload) => {
     const when = formatLagosDateTime(payload.scheduled_for);
     const type = APPOINTMENT_TYPE_LABEL[String(payload.appointment_type ?? "")] ?? "appointment";
-    const reason = String(payload.reason ?? "").trim();
     const smsText =
-      `Your Tarragon Health ${type} for ${when} has been cancelled by your provider` +
-      `${reason ? ` (${reason})` : ""}. Open the app to rebook. Tarragon Health`;
+      `Your Tarragon Health ${type} for ${when} has been cancelled by your provider. Open the app to rebook. Tarragon Health`;
     return {
       smsText,
       pushUrl: "/patient/care",
@@ -1434,7 +1421,7 @@ export const TEMPLATE_MAP: Record<
     const screenTypeName = String(payload.screen_type_name ?? "a screening");
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      smsText: `Hi, your ${screenTypeName} is coming up on ${dueDate}. Open the Tarragon Health app to book it. Tarragon Health`,
+      smsText: `Hi, a reminder is coming up on ${dueDate}. Open the Tarragon Health app to book it. Tarragon Health`,
       pushUrl: "/patient/prevention",
     };
   },
@@ -1442,7 +1429,7 @@ export const TEMPLATE_MAP: Record<
     const screenTypeName = String(payload.screen_type_name ?? "a screening");
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      smsText: `Hi, your ${screenTypeName} was due ${dueDate} and is now overdue. Open the Tarragon Health app to book it. Tarragon Health`,
+      smsText: `Hi, a reminder from ${dueDate} is still waiting. Open the Tarragon Health app to book it. Tarragon Health`,
       pushUrl: "/patient/prevention",
     };
   },
@@ -1450,7 +1437,7 @@ export const TEMPLATE_MAP: Record<
     const screenTypeName = String(payload.screen_type_name ?? "a screening");
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      smsText: `Hi, your ${screenTypeName} has been overdue since ${dueDate}. Please book it soon, or your care team may follow up. Tarragon Health`,
+      smsText: `Hi, a reminder from ${dueDate} is still waiting. Please book it soon, or your care team may follow up. Tarragon Health`,
       pushUrl: "/patient/prevention",
     };
   },
@@ -1478,7 +1465,7 @@ export const TEMPLATE_MAP: Record<
   lifestyle_checkin_due: (payload) => {
     const title = String(payload.title ?? "your lifestyle programme");
     return {
-      smsText: `Hi, time for today's check-in on ${title}. Open the Tarragon Health app to log it. Tarragon Health`,
+      smsText: "Hi, time for today's check-in. Open the Tarragon Health app to log it. Tarragon Health",
       pushUrl: "/patient/lifestyle",
     };
   },

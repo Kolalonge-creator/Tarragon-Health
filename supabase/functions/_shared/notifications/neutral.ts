@@ -26,6 +26,9 @@ export const FORBIDDEN_PARAM_KEYS: readonly string[] = [
   "drug_name", "drug", "medicine", "medication", "medication_name", "condition", "condition_label", "diagnosis",
   "reading", "value", "systolic", "diastolic", "glucose", "test_name", "result", "result_text", "vaccine_name",
   "screening_name", "symptom", "details",
+  // Added after the first review: payload keys the sender templates read whose values are clinical.
+  "suggested_vital_type", "vital_type", "vital_label", "level_label", "signal_label", "screen_type_name", "bundle_name",
+  "items_summary", "failure_reason", "referral_reason", "specialist_type", "source_label", "service_type", "services",
 ];
 
 export type ViolationKind = "term" | "number" | "param" | "emoji" | "unrenderable";

@@ -13,7 +13,7 @@
 --      fails if the two lists differ.
 --   2. The 39 live active locale rows that broke the rule are rewritten below, and SMS rows for
 --      patient-facing templates are deactivated (OQ-05, INV-08: SMS is verification codes and
---      clinician paging only). Counts at writing: 39 rows named clinical content; 76 sms rows had
+--      clinician paging only). Counts at writing: 54 rows named clinical content (39 by wording, 15 more by clinical placeholder); 76 sms rows had
 --      failed and none were sent, so no patient message is lost.
 --   3. notification_rules_config (versioned, PROPOSED values) and notification_settings (quiet hours),
 --      written only through set_my_notification_settings(), which also writes profiles.discreet_mode.
@@ -135,7 +135,21 @@ insert into public.notification_forbidden_terms (term, kind) values
   ('vaccine_name', 'param'),
   ('screening_name', 'param'),
   ('symptom', 'param'),
-  ('details', 'param');
+  ('details', 'param'),
+  ('suggested_vital_type', 'param'),
+  ('vital_type', 'param'),
+  ('vital_label', 'param'),
+  ('level_label', 'param'),
+  ('signal_label', 'param'),
+  ('screen_type_name', 'param'),
+  ('bundle_name', 'param'),
+  ('items_summary', 'param'),
+  ('failure_reason', 'param'),
+  ('referral_reason', 'param'),
+  ('specialist_type', 'param'),
+  ('source_label', 'param'),
+  ('service_type', 'param'),
+  ('services', 'param');
 
 create function private.notification_text_violations(p_text text) returns text[]
 language plpgsql stable set search_path = pg_catalog, public as $fn$
@@ -190,6 +204,21 @@ update public.notification_template_locales l
  where t.key = l.template_key and l.channel = 'sms' and l.is_active and t.audience <> 'clinician';
 
 with fix(template_key, channel, subject, body) as (values
+  ('booking_reminder', 'in_app', null, 'Your request is coming up in {{days_before}} days'),
+  ('clinician_new_referral', 'in_app', null, 'New referral to triage'),
+  ('emergency_event_clinician_alert', 'sms', null, 'New priority case. Open your Tarragon Health worklist. Tarragon Health'),
+  ('free_tier_reading_self_care_suggestion', 'in_app', null, 'Something needs your attention. Open the app to see what to do next'),
+  ('health_check_due_soon', 'in_app', null, 'Your annual check-up is due again soon'),
+  ('health_check_rebook_due', 'in_app', null, 'Time to rebook your annual check-up'),
+  ('pharmacy_order_patient_confirmation', 'email', 'Your Tarragon Health order {{order_number}} is confirmed', 'Hi {{patient_name}}, your order {{order_number}} is confirmed. Show order {{order_number}} and your patient ID {{patient_number}} at {{pharmacy_name}} to collect.'),
+  ('pharmacy_order_patient_confirmation', 'in_app', null, 'Your pharmacy order is confirmed'),
+  ('pharmacy_order_pharmacy_alert', 'email', 'New Tarragon Health order {{order_number}}', 'A patient has a confirmed, paid order to collect from you. Order {{order_number}}, patient ID {{patient_number}}. The details are in the partner portal.'),
+  ('referral_specialist_alert', 'email', 'New Tarragon Health referral {{referral_number}}', 'A patient has a confirmed referral to your practice: {{referral_number}}. Please expect our care team to reach out to arrange the appointment.'),
+  ('screening_due', 'in_app', null, 'A reminder is due'),
+  ('screening_escalated', 'in_app', null, 'A reminder is still waiting: your care team may follow up'),
+  ('screening_overdue', 'in_app', null, 'A reminder is still waiting'),
+  ('screening_upcoming', 'in_app', null, 'A reminder is coming up soon'),
+  ('vitals_red_flag_clinician_alert', 'sms', null, 'New priority case. Open your Tarragon Health worklist. Tarragon Health'),
   ('abnormal_result_clinician_alert', 'sms', null, 'New priority case. Open your Tarragon Health worklist. Tarragon Health'),
   ('health_passport_verified', 'in_app', null, 'Your document is verified'),
   ('lab_order_lab_alert', 'email', 'New Tarragon Health order {{order_number}}', 'A patient has a confirmed order to be received. The details are in the partner portal. Order {{order_number}}.'),
@@ -355,14 +384,14 @@ begin
 end $fn$;
 
 -- Receipts still owed: an Expo ticket older than p_min_age_minutes with no later outcome for the same ticket.
-create function public.claim_expo_receipt_checks(p_limit integer default 100, p_min_age_minutes integer default 15)
+create function public.claim_expo_receipt_checks(p_limit integer default 100, p_min_age_minutes integer default 15, p_max_age_hours integer default 24)
 returns table (event_id uuid, notification_id uuid, provider_ref text, subscription_id uuid)
 language sql stable security definer set search_path = pg_catalog, public as $fn$
   select e.id, e.notification_id, e.provider_ref, nullif(e.detail ->> 'subscription_id', '')::uuid
     from public.notification_delivery_events e
    where e.event = 'receipt_pending'
      and e.occurred_at <= now() - make_interval(mins => greatest(p_min_age_minutes, 1))
-     and e.occurred_at >= now() - interval '48 hours'
+     and e.occurred_at >= now() - make_interval(hours => greatest(p_max_age_hours, 1))
      and not exists (
        select 1 from public.notification_delivery_events r
         where r.provider_ref = e.provider_ref and r.id <> e.id and r.event in ('delivered', 'failed', 'token_dead'))
@@ -372,8 +401,8 @@ $fn$;
 
 revoke all on function public.record_notification_delivery_event(uuid, text, text, text, jsonb) from public, anon, authenticated;
 grant execute on function public.record_notification_delivery_event(uuid, text, text, text, jsonb) to service_role;
-revoke all on function public.claim_expo_receipt_checks(integer, integer) from public, anon, authenticated;
-grant execute on function public.claim_expo_receipt_checks(integer, integer) to service_role;
+revoke all on function public.claim_expo_receipt_checks(integer, integer, integer) from public, anon, authenticated;
+grant execute on function public.claim_expo_receipt_checks(integer, integer, integer) to service_role;
 
 -- Expo receipts are checked every 10 minutes. Needs the Vault secret notification_jobs_secret and the edge
 -- secret NOTIFICATION_JOBS_SECRET (same value); without them the function answers 401 and nothing is checked.
@@ -407,11 +436,11 @@ begin
    where l.is_active and l.channel = 'sms' and t.audience <> 'clinician';
   if v_sms <> 0 then raise exception 'S13: % patient sms rows are still active', v_sms; end if;
   select count(*) into v_terms from public.notification_forbidden_terms;
-  if v_terms < 90 then raise exception 'S13: term list not seeded (%)', v_terms; end if;
+  if v_terms < 100 then raise exception 'S13: term list not seeded (%)', v_terms; end if;
   if has_function_privilege('anon', 'public.set_my_notification_settings(boolean,time,time,boolean)', 'EXECUTE')
      or has_function_privilege('anon', 'public.record_notification_delivery_event(uuid,text,text,text,jsonb)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public.record_notification_delivery_event(uuid,text,text,text,jsonb)', 'EXECUTE')
-     or has_function_privilege('anon', 'public.claim_expo_receipt_checks(integer,integer)', 'EXECUTE') then
+     or has_function_privilege('anon', 'public.claim_expo_receipt_checks(integer,integer,integer)', 'EXECUTE') then
     raise exception 'S13: a function is executable by a role that must not run it';
   end if;
 end $do$;

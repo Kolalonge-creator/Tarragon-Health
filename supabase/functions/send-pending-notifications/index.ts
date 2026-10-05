@@ -436,7 +436,7 @@ async function sendEmail(
   const from = Deno.env.get("RESEND_FROM") ??
     "Tarragon Health <notifications@tarragonhealth.com>";
 
-  return withExternalCall((signal) =>
+  const result = await withExternalCall((signal) =>
     fetch("https://api.resend.com/emails", {
       method: "POST",
       signal,
@@ -459,6 +459,14 @@ async function sendEmail(
       }),
     })
   );
+  if (!result.ok || !result.response) return { ok: false, error: result.error };
+  // S13: Resend answers { id }. Storing it as provider_message_id is what lets the resend-webhook find this row.
+  try {
+    const body = (await result.response.json()) as { id?: unknown };
+    return { ok: true, messageId: typeof body.id === "string" ? body.id : undefined };
+  } catch {
+    return { ok: true };
+  }
 }
 
 /**
@@ -901,7 +909,11 @@ Deno.serve(async () => {
       channel: row.channel,
       priority: row.priority,
       nowMs: Date.now(),
-      quiet: quietById.get(row.recipient_id) ?? defaultQuiet,
+      // Quiet hours are a patient's own setting. A clinician, and a partner reached at an explicit address
+      // (payload.to_email), are never held back overnight.
+      quiet: roleById.get(row.recipient_id) === "patient" && typeof (row.payload ?? {}).to_email !== "string"
+        ? (quietById.get(row.recipient_id) ?? defaultQuiet)
+        : { ...defaultQuiet, enabled: false },
       routinePushSentToday: pushSentToday.get(row.recipient_id) ?? 0,
       routinePushPerDay,
       wordingViolations: wordingViolationsFor(row.template, row.channel, dbBody),
@@ -1028,6 +1040,7 @@ Deno.serve(async () => {
       }
 
       if (pushOk) {
+        if (row.priority === "routine") pushSentToday.set(row.recipient_id, (pushSentToday.get(row.recipient_id) ?? 0) + 1);
         await recordEvent(row.id, "accepted", "expo", null, { web: webResult.ok, native: nativeResult.ok });
         for (const t of nativeResult.tickets ?? []) {
           await recordEvent(row.id, "receipt_pending", "expo", t.id, { subscription_id: t.subscriptionId });

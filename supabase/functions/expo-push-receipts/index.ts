@@ -27,12 +27,15 @@ Deno.serve(async (req) => {
 
   const { data: rules } = await supabase
     .from("notification_rules_config").select("config").eq("is_active", true)
-    .maybeSingle<{ config: { receiptCheckMinutes?: number } }>();
-  const { data: due, error } = await supabase
-    .rpc("claim_expo_receipt_checks", { p_limit: 300, p_min_age_minutes: rules?.config.receiptCheckMinutes ?? 15 })
-    .returns<Due[]>();
+    .maybeSingle<{ config: { receiptCheckMinutes?: number; receiptGiveUpHours?: number } }>();
+  const { data, error } = await supabase.rpc("claim_expo_receipt_checks", {
+    p_limit: 300,
+    p_min_age_minutes: rules?.config.receiptCheckMinutes ?? 15,
+    p_max_age_hours: rules?.config.receiptGiveUpHours ?? 24,
+  });
   if (error) return Response.json({ checked: 0, error: error.message });
-  if (!due || due.length === 0) return Response.json({ checked: 0, delivered: 0, tokenDead: 0, failed: 0, waiting: 0 });
+  const due = (data ?? []) as Due[];
+  if (due.length === 0) return Response.json({ checked: 0, delivered: 0, tokenDead: 0, failed: 0, waiting: 0 });
 
   let receipts: Record<string, ExpoReceipt> = {};
   try {

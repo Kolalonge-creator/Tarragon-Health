@@ -4,7 +4,12 @@
  */
 export interface SvixHeaders { readonly id: string | null; readonly timestamp: string | null; readonly signature: string | null }
 
-const b64ToBytes = (b64: string): Uint8Array => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+const b64ToBytes = (b64: string): ArrayBuffer => {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out.buffer;
+};
 const bytesToB64 = (b: ArrayBuffer): string => btoa(String.fromCharCode(...new Uint8Array(b)));
 
 export async function verifySvix(secret: string, h: SvixHeaders, body: string, nowMs: number, toleranceSec = 300): Promise<boolean> {
