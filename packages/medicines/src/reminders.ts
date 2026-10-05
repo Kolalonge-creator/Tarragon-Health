@@ -43,6 +43,12 @@ export interface PlanConfig {
   horizonDays: number;
   /** A flexible window at least this long (minutes) gets one follow-up at its middle. */
   followUpMinWindowMinutes: number;
+  /**
+   * The most follow-ups held at once. They are the earliest ones; the rest of `maxPending` is
+   * always spent on due reminders, so follow-ups can shorten how many days of due reminders the
+   * phone holds by at most this many.
+   */
+  maxFollowUps: number;
 }
 
 export function planDoseNotifications(
@@ -80,9 +86,20 @@ export function planDoseNotifications(
     }
   }
 
-  return [...byFire.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .slice(0, cfg.maxPending)
+  // Walk in time order. A follow-up past the follow-up budget is dropped without using a place, so the
+  // places it would have taken go to due reminders further out.
+  const chosen: [number, { keys: string[]; kind: NotificationKind }][] = [];
+  let followUps = 0;
+  for (const entry of [...byFire.entries()].sort((a, b) => a[0] - b[0])) {
+    if (chosen.length >= cfg.maxPending) break;
+    if (entry[1].kind === "follow_up") {
+      if (followUps >= cfg.maxFollowUps) continue;
+      followUps += 1;
+    }
+    chosen.push(entry);
+  }
+
+  return chosen
     // The kind is part of the id: if a minute turns from a follow-up into a due dose, the old
     // notification (with the follow-up wording) is cancelled and a new one is scheduled.
     .map(([fireAtMs, v]) => ({

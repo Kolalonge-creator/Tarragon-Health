@@ -24,6 +24,7 @@ export interface MedicineRulesConfig {
   serverMissedAfterMinutes: number;
   backdateWindowHours: number;
   futureSkewMinutes: number;
+  maxFollowUps: number;
 }
 
 export interface AdherenceBandConfig {
@@ -75,6 +76,7 @@ export function loadMedicineRules(asOf?: string): MedicineRulesConfig {
     serverMissedAfterMinutes: num(raw, "serverMissedAfterMinutes", key, 1),
     backdateWindowHours: num(raw, "backdateWindowHours", key, 1),
     futureSkewMinutes: num(raw, "futureSkewMinutes", key),
+    maxFollowUps: num(raw, "maxFollowUps", key),
   };
 }
 

@@ -150,13 +150,15 @@ export async function replanDoseReminders(
     await ensureChannel();
 
     const cfg = loadReminderBehaviour();
+    const rules = loadMedicineRules();
     const meds = await loadMedicines(patientId);
     const closed = await loadClosedSlots(patientId, nowMs);
     const reminderMeds: ReminderMedicine[] = meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) }));
     const planned = planDoseNotifications(reminderMeds, closed, nowMs, {
       maxPending: cfg.maxPending,
       horizonDays: cfg.horizonDays,
-      followUpMinWindowMinutes: loadMedicineRules().followUpMinWindowMinutes,
+      followUpMinWindowMinutes: rules.followUpMinWindowMinutes,
+      maxFollowUps: rules.maxFollowUps,
     });
 
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
@@ -248,11 +250,12 @@ export async function checkReminderHealth(patientId: string, nowMs: number = Dat
       const meds = await loadMedicines(patientId);
       const closed = await loadClosedSlots(patientId, nowMs);
       const cfg = loadReminderBehaviour();
+      const rules = loadMedicineRules();
       plannedCount = planDoseNotifications(
         meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) })),
         closed,
         nowMs,
-        { maxPending: cfg.maxPending, horizonDays: cfg.horizonDays, followUpMinWindowMinutes: loadMedicineRules().followUpMinWindowMinutes }
+        { maxPending: cfg.maxPending, horizonDays: cfg.horizonDays, followUpMinWindowMinutes: rules.followUpMinWindowMinutes, maxFollowUps: rules.maxFollowUps }
       ).length;
       pending = (await Notifications.getAllScheduledNotificationsAsync()).filter((n) => n.identifier.startsWith(DOSE_NOTIFICATION_PREFIX)).length;
     }

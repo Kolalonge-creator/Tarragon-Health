@@ -5,7 +5,7 @@ import type { ScheduleSpec } from "./types";
 const base = { startDate: null, endDate: null, foodNote: null } as const;
 const daily = (times: string[]): ScheduleSpec => ({ ...base, kind: "daily", times });
 const now = Date.parse("2026-10-05T05:00:00Z"); // 06:00 Lagos
-const cfg = { maxPending: 60, horizonDays: 14, followUpMinWindowMinutes: 30 };
+const cfg = { maxPending: 60, horizonDays: 14, followUpMinWindowMinutes: 30, maxFollowUps: 8 };
 const meds: ReminderMedicine[] = [
   { id: "a", active: true, spec: daily(["08:00", "20:00"]) },
   { id: "b", active: true, spec: daily(["08:00"]) },
@@ -14,7 +14,7 @@ const meds: ReminderMedicine[] = [
 
 describe("planDoseNotifications", () => {
   it("shares one notification between doses due at the same minute and skips inactive medicines", () => {
-    const plan = planDoseNotifications(meds, new Set(), now, { maxPending: 4, horizonDays: 14, followUpMinWindowMinutes: 30 });
+    const plan = planDoseNotifications(meds, new Set(), now, { maxPending: 4, horizonDays: 14, followUpMinWindowMinutes: 30, maxFollowUps: 8 });
     expect(plan).toHaveLength(4);
     expect(plan[0].slotKeys).toEqual(["a|2026-10-05|08:00", "b|2026-10-05|08:00"]);
     expect(plan[1].slotKeys).toEqual(["a|2026-10-05|20:00"]);
@@ -22,7 +22,7 @@ describe("planDoseNotifications", () => {
   });
   it("never plans more than the cap (the iOS limit is 64) and goes earliest first", () => {
     const heavy: ReminderMedicine[] = [{ id: "x", active: true, spec: daily(["06:30", "08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00"]) }];
-    const plan = planDoseNotifications(heavy, new Set(), now, { maxPending: 60, horizonDays: 14, followUpMinWindowMinutes: 30 });
+    const plan = planDoseNotifications(heavy, new Set(), now, { maxPending: 60, horizonDays: 14, followUpMinWindowMinutes: 30, maxFollowUps: 8 });
     expect(plan).toHaveLength(60);
     expect(plan.map((p) => p.fireAtMs)).toEqual([...plan.map((p) => p.fireAtMs)].sort((a, b) => a - b));
   });
@@ -34,7 +34,7 @@ describe("planDoseNotifications", () => {
     expect(later[0].slotKeys).toEqual(["a|2026-10-05|20:00"]);
   });
   it("stays inside the horizon", () => {
-    const plan = planDoseNotifications(meds, new Set(), now, { maxPending: 1000, horizonDays: 2, followUpMinWindowMinutes: 30 });
+    const plan = planDoseNotifications(meds, new Set(), now, { maxPending: 1000, horizonDays: 2, followUpMinWindowMinutes: 30, maxFollowUps: 8 });
     expect(plan.every((p) => p.fireAtMs <= now + 2 * 86400000)).toBe(true);
     expect(plan.length).toBeLessThanOrEqual(6);
   });
@@ -60,6 +60,27 @@ describe("flexible windows", () => {
       ["due", Date.parse("2026-10-05T07:00:00Z")],
       ["follow_up", Date.parse("2026-10-05T08:00:00Z")],
     ]);
+  });
+  it("keeps follow-ups from using the places meant for due reminders (S08g)", () => {
+    const small = { maxPending: 10, horizonDays: 14, followUpMinWindowMinutes: 30 };
+    // Every day has a due reminder at 08:00 and a follow-up at 09:00: without a budget, 10 places hold 5 days of due ones.
+    const noBudget = planDoseNotifications(windowed(120), new Set(), now, { ...small, maxFollowUps: 100 });
+    expect(noBudget.filter((p) => p.kind === "due")).toHaveLength(5);
+    const capped = planDoseNotifications(windowed(120), new Set(), now, { ...small, maxFollowUps: 2 });
+    expect(capped).toHaveLength(10);
+    expect(capped.filter((p) => p.kind === "follow_up")).toHaveLength(2);
+    expect(capped.filter((p) => p.kind === "due")).toHaveLength(8);
+    // the follow-ups kept are the earliest ones, and the due reminders still run on in order
+    const fireTimes = capped.map((p) => p.fireAtMs);
+    expect([...fireTimes].sort((a, b) => a - b)).toEqual(fireTimes);
+    expect(capped.filter((p) => p.kind === "follow_up").map((p) => p.fireAtMs)).toEqual(
+      noBudget.filter((p) => p.kind === "follow_up").slice(0, 2).map((p) => p.fireAtMs),
+    );
+  });
+  it("holds no follow-ups at all when the budget is zero, and never exceeds the cap", () => {
+    const plan = planDoseNotifications(windowed(120), new Set(), now, { maxPending: 6, horizonDays: 14, followUpMinWindowMinutes: 30, maxFollowUps: 0 });
+    expect(plan).toHaveLength(6);
+    expect(plan.every((p) => p.kind === "due")).toBe(true);
   });
   it("gives a follow-up its own id, so a minute that turns into a due dose is rescheduled", () => {
     const followOnly = planDoseNotifications(windowed(120), new Set(), now, { ...cfg, horizonDays: 1 }).find((p) => p.kind === "follow_up")!;
@@ -99,7 +120,7 @@ describe("flexible windows", () => {
 });
 
 describe("diffNotifications", () => {
-  const plan = planDoseNotifications(meds, new Set(), now, { maxPending: 3, horizonDays: 14, followUpMinWindowMinutes: 30 });
+  const plan = planDoseNotifications(meds, new Set(), now, { maxPending: 3, horizonDays: 14, followUpMinWindowMinutes: 30, maxFollowUps: 8 });
   it("schedules what is missing and cancels what is no longer wanted, touching only dose ids", () => {
     const d = diffNotifications(plan, [plan[0].id, "dose|1", "something-else"]);
     expect(d.toSchedule.map((p) => p.id)).toEqual([plan[1].id, plan[2].id]);

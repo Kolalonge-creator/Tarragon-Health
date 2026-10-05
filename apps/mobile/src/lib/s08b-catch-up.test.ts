@@ -210,7 +210,9 @@ describe("flexible windows on the phone", () => {
     const followUps = scheduled.filter((s) => s.content.title === t("medicines.notify.follow_up_title", "en"));
     const dues = scheduled.filter((s) => s.content.title === t("medicines.notify.title", "en"));
     expect(dues.length).toBeGreaterThan(10);
-    expect(followUps.length).toBe(dues.length);
+    // S08g: follow-ups are held to their own budget (maxFollowUps = 8), never half of the places
+    expect(followUps.length).toBe(8);
+    expect(dues.length + followUps.length).toBeLessThanOrEqual(44);
     expect(followUps[0].content.body).toBe(t("medicines.notify.follow_up_body", "en"));
     expect(`${followUps[0].content.title} ${followUps[0].content.body}`).not.toMatch(/medicine|medication|drug|pill|tablet|mg\b/i);
   });

@@ -320,4 +320,44 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-04",
     source: "docs/research/S08.md sections 2 and 5 (decision table rows 4, 5, 9, 15)",
   },
+  {
+    key: "medicines.dose_rules",
+    // Medicines (S08). The missed window, snooze limits and notification cap come from
+    // `reminders.behaviour`, and the weekly percentage band from `adherence.threshold`;
+    // this entry holds only what is specific to medicines.
+    //  undoSeconds: how long a just-logged dose can be taken back before it leaves the phone.
+    //  doubleTapGuardMs: a second tap on the same dose inside this is ignored.
+    //  lowSupplyDays: running-low reminder fires when the supply lasts this many days or fewer.
+    //  adherenceMinDoses: fewer due doses than this and no percentage is shown.
+    //  serverMissedAfterMinutes: the server marks an unanswered dose missed after this long. Longer than the
+    //  on-device two hours so a phone that was offline has time to sync a "taken" first (mirrors medicine_config).
+    //  followUpMinWindowMinutes: a flexible window at least this long gets one gentle follow-up at its middle.
+    //  maxFollowUps (v2, S08g): the most follow-ups held at once, earliest first. The rest of the notification cap is
+    //  always due reminders, so follow-ups cannot shorten the days of due reminders by more than this. 8 of 44 leaves 36.
+    //  catchUpRetrySeconds: when the catch-up read fails, try again after each of these delays (then stop until the next app open).
+    //  catchUpMinGapMinutes: the catch-up sheet is offered at most this often, so it never nags on every app open.
+    //  catchUpMaxItems: the most doses the catch-up sheet asks about at once.
+    //  stalePlanHours: a reminder plan older than this is shown as out of date in the health check.
+    //  backdateWindowHours mirrors offline_sync_config (S06): the oldest "I took it earlier" time the server keeps.
+    value: {
+      undoSeconds: 120,
+      doubleTapGuardMs: 800,
+      lowSupplyDays: 7,
+      adherenceMinDoses: 3,
+      stalePlanHours: 24,
+      followUpMinWindowMinutes: 30,
+      catchUpMaxItems: 12,
+      catchUpMinGapMinutes: 240,
+      catchUpRetrySeconds: [30, 120],
+      serverMissedAfterMinutes: 720,
+      backdateWindowHours: 72,
+      futureSkewMinutes: 5,
+      maxFollowUps: 8,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-05",
+    source: "docs/research/S08.md sections 2 and 5 (decision table rows 4, 5, 9, 15)",
+  },
 ];

@@ -422,3 +422,9 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Tests**: 60 shared cases (`SPEC_VALIDITY_CASES`) run through `parseScheduleSpec` (medicines package, 172 tests, 100% coverage) and through the validator and the real constraint in the S08 DB proof; a signed-in patient is accepted on a good schedule and refused with a check violation on a bad one; a sabotage step without the constraint stores a malformed list.
 - **Not covered**: two deliberate differences, both on the stricter side (OQ-77).
 
+## S08g: follow-up reminders no longer eat the notification cap (2026-10-05)
+
+- **Built**: `planDoseNotifications` walks the reminders in time order and holds at most `maxFollowUps` follow-ups (new key in `medicines.dose_rules`, version 2, value 8). A follow-up past the budget is dropped without using a place, so the remaining places of the medicine cap (44 since the blood pressure reminders took 18 of the 64) go to due reminders further out. Before, every windowed dose spent two places a day, so a patient with several windows held up to half as many days of due reminders. Closes the fourth limit in OQ-76. Mobile callers read the new key; no database change.
+- **Also**: the S07 `public.my_home_bp_target()` migration (OQ-80) was found already applied on production; its recorded SQL equals the file and its proof passes on live. The OQ-80 note that said "not applied" is corrected.
+- **Tests**: 2 new planner tests (a budget of 2 keeps 8 due and 2 follow-ups out of 10 places, where no budget kept 5 due; a budget of 0 keeps none); the phone's windowed-dose test now expects 8 follow-ups. Medicines 174 (100% coverage), mobile 1059, shared 110, all passing.
+
