@@ -805,3 +805,4 @@ s07_my_home_bp_target.sql
 s07_care_tasks_kind_patient_tasks_view.sql
 s10_event_bus.sql
 s11_triage_rule_sets.sql
+s12_triage_wiring.sql
