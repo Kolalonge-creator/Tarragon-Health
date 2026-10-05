@@ -121,14 +121,28 @@ values ('bp_care_triage', 1, 'draft', $rules_json${
   "silence": {
    "days": 5
   },
+  "pregnancy": {
+   "severeSystolic": 160,
+   "severeDiastolic": 110,
+   "raisedSystolic": 140,
+   "raisedDiastolic": 90
+  },
   "symptomGroups": {
    "redFlag": [
     "severe_headache",
     "chest_pain",
     "breathlessness",
     "weakness_or_numbness",
+    "difficulty_speaking",
+    "back_pain",
     "confusion",
     "visual_disturbance"
+   ],
+   "preeclampsiaFlag": [
+    "severe_headache",
+    "visual_disturbance",
+    "epigastric_pain",
+    "breathlessness"
    ],
    "lowBpFlag": [
     "fainting",
@@ -253,6 +267,101 @@ values ('bp_care_triage', 1, 'draft', $rules_json${
     {
      "kind": "show_emergency_guidance",
      "code": "EMG-001L"
+    },
+    {
+     "kind": "page_on_call"
+    }
+   ]
+  },
+  {
+   "id": "BP-P3",
+   "description": "Pregnancy: severe-range reading is an emergency",
+   "triggers": [
+    "observation"
+   ],
+   "result": "grade",
+   "grade": "red",
+   "explanationKey": "EMG-001",
+   "when": {
+    "all": [
+     {
+      "field": "pregnant",
+      "op": "eq",
+      "value": true
+     },
+     {
+      "any": [
+       {
+        "field": "reading.systolic",
+        "op": "gte",
+        "value": {
+         "ref": "params.pregnancy.severeSystolic"
+        }
+       },
+       {
+        "field": "reading.diastolic",
+        "op": "gte",
+        "value": {
+         "ref": "params.pregnancy.severeDiastolic"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "actions": [
+    {
+     "kind": "show_emergency_guidance",
+     "code": "EMG-001"
+    },
+    {
+     "kind": "page_on_call"
+    }
+   ]
+  },
+  {
+   "id": "BP-P4",
+   "description": "Pregnancy: a raised reading with a pre-eclampsia symptom is an emergency",
+   "triggers": [
+    "observation"
+   ],
+   "result": "grade",
+   "grade": "red",
+   "explanationKey": "EMG-001",
+   "when": {
+    "all": [
+     {
+      "field": "pregnant",
+      "op": "eq",
+      "value": true
+     },
+     {
+      "symptomGroup": "preeclampsiaFlag"
+     },
+     {
+      "any": [
+       {
+        "field": "reading.systolic",
+        "op": "gte",
+        "value": {
+         "ref": "params.pregnancy.raisedSystolic"
+        }
+       },
+       {
+        "field": "reading.diastolic",
+        "op": "gte",
+        "value": {
+         "ref": "params.pregnancy.raisedDiastolic"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "actions": [
+    {
+     "kind": "show_emergency_guidance",
+     "code": "EMG-001"
     },
     {
      "kind": "page_on_call"
@@ -754,7 +863,7 @@ values ('bp_care_triage', 1, 'draft', $rules_json${
   }
  ]
 }$rules_json$::jsonb,
-        'PROPOSED values from spec 6.2 plus BP-P1, BP-P2, BP-A6 (OQ-86). Awaiting Chief Medical Officer sign-off.');
+        'PROPOSED values from spec 6.2 plus BP-P1 to BP-P4 and BP-A6 (OQ-86, guideline research in docs/research/S11-guidelines.md). Awaiting Chief Medical Officer sign-off.');
 
 do $$
 begin

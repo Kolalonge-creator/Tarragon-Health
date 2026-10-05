@@ -1692,7 +1692,7 @@
   },
   {
    "id": "SC-10e",
-   "title": "a pregnant user in the urgent range still gets the repeat prompt beside the routing",
+   "title": "a pregnant user at 182/112 is red (severe range in pregnancy)",
    "input": {
     "trigger": {
      "type": "observation",
@@ -1717,17 +1717,357 @@
    },
    "expect": {
     "status": "graded",
+    "grade": "red",
+    "ruleId": "BP-P3",
+    "explanationKey": "EMG-001",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SC-12a",
+   "title": "pregnant 160/100 is red: 160 systolic is severe in pregnancy",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 160,
+      "diastolic": 100,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": []
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "BP-P3",
+    "explanationKey": "EMG-001",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SC-12b",
+   "title": "pregnant 150/110 is red: 110 diastolic is severe in pregnancy",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 150,
+      "diastolic": 110,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": []
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "BP-P3",
+    "explanationKey": "EMG-001",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SC-12c",
+   "title": "pregnant 159/109 without symptoms is routed to a clinician, not red",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 159,
+      "diastolic": 109,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": []
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
     "grade": "amber",
     "ruleId": "BP-P1",
     "explanationKey": "TRI-002",
     "actions": [
      "route_referral:pregnancy",
-     "create_task:referral_review",
-     "prompt_recheck:TRI-005"
+     "create_task:referral_review"
     ],
     "taskKey": "BP-P1:2026-W41",
-    "dueMinutes": 1440,
-    "waitMinutes": 5
+    "dueMinutes": 1440
+   }
+  },
+  {
+   "id": "SC-12d",
+   "title": "pregnant 142/92 with a severe headache is red",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 142,
+      "diastolic": 92,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [
+      "severe_headache"
+     ]
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "BP-P4",
+    "explanationKey": "EMG-001",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SC-12e",
+   "title": "pregnant 142/92 with pain under the ribs is red",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 142,
+      "diastolic": 92,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [
+      "epigastric_pain"
+     ]
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "BP-P4",
+    "explanationKey": "EMG-001",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SC-12f",
+   "title": "pregnant 138/88 with a headache is routed, not red",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 138,
+      "diastolic": 88,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [
+      "severe_headache"
+     ]
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "BP-P1",
+    "explanationKey": "TRI-002",
+    "actions": [
+     "route_referral:pregnancy",
+     "create_task:referral_review"
+    ],
+    "taskKey": "BP-P1:2026-W41",
+    "dueMinutes": 1440
+   }
+  },
+  {
+   "id": "SC-12g",
+   "title": "the same 142/92 with a headache when not pregnant is only an amber review",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 142,
+      "diastolic": 92,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [
+      "severe_headache"
+     ]
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "BP-A6",
+    "explanationKey": "TRI-002",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "create_task:urgent_bp_review"
+    ],
+    "taskKey": "BP-A6:2026-10-05T09:00:00Z",
+    "dueMinutes": 240
+   }
+  },
+  {
+   "id": "SC-13a",
+   "title": "difficulty speaking with 180/110 is red",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 182,
+      "diastolic": 112,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [
+      "difficulty_speaking"
+     ]
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "BP-R1",
+    "explanationKey": "EMG-001",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SC-13b",
+   "title": "back pain with a normal reading is amber with guidance (possible dissection)",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 120,
+      "diastolic": 78,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [
+      "back_pain"
+     ]
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "BP-A6",
+    "explanationKey": "TRI-002",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "create_task:urgent_bp_review"
+    ],
+    "taskKey": "BP-A6:2026-10-05T09:00:00Z",
+    "dueMinutes": 240
    }
   },
   {

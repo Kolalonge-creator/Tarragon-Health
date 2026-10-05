@@ -10,6 +10,9 @@ export type SymptomCode =
   | "chest_pain"
   | "breathlessness"
   | "weakness_or_numbness"
+  | "difficulty_speaking"
+  | "back_pain"
+  | "epigastric_pain"
   | "confusion"
   | "visual_disturbance"
   | "fainting"
@@ -153,6 +156,7 @@ export interface RuleSet {
     readonly averageWindowDays: number;
     readonly minAdultAgeYears: number;
     readonly silence: { readonly days: number };
+    readonly pregnancy: { readonly severeSystolic: number; readonly severeDiastolic: number; readonly raisedSystolic: number; readonly raisedDiastolic: number };
     readonly adherence: { readonly minPercent: number };
     readonly symptomGroups: { readonly [group: string]: readonly string[]; readonly redFlag: readonly string[] };
     readonly rejected: { readonly explanationKey: string; readonly redFlagGuidanceCode: string };

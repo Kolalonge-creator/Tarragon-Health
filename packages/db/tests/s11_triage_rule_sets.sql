@@ -46,7 +46,7 @@ begin
     (select code || '|' || version || '|' || status || '|' || (select count(*) from public.triage_rule_sets) from public.triage_rule_sets limit 1));
   insert into results values ('real', 'seed has no approver', 'null', coalesce((select approved_by::text from public.triage_rule_sets where code = 'bp_care_triage'), 'null'));
   select rules into v_rules from public.triage_rule_sets where code = 'bp_care_triage' and version = 1;
-  insert into results values ('real', 'seed red rules all page on-call', '3',
+  insert into results values ('real', 'seed red rules all page on-call', '5',
     (select count(*)::text from jsonb_array_elements(v_rules -> 'rules') rr
       where rr ->> 'grade' = 'red' and rr -> 'actions' @> '[{"kind":"page_on_call"}]'::jsonb));
 

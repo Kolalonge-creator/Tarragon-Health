@@ -7,7 +7,7 @@ import type { Condition, RuleSet } from "../types";
  * keeps the two identical) and bundled in the app for offline red detection.
  *
  * Rules run in this order. Reds first, then the routing rules for pregnancy and
- * age, then the ambers, then the greens. Rules BP-P1, BP-P2 and BP-A6 are not
+ * age, then the ambers, then the greens. Rules BP-P1 to BP-P4 and BP-A6 are not
  * in the spec's table: they close three gaps the table leaves (a pregnant or
  * under-age user would be graded on adult bands; a red-flag symptom with a
  * reading below the severe line would read as green; a diastolic of 110 to 119
@@ -58,8 +58,20 @@ export const BP_CARE_V1: RuleSet = {
     average: { overSystolic: 20, overDiastolic: 10, minReadings: 5 },
     adherence: { minPercent: 80 },
     silence: { days: 5 },
+    // Pregnancy: NICE NG133 and ACOG CO 767 call 160/110 severe (emergency); 140/90 is raised (same-day assessment).
+    pregnancy: { severeSystolic: 160, severeDiastolic: 110, raisedSystolic: 140, raisedDiastolic: 90 },
     symptomGroups: {
-      redFlag: ["severe_headache", "chest_pain", "breathlessness", "weakness_or_numbness", "confusion", "visual_disturbance"],
+      redFlag: [
+        "severe_headache",
+        "chest_pain",
+        "breathlessness",
+        "weakness_or_numbness",
+        "difficulty_speaking",
+        "back_pain",
+        "confusion",
+        "visual_disturbance",
+      ],
+      preeclampsiaFlag: ["severe_headache", "visual_disturbance", "epigastric_pain", "breathlessness"],
       lowBpFlag: ["fainting", "confusion", "chest_pain"],
       dizzy: ["dizziness"],
     },
@@ -112,6 +124,47 @@ export const BP_CARE_V1: RuleSet = {
         all: [{ field: "reading.systolic", op: "lt", value: { ref: "params.low.redSystolic" } }, { symptomGroup: "lowBpFlag" }],
       },
       actions: [{ kind: "show_emergency_guidance", code: "EMG-001L" }, { kind: "page_on_call" }],
+    },
+    {
+      id: "BP-P3",
+      description: "Pregnancy: severe-range reading is an emergency",
+      triggers: ["observation"],
+      result: "grade",
+      grade: "red",
+      explanationKey: "EMG-001",
+      when: {
+        all: [
+          { field: "pregnant", op: "eq", value: true },
+          {
+            any: [
+              { field: "reading.systolic", op: "gte", value: { ref: "params.pregnancy.severeSystolic" } },
+              { field: "reading.diastolic", op: "gte", value: { ref: "params.pregnancy.severeDiastolic" } },
+            ],
+          },
+        ],
+      },
+      actions: [{ kind: "show_emergency_guidance", code: "EMG-001" }, { kind: "page_on_call" }],
+    },
+    {
+      id: "BP-P4",
+      description: "Pregnancy: a raised reading with a pre-eclampsia symptom is an emergency",
+      triggers: ["observation"],
+      result: "grade",
+      grade: "red",
+      explanationKey: "EMG-001",
+      when: {
+        all: [
+          { field: "pregnant", op: "eq", value: true },
+          { symptomGroup: "preeclampsiaFlag" },
+          {
+            any: [
+              { field: "reading.systolic", op: "gte", value: { ref: "params.pregnancy.raisedSystolic" } },
+              { field: "reading.diastolic", op: "gte", value: { ref: "params.pregnancy.raisedDiastolic" } },
+            ],
+          },
+        ],
+      },
+      actions: [{ kind: "show_emergency_guidance", code: "EMG-001" }, { kind: "page_on_call" }],
     },
     {
       id: "BP-P1",
