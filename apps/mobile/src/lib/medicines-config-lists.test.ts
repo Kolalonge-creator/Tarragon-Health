@@ -35,8 +35,9 @@ describe("maxFollowUps (S08g)", () => {
     expect(loadMedicineRules().maxFollowUps).toBe(0);
   });
   it("refuses a missing, negative or non-numeric value", () => {
-    const { maxFollowUps: _omit, ...without } = good;
-    for (const bad of [without, { ...good, maxFollowUps: -1 }, { ...good, maxFollowUps: "8" }]) {
+    const without: Record<string, unknown> = { ...good };
+    delete without.maxFollowUps;
+    for (const bad of [without,{ ...good, maxFollowUps: -1 }, { ...good, maxFollowUps: "8" }]) {
       withValue(bad);
       expect(() => loadMedicineRules()).toThrow(/maxFollowUps/);
     }
