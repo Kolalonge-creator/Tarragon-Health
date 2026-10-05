@@ -397,3 +397,9 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Tests**: package 107 (100 percent branches), mobile 846 (new `s08b-catch-up.test.ts`, 11, one hand sabotage of the server-missed rule), the S08 DB proof extended (window keeps a dose open, a malformed window reads as exact, the view exposes `source`; the sabotaged view now keeps the new column).
 - **Not done**: no device run; the Pidgin strings (18 new keys) need the native reviewer (OQ-74); editing a window after adding a medicine, windows on prescriptions, and catch-up for dependants are OQ-76.
 - **`/code-review high` (S08b)**: 9 findings, 5 fixed (overlapping windows are refused, a notification id now carries its kind, the sheet is offered at most every 4 hours, it waits for the acting-for lookup and closes if it turns off, one shared window-end helper) and 4 recorded in OQ-76 (a window across midnight, a silent catch-up read failure, a window above 360 written directly, the shared notification cap).
+
+## S08c: windows across midnight (2026-10-05)
+
+- **Built**: the phone's Today list keeps yesterday's slot while it is still open (23:00 with a two hour window, or a plain dose inside the global two hour window, is answerable at 00:30), logs now carry their own date so yesterday's answer never lands on today's slot, doses are keyed by medicine, Lagos date and time (the same key the reminder plan uses, which also fixes snoozes matching the plan), the overview counts only today's doses, and an item from last night is labelled. Unsent doses on the phone and the offline mirror are read for yesterday too.
+- **Tests**: 7 new in `s08c-midnight-window.test.ts` (one hand sabotage of the close rule fails two of them); mobile 856 passing.
+- **Not done**: the web Today list still shows today only (the web patient page has no window setting, so the case cannot arise there yet). No device run.

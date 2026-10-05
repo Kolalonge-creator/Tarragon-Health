@@ -525,4 +525,5 @@ export const pcm: Record<MessageKey, string> = {
   "meds.catchup.not_now": "Not now",
   "meds.catchup.saved": "E don save.",
   "meds.catchup.failed": "We no fit save that one. Try again.",
+  "meds.window.from_yesterday": "From last night, e still dey open",
 };
