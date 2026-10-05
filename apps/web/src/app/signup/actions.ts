@@ -18,7 +18,35 @@ import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
 
 export type SignupActionState =
-  | { error?: string; field?: string; success?: boolean; step?: "verify"; phone?: string; redirectTo?: string; sentAt?: number }
+  | {
+      error?: string;
+      field?: string;
+      success?: boolean;
+      step?: "verify";
+      phone?: string;
+      redirectTo?: string;
+      sentAt?: number;
+      /**
+       * Every submitted field except the password, echoed back so a single
+       * invalid field (e.g. an unparseable phone number) doesn't force the
+       * visitor to retype their name and email too. React resets a
+       * `<form action={...}>`'s uncontrolled inputs synchronously at submit
+       * time, before the action even runs — so by the time this state comes
+       * back, the DOM has already been cleared. `signup-form.tsx` restores
+       * these fields imperatively via refs once this state lands (a
+       * `defaultValue` sourced from this state would be one submission too
+       * late to stop that reset). Password is deliberately excluded: it
+       * should never round-trip back out of a server action.
+       */
+      values?: {
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+        countryCode?: string;
+        phone?: string;
+        state?: string;
+      };
+    }
   | undefined;
 
 /**
@@ -32,6 +60,14 @@ export async function signUp(
   _prevState: SignupActionState,
   formData: FormData
 ): Promise<SignupActionState> {
+  const values = {
+    firstName: String(formData.get("firstName") ?? ""),
+    lastName: String(formData.get("lastName") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    countryCode: String(formData.get("countryCode") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+    state: String(formData.get("state") ?? ""),
+  };
   const parsed = signupSchema.safeParse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
@@ -44,7 +80,7 @@ export async function signUp(
     password: formData.get("password"),
   });
   if (!parsed.success) {
-    return firstIssue(parsed.error, "Check the details above and try again.");
+    return { ...firstIssue(parsed.error, "Check the details above and try again."), values };
   }
 
   // IP-scoped (10/hour) blunts scripted mass account creation; email-scoped
@@ -57,7 +93,7 @@ export async function signUp(
     { limit: 3, windowSeconds: 3600 }
   );
   if (!limited.success) {
-    return { error: RATE_LIMIT_MESSAGE };
+    return { error: RATE_LIMIT_MESSAGE, values };
   }
 
   const verdict = await checkNewPassword(parsed.data.password);
@@ -103,7 +139,7 @@ export async function signUp(
     // GoTrue's raw string leaked its own 6-character minimum here, which
     // directly contradicted the 8-character rule this form enforces and is
     // now shown under the password field.
-    return { error: authErrorMessage(error, "sign_up") };
+    return { error: authErrorMessage(error, "sign_up"), values };
   }
 
   // A project with email confirmations turned off (this one, currently) hands
