@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { attachMedicationEmbeds } from "@/lib/clinical/medications-audited";
 import type { Tables } from "@tarragon/shared";
 
 export type AdherenceAlert = Tables<"medication_adherence_alerts">;
@@ -10,7 +11,7 @@ export type AdherenceAlertWithContext = AdherenceAlert & {
 };
 
 const ALERT_SELECT =
-  "*, patient:profiles!medication_adherence_alerts_patient_id_fkey(full_name, patient_number), medication:medications!medication_adherence_alerts_medication_id_fkey(drug_name)";
+  "*, patient:profiles!medication_adherence_alerts_patient_id_fkey(full_name, patient_number)";
 
 /**
  * Care-team adherence worklist — unresolved missed-dose alerts, doctor-level
@@ -28,7 +29,8 @@ export function useOrgAdherenceAlerts() {
         .order("level", { ascending: false }) // 'doctor' > 'coach' lexically
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data as AdherenceAlertWithContext[];
+      // INV-10: the medication name comes from the audited read, not an embedded select of the closed table.
+      return (await attachMedicationEmbeds(supabase, data)) as AdherenceAlertWithContext[];
     },
   });
 }

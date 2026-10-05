@@ -2,7 +2,7 @@
  * @tarragon/lifestyle-engine — public surface.
  *
  * The condition-agnostic Lifestyle Programme Engine (LPE). Conditions plug in as
- * pure-config adapters; all side-effects (DB, WhatsApp, ML) are injected.
+ * pure-config adapters; all side-effects (DB, messaging, ML) are injected.
  *
  * Spec: guideline/LIFESTYLE_ENGINE_SPEC.md
  * Build plan (historical): docs/archive/LIFESTYLE_ENGINE_BUILD_PLAN.md

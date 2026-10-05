@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { deviceReadingSchema } from "@/lib/validation/device-reading";
 import { mgDlToMmolL, type TablesInsert } from "@tarragon/shared";
 
@@ -56,6 +57,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!profile?.organisation_id) {
     return NextResponse.json({ error: "No organisation on file" }, { status: 400 });
   }
+  // Narrowed into its own const: TS can't carry the null-check above through
+  // the runBestEffort closures further down, which read this via a fresh
+  // arrow function rather than a direct access.
+  const organisationId = profile.organisation_id;
 
   // RLS already scopes this to the caller's own devices; the explicit
   // patient_id/status filter also turns "someone else's device" and "an
@@ -134,12 +139,49 @@ export async function POST(request: Request): Promise<NextResponse> {
     })
     .eq("id", device_id);
 
+  // From here on the reading is durably saved (and patient_devices already
+  // updated above). assessBpControlBestEffort/assessGlucoseBestEffort are
+  // documented "never throws," but that isn't literally enforced by a
+  // try/catch inside either of them (confirmed by reading both), so a
+  // genuine network/DB drop right after the insert can still throw here.
+  // Without runBestEffort, that throw would propagate out of this route
+  // handler as an uncaught exception — Next.js turns that into a 500, and
+  // the BLE offline queue (offline-queue.ts's flushDeviceReadingsQueue)
+  // STOPS at the first non-success response, stalling every OTHER queued
+  // reading behind this one until the next flush. A retry also wouldn't
+  // re-run this assessment anyway: a replayed external_reading_id hits the
+  // 23505 dedupe branch above and returns early without reaching here. These
+  // two calls are the platform's actual red-flag/escalation detection for
+  // this reading (BP crisis, DKA/severe hypo) — CLAUDE.md is explicit that
+  // an abnormal-result event must "never deprioritise or silently swallow"
+  // it, so a failure is reported to Sentry AND surfaced in the response body
+  // rather than a silent, unqualified success.
+  let safetyAssessmentFailed = false;
+  // patientId/organisationId included so an on-call engineer triaging a
+  // spike of these Sentry events can tell whether it's one patient retried
+  // many times or many patients/orgs affected, without cross-referencing
+  // application logs first.
+  const safetyExtra = {
+    route: "api/mobile/device-readings",
+    stage: "safety_assessment",
+    vitalType: vital_type,
+    patientId: user.id,
+    organisationId,
+  };
   if (vital_type === "blood_pressure") {
-    await assessBpControlBestEffort(supabase, user.id, profile.organisation_id);
-  }
-  if (vital_type === "glucose") {
-    await assessGlucoseBestEffort(supabase, user.id, profile.organisation_id);
+    safetyAssessmentFailed = await runBestEffort(
+      () => assessBpControlBestEffort(supabase, user.id, organisationId),
+      safetyExtra
+    );
+  } else if (vital_type === "glucose") {
+    safetyAssessmentFailed = await runBestEffort(
+      () => assessGlucoseBestEffort(supabase, user.id, organisationId),
+      safetyExtra
+    );
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    ...(safetyAssessmentFailed ? { safetyAssessmentFailed: true } : {}),
+  });
 }

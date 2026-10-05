@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Text } from "react-native";
 import { loadMonitoringCover } from "@/lib/monitoring-cover";
 import type { ServicePurchaseWithProduct } from "@/lib/services";
-import { colors } from "@/ui/theme";
-import { Card, MutedText } from "@/ui/components";
+import { useLegacyColors } from "@/ui/design";
+import { Card, MutedText } from "@/ui/legacy-kit";
 
 const ENDING_SOON_DAYS = 21;
 
@@ -29,6 +29,7 @@ function shortDate(iso: string): string {
  * cancel" promise).
  */
 export function MonitoringCoverCard() {
+  const colors = useLegacyColors();
   const [cover, setCover] = useState<ServicePurchaseWithProduct | null | undefined>(undefined);
 
   useEffect(() => {

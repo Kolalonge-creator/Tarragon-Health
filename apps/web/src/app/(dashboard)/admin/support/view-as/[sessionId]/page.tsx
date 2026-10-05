@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { readPatientMedicationsAudited } from "@/lib/clinical/medications-audited";
+import { readPatientVitalsAudited } from "@/lib/clinical/vitals-audited";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,8 +69,8 @@ export default async function SupportViewAsSessionPage({
     ? await (async () => {
         const [
           { data: subject },
-          { data: vitals },
-          { data: medications },
+          vitalsResult,
+          medicationsResult,
           { data: appointments },
           { data: screenings },
           { data: notifications },
@@ -83,18 +85,10 @@ export default async function SupportViewAsSessionPage({
           supabase
             .rpc("get_support_view_subject_identity", { p_subject_id: session.subject_id })
             .maybeSingle(),
-          supabase
-            .from("vitals_readings")
-            .select("id, vital_type, source, taken_at, systolic, diastolic, pulse_bpm, glucose_mmol_l, spo2_pct, temperature_c, weight_kg")
-            .eq("patient_id", session.subject_id)
-            .order("taken_at", { ascending: false })
-            .limit(20),
-          supabase
-            .from("medications")
-            .select("id, drug_name, dose, frequency, is_active, created_at")
-            .eq("patient_id", session.subject_id)
-            .order("created_at", { ascending: false })
-            .limit(20),
+          // INV-10: through the audited read (an active support-view session is one of its admitted bases), not the table.
+          readPatientVitalsAudited(supabase, session.subject_id, { reason: "Support view session: record review", limit: 20 }),
+          // INV-10: through the audited read (an active support-view session is one of its admitted bases), not the table.
+          readPatientMedicationsAudited(supabase, session.subject_id, { reason: "Support view session: record review" }),
           supabase
             .from("appointments")
             .select("id, appointment_type, status, scheduled_for, consultation_method")
@@ -119,18 +113,48 @@ export default async function SupportViewAsSessionPage({
             .eq("profile_id", session.subject_id)
             .maybeSingle(),
         ]);
-        return { subject, vitals, medications, appointments, screenings, notifications, clinicalStaff };
+        // null (not []) for a refusal or an error, so the page shows "not available", never "no medicines".
+        const medications =
+          medicationsResult.status === "ok"
+            ? medicationsResult.rows.slice(0, 20).map((m) => ({
+                id: m.id,
+                drug_name: m.drug_name,
+                dose: m.dose,
+                frequency: m.frequency,
+                is_active: m.is_active,
+                created_at: m.created_at,
+              }))
+            : null;
+        const vitals =
+          vitalsResult.status === "ok"
+            ? vitalsResult.rows.map((v) => ({
+                id: v.id,
+                vital_type: v.vital_type,
+                source: v.source,
+                taken_at: v.taken_at,
+                systolic: v.systolic,
+                diastolic: v.diastolic,
+                pulse_bpm: v.pulse_bpm,
+                glucose_mmol_l: v.glucose_mmol_l,
+                spo2_pct: v.spo2_pct,
+                temperature_c: v.temperature_c,
+                weight_kg: v.weight_kg,
+              }))
+            : null;
+        return { subject, vitals, vitalsUnavailable: vitalsResult.status !== "ok", medications, medicationsUnavailable: medicationsResult.status !== "ok", appointments, screenings, notifications, clinicalStaff };
       })()
     : {
         subject: null,
         vitals: null,
+        vitalsUnavailable: false,
         medications: null,
+        medicationsUnavailable: false,
         appointments: null,
         screenings: null,
         notifications: null,
         clinicalStaff: null,
       };
-  const { subject, vitals, medications, appointments, screenings, notifications, clinicalStaff } = snapshot;
+  const { subject, vitals, vitalsUnavailable, medications, medicationsUnavailable, appointments, screenings, notifications, clinicalStaff } = snapshot;
 
   return (
     <div className="space-y-6">
@@ -227,7 +251,9 @@ export default async function SupportViewAsSessionPage({
           <CardTitle>Recent vitals</CardTitle>
         </CardHeader>
         <CardContent>
-          {!vitals || vitals.length === 0 ? (
+          {vitalsUnavailable ? (
+            <p className="text-sm text-amber-700">The vitals could not be read for this session. This is not the same as none on record.</p>
+          ) : !vitals || vitals.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No vitals readings.</p>
           ) : (
             <ul className="divide-y divide-charcoal-ink/10 text-sm">
@@ -256,7 +282,9 @@ export default async function SupportViewAsSessionPage({
           <CardTitle>Medications</CardTitle>
         </CardHeader>
         <CardContent>
-          {!medications || medications.length === 0 ? (
+          {medicationsUnavailable ? (
+            <p className="text-sm text-amber-700">The medication list could not be read for this session. This is not the same as none on record.</p>
+          ) : !medications || medications.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No medications on record.</p>
           ) : (
             <ul className="divide-y divide-charcoal-ink/10 text-sm">

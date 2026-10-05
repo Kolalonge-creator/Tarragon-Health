@@ -243,6 +243,12 @@ export function OnboardingFlow({
           you ask for it, and that is also what adds a Tarragon doctor being paged on a
           dangerous reading and routine review of your readings when nothing is flagged.
         </p>
+        <p className="text-sm text-charcoal-ink">
+          Whenever you&apos;re ready, you can also invite a family member or caregiver to help:
+          you choose what they can see and do, they have to accept before it starts, and you
+          can change or withdraw it at any time. You&apos;ll find that later, from your
+          dashboard, under Care & support → Your people; it&apos;s entirely optional.
+        </p>
       </div>
 
       {/* Step 1: what brings you here — not stored, gates nothing, just

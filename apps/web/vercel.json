@@ -61,6 +61,10 @@
       "schedule": "50 5 * * *"
     },
     {
+      "path": "/api/cron/service-purchase-guarantee-refunds",
+      "schedule": "55 5 * * *"
+    },
+    {
       "path": "/api/cron/cycle-reminders",
       "schedule": "0 6 * * *"
     },

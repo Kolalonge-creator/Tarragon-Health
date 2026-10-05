@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import { LazyVitalsTrendChart } from "@/components/vitals-trend-chart-lazy";
+import { createClient } from "@/lib/supabase/server";
+import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
@@ -19,6 +21,7 @@ import { ServiceStatusCard } from "@/app/(dashboard)/patient/service-status-card
 import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-last-here-card";
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
+import { AskTarragonCard } from "@/app/(dashboard)/patient/ask-tarragon-card";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
 import { WeeklyPlanCard } from "@/app/(dashboard)/patient/weekly-plan-card";
@@ -77,6 +80,13 @@ export default async function PatientOverviewPage() {
     await getPatientDashboardContext();
   const stats = await getPatientSummaryStats(subjectId);
   const prevention = await getPatientPreventionStats(subjectId);
+  // Same gate ai-coach-chat.tsx's own mount point (care/page.tsx) applies —
+  // runCoachTurn's own entitlement check would otherwise return a canned
+  // decline reply that AskTarragonCard has no way to distinguish from a real
+  // answer (it would render with the doctor/booking CTAs and a "report this
+  // answer" control, same as any other reply).
+  const supabase = await createClient();
+  const coachAccess = await hasCoachAccess(supabase);
 
   const greetingWord = getLagosGreetingWord();
   const actingSubject = acting ? (acting.fullName ? `${acting.fullName}'s` : "their") : null;
@@ -161,6 +171,14 @@ export default async function PatientOverviewPage() {
           phone this row is what's on screen when the page opens. */}
       <QuickActions showCycle={shouldOfferCycleTracking(subjectSex)} />
 
+      {/* Prominent, single-screen "ask" entry point -- composes the already-
+          governed AI Coach (symptom text) and result-upload + AI summary
+          (lab result) pipelines that otherwise sit buried in Care & support
+          and Labs & bookings respectively. Above the !firstRun gate
+          deliberately: a brand-new patient with nothing logged yet is
+          exactly who most needs a fast way to ask a question or hand over a
+          result, and neither path depends on any existing record data. */}
+      <AskTarragonCard patientId={subjectId} coachAccess={coachAccess} />
 
       {/* On a genuinely empty account everything below this point can only
           report an absence, so it is not rendered at all until there is

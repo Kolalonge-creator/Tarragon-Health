@@ -24,9 +24,8 @@ import { BuyCareForSomeone } from "./buy-care-for-someone";
  *      consent attestation, and grants the sponsor a 'manage' profile_access
  *      row immediately.
  *   2. paySomeonesPlan (patient/supporting/actions.ts) — buys any active,
- *      NGN-priced service_products row (which already includes the
- *      2026-09-10 Continuous Monitoring and Supervised Weight Management
- *      products, since that list is read generically, not hardcoded) for a
+ *      NGN-priced service_products row (which already includes Continuous
+ *      Monitoring, since that list is read generically, not hardcoded) for a
  *      beneficiary the caller holds a 'manage' grant over, via Paystack.
  * The Paystack callback lands back on /patient/supporting, which already
  * renders SponsorCareReport for every person the sponsor supports.

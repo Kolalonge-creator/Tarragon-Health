@@ -24,7 +24,6 @@ const SERVICE_ICON: Record<PatientReceiptServiceType, keyof typeof APP_ICON> = {
   referral: "referral",
   consultation: "booking",
   care_voucher: "receipts",
-  platform_credit_topup: "billing",
 };
 
 const STATUS_LABEL: Record<PatientReceiptStatus, string> = {

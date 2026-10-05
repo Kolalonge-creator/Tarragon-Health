@@ -13,7 +13,7 @@ import { getClientIp, rateLimit } from "@/lib/rate-limit";
  *
  * Only the Supabase check can flip the HTTP status to 503 — every other
  * dependency already has a documented non-fatal fallback (ML: never throws,
- * see ml-client.ts; WhatsApp/Termii: additive by design, see CLAUDE.md), so
+ * see ml-client.ts; Termii: additive by design), so
  * this mirrors the platform's own "must keep working if a dependency is
  * down" doctrine rather than treating every dependency as equally critical.
  */

@@ -67,12 +67,23 @@ test.describe("authenticated patient journey", () => {
   }
 
   test("log in and complete onboarding", async ({ page }) => {
+    // The dev server compiles each route on first hit; /patient alone took 11s in CI, and /onboarding follows it, so
+    // the default 30s test timeout and a 15s URL wait were a coin flip on a cold server.
+    test.setTimeout(120_000);
     await loginAsPatient(page);
 
     // A fresh patient with no onboarding_completed_at lands on /onboarding.
-    await page.waitForURL(/\/onboarding/, { timeout: 15_000 });
+    await page.waitForURL(/\/onboarding/, { timeout: 60_000 });
 
-    // --- Onboarding: consent -> demographics -> skip intake -> finish ---
+    // --- Onboarding: intent -> consent -> demographics -> skip intake -> finish ---
+    // Resequenced 2026-09-23 (onboarding-flow.tsx) to lead with "What brings
+    // you here" before consent — a brand-new patient (intent starts null,
+    // unlike a returning one whose consent/demographics are already on file)
+    // must answer it before the consent step ever renders. The exact option
+    // chosen doesn't matter here: it only changes IntakeStep's intro copy
+    // below, never which fields are required or which steps gate finishing.
+    await page.getByRole("button", { name: /not sure yet/i }).click();
+
     await page.getByRole("checkbox", { name: /accept|agree/i }).check();
     await page.getByRole("button", { name: /i agree, continue/i }).click();
 

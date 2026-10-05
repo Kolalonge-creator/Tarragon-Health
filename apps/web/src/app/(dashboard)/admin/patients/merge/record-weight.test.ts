@@ -7,8 +7,15 @@ import { recordWeight } from "./page";
  * which could make a record with real history look empty right when an
  * operator is choosing which of two records to keep.
  */
-function fakeSupabase(perTableError: Partial<Record<string, { message: string }>>) {
+type Fail = Partial<Record<string, { message: string }>>;
+
+function fakeSupabase(perTableError: Fail, rpcResult: { data: unknown; error: { message: string } | null } = {
+  data: { medications: 3, vitals_readings: 3 },
+  error: null,
+}) {
   return {
+    // Medications and vitals are counted by a permission-gated function (INV-10), not a head-count through RLS.
+    rpc: async () => rpcResult,
     from: (table: string) => ({
       select: () => ({
         eq: async () => {
@@ -29,8 +36,14 @@ describe("recordWeight", () => {
   });
 
   it("throws instead of defaulting to 0 when any one count query errors", async () => {
-    const supabase = fakeSupabase({ vitals_readings: { message: "RLS denied" } });
+    const supabase = fakeSupabase({ appointments: { message: "RLS denied" } });
     await expect(recordWeight(supabase, "patient-1")).rejects.toBeTruthy();
+  });
+
+  it("throws when the clinical counts function errors or answers with something unexpected, never defaulting to 0", async () => {
+    await expect(recordWeight(fakeSupabase({}, { data: null, error: { message: "not authorised" } }), "patient-1")).rejects.toBeTruthy();
+    await expect(recordWeight(fakeSupabase({}, { data: null, error: null }), "patient-1")).rejects.toThrow();
+    await expect(recordWeight(fakeSupabase({}, { data: { medications: 3 }, error: null }), "patient-1")).rejects.toThrow();
   });
 
   it("throws on a lab_result_documents failure too, not just the first table queried", async () => {

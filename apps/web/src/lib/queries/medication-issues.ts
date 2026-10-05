@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { attachMedicationEmbeds } from "@/lib/clinical/medications-audited";
 import type { Tables } from "@tarragon/shared";
 
 /**
@@ -118,12 +119,13 @@ export function useOpenAffordabilityReports() {
       const { data, error } = await supabase
         .from("medication_affordability_reports")
         .select(
-          "*, patient:profiles!medication_affordability_reports_patient_id_fkey(full_name), medication:medications(drug_name)"
+          "*, patient:profiles!medication_affordability_reports_patient_id_fkey(full_name)"
         )
         .neq("status", "resolved")
         .order("reported_at", { ascending: true });
       if (error) throw error;
-      return data as AffordabilityReportWithDetails[];
+      // INV-10: the medication name comes from the audited read, not an embedded select of the closed table.
+      return (await attachMedicationEmbeds(supabase, data)) as AffordabilityReportWithDetails[];
     },
     refetchInterval: 60_000,
   });
@@ -138,12 +140,12 @@ export function useOpenDispenseFlags() {
       const { data, error } = await supabase
         .from("medication_dispense_flags")
         .select(
-          "*, patient:profiles!medication_dispense_flags_patient_id_fkey(full_name), medication:medications(drug_name)"
+          "*, patient:profiles!medication_dispense_flags_patient_id_fkey(full_name)"
         )
         .neq("status", "resolved")
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data as DispenseFlagWithDetails[];
+      return (await attachMedicationEmbeds(supabase, data)) as DispenseFlagWithDetails[];
     },
     refetchInterval: 60_000,
   });

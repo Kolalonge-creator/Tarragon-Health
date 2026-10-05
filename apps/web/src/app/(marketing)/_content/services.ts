@@ -159,9 +159,9 @@ export const WHAT_WE_TRACK = [
  * Corrected in the same pass: step 5 promised doctor alerting "on the
  * doctor-supported programme", naming `chronic_doctor_supported_pack`, which
  * is_active = false in service_products (retired and unbundled 2026-09-10,
- * see _content/pricing.ts). The products that actually grant
- * `vitals_red_flag_doctor_escalation` today are Continuous Monitoring and
- * Supervised Weight Management (verified live 2026-09-22).
+ * see _content/pricing.ts). The product that actually grants
+ * `vitals_red_flag_doctor_escalation` today is Continuous Monitoring
+ * (verified live 2026-09-22).
  */
 export const HOW_IT_WORKS_STEPS = [
   { step: 1, title: "Create your account", body: "A couple of minutes, for yourself or for someone you look after." },
@@ -337,6 +337,12 @@ export const HOMEPAGE_FAQS = [
   },
   {
     category: "general",
+    question: "Can I add a family member or caregiver to help manage my care?",
+    answer:
+      "Yes. You can invite someone you trust, a spouse, an adult child, a caregiver, to help: they can follow your appointments and readings, or help with bookings and refills, depending on what you allow. You choose what they can see and do, they have to accept before it starts, and you can change or withdraw their access at any time. It's not a shared plan or a joint account: you each keep your own free Tarragon account.",
+  },
+  {
+    category: "general",
     question: "How much does it cost?",
     answer:
       "The app is free, with no time limit. You pay only when a doctor does a specific piece of work for you, at a price you see and confirm first, and you pay laboratories and pharmacies directly for tests and refills (we take nothing on those). See the pricing page for what a doctor's time costs.",
@@ -345,7 +351,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "How do I log my blood pressure, glucose, or weight?",
     answer:
-      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send reminders and alerts, and you can message your care team any time in the app for support.",
+      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. Reminders and alerts come through the app, and you can message your care team any time in the app for support.",
   },
   {
     category: "general",
@@ -357,7 +363,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "Do I need a smartphone?",
     answer:
-      "You need a smartphone or computer to use the app or web dashboard, where your health record, care actions, and messages with your care team all live. WhatsApp and SMS still bring you reminders and alerts.",
+      "You need a smartphone or computer to use the app or web dashboard, where your health record, care actions, and messages with your care team all live. Reminders and alerts come to you there too.",
   },
   {
     category: "general",
@@ -375,13 +381,13 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "What if I'm not comfortable with health tech?",
     answer:
-      "You don't need to be. Signing up takes a minute, logging a reading takes seconds, and WhatsApp or SMS will still remind you when something's due. If you ever get stuck, you can message your care team directly in the app and a person answers.",
+      "You don't need to be. Signing up takes a minute, logging a reading takes seconds, and the app will remind you when something's due. If you ever get stuck, you can message your care team directly in the app and a person answers.",
   },
   {
     category: "general",
     question: "I don't have time for another health app.",
     answer:
-      "You won't need much. Logging a blood pressure reading, a glucose check, or your weight takes under a minute in the app. WhatsApp or SMS tells you when something's due, and your care team does the reviewing in the background, not you.",
+      "You won't need much. Logging a blood pressure reading, a glucose check, or your weight takes under a minute in the app. The app tells you when something's due, and your care team does the reviewing in the background, not you.",
   },
   {
     category: "clinical",

@@ -9,8 +9,9 @@ import {
 } from "@/lib/technical-support";
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SectionDivider } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SectionDivider } from "@/ui/legacy-kit";
 
 const STATUS_TONE: Record<SupportTicketStatus, "brand" | "neutral"> = {
   new: "neutral",
@@ -20,16 +21,6 @@ const STATUS_TONE: Record<SupportTicketStatus, "brand" | "neutral"> = {
   resolved: "brand",
   closed: "neutral",
 };
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
@@ -52,6 +43,9 @@ interface TechnicalSupportScreenProps {
  * reading shows, not a form error.
  */
 export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalSupportScreenProps) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -108,7 +102,7 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
 
       <Card style={{ gap: 10 }}>
         <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Subject</Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={subject}
           onChangeText={setSubject}
           placeholder="Short summary of the issue"
@@ -116,7 +110,7 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
           style={textInputStyle}
         />
         <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Tell us what&apos;s happening</Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={description}
           onChangeText={setDescription}
           placeholder="e.g. The app crashes every time I try to log a blood pressure reading."

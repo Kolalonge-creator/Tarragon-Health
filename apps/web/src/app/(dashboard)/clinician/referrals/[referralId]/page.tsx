@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Stepper } from "@/components/ui/stepper";
@@ -12,9 +13,6 @@ import { AssignSpecialistProviderForm } from "./assign-specialist-provider-form"
 
 const ASSIGNABLE_STATUSES = ["pending", "waitlisted"] as const;
 
-const REFERRAL_SELECT =
-  "*, patient:profiles!specialist_referrals_patient_id_fkey(full_name), specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name, consultation_fee_kobo)";
-
 export default async function ReferralDetailPage({
   params,
 }: {
@@ -23,13 +21,16 @@ export default async function ReferralDetailPage({
   const { referralId } = await params;
   const supabase = await createClient();
 
-  // RLS (private.is_org_staff) is the real gate here, same as the escalation
-  // detail page — a referral outside the caller's org simply doesn't come back.
-  const { data: referral } = await supabase
-    .from("specialist_referrals")
-    .select(REFERRAL_SELECT)
-    .eq("id", referralId)
-    .maybeSingle();
+  // INV-10 / INV-12: the audited read is the gate. A referral the caller may not see (not tied, not the creator, not the assigned
+  // specialist, not the referral desk) and an unknown id look the same, and the refusal is audited.
+  const { data: referralPayload } = await supabase.rpc("get_referral_audited", {
+    p_referral: referralId,
+    p_reason: ROUTINE_CHART_READ_REASON,
+  });
+  const referral =
+    (referralPayload as { status?: string; referral?: unknown } | null)?.status === "ok"
+      ? (referralPayload as { referral: unknown }).referral
+      : null;
 
   if (!referral) {
     return (
@@ -39,7 +40,7 @@ export default async function ReferralDetailPage({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-charcoal-ink/60">
-            This referral doesn&apos;t exist or isn&apos;t in your organisation.
+            This referral doesn&apos;t exist or isn&apos;t available to you.
           </p>
         </CardContent>
       </Card>

@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { asLocale, t } from "@tarragon/i18n";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
+import { useUiLanguage } from "@/lib/ui-language";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -16,8 +19,9 @@ import {
   type SymptomLog,
 } from "@/lib/symptoms";
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
-import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SectionLabel } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { lightPalette, useLegacyColors, useTheme } from "@/ui/design";
+import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 
 interface SymptomScreenProps {
@@ -32,9 +36,10 @@ interface SymptomScreenProps {
 const SEVERITY_SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
 
 function severityChipColor(severity: number): string {
-  if (severity >= 8) return colors.status.critical;
-  if (severity >= 6) return colors.status.warn;
-  return colors.brand;
+  // Fills under white text, so the same in both schemes (the light palette's solid colours).
+  if (severity >= 8) return lightPalette.dangerText;
+  if (severity >= 6) return lightPalette.warnText;
+  return lightPalette.brand;
 }
 
 /**
@@ -57,6 +62,8 @@ function severityChipColor(severity: number): string {
  * would be inventing a feature, not porting one.
  */
 export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreenProps) {
+  const { scheme } = useTheme();
+  const colors = useLegacyColors();
   const [history, setHistory] = useState<SymptomLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -72,6 +79,25 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedLabel, setSavedLabel] = useState<string | null>(null);
+  const locale = asLocale(useUiLanguage());
+  const draftKey = `symptom:${patientId}`;
+  const draftRestored = useRef(false);
+  useEffect(() => {
+    void loadDraft<{ symptomType: AdultSymptomType; severity: number; description: string }>(draftKey).then((d) => {
+      if (d) {
+        setSymptomType(d.symptomType);
+        setSeverity(d.severity);
+        setDescription((cur) => cur || d.description);
+      }
+      draftRestored.current = true;
+    });
+  }, [draftKey]);
+  // Saved on every change (power-cut resilience).
+  useEffect(() => {
+    if (!draftRestored.current) return;
+    if (description === "" && symptomType === "other" && severity === 5) void clearDraft(draftKey);
+    else void saveDraft(draftKey, { symptomType, severity, description });
+  }, [symptomType, severity, description, draftKey]);
 
   const [guidance, setGuidance] = useState<{ detail: string; synced: boolean } | null>(null);
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
@@ -139,8 +165,18 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
       setError(result.error);
       return;
     }
-    setSavedLabel("Symptom logged.");
+    setSavedLabel(
+      result.rejectedSupportCode
+        ? t("outbox.rejected", locale, { count: 1, code: result.rejectedSupportCode })
+        : result.synced === false
+          ? t("outbox.saved_on_phone", locale)
+          : "Symptom logged."
+    );
+    // Reset the whole form so the draft effect sees an empty form and clears the draft.
+    setSymptomType("other");
+    setSeverity(5);
     setDescription("");
+    void clearDraft(draftKey);
     await refreshHistory();
   }
 
@@ -165,12 +201,12 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 }}>
-            <Ionicons name="warning" size={18} color={colors.status.emergency} />
-            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.status.emergency, flexShrink: 1 }}>
+            <Ionicons name="warning" size={18} color={colors.danger} />
+            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.danger, flexShrink: 1 }}>
               Feeling something serious right now?
             </Text>
           </View>
-          <Ionicons name={dangerExpanded ? "chevron-up" : "chevron-down"} size={18} color={colors.status.emergency} />
+          <Ionicons name={dangerExpanded ? "chevron-up" : "chevron-down"} size={18} color={colors.danger} />
         </Pressable>
 
         {dangerExpanded ? (
@@ -245,7 +281,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                 paddingVertical: 6,
                 paddingHorizontal: 12,
                 borderRadius: 999,
-                backgroundColor: symptomType === t ? colors.brand : inkAlpha(0.05),
+                backgroundColor: symptomType === t ? colors.brand : colors.pressed,
               }}
             >
               <Text style={{ fontSize: 12.5, fontWeight: "600", color: symptomType === t ? "#FFFFFF" : colors.muted }}>
@@ -286,7 +322,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                     borderRadius: 999,
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: isOn ? severityChipColor(n) : inkAlpha(0.05),
+                    backgroundColor: isOn ? severityChipColor(n) : colors.pressed,
                   }}
                 >
                   <Text style={{ fontSize: 12.5, fontWeight: "700", color: isOn ? "#FFFFFF" : colors.muted }}>{n}</Text>
@@ -300,8 +336,9 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
         <View style={{ gap: 6 }}>
           <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Note (optional)</Text>
           <TextInput
+            keyboardAppearance={scheme}
             placeholder="Anything else worth telling your care team"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             value={description}
             onChangeText={setDescription}
             maxLength={500}

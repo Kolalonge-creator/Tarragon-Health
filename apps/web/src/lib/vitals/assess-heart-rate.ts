@@ -23,7 +23,11 @@ const HEART_RATE_ALERT_TITLE = "Heart rate pattern flagged for review";
  * diagnosis.
  *
  * Never throws — same best-effort contract as assessBpControlBestEffort,
- * called after every pulse vitals log regardless of source.
+ * called after every pulse vitals log regardless of source. That contract
+ * isn't internally enforced (no try/catch here — a genuine network/DB drop
+ * mid-call DOES throw); every caller SHOULD wrap it with `runBestEffort` from
+ * `@/lib/sentry/run-best-effort` (see that file's own doc comment, including
+ * for the one known caller that doesn't yet).
  */
 export async function assessHeartRateBestEffort(
   supabase: SupabaseClient<Database>,

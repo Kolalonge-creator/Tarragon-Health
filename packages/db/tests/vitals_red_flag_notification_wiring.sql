@@ -8,7 +8,7 @@
 -- pathway/template. Both must keep content_class at its 'non_clinical'
 -- default (enqueue_critical_notification never sets it) — the
 -- notifications_no_clinical_on_open_rail CHECK is the thing actually
--- keeping raw clinical detail off WhatsApp/SMS/email.
+-- keeping raw clinical detail off SMS/email.
 --
 -- Run inside a transaction that is always rolled back — nothing here should
 -- ever be committed.

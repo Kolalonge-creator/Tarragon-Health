@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { handleIfPermissionDenied } from "@/lib/audit/log-denied-action";
+import { readPatientMedicationsOrThrow, type AuditedMedication } from "@/lib/clinical/medications-audited";
 import type { Tables } from "@tarragon/shared";
 import type { AmendMedicationInput, MedicationInput } from "@/lib/validation/medications";
 import type { MedicationLogInput } from "@/lib/validation/medication-logs";
@@ -16,13 +17,7 @@ export type MedicationCollection = Tables<"pharmacy_order_dispenses">;
  * lets the "digital medicines cabinet" show what each drug is treating.
  * added_by_profile resolves the prescriber's name for the "Signed by"
  * step of the prescription status trail (added_by is a bare uuid). */
-export type MedicationWithCarePlan = Medication & {
-  care_plan: { condition: string; status: string } | null;
-  added_by_profile: { full_name: string | null } | null;
-};
-
-const MEDICATION_SELECT =
-  "*, care_plan:care_plans(condition, status), added_by_profile:profiles!medications_added_by_fkey(full_name)";
+export type MedicationWithCarePlan = AuditedMedication;
 
 function medicationsKey(patientId: string) {
   return ["medications", patientId];
@@ -50,16 +45,14 @@ export function todayIsoDate(): string {
 export function useMedications(patientId: string) {
   return useQuery({
     queryKey: medicationsKey(patientId),
+    // Each staff read writes an audit row: no refetch on focus and no retries of a refusal (mutations invalidate explicitly).
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("medications")
-        .select(MEDICATION_SELECT)
-        .eq("patient_id", patientId)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as MedicationWithCarePlan[];
+      // INV-10: staff no longer read the table directly. The audited read serves the patient, a granted caregiver and a tied clinician
+      // alike; a refusal throws, so it can never read as "no medicines".
+      return readPatientMedicationsOrThrow(createClient(), patientId, { active: true });
     },
     enabled: !!patientId,
   });
@@ -75,17 +68,12 @@ export function useMedications(patientId: string) {
 export function useStoppedMedications(patientId: string) {
   return useQuery({
     queryKey: stoppedMedicationsKey(patientId),
+    // Each staff read writes an audit row: no refetch on focus and no retries of a refusal (mutations invalidate explicitly).
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("medications")
-        .select(MEDICATION_SELECT)
-        .eq("patient_id", patientId)
-        .eq("is_active", false)
-        .order("stopped_at", { ascending: false, nullsFirst: false })
-        .order("updated_at", { ascending: false });
-      if (error) throw error;
-      return data as MedicationWithCarePlan[];
+      return readPatientMedicationsOrThrow(createClient(), patientId, { active: false });
     },
     enabled: !!patientId,
   });
@@ -144,9 +132,10 @@ export function useTodaysDoseLogs(patientId: string) {
 }
 
 /**
- * Shared by both the patient self-add and clinician-prescribe flows — RLS
- * enforces who may write what, so the two call sites just pass a different
- * `patientId`/`source`, not different query logic.
+ * Shared by the patient self-add and the clinician prescribe flows. A clinician-sourced add goes through public.prescribe_medication
+ * (INV-10, INV-12): the function checks the prescribing authority and the tie to the patient, stamps the attribution and returns the new
+ * id; staff can no longer insert into the table directly. A patient or specialist-sourced add is the patient's own insert under her
+ * own policy.
  */
 export function useAddMedication() {
   const queryClient = useQueryClient();
@@ -158,6 +147,27 @@ export function useAddMedication() {
       }
     ) => {
       const supabase = createClient();
+
+      if (input.source === "clinician") {
+        const { error } = await supabase.rpc("prescribe_medication", {
+          p_patient: input.patientId,
+          p_drug_name: input.drug_name,
+          p_dose: input.dose || undefined,
+          p_frequency: input.frequency || undefined,
+          p_refill_date: input.refill_date || undefined,
+          p_schedule_times: input.schedule_times && input.schedule_times.length > 0 ? input.schedule_times : undefined,
+          p_care_plan_id: input.care_plan_id || undefined,
+          p_route: input.route || undefined,
+          p_duration_days: input.duration_days ?? undefined,
+          p_quantity: input.quantity || undefined,
+          p_repeats_allowed: input.repeats_allowed ?? undefined,
+          p_indication: input.indication || undefined,
+          p_instructions: input.instructions || undefined,
+        });
+        if (error) throw error;
+        return;
+      }
+
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("organisation_id")
@@ -263,10 +273,12 @@ export function useConfirmMedicationRefill() {
       refillDate: string | null;
     }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("medications")
-        .update({ refill_date: refillDate })
-        .eq("id", medicationId);
+      // INV-10: staff cannot update the table directly (RLS would match zero rows and report success); the function checks the
+      // authority and the tie, and stamps last_confirmed_by/at.
+      const { error } = await supabase.rpc("confirm_medication_refill", {
+        p_medication: medicationId,
+        p_refill_date: refillDate ?? undefined,
+      });
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {
@@ -380,6 +392,29 @@ export function useLogDose() {
       queryClient.invalidateQueries({
         queryKey: todaysDoseLogsKey(variables.patientId, todayIsoDate()),
       });
+    },
+  });
+}
+
+/**
+ * The patient says a pharmacy-recorded supply did not happen (public.dispute_prescription_supply). A disputed supply stops
+ * counting toward the permitted supplies. Only the patient can do this; a false result (not theirs, not a pharmacy supply,
+ * already disputed) is an error, never a silent success.
+ */
+export function useDisputePrescriptionSupply(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ dispenseId, note }: { dispenseId: string; note?: string }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("dispute_prescription_supply", {
+        p_dispense_id: dispenseId,
+        ...(note?.trim() ? { p_note: note.trim() } : {}),
+      });
+      if (error) throw error;
+      if (data !== true) throw new Error("This supply could not be disputed. It may already have been.");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: medicationCollectionsKey(patientId) });
     },
   });
 }

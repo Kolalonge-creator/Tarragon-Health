@@ -223,6 +223,25 @@ export const acquisitionFunnelSchema = z
   .default([]);
 export type AcquisitionFunnel = z.infer<typeof acquisitionFunnelSchema>;
 
+// ---- Reputation review prompts ---------------------------------------------
+// Deliberately a request -> engagement funnel, not a "review submitted"
+// count: neither the App/Play Store native review API nor Trustpilot tells
+// this platform whether a review was actually left. `clicked` is null for
+// the native_app_store channel (there's no click to track for a native OS
+// prompt) rather than a fabricated 0.
+export const reputationReviewConversionSchema = z
+  .array(
+    z.object({
+      channel: z.string(),
+      queued: z.number().default(0),
+      engaged: z.number().default(0),
+      clicked: z.number().nullable().default(null),
+      skipped_rate_limited: z.number().default(0),
+    })
+  )
+  .default([]);
+export type ReputationReviewConversion = z.infer<typeof reputationReviewConversionSchema>;
+
 // ---- Engagement ------------------------------------------------------------
 export const engagementSummarySchema = z.object({
   dau: z.number().default(0),

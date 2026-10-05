@@ -5,8 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 export type UpdateCommunicationPreferencesState = { success?: boolean; error?: string } | undefined;
 
 // Kept in sync with communication-preferences-form.tsx's CHANNEL_OPTIONS:
-// whatsapp/sms are excluded — both are currently dead channels, see that
-// file's comment and the paired private.remap_notification_channel() fix.
+// sms is excluded: it is reserved for verification codes and clinician paging.
 const VALID_CHANNELS = ["email", "push"] as const;
 
 /**

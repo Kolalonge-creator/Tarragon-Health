@@ -1,10 +1,14 @@
 "use client";
 
+import { parseCredentialEdit } from "@/lib/clinical/credential-edit";
 import { useEffect, useMemo, useState } from "react";
 import {
   useAllClinicalStaff,
   useCreateClinicalStaff,
   useUpdateClinicalStaff,
+  useSetClinicalStaffSignature,
+  useRemoveClinicalStaffSignature,
+  useSignaturePreviewUrl,
   useVerifyClinicalStaff,
   useSetClinicalStaffActive,
   useSetClinicalStaffOffersTherapy,
@@ -35,6 +39,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
+import { formatYearsOfExperience } from "@/lib/clinical/format-years-of-experience";
 import { SearchableList } from "@/components/ui/searchable-list";
 import { SPECIALIST_TYPE_LABEL } from "@tarragon/shared";
 
@@ -59,6 +64,18 @@ function needsIndemnity(staff: Pick<ClinicalStaff, "doctor_tier" | "employment_t
     staff.doctor_tier === "chief_medical_officer" ||
     (staff.doctor_tier === "senior_medical_officer" && staff.employment_type === "contracted")
   );
+}
+
+/** Parses the raw "Years of experience" input, clamping to the DB's own
+ * `clinical_staff_years_of_experience_range` CHECK (0-80) and rejecting
+ * non-integer input client-side — a number input's min/max attributes don't
+ * stop a typed 999 or 5.5 from being submitted, which would otherwise
+ * surface as a raw Postgres CHECK-constraint error via create.isError. */
+function parseYearsOfExperience(raw: string): number | null {
+  if (!raw.trim()) return null;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed)) return null;
+  return Math.min(80, Math.max(0, parsed));
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -254,11 +271,90 @@ function IndemnityForm({
   );
 }
 
-/** Edits speciality/bio/photo on an existing record — the fields the manager had no way to change after "Add clinical staff". */
+
+/**
+ * The doctor's signature image, printed on their prescriptions. Admin-only (enforced in the database and the private
+ * bucket, not just here). It is the doctor's own signature, so the admin confirms the doctor has agreed before an upload.
+ */
+function SignatureSection({ staff }: { staff: ClinicalStaff }) {
+  const setSignature = useSetClinicalStaffSignature();
+  const removeSignature = useRemoveClinicalStaffSignature();
+  const preview = useSignaturePreviewUrl(staff.signature_path);
+  const [file, setFile] = useState<File | null>(null);
+  const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div className="mt-3 rounded-lg border border-charcoal-ink/10 p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/60">Signature on prescriptions</p>
+      {staff.signature_path ? (
+        <div className="mt-2 flex items-center gap-3">
+          {preview.data ? (
+            // The bucket is private, so this is a short-lived signed URL; a plain img is the right element.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview.data} alt={`${staff.full_name}'s signature`} className="h-12 max-w-[200px] rounded border border-charcoal-ink/10 bg-white object-contain p-1" />
+          ) : (
+            <span className="text-sm text-charcoal-ink/60">{preview.isError ? "Could not load the preview." : "Loading…"}</span>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={removeSignature.isPending}
+            onClick={() => removeSignature.mutate(staff, { onError: (e) => setError((e as Error).message) })}
+          >
+            {removeSignature.isPending ? "Removing…" : "Remove signature"}
+          </Button>
+        </div>
+      ) : (
+        <p className="mt-1 text-sm text-charcoal-ink/60">None on file. Prescriptions print the electronic-signature stamp only.</p>
+      )}
+      <div className="mt-3 space-y-2">
+        <Input
+          type="file"
+          accept="image/png,image/jpeg"
+          aria-label="Signature image"
+          onChange={(event) => {
+            setFile(event.target.files?.[0] ?? null);
+            setError(null);
+          }}
+        />
+        <p className="text-xs text-charcoal-ink/60">
+          PNG or JPG up to 1 MB, signed in dark ink on white paper or a transparent background, photographed or scanned straight on.
+        </p>
+        <label className="flex items-start gap-2 text-sm text-charcoal-ink/70">
+          <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} className="mt-1" />
+          <span>This doctor has agreed to their signature being printed on their prescriptions.</span>
+        </label>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {setSignature.isError && <p className="text-sm text-red-600">{(setSignature.error as Error).message}</p>}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!file || !agreed || setSignature.isPending}
+          onClick={() => {
+            if (!file) return;
+            setError(null);
+            setSignature.mutate({ staff, file }, { onSuccess: () => { setFile(null); setAgreed(false); } });
+          }}
+        >
+          {setSignature.isPending ? "Uploading…" : staff.signature_path ? "Replace signature" : "Upload signature"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Edits speciality/bio/years-of-experience/photo on an existing record — the fields the manager had no way to change after "Add clinical staff". Years of experience (alongside speciality) is the patient-facing credibility line — see reviewed-by-doctor.tsx — replacing the MDCN/NMCN credential number, which stays below for internal licence verification only. */
 function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone: () => void }) {
   const update = useUpdateClinicalStaff();
   const [specialty, setSpecialty] = useState(staff.specialty ?? "");
   const [bio, setBio] = useState(staff.bio ?? "");
+  const [yearsOfExperience, setYearsOfExperience] = useState(
+    staff.years_of_experience != null ? String(staff.years_of_experience) : ""
+  );
+  const [credType, setCredType] = useState(staff.credential_type ?? "");
+  const [credNumber, setCredNumber] = useState(staff.credential_number ?? "");
+  const [credError, setCredError] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
 
@@ -305,32 +401,70 @@ function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone
           value={specialty}
           onChange={(e) => setSpecialty(e.target.value)}
         />
-        <Textarea
-          placeholder="Bio"
-          rows={2}
-          value={bio}
-          onChange={(e) => setBio(e.target.value)}
+        <Input
+          type="number"
+          min={0}
+          max={80}
+          placeholder="Years of experience"
+          value={yearsOfExperience}
+          onChange={(e) => setYearsOfExperience(e.target.value)}
         />
       </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <Input
+          aria-label="Registration body"
+          placeholder="Registration body (e.g. MDCN)"
+          value={credType}
+          onChange={(e) => setCredType(e.target.value)}
+        />
+        <Input
+          aria-label="Registration number"
+          placeholder="Registration number"
+          value={credNumber}
+          onChange={(e) => setCredNumber(e.target.value)}
+        />
+      </div>
+      <p className="mt-1 text-xs text-charcoal-ink/60">
+        The number printed on this doctor&apos;s prescriptions. Changing it clears the &ldquo;credential verified&rdquo; mark until
+        it is checked again.
+      </p>
+      {credError && <p className="mt-1 text-sm text-red-600">{credError}</p>}
+      <Textarea
+        className="mt-2"
+        placeholder="Bio"
+        rows={2}
+        value={bio}
+        onChange={(e) => setBio(e.target.value)}
+      />
       {update.isError && <p className="mt-2 text-sm text-red-600">{(update.error as Error).message}</p>}
       <div className="mt-2 flex items-center gap-2">
         <Button
           size="sm"
           variant="outline"
           disabled={update.isPending}
-          onClick={() =>
+          onClick={() => {
+            const credential = parseCredentialEdit({ credentialType: credType, credentialNumber: credNumber }, staff);
+            if (credential.status === "error") {
+              setCredError(credential.message);
+              return;
+            }
+            setCredError(null);
             update.mutate(
               {
                 clinicalStaffId: staff.id,
                 organisationId: staff.organisation_id,
                 specialty,
                 bio,
+                yearsOfExperience: parseYearsOfExperience(yearsOfExperience),
+                ...(credential.status === "ok"
+                  ? { credentialType: credential.credentialType, credentialNumber: credential.credentialNumber }
+                  : {}),
                 photoFile: photoFile ?? undefined,
                 removePhoto,
               },
               { onSuccess: onDone }
-            )
-          }
+            );
+          }}
         >
           {update.isPending ? "Saving…" : "Save"}
         </Button>
@@ -338,6 +472,7 @@ function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone
           Cancel
         </Button>
       </div>
+      <SignatureSection staff={staff} />
     </div>
   );
 }
@@ -468,6 +603,7 @@ export function ClinicalStaffManager() {
   const [credentialType, setCredentialType] = useState("");
   const [credentialNumber, setCredentialNumber] = useState("");
   const [specialty, setSpecialty] = useState("");
+  const [yearsOfExperience, setYearsOfExperience] = useState("");
   const [bio, setBio] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -580,10 +716,31 @@ export function ClinicalStaffManager() {
               />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="specialty">Speciality (optional)</Label>
-            <Input id="specialty" value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="specialty">Speciality (optional)</Label>
+              <Input id="specialty" value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="years-of-experience">Years of experience (optional)</Label>
+              <Input
+                id="years-of-experience"
+                type="number"
+                min={0}
+                max={80}
+                value={yearsOfExperience}
+                onChange={(e) => setYearsOfExperience(e.target.value)}
+              />
+            </div>
           </div>
+          <p className="text-xs text-charcoal-ink/60">
+            Speciality and years of experience appear only on this doctor&apos;s profile page
+            (/patient/doctor/…) — every other patient-facing mention (messages, timeline,
+            escalations) shows just their name, linked to that page. Not the credential number
+            above, which Nigerian patients don&apos;t recognise as a trust signal (founder decision
+            2026-09-25/2026-09-26). The credential fields remain required for internal licence
+            verification only.
+          </p>
           <div className="space-y-1.5">
             <Label htmlFor="bio">Bio (optional)</Label>
             <Textarea id="bio" rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
@@ -626,6 +783,7 @@ export function ClinicalStaffManager() {
                   credentialType: credentialType.trim(),
                   credentialNumber: credentialNumber.trim(),
                   specialty: specialty.trim(),
+                  yearsOfExperience: parseYearsOfExperience(yearsOfExperience),
                   bio: bio.trim(),
                   profilePhone: profilePhone.trim(),
                   photoFile: photoFile ?? undefined,
@@ -636,6 +794,7 @@ export function ClinicalStaffManager() {
                     setCredentialType("");
                     setCredentialNumber("");
                     setSpecialty("");
+                    setYearsOfExperience("");
                     setBio("");
                     setProfilePhone("");
                     setPhotoFile(null);
@@ -694,6 +853,14 @@ export function ClinicalStaffManager() {
                           {s.full_name}
                           <span className="text-charcoal-ink/60">, {tierLabel}</span>
                         </p>
+                        {(s.specialty || s.years_of_experience != null) && (
+                          <p className="text-xs text-charcoal-ink/60">
+                            {[s.specialty, formatYearsOfExperience(s.years_of_experience)]
+                              .filter(Boolean)
+                              .join(" · ")}
+                            <span className="text-charcoal-ink/40"> (shown on this doctor&apos;s profile page)</span>
+                          </p>
+                        )}
                         <p className="text-xs text-charcoal-ink/60">
                           {s.staff_number && (
                             <span className="font-medium text-charcoal-ink/70">{s.staff_number} · </span>

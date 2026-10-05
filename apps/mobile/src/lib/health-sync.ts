@@ -62,28 +62,40 @@ export type HealthSyncResult =
       queued?: number;
     };
 
-export async function syncAppleHealth(): Promise<HealthSyncResult> {
+/**
+ * promptForPermission is true only when the patient pressed Connect or Sync on
+ * the Devices tab. Automatic runs (the background task, the live change
+ * subscription at app launch) pass false: they must never raise the iOS Health
+ * sheet or the Health Connect screen on their own, because a patient who never
+ * opted in would be asked at every launch. Reads with no permission simply
+ * return nothing.
+ */
+export interface HealthSyncOptions {
+  promptForPermission?: boolean;
+}
+
+export async function syncAppleHealth({ promptForPermission = true }: HealthSyncOptions = {}): Promise<HealthSyncResult> {
   // Flushed unconditionally, before the availability check: a page queued on
   // a previous sync attempt deserves a retry even if HealthKit itself has
   // since become unavailable (e.g. permission revoked) — those bytes are
   // already captured and only need a network path, not HealthKit itself.
   const { flushedSamples } = await flushHealthSamplesQueue("apple_health");
   if (!(await isHealthKitAvailable())) return { status: "unavailable" };
-  // Safe to call on every sync: iOS shows the sheet only for types the
-  // patient has not already answered for.
-  await requestHealthKitPermissions();
+  // Safe to call on every explicit sync: iOS shows the sheet only for types the
+  // patient has not already answered for. Never from an automatic run.
+  if (promptForPermission) await requestHealthKitPermissions();
   return withRecovered(
     await syncHealthReadings("apple_health", HEALTHKIT_INITIAL_WINDOW_DAYS, readHealthSamples),
     flushedSamples
   );
 }
 
-export async function syncHealthConnect(): Promise<HealthSyncResult> {
+export async function syncHealthConnect({ promptForPermission = true }: HealthSyncOptions = {}): Promise<HealthSyncResult> {
   const { flushedSamples } = await flushHealthSamplesQueue("android_health_connect");
   if (!(await isHealthConnectAvailable())) return { status: "unavailable" };
-  // Safe to call on every sync: Health Connect's own permission screen only
-  // prompts for types not already answered.
-  await requestHealthConnectPermissions();
+  // Safe to call on every explicit sync: Health Connect's own permission screen
+  // only prompts for types not already answered. Never from an automatic run.
+  if (promptForPermission) await requestHealthConnectPermissions();
   return withRecovered(
     await syncHealthReadings(
       "android_health_connect",

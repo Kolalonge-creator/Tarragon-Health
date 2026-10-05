@@ -5,22 +5,94 @@ import type { Tables } from "@tarragon/shared";
 export type PharmacyMedication = Tables<"pharmacy_medications">;
 export type PharmacyPartner = Tables<"pharmacy_partners">;
 
+type PharmacyPartnerSummary = Pick<
+  PharmacyPartner,
+  "id" | "name" | "delivery" | "regions" | "address" | "latitude" | "longitude" | "state" | "city" | "area" | "delivery_fee_kobo"
+>;
+
 export type PharmacyMedicationWithPartner = PharmacyMedication & {
-  pharmacy_partner: Pick<
-    PharmacyPartner,
-    | "id"
-    | "name"
-    | "delivery"
-    | "regions"
-    | "address"
-    | "latitude"
-    | "longitude"
-    | "state"
-    | "city"
-    | "area"
-    | "delivery_fee_kobo"
-  > | null;
+  pharmacy_partner: PharmacyPartnerSummary | null;
 };
+
+/**
+ * `pharmacy_partner` used to be embedded directly via
+ * `pharmacy_partners!pharmacy_medications_pharmacy_partner_id_fkey(...)` — a
+ * PostgREST embedded join, which resolves against pharmacy_partners' OWN
+ * RLS, not this query's own. Since 2026-09-25
+ * (20260925023144_restrict_lab_pharmacy_partner_read_to_safe_columns.sql)
+ * that policy no longer admits a patient session, so the embed would
+ * silently come back null for every medication. Fetched separately from
+ * public.pharmacy_partner_directory (the safe-column view every other
+ * patient-facing read of pharmacy_partners now uses) and merged
+ * client-side instead.
+ *
+ * The `.eq("is_active", true)` filter below is deliberate and query-level,
+ * unlike every other filter on this table: the directory view itself
+ * carries every partner row regardless of status (see
+ * 20260925024716_fix_lab_pharmacy_directory_active_filter_and_replay_guard.sql
+ * — a patient's own past order still needs to show which partner it was
+ * even after that partner goes inactive), so a bookable *catalogue* has to
+ * filter it out itself. Combined with attachPharmacyPartners below dropping
+ * any row whose partner id has no matching (i.e. active) directory row, a
+ * medication whose partner had gone inactive is excluded outright — it was
+ * previously still bookable with the patient shown no identifying info at
+ * all, because the location filter's "no structured address, don't hide
+ * it" escape hatch also matched a null partner.
+ */
+async function fetchPharmacyPartners(
+  supabase: ReturnType<typeof createClient>,
+  partnerIds: string[],
+): Promise<Map<string, PharmacyPartnerSummary>> {
+  const partnerById = new Map<string, PharmacyPartnerSummary>();
+  if (partnerIds.length === 0) return partnerById;
+  const { data, error } = await supabase
+    .from("pharmacy_partner_directory")
+    .select("id, name, delivery, regions, address, latitude, longitude, state, city, area, delivery_fee_kobo")
+    .eq("is_active", true)
+    .in("id", partnerIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    partnerById.set(row.id, {
+      id: row.id,
+      name: row.name ?? "",
+      delivery: row.delivery ?? false,
+      regions: row.regions ?? [],
+      address: row.address,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      state: row.state,
+      city: row.city,
+      area: row.area,
+      delivery_fee_kobo: row.delivery_fee_kobo,
+    });
+  }
+  return partnerById;
+}
+
+/** Exported for direct testing (see pharmacy-orders.test.ts) — not part of the public hook API. */
+export async function attachPharmacyPartners(
+  supabase: ReturnType<typeof createClient>,
+  rows: PharmacyMedication[],
+): Promise<PharmacyMedicationWithPartner[]> {
+  const partnerIds = Array.from(
+    new Set(rows.map((r) => r.pharmacy_partner_id).filter((id): id is string => !!id)),
+  );
+  const partnerById = await fetchPharmacyPartners(supabase, partnerIds);
+  // A medication whose partner is missing or inactive is dropped outright,
+  // not returned with pharmacy_partner: null — this is a bookable catalogue,
+  // and the old embed's behaviour (no is_active filter at all) never let an
+  // inactive partner's medications appear here in the first place. See the
+  // comment on fetchPharmacyPartners for why this is different from every
+  // other directory-view consumer in this codebase, which deliberately keep
+  // an inactive-partner row (attribution, not a picker).
+  return rows
+    .filter((row) => !!row.pharmacy_partner_id && partnerById.has(row.pharmacy_partner_id))
+    .map((row) => ({
+      ...row,
+      pharmacy_partner: partnerById.get(row.pharmacy_partner_id as string) ?? null,
+    }));
+}
 
 /** Active pharmacy_medications joined to their partner — every seeded row is directly bookable (no catalogue gap like lab's panel_bundle workaround). Partner address/coordinates power nearest-pharmacy selection. */
 export function usePharmacyCatalogue() {
@@ -30,13 +102,11 @@ export function usePharmacyCatalogue() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("pharmacy_medications")
-        .select(
-          "*, pharmacy_partner:pharmacy_partners!pharmacy_medications_pharmacy_partner_id_fkey(id, name, delivery, regions, address, latitude, longitude, state, city, area, delivery_fee_kobo)",
-        )
+        .select("*")
         .eq("is_active", true)
         .order("drug_name", { ascending: true });
       if (error) throw error;
-      return data as PharmacyMedicationWithPartner[];
+      return attachPharmacyPartners(supabase, (data ?? []) as PharmacyMedication[]);
     },
   });
 }

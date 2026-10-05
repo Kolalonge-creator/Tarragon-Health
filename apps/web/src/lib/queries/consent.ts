@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Tables } from "@tarragon/shared";
+import { outstandingRequired, type Tables } from "@tarragon/shared";
 
 export type ConsentVersion = Tables<"consent_versions">;
 export type PatientConsent = Tables<"patient_consents">;
@@ -14,6 +14,10 @@ export const CONSENT_TYPE_LABEL: Record<string, string> = {
   marketing: "Marketing communications",
   research: "Research use",
   wearable_device_data: "Wearable device data",
+  care: "Care",
+  care_circle_sharing: "Sharing with your Care Circle",
+  sponsor_reporting: "Reporting to a sponsor",
+  scribe_default: "Note-taking during consultations",
 };
 
 /** The consent text every new patient must accept, one row per consent type. */
@@ -51,12 +55,11 @@ export function usePatientConsents(patientId: string) {
 }
 
 /**
- * Which of the patient's current consent types have no matching
- * patient_consents row for the CURRENT version — i.e. never accepted, or
- * accepted an older version that a subsequent consent_versions bump has
- * superseded. Shared by ConsentStatusPanel (the review UI) and
- * ConsentNudgeBanner (the dashboard-wide nudge) so the two can never
- * disagree about what counts as outstanding.
+ * The patient's current REQUIRED consent types that are not in force: never accepted, accepted only at an older
+ * version a later bump superseded, or withdrawn. Optional purposes are a choice and never appear here. "In force" is
+ * decided by consentStateFor, which mirrors private.has_required_consents, so this and the database cannot disagree
+ * (this used to treat a withdrawn consent as accepted). Shared by ConsentStatusPanel (the review UI) and
+ * ConsentNudgeBanner (the dashboard-wide nudge) so the two can never disagree about what counts as outstanding.
  */
 export function useOutstandingConsentTypes(patientId: string) {
   const currentVersions = useCurrentConsentVersions();
@@ -65,12 +68,7 @@ export function useOutstandingConsentTypes(patientId: string) {
   const versions = currentVersions.data ?? [];
   const accepted = patientConsents.data ?? [];
 
-  const outstanding = versions.filter(
-    (version) =>
-      !accepted.some(
-        (consent) => consent.consent_type === version.consent_type && consent.version === version.version
-      )
-  );
+  const outstanding = outstandingRequired(versions, accepted);
 
   return {
     versions,

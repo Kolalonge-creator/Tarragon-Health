@@ -28,6 +28,11 @@
 -- Run: npx supabase db query --linked -f packages/db/tests/prescription_fields_confirm_only.sql
 -- Nothing here persists -- the whole file runs inside begin/rollback.
 
+-- S05f (INV-10): staff can no longer reach medications directly (the staff policies are gone), so the TRIGGER cases below run as the
+-- table owner with the staff member's identity in the JWT claims: RLS is bypassed, but private.enforce_medication_confirm_only and
+-- private.stamp_medication_added_by still see auth.uid() and are exercised exactly as before. The function path (tie, authority) is
+-- proved in s05f_medications_tie_gated_writes.sql.
+
 begin;
 
 create temporary table test_result (
@@ -87,7 +92,6 @@ begin
   begin
     perform set_config('request.jwt.claims',
       json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
-    perform set_config('role', 'authenticated', true);
     update public.medications set route = 'Intravenous' where id = v_med;
   exception when insufficient_privilege then
     v_blocked := true;
@@ -113,7 +117,6 @@ begin
   begin
     perform set_config('request.jwt.claims',
       json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
-    perform set_config('role', 'authenticated', true);
     update public.medications set instructions = 'Take on empty stomach' where id = v_med;
   exception when insufficient_privilege then
     v_blocked := true;
@@ -137,7 +140,6 @@ begin
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
-  perform set_config('role', 'authenticated', true);
   update public.medications set refill_date = current_date + 30 where id = v_med;
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
@@ -161,7 +163,6 @@ begin
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
-  perform set_config('role', 'authenticated', true);
   update public.medications set route = 'Subcutaneous' where id = v_med;
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
@@ -180,7 +181,6 @@ begin
   -- prescription to the patient instead of themselves.
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
-  perform set_config('role', 'authenticated', true);
   insert into public.medications (
     organisation_id, patient_id, drug_name, dose, frequency, source,
     is_active, added_by

@@ -9,15 +9,15 @@ import { Button } from "@/components/ui/button";
  * root not-found page — warm, branded, and pointing back somewhere useful —
  * instead of Next's unbranded default error screen.
  *
- * Next 16: `unstable_retry` re-fetches and re-renders the failed segment;
- * the legacy `reset` prop only re-renders without re-fetching.
+ * Next 16: `retry` re-fetches and re-renders the failed segment; the legacy
+ * `reset` prop only re-renders without re-fetching.
  */
 export default function MarketingError({
   error,
-  unstable_retry,
+  retry,
 }: {
   error: Error & { digest?: string };
-  unstable_retry: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error(error);
@@ -34,7 +34,7 @@ export default function MarketingError({
         page and start from there.
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
-        <Button size="lg" onClick={() => unstable_retry()}>
+        <Button size="lg" onClick={() => retry()}>
           Try again
         </Button>
         <Button asChild variant="outline" size="lg">

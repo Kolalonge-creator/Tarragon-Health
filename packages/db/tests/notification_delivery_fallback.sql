@@ -1,5 +1,10 @@
 -- Tarragon Health — notification delivery-state + forced-channel fallback verification
 --
+-- Updated 2026-09-30 for the removal of a retired channel: the signed
+-- escalation_slas config may still name whatsapp, so the normalizer reads that
+-- token as email and every ladder keeps its length (push, email, sms).
+-- A final sabotage section proves the ladder and helper checks can fail.
+--
 -- Covers the six migrations that shipped 2026-07-30 (part 1/6-6/6, plus the
 -- base-grants fix) with no SQL test in the worktree at merge time — this
 -- closes that gap after the fact, matching this codebase's convention of a
@@ -9,8 +14,8 @@
 -- Proves: (1) escalation_channel_sequence resolves a real live pathway/tier
 -- and fails loud on an unknown one; (2) normalize_escalation_channels maps
 -- every real config token shape seen in escalation_slas (plain channel,
--- "_nudge" variant, "push, batched" digest form, and a non-channel mechanism
--- like next_of_kin_call_if_unacknowledged) to the right notification_channel
+-- a retired whatsapp / whatsapp_nudge token read as email, "push, batched"
+-- digest form, and a non-channel mechanism like next_of_kin_call_if_unacknowledged) to the right notification_channel
 -- or drops it; (3) enqueue_critical_notification opens hop 1 correctly;
 -- (4) the escalation engine's five real behaviours — opened rows never
 -- escalate, a definitively-failed row escalates immediately with no wait, a
@@ -18,8 +23,9 @@
 -- advancing, an exhausted chain is recorded in
 -- notification_escalation_failures + fans out one in_app row per admin, and
 -- a second run of the same tick is idempotent (on conflict do nothing);
--- (5) the push-first channel remap (push subscription beats whatsapp, an
--- explicit voice preference beats push); (6) push_subscriptions RLS isolates
+-- (5) the patient reminder channel helper private.patient_reminder_channel
+-- (push subscription beats in_app, an email preference is honoured only when
+-- allowed, a stale voice preference never wins); (6) push_subscriptions RLS isolates
 -- one patient's device registration from another's; (7) touch_last_active()
 -- only ever touches the caller's own row.
 --
@@ -38,8 +44,11 @@ declare
   v_seq text[];
 begin
   v_seq := private.escalation_channel_sequence('screening_abnormal_result', 'emergency');
-  if v_seq <> array['push', 'whatsapp', 'sms'] then
-    raise exception 'FAIL: screening_abnormal_result/emergency channel_sequence = % (expected push,whatsapp,sms)', v_seq;
+  -- The raw signed config may still name a retired channel token, so assert
+  -- the ladder as the engine reads it (normalized), not the raw tokens.
+  if private.normalize_escalation_channels(v_seq) <> array['push', 'email', 'sms']::public.notification_channel[] then
+    raise exception 'FAIL: screening_abnormal_result/emergency channel_sequence = % (normalized %, expected push,email,sms)',
+      v_seq, private.normalize_escalation_channels(v_seq);
   end if;
   raise notice 'PASS 1a: escalation_channel_sequence resolves the live screening_abnormal_result/emergency ladder';
 
@@ -62,14 +71,21 @@ do $$
 declare
   v_out public.notification_channel[];
 begin
-  v_out := private.normalize_escalation_channels(array['push', 'whatsapp', 'sms']);
-  if v_out <> array['push', 'whatsapp', 'sms']::public.notification_channel[] then
+  v_out := private.normalize_escalation_channels(array['push', 'email', 'sms']);
+  if v_out <> array['push', 'email', 'sms']::public.notification_channel[] then
     raise exception 'FAIL: plain channel tokens did not pass through unchanged: %', v_out;
   end if;
 
+  -- A retired whatsapp token (still present in signed config) is read as email,
+  -- keeping the ladder the same length rather than shortening it.
+  v_out := private.normalize_escalation_channels(array['push', 'whatsapp', 'sms']);
+  if v_out <> array['push', 'email', 'sms']::public.notification_channel[] then
+    raise exception 'FAIL: a retired whatsapp token did not normalize to email: %', v_out;
+  end if;
+
   v_out := private.normalize_escalation_channels(array['push', 'whatsapp_nudge']);
-  if v_out <> array['push', 'whatsapp']::public.notification_channel[] then
-    raise exception 'FAIL: whatsapp_nudge did not normalize to whatsapp: %', v_out;
+  if v_out <> array['push', 'email']::public.notification_channel[] then
+    raise exception 'FAIL: a retired whatsapp_nudge token did not normalize to email: %', v_out;
   end if;
 
   v_out := private.normalize_escalation_channels(array['push, batched']);
@@ -85,12 +101,12 @@ begin
   -- next_of_kin_call_if_unacknowledged is a distinct mechanism (a real phone
   -- call driven by private.notify_unacknowledged_emergencies), not a
   -- notification_channel value — must be dropped, not mis-mapped.
-  v_out := private.normalize_escalation_channels(array['push', 'whatsapp', 'sms', 'next_of_kin_call_if_unacknowledged']);
-  if v_out <> array['push', 'whatsapp', 'sms']::public.notification_channel[] then
+  v_out := private.normalize_escalation_channels(array['push', 'email', 'sms', 'next_of_kin_call_if_unacknowledged']);
+  if v_out <> array['push', 'email', 'sms']::public.notification_channel[] then
     raise exception 'FAIL: next_of_kin_call_if_unacknowledged was not dropped: %', v_out;
   end if;
 
-  raise notice 'PASS 2: normalize_escalation_channels handles plain/nudge/batched/digest/non-channel tokens correctly';
+  raise notice 'PASS 2: normalize_escalation_channels handles plain/retired-token/nudge/batched/digest/non-channel tokens correctly';
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -123,7 +139,7 @@ begin
     (v_recipient_profile, 'notif-fallback-test-recipient@example.invalid', 'x', now(), '{}', '{}'),
     (v_other_patient_profile, 'notif-fallback-test-other@example.invalid', 'x', now(), '{}', '{}');
 
-  update public.profiles set organisation_id = v_org, role = 'doctor', full_name = 'Notif Fallback Test Recipient'
+  update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Notif Fallback Test Recipient'
     where id = v_recipient_profile;
   update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Notif Fallback Test Other Patient'
     where id = v_other_patient_profile;
@@ -164,14 +180,14 @@ begin
   perform private.escalate_unconfirmed_critical_notifications();
   select id, channel, escalation_hop into v_hop2_id, v_row.channel, v_row.escalation_hop
     from public.notifications where escalated_from_id = v_hop1_failed;
-  if v_hop2_id is null or v_row.channel <> 'whatsapp' or v_row.escalation_hop <> 2 then
-    raise exception 'FAIL: a failed hop-1 (push) row did not immediately escalate to hop 2 (whatsapp): id=% channel=% hop=%',
+  if v_hop2_id is null or v_row.channel <> 'email' or v_row.escalation_hop <> 2 then
+    raise exception 'FAIL: a failed hop-1 (push) row did not immediately escalate to hop 2 (email): id=% channel=% hop=%',
       v_hop2_id, v_row.channel, v_row.escalation_hop;
   end if;
   raise notice 'PASS 4b: a status=failed critical notification escalates immediately with no wait';
 
   -- ---- Part 4c: sent-but-unconfirmed waits out its share of the SLA window. ----
-  -- screening_abnormal_result/emergency = 120 min over 3 hops -> 40 min/hop,
+  -- screening_abnormal_result/emergency = 720 min over 3 hops -> 240 min/hop (live config),
   -- floored/greatest(2, ...) unaffected. A row sent 5 minutes ago must NOT
   -- yet escalate.
   insert into public.notifications
@@ -189,9 +205,10 @@ begin
   raise notice 'PASS 4c: a sent-but-unconfirmed row within its SLA-hop window does not yet escalate';
 
   -- ---- Part 4d: once that window elapses, it does escalate. ----
-  update public.notifications set sent_at = now() - interval '45 minutes' where id = v_hop1_recent;
+  -- 13 hours is past any per-hop share of the live emergency SLA (720 min over 3 hops = 240 min).
+  update public.notifications set sent_at = now() - interval '13 hours' where id = v_hop1_recent;
   perform private.escalate_unconfirmed_critical_notifications();
-  if not exists (select 1 from public.notifications where escalated_from_id = v_hop1_recent and channel = 'whatsapp' and escalation_hop = 2) then
+  if not exists (select 1 from public.notifications where escalated_from_id = v_hop1_recent and channel = 'email' and escalation_hop = 2) then
     raise exception 'FAIL: a row past its SLA-hop window did not escalate to hop 2';
   end if;
   raise notice 'PASS 4d: a sent-but-unconfirmed row past its SLA-hop window escalates to the next channel';
@@ -243,39 +260,42 @@ begin
   raise notice 'PASS 4e: an exhausted ladder records exactly one failure row + one admin fanout per admin, idempotent on re-run';
 
   -- ---------------------------------------------------------------------------
-  -- Part 5: push-first channel remap trigger.
+  -- Part 5: the patient reminder channel helper (replaces the push-first
+  -- remap trigger).
   -- ---------------------------------------------------------------------------
-  -- 5a: no push subscription, no voice preference -> a queued whatsapp row
-  -- stays whatsapp (unchanged default).
-  insert into public.notifications (organisation_id, recipient_id, channel, template, payload)
-  values (v_org, v_recipient, 'whatsapp', 'test_remap_template', '{}'::jsonb)
-  returning channel into v_row.channel;
-  if v_row.channel <> 'whatsapp' then
-    raise exception 'FAIL: whatsapp remained mis-remapped with no push subscription on file: %', v_row.channel;
+  -- 5a: no push subscription, no preference -> in_app.
+  if private.patient_reminder_channel(v_recipient) <> 'in_app' then
+    raise exception 'FAIL: with no push subscription the reminder channel was %, expected in_app',
+      private.patient_reminder_channel(v_recipient);
   end if;
 
-  -- 5b: an active push subscription beats whatsapp.
+  -- 5b: an active push subscription beats in_app.
   insert into public.push_subscriptions (organisation_id, profile_id, endpoint, p256dh_key, auth_key)
   values (v_org, v_recipient, 'https://push.example.invalid/notif-fallback-test-endpoint', 'p256dh-test-key', 'auth-test-key');
 
-  insert into public.notifications (organisation_id, recipient_id, channel, template, payload)
-  values (v_org, v_recipient, 'whatsapp', 'test_remap_template', '{}'::jsonb)
-  returning channel into v_row.channel;
-  if v_row.channel <> 'push' then
-    raise exception 'FAIL: a queued whatsapp row was not remapped to push despite an active subscription: %', v_row.channel;
+  if private.patient_reminder_channel(v_recipient) <> 'push' then
+    raise exception 'FAIL: an active push subscription did not produce the push reminder channel: %',
+      private.patient_reminder_channel(v_recipient);
   end if;
-  raise notice 'PASS 5a-5b: whatsapp stays whatsapp with no push subscription, remaps to push once one exists';
+  raise notice 'PASS 5a-5b: reminder channel is in_app with no push subscription, push once one exists';
 
-  -- 5c: an explicit voice preference wins over push, even with an active subscription on file.
+  -- 5c: a stale voice preference never wins over push (voice is unreachable).
   update public.profiles set preferred_reminder_channel = 'voice' where id = v_recipient;
-  insert into public.notifications (organisation_id, recipient_id, channel, template, payload)
-  values (v_org, v_recipient, 'whatsapp', 'test_remap_template', '{}'::jsonb)
-  returning channel into v_row.channel;
-  if v_row.channel <> 'voice' then
-    raise exception 'FAIL: an explicit voice preference did not win over an active push subscription: %', v_row.channel;
+  if private.patient_reminder_channel(v_recipient) <> 'push' then
+    raise exception 'FAIL: a stale voice preference changed the reminder channel: %', private.patient_reminder_channel(v_recipient);
   end if;
   update public.profiles set preferred_reminder_channel = null where id = v_recipient;
-  raise notice 'PASS 5c: an explicit voice preference wins over push';
+
+  -- 5d: an email preference is honoured, but only when the caller allows email.
+  update public.profiles set notification_channel_preference = 'email' where id = v_recipient;
+  if private.patient_reminder_channel(v_recipient) <> 'email' then
+    raise exception 'FAIL: an email preference was not honoured: %', private.patient_reminder_channel(v_recipient);
+  end if;
+  if private.patient_reminder_channel(v_recipient, false) <> 'push' then
+    raise exception 'FAIL: allow_email=false still returned email: %', private.patient_reminder_channel(v_recipient, false);
+  end if;
+  update public.profiles set notification_channel_preference = null where id = v_recipient;
+  raise notice 'PASS 5c-5d: a voice preference never wins; an email preference is honoured only when allowed';
 
   -- ---------------------------------------------------------------------------
   -- Part 6: push_subscriptions RLS isolates one patient's device from another's.
@@ -313,6 +333,50 @@ begin
   raise notice 'PASS 7: touch_last_active() stamps only the calling session''s own profile';
 
   raise notice 'ALL NOTIFICATION-DELIVERY-FALLBACK CHECKS PASSED';
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Part 8: SABOTAGE. The naive removal (drop the whatsapp token from the ladder)
+-- shortens it, and a helper that ignores push subscriptions never picks push.
+-- Each sabotaged function must make the matching check above fail; the
+-- sabotage is undone inside the sub-block.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_org uuid;
+  v_pat uuid := gen_random_uuid();
+  v_out public.notification_channel[];
+  v_ch public.notification_channel;
+begin
+  select id into v_org from public.organisations limit 1;
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_pat, 'notif-fallback-sabotage@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Notif Fallback Sabotage' where id = v_pat;
+  insert into public.push_subscriptions (organisation_id, profile_id, endpoint, p256dh_key, auth_key)
+  values (v_org, v_pat, 'https://push.example.invalid/sabotage-endpoint', 'k', 'a');
+
+  begin
+    create or replace function private.normalize_escalation_channels(p_raw text[])
+    returns public.notification_channel[] language sql stable as $f$
+      select coalesce(array_agg(t::public.notification_channel), array[]::public.notification_channel[])
+        from unnest(p_raw) t where t in ('push', 'email', 'sms', 'in_app')
+    $f$;
+    create or replace function private.patient_reminder_channel(p_recipient uuid, p_allow_email boolean default true)
+    returns public.notification_channel language sql stable as $f$ select 'in_app'::public.notification_channel $f$;
+    v_out := private.normalize_escalation_channels(array['push', 'whatsapp', 'sms']);
+    v_ch := private.patient_reminder_channel(v_pat);
+    raise exception 'sabotage_undo';
+  exception when others then
+    if sqlerrm <> 'sabotage_undo' then raise; end if;
+  end;
+
+  if v_out = array['push', 'email', 'sms']::public.notification_channel[] then
+    raise exception 'VACUOUS TEST: the naive normalizer still produced the full ladder';
+  end if;
+  if v_ch = 'push' then
+    raise exception 'VACUOUS TEST: a helper ignoring push subscriptions still returned push';
+  end if;
+  raise notice 'PASS 8: sabotaged normalizer shortens the ladder and sabotaged helper misses push (checks 2 and 5 discriminate)';
 end $$;
 
 rollback;

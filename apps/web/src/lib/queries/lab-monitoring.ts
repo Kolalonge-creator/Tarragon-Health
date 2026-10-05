@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { attachMedicationEmbeds } from "@/lib/clinical/medications-audited";
 import type { Tables } from "@tarragon/shared";
 
 export type MedicationLabMonitoring = Tables<"medication_lab_monitoring">;
@@ -20,12 +21,13 @@ export function usePatientLabMonitoring(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("medication_lab_monitoring")
-        .select("*, medication:medications!medication_lab_monitoring_medication_id_fkey(drug_name)")
+        .select("*")
         .eq("patient_id", patientId)
         .eq("status", "pending")
         .order("due_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
-      return data as LabMonitoringWithDrug[];
+      // INV-10: the medication name comes from the audited read, not an embedded select of the closed table.
+      return (await attachMedicationEmbeds(supabase, data)) as LabMonitoringWithDrug[];
     },
     enabled: !!patientId,
   });

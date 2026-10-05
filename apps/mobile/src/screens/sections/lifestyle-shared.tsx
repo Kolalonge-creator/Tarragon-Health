@@ -13,8 +13,9 @@ import {
   type LpeConditionKey,
   type LpeGoalModule,
 } from "@/lib/weight-management";
-import { colors, radius } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import { radius } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
  * Shared between weight-management-screen.tsx (obesity only) and
@@ -24,16 +25,6 @@ import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } fro
  * mobile screens don't grow two drifting copies of the same
  * enrolment/check-in/goal behaviour.
  */
-
-export const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
 
 export function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -56,9 +47,10 @@ export const DISORDERED_BEHAVIOURS: { code: string; label: string }[] = [
 ];
 
 export function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
+  const colors = useLegacyColors();
   return (
     <Text onPress={onToggle} style={{ fontSize: 13, color: colors.ink, paddingVertical: 4 }}>
-      <Text style={{ fontWeight: "700", color: checked ? colors.brand : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
+      <Text style={{ fontWeight: "700", color: checked ? colors.brandPressed : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
       {label}
     </Text>
   );
@@ -71,6 +63,9 @@ export function Checkbox({ checked, onToggle, label }: { checked: boolean; onTog
  * doctor to check in first (server-side, private.handle_obesity_ed_screen).
  */
 export function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [behaviours, setBehaviours] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
@@ -140,7 +135,7 @@ export function EdScreenForm({ consented, onDone }: { consented: boolean; onDone
       <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink, marginTop: 4 }}>
         Anything else you&apos;d like your care team to know?
       </Text>
-      <TextInput
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={notes}
         onChangeText={setNotes}
         multiline
@@ -173,6 +168,7 @@ export function EnrollCta({
   description: string;
   onEnrolled: () => void;
 }) {
+  const colors = useLegacyColors();
   const [consented, setConsented] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [needsEdScreen, setNeedsEdScreen] = useState(false);
@@ -217,6 +213,7 @@ export function EnrollCta({
 }
 
 export function GoalRow({ goal, onChanged }: { goal: { id: string; module: string; title: string; personalised: boolean }; onChanged: () => void }) {
+  const colors = useLegacyColors();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
 
@@ -239,7 +236,7 @@ export function GoalRow({ goal, onChanged }: { goal: { id: string; module: strin
         <MutedText>{done}</MutedText>
       ) : goal.personalised ? (
         <View style={{ flexDirection: "row", gap: 10 }}>
-          <Text onPress={() => !busy && resolve("achieved")} style={{ fontSize: 12, fontWeight: "600", color: colors.brand }}>
+          <Text onPress={() => !busy && resolve("achieved")} style={{ fontSize: 12, fontWeight: "600", color: colors.brandPressed }}>
             Mark achieved
           </Text>
           <Text onPress={() => !busy && resolve("abandoned")} style={{ fontSize: 12, color: colors.muted }}>
@@ -252,6 +249,9 @@ export function GoalRow({ goal, onChanged }: { goal: { id: string; module: strin
 }
 
 export function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [type, setType] = useState<"mood" | "weight" | "activity_minutes">("mood");
   const [value, setValue] = useState("");
   const [strugglingWithFood, setStrugglingWithFood] = useState(false);
@@ -309,7 +309,7 @@ export function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }
           </Text>
         ))}
       </View>
-      <TextInput value={value} onChangeText={setValue} placeholder="Value (e.g. 3)" keyboardType="numeric" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={value} onChangeText={setValue} placeholder="Value (e.g. 3)" keyboardType="numeric" style={textInputStyle} />
       {enrollment.conditionKey === "obesity" && (
         <Checkbox
           checked={strugglingWithFood}
@@ -327,6 +327,9 @@ export function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }
 const GOAL_MODULES: LpeGoalModule[] = ["diet", "activity", "behaviour", "sleep", "stress", "smoking"];
 
 export function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; onAdded: () => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [module, setModule] = useState<LpeGoalModule>("diet");
   const [title, setTitle] = useState("");
@@ -349,7 +352,7 @@ export function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; o
 
   if (!open) {
     return (
-      <Text onPress={() => setOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}>
+      <Text onPress={() => setOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
         + Add a goal
       </Text>
     );
@@ -377,7 +380,7 @@ export function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; o
           </Text>
         ))}
       </View>
-      <TextInput value={title} onChangeText={setTitle} placeholder="Describe your goal" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={title} onChangeText={setTitle} placeholder="Describe your goal" style={textInputStyle} />
       {error && <ErrorText>{error}</ErrorText>}
       <SecondaryButton title="Save goal" onPress={submit} loading={submitting} />
     </View>
@@ -385,6 +388,7 @@ export function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; o
 }
 
 export function EnrollmentCard({ enrollment, onChanged }: { enrollment: LifestyleEnrollment; onChanged: () => void }) {
+  const colors = useLegacyColors();
   return (
     <Card style={{ gap: 10 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>

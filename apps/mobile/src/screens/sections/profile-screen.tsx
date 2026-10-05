@@ -7,10 +7,11 @@ import {
   type GlucoseDisplayUnit,
   type UiLanguage,
 } from "@tarragon/shared";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, type TextInputProps } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
-import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
 import {
   Card,
   ErrorText,
@@ -22,7 +23,7 @@ import {
   SecondaryButton,
   SectionDivider,
   SectionLabel,
-} from "@/ui/components";
+} from "@/ui/legacy-kit";
 import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
@@ -44,15 +45,28 @@ import {
   type ProfileRow,
 } from "@/lib/profile";
 
-const inputStyle = {
-  height: 40,
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
+/** A text field drawn in the active scheme, with a matching keyboard. */
+function Input(props: TextInputProps) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
+  return (
+    <TextInput
+      placeholderTextColor={colors.subtle}
+      keyboardAppearance={scheme}
+      {...props}
+      style={{
+        height: 40,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.control,
+        paddingHorizontal: 10,
+        fontSize: 14,
+        color: colors.ink,
+        backgroundColor: colors.card,
+      }}
+    />
+  );
+}
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
@@ -130,26 +144,20 @@ function LocationSection({
         soon as that&apos;s available in your area.
       </MutedText>
       <Card style={{ gap: 10 }}>
-        <TextInput
+        <Input
           placeholder="State, e.g. Lagos"
-          placeholderTextColor={colors.faint}
           value={state}
           onChangeText={setState}
-          style={inputStyle}
         />
-        <TextInput
+        <Input
           placeholder="City, e.g. Ikeja"
-          placeholderTextColor={colors.faint}
           value={city}
           onChangeText={setCity}
-          style={inputStyle}
         />
-        <TextInput
+        <Input
           placeholder="Area (optional), e.g. Allen Avenue"
-          placeholderTextColor={colors.faint}
           value={area}
           onChangeText={setArea}
-          style={inputStyle}
         />
         {error ? <ErrorText>{error}</ErrorText> : null}
         {saved ? <MutedText>Location saved.</MutedText> : null}
@@ -168,6 +176,7 @@ function UiLanguageSection({
   profile: ProfileRow;
   onSaved: (patch: Partial<ProfileRow>) => void;
 }) {
+  const colors = useLegacyColors();
   const [value, setValue] = useState<UiLanguage>(asUiLanguage(profile.language));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -234,6 +243,7 @@ function GlucoseUnitSection({
   profile: ProfileRow;
   onSaved: (patch: Partial<ProfileRow>) => void;
 }) {
+  const colors = useLegacyColors();
   const [value, setValue] = useState<GlucoseDisplayUnit>(
     profile.glucose_display_unit === "mmol_l" ? "mmol_l" : "mg_dl"
   );
@@ -301,6 +311,7 @@ function ConditionLanguageSection({
   profile: ProfileRow;
   onSaved: (patch: Partial<ProfileRow>) => void;
 }) {
+  const colors = useLegacyColors();
   const [value, setValue] = useState<"gentle" | "clinical">(
     profile.condition_language_preference === "clinical" ? "clinical" : "gentle"
   );
@@ -360,6 +371,7 @@ function ConditionLanguageSection({
 }
 
 function ConsentRow({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
+  const colors = useLegacyColors();
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -374,7 +386,7 @@ function ConsentRow({ checked, onToggle, label }: { checked: boolean; onToggle: 
           borderRadius: 5,
           marginTop: 1,
           borderWidth: 1.5,
-          borderColor: checked ? colors.brand : colors.border,
+          borderColor: checked ? colors.brand : colors.subtle,
           backgroundColor: checked ? colors.brand : "transparent",
           alignItems: "center",
           justifyContent: "center",
@@ -455,27 +467,21 @@ function EmergencyContactSection({
         reach you.
       </MutedText>
       <Card style={{ gap: 10 }}>
-        <TextInput
+        <Input
           placeholder="Emergency contact name"
-          placeholderTextColor={colors.faint}
           value={name}
           onChangeText={setName}
-          style={inputStyle}
         />
-        <TextInput
+        <Input
           placeholder="Emergency contact phone, +2348012345678"
-          placeholderTextColor={colors.faint}
           keyboardType="phone-pad"
           value={phone}
           onChangeText={setPhone}
-          style={inputStyle}
         />
-        <TextInput
+        <Input
           placeholder="Relationship (optional), e.g. Spouse"
-          placeholderTextColor={colors.faint}
           value={relationship}
           onChangeText={setRelationship}
-          style={inputStyle}
         />
         <ConsentRow
           checked={consent}
@@ -483,20 +489,16 @@ function EmergencyContactSection({
           label="I confirm this person has agreed to be contacted by TarragonHealth in an emergency, and I have their permission to share their details for this purpose."
         />
         <SectionDivider />
-        <TextInput
+        <Input
           placeholder="Next of kin name (optional)"
-          placeholderTextColor={colors.faint}
           value={nokName}
           onChangeText={setNokName}
-          style={inputStyle}
         />
-        <TextInput
+        <Input
           placeholder="Next of kin phone (optional)"
-          placeholderTextColor={colors.faint}
           keyboardType="phone-pad"
           value={nokPhone}
           onChangeText={setNokPhone}
-          style={inputStyle}
         />
         {error ? <ErrorText>{error}</ErrorText> : null}
         {saved ? <MutedText>Emergency contact saved.</MutedText> : null}
@@ -513,12 +515,12 @@ const VERIFICATION_LABEL: Record<string, string> = {
   not_started: "Not verified",
 };
 
-const VERIFICATION_COLOR: Record<string, string> = {
-  verified: colors.success,
+const verificationColor = (colors: ReturnType<typeof useLegacyColors>): Record<string, string> => ({
+  verified: colors.brandPressed,
   pending: colors.status.warn,
   failed: colors.danger,
   not_started: colors.muted,
-};
+});
 
 /**
  * Status is read natively (identity_verifications + profiles.identity_verified_at,
@@ -537,6 +539,7 @@ function IdentityVerificationSection({
   profile: ProfileRow;
   verification: IdentityVerificationRow | null;
 }) {
+  const colors = useLegacyColors();
   const status = verification?.status ?? (profile.identity_verified_at ? "verified" : "not_started");
   const verified = status === "verified";
 
@@ -546,7 +549,7 @@ function IdentityVerificationSection({
       <Card style={{ gap: 10 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Status</Text>
-          <Text style={{ fontSize: 13, fontWeight: "700", color: VERIFICATION_COLOR[status] }}>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: verificationColor(colors)[status] }}>
             {VERIFICATION_LABEL[status]}
           </Text>
         </View>
@@ -604,23 +607,19 @@ function ChangePasswordSection() {
       <SectionLabel>Password</SectionLabel>
       <MutedText>Update the password you sign in with.</MutedText>
       <Card style={{ gap: 10 }}>
-        <TextInput
+        <Input
           placeholder="New password"
-          placeholderTextColor={colors.faint}
           secureTextEntry
           autoComplete="password-new"
           value={password}
           onChangeText={setPassword}
-          style={inputStyle}
         />
-        <TextInput
+        <Input
           placeholder="Confirm new password"
-          placeholderTextColor={colors.faint}
           secureTextEntry
           autoComplete="password-new"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
-          style={inputStyle}
         />
         {error ? <ErrorText>{error}</ErrorText> : null}
         {saved ? <MutedText>Password updated.</MutedText> : null}
@@ -635,21 +634,22 @@ function formatRequestStatus(status: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
-const REQUEST_STATUS_COLOR: Record<string, string> = {
+const requestStatusColor = (colors: ReturnType<typeof useLegacyColors>): Record<string, string> => ({
   pending: colors.status.warn,
-  under_review: colors.brand,
-  approved: colors.brand,
-  approved_partial: colors.brand,
-  approved_full: colors.brand,
-  applied: colors.success,
-  completed: colors.success,
+  under_review: colors.brandPressed,
+  approved: colors.brandPressed,
+  approved_partial: colors.brandPressed,
+  approved_full: colors.brandPressed,
+  applied: colors.brandPressed,
+  completed: colors.brandPressed,
   denied: colors.danger,
-};
+});
 
 function RequestStatusBadge({ status }: { status: string }) {
-  const tint = REQUEST_STATUS_COLOR[status] ?? colors.muted;
+  const colors = useLegacyColors();
+  const tint = requestStatusColor(colors)[status] ?? colors.muted;
   return (
-    <View style={{ backgroundColor: inkAlpha(0.06), borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9 }}>
+    <View style={{ backgroundColor: colors.pressed, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9 }}>
       <Text style={{ fontSize: 10.5, fontWeight: "700", color: tint }}>{formatRequestStatus(status)}</Text>
     </View>
   );
@@ -680,6 +680,7 @@ function DataPrivacySection({
   onDeletionCreated: (row: DeletionRequestRow) => void;
   onCorrectionCreated: (row: CorrectionRequestRow) => void;
 }) {
+  const colors = useLegacyColors();
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [recordDescription, setRecordDescription] = useState("");
   const [whatIsWrong, setWhatIsWrong] = useState("");
@@ -796,26 +797,20 @@ function DataPrivacySection({
         </MutedText>
         {correctionOpen ? (
           <View style={{ gap: 8 }}>
-            <TextInput
+            <Input
               placeholder="Which record? e.g. my date of birth"
-              placeholderTextColor={colors.faint}
               value={recordDescription}
               onChangeText={setRecordDescription}
-              style={inputStyle}
             />
-            <TextInput
+            <Input
               placeholder="What's wrong with it?"
-              placeholderTextColor={colors.faint}
               value={whatIsWrong}
               onChangeText={setWhatIsWrong}
-              style={inputStyle}
             />
-            <TextInput
+            <Input
               placeholder="What should it say instead? (optional)"
-              placeholderTextColor={colors.faint}
               value={requestedChange}
               onChangeText={setRequestedChange}
-              style={inputStyle}
             />
             {correctionError ? <ErrorText>{correctionError}</ErrorText> : null}
             <View style={{ flexDirection: "row", gap: 10 }}>
@@ -853,12 +848,10 @@ function DataPrivacySection({
         </MutedText>
         {deletionOpen ? (
           <View style={{ gap: 8 }}>
-            <TextInput
+            <Input
               placeholder="What would you like deleted, and why? (optional)"
-              placeholderTextColor={colors.faint}
               value={deletionReason}
               onChangeText={setDeletionReason}
-              style={inputStyle}
             />
             {deletionError ? <ErrorText>{deletionError}</ErrorText> : null}
             <View style={{ flexDirection: "row", gap: 10 }}>
@@ -900,6 +893,7 @@ function DataPrivacySection({
  * round-trip the mobile app has no API route for.
  */
 export function ProfileScreen() {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);

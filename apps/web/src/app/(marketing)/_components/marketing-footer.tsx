@@ -15,7 +15,6 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.devices, label: "Devices" },
   ],
   programmes: [
-    { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },
     { href: MARKETING_ROUTES.annualHealthCheck, label: "Annual Health Check" },
     { href: MARKETING_ROUTES.advancedDiagnostics, label: "Advanced Diagnostics" },
     { href: MARKETING_ROUTES.screeningJourney, label: "Screening Journey" },
@@ -29,7 +28,6 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.hypertension, label: "Hypertension" },
     { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
     { href: MARKETING_ROUTES.obesity, label: "Weight Health" },
-    { href: MARKETING_ROUTES.weightManagement, label: "Supervised weight management" },
     { href: MARKETING_ROUTES.monitoring, label: "Continuous monitoring" },
     { href: MARKETING_ROUTES.resultInterpretation, label: "Understand your lab results" },
     { href: MARKETING_ROUTES.therapy, label: "Talk to someone" },

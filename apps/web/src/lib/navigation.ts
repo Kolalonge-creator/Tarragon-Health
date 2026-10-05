@@ -335,7 +335,6 @@ export function getNavSections(
                   icon: "medication",
                 },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
-                { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
                 { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
                 {
@@ -363,6 +362,7 @@ export function getNavSections(
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
+                { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
               ],
             },
           ]
@@ -401,12 +401,6 @@ export function getNavSections(
                   href: "/clinician/results-inbox",
                   icon: "labs",
                   countKey: "resultsInboxAwaitingAction",
-                },
-                {
-                  label: "Support inbox",
-                  href: "/clinician/support-inbox",
-                  icon: "inbox",
-                  countKey: "unreadSupportMessages",
                 },
                 {
                   label: "Support tickets",
@@ -529,20 +523,13 @@ export function getNavSections(
                   icon: "preventive",
                   countKey: "preventiveHealthCheckReviewsWaiting",
                 },
-                // Both added 2026-09-10 with the two new clinical products.
-                // Shown to every clinician tier, per this file's gating
-                // philosophy: the authority rules live in the database
-                // (private.enforce_therapy_approver_authority and
-                // enforce_weight_checkin_reviewer_authority), so a Care
-                // Coordinator can see either queue and is refused if they try
-                // to act on it, which is the right shape -- they route work,
+                // Added 2026-09-10 with the therapy-approval clinical
+                // product. Shown to every clinician tier, per this file's
+                // gating philosophy: the authority rule lives in the database
+                // (private.enforce_therapy_approver_authority), so a Care
+                // Coordinator can see the queue and is refused if they try to
+                // act on it, which is the right shape -- they route work,
                 // they do not close clinical decisions.
-                {
-                  label: "Weight management",
-                  href: "/clinician/weight-management",
-                  icon: "weight",
-                  countKey: "weightManagementPendingEligibility",
-                },
                 {
                   label: "Therapy approvals",
                   href: "/clinician/therapy-approvals",
@@ -581,6 +568,12 @@ export function getNavSections(
                 // reachable only via /admin, which a real CMO account
                 // (always `profiles.role = "clinician"`) cannot open.
                 { label: "Clinical sign-off", href: "/clinician/clinical-signoff", icon: "review" },
+                // The AI governance console's two CMO-only actions (approving
+                // an ai_system_versions row, labelling an ai_evaluation_cases
+                // clinical-accuracy scenario) — same reachability gap as
+                // Clinical sign-off above, closed the same way. See that
+                // page's own comment for the admin-banner/proxy.ts history.
+                { label: "AI governance sign-off", href: "/clinician/ai-governance", icon: "review" },
                 { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
                 { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
@@ -647,6 +640,7 @@ export function getNavSections(
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
+            { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
             { label: "Leads", href: "/admin/leads", icon: "members" },
             { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
@@ -659,6 +653,7 @@ export function getNavSections(
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
             { label: "Provider quality", href: "/admin/provider-quality", icon: "governance" },
             { label: "Testimonials", href: "/admin/testimonials", icon: "review" },
+            { label: "Doctor testimonials", href: "/admin/doctor-testimonials", icon: "review" },
           ],
         },
         {

@@ -8,10 +8,28 @@ import {
 } from "@/lib/auth/roles";
 import { isAppHost } from "@/lib/marketing/host";
 import { isMarketingPath } from "@/lib/marketing/routes";
+import { consoleBaseUrl, consoleRedirectTarget } from "@/lib/console-redirect";
 
 // Next.js 16 renamed `middleware.ts` -> `proxy.ts` (same file-convention
 // contract, function must be named/exported `proxy`).
 export async function proxy(request: NextRequest) {
+  // Staff areas that have moved to apps/console (S01d). Runs before anything
+  // else: it needs no session, and a stale bookmark, email link or stored
+  // notification row pointing at an old `app.` staff path should land on the
+  // same page on the console host. 307, not 308, while the console is new:
+  // a browser caches a 308 indefinitely, which would make rolling this back
+  // unrecoverable for anyone who already followed a link. Opt-in per
+  // environment via CONSOLE_BASE_URL, so shipping this before the console is
+  // live redirects nobody.
+  const consoleTarget = consoleRedirectTarget(
+    request.nextUrl.pathname,
+    request.nextUrl.search,
+    consoleBaseUrl()
+  );
+  if (consoleTarget) {
+    return NextResponse.redirect(consoleTarget, 307);
+  }
+
   const { response, supabase, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
   const host = request.headers.get("host") ?? "";
@@ -43,6 +61,14 @@ export async function proxy(request: NextRequest) {
   // The function behind the page discloses no figure from the report, whoever
   // calls it.
   if (pathname === "/verify-report") {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
+  // No-login prescription check (QR on the prescription PDF). Same reasoning as /emergency/ and
+  // /verify-report: it needs no session, must not bounce a signed-in visitor (a pharmacist who is also a
+  // user), and the 64-hex token in the path must never leave through a Referer header.
+  if (pathname === "/verify-rx" || pathname.startsWith("/verify-rx/")) {
     response.headers.set("Referrer-Policy", "no-referrer");
     return response;
   }
@@ -239,7 +265,6 @@ export async function proxy(request: NextRequest) {
         "/clinician/messages",
         "/clinician/escalations",
         "/clinician/orders",
-        "/clinician/support-inbox",
         "/clinician/support-tickets",
         "/clinician/complaints",
         "/clinician/safety-incidents",

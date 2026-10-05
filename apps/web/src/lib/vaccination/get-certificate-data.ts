@@ -50,14 +50,14 @@ export async function getVaccinationCertificateData(
   let verifier: VaccinationCertificateData["verifier"] = null;
   if (record.verified_by) {
     const { data: staff } = await supabase
-      .from("clinical_staff")
+      .from("clinical_staff_directory")
       .select("full_name, credential_type, credential_number")
       .eq("profile_id", record.verified_by)
       .eq("active", true)
       .maybeSingle();
     if (staff) {
       verifier = {
-        fullName: staff.full_name,
+        fullName: staff.full_name ?? "",
         credentialType: staff.credential_type,
         credentialNumber: staff.credential_number,
       };

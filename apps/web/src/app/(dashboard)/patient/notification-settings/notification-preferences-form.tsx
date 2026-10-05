@@ -21,20 +21,15 @@ const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
   care_messages: "Messages from your care team",
   education_wellness: "Health education & wellness",
   billing: "Billing & payments",
+  reputation_requests: "Review requests",
 };
 
-type Channel = "email" | "sms" | "push" | "whatsapp";
+type Channel = "email" | "sms" | "push";
 
-// SMS and WhatsApp are deliberately not rendered as toggles: both channels
-// are currently dead (Meta WABA template approval and Termii sender-ID
-// approval are off the founder's near-term plan, CLAUDE.md 2026-09-15) —
-// supabase/functions/send-pending-notifications/index.ts's
-// platformDisabledChannel() now suppresses every routine send on either
-// channel before it reaches the provider, regardless of this toggle. A
-// patient switching "WhatsApp" on here would reasonably expect it to do
-// something; it wouldn't. The underlying columns stay untouched (a toggle
-// flipped before this change keeps its value, just isn't shown or editable)
-// so re-enabling either channel later needs no data migration.
+// SMS is deliberately not rendered as a toggle: it is reserved for
+// verification codes and clinician paging, so a routine-notification toggle
+// would promise something it wouldn't do. The underlying column stays
+// untouched so a stored value is preserved, just not shown or editable.
 const CHANNELS: { key: Channel; label: string }[] = [
   { key: "email", label: "Email" },
   { key: "push", label: "Push" },
@@ -47,7 +42,6 @@ const ALL_CHANNELS_ON: Record<Channel, boolean> = {
   email: true,
   sms: true,
   push: true,
-  whatsapp: true,
 };
 
 function togglesFromRow(
@@ -58,7 +52,6 @@ function togglesFromRow(
     email: row.email_enabled,
     sms: row.sms_enabled,
     push: row.push_enabled,
-    whatsapp: row.whatsapp_enabled,
   };
 }
 
@@ -93,7 +86,6 @@ export function NotificationPreferencesForm({
         emailEnabled: next.email,
         smsEnabled: next.sms,
         pushEnabled: next.push,
-        whatsappEnabled: next.whatsapp,
       },
       {
         onSuccess: () => {

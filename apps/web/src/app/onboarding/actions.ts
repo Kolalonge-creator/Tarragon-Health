@@ -103,14 +103,16 @@ export async function acceptConsents(
 
   const { data: allVersions, error: versionsError } = await supabase
     .from("consent_versions")
-    .select("id, consent_type, version")
+    .select("id, consent_type, version, is_optional")
     .eq("is_current", true);
   if (versionsError) {
     return { error: "We could not load the agreement just then. Please refresh and try again." };
   }
   const versions = parsed.data.onlyTypes
     ? (allVersions ?? []).filter((v) => parsed.data.onlyTypes!.includes(v.consent_type))
-    : allVersions;
+    // The single checkbox covers the required purposes only. An optional purpose is its own choice and is never
+    // recorded as granted because someone agreed to care (granular consent, v5 4.2).
+    : (allVersions ?? []).filter((v) => !v.is_optional);
   if (!versions || versions.length === 0) {
     return { error: "The agreement is not available right now. Please contact support." };
   }

@@ -68,7 +68,7 @@ export interface FinancialProfile {
  * §91.2 consolidated financial profile — mirrors apps/web/.../
  * financial-profile/page.tsx's parallel-query shape exactly (same tables,
  * same columns, same limits). Pure reads over data the patient already owns
- * under RLS; "Pay my share" and any voucher top-up stay a system-browser
+ * under RLS; "Pay my share" stays a system-browser
  * hop to the web page (same pattern as Screening Days/Appointments'
  * pay-to-confirm) rather than reimplementing Paystack checkout initiation
  * natively.

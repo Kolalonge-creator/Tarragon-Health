@@ -67,24 +67,10 @@ function plausible(m: MeasurementInput): ValidationResult {
   }
 }
 
-/**
- * Validate an inbound measurement.
- *
- * HARD RULE (spec §4.3, CLAUDE.md): a measurement can never originate from
- * WhatsApp. The `source` enum excludes it at the type level; this is the
- * runtime backstop for untyped callers (e.g. a raw webhook body).
- */
+/** Validate an incoming measurement. */
 export function validateMeasurement(raw: unknown): ValidationResult {
   const parsed = measurementInputSchema.safeParse(raw);
   if (!parsed.success) {
-    // Defensive: reject anything claiming a whatsapp source with a clear reason.
-    if (
-      typeof raw === "object" &&
-      raw !== null &&
-      (raw as { source?: unknown }).source === "whatsapp"
-    ) {
-      return { ok: false, reason: "whatsapp_is_not_a_log_source" };
-    }
     return { ok: false, reason: "schema_invalid" };
   }
   return plausible(parsed.data);

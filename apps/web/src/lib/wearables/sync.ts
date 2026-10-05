@@ -52,6 +52,13 @@ export interface SyncOutcome {
   /** Rows a real database error rejected. Non-zero means this sync did not
    * store everything it was handed. */
   failed: number;
+  /** True when a post-insert red-flag assessment (BP control, heart-rate
+   * pattern) failed to run for at least one connection in this batch —
+   * carried up from IngestResult.safetyAssessmentFailed so the webhook/cron
+   * response never reports a clean sync over a batch whose abnormal-result
+   * detection didn't actually run. Distinct from `failed`: the readings
+   * themselves stored fine. */
+  safetyAssessmentFailed: boolean;
   /** The first storage failure's message, mirroring what was written to the
    * connection's last_sync_error. */
   syncError?: string;
@@ -91,6 +98,7 @@ function emptyOutcome(): SyncOutcome {
     deniedByConsent: 0,
     consentDeniedSafetyRetained: 0,
     failed: 0,
+    safetyAssessmentFailed: false,
   };
 }
 
@@ -101,6 +109,7 @@ function accumulate(outcome: SyncOutcome, result: IngestResult): void {
   outcome.deniedByConsent += result.deniedByConsent;
   outcome.consentDeniedSafetyRetained += result.consentDeniedSafetyRetained;
   outcome.failed += result.failed;
+  outcome.safetyAssessmentFailed ||= result.safetyAssessmentFailed;
 }
 
 /**

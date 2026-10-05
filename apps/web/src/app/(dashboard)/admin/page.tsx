@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { anyQueryFailed, failedQueryLabels, joinLabels } from "@/lib/queries/server-query-state";
+import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 
 export const metadata = { title: "Dashboard" };
@@ -43,7 +44,6 @@ function statusBadgeVariant(status: string): "green" | "red" | "grey" {
 const DEPENDENCY_LABELS: Record<keyof Omit<DependencyReport, "checked_at">, string> = {
   supabase: "Supabase",
   ml_service: "ML service",
-  whatsapp: "WhatsApp",
   termii: "Termii SMS",
   paystack: "Paystack",
   resend: "Resend (email)",
@@ -95,8 +95,7 @@ export default async function AdminPage() {
     openBookingsRes,
     pendingBookingsRes,
     dependencyReport,
-    pendingAiVersionApprovalRes,
-    pendingClinicalAccuracyLabelRes,
+    aiGovernanceSignoff,
   ] = await Promise.all([
     supabase.rpc("analytics_business_summary"),
     supabase.rpc("analytics_financial_summary"),
@@ -118,20 +117,13 @@ export default async function AdminPage() {
     // server-side. See docs/BUSINESS_CONTINUITY_DR_SPEC.md.
     checkDependencies(),
     // AI governance (Module 40) is easy to lose track of — it lives one tile
-    // among ~60 on this page, and the two actions below are real,
+    // among ~60 on this page, and the two counts below are real,
     // time-sensitive work sitting on a Chief Medical Officer's desk, not
     // background configuration. Surfaced in the welcome banner below rather
-    // than left for someone to happen across the tile.
-    supabase
-      .from("ai_system_versions")
-      .select("*", { count: "exact", head: true })
-      .is("approved_at", null)
-      .is("retired_at", null),
-    supabase
-      .from("ai_evaluation_cases")
-      .select("*, ai_evaluation_suites!inner(kind)", { count: "exact", head: true })
-      .eq("ai_evaluation_suites.kind", "clinical")
-      .is("expected_tier", null),
+    // than left for someone to happen across the tile. Shared with the
+    // clinician-reachable mirror (/clinician/ai-governance) via
+    // readPendingAiGovernanceSignoff so the two counts can never drift.
+    readPendingAiGovernanceSignoff(supabase),
   ]);
 
   const business = businessSummarySchema.parse(businessRes.data ?? {});
@@ -140,10 +132,10 @@ export default async function AdminPage() {
   const pendingVerificationCount = pendingVerificationRes.count ?? 0;
   const openBookingsCount = openBookingsRes.count ?? 0;
   const pendingBookingsCount = pendingBookingsRes.count ?? 0;
-  const pendingAiVersionApprovalCount = pendingAiVersionApprovalRes.count ?? 0;
-  const pendingClinicalAccuracyLabelCount = pendingClinicalAccuracyLabelRes.count ?? 0;
-  const aiGovernanceFailed = anyQueryFailed([pendingAiVersionApprovalRes, pendingClinicalAccuracyLabelRes]);
-  const aiGovernanceAttentionCount = pendingAiVersionApprovalCount + pendingClinicalAccuracyLabelCount;
+  const pendingAiVersionApprovalCount = aiGovernanceSignoff.pendingVersionApprovalCount;
+  const pendingClinicalAccuracyLabelCount = aiGovernanceSignoff.pendingClinicalAccuracyLabelCount;
+  const aiGovernanceFailed = aiGovernanceSignoff.failed;
+  const aiGovernanceAttentionCount = aiGovernanceSignoff.attentionCount;
 
   // Six reads, four tiles and one welcome sentence, all of which used to
   // render a confident zero on failure. The `?? 0` and `?? {}` above are what
@@ -374,6 +366,13 @@ export default async function AdminPage() {
           icon: SEMANTIC_ICON.booking,
           visible: isSuperAdmin,
         },
+        {
+          href: "/admin/refund-requests",
+          label: "Refund requests",
+          blurb: "First-purchase money-back guarantee claims awaiting a decision",
+          icon: SEMANTIC_ICON.billing,
+          visible: isSuperAdmin,
+        },
       ],
     },
     {
@@ -403,7 +402,7 @@ export default async function AdminPage() {
         {
           href: "/admin/settings/broadcasts",
           label: "Broadcasts & announcements",
-          blurb: "Email/WhatsApp/SMS to a targeted audience",
+          blurb: "Email and in-app announcements to a targeted audience",
           icon: NAV_ICON.broadcast,
           visible: can("broadcasts.send"),
         },
@@ -439,6 +438,13 @@ export default async function AdminPage() {
           href: "/admin/testimonials",
           label: "Testimonials",
           blurb: "Review consented patient quotes before they go live",
+          icon: NAV_ICON.review,
+          visible: isSuperAdmin,
+        },
+        {
+          href: "/admin/doctor-testimonials",
+          label: "Doctor testimonials",
+          blurb: "Add and publish a doctor's quote, with its off-platform consent on file",
           icon: NAV_ICON.review,
           visible: isSuperAdmin,
         },

@@ -109,6 +109,14 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     group: "Growth",
   },
   {
+    id: "reputation",
+    href: "/analytics/reputation",
+    label: "Reputation",
+    subtitle: "Review-request funnel: sent, engaged, clicked",
+    icon: "reputation",
+    group: "Growth",
+  },
+  {
     id: "executive",
     href: "/analytics/executive",
     label: "Executive",

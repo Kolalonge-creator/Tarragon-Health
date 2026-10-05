@@ -9,8 +9,9 @@ import {
 } from "@/lib/supporting-finance";
 import { loadSponsorCareReport, type SponsorCareReport } from "@/lib/sponsor-care-report";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -55,6 +56,7 @@ function shortDate(iso: string): string {
  * people, so it is not duplicated here.
  */
 export function SupportingManageScreen({ userId }: { userId: string }) {
+  const colors = useLegacyColors();
   const [people, setPeople] = useState<SupportedPersonFinance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +110,7 @@ export function SupportingManageScreen({ userId }: { userId: string }) {
               <MutedText>{people.length === 1 ? "person you support" : "people you support"}</MutedText>
             </View>
             <View>
-              <Text style={{ fontSize: 22, fontWeight: "700", color: colors.brand }}>{totalUsed}</Text>
+              <Text style={{ fontSize: 22, fontWeight: "700", color: colors.brandPressed }}>{totalUsed}</Text>
               <MutedText>
                 {totalUsed === 1 ? "check has been used" : "checks have been used"}
                 {totalFunded > 0 ? ` of ${naira(totalFunded)} paid` : ""}
@@ -142,11 +144,12 @@ export function SupportingManageScreen({ userId }: { userId: string }) {
 }
 
 function VoucherRow({ voucher, trailing }: { voucher: SupportedPersonVoucher; trailing: ReactNode }) {
+  const colors = useLegacyColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
       <Text style={{ fontSize: 13, color: colors.muted, flex: 1 }} numberOfLines={1}>
         {voucher.label}
-        <Text style={{ color: colors.faint }}> · {voucher.voucherNumber}</Text>
+        <Text style={{ color: colors.subtle }}> · {voucher.voucherNumber}</Text>
       </Text>
       {trailing}
     </View>
@@ -163,6 +166,7 @@ function VoucherRow({ voucher, trailing }: { voucher: SupportedPersonVoucher; tr
  * (sponsor_care_report) keyed by beneficiary, not a table read.
  */
 function SponsorActivitySection({ beneficiaryId }: { beneficiaryId: string }) {
+  const colors = useLegacyColors();
   const [report, setReport] = useState<SponsorCareReport | null>(null);
   const [error, setError] = useState(false);
 
@@ -208,6 +212,7 @@ function SponsorActivitySection({ beneficiaryId }: { beneficiaryId: string }) {
 }
 
 function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
+  const colors = useLegacyColors();
   const name = person.fullName ?? "This person";
 
   return (
@@ -265,7 +270,7 @@ function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
               trailing={
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.ink }}>{naira(v.faceValueKobo)}</Text>
-                  {v.redeemedAt && <Text style={{ fontSize: 10.5, color: colors.faint }}>{shortDate(v.redeemedAt)}</Text>}
+                  {v.redeemedAt && <Text style={{ fontSize: 10.5, color: colors.subtle }}>{shortDate(v.redeemedAt)}</Text>}
                 </View>
               }
             />
@@ -293,7 +298,7 @@ function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
           opacity: pressed ? 0.7 : 1,
         })}
       >
-        <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand }}>
+        <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
           Pay a bill or fund their plan for {name.trim().split(/\s+/)[0] || "them"}
         </Text>
       </Pressable>

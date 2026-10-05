@@ -107,17 +107,17 @@ describe("checkMlService", () => {
 });
 
 describe("checkDependencies", () => {
-  it("assembles all seven checks without throwing, using presence-only checks for providers", async () => {
+  it("assembles all the checks without throwing, using presence-only checks for providers", async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     delete process.env.ML_SERVICE_URL;
-    process.env.WHATSAPP_TOKEN = "set";
+    process.env.TERMII_API_KEY = "set";
     stubFetch({ "/auth/v1/health": { ok: true } });
 
     const report = await checkDependencies();
 
     expect(report.supabase.status).toBe("up");
     expect(report.ml_service.status).toBe("down");
-    expect(report.whatsapp).toEqual({ status: "configured" });
+    expect(report.termii).toEqual({ status: "configured" });
     expect(typeof report.checked_at).toBe("string");
   });
 });

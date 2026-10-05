@@ -1,6 +1,6 @@
 /**
  * AI Health Coach wire types — shared between apps/web's chat UI/server
- * action today and any future caller (mobile, WhatsApp webhook) that talks
+ * action today and any future caller (mobile) that talks
  * to the same coach turn contract.
  */
 

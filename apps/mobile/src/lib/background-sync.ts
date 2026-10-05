@@ -6,7 +6,9 @@ import { configureIOSBackgroundDelivery, subscribeToIOSHealthChanges } from "./h
 import { syncAppleHealth, syncHealthConnect } from "./health-sync";
 import { flushDeviceReadingsQueue } from "./offline-queue";
 import { recordSyncError } from "./sync-diagnostics";
-import { flushPendingVitals } from "./offline-vitals-queue";
+import { flushOutbox } from "./outbox";
+import { replanDoseReminders } from "./dose-reminders";
+import { refreshOfflineSyncConfig } from "./offline-sync-config";
 import { syncThresholdsIfOnline } from "./threshold-sync";
 
 /**
@@ -73,17 +75,25 @@ TaskManager.defineTask(TASK_NAME, async () => {
     // and are the "usually don't have to think about it" layer for the
     // Vitals screen's own opportunistic flush-on-save/flush-on-mount.
     try {
-      await flushPendingVitals();
+      await flushOutbox();
+      await refreshOfflineSyncConfig();
       await syncThresholdsIfOnline();
     } catch (error) {
       recordSyncError("offline_vitals", `${Platform.OS}:backgroundFlush`, error);
     }
 
+    // Keep the rolling dose-reminder plan topped up (S08): the plan only reaches as
+    // far as the horizon, and a phone that was not opened for days would otherwise
+    // run out of reminders. replanDoseReminders never throws; a failure is reported
+    // so the reminder health check can say reminders may be unreliable.
+    const replanned = await replanDoseReminders(session.user.id);
+    if (!replanned.ok) recordSyncError("background_sync", `${Platform.OS}:backgroundReplan`, "reminder plan not refreshed");
+
     const result =
       Platform.OS === "ios"
-        ? await syncAppleHealth()
+        ? await syncAppleHealth({ promptForPermission: false })
         : Platform.OS === "android"
-          ? await syncHealthConnect()
+          ? await syncHealthConnect({ promptForPermission: false })
           : null;
 
     // A HealthSyncResult of "error", or a device-readings flush that made no
@@ -148,7 +158,7 @@ export async function registerBackgroundHealthSync(): Promise<void> {
       await configureIOSBackgroundDelivery();
       iosChangeSubscriptionRemove?.();
       iosChangeSubscriptionRemove = subscribeToIOSHealthChanges(() => {
-        syncAppleHealth();
+        void syncAppleHealth({ promptForPermission: false });
       });
     } catch {
       iosChangeSubscriptionRemove = null;

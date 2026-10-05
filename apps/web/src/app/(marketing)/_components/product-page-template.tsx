@@ -15,9 +15,17 @@ import { cn } from "@/lib/utils";
 
 export function ProductPageTemplate({
   content,
+  riskNote,
   children,
 }: {
   content: ProductPageContent;
+  /**
+   * Optional "why this matters" band, rendered right after the hero and
+   * before "What's included" — pass a <ConditionRiskNote /> for a chronic
+   * condition page. Omitted entirely on pages (prevention, parentcare, …)
+   * where a condition-risk framing doesn't fit.
+   */
+  riskNote?: React.ReactNode;
   /** Optional page-specific sections, rendered after "How it works". */
   children?: React.ReactNode;
 }) {
@@ -87,6 +95,10 @@ export function ProductPageTemplate({
           </MarketingHero>
         </Section>
       )}
+
+      {riskNote ? (
+        <Section variant="navy">{riskNote}</Section>
+      ) : null}
 
       <Section>
         <SectionHeading title="What's included" />

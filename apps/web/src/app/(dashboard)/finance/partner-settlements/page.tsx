@@ -24,24 +24,50 @@ import { PartnerSettlementsClient } from "./partner-settlements-client";
  * SELECT filters rather than raising. A finance officer therefore gets
  * `{ data: [], error: null }` every time and used to be told "No laboratory
  * statements recorded yet." See lib/finance/partner-statement-access.ts.
+ *
+ * The laboratory picker and each statement's provider name read from
+ * public.lab_provider_directory, not public.lab_providers directly, and the
+ * `lab_providers(name)` embed on partner_statements was replaced with a
+ * follow-up query against that same view. Since 2026-09-25
+ * (20260925023144_restrict_lab_pharmacy_partner_read_to_safe_columns.sql)
+ * lab_providers_select no longer admits a plain `finance`/`authenticated`
+ * session (admin or partners.labs.manage only) — a direct read or embed here
+ * would silently come back empty/null for the same reason the paragraph
+ * above already flagged for partner_statements itself.
+ *
+ * The picker (line below, `providers`) filters `is_active` explicitly — the
+ * directory view itself carries every provider regardless of status (see
+ * 20260925024716_fix_lab_pharmacy_directory_active_filter_and_replay_guard.sql),
+ * because a HISTORICAL statement's provider name must keep resolving after
+ * that provider goes inactive; only the "which lab can I record a NEW
+ * invoice for" picker should ever narrow to active-only.
  */
 export default async function PartnerSettlementsPage() {
   const supabase = await createClient();
   const profile = await getCurrentProfile();
 
   const [providersResult, statementsResult] = await Promise.all([
-    supabase.from("lab_providers").select("id, name").eq("is_active", true).order("name"),
+    supabase.from("lab_provider_directory").select("id, name").eq("is_active", true).order("name"),
     supabase
       .from("partner_statements")
       .select(
-        "id, reference, period_start, period_end, invoiced_total_kobo, expected_total_kobo, status, currency, lab_providers(name)",
+        "id, provider_id, reference, period_start, period_end, invoiced_total_kobo, expected_total_kobo, status, currency",
       )
       .order("created_at", { ascending: false })
       .limit(50),
   ]);
 
-  const providers = providersResult.data ?? [];
-  const statements = (statementsResult.data ?? []).map((s) => ({
+  const providers = (providersResult.data ?? []).filter(
+    (p): p is { id: string; name: string } => !!p.id && !!p.name,
+  );
+  const statementRows = statementsResult.data ?? [];
+  const providerIds = Array.from(new Set(statementRows.map((s) => s.provider_id).filter((id): id is string => !!id)));
+  const statementProvidersResult = providerIds.length
+    ? await supabase.from("lab_provider_directory").select("id, name").in("id", providerIds)
+    : { data: [] as { id: string; name: string | null }[], error: null };
+  const providerNameById = new Map((statementProvidersResult.data ?? []).map((p) => [p.id, p.name]));
+
+  const statements = statementRows.map((s) => ({
     id: s.id,
     reference: s.reference,
     period_start: s.period_start,
@@ -50,7 +76,7 @@ export default async function PartnerSettlementsPage() {
     expected_total_kobo: s.expected_total_kobo,
     status: s.status,
     currency: s.currency,
-    provider_name: s.lab_providers?.name ?? null,
+    provider_name: providerNameById.get(s.provider_id) ?? null,
   }));
 
   return (
@@ -67,7 +93,7 @@ export default async function PartnerSettlementsPage() {
       <PartnerSettlementsClient
         providers={providers}
         statements={statements}
-        loadFailed={anyQueryFailed([providersResult, statementsResult])}
+        loadFailed={anyQueryFailed([providersResult, statementsResult, statementProvidersResult])}
         accessNotice={partnerStatementAccessNotice(profile?.role)}
       />
     </div>

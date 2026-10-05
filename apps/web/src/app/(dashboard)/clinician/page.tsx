@@ -177,18 +177,17 @@ export default async function ClinicianPage() {
   let pendingAutoDraftedNotes: PendingAutoDraftedNoteRow[] = [];
   let pendingNotesFailed = false;
   if (staff) {
-    const pendingNotesRes = await supabase
-      .from("clinical_encounter_notes")
-      .select(
-        "id, patient_id, encounter_type, reason_for_encounter, encounter_date, patient:profiles!clinical_encounter_notes_patient_id_fkey(full_name)"
-      )
-      .eq("authored_by_staff", staff.id)
-      .eq("auto_generated", true)
-      .eq("status", "draft")
-      .order("encounter_date", { ascending: true })
-      .returns<PendingAutoDraftedNoteRow[]>();
+    // INV-10: the table is closed to direct reads; this returns only this clinician's own auto-drafted notes.
+    const pendingNotesRes = await supabase.rpc("my_pending_auto_drafted_notes");
     pendingNotesFailed = pendingNotesRes.error !== null;
-    pendingAutoDraftedNotes = pendingNotesRes.data ?? [];
+    pendingAutoDraftedNotes = (pendingNotesRes.data ?? []).map((row) => ({
+      id: row.id,
+      patient_id: row.patient_id,
+      encounter_type: row.encounter_type,
+      reason_for_encounter: row.reason_for_encounter,
+      encounter_date: row.encounter_date,
+      patient: { full_name: row.patient_name },
+    }));
   }
 
   // Clinical Director governance panel (Gap E, CMO governance-surface audit

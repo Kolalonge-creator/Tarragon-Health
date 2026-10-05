@@ -344,9 +344,9 @@ function ChooseBeneficiary({ onChosen }: { onChosen: (b: Beneficiary) => void })
  *
  * Reads the same generic active-products list every other purchase surface
  * reads (useActiveServiceProducts), so it needs no update when a product is
- * added or retired — Continuous Monitoring and Supervised Weight Management
- * show up here exactly because they are ordinary active, NGN-priced
- * service_products rows, same as every product that came before them.
+ * added or retired — Continuous Monitoring shows up here exactly because it
+ * is an ordinary active, NGN-priced service_products row, same as every
+ * product that came before it.
  */
 function PickAndPay({ beneficiary }: { beneficiary: Beneficiary }) {
   const { payable, isLoading } = usePayableServiceProducts();
@@ -360,9 +360,8 @@ function PickAndPay({ beneficiary }: { beneficiary: Beneficiary }) {
       <CardHeader>
         <CardTitle>What are you buying for {beneficiary.name}?</CardTitle>
         <CardDescription>
-          Any paid service on Tarragon: a doctor&apos;s time, Continuous Monitoring, or Supervised
-          Weight Management. The app itself is free, so this list is everything there is to pay
-          for.
+          Any paid service on Tarragon: a doctor&apos;s time, or Continuous Monitoring. The app
+          itself is free, so this list is everything there is to pay for.
         </CardDescription>
       </CardHeader>
       <CardContent>

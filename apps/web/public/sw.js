@@ -10,7 +10,7 @@
  * and reports back when the user actually opens it — that open is the real
  * delivery-confirmation signal the forced-channel escalation engine
  * (critical_notification_engine.sql) waits on before it force-escalates to
- * WhatsApp/SMS. It never touches the notification's content beyond
+ * the next channel. It never touches the notification's content beyond
  * display — no clinical data is cached or stored by this file either way.
  */
 const OFFLINE_CACHE = "th-offline-v1";

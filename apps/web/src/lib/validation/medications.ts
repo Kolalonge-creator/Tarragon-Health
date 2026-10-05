@@ -42,6 +42,23 @@ export const medicationSchema = z.object({
 });
 export type MedicationInput = z.infer<typeof medicationSchema>;
 
+/**
+ * What every CLINICIAN prescription must say, so a pharmacy can act on it: how much to dispense and how many days the supply covers.
+ * Enforced again in the database (prescribe_medication / amend_medication); this is the early, friendly check in the form. A patient adding
+ * their own medicine is not a prescription and never uses it.
+ */
+export const prescriptionDetailSchema = z.object({
+  quantity: z
+    .string()
+    .trim()
+    .min(1, "Enter the quantity to dispense, for example 30 tablets")
+    .max(100),
+  duration_days: z.coerce
+    .number({ message: "Enter how many days this supply covers" })
+    .int("Enter a whole number of days")
+    .positive("Enter how many days this supply covers"),
+});
+
 /** Reason a medication was stopped/switched (pathway Scenario 2). */
 export const stopMedicationSchema = z.object({
   stopped_reason: z.string().trim().max(300).optional(),

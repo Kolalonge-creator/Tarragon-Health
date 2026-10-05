@@ -41,7 +41,7 @@ type TabKey = (typeof TABS)[number]["key"];
  * Top-of-page privacy reassurance + a harm-reduction "quick exit". This is
  * deliberately a small piece of page-local markup rather than an extension
  * of ConfidentialResultNotice: that component's copy is specific to how a
- * *result* reaches a patient (never over WhatsApp/SMS/email — see its own
+ * *result* reaches a patient (never over SMS/email — see its own
  * doc comment) and has nothing about a supporter's visibility or an exit
  * control, so bolting those on would blur two different promises. It still
  * borrows the same visual language (clinical-navy, the `privacy` lock icon)

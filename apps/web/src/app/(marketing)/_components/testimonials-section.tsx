@@ -20,7 +20,7 @@ import { TestimonialsCarousel } from "./testimonials-carousel";
  *
  * Every other public marketing loader (lib/marketing/*) reads the same way.
  */
-export async function TestimonialsSection() {
+export async function TestimonialsSection({ condition }: { condition?: string } = {}) {
   // Never let a Supabase outage break the marketing homepage; same
   // never-throw discipline as the ML client. Worst case: this section just
   // doesn't render, same as when there are zero published quotes.
@@ -28,12 +28,16 @@ export async function TestimonialsSection() {
   try {
     const supabase = marketingAnonClient();
     if (supabase) {
-      const { data } = await supabase
+      let query = supabase
         .from("patient_testimonials")
         .select("id, display_name, quote")
-        .eq("status", "published")
-        .order("created_at", { ascending: false })
-        .limit(6);
+        .eq("status", "published");
+      // Condition pages (e.g. hypertension, diabetes) only want quotes
+      // tagged for that condition; the homepage passes no `condition` and
+      // gets every published quote, tagged or general, same as before this
+      // filter existed.
+      query = condition ? query.eq("condition", condition) : query;
+      const { data } = await query.order("created_at", { ascending: false }).limit(6);
       testimonials = data;
     }
   } catch {

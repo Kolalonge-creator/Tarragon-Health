@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAmendMedication } from "@/lib/queries/medications";
-import { amendMedicationSchema } from "@/lib/validation/medications";
+import { amendMedicationSchema, prescriptionDetailSchema } from "@/lib/validation/medications";
 import type { MedicationWithCarePlan } from "@/lib/queries/medications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,12 @@ export function AmendMedicationForm({
     });
     if (!parsed.success) {
       setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
+      return;
+    }
+    // The amended prescription must still say how much and for how long (an older prescription may never have).
+    const detail = prescriptionDetailSchema.safeParse({ quantity, duration_days: durationDays });
+    if (!detail.success) {
+      setValidationError(detail.error.issues[0]?.message ?? "Enter the quantity and duration");
       return;
     }
     setValidationError(null);
@@ -130,12 +136,13 @@ export function AmendMedicationForm({
         </div>
         <div className="space-y-1">
           <Label htmlFor={`amend_duration_${medication.id}`} className="text-xs">
-            Duration (days)
+            Duration (days) *
           </Label>
           <Input
             id={`amend_duration_${medication.id}`}
             type="number"
             min={1}
+            required
             value={durationDays}
             onChange={(event) => setDurationDays(event.target.value)}
             className="h-8 text-xs"
@@ -143,10 +150,11 @@ export function AmendMedicationForm({
         </div>
         <div className="space-y-1">
           <Label htmlFor={`amend_quantity_${medication.id}`} className="text-xs">
-            Quantity
+            Quantity *
           </Label>
           <Input
             id={`amend_quantity_${medication.id}`}
+            required
             value={quantity}
             onChange={(event) => setQuantity(event.target.value)}
             className="h-8 text-xs"

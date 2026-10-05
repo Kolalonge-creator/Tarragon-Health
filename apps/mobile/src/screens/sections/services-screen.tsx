@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
-import { cancelPendingServicePurchase, loadServicesState, formatPrice, type ServiceProduct, type ServicesState } from "@/lib/services";
-import { loadPlatformCreditState, spendPlatformCreditOnService, hasEnoughPlatformCredit } from "@/lib/platform-credit";
+import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import type { Currency } from "@tarragon/shared";
+import { useUiLanguage } from "@/lib/ui-language";
+import { cancelPendingServicePurchase, loadServicesState, formatPrice, type ServicesState } from "@/lib/services";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { space, useTheme } from "@/ui/design";
+import { AppText, Badge, Button, Card, InlineAlert, ListItem, Screen, Skeleton, SkeletonGroup } from "@/ui/kit";
 
 function when(iso: string | null): string | null {
   if (!iso) return null;
@@ -14,6 +15,14 @@ function when(iso: string | null): string | null {
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "long", year: "numeric" });
 }
+
+const PAST_STATUS_KEY: Record<string, MessageKey> = {
+  pending_payment: "services.past.pending_payment",
+  expired: "services.past.expired",
+  cancelled: "services.past.cancelled",
+  refunded: "services.past.refunded",
+  failed: "services.past.failed",
+};
 
 /**
  * "My services" — mirrors apps/web/.../patient/subscription/subscription-manager.tsx:
@@ -26,227 +35,186 @@ function when(iso: string | null): string | null {
  * cancelPendingServicePurchase RPC wrapper as the Overview payment-issue
  * card). Active/past are read natively (plain RLS-scoped reads).
  *
- * Buying a specific product tries platform credit first (added 2026-09-18):
- * if the caller's balance already covers the price, "Buy" settles it
- * in-app via spendPlatformCreditOnService and never opens a browser at all.
- * Short on balance (or anything else that isn't a clean credit purchase —
- * a promo code, card payment, or free-tier instant activation), it falls
- * back to the existing web hand-off, same pattern as Screening Days' "Pay"
- * and Financial Profile's "Pay my share" (WebBrowser.openBrowserAsync to the
- * equivalent web page, not a second checkout implementation).
+ * Buying a specific product is a card payment (or promo code) on the web:
+ * "Buy" hands off to the equivalent web page, same pattern as Screening
+ * Days' "Pay" and Financial Profile's "Pay my share"
+ * (WebBrowser.openBrowserAsync, not a second checkout implementation).
  */
 export function ServicesScreen() {
+  const { colors } = useTheme();
+  const locale = asLocale(useUiLanguage());
+  const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
+
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState<ServicesState | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [cancelError, setCancelError] = useState<string | null>(null);
-  const [creditBalanceKobo, setCreditBalanceKobo] = useState(0);
-  const [buyingCode, setBuyingCode] = useState<string | null>(null);
-  const [buyError, setBuyError] = useState<string | null>(null);
+  const [cancelFailed, setCancelFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     const result = await loadServicesState();
     if (result.ok) {
       setState(result.data);
-      setError(null);
+      setFailed(false);
     } else {
-      setError(result.error);
+      setFailed(true);
     }
   }, []);
 
-  /** Best-effort — a failed credit-balance read just means every "Buy"
-   * button falls back to the browser hand-off (balance defaults to 0), it
-   * never blocks the rest of the screen from loading. */
-  const refreshCredit = useCallback(async () => {
-    const result = await loadPlatformCreditState();
-    if (result.ok) setCreditBalanceKobo(result.data.balanceKobo);
-  }, []);
-
   useEffect(() => {
-    Promise.all([refresh(), refreshCredit()])
-      .catch(() => {})
+    refresh()
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
-  }, [refresh, refreshCredit]);
+  }, [refresh]);
+
+  function retry() {
+    setLoading(true);
+    refresh()
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
+  }
 
   async function openServicesPage() {
     await WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/subscription`);
     void refresh();
-    void refreshCredit();
-  }
-
-  /**
-   * Prefers an in-app platform credit spend when the balance already covers
-   * the price — settles it directly, no browser at all. Otherwise (short on
-   * balance, or a credit purchase that fails for any other reason — the
-   * price moved, the balance changed between the check and the call, etc.)
-   * falls back to the existing web checkout unchanged, same "open then
-   * refresh" idiom as openServicesPage.
-   */
-  async function handleBuy(product: ServiceProduct) {
-    if (!hasEnoughPlatformCredit(creditBalanceKobo, product.price_kobo)) {
-      await openServicesPage();
-      return;
-    }
-    setBuyingCode(product.code);
-    setBuyError(null);
-    const result = await spendPlatformCreditOnService(product.code);
-    setBuyingCode(null);
-    if (result.ok && result.data.ok) {
-      await Promise.all([refresh(), refreshCredit()]);
-      return;
-    }
-    if (result.ok && !result.data.ok && result.data.reason === "insufficient_balance") {
-      // Balance moved since the check above (e.g. spent elsewhere) — fall
-      // back to the browser rather than surfacing a dead end.
-      await openServicesPage();
-      return;
-    }
-    setBuyError("Could not complete this purchase with your platform credit — try again, or buy on the full app.");
   }
 
   /** Same "Not right now" action as the web My Services page's payment-failure
-   * banner / mobile's Overview payment-issue-card — reuses the shared
+   * banner / mobile's Overview payment-issue-card: reuses the shared
    * cancelPendingServicePurchase RPC wrapper rather than a second
    * implementation. This is the one place a stale pending_payment purchase is
    * reachable once its 30-minute grace period has passed and it has scrolled
    * off the Overview card (or a patient never saw it there). */
   async function handleCancelPending(purchaseId: string) {
+    if (cancellingId) return;
     setCancellingId(purchaseId);
-    setCancelError(null);
+    setCancelFailed(false);
     const result = await cancelPendingServicePurchase(purchaseId);
     if (result.ok) {
       await refresh();
     } else {
-      setCancelError("Could not close this — try again");
+      setCancelFailed(true);
     }
     setCancellingId(null);
   }
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.brand} />
-      </View>
+      <Screen>
+        <SkeletonGroup label={tr("services.title")}>
+          <View style={{ gap: space.lg }}>
+            <Skeleton height={28} width="55%" />
+            <Skeleton height={110} />
+            <Skeleton height={150} />
+          </View>
+        </SkeletonGroup>
+      </Screen>
     );
   }
 
   if (!state) {
+    // A failed read is never shown as "nothing active".
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: spacing.screen }}>
-        <ErrorText>{error ?? "Could not load your services just now."}</ErrorText>
-      </View>
+      <Screen>
+        <Card style={{ gap: space.md }}>
+          <InlineAlert tone="info" message={tr("services.load_error")} />
+          <Button title={tr("services.retry")} variant="secondary" onPress={retry} />
+        </Card>
+      </Screen>
     );
   }
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: spacing.screen, gap: 16 }}
-    >
-      <View>
-        <ScreenTitle>My services</ScreenTitle>
-        <MutedText>One-off purchases covering a fixed window each. Nothing auto-renews. Buy again any time to extend.</MutedText>
+    <Screen>
+      <View style={{ gap: space.xs }}>
+        <AppText variant="headline" heading>
+          {tr("services.title")}
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          {tr("services.subtitle")}
+        </AppText>
       </View>
 
-      <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your active services</Text>
+      {failed ? <InlineAlert tone="info" message={tr("services.load_error")} /> : null}
+
+      <Card style={{ gap: space.md }}>
+        <AppText variant="title" heading>
+          {tr("services.active.heading")}
+        </AppText>
         {state.active.length === 0 ? (
-          <MutedText>
-            Nothing active yet. The app itself is free; you only ever pay for a doctor&apos;s time. Buy a
-            service when you want one.
-          </MutedText>
+          <AppText variant="body" tone="textMuted">
+            {tr("services.active.empty")}
+          </AppText>
         ) : (
-          <View style={{ gap: 10 }}>
-            {state.active.map((purchase) => {
-              const endLabel = when(purchase.expires_at);
-              return (
-                <View key={purchase.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>
-                      {purchase.service_product?.name ?? "Unknown service"}
-                    </Text>
-                    <MutedText>{endLabel ? `Active until ${endLabel}` : "Active, no expiry"}</MutedText>
-                  </View>
-                  <Badge tone="brand">Active</Badge>
-                </View>
-              );
-            })}
-          </View>
+          state.active.map((purchase) => {
+            const endLabel = when(purchase.expires_at);
+            return (
+              <View key={purchase.id} style={{ gap: space.xs }}>
+                <AppText variant="bodyStrong">{purchase.service_product?.name ?? tr("services.unknown")}</AppText>
+                <AppText variant="caption" tone="textMuted">
+                  {endLabel ? tr("services.active.until", { date: endLabel }) : tr("services.active.no_expiry")}
+                </AppText>
+                <Badge label={tr("services.active.badge")} tone="positive" />
+              </View>
+            );
+          })
         )}
       </Card>
 
-      <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Buy a service</Text>
-        <MutedText>
-          One-off payment, no auto-renewal. Covered by your platform credit balance, it&apos;s bought right here
-          — otherwise this opens the full patient app to pay by card or apply a promo code.
-        </MutedText>
+      <Card style={{ gap: space.md }}>
+        <AppText variant="title" heading>
+          {tr("services.buy.heading")}
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          {tr("services.buy.body")}
+        </AppText>
         {state.buyable.length === 0 ? (
-          <MutedText>You already have everything currently on offer.</MutedText>
+          <AppText variant="body" tone="textMuted">
+            {tr("services.buy.empty")}
+          </AppText>
         ) : (
-          <View style={{ gap: 8 }}>
-            {state.buyable.map((product) => {
-              const coveredByCredit = hasEnoughPlatformCredit(creditBalanceKobo, product.price_kobo);
-              return (
-                <View
-                  key={product.id}
-                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{product.name}</Text>
-                    <MutedText>
-                      {formatPrice(product.price_kobo, product.currency as Currency)}
-                      {coveredByCredit && product.price_kobo > 0 ? " · covered by your platform credit" : ""}
-                    </MutedText>
-                  </View>
-                  <SecondaryButton
-                    title={coveredByCredit && product.price_kobo > 0 ? "Buy with credit" : "Buy"}
-                    loading={buyingCode === product.code}
-                    disabled={buyingCode !== null}
-                    onPress={() => void handleBuy(product)}
-                  />
-                </View>
-              );
-            })}
-          </View>
-        )}
-        {buyError && <ErrorText>{buyError}</ErrorText>}
-        <PrimaryButton title="Manage all services" onPress={openServicesPage} />
-      </Card>
-
-      {state.past.length > 0 && (
-        <Card style={{ gap: 10 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Past services</Text>
-          <View style={{ gap: 8 }}>
-            {state.past.map((purchase) => (
-              <View key={purchase.id} style={{ gap: 4 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <Text style={{ fontSize: 13, color: colors.ink, flex: 1 }}>{purchase.service_product?.name ?? "Unknown service"}</Text>
-                  <Badge>{purchase.status === "pending_payment" ? "Payment pending" : purchase.status}</Badge>
-                </View>
-                {purchase.status === "pending_payment" && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Not right now"
-                    accessibilityState={{ disabled: cancellingId === purchase.id }}
-                    disabled={cancellingId === purchase.id}
-                    onPress={() => handleCancelPending(purchase.id)}
-                    style={{ alignSelf: "flex-end", opacity: cancellingId === purchase.id ? 0.6 : 1 }}
-                  >
-                    {cancellingId === purchase.id ? (
-                      <ActivityIndicator size="small" color={colors.muted} />
-                    ) : (
-                      <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Not right now</Text>
-                    )}
-                  </Pressable>
-                )}
+          <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12, overflow: "hidden" }}>
+            {state.buyable.map((product, index) => (
+              <View key={product.id} style={index > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : undefined}>
+                <ListItem
+                  title={product.name}
+                  subtitle={formatPrice(product.price_kobo, product.currency as Currency)}
+                  trailing={<Button title={tr("services.buy.cta")} variant="secondary" fullWidth={false} onPress={() => void openServicesPage()} />}
+                />
               </View>
             ))}
           </View>
-          {cancelError && <ErrorText>{cancelError}</ErrorText>}
+        )}
+        <Button title={tr("services.buy.manage")} onPress={() => void openServicesPage()} />
+      </Card>
+
+      {state.past.length > 0 ? (
+        <Card style={{ gap: space.md }}>
+          <AppText variant="title" heading>
+            {tr("services.past.heading")}
+          </AppText>
+          {state.past.map((purchase) => {
+            const statusKey = PAST_STATUS_KEY[purchase.status];
+            return (
+              <View key={purchase.id} style={{ gap: space.sm }}>
+                <AppText variant="bodyStrong">{purchase.service_product?.name ?? tr("services.unknown")}</AppText>
+                <Badge label={statusKey ? tr(statusKey) : purchase.status.replace(/_/g, " ")} />
+                {purchase.status === "pending_payment" ? (
+                  <Button
+                    title={tr("services.past.not_now")}
+                    variant="ghost"
+                    fullWidth={false}
+                    loading={cancellingId === purchase.id}
+                    disabled={cancellingId !== null}
+                    onPress={() => void handleCancelPending(purchase.id)}
+                  />
+                ) : null}
+              </View>
+            );
+          })}
+          {cancelFailed ? <InlineAlert tone="danger" message={tr("services.cancel_error")} /> : null}
         </Card>
-      )}
-    </ScrollView>
+      ) : null}
+    </Screen>
   );
 }

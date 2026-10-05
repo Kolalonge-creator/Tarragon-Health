@@ -81,12 +81,37 @@ export interface LabOrderItem {
 }
 
 const LAB_ORDER_SELECT =
-  "id, order_number, status, urgency, ordered_at, clinical_indication, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), ordered_by_staff:clinical_staff!lab_orders_ordered_by_fkey(full_name)";
+  "id, order_number, status, urgency, ordered_at, clinical_indication, ordered_by, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions)";
 
 const AWAITING_RESULT_STATUSES: LabOrderStatus[] = ["payment_confirmed", "ordered", "processing"];
 
 export function isAwaitingResult(status: LabOrderStatus): boolean {
   return AWAITING_RESULT_STATUSES.includes(status);
+}
+
+/**
+ * `ordered_by` used to be embedded directly via
+ * `clinical_staff!lab_orders_ordered_by_fkey(...)` — a PostgREST embedded
+ * join, which resolves against `clinical_staff`'s OWN RLS, not this query's
+ * own. Since 2026-09-25 (see
+ * 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+ * that policy no longer admits a patient session, so the embed would
+ * silently come back null for every patient viewing their own lab order.
+ * Fetching the orderer separately from public.clinical_staff_directory (the
+ * safe-column view every patient-facing clinical_staff read now uses)
+ * restores the same attribution without reopening the column-exposure gap
+ * that migration fixed. Mirrors care-support.ts's fetchAnswerers.
+ */
+async function fetchOrderedByStaff(staffIds: string[]): Promise<Map<string, { full_name: string | null }>> {
+  const staffById = new Map<string, { full_name: string | null }>();
+  if (staffIds.length === 0) return staffById;
+  const { data, error } = await supabase.from("clinical_staff_directory").select("id, full_name").in("id", staffIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    staffById.set(row.id, { full_name: row.full_name });
+  }
+  return staffById;
 }
 
 /** Patient's own lab_orders, newest first. RLS (patient_id = auth.uid()) does the scoping. */
@@ -98,9 +123,14 @@ export async function getLabOrders(patientId: string): Promise<QueryResult<LabOr
       .eq("patient_id", patientId)
       .order("ordered_at", { ascending: false });
     if (error) return { ok: false, error: error.message };
+
+    const rows = data ?? [];
+    const orderedByIds = Array.from(new Set(rows.map((row) => row.ordered_by).filter((id): id is string => !!id)));
+    const orderedByStaff = await fetchOrderedByStaff(orderedByIds);
+
     return {
       ok: true,
-      data: (data ?? []).map((row) => ({
+      data: rows.map((row) => ({
         id: row.id,
         orderNumber: row.order_number,
         status: row.status,
@@ -112,7 +142,7 @@ export async function getLabOrders(patientId: string): Promise<QueryResult<LabOr
         testCodes: row.panel_bundle?.test_codes ?? [],
         preparationInstructions: row.panel_bundle?.preparation_instructions ?? null,
         clinicalIndication: row.clinical_indication,
-        orderedByName: row.ordered_by_staff?.full_name ?? null,
+        orderedByName: row.ordered_by ? (orderedByStaff.get(row.ordered_by)?.full_name ?? null) : null,
       })),
     };
   } catch (e) {
@@ -222,12 +252,15 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
     // Batch-resolve reviewer names in one query rather than N+1 — same
     // null-gated attribution as ReviewedResultLine on web, but reviewed_by
     // on this table references profiles.id, so the lookup joins through
-    // clinical_staff.profile_id.
+    // clinical_staff.profile_id. Reads from clinical_staff_directory, not
+    // clinical_staff, since 2026-09-25's clinical_staff_select narrowing
+    // (see 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+    // stopped admitting a patient session to the base table.
     const reviewerIds = [...new Set(rows.map((r) => r.reviewed_by).filter((id): id is string => !!id))];
-    const reviewerNameByProfileId = new Map<string, string>();
+    const reviewerNameByProfileId = new Map<string, string | null>();
     if (reviewerIds.length > 0) {
       const { data: staff } = await supabase
-        .from("clinical_staff")
+        .from("clinical_staff_directory")
         .select("profile_id, full_name")
         .in("profile_id", reviewerIds)
         .eq("active", true);

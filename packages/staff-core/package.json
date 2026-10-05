@@ -1,0 +1,34 @@
+{
+  "name": "@tarragon/staff-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Server-side domain code shared by more than one staff area while those areas are split between apps/web and apps/console (S01d). Once every consumer has moved into apps/console, individual modules can be folded back into the console.",
+  "exports": {
+    "./platform-modules": "./src/platform-modules.ts",
+    "./ngo/funding-programmes": "./src/ngo/funding-programmes.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.0",
+    "@tarragon/auth": "workspace:*",
+    "@tarragon/shared": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.19.43",
+    "eslint": "^9",
+    "jest": "^30.4.2",
+    "next": "16.3.3",
+    "react": "19.2.4",
+    "ts-jest": "^29.4.11",
+    "typescript": "^5",
+    "typescript-eslint": "^8"
+  }
+}

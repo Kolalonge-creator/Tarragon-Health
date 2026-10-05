@@ -197,10 +197,40 @@ begin
   insert into r values ('4b a care_outreach_tasks row exists for the HTN patient',
     case when v_n = 1 then 'PASS' else 'FAIL - got ' || v_n end);
 
+  -- The in-app nudge always lands; a second nudge goes on the patient's own
+  -- push/email channel only when they have one. This fresh patient has neither,
+  -- so exactly one in_app row and nothing on any other channel.
   select count(*) into v_n from public.notifications
-    where recipient_id = v_htn_pt and template = 'care_outreach_checkin' and channel in ('whatsapp','in_app');
-  insert into r values ('4c both whatsapp and in_app nudges were queued',
-    case when v_n = 2 then 'PASS' else 'FAIL - got ' || v_n end);
+    where recipient_id = v_htn_pt and template = 'care_outreach_checkin';
+  insert into r values ('4c the in_app nudge was queued, and nothing on a channel the patient does not use',
+    case when v_n = 1 and private.patient_reminder_channel(v_htn_pt) = 'in_app'
+         and exists (select 1 from public.notifications where recipient_id = v_htn_pt
+                     and template = 'care_outreach_checkin' and channel = 'in_app')
+         then 'PASS' else 'FAIL - got ' || v_n end);
+
+  select count(*) into v_n from public.notifications
+    where recipient_id = v_htn_pt and template = 'care_outreach_checkin'
+      and channel = private.patient_reminder_channel(v_htn_pt);
+  insert into r values ('4c2 the nudge sits on private.patient_reminder_channel()',
+    case when v_n >= 1 then 'PASS' else 'FAIL - got ' || v_n end);
+
+  -- SABOTAGE: with a helper answering a channel nothing was queued on, the 4c2
+  -- predicate must match nothing (undone straight after). DDL on private needs
+  -- the owner role, so step out of the simulated session and back in.
+  reset role;
+  begin
+    create or replace function private.patient_reminder_channel(p_recipient uuid, p_allow_email boolean default true)
+    returns public.notification_channel language sql stable as $f$ select 'sms'::public.notification_channel $f$;
+    select count(*) into v_n from public.notifications
+      where recipient_id = v_htn_pt and template = 'care_outreach_checkin'
+        and channel = private.patient_reminder_channel(v_htn_pt);
+    raise exception 'sabotage_undo';
+  exception when others then
+    if sqlerrm <> 'sabotage_undo' then raise; end if;
+  end;
+  insert into r values ('4c3 SABOTAGE: a mismatching helper makes the 4c2 predicate match nothing',
+    case when v_n = 0 then 'PASS' else 'FAIL - got ' || v_n end);
+  set local role authenticated;
 
   -- Re-running must not double-queue (same live-status unique index the nightly job relies on).
   perform public.trigger_population_outreach(v_htn_registry);

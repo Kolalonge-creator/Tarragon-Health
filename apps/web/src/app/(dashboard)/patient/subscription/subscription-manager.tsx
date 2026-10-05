@@ -72,9 +72,7 @@ const PRODUCT_GROUPS: {
     title: "Ongoing cover",
     blurb:
       "Paid once for a fixed term, then it stops. No card is kept on file and there is nothing to cancel.",
-    match: (code) =>
-      code.startsWith("continuous_monitoring_") ||
-      code.startsWith("weight_management_"),
+    match: (code) => code.startsWith("continuous_monitoring_"),
   },
   {
     id: "doctor-time",
@@ -107,7 +105,7 @@ const PRODUCT_GROUPS: {
  * concept: a purchase is a one-off charge for a fixed window and simply
  * expires — buying again is the only "renewal" there is.
  */
-export function SubscriptionManager({ patientId }: { patientId: string }) {
+export function SubscriptionManager() {
   const {
     data: purchases,
     isLoading,
@@ -213,7 +211,10 @@ export function SubscriptionManager({ patientId }: { patientId: string }) {
         <Card>
           <CardHeader>
             <CardTitle>Buy a service</CardTitle>
-            <CardDescription>One-off payment, no auto-renewal.</CardDescription>
+            <CardDescription>
+              One-off payment, no auto-renewal. Your first purchase is covered by a 30-day
+              money-back guarantee.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {buyable.length > 0 && <PaystackFeeNotice />}
@@ -303,7 +304,6 @@ export function SubscriptionManager({ patientId }: { patientId: string }) {
                           ) : (
                             <div className="shrink-0">
                               <BuyServiceDialog
-                                patientId={patientId}
                                 product={product}
                                 promoCode={promoCode}
                                 paystackFormAction={buyAction}
