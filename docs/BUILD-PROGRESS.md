@@ -428,3 +428,9 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Also**: the S07 `public.my_home_bp_target()` migration (OQ-80) was found already applied on production; its recorded SQL equals the file and its proof passes on live. The OQ-80 note that said "not applied" is corrected.
 - **Tests**: 2 new planner tests (a budget of 2 keeps 8 due and 2 follow-ups out of 10 places, where no budget kept 5 due; a budget of 0 keeps none); the phone's windowed-dose test now expects 8 follow-ups. Medicines 174 (100% coverage), mobile 1059, shared 110, all passing.
 
+
+## S08h: closing the medicines cabinet refreshes Today's doses (2026-10-05)
+
+- **Found** on the iPhone 17 Pro simulator (first device-style run of S08): a medicine added in the cabinet did not appear in Today's doses until the tab was reloaded, because the cabinet keeps its own copy of the list and the Meds screen only read it on open.
+- **Fixed**: closing the cabinet sheet re-reads Today's doses and re-plans the reminders (`medications-screen.tsx`). Confirmed on the simulator with a second medicine added on the server while the cabinet was open: it showed in Today's doses the moment the sheet closed.
+- **Also run on the simulator (iOS only, one pass, by hand)**: add a medicine with a 2 hour window (the stored spec passed the new database validator), see it as "Later today" with its window, tap "I took it", and the dose reached the server 2 minutes later, after the undo window, as `taken`. Not covered: the local reminder itself (notifications were denied for the dev build), the offline step, Android, a real phone.
