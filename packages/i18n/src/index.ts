@@ -32,3 +32,13 @@ export function t(key: MessageKey, locale: Locale = DEFAULT_LOCALE, params?: Mes
 export function asLocale(value: unknown): Locale {
   return (LOCALES as readonly unknown[]).includes(value) ? (value as Locale) : DEFAULT_LOCALE;
 }
+
+/** `asLocale`, but honouring the platform-wide Pidgin kill switch: off means English for everyone. */
+export function resolveLocale(value: unknown, pidginEnabled: boolean): Locale {
+  return pidginEnabled ? asLocale(value) : DEFAULT_LOCALE;
+}
+
+/** The locales to offer: Pidgin is hidden while the kill switch is off. */
+export function availableLocales(pidginEnabled: boolean): readonly Locale[] {
+  return pidginEnabled ? LOCALES : ([DEFAULT_LOCALE] as const);
+}

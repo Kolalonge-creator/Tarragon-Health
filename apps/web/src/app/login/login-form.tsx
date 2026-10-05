@@ -19,13 +19,21 @@ import { cn } from "@/lib/utils";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
-export function LoginForm({ redirectTo, locale = "en" }: { redirectTo?: string; locale?: Locale }) {
+export function LoginForm({
+  redirectTo,
+  locale = "en",
+  pidginEnabled = true,
+}: {
+  redirectTo?: string;
+  locale?: Locale;
+  pidginEnabled?: boolean;
+}) {
   const [tab, setTab] = useState<"email" | "phone">("email");
 
   return (
     <div className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-7">
       <div className="mb-4">
-        <LanguageSwitch locale={locale} />
+        <LanguageSwitch locale={locale} pidginEnabled={pidginEnabled} />
       </div>
       <div className="mb-6 grid grid-cols-2 rounded-xl bg-charcoal-ink/5 p-1 text-sm font-medium">
         {(["email", "phone"] as const).map((value) => (

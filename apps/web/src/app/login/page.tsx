@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LoginForm } from "./login-form";
 import { GuardLeafMark } from "@/components/brand/guard-leaf-mark";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
+import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 
 export default async function LoginPage({
   searchParams,
@@ -10,6 +11,7 @@ export default async function LoginPage({
 }) {
   const { redirect } = await searchParams;
   const locale = await getAuthLocale();
+  const pidginEnabled = await getPidginEnabled();
 
   return (
     <div className="flex flex-1 items-center justify-center bg-white px-4 py-12 sm:py-16">
@@ -31,7 +33,7 @@ export default async function LoginPage({
           </p>
         </div>
 
-        <LoginForm redirectTo={redirect} locale={locale} />
+        <LoginForm redirectTo={redirect} locale={locale} pidginEnabled={pidginEnabled} />
 
         <p className="text-center text-sm text-charcoal-ink/60">
           New here?{" "}
