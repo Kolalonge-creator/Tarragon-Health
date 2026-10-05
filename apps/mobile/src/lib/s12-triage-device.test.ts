@@ -15,10 +15,12 @@ import {
   CONTEXT_BUDGET_MS,
   clearPendingRecheck,
   gradeOnDevice,
+  ageYearsOn,
   loadDeviceRuleSet,
   localBpHistory,
   readPendingRecheck,
   refreshApprovedRuleSet,
+  refreshPatientFacts,
   resolveExpiredRecheck,
   triageAudioId,
 } from "./triage-device";
@@ -26,13 +28,19 @@ import {
 let mockInsertError: { code?: string; message?: string } | null = null;
 let mockRpc: jest.Mock;
 let mockMirror: () => Promise<unknown[]>;
+let mockTable: Record<string, { data: unknown; error: { message: string } | null }> = {};
 
 jest.mock("./supabase", () => ({
   supabase: {
     auth: { getSession: async () => ({ data: { session: { user: { id: "user-1" } } } }) },
     rpc: (...args: unknown[]) => mockRpc(...args),
-    from: () => ({
-      select: () => ({ eq: () => ({ single: async () => ({ data: { organisation_id: "org-1" }, error: null }) }) }),
+    from: (table: string) => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: { organisation_id: "org-1" }, error: null }),
+          maybeSingle: async () => mockTable[table] ?? { data: null, error: null },
+        }),
+      }),
       insert: async () => ({ error: mockInsertError }),
     }),
   },
@@ -56,6 +64,7 @@ beforeEach(async () => {
   mockInsertError = null;
   mockRpc = jest.fn(async () => ({ data: null, error: null }));
   mockMirror = async () => [];
+  mockTable = {};
   mockPost.mockReset();
   mockPost.mockImplementation(async () => ({ success: true }));
   mockInsertError = { code: "42501" };
@@ -261,5 +270,54 @@ describe("history and the rule set on the phone", () => {
   it("placeholder audio ids carry the clip code, and null stays null", () => {
     expect(triageAudioId("TRI-001")).toBe("audio-pending:TRI-001");
     expect(triageAudioId(null)).toBeNull();
+  });
+});
+
+describe("age and pregnancy on the phone (OQ-90)", () => {
+  it("counts whole years and refuses a missing or impossible date", () => {
+    expect(ageYearsOn("2008-10-06", NOW)).toBe(17);
+    expect(ageYearsOn("2008-10-05", NOW)).toBe(18);
+    expect(ageYearsOn("1980-01-01", NOW)).toBe(46);
+    expect(ageYearsOn(null, NOW)).toBeNull();
+    expect(ageYearsOn("not a date", NOW)).toBeNull();
+    expect(ageYearsOn("2030-01-01", NOW)).toBeNull();
+  });
+
+  it("an under-18 patient is routed to the care team, not graded on adult bands (BP-P2)", async () => {
+    mockTable = { profiles: { data: { date_of_birth: "2012-03-01" }, error: null }, patient_pregnancy: { data: null, error: null } };
+    expect(await refreshPatientFacts(SUBJECT)).toBe("updated");
+    const triage = await gradeOnDevice({ subjectId: SUBJECT, systolic: 125, diastolic: 80, symptoms: [], nowMs: NOW });
+    expect(triage.result).toMatchObject({ grade: "amber", ruleId: "BP-P2" });
+  });
+
+  it("a pregnant patient is routed to the care team (BP-P1)", async () => {
+    mockTable = { profiles: { data: { date_of_birth: "1990-03-01" }, error: null }, patient_pregnancy: { data: { is_pregnant: true }, error: null } };
+    await refreshPatientFacts(SUBJECT);
+    const triage = await gradeOnDevice({ subjectId: SUBJECT, systolic: 125, diastolic: 80, symptoms: [], nowMs: NOW });
+    expect(triage.result).toMatchObject({ grade: "amber", ruleId: "BP-P1" });
+  });
+
+  it("a red reading is still red for a pregnant patient", async () => {
+    mockTable = { profiles: { data: { date_of_birth: "1990-03-01" }, error: null }, patient_pregnancy: { data: { is_pregnant: true }, error: null } };
+    await refreshPatientFacts(SUBJECT);
+    const triage = await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], nowMs: NOW });
+    expect(triage.result.grade).toBe("red");
+  });
+
+  it("a failed read keeps the last copy, and an empty answer replaces it", async () => {
+    mockTable = { profiles: { data: { date_of_birth: "2012-03-01" }, error: null }, patient_pregnancy: { data: null, error: null } };
+    await refreshPatientFacts(SUBJECT);
+    mockTable = { profiles: { data: null, error: { message: "offline" } }, patient_pregnancy: { data: null, error: null } };
+    expect(await refreshPatientFacts(SUBJECT)).toBe("failed");
+    expect((await gradeOnDevice({ subjectId: SUBJECT, systolic: 125, diastolic: 80, symptoms: [], nowMs: NOW })).result.ruleId).toBe("BP-P2");
+    mockTable = { profiles: { data: { date_of_birth: null }, error: null }, patient_pregnancy: { data: null, error: null } };
+    await refreshPatientFacts(SUBJECT);
+    expect((await gradeOnDevice({ subjectId: SUBJECT, systolic: 125, diastolic: 80, symptoms: [], nowMs: NOW })).result.ruleId).not.toBe("BP-P2");
+  });
+
+  it("does nothing without a subject, and survives a thrown read or a corrupt copy", async () => {
+    expect(await refreshPatientFacts("")).toBe("failed");
+    await AsyncStorage.setItem(`@tarragon/triage/facts/v1:${SUBJECT}`, "{bad");
+    expect((await gradeOnDevice({ subjectId: SUBJECT, systolic: 118, diastolic: 76, symptoms: [], nowMs: NOW })).result.grade).toBe("green");
   });
 });

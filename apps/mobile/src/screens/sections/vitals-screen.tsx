@@ -9,7 +9,7 @@ import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-t
 import { loadActiveThresholds } from "@/lib/threshold-sync";
 import { BP_CHECKLIST_SYMPTOMS, planBpLog, redFlagsAmong, type BpChecklistSymptom } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
-import { refreshApprovedRuleSet, resolveExpiredRecheck, type DeviceTriage } from "@/lib/triage-device";
+import { refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, type DeviceTriage } from "@/lib/triage-device";
 import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
 import {
   validateOtherEntry,
@@ -151,6 +151,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   useEffect(() => {
     // A first elevated reading whose repeat never came is graded as if repeated (spec 6.2); and the rules are kept fresh.
     void refreshApprovedRuleSet();
+    void refreshPatientFacts(patientId);
     void resolveExpiredRecheck(patientId)
       .then((d) => d && showTriage(d))
       .catch(() => {});

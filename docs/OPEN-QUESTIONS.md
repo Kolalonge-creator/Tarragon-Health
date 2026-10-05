@@ -509,14 +509,15 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The only `bp_care_triage` rule set is a draft (OQ-86, OQ-87). The live pipeline (`private.classify_bp_level`, `vitals_readings_bp_red_flag`, `emergency_events`, `clinician_alerts`) pages and escalates today with different bands (OQ-67). If S12 also paged or opened clinical tasks from the draft, a patient could be paged twice with two different grades, and nothing would show which rule set a clinician was told to trust (INV-14, INV-16).
 - S12 therefore grades on the server with the draft, stores the result with `shadow = true` and the rule set version, and emits `triage.graded` with `shadow: true`. The subscribers S16 (tasks) and S19 (paging) must ignore shadow events. On the phone the engine can only add guidance to what the older check shows (the stricter wins), and the repeat-reading prompt is shown because it only asks the patient to rest and measure again.
 - Options: (a) shadow until the CMO approves, then S16/S19 act on non-shadow events and the live bands are retired in a later session (recommended); (b) let S12 drive paging now and retire the live triggers (a safety change with no clinician sign-off, and a risk of double paging); (c) keep the live pipeline permanently and drop the engine's paging.
-- Decision (founder): pending. S12 is built to option (a), which changes nothing about live behaviour.
+- Decision (founder, 2026-10-05): option (a), shadow until the CMO signs. S12 is built to it and changes nothing about live behaviour.
 
 ### OQ-89 Symptom-only reports, silence and adherence are not wired yet (raised by S12)
 - S11's engine grades `observation`, `adherence` and `silence` triggers. S12 wires only `observation` (a blood pressure reading, with ticked symptoms). Red-flag symptoms ticked with no reading are still handled by the live danger-sign path (OQ-86 gap 3). The nightly `silence.detected` job and the 7-day adherence rule need a care-pack patient (`pathway.state = care_pack_active`), and care packs arrive in S26; the server treats every patient as `self_guided`, so BP-A4 and BP-A5 cannot fire.
 - Options: (a) wire silence and adherence in S26 with the care pack, and symptom-only reports with S19 (recommended); (b) wire them now with a stand-in pathway state (would grade patients as care-pack with no pack).
 - Safety case 7 (silence task once) is proved in the engine (S11) but not end to end until S26.
+- Decision (founder, 2026-10-05): option (a), wire silence and adherence with S26 and symptom-only reports with S19.
 
 ### OQ-90 Pregnancy and age are read from different places on the phone and the server (raised by S12)
 - The server reads `patient_pregnancy.is_pregnant` and the date of birth from the profile. The phone has neither offline, so it passes `pregnant = false` and no age; BP-P1 and BP-P2 (route to a clinician) can therefore only fire on the server. A pregnant patient at a reading below the red line would not see the engine's "care team will look" message on the phone, only after the server grades her.
 - Options: (a) cache date of birth and pregnancy flag with the emergency facts and pass them on the phone (recommended, small); (b) leave it (the server still grades and the live pipeline still alerts).
-
+- Decision (founder, 2026-10-05): option (a). Built in S12 follow-up: `refreshPatientFacts` and `ageYearsOn` in `apps/mobile/src/lib/triage-device.ts`.

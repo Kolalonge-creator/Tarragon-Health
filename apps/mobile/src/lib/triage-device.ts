@@ -33,6 +33,7 @@ import { supabase } from "./supabase";
 export const TRIAGE_RULE_SET_CODE = "bp_care_triage";
 export const CONTEXT_BUDGET_MS = 600;
 const RULES_KEY = "@tarragon/triage/rules/v1";
+const FACTS_KEY = (subjectId: string) => `@tarragon/triage/facts/v1:${subjectId}`;
 const RECHECK_KEY = (subjectId: string) => `@tarragon/triage/pending-recheck/v1:${subjectId}`;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const FALLBACK_TARGET = { systolic: 135, diastolic: 85 } as const;
@@ -135,6 +136,58 @@ export async function localBpHistory(subjectId: string, nowMs: number): Promise<
   return [...out.values()].sort((a, b) => b.takenAt.localeCompare(a.takenAt));
 }
 
+interface PatientFacts {
+  /** YYYY-MM-DD, or null when none is on file. */
+  dateOfBirth: string | null;
+  pregnant: boolean;
+}
+
+/** Whole years on `nowMs`, or null when the date is missing or not a real date. */
+export function ageYearsOn(dateOfBirth: string | null, nowMs: number): number | null {
+  if (!dateOfBirth) return null;
+  const dob = Date.parse(`${dateOfBirth}T00:00:00Z`);
+  if (!Number.isFinite(dob) || dob > nowMs) return null;
+  const a = new Date(dob);
+  const n = new Date(nowMs);
+  let years = n.getUTCFullYear() - a.getUTCFullYear();
+  if (n.getUTCMonth() < a.getUTCMonth() || (n.getUTCMonth() === a.getUTCMonth() && n.getUTCDate() < a.getUTCDate())) years -= 1;
+  return years;
+}
+
+async function readFacts(subjectId: string): Promise<PatientFacts> {
+  try {
+    const raw = await AsyncStorage.getItem(FACTS_KEY(subjectId));
+    if (raw) {
+      const v = JSON.parse(raw) as Partial<PatientFacts>;
+      return { dateOfBirth: typeof v.dateOfBirth === "string" ? v.dateOfBirth : null, pregnant: v.pregnant === true };
+    }
+  } catch {
+    // fall through
+  }
+  return { dateOfBirth: null, pregnant: false };
+}
+
+/**
+ * Best effort, online only (OQ-90): keep the date of birth and pregnancy flag the server grades with on the phone, so the
+ * phone routes a pregnant or under-18 patient to the care team the same way (BP-P1, BP-P2) instead of grading on adult
+ * bands. A failed read keeps the last copy; a read that works but finds nothing stores that, so a corrected record is not stale.
+ */
+export async function refreshPatientFacts(subjectId: string): Promise<"updated" | "failed"> {
+  if (!subjectId) return "failed";
+  try {
+    const [profile, pregnancy] = await Promise.all([
+      supabase.from("profiles").select("date_of_birth").eq("id", subjectId).maybeSingle(),
+      supabase.from("patient_pregnancy").select("is_pregnant").eq("patient_id", subjectId).maybeSingle(),
+    ]);
+    if (profile.error || pregnancy.error) return "failed";
+    const facts: PatientFacts = { dateOfBirth: profile.data?.date_of_birth ?? null, pregnant: pregnancy.data?.is_pregnant === true };
+    await AsyncStorage.setItem(FACTS_KEY(subjectId), JSON.stringify(facts));
+    return "updated";
+  } catch {
+    return "failed";
+  }
+}
+
 export async function readPendingRecheck(subjectId: string): Promise<PendingRecheck | null> {
   try {
     const raw = await AsyncStorage.getItem(RECHECK_KEY(subjectId));
@@ -185,19 +238,22 @@ interface Context {
   history: Reading[];
   target: { systolic: number; diastolic: number };
   pending: PendingRecheck | null;
+  facts: PatientFacts;
   rules: DeviceRuleSet;
 }
 
 async function loadContext(subjectId: string, userId: string, nowMs: number): Promise<Omit<Context, "rules">> {
-  const [history, target, pending] = await Promise.all([
+  const [history, target, pending, facts] = await Promise.all([
     localBpHistory(subjectId, nowMs).catch(() => []),
     readCachedBpTarget(userId, subjectId).catch(() => null),
     readPendingRecheck(subjectId),
+    readFacts(subjectId),
   ]);
   return {
     history,
     target: target ? { systolic: target.systolicBelow, diastolic: target.diastolicBelow } : { ...FALLBACK_TARGET },
     pending,
+    facts,
   };
 }
 
@@ -213,7 +269,7 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
     withBudget(loadDeviceRuleSet(), { ruleSet: BP_CARE_V1, status: "draft" as const }, CONTEXT_BUDGET_MS),
     withBudget<Omit<Context, "rules">>(
       loadContext(req.subjectId, req.userId ?? req.subjectId, nowMs),
-      { history: [], target: { ...FALLBACK_TARGET }, pending: null },
+      { history: [], target: { ...FALLBACK_TARGET }, pending: null, facts: { dateOfBirth: null, pregnant: false } },
       CONTEXT_BUDGET_MS,
     ),
   ]);
@@ -231,8 +287,8 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
     history: ctx.history,
     target: ctx.target,
     pathway: { state: "self_guided" },
-    pregnant: false,
-    ageYears: null,
+    pregnant: ctx.facts.pregnant,
+    ageYears: ageYearsOn(ctx.facts.dateOfBirth, nowMs),
     now,
   };
   const result = grade(input, rules.ruleSet);
@@ -264,8 +320,8 @@ export async function resolveExpiredRecheck(subjectId: string, nowMs: number = D
       history: ctx.history.filter((h) => h.takenAt !== pending.reading.takenAt),
       target: ctx.target,
       pathway: { state: "self_guided" },
-      pregnant: false,
-      ageYears: null,
+      pregnant: ctx.facts.pregnant,
+      ageYears: ageYearsOn(ctx.facts.dateOfBirth, nowMs),
       now: new Date(nowMs).toISOString(),
     },
     rules.ruleSet,
