@@ -76,11 +76,6 @@ begin
     if p_role not in ('clinician', 'care_coordinator') then
       raise exception 'You can only assign the Clinician or Care Coordinator role.';
     end if;
-
-    -- Cannot promote someone TO admin.
-    if p_role = 'admin' then
-      raise exception 'Only a Super Admin can assign the Super Admin role.';
-    end if;
   end if;
 
   -- 5. Apply.

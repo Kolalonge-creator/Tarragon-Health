@@ -354,12 +354,11 @@ function MemberItem({
   // What the set_member_active RPC will allow this caller to do to this member.
   // The RPC is the enforcement; this only keeps the screen from offering a
   // control the database will refuse, and says why when it hides one.
-  const suspendDecision = canSuspend
-    ? suspendScope(
-        { id: currentMemberId, isSuperAdmin: callerScope.isSuperAdmin, organisationId: callerScope.organisationId },
-        { id: member.id, role: member.role, organisation_id: member.organisation_id }
-      )
-    : null;
+  const callerScopeWithId = { id: currentMemberId, isSuperAdmin: callerScope.isSuperAdmin, organisationId: callerScope.organisationId };
+  const targetScope = { id: member.id, role: member.role, organisation_id: member.organisation_id };
+  const suspendDecision = canSuspend ? suspendScope(callerScopeWithId, targetScope) : null;
+  const roleDecision = canAssignRoles ? roleScope(callerScopeWithId, targetScope) : null;
+  const roleList = roleDecision?.allowed ? assignableRoles(callerScope, USER_ROLES) : [];
   // Only a grant of a platform-control capability is confirmed. Revoking one,
   // or toggling an ordinary capability, stays a single click: those are
   // recoverable, and confirming everything trains people to click through.
@@ -401,53 +400,46 @@ function MemberItem({
             View activity &amp; oversight →
           </Link>
         )}
-        {canAssignRoles && (() => {
-          const rd = roleScope(
-            { id: currentMemberId, isSuperAdmin: callerScope.isSuperAdmin, organisationId: callerScope.organisationId },
-            { id: member.id, role: member.role, organisation_id: member.organisation_id }
-          );
-          if (!rd.allowed) {
-            const hint = ROLE_SCOPE_HINT[rd.reason];
-            return hint ? <p className="text-xs text-charcoal-ink/50">{hint}</p> : null;
-          }
-          const roles = assignableRoles(callerScope, USER_ROLES);
-          return (
-            <form
-              className="flex flex-wrap items-end gap-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const fd = new FormData(e.currentTarget);
-                fd.set("memberId", member.id);
-                run((f) => setMemberRoleAction(undefined, f), fd);
-              }}
-            >
-              <div className="space-y-1">
-                <Label>Account role</Label>
-                <Select name="role" defaultValue={member.role}>
-                  {roles.map((r) => (
-                    <option key={r} value={r}>
-                      {USER_ROLE_LABELS[r]}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Custom role</Label>
-                <Select name="customRoleId" defaultValue={member.custom_role_id ?? ""}>
-                  <option value="">None</option>
-                  {customRoles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <Button type="submit" variant="outline" disabled={pending}>
-                Save role
-              </Button>
-            </form>
-          );
-        })()}
+        {roleDecision && !roleDecision.allowed && ROLE_SCOPE_HINT[roleDecision.reason] && (
+          <p className="text-xs text-charcoal-ink/50">{ROLE_SCOPE_HINT[roleDecision.reason]}</p>
+        )}
+
+        {roleDecision?.allowed && (
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              fd.set("memberId", member.id);
+              run((f) => setMemberRoleAction(undefined, f), fd);
+            }}
+          >
+            <div className="space-y-1">
+              <Label>Account role</Label>
+              <Select name="role" defaultValue={member.role}>
+                {roleList.map((r) => (
+                  <option key={r} value={r}>
+                    {USER_ROLE_LABELS[r]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Custom role</Label>
+              <Select name="customRoleId" defaultValue={member.custom_role_id ?? ""}>
+                <option value="">None</option>
+                {customRoles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button type="submit" variant="outline" disabled={pending}>
+              Save role
+            </Button>
+          </form>
+        )}
 
         {canEditContact && (
           <form
