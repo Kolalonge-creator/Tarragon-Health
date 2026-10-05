@@ -33,22 +33,24 @@ DECLARE
   v_presc_id    uuid;
 BEGIN
   -- ─── Fixtures ─────────────────────────────────────────────────────────
-  INSERT INTO organisations (name) VALUES ('S09 Test Org')
+  INSERT INTO organisations (name, type) VALUES ('S09 Test Org', 'clinic')
     RETURNING id INTO v_org_id;
 
   v_patient := gen_random_uuid();
   INSERT INTO auth.users (id, email, role, aud, instance_id)
     VALUES (v_patient, 's09-patient@tarragon.test', 'authenticated', 'authenticated',
             '00000000-0000-0000-0000-000000000000');
-  INSERT INTO profiles (id, full_name, user_role, organisation_id)
-    VALUES (v_patient, 'S09 Patient', 'patient', v_org_id);
+  INSERT INTO profiles (id, full_name, role, organisation_id)
+    VALUES (v_patient, 'S09 Patient', 'patient', v_org_id)
+    ON CONFLICT (id) DO UPDATE SET full_name = excluded.full_name, role = excluded.role, organisation_id = excluded.organisation_id;
 
   v_doctor := gen_random_uuid();
   INSERT INTO auth.users (id, email, role, aud, instance_id)
     VALUES (v_doctor, 's09-doctor@tarragon.test', 'authenticated', 'authenticated',
             '00000000-0000-0000-0000-000000000000');
-  INSERT INTO profiles (id, full_name, user_role, organisation_id)
-    VALUES (v_doctor, 'Dr S09 Test', 'clinician', v_org_id);
+  INSERT INTO profiles (id, full_name, role, organisation_id)
+    VALUES (v_doctor, 'Dr S09 Test', 'clinician', v_org_id)
+    ON CONFLICT (id) DO UPDATE SET full_name = excluded.full_name, role = excluded.role, organisation_id = excluded.organisation_id;
 
   -- ════════════════════════════════════════════════════════════════════════
   -- Test 1: create_record_share as the patient

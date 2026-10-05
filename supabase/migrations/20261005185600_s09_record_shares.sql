@@ -136,7 +136,7 @@ begin
   end if;
 
   -- Generate a 32-byte hex token
-  v_token := encode(gen_random_bytes(32), 'hex');
+  v_token := encode(extensions.gen_random_bytes(32), 'hex');
   v_expires_at := now() + (p_expires_in_hours || ' hours')::interval;
 
   insert into public.record_shares
@@ -342,7 +342,7 @@ begin
           select jsonb_build_object(
             'blood_group', b.blood_group::text,
             'genotype', b.genotype::text,
-            'source', b.source
+            'source', b.provenance::text
           )
           from public.patient_blood_profile b
           where b.patient_id = v_share.patient_id
