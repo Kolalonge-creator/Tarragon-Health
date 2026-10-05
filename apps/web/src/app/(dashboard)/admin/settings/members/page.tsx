@@ -42,6 +42,7 @@ export default async function MembersPage() {
     isSuperAdmin ||
     keys.has("users.provision") ||
     keys.has("users.roles.assign") ||
+    keys.has("users.suspend") ||
     keys.has("users.permissions.grant") ||
     keys.has("roles.manage");
   if (!canManageUsers) redirect("/admin");
@@ -153,6 +154,7 @@ export default async function MembersPage() {
         customRoles={roleRows}
         organisations={(orgs ?? []) as OrgRow[]}
         canProvision={isSuperAdmin || keys.has("users.provision")}
+        provisionCaller={{ isSuperAdmin, organisationId: profile.organisation_id }}
         canManageOrgs={
           isSuperAdmin ||
           keys.has("orgs.manage") ||
@@ -161,6 +163,8 @@ export default async function MembersPage() {
         }
         canAssignRoles={isSuperAdmin || keys.has("users.roles.assign")}
         canEditContact={isSuperAdmin || keys.has("users.contact.edit")}
+        canSuspend={isSuperAdmin || keys.has("users.suspend")}
+        currentMemberId={profile.id}
         canGrant={isSuperAdmin || keys.has("users.permissions.grant")}
         canManageRoles={isSuperAdmin || keys.has("roles.manage")}
         canViewActivity={isSuperAdmin || keys.has("members.activity.view")}

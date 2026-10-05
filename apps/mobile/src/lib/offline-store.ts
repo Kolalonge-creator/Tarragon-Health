@@ -158,7 +158,7 @@ async function pullKind(
 async function pullMedications(db: SQLite.SQLiteDatabase, owner: string, subjectId: string, result: PullResult) {
   const { data, error } = await supabase
     .from("medications")
-    .select("id, drug_name, dose, frequency, schedule_times, source, is_active, superseded_at")
+    .select("id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, superseded_at, created_at, schedule_effective_from")
     .eq("patient_id", subjectId)
     .eq("is_active", true);
   result.pages += 1;
