@@ -15,6 +15,7 @@ import type { VitalReadingPayload } from "./api";
 import { loadTriageWiringConfig } from "./triage-config";
 import { clipIdFor } from "./audio/manifest";
 import { readCachedBpTarget } from "./bp-target";
+import { cancelRecheckReminder, scheduleRecheckReminder } from "./recheck-reminder";
 import { readLocalRecords } from "./offline-store";
 import { listOutbox } from "./outbox";
 import { supabase } from "./supabase";
@@ -234,11 +235,14 @@ export async function readPendingRecheck(subjectId: string): Promise<PendingRech
     return null;
   }
 }
-async function savePendingRecheck(subjectId: string, reading: Reading): Promise<void> {
+async function savePendingRecheck(subjectId: string, reading: Reading, afterMinutes: number, nowMs: number): Promise<void> {
   await AsyncStorage.setItem(RECHECK_KEY(subjectId), JSON.stringify({ reading })).catch(() => {});
+  // The reminder to measure again, at the time the rule set says (5 minutes, or 2 hours after a very high reading).
+  await scheduleRecheckReminder(subjectId, Date.parse(reading.takenAt) + afterMinutes * 60_000, nowMs);
 }
 export async function clearPendingRecheck(subjectId: string): Promise<void> {
   await AsyncStorage.removeItem(RECHECK_KEY(subjectId)).catch(() => {});
+  await cancelRecheckReminder(subjectId);
 }
 
 function summarise(result: TriageResult, rules: DeviceRuleSet, gradedAtMs: number): DeviceTriage {
@@ -332,7 +336,7 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
 
   // With no subject (the session could not be read in time) nothing is stored: a shared empty key would pair unrelated readings.
   if (req.subjectId) {
-    if (result.status === "recheck_required") await savePendingRecheck(req.subjectId, reading);
+    if (result.status === "recheck_required") await savePendingRecheck(req.subjectId, reading, result.recheck?.afterMinutes ?? 0, nowMs);
     else if (result.status === "graded") await clearPendingRecheck(req.subjectId);
   }
   return triage;

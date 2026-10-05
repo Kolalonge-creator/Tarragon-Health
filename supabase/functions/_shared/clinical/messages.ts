@@ -21,6 +21,7 @@ export const TRIAGE_MESSAGE_KEYS: Readonly<Record<string, MessageKeys>> = {
   "TRI-007": keys("triage.tri_007"),
   "TRI-008": keys("triage.tri_008"),
   "notify.triage.task_created": keys("notify.triage.task_created"),
+  "notify.triage.recheck_due": keys("notify.triage.recheck_due"),
 };
 
 /** The catalogue keys for an explanation code, or null for a code with no message. */
