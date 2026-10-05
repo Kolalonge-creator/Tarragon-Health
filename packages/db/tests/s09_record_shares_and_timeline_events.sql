@@ -182,6 +182,9 @@ BEGIN
 
   -- Insert as postgres (bypasses RLS for fixture setup)
   PERFORM set_config('role', 'postgres', true);
+  -- No signed-in user: the prescription trigger stamps/validates the signer only for a real session (auth.uid()).
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  PERFORM set_config('request.jwt.claims', '', true);
 
   INSERT INTO prescriptions (patient_id, organisation_id, state, items)
     VALUES (v_patient, v_org_id, 'draft', '[{"drug_name": "Amlodipine 5mg"}]'::jsonb)
