@@ -595,6 +595,7 @@ export const en = {
   "today.view_all": "See all your tasks",
   "today.dose": "Take {drug}",
   "today.kind.log_bp": "Log your blood pressure",
+  "today.recheck_bp": "Measure your blood pressure again",
   "today.kind.book_test": "Book a test",
   "today.kind.join_consultation": "Join your appointment",
   "today.kind.read_lesson": "Read today's lesson",

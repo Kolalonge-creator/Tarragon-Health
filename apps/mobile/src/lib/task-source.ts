@@ -13,7 +13,7 @@ import { supabase } from "./supabase";
  * by most recent change would let a pile of recently closed recurring tasks push
  * an older open one out, and it would silently never be shown.
  */
-export const TASK_COLUMNS = "id, kind, title, priority, due_at, recurrence, owner_role, state, status, updated_at";
+export const TASK_COLUMNS = "id, kind, title, priority, due_at, recurrence, owner_role, state, status, updated_at, source";
 
 export type RawTaskRow = { id: string; [key: string]: unknown };
 

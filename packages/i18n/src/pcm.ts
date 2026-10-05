@@ -594,6 +594,7 @@ export const pcm: Record<MessageKey, string> = {
   "today.view_all": "See all your tasks",
   "today.dose": "Take {drug}",
   "today.kind.log_bp": "Write your blood pressure",
+  "today.recheck_bp": "Check your blood pressure one more time",
   "today.kind.book_test": "Book test",
   "today.kind.join_consultation": "Join your appointment",
   "today.kind.read_lesson": "Read today lesson",
