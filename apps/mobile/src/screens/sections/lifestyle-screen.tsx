@@ -115,7 +115,7 @@ export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps)
           <ScreenTitle>Lifestyle coaching</ScreenTitle>
           <MutedText>Small, steady changes, logged here, supported by your care team.</MutedText>
         </View>
-        <Text onPress={() => setPastGoalsOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brand, paddingTop: 4 }}>
+        <Text onPress={() => setPastGoalsOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, paddingTop: 4 }}>
           Past goals
         </Text>
       </View>

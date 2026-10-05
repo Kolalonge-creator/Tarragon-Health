@@ -25,7 +25,7 @@ import {
 } from "@/lib/sti";
 import type { PanelBundle } from "@/lib/labs";
 import { radius } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 function when(iso: string): string {
@@ -203,14 +203,14 @@ export function SexualHealthTestingTab() {
         </MutedText>
 
         <Text onPress={() => setActive((v) => !v)} style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>
-          <Text style={{ fontWeight: "700", color: active ? colors.brand : colors.faint }}>{active ? "☑ " : "☐ "}</Text>
+          <Text style={{ fontWeight: "700", color: active ? colors.brandPressed : colors.faint }}>{active ? "☑ " : "☐ "}</Text>
           I&apos;ve been sexually active in the last 12 months
         </Text>
 
         {active && (
           <View style={{ gap: 10, borderLeftWidth: 2, borderLeftColor: colors.brandTint, paddingLeft: 12 }}>
             <Text onPress={() => setNewPartner((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
-              <Text style={{ fontWeight: "700", color: newPartner ? colors.brand : colors.faint }}>{newPartner ? "☑ " : "☐ "}</Text>
+              <Text style={{ fontWeight: "700", color: newPartner ? colors.brandPressed : colors.faint }}>{newPartner ? "☑ " : "☐ "}</Text>
               I&apos;ve had a new partner in the last 3 months
             </Text>
 
@@ -236,11 +236,11 @@ export function SexualHealthTestingTab() {
             </View>
 
             <Text onPress={() => setPriorDiagnosis((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
-              <Text style={{ fontWeight: "700", color: priorDiagnosis ? colors.brand : colors.faint }}>{priorDiagnosis ? "☑ " : "☐ "}</Text>
+              <Text style={{ fontWeight: "700", color: priorDiagnosis ? colors.brandPressed : colors.faint }}>{priorDiagnosis ? "☑ " : "☐ "}</Text>
               I&apos;ve been diagnosed with an STI before
             </Text>
             <Text onPress={() => setPartnerDiagnosed((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
-              <Text style={{ fontWeight: "700", color: partnerDiagnosed ? colors.brand : colors.faint }}>{partnerDiagnosed ? "☑ " : "☐ "}</Text>
+              <Text style={{ fontWeight: "700", color: partnerDiagnosed ? colors.brandPressed : colors.faint }}>{partnerDiagnosed ? "☑ " : "☐ "}</Text>
               A partner has told me they were diagnosed with an STI
             </Text>
           </View>
@@ -385,9 +385,9 @@ function PartnerNotifyFlow({ episode, patientId, organisationId }: { episode: St
       {mode === "clinician_assisted" && (
         <View style={{ gap: 8 }}>
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>What should we call them? (optional)</Text>
-          <TextInput keyboardAppearance={scheme} value={partnerLabel} onChangeText={setPartnerLabel} placeholder="e.g. my partner" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={partnerLabel} onChangeText={setPartnerLabel} placeholder="e.g. my partner" style={textInputStyle} />
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Their phone number or contact detail</Text>
-          <TextInput keyboardAppearance={scheme} value={partnerContact} onChangeText={setPartnerContact} placeholder="+234…" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={partnerContact} onChangeText={setPartnerContact} placeholder="+234…" style={textInputStyle} />
           {error && <ErrorText>{error}</ErrorText>}
           <View style={{ flexDirection: "row", gap: 8 }}>
             <PrimaryButton title="Send to my care team" onPress={submitClinicianAssisted} disabled={!partnerContact} loading={pending} />

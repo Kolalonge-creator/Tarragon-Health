@@ -10,7 +10,7 @@ import {
 import { formatCareDate } from "@/lib/care";
 import { formatDoctorName } from "@/lib/doctor-name";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
@@ -98,7 +98,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
         </Card>
       )}
 
-      <TextInput keyboardAppearance={scheme}
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={existingDiagnosisOrResult}
         onChangeText={setExistingDiagnosisOrResult}
         placeholder="e.g. My GP diagnosed me with X and suggested Y. I'd like another doctor's view."
@@ -106,13 +106,13 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
         numberOfLines={3}
         style={[textInputStyle, { minHeight: 70, textAlignVertical: "top" }]}
       />
-      <TextInput keyboardAppearance={scheme}
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={sourceDescription}
         onChangeText={setSourceDescription}
         placeholder="Where is this from? (optional)"
         style={textInputStyle}
       />
-      <TextInput keyboardAppearance={scheme}
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={specificQuestion}
         onChangeText={setSpecificQuestion}
         placeholder="A specific question? (optional)"

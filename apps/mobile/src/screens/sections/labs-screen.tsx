@@ -144,7 +144,7 @@ export function LabsScreen() {
         <ListItem icon="labs" title={tr("labs.orders.title")} subtitle={tr("labs.orders.body")} onPress={() => setLabDetailOpen(true)} />
       </Card>
 
-      <LegacySheet visible={labDetailOpen} onClose={() => setLabDetailOpen(false)} closeLabel={tr("kit.close")}>
+      <LegacySheet visible={labDetailOpen} onClose={() => setLabDetailOpen(false)} closeLabel={tr("kit.close")} forceLight={false}>
         <LabOrdersScreen />
       </LegacySheet>
 

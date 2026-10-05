@@ -276,7 +276,7 @@ export function VideoVisitBookingSection({
       )}
 
       <Pressable onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care#book-video-visit`)}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brand, textAlign: "center" }}>
+        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, textAlign: "center" }}>
           Open the full booking page in your browser
         </Text>
       </Pressable>

@@ -167,4 +167,126 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: FROM,
     source: `${SPEC} (Transcript retention: to confirm with counsel)`,
   },
+  // S07 (Today screen, BP logging, trends, reminders). Every value below is a
+  // proposal for the Chief Medical Officer or founder to confirm; none is a
+  // clinical threshold the app grades on (grading stays with S11/S12, OQ-67).
+  {
+    key: "bp.home_protocol",
+    // Home self-measurement routine (AHA/AMA, ISH, ESH, WHO HEARTS read for S07):
+    // 2 readings at least 1 minute apart, morning and evening, 7 days. The 3-day minimum
+    // lives in bp.average_gate. minGapMinutes is applied by the averaging code; the others
+    // are read by the guided technique and reminder screens (not built yet).
+    // Session hours are local (Africa/Lagos) hour-of-day, start inclusive, end exclusive.
+    value: {
+      readingsPerSession: 2,
+      minGapMinutes: 1,
+      targetDays: 7,
+      restMinutes: 5,
+      morningHours: [4, 12],
+      eveningHours: [17, 24],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 3",
+  },
+  {
+    key: "bp.average_gate",
+    // An average is shown only when one rule is met: at least `minDays` days that
+    // each hold at least `minPerDay` readings, with at least `minReadings` readings
+    // across those days (the published Omada eligibility rule). Below the gate the
+    // app says "not enough readings yet".
+    value: {
+      windowDays: 7,
+      rules: [
+        { minReadings: 3, minDays: 3, minPerDay: 1 },
+        { minReadings: 4, minDays: 2, minPerDay: 2 },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 3 (Omada averaging gate)",
+  },
+  {
+    key: "bp.trend_display",
+    // Fewer than `minReadingsForChart` readings in the window shows a list, not a
+    // trend line; a gap of more than `gapBreakDays` days breaks the line.
+    value: { minReadingsForChart: 3, gapBreakDays: 2 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 4",
+  },
+  {
+    key: "bp.starting_suggestion_target",
+    // Home target shown as a "starting suggestion, not yet confirmed" until a
+    // clinician has set a personal target (who and when). Home guidelines differ
+    // (135/85 ISH, 135/75 ESH, 130/80 AHA/ACC), so this is a pair to confirm, not a rule.
+    value: { systolicBelow: 135, diastolicBelow: 85 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 3 (home thresholds differ by guideline)",
+  },
+  {
+    key: "reminders.behaviour",
+    value: { snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 60, horizonDays: 14 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 5 (MyTherapy snooze default; iOS 64 pending cap)",
+  },
+  {
+    key: "streaks.rules",
+    // Consecutive local days with at least one reading. A freeze is earned every
+    // `freezeEarnEveryDays` days of a run, held up to `freezeCap`, and is shown as a
+    // freeze, never as a reading.
+    value: { freezeEarnEveryDays: 7, freezeCap: 2 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 6",
+  },
+  {
+    key: "medicines.dose_rules",
+    // Medicines (S08). The missed window, snooze limits and notification cap come from
+    // `reminders.behaviour`, and the weekly percentage band from `adherence.threshold`;
+    // this entry holds only what is specific to medicines.
+    //  undoSeconds: how long a just-logged dose can be taken back before it leaves the phone.
+    //  doubleTapGuardMs: a second tap on the same dose inside this is ignored.
+    //  lowSupplyDays: running-low reminder fires when the supply lasts this many days or fewer.
+    //  adherenceMinDoses: fewer due doses than this and no percentage is shown.
+    //  serverMissedAfterMinutes: the server marks an unanswered dose missed after this long. Longer than the
+    //  on-device two hours so a phone that was offline has time to sync a "taken" first (mirrors medicine_config).
+    //  followUpMinWindowMinutes: a flexible window at least this long gets one gentle follow-up at its middle.
+    //  catchUpMinGapMinutes: the catch-up sheet is offered at most this often, so it never nags on every app open.
+    //  catchUpMaxItems: the most doses the catch-up sheet asks about at once.
+    //  stalePlanHours: a reminder plan older than this is shown as out of date in the health check.
+    //  backdateWindowHours mirrors offline_sync_config (S06): the oldest "I took it earlier" time the server keeps.
+    value: {
+      undoSeconds: 120,
+      doubleTapGuardMs: 800,
+      lowSupplyDays: 7,
+      adherenceMinDoses: 3,
+      stalePlanHours: 24,
+      followUpMinWindowMinutes: 30,
+      catchUpMaxItems: 12,
+      catchUpMinGapMinutes: 240,
+      serverMissedAfterMinutes: 720,
+      backdateWindowHours: 72,
+      futureSkewMinutes: 5,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-04",
+    source: "docs/research/S08.md sections 2 and 5 (decision table rows 4, 5, 9, 15)",
+  },
 ];

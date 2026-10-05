@@ -212,7 +212,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
             waiting to sync.
           </Text>
           <Pressable accessibilityRole="button" onPress={() => void handleSyncNow()} disabled={syncingNow} hitSlop={8}>
-            <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand }}>
+            <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
               {syncingNow ? "Syncing…" : "Sync now"}
             </Text>
           </Pressable>

@@ -556,7 +556,7 @@ export function LabOrdersScreen() {
                     {doc.signedUrl ? (
                       <Text
                         onPress={() => openDocument(doc.signedUrl)}
-                        style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}
+                        style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}
                       >
                         {doc.isPdf ? "Open original (PDF) →" : "View original →"}
                       </Text>

@@ -57,7 +57,7 @@ import {
 } from "@/lib/vouchers";
 import { submitTestimonial } from "@/lib/testimonials";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import {
   Badge,
   CalloutCard,
@@ -831,7 +831,7 @@ function AskADoctorSection({ patientId, organisationId }: { patientId: string; o
         })}
       </View>
 
-      <TextInput keyboardAppearance={scheme}
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={question}
         onChangeText={setQuestion}
         placeholder="e.g. I've felt dizzy in the mornings since my dose changed. Is that expected?"
@@ -952,7 +952,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
               );
             })}
           </View>
-          <TextInput keyboardAppearance={scheme}
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={description}
             onChangeText={setDescription}
             placeholder="e.g. My pharmacy doesn't have my usual medicine in stock"

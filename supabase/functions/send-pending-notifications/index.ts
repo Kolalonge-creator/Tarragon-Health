@@ -445,14 +445,16 @@ const TEMPLATE_MAP: Record<
       pushUrl: path,
     };
   },
+  // S08 (INV-07): the wording names no medicine. The producer
+  // (private.queue_medication_refill_reminders) no longer puts drug_name in the
+  // payload, and this template would not use it if an older row still carried one.
   medication_refill_reminder: (payload) => {
-    const drugName = String(payload.drug_name ?? "your medication");
     const refillDate = String(payload.refill_date ?? "soon");
     const path = "/patient/medications";
     return {
       smsText:
-        `Hi, your ${drugName} refill is due ${refillDate}. ` +
-        `Sort it here: ${appUrl(path)} Tarragon Health`,
+        `Hi, a refill is coming up (${refillDate}). ` +
+        `See your care plan here: ${appUrl(path)} Tarragon Health`,
       pushUrl: path,
     };
   },
@@ -2028,11 +2030,11 @@ const TEMPLATE_MAP: Record<
   // medication's scheduled dose time. scheduled_time is already an
   // Africa/Lagos local HH:MM string from the producer, not a timestamp --
   // no formatLagosDateTime conversion needed or correct here.
+  // S08 (INV-07): no medicine name in the wording, and the producer no longer sends one.
   medication_dose_reminder: (payload) => {
-    const drugName = String(payload.drug_name ?? "your medication");
     const scheduledTime = String(payload.scheduled_time ?? "now");
     return {
-      smsText: `Hi, it's ${scheduledTime}: time for your dose of ${drugName}. Open the Tarragon Health app to log it. Tarragon Health`,
+      smsText: `Hi, it's ${scheduledTime}: time for your care plan check. Open the Tarragon Health app to see what is due. Tarragon Health`,
       pushUrl: "/patient/medications",
     };
   },
