@@ -49,7 +49,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function text(key: "medicines.notify.title" | "medicines.notify.body" | "medicines.notify.channel" | "medicines.notify.test_title" | "medicines.notify.test_body") {
+async function text(key: "medicines.notify.title" | "medicines.notify.body" | "medicines.notify.follow_up_title" | "medicines.notify.follow_up_body" | "medicines.notify.channel" | "medicines.notify.test_title" | "medicines.notify.test_body") {
   return t(key, asLocale(await getUiLanguage()));
 }
 
@@ -153,18 +153,25 @@ export async function replanDoseReminders(
     const meds = await loadMedicines(patientId);
     const closed = await loadClosedSlots(patientId, nowMs);
     const reminderMeds: ReminderMedicine[] = meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) }));
-    const planned = planDoseNotifications(reminderMeds, closed, nowMs, { maxPending: cfg.maxPending, horizonDays: cfg.horizonDays });
+    const planned = planDoseNotifications(reminderMeds, closed, nowMs, {
+      maxPending: cfg.maxPending,
+      horizonDays: cfg.horizonDays,
+      followUpMinWindowMinutes: loadMedicineRules().followUpMinWindowMinutes,
+    });
 
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     const diff = diffNotifications(planned, scheduled.map((n) => n.identifier));
-    const title = await text("medicines.notify.title");
-    const body = await text("medicines.notify.body");
+    const dueTitle = await text("medicines.notify.title");
+    const dueBody = await text("medicines.notify.body");
+    const followTitle = await text("medicines.notify.follow_up_title");
+    const followBody = await text("medicines.notify.follow_up_body");
 
     for (const id of diff.toCancel) await Notifications.cancelScheduledNotificationAsync(id);
     for (const item of diff.toSchedule) {
+      const followUp = item.kind === "follow_up";
       await Notifications.scheduleNotificationAsync({
         identifier: item.id,
-        content: { title, body, data: { slotKeys: item.slotKeys } },
+        content: { title: followUp ? followTitle : dueTitle, body: followUp ? followBody : dueBody, data: { slotKeys: item.slotKeys } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(item.fireAtMs), channelId: DOSE_CHANNEL },
       });
     }
@@ -245,7 +252,7 @@ export async function checkReminderHealth(patientId: string, nowMs: number = Dat
         meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) })),
         closed,
         nowMs,
-        { maxPending: cfg.maxPending, horizonDays: cfg.horizonDays }
+        { maxPending: cfg.maxPending, horizonDays: cfg.horizonDays, followUpMinWindowMinutes: loadMedicineRules().followUpMinWindowMinutes }
       ).length;
       pending = (await Notifications.getAllScheduledNotificationsAsync()).filter((n) => n.identifier.startsWith(DOSE_NOTIFICATION_PREFIX)).length;
     }

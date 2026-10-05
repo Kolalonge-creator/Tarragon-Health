@@ -1,4 +1,4 @@
-import { addDays, lagosLocalDate, lagosTimeToUtcMs, DAY_MS } from "./lagos";
+import { addDays, lagosLocalDate, lagosTimeToUtcMs, DAY_MS, MINUTE_MS } from "./lagos";
 import { slotsBetween, slotKey } from "./schedule";
 import type { ScheduleSpec } from "./types";
 
@@ -26,10 +26,14 @@ export interface ReminderMedicine {
   spec: ScheduleSpec;
 }
 
+export type NotificationKind = "due" | "follow_up";
+
 export interface PlannedNotification {
   /** Stable id: the same dose minute always gets the same id, so planning twice never duplicates. */
   id: string;
   fireAtMs: number;
+  /** "follow_up" is the single gentle second reminder in the middle of a flexible window. */
+  kind: NotificationKind;
   /** The slots this notification covers, as `${medicationId}|${date}|${time}`. Carried in the payload, never in the text. */
   slotKeys: string[];
 }
@@ -37,6 +41,8 @@ export interface PlannedNotification {
 export interface PlanConfig {
   maxPending: number;
   horizonDays: number;
+  /** A flexible window at least this long (minutes) gets one follow-up at its middle. */
+  followUpMinWindowMinutes: number;
 }
 
 export function planDoseNotifications(
@@ -48,25 +54,43 @@ export function planDoseNotifications(
   const today = lagosLocalDate(nowMs);
   const last = addDays(today, cfg.horizonDays);
   const horizonMs = nowMs + cfg.horizonDays * DAY_MS;
-  const byFire = new Map<number, string[]>();
+  const byFire = new Map<number, { keys: string[]; kind: NotificationKind }>();
+  const add = (fireAt: number, key: string, kind: NotificationKind) => {
+    const existing = byFire.get(fireAt);
+    if (!existing) byFire.set(fireAt, { keys: [key], kind });
+    else {
+      existing.keys.push(key);
+      // A dose that is due at this instant outranks a follow-up for another.
+      if (kind === "due") existing.kind = "due";
+    }
+  };
 
   for (const med of medicines) {
     if (!med.active) continue;
+    const windowMinutes = med.spec.windowMinutes ?? 0;
     for (const slot of slotsBetween(med.spec, today, last)) {
-      const fireAt = lagosTimeToUtcMs(slot.date, slot.time);
-      if (fireAt <= nowMs || fireAt > horizonMs) continue;
       const key = slotKey(med.id, slot);
       if (closedSlots.has(key)) continue;
-      const list = byFire.get(fireAt);
-      if (list) list.push(key);
-      else byFire.set(fireAt, [key]);
+      const start = lagosTimeToUtcMs(slot.date, slot.time);
+      if (start > nowMs && start <= horizonMs) add(start, key, "due");
+      if (windowMinutes >= cfg.followUpMinWindowMinutes) {
+        const middle = start + Math.floor(windowMinutes / 2) * MINUTE_MS;
+        if (middle > nowMs && middle <= horizonMs) add(middle, key, "follow_up");
+      }
     }
   }
 
   return [...byFire.entries()]
     .sort((a, b) => a[0] - b[0])
     .slice(0, cfg.maxPending)
-    .map(([fireAtMs, slotKeys]) => ({ id: `${DOSE_NOTIFICATION_PREFIX}${fireAtMs}`, fireAtMs, slotKeys: slotKeys.sort() }));
+    // The kind is part of the id: if a minute turns from a follow-up into a due dose, the old
+    // notification (with the follow-up wording) is cancelled and a new one is scheduled.
+    .map(([fireAtMs, v]) => ({
+      id: `${DOSE_NOTIFICATION_PREFIX}${fireAtMs}${v.kind === "follow_up" ? "|f" : ""}`,
+      fireAtMs,
+      kind: v.kind,
+      slotKeys: v.keys.sort(),
+    }));
 }
 
 export interface NotificationDiff {
