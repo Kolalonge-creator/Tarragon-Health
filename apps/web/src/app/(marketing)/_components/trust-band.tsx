@@ -15,11 +15,14 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
  *
  * The care-team card describes the MECHANISM (verification is required, and
  * self-verification is blocked), never the roster. Corrected 2026-09-05: it
- * used to assert "a team of MDCN-registered doctors", but live clinical_staff
- * holds eight rows whose credential numbers are all QA-/TEST- placeholders or
- * null. Do not restore the stronger wording until a real MDCN-registered
- * doctor is on the platform — the same standing note the annual-health-check
- * page already carries.
+ * used to assert "a team of MDCN-registered doctors" — but per the founder's
+ * 2026-09-25 decision a patient never sees an MDCN/NMCN registration number,
+ * which Nigerian patients don't recognise as a trust signal anyway; per the
+ * 2026-09-26 narrowing, speciality + years of experience live only on a
+ * doctor's profile page (doctor/[staffId]), not inline here or
+ * anywhere else. Do not reintroduce a credential-number (or inline
+ * speciality/experience) claim here — the same standing note the
+ * annual-health-check page already carries.
  */
 const TRUST_ITEMS = [
   {

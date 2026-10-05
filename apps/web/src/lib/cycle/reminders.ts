@@ -9,9 +9,8 @@ import { predictCycle, type CyclePrediction } from "@/lib/rules/cycle-prediction
  * is the half that only works if something reaches the patient without them
  * opening the app.
  *
- * Delivered on the `in_app` channel only. WhatsApp and SMS are deliberately
- * not used here, and not merely because those templates are still blocked on
- * Meta/Termii approval: a period reminder is the single most sensitive
+ * Delivered on the `in_app` channel only. SMS and email are deliberately
+ * not used here: a period reminder is the single most sensitive
  * routine message the platform sends, phones get read over shoulders and
  * shared between family members, and nothing about this is urgent enough to
  * justify that. It is also `content_class = 'non_clinical'` (the column

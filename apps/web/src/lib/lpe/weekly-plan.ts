@@ -273,8 +273,7 @@ export function getPriorityWeeklyGoal(goals: WeeklyPlanGoal[]): WeeklyPlanGoal |
 /**
  * A patient marking a goal done for today/this week. Writes a minimal
  * `lpe_measurements` row — the same store every real logged reading already
- * uses, `source: 'app'` (never 'whatsapp', see the LPE migration's own
- * comment on that enum). No `value_num`: this is a completion check-in, not
+ * uses, `source: 'app'`. No `value_num`: this is a completion check-in, not
  * a physical reading, so `value_json` carries the (satisfied) `check`
  * constraint instead.
  */

@@ -7,7 +7,7 @@ import {
   type AsyncConsultWithAnswerer,
 } from "@/lib/queries/async-consults";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
+import { PayByCard } from "@/components/billing/pay-by-card";
 import {
   asyncConsultSchema,
   ASYNC_CONSULT_CATEGORIES,
@@ -26,14 +26,11 @@ import {
 } from "@/components/ui/form-error";
 
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
+import { DoctorNameLink } from "@/components/doctor-name-link";
 const ASYNC_CONSULT_CREDIT_CODE = "async_consult_credit";
 
 function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
   const answered = consult.status === "answered" || consult.status === "closed";
-  const credential =
-    consult.answerer?.credential_type && consult.answerer?.credential_number
-      ? `${consult.answerer.credential_type} ${consult.answerer.credential_number}`
-      : null;
 
   return (
     <li className="space-y-1 py-3">
@@ -61,8 +58,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
               never rendered without a real clinical_staff match. */}
           {consult.answerer && consult.answered_at && (
             <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              Answered by Dr. {consult.answerer.full_name}
-              {credential ? ` (${credential})` : ""} on{" "}
+              Answered by <DoctorNameLink staffId={consult.answerer.id} fullName={consult.answerer.full_name} /> on{" "}
               {formatPatientDate(consult.answered_at)}
             </p>
           )}
@@ -74,8 +70,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
 
 /**
  * "Ask a doctor" — the structured async visit (One Medical Treat-Me-Now on
- * Tarragon rails). Entirely in-app; WhatsApp support chat stays a separate,
- * human-routed channel. Deliberately NOT an emergency pathway — the red-flag
+ * Tarragon rails). Entirely in-app. Deliberately NOT an emergency pathway — the red-flag
  * line below routes urgent symptoms to the existing danger-symptom flow.
  */
 export function AskADoctor({
@@ -170,8 +165,7 @@ export function AskADoctor({
               access.
             </p>
             <FormError id={creditErrorId} message={formError} />
-            <PayWithCreditOrCard
-              patientId={patientId}
+            <PayByCard
               serviceProductCode={ASYNC_CONSULT_CREDIT_CODE}
               callbackPath="/patient/care"
               onError={setFormError}

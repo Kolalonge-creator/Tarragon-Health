@@ -367,8 +367,13 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_support_agent::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  select count(*) into v_vitals_count from public.vitals_readings where patient_id = v_patient;
-  select count(*) into v_medications_count from public.medications where patient_id = v_patient;
+  -- S05f (INV-10): vitals_readings is closed to direct staff reads too; the audited function admits the active support-view session.
+  select jsonb_array_length(public.read_patient_vitals_audited(v_patient, 'Support view proof: vitals read') -> 'rows')
+    into v_vitals_count;
+  -- S05f (INV-10): medications is closed to direct staff reads; an active support-view session reads them through the audited function
+  -- (private.can_staff_read_clinical admits it), which is what the view-as page uses.
+  select jsonb_array_length(public.read_patient_medications_audited(v_patient, 'Support view proof: medications read') -> 'rows')
+    into v_medications_count;
   select count(*) into v_appointments_count from public.appointments where patient_id = v_patient;
   select count(*) into v_screenings_count from public.screening_schedules where patient_id = v_patient;
   -- The AFTER INSERT notify trigger already wrote the "support_view_as_started" row to the
@@ -378,10 +383,10 @@ begin
   reset role;
 
   insert into svas_result values
-    ('active session: viewer can read vitals_readings', 'support agent', v_vitals_count::text, '1',
+    ('active session: viewer can read vitals_readings (audited function)', 'support agent', v_vitals_count::text, '1',
      case when v_vitals_count = 1 then 'PASS' else 'FAIL' end);
   insert into svas_result values
-    ('active session: viewer can read medications', 'support agent', v_medications_count::text, '1',
+    ('active session: viewer can read medications (audited function)', 'support agent', v_medications_count::text, '1',
      case when v_medications_count = 1 then 'PASS' else 'FAIL' end);
   insert into svas_result values
     ('active session: viewer can read appointments', 'support agent', v_appointments_count::text, '1',

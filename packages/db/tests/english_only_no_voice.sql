@@ -1,8 +1,10 @@
 -- Voice is unreachable, and removing it did not break push-first routing.
 --
--- The second half is the point: the voice branch shared a function with the
--- push-first rule, so a careless removal would silently take both out and
--- nobody would notice until reminders quietly stopped reaching phones.
+-- The second half is the point: the voice branch used to share a function with
+-- the push-first rule, so a careless removal would silently take both out and
+-- nobody would notice until reminders quietly stopped reaching phones. Since
+-- the 2026-09-30 channel cleanup, that rule lives in
+-- private.patient_reminder_channel(), which must never return voice.
 --
 -- Run:  npx supabase db query --linked -f packages/db/tests/english_only_no_voice.sql
 
@@ -38,19 +40,15 @@ begin
     raise exception 'VACUOUS: the voice preference was not applied to the fixture patient';
   end if;
 
-  insert into public.notifications (organisation_id, recipient_id, channel, template, payload)
-  values (v_org, v_patient, 'whatsapp', 'vitals_reminder', '{}'::jsonb)
-  returning channel into v_channel;
+  v_channel := private.patient_reminder_channel(v_patient)::text;
 
   if v_channel = 'voice' then
-    raise exception 'FAIL 1: a whatsapp reminder was still remapped to voice';
+    raise exception 'FAIL 1: a stale voice preference still routed a reminder to voice';
   end if;
-  if v_channel <> 'whatsapp' then
-    raise exception 'FAIL 1b: expected whatsapp with no push subscription, got %', v_channel;
+  if v_channel <> 'in_app' then
+    raise exception 'FAIL 1b: expected in_app with no push subscription, got %', v_channel;
   end if;
   raise notice 'PASS 1: a stale voice preference no longer routes to voice (channel=%)', v_channel;
-
-  delete from public.notifications where recipient_id = v_patient and template = 'vitals_reminder';
 
   -- 2. POSITIVE CONTROL: push-first still works. Without this, check 1 would
   --    pass just as well on a function that had been gutted entirely.
@@ -59,9 +57,7 @@ begin
   values (v_org, v_patient, 'https://example.test/endpoint-' || gen_random_uuid()::text, 'k', 'a')
   returning id into v_sub;
 
-  insert into public.notifications (organisation_id, recipient_id, channel, template, payload)
-  values (v_org, v_patient, 'whatsapp', 'vitals_reminder', '{}'::jsonb)
-  returning channel into v_channel;
+  v_channel := private.patient_reminder_channel(v_patient)::text;
 
   if v_channel <> 'push' then
     raise exception 'FAIL 2: push-first routing was lost, got % instead of push', v_channel;
@@ -80,6 +76,24 @@ begin
     raise exception 'FAIL 3: some function still assigns the voice channel';
   end if;
   raise notice 'PASS 3: no function on the platform assigns the voice channel';
+
+  -- 4. SABOTAGE: a helper that honoured the stored voice preference must trip
+  --    check 1 (proves the voice check can fail).
+  declare v_sab text;
+  begin
+    begin
+      create or replace function private.patient_reminder_channel(p_recipient uuid, p_allow_email boolean default true)
+      returns public.notification_channel language sql stable as $f$ select 'voice'::public.notification_channel $f$;
+      v_sab := private.patient_reminder_channel(v_patient)::text;
+      raise exception 'sabotage_undo';
+    exception when others then
+      if sqlerrm <> 'sabotage_undo' then raise; end if;
+    end;
+    if v_sab is distinct from 'voice' then
+      raise exception 'VACUOUS: the sabotaged helper did not return voice, so check 1 proves nothing';
+    end if;
+  end;
+  raise notice 'PASS 4: sabotage (a helper returning voice) is what check 1 detects';
 
   raise notice 'ALL ENGLISH-ONLY / NO-VOICE CHECKS PASSED';
 end $$;

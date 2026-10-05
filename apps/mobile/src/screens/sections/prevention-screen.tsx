@@ -29,8 +29,9 @@ import {
 } from "@/lib/prevention";
 import { todayIsoDate } from "@/lib/medications";
 import type { Tables } from "@tarragon/shared";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
+import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 interface PreventionScreenProps {
   /** The subject whose prevention record this is — the acting-for subject's
@@ -123,6 +124,8 @@ interface SectionState<T> {
 const EMPTY_SECTION = { data: null, error: null } as const;
 
 export function PreventionScreen({ patientId, organisationId }: PreventionScreenProps) {
+  const { scheme } = useTheme();
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -610,7 +613,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                         {trend.latestValue}
                         {trend.latestUnit ? ` ${trend.latestUnit}` : ""}
                       </Text>
-                      {deltaLabel ? <Text style={{ fontSize: 11.5, color: colors.faint }}>{deltaLabel}</Text> : null}
+                      {deltaLabel ? <Text style={{ fontSize: 11.5, color: colors.subtle }}>{deltaLabel}</Text> : null}
                     </View>
                   }
                 />
@@ -637,15 +640,16 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
             </Text>
             {actionDoneLabel ? (
               <>
-                <Text style={{ fontSize: 13.5, color: colors.brand, lineHeight: 19 }}>{actionDoneLabel}</Text>
+                <Text style={{ fontSize: 13.5, color: colors.brandPressed, lineHeight: 19 }}>{actionDoneLabel}</Text>
                 <SecondaryButton title="Close" onPress={closeAction} />
               </>
             ) : actionTarget?.mode === "confirm" ? (
               <>
                 <MutedText>What date was this test actually done?</MutedText>
                 <TextInput
+            keyboardAppearance={scheme}
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.faint}
+                  placeholderTextColor={colors.subtle}
                   value={performedDateInput}
                   onChangeText={setPerformedDateInput}
                   style={{
@@ -659,8 +663,9 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                   }}
                 />
                 <TextInput
+            keyboardAppearance={scheme}
                   placeholder="Note (optional): e.g. which lab"
-                  placeholderTextColor={colors.faint}
+                  placeholderTextColor={colors.subtle}
                   value={note}
                   onChangeText={setNote}
                   style={{
@@ -687,8 +692,9 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
               <>
                 <MutedText>Let us know why (e.g. already had this elsewhere, not applicable to me).</MutedText>
                 <TextInput
+            keyboardAppearance={scheme}
                   placeholder="Reason"
-                  placeholderTextColor={colors.faint}
+                  placeholderTextColor={colors.subtle}
                   value={declineReason}
                   onChangeText={setDeclineReason}
                   multiline

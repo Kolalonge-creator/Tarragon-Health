@@ -20,10 +20,10 @@ describe("measurement validation (spec §8.2)", () => {
     expect(validateMeasurement({ ...base, type: "weight", unit: "kg", valueNum: 900 }).ok).toBe(false);
   });
 
-  it("HARD RULE: a whatsapp source is rejected", () => {
-    const r = validateMeasurement({ ...base, source: "whatsapp", type: "weight", unit: "kg", valueNum: 80 });
+  it("rejects a source that is not an allowed measurement source", () => {
+    const r = validateMeasurement({ ...base, source: "sms", type: "weight", unit: "kg", valueNum: 80 });
     expect(r.ok).toBe(false);
-    expect(r.reason).toBe("whatsapp_is_not_a_log_source");
+    expect(r.reason).toBe("schema_invalid");
   });
 
   it("rejects a payload with neither valueNum nor valueJson", () => {

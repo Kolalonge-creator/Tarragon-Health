@@ -18,7 +18,7 @@ export const SUPPORT_FAQS: SupportFaqEntry[] = [
   {
     question: "How does Tarragon work?",
     answer:
-      "You log your vitals, symptoms, and medications in the app, and your care team reviews them against clinical protocols — escalating to a doctor whenever something needs one. Reminders and alerts come through the app and, where useful, WhatsApp or SMS.",
+      "You log your vitals, symptoms, and medications in the app, and your care team reviews them against clinical protocols — escalating to a doctor whenever something needs one. Reminders and alerts come through the app, with push and email as a backup.",
   },
   {
     question: "How do I get help with an appointment, pharmacy, lab, insurance, referral, or payment issue?",

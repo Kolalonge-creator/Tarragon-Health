@@ -26,8 +26,9 @@ import {
   type WellnessPointsLedgerEntry,
 } from "@/lib/wellness";
 import type { SectionId } from "@/lib/sections";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
+import { Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 function classDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -40,13 +41,15 @@ function classDateTime(iso: string): string {
   });
 }
 
-const TONE_COLOR = {
+const toneColor = (colors: ReturnType<typeof useLegacyColors>) => ({
   brand: { bg: colors.brandTint, text: colors.brandPressed },
   neutral: { bg: colors.groupBg, text: colors.muted },
-} as const;
+}) as const;
+type Tone = keyof ReturnType<typeof toneColor>;
 
-function StatusBadge({ text, tone }: { text: string; tone: keyof typeof TONE_COLOR }) {
-  const c = TONE_COLOR[tone];
+function StatusBadge({ text, tone }: { text: string; tone: Tone }) {
+  const colors = useLegacyColors();
+  const c = toneColor(colors)[tone];
   return (
     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
       <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{text}</Text>
@@ -70,6 +73,7 @@ interface WellnessScreenProps {
  * granted to authenticated.
  */
 export function WellnessScreen({ patientId, organisationId, onNavigate }: WellnessScreenProps) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState<WellnessPointsBalance | null>(null);
   const [ledger, setLedger] = useState<WellnessPointsLedgerEntry[]>([]);
@@ -154,6 +158,8 @@ function PointsCard({
   onChanged: () => void;
   onNavigate: (section: SectionId) => void;
 }) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -200,7 +206,7 @@ function PointsCard({
 
       <View style={{ gap: 8 }}>
         <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Redeem for a voucher</Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={amount}
           onChangeText={setAmount}
           placeholder="e.g. 100"
@@ -211,7 +217,7 @@ function PointsCard({
         {message && <MutedText>{message}</MutedText>}
         <SecondaryButton title="Redeem" onPress={submit} disabled={currentBalance <= 0} loading={submitting} />
         {redeemed && (
-          <Text onPress={() => onNavigate("financialProfile")} style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}>
+          <Text onPress={() => onNavigate("financialProfile")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
             See your voucher in Your finances →
           </Text>
         )}
@@ -225,7 +231,7 @@ function PointsCard({
           {ledger.map((entry) => (
             <View key={entry.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
               <Text style={{ fontSize: 13, color: colors.ink }}>{reasonLabel(entry.reason)}</Text>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: entry.points > 0 ? colors.brand : colors.muted }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: entry.points > 0 ? colors.brandPressed : colors.muted }}>
                 {entry.points > 0 ? "+" : ""}
                 {entry.points}
               </Text>
@@ -238,6 +244,7 @@ function PointsCard({
 }
 
 function BadgesCard({ catalogue, earned }: { catalogue: WellnessBadge[]; earned: PatientWellnessBadge[] }) {
+  const colors = useLegacyColors();
   const earnedIds = new Set(earned.map((b) => b.badge_id));
 
   return (
@@ -279,6 +286,7 @@ function BadgesCard({ catalogue, earned }: { catalogue: WellnessBadge[]; earned:
 }
 
 function ProgressBar({ value, target }: { value: number; target: number }) {
+  const colors = useLegacyColors();
   const pct = target > 0 ? Math.min(100, Math.round((value / target) * 100)) : 0;
   return (
     <View style={{ height: 8, width: "100%", borderRadius: 999, backgroundColor: colors.groupBg, overflow: "hidden" }}>
@@ -288,6 +296,7 @@ function ProgressBar({ value, target }: { value: number; target: number }) {
 }
 
 function ActiveEnrolmentRow({ enrolment }: { enrolment: ChallengeEnrolment }) {
+  const colors = useLegacyColors();
   const [progress, setProgress] = useState<{ progress: number; target: number } | null>(null);
   const challenge = enrolment.wellness_challenges;
 
@@ -327,6 +336,7 @@ function ChallengesCard({
   enrolments: ChallengeEnrolment[];
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
   const [joining, setJoining] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -377,7 +387,7 @@ function ChallengesCard({
               </View>
               <Text
                 onPress={() => (joining ? null : join(challenge.id))}
-                style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand, opacity: joining === challenge.id ? 0.5 : 1 }}
+                style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, opacity: joining === challenge.id ? 0.5 : 1 }}
               >
                 Join
               </Text>
@@ -404,6 +414,7 @@ function ClassesCard({
   organisationId: string;
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -459,7 +470,7 @@ function ClassesCard({
                 {!registration && (
                   <Text
                     onPress={() => (busyId ? null : register(cls.id))}
-                    style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand, opacity: busyId === cls.id ? 0.5 : 1 }}
+                    style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, opacity: busyId === cls.id ? 0.5 : 1 }}
                   >
                     Register
                   </Text>
@@ -467,7 +478,7 @@ function ClassesCard({
                 {registration && registration.status === "registered" && (
                   <Text
                     onPress={() => (busyId ? null : markAttended(registration.id))}
-                    style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand, opacity: busyId === registration.id ? 0.5 : 1 }}
+                    style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, opacity: busyId === registration.id ? 0.5 : 1 }}
                   >
                     Mark attended
                   </Text>

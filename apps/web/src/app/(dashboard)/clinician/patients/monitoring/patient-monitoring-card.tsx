@@ -21,6 +21,29 @@ function formatSleep(minutes: number): string {
 }
 
 export function PatientMonitoringCard({ patient }: { patient: PatientMonitoringRow }) {
+  if (!patient.visible) {
+    return (
+      <Link href={`/clinician/patients/${patient.id}`} className="block">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar fullName={patient.fullName} photoUrl={patient.avatarUrl} size="lg" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-charcoal-ink">{patient.fullName}</p>
+                <p className="truncate text-xs text-charcoal-ink/50">{patient.patientNumber ?? "No patient number"}</p>
+              </div>
+            </div>
+            <Badge variant="grey" className="shrink-0">Not on your care team</Badge>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-xs text-amber-700">
+              Readings and alerts for this patient are not available to you. This is not the same as a quiet patient.
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
+    );
+  }
   const isException = patient.status === "exception";
   const hasWearableData =
     patient.wearable.hrvMs != null || patient.wearable.sleepMinutes != null || patient.wearable.steps != null;

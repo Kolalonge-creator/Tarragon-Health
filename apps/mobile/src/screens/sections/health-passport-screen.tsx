@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Share, Text, View } from "react-native";
 import { getHealthPassportSummary, type HealthPassportSummary } from "@/lib/health-passport";
-import { colors, spacing } from "@/ui/theme";
-import { Card, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/components";
+import { formatDoctorName } from "@/lib/doctor-name";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Card, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 interface HealthPassportScreenProps {
   patientId: string;
@@ -36,14 +38,8 @@ const VITAL_LABELS: Record<string, { label: string; format: (v: Record<string, u
 
 const MAX_LAB_READINGS = 8;
 
-/** Prefixes "Dr." only when the stored name doesn't already begin with a
- * title — clinical_staff.full_name is free text, and "Dr. Dr. Adaeze" would
- * read as sloppy exactly where trust matters most. */
-function protocolAuthorDisplay(name: string): string {
-  return /^(dr|prof|professor)\.?\s/i.test(name) ? name : `Dr. ${name}`;
-}
-
 export function HealthPassportScreen({ patientId, organisationId, subjectName }: HealthPassportScreenProps) {
+  const colors = useLegacyColors();
   const [data, setData] = useState<HealthPassportSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -183,10 +179,7 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
       </View>
 
       {data.protocolAuthorName ? (
-        <MutedText>
-          Protocols supervised by {protocolAuthorDisplay(data.protocolAuthorName)}
-          {data.protocolAuthorCredential ? ` · ${data.protocolAuthorCredential}` : ""}.
-        </MutedText>
+        <MutedText>Protocols supervised by {formatDoctorName(data.protocolAuthorName)}.</MutedText>
       ) : null}
     </ScrollView>
   );

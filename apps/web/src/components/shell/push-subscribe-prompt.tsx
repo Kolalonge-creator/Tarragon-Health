@@ -44,8 +44,8 @@ async function subscribeAndStore(): Promise<boolean> {
 /**
  * Push is now the platform's default notification channel — this is the
  * one-tap opt-in that makes a recipient's device reachable by it at all
- * (private.remap_notification_channel only upgrades whatsapp -> push once a
- * subscription like this exists; WhatsApp/SMS stay the fallback). Silent
+ * (reminders are delivered by push once a subscription like this exists,
+ * with the in-app inbox as the fallback). Silent
  * and automatic once permission is already granted (e.g. re-subscribing
  * after a browser-rotated endpoint); only shows the pill when permission
  * has genuinely never been asked. Never re-prompts after a dismiss or a

@@ -30,7 +30,6 @@ const CHANNEL_LABEL: Record<string, string> = {
   in_app: "In-app",
   email: "Email",
   sms: "SMS",
-  whatsapp: "WhatsApp",
 };
 
 function CampaignsCard({ organisationId }: { organisationId: string }) {

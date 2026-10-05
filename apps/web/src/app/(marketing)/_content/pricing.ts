@@ -566,7 +566,7 @@ export function getPricingFaq(
   {
     question: "What do lab tests actually cost?",
     answer:
-      "We deliberately don't quote a figure for the self-arranged route: every lab sets its own price, and you pay that laboratory directly with nothing added by us. It's worth asking two or three labs before you go, since prices vary by lab and city. The exception is a named screening bundle, where you can opt in to have us arrange it with our partner laboratory: there you see one Tarragon price up front and confirm it before anything is charged.",
+      "We deliberately don't quote a figure: every lab sets its own price, and you pay that laboratory directly with nothing added by us. It's worth asking two or three labs before you go, since prices vary by lab and city. We're partnered with Synlab Nigeria and trust their results, so if you don't already have a lab in mind, they're a solid place to start. Any laboratory works though, and a doctor reads your result either way.",
   },
   {
     question: "What are wellness points, and are they real money?",

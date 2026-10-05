@@ -37,7 +37,7 @@ export function VitalsForm({
   patientId: string;
   /** When set, hides the reading-type selector and locks the form to this
    * type — powers the /patient/quick-log/[type] deep-link pages so a
-   * WhatsApp/SMS reminder can link straight to "log glucose" with no extra
+   * reminder can link straight to "log glucose" with no extra
    * taps, instead of landing on the full dashboard and hunting for it. */
   lockedType?: VitalType;
   title?: string;

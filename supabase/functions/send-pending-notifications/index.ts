@@ -17,16 +17,15 @@
 // each affected row to `failed` with a clear `last_error`, never a crash
 // and never a silently-stuck `pending` row forever.
 //
-// Channel priority (2026-07-30): push is the default first channel
-// platform-wide — private.remap_notification_channel() rewrites a queued
-// 'whatsapp' row to 'push' at insert time whenever the recipient has an
-// active push_subscriptions row. WhatsApp/SMS are fallback only, never the
-// default, for both routine and critical rows. The difference between the
-// two priorities is what happens when push fails to SEND (not "goes
-// unopened" — that's the escalation engine's job, not this function's):
-// routine rows fall back inline to whatsapp -> sms within this same pass
-// (simple best-effort delivery, no confirmation tracking needed); critical
-// rows do NOT — a critical row's failed send is picked up by
+// Channel priority: push is the default first channel platform-wide
+// (a legacy chat channel was removed, founder decision F-02 — the channels
+// are in-app, push and email; SMS remains for verification codes and
+// clinician paging). The difference between the two priorities is what
+// happens when push fails to SEND (not "goes unopened" — that's the
+// escalation engine's job, not this function's): routine rows fall back
+// inline to sms within this same pass (simple best-effort delivery, no
+// confirmation tracking needed); critical rows do NOT — a critical row's
+// failed send is picked up by
 // private.escalate_unconfirmed_critical_notifications() and turned into a
 // new, separately-tracked notification on the next ladder channel, so every
 // hop stays its own auditable, delivery-tracked row.
@@ -44,11 +43,9 @@ const PUSH_BODY_MAX_CHARS = 160;
 
 // Patient-experience review 2026-07-31: several reminder templates only ever
 // said "open the app" with no actual link — real friction for a patient
-// trying to act on a WhatsApp/SMS/push nudge. This builds a real deep link
+// trying to act on an SMS/push nudge. This builds a real deep link
 // into smsText (shared by SMS, push, and voice — see the dispatch loop
-// below), never into the WhatsApp structured template's body params (those
-// are pre-approved fixed slots; a URL there needs its own Meta template
-// approval, out of scope here). Deliberately its own APP_BASE_URL, distinct
+// below). Deliberately its own APP_BASE_URL, distinct
 // from the marketing site's NEXT_PUBLIC_SITE_URL (root domain) — these
 // links point at the platform's `app.` subdomain. Set on BOTH .env.local
 // (local dev) and this function's own Supabase Edge Function secrets store
@@ -106,7 +103,7 @@ interface NotificationRow {
   id: string;
   recipient_id: string;
   organisation_id: string | null;
-  channel: "whatsapp" | "sms" | "in_app" | "email" | "push" | "voice";
+  channel: "sms" | "in_app" | "email" | "push" | "voice";
   template: string | null;
   payload: Record<string, unknown>;
   attempts: number;
@@ -146,6 +143,7 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   medication_adherence_checkin: "medications",
   medication_review_due: "medications",
   medication_prescribed_patient: "medications",
+  prescription_updated_patient: "medications",
   pharmacy_order_patient_confirmation: "medications",
   medication_dose_reminder: "medications",
 
@@ -242,15 +240,9 @@ function isNativePushSubscription(sub: PushSubscriptionRow): sub is PushSubscrip
 }
 
 interface TemplateRender {
-  metaTemplateName: string;
-  languageCode: string;
-  components: Array<{
-    type: "body";
-    parameters: Array<{ type: "text"; text: string }>;
-  }>;
   smsText: string;
   // Present only for templates that fan out to the `email` channel. Absent
-  // for the legacy reminder templates, which are WhatsApp/SMS only — an email
+  // for the legacy reminder templates, which are SMS/push only — an email
   // row referencing a template without this is failed with a clear reason.
   email?: { subject: string; html: string; text: string };
   // Present only where a template author has bothered to compute a specific
@@ -415,8 +407,6 @@ interface TemplateRenderContext {
   recipientId: string;
 }
 
-// Meta-approved WhatsApp template names must match these keys exactly once
-// submitted for approval (docs/ARCHITECTURE.md §8: ~2 week lead time).
 // Unknown template keys are never guessed at — see the caller below.
 const TEMPLATE_MAP: Record<
   string,
@@ -432,11 +422,6 @@ const TEMPLATE_MAP: Record<
       typeof payload.suggested_vital_type === "string" ? payload.suggested_vital_type : null;
     const path = suggestedType ? `/patient/quick-log/${suggestedType}` : "/patient/vitals";
     return {
-      metaTemplateName: "vitals_reminder",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: dueDate }] },
-      ],
       smsText:
         `Hi, it's time to log your vitals (due ${dueDate}). ` +
         `Tap to log it: ${appUrl(path)} Tarragon Health`,
@@ -448,9 +433,7 @@ const TEMPLATE_MAP: Record<
   // supportive nudge. `message` is LLM-personalised copy when available
   // (coaching-proposer.ts) — already screened by toneGuard before this row
   // was ever queued — falling back to a generic check-in line when absent
-  // (rules-only decision, or the LLM call failed). Falls back to SMS until
-  // the Meta template is approved, same as the other not-yet-approved
-  // templates in this file.
+  // (rules-only decision, or the LLM call failed).
   lifestyle_nudge: (payload) => {
     const message = String(
       payload.message ??
@@ -458,32 +441,20 @@ const TEMPLATE_MAP: Record<
     );
     const path = "/patient/lifestyle";
     return {
-      metaTemplateName: "lifestyle_nudge",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: `${message} Tarragon Health`,
       pushUrl: path,
     };
   },
+  // S08 (INV-07): the wording names no medicine. The producer
+  // (private.queue_medication_refill_reminders) no longer puts drug_name in the
+  // payload, and this template would not use it if an older row still carried one.
   medication_refill_reminder: (payload) => {
-    const drugName = String(payload.drug_name ?? "your medication");
     const refillDate = String(payload.refill_date ?? "soon");
     const path = "/patient/medications";
     return {
-      metaTemplateName: "medication_refill_reminder",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: drugName },
-            { type: "text", text: refillDate },
-          ],
-        },
-      ],
       smsText:
-        `Hi, your ${drugName} refill is due ${refillDate}. ` +
-        `Sort it here: ${appUrl(path)} Tarragon Health`,
+        `Hi, a refill is coming up (${refillDate}). ` +
+        `See your care plan here: ${appUrl(path)} Tarragon Health`,
       pushUrl: path,
     };
   },
@@ -493,27 +464,15 @@ const TEMPLATE_MAP: Record<
     const requestedDate = String(payload.requested_date ?? "soon");
     const daysBefore = String(payload.days_before ?? "");
     return {
-      metaTemplateName: "booking_reminder",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: serviceType },
-            { type: "text", text: facilityName },
-            { type: "text", text: requestedDate },
-          ],
-        },
-      ],
       smsText:
         `Hi, reminder: your ${serviceType} request at ${facilityName} is for ${requestedDate} ` +
         `(${daysBefore} day${daysBefore === "1" ? "" : "s"} from now). ` +
-        `Reply on WhatsApp or open the app. Tarragon Health`,
+        `Open the app to reply. Tarragon Health`,
     };
   },
   // Sent to the patient as a scheduled adherence check-in comes due (see
   // private.queue_medication_checkin_reminders). Reminds them to answer the
-  // check-in in the app — the response is never captured over WhatsApp/SMS.
+  // check-in in the app — the response is never captured over SMS.
   medication_adherence_checkin: (payload) => {
     const drugName = String(payload.drug_name ?? "your medication");
     const type = String(payload.checkin_type ?? "");
@@ -527,17 +486,6 @@ const TEMPLATE_MAP: Record<
             : `Time for a quick review of ${drugName}.`;
     const path = "/patient/medications";
     return {
-      metaTemplateName: "medication_adherence_checkin",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: drugName },
-            { type: "text", text: prompt },
-          ],
-        },
-      ],
       smsText: `${prompt} Answer here: ${appUrl(path)} Tarragon Health`,
       pushUrl: path,
     };
@@ -563,24 +511,16 @@ const TEMPLATE_MAP: Record<
         : `Easy to lose track — you've taken ${takenThisWeek}/${totalThisWeek} ${drugName} doses ` +
           `this week. ${remaining} more to go so your care team has a full picture.`;
     return {
-      metaTemplateName: "missed_dose_behavioural_nudge",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: `${message} Tarragon Health`,
       pushUrl: path,
     };
   },
   // Sent to the patient as a scheduled medication review comes due (see
   // private.queue_medication_review_reminders). Reminder only — the review is
-  // completed by a doctor in the clinician worklist, never over WhatsApp.
+  // completed by a doctor in the clinician worklist, never in a chat app.
   medication_review_due: (payload) => {
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      metaTemplateName: "medication_review_due",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: dueDate }] },
-      ],
       smsText:
         `Hi, your medication review is due ${dueDate}. Your care team will be in touch; ` +
         `open the app to see details. Tarragon Health`,
@@ -588,22 +528,11 @@ const TEMPLATE_MAP: Record<
   },
   // Sent to the patient as a scheduled vaccination comes due (see
   // private.queue_vaccination_reminders). Reminder only — logging/booking a
-  // dose always happens in-app, never over WhatsApp.
+  // dose always happens in-app, never in a chat app.
   vaccination_due: (payload) => {
     const vaccineName = String(payload.vaccine_name ?? "a vaccination");
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      metaTemplateName: "vaccination_due",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: vaccineName },
-            { type: "text", text: dueDate },
-          ],
-        },
-      ],
       smsText:
         `Hi, your ${vaccineName} is due ${dueDate}. Open the Tarragon Health app to book or ` +
         `log it. Tarragon Health`,
@@ -611,23 +540,12 @@ const TEMPLATE_MAP: Record<
   },
   // Sent to the patient as a scheduled screening comes due (see
   // private.queue_screening_reminders). Reminder only — booking/logging a
-  // screening always happens in-app, never over WhatsApp/SMS.
+  // screening always happens in-app, never over SMS.
   screening_due: (payload) => {
     const screenTypeName = String(payload.screen_type_name ?? "a screening");
     const dueDate = String(payload.due_date ?? "soon");
     const path = "/patient/prevention";
     return {
-      metaTemplateName: "screening_due",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: screenTypeName },
-            { type: "text", text: dueDate },
-          ],
-        },
-      ],
       smsText:
         `Hi, your ${screenTypeName} is due ${dueDate}. Open the Tarragon Health app to book it. ` +
         `Tarragon Health`,
@@ -638,23 +556,12 @@ const TEMPLATE_MAP: Record<
   // Comprehensive Screen) is due — see
   // private.queue_health_check_due_reminders. Reminder only — ordering the
   // check and uploading the result always happen in-app, never over
-  // WhatsApp/SMS.
+  // SMS.
   health_check_due_soon: (payload) => {
     const bundleName = String(payload.bundle_name ?? "your annual Health Check");
     const dueDate = String(payload.due_date ?? "soon");
     const path = "/patient/prevention#health-check";
     return {
-      metaTemplateName: "health_check_due_soon",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: bundleName },
-            { type: "text", text: dueDate },
-          ],
-        },
-      ],
       smsText:
         `Hi, your ${bundleName} is due ${dueDate}, about a month from now. Open the Tarragon ` +
         `Health app to book it in good time. Tarragon Health`,
@@ -665,24 +572,13 @@ const TEMPLATE_MAP: Record<
   // renal (kidney) complication check is overdue, or has never been done
   // (see private.queue_diabetes_complication_reminders). Reminder only —
   // the check itself is recorded by a clinician in-app, never over
-  // WhatsApp/SMS.
+  // SMS.
   diabetes_complication_check_due: (payload) => {
     const checkType = String(payload.check_type ?? "");
     const label = checkType === "retinal" ? "eye screening" : checkType === "renal" ? "kidney check" : "a complication check";
     const dueDate = String(payload.due_date ?? "soon");
     const path = "/patient/vitals";
     return {
-      metaTemplateName: "diabetes_complication_check_due",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: label },
-            { type: "text", text: dueDate },
-          ],
-        },
-      ],
       smsText:
         `Hi, your diabetes ${label} is due ${dueDate}. Your care team can do this at your next visit — ` +
         `open the app for details. — Tarragon Health`,
@@ -694,25 +590,13 @@ const TEMPLATE_MAP: Record<
   // the CV-risk worsening-lipid-trend escalation (see flagCvRiskEscalations).
   // Deliberately one shared, generic-voiced template for every such trigger
   // (matches RiskSignalsCard's own plain-language, non-alarmist copy) rather
-  // than a bespoke Meta template per signal — keeps the still-pending Meta
-  // template-approval backlog from growing with every new risk signal added.
+  // than a bespoke template per signal.
   // Never carries a raw clinical number; the app is where the detail lives.
   risk_signal_attention: (payload) => {
     const label = String(payload.signal_label ?? "Something in your recent readings");
     const reason = String(payload.reason ?? "has needed some extra attention");
     const path = "/patient";
     return {
-      metaTemplateName: "risk_signal_attention",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: label },
-            { type: "text", text: reason },
-          ],
-        },
-      ],
       smsText:
         `Hi, ${label} ${reason}. Your care team is aware; open the Tarragon Health app to see ` +
         `more. Tarragon Health`,
@@ -721,12 +605,9 @@ const TEMPLATE_MAP: Record<
   },
   // Sent to the patient when their care team replies in an in-app message
   // thread. Notification only — the message itself is read in the app, never
-  // over WhatsApp/SMS.
+  // over SMS.
   new_care_message: () => {
     return {
-      metaTemplateName: "new_care_message",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [] }],
       smsText:
         "You have a new message from your care team. Open the Tarragon Health app to read and " +
         "reply. Tarragon Health",
@@ -734,15 +615,10 @@ const TEMPLATE_MAP: Record<
   },
   // Sent to the patient as a scheduled periodic health review comes due (see
   // private.queue_preventive_review_reminders). Reminder only — the review is
-  // completed by a doctor in the clinician worklist, never over WhatsApp.
+  // completed by a doctor in the clinician worklist, never in a chat app.
   preventive_review_due: (payload) => {
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      metaTemplateName: "preventive_review_due",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: dueDate }] },
-      ],
       smsText:
         `Hi, your preventive health review is due ${dueDate}. Your care team will be in touch; ` +
         `open the app to see details. Tarragon Health`,
@@ -750,15 +626,10 @@ const TEMPLATE_MAP: Record<
   },
   // Sent to an entitled patient when their yearly Annual Health Review cycle
   // opens (see private.queue_annual_reviews). Reminder only — the review runs
-  // through the in-app clinician worklist, never over WhatsApp.
+  // through the in-app clinician worklist, never in a chat app.
   annual_review_due: (payload) => {
     const cycleYear = String(payload.cycle_year ?? "this year");
     return {
-      metaTemplateName: "annual_review_due",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: cycleYear }] },
-      ],
       smsText:
         `Hi, your ${cycleYear} Annual Health Review has started. Your care team will guide ` +
         `you through it; open the app to see what's next. Tarragon Health`,
@@ -780,11 +651,6 @@ const TEMPLATE_MAP: Record<
           });
     })();
     return {
-      metaTemplateName: "annual_review_consult_scheduled",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: when }] },
-      ],
       smsText:
         `Your Annual Health Review video consult is confirmed for ${when}. ` +
         `The join link is in the Tarragon Health app. Tarragon Health`,
@@ -792,15 +658,10 @@ const TEMPLATE_MAP: Record<
   },
   // Sent to the patient as a lifestyle programme review comes due (see
   // private.queue_lpe_review_reminders). Reminder only — the review is
-  // completed by their care team in-app, never over WhatsApp.
+  // completed by their care team in-app, never in a chat app.
   lifestyle_review_due: (payload) => {
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      metaTemplateName: "lifestyle_review_due",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: dueDate }] },
-      ],
       smsText:
         `Hi, your lifestyle programme review is due ${dueDate}. Your care team will be in ` +
         `touch; open the app to see details. Tarragon Health`,
@@ -817,17 +678,6 @@ const TEMPLATE_MAP: Record<
     const target = String(payload.target ?? "0");
     const path = "/patient/wellness";
     return {
-      metaTemplateName: "wellness_challenge_ending",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: title },
-            { type: "text", text: `${progress}/${target}` },
-          ],
-        },
-      ],
       smsText:
         `Hi, your "${title}" challenge ends in 24 hours and you're at ${progress}/${target}. ` +
         `Finish it in the Tarragon Health app. Tarragon Health`,
@@ -840,9 +690,6 @@ const TEMPLATE_MAP: Record<
   // coordinator worklist is the acting side of this loop.
   care_outreach_checkin: () => {
     return {
-      metaTemplateName: "care_outreach_checkin",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [] }],
       smsText:
         "Hi, your recent health record suggests a quick check-in would help. Open the " +
         "Tarragon Health app to see what's due; booking takes a minute. Tarragon Health",
@@ -871,9 +718,6 @@ const TEMPLATE_MAP: Record<
       (dimension && DIMENSION_COPY[dimension]) ||
       "A quick check-in on your health record would help keep things on track.";
     return {
-      metaTemplateName: "engagement_reminder_personalized",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: `${message} Open the Tarragon Health app. Tarragon Health`,
       pushUrl: "/patient",
     };
@@ -897,9 +741,6 @@ const TEMPLATE_MAP: Record<
     const area = (dimension && DIMENSION_COPY[dimension]) || "keeping up with your care plan";
     const message = `We've noticed it's been a bit of a stretch with ${area}. Would a simpler routine help? Your care team is happy to talk it through.`;
     return {
-      metaTemplateName: "engagement_support_offer",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: `${message} Open the Tarragon Health app, or message your care team. Tarragon Health`,
       pushUrl: "/patient",
     };
@@ -912,9 +753,6 @@ const TEMPLATE_MAP: Record<
     const message =
       "We've been trying to reach you and wanted to check in a different way — is everything OK?";
     return {
-      metaTemplateName: "engagement_alternative_channel_checkin",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: `${message} Open the Tarragon Health app, or reply here. Tarragon Health`,
     };
   },
@@ -922,9 +760,6 @@ const TEMPLATE_MAP: Record<
   // answerAsyncConsult). Notification only — the answer itself lives in-app.
   async_consult_answered: () => {
     return {
-      metaTemplateName: "async_consult_answered",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [] }],
       smsText:
         "A doctor has answered your question. Open the Tarragon Health app to read it. " +
         "Tarragon Health",
@@ -945,11 +780,6 @@ const TEMPLATE_MAP: Record<
           });
     })();
     return {
-      metaTemplateName: "video_consult_booked",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: when }] },
-      ],
       smsText:
         `Your video check-in with your Tarragon doctor is booked for ${when}. ` +
         `The join link is in the app. Tarragon Health`,
@@ -961,9 +791,6 @@ const TEMPLATE_MAP: Record<
   // only; the actual times to choose from live in the app, not this message.
   video_visit_alternate_proposed: () => {
     return {
-      metaTemplateName: "video_visit_alternate_proposed",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [] }],
       smsText:
         "Your doctor offered different times for your video visit. Pick one in the app within 24 hours, or you'll be refunded in full. Tarragon Health",
     };
@@ -974,11 +801,6 @@ const TEMPLATE_MAP: Record<
   video_visit_declined: (payload) => {
     const reason = String(payload.reason ?? "").trim();
     return {
-      metaTemplateName: "video_visit_declined",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: reason || "No doctor was available for that time." }] },
-      ],
       smsText:
         `We couldn't schedule your video visit${reason ? ` (${reason})` : ""}. ` +
         `Your payment will be refunded in full. You can request another time in the app. Tarragon Health`,
@@ -986,8 +808,7 @@ const TEMPLATE_MAP: Record<
   },
   // Admin broadcast / announcement (see public.admin_send_broadcast). Free-text
   // subject + body chosen by an admin, fanned out to a resolved audience. Email
-  // renders the body as-is; WhatsApp needs a Meta-approved broadcast_announcement
-  // template, falling back to SMS meanwhile.
+  // renders the body as-is.
   broadcast_announcement: (payload, ctx) => {
     const subject = String(payload.subject ?? "A message from Tarragon Health");
     const body = String(payload.body ?? "");
@@ -1044,17 +865,6 @@ const TEMPLATE_MAP: Record<
         `\n\nTarragon Health`
       : `${subject}\n\n${body}\n\nTarragon Health`;
     return {
-      metaTemplateName: "broadcast_announcement",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: subject },
-            { type: "text", text: body },
-          ],
-        },
-      ],
       smsText: `${subject}: ${body} Tarragon Health`,
       email: {
         subject,
@@ -1064,9 +874,7 @@ const TEMPLATE_MAP: Record<
     };
   },
   // Sent to the patient on the payment_confirmed transition (see
-  // enqueue_pharmacy_order_notifications). WhatsApp is attempted first; the
-  // pharmacy_order_patient_confirmation Meta template must be approved for the
-  // WhatsApp path to land, otherwise the dispatcher falls back to smsText.
+  // enqueue_pharmacy_order_notifications).
   pharmacy_order_patient_confirmation: (payload) => {
     const orderNumber = String(payload.order_number ?? "your order");
     const pharmacyName = String(payload.pharmacy_name ?? "the pharmacy");
@@ -1078,19 +886,6 @@ const TEMPLATE_MAP: Record<
       `Show order ${orderNumber} and your patient ID ${patientNumber} at ${pharmacyName} to collect. ` +
       `Tarragon Health`;
     return {
-      metaTemplateName: "pharmacy_order_patient_confirmation",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: orderNumber },
-            { type: "text", text: itemsSummary },
-            { type: "text", text: pharmacyName },
-            { type: "text", text: patientNumber },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `Your Tarragon Health order ${orderNumber} is confirmed`,
@@ -1113,8 +908,7 @@ const TEMPLATE_MAP: Record<
     };
   },
   // Sent to the partner pharmacy (SMS + email) on the same transition. No
-  // WhatsApp channel is enqueued for this template — metaTemplateName is present
-  // only to satisfy the shared TemplateRender shape and is never used.
+  // push/in-app channel is enqueued for this template.
   pharmacy_order_pharmacy_alert: (payload) => {
     const orderNumber = String(payload.order_number ?? "");
     const pharmacyName = String(payload.pharmacy_name ?? "");
@@ -1125,11 +919,6 @@ const TEMPLATE_MAP: Record<
       `New Tarragon Health order ${orderNumber}: ${patientName} (patient ID ${patientNumber}): ` +
       `${itemsSummary}. Please prepare for collection. Tarragon Health`;
     return {
-      metaTemplateName: "pharmacy_order_pharmacy_alert",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: orderNumber }] },
-      ],
       smsText,
       email: {
         subject: `New Tarragon Health order ${orderNumber}: ${patientName}`,
@@ -1157,8 +946,7 @@ const TEMPLATE_MAP: Record<
   // (20260829143035_medication_dispensing_fulfilment_notifications.sql) on
   // every status transition after payment_confirmed that pharmacy_order_
   // notifications.sql never covered. Same shape as pharmacy_order_patient_
-  // confirmation: WhatsApp first, SMS fallback until the Meta template is
-  // approved, email when on file, pushUrl so tapping the notification opens
+  // confirmation: SMS and email when on file, pushUrl so tapping the notification opens
   // the right page.
   pharmacy_order_ready_for_collection: (payload) => {
     const orderNumber = String(payload.order_number ?? "your order");
@@ -1169,18 +957,6 @@ const TEMPLATE_MAP: Record<
       `Hi, your Tarragon Health order ${orderNumber} (${itemsSummary}) is ready for collection at ` +
       `${pharmacyName}. Tarragon Health`;
     return {
-      metaTemplateName: "pharmacy_order_ready_for_collection",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: orderNumber },
-            { type: "text", text: itemsSummary },
-            { type: "text", text: pharmacyName },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `Your Tarragon Health order ${orderNumber} is ready for collection`,
@@ -1213,18 +989,6 @@ const TEMPLATE_MAP: Record<
       `Hi, your Tarragon Health order ${orderNumber} (${itemsSummary}) is out for delivery with ${courierName}` +
       `${eta ? `, estimated ${eta}` : ""}.${coldChainNote} Tarragon Health`;
     return {
-      metaTemplateName: "pharmacy_order_out_for_delivery",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: orderNumber },
-            { type: "text", text: itemsSummary },
-            { type: "text", text: courierName },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `Your Tarragon Health order ${orderNumber} is out for delivery`,
@@ -1248,17 +1012,6 @@ const TEMPLATE_MAP: Record<
     const path = "/patient/medications";
     const smsText = `Hi, your Tarragon Health order ${orderNumber} (${itemsSummary}) has been delivered. Tarragon Health`;
     return {
-      metaTemplateName: "pharmacy_order_delivered",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: orderNumber },
-            { type: "text", text: itemsSummary },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `Your Tarragon Health order ${orderNumber} was delivered`,
@@ -1291,17 +1044,6 @@ const TEMPLATE_MAP: Record<
       `Hi, delivery of your Tarragon Health order ${orderNumber} (${itemsSummary}) did not succeed: ${reason}. ` +
       `We'll be in touch to arrange redelivery. Tarragon Health`;
     return {
-      metaTemplateName: "pharmacy_order_delivery_failed",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: orderNumber },
-            { type: "text", text: reason },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `Delivery attempt for your Tarragon Health order ${orderNumber} was unsuccessful`,
@@ -1328,17 +1070,6 @@ const TEMPLATE_MAP: Record<
       `Hi, ${pharmacyName} could not fulfil your Tarragon Health order ${orderNumber} as prescribed.${altCopy} ` +
       `Tarragon Health`;
     return {
-      metaTemplateName: "pharmacy_order_unavailable",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: orderNumber },
-            { type: "text", text: pharmacyName },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `Your Tarragon Health order ${orderNumber}: medicine unavailable`,
@@ -1370,9 +1101,6 @@ const TEMPLATE_MAP: Record<
       `Tarragon Health: a doctor has reviewed something for ${person}. ` +
       `They will discuss what was found with ${person} directly.`;
     return {
-      metaTemplateName: "sponsor_care_reviewed",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: person }] }],
       smsText,
       pushUrl: "/patient/supporting",
       email: {
@@ -1392,11 +1120,6 @@ const TEMPLATE_MAP: Record<
     const smsText =
       `Tarragon Health: ${person} has not logged a reading in ${days} days. A call from you often does more than a reminder from us.`;
     return {
-      metaTemplateName: "sponsor_person_quiet",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: person }, { type: "text", text: days }] },
-      ],
       smsText,
       pushUrl: "/patient/supporting",
       email: {
@@ -1419,14 +1142,6 @@ const TEMPLATE_MAP: Record<
       ? `Tarragon Health: you are now paying for ${person}'s ${plan}. They keep their own account and can cancel any time.`
       : `Tarragon Health: ${sponsor} is now paying for your ${plan}. Your account and your records stay yours, and you can cancel any time.`;
     return {
-      metaTemplateName: "sponsored_plan_started",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [{ type: "text", text: isPayer ? person : sponsor }, { type: "text", text: plan }],
-        },
-      ],
       smsText,
       pushUrl: isPayer ? "/patient/supporting" : "/patient/subscription",
       email: {
@@ -1453,19 +1168,6 @@ const TEMPLATE_MAP: Record<
       `Tarragon Health: ₦${amount} you funded paid for ${what} for ${beneficiary}` +
       `${spentOn ? ` on ${spentOn}` : ""}. Remaining balance ₦${balance}.`;
     return {
-      metaTemplateName: "sponsor_spend_receipt",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: amount },
-            { type: "text", text: what },
-            { type: "text", text: beneficiary },
-            { type: "text", text: balance },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `Your ₦${amount} paid for ${what} for ${beneficiary}`,
@@ -1527,9 +1229,6 @@ const TEMPLATE_MAP: Record<
     const savingLine = saving > 0 ? `${saving} more is being saved towards.` : "";
 
     return {
-      metaTemplateName: "sponsor_monthly_report",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: headline }] }],
       smsText: `Tarragon Health: ${headline}. See People you support in your dashboard.`,
       email: {
         subject: `Your monthly summary: ${headline}`,
@@ -1564,19 +1263,6 @@ const TEMPLATE_MAP: Record<
       `Show order ${orderNumber} and your patient ID ${patientNumber} when you arrive. ` +
       `Tarragon Health`;
     return {
-      metaTemplateName: "lab_order_patient_confirmation",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: orderNumber },
-            { type: "text", text: testName },
-            { type: "text", text: labName },
-            { type: "text", text: patientNumber },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `Your Tarragon Health order ${orderNumber} is confirmed`,
@@ -1598,7 +1284,7 @@ const TEMPLATE_MAP: Record<
     };
   },
   // Sent to the lab_providers contact (SMS + email) on the same transition —
-  // no WhatsApp leg, mirrors pharmacy_order_pharmacy_alert.
+  // no chat-app leg, mirrors pharmacy_order_pharmacy_alert.
   lab_order_lab_alert: (payload) => {
     const orderNumber = String(payload.order_number ?? "");
     const labName = String(payload.lab_name ?? "");
@@ -1610,11 +1296,6 @@ const TEMPLATE_MAP: Record<
       `New Tarragon Health order ${orderNumber}: ${patientName} (patient ID ${patientNumber}): ` +
       `${testName}. Please prepare to receive this patient. Tarragon Health`;
     return {
-      metaTemplateName: "lab_order_lab_alert",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: orderNumber }] },
-      ],
       smsText,
       email: {
         subject: `New Tarragon Health order ${orderNumber}: ${patientName}`,
@@ -1647,17 +1328,6 @@ const TEMPLATE_MAP: Record<
       `Hi ${patientName}, your Tarragon Health referral ${referralNumber} to ${specialistName} is confirmed. ` +
       `Your care team will follow up on booking your appointment. Tarragon Health`;
     return {
-      metaTemplateName: "referral_patient_confirmation",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: referralNumber },
-            { type: "text", text: specialistName },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `Your Tarragon Health referral ${referralNumber} is confirmed`,
@@ -1679,7 +1349,7 @@ const TEMPLATE_MAP: Record<
     };
   },
   // Sent to the specialist_providers contact (SMS + email) on the same
-  // transition — no WhatsApp leg, mirrors pharmacy_order_pharmacy_alert /
+  // transition — no chat-app leg, mirrors pharmacy_order_pharmacy_alert /
   // lab_order_lab_alert. referral_reason is short clinical context a
   // receiving specialist needs, same category of operational detail as
   // lab_order_lab_alert's test_name or pharmacy's items_summary.
@@ -1694,11 +1364,6 @@ const TEMPLATE_MAP: Record<
       `New Tarragon Health referral ${referralNumber}: ${patientName} (patient ID ${patientNumber}): ` +
       `${specialistType}. Please expect contact to arrange this patient's appointment. Tarragon Health`;
     return {
-      metaTemplateName: "referral_specialist_alert",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: referralNumber }] },
-      ],
       smsText,
       email: {
         subject: `New Tarragon Health referral ${referralNumber}: ${patientName}`,
@@ -1724,8 +1389,7 @@ const TEMPLATE_MAP: Record<
   },
   // Sent to a waitlisted patient when their state is switched live
   // (private.notify_region_waitlist). A "now available" nudge only — nothing is
-  // auto-booked; they open the app to act. Falls back to SMS until the Meta
-  // template is approved. care_recipient is set when they were waiting on behalf
+  // auto-booked; they open the app to act. care_recipient is set when they were waiting on behalf
   // of a family member (e.g. a diaspora child for a parent in Nigeria).
   region_now_available: (payload) => {
     const state = String(payload.display_name ?? payload.state ?? "your state");
@@ -1753,17 +1417,6 @@ const TEMPLATE_MAP: Record<
       `You can now book ${servicesPretty} in the app. Tarragon Health`;
 
     return {
-      metaTemplateName: "region_now_available",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: state },
-            { type: "text", text: servicesPretty },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `TarragonHealth is now live in ${state}`,
@@ -1782,7 +1435,7 @@ const TEMPLATE_MAP: Record<
     };
   },
   // Reputation & Review-Generation Engine (private.enqueue_reputation_review_prompt).
-  // Email-only -- there is no WhatsApp/SMS row for this template, so
+  // Email-only -- there is no SMS row for this template, so
   // components/smsText below are never actually rendered on those channels,
   // but the TEMPLATE_MAP call signature requires them regardless.
   // The link goes through our own signed click-tracking redirect
@@ -1813,9 +1466,6 @@ const TEMPLATE_MAP: Record<
       `Thank you for trusting Tarragon Health with your care. If you have a moment, ` +
       `we'd be grateful for a review: ${clickUrl} Tarragon Health`;
     return {
-      metaTemplateName: "reputation_review_request_trustpilot",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: clickUrl }] }],
       smsText,
       email: {
         subject: "How has your care been with Tarragon Health?",
@@ -1835,8 +1485,7 @@ const TEMPLATE_MAP: Record<
   },
   // Sent to the patient when a clinician/specialist prescribes a medication
   // (private.enqueue_medication_prescribed_notifications). Email is the
-  // guaranteed channel the requirement asks for; WhatsApp is attempted first on
-  // the whatsapp row, falling back to SMS until the Meta template is approved.
+  // guaranteed channel the requirement asks for.
   medication_prescribed_patient: (payload) => {
     const patientName = String(payload.patient_name ?? "there");
     const drugName = String(payload.drug_name ?? "your medication");
@@ -1850,17 +1499,6 @@ const TEMPLATE_MAP: Record<
       `Hi ${patientName}, a new medication has been added to your care plan: ${details}. ` +
       `See the full details in the Tarragon Health app. Tarragon Health`;
     return {
-      metaTemplateName: "medication_prescribed_patient",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: patientName },
-            { type: "text", text: details },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `A new medication has been added to your care plan`,
@@ -1882,11 +1520,47 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // Sent to the patient when a clinician AMENDS a prescription (the new version row goes through
+  // private.enqueue_medication_prescribed_notifications with previous_version_id set). It used to send the
+  // "new medication has been added" wording, which hid the fact that the patient's saved PDF is now out of date.
+  prescription_updated_patient: (payload) => {
+    const patientName = escapeHtmlForBroadcast(String(payload.patient_name ?? "there"));
+    const drugNameRaw = String(payload.drug_name ?? "your medication");
+    const drugName = escapeHtmlForBroadcast(drugNameRaw);
+    const dose = escapeHtmlForBroadcast(String(payload.dose ?? ""));
+    const frequency = escapeHtmlForBroadcast(String(payload.frequency ?? ""));
+    const prescriberName = escapeHtmlForBroadcast(String(payload.prescriber_name ?? ""));
+    const rxNumber = escapeHtmlForBroadcast(String(payload.rx_number ?? ""));
+    const smsText =
+      `Hi ${String(payload.patient_name ?? "there")}, your prescription for ${drugNameRaw} was updated. ` +
+      `Open the Tarragon Health app to download the new one: any copy you saved earlier no longer works. Tarragon Health`;
+    return {
+      smsText,
+      email: {
+        subject: `Your prescription for ${drugNameRaw} was updated`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${patientName},</p>` +
+          `<p>Your care team has updated your prescription. Here is the new version:</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Medication</td><td style="padding:4px 0"><strong>${drugName}</strong></td></tr>` +
+          (dose ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Dose</td><td style="padding:4px 0">${dose}</td></tr>` : "") +
+          (frequency ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">How to take it</td><td style="padding:4px 0">${frequency}</td></tr>` : "") +
+          (prescriberName ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Prescribed by</td><td style="padding:4px 0">${prescriberName}</td></tr>` : "") +
+          (rxNumber ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">New Rx number</td><td style="padding:4px 0">${rxNumber}</td></tr>` : "") +
+          `</table>` +
+          `<p><strong>Please download the new prescription from the Tarragon Health app.</strong> Any copy of the earlier prescription that you saved or printed no longer works: a pharmacy checking it will see that it has been replaced.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
   // Sent to the patient for every lab order
   // (private.enqueue_lab_order_requested_notifications). A doctor/system order
   // reads as "requested for you"; a self-booked order reads as a showable
-  // confirmation to present at the lab. Email is the guaranteed channel;
-  // WhatsApp falls back to SMS until the Meta template lands.
+  // confirmation to present at the lab. Email is the guaranteed channel.
   lab_order_requested_patient: (payload) => {
     const patientName = String(payload.patient_name ?? "there");
     const orderNumber = String(payload.order_number ?? "your order");
@@ -1901,18 +1575,6 @@ const TEMPLATE_MAP: Record<
       : `Hi ${patientName}, a lab test has been requested for you: ${testName} ` +
         `(order ${orderNumber}). See the details in the Tarragon Health app. Tarragon Health`;
     return {
-      metaTemplateName: "lab_order_requested_patient",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: patientName },
-            { type: "text", text: testName },
-            { type: "text", text: orderNumber },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: selfBooked
@@ -1936,9 +1598,9 @@ const TEMPLATE_MAP: Record<
   },
   // Email-only digest, queued by private.queue_preventive_care_plan_email_
   // reminders (at most once per patient per 30 days, only when something is
-  // currently due/overdue). No whatsapp/sms component exists for this one —
-  // metaTemplateName/components/smsText are populated anyway so a
-  // misrouted whatsapp/sms row degrades to plain text rather than crashing,
+  // currently due/overdue). No sms component exists for this one —
+  // smsText is populated anyway so a
+  // misrouted sms row degrades to plain text rather than crashing,
   // matching every other template's shape.
   preventive_care_plan_updated: (payload) => {
     const patientName = String(payload.patient_name ?? "there");
@@ -1946,9 +1608,6 @@ const TEMPLATE_MAP: Record<
       `Hi ${patientName}, your preventive & chronic care plan has been updated — ` +
       `see the Tarragon Health app for what's due. Tarragon Health`;
     return {
-      metaTemplateName: "preventive_care_plan_updated",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: patientName }] }],
       smsText,
       email: {
         subject: "Your preventive & chronic care plan",
@@ -1979,17 +1638,6 @@ const TEMPLATE_MAP: Record<
       `Hi ${patientName}, your ${vaccineName} has been verified by your Tarragon care team ` +
       `(certificate ${serial}). Download it in the app.${nextLine} Tarragon Health`;
     return {
-      metaTemplateName: "vaccination_verified",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: vaccineName },
-            { type: "text", text: serial },
-          ],
-        },
-      ],
       smsText,
       email: {
         subject: `Your ${vaccineName} is verified: Tarragon certificate ${serial}`,
@@ -2012,7 +1660,7 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
-  // Sent to the patient's saved emergency contact / next of kin (SMS + WhatsApp)
+  // Sent to the patient's saved emergency contact / next of kin (SMS)
   // when the patient reports an emergency and does not acknowledge it within the
   // acknowledge-gated window (private.notify_unacknowledged_emergencies), or
   // immediately via the patient's "Alert my emergency contact now" action. A
@@ -2029,43 +1677,19 @@ const TEMPLATE_MAP: Record<
       `possible medical emergency and may need your help. Please try to reach them now. If you ` +
       `cannot and it is an emergency, help them get to the nearest hospital. Tarragon Health`;
     return {
-      metaTemplateName: "emergency_contact_alert",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: contactName },
-            { type: "text", text: patientName },
-          ],
-        },
-      ],
       smsText,
     };
   },
   // Sent to org clinicians when an abnormal/critical screening result lands
   // (private.handle_abnormal_screening_result -> abnormal-result-handler,
-  // via private.enqueue_critical_notification — 2026-07-30). Was previously
-  // a raw, untracked Meta API call outside this table entirely; now a
+  // via private.enqueue_critical_notification — 2026-07-30). Now a
   // tracked, critical-priority row that starts on push and force-escalates
   // through the channel ladder if nobody confirms it (see
-  // critical_notification_engine.sql). Meta template name unchanged from
-  // the prior direct-call implementation, so no new Meta approval needed.
+  // critical_notification_engine.sql).
   abnormal_result_clinician_alert: (payload) => {
     const patientName = String(payload.patient_name ?? "A patient");
     const conditionLabel = String(payload.condition_label ?? "an abnormal result");
     return {
-      metaTemplateName: "abnormal_result_clinician_alert",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: patientName },
-            { type: "text", text: conditionLabel },
-          ],
-        },
-      ],
       smsText:
         `New Priority 1 alert: ${patientName}'s screening result needs review (${conditionLabel}). ` +
         `See your Tarragon Health worklist. Tarragon Health`,
@@ -2083,17 +1707,6 @@ const TEMPLATE_MAP: Record<
     const patientName = String(payload.patient_name ?? "A patient");
     const sourceLabel = String(payload.source_label ?? "an emergency");
     return {
-      metaTemplateName: "emergency_event_clinician_alert",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: patientName },
-            { type: "text", text: sourceLabel },
-          ],
-        },
-      ],
       smsText:
         `New Priority 1 alert: ${patientName}'s case needs review (${sourceLabel}). ` +
         `See your Tarragon Health worklist. Tarragon Health`,
@@ -2109,18 +1722,6 @@ const TEMPLATE_MAP: Record<
     const vitalLabel = String(payload.vital_label ?? "a vital sign reading");
     const levelLabel = String(payload.level_label ?? "Review needed");
     return {
-      metaTemplateName: "vitals_red_flag_clinician_alert",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: levelLabel },
-            { type: "text", text: patientName },
-            { type: "text", text: vitalLabel },
-          ],
-        },
-      ],
       smsText:
         `${levelLabel}: ${patientName}'s ${vitalLabel} needs review. ` +
         `See your Tarragon Health worklist. Tarragon Health`,
@@ -2129,7 +1730,7 @@ const TEMPLATE_MAP: Record<
   // Sent to the patient after the follow-up window on an emergency event
   // (private.notify_emergency_followups). Gentle check-in nudging them to update
   // their care team in the app — the follow-up itself happens in-app, never over
-  // WhatsApp/SMS.
+  // SMS.
   emergency_followup: (payload) => {
     const patientName = String(payload.patient_name ?? "there");
     const smsText =
@@ -2137,11 +1738,6 @@ const TEMPLATE_MAP: Record<
       `When you can, open the Tarragon Health app to let your care team know how you're doing. ` +
       `Tarragon Health`;
     return {
-      metaTemplateName: "emergency_followup",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: patientName }] },
-      ],
       smsText,
     };
   },
@@ -2156,9 +1752,6 @@ const TEMPLATE_MAP: Record<
     const on = String(payload.viewed_on ?? "today");
     const smsText = `Tarragon Health: your emergency card link was viewed on ${on}. If that wasn't expected, replace it at any time from your dashboard.`;
     return {
-      metaTemplateName: "emergency_card_viewed",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: on }] }],
       smsText,
       pushUrl: "/patient/emergency-card",
       email: {
@@ -2180,9 +1773,6 @@ const TEMPLATE_MAP: Record<
     const smsText =
       "Tarragon Health: your emergency card live link expires in 30 days. Replace it to keep it working. Your printed card is unaffected.";
     return {
-      metaTemplateName: "emergency_card_expiring_soon",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [] }],
       smsText,
       pushUrl: "/patient/emergency-card",
       email: {
@@ -2201,7 +1791,7 @@ const TEMPLATE_MAP: Record<
   // clinician_alert_ack_timeout_escalation_ladder.sql /
   // private.notify_clinician_alert) had NO entry here and NO
   // notification_template_locales row either — every non-in_app send
-  // (whatsapp/push/sms) was failing with "unknown template" in production
+  // (push/sms) was failing with "unknown template" in production
   // (confirmed live: dozens of failed rows, oldest well before this fix).
   // The in_app leg was unaffected (private.notify_clinician_alert always
   // writes that one directly with the real clinical message; it's outside
@@ -2212,9 +1802,6 @@ const TEMPLATE_MAP: Record<
   clinician_alert_ack_timeout_backup: (payload) => {
     const message = String(payload.message ?? "You have a new urgent alert on Tarragon Health.");
     return {
-      metaTemplateName: "clinician_alert_ack_timeout_backup",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: message,
       pushUrl: "/clinician/escalations",
     };
@@ -2222,9 +1809,6 @@ const TEMPLATE_MAP: Record<
   clinician_alert_ack_timeout_senior: (payload) => {
     const message = String(payload.message ?? "You have a new urgent alert on Tarragon Health.");
     return {
-      metaTemplateName: "clinician_alert_ack_timeout_senior",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: message,
       pushUrl: "/clinician/escalations",
     };
@@ -2232,9 +1816,6 @@ const TEMPLATE_MAP: Record<
   clinician_alert_ack_timeout_admin: (payload) => {
     const message = String(payload.message ?? "You have a new urgent alert on Tarragon Health.");
     return {
-      metaTemplateName: "clinician_alert_ack_timeout_admin",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: message,
       pushUrl: "/clinician/escalations",
     };
@@ -2243,7 +1824,7 @@ const TEMPLATE_MAP: Record<
   // no TEMPLATE_MAP entry existed anywhere for this key even though
   // lab_result_documents.sql (see enqueue_lab_result_document_notifications,
   // most recently redefined in guarantee_in_app_notification_companions.sql)
-  // enqueues it on whatsapp+email+in_app whenever a lab liaison/clinician/
+  // enqueues it on email+in_app whenever a lab liaison/clinician/
   // admin uploads a result document on the patient's behalf. Confirmed via
   // production query: zero notifications rows have ever used this template,
   // so unlike the ack-timeout fix this is a latent gap, not an active
@@ -2256,9 +1837,6 @@ const TEMPLATE_MAP: Record<
     const smsText =
       "Hi, a new result document has been added to your record. Open the Tarragon Health app to review it. Tarragon Health";
     return {
-      metaTemplateName: "result_document_available",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [] }],
       smsText,
       pushUrl: "/patient/labs",
       email: {
@@ -2278,7 +1856,7 @@ const TEMPLATE_MAP: Record<
   // same "registered in the seed, enqueued for real, never rendered" gap as
   // the templates above -- confirmed live: zero TEMPLATE_MAP entry, zero
   // notification-bell.tsx case, for any of these six keys, even though
-  // every one of them is enqueued as channel='whatsapp' by a real trigger
+  // every one of them is enqueued by a real trigger
   // (confirm_appointment_booking, cancel_appointment,
   // appointment_engine_availability's provider-cancel path,
   // queue_appointment_reminders, reschedule_appointment,
@@ -2290,11 +1868,6 @@ const TEMPLATE_MAP: Record<
     const type = APPOINTMENT_TYPE_LABEL[String(payload.appointment_type ?? "")] ?? "appointment";
     const smsText = `Your Tarragon Health ${type} is booked for ${when}. Open the app for details. Tarragon Health`;
     return {
-      metaTemplateName: "appointment_booking_confirmation",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: type }, { type: "text", text: when }] },
-      ],
       smsText,
       pushUrl: "/patient/care",
     };
@@ -2306,9 +1879,6 @@ const TEMPLATE_MAP: Record<
       ? `Your Tarragon Health appointment for ${when} has been cancelled, as requested. Book another any time in the app. Tarragon Health`
       : `Your Tarragon Health appointment for ${when} has been cancelled. Open the app to rebook. Tarragon Health`;
     return {
-      metaTemplateName: "appointment_cancelled",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: when }] }],
       smsText,
       pushUrl: "/patient/care",
     };
@@ -2321,11 +1891,6 @@ const TEMPLATE_MAP: Record<
       `Your Tarragon Health ${type} for ${when} has been cancelled by your provider` +
       `${reason ? ` (${reason})` : ""}. Open the app to rebook. Tarragon Health`;
     return {
-      metaTemplateName: "appointment_provider_cancelled",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: type }, { type: "text", text: when }] },
-      ],
       smsText,
       pushUrl: "/patient/care",
     };
@@ -2340,11 +1905,6 @@ const TEMPLATE_MAP: Record<
         ? `Reminder: your Tarragon Health ${type} is starting shortly. Open the app for details. Tarragon Health`
         : `Reminder: your Tarragon Health ${type} is ${lead}. Open the app for details. Tarragon Health`;
     return {
-      metaTemplateName: "appointment_reminder",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: type }, { type: "text", text: when }] },
-      ],
       smsText,
       pushUrl: "/patient/care",
     };
@@ -2353,9 +1913,6 @@ const TEMPLATE_MAP: Record<
     const when = formatLagosDateTime(payload.scheduled_for);
     const smsText = `Your Tarragon Health appointment has been rescheduled to ${when}. Open the app for details. Tarragon Health`;
     return {
-      metaTemplateName: "appointment_rescheduled",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: when }] }],
       smsText,
       pushUrl: "/patient/care",
     };
@@ -2367,9 +1924,6 @@ const TEMPLATE_MAP: Record<
       `A waiting-list slot opened up for ${when}. Claim it in the Tarragon Health app within ${minutes} minutes ` +
       `or it goes to the next person. Tarragon Health`;
     return {
-      metaTemplateName: "appointment_waiting_list_offer",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: when }] }],
       smsText,
       pushUrl: "/patient/care",
     };
@@ -2384,11 +1938,6 @@ const TEMPLATE_MAP: Record<
     const screenTypeName = String(payload.screen_type_name ?? "a screening");
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      metaTemplateName: "screening_upcoming",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: screenTypeName }, { type: "text", text: dueDate }] },
-      ],
       smsText: `Hi, your ${screenTypeName} is coming up on ${dueDate}. Open the Tarragon Health app to book it. Tarragon Health`,
       pushUrl: "/patient/prevention",
     };
@@ -2397,11 +1946,6 @@ const TEMPLATE_MAP: Record<
     const screenTypeName = String(payload.screen_type_name ?? "a screening");
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      metaTemplateName: "screening_overdue",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: screenTypeName }, { type: "text", text: dueDate }] },
-      ],
       smsText: `Hi, your ${screenTypeName} was due ${dueDate} and is now overdue. Open the Tarragon Health app to book it. Tarragon Health`,
       pushUrl: "/patient/prevention",
     };
@@ -2410,11 +1954,6 @@ const TEMPLATE_MAP: Record<
     const screenTypeName = String(payload.screen_type_name ?? "a screening");
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      metaTemplateName: "screening_escalated",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: screenTypeName }, { type: "text", text: dueDate }] },
-      ],
       smsText: `Hi, your ${screenTypeName} has been overdue since ${dueDate}. Please book it soon, or your care team may follow up. Tarragon Health`,
       pushUrl: "/patient/prevention",
     };
@@ -2423,11 +1962,6 @@ const TEMPLATE_MAP: Record<
     const vaccineName = String(payload.vaccine_name ?? "a vaccination");
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      metaTemplateName: "vaccination_upcoming",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: vaccineName }, { type: "text", text: dueDate }] },
-      ],
       smsText: `Hi, your ${vaccineName} is coming up on ${dueDate}. Open the Tarragon Health app to book or log it. Tarragon Health`,
       pushUrl: "/patient/prevention",
     };
@@ -2436,11 +1970,6 @@ const TEMPLATE_MAP: Record<
     const vaccineName = String(payload.vaccine_name ?? "a vaccination");
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      metaTemplateName: "vaccination_overdue",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: vaccineName }, { type: "text", text: dueDate }] },
-      ],
       smsText: `Hi, your ${vaccineName} was due ${dueDate} and is now overdue. Open the Tarragon Health app to book or log it. Tarragon Health`,
       pushUrl: "/patient/prevention",
     };
@@ -2449,11 +1978,6 @@ const TEMPLATE_MAP: Record<
     const vaccineName = String(payload.vaccine_name ?? "a vaccination");
     const dueDate = String(payload.due_date ?? "soon");
     return {
-      metaTemplateName: "vaccination_escalated",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: vaccineName }, { type: "text", text: dueDate }] },
-      ],
       smsText: `Hi, your ${vaccineName} has been overdue since ${dueDate}. Please book or log it soon, or your care team may follow up. Tarragon Health`,
       pushUrl: "/patient/prevention",
     };
@@ -2464,9 +1988,6 @@ const TEMPLATE_MAP: Record<
   lifestyle_checkin_due: (payload) => {
     const title = String(payload.title ?? "your lifestyle programme");
     return {
-      metaTemplateName: "lifestyle_checkin_due",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: title }] }],
       smsText: `Hi, time for today's check-in on ${title}. Open the Tarragon Health app to log it. Tarragon Health`,
       pushUrl: "/patient/lifestyle",
     };
@@ -2490,9 +2011,6 @@ const TEMPLATE_MAP: Record<
       payload.message ?? "New sign-in to your Tarragon Health account from a device we haven't seen before.",
     );
     return {
-      metaTemplateName: "security_new_device_signin",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: message,
       pushUrl: "/patient/settings/security",
       email: {
@@ -2508,25 +2026,20 @@ const TEMPLATE_MAP: Record<
     };
   },
   // private.queue_medication_dose_reminders() (medication_dose_time_
-  // reminders.sql) queues this whatsapp + in_app every 15 minutes at a
+  // reminders.sql) queues this in_app (+ push) every 15 minutes at a
   // medication's scheduled dose time. scheduled_time is already an
   // Africa/Lagos local HH:MM string from the producer, not a timestamp --
   // no formatLagosDateTime conversion needed or correct here.
+  // S08 (INV-07): no medicine name in the wording, and the producer no longer sends one.
   medication_dose_reminder: (payload) => {
-    const drugName = String(payload.drug_name ?? "your medication");
     const scheduledTime = String(payload.scheduled_time ?? "now");
     return {
-      metaTemplateName: "medication_dose_reminder",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: drugName }, { type: "text", text: scheduledTime }] },
-      ],
-      smsText: `Hi, it's ${scheduledTime}: time for your dose of ${drugName}. Open the Tarragon Health app to log it. Tarragon Health`,
+      smsText: `Hi, it's ${scheduledTime}: time for your care plan check. Open the Tarragon Health app to see what is due. Tarragon Health`,
       pushUrl: "/patient/medications",
     };
   },
   // private.check_vitals_monitoring_adherence() (vitals_monitoring_
-  // adherence_and_gap_ladder.sql) queues these three whatsapp + in_app as a
+  // adherence_and_gap_ladder.sql) queues these three in_app (+ push) as a
   // patient falls further behind their prescribed monitoring schedule for
   // one vital. vital_type is the raw enum (e.g. 'blood_pressure'); the SQL
   // producer's own label formatting (replace '_' with a space, used only
@@ -2536,9 +2049,6 @@ const TEMPLATE_MAP: Record<
   vitals_monitoring_due: (payload) => {
     const vitalLabel = String(payload.vital_type ?? "vital").replace(/_/g, " ");
     return {
-      metaTemplateName: "vitals_monitoring_due",
-      languageCode: "en",
-      components: [{ type: "body", parameters: [{ type: "text", text: vitalLabel }] }],
       smsText: `Hi, it's time to log your ${vitalLabel} reading. Open the Tarragon Health app to log it. Tarragon Health`,
       pushUrl: "/patient/vitals",
     };
@@ -2547,11 +2057,6 @@ const TEMPLATE_MAP: Record<
     const vitalLabel = String(payload.vital_type ?? "vital").replace(/_/g, " ");
     const daysSince = String(payload.days_since ?? "a few");
     return {
-      metaTemplateName: "vitals_monitoring_overdue",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: vitalLabel }, { type: "text", text: daysSince }] },
-      ],
       smsText: `Hi, it's been ${daysSince} days since your last ${vitalLabel} reading. Please log one when you can. Tarragon Health`,
       pushUrl: "/patient/vitals",
     };
@@ -2560,11 +2065,6 @@ const TEMPLATE_MAP: Record<
     const vitalLabel = String(payload.vital_type ?? "vital").replace(/_/g, " ");
     const daysSince = String(payload.days_since ?? "several");
     return {
-      metaTemplateName: "vitals_monitoring_escalated",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: vitalLabel }, { type: "text", text: daysSince }] },
-      ],
       smsText: `Hi, it's been ${daysSince} days since your last ${vitalLabel} reading and your care team has been notified. Please log one as soon as you can. Tarragon Health`,
       pushUrl: "/patient/vitals",
     };
@@ -2574,10 +2074,9 @@ const TEMPLATE_MAP: Record<
 interface SendResult {
   ok: boolean;
   error?: string;
-  // Meta's wamid (WhatsApp only) — captured so the whatsapp-webhook
-  // extension can correlate a later delivery/read status callback back to
-  // this row. Nothing else currently produces a provider-side message id
-  // worth storing (web push has no per-message receipt to correlate).
+  // Provider-side message id, when a provider returns one worth storing.
+  // Nothing currently produces one (web push has no per-message receipt to
+  // correlate).
   messageId?: string;
 }
 
@@ -2598,49 +2097,6 @@ async function withExternalCall(
     return { ok: false, error: message };
   } finally {
     clearTimeout(timer);
-  }
-}
-
-async function sendWhatsApp(
-  toPhone: string,
-  render: TemplateRender,
-): Promise<SendResult> {
-  const token = Deno.env.get("WHATSAPP_TOKEN");
-  const phoneId = Deno.env.get("WHATSAPP_PHONE_ID");
-  if (!token || !phoneId) {
-    return { ok: false, error: "WHATSAPP_TOKEN/WHATSAPP_PHONE_ID not configured" };
-  }
-
-  const result = await withExternalCall((signal) =>
-    fetch(`https://graph.facebook.com/v20.0/${phoneId}/messages`, {
-      method: "POST",
-      signal,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: toPhone,
-        type: "template",
-        template: {
-          name: render.metaTemplateName,
-          language: { code: render.languageCode },
-          components: render.components,
-        },
-      }),
-    })
-  );
-
-  if (!result.ok || !result.response) return result;
-  try {
-    const body = await result.response.json() as { messages?: Array<{ id?: string }> };
-    const messageId = body.messages?.[0]?.id;
-    return { ok: true, messageId };
-  } catch {
-    // Meta's own contract guarantees this shape on 2xx — a parse failure
-    // here is not worth failing the send over, just leaves messageId unset.
-    return { ok: true };
   }
 }
 
@@ -2675,7 +2131,7 @@ async function sendTermiiSms(
  * with channel: 'voice' instead of 'generic'. Termii converts the `sms`
  * field to speech and places a phone call rather than sending a text.
  * Built for private.remap_notification_channel() (2026-07-23), which
- * transparently turns a queued 'whatsapp' row into 'voice' at insert time
+ * transparently turns a queued reminder row into 'voice' at insert time
  * for a patient with profiles.preferred_reminder_channel = 'voice' — no
  * producer function needs to know voice exists.
  */
@@ -2708,7 +2164,7 @@ async function sendTermiiVoiceCall(
 /**
  * Web Push (RFC 8030/8291/8292 — VAPID). VAPID keys are a self-signed
  * application identity, not a third-party account credential, so unlike
- * WHATSAPP_TOKEN/TERMII_API_KEY/RESEND_API_KEY there is no provider account
+ * TERMII_API_KEY/RESEND_API_KEY there is no provider account
  * to wait on — these were generated directly for this build.
  *
  * Fans out to every active subscription the recipient has (phone + desktop,
@@ -2986,7 +2442,7 @@ Deno.serve(async () => {
     .from("notifications")
     .select("id, recipient_id, organisation_id, channel, template, payload, attempts, priority")
     .eq("status", "pending")
-    .in("channel", ["whatsapp", "sms", "email", "voice", "push"])
+    .in("channel", ["sms", "email", "voice", "push"])
     .lt("attempts", MAX_ATTEMPTS)
     .or(`send_after.is.null,send_after.lte.${new Date().toISOString()}`)
     .order("created_at", { ascending: true })
@@ -3033,7 +2489,7 @@ Deno.serve(async () => {
   // falls through to "send".
   const { data: preferenceRows } = await supabase
     .from("patient_notification_preferences")
-    .select("patient_id, category, email_enabled, sms_enabled, push_enabled, whatsapp_enabled")
+    .select("patient_id, category, email_enabled, sms_enabled, push_enabled")
     .in("patient_id", recipientIds)
     .returns<
       Array<{
@@ -3042,28 +2498,26 @@ Deno.serve(async () => {
         email_enabled: boolean;
         sms_enabled: boolean;
         push_enabled: boolean;
-        whatsapp_enabled: boolean;
       }>
     >();
   const preferenceByRecipientCategory = new Map(
     (preferenceRows ?? []).map((p) => [`${p.patient_id}:${p.category}`, p]),
   );
 
-  // WhatsApp (Meta WABA template approval) and SMS (Termii sender-ID
-  // approval) are both off the founder's near-term plan (CLAUDE.md,
-  // 2026-09-15) and have a confirmed 0% live success rate as of
-  // 2026-09-18 — every attempt on either channel is a guaranteed failure
-  // against a real provider, for no patient benefit, that also pollutes
-  // the failure/reconciliation data with noise indistinguishable from a
-  // genuine outage. Routine rows on these channels are suppressed before
+  // SMS (Termii sender-ID approval) is off the founder's near-term plan
+  // (CLAUDE.md, 2026-09-15) and had a confirmed 0% live success rate as of
+  // 2026-09-18 — every attempt is a guaranteed failure against a real
+  // provider, for no patient benefit, that also pollutes the
+  // failure/reconciliation data with noise indistinguishable from a
+  // genuine outage. Routine rows on this channel are suppressed before
   // ever reaching the provider call. Critical rows are deliberately
   // UNAFFECTED — private.escalate_unconfirmed_critical_notifications()
-  // depends on a real, timely `failed` status to advance push -> whatsapp
+  // depends on a real, timely `failed` status to advance push -> email
   // -> sms -> exhausted, and channelAllowed() already never gates a
   // critical row for any reason; this must stay that way.
   function platformDisabledChannel(row: NotificationRow): boolean {
     if (row.priority === "critical") return false;
-    return row.channel === "whatsapp" || row.channel === "sms";
+    return row.channel === "sms";
   }
 
   function channelAllowed(row: NotificationRow): boolean {
@@ -3079,8 +2533,6 @@ Deno.serve(async () => {
         return pref.sms_enabled;
       case "push":
         return pref.push_enabled;
-      case "whatsapp":
-        return pref.whatsapp_enabled;
       default:
         return true; // voice has no toggle column — treat as always-on
     }
@@ -3143,7 +2595,7 @@ Deno.serve(async () => {
     if (foldedIds.has(row.id)) continue;
 
     if (platformDisabledChannel(row)) {
-      await suppress(row.id, "whatsapp/sms deprioritised platform-wide, no provider approval yet");
+      await suppress(row.id, "sms deprioritised platform-wide, no provider approval yet");
       suppressed++;
       continue;
     }
@@ -3220,13 +2672,10 @@ Deno.serve(async () => {
       ? renderFn(payload, { notificationId: row.id, recipientId: row.recipient_id })
       : undefined;
 
-    if (!render && row.template && row.channel !== "whatsapp") {
+    if (!render && row.template) {
       // DB-driven fallback (17.5) — a template that was registered in
       // notification_templates/notification_template_locales but never
-      // added to TEMPLATE_MAP above. WhatsApp is excluded: it needs a
-      // Meta-approved fixed template structure this table cannot express,
-      // so a whatsapp row with no TEMPLATE_MAP entry still fails below,
-      // exactly as before this change.
+      // added to TEMPLATE_MAP above.
       const { data: localeRow } = await supabase
         .from("notification_template_locales")
         .select("subject, body")
@@ -3239,9 +2688,6 @@ Deno.serve(async () => {
       if (localeRow) {
         const body = substituteTemplatePlaceholders(localeRow.body, payload);
         render = {
-          metaTemplateName: row.template,
-          languageCode: "en",
-          components: [],
           smsText: body,
           email: row.channel === "email"
             ? {
@@ -3352,36 +2798,19 @@ Deno.serve(async () => {
       if (!pushResult.ok && !isCritical) {
         // Routine rows: push is the default channel, but a routine reminder
         // doesn't need confirmation-gated escalation — fall back inline to
-        // whatsapp -> sms, same simple best-effort delivery this codebase
-        // already used for whatsapp -> sms.
+        // sms, same simple best-effort delivery this codebase used before.
         if (!toPhone) {
           await markFailed("recipient has no phone number on file");
           failed++;
           continue;
         }
-        let fallback = await sendWhatsApp(toPhone, render);
-        if (!fallback.ok) fallback = await sendTermiiSms(toPhone, render.smsText);
-        await settle(fallback);
+        await settle(await sendTermiiSms(toPhone, render.smsText));
       } else {
         // Critical rows: no inline fallback — a failed push here becomes its
         // own `failed` row that the escalation engine turns into a fresh,
-        // separately-tracked whatsapp hop within the next 2 minutes.
+        // separately-tracked next-channel hop within the next 2 minutes.
         await settle(pushResult);
       }
-    } else if (row.channel === "whatsapp") {
-      if (!toPhone) {
-        await markFailed("recipient has no phone number on file");
-        failed++;
-        continue;
-      }
-      let result = await sendWhatsApp(toPhone, render);
-      if (!result.ok && !isCritical) {
-        // WhatsApp delivery failed — fall back to Termii SMS (§8). Critical
-        // rows skip this (see the push branch's comment above) so the
-        // engine's next hop is its own tracked row, not silently absorbed.
-        result = await sendTermiiSms(toPhone, render.smsText);
-      }
-      await settle(result);
     } else if (row.channel === "voice") {
       if (!toPhone) {
         await markFailed("recipient has no phone number on file");

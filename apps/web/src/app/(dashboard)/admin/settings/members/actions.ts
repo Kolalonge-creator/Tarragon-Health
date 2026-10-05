@@ -7,7 +7,13 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission, hasAnyPermission, type PermissionKey } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { provisionMemberSchema, setMemberPhoneSchema, USER_ROLES } from "@/lib/validation/members";
+import { provisionScope } from "@/lib/auth/member-provision-scope";
+import {
+  provisionMemberSchema,
+  setMemberPhoneSchema,
+  setMemberActiveSchema,
+  USER_ROLES,
+} from "@/lib/validation/members";
 
 export type MemberActionState = { error?: string; message?: string } | undefined;
 
@@ -18,6 +24,12 @@ async function requirePermission(perm: PermissionKey) {
   if (!(await hasPermission(perm))) throw new Error("You don't have access to do that");
   return profile;
 }
+
+/**
+ * Supabase Auth's ban_duration takes a duration string ("24h", "none"), with no
+ * "forever" value, so a suspension is a ~100-year ban, lifted with "none".
+ */
+const SUSPENDED_BAN_DURATION = "876000h";
 
 /** Append an immutable audit_log entry (system write — service role). */
 async function recordAudit(
@@ -44,6 +56,14 @@ async function recordAudit(
  * API (there is no RLS-expressible equivalent for creating an auth user); the
  * `handle_new_user` trigger then provisions the public.profiles row from the
  * app_metadata role/org we set here. Gated by `users.provision`.
+ *
+ * The service role bypasses every database policy, so the database cannot tell
+ * who is asking and the caller check here is the only enforcement (see
+ * lib/auth/member-provision-scope.ts). `users.provision` is delegable: without
+ * the check, a holder could create a Super Admin login (metadata `role: admin`
+ * becomes an admin profile) or a login in any organisation. A Super Admin can
+ * create anything; anyone else only a clinician or care coordinator in their own
+ * organisation. The check runs before anything is created.
  */
 export async function provisionMemberAction(
   _prev: MemberActionState,
@@ -63,6 +83,12 @@ export async function provisionMemberAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid details" };
   }
   const input = parsed.data;
+
+  const scope = provisionScope(
+    { isSuperAdmin: actor.role === "admin", organisationId: actor.organisation_id },
+    { role: input.role, organisationId: input.organisationId }
+  );
+  if (!scope.allowed) return { error: scope.message };
 
   const svc = createServiceRoleClient();
   const { data, error } = await svc.auth.admin.createUser({
@@ -204,6 +230,75 @@ export async function setMemberPhoneAction(
   revalidatePath("/admin/settings/members");
   revalidatePath(`/admin/members/${parsed.data.memberId}`);
   return { message: "Phone number updated." };
+}
+
+/**
+ * Suspend or reinstate a member's login. Gated by `users.suspend`. This is
+ * deliberately distinct from clinical_staff's own Activate/Deactivate toggle
+ * (/admin/settings/clinical-staff): that one only controls a doctor's clinical
+ * authority (case assignment, prescribing, escalation handling); this one
+ * controls the underlying platform login itself, for every account role.
+ * profiles.is_active is read by private.is_org_staff/is_admin/has_permission
+ * (20260925093444_enforce_profiles_is_active_in_core_authz.sql), so setting it
+ * false here genuinely revokes RLS-level access, not just a UI badge.
+ *
+ * The authorisation, guards, write and audit_log entry are all one
+ * public.set_member_active RPC call, not a plain `.update()` here: a code review
+ * caught that profiles_update's RLS policy has no is_admin() branch and
+ * requires a non-null organisation_id, so a plain RLS-scoped update silently
+ * no-op'd against any admin/lab_partner/payer_admin/provider_org_staff/
+ * ngo_admin target. The RPC also scopes a delegated users.suspend holder to
+ * their own organisation (never a Super Admin or a null-organisation account),
+ * serializes the "last active Super Admin" guard against concurrent callers,
+ * and writes the audit row in the same transaction, so a failed audit write can
+ * no longer leave a suspension with no trail. The atomic RPC is
+ * 20260925100329_set_member_active_atomic_rpc.sql; the scoping and in-function
+ * audit are 20261004194229_set_member_active_scope_and_audit.sql, which must be
+ * applied before this action deploys (the action no longer writes the audit row).
+ *
+ * After the RPC succeeds this also bans / unbans the auth user. is_active gates
+ * the database and getCurrentProfile(), but it does not touch Supabase Auth: a
+ * suspended member could otherwise keep refreshing a still-valid session. The
+ * ban stops new sign-ins and token refreshes. It runs AFTER the RPC on purpose:
+ * the RPC is what authorises the caller, so an out-of-scope caller must never
+ * reach the auth call. If the auth call fails the database change has already
+ * taken effect and the member is still locked out by is_active; the error says
+ * so and a retry is safe, since the RPC is idempotent.
+ */
+export async function setMemberActiveAction(
+  _prev: MemberActionState,
+  formData: FormData
+): Promise<MemberActionState> {
+  await requirePermission("users.suspend");
+
+  const parsed = setMemberActiveSchema.safeParse({
+    memberId: formData.get("memberId"),
+    active: formData.get("active"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid request" };
+  }
+  const { memberId, active } = parsed.data;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_member_active", { p_member_id: memberId, p_active: active });
+  if (error) return { error: error.message };
+
+  const svc = createServiceRoleClient();
+  const { error: banError } = await svc.auth.admin.updateUserById(memberId, {
+    ban_duration: active ? "none" : SUSPENDED_BAN_DURATION,
+  });
+  if (banError) {
+    return {
+      error: active
+        ? `Login reinstated in the database, but sign-in could not be re-enabled (${banError.message}). Try again.`
+        : `Login suspended and database access is blocked, but the sign-in session could not be revoked (${banError.message}). Try again.`,
+    };
+  }
+
+  revalidatePath("/admin/settings/members");
+  revalidatePath(`/admin/members/${memberId}`);
+  return { message: active ? "Login reinstated." : "Login suspended." };
 }
 
 /** Grant a single capability to a member (additive). Gated by `users.permissions.grant`. */

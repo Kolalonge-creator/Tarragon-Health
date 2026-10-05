@@ -1,3 +1,4 @@
+import { consentStateFor } from "@tarragon/shared";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 
@@ -21,25 +22,36 @@ import type { QueryResult } from "./medications";
 export interface ConsentRow {
   consentType: string;
   version: string;
+  /** True only while an acceptance of THIS version is in force; a later withdrawal ends it (mirrors the database). */
   accepted: boolean;
+  /** "withdrawn": the person withdrew it. "older_version": an older version is in force. */
+  state: "granted" | "withdrawn" | "older_version" | "never";
+  isOptional: boolean;
   acceptedAt: string | null;
 }
 
 export async function loadConsentStatus(patientId: string): Promise<QueryResult<ConsentRow[]>> {
-  const [{ data: versions, error: versionsError }, { data: accepted, error: acceptedError }] = await Promise.all([
-    supabase.from("consent_versions").select("consent_type, version").eq("is_current", true).order("consent_type", { ascending: true }),
-    supabase.from("patient_consents").select("consent_type, version, accepted_at").eq("patient_id", patientId),
+  const [{ data: versions, error: versionsError }, { data: events, error: eventsError }] = await Promise.all([
+    supabase
+      .from("consent_versions")
+      .select("consent_type, version, is_optional")
+      .eq("is_current", true)
+      .order("consent_type", { ascending: true }),
+    supabase.from("patient_consents").select("consent_type, version, accepted_at, action, created_at").eq("patient_id", patientId),
   ]);
   if (versionsError) return { ok: false, error: versionsError.message };
-  if (acceptedError) return { ok: false, error: acceptedError.message };
+  if (eventsError) return { ok: false, error: eventsError.message };
 
   const rows: ConsentRow[] = (versions ?? []).map((v) => {
-    const record = (accepted ?? []).find((c) => c.consent_type === v.consent_type && c.version === v.version);
+    const state = consentStateFor(events ?? [], v);
+    const record = (events ?? []).find((c) => c.consent_type === v.consent_type && c.version === v.version && c.action === "accepted");
     return {
       consentType: v.consent_type,
       version: v.version,
-      accepted: !!record,
-      acceptedAt: record?.accepted_at ?? null,
+      accepted: state === "granted",
+      state,
+      isOptional: v.is_optional,
+      acceptedAt: state === "granted" ? (record?.accepted_at ?? null) : null,
     };
   });
   return { ok: true, data: rows };

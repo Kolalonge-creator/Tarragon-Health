@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { loadPeopleISupport, startActingFor, type ActingFor, type SupportedPerson } from "@/lib/acting";
-import { colors, spacing } from "@/ui/theme";
-import { Badge, CalloutCard, Card, ErrorText, MutedText, SectionLabel, SecondaryButton } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, CalloutCard, Card, ErrorText, MutedText, SectionLabel, SecondaryButton } from "@/ui/legacy-kit";
 import { SupportingManageScreen } from "@/screens/sections/supporting-manage-screen";
 import { SponsorSharingControl } from "@/screens/sections/sponsor-sharing-control";
 
@@ -29,6 +30,7 @@ interface SupportingScreenProps {
  * being rebuilt natively, and why.
  */
 export function SupportingScreen({ userId, organisationId, acting, onActingChange }: SupportingScreenProps) {
+  const colors = useLegacyColors();
   const [people, setPeople] = useState<SupportedPerson[]>([]);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
               </View>
               {person.permissionLevel === "manage" ? (
                 isOpen ? (
-                  <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brand }}>
+                  <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brandPressed }}>
                     Currently open. See the banner above to switch back.
                   </Text>
                 ) : (

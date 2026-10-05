@@ -31,7 +31,7 @@ const SAFETY_NOTES = [
 ];
 
 export function BpLadderPanel({ patientId }: { patientId: string }) {
-  const { data: meds } = useMedications(patientId);
+  const { data: meds, isError: medsUnavailable } = useMedications(patientId);
   const { data: hbpm } = useHbpmSummary(patientId);
   const { data: secondary } = useBpSecondaryFlags(patientId);
 
@@ -49,7 +49,12 @@ export function BpLadderPanel({ patientId }: { patientId: string }) {
         <p className="text-sm text-charcoal-ink/80">
           Current position (inferred from active medications):{" "}
           <span className="font-semibold">
-            {currentStep === 0 ? "not started" : `Step ${currentStep}`}
+            {/* A refused or failed medication read is not "not started" (INV-10). */}
+            {medsUnavailable
+              ? "not available (the medication list is not available to you)"
+              : currentStep === 0
+                ? "not started"
+                : `Step ${currentStep}`}
           </span>
           {atTarget !== null && (
             <>

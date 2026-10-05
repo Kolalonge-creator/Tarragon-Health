@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import type { Enums } from "@tarragon/shared";
 import { loadMySponsorSharing, setSponsorSharing, type SponsorSharingPreference } from "@/lib/sponsor-care-report";
-import { colors, radius } from "@/ui/theme";
-import { Card, MutedText, SectionLabel } from "@/ui/components";
+import { radius } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Card, MutedText, SectionLabel } from "@/ui/legacy-kit";
 
 const LEVEL_COPY: Record<Enums<"sponsor_sharing_level">, { title: string; body: string }> = {
   none: {
@@ -30,6 +31,7 @@ const LEVELS: Enums<"sponsor_sharing_level">[] = ["none", "activity", "full"];
  * stated, so nobody has to discover what is being shared after the fact.
  */
 export function SponsorSharingControl({ organisationId }: { organisationId: string }) {
+  const colors = useLegacyColors();
   const [preferences, setPreferences] = useState<SponsorSharingPreference[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);

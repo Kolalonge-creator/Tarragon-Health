@@ -5,11 +5,10 @@
  * string straight to the UI (`{ ok: false, error: result.error }`), so any
  * Paystack-side rejection — a malformed account email, a transient API
  * error, a misconfigured account setting — surfaced verbatim to whoever was
- * trying to pay. Found via the platform-credit top-up flow (QA's
- * `@tarragon.test` fixture emails trip Paystack's validator), but the same
- * unsanitised-passthrough shape existed in every other checkout path too
- * (service purchase, booking, subsidy, screening day, voucher, sponsored
- * subscription) — this is the one place all of them now funnel a failed
+ * trying to pay. Found via a QA pass (`@tarragon.test` fixture emails
+ * trip Paystack's validator), and the same unsanitised-passthrough shape
+ * existed in every checkout path (service purchase, booking, subsidy,
+ * screening day, voucher, sponsored subscription) — this is the one place all of them now funnel a failed
  * `initializeOneOffTransaction`/`initializeTransaction` call through, so a
  * patient never sees a provider's internal wording, while the real error is
  * still logged server-side for whoever has to diagnose it.

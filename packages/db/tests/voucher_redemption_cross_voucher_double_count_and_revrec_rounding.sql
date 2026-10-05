@@ -173,13 +173,11 @@ begin
     raise exception 'fixture FAIL: voucher did not cover 300000 as expected (res=%)', v_res;
   end if;
 
-  perform private.platform_credit_apply(
-    p_patient_id := v_pat, p_organisation_id := v_org, p_entry_type := 'topup', p_amount_kobo := 700000,
-    p_description := 'vcd fixture funding'
-  );
-  perform private.platform_credit_apply(
-    p_patient_id := v_pat, p_organisation_id := v_org, p_entry_type := 'spend', p_amount_kobo := 700000,
-    p_service_purchase_id := v_pur, p_description := 'vcd test cash remainder'
+  -- The cash remainder of the same purchase: a second, separate schedule (promo_minor = 0), as the real
+  -- card activation path writes it.
+  perform private.finance_create_recognition_schedule(
+    'service_purchase', v_pur, null, v_org, '4020', 'NGN'::public.currency, 700000,
+    current_date, current_date + 90, 0
   );
 
   select id into v_sched_promo from public.revenue_recognition_schedules where source_id = v_pur and total_minor = 300000;
@@ -194,7 +192,7 @@ begin
      case when (select promo_minor from public.revenue_recognition_schedules where id = v_sched_promo) = 300000 then 'PASS' else 'FAIL' end);
 
   insert into vcd_result values
-    ('the platform-credit-paid_balance-funded schedule is tagged promo_minor=0, independent of the purchase''s other schedule',
+    ('the cash-funded schedule is tagged promo_minor=0, independent of the purchase''s other schedule',
      (select promo_minor from public.revenue_recognition_schedules where id = v_sched_cash)::text, '0',
      case when (select promo_minor from public.revenue_recognition_schedules where id = v_sched_cash) = 0 then 'PASS' else 'FAIL' end);
 

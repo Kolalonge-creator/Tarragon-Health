@@ -17,8 +17,9 @@ import {
 } from "@/lib/health-check";
 import type { SectionId } from "@/lib/sections";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius, spacing } from "@/ui/theme";
-import { CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -35,13 +36,15 @@ function formatSlot(iso: string): string {
   });
 }
 
-const TONE_COLOR = {
+const toneColor = (colors: ReturnType<typeof useLegacyColors>) => ({
   brand: { bg: colors.brandTint, text: colors.brandPressed },
   warn: { bg: colors.status.warnBg, text: colors.status.warn },
-} as const;
+}) as const;
+type Tone = keyof ReturnType<typeof toneColor>;
 
-function StatusBadge({ text, tone }: { text: string; tone: keyof typeof TONE_COLOR }) {
-  const c = TONE_COLOR[tone];
+function StatusBadge({ text, tone }: { text: string; tone: Tone }) {
+  const colors = useLegacyColors();
+  const c = toneColor(colors)[tone];
   return (
     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
       <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{text}</Text>
@@ -72,6 +75,7 @@ const STAGE_NAV: SectionId[] = ["prevention", "wellbeing", "vitals", "prevention
  * lives on the web page for now, so the callout still points there.
  */
 export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenProps) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState<HealthCheckState | null>(null);
   const [lipids, setLipids] = useState<LipidProfile | null>(null);
@@ -153,7 +157,7 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
               {stage.state !== "neutral" && (
                 <StatusBadge text={stage.state === "done" ? "Done" : "To do"} tone={stage.state === "done" ? "brand" : "warn"} />
               )}
-              <Text onPress={() => onNavigate(STAGE_NAV[i])} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand }}>
+              <Text onPress={() => onNavigate(STAGE_NAV[i])} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
                 Open →
               </Text>
             </View>
@@ -189,7 +193,7 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
             {state.reviewSummary && <Text style={{ fontSize: 13, color: colors.ink }}>{state.reviewSummary}</Text>}
             <Text
               onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/api/patient/health-check/report`)}
-              style={{ fontSize: 13, fontWeight: "700", color: colors.brand, marginTop: 4 }}
+              style={{ fontSize: 13, fontWeight: "700", color: colors.brandPressed, marginTop: 4 }}
             >
               Download your Health Check report (PDF) →
             </Text>
@@ -216,6 +220,7 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
 }
 
 function LipidProfileCard({ lipids }: { lipids: LipidProfile }) {
+  const colors = useLegacyColors();
   return (
     <Card style={{ gap: 8 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Lipid profile</Text>
@@ -248,6 +253,7 @@ function LipidProfileCard({ lipids }: { lipids: LipidProfile }) {
 }
 
 function RiskSignalsCard({ signals }: { signals: RiskSignal[] }) {
+  const colors = useLegacyColors();
   const elevated = signals.filter((s) => RISK_LEVEL_COPY[s.riskLevel] != null);
 
   return (
@@ -281,6 +287,7 @@ function RiskSignalsCard({ signals }: { signals: RiskSignal[] }) {
 }
 
 function VideoConsultCard({ consult, onChanged }: { consult: HealthCheckVideoConsult; onChanged: () => void }) {
+  const colors = useLegacyColors();
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 

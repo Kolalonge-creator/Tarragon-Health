@@ -1,3 +1,4 @@
+import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
 import {
   Document,
   Page,
@@ -221,7 +222,7 @@ function formatDate(value: string | null | undefined): string {
  */
 export function VerifiedDocumentPdf({ data }: { data: VerifiedDocumentData }) {
   const issuer = data.issuerName
-    ? `Dr. ${data.issuerName}`
+    ? `Dr. ${stripDoctorTitle(data.issuerName)}`
     : "TarragonHealth care team";
   const credential =
     data.issuerCredentialType && data.issuerCredential

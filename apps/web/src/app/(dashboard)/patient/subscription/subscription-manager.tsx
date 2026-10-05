@@ -105,7 +105,7 @@ const PRODUCT_GROUPS: {
  * concept: a purchase is a one-off charge for a fixed window and simply
  * expires — buying again is the only "renewal" there is.
  */
-export function SubscriptionManager({ patientId }: { patientId: string }) {
+export function SubscriptionManager() {
   const {
     data: purchases,
     isLoading,
@@ -304,7 +304,6 @@ export function SubscriptionManager({ patientId }: { patientId: string }) {
                           ) : (
                             <div className="shrink-0">
                               <BuyServiceDialog
-                                patientId={patientId}
                                 product={product}
                                 promoCode={promoCode}
                                 paystackFormAction={buyAction}

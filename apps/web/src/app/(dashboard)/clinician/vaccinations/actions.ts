@@ -157,15 +157,8 @@ async function issueCertificateSideEffects(
       next_dose_date: nextSchedule?.due_date ?? null,
     };
 
-    // Confirmation only (WhatsApp + email) — never gates anything.
+    // Confirmation only (email) — never gates anything.
     await service.from("notifications").insert([
-      {
-        organisation_id: organisationId,
-        recipient_id: patientId,
-        channel: "whatsapp",
-        template: "vaccination_verified",
-        payload,
-      },
       {
         organisation_id: organisationId,
         recipient_id: patientId,

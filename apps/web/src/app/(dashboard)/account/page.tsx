@@ -6,6 +6,7 @@ import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
+import { ChangePhoneCard } from "@/components/account/change-phone-card";
 import { MfaSettingsCard } from "@/components/account/mfa-settings-card";
 import { SignOutOtherDevicesCard } from "@/components/account/sign-out-other-devices-card";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
@@ -144,6 +145,7 @@ export default async function AccountPage() {
       {isPatient && profile.organisation_id === DEFAULT_CONSUMER_ORG_ID && <JoinEmployerCodeForm />}
 
       <ChangePasswordForm />
+      <ChangePhoneCard />
       <MfaSettingsCard verifiedFactorId={verifiedFactorId} />
       <SignOutOtherDevicesCard />
     </div>

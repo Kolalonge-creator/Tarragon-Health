@@ -2,16 +2,9 @@
  * Server-only Termii SMS sender for links generated inside a Next.js server
  * action (e.g. a Zoom join_url) — never import from a "use client" file.
  *
- * supabase/functions/abnormal-result-handler/index.ts's sendWithFallback()
- * (WhatsApp template first, Termii SMS fallback) can't be reused here: it
- * runs in an isolated Deno runtime that can't be called from Next.js server
- * code, and WhatsApp Cloud API requires a pre-approved message template for
- * every distinct message shape — there is no approved template yet for "a
- * video call join link" (see the project's existing pending-Meta-template-
- * review precedent). SMS has no such approval gate, so this sends via
- * Termii only for now; WhatsApp delivery of a join link is a flagged
- * fast-follow once a template exists, not something to fake by misusing an
- * unrelated approved template.
+ * supabase/functions/abnormal-result-handler/index.ts's delivery fallback
+ * can't be reused here: it runs in an isolated Deno runtime that can't be
+ * called from Next.js server code, so this sends via Termii directly.
  *
  * Same never-throw contract as lib/paystack/client.ts: any network error,
  * timeout, non-2xx, or missing config resolves to `{ ok: false, error }`.

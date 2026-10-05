@@ -42,7 +42,7 @@ const CKD_RISK_VARIANT: Record<string, "red" | "amber" | "grey" | "green"> = {
  */
 export async function MedicationSafetyPanel({ patientId }: { patientId: string }) {
   const supabase = await createClient();
-  const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount, allergies } =
+  const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount, allergies, allergiesUnavailable, medicationsUnavailable } =
     await loadMedicationSafety(supabase, patientId);
   const { pregnancyCheckNote } = report;
 
@@ -54,18 +54,37 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
           {isPolypharmacy(medicationCount) && <Badge variant="amber">Polypharmacy</Badge>}
         </CardTitle>
         <CardDescription>
-          Interactions, duplicate therapy, allergy cross-checks, and kidney-function dosing across the{" "}
-          {medicationCount} active medicine{medicationCount === 1 ? "" : "s"} on file. Advisory:
-          nothing here changes a prescription.
+          {medicationsUnavailable ? (
+            "Interactions, duplicate therapy, allergy cross-checks, and kidney-function dosing. Advisory: nothing here changes a prescription."
+          ) : (
+            <>
+              Interactions, duplicate therapy, allergy cross-checks, and kidney-function dosing across the{" "}
+              {medicationCount} active medicine{medicationCount === 1 ? "" : "s"} on file. Advisory:
+              nothing here changes a prescription.
+            </>
+          )}
           {isPolypharmacy(medicationCount) &&
             ` ${POLYPHARMACY_THRESHOLD} or more active medicines at once is worth a deliberate review, not automatic discontinuation of any of them.`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {medicationsUnavailable ? (
+          <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+            {medicationsUnavailable === "denied"
+              ? "The medication list is not available to you for this patient (you are not on their care team), so none of these checks ran. A quiet panel is not a clearance. Ask the care team, or use emergency access if this is an emergency."
+              : "The medication list could not be read just now, so none of these checks ran. A quiet panel is not a clearance. Try again."}
+          </p>
+        ) : null}
         {/* Allergies next to the medicine count so a clean findings list below can never be misread as "no allergies". */}
         <div className="rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
           <p className="text-sm font-medium text-charcoal-ink">Recorded allergies</p>
-          {allergies.length === 0 ? (
+          {allergiesUnavailable ? (
+            <p className="mt-0.5 text-xs text-amber-700">
+              {allergiesUnavailable === "denied"
+                ? "The allergy list is not available to you for this patient (you are not on their care team). Do not treat this as no allergies. Ask the care team, or use emergency access if this is an emergency."
+                : "The allergy list could not be read just now. Do not treat this as no allergies. Try again."}
+            </p>
+          ) : allergies.length === 0 ? (
             <p className="mt-0.5 text-xs text-charcoal-ink/60">
               None on file; this means none has been recorded, not that the patient is confirmed
               allergy-free.
@@ -126,7 +145,7 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
           )}
         </div>
 
-        {medicationCount === 0 ? (
+        {medicationsUnavailable ? null : medicationCount === 0 ? (
           <p className="text-sm text-charcoal-ink/60">No active medicines on file.</p>
         ) : report.findings.length === 0 ? (
           <p className="text-sm text-charcoal-ink/70">

@@ -1,5 +1,6 @@
 "use client";
 
+import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
 import { useMemo, useState, type FormEvent } from "react";
 import {
   useConfirmMedicationRefill,
@@ -25,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MedicationCollectionForm } from "./medication-collection-form";
 import { AmendMedicationForm } from "@/app/(dashboard)/clinician/patients/[patientId]/amend-medication-form";
 import { MedicationIssueReportForm } from "./medication-issue-report-form";
+import { PrescriptionDownload } from "./prescription-download";
 import { SymptomLogForm } from "./symptom-log-form";
 import { MedicationAccessBarrierForm } from "./medication-access-barrier-form";
 import { computeRefillGapSignal, REFILL_GAP_DISCLAIMER } from "@/lib/rules/adherence-signals";
@@ -112,7 +114,9 @@ export function MedicationsList({
    */
   isClinicianView?: boolean;
 }) {
-  const { data, isLoading, isError } = useMedications(patientId);
+  const { data, isLoading, isError, error } = useMedications(patientId);
+  // A refusal (not on the care team) is not a load failure and must not read as "none": say which it is (INV-10).
+  const notAvailable = isError && error instanceof Error && error.message.includes("not available to you");
   // Needed both for the clinician-view status trail and for the 64.6
   // refill-gap signal shown on both views — unlike repeatRequests below, this
   // one is never disabled by view.
@@ -145,9 +149,23 @@ export function MedicationsList({
       <CardContent>
         <CabinetSummary patientId={patientId} />
         {!isClinicianView && <MedicationInteractionNote medications={data ?? []} />}
+        {!isClinicianView && (data ?? []).filter((m) => m.source === "clinician" && m.rx_number && !m.superseded_at).length > 1 && (
+          <p className="mb-3 text-xs">
+            <a
+              href={`/api/patient/prescriptions/pdf?patientId=${patientId}`}
+              className="font-medium text-brand-green underline dark:text-brand-green-bright"
+            >
+              Download all current prescriptions (one page each)
+            </a>
+          </p>
+        )}
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600 dark:text-red-300">Could not load medications.</p>
+          <p className={notAvailable ? "text-sm text-amber-700" : "text-sm text-red-600 dark:text-red-300"}>
+            {notAvailable
+              ? "Medications are not available to you for this patient (you are not on their care team). This is not the same as no medications."
+              : "Could not load medications."}
+          </p>
         )}
         {data && data.length === 0 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No active medications.</p>
@@ -246,6 +264,18 @@ export function MedicationsList({
                         subjectKey={medication.id}
                         label={medication.drug_name}
                       />
+                      {medication.source === "clinician" && !medication.superseded_at && (
+                        <PrescriptionDownload
+                          medicationId={medication.id}
+                          rxNumber={medication.rx_number}
+                          verificationCode={medication.verification_code}
+                          expiresAt={medication.expires_at}
+                          supplies={(collections ?? [])
+                            .filter((c) => c.medication_id === medication.id && c.source === "pharmacy")
+                            .sort((a, b) => (a.dispensed_on < b.dispensed_on ? 1 : -1))}
+                          patientId={patientId}
+                        />
+                      )}
                       <MedicationCollectionForm medication={medication} patientId={patientId} />
                       <MedicationIssueReportForm medication={medication} patientId={patientId} />
                       <RequestChangeButton
@@ -485,7 +515,7 @@ function PrescriptionStatusTrail({
     .sort((a, b) => (a.dispensed_on < b.dispensed_on ? 1 : -1))[0];
 
   const signedBy = medication.added_by_profile?.full_name
-    ? `Dr. ${medication.added_by_profile.full_name}`
+    ? `Dr. ${stripDoctorTitle(medication.added_by_profile.full_name)}`
     : "Tarragon care team";
 
   const steps: { label: string; done: boolean; detail: string }[] = [
@@ -503,7 +533,7 @@ function PrescriptionStatusTrail({
     {
       label: "Patient notified",
       done: true,
-      detail: "Email/WhatsApp sent at time of prescribing",
+      detail: "Email sent at time of prescribing",
     },
     {
       label: "Collected",
@@ -548,6 +578,14 @@ function PrescriptionStatusTrail({
             </span>
           </span>
         ))}
+        {!medication.superseded_at && medication.is_active && medication.rx_number && !isExpired && (
+          <a
+            href={`/api/clinician/prescriptions/${medication.id}/pdf?patientId=${patientId}`}
+            className="text-charcoal-ink/50 dark:text-night-ink/55 underline hover:text-charcoal-ink dark:hover:text-night-ink"
+          >
+            Reprint (PDF)
+          </a>
+        )}
         {canAmend && !amending && (
           <button
             type="button"

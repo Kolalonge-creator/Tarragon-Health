@@ -13,3 +13,15 @@ export function randomUUID(): string {
 export function __reset(): void {
   counter = 0;
 }
+
+/** Real SHA digests (node) so the breached-password hashing is exercised for real. */
+import { createHash } from "node:crypto";
+
+export const CryptoDigestAlgorithm = { SHA1: "SHA-1", SHA256: "SHA-256" } as const;
+
+export async function digestStringAsync(
+  algorithm: (typeof CryptoDigestAlgorithm)[keyof typeof CryptoDigestAlgorithm],
+  data: string,
+): Promise<string> {
+  return createHash(algorithm === "SHA-1" ? "sha1" : "sha256").update(data).digest("hex");
+}

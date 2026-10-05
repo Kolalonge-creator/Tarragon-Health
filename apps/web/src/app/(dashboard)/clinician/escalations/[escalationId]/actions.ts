@@ -19,8 +19,7 @@ export type StartVirtualReviewState =
  * before deciding whether to refer at all) — doctor <-> patient, tied to
  * this escalation. Creates the video_consultations row first (so nothing
  * is lost if the Zoom call fails), then the real Zoom meeting, then
- * delivers the patient's own join link via SMS (Termii only for now — no
- * approved WhatsApp template exists yet for a video-call link, see
+ * delivers the patient's own join link via SMS (Termii, see
  * lib/notifications/send-patient-link.ts). The doctor's host_start_url is
  * returned directly rather than sent anywhere, since they're the one who
  * just clicked the button.

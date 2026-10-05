@@ -5,6 +5,7 @@ import { usePatientTimeline, type TimelineEvent, type TimelineEventType } from "
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
+import { DoctorNameLink } from "@/components/doctor-name-link";
 
 /**
  * The shared unified activity timeline. Rendered on both the patient dashboard
@@ -107,14 +108,9 @@ function ActorAttribution({ actor }: { actor: TimelineEvent["actor"] }) {
   if (!isClinicalTier(actor)) {
     return <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">By your care team</p>;
   }
-  const credential =
-    actor.credential_type && actor.credential_number
-      ? ` · ${actor.credential_type} ${actor.credential_number}`
-      : "";
   return (
     <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-      By <span className="font-medium">Dr. {actor.full_name}</span>
-      {credential}
+      By <span className="font-medium"><DoctorNameLink staffId={actor.id} fullName={actor.full_name} /></span>
     </p>
   );
 }

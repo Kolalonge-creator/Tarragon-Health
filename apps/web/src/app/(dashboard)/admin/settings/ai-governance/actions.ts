@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
 import { AI_INCIDENT_CATEGORIES } from "@/lib/ai-governance";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
-import { runAiCoachGovernanceSuites } from "@/lib/ai-governance/run-coach-eval-suites";
+import { runAiCoachGovernanceSuites, type EvalSuiteResult } from "@/lib/ai-governance/run-coach-eval-suites";
+import { runAiImagingReportEvalSuites } from "@/lib/ai-governance/run-imaging-eval-suites";
 
 const PATH = "/admin/settings/ai-governance";
 // The Chief Medical Officer's own reachable mirror of this console (a real
@@ -310,26 +311,58 @@ export type RunEvalSuitesState =
   | undefined;
 
 /**
- * Runs AI-001's four governance evaluation suites for real (real Sonnet 5 +
- * Haiku 4.5 calls against the actual coach graph, never against patient
- * data -- see run-coach-eval-suites.ts) and records one ai_evaluation_runs +
- * its ai_evaluation_case_results rows per suite as each suite completes, not
- * batched at the end. That ordering matters on Vercel: a function timeout
- * partway through a ~1-3 minute run still leaves whatever suites finished as
- * an honest, recorded partial result instead of losing everything.
+ * The AI systems this action knows how to run a real evaluation harness
+ * for. Each maps to its own harness module (run-coach-eval-suites.ts /
+ * run-imaging-eval-suites.ts), but both return the same
+ * `{ aiSystemId, suites: EvalSuiteResult[] }` shape, which is what makes one
+ * action able to drive either without duplicating the ~100 lines of
+ * permission-check / version-lookup / incremental-recording logic below.
+ */
+const SUPPORTED_EVAL_SYSTEM_CODES = ["AI-001", "AI-016"] as const;
+type SupportedEvalSystemCode = (typeof SUPPORTED_EVAL_SYSTEM_CODES)[number];
+
+async function runSuitesForSystem(
+  systemCode: SupportedEvalSystemCode,
+  options: { onSuiteComplete?: (result: EvalSuiteResult, context: { aiSystemId: string }) => Promise<void> | void }
+): Promise<{ aiSystemId: string; suites: EvalSuiteResult[] }> {
+  return systemCode === "AI-001"
+    ? runAiCoachGovernanceSuites(options)
+    : runAiImagingReportEvalSuites(options);
+}
+
+const runEvalSuitesSchema = z.object({
+  systemCode: z.enum(SUPPORTED_EVAL_SYSTEM_CODES).default("AI-001"),
+});
+
+/**
+ * Runs a registered AI system's governance evaluation suite(s) for real
+ * (real model calls against the actual production code path -- the coach
+ * graph for AI-001, extractImagingReport() for AI-016 -- never against
+ * patient data, see run-coach-eval-suites.ts / run-imaging-eval-suites.ts)
+ * and records one ai_evaluation_runs + its ai_evaluation_case_results rows
+ * per suite as each suite completes, not batched at the end. That ordering
+ * matters on Vercel: a function timeout partway through a multi-minute run
+ * still leaves whatever suites finished as an honest, recorded partial
+ * result instead of losing everything.
  *
  * This does not itself approve anything -- it only measures and records
  * facts against the current, latest, unretired ai_system_versions row for
- * AI-001. `public.approve_ai_system_version`'s own release gate is what
- * decides whether those recorded runs are enough; this action's write
- * access comes from the caller's own admin RLS grant on these two tables
- * (ai_evaluation_runs_write / ai_evaluation_case_results_write), the same
- * as every other write on this page -- no service-role client involved.
+ * the chosen system. `public.approve_ai_system_version`'s own release gate
+ * is what decides whether those recorded runs are enough; this action's
+ * write access comes from the caller's own admin RLS grant on these two
+ * tables (ai_evaluation_runs_write / ai_evaluation_case_results_write), the
+ * same as every other write on this page -- no service-role client involved.
  */
 export async function runAiEvalSuitesAction(
   _prev: RunEvalSuitesState,
-  _formData: FormData
+  formData: FormData
 ): Promise<RunEvalSuitesState> {
+  const parsedInput = runEvalSuitesSchema.safeParse({
+    systemCode: formData.get("systemCode") || undefined,
+  });
+  if (!parsedInput.success) return { error: "Unknown or unsupported AI system." };
+  const systemCode = parsedInput.data.systemCode;
+
   const profile = await getCurrentProfile();
   if (!profile) return { error: "Not signed in." };
 
@@ -337,9 +370,9 @@ export async function runAiEvalSuitesAction(
   // account that can see this page (gated on the delegable ai_governance.manage
   // permission or super admin) is not necessarily one the database will let
   // write ai_evaluation_runs/ai_evaluation_case_results, and finding that out
-  // only after paying for ~14 real model calls would be a real cost bug, not
-  // just a confusing UI. Same bar approve_ai_system_version already uses for
-  // a non-critical version: an admin, or an active Clinical Director.
+  // only after paying for several real model calls would be a real cost bug,
+  // not just a confusing UI. Same bar approve_ai_system_version already uses
+  // for a non-critical version: an admin, or an active Clinical Director.
   const clinicalStaff = profile.role === "admin" ? null : await getCurrentClinicalStaff();
   if (profile.role !== "admin" && !canAssignCases(clinicalStaff)) {
     return { error: "Only an admin or an active Chief Medical Officer / Clinical Director can run these suites." };
@@ -350,9 +383,9 @@ export async function runAiEvalSuitesAction(
   const { data: system, error: systemError } = await supabase
     .from("ai_systems")
     .select("id")
-    .eq("system_code", "AI-001")
+    .eq("system_code", systemCode)
     .single();
-  if (systemError || !system) return { error: `Could not find AI-001: ${systemError?.message ?? "not found"}` };
+  if (systemError || !system) return { error: `Could not find ${systemCode}: ${systemError?.message ?? "not found"}` };
 
   const { data: latestVersion, error: versionError } = await supabase
     .from("ai_system_versions")
@@ -362,13 +395,14 @@ export async function runAiEvalSuitesAction(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (versionError) return { error: `Could not resolve AI-001's current version: ${versionError.message}` };
+  if (versionError) return { error: `Could not resolve ${systemCode}'s current version: ${versionError.message}` };
 
+  const totalSuiteCount = systemCode === "AI-001" ? 4 : 1;
   const results: EvalSuiteSummary[] = [];
   let recordError: string | undefined;
 
   try {
-    await runAiCoachGovernanceSuites({
+    await runSuitesForSystem(systemCode, {
       onSuiteComplete: async (suite, { aiSystemId }) => {
         results.push({
           suite_name: suite.suite_name,
@@ -431,7 +465,7 @@ export async function runAiEvalSuitesAction(
     // mid-run) -- whatever suites completed before that are still real,
     // recorded results, so report them rather than discarding the partial
     // progress as a bare error.
-    recordError = `${error instanceof Error ? error.message : "Evaluation run failed"} -- stopped after ${results.length} of 4 suites.`;
+    recordError = `${error instanceof Error ? error.message : "Evaluation run failed"} -- stopped after ${results.length} of ${totalSuiteCount} suite${totalSuiteCount === 1 ? "" : "s"}.`;
   }
 
   revalidatePath(PATH);

@@ -60,8 +60,8 @@ describe("useOutstandingConsentTypes", () => {
     // telehealth never accepted at all — outstanding.
     // terms_of_service accepted at the current v1 — NOT outstanding.
     const accepted = [
-      { consent_type: "data_processing", version: 1, accepted_at: "2026-01-01" },
-      { consent_type: "terms_of_service", version: 1, accepted_at: "2026-01-01" },
+      { consent_type: "data_processing", version: 1, accepted_at: "2026-01-01", action: "accepted", created_at: "2026-01-01T00:00:00Z" },
+      { consent_type: "terms_of_service", version: 1, accepted_at: "2026-01-01", action: "accepted", created_at: "2026-01-01T00:00:00Z" },
     ];
 
     mockFrom.mockImplementation((table: string) => {
@@ -82,7 +82,7 @@ describe("useOutstandingConsentTypes", () => {
 
   it("reports nothing outstanding when every current version has a matching accepted row", async () => {
     const versions = [{ id: "v-tos-1", consent_type: "terms_of_service", version: 1 }];
-    const accepted = [{ consent_type: "terms_of_service", version: 1, accepted_at: "2026-01-01" }];
+    const accepted = [{ consent_type: "terms_of_service", version: 1, accepted_at: "2026-01-01", action: "accepted", created_at: "2026-01-01T00:00:00Z" }];
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "consent_versions") return fromTable(versions);
@@ -94,6 +94,26 @@ describe("useOutstandingConsentTypes", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    expect(result.current.outstanding).toEqual([]);
+  });
+
+  it("a withdrawn required consent is outstanding again (it used to read as accepted)", async () => {
+    const versions = [{ id: "v-tel-1", consent_type: "telehealth", version: 1, is_optional: false }];
+    const accepted = [
+      { consent_type: "telehealth", version: 1, accepted_at: "2026-01-01", action: "accepted", created_at: "2026-01-01T00:00:00Z" },
+      { consent_type: "telehealth", version: 1, accepted_at: "2026-02-01", action: "withdrawn", created_at: "2026-02-01T00:00:00Z" },
+    ];
+    mockFrom.mockImplementation((table: string) => fromTable(table === "consent_versions" ? versions : accepted));
+    const { result } = renderHook(() => useOutstandingConsentTypes("patient-1"), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.outstanding.map((v) => v.consent_type)).toEqual(["telehealth"]);
+  });
+
+  it("an optional purpose the patient never answered is not outstanding", async () => {
+    const versions = [{ id: "v-r-1", consent_type: "research", version: 1, is_optional: true }];
+    mockFrom.mockImplementation((table: string) => fromTable(table === "consent_versions" ? versions : []));
+    const { result } = renderHook(() => useOutstandingConsentTypes("patient-1"), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.outstanding).toEqual([]);
   });
 });

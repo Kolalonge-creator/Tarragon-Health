@@ -1,12 +1,11 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { runReconciliationSweep } from "@/lib/finance/reconciliation-sweep";
 import { sweepStaleServicePurchases } from "@/lib/finance/service-purchase-expiry";
-import { sweepStalePlatformCreditTopups } from "@/lib/finance/platform-credit-topup-expiry";
 import { alertAdminsOfOpenFlags } from "@/lib/finance/reconciliation-flags";
 
 /**
  * Daily automated Paystack reconciliation (Vercel Cron, see
- * apps/web/vercel.json). Three passes, in order:
+ * apps/web/vercel.json). Two passes plus an admin alert, in order:
  *
  *   1. runReconciliationSweep — compares Paystack's own record of the last
  *      48 hours against payment_transactions and flags any discrepancy.
@@ -25,14 +24,7 @@ import { alertAdminsOfOpenFlags } from "@/lib/finance/reconciliation-flags";
  *      WAS paid for is flagged for a webhook replay instead of being
  *      cancelled out from under the patient.
  *
- *   3. sweepStalePlatformCreditTopups — added 2026-09-17. The exact same gap
- *      as #2, for platform_credit_topup_intents (Platform Credit shipped
- *      2026-09-17 with no sweep of its own — found auditing the rest of the
- *      feature after fix/platform-credit-gaps). Same cancel/flag/skip
- *      decision shape, same self-heal reasoning: never cancel a top-up
- *      Paystack says was actually paid for.
- *
- *   4. alertAdminsOfOpenFlags — added 2026-09-05. Flags used to be written
+ *   3. alertAdminsOfOpenFlags — added 2026-09-05. Flags used to be written
  *      and then read by nobody; the whole safety net ended in a table with no
  *      reader on any schedule. Now every admin gets one in_app notification a
  *      day for as long as something is open.
@@ -55,8 +47,7 @@ export async function GET(request: Request): Promise<Response> {
   const supabase = createServiceRoleClient();
   const totals = await runReconciliationSweep(supabase);
   const stalePurchases = await sweepStaleServicePurchases(supabase);
-  const staleTopups = await sweepStalePlatformCreditTopups(supabase);
   const alerted = await alertAdminsOfOpenFlags(supabase);
 
-  return Response.json({ ...totals, stalePurchases, staleTopups, alerted });
+  return Response.json({ ...totals, stalePurchases, alerted });
 }

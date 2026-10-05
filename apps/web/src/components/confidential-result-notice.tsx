@@ -6,7 +6,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
  *
  * Every claim here is enforced somewhere real, not a reassurance we wrote:
  *
- *  - "never sent to you over WhatsApp, SMS or email" — sensitive screen_types
+ *  - "never sent to you by SMS or email" — sensitive screen_types
  *    (hiv, hep_b, hep_c, cervical_smear, mammography, psa, fit, colonoscopy,
  *    clinical_breast_exam) set `sensitive` on the result, and
  *    supabase/functions/abnormal-result-handler explicitly suppresses the
@@ -14,7 +14,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
  *    template. See migration 20260719140000_sensitive_result_gating.
  *  - "no clinical detail ever leaves on those channels" — invariant I1 is a
  *    database CHECK (notifications_no_clinical_on_open_rail), so a
- *    content_class='clinical' row physically cannot be queued to whatsapp,
+ *    content_class='clinical' row physically cannot be queued to
  *    sms or email. It is not a convention anybody can forget.
  *  - "the result still reaches a doctor" — the clinician alert fires before
  *    the suppression branch, so suppressing the message never loses the
@@ -36,7 +36,7 @@ export function ConfidentialResultNotice({ className }: { className?: string }) 
       </p>
       <ul className="mt-2 space-y-1 text-xs text-charcoal-ink/75 dark:text-night-ink/75">
         <li>
-          A result like this is never sent to you over WhatsApp, SMS or email. A doctor tells
+          A result like this is never sent to you by SMS or email. A doctor tells
           you, and talks it through with you.
         </li>
         <li>

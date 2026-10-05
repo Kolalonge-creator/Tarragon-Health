@@ -15,7 +15,8 @@
     "test:e2e-browser": "playwright test",
     "lab-corpus": "tsx --tsconfig tsconfig.scripts.json scripts/run-lab-corpus.ts",
     "ai-coach-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-safety-eval.ts",
-    "ai-coach-governance-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-governance-suites-eval.ts"
+    "ai-coach-governance-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-governance-suites-eval.ts",
+    "ai016-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/eval-ai016-imaging-report.ts"
   },
   "dependencies": {
     "@langchain/anthropic": "^0.3.14",
@@ -27,9 +28,14 @@
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.0",
     "@tanstack/react-query": "^5.101.2",
+    "@tarragon/auth": "workspace:*",
+    "@tarragon/i18n": "workspace:*",
     "@tarragon/lifestyle-engine": "workspace:*",
+    "@tarragon/medicines": "workspace:*",
     "@tarragon/shared": "workspace:*",
+    "@tarragon/staff-core": "workspace:*",
     "@tarragon/symptom-triage-engine": "workspace:*",
+    "@tarragon/ui": "workspace:*",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
     "@vis.gl/react-google-maps": "^1.9.0",

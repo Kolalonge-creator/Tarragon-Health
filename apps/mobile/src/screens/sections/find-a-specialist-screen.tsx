@@ -8,18 +8,9 @@ import {
   type SpecialistProvider,
   type SpecialistType,
 } from "@/lib/find-a-specialist";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, MutedText, ScreenTitle } from "@/ui/components";
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
+import { spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { Badge, Card, MutedText, ScreenTitle } from "@/ui/legacy-kit";
 
 function specialtyLabel(t: SpecialistType): string {
   return t.replace(/_/g, " ");
@@ -37,6 +28,9 @@ interface FindASpecialistScreenProps {
  * never picks a provider directly here).
  */
 export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [specialistType, setSpecialistType] = useState<SpecialistType>("cardiology");
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
@@ -105,13 +99,13 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
         </ScrollView>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <TextInput
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={state}
             onChangeText={setState}
             placeholder="State (e.g. Lagos)"
             style={[textInputStyle, { flex: 1 }]}
           />
-          <TextInput
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={city}
             onChangeText={setCity}
             placeholder="City (e.g. Ikeja)"
@@ -119,14 +113,14 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
           />
         </View>
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <TextInput
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={maxFeeNaira}
             onChangeText={setMaxFeeNaira}
             placeholder="Max fee (₦, optional)"
             keyboardType="numeric"
             style={[textInputStyle, { flex: 1 }]}
           />
-          <TextInput
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={language}
             onChangeText={setLanguage}
             placeholder="Language (optional)"

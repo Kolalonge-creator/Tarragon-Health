@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import type { ActingFor } from "@/lib/acting";
-import { colors, radius, spacing } from "./theme";
+import { radius, spacing } from "./theme";
+import { useLegacyColors } from "./design";
 
 interface ActingForBannerProps {
   acting: ActingFor | null;
@@ -16,6 +17,7 @@ interface ActingForBannerProps {
  * themselves).
  */
 export function ActingForBanner({ acting, onStop }: ActingForBannerProps) {
+  const colors = useLegacyColors();
   if (!acting) return null;
   const name = acting.fullName ?? "the person you support";
 

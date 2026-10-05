@@ -33,11 +33,16 @@ export const SITE = {
    * search engine or an AI answer attach a phone number and a company
    * registration to this brand instead of guessing.
    *
-   * The headquarters is published at locality level only (founder decision,
-   * 2026-09-22). Tarragon still runs no clinics and has no public premises a
-   * patient should turn up at, so there is deliberately no street address or
-   * postcode here. Do not invent one, and do not present the HQ as somewhere
-   * care is delivered.
+   * `addressLocality`/`addressRegion` mirror the registered address the
+   * founder set in `admin/settings/company-profile`
+   * (`finance_company_profile.registered_address`, "Victoria Island, Lagos,
+   * Nigeria") — a locality, not a street/building. The headquarters is
+   * published at locality level only (founder decision, 2026-09-22): Tarragon
+   * runs no clinics and has no public premises a patient should turn up at,
+   * so there is deliberately no street address or postcode here. Keep this in
+   * sync with the company-profile record if it ever changes; don't invent a
+   * street-level address, and don't present the HQ as somewhere care is
+   * delivered.
    */
   telephone: "+2348061197940",
   email: "hello@tarragonhealth.ng",

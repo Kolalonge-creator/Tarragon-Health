@@ -6,6 +6,8 @@ import { CareVisibilityList } from "../family/care-visibility-list";
 import { ConsentStatusPanel } from "./consent-status-panel";
 import { ConnectedDevicesSummary } from "./connected-devices-summary";
 import { DataRightsPanel } from "./data-rights-panel";
+import { PrivacySummary } from "./privacy-summary";
+import { getAuthLocale } from "@/lib/auth/auth-locale";
 
 /**
  * Privacy & data centre, docs spec §87.7. Composes what already exists
@@ -22,6 +24,7 @@ export default async function PrivacyCentrePage() {
   if (!profile) redirect("/login");
   if (profile.role !== "patient") redirect("/");
   if (!profile.organisation_id) redirect("/login");
+  const locale = await getAuthLocale();
 
   return (
     <div className="space-y-6">
@@ -31,6 +34,8 @@ export default async function PrivacyCentrePage() {
         icon={SEMANTIC_ICON.privacy}
         description="What you've agreed to, who can see your record, and how to request, correct, or delete your data."
       />
+
+      <PrivacySummary locale={locale} />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <ConsentStatusPanel patientId={profile.id} />

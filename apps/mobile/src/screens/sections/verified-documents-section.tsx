@@ -9,8 +9,8 @@ import {
   type VerifiedDocumentType,
 } from "@/lib/verified-documents";
 import { formatCareDate } from "@/lib/care";
-import { colors } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, SecondaryButton } from "@/ui/components";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
  * Native "Verified documents" — retired from patient purchase 2026-09-24
@@ -24,6 +24,7 @@ import { Badge, Card, ErrorText, MutedText, SecondaryButton } from "@/ui/compone
  * documents at all.
  */
 export function VerifiedDocumentsSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
   const [documents, setDocuments] = useState<VerifiedDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -25,7 +25,8 @@ import { replaceLabResult, testTypeLabel } from "@/lib/labs";
 import { resolveSubjectId } from "@/lib/acting";
 import { supabase } from "@/lib/supabase";
 import { LabOrderTestChecklist } from "@/screens/sections/lab-order-test-checklist";
-import { colors, radius, spacing } from "@/ui/theme";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
 import {
   Card,
   ErrorText,
@@ -35,7 +36,7 @@ import {
   PrimaryButton,
   SecondaryButton,
   SectionLabel,
-} from "@/ui/components";
+} from "@/ui/legacy-kit";
 
 interface CapturedPhoto {
   uri: string;
@@ -51,6 +52,7 @@ interface CapturedPhoto {
  * itself enforces (20260912220345_lab_result_documents_patient_self_replace.sql).
  */
 function ReplaceDocumentControl({ documentId, onReplaced }: { documentId: string; onReplaced: () => void }) {
+  const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -109,7 +111,7 @@ function ReplaceDocumentControl({ documentId, onReplaced }: { documentId: string
     return (
       <Text
         onPress={() => setOpen(true)}
-        style={{ fontSize: 12.5, fontWeight: "600", color: colors.faint }}
+        style={{ fontSize: 12.5, fontWeight: "600", color: colors.subtle }}
       >
         Uploaded the wrong file? Replace it
       </Text>
@@ -257,6 +259,7 @@ function LabCatalogueRow({
   organisationId: string | null;
   onOrdered: () => void;
 }) {
+  const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
   const [ordering, setOrdering] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -344,6 +347,7 @@ const EMPTY_SECTION = { data: null, error: null } as const;
  * change.
  */
 export function LabOrdersScreen() {
+  const colors = useLegacyColors();
   const [patientId, setPatientId] = useState<string | null>(null);
   const [organisationId, setOrganisationId] = useState<string | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -465,7 +469,7 @@ export function LabOrdersScreen() {
                     <StatusPill tone={badge.tone} label={badge.label} />
                     {order.urgency === "urgent" && <StatusPill tone="red" label="Urgent" />}
                     {order.orderNumber ? (
-                      <Text style={{ fontSize: 11, color: colors.faint }}>{order.orderNumber}</Text>
+                      <Text style={{ fontSize: 11, color: colors.subtle }}>{order.orderNumber}</Text>
                     ) : null}
                   </View>
                   <Text style={{ fontSize: 14.5, fontWeight: "600", color: colors.ink }}>{order.panelBundleName}</Text>
@@ -526,7 +530,7 @@ export function LabOrdersScreen() {
                     style={{
                       fontSize: 12,
                       fontWeight: "700",
-                      color: colors.faint,
+                      color: colors.subtle,
                       textTransform: "uppercase",
                       letterSpacing: 0.4,
                     }}
@@ -552,7 +556,7 @@ export function LabOrdersScreen() {
                     {doc.signedUrl ? (
                       <Text
                         onPress={() => openDocument(doc.signedUrl)}
-                        style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}
+                        style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}
                       >
                         {doc.isPdf ? "Open original (PDF) →" : "View original →"}
                       </Text>
@@ -674,7 +678,7 @@ export function LabOrdersScreen() {
                         {trend.latestValue}
                         {trend.latestUnit ? ` ${trend.latestUnit}` : ""}
                       </Text>
-                      {deltaLabel ? <Text style={{ fontSize: 11.5, color: colors.faint }}>{deltaLabel}</Text> : null}
+                      {deltaLabel ? <Text style={{ fontSize: 11.5, color: colors.subtle }}>{deltaLabel}</Text> : null}
                     </View>
                   }
                 />
@@ -706,7 +710,7 @@ export function LabOrdersScreen() {
                     fontWeight: "700",
                     letterSpacing: 0.3,
                     textTransform: "uppercase",
-                    color: colors.faint,
+                    color: colors.subtle,
                     paddingHorizontal: spacing.card,
                   }}
                 >

@@ -38,7 +38,7 @@ export function FinanceOverview() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         This is the platform&apos;s live double-entry general ledger. Payments, refunds, voucher
-        top-ups and commissions post automatically; a service bought up front is deferred until it
+        payments and commissions post automatically; a service bought up front is deferred until it
         is delivered. All figures are NGN through Paystack, the only live payment provider.
       </p>
 
@@ -116,7 +116,7 @@ export function FinanceOverview() {
 
       <SectionCard
         title="Revenue by funding source (NGN, month to date)"
-        description="How much of this month's revenue was actually collected vs. given away — a promo code, a reward voucher, or admin-granted platform credit never represent real cash in the door."
+        description="How much of this month's revenue was actually collected vs. given away. Promo codes and reward vouchers never represent real cash in the door."
       >
         {funding.isLoading ? (
           <CenterNote>Loading…</CenterNote>

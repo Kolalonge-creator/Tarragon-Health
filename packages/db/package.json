@@ -10,13 +10,16 @@
     "./types": "./src/database.types.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
-    "typescript": "^5"
+    "eslint": "^9",
+    "typescript": "^5",
+    "typescript-eslint": "^8"
   }
 }

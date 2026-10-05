@@ -132,42 +132,24 @@ diagnostic_episode_engine.sql
 # self-claim auto_generated=true (server-derived, no GUC leak).
 auto_generated_continuous_clinical_note.sql
 
-# --- Added 2026-09-17 --------------------------------------------------
-# Platform Credit: a patient session cannot write platform_credit_balances/
-# _ledger_entries/_topup_intents directly (only private.platform_credit_apply,
-# a SECURITY DEFINER RPC, can), a patient cannot read another patient's
-# balance/ledger, a spend consumes the promotional (admin-granted) bucket
-# before the paid (real-money) bucket, an overspend is refused without
-# partial application, and a sabotage run (restoring the old grant+policy
-# shape) proves the RLS checks actually discriminate.
-platform_credit_ledger.sql
+# --- 2026-09-30 (S01b): the Platform Credit proofs (platform_credit_ledger, platform_credit_spend_revenue_deferral,
+#     platform_credit_topups_kill_switch) were deleted with the feature; remove_platform_credit.sql is their replacement.
 
 # --- Added 2026-09-18 --------------------------------------------------
 # Standing regression coverage for two of the four bug classes found in the
 # 2026-09-18 finance-console and notification-deliverability audits (PR #680,
 # #681), added so each stays closed by CI rather than only by memory/CLAUDE.md
-# prose. private.remap_notification_channel() no longer honours a dead
-# whatsapp/sms notification_channel_preference as a direct lock-in (both
-# channels are 100% failure live) -- proves sms/whatsapp preferences fall
-# through to the same push-or-fallback ladder no-preference already used,
-# email is still honoured, and a sabotage run (reinstating the old lock-in)
-# reopens the hole. The payment-activation fee-tolerance bug (PR #531) already
+# prose. a dead-channel (sms) notification_channel_preference is never
+# honoured as a direct lock-in -- private.patient_reminder_channel() resolves
+# it to push-or-in_app like no preference, email is still honoured when
+# allowed, and a sabotage run (a helper returning the stored preference
+# blindly) reopens the hole. The payment-activation fee-tolerance bug (PR #531) already
 # has standing coverage in payment_activation_amount_and_reference.sql above
 # (section 8); the false-consent onlyTypes bug (PR #661) is TypeScript-level
 # application logic, not DB logic, and is covered instead by
 # apps/web/src/app/onboarding/consent-onlytypes-scope.test.ts (Jest).
 notification_channel_preference_dead_channel_no_lockin.sql
 
-# private.finance_post_platform_credit_ledger_entry()'s 'spend' branch used to
-# credit revenue account 4100 (immediate) unconditionally, with no check for
-# whether the purchased service has a bounded access window -- the equivalent
-# card-payment path correctly defers to 2000 + a revenue_recognition_schedules
-# row when service_products.access_duration_days is set. Proves a bounded-
-# access spend defers to 2000 with a matching recognition schedule, a
-# genuinely unbounded (one-off) product still posts straight to 4100 with no
-# schedule created, and a sabotage run (reverting to unconditional 4100)
-# reopens the hole on the bounded case.
-platform_credit_spend_revenue_deferral.sql
 
 # The three DSAR request tables (data_export_requests, data_deletion_requests,
 # data_correction_requests) shipped with RLS/attribution triggers allowing an
@@ -309,13 +291,8 @@ ngo_funded_cohort.sql
 can_read_clinical_bare_literal_policy_cast.sql
 
 # --- Added 2026-09-22 — launch-scope audit reconciliation --------------------
-# Three standing proofs for the launch-scope audit reconciliation work
+# Standing proofs for the launch-scope audit reconciliation work
 # (see docs/LAUNCH_SCOPE_AND_PLATFORM_REBUILD_AUDIT_2026-09-21.md):
-#   platform_credit_topups_kill_switch.sql — the new platform_credit_topups
-#     module gates record_platform_credit_topup_intent (refuses while off,
-#     opens once a superadmin switches it on via set_platform_module, closes
-#     again on toggle-back) while spend and balance/ledger reads are always
-#     unaffected, proven with a real funded balance throughout.
 #   continuous_monitoring_90d_single_tier.sql — the retired 3/6/12-month
 #     tiers are inactive but an EXISTING active purchase against one still
 #     grants access (deactivating a product must never retroactively revoke
@@ -329,7 +306,6 @@ can_read_clinical_bare_literal_policy_cast.sql
 #     on activation is scoped to only this product's feature (an unrelated
 #     purchase never touches annual_health_checks) and works even for a
 #     patient who never started the free Health Check journey.
-platform_credit_topups_kill_switch.sql
 continuous_monitoring_90d_single_tier.sql
 preventive_health_check_review_sku.sql
 
@@ -472,8 +448,7 @@ diabetes_self_monitoring_acting_supporter.sql
 # about — reversing only the original entry would under-correct the ledger),
 # the Paystack refund queue row shape (incl. the customer-borne processor fee,
 # fixed by 20260924213420_fix_guarantee_refund_review_findings.sql), the
-# platform-credit path (correct_platform_credit as the sole reversal
-# mechanism, no double GL posting), the chronic-programme enrolment track
+# card-paid chronic-programme path, the chronic-programme enrolment track
 # downgrade on refund (a real gap: nothing previously reversed
 # activate_chronic_programme_doctor_supported_track's upgrade), and a
 # repeat-decide idempotency guard against a double refund.
@@ -605,6 +580,15 @@ voucher_redemption_cross_voucher_double_count_and_revrec_rounding.sql
 # (recreating the dropped overload) reproduces the exact 42725 ambiguity.
 finance_create_recognition_schedule_overload_ambiguity.sql
 
+# finance_create_recognition_schedule_anon_execute.sql: Release Integrity CI
+# flagged the same function as anon-executable (the anon-inherits-EXECUTE-
+# via-PUBLIC gotcha, recurred again) — its originating migration never
+# revoked the default PUBLIC grant. Fixed in
+# 20260925093358_revoke_anon_execute_finance_create_recognition_schedule.sql.
+# Proves anon lacks EXECUTE (authenticated retains it), with a sabotage step
+# reproducing the exact regression to confirm the check discriminates.
+finance_create_recognition_schedule_anon_execute.sql
+
 lab_location_reviews_rls.sql
 
 # account_lockouts_anon_execute_and_search_path.sql: 20260924215642 backfilled
@@ -639,3 +623,183 @@ account_lockouts_anon_execute_and_search_path.sql
 # and that the co-located, unrelated therapy-approval product was not taken
 # down with it.
 supervised_weight_management_removed.sql
+
+# --- Added 2026-09-25 --------------------------------------------------------
+# public.approve_ai_system_version never retired a superseded draft of the
+# same ai_system, so AI-001's CMO sign-off queue accumulated four dead,
+# never-approved versions (v1, 2026-09-14.1, 2026-09-14.2, 2026-09-16.2) that
+# each real fix superseded without ever being cleaned up -- they sat forever
+# reading as "awaiting approval" even though the system was long since
+# validated and live on a later version. Fixed in
+# 20260925014357_ai_system_version_approval_retires_superseded_drafts.sql:
+# approving a version now retires every earlier, still-open sibling of the
+# same system. Mints its own fresh org/admin/probe system rather than
+# borrowing AI-001's real history, with a control proving a version created
+# AFTER the one just approved is left untouched, and a sabotage step (the
+# pre-fix function definition, reproduced in this migration's PR) confirming
+# the "earlier draft retired" check genuinely fails without the fix.
+ai_system_version_approval_retires_superseded_drafts.sql
+
+# --- Added 2026-09-25 (second pass) ------------------------------------------
+# clinical_staff_select's org-wide clause ("organisation_id = current_org_id()")
+# admitted any patient in an org to a raw SELECT on every clinical_staff row --
+# not just the safe name/photo/bio/credential columns the app's own queries
+# select, since RLS is row-level, not column-level. Every sensitive column
+# added to the table since the 20260712191500 original (indemnity_insurer,
+# indemnity_policy_number, indemnity_expires_at, indemnity_exempt_by,
+# staff_number, verified_by, credential_verified_by) rode along on that same
+# clause. Confirmed live with a simulated patient session before the fix (see
+# 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql):
+# a patient could read another doctor's indemnity_policy_number and
+# staff_number directly via the Supabase client SDK / PostgREST. Fixed by
+# narrowing the base table's patient-facing read path to org staff /
+# support-view-as only, and adding public.clinical_staff_directory -- a
+# deliberately owner-run (not security_invoker, same exception as
+# public.therapy_directory) safe-column view every patient-facing call site
+# was moved to. Proves: a patient gets zero rows from the base table; the
+# same patient still sees trust-display columns via the directory view; the
+# directory view structurally carries no sensitive column; org staff access
+# to the full base table is unaffected; and a sabotage step that reinstates
+# the old broad policy inside the same rolled-back transaction reproduces the
+# leak, confirming this test would have caught the original bug. Extended the
+# same day (still pre-merge, found by /code-review high) with a 6th section
+# proving a service-role caller (no auth.uid() at all -- cron jobs, internal
+# notification routes) still sees the view's rows, per
+# 20260925021440_fix_clinical_staff_directory_service_role_and_replay_guard.sql
+# -- the original view's predicate resolved entirely through auth.uid()-
+# dependent helpers, so a service-role caller silently got zero rows, not an
+# error, breaking the quarterly-report cron's and the lab-order-request-pdf
+# notification's doctor-attribution lines. Same-day review also found four
+# patient-facing PostgREST embedded joins (clinical_staff!<fkey>(...) in
+# patient_timeline/care_messages/second_opinion_requests/async_consults/
+# verified_documents reads) that resolved against clinical_staff's own RLS,
+# not this view -- fixed in application code (explicit follow-up query against
+# clinical_staff_directory, merged client-side) rather than here, since
+# PostgREST's "embedding through views" support couldn't be verified live in
+# this environment; see the Jest regression tests next to patient-timeline.ts
+# and care-messages.ts for that half of the fix.
+clinical_staff_directory_column_scoping.sql
+
+# --- Added 2026-09-25 (2) -----------------------------------------------------
+# lab_providers_select and pharmacy_partners_select both still carried the
+# original `for select to authenticated using (true)` shape from
+# 20260705211315_care_coordination.sql -- the exact same bug class as the
+# clinical_staff column-exposure fix (this file's other 2026-09-25 entry) and
+# as specialist_providers before its 2026-09-10 fix
+# (20260910172703_specialist_providers_commercial_columns_off_the_patient_
+# surface.sql). Confirmed live before the fix: a patient could read all 4
+# lab_providers rows including 4 populated cost_basis_note values (negotiated-
+# rate evidence). Fixed in
+# 20260925023144_restrict_lab_pharmacy_partner_read_to_safe_columns.sql:
+# narrowed both base tables to admin-or-partners.*.manage, added
+# public.lab_provider_directory / public.pharmacy_partner_directory (safe-
+# column views, no auth.uid()-dependent predicate so no service-role carve-out
+# is needed, unlike clinical_staff_directory), and repointed three PostgREST
+# embedded FK-joins that would otherwise have silently gone null
+# (lab-orders.ts's provider/ordered_by_staff, pharmacy-orders.ts's
+# pharmacy_partner, finance/partner-settlements's lab_providers(name)) at
+# follow-up queries against the new views, merged client-side. Proves: a
+# patient AND an ordinary org-staff/clinician session (deliberately narrower
+# than clinical_staff_directory's is_org_staff carve-out) are both refused
+# either base table directly, even an is_active row; the same patient still
+# sees the safe columns via both directory views; neither view structurally
+# carries a commercial/internal-workflow column; admin access to the full
+# base tables is unaffected; and a sabotage step that reinstates the old
+# `using (true)` policy on both tables inside the same rolled-back
+# transaction reproduces the leak on both, confirming this test would have
+# caught the original bug. Extended the same day (still pre-merge, found by
+# the same /code-review high pass) with a 7th section: both directory views
+# were originally defined `where is_active`, which the old `using (true)`
+# policy + plain PostgREST embed never enforced -- silently breaking
+# attribution (a patient's own past lab order, a finance officer's
+# historical settlement statement, a booked medication's pharmacy) the
+# moment the provider/partner it referenced went inactive, and in
+# pharmacy-orders.ts's usePharmacyCatalogue specifically letting a patient
+# book a now-inactive pharmacy partner's medication while shown none of its
+# identifying info (the location filter's "no structured address" escape
+# hatch also matched a null partner). Fixed in
+# 20260925024716_fix_lab_pharmacy_directory_active_filter_and_replay_guard.sql
+# by dropping the `where is_active` clause from both views; the picker call
+# sites that do need active-only (the finance page's new-statement lab
+# picker, pharmacy-orders.ts's attachPharmacyPartners, which now drops an
+# inactive-partner's medication outright rather than nulling the partner)
+# filter it themselves. Section 7 proves both views keep resolving a row
+# after is_active flips false, and sabotages by reinstating the buggy
+# `where is_active` shape on lab_provider_directory to confirm the
+# regression would have been caught. The application-level half of this fix
+# (attachPharmacyPartners dropping an inactive-partner medication) has its
+# own Jest regression test, apps/web/src/lib/queries/pharmacy-orders.test.ts,
+# per this repo's convention of a DB proof for the DB-level defect and a
+# Jest test for the application-level one.
+lab_pharmacy_partner_directory_column_scoping.sql
+
+# --- Added 2026-09-30 (S01b) --------------------------------------------------
+# Platform Credit removal: objects gone, payment_provider rebuilt without the
+# label, surviving finance/receipt/guarantee functions still work, recreated
+# functions keep their ACLs, and a sabotage run proves the checks discriminate.
+remove_platform_credit.sql
+
+# --- Added 2026-09-30 (S01c) --------------------------------------------------
+# WhatsApp removal: the clinician escalation ladder keeps its second hop (push,
+# email, sms for emergencies), an exhausted ladder still alarms the admins, the
+# naive fix is proven to shorten the ladder (sabotage), patient reminders never
+# land on a dead channel, and no function still refers to the removed label.
+remove_whatsapp.sql
+
+# --- Added 2026-09-30 (S02) ---------------------------------------------------
+# v5 identity/consent/audit baseline: is_test is admin-or-service-only (INV-13) and
+# a lint ratchet flags unfiltered metric/payout views; proxy_setups RLS and state
+# machine; audit_log cannot be UPDATEd/DELETEd/TRUNCATEd by any app role; audited
+# search/open/consent reads write audit_log (query text never stored), refuse and
+# audit every non-admin role, admit an active break-glass grant but never for
+# reproductive_health; patient_consents is patient-read-only; one sabotage per area.
+s02_identity_consent_audit_baseline.sql
+s03_sms_delivery_log.sql
+# S03 assisted recovery: two-admin rule, state machine, audit per step, masked outputs, neutral subject notices, SIM-swap second step, anon no EXECUTE; five sabotages.
+s03_assisted_recovery.sql
+# S04 "Set up for my parent": safety case 23 (proxy has no grant and sees nothing until the parent confirms on a verified number), identical refusals, parent-chosen categories only, decline/expiry terminal, anon no EXECUTE; four sabotages.
+s04_proxy_setup.sql
+# S04 consent is_optional: optional purposes never gate onboarding, a plain-INSERT version bump of a required purpose still gates, required withdrawal closes the gate, re-acceptance reopens it; one sabotage.
+s04_consent_is_optional.sql
+# S05 health record data model: idempotency keys, v5 views, triggers intact, prescriptions/referrals signature (INV-02), signed notes only (INV-11), audited chart reads and tied-patient gate (INV-10/12), closed direct staff reads; four sabotages.
+s05_health_record_data_model.sql
+# S05b allergies/conditions audited reads: extended chart sections, tied vs untied (denied, not empty), list-wide condition search (escaping, bounds, audit without the term, patient and anon refused); one sabotage.
+s05b_allergies_conditions_audited_reads.sql
+# S05c closes direct staff reads on patient_allergies and patient_conditions: patient reads own, staff (tied, untied, admin) read nothing directly, the audited read opens for the tied clinician and denies the untied one, same-transaction read-back only; one sabotage.
+s05c_close_staff_reads_allergies_conditions.sql
+# S05d encounter notes: writes only via tie-gated functions, direct select/insert/update closed for staff and patients, ok / own_only / denied reads with audit basis, worklist own-only, amendment validator still works; two sabotages.
+s05d_encounter_notes_audited_reads_and_writes.sql
+# S05e specialist referrals: visibility rule (tied / creator / assigned / desk), tie-gated writes, ok vs denied reads with audit, counts, closed table, patient_care_gaps overdue-referral branch (service role keeps it); two sabotages.
+s05e_referrals_audited_reads_and_writes.sql
+# S05f medication_logs and symptoms: patient/caregiver/acting-supporter paths keep working, staff (tied, untied, admin, pharmacist, other org) read and write nothing directly, audited dose log and symptoms section open for the tied clinician only with audit basis, red-flag trigger intact; two sabotages.
+s05f_medication_logs_symptoms_audited_and_closed.sql
+# S05f-C1 medications audited reads: patient/caregiver/supporter read through the function with no audit row, tied clinician ok with audit basis, untied/admin/pharmacist/other org denied (audited), embeds served only where visible with one summary audit row, merge counts admin-only, search_vector not leaked; two sabotages.
+s05f_medications_audited_reads.sql
+# S05f-C2 medications writes: tie-gated prescribe / confirm-refill, closed table (staff read, insert, update, delete nothing directly), patient self-add and stop and reminder times kept, clinician-prescribed row immutable to the patient (OQ-11), acting supporter and caregiver paths kept; two sabotages. Existing trigger proofs re-expressed as owner-with-claims.
+s05f_medications_tie_gated_writes.sql
+# S05f-D1 vitals audited reads: patient/caregiver/service role read with no audit row, tied clinician ok (filters, paging, source) with audit basis, untied/admin/pharmacist/other org denied (audited), monitoring roster visible flag per patient, adherence refuses untied, hypertension quality view org-level for staff and intact for non-session callers; two sabotages.
+s05f_vitals_audited_reads.sql
+# S05f-D2 vitals_readings closed: staff read/insert/update/delete nothing directly, audited read opens for the tied clinician, patient/supporter/caregiver paths kept, red-flag and stamping triggers still fire for a patient insert (BP crisis, low SpO2, dangerous pulse); two sabotages.
+s05f_vitals_closed_and_triggers.sql
+# S05f follow-up: staff write policies dropped on patient_documents, family_history, patient_allergies, patient_conditions: no staff role inserts directly, patient own writes kept (allergies, family history, patient-sourced documents), patient cannot add a condition or a clinician-sourced document; two sabotages.
+s05f_four_tables_staff_writes_dropped.sql
+# S05f review follow-up: consultation_prep_bundle, search_patient_record and clear_vitals_validation_flag require the tie (INV-12) instead of any org staff; the two readers audit (basis tied); patient, caregiver grant and support-view paths kept; anon cannot execute; unknown reading id answers like an untied caller; one sabotage.
+s05f_review_tie_gate_definer_functions.sql
+# Prescription PDF phase 1: clinical_staff_directory.license_verified readable by a same-org patient (true / never verified false / expired false), no sensitive columns, anon refused, other org sees none; a patient's own download audit row insert works and a forged actor is refused; one sabotage.
+prescription_pdf_license_flag_and_download_audit.sql
+# Prescription PDF phase 2: public_token stamped (64 hex, distinct) for clinician prescriptions only; anon holder of the token gets proof with no patient column; unknown, malformed, upper-case, null, truncated and non-clinician tokens return nothing; status follows superseded/expired/cancelled; patient cannot rewrite the token; sabotage.
+prescription_public_verification.sql
+# Prescription PDF phase 3: anon pharmacy records a supply (source pharmacy, self-declared names, no recorder); duplicate window; second supply needs a clinician-approved repeat, capped at 1+repeats_allowed; patient collection claim not counted; superseded/expired/stopped/unknown/malformed/invalid refused; verify reports supplies and availability; anon cannot touch the table; sabotage.
+prescription_supply_record_and_repeat_control.sql
+# Prescription PDF phase 4: a new prescription keeps its in-app 'prescribed' notice; an amendment gets 'prescription_updated_patient' and no second 'prescribed' in-app row, other channels unchanged; the daily expiry job queues one in-app notice for a current prescription expiring within 7 days (not later, expired, superseded, stopped or patient-sourced), never twice, not anon-executable; sabotage.
+prescription_amended_and_expiring_notices.sql
+# Doctor signature for the prescription PDF: only an admin (or the system) can set clinical_staff.signature_path, stamped with who and when, malformed paths refused; the private staff-signatures bucket accepts an admin's upload into their own organisation's folder and refuses a clinician, a patient and another organisation's folder; non-admins cannot read the object; the directory view exposes no signature column; sabotage drops the trigger.
+clinical_staff_prescription_signature.sql
+# A prescription must say how much and for how long: prescribe_medication refuses a missing/blank quantity and a missing/zero/negative duration (nothing written); both present are stored trimmed; an untied caller still gets the authorisation refusal first; amend_medication needs both effective values (an older prescription without them is refused until supplied, a blank cannot clear one); sabotage removes the checks.
+prescription_quantity_duration_required.sql
+# Prescription phone desk: staff (admin or active clinical staff) look a prescription up by Rx number + code and record a supply (desk_phone, recorded by the staff member, patient notified, duplicates refused); no patient-name column, the name on the paper only yields matches / does not match; patients, non-staff clinicians and anon refused; lookups audited and the code never stored; sabotage makes the name matcher always true.
+prescription_phone_desk.sql
+s06_offline_client_recorded_time.sql
+s08_medicines_schedule_adherence_refill.sql
+s07_my_home_bp_target.sql
+s07_care_tasks_kind_patient_tasks_view.sql

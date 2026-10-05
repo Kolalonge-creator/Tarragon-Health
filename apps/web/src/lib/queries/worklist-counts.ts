@@ -32,34 +32,28 @@ async function countOpenEscalations(supabase: Client) {
   return count ?? 0;
 }
 
-async function countReferralsNeedingUrgency(supabase: Client) {
-  const { count, error } = await supabase
-    .from("specialist_referrals")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+/**
+ * The three referral counts come from one rule-applying function (S05e): a staff member counts only the referrals she may see (tied, the
+ * creator, the assigned specialist, or the referral desk), so the badge never advertises work she cannot open. Errors throw, as above.
+ */
+async function referralCount(supabase: Client, kind: "needing_urgency" | "waitlisted" | "awaiting_closure") {
+  const { data, error } = await supabase.rpc("referral_worklist_count", { p_kind: kind });
   if (error) throw error;
-  return count ?? 0;
+  return data ?? 0;
+}
+
+async function countReferralsNeedingUrgency(supabase: Client) {
+  return referralCount(supabase, "needing_urgency");
 }
 
 async function countWaitlistedReferrals(supabase: Client) {
-  const { count, error } = await supabase
-    .from("specialist_referrals")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "waitlisted");
-  if (error) throw error;
-  return count ?? 0;
+  return referralCount(supabase, "waitlisted");
 }
 
 /** A referral with an outcome on file (transcribed plan or uploaded
  * document) that hasn't been reviewed & closed yet — task spec §11.15. */
 async function countReferralsAwaitingClosure(supabase: Client) {
-  const { count, error } = await supabase
-    .from("specialist_referrals")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "completed")
-    .or("treatment_plan_received_at.not.is.null,outcome_document_path.not.is.null");
-  if (error) throw error;
-  return count ?? 0;
+  return referralCount(supabase, "awaiting_closure");
 }
 
 async function countOutreachTasks(supabase: Client) {
@@ -328,26 +322,6 @@ async function countTherapyApprovalsWaiting(supabase: Client) {
 }
 
 /**
- * Unread WhatsApp support messages -- a deliberate approximation of
- * support-inbox/page.tsx's own worklist, not an exact copy of it: that page
- * dedupes to one row per patient (most recent message) client-side, which
- * cannot be expressed as a single PostgREST head-count without a database
- * view or RPC. Counting raw unread messages instead means a patient with
- * several unread messages counts more than once here, which only ever
- * overstates how much is waiting -- the safe direction to be imprecise in,
- * never the page's actual displayed number. Revisit with a proper RPC if
- * that gap ever matters enough to close exactly.
- */
-async function countUnreadSupportMessages(supabase: Client) {
-  const { count, error } = await supabase
-    .from("support_messages")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "unread");
-  if (error) throw error;
-  return count ?? 0;
-}
-
-/**
  * Orders needing a home-visit provider assigned -- exact same predicate as
  * the "Home visits & deliveries" page's LabOrdersWorklist (a lab order with
  * no home_visit_provider yet, in payment_confirmed or ordered status --
@@ -473,7 +447,6 @@ export type WorklistCountKey =
   | "openSupportTickets"
   | "openComplaints"
   | "therapyApprovalsWaiting"
-  | "unreadSupportMessages"
   | "careThreadsAwaitingReply"
   | "labOrdersAwaitingHomeVisitAssignment"
   | "labResultConsultsWaiting"
@@ -516,7 +489,6 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   openSupportTickets: countOpenSupportTickets,
   openComplaints: countOpenComplaints,
   therapyApprovalsWaiting: countTherapyApprovalsWaiting,
-  unreadSupportMessages: countUnreadSupportMessages,
   careThreadsAwaitingReply: countCareThreadsAwaitingReply,
   labOrdersAwaitingHomeVisitAssignment: countLabOrdersAwaitingHomeVisitAssignment,
   labResultConsultsWaiting: countLabResultConsultsWaiting,

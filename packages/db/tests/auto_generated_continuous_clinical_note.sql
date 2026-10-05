@@ -42,6 +42,7 @@ declare
   v_note_count  int;
   v_auto_gen    boolean;
   v_author      uuid;
+  v_manual_note uuid;
 begin
   select id into v_pat from public.profiles where role = 'patient' and organisation_id = v_org order by created_at limit 1;
   if v_pat is null then
@@ -63,6 +64,10 @@ begin
         doctor_tier = excluded.doctor_tier
   returning id into v_doc_staff;
 
+  -- S05d: the table is closed to direct staff use; a manual note goes through create_encounter_note, which needs the tie (INV-12).
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
+  values (v_org, v_pat, v_doc, now()) on conflict (patient_id) do update set clinician_id = v_doc;
+
   ---------------------------------------------------------------------------
   -- 1. Resolving an escalation auto-drafts a note, correctly attributed
   --    to whichever doctor it is actually assigned to -> PASS
@@ -76,12 +81,12 @@ begin
 
   update public.escalations set status = 'resolved', identity_confirmed = true where id = v_escalation;
 
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
   select count(*), bool_and(auto_generated), min(authored_by_staff::text)::uuid into v_note_count, v_auto_gen, v_author
     from public.clinical_encounter_notes
     where escalation_id = v_escalation;
-
-  perform set_config('role', 'postgres', true);
-  perform set_config('request.jwt.claims', '', true);
 
   insert into test_result values (1, 'Resolving an escalation auto-drafts a note, correctly attributed', 'PASS',
     case when v_note_count = 1 and v_auto_gen and v_author = v_doc_staff then 'PASS' else 'FAIL' end,
@@ -96,11 +101,11 @@ begin
   update public.escalations set status = 'under_review' where id = v_escalation;
   update public.escalations set status = 'resolved', identity_confirmed = true where id = v_escalation;
 
-  select count(*) into v_note_count from public.clinical_encounter_notes
-    where escalation_id = v_escalation and auto_generated;
-
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
+
+  select count(*) into v_note_count from public.clinical_encounter_notes
+    where escalation_id = v_escalation and auto_generated;
 
   insert into test_result values (2, 'Re-resolving the same escalation does not duplicate the auto-draft', 'PASS',
     case when v_note_count = 1 then 'PASS' else 'FAIL' end, format('note_count=%s (expected 1)', v_note_count));
@@ -112,15 +117,13 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_doc, 'role', 'authenticated')::text, true);
   perform set_config('role', 'authenticated', true);
 
-  insert into public.clinical_encounter_notes (
-    organisation_id, patient_id, encounter_type, reason_for_encounter, auto_generated
-  ) values (
-    v_org, v_pat, 'other', 'Continuous Note Test: manual note claiming auto_generated', true
-  )
-  returning auto_generated into v_auto_gen;
+  -- create_encounter_note has no auto_generated parameter at all (S05d), so a client cannot even ask; the trigger still forces false.
+  v_manual_note := public.create_encounter_note(v_pat, 'other', 'Continuous Note Test: manual note');
 
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
+
+  select auto_generated into v_auto_gen from public.clinical_encounter_notes where id = v_manual_note;
 
   insert into test_result values (3, 'Manual insert cannot self-claim auto_generated=true (no GUC leak)', 'PASS',
     case when v_auto_gen = false then 'PASS' else 'FAIL' end, format('auto_generated=%s (expected false)', v_auto_gen));

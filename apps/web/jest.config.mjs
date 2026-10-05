@@ -24,6 +24,8 @@ const config = {
     // unit-tested (lib/lab-reports/heic.ts, whose HEIC decoding is worth a real
     // test against a real HEIC file).
     "^server-only$": "<rootDir>/src/test/server-only-stub.ts",
+    // S03: the breached-password check is a network call; under Jest it is replaced by a hermetic stub.
+    "^@tarragon/auth/password-check$": "<rootDir>/src/test/password-check-stub.ts",
   },
   testMatch: ["**/src/**/*.test.ts", "**/src/**/*.test.tsx"],
 };
