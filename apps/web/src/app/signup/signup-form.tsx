@@ -248,9 +248,11 @@ function EmailSignupForm({
  */
 export function SignupForm({
   locale = "en",
+  pidginEnabled = true,
   ...props
 }: {
   locale?: Locale;
+  pidginEnabled?: boolean;
   refCode?: string;
   intent?: "health_check" | "support";
   redirectTo?: string;
@@ -259,7 +261,7 @@ export function SignupForm({
 
   return (
     <div className="space-y-5">
-      <LanguageSwitch locale={locale} />
+      <LanguageSwitch locale={locale} pidginEnabled={pidginEnabled} />
       <div role="tablist" aria-label={t("auth.signup.title", locale)} className="grid grid-cols-2 rounded-xl bg-charcoal-ink/5 p-1 text-sm font-medium">
         {(["email", "phone"] as const).map((value) => (
           <button

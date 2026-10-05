@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
-import { asUiLanguage, DEFAULT_UI_LANGUAGE, t, type UiLanguage } from "@tarragon/shared";
+import { resolveUiLanguage, DEFAULT_UI_LANGUAGE, t, type UiLanguage } from "@tarragon/shared";
+import { getPidginEnabled, PIDGIN_SWITCH_TTL_MS } from "./pidgin-switch";
 
 /**
  * The signed-in patient's interface language — the native half of web's
@@ -12,6 +13,7 @@ import { asUiLanguage, DEFAULT_UI_LANGUAGE, t, type UiLanguage } from "@tarragon
  * and this changes only when the patient changes it.
  */
 let cached: Promise<UiLanguage> | null = null;
+let cachedAt = 0;
 
 async function fetchLanguage(): Promise<UiLanguage> {
   try {
@@ -23,7 +25,8 @@ async function fetchLanguage(): Promise<UiLanguage> {
       .select("language")
       .eq("id", userId)
       .maybeSingle();
-    return asUiLanguage(data?.language);
+    // The platform-wide Pidgin kill switch wins over the saved choice.
+    return resolveUiLanguage(data?.language, await getPidginEnabled());
   } catch {
     // A failed preference lookup must never blank a label: fall back to the
     // platform default rather than surfacing an error state.
@@ -32,7 +35,12 @@ async function fetchLanguage(): Promise<UiLanguage> {
 }
 
 export function getUiLanguage(): Promise<UiLanguage> {
-  if (!cached) cached = fetchLanguage();
+  // Re-read every few minutes so an admin switching Pidgin off reaches a phone
+  // that has been open for a while, not only after a restart.
+  if (!cached || Date.now() - cachedAt > PIDGIN_SWITCH_TTL_MS) {
+    cached = fetchLanguage();
+    cachedAt = Date.now();
+  }
   return cached;
 }
 

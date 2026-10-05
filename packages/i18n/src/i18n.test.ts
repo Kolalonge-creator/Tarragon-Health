@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { asLocale, catalogues, en, LOCALES, pcm, t } from "./index";
+import { asLocale, availableLocales, catalogues, en, LOCALES, pcm, resolveLocale, t } from "./index";
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 const BANNED = [/\bcures?\b/i, /\bcured\b/i, /instant doctor/i, /free healthcare/i, /your doctor/i, /—/];
@@ -48,5 +48,19 @@ describe("i18n catalogues", () => {
     expect(asLocale("pcm")).toBe("pcm");
     expect(asLocale(null)).toBe("en");
     expect(asLocale("fr")).toBe("en");
+  });
+});
+
+describe("Pidgin kill switch", () => {
+  it("keeps Pidgin while on and resolves everything to English while off", () => {
+    expect(resolveLocale("pcm", true)).toBe("pcm");
+    expect(resolveLocale("pcm", false)).toBe("en");
+    expect(resolveLocale("en", false)).toBe("en");
+    expect(resolveLocale(undefined, false)).toBe("en");
+  });
+
+  it("offers Pidgin only while on", () => {
+    expect(availableLocales(true)).toEqual(["en", "pcm"]);
+    expect(availableLocales(false)).toEqual(["en"]);
   });
 });

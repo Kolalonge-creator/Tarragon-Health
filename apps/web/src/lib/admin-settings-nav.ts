@@ -375,6 +375,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: anyOf("feature_flags.manage"),
       },
       {
+        href: "/admin/settings/language",
+        label: "Languages",
+        blurb: "One-click switch to turn Pidgin off everywhere and show English only.",
+        icon: NAV_ICON.settings,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/platform-modules",
         label: "Platform modules",
         blurb: "The activation switch for a dormant module, e.g. the insurer or provider-organisation platform.",

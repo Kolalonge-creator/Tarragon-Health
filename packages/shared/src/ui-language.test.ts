@@ -1,4 +1,11 @@
-import { asUiLanguage, DEFAULT_UI_LANGUAGE, hasPidgin, t } from "./ui-language";
+import {
+  asUiLanguage,
+  availableUiLanguages,
+  DEFAULT_UI_LANGUAGE,
+  hasPidgin,
+  resolveUiLanguage,
+  t,
+} from "./ui-language";
 
 describe("ui language", () => {
   it("defaults to English, including for junk and nulls", () => {
@@ -84,5 +91,24 @@ describe("ui language", () => {
     ];
     const missing = stringsUsed.filter((s) => !hasPidgin(s));
     expect(missing).toEqual([]);
+  });
+});
+
+describe("Pidgin kill switch", () => {
+  it("keeps a saved Pidgin choice while the switch is on", () => {
+    expect(resolveUiLanguage("pcm", true)).toBe("pcm");
+    expect(resolveUiLanguage("en", true)).toBe("en");
+    expect(resolveUiLanguage(null, true)).toBe("en");
+  });
+
+  it("resolves everyone to English while the switch is off, whatever they saved", () => {
+    expect(resolveUiLanguage("pcm", false)).toBe("en");
+    expect(resolveUiLanguage("en", false)).toBe("en");
+    expect(resolveUiLanguage(undefined, false)).toBe("en");
+  });
+
+  it("hides the Pidgin option while the switch is off", () => {
+    expect(availableUiLanguages(true)).toEqual(["en", "pcm"]);
+    expect(availableUiLanguages(false)).toEqual(["en"]);
   });
 });

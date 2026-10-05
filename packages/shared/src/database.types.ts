@@ -29572,6 +29572,53 @@ export type Database = {
           },
         ]
       }
+      platform_switches: {
+        Row: {
+          change_note: string | null
+          changed_at: string | null
+          changed_by: string | null
+          created_at: string
+          description: string
+          is_on: boolean
+          key: string
+          label: string
+          readable_by_anon: boolean
+          updated_at: string
+        }
+        Insert: {
+          change_note?: string | null
+          changed_at?: string | null
+          changed_by?: string | null
+          created_at?: string
+          description: string
+          is_on?: boolean
+          key: string
+          label: string
+          readable_by_anon?: boolean
+          updated_at?: string
+        }
+        Update: {
+          change_note?: string | null
+          changed_at?: string | null
+          changed_by?: string | null
+          created_at?: string
+          description?: string
+          is_on?: boolean
+          key?: string
+          label?: string
+          readable_by_anon?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_switches_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       population_data_governance_gates: {
         Row: {
           attested_at: string | null
@@ -44633,8 +44680,13 @@ export type Database = {
         Args: { p_address: Json; p_order_id: string }
         Returns: boolean
       }
+      platform_switch_is_on: { Args: { p_key: string }; Returns: boolean }
       set_platform_module: {
         Args: { p_enabled: boolean; p_key: string; p_note?: string }
+        Returns: Json
+      }
+      set_platform_switch: {
+        Args: { p_key: string; p_note?: string; p_on: boolean }
         Returns: Json
       }
       set_promo_code_active: {

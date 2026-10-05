@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
-import { asUiLanguage } from "@tarragon/shared";
+import { resolveUiLanguage } from "@tarragon/shared";
+import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
 import { ConsentNudgeBanner } from "@/components/shell/consent-nudge-banner";
 import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
@@ -37,6 +38,9 @@ export default async function DashboardLayout({
     )
     .eq("id", user.id)
     .single();
+
+  // Only patients ever see Pidgin; staff consoles are English, so skip the lookup for them.
+  const pidginEnabled = profile?.role === "patient" ? await getPidginEnabled() : false;
 
   // Supporter-only: they fund somebody else's care and receive none here.
   // Somebody who is BOTH keeps the full patient app, with People you support
@@ -142,8 +146,9 @@ export default async function DashboardLayout({
         // Patients only. Staff consoles stay English: the clinical vocabulary
         // they work in has no Pidgin register, and a half-translated clinical
         // console is a safety problem rather than an accessibility win.
-        uiLanguage={profile?.role === "patient" ? asUiLanguage(profile?.language) : "en"}
-        uiLanguageAction={profile?.role === "patient" ? updateUiLanguage : undefined}
+        uiLanguage={profile?.role === "patient" ? resolveUiLanguage(profile?.language, pidginEnabled) : "en"}
+        // The English/Pidgin toggle disappears while an admin has Pidgin switched off.
+        uiLanguageAction={profile?.role === "patient" && pidginEnabled ? updateUiLanguage : undefined}
         initialTheme={theme}
         signOutAction={signOut}
       >
