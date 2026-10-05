@@ -59,4 +59,34 @@ describe("buildTodaysDoseChecklist", () => {
     );
     expect(result).toEqual([]);
   });
+
+  describe("structured schedules (S08)", () => {
+    const monday = Date.parse("2026-10-05T10:00:00Z"); // 11:00 in Lagos
+    const base = { startDate: null, endDate: null, foodNote: null };
+
+    it("lists an every-other-day medicine only on its days", () => {
+      const med = {
+        id: "a",
+        drug_name: "A",
+        schedule_times: ["09:00"],
+        schedule_spec: { ...base, kind: "every_n_days", times: ["09:00"], intervalDays: 2, anchorDate: "2026-10-01" },
+      };
+      expect(buildTodaysDoseChecklist([med], [], monday)).toHaveLength(1);
+      expect(buildTodaysDoseChecklist([med], [], monday + 86_400_000)).toEqual([]);
+    });
+
+    it("lists a weekday medicine only on its weekdays and leaves as-needed out", () => {
+      const meds = [
+        { id: "b", drug_name: "B", schedule_times: ["07:30"], schedule_spec: { ...base, kind: "weekdays", times: ["07:30"], days: [2, 5] } },
+        { id: "c", drug_name: "C", schedule_times: [], schedule_spec: { ...base, kind: "as_needed", maxPerDay: 2 } },
+      ];
+      expect(buildTodaysDoseChecklist(meds, [], monday)).toEqual([]);
+      expect(buildTodaysDoseChecklist(meds, [], monday + 86_400_000).map((i) => i.medicationId)).toEqual(["b"]);
+    });
+
+    it("falls back to the plain list of times when the structured schedule is unreadable", () => {
+      const med = { id: "d", drug_name: "D", schedule_times: ["08:00"], schedule_spec: { kind: "nonsense" } };
+      expect(buildTodaysDoseChecklist([med], [], monday).map((i) => i.time)).toEqual(["08:00"]);
+    });
+  });
 });

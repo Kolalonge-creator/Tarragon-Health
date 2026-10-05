@@ -7,6 +7,7 @@ import { syncAppleHealth, syncHealthConnect } from "./health-sync";
 import { flushDeviceReadingsQueue } from "./offline-queue";
 import { recordSyncError } from "./sync-diagnostics";
 import { flushOutbox } from "./outbox";
+import { replanDoseReminders } from "./dose-reminders";
 import { refreshOfflineSyncConfig } from "./offline-sync-config";
 import { syncThresholdsIfOnline } from "./threshold-sync";
 
@@ -80,6 +81,13 @@ TaskManager.defineTask(TASK_NAME, async () => {
     } catch (error) {
       recordSyncError("offline_vitals", `${Platform.OS}:backgroundFlush`, error);
     }
+
+    // Keep the rolling dose-reminder plan topped up (S08): the plan only reaches as
+    // far as the horizon, and a phone that was not opened for days would otherwise
+    // run out of reminders. replanDoseReminders never throws; a failure is reported
+    // so the reminder health check can say reminders may be unreliable.
+    const replanned = await replanDoseReminders(session.user.id);
+    if (!replanned.ok) recordSyncError("background_sync", `${Platform.OS}:backgroundReplan`, "reminder plan not refreshed");
 
     const result =
       Platform.OS === "ios"
