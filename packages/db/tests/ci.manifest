@@ -808,5 +808,7 @@ s11_triage_rule_sets.sql
 s12_triage_wiring.sql
 s12b_divergence_and_cuff.sql
 s09_record_shares_and_timeline_events.sql
+s13_notifications_framework.sql
+s13b_push_email_fallback.sql
 # The platform-wide Pidgin kill switch: an admin turns it off in one call (no note) and it reads false for a signed-in patient and a signed-out (anon) caller, back on restores it; a patient and anon cannot change it; each change is audited once; an unknown key reads false and cannot be written; sabotage clears the anon opt-in and the anon read must flip false.
 platform_switch_pidgin_kill_switch.sql

@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Switch, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, Switch, Text, TextInput, View } from "react-native";
+import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { DEFAULT_SETTINGS, normaliseTime, validateSettings, type NotificationSettingsValue } from "@tarragon/shared";
+import { useUiLanguage } from "@/lib/ui-language";
+import { loadNotificationSettings, saveNotificationSettings } from "@/lib/notification-settings";
+import { NotificationHealthCard } from "./notification-health-card";
 import {
   loadNotificationPreferences,
   updateNotificationPreference,
@@ -11,7 +16,7 @@ import {
 } from "@/lib/notification-preferences";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
-import { Badge, Card, ErrorText, MutedText, SectionDivider } from "@/ui/legacy-kit";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, SectionDivider } from "@/ui/legacy-kit";
 
 const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
   appointments: "Appointment reminders",
@@ -47,6 +52,33 @@ interface NotificationSettingsScreenProps {
  */
 export function NotificationSettingsScreen({ patientId, organisationId }: NotificationSettingsScreenProps) {
   const colors = useLegacyColors();
+  const language = asLocale(useUiLanguage());
+  const tr = (key: MessageKey) => t(key, language);
+  const [delivery, setDelivery] = useState<NotificationSettingsValue>(DEFAULT_SETTINGS);
+  const [deliveryReady, setDeliveryReady] = useState(false);
+  const [deliveryNote, setDeliveryNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    void loadNotificationSettings(patientId).then((r) => {
+      if (r.ok) setDelivery(r.data);
+      setDeliveryReady(true);
+    });
+  }, [patientId]);
+
+  async function saveDelivery() {
+    setDeliveryNote(null);
+    if (validateSettings(delivery) !== null) {
+      setDeliveryNote(tr("notif.settings.error_times"));
+      return;
+    }
+    const next = {
+      ...delivery,
+      quietStart: normaliseTime(delivery.quietStart) ?? delivery.quietStart,
+      quietEnd: normaliseTime(delivery.quietEnd) ?? delivery.quietEnd,
+    };
+    const r = await saveNotificationSettings(next);
+    setDeliveryNote(tr(r.ok ? "notif.settings.saved" : "notif.settings.error_save"));
+  }
   const [rows, setRows] = useState<PatientNotificationPreferenceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +148,59 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
           <MutedText>Health education & wellness — the easiest to turn down.</MutedText>
         </View>
       </Card>
+
+      <Card style={{ gap: 10 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{tr("notif.settings.quiet_title")}</Text>
+        <MutedText>{tr("notif.settings.quiet_body")}</MutedText>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ fontSize: 13.5, color: colors.ink, flex: 1 }}>{tr("notif.settings.quiet_on")}</Text>
+          <Switch
+            value={delivery.quietEnabled}
+            disabled={!deliveryReady}
+            onValueChange={(v) => setDelivery({ ...delivery, quietEnabled: v })}
+          />
+        </View>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <MutedText>{tr("notif.settings.quiet_from")}</MutedText>
+            <TextInput
+              value={delivery.quietStart}
+              editable={deliveryReady && delivery.quietEnabled}
+              onChangeText={(v) => setDelivery({ ...delivery, quietStart: v })}
+              placeholder="21:00"
+              keyboardType="numbers-and-punctuation"
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, color: colors.ink }}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <MutedText>{tr("notif.settings.quiet_to")}</MutedText>
+            <TextInput
+              value={delivery.quietEnd}
+              editable={deliveryReady && delivery.quietEnabled}
+              onChangeText={(v) => setDelivery({ ...delivery, quietEnd: v })}
+              placeholder="07:00"
+              keyboardType="numbers-and-punctuation"
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, color: colors.ink }}
+            />
+          </View>
+        </View>
+        <SectionDivider />
+        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{tr("notif.settings.discreet_title")}</Text>
+        <MutedText>{tr("notif.settings.discreet_body")}</MutedText>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ fontSize: 13.5, color: colors.ink, flex: 1 }}>{tr("notif.settings.discreet_on")}</Text>
+          <Switch
+            value={delivery.discreet}
+            disabled={!deliveryReady}
+            onValueChange={(v) => setDelivery({ ...delivery, discreet: v })}
+          />
+        </View>
+        <MutedText>{tr("notif.settings.lockscreen_note")}</MutedText>
+        <PrimaryButton title={tr("notif.settings.save")} onPress={() => void saveDelivery()} />
+        {deliveryNote && <MutedText>{deliveryNote}</MutedText>}
+      </Card>
+
+      <NotificationHealthCard />
 
       {loading && <ActivityIndicator color={colors.brand} />}
       {error && <ErrorText>{error}</ErrorText>}

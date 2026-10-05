@@ -2,6 +2,7 @@ import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { reportNotificationOpened } from "@/lib/notification-settings";
 
 /**
  * Registers this device for remote push, closing the one gap left in an
@@ -15,7 +16,37 @@ import { supabase } from "@/lib/supabase";
  * patient who denies push, or a dev build with no EAS project id, still
  * gets a fully working app — just no remote push.
  */
+let reportingOpens = false;
+
+/** The id a push carries in its data (send-pending-notifications puts it there), or null. */
+export function notificationIdFromData(data: unknown): string | null {
+  const id = (data as { notificationId?: unknown } | null | undefined)?.notificationId;
+  return typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id) ? id : null;
+}
+
+/**
+ * Reports a tap on a push (S13b). Listens once per app run, and also handles the tap that launched the app from a
+ * closed state. Opens are what separate "delivered" from "seen", so the server can send one email when a push was not.
+ */
+export function startOpenReporting(): void {
+  if (reportingOpens) return;
+  reportingOpens = true;
+  try {
+    Notifications.addNotificationResponseReceivedListener((response) => {
+      const id = notificationIdFromData(response.notification.request.content.data);
+      if (id) void reportNotificationOpened(id);
+    });
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      const id = notificationIdFromData(response?.notification.request.content.data);
+      if (id) void reportNotificationOpened(id);
+    });
+  } catch {
+    // best effort
+  }
+}
+
 export async function registerPushToken(userId: string, organisationId: string): Promise<void> {
+  startOpenReporting();
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;

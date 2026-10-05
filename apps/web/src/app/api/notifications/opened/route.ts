@@ -37,13 +37,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const supabase = await createClient();
+  // S13b: the RPC stamps opened_at AND writes the 'opened' delivery event that the unopened-push email fallback reads.
+  // Best effort: before the S13b migration is live the RPC does not exist, and the direct update below still stamps it.
+  const { error: rpcError } = await (supabase as unknown as {
+    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }>;
+  }).rpc("report_notification_opened", { p_notification_id: parsed.data.notificationId });
+
   const nowIso = new Date().toISOString();
-  const { error } = await supabase
-    .from("notifications")
-    .update({ status: "read", opened_at: nowIso })
-    .eq("id", parsed.data.notificationId)
-    .eq("recipient_id", user.id)
-    .is("opened_at", null);
+  const base = supabase.from("notifications").update(rpcError ? { status: "read", opened_at: nowIso } : { status: "read" });
+  const { error } = rpcError
+    ? await base.eq("id", parsed.data.notificationId).eq("recipient_id", user.id).is("opened_at", null)
+    : await base.eq("id", parsed.data.notificationId).eq("recipient_id", user.id);
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 200 });

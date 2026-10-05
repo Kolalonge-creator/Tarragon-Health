@@ -410,4 +410,42 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/design/S12.md; OQ-88",
   },
+  {
+    key: "notifications.rules",
+    // Notification framework (S13). The live values are the active row of `notification_rules_config` (versioned in the
+    // database); this entry mirrors it so the owner and the version are recorded with the other PROPOSED values.
+    //  quietHours: routine push and email wait until quiet hours end (21:00 to 07:00 Africa/Lagos); critical rows and the
+    //  in-app inbox are never held. routinePushPerDay: the most routine pushes one person gets in 24 hours; the rest stay in
+    //  the inbox. receiptCheckMinutes: when an Expo ticket's receipt is first checked. receiptGiveUpHours: after this a ticket
+    //  with no receipt is left alone.
+    value: {
+      quietHours: { enabled: true, start: "21:00", end: "07:00" },
+      routinePushPerDay: 4,
+      receiptCheckMinutes: 15,
+      receiptGiveUpHours: 24,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-05",
+    source: "docs/design/S13.md; docs/research/S13.md",
+  },
+  {
+    key: "notifications.rules",
+    // v2 (S13b): adds pushFallback. One generic email when a routine push was accepted but not opened within afterMinutes
+    // (240), for pushes no older than maxAgeHours (24), at most perRecipientPerDay (1) a day, batchSize (200) per 15 minute pass.
+    // Live value: the active row of `notification_rules_config`.
+    value: {
+      quietHours: { enabled: true, start: "21:00", end: "07:00" },
+      routinePushPerDay: 4,
+      receiptCheckMinutes: 15,
+      receiptGiveUpHours: 24,
+      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S13.md; docs/research/S13.md",
+  },
 ];
