@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { AppState, View } from "react-native";
 import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import type { SectionId } from "@/lib/sections";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
 import { registerPushToken } from "@/lib/push-registration";
+import { replanDoseReminders } from "@/lib/dose-reminders";
 import { TopBar } from "@/ui/top-bar";
 import { NavDrawer } from "@/ui/nav-drawer";
 import { BottomTabBar } from "@/ui/bottom-tab-bar";
@@ -183,6 +184,18 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     // into this render.
     void registerPushToken(userId, organisationId);
   }, [userId, organisationId]);
+
+  useEffect(() => {
+    // Dose reminders are a rolling plan held on the phone (S08). Rebuild it when the
+    // app opens and every time it returns to the foreground, so a reminder never
+    // depends on the Medications screen having been visited. Always the device
+    // owner's own medicines, not the acting-for subject's. Never throws.
+    void replanDoseReminders(userId);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void replanDoseReminders(userId);
+    });
+    return () => sub.remove();
+  }, [userId]);
 
   function handleSelect(id: SectionId) {
     setSection(id);

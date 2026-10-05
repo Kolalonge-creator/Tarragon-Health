@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { readMedicationDoseLogAudited } from "@/lib/clinical/dose-log";
+import { readWeeklyAdherence } from "@/lib/clinical/weekly-adherence";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -20,7 +21,10 @@ const STATUS_BADGE: Record<string, { variant: "green" | "red" | "amber"; label: 
 export async function MedicationAdherenceHistory({ patientId }: { patientId: string }) {
   const supabase = await createClient();
   // INV-10: the table is closed to staff. A refusal or error shows as "not available", never as "No doses logged yet".
-  const result = await readMedicationDoseLogAudited(supabase, patientId);
+  const [result, week] = await Promise.all([
+    readMedicationDoseLogAudited(supabase, patientId),
+    readWeeklyAdherence(supabase, patientId),
+  ]);
   const logs = result.status === "ok" ? result.rows : [];
 
   return (
@@ -34,6 +38,30 @@ export async function MedicationAdherenceHistory({ patientId }: { patientId: str
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 rounded-md bg-charcoal-ink/5 p-3 text-sm text-charcoal-ink">
+          {week.status !== "ok" ? (
+            <p className="text-charcoal-ink/60">
+              {week.status === "denied"
+                ? "Weekly adherence is not available to you for this patient."
+                : "Weekly adherence could not be loaded just now."}
+            </p>
+          ) : week.adherence.percent === null ? (
+            <p className="text-charcoal-ink/60">
+              Fewer than the minimum number of doses were due in the last 7 days, so no percentage is shown.
+            </p>
+          ) : (
+            <>
+              <p className="font-medium">
+                Doses marked taken, last 7 days: {week.adherence.percent}% ({week.adherence.taken + week.adherence.late} of {week.adherence.due} due)
+                {week.adherence.belowThreshold ? ` · below the ${week.adherence.thresholdPercent}% review line` : ""}
+              </p>
+              <p className="text-xs text-charcoal-ink/60">
+                Skipped {week.adherence.skipped + week.adherence.unavailable}, no record {week.adherence.missed}. Self-reported by the patient
+                and not a proportion of days covered; it is a prompt to ask, not a grade.
+              </p>
+            </>
+          )}
+        </div>
         {result.status !== "ok" ? (
           <p className="text-sm text-charcoal-ink/60">
             {result.status === "denied"
