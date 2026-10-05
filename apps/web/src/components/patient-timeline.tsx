@@ -47,6 +47,8 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   record_conflict_resolved: { dot: "bg-green-600", label: "Record conflict" },
   clinical_summary_validated: { dot: "bg-green-600", label: "Clinical summary" },
   dependent_account_transitioned: { dot: "bg-clinical-navy dark:bg-blue-400", label: "Account access" },
+  vitals_recorded: { dot: "bg-green-600", label: "Vitals" },
+  prescription_signed: { dot: "bg-clinical-navy dark:bg-blue-400", label: "Prescription" },
 };
 
 // Where each event type's "open it" destination lives, relative to
@@ -75,6 +77,8 @@ const EVENT_LINK_SUBPATH: Partial<Record<TimelineEventType, string>> = {
   condition_recorded: "/health-summary",
   condition_status_changed: "/health-summary",
   document_uploaded: "/health-summary",
+  vitals_recorded: "/vitals",
+  prescription_signed: "/medications",
 };
 
 // Belt-and-braces only — private.record_timeline_event() now strips

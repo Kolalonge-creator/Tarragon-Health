@@ -73,6 +73,16 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Time-limited record share link. Same reasoning as /emergency/: the token
+  // in the URL is the sole authorisation, the page needs no session, a
+  // signed-in user clicking the link must land on the share page (not be
+  // bounced to their dashboard by the role-gating branch below), and the
+  // token must never leak via a Referer header.
+  if (pathname.startsWith("/share/")) {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
   // The mobile app's WebView session bridge (apps/mobile/src/screens/
   // webview-screen.tsx) must run its own client-side setSession() exchange
   // and `next` redirect every time it's hit — authenticated or not. Without
