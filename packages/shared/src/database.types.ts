@@ -32784,6 +32784,95 @@ export type Database = {
           },
         ]
       }
+      record_share_lookups: {
+        Row: {
+          id: string
+          share_id: string
+          looked_up_at: string
+          ip_inet: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          id?: string
+          share_id: string
+          looked_up_at?: string
+          ip_inet?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          id?: string
+          share_id?: string
+          looked_up_at?: string
+          ip_inet?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "record_share_lookups_share_id_fkey"
+            columns: ["share_id"]
+            isOneToOne: false
+            referencedRelation: "record_shares"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      record_shares: {
+        Row: {
+          id: string
+          patient_id: string
+          organisation_id: string
+          token: string
+          sections: string[]
+          expires_at: string
+          is_active: boolean
+          view_count: number
+          last_viewed_at: string | null
+          created_at: string
+          revoked_at: string | null
+        }
+        Insert: {
+          id?: string
+          patient_id: string
+          organisation_id: string
+          token: string
+          sections: string[]
+          expires_at: string
+          is_active?: boolean
+          view_count?: number
+          last_viewed_at?: string | null
+          created_at?: string
+          revoked_at?: string | null
+        }
+        Update: {
+          id?: string
+          patient_id?: string
+          organisation_id?: string
+          token?: string
+          sections?: string[]
+          expires_at?: string
+          is_active?: boolean
+          view_count?: number
+          last_viewed_at?: string | null
+          created_at?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "record_shares_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "record_shares_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reference_code_systems: {
         Row: {
           code: string
@@ -41974,6 +42063,13 @@ export type Database = {
         }
         Returns: string
       }
+      create_record_share: {
+        Args: {
+          p_sections: string[]
+          p_expires_in_hours: number
+        }
+        Returns: Json
+      }
       create_sponsored_service_reservation: {
         Args: {
           p_recipient_first_name: string
@@ -43920,6 +44016,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      record_share_by_token: {
+        Args: { p_token: string }
+        Returns: Json
+      }
       redeem_available_service_purchase: {
         Args: {
           p_entity_id: string
@@ -44355,6 +44455,10 @@ export type Database = {
         Returns: undefined
       }
       revoke_emergency_card: { Args: never; Returns: undefined }
+      revoke_record_share: {
+        Args: { p_share_id: string }
+        Returns: undefined
+      }
       revoke_funding_programme_invitation: {
         Args: { p_invitation_id: string; p_reason?: string }
         Returns: undefined
@@ -47044,6 +47148,8 @@ export type Database = {
         | "record_conflict_resolved"
         | "clinical_summary_validated"
         | "dependent_account_transitioned"
+        | "vitals_recorded"
+        | "prescription_signed"
       triage_category: "emergency" | "urgent" | "routine" | "self_management"
       triage_entry_point:
         | "patient_app"
@@ -49549,6 +49655,8 @@ export const Constants = {
         "record_conflict_resolved",
         "clinical_summary_validated",
         "dependent_account_transitioned",
+        "vitals_recorded",
+        "prescription_signed",
       ],
       triage_category: ["emergency", "urgent", "routine", "self_management"],
       triage_entry_point: [

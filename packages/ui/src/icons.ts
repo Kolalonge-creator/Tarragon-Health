@@ -92,6 +92,7 @@ import {
   Siren,
   LifeBuoy,
   WifiOff,
+  Share2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -233,6 +234,7 @@ export const NAV_ICON = {
   serviceLevels: Timer,
   geographicCapacity: Map,
   offline: WifiOff,
+  share: Share2,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Combined lookup for places that must reference icons by NAME (a plain

@@ -807,3 +807,4 @@ s10_event_bus.sql
 s11_triage_rule_sets.sql
 s12_triage_wiring.sql
 s12b_divergence_and_cuff.sql
+s09_record_shares_and_timeline_events.sql
