@@ -254,8 +254,14 @@ begin
     end;
   end loop;
   insert into results values ('real', 'a window of 0, 90, 360 or JSON null is accepted', '0/4', v_refused::text || '/' || v_accepted::text);
-  insert into results values ('real', 'a schedule with no window at all is accepted', 'true',
-    (exists (select 1 from public.medications where patient_id = v_w1))::text);
+  begin
+    insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, created_at)
+      values (v_org, v_w2, 'S08e No Window', '1', 'daily', '["08:00"]', '{"kind":"daily","times":["08:00"]}', 'patient', true, now() - interval '10 days');
+    v_accepted := 1;
+  exception when check_violation then
+    v_accepted := 0;
+  end;
+  insert into results values ('real', 'a schedule with no windowMinutes key at all is accepted', '1', v_accepted::text);
   insert into results values ('real', 'the latest-per-slot view exposes source', 'true',
     (exists (select 1 from public.medication_logs_latest_per_slot where medication_id = v_med and source = 'system'))::text);
   insert into results values ('real', 'a person-written row shows source patient', 'true',
