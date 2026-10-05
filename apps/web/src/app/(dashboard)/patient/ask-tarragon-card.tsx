@@ -134,8 +134,7 @@ export function AskTarragonCard({
               )}
 
               <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-                General guidance, not a diagnosis. For an emergency, call emergency services or go to
-                the nearest hospital.{" "}
+                General guidance, not a diagnosis. For an emergency, go to the nearest hospital.{" "}
                 <Link href="/patient/care#ai-coach" className="underline">
                   Continue in AI Health Coach →
                 </Link>
