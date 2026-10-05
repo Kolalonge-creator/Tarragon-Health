@@ -19,7 +19,7 @@ import type { BpReading } from "./vitals";
  *   (confirmed). Without one, no reading or day is called above or not above:
  *   the server falls back to its own derived target (135/85, or 130/80 with
  *   diabetes, kidney or heart disease), so a flat guess here could contradict a
- *   clinician alert. See OQ-73.
+ *   clinician alert. See OQ-80.
  * - A day is "above" when ANY of its readings was at or above the target, the
  *   same per-reading rule the server uses, so a day average can never hide a
  *   high reading.
