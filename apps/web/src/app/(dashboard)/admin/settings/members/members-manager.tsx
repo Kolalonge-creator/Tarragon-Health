@@ -31,6 +31,7 @@ import {
   deleteCustomRoleAction,
   type MemberActionState,
 } from "./actions";
+import { suspendScope, SUSPEND_SCOPE_HINT } from "@/lib/auth/member-suspend-scope";
 
 type Feedback = { error?: string; message?: string } | null;
 
@@ -72,6 +73,7 @@ export function MembersManager({
   canEditContact,
   canSuspend,
   currentMemberId,
+  suspendScope: callerScope,
   canGrant,
   canManageRoles,
   canViewActivity,
@@ -88,6 +90,8 @@ export function MembersManager({
   canEditContact: boolean;
   canSuspend: boolean;
   currentMemberId: string;
+  /** The caller's own standing, so the suspend control mirrors the RPC's scope rule. */
+  suspendScope: { isSuperAdmin: boolean; organisationId: string | null };
   canGrant: boolean;
   canManageRoles: boolean;
   canViewActivity: boolean;
@@ -154,6 +158,7 @@ export function MembersManager({
                 canEditContact={canEditContact}
                 canSuspend={canSuspend}
                 currentMemberId={currentMemberId}
+                callerScope={callerScope}
                 canGrant={canGrant}
                 canViewActivity={canViewActivity}
                 pending={pending}
@@ -324,6 +329,7 @@ function MemberItem({
   canEditContact,
   canSuspend,
   currentMemberId,
+  callerScope,
   canGrant,
   canViewActivity,
   pending,
@@ -336,6 +342,7 @@ function MemberItem({
   canEditContact: boolean;
   canSuspend: boolean;
   currentMemberId: string;
+  callerScope: { isSuperAdmin: boolean; organisationId: string | null };
   canGrant: boolean;
   canViewActivity: boolean;
   pending: boolean;
@@ -343,6 +350,15 @@ function MemberItem({
 }) {
   const grantedKeys = new Set(member.grants.map((g) => g.permission_key));
   const isSuperAdmin = member.role === "admin";
+  // What the set_member_active RPC will allow this caller to do to this member.
+  // The RPC is the enforcement; this only keeps the screen from offering a
+  // control the database will refuse, and says why when it hides one.
+  const suspendDecision = canSuspend
+    ? suspendScope(
+        { id: currentMemberId, isSuperAdmin: callerScope.isSuperAdmin, organisationId: callerScope.organisationId },
+        { id: member.id, role: member.role, organisation_id: member.organisation_id }
+      )
+    : null;
   // Only a grant of a platform-control capability is confirmed. Revoking one,
   // or toggling an ordinary capability, stays a single click: those are
   // recoverable, and confirming everything trains people to click through.
@@ -441,7 +457,11 @@ function MemberItem({
           </form>
         )}
 
-        {canSuspend && member.id !== currentMemberId && (
+        {suspendDecision && !suspendDecision.allowed && SUSPEND_SCOPE_HINT[suspendDecision.reason] && (
+          <p className="text-sm text-charcoal-ink/60">{SUSPEND_SCOPE_HINT[suspendDecision.reason]}</p>
+        )}
+
+        {suspendDecision?.allowed && (
           <div>
             <Button
               size="sm"
