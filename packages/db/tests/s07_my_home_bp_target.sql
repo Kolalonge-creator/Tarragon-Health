@@ -1,4 +1,4 @@
--- S07 proof (OQ-73 option a): public.my_home_bp_target() returns the home blood
+-- S07 proof (OQ-80 option a): public.my_home_bp_target() returns the home blood
 -- pressure target the SERVER uses for the signed-in patient, and only hers.
 --
 -- Proves in one rolled-back transaction:

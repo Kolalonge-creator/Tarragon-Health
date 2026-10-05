@@ -15,7 +15,7 @@ import type { BpReading } from "./vitals";
  * - An average appears only past the averaging gate; below it the model carries
  *   what is missing instead, so a thin average is never shown as a trend.
  * - Fewer readings than the chart minimum means a list, not a line.
- * - Statuses exist only against a target the server itself uses (OQ-73): the care
+ * - Statuses exist only against a target the server itself uses (OQ-80): the care
  *   team's, or the standard starting target (135/85, or 130/80 with diabetes,
  *   kidney or heart disease) when none is set, which is labelled as not set by
  *   the care team. When the server's target could not be read, no reading or day

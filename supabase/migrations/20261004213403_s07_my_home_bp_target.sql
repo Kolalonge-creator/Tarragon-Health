@@ -1,4 +1,4 @@
--- S07 (OQ-73, option a): a read-only function that returns the home blood
+-- S07 (OQ-80, option a): a read-only function that returns the home blood
 -- pressure target the SERVER uses for the signed-in patient, so the app can show
 -- the same number the "above target" alerts are decided against.
 --
