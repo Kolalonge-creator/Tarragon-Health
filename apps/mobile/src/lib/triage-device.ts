@@ -15,6 +15,7 @@ import type { VitalReadingPayload } from "./api";
 import { loadTriageWiringConfig } from "./triage-config";
 import { clipIdFor } from "./audio/manifest";
 import { readCachedBpTarget } from "./bp-target";
+import { readObstetricCache, statusFrom } from "./obstetric-status";
 import { cancelRecheckReminder, scheduleRecheckReminder } from "./recheck-reminder";
 import { readLocalRecords } from "./offline-store";
 import { listOutbox } from "./outbox";
@@ -279,21 +280,24 @@ interface Context {
   target: { systolic: number; diastolic: number };
   pending: PendingRecheck | null;
   facts: PatientFacts;
+  obstetric: Awaited<ReturnType<typeof readObstetricCache>>;
   rules: DeviceRuleSet;
 }
 
 async function loadContext(subjectId: string, userId: string, nowMs: number): Promise<Omit<Context, "rules">> {
-  const [history, target, pending, facts] = await Promise.all([
+  const [history, target, pending, facts, obstetric] = await Promise.all([
     localBpHistory(subjectId, nowMs).catch(() => []),
     readCachedBpTarget(userId, subjectId).catch(() => null),
     readPendingRecheck(subjectId),
     readFacts(subjectId),
+    readObstetricCache(subjectId),
   ]);
   return {
     history,
     target: target ? { systolic: target.systolicBelow, diastolic: target.diastolicBelow } : { ...FALLBACK_TARGET },
     pending,
     facts,
+    obstetric,
   };
 }
 
@@ -309,12 +313,13 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
     withBudget(loadDeviceRuleSet(), { ruleSet: BP_CARE_V1, status: "draft" as const }, CONTEXT_BUDGET_MS),
     withBudget<Omit<Context, "rules">>(
       loadContext(req.subjectId, req.userId ?? req.subjectId, nowMs),
-      { history: [], target: { ...FALLBACK_TARGET }, pending: null, facts: { dateOfBirth: null, pregnant: false } },
+      { history: [], target: { ...FALLBACK_TARGET }, pending: null, facts: { dateOfBirth: null, pregnant: false }, obstetric: null },
       CONTEXT_BUDGET_MS,
     ),
   ]);
 
   const reading: Reading = { systolic: req.systolic, diastolic: req.diastolic, takenAt: now };
+  const obstetric = statusFrom(ctx.obstetric, nowMs, rules.ruleSet.params.postpartum?.windowDays);
   const windowMinutes = ctx.pending ? recheckWindowMinutes(rules.ruleSet, ctx.pending.reading) : 0;
   const waited = ctx.pending ? (nowMs - Date.parse(ctx.pending.reading.takenAt)) / 60_000 : null;
   const recheck =
@@ -327,7 +332,8 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
     history: ctx.history,
     target: ctx.target,
     pathway: { state: "self_guided" },
-    pregnant: ctx.facts.pregnant,
+    pregnant: ctx.facts.pregnant || obstetric.pregnant,
+    postpartum: obstetric.postpartum,
     ageYears: ageYearsOn(ctx.facts.dateOfBirth, nowMs),
     now,
   };
@@ -354,13 +360,15 @@ export async function resolveExpiredRecheck(subjectId: string, nowMs: number = D
   const waited = (nowMs - Date.parse(pending.reading.takenAt)) / 60_000;
   if (waited <= recheckWindowMinutes(rules.ruleSet, pending.reading)) return null;
   const ctx = await loadContext(subjectId, subjectId, nowMs);
+  const obstetric = statusFrom(ctx.obstetric, nowMs, rules.ruleSet.params.postpartum?.windowDays);
   const result = grade(
     {
       trigger: { type: "observation", reading: pending.reading, symptoms: [], symptomsAnswered: true, recheck: { kind: "timed_out" } },
       history: ctx.history.filter((h) => h.takenAt !== pending.reading.takenAt),
       target: ctx.target,
       pathway: { state: "self_guided" },
-      pregnant: ctx.facts.pregnant,
+      pregnant: ctx.facts.pregnant || obstetric.pregnant,
+      postpartum: obstetric.postpartum,
       ageYears: ageYearsOn(ctx.facts.dateOfBirth, nowMs),
       now: new Date(nowMs).toISOString(),
     },

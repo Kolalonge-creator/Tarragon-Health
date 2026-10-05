@@ -81,7 +81,11 @@ export const BP_CARE_V1: RuleSet = {
     silence: { days: 5 },
     // Pregnancy: NICE NG133 and ACOG CO 767 call 160/110 severe (emergency); 140/90 is raised (same-day assessment).
     // Postpartum (first 6 weeks): ACOG treatment line 150/100; 160/110 and pre-eclampsia symptoms use the pregnancy lines.
-    postpartum: { reviewSystolic: 150, reviewDiastolic: 100 },
+    // windowDays: how long after a birth counts as postpartum. The phone and the server read it from here.
+    postpartum: { reviewSystolic: 150, reviewDiastolic: 100, windowDays: 42 },
+    // Backup push from the server for a long recheck (CMO decision 2026-10-05): only a recheck of at least minAfterMinutes,
+    // sent delayMinutes after the phone's own reminder was due, and only if the patient has still not measured again.
+    recheckBackupPush: { minAfterMinutes: 60, delayMinutes: 10 },
     pregnancy: { severeSystolic: 160, severeDiastolic: 110, raisedSystolic: 140, raisedDiastolic: 90 },
     symptomGroups: {
       redFlag: [

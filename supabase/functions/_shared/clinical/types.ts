@@ -166,7 +166,8 @@ export interface RuleSet {
     readonly averageWindowDays: number;
     readonly minAdultAgeYears: number;
     readonly silence: { readonly days: number };
-    readonly postpartum: { readonly reviewSystolic: number; readonly reviewDiastolic: number };
+    readonly postpartum: { readonly reviewSystolic: number; readonly reviewDiastolic: number; readonly windowDays: number };
+    readonly recheckBackupPush: { readonly minAfterMinutes: number; readonly delayMinutes: number };
     readonly pregnancy: { readonly severeSystolic: number; readonly severeDiastolic: number; readonly raisedSystolic: number; readonly raisedDiastolic: number };
     readonly adherence: { readonly minPercent: number };
     readonly symptomGroups: { readonly [group: string]: readonly string[]; readonly redFlag: readonly string[] };

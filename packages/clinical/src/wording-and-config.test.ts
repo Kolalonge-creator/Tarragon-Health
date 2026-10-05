@@ -100,12 +100,12 @@ describe("configuration links", () => {
 });
 
 describe("server seed", () => {
-  it("the version 2 draft in the migration is identical to the bundled rule set", async () => {
+  it("the version 2 draft in the migrations (the last one to write it) is identical to the bundled rule set", async () => {
     const { readdirSync, readFileSync } = await import("node:fs");
     const dir = new URL("../../../supabase/migrations/", import.meta.url);
-    const file = readdirSync(dir).find((f) => f.endsWith("_s11c_bp_rule_set_v2_cmo_decisions.sql"));
-    expect(file).toBeDefined();
-    const sql = readFileSync(new URL(file!, dir), "utf8");
+    const files = readdirSync(dir).filter((f) => /_s11[a-z]?_.*\.sql$/.test(f) && readFileSync(new URL(f, dir), "utf8").includes("$rules_json$")).sort();
+    expect(files.length).toBeGreaterThan(0);
+    const sql = readFileSync(new URL(files[files.length - 1]!, dir), "utf8");
     const match = /\$rules_json\$([\s\S]*?)\$rules_json\$/.exec(sql);
     expect(match).not.toBeNull();
     expect(JSON.parse(match![1])).toEqual(JSON.parse(JSON.stringify(BP_CARE_V1)));

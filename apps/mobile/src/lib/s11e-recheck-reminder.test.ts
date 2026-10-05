@@ -3,6 +3,8 @@
  * local notification for 2 hours later (the time comes from the rule set); a graded result cancels it; no permission means
  * no reminder and no error. The wording never names a condition or a reading (INV-07).
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { en, pcm } from "@tarragon/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { postVitalReading } from "./api";
@@ -156,8 +158,8 @@ describe("the 2 hour reminder", () => {
   });
 });
 
+const FORBIDDEN = [/\bblood\b/i, /\bpressure\b/i, /\bbp\b/i, /\breadings?\b/i, /\bhigh\b/i, /\burgent\b/i, /\bemergency\b/i, /\bsymptoms?\b/i, /\bmedic\w*/i, /\bhospital\b/i, /\d/];
 describe("the wording", () => {
-  const FORBIDDEN = [/\bblood\b/i, /\bpressure\b/i, /\bbp\b/i, /\breadings?\b/i, /\bhigh\b/i, /\burgent\b/i, /\bemergency\b/i, /\bsymptoms?\b/i, /\bmedic\w*/i, /\bhospital\b/i, /\d/];
   it("names no condition, reading or number, in either language", () => {
     for (const cat of [en, pcm] as Record<string, string>[]) {
       for (const key of ["notify.triage.recheck_due.title", "notify.triage.recheck_due.body", "notify.triage.recheck_due.channel"]) {
@@ -165,5 +167,17 @@ describe("the wording", () => {
         expect([key, hits]).toEqual([key, []]);
       }
     }
+  });
+
+  it("the server's backup push and the in-app preview say the same neutral thing (INV-07)", () => {
+    const src = readFileSync(join(__dirname, "../../../../supabase/functions/send-pending-notifications/index.ts"), "utf8");
+    const block = /triage_recheck_due: \(\) => \(\{([\s\S]*?)\}\),/.exec(src);
+    expect(block).not.toBeNull();
+    const text = block![1]!.replace(/pushUrl: "[^"]*"/, "");
+    expect(FORBIDDEN.filter((re) => re.test(text)).map((re) => re.source)).toEqual([]);
+    const notif = readFileSync(join(__dirname, "notifications.ts"), "utf8");
+    const preview = /case "triage_recheck_due":[\s\S]*?text: "([^"]*)"/.exec(notif);
+    expect(preview).not.toBeNull();
+    expect(FORBIDDEN.filter((re) => re.test(preview![1]!)).map((re) => re.source)).toEqual([]);
   });
 });

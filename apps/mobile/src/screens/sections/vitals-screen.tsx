@@ -12,6 +12,7 @@ import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChe
 import { logBpWithExtras } from "@/lib/bp-log";
 import { refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
+import { refreshObstetricStatus } from "@/lib/obstetric-status";
 import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
 import {
   validateOtherEntry,
@@ -167,10 +168,12 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       .then(setRulesStale)
       .catch(() => {});
     void refreshPatientFacts(patientId);
+    // Pregnant or just delivered changes which lines grade a reading; kept on the phone for offline readings.
+    void refreshObstetricStatus(beneficiaryProfileId ?? patientId);
     void resolveExpiredRecheck(patientId)
       .then((d) => d && showTriage(d))
       .catch(() => {});
-  }, [patientId, showTriage]);
+  }, [patientId, beneficiaryProfileId, showTriage]);
 
   const load = useCallback(async () => {
     // Enough for a 30 day chart even for someone who logs several times a day.
