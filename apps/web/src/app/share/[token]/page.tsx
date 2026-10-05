@@ -121,6 +121,8 @@ function vitalDisplay(v: Vital): string {
       return `${v.temperature_c ?? "-"} C`;
     case "spo2":
       return `${v.spo2_pct ?? "-"}%`;
+    case "pulse":
+      return `${v.pulse_bpm ?? "-"} bpm`;
     default:
       return "-";
   }

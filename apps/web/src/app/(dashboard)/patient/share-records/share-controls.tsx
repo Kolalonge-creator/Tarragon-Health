@@ -82,10 +82,14 @@ export function ShareControls({
   }, [selectedSections, expiryHours, createShare]);
 
   const handleCopy = useCallback(async (token: string, shareId: string) => {
-    const url = recordShareUrl(token);
-    await navigator.clipboard.writeText(url);
-    setCopiedId(shareId);
-    setTimeout(() => setCopiedId(null), 2000);
+    try {
+      const url = recordShareUrl(token);
+      await navigator.clipboard.writeText(url);
+      setCopiedId(shareId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // Clipboard API unavailable or denied — silently ignore
+    }
   }, []);
 
   const activeShares = shares?.filter(
