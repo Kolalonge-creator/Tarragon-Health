@@ -27,6 +27,22 @@ function withValue(value: unknown) {
   (getProposedConfig as jest.Mock).mockReturnValue({ value, version: 1 });
 }
 
+describe("maxFollowUps (S08g)", () => {
+  it("loads, and accepts zero (no follow-ups at all)", () => {
+    withValue({ ...good, maxFollowUps: 8 });
+    expect(loadMedicineRules().maxFollowUps).toBe(8);
+    withValue({ ...good, maxFollowUps: 0 });
+    expect(loadMedicineRules().maxFollowUps).toBe(0);
+  });
+  it("refuses a missing, negative or non-numeric value", () => {
+    const { maxFollowUps: _omit, ...without } = good;
+    for (const bad of [without, { ...good, maxFollowUps: -1 }, { ...good, maxFollowUps: "8" }]) {
+      withValue(bad);
+      expect(() => loadMedicineRules()).toThrow(/maxFollowUps/);
+    }
+  });
+});
+
 describe("catchUpRetrySeconds", () => {
   it("accepts a short list of positive numbers, and an empty one (no retries)", () => {
     withValue(good);
