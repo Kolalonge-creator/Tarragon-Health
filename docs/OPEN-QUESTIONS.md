@@ -479,3 +479,13 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The spec's red-flag list for blood pressure (BP-R1) includes weakness or numbness, but `symptom_type` has no value for it (the closest, "face/arm weakness or slurred speech", is a one-touch danger sign that writes an `emergency_events` row and only works online). The BP form therefore cannot log it with the other ticks. The form shows a fixed line instead: go to the nearest hospital now if you have weakness on one side, numbness or trouble speaking. Body position (an optional field the research suggested) is not captured either: there is no column for it.
 - Options: (a) keep the fixed guidance line and add the symptom type later, with S11/S12 (recommended; it is an enum change plus the server red-flag rules, and the line already tells the patient what to do); (b) add a `neuro_deficit` symptom type now (one `ALTER TYPE ... ADD VALUE` and a trigger update, a safety-path change without clinician sign-off); (c) route it through the one-touch danger sign path (online only, so it fails exactly when it matters).
 - Decision (founder): pending.
+
+### OQ-84 A dead-lettered urgent delivery raises no alert (raised by S10)
+- A delivery that exhausts its attempts goes to `dead` and is counted in `event_bus_health()` (`dead_urgent`) and logged by `process-events`, but nothing pages a person. Until subscribers exist (S11 onward) nothing can go dead, so there is no live gap today.
+- Options: (a) S19 adds an ops alert when an urgent delivery goes dead, and S37 adds the dashboard tile (recommended; they own paging and the go-live dashboard); (b) add a cron check now that writes a `clinician_alerts`-style row when `dead_urgent > 0`.
+- Decision (founder): pending. Must be settled before S12 registers the red-triage handler.
+
+### OQ-85 `process-events` accepts the public publishable key (raised by S10)
+- Like the other cron-called edge functions it uses `verify_jwt` with the publishable key the cron job sends, so anyone with that public key can trigger a processing pass. Processing is idempotent, so the risk is load, not wrong data.
+- Options: (a) keep, matching the notification sender and the partner webhook drain (recommended for now); (b) add a dedicated shared secret header checked in the function and stored in Vault.
+- Decision (founder): pending.
