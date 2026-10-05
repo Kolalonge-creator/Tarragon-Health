@@ -1,6 +1,6 @@
 -- S08 proof: medicines schedules, the server "missed" job, late-synced taken,
 -- weekly adherence, pill count and refill, the signals, and the access rules
--- (migrations *_s08_medicines_schedules_supply_missed_adherence.sql and *_s08_review_schedule_edit_refill_suspended.sql).
+-- (migrations *_s08_medicines_schedules_supply_missed_adherence.sql, *_s08_review_schedule_edit_refill_suspended.sql and *_s08e_schedule_window_check.sql).
 --
 -- Proves in one rolled-back transaction:
 --   1. The shared schedule expansion cases (packages/medicines schedule.fixtures.ts).
@@ -44,6 +44,7 @@ declare
   v_today date := (now() at time zone 'Africa/Lagos')::date;
   v_med uuid; v_med2 uuid; v_med3 uuid; v_med4 uuid; v_susp uuid; v_rx uuid;
   v_w1 uuid; v_w2 uuid; v_wt text; v_wd date; v_due_exact int; v_due_window int;
+  v_case jsonb; v_refused int; v_accepted int;
   v_n integer; v_n2 integer; v_slot date; v_status text; v_adh jsonb;
   v_miss_logged timestamptz; v_taken_logged timestamptz; v_run date; v_left numeric;
   v_supply record; v_err text; v_payload jsonb;
@@ -228,11 +229,33 @@ begin
     (v_due_exact - v_due_window)::text);
   insert into results values ('real', 'the open dose is not counted as missed either', 'true',
     ((private.weekly_adherence(v_w2) ->> 'missed')::int = (private.weekly_adherence(v_w1) ->> 'missed')::int - 1)::text);
-  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, created_at)
-    values (v_org, v_w2, 'S08b Bad Window', '1', 'daily', '["08:00"]',
-            '{"kind":"daily","times":["08:00"],"windowMinutes":"abc"}', 'patient', true, now() - interval '10 days');
-  insert into results values ('real', 'a malformed window reads as exact and does not raise', 'true',
-    ((private.weekly_adherence(v_w2) ->> 'due') is not null)::text);
+  -- S08e: the database refuses a window the phone would refuse, and accepts the ones it accepts.
+  v_refused := 0; v_accepted := 0;
+  for v_case in select * from jsonb_array_elements('[400, 361, -1, 12.5, "abc", "60", true, [30], {"a": 1}]'::jsonb) loop
+    begin
+      insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, created_at)
+        values (v_org, v_w2, 'S08e Bad Window', '1', 'daily', '["08:00"]',
+                jsonb_build_object('kind', 'daily', 'times', jsonb_build_array('08:00'), 'windowMinutes', v_case), 'patient', true, now() - interval '10 days');
+      v_accepted := v_accepted + 1;
+    exception when check_violation then
+      v_refused := v_refused + 1;
+    end;
+  end loop;
+  insert into results values ('real', 'a window above 360, below 0, fractional or not a number is refused at write time', '9/0', v_refused::text || '/' || v_accepted::text);
+  v_refused := 0; v_accepted := 0;
+  for v_case in select * from jsonb_array_elements('[0, 360, 90, null]'::jsonb) loop
+    begin
+      insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, created_at)
+        values (v_org, v_w2, 'S08e Good Window', '1', 'daily', '["08:00"]',
+                jsonb_build_object('kind', 'daily', 'times', jsonb_build_array('08:00'), 'windowMinutes', v_case), 'patient', true, now() - interval '10 days');
+      v_accepted := v_accepted + 1;
+    exception when check_violation then
+      v_refused := v_refused + 1;
+    end;
+  end loop;
+  insert into results values ('real', 'a window of 0, 90, 360 or JSON null is accepted', '0/4', v_refused::text || '/' || v_accepted::text);
+  insert into results values ('real', 'a schedule with no window at all is accepted', 'true',
+    (exists (select 1 from public.medications where patient_id = v_w1))::text);
   insert into results values ('real', 'the latest-per-slot view exposes source', 'true',
     (exists (select 1 from public.medication_logs_latest_per_slot where medication_id = v_med and source = 'system'))::text);
   insert into results values ('real', 'a person-written row shows source patient', 'true',
