@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { resolveTakenTime, isDoubleTap, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
+import { resolveTakenTime, isDoubleTap, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
 import {
   loadTodaysDoses,
@@ -65,10 +65,7 @@ const ISSUE_TEXT: Record<ReminderIssue, MessageKey> = {
 function windowLabel(item: DoseChecklistItem, tr: (key: MessageKey, params?: Record<string, string | number>) => string): string {
   const minutes = item.windowMinutes ?? 0;
   if (minutes <= 0) return item.time;
-  const [h, m] = item.time.split(":").map(Number);
-  const end = (h * 60 + m + minutes) % (24 * 60);
-  const endText = `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
-  return tr("meds.window.range", { start: item.time, end: endText });
+  return tr("meds.window.range", { start: item.time, end: windowEndTime(item.time, minutes) });
 }
 
 function stateOf(item: DoseChecklistItem): SlotState {

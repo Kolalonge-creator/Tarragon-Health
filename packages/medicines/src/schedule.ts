@@ -132,6 +132,12 @@ export function parseScheduleSpec(input: unknown): ParseResult {
       errors.push("kind");
   }
   if (errors.length > 0 || spec === null) return { ok: false, errors };
+  // A window must close before the next dose time: two overlapping windows leave a dose "due"
+  // after the next one has started, so it could never read as unanswered at the right time.
+  if (windowMinutes > 0) {
+    const timeLists = spec.kind === "taper" ? spec.steps.map((s) => s.times) : spec.kind === "as_needed" ? [] : [spec.times];
+    if (timeLists.some((times) => minGapMinutes(times) <= windowMinutes)) return { ok: false, errors: ["windowMinutes:overlap"] };
+  }
   return { ok: true, spec };
 }
 
@@ -145,6 +151,25 @@ export function specFromLegacyTimes(times: unknown): ScheduleSpec {
   const good = Array.isArray(times) ? [...new Set(times.filter(isValidTime))].sort() : [];
   if (good.length === 0) return { ...common, kind: "as_needed", maxPerDay: null };
   return { ...common, kind: "daily", times: good };
+}
+
+function minutesOf(time: string): number {
+  return Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+}
+
+/** The smallest gap between consecutive dose times in a day, counting the wrap to tomorrow's first dose. 1440 for a single time. */
+function minGapMinutes(times: string[]): number {
+  if (times.length < 2) return 1440;
+  const sorted = times.map(minutesOf).sort((a, b) => a - b);
+  let min = sorted[0] + 1440 - sorted[sorted.length - 1];
+  for (let i = 1; i < sorted.length; i += 1) min = Math.min(min, sorted[i] - sorted[i - 1]);
+  return min;
+}
+
+/** The "HH:MM" a window ends at, wrapping past midnight. */
+export function windowEndTime(time: string, windowMinutes: number): string {
+  const end = (minutesOf(time) + windowMinutes) % 1440;
+  return `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
 }
 
 function timesOnDate(spec: ScheduleSpec, date: LocalDate): { times: string[]; doseText: string | null } {

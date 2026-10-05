@@ -266,6 +266,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     //  serverMissedAfterMinutes: the server marks an unanswered dose missed after this long. Longer than the
     //  on-device two hours so a phone that was offline has time to sync a "taken" first (mirrors medicine_config).
     //  followUpMinWindowMinutes: a flexible window at least this long gets one gentle follow-up at its middle.
+    //  catchUpMinGapMinutes: the catch-up sheet is offered at most this often, so it never nags on every app open.
     //  catchUpMaxItems: the most doses the catch-up sheet asks about at once.
     //  stalePlanHours: a reminder plan older than this is shown as out of date in the health check.
     //  backdateWindowHours mirrors offline_sync_config (S06): the oldest "I took it earlier" time the server keeps.
@@ -277,6 +278,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       stalePlanHours: 24,
       followUpMinWindowMinutes: 30,
       catchUpMaxItems: 12,
+      catchUpMinGapMinutes: 240,
       serverMissedAfterMinutes: 720,
       backdateWindowHours: 72,
       futureSkewMinutes: 5,

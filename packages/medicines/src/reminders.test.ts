@@ -61,6 +61,18 @@ describe("flexible windows", () => {
       ["follow_up", Date.parse("2026-10-05T08:00:00Z")],
     ]);
   });
+  it("gives a follow-up its own id, so a minute that turns into a due dose is rescheduled", () => {
+    const followOnly = planDoseNotifications(windowed(120), new Set(), now, { ...cfg, horizonDays: 1 }).find((p) => p.kind === "follow_up")!;
+    expect(followOnly.id.endsWith("|f")).toBe(true);
+    const meds: ReminderMedicine[] = [...windowed(120), { id: "z", active: true, spec: { ...base, kind: "daily", times: ["09:00"] } }];
+    const merged = planDoseNotifications(meds, new Set(), now, { ...cfg, horizonDays: 1 }).find((p) => p.fireAtMs === followOnly.fireAtMs)!;
+    expect(merged.kind).toBe("due");
+    expect(merged.id.endsWith("|f")).toBe(false);
+    // the phone holds the follow-up id; the new plan asks for the due id: the follow-up is cancelled, the due one scheduled
+    const diff = diffNotifications([merged], [followOnly.id]);
+    expect(diff.toCancel).toEqual([followOnly.id]);
+    expect(diff.toSchedule).toEqual([merged]);
+  });
   it("gives no follow-up to an exact time or a short window", () => {
     expect(planDoseNotifications(windowed(0), new Set(), now, cfg).every((p) => p.kind === "due")).toBe(true);
     expect(planDoseNotifications(windowed(20), new Set(), now, cfg).every((p) => p.kind === "due")).toBe(true);

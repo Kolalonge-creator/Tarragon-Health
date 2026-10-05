@@ -11,6 +11,7 @@ import { loadMedicineRules } from "./medicines-config";
 export type CatchUpChoice = "took" | "skipped" | "not_taken";
 
 const DISMISSED_KEY = "catch-up:dismissed";
+const LAST_OFFERED_KEY = "catch-up:last-offered";
 const KEEP_DISMISSED = 200;
 
 export const catchUpKey = (item: Pick<DoseChecklistItem, "medicationId" | "date" | "time">): string =>
@@ -30,6 +31,29 @@ export function selectCatchUp(items: readonly DoseChecklistItem[], dismissed: Re
     .filter((i) => !dismissed.has(catchUpKey(i)))
     .sort((a, b) => (a.dueAtMs ?? 0) - (b.dueAtMs ?? 0))
     .slice(0, max);
+}
+
+/** True when the sheet has not been offered within the configured gap, so it is never raised on every app open. */
+export function mayOfferCatchUp(lastOfferedMs: number | null, nowMs: number): boolean {
+  if (lastOfferedMs === null || !Number.isFinite(lastOfferedMs) || lastOfferedMs > nowMs) return true;
+  return nowMs - lastOfferedMs >= loadMedicineRules().catchUpMinGapMinutes * 60_000;
+}
+
+export async function loadLastOffered(): Promise<number | null> {
+  try {
+    const raw = await AsyncStorage.getItem(LAST_OFFERED_KEY);
+    return raw ? Number(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveLastOffered(nowMs: number): Promise<void> {
+  try {
+    await AsyncStorage.setItem(LAST_OFFERED_KEY, String(nowMs));
+  } catch {
+    // Best effort: at worst the sheet may be offered a little sooner next time.
+  }
 }
 
 export async function loadDismissed(): Promise<Set<string>> {

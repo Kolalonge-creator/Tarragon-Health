@@ -159,6 +159,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   const [section, setSection] = useState<SectionId>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [acting, setActing] = useState<ActingFor | null>(null);
+  // Whether the acting-for lookup has finished: until then "no acting-for" is only a guess.
+  const [actingChecked, setActingChecked] = useState(false);
   const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
   const [openVideoVisitId, setOpenVideoVisitId] = useState<string | null>(null);
 
@@ -168,7 +170,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     // rejection — the safe default for whose record gets written.
     getActingFor()
       .then(setActing)
-      .catch(() => setActing(null));
+      .catch(() => setActing(null))
+      .finally(() => setActingChecked(true));
   }, []);
 
   useEffect(() => {
@@ -353,7 +356,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
 
       {/* S08b: doses from yesterday and today that closed with no answer, asked about once. The
           device owner's own medicines only, never the person being acted for. */}
-      <CatchUpSheet patientId={userId} organisationId={organisationId} enabled={acting === null} />
+      <CatchUpSheet patientId={userId} organisationId={organisationId} enabled={actingChecked && acting === null} />
 
       <NavDrawer
         visible={drawerOpen}

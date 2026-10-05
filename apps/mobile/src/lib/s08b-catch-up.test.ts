@@ -4,7 +4,7 @@
  * adds one gentle follow-up reminder.
  */
 import { buildTodaysDoseChecklist, loadCatchUpDoses, statusForTakenAt } from "./medications";
-import { answerCatchUp, catchUpKey, loadDismissed, saveDismissed, selectCatchUp, statusForChoice } from "./catch-up";
+import { answerCatchUp, catchUpKey, loadDismissed, loadLastOffered, mayOfferCatchUp, saveDismissed, saveLastOffered, selectCatchUp, statusForChoice } from "./catch-up";
 import { replanDoseReminders } from "./dose-reminders";
 import { enqueue } from "./outbox";
 import { clearLocalMirror } from "./offline-store";
@@ -164,6 +164,24 @@ describe("selecting, answering and remembering", () => {
     expect((await loadDismissed()).size).toBe(0);
     await AsyncStorage.setItem("catch-up:dismissed", JSON.stringify({ not: "a list" }));
     expect((await loadDismissed()).size).toBe(0);
+  });
+});
+
+describe("how often the sheet is offered", () => {
+  const gap = 240 * 60_000;
+  it("offers it the first time, and again only after the gap", () => {
+    expect(mayOfferCatchUp(null, NOW)).toBe(true);
+    expect(mayOfferCatchUp(NOW - gap + 1, NOW)).toBe(false);
+    expect(mayOfferCatchUp(NOW - gap, NOW)).toBe(true);
+  });
+  it("offers it when the stored time is unusable or in the future", () => {
+    expect(mayOfferCatchUp(NaN, NOW)).toBe(true);
+    expect(mayOfferCatchUp(NOW + 1000, NOW)).toBe(true);
+  });
+  it("remembers when it was last offered", async () => {
+    expect(await loadLastOffered()).toBeNull();
+    await saveLastOffered(NOW);
+    expect(await loadLastOffered()).toBe(NOW);
   });
 });
 

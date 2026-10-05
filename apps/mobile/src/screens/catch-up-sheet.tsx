@@ -4,7 +4,7 @@ import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { lagosLocalDate } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
 import { loadCatchUpDoses, type DoseChecklistItem } from "@/lib/medications";
-import { answerCatchUp, catchUpKey, loadDismissed, saveDismissed, selectCatchUp, type CatchUpChoice } from "@/lib/catch-up";
+import { answerCatchUp, catchUpKey, loadDismissed, loadLastOffered, mayOfferCatchUp, saveDismissed, saveLastOffered, selectCatchUp, type CatchUpChoice } from "@/lib/catch-up";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Button, InlineAlert, Sheet } from "@/ui/kit";
 
@@ -32,17 +32,21 @@ export function CatchUpSheet({ patientId, organisationId, enabled }: CatchUpShee
 
   const check = useCallback(async () => {
     if (!enabled) return;
+    if (!mayOfferCatchUp(await loadLastOffered(), Date.now())) return;
     const res = await loadCatchUpDoses(patientId);
     if (!res.ok) return;
     const next = selectCatchUp(res.data, await loadDismissed());
     if (next.length === 0) return;
     shown.current = next.map(catchUpKey);
+    void saveLastOffered(Date.now());
     setItems(next);
     setFailed(false);
     setVisible(true);
   }, [enabled, patientId]);
 
   useEffect(() => {
+    // Turned off (the account is now being acted for): close it rather than leave it over the banner.
+    if (!enabled) setVisible(false);
     void check();
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") void check();

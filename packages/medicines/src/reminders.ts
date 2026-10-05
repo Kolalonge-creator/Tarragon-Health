@@ -83,7 +83,14 @@ export function planDoseNotifications(
   return [...byFire.entries()]
     .sort((a, b) => a[0] - b[0])
     .slice(0, cfg.maxPending)
-    .map(([fireAtMs, v]) => ({ id: `${DOSE_NOTIFICATION_PREFIX}${fireAtMs}`, fireAtMs, kind: v.kind, slotKeys: v.keys.sort() }));
+    // The kind is part of the id: if a minute turns from a follow-up into a due dose, the old
+    // notification (with the follow-up wording) is cancelled and a new one is scheduled.
+    .map(([fireAtMs, v]) => ({
+      id: `${DOSE_NOTIFICATION_PREFIX}${fireAtMs}${v.kind === "follow_up" ? "|f" : ""}`,
+      fireAtMs,
+      kind: v.kind,
+      slotKeys: v.keys.sort(),
+    }));
 }
 
 export interface NotificationDiff {
