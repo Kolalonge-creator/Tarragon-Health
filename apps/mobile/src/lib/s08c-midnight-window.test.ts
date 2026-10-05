@@ -3,7 +3,7 @@
  * closes. 23:00 with a two hour window is still open at 00:30, and the list used to be for the new
  * day only, so the dose could not be logged for up to 90 minutes.
  */
-import { buildTodaysDoseChecklist, loadTodaysDoses } from "./medications";
+import { buildTodaysDoseChecklist, dosesOn, loadTodaysDoses } from "./medications";
 import { enqueue } from "./outbox";
 import { clearLocalMirror } from "./offline-store";
 
@@ -93,6 +93,14 @@ describe("yesterday's open dose on today's list", () => {
   it("lists yesterday's open dose first", () => {
     const early = { id: "early", drug_name: "E", schedule_times: ["00:00"], schedule_spec: null, created_at: "2026-09-01T00:00:00Z" };
     expect(keys(buildTodaysDoseChecklist([early, late], [], AT_0030))[0]).toBe("late@2026-10-05 23:00");
+  });
+});
+
+describe("what counts as today's", () => {
+  it("leaves last night's open dose out of the today counts but keeps undated items", () => {
+    const items = buildTodaysDoseChecklist([late], [], AT_0030);
+    expect(dosesOn(items, "2026-10-06").map((i) => i.date)).toEqual(["2026-10-06"]);
+    expect(dosesOn([{ medicationId: "x", drugName: "X", time: "08:00", status: "pending" }], "2026-10-06")).toHaveLength(1);
   });
 });
 

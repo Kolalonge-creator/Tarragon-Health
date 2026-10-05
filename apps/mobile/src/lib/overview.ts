@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { loadTodaysDoses, todayIsoDate, type QueryResult } from "./medications";
+import { dosesOn, loadTodaysDoses, todayIsoDate, type QueryResult } from "./medications";
 
 export interface SummaryStats {
   latestBp: { systolic: number; diastolic: number } | null;
@@ -57,7 +57,7 @@ export async function getSummaryStats(patientId: string): Promise<QueryResult<Su
     if (!doses.ok) return { ok: false, error: doses.error };
     // A dose still open from last night (a window across midnight) is on the Medications list, not in "today" here.
     const today = todayIsoDate();
-    const todaysDoses = doses.data.filter((d) => !d.date || d.date === today);
+    const todaysDoses = dosesOn(doses.data, today);
 
     const bp = bpRes.data?.[0];
     const glucose = glucoseRes.data?.[0];

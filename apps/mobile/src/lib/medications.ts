@@ -158,6 +158,11 @@ export function buildTodaysDoseChecklist(
   return items.sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "") || a.time.localeCompare(b.time));
 }
 
+/** The doses that belong to a given Lagos date. Last night's still-open dose is on the list but is not "today's". */
+export function dosesOn(doses: readonly DoseChecklistItem[], date: string): DoseChecklistItem[] {
+  return doses.filter((d) => !d.date || d.date === date);
+}
+
 /** Patient-local (Africa/Lagos) calendar date, per CLAUDE.md's fixed timezone rule. */
 export function todayIsoDate(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
@@ -222,12 +227,13 @@ async function localDoses(
 ): Promise<QueryResult<DoseChecklistItem[]>> {
   const meds = await readLocalMedications<MedicationForChecklist>(patientId);
   if (meds.length === 0) return { ok: false, error: serverError };
+  const yesterday = addDays(today, -1);
   const mirrored = (await readLocalRecords<{ medication_id: string; scheduled_time: string | null; status: string; scheduled_for_date: string }>(
     "dose",
     patientId,
     200
   ))
-    .filter((r) => r.scheduled_for_date >= addDays(today, -1))
+    .filter((r) => r.scheduled_for_date >= yesterday)
     .map((r) => ({ medication_id: r.medication_id, scheduled_time: r.scheduled_time, status: r.status as never, scheduled_for_date: r.scheduled_for_date }));
   return { ok: true, data: buildTodaysDoseChecklist(meds, [...pending, ...mirrored]) };
 }

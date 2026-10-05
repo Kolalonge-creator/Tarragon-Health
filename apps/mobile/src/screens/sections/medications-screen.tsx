@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { resolveTakenTime, isDoubleTap, lagosLocalDate, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
+import { resolveTakenTime, isDoubleTap, lagosLocalDate, slotKey, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
 import {
+  dosesOn,
   loadTodaysDoses,
   loadWeeklyAdherence,
   logDose,
@@ -31,7 +32,7 @@ interface MedicationsScreenProps {
 }
 
 /** Matches the slot key the reminder plan uses (medication, Lagos date, time), so snoozes and replans agree and yesterday's open dose never collides with today's. */
-const doseKey = (item: DoseChecklistItem) => `${item.medicationId}|${item.date ?? ""}|${item.time}`;
+const doseKey = (item: DoseChecklistItem) => slotKey(item.medicationId, { date: item.date ?? "", time: item.time });
 
 const STATE_LABEL: Record<SlotState, MessageKey> = {
   upcoming: "meds.state.upcoming",
@@ -267,8 +268,10 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     toast.show({ message: tr(ok ? "meds.reminder_health.test_sent" : "meds.reminder_health.test_failed"), tone: ok ? "info" : "warn" });
   }
 
-  const answeredCount = doses.filter((d) => ANSWERED.includes(stateOf(d)) && stateOf(d) !== "unavailable").length;
-  const takenCount = doses.filter((d) => stateOf(d) === "taken" || stateOf(d) === "late").length;
+  // The progress card is about today; a dose still open from last night is on the list but not counted in it.
+  const todays = dosesOn(doses, lagosLocalDate(Date.now()));
+  const answeredCount = todays.filter((d) => ANSWERED.includes(stateOf(d)) && stateOf(d) !== "unavailable").length;
+  const takenCount = todays.filter((d) => stateOf(d) === "taken" || stateOf(d) === "late").length;
 
   return (
     <Screen>
@@ -323,10 +326,10 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
           <>
             <Card style={{ gap: space.xs }}>
               <AppText variant="bodyStrong" accessibilityLiveRegion="polite">
-                {tr("meds.progress", { taken: takenCount, total: doses.length })}
+                {tr("meds.progress", { taken: takenCount, total: todays.length })}
               </AppText>
               <AppText variant="caption" tone="textMuted">
-                {tr("meds.progress.answered", { answered: answeredCount, total: doses.length })}
+                {tr("meds.progress.answered", { answered: answeredCount, total: todays.length })}
               </AppText>
             </Card>
 
@@ -352,7 +355,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
                             .filter(Boolean)
                             .join(" · ")}
                         </AppText>
-                        {item.date && item.date < lagosLocalDate(now) ? (
+                        {item.date && item.date < lagosLocalDate(Date.now()) ? (
                           <AppText variant="caption" tone="textMuted">
                             {tr("meds.window.from_yesterday")}
                           </AppText>
