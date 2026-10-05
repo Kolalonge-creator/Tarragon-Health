@@ -3,6 +3,7 @@ import { AppState, View } from "react-native";
 import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import type { SectionId } from "@/lib/sections";
+import { expoNotificationTapPort, startNotificationTaps } from "@/lib/notification-tap";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
 import { registerPushToken } from "@/lib/push-registration";
 import { replanDoseReminders } from "@/lib/dose-reminders";
@@ -212,6 +213,17 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     // not only while that screen is open. Only this account's own items are ever touched.
     return startWrittenQuestionFlushing(userId);
   }, [userId]);
+  // A tap on a reminder or a push opens the right screen (the blood pressure screen for a recheck), from closed or running.
+  useEffect(() => {
+    try {
+      return startNotificationTaps(expoNotificationTapPort(), (id) => {
+        setSection(id);
+        setDrawerOpen(false);
+      });
+    } catch {
+      return undefined;
+    }
+  }, []);
 
   function handleSelect(id: SectionId) {
     setSection(id);
