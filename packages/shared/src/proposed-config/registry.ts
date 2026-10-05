@@ -394,4 +394,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/design/S11.md; docs/BUILD-SPEC-v5.md Section 6.2; OQ-86, OQ-87",
   },
+  {
+    key: "triage.wiring_rules",
+    // Triage wiring (S12). These are copied into migration 20261005220819 (the SQL cannot read this registry), so a
+    // change here needs a new migration. symptomLinkMinutes: a symptom ticked within this many minutes of a reading
+    // (before or after it) is graded with that reading. historyDays: how far back the grader looks for earlier readings.
+    // missingEventCatchUpHours: the sweep re-emits a reading with no event if it is newer than this. The phone's own
+    // limits (contextBudgetMs: how long it waits for local history before grading with what it has, so a red result is
+    // never held back; subjectWaitMs: the same for reading the session) are engineering budgets for the 1 second red
+    // rule (INV-06), kept with the rest so they are reviewed together.
+    value: { symptomLinkMinutes: 10, historyDays: 14, missingEventCatchUpHours: 2, contextBudgetMs: 600, subjectWaitMs: 250 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-05",
+    source: "docs/design/S12.md; OQ-88",
+  },
 ];
