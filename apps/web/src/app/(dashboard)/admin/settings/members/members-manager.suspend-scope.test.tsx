@@ -82,6 +82,7 @@ function renderManager(scope: { isSuperAdmin: boolean; organisationId: string | 
       customRoles={[]}
       organisations={[]}
       canProvision={false}
+      provisionCaller={{ isSuperAdmin: false, organisationId: null }}
       canManageOrgs={false}
       canAssignRoles={false}
       canEditContact={false}
@@ -134,6 +135,7 @@ describe("MembersManager suspend controls", () => {
         customRoles={[]}
         organisations={[]}
         canProvision={false}
+        provisionCaller={{ isSuperAdmin: false, organisationId: null }}
         canManageOrgs={false}
         canAssignRoles={false}
         canEditContact={false}
