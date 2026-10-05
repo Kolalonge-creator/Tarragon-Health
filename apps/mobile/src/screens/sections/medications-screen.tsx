@@ -483,7 +483,15 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
         />
       </Card>
 
-      <LegacySheet visible={cabinetOpen} onClose={() => setCabinetOpen(false)} closeLabel={tr("kit.close")} forceLight={false}>
+      {/* The cabinet adds, edits and stops medicines on its own copy of the list; Today's doses and the
+          reminder plan are read again when it closes, so a medicine added there shows up here at once. */}
+      <LegacySheet
+        visible={cabinetOpen}
+        onClose={() => {
+          setCabinetOpen(false);
+          load().catch(() => setLoadError(true));
+        }}
+        closeLabel={tr("kit.close")} forceLight={false}>
         <MedicineCabinetScreen patientId={patientId} organisationId={organisationId} />
       </LegacySheet>
     </Screen>
