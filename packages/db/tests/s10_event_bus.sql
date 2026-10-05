@@ -201,6 +201,8 @@ begin
 
   -- 6. Effects, replay, requeue ----------------------------------------------------------------
   insert into results values ('real', 'an effect records the first time', 'true', public.record_event_effect(v_dlv, v_dlv || ':notify')::text);
+  insert into results values ('real', 'the effect carries the delivery''s organisation', 'true',
+    (select (e.organisation_id = dl.organisation_id)::text from public.event_effects e join public.domain_event_deliveries dl on dl.id = e.delivery_id where e.effect_key = v_dlv || ':notify'));
   insert into results values ('real', 'and not the second (replay safe)', 'false', public.record_event_effect(v_dlv, v_dlv || ':notify')::text);
   insert into results values ('real', 'releasing an effect lets the retry run it again', 'true,true',
     public.release_event_effect(v_dlv, v_dlv || ':notify')::text || ',' || public.record_event_effect(v_dlv, v_dlv || ':notify')::text);
@@ -256,6 +258,32 @@ begin
   insert into results values ('real', 'health reports counts', 'true', (v_h ? 'pending' and v_h ? 'dead_urgent' and (v_h ->> 'pending')::int >= 1)::text);
 
   insert into results select 'real', split_part(x, '|', 1), split_part(x, '|', 2), split_part(x, '|', 3) from unnest(v_buf) x;
+
+  -- Dead urgent delivery opens one ops incident per subscriber; a normal event's dead letter opens none.
+  select count(*) into v_n from public.ops_incidents where external_reference like 'event_bus:s10.%';
+  insert into results values ('real', 'earlier dead normal deliveries opened no incident', '0', v_n::text);
+  v_eu := public.emit_domain_event('page.unacknowledged', v_org, '{"page_id":"dead1"}', 'dead-urg-1', v_p);
+  select delivery_id, lease_token into v_dlv, v_lease from public.claim_event_deliveries(1, true);
+  perform public.fail_event_delivery(v_dlv, v_lease, 'handler bug', true);
+  insert into results values ('real', 'a dead urgent delivery opens a sev2 technical incident', 'technical|sev2|1',
+    (select category::text || '|' || severity::text || '|' || count(*)::text from public.ops_incidents
+      where external_reference = 'event_bus:s10.page' group by category, severity));
+  insert into results values ('real', 'the incident names no patient or payload', 'true',
+    (select (summary not like '%dead1%' and summary like '%s10.page%')::text from public.ops_incidents where external_reference = 'event_bus:s10.page'));
+  v_eu := public.emit_domain_event('page.unacknowledged', v_org, '{"page_id":"dead2"}', 'dead-urg-2', v_p);
+  select delivery_id, lease_token into v_dlv, v_lease from public.claim_event_deliveries(1, true);
+  perform public.fail_event_delivery(v_dlv, v_lease, 'handler bug', true);
+  insert into results values ('real', 'a second dead delivery for the same subscriber adds no duplicate', '1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'event_bus:s10.page'));
+  -- crash path: lease expired at the attempt limit also raises it (after resolving the first)
+  update public.ops_incidents set status = 'resolved', root_cause = 'proof' where external_reference = 'event_bus:s10.page';
+  v_eu := public.emit_domain_event('page.unacknowledged', v_org, '{"page_id":"dead3"}', 'dead-urg-3', v_p);
+  select delivery_id into v_dlv from public.claim_event_deliveries(1, true);
+  update public.domain_event_deliveries set attempt_count = 8, locked_until = now() - interval '1 second' where id = v_dlv;
+  perform public.claim_event_deliveries(1, true);
+  insert into results values ('real', 'a crashed final attempt on an urgent event opens a new incident once the old one is resolved', '2',
+    (select count(*)::text from public.ops_incidents where external_reference = 'event_bus:s10.page'));
+  update public.domain_event_deliveries set status = 'done', done_at = now() where status <> 'done';
 
   -- Org check and erasure.
   insert into public.organisations (name, type) select 'S10 Other Org', type from public.organisations where id = v_org returning id into v_org2;

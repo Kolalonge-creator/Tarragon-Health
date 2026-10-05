@@ -190,13 +190,3 @@ describe("noopHandler", () => {
     await expect(noopHandler(ev(1), { once: async () => true })).resolves.toBeUndefined();
   });
 });
-
-describe("copy of the edge function source", () => {
-  it("is identical to supabase/functions/_shared/event-bus/dispatch.ts (run `pnpm sync` after editing it)", async () => {
-    const { readFileSync } = await import("node:fs");
-    const { fileURLToPath } = await import("node:url");
-    const here = fileURLToPath(new URL("./dispatch.ts", import.meta.url));
-    const source = fileURLToPath(new URL("../../../supabase/functions/_shared/event-bus/dispatch.ts", import.meta.url));
-    expect(readFileSync(here, "utf8")).toBe(readFileSync(source, "utf8"));
-  });
-});

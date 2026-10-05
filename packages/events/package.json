@@ -11,8 +11,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-    "sync": "cp ../../supabase/functions/_shared/event-bus/dispatch.ts src/dispatch.ts"
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --coverage"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",

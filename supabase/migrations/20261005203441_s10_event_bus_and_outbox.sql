@@ -93,9 +93,10 @@ create index domain_event_deliveries_lease_idx on public.domain_event_deliveries
 create index domain_event_deliveries_dead_idx on public.domain_event_deliveries (subscriber_key) where status = 'dead';
 
 create table public.event_effects (
-  effect_key  text primary key check (length(effect_key) between 1 and 300),
-  delivery_id uuid not null references public.domain_event_deliveries(id),
-  created_at  timestamptz not null default now()
+  effect_key      text primary key check (length(effect_key) between 1 and 300),
+  delivery_id     uuid not null references public.domain_event_deliveries(id),
+  organisation_id uuid not null references public.organisations(id),
+  created_at      timestamptz not null default now()
 );
 create index event_effects_delivery_idx on public.event_effects (delivery_id);
 
@@ -200,6 +201,7 @@ begin
         || '/functions/v1/process-events',
       headers := jsonb_build_object(
         'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'edge_function_publishable_key'),
+        'x-process-events-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'process_events_secret'),
         'Content-Type', 'application/json'
       ),
       body := jsonb_build_object('urgent_only', true),
@@ -310,6 +312,45 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------------
+-- A delivery of an urgent event that goes dead must reach a person (OQ-84): it opens one ops incident
+-- per subscriber (sev2, technical) that stays open until someone resolves it. The summary names the
+-- subscriber and event type only, never a patient or a reading. Never fails the caller.
+-- ---------------------------------------------------------------------------
+create or replace function private.raise_dead_urgent_incident(p_delivery_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  d public.domain_event_deliveries%rowtype;
+  e public.domain_events%rowtype;
+  v_ref text;
+begin
+  select * into d from public.domain_event_deliveries where id = p_delivery_id;
+  select * into e from public.domain_events where id = d.event_id;
+  if e.priority is distinct from 'urgent' then
+    return;
+  end if;
+  v_ref := 'event_bus:' || d.subscriber_key;
+  if exists (select 1 from public.ops_incidents
+              where external_reference = v_ref and status not in ('resolved', 'closed')) then
+    return;
+  end if;
+  insert into public.ops_incidents
+    (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+  values
+    (d.organisation_id, 'technical', 'sev2', 'Urgent event delivery failed permanently',
+     format('Subscriber %s could not process an urgent %s event (delivery %s). The event is in the dead letter; fix the handler, then requeue it with requeue_dead_event_deliveries.',
+            d.subscriber_key, e.event_type, d.id),
+     v_ref, now(), now());
+exception when others then
+  raise warning 'could not open an incident for dead delivery %: %', p_delivery_id, sqlerrm;
+end;
+$$;
+revoke all on function private.raise_dead_urgent_incident(uuid) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Processor RPCs (service role only)
 -- ---------------------------------------------------------------------------
 create or replace function private.event_bus_setting()
@@ -339,13 +380,22 @@ as $$
 declare
   c public.event_bus_config%rowtype := private.event_bus_setting();
   v_limit integer := least(coalesce(p_limit, c.batch_size), c.batch_size);
+  v_dead uuid[];
+  v_id uuid;
 begin
   -- A lease that expired on a delivery already at its attempt limit is a crashed
   -- final attempt: it goes to the dead letter instead of running again.
-  update public.domain_event_deliveries d
-     set status = 'dead', locked_until = null, lease_token = null,
-         last_error = coalesce(d.last_error, 'lease expired at the attempt limit'), updated_at = now()
-   where d.status = 'processing' and d.locked_until < now() and d.attempt_count >= c.max_attempts;
+  with dead as (
+    update public.domain_event_deliveries d
+       set status = 'dead', locked_until = null, lease_token = null,
+           last_error = coalesce(d.last_error, 'lease expired at the attempt limit'), updated_at = now()
+     where d.status = 'processing' and d.locked_until < now() and d.attempt_count >= c.max_attempts
+    returning d.id
+  )
+  select array_agg(id) into v_dead from dead;
+  foreach v_id in array coalesce(v_dead, '{}') loop
+    perform private.raise_dead_urgent_incident(v_id);
+  end loop;
 
   return query
   with picked as (
@@ -420,6 +470,7 @@ begin
     update public.domain_event_deliveries
        set status = 'dead', locked_until = null, lease_token = null, last_error = left(coalesce(p_error, 'failed'), 1000), updated_at = now()
      where id = d.id;
+    perform private.raise_dead_urgent_incident(d.id);
   else
     v_status := 'pending';
     v_delay := least(c.backoff_base_seconds * power(2, d.attempt_count - 1), c.backoff_max_seconds)
@@ -443,7 +494,8 @@ set search_path = ''
 as $$
 declare v_rows integer;
 begin
-  insert into public.event_effects (effect_key, delivery_id) values (p_effect_key, p_delivery_id)
+  insert into public.event_effects (effect_key, delivery_id, organisation_id)
+  select p_effect_key, d.id, d.organisation_id from public.domain_event_deliveries d where d.id = p_delivery_id
   on conflict (effect_key) do nothing;
   get diagnostics v_rows = row_count;
   return v_rows = 1;
@@ -618,8 +670,10 @@ insert into public.event_type_versions (event_type, version, required_keys) valu
   ('page.unacknowledged', 1, array['page_id']);
 
 -- ---------------------------------------------------------------------------
--- Schedule: every 15 seconds. Fails closed until the two Vault secrets exist
--- (the same secrets the notification sender and the partner webhook drain use).
+-- Schedule: every 15 seconds. Fails closed until the Vault secrets exist: project_url and
+-- edge_function_publishable_key (shared with the notification sender and the partner webhook drain)
+-- and process_events_secret (this function's own shared secret, OQ-85; also set as the edge
+-- function secret PROCESS_EVENTS_SECRET). Without it the function answers 401 and nothing runs.
 -- ---------------------------------------------------------------------------
 select cron.schedule(
   'process-events',
@@ -630,6 +684,7 @@ select cron.schedule(
       || '/functions/v1/process-events',
     headers := jsonb_build_object(
       'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'edge_function_publishable_key'),
+      'x-process-events-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'process_events_secret'),
       'Content-Type', 'application/json'
     ),
     timeout_milliseconds := 25000

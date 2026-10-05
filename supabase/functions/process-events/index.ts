@@ -1,6 +1,6 @@
 // S10 event bus processor (spec Section 5).
 //
-// pg_cron calls this every 15 seconds; a best-effort pg_net call from the urgent-event trigger
+// pg_cron calls this every 15 seconds (with the shared secret header x-process-events-secret); a best-effort pg_net call from the urgent-event trigger
 // calls it at once for an urgent event (body {"urgent_only": true}). One pass claims batches of
 // deliveries with a lease, runs the registered handler for each, and completes or fails them.
 // All retry, backoff and dead-letter decisions are made in the database (fail_event_delivery),
@@ -39,7 +39,24 @@ interface ClaimRow {
   handler_key: string;
 }
 
+// Constant-time comparison so the secret cannot be guessed by timing.
+function sameSecret(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a);
+  const y = new TextEncoder().encode(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
+  // The publishable key is public, so on its own it must not be enough to start a pass (OQ-85).
+  // Fails closed: no PROCESS_EVENTS_SECRET configured means nothing is processed.
+  const expected = Deno.env.get("PROCESS_EVENTS_SECRET");
+  if (!expected) return Response.json({ error: "not configured" }, { status: 503 });
+  if (!sameSecret(req.headers.get("x-process-events-secret") ?? "", expected)) {
+    return Response.json({ error: "unauthorised" }, { status: 401 });
+  }
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
