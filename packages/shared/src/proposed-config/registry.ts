@@ -381,4 +381,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/design/S10.md; docs/research/S10.md",
   },
+  {
+    key: "triage.bp_rule_set",
+    // Blood pressure triage rules (S11). The thresholds themselves live in the rule set, `packages/clinical`
+    // (`BP_CARE_V1`) and the `triage_rule_sets` row of the same code and version; this entry records the owner and
+    // the sign-off state so the go-live guards dashboard lists it. The rule set stays a draft (the database row is
+    // never `approved`) until the CMO signs it. Rules BP-P1, BP-P2 and BP-A6 are additions beyond the spec table.
+    value: { code: "bp_care_triage", ruleSetVersion: 1, adultAgeYears: 18 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-05",
+    source: "docs/design/S11.md; docs/BUILD-SPEC-v5.md Section 6.2; OQ-86, OQ-87",
+  },
 ];
