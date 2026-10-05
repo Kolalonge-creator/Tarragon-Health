@@ -1496,3 +1496,9 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The S34 prompt asks for under 40 MB and cold start under 3 seconds on a 2 GB Android phone. Spec D.1 and decision DG-1 (2026-10-02) superseded those targets: the floor is a 4 GB Android 10+ or iOS 16+ phone.
 - Options: (a) keep tracking the old numbers as PROPOSED budgets in config and fail CI only on growth (recommended); (b) set new targets for the 4 GB floor; (c) drop size budgets.
 - Decision (founder, 2026-10-07): no pass or fail targets for size or cold start. Build what is needed: the low-data setting, accessibility, and a size and start-time report that is tracked, never a gate. Numbers stay PROPOSED in versioned config for information only.
+
+### OQ-91 Device and server work still owed for the CMO's 200/130 flow (raised by S11c)
+- Built and tested: the engine (new status `symptom_check_required`, new action `ask_symptoms`, a 2 hour recheck timing, `postpartum` and `symptomsAnswered` inputs, `recheckWindowMinutes`), rule set v2, the phone's repeat window by timing, the server context function (postpartum, answered, longest window) and `record_triage_result`.
+- Not built: (1) the phone has no screen for the symptom question (TRI-008) or the 2 hour recheck message (TRI-007) or a 2 hour reminder; today the BP form's checklist counts as the answer, so a patient who ticks nothing at 205/100 goes straight to the rest-and-recheck path with no explicit question. (2) Postpartum is read on the server from `postnatal_profiles`; the phone passes false (as it does for pregnancy, OQ-90). (3) Nothing tells the patient the unaddressed reminder to recheck at 2 hours beyond the repeat task S12 creates (its due time comes from the result, so it is already 2 hours). (4) Pidgin for TRI-007 and TRI-008 is English until reviewed (OQ-74).
+- Options: (a) S12 follow-up adds the question screen and message (recommended); (b) keep the checklist-as-answer bridge.
+- Decision: pending.

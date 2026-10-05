@@ -1023,6 +1023,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S11.md; docs/BUILD-SPEC-v5.md Section 6.2; OQ-86, OQ-87",
   },
   {
+    key: "triage.bp_rule_set",
+    // Version 2 (CMO decisions 2026-10-05): at 200/130 the system asks the symptom question, then medicine, rest and a
+    // 2 hour recheck (BP-R2 is retired); under 90 systolic is flagged; pregnancy and the 6 weeks after birth have their own lines.
+    value: { code: "bp_care_triage", ruleSetVersion: 2, adultAgeYears: 18 },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-05",
+    source: "docs/DECISIONS.md S11 CMO decisions; docs/research/S11-guidelines.md",
+  },
+  {
     key: "triage.wiring_rules",
     // Triage wiring (S12). These are copied into migration 20261005220819 (the SQL cannot read this registry), so a
     // change here needs a new migration. symptomLinkMinutes: a symptom ticked within this many minutes of a reading

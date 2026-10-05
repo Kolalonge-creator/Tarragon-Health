@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   BP_CARE_V1,
+  recheckWindowMinutes,
   grade,
   messageKeyFor,
   validateRuleSet,
@@ -302,7 +303,7 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
   ]);
 
   const reading: Reading = { systolic: req.systolic, diastolic: req.diastolic, takenAt: now };
-  const windowMinutes = rules.ruleSet.params.recheck.windowMinutes;
+  const windowMinutes = ctx.pending ? recheckWindowMinutes(rules.ruleSet, ctx.pending.reading) : 0;
   const waited = ctx.pending ? (nowMs - Date.parse(ctx.pending.reading.takenAt)) / 60_000 : null;
   const recheck =
     ctx.pending && waited !== null && waited >= 0 && waited <= windowMinutes
@@ -310,7 +311,8 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
       : undefined;
 
   const input: TriageInput = {
-    trigger: { type: "observation", reading, symptoms: req.symptoms, ...(recheck ? { recheck } : {}) },
+    // The symptom checklist is on the blood pressure form, so submitting it answers the question (ticking none counts).
+    trigger: { type: "observation", reading, symptoms: req.symptoms, symptomsAnswered: true, ...(recheck ? { recheck } : {}) },
     history: ctx.history,
     target: ctx.target,
     pathway: { state: "self_guided" },
@@ -339,7 +341,7 @@ export async function resolveExpiredRecheck(subjectId: string, nowMs: number = D
   if (!pending) return null;
   const rules = await loadDeviceRuleSet();
   const waited = (nowMs - Date.parse(pending.reading.takenAt)) / 60_000;
-  if (waited <= rules.ruleSet.params.recheck.windowMinutes) return null;
+  if (waited <= recheckWindowMinutes(rules.ruleSet, pending.reading)) return null;
   const ctx = await loadContext(subjectId, subjectId, nowMs);
   const result = grade(
     {

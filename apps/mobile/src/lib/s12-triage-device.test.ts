@@ -112,11 +112,32 @@ describe("safety case 1: offline red reading shows guidance on the device within
     expect(triage.severity).toBe("emergency");
   });
 
-  it("a crisis reading with no symptoms is red too (BP-R2), with the emergency text and its audio clip", async () => {
-    const triage = await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], nowMs: NOW });
-    expect(triage.result).toMatchObject({ grade: "red", ruleId: "BP-R2" });
+  it("a crisis reading with a symptom is red, with the emergency text and its audio clip", async () => {
+    const triage = await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: ["chest_pain"], nowMs: NOW });
+    expect(triage.result).toMatchObject({ grade: "red", ruleId: "BP-R1" });
     expect(triage.message).toEqual({ title: "triage.emg_001.title", body: "triage.emg_001.body" });
     expect(triage.audioId).toBe("EMG-001");
+  });
+
+  it("a crisis reading with no symptom: medicine, rest and a recheck after 2 hours (CMO decision), not red", async () => {
+    const triage = await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], nowMs: NOW });
+    expect(triage.result).toMatchObject({ status: "recheck_required", grade: null, ruleId: "BP-X2", explanationKey: "TRI-007" });
+    expect(triage.result.recheck?.waitMinutes).toBe(120);
+    expect(await readPendingRecheck(SUBJECT)).not.toBeNull();
+  });
+
+  it("the 2 hour repeat: still urgent is amber, and the wait is 4 hours, not 15 minutes", async () => {
+    await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], nowMs: NOW });
+    expect(await resolveExpiredRecheck(SUBJECT, NOW + 30 * 60_000)).toBeNull();
+    const repeat = await gradeOnDevice({ subjectId: SUBJECT, systolic: 190, diastolic: 112, symptoms: [], nowMs: NOW + 125 * 60_000 });
+    expect(repeat.result).toMatchObject({ status: "graded", grade: "amber", ruleId: "BP-A1" });
+  });
+
+  it("no repeat within 4 hours of a crisis reading: graded as if repeated", async () => {
+    await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], nowMs: NOW });
+    expect(await resolveExpiredRecheck(SUBJECT, NOW + 200 * 60_000)).toBeNull();
+    const late = await resolveExpiredRecheck(SUBJECT, NOW + 245 * 60_000);
+    expect(late?.result).toMatchObject({ status: "graded", grade: "amber", ruleId: "BP-A1" });
   });
 
   it("a low reading with fainting uses the low pressure variant", async () => {
@@ -182,7 +203,7 @@ describe("the repeat reading flow", () => {
 
   it("a red repeat is never held back by the wait", async () => {
     await gradeOnDevice({ subjectId: SUBJECT, systolic: 182, diastolic: 112, symptoms: [], nowMs: NOW });
-    const red = await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 110, symptoms: [], nowMs: NOW + 6 * 60_000 });
+    const red = await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 110, symptoms: ["severe_headache"], nowMs: NOW + 6 * 60_000 });
     expect(red.result.grade).toBe("red");
   });
 

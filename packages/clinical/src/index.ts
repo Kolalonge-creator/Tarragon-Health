@@ -1,4 +1,4 @@
-export { grade } from "./engine";
+export { grade, recheckWindowMinutes } from "./engine";
 export { validateInput, validateRuleSet } from "./validate";
 export { BP_CARE_V1 } from "./rules";
 export { actionToString } from "./actions";

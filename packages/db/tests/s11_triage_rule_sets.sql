@@ -42,10 +42,15 @@ begin
   on conflict do nothing;
 
   -- 1. Seed
-  insert into results values ('real', 'seed is one draft bp_care_triage v1', 'bp_care_triage|1|draft|1',
-    (select code || '|' || version || '|' || status || '|' || (select count(*) from public.triage_rule_sets) from public.triage_rule_sets limit 1));
-  insert into results values ('real', 'seed has no approver', 'null', coalesce((select approved_by::text from public.triage_rule_sets where code = 'bp_care_triage'), 'null'));
+  insert into results values ('real', 'seed is a draft bp_care_triage v1', 'bp_care_triage|1|draft',
+    (select code || '|' || version || '|' || status from public.triage_rule_sets where code = 'bp_care_triage' and version = 1));
+  insert into results values ('real', 'bp_care_triage has no approved version and no approver', 'null',
+    coalesce((select approved_by::text from public.triage_rule_sets where code = 'bp_care_triage' and (approved_by is not null or status = 'approved') limit 1), 'null'));
   select rules into v_rules from public.triage_rule_sets where code = 'bp_care_triage' and version = 1;
+  insert into results values ('real', 'v2 (CMO decisions) is a draft with 4 red rules that all page on-call', 'draft|4',
+    (select r2.status || '|' || (select count(*)::text from jsonb_array_elements(r2.rules -> 'rules') rr
+      where rr ->> 'grade' = 'red' and rr -> 'actions' @> '[{"kind":"page_on_call"}]'::jsonb)
+     from public.triage_rule_sets r2 where r2.code = 'bp_care_triage' and r2.version = 2));
   insert into results values ('real', 'seed red rules all page on-call', '5',
     (select count(*)::text from jsonb_array_elements(v_rules -> 'rules') rr
       where rr ->> 'grade' = 'red' and rr -> 'actions' @> '[{"kind":"page_on_call"}]'::jsonb));

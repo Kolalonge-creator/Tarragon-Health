@@ -1,13 +1,14 @@
 import type { Condition, RuleSet } from "../types";
 
 /**
- * Blood pressure triage rule set, version 1 (spec 6.2). DRAFT: every number in
+ * Blood pressure triage rule set, version 2 (spec 6.2 as changed by the CMO decisions of 2026-10-05; version 1 is the
+ * spec table plus BP-P1, BP-P2, BP-A6 and stays in the database as an unused draft). DRAFT: every number in
  * `params` is PROPOSED and needs the Chief Medical Officer's sign-off before the
  * go-live guard opens. The same object is seeded into `triage_rule_sets` (a test
  * keeps the two identical) and bundled in the app for offline red detection.
  *
  * Rules run in this order. Reds first, then the routing rules for pregnancy and
- * age, then the ambers, then the greens. Rules BP-P1 to BP-P4 and BP-A6 are not
+ * age, then the ambers, then the greens. Rules BP-P1 to BP-P5, BP-A6, BP-A7, BP-X1 and BP-X2 are not
  * in the spec's table: they close three gaps the table leaves (a pregnant or
  * under-age user would be graded on adult bands; a red-flag symptom with a
  * reading below the severe line would read as green; a diastolic of 110 to 119
@@ -26,29 +27,49 @@ const urgentPrevious: Condition = {
     { field: "previous.diastolic", op: "gte", value: { ref: "params.urgent.diastolic" } },
   ],
 };
-/** The repeat reading was taken after enough rest, in time, and the first one was also in the urgent range; or the patient never repeated. */
-const repeatConfirmed: Condition = {
+const extremeReading: Condition = {
   any: [
-    {
-      all: [
-        { field: "recheck.kind", op: "eq", value: "repeat" },
-        { field: "recheck.minutesSincePrevious", op: "gte", value: { ref: "params.recheck.afterMinutes" } },
-        { field: "recheck.minutesSincePrevious", op: "lte", value: { ref: "params.recheck.windowMinutes" } },
-        urgentPrevious,
-      ],
-    },
-    { field: "recheck.kind", op: "eq", value: "timed_out" },
+    { field: "reading.systolic", op: "gte", value: { ref: "params.extreme.systolic" } },
+    { field: "reading.diastolic", op: "gte", value: { ref: "params.extreme.diastolic" } },
   ],
 };
+const previousExtreme: Condition = {
+  any: [
+    { field: "previous.systolic", op: "gte", value: { ref: "params.extreme.systolic" } },
+    { field: "previous.diastolic", op: "gte", value: { ref: "params.extreme.diastolic" } },
+  ],
+};
+/** The standard repeat: 5 to 15 minutes after an urgent (but not extreme) first reading. */
+const repeatStandard: Condition = {
+  all: [
+    { field: "recheck.kind", op: "eq", value: "repeat" },
+    { field: "recheck.minutesSincePrevious", op: "gte", value: { ref: "params.recheck.afterMinutes" } },
+    { field: "recheck.minutesSincePrevious", op: "lte", value: { ref: "params.recheck.windowMinutes" } },
+    urgentPrevious,
+    { not: previousExtreme },
+  ],
+};
+/** The extreme repeat: 2 to 4 hours after a first reading of 200/130 or more. */
+const repeatExtreme: Condition = {
+  all: [
+    { field: "recheck.kind", op: "eq", value: "repeat" },
+    { field: "recheck.minutesSincePrevious", op: "gte", value: { ref: "params.extremeRecheck.afterMinutes" } },
+    { field: "recheck.minutesSincePrevious", op: "lte", value: { ref: "params.extremeRecheck.windowMinutes" } },
+    previousExtreme,
+  ],
+};
+const confirmedAny: Condition = { any: [repeatStandard, repeatExtreme, { field: "recheck.kind", op: "eq", value: "timed_out" }] };
 const taskCreated = "notify.triage.task_created";
 
 export const BP_CARE_V1: RuleSet = {
   code: "bp_care_triage",
-  version: 1,
+  version: 2,
   status: "draft",
   params: {
     validation: { systolicMin: 60, systolicMax: 299, diastolicMin: 30, diastolicMax: 200 },
     recheck: { afterMinutes: 5, windowMinutes: 15 },
+    // CMO decision 2026-10-05: at 200/130 or more, rest and recheck after 2 hours (not 5 minutes).
+    extremeRecheck: { afterMinutes: 120, windowMinutes: 240 },
     averageWindowDays: 7,
     minAdultAgeYears: 18,
     severe: { systolic: 180, diastolic: 120 },
@@ -59,6 +80,8 @@ export const BP_CARE_V1: RuleSet = {
     adherence: { minPercent: 80 },
     silence: { days: 5 },
     // Pregnancy: NICE NG133 and ACOG CO 767 call 160/110 severe (emergency); 140/90 is raised (same-day assessment).
+    // Postpartum (first 6 weeks): ACOG treatment line 150/100; 160/110 and pre-eclampsia symptoms use the pregnancy lines.
+    postpartum: { reviewSystolic: 150, reviewDiastolic: 100 },
     pregnancy: { severeSystolic: 160, severeDiastolic: 110, raisedSystolic: 140, raisedDiastolic: 90 },
     symptomGroups: {
       redFlag: [
@@ -99,21 +122,6 @@ export const BP_CARE_V1: RuleSet = {
       actions: [{ kind: "show_emergency_guidance", code: "EMG-001" }, { kind: "page_on_call" }],
     },
     {
-      id: "BP-R2",
-      description: "Extreme reading, with or without symptoms",
-      triggers: ["observation"],
-      result: "grade",
-      grade: "red",
-      explanationKey: "EMG-001",
-      when: {
-        any: [
-          { field: "reading.systolic", op: "gte", value: { ref: "params.extreme.systolic" } },
-          { field: "reading.diastolic", op: "gte", value: { ref: "params.extreme.diastolic" } },
-        ],
-      },
-      actions: [{ kind: "show_emergency_guidance", code: "EMG-001" }, { kind: "page_on_call" }],
-    },
-    {
       id: "BP-R3",
       description: "Low pressure with fainting, confusion or chest pain",
       triggers: ["observation"],
@@ -127,14 +135,14 @@ export const BP_CARE_V1: RuleSet = {
     },
     {
       id: "BP-P3",
-      description: "Pregnancy: severe-range reading is an emergency",
+      description: "Pregnancy or first 6 weeks after birth: severe-range reading is an emergency",
       triggers: ["observation"],
       result: "grade",
       grade: "red",
       explanationKey: "EMG-001",
       when: {
         all: [
-          { field: "pregnant", op: "eq", value: true },
+          { field: "obstetric", op: "eq", value: true },
           {
             any: [
               { field: "reading.systolic", op: "gte", value: { ref: "params.pregnancy.severeSystolic" } },
@@ -147,14 +155,14 @@ export const BP_CARE_V1: RuleSet = {
     },
     {
       id: "BP-P4",
-      description: "Pregnancy: a raised reading with a pre-eclampsia symptom is an emergency",
+      description: "Pregnancy or first 6 weeks after birth: a raised reading with a pre-eclampsia symptom is an emergency",
       triggers: ["observation"],
       result: "grade",
       grade: "red",
       explanationKey: "EMG-001",
       when: {
         all: [
-          { field: "pregnant", op: "eq", value: true },
+          { field: "obstetric", op: "eq", value: true },
           { symptomGroup: "preeclampsiaFlag" },
           {
             any: [
@@ -195,6 +203,30 @@ export const BP_CARE_V1: RuleSet = {
       taskAnchor: "week",
     },
     {
+      id: "BP-P5",
+      description: "First 6 weeks after birth: at or above the postpartum treatment line, routed to a clinician",
+      triggers: ["observation"],
+      result: "grade",
+      grade: "amber",
+      explanationKey: "TRI-002",
+      when: {
+        all: [
+          { field: "postpartum", op: "eq", value: true },
+          {
+            any: [
+              { field: "reading.systolic", op: "gte", value: { ref: "params.postpartum.reviewSystolic" } },
+              { field: "reading.diastolic", op: "gte", value: { ref: "params.postpartum.reviewDiastolic" } },
+            ],
+          },
+        ],
+      },
+      actions: [
+        { kind: "route_referral", reason: "postpartum" },
+        { kind: "create_task", task: "postpartum_review", dueMinutes: 1440, notifyKey: taskCreated },
+      ],
+      taskAnchor: "week",
+    },
+    {
       id: "BP-A6",
       description: "A red-flag symptom with a reading below the severe line",
       triggers: ["observation"],
@@ -215,9 +247,27 @@ export const BP_CARE_V1: RuleSet = {
       result: "grade",
       grade: "amber",
       explanationKey: "TRI-002",
-      when: { all: [urgentReading, { not: redFlag }, repeatConfirmed] },
+      when: { all: [urgentReading, { not: redFlag }, confirmedAny] },
       actions: [{ kind: "create_task", task: "urgent_bp_review", dueMinutes: 240, notifyKey: taskCreated }],
       taskAnchor: "reading",
+    },
+    {
+      id: "BP-X2",
+      description: "200/130 or more, no emergency symptom: take usual medicine if not taken, rest, recheck after 2 hours (CMO decision)",
+      triggers: ["observation"],
+      result: "recheck",
+      recheckTiming: "extreme",
+      explanationKey: "TRI-007",
+      when: {
+        all: [
+          urgentReading,
+          { not: redFlag },
+          { field: "symptoms.answered", op: "eq", value: true },
+          { not: confirmedAny },
+          { any: [extremeReading, previousExtreme] },
+        ],
+      },
+      actions: [{ kind: "prompt_recheck", code: "TRI-007" }],
     },
     {
       id: "BP-A1W",
@@ -225,8 +275,22 @@ export const BP_CARE_V1: RuleSet = {
       triggers: ["observation"],
       result: "recheck",
       explanationKey: "TRI-005",
-      when: { all: [urgentReading, { not: redFlag }, { not: repeatConfirmed }] },
+      when: { all: [urgentReading, { not: redFlag }, { not: confirmedAny }, { not: extremeReading }, { not: previousExtreme }] },
       actions: [{ kind: "prompt_recheck", code: "TRI-005" }],
+    },
+    {
+      id: "BP-X1",
+      description: "200/130 or more and the symptom question not yet answered: ask it first (CMO decision)",
+      triggers: ["observation"],
+      result: "ask",
+      explanationKey: "TRI-008",
+      when: {
+        all: [
+          { field: "symptoms.answered", op: "eq", value: false },
+          { any: [extremeReading, { all: [previousExtreme, urgentReading] }] },
+        ],
+      },
+      actions: [{ kind: "ask_symptoms", code: "TRI-008" }],
     },
     {
       id: "BP-A2",
@@ -257,6 +321,17 @@ export const BP_CARE_V1: RuleSet = {
       grade: "amber",
       explanationKey: "TRI-002",
       when: { all: [{ field: "reading.systolic", op: "lt", value: { ref: "params.low.amberSystolic" } }, { symptomGroup: "dizzy" }] },
+      actions: [{ kind: "create_task", task: "low_bp_review", dueMinutes: 1440, notifyKey: taskCreated }],
+      taskAnchor: "reading",
+    },
+    {
+      id: "BP-A7",
+      description: "Systolic under 90 with no symptom (CMO decision: only under 90 is flagged)",
+      triggers: ["observation"],
+      result: "grade",
+      grade: "amber",
+      explanationKey: "TRI-002",
+      when: { field: "reading.systolic", op: "lt", value: { ref: "params.low.redSystolic" } },
       actions: [{ kind: "create_task", task: "low_bp_review", dueMinutes: 1440, notifyKey: taskCreated }],
       taskAnchor: "reading",
     },
