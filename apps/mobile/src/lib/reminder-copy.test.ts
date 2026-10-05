@@ -6,7 +6,7 @@ import { en, pcm, type MessageKey } from "@tarragon/i18n";
  * are the only strings a reminder notification can show, in both languages, so
  * this fails the build if wording drifts toward something clinical.
  */
-const NOTIFICATION_KEYS = ["reminders.notif.title", "reminders.notif.bp", "reminders.notif.dose"] as const satisfies readonly MessageKey[];
+const NOTIFICATION_KEYS = ["reminders.notif.title", "reminders.notif.bp"] as const satisfies readonly MessageKey[];
 
 const CLINICAL = [
   /blood/i,

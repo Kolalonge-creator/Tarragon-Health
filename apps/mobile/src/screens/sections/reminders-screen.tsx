@@ -13,7 +13,6 @@ import {
   removeBpReminder,
   saveReminderPrefs,
   setBpActive,
-  setDoseOn,
   setQuiet,
   updateBpReminder,
   type DraftError,
@@ -42,13 +41,14 @@ function newId(): string {
 
 /**
  * Reminders (S07). Blood pressure reminders at times and days the patient
- * chooses, medicine reminders that follow her medicine list, optional quiet
- * hours, and a plain account of what is coming up. Everything is saved on the
+ * chooses, optional quiet hours, and a plain account of what is coming up.
+ * Medicine reminders are not set here: they follow the medicine list and are
+ * managed on the Medicines screen (S08). Everything is saved on the
  * phone and scheduled as local notifications, so it works with no signal.
  *
  * What a notification says is fixed and generic (INV-07), so nothing here lets
- * her type notification wording. Medicine reminders are never held by quiet
- * hours, and the screen says so.
+ * her type notification wording. Quiet hours hold blood pressure reminders only;
+ * medicine reminders are never held by them, and the screen says so.
  */
 export function RemindersScreen({ userId }: { userId: string }) {
   const language = asLocale(useUiLanguage());
@@ -168,7 +168,7 @@ export function RemindersScreen({ userId }: { userId: string }) {
     return `${r.times.join(", ")}. ${days}`;
   };
 
-  const needsPermission = permission !== "granted" && (prefs.doseOn || prefs.bp.some((r) => r.active));
+  const needsPermission = permission !== "granted" && prefs.bp.some((r) => r.active);
 
   if (!loaded) return <Screen><AppText variant="body" tone="textMuted">{tr("reminders.title")}</AppText></Screen>;
 
@@ -328,24 +328,8 @@ export function RemindersScreen({ userId }: { userId: string }) {
         ) : null}
       </Card>
 
-      {/* Medicine reminders */}
-      <Card style={{ gap: space.sm }}>
-        <AppText variant="title" heading>
-          {tr("reminders.dose.title")}
-        </AppText>
-        <AppText variant="body" tone="textMuted">
-          {tr("reminders.dose.body")}
-        </AppText>
-        <SegmentedControl
-          accessibilityLabel={tr("reminders.dose.title")}
-          value={prefs.doseOn ? "on" : "off"}
-          onChange={(v) => void persist(setDoseOn(prefs, v === "on"), v === "on")}
-          options={[
-            { value: "on", label: tr("reminders.bp.on") },
-            { value: "off", label: tr("reminders.bp.off") },
-          ]}
-        />
-      </Card>
+      {/* Medicine reminders live on the Medicines screen */}
+      <InlineAlert tone="info" message={tr("reminders.dose.note")} />
 
       {/* Quiet hours */}
       <Card style={{ gap: space.sm }}>
@@ -404,7 +388,7 @@ export function RemindersScreen({ userId }: { userId: string }) {
             return (
               <AppText key={n.identifier} variant="body">
                 {tr("reminders.upcoming.line", {
-                  kind: tr(d.kind === "dose" ? "reminders.kind.dose" : "reminders.kind.bp"),
+                  kind: tr("reminders.kind.bp"),
                   date: `${tr(d.weekdayKey)} ${d.date}`,
                   time: d.time,
                 })}
@@ -419,7 +403,7 @@ export function RemindersScreen({ userId }: { userId: string }) {
           tone="info"
           message={tr("reminders.coverage", {
             date: (() => {
-              const d = describeUpcoming({ identifier: "", kind: "bp", notifyAtMs: upcoming.coveredUntilMs, dueAtMs: upcoming.coveredUntilMs });
+              const d = describeUpcoming({ identifier: "", notifyAtMs: upcoming.coveredUntilMs, dueAtMs: upcoming.coveredUntilMs });
               return `${tr(d.weekdayKey)} ${d.date}`;
             })(),
           })}

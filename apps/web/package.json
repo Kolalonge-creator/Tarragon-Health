@@ -31,6 +31,7 @@
     "@tarragon/auth": "workspace:*",
     "@tarragon/i18n": "workspace:*",
     "@tarragon/lifestyle-engine": "workspace:*",
+    "@tarragon/medicines": "workspace:*",
     "@tarragon/shared": "workspace:*",
     "@tarragon/staff-core": "workspace:*",
     "@tarragon/symptom-triage-engine": "workspace:*",

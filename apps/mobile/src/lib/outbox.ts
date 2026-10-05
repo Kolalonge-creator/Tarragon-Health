@@ -38,6 +38,8 @@ export interface DosePayload {
   scheduled_for_date: string;
   status: string;
   organisation_id: string;
+  /** Why a dose was skipped or could not be taken (a short key, never free text from the patient's medical history). */
+  reason?: string | null;
 }
 
 export type OutboxPayload = VitalReadingPayload | SymptomPayload | DosePayload;
@@ -208,6 +210,14 @@ export interface EnqueueInput {
   payload: OutboxPayload;
   /** True when the device itself classed the reading urgent or emergency. */
   danger?: boolean;
+  /**
+   * When it really happened, ISO. Defaults to now. A dose taken earlier ("I took it
+   * at 8") passes the time the patient chose; the server keeps it only inside its
+   * bounded window and otherwise uses its own time (S06).
+   */
+  recordedAt?: string;
+  /** Do not send before this many seconds have passed (the dose undo window). The row is still durable on the phone. */
+  holdSeconds?: number;
 }
 
 export class NotSignedInError extends Error {
@@ -224,6 +234,8 @@ export async function enqueue(input: EnqueueInput): Promise<OutboxItem> {
   const db = await getDb();
   const clientId = Crypto.randomUUID();
   const now = new Date().toISOString();
+  const recordedAt = input.recordedAt ?? now;
+  const nextAttemptAt = input.holdSeconds ? new Date(Date.now() + input.holdSeconds * 1000).toISOString() : now;
   await db.runAsync(
     `insert into outbox
       (client_id, kind, owner_user_id, subject_id, beneficiary_profile_id, payload, client_recorded_at,
@@ -236,9 +248,9 @@ export async function enqueue(input: EnqueueInput): Promise<OutboxItem> {
       input.subjectId,
       input.beneficiaryProfileId ?? null,
       JSON.stringify(input.payload),
+      recordedAt,
       now,
-      now,
-      now,
+      nextAttemptAt,
       input.danger ? 1 : 0,
     ]
   );
@@ -249,10 +261,10 @@ export async function enqueue(input: EnqueueInput): Promise<OutboxItem> {
     subject_id: input.subjectId,
     beneficiary_profile_id: input.beneficiaryProfileId ?? null,
     payload: JSON.stringify(input.payload),
-    client_recorded_at: now,
+    client_recorded_at: recordedAt,
     created_at: now,
     attempts: 0,
-    next_attempt_at: now,
+    next_attempt_at: nextAttemptAt,
     state: "pending",
     last_error: null,
     last_status: null,
@@ -327,6 +339,23 @@ export async function retryRow(clientId: string): Promise<void> {
  * The only way a row leaves the phone without reaching the server: an explicit,
  * confirmed patient action on a REJECTED row. Never called by the sync worker.
  */
+/**
+ * Take back a row that has not left the phone (the dose undo window). Returns
+ * false when the row is gone, already sent, or belongs to another account, so
+ * the caller can say "too late" instead of pretending it was undone.
+ */
+export async function removePendingRow(clientId: string): Promise<boolean> {
+  const [db, userId] = await Promise.all([getDb(), currentUserId()]);
+  if (!userId) return false;
+  const row = await db.getFirstAsync<{ state: OutboxState }>(
+    "select state from outbox where client_id = ? and owner_user_id = ?",
+    [clientId, userId]
+  );
+  if (!row || row.state !== "pending") return false;
+  await db.runAsync("delete from outbox where client_id = ? and state = 'pending' and owner_user_id = ?", [clientId, userId]);
+  return true;
+}
+
 export async function discardRejectedRow(clientId: string): Promise<boolean> {
   const [db, userId] = await Promise.all([getDb(), currentUserId()]);
   if (!userId) return false;
@@ -402,6 +431,7 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
       scheduled_time: p.scheduled_time,
       scheduled_for_date: p.scheduled_for_date,
       status: p.status as never,
+      reason: p.reason ?? null,
       patient_id: item.subjectId,
       organisation_id: p.organisation_id,
       client_id: item.clientId,

@@ -243,6 +243,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/S07.md section 5 (MyTherapy snooze default; iOS 64 pending cap)",
   },
   {
+    key: "reminders.behaviour",
+    // v2 (S07 reminders, 2026-10-05): iOS keeps only 64 pending local notifications in total, and
+    // two planners now share them: medicines (S08, `maxPending`) and blood pressure
+    // (S07, `maxPendingBp`). 44 + 18 = 62, two under the limit, so neither can push the other's
+    // soonest reminder out. `maxPending` came down from 60 to make room; everything else is as v1.
+    // 18 covers a once-a-day blood pressure reminder for the whole 14-day horizon, and twice a day for 9 days.
+    value: { snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 44, maxPendingBp: 18, horizonDays: 14 },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-05",
+    source: "docs/research/S07.md section 5 (iOS 64 pending cap); shared between S07 blood pressure and S08 medicine reminders",
+  },
+  {
     key: "streaks.rules",
     // Consecutive local days with at least one reading. A freeze is earned every
     // `freezeEarnEveryDays` days of a run, held up to `freezeCap`, and is shown as a
@@ -253,5 +267,40 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-03",
     source: "docs/research/S07.md section 6",
+  },
+  {
+    key: "medicines.dose_rules",
+    // Medicines (S08). The missed window, snooze limits and notification cap come from
+    // `reminders.behaviour`, and the weekly percentage band from `adherence.threshold`;
+    // this entry holds only what is specific to medicines.
+    //  undoSeconds: how long a just-logged dose can be taken back before it leaves the phone.
+    //  doubleTapGuardMs: a second tap on the same dose inside this is ignored.
+    //  lowSupplyDays: running-low reminder fires when the supply lasts this many days or fewer.
+    //  adherenceMinDoses: fewer due doses than this and no percentage is shown.
+    //  serverMissedAfterMinutes: the server marks an unanswered dose missed after this long. Longer than the
+    //  on-device two hours so a phone that was offline has time to sync a "taken" first (mirrors medicine_config).
+    //  followUpMinWindowMinutes: a flexible window at least this long gets one gentle follow-up at its middle.
+    //  catchUpMinGapMinutes: the catch-up sheet is offered at most this often, so it never nags on every app open.
+    //  catchUpMaxItems: the most doses the catch-up sheet asks about at once.
+    //  stalePlanHours: a reminder plan older than this is shown as out of date in the health check.
+    //  backdateWindowHours mirrors offline_sync_config (S06): the oldest "I took it earlier" time the server keeps.
+    value: {
+      undoSeconds: 120,
+      doubleTapGuardMs: 800,
+      lowSupplyDays: 7,
+      adherenceMinDoses: 3,
+      stalePlanHours: 24,
+      followUpMinWindowMinutes: 30,
+      catchUpMaxItems: 12,
+      catchUpMinGapMinutes: 240,
+      serverMissedAfterMinutes: 720,
+      backdateWindowHours: 72,
+      futureSkewMinutes: 5,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-04",
+    source: "docs/research/S08.md sections 2 and 5 (decision table rows 4, 5, 9, 15)",
   },
 ];

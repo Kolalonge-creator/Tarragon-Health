@@ -1,15 +1,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
-import { loadTodaysDoses, type DoseChecklistItem } from "./medications";
-import {
-  dosesToPlanInputs,
-  ownDosesOnly,
-  planCoverage,
-  planReminderNotifications,
-  withLanguage,
-  type PlannedNotification,
-} from "./reminder-plan";
+import { planCoverage, planReminderNotifications, withLanguage, type PlannedNotification } from "./reminder-plan";
 import { loadReminderPrefs } from "./reminder-prefs";
 import { applyPlan, createSerialQueue, type NotificationsPort, type PermissionState, type SyncResult } from "./reminder-sync";
 import { loadReminderBehaviour } from "./s07-config";
@@ -25,8 +17,9 @@ import { getUiLanguage } from "./ui-language";
  * The wording is generic and keyed (INV-07): a reminder never names a
  * condition, a reading or a medicine, because a lock screen can be read by
  * anyone. On Android the channel is also marked private so content is hidden on
- * a secure lock screen. Replaces the old dose-reminders.ts, which named the
- * medicine, was English only and covered today only.
+ * a secure lock screen. Blood pressure only: medicine reminders are S08's
+ * (dose-reminders.ts), on their own channel and "dose|" identifiers; this file
+ * never touches them (REMINDER_ID_PREFIX scopes every cancel).
  */
 
 /** Show a banner and play a sound even while the app is open, otherwise a scheduled local notification only appears once the app is in the background. */
@@ -81,8 +74,8 @@ function makePort(language: string): NotificationsPort {
         identifier: n.identifier,
         content: {
           title: t("reminders.notif.title", locale),
-          body: t(n.kind === "dose" ? "reminders.notif.dose" : "reminders.notif.bp", locale),
-          data: { kind: n.kind },
+          body: t("reminders.notif.bp", locale),
+          data: { kind: "bp" },
         },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(n.notifyAtMs), channelId: CHANNEL_ID },
       });
@@ -93,37 +86,24 @@ function makePort(language: string): NotificationsPort {
 interface BuiltPlan {
   userId: string;
   plan: PlannedNotification[];
-  /** True when the patient wants medicine reminders but her medicine list could not be read. */
-  doseUnknown: boolean;
   language: string;
 }
 
 /** Every sync goes through one queue: two at once can apply an older plan after a newer one. */
 const queue = createSerialQueue();
 
-async function buildPlan(
-  nowMs: number,
-  supplied?: { forPatientId: string; doses: readonly DoseChecklistItem[] },
-): Promise<BuiltPlan | null> {
+async function buildPlan(nowMs: number): Promise<BuiltPlan | null> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
   const userId = session?.user?.id;
   if (!userId) return null;
   const [prefs, language] = await Promise.all([loadReminderPrefs(userId), getUiLanguage()]);
-  // The medicine list is only read when medicine reminders are on, and not at all when the
-  // caller (the Medications screen) already has today's list, which also lets a dose that was
-  // just marked taken drop its reminder before the log itself has finished saving.
-  // A supplied list counts only when it is the signed-in user's own (not someone she is acting for).
-  const knownDoses = ownDosesOnly(userId, supplied);
-  const doses = !prefs.doseOn ? null : knownDoses ? ({ ok: true, data: [...knownDoses] } as const) : await loadTodaysDoses(userId);
-  const inputs = doses && doses.ok ? dosesToPlanInputs(doses.data) : { doseSchedules: [], handledDoseSlots: new Set<string>() };
   return {
     userId,
     language,
-    doseUnknown: prefs.doseOn && !(doses && doses.ok),
     // The language is part of each identifier, so a language change replaces the scheduled text.
-    plan: withLanguage(planReminderNotifications({ prefs, ...inputs }, nowMs, loadReminderBehaviour()), language),
+    plan: withLanguage(planReminderNotifications({ prefs }, nowMs, loadReminderBehaviour()), language),
   };
 }
 
@@ -131,22 +111,16 @@ const NO_USER: SyncResult = { status: "nothing_to_do", permission: "undetermined
 
 /**
  * Brings the phone's scheduled reminders in line with the patient's settings.
- * Safe to call as often as you like (launch, foreground, after a dose is
- * logged, the background task) and never throws. Pass `askPermission` only
+ * Safe to call as often as you like (launch, foreground, after an edit on the Reminders
+ * screen, the background task) and never throws. Pass `askPermission` only
  * from something the patient just did.
  */
-export function syncReminders(
-  options: { askPermission?: boolean; doses?: readonly DoseChecklistItem[]; dosesFor?: string } = {},
-): Promise<SyncResult> {
-  const supplied = options.doses && options.dosesFor ? { forPatientId: options.dosesFor, doses: options.doses } : undefined;
+export function syncReminders(options: { askPermission?: boolean } = {}): Promise<SyncResult> {
   return queue
     .run(async () => {
-      const built = await buildPlan(Date.now(), supplied);
+      const built = await buildPlan(Date.now());
       if (!built) return NO_USER;
-      return applyPlan(makePort(built.language), built.plan, {
-        askPermission: options.askPermission === true,
-        preserve: built.doseUnknown ? ["dose"] : [],
-      });
+      return applyPlan(makePort(built.language), built.plan, { askPermission: options.askPermission === true });
     })
     .catch(() => ({ ...NO_USER, status: "failed" as const }));
 }

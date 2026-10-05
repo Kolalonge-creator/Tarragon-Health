@@ -53,7 +53,10 @@ export interface ReminderBehaviourConfig {
   snoozeMinutes: number;
   maxSnoozes: number;
   missedAfterMinutes: number;
+  /** Medicine reminders (S08). */
   maxPending: number;
+  /** Blood pressure reminders (S07). maxPending + maxPendingBp stays under the phone's 64. */
+  maxPendingBp: number;
   horizonDays: number;
 }
 
@@ -160,6 +163,7 @@ export function loadReminderBehaviour(asOf?: string): ReminderBehaviourConfig {
     maxSnoozes: num(raw, "maxSnoozes", key),
     missedAfterMinutes: num(raw, "missedAfterMinutes", key, 1),
     maxPending: num(raw, "maxPending", key, 1),
+    maxPendingBp: num(raw, "maxPendingBp", key, 1),
     horizonDays: num(raw, "horizonDays", key, 1),
   };
 }

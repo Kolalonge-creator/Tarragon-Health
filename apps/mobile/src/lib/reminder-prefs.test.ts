@@ -11,7 +11,6 @@ import {
   sanitizePrefs,
   saveReminderPrefs,
   setBpActive,
-  setDoseOn,
   setQuiet,
   updateBpReminder,
 } from "./reminder-prefs";
@@ -86,9 +85,8 @@ describe("editing", () => {
     expect(setQuiet(set, null).quiet).toBeNull();
   });
 
-  it("defaults: medicine reminders on, no quiet hours, no BP reminders", () => {
-    expect(DEFAULT_PREFS).toEqual({ version: 1, bp: [], doseOn: true, quiet: null });
-    expect(setDoseOn(DEFAULT_PREFS, false).doseOn).toBe(false);
+  it("defaults: no quiet hours, no BP reminders, and no medicine setting (medicines are S08's)", () => {
+    expect(DEFAULT_PREFS).toEqual({ version: 1, bp: [], quiet: null });
   });
 });
 
@@ -100,13 +98,13 @@ describe("sanitizePrefs", () => {
     // A future version is not read at all, even if it looks valid.
     expect(sanitizePrefs({ version: 2, bp: [{ id: "a", times: ["08:00"], days: null }] })).toEqual(DEFAULT_PREFS);
     // Right version, wrong shape: keep what is valid (nothing) and the defaults for the rest.
-    expect(sanitizePrefs({ version: 1, bp: "no" })).toEqual({ version: 1, bp: [], doseOn: true, quiet: null });
+    expect(sanitizePrefs({ version: 1, bp: "no" })).toEqual({ version: 1, bp: [], quiet: null });
   });
 
   it("drops a reminder that is not valid and keeps the rest", () => {
     const out = sanitizePrefs({
       version: 1,
-      doseOn: false,
+      doseOn: false, // saved by an earlier build; ignored now
       bp: [
         { id: "ok", times: ["8:00"], days: [1], active: true },
         { id: "", times: ["08:00"], days: null },
@@ -117,7 +115,8 @@ describe("sanitizePrefs", () => {
       quiet: { startHour: 22, endHour: 7 },
     });
     expect(out.bp).toEqual([{ id: "ok", times: ["08:00"], days: [1], active: true }]);
-    expect(out).toMatchObject({ doseOn: false, quiet: { startHour: 22, endHour: 7 } });
+    expect(out).toEqual({ version: 1, bp: [{ id: "ok", times: ["08:00"], days: [1], active: true }], quiet: { startHour: 22, endHour: 7 } });
+    expect(out).not.toHaveProperty("doseOn");
   });
 
   it("ignores unusable quiet hours and caps the number of reminders", () => {

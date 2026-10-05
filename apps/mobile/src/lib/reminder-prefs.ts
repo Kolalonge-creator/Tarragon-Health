@@ -16,11 +16,11 @@ export const MAX_BP_REMINDERS = 6;
 export const MAX_TIMES_PER_REMINDER = 4;
 
 /**
- * Medicine reminders default to ON because the app already reminded patients of
- * their doses before this screen existed; turning them off by default would
- * silently remove a safety net. Quiet hours default to none.
+ * Blood pressure reminders only: medicine reminders belong to the Medicines screen (S08) and
+ * are not a setting here. A `doseOn` saved by an earlier build of this screen is ignored.
+ * Quiet hours default to none.
  */
-export const DEFAULT_PREFS: ReminderPrefs = { version: 1, bp: [], doseOn: true, quiet: null };
+export const DEFAULT_PREFS: ReminderPrefs = { version: 1, bp: [], quiet: null };
 
 export type DraftError = "no_times" | "bad_time" | "too_many_times" | "no_days" | "bad_days" | "too_many_reminders";
 
@@ -82,10 +82,6 @@ export function setBpActive(prefs: ReminderPrefs, id: string, active: boolean): 
   return { ...prefs, bp: prefs.bp.map((r) => (r.id === id ? { ...r, active } : r)) };
 }
 
-export function setDoseOn(prefs: ReminderPrefs, doseOn: boolean): ReminderPrefs {
-  return { ...prefs, doseOn };
-}
-
 /** A quiet period needs two different whole hours; anything else is rejected and the old value is kept. */
 export function setQuiet(prefs: ReminderPrefs, quiet: QuietHours | null): ReminderPrefs {
   if (quiet === null) return { ...prefs, quiet: null };
@@ -114,13 +110,13 @@ function sanitiseReminder(raw: unknown): BpReminder | null {
 /** Turns whatever was saved into valid settings. Anything unusable is dropped; nothing throws. */
 export function sanitizePrefs(raw: unknown): ReminderPrefs {
   if (!raw || typeof raw !== "object") return DEFAULT_PREFS;
-  const r = raw as { version?: unknown; bp?: unknown; doseOn?: unknown; quiet?: unknown };
+  const r = raw as { version?: unknown; bp?: unknown; quiet?: unknown };
   if (r.version !== 1) return DEFAULT_PREFS;
   const bp = (Array.isArray(r.bp) ? r.bp : [])
     .map(sanitiseReminder)
     .filter((x): x is BpReminder => x !== null)
     .slice(0, MAX_BP_REMINDERS);
-  const base: ReminderPrefs = { version: 1, bp, doseOn: typeof r.doseOn === "boolean" ? r.doseOn : DEFAULT_PREFS.doseOn, quiet: null };
+  const base: ReminderPrefs = { version: 1, bp, quiet: null };
   const q = r.quiet as { startHour?: unknown; endHour?: unknown } | null | undefined;
   return q && typeof q === "object"
     ? setQuiet(base, { startHour: q.startHour as number, endHour: q.endHour as number })

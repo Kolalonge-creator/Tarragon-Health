@@ -1,4 +1,4 @@
-import { REMINDER_ID_PREFIX, type PlannedNotification, type ReminderKind } from "./reminder-plan";
+import { REMINDER_ID_PREFIX, type PlannedNotification } from "./reminder-plan";
 
 /**
  * Applies a plan to the phone's scheduled notifications (S07 reminders). It
@@ -19,10 +19,6 @@ import { REMINDER_ID_PREFIX, type PlannedNotification, type ReminderKind } from 
  *   just switched something on), only when there is something to schedule, and only
  *   when she has never been asked. After a refusal it never asks again (that is for
  *   the phone's settings), so a screen cannot keep prompting.
- * - `preserve` names kinds that must NOT be cancelled this time, for when the
- *   plan for that kind could not be worked out (for example the medicine list was
- *   unreadable): losing every dose reminder because of a failed read is worse
- *   than leaving the old ones.
  * - Never throws.
  */
 export type PermissionState = "granted" | "denied" | "undetermined";
@@ -38,7 +34,6 @@ export interface NotificationsPort {
 
 export interface ApplyOptions {
   askPermission: boolean;
-  preserve?: readonly ReminderKind[];
 }
 
 export type SyncStatus = "synced" | "nothing_to_do" | "no_permission" | "failed";
@@ -50,10 +45,6 @@ export interface SyncResult {
   cancelled: number;
   kept: number;
   failed: number;
-}
-
-function kindOf(identifier: string): ReminderKind {
-  return identifier.startsWith(`${REMINDER_ID_PREFIX}dose:`) ? "dose" : "bp";
 }
 
 export async function applyPlan(
@@ -73,10 +64,9 @@ export async function applyPlan(
     if (result.permission !== "granted") return { ...result, status: "no_permission" };
 
     const wanted = new Set(plan.map((p) => p.identifier));
-    const preserved = new Set(options.preserve ?? []);
 
     for (const id of existing) {
-      if (wanted.has(id) || preserved.has(kindOf(id))) continue;
+      if (wanted.has(id)) continue;
       try {
         await port.cancel(id);
         result.cancelled += 1;

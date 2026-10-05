@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { AppState, View } from "react-native";
 import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import type { SectionId } from "@/lib/sections";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
 import { registerPushToken } from "@/lib/push-registration";
+import { replanDoseReminders } from "@/lib/dose-reminders";
+import { CatchUpSheet } from "@/screens/catch-up-sheet";
 import { TopBar } from "@/ui/top-bar";
 import { NavDrawer } from "@/ui/nav-drawer";
 import { BottomTabBar } from "@/ui/bottom-tab-bar";
@@ -158,6 +160,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   const [section, setSection] = useState<SectionId>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [acting, setActing] = useState<ActingFor | null>(null);
+  // Whether the acting-for lookup has finished: until then "no acting-for" is only a guess.
+  const [actingChecked, setActingChecked] = useState(false);
   const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
   const [openVideoVisitId, setOpenVideoVisitId] = useState<string | null>(null);
 
@@ -167,7 +171,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     // rejection — the safe default for whose record gets written.
     getActingFor()
       .then(setActing)
-      .catch(() => setActing(null));
+      .catch(() => setActing(null))
+      .finally(() => setActingChecked(true));
   }, []);
 
   useEffect(() => {
@@ -184,6 +189,18 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     // into this render.
     void registerPushToken(userId, organisationId);
   }, [userId, organisationId]);
+
+  useEffect(() => {
+    // Dose reminders are a rolling plan held on the phone (S08). Rebuild it when the
+    // app opens and every time it returns to the foreground, so a reminder never
+    // depends on the Medications screen having been visited. Always the device
+    // owner's own medicines, not the acting-for subject's. Never throws.
+    void replanDoseReminders(userId);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void replanDoseReminders(userId);
+    });
+    return () => sub.remove();
+  }, [userId]);
 
   function handleSelect(id: SectionId) {
     setSection(id);
@@ -338,6 +355,10 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         onSelect={handleSelect}
         onMore={() => setDrawerOpen(true)}
       />
+
+      {/* S08b: doses from yesterday and today that closed with no answer, asked about once. The
+          device owner's own medicines only, never the person being acted for. */}
+      <CatchUpSheet patientId={userId} organisationId={organisationId} enabled={actingChecked && acting === null} />
 
       <NavDrawer
         visible={drawerOpen}

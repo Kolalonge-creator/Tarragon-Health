@@ -24,7 +24,6 @@ export function daysSummary(days: readonly number[] | null): { everyDay: true } 
 }
 
 export interface UpcomingLine {
-  kind: "bp" | "dose";
   /** Key for the weekday, then DD/MM. */
   weekdayKey: MessageKey;
   date: string;
@@ -34,7 +33,6 @@ export interface UpcomingLine {
 export function describeUpcoming(n: PlannedNotification): UpcomingLine {
   const local = lagosLocalDate(n.notifyAtMs);
   return {
-    kind: n.kind,
     weekdayKey: DAY_KEYS[weekdayOf(local)] as MessageKey,
     date: `${local.slice(8, 10)}/${local.slice(5, 7)}`,
     time: new Date(n.notifyAtMs + LAGOS_OFFSET_MS).toISOString().slice(11, 16),

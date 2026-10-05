@@ -16,8 +16,7 @@ describe("daysSummary", () => {
 describe("describeUpcoming", () => {
   it("describes a notification in Lagos time, not the phone's", () => {
     const at = lagosTimeToUtcMs("2026-10-05", "08:30") as number; // a Monday
-    expect(describeUpcoming({ identifier: "x", kind: "bp", notifyAtMs: at, dueAtMs: at })).toEqual({
-      kind: "bp",
+    expect(describeUpcoming({ identifier: "x", notifyAtMs: at, dueAtMs: at })).toEqual({
       weekdayKey: "reminders.day.1",
       date: "05/10",
       time: "08:30",
@@ -26,7 +25,7 @@ describe("describeUpcoming", () => {
 
   it("uses the Lagos day around midnight", () => {
     const at = Date.parse("2026-10-04T23:30:00Z"); // 00:30 on Monday 5 Oct in Lagos
-    expect(describeUpcoming({ identifier: "x", kind: "dose", notifyAtMs: at, dueAtMs: at })).toMatchObject({
+    expect(describeUpcoming({ identifier: "x", notifyAtMs: at, dueAtMs: at })).toMatchObject({
       weekdayKey: "reminders.day.1",
       date: "05/10",
       time: "00:30",

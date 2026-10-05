@@ -1,0 +1,92 @@
+# S08. Android, because airplane mode is only scriptable there (Maestro's
+# setAirplaneMode is Android-only), and because the phones that matter for
+# reminders (Tecno, Infinix, Itel, Samsung A-series) are Android. appId is the
+# Android package from app.json; the iOS bundle id is a different string.
+#
+# STATUS: written, NOT run. No Android emulator or device was available in the
+# session that wrote it, so none of the selectors below has been confirmed against
+# a real build. Run it on a low-end profile (for example a 2 GB, API 30 emulator
+# image, or a Tecno or Infinix test phone) and fix any selector that differs
+# before relying on it. Pass the account like login-to-overview.yaml:
+#   maestro test -e MOBILE_E2E_EMAIL=... -e MOBILE_E2E_PASSWORD=... <this file>
+# Use a test account (is_test = true).
+appId: com.tarragonhealth.app
+name: Medicines, add, local reminder, take offline, sync
+tags:
+  - medicines
+  - offline
+  - android
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Email"
+    timeout: 20000
+- tapOn: "Use email"
+- tapOn: "Email"
+- inputText: ${MOBILE_E2E_EMAIL}
+- tapOn: "Password"
+- inputText: ${MOBILE_E2E_PASSWORD}
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Today at a glance: your numbers, your care team, and recent activity."
+    timeout: 20000
+
+# Medications section, then the cabinet, then add a medicine at a time a minute or two from now.
+- tapOn: "Medications"
+- extendedWaitUntil:
+    visible: "Today's doses"
+    timeout: 15000
+- tapOn: "Your medicines cabinet"
+- tapOn: "+ Add"
+- tapOn:
+    text: "Drug name"
+    below: "Add a medication"
+- inputText: "S08 Maestro test"
+# A dose time two minutes from now, in Lagos wall-clock (UTC+1, no daylight saving).
+- evalScript: ${output.doseTime = new Date(Date.now() + 3600000 + 120000).toISOString().slice(11, 16)}
+- tapOn: "HH:MM"
+- inputText: ${output.doseTime}
+- tapOn:
+    text: "Add"
+    index: 1
+- tapOn: "Add medication"
+- extendedWaitUntil:
+    visible: "Medication added."
+    timeout: 10000
+
+# Back to today's doses. Reminders are LOCAL notifications and must reach the phone
+# with the network off. The "Send a test reminder" button (shown when the health
+# check finds something to warn about, so it may not be on screen on every phone)
+# schedules one for 10 seconds out; open the notification shade to see it. The
+# wording is generic: it must not contain the medicine name.
+- back
+- setAirplaneMode: enabled
+- runFlow:
+    when:
+      visible: "Send a test reminder"
+    commands:
+      - tapOn: "Send a test reminder"
+      - swipe:
+          start: 50%, 0%
+          end: 50%, 70%
+          duration: 600
+      - extendedWaitUntil:
+          visible: "Test reminder"
+          timeout: 30000
+      - assertNotVisible: ".*S08 Maestro test.*"
+      - back
+
+# Mark taken while offline. Undo is offered inside the undo window; the row is held
+# on the phone and the sync banner says it is waiting to send.
+- tapOn: "I took it"
+- assertVisible: "Undo"
+- extendedWaitUntil:
+    visible: ".*waiting to send.*"
+    timeout: 20000
+
+# Back online: after the undo window the held row syncs and the waiting notice clears.
+- setAirplaneMode: disabled
+- extendedWaitUntil:
+    notVisible: ".*waiting to send.*"
+    timeout: 240000

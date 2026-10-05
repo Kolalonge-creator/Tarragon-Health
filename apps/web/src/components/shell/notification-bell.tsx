@@ -259,18 +259,17 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/family",
     };
   }
+  // INV-07: an in-app preview never names a medicine, whatever an older row's payload still carries.
   if (n.template === "medication_refill_reminder") {
-    const drug = String(payload.drug_name ?? "your medication");
     return {
-      text: `Refill reminder: ${drug} is due soon`,
+      text: "A refill is coming up. Open your care plan to see when.",
       href: "/patient/medications",
     };
   }
   if (n.template === "medication_dose_reminder") {
-    const drug = String(payload.drug_name ?? "your medication");
     const scheduledTime = String(payload.scheduled_time ?? "now");
     return {
-      text: `It's ${scheduledTime}: time for your dose of ${drug}`,
+      text: `It's ${scheduledTime}: time for your care plan check`,
       href: "/patient/medications",
     };
   }

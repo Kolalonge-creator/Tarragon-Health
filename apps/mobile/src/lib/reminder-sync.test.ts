@@ -1,9 +1,8 @@
 import { REMINDER_ID_PREFIX, type PlannedNotification } from "./reminder-plan";
 import { applyPlan, createSerialQueue, type NotificationsPort, type PermissionState } from "./reminder-sync";
 
-const note = (id: string, kind: "bp" | "dose" = "bp", at = 1_000): PlannedNotification => ({
-  identifier: `${REMINDER_ID_PREFIX}${kind}:${id}:${at}`,
-  kind,
+const note = (id: string, at = 1_000): PlannedNotification => ({
+  identifier: `${REMINDER_ID_PREFIX}bp:${id}:${at}`,
   notifyAtMs: at,
   dueAtMs: at,
 });
@@ -143,14 +142,14 @@ describe("applyPlan", () => {
     });
   });
 
-  describe("preserve", () => {
-    it("leaves a kind alone when its plan could not be worked out, so a failed read never wipes every dose reminder", async () => {
-      const dose = note("m1", "dose");
-      const bp = note("old", "bp");
-      const { port, scheduled } = fakePort({ scheduled: [dose.identifier, bp.identifier] });
-      await applyPlan(port, [], { askPermission: false, preserve: ["dose"] });
-      expect(scheduled.has(dose.identifier)).toBe(true);
-      expect(scheduled.has(bp.identifier)).toBe(false);
+  describe("notifications it does not own", () => {
+    it("never cancels another feature's notifications, such as S08's medicine reminders (\"dose|...\") or a snooze", async () => {
+      const mine = note("old");
+      const foreign = ["dose|abc|2026-10-05|08:00", "snooze|abc@08:00", "something-else"];
+      const { port, scheduled } = fakePort({ scheduled: [mine.identifier, ...foreign] });
+      await applyPlan(port, [], { askPermission: false });
+      expect(scheduled.has(mine.identifier)).toBe(false);
+      for (const id of foreign) expect(scheduled.has(id)).toBe(true);
     });
   });
 });
