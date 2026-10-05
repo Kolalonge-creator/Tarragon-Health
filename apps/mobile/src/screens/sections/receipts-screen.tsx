@@ -129,7 +129,7 @@ export function ReceiptsScreen() {
                             `${PLATFORM_URL}/api/patient/receipts/${r.service_type}/${r.id}/invoice`
                           )
                         }
-                        style={{ fontSize: 11, fontWeight: "700", color: colors.brand }}
+                        style={{ fontSize: 11, fontWeight: "700", color: colors.brandPressed }}
                       >
                         Download invoice
                       </Text>

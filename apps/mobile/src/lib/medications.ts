@@ -1,8 +1,33 @@
-import { enqueue, flushOutbox, listOutbox, type DosePayload } from "./outbox";
+import {
+  computeWeeklyAdherence,
+  estimateSupply,
+  isRunningLow,
+  lagosLocalDate,
+  lagosTimeToUtcMs,
+  parseScheduleSpec,
+  slotCloseMinutes,
+  slotState,
+  slotsOn,
+  specFromLegacyTimes,
+  takenStatus,
+  addDays,
+  allTimes,
+  groupLogsBySlot,
+  type AdherenceResult,
+  type DoseLog,
+  type FoodNote,
+  type LogStatus,
+  type ScheduleSpec,
+  type SlotState,
+  type SupplyEstimate,
+} from "@tarragon/medicines";
+import { enqueue, flushOutbox, listOutbox, removePendingRow, type DosePayload } from "./outbox";
+import { loadReminderBehaviour } from "./s07-config";
+import { loadAdherenceBand, loadMedicineRules } from "./medicines-config";
 import { pullChangesThrottled, readLocalMedications, readLocalRecords } from "./offline-store";
 import { supabase } from "./supabase";
 import { API_BASE_URL } from "./api";
-import type { Tables } from "@tarragon/shared";
+import type { Json, Tables } from "@tarragon/shared";
 
 /**
  * Shared result shape for the native read-path lib functions (overview.ts
@@ -15,41 +40,109 @@ export type QueryResult<T> = { ok: true; data: T } | { ok: false; error: string 
 
 export type DoseStatus = "pending" | "taken" | "missed" | "skipped";
 
+/** Where a medicine came from: written by the care team, or added by the patient (INV-02: only the latter is theirs to change). */
+export type DoseOrigin = "prescription" | "patient_added";
+
 export interface DoseChecklistItem {
   medicationId: string;
   drugName: string;
   time: string;
+  /** The older three-way status other screens read. "taken late" reads as taken; "could not get it" as skipped. */
   status: DoseStatus;
+  /** S08: when the dose is due, the full state, what a taper step says to take, and the food note. */
+  dueAtMs?: number;
+  state?: SlotState;
+  doseText?: string | null;
+  foodNote?: FoodNote | null;
+  origin?: DoseOrigin;
+  /** How long after its time the dose stays due before it reads "no record yet": its flexible window or the global missed window, whichever is longer. */
+  closeMinutes?: number;
+  /** The flexible window in minutes (0 or absent: an exact time). */
+  windowMinutes?: number;
+  /** The Lagos date of the slot. A screen left open past midnight must log against this, not against "today". */
+  date?: string;
+  /** The strength and dose the medicine record carries, shown as read-only text. */
+  doseLabel?: string | null;
 }
 
-type MedicationForChecklist = Pick<Tables<"medications">, "id" | "drug_name" | "schedule_times">;
-// Sourced from medication_logs_latest_per_slot (20260830224528), not the raw
-// append-only table — a view's columns are nullable regardless of the
+type MedicationForChecklist = Pick<Tables<"medications">, "id" | "drug_name" | "schedule_times"> & {
+  schedule_spec?: unknown;
+  source?: string | null;
+  created_at?: string | null;
+  /** Stamped when the schedule is edited, so a newly added time owes nothing from before the edit. */
+  schedule_effective_from?: string | null;
+  dose?: string | null;
+};
+
+/** When a medicine's current schedule began to apply: the later of when it was added and when its times last changed. */
+export function activeFromMs(m: { created_at?: string | null; schedule_effective_from?: string | null }): number {
+  const created = m.created_at ? Date.parse(m.created_at) : 0;
+  const edited = m.schedule_effective_from ? Date.parse(m.schedule_effective_from) : 0;
+  return Math.max(Number.isFinite(created) ? created : 0, Number.isFinite(edited) ? edited : 0);
+}
+// Sourced from medication_logs_latest_per_slot (20261004214531), not the raw
+// append-only table: it keeps one row per slot and lets a row a person wrote beat
+// the server's own "missed". A view's columns are nullable regardless of the
 // underlying column, hence the broader types here versus medication_logs'.
 type LogForChecklist = Pick<
   Tables<"medication_logs_latest_per_slot">,
   "medication_id" | "scheduled_time" | "status"
 >;
 
-/** Mirrors apps/web/src/lib/medication-schedule/checklist.ts's buildTodaysDoseChecklist —
- * duplicated rather than imported since apps/web isn't a shared package the
- * mobile app can pull from; keep the two in sync if the scheduling rule changes. */
+/** The schedule a medicine row carries: the structured spec when it parses, otherwise the old plain list of daily times. */
+export function scheduleOf(medication: { schedule_times: unknown; schedule_spec?: unknown }): ScheduleSpec {
+  if (medication.schedule_spec !== null && medication.schedule_spec !== undefined) {
+    const parsed = parseScheduleSpec(medication.schedule_spec);
+    if (parsed.ok) return parsed.spec;
+  }
+  return specFromLegacyTimes(medication.schedule_times);
+}
+
+function legacyStatus(logStatus: string | undefined): DoseStatus {
+  if (logStatus === "taken" || logStatus === "delayed") return "taken";
+  if (logStatus === "skipped" || logStatus === "not_available") return "skipped";
+  if (logStatus === "missed") return "missed";
+  return "pending";
+}
+
+/** Mirrors apps/web/src/lib/medication-schedule/checklist.ts's buildTodaysDoseChecklist for
+ * plain daily times, and adds the structured schedules (every few days, certain weekdays,
+ * step-down) and the dose state. Duplicated rather than imported since apps/web isn't a
+ * shared package the mobile app can pull from; keep the two in sync for daily times. */
 export function buildTodaysDoseChecklist(
   medications: MedicationForChecklist[],
-  logs: LogForChecklist[]
+  logs: LogForChecklist[],
+  nowMs: number = Date.now()
 ): DoseChecklistItem[] {
+  const today = lagosLocalDate(nowMs);
+  const { missedAfterMinutes } = loadReminderBehaviour();
   const items: DoseChecklistItem[] = [];
   for (const medication of medications) {
-    const times = Array.isArray(medication.schedule_times)
-      ? (medication.schedule_times as string[])
-      : [];
-    for (const time of times) {
-      const log = logs.find((l) => l.medication_id === medication.id && l.scheduled_time === time);
+    const startedAtMs = activeFromMs(medication);
+    const spec = scheduleOf(medication);
+    const closeMinutes = slotCloseMinutes(spec, missedAfterMinutes);
+    for (const slot of slotsOn(spec, today)) {
+      const dueAtMs = lagosTimeToUtcMs(slot.date, slot.time);
+      // A medicine added at noon owes no 08:00 dose that morning, and a time added by an edit owes nothing from before it.
+      if (dueAtMs < startedAtMs) continue;
+      const log = logs.find((l) => l.medication_id === medication.id && l.scheduled_time === slot.time);
+      const doseLogs: DoseLog[] = log?.status
+        ? [{ status: log.status as LogStatus, source: "patient", loggedAtMs: nowMs }]
+        : [];
       items.push({
         medicationId: medication.id,
         drugName: medication.drug_name,
-        time,
-        status: (log?.status as DoseStatus | undefined) ?? "pending",
+        time: slot.time,
+        status: legacyStatus(log?.status ?? undefined),
+        dueAtMs,
+        state: slotState(dueAtMs, doseLogs, nowMs, closeMinutes),
+        closeMinutes,
+        windowMinutes: spec.windowMinutes ?? 0,
+        doseText: slot.doseText,
+        foodNote: spec.foodNote,
+        origin: medication.source === "clinician" ? "prescription" : "patient_added",
+        date: slot.date,
+        doseLabel: medication.dose ?? null,
       });
     }
   }
@@ -83,9 +176,10 @@ export async function loadTodaysDoses(patientId: string): Promise<QueryResult<Do
     const [medsRes, logsRes] = await Promise.all([
       supabase
         .from("medications")
-        .select("id, drug_name, schedule_times")
+        .select("id, drug_name, dose, source, created_at, schedule_effective_from, schedule_times, schedule_spec")
         .eq("patient_id", patientId)
-        .eq("is_active", true),
+        .eq("is_active", true)
+        .is("superseded_at", null),
       supabase
         .from("medication_logs_latest_per_slot")
         .select("medication_id, scheduled_time, status")
@@ -128,22 +222,37 @@ async function localDoses(
   return { ok: true, data: buildTodaysDoseChecklist(meds, [...pending, ...mirrored]) };
 }
 
+export interface LogDoseOptions {
+  /** ISO time the patient says they took it. Defaults to now. The server keeps it only inside its bounded window (S06). */
+  recordedAt?: string;
+  /** A short key for why a dose was skipped or could not be taken. */
+  reason?: string | null;
+  /** Keep the row on the phone for the undo window before it is sent. */
+  hold?: boolean;
+}
+
+export type LoggableStatus = Exclude<DoseStatus, "pending"> | "delayed" | "not_available";
+
 /**
  * Append-only (20260830224528): every dose action is a new row, never an
- * update of a previous one — mirrors useLogDose in
- * apps/web/src/lib/queries/medications.ts exactly (a bare client insert is
- * safe here: the adherence-streak/alert side effect is a DB trigger on
- * medication_logs, not app code, so it fires the same way regardless of
- * which client wrote the row).
+ * update of a previous one: mirrors useLogDose in
+ * apps/web/src/lib/queries/medications.ts (a bare client insert is
+ * safe here: the adherence side effect is a DB trigger on medication_logs,
+ * not app code, so it fires the same way whichever client wrote the row).
+ *
+ * With `hold`, the row is durable on the phone at once but not sent until the
+ * undo window has passed, so "undo" can really take it back (undoDose).
  */
 export async function logDose(
   patientId: string,
   organisationId: string,
   item: DoseChecklistItem,
-  status: Exclude<DoseStatus, "pending">
-): Promise<{ error?: string; synced?: boolean; clientId?: string }> {
+  status: LoggableStatus,
+  opts: LogDoseOptions = {}
+): Promise<{ error?: string; synced?: boolean; clientId?: string; heldUntilMs?: number }> {
   // S06: on-device outbox first (works with no signal), then sent at once. The
   // client id makes a blind retry a no-op, so a dose is never logged twice.
+  const holdSeconds = opts.hold ? loadMedicineRules().undoSeconds : 0;
   let queued;
   try {
     queued = await enqueue({
@@ -152,17 +261,320 @@ export async function logDose(
       payload: {
         medication_id: item.medicationId,
         scheduled_time: item.time,
-        scheduled_for_date: todayIsoDate(),
+        scheduled_for_date: item.date ?? todayIsoDate(),
         status,
         organisation_id: organisationId,
+        reason: opts.reason ?? null,
       },
+      recordedAt: opts.recordedAt,
+      holdSeconds,
     });
   } catch {
     return { error: "Couldn't save this on your phone. Try again." };
   }
+  if (opts.hold) return { synced: false, clientId: queued.clientId, heldUntilMs: Date.now() + holdSeconds * 1000 };
   await flushOutbox();
   const stillThere = (await listOutbox("dose")).find((row) => row.clientId === queued.clientId);
   return { synced: !stillThere, clientId: queued.clientId };
+}
+
+/** Take back a dose that has not left the phone. False means it is too late (already sent) or gone. */
+export function undoDose(clientId: string): Promise<boolean> {
+  return removePendingRow(clientId);
+}
+
+/** Send what the undo window was holding. Safe to call at any time. */
+export async function sendHeldDoses(): Promise<void> {
+  await flushOutbox();
+}
+
+/** What to record for "I took it" at a chosen time: on time, or taken late. */
+export function statusForTakenAt(dueAtMs: number, takenAtMs: number, closeMinutes?: number): "taken" | "delayed" {
+  return takenStatus(dueAtMs, takenAtMs, closeMinutes ?? loadReminderBehaviour().missedAfterMinutes);
+}
+
+// ---------------------------------------------------------------------------
+// Catch-up (S08b): doses from yesterday and today whose time has closed with no answer.
+// ---------------------------------------------------------------------------
+
+interface CatchUpLogRow {
+  medication_id: string;
+  scheduled_for_date: string | null;
+  scheduled_time: string | null;
+  status: string | null;
+  source: string | null;
+}
+
+/**
+ * Doses from yesterday and today that have no answer from the patient: no record at all
+ * once the dose's window has closed, or only the server's own "missed" row. A "missed"
+ * the patient confirmed (source patient) is an answer and is not asked about again.
+ */
+export async function loadCatchUpDoses(patientId: string, nowMs: number = Date.now()): Promise<QueryResult<DoseChecklistItem[]>> {
+  const today = lagosLocalDate(nowMs);
+  const yesterday = addDays(today, -1);
+  const { missedAfterMinutes } = loadReminderBehaviour();
+  try {
+    const [medsRes, logsRes] = await Promise.all([
+      supabase
+        .from("medications")
+        .select("id, drug_name, dose, source, created_at, schedule_effective_from, schedule_times, schedule_spec")
+        .eq("patient_id", patientId)
+        .eq("is_active", true)
+        .is("superseded_at", null),
+      supabase
+        .from("medication_logs_latest_per_slot")
+        .select("medication_id, scheduled_for_date, scheduled_time, status, source")
+        .eq("patient_id", patientId)
+        .gte("scheduled_for_date", yesterday),
+    ]);
+    const failure = medsRes.error ?? logsRes.error;
+    if (failure) return { ok: false, error: failure.message };
+
+    const answered = new Set<string>();
+    for (const row of (logsRes.data ?? []) as CatchUpLogRow[]) {
+      if (!row.scheduled_for_date || !row.scheduled_time || !row.status) continue;
+      const serverMissed = row.status === "missed" && row.source === "system";
+      if (!serverMissed) answered.add(`${row.medication_id}|${row.scheduled_for_date}|${row.scheduled_time}`);
+    }
+    // Doses logged on this phone and not yet sent are answers too.
+    for (const r of await listOutbox("dose")) {
+      const p = r.payload as DosePayload;
+      if (r.subjectId === patientId && p.scheduled_time) answered.add(`${p.medication_id}|${p.scheduled_for_date}|${p.scheduled_time}`);
+    }
+
+    const items: DoseChecklistItem[] = [];
+    for (const medication of (medsRes.data ?? []) as MedicationForChecklist[]) {
+      const spec = scheduleOf(medication);
+      const closeMinutes = slotCloseMinutes(spec, missedAfterMinutes);
+      const startedAtMs = activeFromMs(medication);
+      for (const date of [yesterday, today]) {
+        for (const slot of slotsOn(spec, date)) {
+          const dueAtMs = lagosTimeToUtcMs(slot.date, slot.time);
+          if (dueAtMs < startedAtMs || nowMs < dueAtMs + closeMinutes * 60_000) continue;
+          if (answered.has(`${medication.id}|${slot.date}|${slot.time}`)) continue;
+          items.push({
+            medicationId: medication.id,
+            drugName: medication.drug_name,
+            time: slot.time,
+            status: "pending",
+            dueAtMs,
+            state: "missed",
+            closeMinutes,
+            windowMinutes: spec.windowMinutes ?? 0,
+            doseText: slot.doseText,
+            foodNote: spec.foodNote,
+            origin: medication.source === "clinician" ? "prescription" : "patient_added",
+            date: slot.date,
+            doseLabel: medication.dose ?? null,
+          });
+        }
+      }
+    }
+    return { ok: true, data: items.sort((a, b) => (a.dueAtMs ?? 0) - (b.dueAtMs ?? 0)) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Weekly adherence and pill count (S08). The formula and the supply walk live in
+// @tarragon/medicines; here only the reads.
+// ---------------------------------------------------------------------------
+
+interface AdherenceMedRow {
+  id: string;
+  created_at: string | null;
+  schedule_effective_from?: string | null;
+  schedule_times: unknown;
+  schedule_spec: unknown;
+}
+
+interface AdherenceLogRow {
+  medication_id: string;
+  scheduled_for_date: string | null;
+  scheduled_time: string | null;
+  status: string | null;
+  logged_at: string | null;
+}
+
+/** The patient's own week, computed on the phone so it works offline: doses marked taken over doses due. */
+export async function loadWeeklyAdherence(patientId: string, nowMs: number = Date.now()): Promise<QueryResult<AdherenceResult>> {
+  const band = loadAdherenceBand();
+  const rules = loadMedicineRules();
+  const missedAfterMinutes = loadReminderBehaviour().missedAfterMinutes;
+  const start = addDays(lagosLocalDate(nowMs), -(band.windowDays - 1));
+
+  let meds: AdherenceMedRow[];
+  let logs: AdherenceLogRow[];
+  try {
+    const [medsRes, logsRes] = await Promise.all([
+      supabase
+        .from("medications")
+        .select("id, created_at, schedule_effective_from, schedule_times, schedule_spec")
+        .eq("patient_id", patientId)
+        .eq("is_active", true)
+        .is("superseded_at", null),
+      supabase
+        .from("medication_logs_latest_per_slot")
+        .select("medication_id, scheduled_for_date, scheduled_time, status, logged_at")
+        .eq("patient_id", patientId)
+        .gte("scheduled_for_date", start),
+    ]);
+    const failure = medsRes.error ?? logsRes.error;
+    if (failure) return { ok: false, error: failure.message };
+    meds = (medsRes.data ?? []) as AdherenceMedRow[];
+    logs = (logsRes.data ?? []) as AdherenceLogRow[];
+  } catch (e) {
+    const localMeds = await readLocalMedications<AdherenceMedRow>(patientId);
+    if (localMeds.length === 0) return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    meds = localMeds;
+    logs = await readLocalRecords<AdherenceLogRow>("dose", patientId, 500);
+  }
+
+  // Doses logged on this phone and not yet sent count too, so the number never lags the screen.
+  const pending = (await listOutbox("dose"))
+    .filter((r) => r.subjectId === patientId)
+    .map((r) => r.payload as DosePayload)
+    .filter((p) => p.scheduled_for_date >= start)
+    .map<AdherenceLogRow>((p) => ({
+      medication_id: p.medication_id,
+      scheduled_for_date: p.scheduled_for_date,
+      scheduled_time: p.scheduled_time,
+      status: p.status,
+      logged_at: new Date(nowMs).toISOString(),
+    }));
+
+  const byMed = new Map<string, (DoseLog & { date: string; time: string })[]>();
+  for (const row of [...logs, ...pending]) {
+    if (!row.status || !row.scheduled_for_date || !row.scheduled_time) continue;
+    const list = byMed.get(row.medication_id) ?? [];
+    list.push({
+      date: row.scheduled_for_date,
+      time: row.scheduled_time,
+      status: row.status as LogStatus,
+      source: "patient",
+      loggedAtMs: row.logged_at ? Date.parse(row.logged_at) : nowMs,
+    });
+    byMed.set(row.medication_id, list);
+  }
+
+  const result = computeWeeklyAdherence(
+    meds.map((m) => ({
+      id: m.id,
+      spec: scheduleOf(m),
+      logs: groupLogsBySlot(byMed.get(m.id) ?? []),
+      activeFromMs: activeFromMs(m),
+    })),
+    nowMs,
+    {
+      windowDays: band.windowDays,
+      minDoses: rules.adherenceMinDoses,
+      missedAfterMinutes,
+      thresholdPercent: band.percent,
+    }
+  );
+  return { ok: true, data: result };
+}
+
+export interface SupplyRow {
+  medicationId: string;
+  pillsOnHand: number;
+  pillsPerDose: number;
+  countedAt: string;
+}
+
+export interface SupplyView extends SupplyRow {
+  estimate: SupplyEstimate;
+  low: boolean;
+}
+
+/** The pill counts the patient has set, each with how long it lasts at the current schedule. Two reads for the logs however many counts there are. */
+export async function loadSupplies(
+  patientId: string,
+  medications: { id: string; schedule_times: unknown; schedule_spec?: unknown }[],
+  nowMs: number = Date.now()
+): Promise<QueryResult<Map<string, SupplyView>>> {
+  const rules = loadMedicineRules();
+  const today = lagosLocalDate(nowMs);
+  try {
+    const { data, error } = await supabase
+      .from("medication_supply")
+      .select("medication_id, pills_on_hand, pills_per_dose, counted_at")
+      .eq("patient_id", patientId);
+    if (error) return { ok: false, error: error.message };
+    const rows = (data ?? []).filter((r) => medications.some((m) => m.id === r.medication_id));
+    const out = new Map<string, SupplyView>();
+    if (rows.length === 0) return { ok: true, data: out };
+
+    const ids = rows.map((r) => r.medication_id);
+    const earliest = rows.reduce((min, r) => (r.counted_at < min ? r.counted_at : min), rows[0].counted_at);
+    const [takenRes, answeredRes] = await Promise.all([
+      supabase
+        .from("medication_logs_latest_per_slot")
+        .select("medication_id, logged_at")
+        .in("medication_id", ids)
+        .gte("logged_at", earliest)
+        .in("status", ["taken", "delayed"]),
+      supabase
+        .from("medication_logs_latest_per_slot")
+        .select("medication_id, scheduled_for_date, scheduled_time")
+        .in("medication_id", ids)
+        .gte("scheduled_for_date", today)
+        .in("status", ["taken", "delayed", "skipped", "not_available"]),
+    ]);
+    const failure = takenRes.error ?? answeredRes.error;
+    if (failure) return { ok: false, error: failure.message };
+
+    for (const row of rows) {
+      const med = medications.find((m) => m.id === row.medication_id)!;
+      const taken = (takenRes.data ?? []).filter((l) => l.medication_id === row.medication_id && l.logged_at !== null && l.logged_at >= row.counted_at).length;
+      const answered = new Set(
+        (answeredRes.data ?? []).filter((r) => r.medication_id === row.medication_id).map((r) => `${r.scheduled_for_date}|${r.scheduled_time}`)
+      );
+      const estimate = estimateSupply({
+        pillsOnHand: Number(row.pills_on_hand),
+        countedAtMs: Date.parse(row.counted_at),
+        pillsPerDose: Number(row.pills_per_dose),
+        spec: scheduleOf(med),
+        dosesTakenSinceCount: taken,
+        nowMs,
+        answeredSlots: answered,
+      });
+      out.set(row.medication_id, {
+        medicationId: row.medication_id,
+        pillsOnHand: Number(row.pills_on_hand),
+        pillsPerDose: Number(row.pills_per_dose),
+        countedAt: row.counted_at,
+        estimate,
+        low: isRunningLow(estimate, rules.lowSupplyDays),
+      });
+    }
+    return { ok: true, data: out };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Set or correct the pill count. The server stamps the count time, so a count cannot be backdated. */
+export async function saveSupply(
+  patientId: string,
+  organisationId: string,
+  medicationId: string,
+  pillsOnHand: number,
+  pillsPerDose: number
+): Promise<{ error?: string }> {
+  const { error } = await supabase.from("medication_supply").upsert(
+    {
+      medication_id: medicationId,
+      patient_id: patientId,
+      organisation_id: organisationId,
+      pills_on_hand: pillsOnHand,
+      pills_per_dose: pillsPerDose,
+    },
+    { onConflict: "medication_id" }
+  );
+  return error ? { error: error.message } : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -232,6 +644,8 @@ export interface AddMedicationInput {
   frequency?: string;
   refillDate?: string;
   scheduleTimes: string[];
+  /** The structured schedule (every few days, certain weekdays, step-down, as needed). When set, scheduleTimes is derived from it. */
+  scheduleSpec?: ScheduleSpec;
   startedBySpecialist: boolean;
   prescriberName?: string;
   prescriberDocumentUrl?: string;
@@ -259,7 +673,8 @@ export async function addMedication(patientId: string, input: AddMedicationInput
     dose: input.dose || null,
     frequency: input.frequency || null,
     refill_date: input.refillDate || null,
-    schedule_times: input.scheduleTimes,
+    schedule_times: input.scheduleSpec ? allTimes(input.scheduleSpec) : input.scheduleTimes,
+    schedule_spec: input.scheduleSpec ? (input.scheduleSpec as unknown as Json) : null,
     patient_id: patientId,
     organisation_id: profile.organisation_id,
     source,

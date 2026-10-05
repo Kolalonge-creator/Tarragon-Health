@@ -103,7 +103,7 @@ export function PaymentIssueCard({ issue, onResolved }: PaymentIssueCardProps) {
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         <ActionPill title="Retry payment" tone="brand" loading={retrying} onPress={handleRetry} />
         {messageSent ? (
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brand, paddingVertical: 9 }}>
+          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brandPressed, paddingVertical: 9 }}>
             Sent. The care team will follow up.
           </Text>
         ) : (

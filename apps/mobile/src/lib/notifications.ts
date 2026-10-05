@@ -62,8 +62,8 @@ export function describeNotification(n: InAppNotification): { text: string; sect
     }
     case "medication_refill_due":
     case "medication_refill_reminder": {
-      const drug = String(payload.drug_name ?? "a medication");
-      return { text: `Refill reminder: ${drug} is due soon`, section: null };
+      // INV-07: an in-app preview never names a medicine, whatever an older row's payload still carries.
+      return { text: "A refill is coming up. Open your care plan to see when.", section: null };
     }
     case "escalation_resolved":
       return { text: "A doctor has reviewed something on your record", section: null };

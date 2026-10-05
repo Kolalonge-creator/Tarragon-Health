@@ -116,7 +116,7 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
               </View>
               {person.permissionLevel === "manage" ? (
                 isOpen ? (
-                  <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brand }}>
+                  <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brandPressed }}>
                     Currently open. See the banner above to switch back.
                   </Text>
                 ) : (

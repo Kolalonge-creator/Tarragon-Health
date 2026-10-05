@@ -48,6 +48,21 @@ const FILES = [
   "screens/sections/video-visit-screen.tsx",
   "screens/sections/video-visit-booking-section.tsx",
   "screens/sections/lab-order-test-checklist.tsx",
+  "screens/sections/second-opinion-section.tsx",
+  "screens/sections/senior-case-review-section.tsx",
+  "screens/sections/verified-documents-section.tsx",
+  "screens/sections/sponsor-sharing-control.tsx",
+  "screens/sections/pharmacy-orders-section.tsx",
+  "screens/sections/therapy-network-screen.tsx",
+  "screens/sections/monitoring-cover-card.tsx",
+  "screens/devices-screen.tsx",
+  "screens/sync-screen.tsx",
+  "screens/sections/emergency-card-screen.tsx",
+  "screens/sections/settings-screen.tsx",
+  "screens/sections/appearance-setting.tsx",
+  "screens/apple-health-card.tsx",
+  "screens/android-health-connect-card.tsx",
+  "screens/health-connect-rationale-modal.tsx",
 ];
 
 describe("scheme-aware legacy screens stay fully switched", () => {
@@ -56,5 +71,49 @@ describe("scheme-aware legacy screens stay fully switched", () => {
     expect(source).not.toMatch(/import\s*\{[^}]*\bcolors\b[^}]*\}\s*from\s*"@\/ui\/theme"/);
     expect(source).not.toMatch(/from\s*"@\/ui\/components"/);
     expect(source).toMatch(/useLegacyColors/);
+  });
+});
+
+/**
+ * Two things the visual pass found in Dark: a field with no placeholder colour shows an
+ * invisible placeholder, and the brand fill green used as TEXT is too dim on a dark card.
+ */
+describe("scheme-aware legacy screens keep text readable in Dark", () => {
+  it.each(FILES)("%s", (file) => {
+    const source = readFileSync(join(__dirname, "..", file), "utf8");
+    for (const match of source.matchAll(/<TextInput\b[\s\S]*?(?=\/>|>\s*\n)/g)) {
+      if (match[0].includes("keyboardAppearance")) expect(match[0]).toMatch(/placeholderTextColor/);
+    }
+    for (const line of source.split("\n")) {
+      if (/backgroundColor|borderColor/.test(line)) continue;
+      expect(line).not.toMatch(/\bcolor: [^,}]*colors\.brand\b(?!Pressed|Tint)/);
+    }
+  });
+});
+
+/**
+ * Deliberately light in every scheme: the emergency guidance mirrors the web EmergencyAlert
+ * and must look identical whatever the patient chose, and the sign-in screens come before a
+ * preference exists. They must keep drawing themselves from the static light theme.
+ */
+const LIGHT_ON_PURPOSE = [
+  "screens/emergency-guidance-modal.tsx",
+  "screens/login-screen.tsx",
+  "screens/signup-screen.tsx",
+  "screens/forgot-password-screen.tsx",
+];
+
+describe("light-on-purpose screens stay light", () => {
+  it.each(LIGHT_ON_PURPOSE)("%s", (file) => {
+    const source = readFileSync(join(__dirname, "..", file), "utf8");
+    expect(source).not.toMatch(/useLegacyColors|useTheme/);
+    expect(source).not.toMatch(/from\s*"@\/ui\/legacy-kit"/);
+  });
+});
+
+describe("app lock follows the theme", () => {
+  it("reads the scheme", () => {
+    const source = readFileSync(join(__dirname, "..", "screens/app-lock-screen.tsx"), "utf8");
+    expect(source).toMatch(/useTheme/);
   });
 });

@@ -14,7 +14,7 @@ import {
 } from "@/lib/weight-management";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const OBESITY_STATUS_COPY: Record<string, string> = {
@@ -57,7 +57,7 @@ function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: ()
   const colors = useLegacyColors();
   return (
     <Text onPress={onToggle} style={{ fontSize: 13, color: colors.ink, paddingVertical: 4 }}>
-      <Text style={{ fontWeight: "700", color: checked ? colors.brand : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
+      <Text style={{ fontWeight: "700", color: checked ? colors.brandPressed : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
       {label}
     </Text>
   );
@@ -287,7 +287,7 @@ function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () =>
       <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink, marginTop: 4 }}>
         Anything else you&apos;d like your care team to know?
       </Text>
-      <TextInput keyboardAppearance={scheme}
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={notes}
         onChangeText={setNotes}
         multiline
@@ -359,7 +359,7 @@ function GoalRow({ goal, onChanged }: { goal: { id: string; module: string; titl
         <MutedText>{done}</MutedText>
       ) : goal.personalised ? (
         <View style={{ flexDirection: "row", gap: 10 }}>
-          <Text onPress={() => !busy && resolve("achieved")} style={{ fontSize: 12, fontWeight: "600", color: colors.brand }}>
+          <Text onPress={() => !busy && resolve("achieved")} style={{ fontSize: 12, fontWeight: "600", color: colors.brandPressed }}>
             Mark achieved
           </Text>
           <Text onPress={() => !busy && resolve("abandoned")} style={{ fontSize: 12, color: colors.muted }}>
@@ -431,7 +431,7 @@ function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }) {
           </Text>
         ))}
       </View>
-      <TextInput keyboardAppearance={scheme} value={value} onChangeText={setValue} placeholder="Value (e.g. 3)" keyboardType="numeric" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={value} onChangeText={setValue} placeholder="Value (e.g. 3)" keyboardType="numeric" style={textInputStyle} />
       <Checkbox
         checked={strugglingWithFood}
         onToggle={() => setStrugglingWithFood((v) => !v)}
@@ -472,7 +472,7 @@ function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; onAdded:
 
   if (!open) {
     return (
-      <Text onPress={() => setOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}>
+      <Text onPress={() => setOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
         + Add a goal
       </Text>
     );
@@ -500,7 +500,7 @@ function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; onAdded:
           </Text>
         ))}
       </View>
-      <TextInput keyboardAppearance={scheme} value={title} onChangeText={setTitle} placeholder="Describe your goal" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={title} onChangeText={setTitle} placeholder="Describe your goal" style={textInputStyle} />
       {error && <ErrorText>{error}</ErrorText>}
       <SecondaryButton title="Save goal" onPress={submit} loading={submitting} />
     </View>

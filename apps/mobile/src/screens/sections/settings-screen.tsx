@@ -4,8 +4,9 @@ import { Ionicons } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
-import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
-import { CalloutCard, GroupedList, GroupedListRow, MutedText, SectionDivider, SectionLabel } from "@/ui/components";
+import { inkAlpha, radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
+import { CalloutCard, GroupedList, GroupedListRow, MutedText, SectionDivider, SectionLabel } from "@/ui/legacy-kit";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { LegacySheet } from "@/ui/kit";
@@ -33,6 +34,7 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({ patientName, initials, onNavigate }: SettingsScreenProps) {
+  const colors = useLegacyColors();
   const firstName = patientName.split(/\s+/)[0] ?? patientName;
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [appLockEnabled, setAppLockEnabled] = useState(false);
@@ -250,6 +252,7 @@ function ProfileTile({
   label: string;
   onPress: () => void;
 }) {
+  const colors = useLegacyColors();
   return (
     <Pressable
       accessibilityRole="button"
@@ -280,6 +283,8 @@ function Toggle({
   accessibilityLabel: string;
   small?: boolean;
 }) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const width = small ? 38 : 42;
   const height = small ? 22 : 24;
   const knob = small ? 18 : 20;
@@ -294,7 +299,8 @@ function Toggle({
         height,
         borderRadius: 999,
         padding: 2,
-        backgroundColor: value ? colors.brand : inkAlpha(0.15),
+        // Off track: the original soft grey in Light; a dark-grey track in Dark so the white knob stays visible.
+        backgroundColor: value ? colors.brand : scheme === "dark" ? colors.border : inkAlpha(0.15),
       }}
     >
       <View

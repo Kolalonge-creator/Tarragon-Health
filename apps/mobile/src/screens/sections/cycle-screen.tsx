@@ -24,7 +24,7 @@ import {
 } from "@/lib/cycle-prediction";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
@@ -327,7 +327,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
         <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
           <View style={{ flex: 1, gap: 4 }}>
             <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Date</Text>
-            <TextInput keyboardAppearance={scheme} value={dateDraft} onChangeText={setDateDraft} placeholder="YYYY-MM-DD" style={textInputStyle} />
+            <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={dateDraft} onChangeText={setDateDraft} placeholder="YYYY-MM-DD" style={textInputStyle} />
           </View>
           <SecondaryButton
             title="Go"
@@ -341,7 +341,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
         {canLogSelectedAsStart && (
           <Text
             onPress={() => withAction(() => logPeriod({ patientId, organisationId, periodStartDate: selectedDate }))}
-            style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand }}
+            style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}
           >
             It started on {shortDate(selectedDate)} →
           </Text>
@@ -470,7 +470,7 @@ function FlagsCard({ flags, onNavigate }: { flags: CycleClinicalFlag[]; onNaviga
               <MutedText>{flag.detail}</MutedText>
             </View>
           ))}
-          <Text onPress={() => onNavigate("messages")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand }}>
+          <Text onPress={() => onNavigate("messages")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
             Message your care team →
           </Text>
         </Card>
@@ -579,7 +579,7 @@ function DayLogForm({
       <View style={{ flexDirection: "row", gap: 10 }}>
         <View style={{ flex: 1, gap: 4 }}>
           <MutedText>Waking temperature (°C)</MutedText>
-          <TextInput keyboardAppearance={scheme} value={bbt} onChangeText={setBbt} placeholder="36.50" keyboardType="decimal-pad" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={bbt} onChangeText={setBbt} placeholder="36.50" keyboardType="decimal-pad" style={textInputStyle} />
         </View>
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
@@ -598,7 +598,7 @@ function DayLogForm({
       </MutedText>
 
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Anything else (optional)</Text>
-      <TextInput keyboardAppearance={scheme}
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={notes}
         onChangeText={setNotes}
         placeholder="Only you and your care team can see this."

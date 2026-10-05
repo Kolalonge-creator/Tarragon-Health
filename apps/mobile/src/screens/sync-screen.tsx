@@ -5,7 +5,8 @@ import type { Tables } from "@tarragon/shared";
 import { connectAndSubscribe, type ParsedReading, type SupportedDeviceType } from "@/lib/ble";
 import { postDeviceReading } from "@/lib/api";
 import { enqueueDeviceReading, flushDeviceReadingsQueue } from "@/lib/offline-queue";
-import { colors, spacing } from "@/ui/theme";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
 import {
   Card,
   ChoiceChip,
@@ -14,7 +15,7 @@ import {
   PrimaryButton,
   ScreenTitle,
   SecondaryButton,
-} from "@/ui/components";
+} from "@/ui/legacy-kit";
 
 type PatientDevice = Tables<"patient_devices">;
 type GlucoseContext = "fasting" | "random" | "post_meal";
@@ -75,6 +76,7 @@ function readingKey(reading: ParsedReading): string {
 }
 
 function ReadingValue({ reading }: { reading: ParsedReading }) {
+  const colors = useLegacyColors();
   const unitStyle = { fontSize: 14, fontWeight: "400" as const, color: colors.muted };
   const valueStyle = { fontSize: 20, fontWeight: "700" as const, color: colors.ink };
   switch (reading.deviceType) {
@@ -121,6 +123,7 @@ function ReadingValue({ reading }: { reading: ParsedReading }) {
  * characteristic itself carries no such concept).
  */
 export function SyncScreen({ device, onBack }: SyncScreenProps) {
+  const colors = useLegacyColors();
   const [pending, setPending] = useState<PendingReading[]>([]);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(true);

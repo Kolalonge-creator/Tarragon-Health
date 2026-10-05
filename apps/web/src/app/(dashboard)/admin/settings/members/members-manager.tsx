@@ -14,10 +14,16 @@ import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialo
 import { USER_ROLES, USER_ROLE_LABELS, type UserRoleValue } from "@/lib/validation/members";
 import type { MemberRow, PermissionRow, CustomRoleRow, OrgRow } from "./page";
 import {
+  provisionableOrganisations,
+  provisionableRoles,
+  type ProvisionScopeCaller,
+} from "@/lib/auth/member-provision-scope";
+import {
   provisionMemberAction,
   createInstitutionOrgAction,
   setMemberRoleAction,
   setMemberPhoneAction,
+  setMemberActiveAction,
   grantPermissionAction,
   revokePermissionAction,
   createCustomRoleAction,
@@ -60,9 +66,12 @@ export function MembersManager({
   customRoles,
   organisations,
   canProvision,
+  provisionCaller,
   canManageOrgs,
   canAssignRoles,
   canEditContact,
+  canSuspend,
+  currentMemberId,
   canGrant,
   canManageRoles,
   canViewActivity,
@@ -72,9 +81,13 @@ export function MembersManager({
   customRoles: CustomRoleRow[];
   organisations: OrgRow[];
   canProvision: boolean;
+  /** The caller's own standing, so the create-a-login form offers only what the server accepts. */
+  provisionCaller: ProvisionScopeCaller;
   canManageOrgs: boolean;
   canAssignRoles: boolean;
   canEditContact: boolean;
+  canSuspend: boolean;
+  currentMemberId: string;
   canGrant: boolean;
   canManageRoles: boolean;
   canViewActivity: boolean;
@@ -113,7 +126,7 @@ export function MembersManager({
       )}
 
       {canProvision && (
-        <CreateLoginCard organisations={organisations} pending={pending} onSubmit={(fd) => run((f) => provisionMemberAction(undefined, f), fd)} />
+        <CreateLoginCard organisations={organisations} caller={provisionCaller} pending={pending} onSubmit={(fd) => run((f) => provisionMemberAction(undefined, f), fd)} />
       )}
 
       <Card>
@@ -139,6 +152,8 @@ export function MembersManager({
                 customRoles={customRoles}
                 canAssignRoles={canAssignRoles}
                 canEditContact={canEditContact}
+                canSuspend={canSuspend}
+                currentMemberId={currentMemberId}
                 canGrant={canGrant}
                 canViewActivity={canViewActivity}
                 pending={pending}
@@ -217,13 +232,21 @@ function CreateOrgCard({
 
 function CreateLoginCard({
   organisations,
+  caller,
   pending,
   onSubmit,
 }: {
   organisations: OrgRow[];
+  caller: ProvisionScopeCaller;
   pending: boolean;
   onSubmit: (fd: FormData) => void;
 }) {
+  // The server refuses anything outside this (lib/auth/member-provision-scope.ts);
+  // offering only the allowed roles and organisation keeps the form from inviting
+  // a request that can only fail. A Super Admin sees everything, as before.
+  const roles = provisionableRoles(caller, USER_ROLES);
+  const orgs = provisionableOrganisations(caller, organisations);
+  const orgRequired = !caller.isSuperAdmin;
   return (
     <Card>
       <CardHeader>
@@ -259,7 +282,7 @@ function CreateLoginCard({
           <div className="space-y-1">
             <Label htmlFor="role">Role</Label>
             <Select id="role" name="role" defaultValue="clinician">
-              {USER_ROLES.map((r) => (
+              {roles.map((r) => (
                 <option key={r} value={r}>
                   {USER_ROLE_LABELS[r]}
                 </option>
@@ -267,10 +290,15 @@ function CreateLoginCard({
             </Select>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="organisationId">Organisation (optional)</Label>
-            <Select id="organisationId" name="organisationId" defaultValue="">
-              <option value="">None</option>
-              {organisations.map((o) => (
+            <Label htmlFor="organisationId">{orgRequired ? "Organisation" : "Organisation (optional)"}</Label>
+            <Select
+              id="organisationId"
+              name="organisationId"
+              defaultValue={orgRequired ? (orgs[0]?.id ?? "") : ""}
+              required={orgRequired}
+            >
+              {!orgRequired && <option value="">None</option>}
+              {orgs.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name} ({o.type})
                 </option>
@@ -294,6 +322,8 @@ function MemberItem({
   customRoles,
   canAssignRoles,
   canEditContact,
+  canSuspend,
+  currentMemberId,
   canGrant,
   canViewActivity,
   pending,
@@ -304,6 +334,8 @@ function MemberItem({
   customRoles: CustomRoleRow[];
   canAssignRoles: boolean;
   canEditContact: boolean;
+  canSuspend: boolean;
+  currentMemberId: string;
   canGrant: boolean;
   canViewActivity: boolean;
   pending: boolean;
@@ -315,6 +347,17 @@ function MemberItem({
   // or toggling an ordinary capability, stays a single click: those are
   // recoverable, and confirming everything trains people to click through.
   const [pendingGrant, setPendingGrant] = useState<PermissionRow | null>(null);
+  // Suspending is a lower-stakes decision than deleting data, but it is the
+  // one action here that can lock a real person out of the platform they use
+  // every day — confirm it, same as the other destructive dialog on this page.
+  const [pendingSuspend, setPendingSuspend] = useState(false);
+
+  function runSetActive(active: boolean) {
+    const fd = new FormData();
+    fd.set("memberId", member.id);
+    fd.set("active", active ? "true" : "false");
+    run((f) => setMemberActiveAction(undefined, f), fd);
+  }
 
   return (
     <details className="rounded-md border border-charcoal-ink/10 px-4 py-3">
@@ -398,6 +441,19 @@ function MemberItem({
           </form>
         )}
 
+        {canSuspend && member.id !== currentMemberId && (
+          <div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={() => (member.is_active ? setPendingSuspend(true) : runSetActive(true))}
+            >
+              {member.is_active ? "Suspend login" : "Reinstate login"}
+            </Button>
+          </div>
+        )}
+
         <div>
           <p className="mb-2 text-sm font-medium text-charcoal-ink">Delegated capabilities</p>
           {isSuperAdmin ? (
@@ -479,6 +535,30 @@ function MemberItem({
             { label: "Granting to", value: member.full_name ?? member.email ?? "this account" },
             {
               label: "Their account role",
+              value: USER_ROLE_LABELS[member.role as UserRoleValue] ?? member.role,
+            },
+          ]}
+        />
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={pendingSuspend}
+        title="Suspend this login?"
+        description="They will immediately lose sign-in-derived access to the platform — every RLS-level privilege their role and any delegated capabilities give them. This can be undone with Reinstate login at any time."
+        confirmLabel="Suspend login"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={() => {
+          setPendingSuspend(false);
+          runSetActive(false);
+        }}
+        onCancel={() => setPendingSuspend(false)}
+      >
+        <ConfirmDialogFacts
+          rows={[
+            { label: "Account", value: member.full_name ?? member.email ?? "this account" },
+            {
+              label: "Account role",
               value: USER_ROLE_LABELS[member.role as UserRoleValue] ?? member.role,
             },
           ]}

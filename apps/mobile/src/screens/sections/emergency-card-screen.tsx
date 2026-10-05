@@ -8,14 +8,16 @@ import {
   type EmergencyFacts,
   type ShareLink,
 } from "@/lib/emergency";
-import { colors, spacing } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { lightPalette, useLegacyColors } from "@/ui/design";
+import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 interface EmergencyCardScreenProps {
   patientId: string;
 }
 
 export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
+  const colors = useLegacyColors();
   const [facts, setFacts] = useState<EmergencyFacts | null>(null);
   const [offline, setOffline] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null | undefined>(undefined);
@@ -72,7 +74,8 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
       <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Emergency card</Text>
       {offline ? <MutedText>You&apos;re offline, so this is your last saved copy.</MutedText> : null}
 
-      <View style={{ backgroundColor: colors.status.critical, borderRadius: 14, padding: 16, gap: 10 }}>
+      {/* Fixed red with white text in both schemes: a first responder must recognise this card at a glance. */}
+      <View style={{ backgroundColor: lightPalette.dangerText, borderRadius: 14, padding: 16, gap: 10 }}>
         <Text style={{ fontWeight: "700", fontSize: 18, color: "#fff" }}>
           {facts.fullName ?? "—"}
         </Text>
@@ -104,7 +107,7 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
         ) : shareLink ? (
           <>
             <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Your live link</Text>
-            <Text selectable style={{ fontSize: 12, color: colors.brand, textAlign: "center" }}>
+            <Text selectable style={{ fontSize: 12, color: colors.brandPressed, textAlign: "center" }}>
               {shareLink.url}
             </Text>
             <MutedText>

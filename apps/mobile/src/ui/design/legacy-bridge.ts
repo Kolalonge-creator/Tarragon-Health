@@ -1,4 +1,5 @@
 import { useTheme } from "./provider";
+import { darkPalette, type Scheme } from "./tokens";
 import { textStyles } from "./typography";
 
 /**
@@ -17,6 +18,7 @@ export function useLegacyColors() {
     brand: p.brand,
     brandPressed: p.brandText,
     brandTint: p.brandTint,
+    brandTintAlt: p.brandTint,
     navy: p.navy,
     ink: p.text,
     muted: p.textMuted,
@@ -27,6 +29,7 @@ export function useLegacyColors() {
     card: p.surface,
     pressed: p.surfaceMuted,
     groupBg: p.surfaceMuted,
+    success: p.brandText,
     danger: p.dangerText,
     dangerBg: p.dangerBg,
     status: { warn: p.warnText, warnBg: p.warnBg, critical: p.dangerText, emergency: p.emergency },
@@ -50,4 +53,13 @@ export function useTextInputStyle() {
     color: colors.ink,
     backgroundColor: colors.card,
   } as const;
+}
+
+/**
+ * Placeholder colour for a legacy TextInput. React Native's default placeholder grey is
+ * near-invisible on a dark field, so Dark gets the palette's subtle text role; Light keeps
+ * the platform default (undefined) so nothing changes there.
+ */
+export function placeholderColorFor(scheme: Scheme): string | undefined {
+  return scheme === "dark" ? darkPalette.textSubtle : undefined;
 }

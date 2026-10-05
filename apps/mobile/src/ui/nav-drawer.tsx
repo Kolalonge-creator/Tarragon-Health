@@ -173,7 +173,7 @@ function Tile({ section, label, active, onPress }: { section: SectionId; label: 
       >
         <Glyph size={22} color={active ? colors.brandText : colors.text} strokeWidth={2} accessibilityElementsHidden importantForAccessibility="no" />
       </View>
-      <AppText variant={active ? "label" : "caption"} tone={active ? "brandText" : "text"} align="center" numberOfLines={2}>
+      <AppText variant={active ? "label" : "caption"} tone={active ? "brandText" : "text"} align="center" numberOfLines={3}>
         {label}
       </AppText>
     </PressableScale>

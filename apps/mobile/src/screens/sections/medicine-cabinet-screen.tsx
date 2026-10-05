@@ -3,8 +3,14 @@ import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View 
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
+import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { parseScheduleSpec, validatePillCount, type FoodNote, type ScheduleSpec } from "@tarragon/medicines";
+import { useUiLanguage } from "@/lib/ui-language";
 import {
   addMedication,
+  loadSupplies,
+  saveSupply,
+  type SupplyView,
   checkPackAgainstPrescription,
   checkinQuestion,
   getPrescriptionPdfUrl,
@@ -124,6 +130,7 @@ export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCab
   const [checkinsError, setCheckinsError] = useState(false);
   const [labMonitoring, setLabMonitoring] = useState<LabMonitoringItem[]>([]);
   const [labMonitoringError, setLabMonitoringError] = useState(false);
+  const [supplies, setSupplies] = useState<Map<string, SupplyView>>(new Map());
 
   const load = useCallback(async () => {
     const [medsRes, collectionsRes, requestsRes, checkinsRes, labRes] = await Promise.all([
@@ -137,6 +144,8 @@ export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCab
     if (medsRes.ok) {
       setMedsError(false);
       setMedications(medsRes.data);
+      const supplyRes = await loadSupplies(patientId, medsRes.data);
+      if (supplyRes.ok) setSupplies(supplyRes.data);
     } else {
       setMedsError(true);
     }
@@ -192,6 +201,7 @@ export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCab
                 medication={medication}
                 patientId={patientId}
                 organisationId={organisationId}
+                supply={supplies.get(medication.id) ?? null}
                 latestCollection={collections.find((c) => c.medication_id === medication.id) ?? null}
                 latestRequest={
                   requests
@@ -254,6 +264,7 @@ function MedicationCard({
   medication,
   patientId,
   organisationId,
+  supply,
   latestCollection,
   latestRequest,
   onChanged,
@@ -261,12 +272,15 @@ function MedicationCard({
   medication: MedicationCabinetItem;
   patientId: string;
   organisationId: string;
+  supply: SupplyView | null;
   latestCollection: MedicationCollectionItem | null;
   latestRequest: RepeatRequestItem | null;
   onChanged: () => Promise<void>;
 }) {
   const { scheme } = useTheme();
   const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
   const [collectOpen, setCollectOpen] = useState(false);
   const [collectedOn, setCollectedOn] = useState(todayIsoDate());
   const [pharmacyName, setPharmacyName] = useState("");
@@ -321,6 +335,7 @@ function MedicationCard({
         {medication.care_plan_condition ? <Pill tone="grey">{formatCondition(medication.care_plan_condition)}</Pill> : null}
       </View>
       <MutedText>{[medication.dose, medication.frequency].filter(Boolean).join(", ") || "No dose/frequency set"}</MutedText>
+      {medication.source === "clinician" ? <MutedText>{tr("meds.dose_locked")}</MutedText> : null}
       {scheduleTimes.length > 0 ? <MutedText>Doses: {scheduleTimes.join(", ")}</MutedText> : null}
       {medication.source === "specialist" && medication.prescriber_name ? (
         <MutedText>Started by {medication.prescriber_name}</MutedText>
@@ -348,6 +363,7 @@ function MedicationCard({
           </MutedText>
         </View>
       ) : null}
+      <SupplySection medication={medication} patientId={patientId} organisationId={organisationId} supply={supply} onSaved={onChanged} />
       {latestCollection ? (
         <MutedText>
           Last picked up {formatDate(latestCollection.dispensed_on)}
@@ -424,6 +440,101 @@ function MedicationCard({
   );
 }
 
+type ScheduleKind = "daily" | "every_n_days" | "weekdays" | "as_needed" | "taper";
+const SCHEDULE_KINDS: ScheduleKind[] = ["daily", "every_n_days", "weekdays", "as_needed", "taper"];
+const WINDOW_CHOICES = [0, 60, 120, 240] as const;
+const FOOD_NOTES: FoodNote[] = ["with_food", "before_food", "after_food", "empty_stomach", "bedtime"];
+interface TaperDraft {
+  days: string;
+  times: string;
+  doseText: string;
+}
+
+/**
+ * Pill count and refill countdown for one medicine. The patient types what is on
+ * hand; the estimate walks the schedule forward and says how long it lasts. The
+ * count is the patient's own record, separate from the prescription, so changing it
+ * never touches a prescribed dose (INV-02).
+ */
+function SupplySection({
+  medication,
+  patientId,
+  organisationId,
+  supply,
+  onSaved,
+}: {
+  medication: MedicationCabinetItem;
+  patientId: string;
+  organisationId: string;
+  supply: SupplyView | null;
+  onSaved: () => Promise<void>;
+}) {
+  const { scheme } = useTheme();
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState(supply ? String(supply.pillsOnHand) : "");
+  const [perDose, setPerDose] = useState(supply ? String(supply.pillsPerDose) : "1");
+  const [message, setMessage] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function save() {
+    const onHand = validatePillCount(Number(count));
+    const per = validatePillCount(Number(perDose));
+    if (!onHand.ok || !per.ok || per.value === 0) {
+      setMessage(tr("meds.supply.invalid"));
+      return;
+    }
+    setPending(true);
+    const result = await saveSupply(patientId, organisationId, medication.id, onHand.value, per.value);
+    setPending(false);
+    if (result.error) {
+      setMessage(tr("meds.supply.save_failed"));
+      return;
+    }
+    setMessage(tr("meds.supply.saved"));
+    setOpen(false);
+    await onSaved();
+  }
+
+  const est = supply?.estimate;
+  return (
+    <View style={{ gap: 6, marginTop: 4 }}>
+      {supply && est ? (
+        <MutedText>
+          {est.daysLeft !== null
+            ? tr("meds.supply.days_left", { days: est.daysLeft })
+            : est.coversCourse
+              ? tr("meds.supply.covers_course")
+              : `${tr("meds.supply.title")}: ${supply.pillsOnHand}`}
+          {supply.low ? ` ${tr("meds.supply.low")}` : ""}
+        </MutedText>
+      ) : (
+        <MutedText>{tr("meds.supply.unknown")}</MutedText>
+      )}
+      {message ? <MutedText>{message}</MutedText> : null}
+      {!open ? <SmallGhostButton title={tr("meds.supply.title")} onPress={() => setOpen(true)} /> : null}
+      {open ? (
+        <View style={{ gap: 6 }}>
+          <MutedText>{tr("meds.supply.count_label")}</MutedText>
+          <TextInput keyboardAppearance={scheme} value={count} onChangeText={setCount} keyboardType="decimal-pad" style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
+          <MutedText>{tr("meds.supply.per_dose_label")}</MutedText>
+          <TextInput keyboardAppearance={scheme} value={perDose} onChangeText={setPerDose} keyboardType="decimal-pad" style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <PrimaryButton title={tr("meds.supply.save")} onPress={save} disabled={pending} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <SecondaryButton title="Cancel" onPress={() => setOpen(false)} disabled={pending} />
+            </View>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function SmallGhostButton({ title, onPress, disabled }: { title: string; onPress: () => void; disabled?: boolean }) {
   const colors = useLegacyColors();
   return (
@@ -434,7 +545,7 @@ function SmallGhostButton({ title, onPress, disabled }: { title: string; onPress
       disabled={disabled}
       style={({ pressed }) => ({ opacity: disabled ? 0.5 : pressed ? 0.6 : 1, paddingVertical: 6 })}
     >
-      <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand }}>{title}</Text>
+      <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>{title}</Text>
     </Pressable>
   );
 }
@@ -469,6 +580,16 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const locale = asLocale(useUiLanguage());
+  const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
+  const [kind, setKind] = useState<ScheduleKind>("daily");
+  const [intervalDays, setIntervalDays] = useState("2");
+  const [weekdays, setWeekdays] = useState<number[]>([]);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [foodNote, setFoodNote] = useState<FoodNote | null>(null);
+  const [windowMinutes, setWindowMinutes] = useState<number>(0);
+  const [steps, setSteps] = useState<TaperDraft[]>([{ days: "", times: "", doseText: "" }]);
 
   function addScheduleTime(time: string) {
     if (time && !scheduleTimes.includes(time)) setScheduleTimes((prev) => [...prev, time].sort());
@@ -485,6 +606,40 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
     setScheduleTimes([]);
     setStartedBySpecialist(false);
     setPrescriberName("");
+    setKind("daily");
+    setIntervalDays("2");
+    setWeekdays([]);
+    setStartDate("");
+    setEndDate("");
+    setFoodNote(null);
+    setWindowMinutes(0);
+    setSteps([{ days: "", times: "", doseText: "" }]);
+  }
+
+  /** The structured schedule the form describes, or null for the plain "every day at these times" case. */
+  function buildSpec(): { spec: ScheduleSpec | null } | { error: string } {
+    const plainDaily = kind === "daily" && !startDate.trim() && !endDate.trim() && foodNote === null && windowMinutes === 0;
+    if (plainDaily) return { spec: null };
+    const today = todayIsoDate();
+    const common = { startDate: startDate.trim() || null, endDate: endDate.trim() || null, foodNote, windowMinutes: kind === "as_needed" ? 0 : windowMinutes };
+    let raw: Record<string, unknown>;
+    if (kind === "daily") raw = { ...common, kind, times: scheduleTimes };
+    else if (kind === "every_n_days") raw = { ...common, startDate: common.startDate ?? today, kind, times: scheduleTimes, intervalDays: Number(intervalDays), anchorDate: common.startDate ?? today };
+    else if (kind === "weekdays") raw = { ...common, kind, times: scheduleTimes, days: weekdays };
+    else if (kind === "as_needed") raw = { ...common, kind };
+    else
+      raw = {
+        ...common,
+        startDate: common.startDate ?? today,
+        kind,
+        steps: steps.map((st) => ({
+          days: Number(st.days),
+          times: st.times.split(",").map((x) => x.trim()).filter(Boolean),
+          doseText: st.doseText,
+        })),
+      };
+    const parsed = parseScheduleSpec(raw);
+    return parsed.ok ? { spec: parsed.spec } : { error: tr("meds.schedule.invalid") };
   }
 
   async function submit() {
@@ -495,8 +650,14 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
       setError("Drug name is required");
       return;
     }
+    const built = buildSpec();
+    if ("error" in built) {
+      setError(built.error);
+      return;
+    }
     setPending(true);
     const result = await addMedication(patientId, {
+      scheduleSpec: built.spec ?? undefined,
       drugName: name,
       dose: dose.trim() || undefined,
       frequency: frequency.trim() || undefined,
@@ -556,6 +717,68 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
             />
           </View>
           <View style={{ gap: 6 }}>
+            <MutedText>{tr("meds.schedule.title")}</MutedText>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {SCHEDULE_KINDS.map((k) => (
+                <SmallGhostButton key={k} title={(kind === k ? "✓ " : "") + tr(`meds.schedule.kind.${k}` as MessageKey)} onPress={() => setKind(k)} />
+              ))}
+            </View>
+            {kind === "every_n_days" ? (
+              <View>
+                <MutedText>{tr("meds.schedule.interval")}</MutedText>
+                <TextInput keyboardAppearance={scheme} value={intervalDays} onChangeText={setIntervalDays} keyboardType="number-pad" style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
+              </View>
+            ) : null}
+            {kind === "weekdays" ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+                  <SmallGhostButton
+                    key={d}
+                    title={(weekdays.includes(d) ? "✓ " : "") + tr(`meds.weekday.${d}` as MessageKey)}
+                    onPress={() => setWeekdays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]))}
+                  />
+                ))}
+              </View>
+            ) : null}
+            {kind === "taper" ? (
+              <View style={{ gap: 8 }}>
+                {steps.map((st, i) => (
+                  <View key={i} style={{ gap: 6 }}>
+                    <MutedText>{tr("meds.schedule.taper_step", { n: i + 1, days: st.days || "?" })}</MutedText>
+                    <TextInput keyboardAppearance={scheme} value={st.days} onChangeText={(v) => setSteps((prev) => prev.map((x, j) => (j === i ? { ...x, days: v } : x)))} keyboardType="number-pad" placeholder="7" style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
+                    <TextInput keyboardAppearance={scheme} value={st.times} onChangeText={(v) => setSteps((prev) => prev.map((x, j) => (j === i ? { ...x, times: v } : x)))} placeholder="08:00, 20:00" style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
+                    <TextInput keyboardAppearance={scheme} value={st.doseText} onChangeText={(v) => setSteps((prev) => prev.map((x, j) => (j === i ? { ...x, doseText: v } : x)))} placeholder={tr("meds.schedule.taper_dose")} style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
+                  </View>
+                ))}
+                <SmallGhostButton title={tr("meds.schedule.taper_add")} onPress={() => setSteps((prev) => [...prev, { days: "", times: "", doseText: "" }])} />
+              </View>
+            ) : null}
+            <View>
+              <MutedText>{tr("meds.schedule.start_date")}</MutedText>
+              <TextInput keyboardAppearance={scheme} value={startDate} onChangeText={setStartDate} placeholder="YYYY-MM-DD" style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
+            </View>
+            <View>
+              <MutedText>{tr("meds.schedule.end_date")}</MutedText>
+              <TextInput keyboardAppearance={scheme} value={endDate} onChangeText={setEndDate} placeholder="YYYY-MM-DD" style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
+            </View>
+            {kind === "as_needed" ? null : (
+              <View style={{ gap: 6 }}>
+                <MutedText>{tr("meds.window.title")}</MutedText>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  {WINDOW_CHOICES.map((w) => (
+                    <SmallGhostButton key={w} title={(windowMinutes === w ? "✓ " : "") + tr(`meds.window.${w}` as MessageKey)} onPress={() => setWindowMinutes(w)} />
+                  ))}
+                </View>
+              </View>
+            )}
+            <MutedText>{tr("meds.schedule.food_note")}</MutedText>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {FOOD_NOTES.map((f) => (
+                <SmallGhostButton key={f} title={(foodNote === f ? "✓ " : "") + tr(`meds.food.${f}` as MessageKey)} onPress={() => setFoodNote(foodNote === f ? null : f)} />
+              ))}
+            </View>
+          </View>
+          <View style={{ gap: 6, display: kind === "taper" || kind === "as_needed" ? "none" : "flex" }}>
             <MutedText>Dose times</MutedText>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {DOSE_TIME_PRESETS.map((preset) => (
@@ -622,6 +845,7 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
               />
             </View>
           ) : null}
+          <MutedText>{tr("meds.confirm.body")}</MutedText>
           {error ? <ErrorText>{error}</ErrorText> : null}
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
