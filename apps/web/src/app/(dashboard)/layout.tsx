@@ -26,7 +26,6 @@ export default async function DashboardLayout({
 }) {
   const supabase = await createClient();
   const user = await getCurrentUser();
-  const pidginEnabled = await getPidginEnabled();
 
   if (!user) {
     redirect("/login");
@@ -39,6 +38,9 @@ export default async function DashboardLayout({
     )
     .eq("id", user.id)
     .single();
+
+  // Only patients ever see Pidgin; staff consoles are English, so skip the lookup for them.
+  const pidginEnabled = profile?.role === "patient" ? await getPidginEnabled() : false;
 
   // Supporter-only: they fund somebody else's care and receive none here.
   // Somebody who is BOTH keeps the full patient app, with People you support

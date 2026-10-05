@@ -19,7 +19,7 @@ export default async function LanguageSettingsPage() {
   if (profile.role !== "admin") redirect("/admin");
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("platform_switches")
     .select("is_on, changed_at, change_note")
     .eq("key", PIDGIN_SWITCH_KEY)
@@ -31,6 +31,11 @@ export default async function LanguageSettingsPage() {
         title="Languages"
         description="One switch for the Pidgin interface. Turn it off if any of the wording is wrong; English is used everywhere until you turn it back on."
       />
+      {error && (
+        <p className="rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">
+          Could not read the current setting ({error.message}). The button below may show the wrong state; reload before using it.
+        </p>
+      )}
       <PidginSwitchCard
         isOn={data?.is_on === true}
         changedAt={data?.changed_at ?? null}
