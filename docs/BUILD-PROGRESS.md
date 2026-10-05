@@ -403,3 +403,8 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Built**: the phone's Today list keeps yesterday's slot while it is still open (23:00 with a two hour window, or a plain dose inside the global two hour window, is answerable at 00:30), logs now carry their own date so yesterday's answer never lands on today's slot, doses are keyed by medicine, Lagos date and time (the same key the reminder plan uses, which also fixes snoozes matching the plan), the overview counts only today's doses, and an item from last night is labelled. Unsent doses on the phone and the offline mirror are read for yesterday too.
 - **Tests**: 7 new in `s08c-midnight-window.test.ts` (one hand sabotage of the close rule fails two of them); mobile 856 passing.
 - **Not done**: the web Today list still shows today only (the web patient page has no window setting, so the case cannot arise there yet). No device run.
+
+## S08d: a failed catch-up read is no longer silent (2026-10-05)
+
+- **Built**: `runCatchUpCheck` returns `skipped`, `none`, `show` or `failed`; a failed read is recorded in the sync diagnostics (new source `catch_up`), does not use up the 4 hour offer gap, and the sheet retries after 30 seconds and 2 minutes (`medicines.dose_rules.catchUpRetrySeconds`) before waiting for the next open. The Today list is unaffected and the patient is not interrupted about it.
+- **Tests**: 6 new in `s08d-catch-up-failure.test.ts` (a hand sabotage that turns a failure into "none" fails two); mobile 863 passing.

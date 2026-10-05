@@ -38,7 +38,10 @@ describe("medicine config: phone registry and server row agree", () => {
 
   it("loads every medicines value as a number above its floor", () => {
     const rules = loadMedicineRules();
-    for (const v of Object.values(rules)) expect(Number.isFinite(v)).toBe(true);
+    for (const v of Object.values(rules)) {
+      for (const n of Array.isArray(v) ? v : [v]) expect(Number.isFinite(n)).toBe(true);
+    }
     expect(rules.undoSeconds).toBeGreaterThan(0);
+    expect(rules.catchUpRetrySeconds.length).toBeGreaterThan(0);
   });
 });

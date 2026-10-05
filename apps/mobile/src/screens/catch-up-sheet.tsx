@@ -3,8 +3,8 @@ import { AppState, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { lagosLocalDate } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
-import { loadCatchUpDoses, type DoseChecklistItem } from "@/lib/medications";
-import { answerCatchUp, catchUpKey, loadDismissed, loadLastOffered, mayOfferCatchUp, saveDismissed, saveLastOffered, selectCatchUp, type CatchUpChoice } from "@/lib/catch-up";
+import { type DoseChecklistItem } from "@/lib/medications";
+import { answerCatchUp, catchUpKey, retryDelayMs, runCatchUpCheck, saveDismissed, saveLastOffered, type CatchUpChoice } from "@/lib/catch-up";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Button, InlineAlert, Sheet } from "@/ui/kit";
 
@@ -29,20 +29,28 @@ export function CatchUpSheet({ patientId, organisationId, enabled }: CatchUpShee
   const [busy, setBusy] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const shown = useRef<string[]>([]);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const check = useCallback(async () => {
-    if (!enabled) return;
-    if (!mayOfferCatchUp(await loadLastOffered(), Date.now())) return;
-    const res = await loadCatchUpDoses(patientId);
-    if (!res.ok) return;
-    const next = selectCatchUp(res.data, await loadDismissed());
-    if (next.length === 0) return;
-    shown.current = next.map(catchUpKey);
-    void saveLastOffered(Date.now());
-    setItems(next);
-    setFailed(false);
-    setVisible(true);
-  }, [enabled, patientId]);
+  const check = useCallback(
+    async (attempt = 0) => {
+      if (!enabled) return;
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+      const result = await runCatchUpCheck(patientId, Date.now());
+      if (result.status === "failed") {
+        // A failed read is not "nothing to catch up": try again a few times, then wait for the next open.
+        const delay = retryDelayMs(attempt);
+        if (delay !== null) retryTimer.current = setTimeout(() => void check(attempt + 1), delay);
+        return;
+      }
+      if (result.status !== "show") return;
+      shown.current = result.items.map(catchUpKey);
+      void saveLastOffered(Date.now());
+      setItems(result.items);
+      setFailed(false);
+      setVisible(true);
+    },
+    [enabled, patientId]
+  );
 
   useEffect(() => {
     // Turned off (the account is now being acted for): close it rather than leave it over the banner.
@@ -51,8 +59,11 @@ export function CatchUpSheet({ patientId, organisationId, enabled }: CatchUpShee
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") void check();
     });
-    return () => sub.remove();
-  }, [check]);
+    return () => {
+      sub.remove();
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+    };
+  }, [check, enabled]);
 
   function dismiss() {
     // Whatever was not answered is not asked about again.
