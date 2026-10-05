@@ -108,6 +108,8 @@ export const TIMELINE_EVENT_STYLE: Record<TimelineEventType, { dot: string; labe
   record_conflict_resolved: { dot: "#16A34A", label: "Record conflict" },
   clinical_summary_validated: { dot: "#16A34A", label: "Clinical summary" },
   dependent_account_transitioned: { dot: "#12324B", label: "Account access" },
+  vitals_recorded: { dot: "#16A34A", label: "Vitals" },
+  prescription_signed: { dot: "#12324B", label: "Prescription" },
 };
 
 // Belt-and-braces only, same reasoning as the web component's humaniseSummary:
