@@ -165,6 +165,7 @@ export default async function MembersPage() {
         canEditContact={isSuperAdmin || keys.has("users.contact.edit")}
         canSuspend={isSuperAdmin || keys.has("users.suspend")}
         currentMemberId={profile.id}
+        suspendScope={{ isSuperAdmin, organisationId: profile.organisation_id }}
         canGrant={isSuperAdmin || keys.has("users.permissions.grant")}
         canManageRoles={isSuperAdmin || keys.has("roles.manage")}
         canViewActivity={isSuperAdmin || keys.has("members.activity.view")}
