@@ -142,3 +142,7 @@ D-02 to D-04 are not defined in the spec.
 - OQ-67: S07 does not change BP grading; S12 aligns the bands through versioned, CMO-signed thresholds.
 - OQ-68: the dose reminder uses generic keyed copy with no medicine name (INV-07).
 - OQ-80: the trends card reads the target through a small read-only server function (`my_home_bp_target()`) so it matches the alerts, labels a derived target as a standard starting target, and falls back to the old behaviour while the function is not applied. Built 2026-10-05, not applied to production.
+
+### S11, 2026-10-05
+- OQ-86: the engine keeps BP-P1 (pregnancy), BP-P2 (under 18) and BP-A6 (red-flag symptom below the severe line) in the draft rule set. The CMO edits or removes them before signing. Pregnancy severe-range lines, a low reading with no symptoms, symptom-only reports (S12) and per-session averaging stay CMO or S12 items.
+- OQ-87: systolic maximum 299 so safety case 5 holds; codes TRI-002, TRI-003, TRI-005 and EMG-001L as drafted; the emergency wording is for CMO review, Pidgin held as English until signed. Note OQ-66 (S07) kept the live plausibility limits 60-260 / 30-160 for typed entry; the engine's 60-299 limit is wider and is the one the spec states, so a typed 270/150 reaches the engine and grades red, never silently rejected.
