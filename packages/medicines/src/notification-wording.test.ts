@@ -56,7 +56,7 @@ describe("medicine reminder wording (INV-07)", () => {
     expect(hits("Time for your care plan check.")).toEqual([]);
   });
 
-  const source = readFileSync(new URL("../../../supabase/functions/send-pending-notifications/index.ts", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../../../supabase/functions/send-pending-notifications/templates.ts", import.meta.url), "utf8");
   function template(name: string): string {
     const start = source.indexOf(`  ${name}: (payload) => {`);
     expect(start).toBeGreaterThan(-1);

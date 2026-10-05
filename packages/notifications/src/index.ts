@@ -1,10 +1,11 @@
 /**
- * Rail router, template registry, I1 enforcement (send() throws on a clinical template
- * routed to sms/email -- the DB CHECK constraints in the M1 migrations are the
- * second, independent enforcement point per spec §3/I1). Build spec v3 §9.
- *
- * Not yet built (M6). The notification_templates/notification_sends/notification_events/
- * device_heartbeats tables and their I1 CHECK constraints already exist live (M1) --
- * this package is the send() pipeline in front of them.
+ * Notifications framework (S13). The rules live in supabase/functions/_shared/notifications (an edge function cannot
+ * import a workspace package), so this package re-exports them for the apps and for the tests:
+ *   neutral.ts   INV-07 lint: forbidden terms and placeholder names, clinical numbers, canary rendering of a template
+ *   delivery.ts  quiet hours, daily cap, SMS rule, discreet push envelope, Expo receipt outcome
+ *   resend.ts    Svix signature check and Resend event mapping
+ * The quiet hours form helpers live in @tarragon/shared (notification-settings.ts), which both apps already use.
  */
-export {};
+export * from "../../../supabase/functions/_shared/notifications/neutral.ts";
+export * from "../../../supabase/functions/_shared/notifications/delivery.ts";
+export * from "../../../supabase/functions/_shared/notifications/resend.ts";
