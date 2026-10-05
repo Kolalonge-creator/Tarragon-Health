@@ -438,3 +438,10 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Open questions**: none new.
 - **Follow-ups**: types splice into `database.types.ts` for the new tables/enum values; My Health hub page at `/patient/my-health` (entry point linking Timeline, Emergency Card, Health Passport, Share Records) deferred to the next session that touches patient navigation.
 
+
+
+## S08h: closing the medicines cabinet refreshes Today's doses (2026-10-05)
+
+- **Found** on the iPhone 17 Pro simulator (first device-style run of S08): a medicine added in the cabinet did not appear in Today's doses until the tab was reloaded, because the cabinet keeps its own copy of the list and the Meds screen only read it on open.
+- **Fixed**: closing the cabinet sheet re-reads Today's doses and re-plans the reminders (`medications-screen.tsx`). Confirmed on the simulator with a second medicine added on the server while the cabinet was open: it showed in Today's doses the moment the sheet closed.
+- **Also run on the simulator (iOS only, one pass, by hand)**: add a medicine with a 2 hour window (the stored spec passed the new database validator), see it as "Later today" with its window, tap "I took it", and the dose reached the server 2 minutes later, after the undo window, as `taken`. Not covered: the local reminder itself (notifications were denied for the dev build), the offline step, Android, a real phone.
