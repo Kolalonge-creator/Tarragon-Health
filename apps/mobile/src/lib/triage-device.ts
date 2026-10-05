@@ -60,6 +60,8 @@ export interface DeviceTriage {
   message: { title: string; body: string } | null;
   /** The manifest clip id for the message (EMG-001, TRI-003 ...), or null when there is no recording for that code. */
   audioId: string | null;
+  /** The clock the reading was graded at (ms); the symptom sheet regrades the same reading at the same instant. */
+  gradedAtMs: number;
   ruleSet: { code: string; version: number; status: "approved" | "draft" };
 }
 
@@ -74,6 +76,11 @@ export interface DeviceTriageRequest {
   systolic: number;
   diastolic: number;
   symptoms: readonly SymptomCode[];
+  /**
+   * True once the patient has answered the emergency-symptom question (the sheet in symptom-question.ts). A reading of
+   * 200/130 or more asks it first, so the default is false: the engine then answers `symptom_check_required`.
+   */
+  symptomsAnswered?: boolean;
   nowMs?: number;
 }
 
@@ -234,7 +241,7 @@ export async function clearPendingRecheck(subjectId: string): Promise<void> {
   await AsyncStorage.removeItem(RECHECK_KEY(subjectId)).catch(() => {});
 }
 
-function summarise(result: TriageResult, rules: DeviceRuleSet): DeviceTriage {
+function summarise(result: TriageResult, rules: DeviceRuleSet, gradedAtMs: number): DeviceTriage {
   const guidance = result.actions.find((a) => a.kind === "show_emergency_guidance");
   const emergencyCode = guidance && guidance.kind === "show_emergency_guidance" ? guidance.code : null;
   // A rejected reading with a red-flag symptom still shows the guidance (the engine sets the flag, no code), so fall back to the standard code.
@@ -246,6 +253,7 @@ function summarise(result: TriageResult, rules: DeviceRuleSet): DeviceTriage {
     emergencyCode: code,
     message: messageKeyFor(messageCode),
     audioId: triageAudioId(messageCode),
+    gradedAtMs,
     ruleSet: { code: result.ruleSet.code, version: result.ruleSet.version, status: rules.status },
   };
 }
@@ -311,8 +319,7 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
       : undefined;
 
   const input: TriageInput = {
-    // The symptom checklist is on the blood pressure form, so submitting it answers the question (ticking none counts).
-    trigger: { type: "observation", reading, symptoms: req.symptoms, symptomsAnswered: true, ...(recheck ? { recheck } : {}) },
+    trigger: { type: "observation", reading, symptoms: req.symptoms, symptomsAnswered: req.symptomsAnswered === true, ...(recheck ? { recheck } : {}) },
     history: ctx.history,
     target: ctx.target,
     pathway: { state: "self_guided" },
@@ -321,7 +328,7 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
     now,
   };
   const result = grade(input, rules.ruleSet);
-  const triage = summarise(result, rules);
+  const triage = summarise(result, rules, nowMs);
 
   // With no subject (the session could not be read in time) nothing is stored: a shared empty key would pair unrelated readings.
   if (req.subjectId) {
@@ -345,7 +352,7 @@ export async function resolveExpiredRecheck(subjectId: string, nowMs: number = D
   const ctx = await loadContext(subjectId, subjectId, nowMs);
   const result = grade(
     {
-      trigger: { type: "observation", reading: pending.reading, symptoms: [], recheck: { kind: "timed_out" } },
+      trigger: { type: "observation", reading: pending.reading, symptoms: [], symptomsAnswered: true, recheck: { kind: "timed_out" } },
       history: ctx.history.filter((h) => h.takenAt !== pending.reading.takenAt),
       target: ctx.target,
       pathway: { state: "self_guided" },
@@ -356,5 +363,14 @@ export async function resolveExpiredRecheck(subjectId: string, nowMs: number = D
     rules.ruleSet,
   );
   await clearPendingRecheck(subjectId);
-  return summarise(result, rules);
+  return summarise(result, rules, nowMs);
+}
+
+/**
+ * True when the engine asks the emergency-symptom question AND its rule set is the approved one. While the rule set is a
+ * draft (OQ-88) the older on-device check still decides the very high band, so the question is not shown: showing it beside
+ * the emergency guidance the older check already raises would give two answers.
+ */
+export function shouldAskSymptomQuestion(d: DeviceTriage | null | undefined): boolean {
+  return !!d && d.result.status === "symptom_check_required" && d.ruleSet.status === "approved";
 }

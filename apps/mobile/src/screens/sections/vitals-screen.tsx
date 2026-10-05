@@ -10,7 +10,8 @@ import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-t
 import { loadActiveThresholds } from "@/lib/threshold-sync";
 import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChecklistSymptom, type CuffType } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
-import { refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, type DeviceTriage } from "@/lib/triage-device";
+import { refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
+import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
 import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
 import {
   validateOtherEntry,
@@ -49,6 +50,7 @@ import {
 } from "@/ui/kit";
 import { ListenButton } from "@/ui/ListenButton";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { SymptomQuestionSheet } from "@/screens/symptom-question-sheet";
 import { MIN_READINGS_FOR_CHART, useTrendInsights } from "@/lib/use-trend-insights";
 import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
 import { SyncBanner } from "@/screens/sync-banner";
@@ -139,6 +141,10 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [rulesStale, setRulesStale] = useState(false);
   const [symptomOpen, setSymptomOpen] = useState(false);
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
+  // The emergency-symptom question for a reading of 200/130 or more (TRI-008): the reading it is about, until answered.
+  const [question, setQuestion] = useState<{ systolic: number; diastolic: number; gradedAtMs: number } | null>(null);
+  const [questionBusy, setQuestionBusy] = useState(false);
+  const [questionFailed, setQuestionFailed] = useState(false);
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
 
   // The governed engine's message for a reading (S12). Emergency guidance has its own full-screen modal, so it
@@ -270,7 +276,12 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       } else if (outcome.severity === "urgent" && outcome.bpFlag) {
         setUrgentBanner(outcome.bpFlag.detail);
       }
-      showTriage(outcome.device);
+      // The engine's softer cards never sit beside emergency guidance the older check has raised.
+      showTriage(outcome.severity === "emergency" ? null : outcome.device);
+      if (shouldAskSymptomQuestion(outcome.device) && outcome.device) {
+        setQuestionFailed(false);
+        setQuestion({ systolic: plan.systolic, diastolic: plan.diastolic, gradedAtMs: outcome.device.gradedAtMs });
+      }
     });
     setSaving(false);
     if (result.error) {
@@ -293,6 +304,37 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setPulse("");
     setTicked([]);
     await load();
+  }
+
+  async function handleQuestionAnswer(symptoms: QuestionSymptom[]) {
+    if (!question) return;
+    setQuestionBusy(true);
+    setQuestionFailed(false);
+    try {
+      const subject = beneficiaryProfileId ?? patientId;
+      const answer = await answerSymptomQuestion({
+        subjectId: subject,
+        beneficiaryProfileId,
+        systolic: question.systolic,
+        diastolic: question.diastolic,
+        gradedAtMs: question.gradedAtMs,
+        symptoms,
+      });
+      setQuestion(null);
+      if (answer.triage.severity === "emergency") {
+        const names = symptoms.map((s) => tr(`vitals.symptom.${s}` as MessageKey)).join(", ");
+        setGuidance({ detail: tr("vitals.guidance.symptom_detail", { symptoms: names }), synced: answer.syncedAll });
+        setTriageCard(null);
+      } else {
+        showTriage(answer.triage);
+      }
+      if (!answer.saved) setSaveError(tr("triage.question.error"));
+      await load();
+    } catch {
+      setQuestionFailed(true);
+    } finally {
+      setQuestionBusy(false);
+    }
   }
 
   const latest = readings[0] ?? null;
@@ -543,6 +585,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           <SymptomScreen patientId={patientId} beneficiaryProfileId={beneficiaryProfileId} />
         </View>
       </Modal>
+
+      <SymptomQuestionSheet visible={question !== null} tr={tr} busy={questionBusy} failed={questionFailed} onAnswer={handleQuestionAnswer} />
 
       <EmergencyGuidanceModal
         visible={guidance !== null}

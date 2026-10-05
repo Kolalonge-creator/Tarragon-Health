@@ -120,21 +120,21 @@ describe("safety case 1: offline red reading shows guidance on the device within
   });
 
   it("a crisis reading with no symptom: medicine, rest and a recheck after 2 hours (CMO decision), not red", async () => {
-    const triage = await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], nowMs: NOW });
+    const triage = await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], symptomsAnswered: true, nowMs: NOW });
     expect(triage.result).toMatchObject({ status: "recheck_required", grade: null, ruleId: "BP-X2", explanationKey: "TRI-007" });
     expect(triage.result.recheck?.waitMinutes).toBe(120);
     expect(await readPendingRecheck(SUBJECT)).not.toBeNull();
   });
 
   it("the 2 hour repeat: still urgent is amber, and the wait is 4 hours, not 15 minutes", async () => {
-    await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], nowMs: NOW });
+    await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], symptomsAnswered: true, nowMs: NOW });
     expect(await resolveExpiredRecheck(SUBJECT, NOW + 30 * 60_000)).toBeNull();
-    const repeat = await gradeOnDevice({ subjectId: SUBJECT, systolic: 190, diastolic: 112, symptoms: [], nowMs: NOW + 125 * 60_000 });
+    const repeat = await gradeOnDevice({ subjectId: SUBJECT, systolic: 190, diastolic: 112, symptoms: [], symptomsAnswered: true, nowMs: NOW + 125 * 60_000 });
     expect(repeat.result).toMatchObject({ status: "graded", grade: "amber", ruleId: "BP-A1" });
   });
 
   it("no repeat within 4 hours of a crisis reading: graded as if repeated", async () => {
-    await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], nowMs: NOW });
+    await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], symptomsAnswered: true, nowMs: NOW });
     expect(await resolveExpiredRecheck(SUBJECT, NOW + 200 * 60_000)).toBeNull();
     const late = await resolveExpiredRecheck(SUBJECT, NOW + 245 * 60_000);
     expect(late?.result).toMatchObject({ status: "graded", grade: "amber", ruleId: "BP-A1" });
