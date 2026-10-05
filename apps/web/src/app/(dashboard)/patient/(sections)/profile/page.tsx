@@ -11,10 +11,12 @@ import { CommunicationPreferencesForm } from "@/app/(dashboard)/patient/communic
 import { GlucoseUnitForm } from "@/app/(dashboard)/patient/glucose-unit-form";
 import { UiLanguageForm } from "@/app/(dashboard)/patient/ui-language-form";
 import { asUiLanguage } from "@tarragon/shared";
+import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { CommunicationHistoryCard } from "@/app/(dashboard)/patient/communication-history-card";
 
 export default async function PatientProfilePage() {
   const { profile } = await getPatientDashboardContext();
+  const pidginEnabled = await getPidginEnabled();
 
   return (
     <DashboardSection
@@ -51,7 +53,7 @@ export default async function PatientProfilePage() {
           <ConditionLanguageForm
             initial={{ condition_language_preference: profile.condition_language_preference }}
           />
-          <UiLanguageForm initial={asUiLanguage(profile.language)} />
+          {pidginEnabled && <UiLanguageForm initial={asUiLanguage(profile.language)} />}
           <GlucoseUnitForm
             initial={profile.glucose_display_unit === "mmol_l" ? "mmol_l" : "mg_dl"}
           />

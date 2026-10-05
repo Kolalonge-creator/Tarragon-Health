@@ -26,6 +26,7 @@ import {
 } from "@/ui/legacy-kit";
 import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { usePidginEnabled } from "@/lib/pidgin-switch";
 import {
   createCorrectionRequest,
   createDeletionRequest,
@@ -180,6 +181,7 @@ function UiLanguageSection({
   const [value, setValue] = useState<UiLanguage>(asUiLanguage(profile.language));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pidginEnabled = usePidginEnabled();
 
   async function choose(next: UiLanguage) {
     if (next === value) return;
@@ -197,6 +199,9 @@ function UiLanguageSection({
       setSaving(false);
     }
   }
+
+  // Pidgin switched off platform-wide: English only, so there is no language to pick.
+  if (!pidginEnabled) return null;
 
   return (
     <View style={{ gap: 10 }}>
