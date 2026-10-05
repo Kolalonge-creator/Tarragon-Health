@@ -20,6 +20,7 @@ const good = {
   catchUpRetrySeconds: [30, 120],
   backdateWindowHours: 72,
   futureSkewMinutes: 5,
+  maxFollowUps: 8,
 };
 
 function withValue(value: unknown) {
