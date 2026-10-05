@@ -31,6 +31,7 @@ import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
 import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
 import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
 import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
+import { BpHistoryScreen } from "@/screens/sections/bp-history-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
@@ -226,6 +227,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         />
       ),
     vitals: () => <VitalsScreen patientId={subjectId} beneficiaryProfileId={acting?.profileId} />,
+    bpHistory: () => <BpHistoryScreen patientId={subjectId} userId={userId} organisationId={organisationId} />,
     medications: () => (
       <MedicationsScreen
         patientId={subjectId}
