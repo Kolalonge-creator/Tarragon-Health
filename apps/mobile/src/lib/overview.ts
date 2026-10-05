@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { loadTodaysDoses, type QueryResult } from "./medications";
+import { loadTodaysDoses, todayIsoDate, type QueryResult } from "./medications";
 
 export interface SummaryStats {
   latestBp: { systolic: number; diastolic: number } | null;
@@ -55,6 +55,9 @@ export async function getSummaryStats(patientId: string): Promise<QueryResult<Su
     const failure = bpRes.error ?? glucoseRes.error ?? medsRes.error ?? latestRes.error;
     if (failure) return { ok: false, error: failure.message };
     if (!doses.ok) return { ok: false, error: doses.error };
+    // A dose still open from last night (a window across midnight) is on the Medications list, not in "today" here.
+    const today = todayIsoDate();
+    const todaysDoses = doses.data.filter((d) => !d.date || d.date === today);
 
     const bp = bpRes.data?.[0];
     const glucose = glucoseRes.data?.[0];
@@ -68,8 +71,8 @@ export async function getSummaryStats(patientId: string): Promise<QueryResult<Su
             : null,
         latestGlucoseMmolL: glucose?.glucose_mmol_l ?? null,
         activeMedicationCount: medsRes.data?.length ?? 0,
-        dosesTaken: doses.data.filter((d) => d.status === "taken").length,
-        dosesTotal: doses.data.length,
+        dosesTaken: todaysDoses.filter((d) => d.status === "taken").length,
+        dosesTotal: todaysDoses.length,
         lastVitalTakenAt: latestRes.data?.[0]?.taken_at ?? null,
         // A failed count must not read as "brand new" and replace a real
         // patient's dashboard with a get-started card, so null falls safe.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { resolveTakenTime, isDoubleTap, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
+import { resolveTakenTime, isDoubleTap, lagosLocalDate, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
 import {
   loadTodaysDoses,
@@ -30,7 +30,8 @@ interface MedicationsScreenProps {
   subjectName?: string;
 }
 
-const doseKey = (item: DoseChecklistItem) => `${item.medicationId}|${item.time}`;
+/** Matches the slot key the reminder plan uses (medication, Lagos date, time), so snoozes and replans agree and yesterday's open dose never collides with today's. */
+const doseKey = (item: DoseChecklistItem) => `${item.medicationId}|${item.date ?? ""}|${item.time}`;
 
 const STATE_LABEL: Record<SlotState, MessageKey> = {
   upcoming: "meds.state.upcoming",
@@ -351,6 +352,11 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
                             .filter(Boolean)
                             .join(" · ")}
                         </AppText>
+                        {item.date && item.date < lagosLocalDate(now) ? (
+                          <AppText variant="caption" tone="textMuted">
+                            {tr("meds.window.from_yesterday")}
+                          </AppText>
+                        ) : null}
                         {item.origin === "prescription" ? (
                           <AppText variant="caption" tone="textMuted">
                             {tr("meds.source.prescription")}
