@@ -4,6 +4,7 @@ import { recordSyncError } from "./sync-diagnostics";
 import { loadOfflineSyncConfig } from "./offline-sync-config";
 import { OFFLINE_BUDGET } from "./offline-budget";
 import { classifyFailure, pullFloor, type OfflineSyncConfig } from "./outbox-rules";
+import { fetchPatientTasks } from "./task-source";
 
 /**
  * Read mirror of the patient's own records on the phone (S06), so logging
@@ -17,7 +18,9 @@ import { classifyFailure, pullFloor, type OfflineSyncConfig } from "./outbox-rul
  * id makes a re-read harmless. Live tables, not the S05 aliasing views.
  *
  * Patient-authored vitals, symptoms and doses are append-only, so a mirror row
- * never changes after it is first seen. Medications are replaced whole.
+ * never changes after it is first seen. Medications and the patient's tasks are
+ * small and change in place, so each is replaced whole (and a failed pull never
+ * empties them: the last good copy stays until a newer one arrives).
  */
 
 export type MirrorKind = "vital" | "symptom" | "dose";
@@ -45,6 +48,12 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
         );
         create index if not exists local_records_read on local_records (kind, owner_user_id, subject_id, created_at);
         create table if not exists local_medications (
+          id text primary key,
+          owner_user_id text not null,
+          subject_id text not null,
+          row text not null
+        );
+        create table if not exists local_tasks (
           id text primary key,
           owner_user_id text not null,
           subject_id text not null,
@@ -179,6 +188,40 @@ async function pullMedications(db: SQLite.SQLiteDatabase, owner: string, subject
   result.pulled += rows.length;
 }
 
+/**
+ * The patient's own tasks (the patient_tasks view: the caller's patient-owned care_tasks).
+ * Tasks change status in place, so the cursor pull used for append-only rows does not fit:
+ * replace the whole small set instead (every open task plus what changed since yesterday, see task-source.ts). On any error the mirror is left exactly as it was, so a missing
+ * view (before the S07 migration is applied) or a dropped connection never wipes a good copy.
+ */
+async function pullTasks(db: SQLite.SQLiteDatabase, owner: string, subjectId: string, result: PullResult) {
+  const { rows, error } = await fetchPatientTasks(subjectId);
+  result.pages += 1;
+  if (error) {
+    if (classifyFailure({ code: error.code, message: error.message }) === "network") result.stoppedOffline = true;
+    recordSyncError("offline_outbox", "pull:tasks", error.message);
+    return;
+  }
+  result.bytes += JSON.stringify(rows).length;
+  await db.execAsync("begin");
+  try {
+    await db.runAsync("delete from local_tasks where owner_user_id = ? and subject_id = ?", [owner, subjectId]);
+    for (const row of rows) {
+      await db.runAsync("insert or replace into local_tasks (id, owner_user_id, subject_id, row) values (?, ?, ?, ?)", [
+        row.id,
+        owner,
+        subjectId,
+        JSON.stringify(row),
+      ]);
+    }
+    await db.execAsync("commit");
+  } catch (e) {
+    await db.execAsync("rollback");
+    throw e;
+  }
+  result.pulled += rows.length;
+}
+
 /** Pulls the patient's own changes into the mirror. Never throws. */
 export async function pullChanges(subjectId: string): Promise<PullResult> {
   const result: PullResult = { pulled: 0, stoppedOffline: false, pages: 0, bytes: 0 };
@@ -193,6 +236,7 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
       await pullKind(db, kind, owner, subjectId, config, { pagesLeft: OFFLINE_BUDGET.maxPagesPerPull }, result);
     }
     if (!result.stoppedOffline) await pullMedications(db, owner, subjectId, result);
+    if (!result.stoppedOffline) await pullTasks(db, owner, subjectId, result);
     // Local housekeeping, safe offline. Never lets a purge failure fail the pull.
     await purgeMirror(owner).catch((error) => recordSyncError("offline_outbox", "purgeMirror", error));
   } catch (error) {
@@ -256,6 +300,17 @@ export async function readLocalMedications<T>(subjectId: string): Promise<T[]> {
   return rows.map((r) => JSON.parse(r.row) as T);
 }
 
+export async function readLocalTasks<T>(subjectId: string): Promise<T[]> {
+  const owner = await currentUserId();
+  if (!owner) return [];
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ row: string }>(
+    "select row from local_tasks where owner_user_id = ? and subject_id = ?",
+    [owner, subjectId]
+  );
+  return rows.map((r) => JSON.parse(r.row) as T);
+}
+
 /**
  * Wipes the read mirror and cursors (not the outbox: unsent logs must survive
  * sign-out). Call on sign-out so a shared phone does not keep the previous
@@ -263,7 +318,7 @@ export async function readLocalMedications<T>(subjectId: string): Promise<T[]> {
  */
 export async function clearLocalMirror(): Promise<void> {
   const db = await getDb();
-  await db.execAsync("delete from local_records; delete from local_medications; delete from sync_state;");
+  await db.execAsync("delete from local_records; delete from local_medications; delete from local_tasks; delete from sync_state;");
 }
 
 const lastPullAt = new Map<string, number>();
