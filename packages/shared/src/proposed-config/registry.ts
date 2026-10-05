@@ -360,4 +360,25 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/research/S08.md sections 2 and 5 (decision table rows 4, 5, 9, 15)",
   },
+  {
+    key: "events.bus_rules",
+    // Event bus (S10). The live values are the active row of `event_bus_config` (versioned in the database);
+    // this entry mirrors it so the owner and the version are recorded with the other PROPOSED values.
+    //  batchSize: deliveries claimed per pass. leaseSeconds: how long a claimed delivery belongs to one worker before another may take it.
+    //  maxAttempts: tries before a delivery goes to the dead letter. backoffBaseSeconds doubles each try up to backoffMaxSeconds,
+    //  plus up to jitterPercent extra, so retries from many deliveries do not arrive together.
+    value: {
+      batchSize: 50,
+      leaseSeconds: 60,
+      maxAttempts: 8,
+      backoffBaseSeconds: 15,
+      backoffMaxSeconds: 900,
+      jitterPercent: 20,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-05",
+    source: "docs/design/S10.md; docs/research/S10.md",
+  },
 ];
