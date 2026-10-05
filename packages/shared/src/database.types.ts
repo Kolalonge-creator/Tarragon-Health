@@ -5411,6 +5411,7 @@ export type Database = {
           escalation_stage: Database["public"]["Enums"]["care_task_escalation_stage"]
           goal_id: string | null
           id: string
+          kind: string | null
           organisation_id: string
           owner_id: string | null
           owner_role: Database["public"]["Enums"]["care_task_owner_role"]
@@ -5418,6 +5419,7 @@ export type Database = {
           priority: number
           recurrence: string | null
           source: string
+          source_event_id: string | null
           status: Database["public"]["Enums"]["care_task_status"]
           title: string
           unable_reason: string | null
@@ -5434,6 +5436,7 @@ export type Database = {
           escalation_stage?: Database["public"]["Enums"]["care_task_escalation_stage"]
           goal_id?: string | null
           id?: string
+          kind?: string | null
           organisation_id: string
           owner_id?: string | null
           owner_role?: Database["public"]["Enums"]["care_task_owner_role"]
@@ -5441,6 +5444,7 @@ export type Database = {
           priority?: number
           recurrence?: string | null
           source?: string
+          source_event_id?: string | null
           status?: Database["public"]["Enums"]["care_task_status"]
           title: string
           unable_reason?: string | null
@@ -5457,6 +5461,7 @@ export type Database = {
           escalation_stage?: Database["public"]["Enums"]["care_task_escalation_stage"]
           goal_id?: string | null
           id?: string
+          kind?: string | null
           organisation_id?: string
           owner_id?: string | null
           owner_role?: Database["public"]["Enums"]["care_task_owner_role"]
@@ -5464,6 +5469,7 @@ export type Database = {
           priority?: number
           recurrence?: string | null
           source?: string
+          source_event_id?: string | null
           status?: Database["public"]["Enums"]["care_task_status"]
           title?: string
           unable_reason?: string | null
@@ -40447,6 +40453,26 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_tasks: {
+        Row: {
+          care_plan_id: string | null
+          created_at: string | null
+          due_at: string | null
+          id: string | null
+          kind: string | null
+          organisation_id: string | null
+          owner_role: Database["public"]["Enums"]["care_task_owner_role"] | null
+          patient_id: string | null
+          priority: number | null
+          recurrence: string | null
+          source_event_id: string | null
+          state: string | null
+          status: Database["public"]["Enums"]["care_task_status"] | null
+          title: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
       pharmacy_partner_directory: {
         Row: {
           address: string | null
@@ -43326,6 +43352,15 @@ export type Database = {
         }[]
       }
       my_feature_flags: { Args: never; Returns: Json }
+      my_home_bp_target: {
+        Args: never
+        Returns: {
+          diastolic: number
+          set_at: string
+          source: string
+          systolic: number
+        }[]
+      }
       my_provider_performance: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json

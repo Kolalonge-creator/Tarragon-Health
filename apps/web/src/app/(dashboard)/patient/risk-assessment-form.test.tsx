@@ -11,6 +11,10 @@
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { RiskAssessmentForm } from "./risk-assessment-form";
+import { parseRiskAssessmentFormData } from "@/lib/validation/risk-assessment";
+// Imported so a test can get a handle to the mocked function below and
+// override its implementation for a single call via mockImplementationOnce.
+import { submitRiskAssessment } from "./actions";
 
 jest.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
@@ -26,16 +30,21 @@ jest.mock("@/lib/queries/risk-assessment", () => ({
 }));
 
 let capturedFormData: FormData | null = null;
+// "mockNextResult" (not "next" alone) so the jest.mock factory below — which
+// is hoisted above this file's own imports — is allowed to close over it;
+// Jest only permits that for identifiers starting with "mock".
+let mockNextResult: { success: true } | { error: string; values: unknown } = { success: true };
 jest.mock("./actions", () => ({
   submitRiskAssessment: jest.fn(async (_prevState: unknown, formData: FormData) => {
     capturedFormData = formData;
-    return { success: true };
+    return mockNextResult;
   }),
 }));
 
 describe("RiskAssessmentForm", () => {
   beforeEach(() => {
     capturedFormData = null;
+    mockNextResult = { success: true };
   });
 
   it("carries every step's answers to the final submit, even after navigating past earlier steps", async () => {
@@ -121,5 +130,88 @@ describe("RiskAssessmentForm", () => {
     expect(fd.get("hpv_vaccinated")).toBe("on");
     expect(fd.get("other_vaccines_detail")).toBe("Yellow fever");
     expect(fd.get("prior_abnormal_result")).toBe("on");
+  });
+
+  /**
+   * Regression test for a second, separate bug found in the same live
+   * walkthrough (2026-09-18): Lifestyle's several `required` fields sit on
+   * step 2, which stays mounted but `hidden` while viewing step 4. In a real
+   * browser this does NOT exempt those fields from constraint validation the
+   * way the (now-corrected) comment on the <form> used to claim — Chrome
+   * logs "An invalid form control ... is not focusable" and the browser
+   * silently refuses to submit at all: no request, no error, nothing. The
+   * fix adds `noValidate` to the form so a genuinely incomplete assessment
+   * still reaches the server action (which enforces the same fields via
+   * riskAssessmentSchema and returns a real, visible error) instead of dying
+   * silently client-side. This asserts the request actually goes out.
+   */
+  it("still submits to the server when a hidden earlier step's required fields are left blank", async () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+
+    // Step 1: leave blank, go straight to step 2.
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 2 (Lifestyle): deliberately leave every required field blank.
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 3: leave blank.
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 4: submit without ever having filled step 2.
+    fireEvent.click(screen.getByText("Save assessment"));
+
+    // The whole point of the fix: this resolves (the mocked action always
+    // succeeds) instead of the click silently doing nothing. Before the fix,
+    // capturedFormData stayed null and this findByText would time out.
+    await screen.findByText(
+      "Thanks, your care plan preview below reflects your answers."
+    );
+    expect(capturedFormData).not.toBeNull();
+  });
+
+  /**
+   * Regression test for a third bug, found by /code-review high on the
+   * previous two fixes in this same PR: the same "React resets a
+   * <form action={...}>'s uncontrolled fields synchronously at submit time"
+   * bug already fixed on the signup form was still live here, and the
+   * noValidate fix above made it far easier to hit (a genuinely incomplete
+   * submission now actually reaches the server and comes back with an
+   * error, instead of never submitting at all). Fills step 2's Alcohol
+   * field, deliberately leaves Smoking blank, submits from step 4, and
+   * asserts Alcohol's answer is still there after the error comes back —
+   * not silently wiped along with every other unrelated field.
+   */
+  it("keeps other steps' answers after the server rejects one blank required field", async () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+
+    fireEvent.click(screen.getByText("Next")); // Step 1: leave blank
+
+    // Step 2: fill Alcohol, deliberately leave Smoking (and everything
+    // else) blank so the server's own validation rejects the submission.
+    fireEvent.change(screen.getByLabelText("Alcohol"), { target: { value: "moderate" } });
+    fireEvent.click(screen.getByText("Next"));
+
+    fireEvent.click(screen.getByText("Next")); // Step 3: leave blank
+
+    // Step 4: submit. The mocked action's implementation is overridden for
+    // just this one call to mirror exactly what the real server does — echo
+    // back the raw submitted values (via the same parseRiskAssessmentFormData
+    // the real action uses) alongside the error.
+    (submitRiskAssessment as jest.Mock).mockImplementationOnce(
+      async (_prevState: unknown, formData: FormData) => {
+        capturedFormData = formData;
+        return {
+          error: 'Invalid option: expected one of "never"|"former"|"current"',
+          values: parseRiskAssessmentFormData(formData),
+        };
+      }
+    );
+    fireEvent.click(screen.getByText("Save assessment"));
+
+    await screen.findByText('Invalid option: expected one of "never"|"former"|"current"');
+
+    // Go back to step 2 to check the field survived the round trip.
+    fireEvent.click(screen.getByText("Previous"));
+    expect((screen.getByLabelText("Alcohol") as HTMLSelectElement).value).toBe("moderate");
   });
 });

@@ -4,7 +4,7 @@
  * keyset or, order, limit) so the cursor rules are exercised for real.
  */
 import { OFFLINE_BUDGET } from "./offline-budget";
-import { clearLocalMirror, pullChanges, purgeMirror, readLocalMedications, readLocalRecords } from "./offline-store";
+import { clearLocalMirror, pullChanges, purgeMirror, readLocalMedications, readLocalRecords, readLocalTasks } from "./offline-store";
 
 type Row = { id: string; created_at: string; patient_id: string; [k: string]: unknown };
 
@@ -15,26 +15,46 @@ const mockCalls: { table: string; gte?: string }[] = [];
 
 jest.mock("./supabase", () => {
   function builder(table: string) {
-    const state: { eq: [string, unknown][]; gte?: string; or?: string; limit?: number } = { eq: [] };
+    const state: {
+      eq: [string, unknown][];
+      neq: [string, unknown][];
+      gte: [string, string][];
+      or?: string;
+      order: [string, boolean][];
+      limit?: number;
+    } = { eq: [], neq: [], gte: [], order: [] };
     const run = async () => {
       if (mockFail) return { data: null, error: mockFail };
       let rows = [...(mockTables[table] ?? [])];
       for (const [k, v] of state.eq) rows = rows.filter((r) => r[k] === v);
-      if (state.gte) rows = rows.filter((r) => r.created_at >= state.gte!);
+      for (const [k, v] of state.neq) rows = rows.filter((r) => r[k] !== v);
+      for (const [k, v] of state.gte) rows = rows.filter((r) => String(r[k]) >= v);
       if (state.or) {
         const m = /created_at\.gt\.(.+?),and\(created_at\.eq\.(.+?),id\.gt\.(.+?)\)/.exec(state.or)!;
         rows = rows.filter((r) => r.created_at > m[1] || (r.created_at === m[2] && r.id > m[3]));
       }
-      rows.sort((a, b) => (a.created_at === b.created_at ? a.id.localeCompare(b.id) : a.created_at.localeCompare(b.created_at)));
+      if (state.order.length > 0) {
+        rows.sort((a, b) => {
+          for (const [k, asc] of state.order) {
+            const x = String(a[k]);
+            const y = String(b[k]);
+            if (x !== y) return (x < y ? -1 : 1) * (asc ? 1 : -1);
+          }
+          return 0;
+        });
+      } else {
+        rows.sort((a, b) => (a.created_at === b.created_at ? a.id.localeCompare(b.id) : a.created_at.localeCompare(b.created_at)));
+      }
       if (state.limit) rows = rows.slice(0, state.limit);
       return { data: rows, error: null };
     };
     const q: Record<string, unknown> = {
       select: () => q,
       eq: (k: string, v: unknown) => (state.eq.push([k, v]), q),
-      gte: (_k: string, v: string) => ((state.gte = v), mockCalls.push({ table, gte: v }), q),
+      neq: (k: string, v: unknown) => (state.neq.push([k, v]), q),
+      gte: (k: string, v: string) => (state.gte.push([k, v]), mockCalls.push({ table, gte: v }), q),
       or: (v: string) => ((state.or = v), q),
-      order: () => q,
+      order: (k: string, opts?: { ascending?: boolean }) => (state.order.push([k, opts?.ascending !== false]), q),
       limit: (n: number) => ((state.limit = n), q),
       then: (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) => run().then(res, rej),
     };
@@ -224,5 +244,82 @@ describe("purgeMirror", () => {
     expect((await readLocalRecords<Row>("vital", "p2")).map((r) => r.id).sort()).toEqual(["p2-new", "p2-old"]);
     mockUser = "user-2";
     expect((await readLocalRecords<Row>("vital", "p1")).map((r) => r.id).sort()).toEqual(["u2-new", "u2-old"]);
+  });
+});
+
+describe("task mirror (S07)", () => {
+  const task = (id: string, extra: Record<string, unknown> = {}): Row =>
+    row(id, 5, { kind: "log_bp", title: `Task ${id}`, state: "open", status: "not_started", updated_at: iso(5), ...extra });
+
+  it("mirrors the patient's own tasks and not another patient's", async () => {
+    mockTables.patient_tasks = [task("t1"), task("t2"), { ...task("t3"), patient_id: "someone-else" }];
+    await pullChanges("p1");
+    const local = await readLocalTasks<{ id: string }>("p1");
+    expect(local.map((t) => t.id).sort()).toEqual(["t1", "t2"]);
+    expect(await readLocalTasks("someone-else")).toEqual([]);
+  });
+
+  it("replaces the whole set: a task that changed is updated and one that is gone disappears", async () => {
+    mockTables.patient_tasks = [task("t1"), task("t2")];
+    await pullChanges("p1");
+    mockTables.patient_tasks = [task("t1", { state: "done", status: "completed" })];
+    await pullChanges("p1");
+    const local = await readLocalTasks<{ id: string; state: string }>("p1");
+    expect(local).toEqual([expect.objectContaining({ id: "t1", state: "done" })]);
+  });
+
+  it("keeps the last good copy when a later pull fails, so a missing view or a dropped connection never empties the list", async () => {
+    mockTables.patient_tasks = [task("t1"), task("t2")];
+    await pullChanges("p1");
+    mockFail = { message: 'relation "public.patient_tasks" does not exist', code: "42P01" };
+    await pullChanges("p1");
+    mockFail = null;
+    expect((await readLocalTasks<{ id: string }>("p1")).map((t) => t.id).sort()).toEqual(["t1", "t2"]);
+  });
+
+  it("does not show one account's tasks to another account on the same phone", async () => {
+    mockTables.patient_tasks = [task("t1")];
+    await pullChanges("p1");
+    mockUser = "user-2";
+    expect(await readLocalTasks("p1")).toEqual([]);
+    mockUser = "user-1";
+    expect(await readLocalTasks("p1")).toHaveLength(1);
+  });
+
+  it("is cleared on sign-out with the rest of the mirror", async () => {
+    mockTables.patient_tasks = [task("t1")];
+    await pullChanges("p1");
+    await clearLocalMirror();
+    expect(await readLocalTasks("p1")).toEqual([]);
+  });
+
+  it("never lets recently closed tasks push an older open one out of the mirror", async () => {
+    const old = task("old-open", { created_at: iso(60 * 24 * 60), updated_at: iso(60 * 24 * 60) });
+    const closed = Array.from({ length: 150 }, (_, i) =>
+      task(`c${String(i).padStart(3, "0")}`, { state: "done", status: "completed", updated_at: iso(i % 50), created_at: iso(500 - i) }),
+    );
+    mockTables.patient_tasks = [old, ...closed];
+    await pullChanges("p1");
+    const local = await readLocalTasks<{ id: string; state: string }>("p1");
+    expect(local.find((t) => t.id === "old-open")).toBeDefined();
+    // Closed tasks are only mirrored up to their own cap, never at the open tasks' expense.
+    expect(local.filter((t) => t.state === "done").length).toBe(OFFLINE_BUDGET.taskRecentLimit);
+  });
+
+  it("does not mirror tasks closed before yesterday, which Today never shows", async () => {
+    mockTables.patient_tasks = [
+      task("old-closed", { state: "done", status: "completed", updated_at: iso(5 * 24 * 60) }),
+      task("recent-closed", { state: "done", status: "completed", updated_at: iso(30) }),
+    ];
+    await pullChanges("p1");
+    expect((await readLocalTasks<{ id: string }>("p1")).map((t) => t.id)).toEqual(["recent-closed"]);
+  });
+
+  it("an empty server list clears the mirror (the care team closed everything)", async () => {
+    mockTables.patient_tasks = [task("t1")];
+    await pullChanges("p1");
+    mockTables.patient_tasks = [];
+    await pullChanges("p1");
+    expect(await readLocalTasks("p1")).toEqual([]);
   });
 });

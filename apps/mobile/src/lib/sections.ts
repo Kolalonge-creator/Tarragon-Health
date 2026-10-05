@@ -10,6 +10,7 @@ export type SectionId =
   | "alcohol"
   | "myActions"
   | "vitals"
+  | "bpHistory"
   | "medications"
   | "labs"
   | "devices"
@@ -120,6 +121,12 @@ export const SECTIONS: SectionDef[] = [
     id: "healthSummary",
     label: "Health summary",
     icon: "document-text-outline",
+    group: "Your health",
+  },
+  {
+    id: "bpHistory",
+    label: "Blood pressure history",
+    icon: "list-outline",
     group: "Your health",
   },
   {
