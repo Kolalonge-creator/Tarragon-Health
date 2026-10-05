@@ -12,7 +12,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { runBatches, type BusEvent, type BusPorts } from "../_shared/event-bus/dispatch.ts";
-import { handlers } from "./handlers.ts";
+import { buildHandlers } from "./handlers.ts";
 
 // Small batches: a delivery's lease starts at claim time and the batch runs one after another, so a
 // batch must finish well inside event_bus_config.lease_seconds (60).
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
     },
   };
 
-  const summary = await runBatches(ports, handlers, {
+  const summary = await runBatches(ports, buildHandlers(supabase), {
     urgentOnly,
     batchSize: BATCH_SIZE,
     maxBatches: MAX_BATCHES,

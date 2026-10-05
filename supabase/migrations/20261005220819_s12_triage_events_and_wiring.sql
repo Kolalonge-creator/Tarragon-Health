@@ -451,6 +451,17 @@ begin
   return jsonb_build_object('status', 'graded', 'created', v_created, 'triage_event_id', v_id, 'shadow', v_shadow);
 end $$;
 
+-- The rule set the server grades with: the approved version, else the newest draft (shadow, OQ-88).
+-- Never a retired one. Service role only.
+create or replace function public.triage_rule_set_for_grading(p_code text)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('id', id, 'status', status, 'code', code, 'version', version, 'rules', rules)
+  from public.triage_rule_sets
+  where code = p_code and status in ('approved', 'draft')
+  order by (status = 'approved') desc, version desc
+  limit 1;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- 6. Subscriber, grants
 -- ---------------------------------------------------------------------------
@@ -464,6 +475,8 @@ revoke all on function private.sweep_triage_rechecks() from public, anon, authen
 revoke all on function private.triage_events_append_only() from public, anon, authenticated;
 revoke all on function public.triage_context_for_observation(uuid, text, integer) from public, anon, authenticated;
 revoke all on function public.record_triage_result(uuid, jsonb, uuid, uuid) from public, anon, authenticated;
+revoke all on function public.triage_rule_set_for_grading(text) from public, anon, authenticated;
+grant execute on function public.triage_rule_set_for_grading(text) to service_role;
 grant execute on function public.triage_context_for_observation(uuid, text, integer) to service_role;
 grant execute on function public.record_triage_result(uuid, jsonb, uuid, uuid) to service_role;
 

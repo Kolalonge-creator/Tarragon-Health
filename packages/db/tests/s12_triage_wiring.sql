@@ -143,10 +143,16 @@ begin
     'ruleSet', jsonb_build_object('code', 'bp_care_triage', 'version', 1)), v_draft);
   perform pg_temp.res('a rejected result writes nothing', v_n::text, (select count(*)::text from public.triage_events where patient_id = v_p));
 
+  perform pg_temp.res('grading uses the draft while nothing is approved', 'draft',
+    (public.triage_rule_set_for_grading('bp_care_triage') ->> 'status'));
+  perform pg_temp.res('the grading rule set is service role only', 'false|false',
+    has_function_privilege('anon', 'public.triage_rule_set_for_grading(text)', 'execute')::text || '|' ||
+    has_function_privilege('authenticated', 'public.triage_rule_set_for_grading(text)', 'execute')::text);
   -- Approved rule set: not shadow
   insert into public.triage_rule_sets (code, version, status, rules, approved_by, approved_at)
     values ('s12_probe', 1, 'approved', jsonb_build_object('code', 's12_probe', 'version', 1), v_cmo, now()) returning id into v_appr;
   v_out := public.record_triage_result(v_r1, jsonb_set(jsonb_set(v_green, '{ruleSet,code}', '"s12_probe"'), '{ruleSet,version}', '1'), v_appr);
+  perform pg_temp.res('grading prefers an approved rule set', 'approved', (public.triage_rule_set_for_grading('s12_probe') ->> 'status'));
   perform pg_temp.res('a result from an approved rule set is not shadow', 'false', (v_out ->> 'shadow'));
 
   -- 4. Recheck
