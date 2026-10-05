@@ -18,6 +18,8 @@ const MAX_TIMES_PER_DAY = 12;
 const MAX_TAPER_STEPS = 24;
 const MAX_INTERVAL_DAYS = 90;
 const MAX_DOSE_TEXT = 80;
+/** The server marks a dose missed 12 hours after it is due, so a window must close well inside that. */
+export const MAX_WINDOW_MINUTES = 360;
 
 export type ParseResult = { ok: true; spec: ScheduleSpec } | { ok: false; errors: string[] };
 
@@ -69,7 +71,13 @@ export function parseScheduleSpec(input: unknown): ParseResult {
     if (FOOD_NOTES.includes(input.foodNote as FoodNote)) foodNote = input.foodNote as FoodNote;
     else errors.push("foodNote");
   }
-  const common = { startDate, endDate, foodNote };
+  let windowMinutes = 0;
+  if (input.windowMinutes !== undefined && input.windowMinutes !== null) {
+    const w = input.windowMinutes;
+    if (typeof w === "number" && Number.isInteger(w) && w >= 0 && w <= MAX_WINDOW_MINUTES) windowMinutes = w;
+    else errors.push("windowMinutes");
+  }
+  const common = { startDate, endDate, foodNote, windowMinutes };
 
   let spec: ScheduleSpec | null = null;
   switch (input.kind) {
@@ -180,6 +188,14 @@ export function slotsBetween(spec: ScheduleSpec, from: LocalDate, to: LocalDate)
   const out: Slot[] = [];
   for (let i = 0; i <= span; i += 1) out.push(...slotsOn(spec, addDays(from, i)));
   return out;
+}
+
+/**
+ * How long after its clock time a dose stays "due" before it reads as "no record yet": the
+ * longer of the global missed window and the schedule's own flexible window.
+ */
+export function slotCloseMinutes(spec: ScheduleSpec, missedAfterMinutes: number): number {
+  return Math.max(missedAfterMinutes, spec.windowMinutes ?? 0);
 }
 
 /**

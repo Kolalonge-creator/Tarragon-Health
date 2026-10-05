@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { addDays, daysBetween, isValidLocalDate, isValidTime, lagosLocalDate, lagosTimeToUtcMs, weekdayOf } from "./lagos";
-import { allTimes, parseScheduleSpec, slotKey, slotsBetween, slotsOn, specFromLegacyTimes } from "./schedule";
+import { MAX_WINDOW_MINUTES, allTimes, parseScheduleSpec, slotCloseMinutes, slotKey, slotsBetween, slotsOn, specFromLegacyTimes } from "./schedule";
 import { SCHEDULE_CASES } from "./schedule.fixtures";
 import type { ScheduleSpec } from "./types";
 
@@ -127,6 +127,28 @@ describe("parseScheduleSpec", () => {
   it("refuses a bad as-needed limit", () => {
     expect(errs({ kind: "as_needed", maxPerDay: 0 })).toContain("maxPerDay");
     expect(errs({ kind: "as_needed", maxPerDay: "3" })).toContain("maxPerDay");
+  });
+});
+
+describe("flexible windows", () => {
+  const daily = { kind: "daily", times: ["08:00"] };
+  it("parses a window, defaults to the exact time, and refuses a bad one", () => {
+    expect(parseScheduleSpec({ ...daily, windowMinutes: 120 })).toMatchObject({ ok: true, spec: { windowMinutes: 120 } });
+    expect(parseScheduleSpec(daily)).toMatchObject({ ok: true, spec: { windowMinutes: 0 } });
+    expect(parseScheduleSpec({ ...daily, windowMinutes: null })).toMatchObject({ ok: true, spec: { windowMinutes: 0 } });
+    expect(parseScheduleSpec({ ...daily, windowMinutes: MAX_WINDOW_MINUTES })).toMatchObject({ ok: true });
+    for (const bad of [-5, 361, 12.5, "60"]) {
+      expect(parseScheduleSpec({ ...daily, windowMinutes: bad })).toEqual({ ok: false, errors: ["windowMinutes"] });
+    }
+  });
+  it("closes a slot at the longer of the missed window and the schedule's own window", () => {
+    const spec = (windowMinutes?: number) => ({ startDate: null, endDate: null, foodNote: null, kind: "as_needed" as const, maxPerDay: null, windowMinutes });
+    expect(slotCloseMinutes(spec(undefined), 120)).toBe(120);
+    expect(slotCloseMinutes(spec(60), 120)).toBe(120);
+    expect(slotCloseMinutes(spec(240), 120)).toBe(240);
+  });
+  it("does not change which slots exist", () => {
+    expect(slotsOn({ startDate: null, endDate: null, foodNote: null, kind: "daily", times: ["08:00"], windowMinutes: 180 }, "2026-10-05").map((s) => s.time)).toEqual(["08:00"]);
   });
 });
 

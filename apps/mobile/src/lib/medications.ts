@@ -5,6 +5,7 @@ import {
   lagosLocalDate,
   lagosTimeToUtcMs,
   parseScheduleSpec,
+  slotCloseMinutes,
   slotState,
   slotsOn,
   specFromLegacyTimes,
@@ -54,6 +55,10 @@ export interface DoseChecklistItem {
   doseText?: string | null;
   foodNote?: FoodNote | null;
   origin?: DoseOrigin;
+  /** How long after its time the dose stays due before it reads "no record yet": its flexible window or the global missed window, whichever is longer. */
+  closeMinutes?: number;
+  /** The flexible window in minutes (0 or absent: an exact time). */
+  windowMinutes?: number;
   /** The Lagos date of the slot. A screen left open past midnight must log against this, not against "today". */
   date?: string;
   /** The strength and dose the medicine record carries, shown as read-only text. */
@@ -115,6 +120,7 @@ export function buildTodaysDoseChecklist(
   for (const medication of medications) {
     const startedAtMs = activeFromMs(medication);
     const spec = scheduleOf(medication);
+    const closeMinutes = slotCloseMinutes(spec, missedAfterMinutes);
     for (const slot of slotsOn(spec, today)) {
       const dueAtMs = lagosTimeToUtcMs(slot.date, slot.time);
       // A medicine added at noon owes no 08:00 dose that morning, and a time added by an edit owes nothing from before it.
@@ -129,7 +135,9 @@ export function buildTodaysDoseChecklist(
         time: slot.time,
         status: legacyStatus(log?.status ?? undefined),
         dueAtMs,
-        state: slotState(dueAtMs, doseLogs, nowMs, missedAfterMinutes),
+        state: slotState(dueAtMs, doseLogs, nowMs, closeMinutes),
+        closeMinutes,
+        windowMinutes: spec.windowMinutes ?? 0,
         doseText: slot.doseText,
         foodNote: spec.foodNote,
         origin: medication.source === "clinician" ? "prescription" : "patient_added",
@@ -281,8 +289,92 @@ export async function sendHeldDoses(): Promise<void> {
 }
 
 /** What to record for "I took it" at a chosen time: on time, or taken late. */
-export function statusForTakenAt(dueAtMs: number, takenAtMs: number): "taken" | "delayed" {
-  return takenStatus(dueAtMs, takenAtMs, loadReminderBehaviour().missedAfterMinutes);
+export function statusForTakenAt(dueAtMs: number, takenAtMs: number, closeMinutes?: number): "taken" | "delayed" {
+  return takenStatus(dueAtMs, takenAtMs, closeMinutes ?? loadReminderBehaviour().missedAfterMinutes);
+}
+
+// ---------------------------------------------------------------------------
+// Catch-up (S08b): doses from yesterday and today whose time has closed with no answer.
+// ---------------------------------------------------------------------------
+
+interface CatchUpLogRow {
+  medication_id: string;
+  scheduled_for_date: string | null;
+  scheduled_time: string | null;
+  status: string | null;
+  source: string | null;
+}
+
+/**
+ * Doses from yesterday and today that have no answer from the patient: no record at all
+ * once the dose's window has closed, or only the server's own "missed" row. A "missed"
+ * the patient confirmed (source patient) is an answer and is not asked about again.
+ */
+export async function loadCatchUpDoses(patientId: string, nowMs: number = Date.now()): Promise<QueryResult<DoseChecklistItem[]>> {
+  const today = lagosLocalDate(nowMs);
+  const yesterday = addDays(today, -1);
+  const { missedAfterMinutes } = loadReminderBehaviour();
+  try {
+    const [medsRes, logsRes] = await Promise.all([
+      supabase
+        .from("medications")
+        .select("id, drug_name, dose, source, created_at, schedule_effective_from, schedule_times, schedule_spec")
+        .eq("patient_id", patientId)
+        .eq("is_active", true)
+        .is("superseded_at", null),
+      supabase
+        .from("medication_logs_latest_per_slot")
+        .select("medication_id, scheduled_for_date, scheduled_time, status, source")
+        .eq("patient_id", patientId)
+        .gte("scheduled_for_date", yesterday),
+    ]);
+    const failure = medsRes.error ?? logsRes.error;
+    if (failure) return { ok: false, error: failure.message };
+
+    const answered = new Set<string>();
+    for (const row of (logsRes.data ?? []) as CatchUpLogRow[]) {
+      if (!row.scheduled_for_date || !row.scheduled_time || !row.status) continue;
+      const serverMissed = row.status === "missed" && row.source === "system";
+      if (!serverMissed) answered.add(`${row.medication_id}|${row.scheduled_for_date}|${row.scheduled_time}`);
+    }
+    // Doses logged on this phone and not yet sent are answers too.
+    for (const r of await listOutbox("dose")) {
+      const p = r.payload as DosePayload;
+      if (r.subjectId === patientId && p.scheduled_time) answered.add(`${p.medication_id}|${p.scheduled_for_date}|${p.scheduled_time}`);
+    }
+
+    const items: DoseChecklistItem[] = [];
+    for (const medication of (medsRes.data ?? []) as MedicationForChecklist[]) {
+      const spec = scheduleOf(medication);
+      const closeMinutes = slotCloseMinutes(spec, missedAfterMinutes);
+      const startedAtMs = activeFromMs(medication);
+      for (const date of [yesterday, today]) {
+        for (const slot of slotsOn(spec, date)) {
+          const dueAtMs = lagosTimeToUtcMs(slot.date, slot.time);
+          if (dueAtMs < startedAtMs || nowMs < dueAtMs + closeMinutes * 60_000) continue;
+          if (answered.has(`${medication.id}|${slot.date}|${slot.time}`)) continue;
+          items.push({
+            medicationId: medication.id,
+            drugName: medication.drug_name,
+            time: slot.time,
+            status: "pending",
+            dueAtMs,
+            state: "missed",
+            closeMinutes,
+            windowMinutes: spec.windowMinutes ?? 0,
+            doseText: slot.doseText,
+            foodNote: spec.foodNote,
+            origin: medication.source === "clinician" ? "prescription" : "patient_added",
+            date: slot.date,
+            doseLabel: medication.dose ?? null,
+          });
+        }
+      }
+    }
+    return { ok: true, data: items.sort((a, b) => (a.dueAtMs ?? 0) - (b.dueAtMs ?? 0)) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 // ---------------------------------------------------------------------------

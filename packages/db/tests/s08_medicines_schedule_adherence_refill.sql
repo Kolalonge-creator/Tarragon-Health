@@ -43,6 +43,7 @@ declare
   v_org uuid; v_p uuid; v_other uuid;
   v_today date := (now() at time zone 'Africa/Lagos')::date;
   v_med uuid; v_med2 uuid; v_med3 uuid; v_med4 uuid; v_susp uuid; v_rx uuid;
+  v_w1 uuid; v_w2 uuid; v_wt text; v_wd date; v_due_exact int; v_due_window int;
   v_n integer; v_n2 integer; v_slot date; v_status text; v_adh jsonb;
   v_miss_logged timestamptz; v_taken_logged timestamptz; v_run date; v_left numeric;
   v_supply record; v_err text; v_payload jsonb;
@@ -211,6 +212,32 @@ begin
   insert into results values ('real', 'a suspended account gets no weekly adherence signal', 'false',
     (exists (select 1 from public.clinical_rule_events where patient_id = v_susp and event_type = 'medication_adherence_low'))::text);
 
+  -- 7c. S08b: a flexible window keeps a dose open, and the view exposes who wrote each row. ----------
+  v_wt := to_char(((now() at time zone 'Africa/Lagos') - interval '4 hours'), 'HH24:MI');
+  v_wd := ((now() at time zone 'Africa/Lagos') - interval '4 hours')::date;
+  v_w1 := pg_temp.mkpatient(v_org, 'window-exact');
+  v_w2 := pg_temp.mkpatient(v_org, 'window-open');
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, source, is_active, created_at)
+    values (v_org, v_w1, 'S08b Exact', '1', 'daily', jsonb_build_array(v_wt), 'patient', true, now() - interval '10 days');
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, created_at)
+    values (v_org, v_w2, 'S08b Window', '1', 'daily', jsonb_build_array(v_wt),
+            jsonb_build_object('kind', 'daily', 'times', jsonb_build_array(v_wt), 'windowMinutes', 360), 'patient', true, now() - interval '10 days');
+  v_due_exact := (private.weekly_adherence(v_w1) ->> 'due')::int;
+  v_due_window := (private.weekly_adherence(v_w2) ->> 'due')::int;
+  insert into results values ('real', 'a dose inside its flexible window is not yet counted (one fewer due than the exact time)', '1',
+    (v_due_exact - v_due_window)::text);
+  insert into results values ('real', 'the open dose is not counted as missed either', 'true',
+    ((private.weekly_adherence(v_w2) ->> 'missed')::int = (private.weekly_adherence(v_w1) ->> 'missed')::int - 1)::text);
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, created_at)
+    values (v_org, v_w2, 'S08b Bad Window', '1', 'daily', '["08:00"]',
+            '{"kind":"daily","times":["08:00"],"windowMinutes":"abc"}', 'patient', true, now() - interval '10 days');
+  insert into results values ('real', 'a malformed window reads as exact and does not raise', 'true',
+    ((private.weekly_adherence(v_w2) ->> 'due') is not null)::text);
+  insert into results values ('real', 'the latest-per-slot view exposes source', 'true',
+    (exists (select 1 from public.medication_logs_latest_per_slot where medication_id = v_med and source = 'system'))::text);
+  insert into results values ('real', 'a person-written row shows source patient', 'true',
+    (exists (select 1 from public.medication_logs_latest_per_slot where medication_id = v_med and status = 'taken' and source = 'patient'))::text);
+
   -- 8. Access --------------------------------------------------------------------------------------
   -- Stranger: no pill count visible, cannot write one.
   perform set_config('request.jwt.claim.sub', v_other::text, true);
@@ -264,7 +291,7 @@ create or replace view public.medication_logs_latest_per_slot with (security_inv
  select distinct on (medication_id, scheduled_for_date, scheduled_time,
         case when scheduled_time is null then id else null::uuid end)
     id, organisation_id, patient_id, medication_id, status, reason, logged_at, created_at,
-    scheduled_time, scheduled_for_date, logged_by_profile_id, missed_reason
+    scheduled_time, scheduled_for_date, logged_by_profile_id, missed_reason, source
    from public.medication_logs
   order by medication_id, scheduled_for_date, scheduled_time,
         case when scheduled_time is null then id else null::uuid end, logged_at desc, id desc;

@@ -81,6 +81,16 @@ describe("computeWeeklyAdherence", () => {
   });
 });
 
+describe("flexible windows in the weekly count", () => {
+  it("does not count a dose as missed while its window is still open", () => {
+    // now is 12:00 Lagos; the 08:00 dose has a 6 hour window, so it is open until 14:00
+    const open = med({}, { ...daily, startDate: "2026-10-07", windowMinutes: 360 });
+    expect(computeWeeklyAdherence([open], now, { ...cfg, minDoses: 1 }).due).toBe(0);
+    const exact = med({}, { ...daily, startDate: "2026-10-07" });
+    expect(computeWeeklyAdherence([exact], now, { ...cfg, minDoses: 1 }).missed).toBe(1);
+  });
+});
+
 describe("groupLogsBySlot", () => {
   it("groups rows of the same slot and keeps different slots apart", () => {
     const m = groupLogsBySlot([

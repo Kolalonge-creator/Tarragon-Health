@@ -442,6 +442,7 @@ function MedicationCard({
 
 type ScheduleKind = "daily" | "every_n_days" | "weekdays" | "as_needed" | "taper";
 const SCHEDULE_KINDS: ScheduleKind[] = ["daily", "every_n_days", "weekdays", "as_needed", "taper"];
+const WINDOW_CHOICES = [0, 60, 120, 240] as const;
 const FOOD_NOTES: FoodNote[] = ["with_food", "before_food", "after_food", "empty_stomach", "bedtime"];
 interface TaperDraft {
   days: string;
@@ -587,6 +588,7 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [foodNote, setFoodNote] = useState<FoodNote | null>(null);
+  const [windowMinutes, setWindowMinutes] = useState<number>(0);
   const [steps, setSteps] = useState<TaperDraft[]>([{ days: "", times: "", doseText: "" }]);
 
   function addScheduleTime(time: string) {
@@ -610,15 +612,16 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
     setStartDate("");
     setEndDate("");
     setFoodNote(null);
+    setWindowMinutes(0);
     setSteps([{ days: "", times: "", doseText: "" }]);
   }
 
   /** The structured schedule the form describes, or null for the plain "every day at these times" case. */
   function buildSpec(): { spec: ScheduleSpec | null } | { error: string } {
-    const plainDaily = kind === "daily" && !startDate.trim() && !endDate.trim() && foodNote === null;
+    const plainDaily = kind === "daily" && !startDate.trim() && !endDate.trim() && foodNote === null && windowMinutes === 0;
     if (plainDaily) return { spec: null };
     const today = todayIsoDate();
-    const common = { startDate: startDate.trim() || null, endDate: endDate.trim() || null, foodNote };
+    const common = { startDate: startDate.trim() || null, endDate: endDate.trim() || null, foodNote, windowMinutes: kind === "as_needed" ? 0 : windowMinutes };
     let raw: Record<string, unknown>;
     if (kind === "daily") raw = { ...common, kind, times: scheduleTimes };
     else if (kind === "every_n_days") raw = { ...common, startDate: common.startDate ?? today, kind, times: scheduleTimes, intervalDays: Number(intervalDays), anchorDate: common.startDate ?? today };
@@ -758,6 +761,16 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
               <MutedText>{tr("meds.schedule.end_date")}</MutedText>
               <TextInput keyboardAppearance={scheme} value={endDate} onChangeText={setEndDate} placeholder="YYYY-MM-DD" style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
             </View>
+            {kind === "as_needed" ? null : (
+              <View style={{ gap: 6 }}>
+                <MutedText>{tr("meds.window.title")}</MutedText>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  {WINDOW_CHOICES.map((w) => (
+                    <SmallGhostButton key={w} title={(windowMinutes === w ? "✓ " : "") + tr(`meds.window.${w}` as MessageKey)} onPress={() => setWindowMinutes(w)} />
+                  ))}
+                </View>
+              </View>
+            )}
             <MutedText>{tr("meds.schedule.food_note")}</MutedText>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {FOOD_NOTES.map((f) => (

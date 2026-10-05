@@ -441,3 +441,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-75 Adherence below the line: what the care team sees and when (raised by S08)
 - The weekly percentage is shown to the patient as a plain count with supportive wording and to tied clinicians as "doses marked taken". The `medication_adherence_low` signal fires once a week for a patient under 80 percent (the proposed line). The existing 3 and 6 missed-dose alerts still run separately. Whether the weekly signal should create a task, and the Chief Medical Officer's confirmation of 80 percent over 7 days, wait for S11 and S12; S08 never changes treatment or messages the patient about it.
 - Options: (a) signal only until S12 defines the task (recommended); (b) also notify the patient's care team inbox now.
+
+### OQ-76 Windows on existing medicines, and catch-up for dependants (raised by S08b)
+- A flexible window can be set when a patient adds a medicine, but not edited afterwards, and a clinician-prescribed medicine has no window (its times are the care team's). The catch-up sheet covers the device owner's own medicines only; a guardian is not asked about a dependant's doses (same gap as OQ-70).
+- Options: (a) add "change window" to a patient-added medicine's card and a clinician-side window on prescriptions in S24 (recommended); (b) leave windows as an add-time choice; for dependants, (c) ask the guardian too, per dependant, once OQ-70 is decided.

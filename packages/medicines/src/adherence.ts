@@ -1,5 +1,5 @@
 import { addDays, lagosLocalDate, lagosTimeToUtcMs, type LocalDate } from "./lagos";
-import { slotsBetween } from "./schedule";
+import { slotCloseMinutes, slotsBetween } from "./schedule";
 import { slotState } from "./dose-state";
 import type { DoseLog, ScheduleSpec } from "./types";
 
@@ -65,7 +65,7 @@ export function computeWeeklyAdherence(
       const dueAt = lagosTimeToUtcMs(slot.date, slot.time);
       if (dueAt > nowMs || dueAt < med.activeFromMs) continue; // not yet due, or before the medicine was added
       const logs = med.logs.get(key) ?? [];
-      const state = slotState(dueAt, logs, nowMs, cfg.missedAfterMinutes);
+      const state = slotState(dueAt, logs, nowMs, slotCloseMinutes(med.spec, cfg.missedAfterMinutes));
       // A slot inside its "due" window with no answer yet is still open, not a miss.
       if (state === "due") continue;
       r.due += 1;

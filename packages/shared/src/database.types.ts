@@ -40161,6 +40161,7 @@ export type Database = {
           reason: string | null
           scheduled_for_date: string | null
           scheduled_time: string | null
+          source: Database["public"]["Enums"]["record_source"] | null
           status: Database["public"]["Enums"]["medication_log_status"] | null
         }
         Relationships: [

@@ -6,6 +6,7 @@ import type { SectionId } from "@/lib/sections";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
 import { registerPushToken } from "@/lib/push-registration";
 import { replanDoseReminders } from "@/lib/dose-reminders";
+import { CatchUpSheet } from "@/screens/catch-up-sheet";
 import { TopBar } from "@/ui/top-bar";
 import { NavDrawer } from "@/ui/nav-drawer";
 import { BottomTabBar } from "@/ui/bottom-tab-bar";
@@ -349,6 +350,10 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         onSelect={handleSelect}
         onMore={() => setDrawerOpen(true)}
       />
+
+      {/* S08b: doses from yesterday and today that closed with no answer, asked about once. The
+          device owner's own medicines only, never the person being acted for. */}
+      <CatchUpSheet patientId={userId} organisationId={organisationId} enabled={acting === null} />
 
       <NavDrawer
         visible={drawerOpen}

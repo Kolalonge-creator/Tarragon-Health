@@ -17,6 +17,8 @@ export interface MedicineRulesConfig {
   lowSupplyDays: number;
   adherenceMinDoses: number;
   stalePlanHours: number;
+  followUpMinWindowMinutes: number;
+  catchUpMaxItems: number;
   serverMissedAfterMinutes: number;
   backdateWindowHours: number;
   futureSkewMinutes: number;
@@ -56,6 +58,8 @@ export function loadMedicineRules(asOf?: string): MedicineRulesConfig {
     lowSupplyDays: num(raw, "lowSupplyDays", key, 1),
     adherenceMinDoses: num(raw, "adherenceMinDoses", key, 1),
     stalePlanHours: num(raw, "stalePlanHours", key, 1),
+    followUpMinWindowMinutes: num(raw, "followUpMinWindowMinutes", key, 1),
+    catchUpMaxItems: num(raw, "catchUpMaxItems", key, 1),
     serverMissedAfterMinutes: num(raw, "serverMissedAfterMinutes", key, 1),
     backdateWindowHours: num(raw, "backdateWindowHours", key, 1),
     futureSkewMinutes: num(raw, "futureSkewMinutes", key),

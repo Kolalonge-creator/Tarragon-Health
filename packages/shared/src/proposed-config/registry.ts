@@ -265,6 +265,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     //  adherenceMinDoses: fewer due doses than this and no percentage is shown.
     //  serverMissedAfterMinutes: the server marks an unanswered dose missed after this long. Longer than the
     //  on-device two hours so a phone that was offline has time to sync a "taken" first (mirrors medicine_config).
+    //  followUpMinWindowMinutes: a flexible window at least this long gets one gentle follow-up at its middle.
+    //  catchUpMaxItems: the most doses the catch-up sheet asks about at once.
     //  stalePlanHours: a reminder plan older than this is shown as out of date in the health check.
     //  backdateWindowHours mirrors offline_sync_config (S06): the oldest "I took it earlier" time the server keeps.
     value: {
@@ -273,6 +275,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       lowSupplyDays: 7,
       adherenceMinDoses: 3,
       stalePlanHours: 24,
+      followUpMinWindowMinutes: 30,
+      catchUpMaxItems: 12,
       serverMissedAfterMinutes: 720,
       backdateWindowHours: 72,
       futureSkewMinutes: 5,
