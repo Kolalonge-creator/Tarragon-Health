@@ -60,7 +60,7 @@ begin
      and payload->>'drug_name' = 'RxAmd Original';
   if v_n <> v_a then raise exception 'FAIL: the amendment added a "prescribed" notice (% rows, expected the original %)', v_n, v_a; end if;
   if not exists (select 1 from public.notification_templates where key = 'prescription_updated_patient' and is_active)
-     or (select count(*) from public.notification_template_locales where template_key = 'prescription_updated_patient' and is_active) < 3 then
+     or (select count(*) from public.notification_template_locales where template_key = 'prescription_updated_patient' and is_active) < 2 then -- email and push; the sms row was deactivated by S13 (INV-08)
     raise exception 'FAIL: prescription_updated_patient is not registered with its locale rows';
   end if;
 
