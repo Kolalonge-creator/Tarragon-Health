@@ -44,11 +44,14 @@ create table public.triage_events (
   actions          jsonb not null default '[]'::jsonb check (jsonb_typeof(actions) = 'array'),
   matched_rule_ids text[] not null default '{}',
   task_key         text,
+  -- What the grade was based on (the symptoms and recheck state seen). A regrade with new facts, such as a
+  -- red-flag symptom that arrives after the reading, is a new row; a redelivery of the same facts is not.
+  basis            text not null default '',
   shadow           boolean not null,
   is_test          boolean not null default false,
   created_at       timestamptz not null default now(),
   -- A redelivered event cannot grade the same trigger twice with the same rule set.
-  unique (trigger_type, trigger_id, rule_set_id),
+  unique (trigger_type, trigger_id, rule_set_id, basis),
   -- Shadow is exactly "graded by a rule set nobody has approved".
   check (shadow = (rule_set_status <> 'approved')),
   -- INV-05: a red result always asks for the on-call page.
@@ -262,7 +265,7 @@ begin
   for r in
     select v.id, v.organisation_id, v.patient_id from public.vitals_readings v
     where v.vital_type::text = 'blood_pressure' and v.systolic is not null and v.diastolic is not null
-      and v.created_at > now() - interval '2 hours' and v.created_at < now() - interval '1 minute'
+      and v.created_at > now() - interval '24 hours' and v.created_at < now() - interval '1 minute'
       and not exists (select 1 from public.domain_events e
                       where e.event_type = 'observation.recorded' and e.idempotency_key = 'bp:' || v.id::text)
   loop
@@ -336,7 +339,7 @@ begin
 
   select coalesce(jsonb_agg(c.task_key), '[]'::jsonb) into v_open
   from (select distinct e.task_key from public.triage_events e
-        where e.patient_id = v.patient_id and e.task_key is not null
+        where e.patient_id = v.patient_id and e.task_key is not null and not e.shadow
           and e.created_at > now() - interval '30 days') c;
 
   return jsonb_build_object(
@@ -345,6 +348,7 @@ begin
     'patientId', v.patient_id,
     'isTest', coalesce(v_prof.is_test, false),
     'observationId', v.id,
+    'basis', md5(coalesce((select string_agg(s2, ',' order by s2) from jsonb_array_elements_text(v_symptoms) s2), '') || '|' || coalesce(v_recheck ->> 'kind', '')),
     'input', jsonb_strip_nulls(jsonb_build_object(
       'trigger', jsonb_strip_nulls(jsonb_build_object(
         'type', 'observation',
@@ -364,7 +368,8 @@ create or replace function public.record_triage_result(
   p_observation_id uuid,
   p_result jsonb,
   p_rule_set_id uuid,
-  p_causation_id uuid default null
+  p_causation_id uuid default null,
+  p_basis text default ''
 ) returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v public.vitals_readings%rowtype;
@@ -421,25 +426,29 @@ begin
   end if;
 
   insert into public.triage_events (organisation_id, patient_id, trigger_type, trigger_id, grade, rule_id, rule_set_id,
-      rule_set_code, rule_set_version, rule_set_status, explanation_key, actions, matched_rule_ids, task_key, shadow, is_test)
+      rule_set_code, rule_set_version, rule_set_status, explanation_key, actions, matched_rule_ids, task_key, basis, shadow, is_test)
     values (v.organisation_id, v.patient_id, 'observation', v.id, v_grade, p_result ->> 'ruleId', v_rs.id,
       v_rs.code, v_rs.version, v_rs.status, p_result ->> 'explanationKey', v_actions,
       coalesce((select array_agg(x) from jsonb_array_elements_text(coalesce(p_result -> 'matchedRuleIds', '[]'::jsonb)) x), '{}'),
-      p_result ->> 'taskKey', v_shadow, coalesce(v_is_test, false))
-    on conflict (trigger_type, trigger_id, rule_set_id) do nothing
+      p_result ->> 'taskKey', coalesce(p_basis, ''), v_shadow, coalesce(v_is_test, false))
+    on conflict (trigger_type, trigger_id, rule_set_id, basis) do nothing
     returning id into v_id;
   v_created := v_id is not null;
   if not v_created then
     select id into v_id from public.triage_events
-      where trigger_type = 'observation' and trigger_id = v.id and rule_set_id = v_rs.id;
+      where trigger_type = 'observation' and trigger_id = v.id and rule_set_id = v_rs.id and basis = coalesce(p_basis, '');
   end if;
 
   if v_created then
     update public.vitals_readings set triage_event_id = v_id where id = v.id and triage_event_id is null;
-    update public.triage_pending_rechecks set state = case when observation_id = v.id then 'timed_out' else 'resolved' end
-      where patient_id = v.patient_id and state = 'pending';
+    -- Only readings taken no later than this one are settled by it: a late or regraded older reading must not
+    -- close the wait on a newer first elevated reading.
+    update public.triage_pending_rechecks p set state = case when p.observation_id = v.id then 'timed_out' else 'resolved' end
+      where p.patient_id = v.patient_id and p.state = 'pending'
+        and exists (select 1 from public.vitals_readings h where h.id = p.observation_id and h.taken_at <= v.taken_at);
     update public.care_tasks set status = 'completed'
-      where patient_id = v.patient_id and source = 'triage_recheck' and status in ('not_started', 'scheduled', 'in_progress');
+      where patient_id = v.patient_id and source = 'triage_recheck' and status in ('not_started', 'scheduled', 'in_progress')
+        and not exists (select 1 from public.triage_pending_rechecks p where p.patient_id = v.patient_id and p.state = 'pending');
     perform private.emit_domain_event(
       'triage.graded', v.organisation_id,
       jsonb_build_object('grade', v_grade, 'triage_event_id', v_id, 'observation_id', v.id,
@@ -474,16 +483,16 @@ revoke all on function private.emit_symptom_regrade() from public, anon, authent
 revoke all on function private.sweep_triage_rechecks() from public, anon, authenticated;
 revoke all on function private.triage_events_append_only() from public, anon, authenticated;
 revoke all on function public.triage_context_for_observation(uuid, text, integer) from public, anon, authenticated;
-revoke all on function public.record_triage_result(uuid, jsonb, uuid, uuid) from public, anon, authenticated;
+revoke all on function public.record_triage_result(uuid, jsonb, uuid, uuid, text) from public, anon, authenticated;
 revoke all on function public.triage_rule_set_for_grading(text) from public, anon, authenticated;
 grant execute on function public.triage_rule_set_for_grading(text) to service_role;
 grant execute on function public.triage_context_for_observation(uuid, text, integer) to service_role;
-grant execute on function public.record_triage_result(uuid, jsonb, uuid, uuid) to service_role;
+grant execute on function public.record_triage_result(uuid, jsonb, uuid, uuid, text) to service_role;
 
 do $$
 begin
-  if has_function_privilege('anon', 'public.record_triage_result(uuid, jsonb, uuid, uuid)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'public.record_triage_result(uuid, jsonb, uuid, uuid)', 'EXECUTE')
+  if has_function_privilege('anon', 'public.record_triage_result(uuid, jsonb, uuid, uuid, text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.record_triage_result(uuid, jsonb, uuid, uuid, text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.triage_context_for_observation(uuid, text, integer)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public.triage_context_for_observation(uuid, text, integer)', 'EXECUTE') then
     raise exception 'S12 functions must be service role only';

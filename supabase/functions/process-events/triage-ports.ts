@@ -20,7 +20,7 @@ export function triagePorts(client: RpcClient): TriagePorts {
         p_recheck: recheck,
       });
       if (!raw || raw["found"] !== true) return { found: false } satisfies TriageContext;
-      return { found: true, isTest: raw["isTest"] === true, input: raw["input"] as TriageContext["input"] };
+      return { found: true, isTest: raw["isTest"] === true, basis: typeof raw["basis"] === "string" ? raw["basis"] : "", input: raw["input"] as TriageContext["input"] };
     },
     async loadRuleSet(code) {
       const raw = await call<{ id: string; status: "draft" | "approved"; rules: RuleSetForGrading["rules"] } | null>(
@@ -30,12 +30,13 @@ export function triagePorts(client: RpcClient): TriagePorts {
       );
       return raw ? { id: raw.id, status: raw.status, rules: raw.rules } : null;
     },
-    async record({ observationId, result, ruleSetId, causationId }) {
+    async record({ observationId, result, ruleSetId, causationId, basis }) {
       await call(client, "record_triage_result", {
         p_observation_id: observationId,
         p_result: result,
         p_rule_set_id: ruleSetId,
         p_causation_id: causationId,
+        p_basis: basis,
       });
     },
   };

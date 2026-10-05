@@ -238,8 +238,11 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
   const result = grade(input, rules.ruleSet);
   const triage = summarise(result, rules);
 
-  if (result.status === "recheck_required") await savePendingRecheck(req.subjectId, reading);
-  else if (result.status === "graded") await clearPendingRecheck(req.subjectId);
+  // With no subject (the session could not be read in time) nothing is stored: a shared empty key would pair unrelated readings.
+  if (req.subjectId) {
+    if (result.status === "recheck_required") await savePendingRecheck(req.subjectId, reading);
+    else if (result.status === "graded") await clearPendingRecheck(req.subjectId);
+  }
   return triage;
 }
 

@@ -51,7 +51,7 @@ describe("the observation handler", () => {
     expect(p.loadRuleSet).toHaveBeenCalledWith(BP_RULE_SET_CODE);
     expect(recorded).toHaveLength(1);
     expect(recorded[0]?.result.grade).toBe("green");
-    expect(recorded[0]).toMatchObject({ observationId: "obs1", ruleSetId: "rs1", causationId: "e1" });
+    expect(recorded[0]).toMatchObject({ observationId: "obs1", ruleSetId: "rs1", causationId: "e1", basis: "" });
   });
 
   it("safety case 1 on the server: 185/125 with severe headache is red and asks to page on-call", async () => {
@@ -157,13 +157,14 @@ describe("the database ports", () => {
     const client = rpcOk({ found: true, isTest: true, input: { n: 1 } });
     const out = await triagePorts(client).loadContext("obs1", "timed_out");
     expect(client.rpc).toHaveBeenCalledWith("triage_context_for_observation", { p_observation_id: "obs1", p_recheck: "timed_out" });
-    expect(out).toEqual({ found: true, isTest: true, input: { n: 1 } });
+    expect(out).toEqual({ found: true, isTest: true, basis: "", input: { n: 1 } });
   });
 
   it("treats a missing or not found context as not found", async () => {
     expect(await triagePorts(rpcOk(null)).loadContext("a", null)).toEqual({ found: false });
     expect(await triagePorts(rpcOk({ found: false })).loadContext("a", null)).toEqual({ found: false });
-    expect(await triagePorts(rpcOk({ found: true, input: {} })).loadContext("a", null)).toMatchObject({ isTest: false });
+    expect(await triagePorts(rpcOk({ found: true, input: {} })).loadContext("a", null)).toMatchObject({ isTest: false, basis: "" });
+    expect(await triagePorts(rpcOk({ found: true, basis: "abc", input: {} })).loadContext("a", null)).toMatchObject({ basis: "abc" });
   });
 
   it("reads the rule set for grading, or null", async () => {
@@ -175,8 +176,8 @@ describe("the database ports", () => {
   it("records a result with the rule set and the cause", async () => {
     const client = rpcOk({});
     const result = { status: "rejected" } as unknown as TriageResult;
-    await triagePorts(client).record({ observationId: "obs1", result, ruleSetId: "rs1", causationId: "e1" });
-    expect(client.rpc).toHaveBeenCalledWith("record_triage_result", { p_observation_id: "obs1", p_result: result, p_rule_set_id: "rs1", p_causation_id: "e1" });
+    await triagePorts(client).record({ observationId: "obs1", result, ruleSetId: "rs1", causationId: "e1", basis: "b" });
+    expect(client.rpc).toHaveBeenCalledWith("record_triage_result", { p_observation_id: "obs1", p_result: result, p_rule_set_id: "rs1", p_causation_id: "e1", p_basis: "b" });
   });
 
   it("turns a database error into a thrown error naming the function", async () => {

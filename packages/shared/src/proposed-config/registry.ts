@@ -403,7 +403,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // limits (contextBudgetMs: how long it waits for local history before grading with what it has, so a red result is
     // never held back; subjectWaitMs: the same for reading the session) are engineering budgets for the 1 second red
     // rule (INV-06), kept with the rest so they are reviewed together.
-    value: { symptomLinkMinutes: 10, historyDays: 14, missingEventCatchUpHours: 2, contextBudgetMs: 600, subjectWaitMs: 250 },
+    value: { symptomLinkMinutes: 10, historyDays: 14, missingEventCatchUpHours: 24, contextBudgetMs: 600, subjectWaitMs: 250 },
     owner: "CMO",
     status: "proposed",
     version: 1,

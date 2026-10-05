@@ -18,6 +18,8 @@ export const BP_RULE_SET_CODE = "bp_care_triage";
 export interface TriageContext {
   found: boolean;
   isTest?: boolean;
+  /** What the grade is based on (symptoms and recheck state seen); a regrade with new facts is a new result. */
+  basis?: string;
   input?: TriageInput;
 }
 
@@ -30,7 +32,7 @@ export interface RuleSetForGrading {
 export interface TriagePorts {
   loadContext(observationId: string, recheck: "timed_out" | null): Promise<TriageContext>;
   loadRuleSet(code: string): Promise<RuleSetForGrading | null>;
-  record(args: { observationId: string; result: TriageResult; ruleSetId: string; causationId: string }): Promise<void>;
+  record(args: { observationId: string; result: TriageResult; ruleSetId: string; causationId: string; basis: string }): Promise<void>;
 }
 
 function observationIdOf(event: BusEvent): string {
@@ -60,6 +62,6 @@ export function makeObservationHandler(ports: TriagePorts): Handler {
       throw new Error(`rule set ${set.id} is not valid`);
     }
 
-    await ports.record({ observationId, result, ruleSetId: set.id, causationId: event.eventId });
+    await ports.record({ observationId, result, ruleSetId: set.id, causationId: event.eventId, basis: context.basis ?? "" });
   };
 }

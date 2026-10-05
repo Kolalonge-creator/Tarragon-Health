@@ -118,6 +118,13 @@ begin
   perform pg_temp.res('and emits no second event', '1',
     (select count(*)::text from public.domain_events where event_type = 'triage.graded' and aggregate_id = v_te));
 
+  -- A regrade with new facts (a symptom that arrived after the reading) is a new result; the same facts are not.
+  v_out := public.record_triage_result(v_r2, v_green, v_draft, null, 'a');
+  perform pg_temp.res('a regrade with new facts is recorded', 'true', (v_out ->> 'created'));
+  v_out := public.record_triage_result(v_r2, v_green, v_draft, null, 'a');
+  perform pg_temp.res('the same facts redelivered are not', 'false', (v_out ->> 'created'));
+  perform pg_temp.res('the context gives a basis that changes with the symptoms', 'true',
+    ((public.triage_context_for_observation(v_r2) ->> 'basis') is distinct from (public.triage_context_for_observation(v_r1) ->> 'basis'))::text);
   v_out := public.record_triage_result(v_r2, v_red, v_draft);
   perform pg_temp.res('a red result emits an urgent event', 'urgent',
     (select priority from public.domain_events where event_type = 'triage.graded' and aggregate_id = (v_out ->> 'triage_event_id')::uuid));
@@ -195,6 +202,16 @@ begin
   perform pg_temp.res('a graded repeat resolves the earlier pending reading', 'resolved',
     (select state from public.triage_pending_rechecks where observation_id = v_r4));
 
+  -- An older reading graded late does not close the wait on a newer first elevated reading
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at, created_at)
+    values (v_org, v_p2, 'blood_pressure', 184, 114, 'device', now(), now()) returning id into v_ev;
+  perform public.record_triage_result(v_ev, v_recheck, v_draft);
+  perform public.record_triage_result(v_r4, jsonb_set(jsonb_set(v_red, '{grade}', '"amber"'), '{actions}', '[]'::jsonb), v_draft, null, 'late');
+  perform pg_temp.res('grading an older reading late keeps the newer pending wait', 'pending',
+    (select state from public.triage_pending_rechecks where observation_id = v_ev));
+  perform pg_temp.res('and its repeat task stays open', '1',
+    (select count(*)::text from public.care_tasks where patient_id = v_p2 and source = 'triage_recheck' and status in ('not_started', 'scheduled', 'in_progress')));
+
   -- Gap catch-up: a reading whose event never happened is re-emitted
   alter table public.vitals_readings disable trigger vitals_readings_emit_observation_recorded;
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at, created_at)
@@ -265,9 +282,9 @@ begin
   reset role;
 
   perform pg_temp.res('record_triage_result is service role only', 'false|false|true',
-    has_function_privilege('anon', 'public.record_triage_result(uuid, jsonb, uuid, uuid)', 'execute')::text || '|' ||
-    has_function_privilege('authenticated', 'public.record_triage_result(uuid, jsonb, uuid, uuid)', 'execute')::text || '|' ||
-    has_function_privilege('service_role', 'public.record_triage_result(uuid, jsonb, uuid, uuid)', 'execute')::text);
+    has_function_privilege('anon', 'public.record_triage_result(uuid, jsonb, uuid, uuid, text)', 'execute')::text || '|' ||
+    has_function_privilege('authenticated', 'public.record_triage_result(uuid, jsonb, uuid, uuid, text)', 'execute')::text || '|' ||
+    has_function_privilege('service_role', 'public.record_triage_result(uuid, jsonb, uuid, uuid, text)', 'execute')::text);
   perform pg_temp.res('the context function is service role only', 'false|false|true',
     has_function_privilege('anon', 'public.triage_context_for_observation(uuid, text, integer)', 'execute')::text || '|' ||
     has_function_privilege('authenticated', 'public.triage_context_for_observation(uuid, text, integer)', 'execute')::text || '|' ||
