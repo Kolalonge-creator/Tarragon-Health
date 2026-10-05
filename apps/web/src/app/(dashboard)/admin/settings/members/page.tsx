@@ -154,6 +154,7 @@ export default async function MembersPage() {
         customRoles={roleRows}
         organisations={(orgs ?? []) as OrgRow[]}
         canProvision={isSuperAdmin || keys.has("users.provision")}
+        provisionCaller={{ isSuperAdmin, organisationId: profile.organisation_id }}
         canManageOrgs={
           isSuperAdmin ||
           keys.has("orgs.manage") ||
