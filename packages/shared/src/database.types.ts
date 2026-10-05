@@ -44506,6 +44506,14 @@ export type Database = {
         Args: { p_active: boolean; p_member_id: string }
         Returns: undefined
       }
+      set_member_role: {
+        Args: {
+          p_member_id: string
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_custom_role_id?: string | null
+        }
+        Returns: undefined
+      }
       set_monitoring_baseline: {
         Args: { p_baseline: Json; p_item_id: string }
         Returns: undefined

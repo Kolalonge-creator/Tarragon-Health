@@ -32,6 +32,7 @@ import {
   type MemberActionState,
 } from "./actions";
 import { suspendScope, SUSPEND_SCOPE_HINT } from "@/lib/auth/member-suspend-scope";
+import { roleScope, ROLE_SCOPE_HINT, assignableRoles } from "@/lib/auth/member-role-scope";
 
 type Feedback = { error?: string; message?: string } | null;
 
@@ -353,12 +354,11 @@ function MemberItem({
   // What the set_member_active RPC will allow this caller to do to this member.
   // The RPC is the enforcement; this only keeps the screen from offering a
   // control the database will refuse, and says why when it hides one.
-  const suspendDecision = canSuspend
-    ? suspendScope(
-        { id: currentMemberId, isSuperAdmin: callerScope.isSuperAdmin, organisationId: callerScope.organisationId },
-        { id: member.id, role: member.role, organisation_id: member.organisation_id }
-      )
-    : null;
+  const callerScopeWithId = { id: currentMemberId, isSuperAdmin: callerScope.isSuperAdmin, organisationId: callerScope.organisationId };
+  const targetScope = { id: member.id, role: member.role, organisation_id: member.organisation_id };
+  const suspendDecision = canSuspend ? suspendScope(callerScopeWithId, targetScope) : null;
+  const roleDecision = canAssignRoles ? roleScope(callerScopeWithId, targetScope) : null;
+  const roleList = roleDecision?.allowed ? assignableRoles(callerScope, USER_ROLES) : [];
   // Only a grant of a platform-control capability is confirmed. Revoking one,
   // or toggling an ordinary capability, stays a single click: those are
   // recoverable, and confirming everything trains people to click through.
@@ -400,7 +400,11 @@ function MemberItem({
             View activity &amp; oversight →
           </Link>
         )}
-        {canAssignRoles && (
+        {roleDecision && !roleDecision.allowed && ROLE_SCOPE_HINT[roleDecision.reason] && (
+          <p className="text-xs text-charcoal-ink/50">{ROLE_SCOPE_HINT[roleDecision.reason]}</p>
+        )}
+
+        {roleDecision?.allowed && (
           <form
             className="flex flex-wrap items-end gap-3"
             onSubmit={(e) => {
@@ -413,7 +417,7 @@ function MemberItem({
             <div className="space-y-1">
               <Label>Account role</Label>
               <Select name="role" defaultValue={member.role}>
-                {USER_ROLES.map((r) => (
+                {roleList.map((r) => (
                   <option key={r} value={r}>
                     {USER_ROLE_LABELS[r]}
                   </option>
