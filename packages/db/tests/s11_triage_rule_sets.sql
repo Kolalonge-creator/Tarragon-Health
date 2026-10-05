@@ -74,6 +74,12 @@ begin
 
   -- 3. Immutability
   insert into public.triage_rule_sets (code, version, rules) values ('x_set', 1, jsonb_build_object('code', 'x_set', 'version', 1, 'n', 1));
+  begin update public.triage_rule_sets set status = 'approved', approved_by = v_admin, approved_at = now() where code = 'x_set'; v_err := 'accepted';
+  exception when insufficient_privilege then v_err := '42501'; end;
+  insert into results values ('real', 'an admin cannot be the approver', '42501', v_err);
+  begin update public.triage_rule_sets set status = 'approved', approved_by = v_clin, approved_at = now() where code = 'x_set'; v_err := 'accepted';
+  exception when insufficient_privilege then v_err := '42501'; end;
+  insert into results values ('real', 'an ordinary clinician cannot be the approver', '42501', v_err);
   update public.triage_rule_sets set rules = jsonb_build_object('code', 'x_set', 'version', 1, 'n', 2) where code = 'x_set';
   insert into results values ('real', 'a draft can be edited', '2', (select rules ->> 'n' from public.triage_rule_sets where code = 'x_set'));
   update public.triage_rule_sets set status = 'approved', approved_by = v_cmo, approved_at = now() where code = 'x_set' and version = 1;

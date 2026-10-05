@@ -79,6 +79,8 @@ describe("validateRuleSet", () => {
     ["unknown ref", [["rules.0.when", { field: "pregnant", op: "eq", value: { ref: "params.nope" } }]], "unknown ref"],
     ["add not a number", [["rules.0.when", { field: "pregnant", op: "eq", value: { ref: "target.systolic", add: "1" } }]], "add must be"],
     ["value of a bad type", [["rules.0.when", { field: "pregnant", op: "eq", value: [1] }]], "bad value"],
+    ["a symptom group named like a prototype member", [["rules.0.when", { symptomGroup: "constructor" }]], "unknown symptom group"],
+    ["a symptom group that is not a list", [["params.symptomGroups.dizzy", "x"]], "unknown symptom group"],
     ["a not-condition that is bad", [["rules.0.when", { not: 4 }]], "condition must"],
   ])("refuses a rule set with %s", (_name, edits, message) => {
     const errors = validateRuleSet(edited(...edits));
@@ -137,6 +139,12 @@ describe("validateInput", () => {
     expect(v({ ...base(), target: { systolic: "x", diastolic: 1 } })).toBe("invalid_input");
     expect(v({ ...base(), target: { systolic: 135, diastolic: NaN } })).toBe("invalid_input");
     expect(v({ ...base(), trigger: { type: "lab" } })).toBe("invalid_input");
+    expect(v({ ...base(), target: { systolic: 0, diastolic: 80 } })).toBe("invalid_input");
+    expect(v({ ...base(), history: undefined })).toBe("invalid_input");
+    expect(v({ ...base(), pregnant: "no" })).toBe("invalid_input");
+    expect(v({ ...base(), pathway: undefined })).toBe("invalid_input");
+    expect(v({ ...base(), pathway: { state: 3 } })).toBe("invalid_input");
+    expect(v({ ...base(), ageYears: "45" })).toBe("invalid_input");
     expect(v(obs({ reading: { systolic: "120", diastolic: 78, takenAt: NOW } as never }))).toBe("invalid_input");
     expect(v(obs({ reading: { systolic: 120, diastolic: 78, takenAt: "x" } }))).toBe("invalid_input");
     expect(v(obs({ symptoms: "chest_pain" as never }))).toBe("invalid_input");

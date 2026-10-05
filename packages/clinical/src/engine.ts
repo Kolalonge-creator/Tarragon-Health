@@ -43,6 +43,9 @@ function anchorOf(anchor: NonNullable<Rule["taskAnchor"]>, input: TriageInput): 
 }
 
 /**
+ * An invalid rule set returns `invalid_rule_set` with no guidance: the caller (phone or server) must then fall back
+ * to the bundled rule set rather than show nothing (S12 wires this).
+ *
  * The triage engine (spec 6.1): a pure function of its two arguments.
  * No clock, no I/O, no model call (INV-01). The same input and rule set give
  * the same result on a phone and on the server.

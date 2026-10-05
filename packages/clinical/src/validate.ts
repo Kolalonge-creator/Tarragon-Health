@@ -24,6 +24,10 @@ export function validateInput(input: TriageInput, ruleSet: RuleSet): RejectReaso
   const t = input.trigger as unknown;
   if (!isObj(t) || !isValidTimestamp(input.now)) return "invalid_input";
   if (!isNum(input.target?.systolic) || !isNum(input.target?.diastolic)) return "invalid_input";
+  if (input.target.systolic <= 0 || input.target.diastolic <= 0) return "invalid_input";
+  if (!Array.isArray(input.history) || typeof input.pregnant !== "boolean") return "invalid_input";
+  if (!isObj(input.pathway) || typeof input.pathway.state !== "string") return "invalid_input";
+  if (input.ageYears !== null && !isNum(input.ageYears)) return "invalid_input";
   if (t.type === "observation") {
     const check = checkReading(t.reading, ruleSet.params.validation);
     if (check !== "ok") return check;
@@ -62,7 +66,8 @@ function conditionErrors(cond: unknown, at: string, rs: Record<string, unknown>,
   if ("not" in cond) return conditionErrors(cond.not, `${at}.not`, rs, known);
   if ("symptomGroup" in cond) {
     const groups = (rs.params as { symptomGroups: Record<string, unknown> }).symptomGroups;
-    return typeof cond.symptomGroup === "string" && cond.symptomGroup in groups ? [] : [`${at}: unknown symptom group`];
+    const ok = typeof cond.symptomGroup === "string" && Object.hasOwn(groups, cond.symptomGroup) && Array.isArray(groups[cond.symptomGroup]);
+    return ok ? [] : [`${at}: unknown symptom group`];
   }
   const errors: string[] = [];
   if (typeof cond.field !== "string" || !known.has(cond.field)) errors.push(`${at}: unknown field ${String(cond.field)}`);
