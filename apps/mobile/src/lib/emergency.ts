@@ -8,12 +8,19 @@ export interface EmergencyContact {
   relationship: string | null;
 }
 
+export interface EmergencyMedication {
+  drugName: string;
+  dose: string | null;
+  frequency: string | null;
+}
+
 export interface EmergencyFacts {
   fullName: string | null;
   bloodGroup: string | null;
   genotype: string | null;
   allergies: { allergen: string; reaction: string | null; severity: string | null }[];
   conditions: string[];
+  medications: EmergencyMedication[];
   emergencyContact: EmergencyContact | null;
   cachedAt: string;
 }
@@ -25,25 +32,32 @@ const CACHE_KEY = "emergency-card-cache-v1";
  * the anon share-link RPC) — every table here already has RLS admitting the
  * patient's own row, so this is a plain client read. */
 export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFacts> {
-  const [{ data: profile }, { data: allergies }, { data: carePlans }, { data: blood }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("full_name, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship")
-      .eq("id", patientId)
-      .maybeSingle(),
-    supabase
-      .from("patient_allergies")
-      .select("allergen, reaction, severity")
-      .eq("patient_id", patientId)
-      .order("severity", { ascending: false, nullsFirst: false })
-      .order("allergen"),
-    supabase.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
-    supabase
-      .from("patient_blood_profile")
-      .select("blood_group, genotype")
-      .eq("patient_id", patientId)
-      .maybeSingle(),
-  ]);
+  const [{ data: profile }, { data: allergies }, { data: carePlans }, { data: blood }, { data: meds }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship")
+        .eq("id", patientId)
+        .maybeSingle(),
+      supabase
+        .from("patient_allergies")
+        .select("allergen, reaction, severity")
+        .eq("patient_id", patientId)
+        .order("severity", { ascending: false, nullsFirst: false })
+        .order("allergen"),
+      supabase.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
+      supabase
+        .from("patient_blood_profile")
+        .select("blood_group, genotype")
+        .eq("patient_id", patientId)
+        .maybeSingle(),
+      supabase
+        .from("medications")
+        .select("drug_name, dose, frequency")
+        .eq("patient_id", patientId)
+        .eq("is_active", true)
+        .order("drug_name"),
+    ]);
 
   const facts: EmergencyFacts = {
     fullName: profile?.full_name ?? null,
@@ -51,6 +65,11 @@ export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFa
     genotype: blood?.genotype ?? null,
     allergies: allergies ?? [],
     conditions: [...new Set((carePlans ?? []).map((c) => c.condition as string))],
+    medications: (meds ?? []).map((m) => ({
+      drugName: m.drug_name,
+      dose: m.dose ?? null,
+      frequency: m.frequency ?? null,
+    })),
     emergencyContact: profile?.emergency_contact_name
       ? {
           name: profile.emergency_contact_name,

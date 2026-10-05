@@ -803,4 +803,5 @@ s06_offline_client_recorded_time.sql
 s08_medicines_schedule_adherence_refill.sql
 s07_my_home_bp_target.sql
 s07_care_tasks_kind_patient_tasks_view.sql
+s09_record_shares_and_timeline_events.sql
 s10_event_bus.sql
