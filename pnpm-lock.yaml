@@ -146,6 +146,9 @@ importers:
       '@tarragon/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@tarragon/clinical':
+        specifier: workspace:*
+        version: link:../../packages/clinical
       '@tarragon/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n

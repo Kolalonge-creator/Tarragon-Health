@@ -98,3 +98,16 @@ describe("configuration links", () => {
     expect(BP_CARE_V1.status).toBe("draft");
   });
 });
+
+describe("server seed", () => {
+  it("the triage_rule_sets seed in the migration is identical to the bundled rule set", async () => {
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const dir = new URL("../../../supabase/migrations/", import.meta.url);
+    const file = readdirSync(dir).find((f) => f.endsWith("_s11_triage_rule_sets.sql"));
+    expect(file).toBeDefined();
+    const sql = readFileSync(new URL(file!, dir), "utf8");
+    const match = /\$rules_json\$([\s\S]*?)\$rules_json\$/.exec(sql);
+    expect(match).not.toBeNull();
+    expect(JSON.parse(match![1])).toEqual(JSON.parse(JSON.stringify(BP_CARE_V1)));
+  });
+});
