@@ -87,7 +87,10 @@ export function activeFromMs(m: { created_at?: string | null; schedule_effective
 type LogForChecklist = Pick<
   Tables<"medication_logs_latest_per_slot">,
   "medication_id" | "scheduled_time" | "status"
->;
+> & {
+  /** The Lagos date of the slot. Absent means today (older callers pass today's logs only). */
+  scheduled_for_date?: string | null;
+};
 
 /** The schedule a medicine row carries: the structured spec when it parses, otherwise the old plain list of daily times. */
 export function scheduleOf(medication: { schedule_times: unknown; schedule_spec?: unknown }): ScheduleSpec {
@@ -115,17 +118,23 @@ export function buildTodaysDoseChecklist(
   nowMs: number = Date.now()
 ): DoseChecklistItem[] {
   const today = lagosLocalDate(nowMs);
+  const yesterday = addDays(today, -1);
   const { missedAfterMinutes } = loadReminderBehaviour();
   const items: DoseChecklistItem[] = [];
   for (const medication of medications) {
     const startedAtMs = activeFromMs(medication);
     const spec = scheduleOf(medication);
     const closeMinutes = slotCloseMinutes(spec, missedAfterMinutes);
-    for (const slot of slotsOn(spec, today)) {
+    for (const slot of [...slotsOn(spec, yesterday), ...slotsOn(spec, today)]) {
       const dueAtMs = lagosTimeToUtcMs(slot.date, slot.time);
       // A medicine added at noon owes no 08:00 dose that morning, and a time added by an edit owes nothing from before it.
       if (dueAtMs < startedAtMs) continue;
-      const log = logs.find((l) => l.medication_id === medication.id && l.scheduled_time === slot.time);
+      // Yesterday's slot belongs on today's list only while it is still open: a late dose, or one whose
+      // window crosses midnight (23:00 with two hours is still answerable at 00:30).
+      if (slot.date === yesterday && nowMs >= dueAtMs + closeMinutes * 60_000) continue;
+      const log = logs.find(
+        (l) => l.medication_id === medication.id && l.scheduled_time === slot.time && (l.scheduled_for_date ?? today) === slot.date
+      );
       const doseLogs: DoseLog[] = log?.status
         ? [{ status: log.status as LogStatus, source: "patient", loggedAtMs: nowMs }]
         : [];
@@ -146,7 +155,12 @@ export function buildTodaysDoseChecklist(
       });
     }
   }
-  return items.sort((a, b) => a.time.localeCompare(b.time));
+  return items.sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "") || a.time.localeCompare(b.time));
+}
+
+/** The doses that belong to a given Lagos date. Last night's still-open dose is on the list but is not "today's". */
+export function dosesOn(doses: readonly DoseChecklistItem[], date: string): DoseChecklistItem[] {
+  return doses.filter((d) => !d.date || d.date === date);
 }
 
 /** Patient-local (Africa/Lagos) calendar date, per CLAUDE.md's fixed timezone rule. */
@@ -162,14 +176,15 @@ export function todayIsoDate(): string {
  */
 export async function loadTodaysDoses(patientId: string): Promise<QueryResult<DoseChecklistItem[]>> {
   const today = todayIsoDate();
+  const yesterday = addDays(today, -1);
   // Doses logged on this phone and not yet sent. Listed first so they win over
   // an older server row for the same slot (buildTodaysDoseChecklist takes the first match).
   const pendingLogs = async (): Promise<LogForChecklist[]> =>
     (await listOutbox("dose"))
-      .filter((r) => r.subjectId === patientId && (r.payload as DosePayload).scheduled_for_date === today)
+      .filter((r) => r.subjectId === patientId && (r.payload as DosePayload).scheduled_for_date >= yesterday)
       .map((r) => {
         const p = r.payload as DosePayload;
-        return { medication_id: p.medication_id, scheduled_time: p.scheduled_time, status: p.status as never };
+        return { medication_id: p.medication_id, scheduled_time: p.scheduled_time, status: p.status as never, scheduled_for_date: p.scheduled_for_date };
       })
       .reverse();
   try {
@@ -182,9 +197,9 @@ export async function loadTodaysDoses(patientId: string): Promise<QueryResult<Do
         .is("superseded_at", null),
       supabase
         .from("medication_logs_latest_per_slot")
-        .select("medication_id, scheduled_time, status")
+        .select("medication_id, scheduled_time, status, scheduled_for_date")
         .eq("patient_id", patientId)
-        .eq("scheduled_for_date", today),
+        .gte("scheduled_for_date", yesterday),
     ]);
     const failure = medsRes.error ?? logsRes.error;
     if (failure) return await localDoses(patientId, today, await pendingLogs(), failure.message);
@@ -212,13 +227,14 @@ async function localDoses(
 ): Promise<QueryResult<DoseChecklistItem[]>> {
   const meds = await readLocalMedications<MedicationForChecklist>(patientId);
   if (meds.length === 0) return { ok: false, error: serverError };
+  const yesterday = addDays(today, -1);
   const mirrored = (await readLocalRecords<{ medication_id: string; scheduled_time: string | null; status: string; scheduled_for_date: string }>(
     "dose",
     patientId,
     200
   ))
-    .filter((r) => r.scheduled_for_date === today)
-    .map((r) => ({ medication_id: r.medication_id, scheduled_time: r.scheduled_time, status: r.status as never }));
+    .filter((r) => r.scheduled_for_date >= yesterday)
+    .map((r) => ({ medication_id: r.medication_id, scheduled_time: r.scheduled_time, status: r.status as never, scheduled_for_date: r.scheduled_for_date }));
   return { ok: true, data: buildTodaysDoseChecklist(meds, [...pending, ...mirrored]) };
 }
 

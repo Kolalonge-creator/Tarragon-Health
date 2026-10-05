@@ -141,3 +141,4 @@ D-02 to D-04 are not defined in the spec.
 - OQ-66: keep the live BP plausibility limits (60-260 / 30-160, pathway TH-CP-HTN-001 s5.4); add a safety line to the blocked-value message only after CMO, house-voice and native Pidgin review.
 - OQ-67: S07 does not change BP grading; S12 aligns the bands through versioned, CMO-signed thresholds.
 - OQ-68: the dose reminder uses generic keyed copy with no medicine name (INV-07).
+- OQ-80: the trends card reads the target through a small read-only server function (`my_home_bp_target()`) so it matches the alerts, labels a derived target as a standard starting target, and falls back to the old behaviour while the function is not applied. Built 2026-10-05, not applied to production.
