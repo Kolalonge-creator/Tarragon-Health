@@ -38622,6 +38622,7 @@ export type Database = {
           received_at: string | null
           time_basis: string | null
           created_at: string
+          cuff_type: string | null
           device_id: string | null
           diastolic: number | null
           external_reading_id: string | null
@@ -38663,6 +38664,7 @@ export type Database = {
           received_at?: string | null
           time_basis?: string | null
           created_at?: string
+          cuff_type?: string | null
           device_id?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
@@ -38706,6 +38708,7 @@ export type Database = {
           received_at?: string | null
           time_basis?: string | null
           created_at?: string
+          cuff_type?: string | null
           device_id?: string | null
           diastolic?: number | null
           external_reading_id?: string | null

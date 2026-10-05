@@ -169,7 +169,12 @@ export async function logBpWithExtras(
     {
       ...common,
       kind: "vital",
-      payload: { vital_type: "blood_pressure", systolic: plan.systolic, diastolic: plan.diastolic },
+      payload: {
+        vital_type: "blood_pressure",
+        systolic: plan.systolic,
+        diastolic: plan.diastolic,
+        ...(plan.cuffType ? { cuff_type: plan.cuffType } : {}),
+      },
       danger: outcome.bpFlag !== null || outcome.severity !== null,
     },
     ...(plan.pulse === null

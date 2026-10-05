@@ -401,9 +401,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // (before or after it) is graded with that reading. historyDays: how far back the grader looks for earlier readings.
     // missingEventCatchUpHours: the sweep re-emits a reading with no event if it is newer than this. The phone's own
     // limits (contextBudgetMs: how long it waits for local history before grading with what it has, so a red result is
-    // never held back; subjectWaitMs: the same for reading the session) are engineering budgets for the 1 second red
+    // never held back; subjectWaitMs: the same for reading the session; staleAfterDays: how long since the phone last checked for the approved rule set before the BP screen says its guidance may be out of date) are engineering budgets for the 1 second red
     // rule (INV-06), kept with the rest so they are reviewed together.
-    value: { symptomLinkMinutes: 10, historyDays: 14, missingEventCatchUpHours: 24, contextBudgetMs: 600, subjectWaitMs: 250 },
+    value: { symptomLinkMinutes: 10, historyDays: 14, missingEventCatchUpHours: 24, contextBudgetMs: 600, subjectWaitMs: 250, staleAfterDays: 7 },
     owner: "CMO",
     status: "proposed",
     version: 1,

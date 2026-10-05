@@ -26,6 +26,10 @@ export type BpChecklistSymptom = Extract<
   "severe_headache" | "chest_pain" | "breathlessness" | "visual_disturbance" | "confusion" | "dizziness" | "palpitations"
 >;
 
+/** What the patient measured with (S12b). Optional; recorded on the reading so a trend from a wrist cuff is not read as an upper arm one. */
+export type CuffType = "upper_arm" | "wrist" | "not_sure";
+export const CUFF_TYPES: readonly CuffType[] = ["upper_arm", "wrist", "not_sure"];
+
 export const BP_CHECKLIST_SYMPTOMS: readonly BpChecklistSymptom[] = [
   "severe_headache",
   "chest_pain",
@@ -63,6 +67,7 @@ export interface BpLogInput {
   /** Blank means no pulse was typed. */
   pulse: string;
   symptoms: readonly BpChecklistSymptom[];
+  cuffType?: CuffType | null;
 }
 
 export type BpLogError = BpEntryError | Extract<OtherEntryError, "number" | "range_pulse">;
@@ -81,6 +86,7 @@ export type BpLogPlan =
       pulse: number | null;
       symptoms: PlannedSymptom[];
       redFlagTicked: BpChecklistSymptom[];
+      cuffType: CuffType | null;
     }
   | { ok: false; error: BpLogError; field: "bp" | "pulse" };
 
@@ -104,5 +110,7 @@ export function planBpLog(input: BpLogInput, tickedSeverity: number): BpLogPlan 
     pulse,
     symptoms: ticked.map((symptom_type) => ({ symptom_type, severity: tickedSeverity, description: TICKED_ON_BP_FORM_NOTE })),
     redFlagTicked: redFlagsAmong(ticked),
+    // Anything not on the list is dropped, never stored.
+    cuffType: CUFF_TYPES.find((c) => c === input.cuffType) ?? null,
   };
 }

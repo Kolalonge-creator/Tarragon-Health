@@ -19,6 +19,7 @@ import {
   loadDeviceRuleSet,
   localBpHistory,
   readPendingRecheck,
+  rulesMayBeStale,
   refreshApprovedRuleSet,
   refreshPatientFacts,
   resolveExpiredRecheck,
@@ -319,5 +320,41 @@ describe("age and pregnancy on the phone (OQ-90)", () => {
     expect(await refreshPatientFacts("")).toBe("failed");
     await AsyncStorage.setItem(`@tarragon/triage/facts/v1:${SUBJECT}`, "{bad");
     expect((await gradeOnDevice({ subjectId: SUBJECT, systolic: 118, diastolic: 76, symptoms: [], nowMs: NOW })).result.grade).toBe("green");
+  });
+});
+
+describe("the stale guidance warning (S12b)", () => {
+  it("is on when the phone has never checked for the approved rule set", async () => {
+    expect(await rulesMayBeStale(NOW)).toBe(true);
+  });
+
+  it("is off after a successful check, whichever way it came out, and on again after the configured days", async () => {
+    mockRpc = jest.fn(async () => ({ data: null, error: null }));
+    await refreshApprovedRuleSet();
+    const checked = Date.now();
+    expect(await rulesMayBeStale(checked + 6 * 24 * 3600_000)).toBe(false);
+    expect(await rulesMayBeStale(checked + 8 * 24 * 3600_000)).toBe(true);
+    const approved = { ...BP_CARE_V1, version: 2, status: "approved" as const };
+    mockRpc = jest.fn(async () => ({ data: { rules: approved }, error: null }));
+    await refreshApprovedRuleSet();
+    expect(await rulesMayBeStale(Date.now() + 1000)).toBe(false);
+    await refreshApprovedRuleSet();
+    expect(await rulesMayBeStale(Date.now() + 1000)).toBe(false);
+  });
+
+  it("a failed check does not reset the clock", async () => {
+    mockRpc = jest.fn(async () => ({ data: null, error: { message: "offline" } }));
+    await refreshApprovedRuleSet();
+    expect(await rulesMayBeStale(NOW)).toBe(true);
+  });
+
+  it("a corrupt stored time counts as stale", async () => {
+    await AsyncStorage.setItem("@tarragon/triage/rules-checked/v1", "yesterday");
+    expect(await rulesMayBeStale(NOW)).toBe(true);
+  });
+
+  it("the warning text exists in English and Pidgin and points to the nearest hospital", () => {
+    expect(t("triage.stale.rules", "en")).toMatch(/nearest hospital/);
+    expect(t("triage.stale.rules", "pcm")).toMatch(/nearest hospital/);
   });
 });

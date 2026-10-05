@@ -11,6 +11,7 @@ import {
   type TriageResult,
 } from "@tarragon/clinical";
 import type { VitalReadingPayload } from "./api";
+import { loadTriageWiringConfig } from "./triage-config";
 import { readCachedBpTarget } from "./bp-target";
 import { readLocalRecords } from "./offline-store";
 import { listOutbox } from "./outbox";
@@ -33,6 +34,7 @@ import { supabase } from "./supabase";
 export const TRIAGE_RULE_SET_CODE = "bp_care_triage";
 export const CONTEXT_BUDGET_MS = 600;
 const RULES_KEY = "@tarragon/triage/rules/v1";
+const CHECKED_KEY = "@tarragon/triage/rules-checked/v1";
 const FACTS_KEY = (subjectId: string) => `@tarragon/triage/facts/v1:${subjectId}`;
 const RECHECK_KEY = (subjectId: string) => `@tarragon/triage/pending-recheck/v1:${subjectId}`;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -74,6 +76,26 @@ export interface DeviceTriageRequest {
   nowMs?: number;
 }
 
+async function markChecked(nowMs: number = Date.now()): Promise<void> {
+  await AsyncStorage.setItem(CHECKED_KEY, String(nowMs)).catch(() => {});
+}
+
+/**
+ * Whether the phone's triage guidance may be out of date (S12b): true when it has never reached the server to ask
+ * for the approved rule set, or last did more than `staleAfterDays` ago. Only a warning: the guidance itself is never
+ * switched off, because stale emergency guidance still beats none (INV-06).
+ */
+export async function rulesMayBeStale(nowMs: number = Date.now()): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(CHECKED_KEY);
+    const at = raw === null ? NaN : Number(raw);
+    if (!Number.isFinite(at)) return true;
+    return nowMs - at > loadTriageWiringConfig().staleAfterDays * 24 * 60 * 60 * 1000;
+  } catch {
+    return true;
+  }
+}
+
 /** The approved rule set last cached on this phone, if it is still valid; otherwise the bundled draft. */
 export async function loadDeviceRuleSet(): Promise<DeviceRuleSet> {
   try {
@@ -102,12 +124,17 @@ export async function refreshApprovedRuleSet(): Promise<"updated" | "none_approv
     const row = data as { rules?: unknown } | null;
     if (!row || !row.rules) {
       await AsyncStorage.removeItem(RULES_KEY);
+      await markChecked();
       return "none_approved";
     }
     if (validateRuleSet(row.rules).length > 0) return "failed";
     const next = JSON.stringify(row.rules);
-    if ((await AsyncStorage.getItem(RULES_KEY)) === next) return "unchanged";
+    if ((await AsyncStorage.getItem(RULES_KEY)) === next) {
+      await markChecked();
+      return "unchanged";
+    }
     await AsyncStorage.setItem(RULES_KEY, next);
+    await markChecked();
     return "updated";
   } catch {
     return "failed";
