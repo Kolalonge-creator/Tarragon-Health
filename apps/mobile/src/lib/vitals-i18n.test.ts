@@ -5,6 +5,7 @@
  */
 import { en, pcm, type MessageKey } from "@tarragon/i18n";
 import type { BpLevel } from "./bp-classification";
+import { BP_CHECKLIST_SYMPTOMS } from "./bp-checklist";
 import type { BpEntryError, OtherEntryError, OtherVitalType } from "./vitals-entry";
 
 const LEVELS: BpLevel[] = ["green", "amber", "red", "emergency", "unknown"];
@@ -20,6 +21,10 @@ const keys: string[] = [
   ...OTHER_ERRORS.map((e) => `vitals.other.error.${e}`),
   ...TYPES.map((t) => `vitals.type.${t}`),
   ...CONTEXTS.map((c) => `vitals.glucose.context.${c}`),
+  // S07: the BP form builds these at run time (a pulse error, one label per checklist symptom).
+  "vitals.error.pulse_number",
+  "vitals.error.pulse_range",
+  ...BP_CHECKLIST_SYMPTOMS.map((s) => `vitals.symptom.${s}`),
 ];
 
 describe("Vitals screen dynamic translation keys", () => {

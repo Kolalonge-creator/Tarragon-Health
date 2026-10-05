@@ -7,8 +7,10 @@ import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
 import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-trend";
 import { loadActiveThresholds } from "@/lib/threshold-sync";
+import { BP_CHECKLIST_SYMPTOMS, planBpLog, redFlagsAmong, type BpChecklistSymptom } from "@/lib/bp-checklist";
+import { logBpWithExtras } from "@/lib/bp-log";
+import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
 import {
-  validateBpEntry,
   validateOtherEntry,
   type GlucoseUnit,
   type OtherVitalType,
@@ -17,7 +19,6 @@ import {
   classifyVitalOffline,
   computeSevenDayAverage,
   loadRecentBpReadings,
-  logBpReading,
   logOtherVital,
   type BpReading,
 } from "@/lib/vitals";
@@ -50,6 +51,11 @@ import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
 import { SyncBanner } from "@/screens/sync-banner";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
+import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
+
+// Versioned S07 values (rest time, gap between readings, severity recorded for a ticked symptom).
+const HOME_PROTOCOL = loadHomeProtocol();
+const SYMPTOM_CHECKLIST = loadBpSymptomChecklist();
 
 interface GuidanceState {
   detail: string;
@@ -117,6 +123,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 
   const [sys, setSys] = useState("");
   const [dia, setDia] = useState("");
+  const [pulse, setPulse] = useState("");
+  const [ticked, setTicked] = useState<BpChecklistSymptom[]>([]);
   const [saving, setSaving] = useState(false);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -135,10 +143,13 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const draftKey = `bp:${patientId}`;
   const draftRestored = useRef(false);
   useEffect(() => {
-    void loadDraft<{ sys: string; dia: string }>(draftKey).then((d) => {
+    void loadDraft<{ sys: string; dia: string; pulse?: string; symptoms?: string[] }>(draftKey).then((d) => {
       if (d) {
         setSys((cur) => cur || d.sys);
         setDia((cur) => cur || d.dia);
+        setPulse((cur) => cur || d.pulse || "");
+        // Only symptoms that are still on the checklist come back from a draft.
+        setTicked((cur) => (cur.length > 0 ? cur : BP_CHECKLIST_SYMPTOMS.filter((s) => d.symptoms?.includes(s))));
       }
       draftRestored.current = true;
     });
@@ -146,9 +157,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   // Saved on every change, so a power cut or a killed app loses nothing typed.
   useEffect(() => {
     if (!draftRestored.current) return;
-    if (sys === "" && dia === "") void clearDraft(draftKey);
-    else void saveDraft(draftKey, { sys, dia });
-  }, [sys, dia, draftKey]);
+    if (sys === "" && dia === "" && pulse === "" && ticked.length === 0) void clearDraft(draftKey);
+    else void saveDraft(draftKey, { sys, dia, pulse, symptoms: ticked });
+  }, [sys, dia, pulse, ticked, draftKey]);
 
   useEffect(() => {
     load()
@@ -174,10 +185,20 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   useEffect(() => setSelected(null), [windowDays, readings]);
 
   async function handleSave() {
-    const entry = validateBpEntry(sys, dia);
-    if (!entry.ok) {
+    const plan = planBpLog({ systolic: sys, diastolic: dia, pulse, symptoms: ticked }, SYMPTOM_CHECKLIST.severity);
+    const symptomList = (list: readonly BpChecklistSymptom[]) => list.map((s) => tr(`vitals.symptom.${s}` as MessageKey)).join(", ");
+    if (!plan.ok) {
       setSaveError(null);
-      setErrorKey(`vitals.error.${entry.error}` as MessageKey);
+      setErrorKey(
+        plan.field === "pulse"
+          ? (plan.error === "number" ? "vitals.error.pulse_number" : "vitals.error.pulse_range")
+          : (`vitals.error.${plan.error}` as MessageKey)
+      );
+      // Guidance for a ticked red-flag symptom never waits for a valid reading: someone with chest
+      // pain who has not typed the numbers (or mistyped them) still sees it. Nothing was saved, so
+      // the guidance says plainly that the care team has not been told.
+      const flagged = redFlagsAmong(ticked);
+      if (flagged.length > 0) setGuidance({ detail: tr("vitals.guidance.symptom_detail", { symptoms: symptomList(flagged) }), synced: false });
       return;
     }
     setSaving(true);
@@ -185,12 +206,20 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setSaveError(null);
     setUrgentBanner(null);
 
-    const payload: VitalReadingPayload = { vital_type: "blood_pressure", systolic: entry.systolic, diastolic: entry.diastolic };
-    const flag = await classifyVitalOffline(payload);
-    if (flag?.severity === "emergency") setGuidance({ detail: flag.detail, synced: false });
-    if (flag?.severity === "urgent") setUrgentBanner(flag.detail);
-
-    const result = await logBpReading(entry.systolic, entry.diastolic, beneficiaryProfileId);
+    // The emergency guidance and the urgent banner come from the on-device check and appear at
+    // once, before anything is sent: a crisis-range reading or a red-flag symptom is dangerous
+    // whether or not the save reaches the server.
+    const symptomLabels = symptomList(plan.redFlagTicked);
+    const result = await logBpWithExtras(plan, beneficiaryProfileId, undefined, (outcome) => {
+      if (outcome.severity === "emergency") {
+        const detail = outcome.symptomFlag
+          ? tr("vitals.guidance.symptom_detail", { symptoms: symptomLabels })
+          : (outcome.bpFlag?.detail ?? "");
+        setGuidance({ detail, synced: false });
+      } else if (outcome.severity === "urgent" && outcome.bpFlag) {
+        setUrgentBanner(outcome.bpFlag.detail);
+      }
+    });
     setSaving(false);
     if (result.error) {
       setSaveError(result.error);
@@ -200,10 +229,17 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       // notified yet.
       return;
     }
-    if (flag?.severity === "emergency") setGuidance({ detail: flag.detail, synced: !!result.synced });
-    toast.show(result.synced ? { message: tr("vitals.log.saved"), tone: "success" } : { message: t("outbox.saved_on_phone", locale), tone: "info" });
+    if (result.outcome.severity === "emergency") {
+      setGuidance((cur) => (cur ? { ...cur, synced: !!result.syncedAll } : cur));
+    }
+    if (result.rejectedSupportCodes && result.rejectedSupportCodes.length > 0) {
+      setSaveError(t("outbox.rejected", locale, { count: result.rejectedSupportCodes.length, code: result.rejectedSupportCodes[0] ?? "" }));
+    }
+    toast.show(result.syncedAll ? { message: tr("vitals.log.saved"), tone: "success" } : { message: t("outbox.saved_on_phone", locale), tone: "info" });
     setSys("");
     setDia("");
+    setPulse("");
+    setTicked([]);
     await load();
   }
 
@@ -352,6 +388,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         <AppText variant="title" heading>
           {tr("vitals.log.title")}
         </AppText>
+        <TechniqueGuide tr={tr} protocol={HOME_PROTOCOL} />
         <View style={{ flexDirection: "row", gap: space.md }}>
           <View style={{ flex: 1 }}>
             <Field label={tr("vitals.log.systolic")} hint={tr("vitals.log.systolic_hint")} keyboardType="number-pad" value={sys} onChangeText={setSys} returnKeyType="next" />
@@ -360,6 +397,12 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
             <Field label={tr("vitals.log.diastolic")} hint={tr("vitals.log.diastolic_hint")} keyboardType="number-pad" value={dia} onChangeText={setDia} />
           </View>
         </View>
+        <Field label={tr("vitals.log.pulse")} hint={tr("vitals.log.pulse_hint")} keyboardType="number-pad" value={pulse} onChangeText={setPulse} />
+        <SymptomChecklist
+          tr={tr}
+          selected={ticked}
+          onToggle={(sym) => setTicked((cur) => (cur.includes(sym) ? cur.filter((x) => x !== sym) : [...cur, sym]))}
+        />
         {errorKey ? <InlineAlert tone="danger" message={tr(errorKey)} /> : null}
         {saveError ? <InlineAlert tone="danger" message={saveError} /> : null}
         {urgentBanner ? <InlineAlert tone="warn" message={urgentBanner} /> : null}

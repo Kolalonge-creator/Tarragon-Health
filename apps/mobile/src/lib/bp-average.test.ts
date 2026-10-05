@@ -9,6 +9,7 @@ const protocol: HomeProtocolConfig = {
   minGapMinutes: 1,
   targetDays: 7,
   restMinutes: 5,
+  avoidBeforeMinutes: 30,
   morningHours: [4, 12],
   eveningHours: [17, 24],
 };
