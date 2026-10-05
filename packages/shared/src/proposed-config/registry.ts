@@ -254,4 +254,39 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-03",
     source: "docs/research/S07.md section 6",
   },
+  {
+    key: "medicines.dose_rules",
+    // Medicines (S08). The missed window, snooze limits and notification cap come from
+    // `reminders.behaviour`, and the weekly percentage band from `adherence.threshold`;
+    // this entry holds only what is specific to medicines.
+    //  undoSeconds: how long a just-logged dose can be taken back before it leaves the phone.
+    //  doubleTapGuardMs: a second tap on the same dose inside this is ignored.
+    //  lowSupplyDays: running-low reminder fires when the supply lasts this many days or fewer.
+    //  adherenceMinDoses: fewer due doses than this and no percentage is shown.
+    //  serverMissedAfterMinutes: the server marks an unanswered dose missed after this long. Longer than the
+    //  on-device two hours so a phone that was offline has time to sync a "taken" first (mirrors medicine_config).
+    //  followUpMinWindowMinutes: a flexible window at least this long gets one gentle follow-up at its middle.
+    //  catchUpMinGapMinutes: the catch-up sheet is offered at most this often, so it never nags on every app open.
+    //  catchUpMaxItems: the most doses the catch-up sheet asks about at once.
+    //  stalePlanHours: a reminder plan older than this is shown as out of date in the health check.
+    //  backdateWindowHours mirrors offline_sync_config (S06): the oldest "I took it earlier" time the server keeps.
+    value: {
+      undoSeconds: 120,
+      doubleTapGuardMs: 800,
+      lowSupplyDays: 7,
+      adherenceMinDoses: 3,
+      stalePlanHours: 24,
+      followUpMinWindowMinutes: 30,
+      catchUpMaxItems: 12,
+      catchUpMinGapMinutes: 240,
+      serverMissedAfterMinutes: 720,
+      backdateWindowHours: 72,
+      futureSkewMinutes: 5,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-04",
+    source: "docs/research/S08.md sections 2 and 5 (decision table rows 4, 5, 9, 15)",
+  },
 ];

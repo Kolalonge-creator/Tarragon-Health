@@ -800,4 +800,5 @@ prescription_quantity_duration_required.sql
 # Prescription phone desk: staff (admin or active clinical staff) look a prescription up by Rx number + code and record a supply (desk_phone, recorded by the staff member, patient notified, duplicates refused); no patient-name column, the name on the paper only yields matches / does not match; patients, non-staff clinicians and anon refused; lookups audited and the code never stored; sabotage makes the name matcher always true.
 prescription_phone_desk.sql
 s06_offline_client_recorded_time.sql
+s08_medicines_schedule_adherence_refill.sql
 s07_my_home_bp_target.sql
