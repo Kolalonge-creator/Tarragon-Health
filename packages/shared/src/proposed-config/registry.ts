@@ -258,6 +258,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/S07.md section 5 (MyTherapy snooze default; iOS 64 pending cap)",
   },
   {
+    key: "reminders.behaviour",
+    // v2 (S07 reminders, 2026-10-05): iOS keeps only 64 pending local notifications in total, and
+    // two planners now share them: medicines (S08, `maxPending`) and blood pressure
+    // (S07, `maxPendingBp`). 44 + 18 = 62, two under the limit, so neither can push the other's
+    // soonest reminder out. `maxPending` came down from 60 to make room; everything else is as v1.
+    // 18 covers a once-a-day blood pressure reminder for the whole 14-day horizon, and twice a day for 9 days.
+    value: { snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 44, maxPendingBp: 18, horizonDays: 14 },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-05",
+    source: "docs/research/S07.md section 5 (iOS 64 pending cap); shared between S07 blood pressure and S08 medicine reminders",
+  },
+  {
     key: "streaks.rules",
     // Consecutive local days with at least one reading. A freeze is earned every
     // `freezeEarnEveryDays` days of a run, held up to `freezeCap`, and is shown as a
@@ -281,6 +295,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     //  serverMissedAfterMinutes: the server marks an unanswered dose missed after this long. Longer than the
     //  on-device two hours so a phone that was offline has time to sync a "taken" first (mirrors medicine_config).
     //  followUpMinWindowMinutes: a flexible window at least this long gets one gentle follow-up at its middle.
+    //  catchUpRetrySeconds: when the catch-up read fails, try again after each of these delays (then stop until the next app open).
     //  catchUpMinGapMinutes: the catch-up sheet is offered at most this often, so it never nags on every app open.
     //  catchUpMaxItems: the most doses the catch-up sheet asks about at once.
     //  stalePlanHours: a reminder plan older than this is shown as out of date in the health check.
@@ -294,6 +309,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       followUpMinWindowMinutes: 30,
       catchUpMaxItems: 12,
       catchUpMinGapMinutes: 240,
+      catchUpRetrySeconds: [30, 120],
       serverMissedAfterMinutes: 720,
       backdateWindowHours: 72,
       futureSkewMinutes: 5,

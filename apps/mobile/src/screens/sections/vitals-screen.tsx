@@ -46,6 +46,8 @@ import {
   type BadgeTone,
 } from "@/ui/kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { MIN_READINGS_FOR_CHART, useTrendInsights } from "@/lib/use-trend-insights";
+import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
 import { SyncBanner } from "@/screens/sync-banner";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
@@ -244,6 +246,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const latest = readings[0] ?? null;
   const average = computeSevenDayAverage(readings);
   const windowed = useMemo(() => windowReadings(readings, windowDays, nowMs), [readings, windowDays, nowMs]);
+  const insights = useTrendInsights(patientId, readings, nowMs, windowDays);
   const summary = useMemo(() => summariseTrend(windowed), [windowed]);
   const chartSummary = summary
     ? tr("vitals.trend.summary", {
@@ -338,7 +341,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           <AppText variant="body" tone="textMuted">
             {tr("vitals.trend.empty_window", { days: windowDays })}
           </AppText>
-        ) : (
+        ) : insights.displayMode === "list" ? null : (
           <>
             <TrendChart
               readings={windowed}
@@ -374,6 +377,11 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           </>
         )}
       </Card>
+
+      {/* What the readings add up to, as words and a per-day list. Shown even with too few readings for a chart. */}
+      {!loading && windowed.length > 0 ? (
+        <TrendInsightsCard insights={insights} tr={tr} minReadingsForChart={MIN_READINGS_FOR_CHART} targetKnowable={!beneficiaryProfileId} />
+      ) : null}
 
       {/* Log a reading */}
       <Card style={{ gap: space.md }}>

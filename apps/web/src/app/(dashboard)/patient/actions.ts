@@ -41,6 +41,7 @@ import {
 } from "@/lib/validation/diabetes-logs";
 import {
   riskAssessmentSchema,
+  parseRiskAssessmentFormData,
   QUESTION_CATEGORY,
   type RiskAssessmentInput,
 } from "@/lib/validation/risk-assessment";
@@ -504,7 +505,24 @@ export async function reportMedicationAccessBarrier(
   return { success: true };
 }
 
-export type SubmitRiskAssessmentState = { error?: string; success?: boolean } | undefined;
+export type SubmitRiskAssessmentState =
+  | {
+      error?: string;
+      success?: boolean;
+      /**
+       * The raw (pre-Zod, FormData-shaped) submitted values, echoed back so
+       * RiskAssessmentForm can restore the whole questionnaire after an
+       * error. React resets a `<form action={...}>`'s uncontrolled fields
+       * synchronously at submit time, before this action even runs — the
+       * same bug fixed on the signup form (see signup/actions.ts), just
+       * with many more fields across 4 steps here. Before `noValidate` was
+       * added to the form, this path was effectively unreachable with any
+       * required field genuinely blank (the browser silently refused to
+       * submit at all), which is why this went unnoticed until then.
+       */
+      values?: ReturnType<typeof parseRiskAssessmentFormData>;
+    }
+  | undefined;
 
 /**
  * Submits the risk assessment questionnaire, then recomputes and stores
@@ -521,34 +539,11 @@ export async function submitRiskAssessment(
   _prevState: SubmitRiskAssessmentState,
   formData: FormData
 ): Promise<SubmitRiskAssessmentState> {
-  const raw = {
-    family_diabetes: formData.get("family_diabetes"),
-    family_hypertension: formData.get("family_hypertension"),
-    family_heart_disease: formData.get("family_heart_disease"),
-    family_sickle_cell: formData.get("family_sickle_cell"),
-    family_cancer_types: formData.getAll("family_cancer_types"),
-    family_cancer_other_detail: formData.get("family_cancer_other_detail") || undefined,
-    smoking_status: formData.get("smoking_status"),
-    cigarettes_per_day: formData.get("cigarettes_per_day") || undefined,
-    alcohol_use: formData.get("alcohol_use"),
-    exercise_days_per_week: formData.get("exercise_days_per_week"),
-    exercise_minutes_per_session: formData.get("exercise_minutes_per_session"),
-    diet_pattern: formData.getAll("diet_pattern"),
-    sleep_hours: formData.get("sleep_hours"),
-    stress_level: formData.get("stress_level"),
-    height_cm: formData.get("height_cm"),
-    weight_kg: formData.get("weight_kg") || undefined,
-    existing_diagnoses: formData.getAll("existing_diagnoses"),
-    existing_diagnoses_other_detail: formData.get("existing_diagnoses_other_detail") || undefined,
-    current_medications: formData.get("current_medications") || undefined,
-    hpv_vaccinated: formData.get("hpv_vaccinated"),
-    other_vaccines_detail: formData.get("other_vaccines_detail") || undefined,
-    prior_abnormal_result: formData.get("prior_abnormal_result"),
-  };
+  const raw = parseRiskAssessmentFormData(formData);
 
   const parsed = riskAssessmentSchema.safeParse(raw);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input", values: raw };
   }
   const responses = parsed.data;
 
@@ -557,7 +552,7 @@ export async function submitRiskAssessment(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { error: "Not signed in" };
+    return { error: "Not signed in", values: raw };
   }
 
   // Whoever's account is open. resolveSubjectId re-checks the live 'manage'
@@ -572,7 +567,7 @@ export async function submitRiskAssessment(
     .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) {
-    return { error: "No organisation on file" };
+    return { error: "No organisation on file", values: raw };
   }
   const organisationId = profile.organisation_id;
 
@@ -592,7 +587,7 @@ export async function submitRiskAssessment(
     .from("risk_assessment_responses")
     .insert(responseRows);
   if (responsesError) {
-    return { error: responsesError.message };
+    return { error: responsesError.message, values: raw };
   }
 
   // Keep the assessment's weight part of the same longitudinal vitals
@@ -605,7 +600,7 @@ export async function submitRiskAssessment(
       weight_kg: responses.weight_kg,
     });
     if (weightInsertError) {
-      return { error: weightInsertError.message };
+      return { error: weightInsertError.message, values: raw };
     }
   }
 
@@ -655,7 +650,7 @@ export async function submitRiskAssessment(
       }))
     );
   if (scoresError) {
-    return { error: scoresError.message };
+    return { error: scoresError.message, values: raw };
   }
 
   // Auto-enrol into any preventive programme these fresh tiers newly
@@ -793,7 +788,7 @@ export async function submitRiskAssessment(
       }))
     );
     if (scheduleInsertError) {
-      return { error: scheduleInsertError.message };
+      return { error: scheduleInsertError.message, values: raw };
     }
   }
 
@@ -805,7 +800,7 @@ export async function submitRiskAssessment(
         .update({ due_date: rec.dueDate })
         .eq("id", existing.id);
       if (scheduleUpdateError) {
-        return { error: scheduleUpdateError.message };
+        return { error: scheduleUpdateError.message, values: raw };
       }
     }
   }
@@ -846,7 +841,7 @@ export async function submitRiskAssessment(
           })),
         );
       if (recError) {
-        return { error: recError.message };
+        return { error: recError.message, values: raw };
       }
     }
   }

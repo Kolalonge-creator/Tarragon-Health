@@ -10,6 +10,7 @@ export type SectionId =
   | "alcohol"
   | "myActions"
   | "vitals"
+  | "bpHistory"
   | "medications"
   | "labs"
   | "devices"
@@ -38,6 +39,7 @@ export type SectionId =
   | "services"
   | "receipts"
   | "notificationSettings"
+  | "reminders"
   | "technicalSupport"
   | "privacy"
   | "emergency"
@@ -108,6 +110,7 @@ export const SECTIONS: SectionDef[] = [
   },
   { id: "labs", label: "Labs & results", icon: "flask-outline", group: "top" },
   { id: "devices", label: "Devices", icon: "bluetooth-outline", group: "Your health" },
+  { id: "reminders", label: "Reminders", icon: "alarm-outline", group: "Your health" },
   {
     id: "prevention",
     label: "Prevention",
@@ -118,6 +121,12 @@ export const SECTIONS: SectionDef[] = [
     id: "healthSummary",
     label: "Health summary",
     icon: "document-text-outline",
+    group: "Your health",
+  },
+  {
+    id: "bpHistory",
+    label: "Blood pressure history",
+    icon: "list-outline",
     group: "Your health",
   },
   {

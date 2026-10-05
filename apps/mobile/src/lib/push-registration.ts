@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
  * already sends real Expo pushes to any row that shows up there — nothing
  * in this app has ever called `getExpoPushTokenAsync()` to create one.
  * Same "best-effort, never blocks the app" discipline as
- * ensureDoseReminderPermission/syncDoseReminders in dose-reminders.ts: a
+ * the local reminders in reminder-notifications.ts: a
  * patient who denies push, or a dev build with no EAS project id, still
  * gets a fully working app — just no remote push.
  */

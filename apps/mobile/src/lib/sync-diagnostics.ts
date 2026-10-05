@@ -20,7 +20,7 @@
  * actual next step this codebase is waiting on.
  */
 
-export type SyncSource = "apple_health" | "android_health_connect" | "ble" | "background_sync" | "offline_vitals" | "offline_outbox";
+export type SyncSource = "apple_health" | "android_health_connect" | "ble" | "background_sync" | "offline_vitals" | "offline_outbox" | "catch_up";
 
 export interface SyncDiagnosticEntry {
   source: SyncSource;

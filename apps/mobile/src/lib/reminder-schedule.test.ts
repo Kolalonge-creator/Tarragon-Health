@@ -12,7 +12,7 @@ import { lagosTimeToUtcMs } from "./lagos-date";
 import type { ReminderBehaviourConfig } from "./s07-config";
 
 // Pinned on purpose: see bp-average.test.ts.
-const cfg: ReminderBehaviourConfig = { version: 0, snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 60, horizonDays: 14 };
+const cfg: ReminderBehaviourConfig = { version: 0, snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 44, maxPendingBp: 18, horizonDays: 14 };
 const MIN = 60_000;
 const lagos = (date: string, time: string): number => lagosTimeToUtcMs(date, time) as number;
 const due = lagos("2026-10-03", "08:00");

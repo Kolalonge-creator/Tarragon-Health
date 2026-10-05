@@ -1,4 +1,5 @@
 import { flushOutbox } from "@/lib/outbox";
+import { syncReminders } from "@/lib/reminder-notifications";
 import { clearLocalMirror } from "@/lib/offline-store";
 import { clearAllDrafts } from "@/lib/drafts";
 import { FONT_ASSETS, ThemeProvider, useTheme } from "@/ui/design";
@@ -149,8 +150,16 @@ function AppContent() {
   useEffect(() => {
     if (!session?.user.id) return;
     const run = () => void flushOutbox().catch(() => {});
+    // Reminders are a rolling window of notifications, so they are topped up whenever the app
+    // opens or returns to the foreground (and never ask for permission here: only the patient's
+    // own action does).
+    const topUpReminders = () => void syncReminders().catch(() => {});
+    topUpReminders();
     const sub = AppState.addEventListener("change", (next) => {
-      if (next === "active") run();
+      if (next === "active") {
+        run();
+        topUpReminders();
+      }
     });
     const timer = setInterval(() => {
       if (AppState.currentState === "active") run();
