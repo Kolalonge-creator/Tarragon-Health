@@ -101,16 +101,33 @@ describe("average and the gate", () => {
 });
 
 describe("the target", () => {
-  it("is shown only when the care team has set one", () => {
-    expect(build([]).target).toEqual({ confirmed: true, systolicBelow: 130, diastolicBelow: 80 });
-    expect(build([], { personal: null }).target).toEqual({ confirmed: false });
-    expect(build([], { personal: { ...TARGET, setBy: null } }).target).toEqual({ confirmed: false });
-    expect(build([], { personal: { ...TARGET, setAt: " " } }).target).toEqual({ confirmed: false });
+  it("is the care team's when a clinician and a date are recorded on the row", () => {
+    expect(build([]).target).toEqual({ kind: "care_team", systolicBelow: 130, diastolicBelow: 80 });
+    expect(build([], { personal: null }).target).toEqual({ kind: "none" });
+    expect(build([], { personal: { ...TARGET, setBy: null } }).target).toEqual({ kind: "none" });
+    expect(build([], { personal: { ...TARGET, setAt: " " } }).target).toEqual({ kind: "none" });
   });
 
-  it("gives no statuses at all without a confirmed target, so it cannot contradict the server's own derived target", () => {
+  it("follows the server's own answer: its care team target, or the standard starting target labelled as such", () => {
+    expect(build([], { personal: { ...TARGET, setBy: null, origin: "care_team" } }).target).toMatchObject({ kind: "care_team" });
+    const standard = build([], { personal: { systolicBelow: 135, diastolicBelow: 85, setBy: null, setAt: null, origin: "standard" } });
+    expect(standard.target).toEqual({ kind: "standard", systolicBelow: 135, diastolicBelow: 85 });
+    // a standard target is never promoted to the care team's by carrying a clinician and date
+    expect(build([], { personal: { ...TARGET, origin: "standard" } }).target).toMatchObject({ kind: "standard" });
+  });
+
+  it("measures statuses against the server's standard target too, so a high reading is never left unmarked", () => {
+    const personal = { systolicBelow: 135, diastolicBelow: 85, setBy: null, setAt: null, origin: "standard" as const };
+    const out = build([r("2026-10-04", "08:00", 150, 90)], { personal });
+    expect(out.days[0]).toMatchObject({ aboveCount: 1, status: "above" });
+    expect(build([r("2026-10-04", "08:00", 120, 80)], { personal }).days[0]).toMatchObject({ aboveCount: 0, status: "not_above" });
+  });
+
+  it("gives no statuses at all when no target could be read, so it cannot contradict the server's own target", () => {
     const out = build([r("2026-10-04", "08:00", 200, 120)], { personal: null });
     expect(out.days[0]).toMatchObject({ aboveCount: null, status: null });
+    // the flat suggestion in the app is never used to grade anything
+    expect(build([r("2026-10-04", "08:00", 200, 120)], { personal: { ...TARGET, setBy: null } }).days[0]?.status).toBeNull();
   });
 });
 

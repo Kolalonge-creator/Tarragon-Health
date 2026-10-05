@@ -535,6 +535,7 @@ export const en = {
   "trends.weekday.5": "Fri",
   "trends.weekday.6": "Sat",
   "trends.target.set": "Your care team's target: below {systolic}/{diastolic} mmHg.",
+  "trends.target.standard": "A standard starting target: below {systolic}/{diastolic} mmHg. Your care team has not set one for you yet.",
   "trends.target.none": "Your care team has not set a blood pressure target for you yet.",
   "trends.average.title": "Your average",
   "trends.average.value": "Average of {readings} readings over {days} days: {value} mmHg.",

@@ -1,6 +1,6 @@
 import type { MessageKey } from "@tarragon/i18n";
 import { summariseHomeBp, type AveragingProtocol, type GateResult, type HomeAverage, type PartSummary } from "./bp-average";
-import { bandStatus, resolveTargetBand, trendDisplayMode, type BandStatus, type PersonalBpTarget, type TrendDisplay } from "./bp-trend-rules";
+import { bandStatus, hasUsableTarget, resolveTargetBand, trendDisplayMode, type BandStatus, type PersonalBpTarget, type TrendDisplay } from "./bp-trend-rules";
 import { lagosLocalDate, weekdayOf, type LocalDate } from "./lagos-date";
 import type { AverageGateConfig, StartingSuggestionTarget, TrendDisplayConfig } from "./s07-config";
 import { windowReadings, type TrendWindowDays } from "./bp-trend";
@@ -15,11 +15,11 @@ import type { BpReading } from "./vitals";
  * - An average appears only past the averaging gate; below it the model carries
  *   what is missing instead, so a thin average is never shown as a trend.
  * - Fewer readings than the chart minimum means a list, not a line.
- * - Statuses against the target exist only when the care team has set a target
- *   (confirmed). Without one, no reading or day is called above or not above:
- *   the server falls back to its own derived target (135/85, or 130/80 with
- *   diabetes, kidney or heart disease), so a flat guess here could contradict a
- *   clinician alert. See OQ-80.
+ * - Statuses exist only against a target the server itself uses (OQ-80): the care
+ *   team's, or the standard starting target (135/85, or 130/80 with diabetes,
+ *   kidney or heart disease) when none is set, which is labelled as not set by
+ *   the care team. When the server's target could not be read, no reading or day
+ *   is called above or not above: a guess here could contradict a clinician alert.
  * - A day is "above" when ANY of its readings was at or above the target, the
  *   same per-reading rule the server uses, so a day average can never hide a
  *   high reading.
@@ -49,7 +49,7 @@ export interface DayRow {
   meanDiastolic: number;
   morning: PartSummary | null;
   evening: PartSummary | null;
-  /** Readings at or above the target that day, or null when there is no confirmed target. */
+  /** Readings at or above the target that day, or null when no target is known. */
   aboveCount: number | null;
   status: BandStatus | null;
 }
@@ -57,8 +57,10 @@ export interface DayRow {
 export interface TrendInsights {
   displayMode: TrendDisplay;
   readingCount: number;
-  /** The care team's target when confirmed; otherwise only that none is set. */
-  target: { confirmed: true; systolicBelow: number; diastolicBelow: number } | { confirmed: false };
+  /** The target the statuses are measured against, and whose it is. */
+  target:
+    | { kind: "care_team" | "standard"; systolicBelow: number; diastolicBelow: number }
+    | { kind: "none" };
   average: HomeAverage | null;
   morningAverage: PartSummary | null;
   eveningAverage: PartSummary | null;
@@ -83,7 +85,17 @@ export interface TrendInsightsInput {
 
 export function buildTrendInsights(input: TrendInsightsInput): TrendInsights {
   const band = resolveTargetBand(input.personal, input.suggestion);
-  const confirmed = band.confirmed;
+  const personal = input.personal;
+  const kind: "care_team" | "standard" | "none" = !hasUsableTarget(personal)
+    ? "none"
+    : personal.origin === "care_team"
+      ? "care_team"
+      : personal.origin === "standard"
+        ? "standard"
+        : band.confirmed
+          ? "care_team"
+          : "none";
+  const known = kind !== "none";
 
   // Exactly the readings the chart draws: the same window function, applied first. The Lagos-day
   // window inside summariseHomeBp is then widened by a day so it can only include more, never
@@ -101,7 +113,7 @@ export function buildTrendInsights(input: TrendInsightsInput): TrendInsights {
   );
 
   const aboveByDay = new Map<LocalDate, number>();
-  if (confirmed) {
+  if (known) {
     for (const r of summary.readings) {
       if (bandStatus(r.systolic, r.diastolic, band) === "above") {
         const d = lagosLocalDate(r.atMs);
@@ -113,7 +125,7 @@ export function buildTrendInsights(input: TrendInsightsInput): TrendInsights {
   const days: DayRow[] = [...summary.byDay]
     .sort((a, b) => b.localDate.localeCompare(a.localDate))
     .map((d) => {
-      const above = confirmed ? (aboveByDay.get(d.localDate) ?? 0) : null;
+      const above = known ? (aboveByDay.get(d.localDate) ?? 0) : null;
       return {
         localDate: d.localDate,
         weekdayKey: WEEKDAY_KEYS[weekdayOf(d.localDate)] as MessageKey,
@@ -131,9 +143,7 @@ export function buildTrendInsights(input: TrendInsightsInput): TrendInsights {
   return {
     displayMode: trendDisplayMode(summary.readings.length, input.display),
     readingCount: summary.readings.length,
-    target: confirmed
-      ? { confirmed: true, systolicBelow: band.systolicBelow, diastolicBelow: band.diastolicBelow }
-      : { confirmed: false },
+    target: known ? { kind, systolicBelow: band.systolicBelow, diastolicBelow: band.diastolicBelow } : { kind: "none" },
     average: summary.average,
     morningAverage: summary.morningAverage,
     eveningAverage: summary.eveningAverage,
