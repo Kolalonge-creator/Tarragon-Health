@@ -43352,6 +43352,15 @@ export type Database = {
         }[]
       }
       my_feature_flags: { Args: never; Returns: Json }
+      my_home_bp_target: {
+        Args: never
+        Returns: {
+          diastolic: number
+          set_at: string
+          source: string
+          systolic: number
+        }[]
+      }
       my_provider_performance: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json

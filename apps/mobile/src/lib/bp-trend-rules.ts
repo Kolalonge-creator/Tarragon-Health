@@ -45,6 +45,17 @@ export interface PersonalBpTarget {
   diastolicBelow: number;
   setBy: string | null;
   setAt: string | null;
+  /**
+   * Set only for a target read from the server's own answer (my_home_bp_target), which is the
+   * target its alerts use: "care_team" when a clinician recorded it, "standard" for the standard
+   * starting target (or one with no clinician recorded). Absent for a bare patient_bp_targets row,
+   * where setBy and setAt decide.
+   */
+  origin?: "care_team" | "standard";
+}
+
+export function hasUsableTarget(p: PersonalBpTarget | null): p is PersonalBpTarget {
+  return !!p && isTargetNumber(p.systolicBelow) && isTargetNumber(p.diastolicBelow);
 }
 
 export type TargetBandSource = "clinician" | "starting_suggestion";
@@ -74,7 +85,7 @@ export function resolveTargetBand(
   personal: PersonalBpTarget | null,
   suggestion: StartingSuggestionTarget,
 ): TargetBand {
-  if (personal && isTargetNumber(personal.systolicBelow) && isTargetNumber(personal.diastolicBelow)) {
+  if (hasUsableTarget(personal)) {
     const confirmed = !!personal.setBy?.trim() && !!personal.setAt?.trim();
     return {
       systolicBelow: personal.systolicBelow,
