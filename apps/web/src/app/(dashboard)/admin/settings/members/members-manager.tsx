@@ -32,6 +32,7 @@ import {
   type MemberActionState,
 } from "./actions";
 import { suspendScope, SUSPEND_SCOPE_HINT } from "@/lib/auth/member-suspend-scope";
+import { roleScope, ROLE_SCOPE_HINT, assignableRoles } from "@/lib/auth/member-role-scope";
 
 type Feedback = { error?: string; message?: string } | null;
 
@@ -400,42 +401,53 @@ function MemberItem({
             View activity &amp; oversight →
           </Link>
         )}
-        {canAssignRoles && (
-          <form
-            className="flex flex-wrap items-end gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              fd.set("memberId", member.id);
-              run((f) => setMemberRoleAction(undefined, f), fd);
-            }}
-          >
-            <div className="space-y-1">
-              <Label>Account role</Label>
-              <Select name="role" defaultValue={member.role}>
-                {USER_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {USER_ROLE_LABELS[r]}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Custom role</Label>
-              <Select name="customRoleId" defaultValue={member.custom_role_id ?? ""}>
-                <option value="">None</option>
-                {customRoles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <Button type="submit" variant="outline" disabled={pending}>
-              Save role
-            </Button>
-          </form>
-        )}
+        {canAssignRoles && (() => {
+          const rd = roleScope(
+            { id: currentMemberId, isSuperAdmin: callerScope.isSuperAdmin, organisationId: callerScope.organisationId },
+            { id: member.id, role: member.role, organisation_id: member.organisation_id }
+          );
+          if (!rd.allowed) {
+            const hint = ROLE_SCOPE_HINT[rd.reason];
+            return hint ? <p className="text-xs text-charcoal-ink/50">{hint}</p> : null;
+          }
+          const roles = assignableRoles(callerScope, USER_ROLES);
+          return (
+            <form
+              className="flex flex-wrap items-end gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                fd.set("memberId", member.id);
+                run((f) => setMemberRoleAction(undefined, f), fd);
+              }}
+            >
+              <div className="space-y-1">
+                <Label>Account role</Label>
+                <Select name="role" defaultValue={member.role}>
+                  {roles.map((r) => (
+                    <option key={r} value={r}>
+                      {USER_ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Custom role</Label>
+                <Select name="customRoleId" defaultValue={member.custom_role_id ?? ""}>
+                  <option value="">None</option>
+                  {customRoles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <Button type="submit" variant="outline" disabled={pending}>
+                Save role
+              </Button>
+            </form>
+          );
+        })()}
 
         {canEditContact && (
           <form

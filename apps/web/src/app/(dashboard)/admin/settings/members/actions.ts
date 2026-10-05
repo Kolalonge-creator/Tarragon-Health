@@ -158,15 +158,16 @@ export async function createInstitutionOrgAction(
 }
 
 /**
- * Change a member's base account role and/or assigned custom role. Runs under
- * the caller's RLS-scoped session (profiles_update already grants admin), gated
- * by `users.roles.assign`.
+ * Change a member's base account role and/or assigned custom role. Delegates
+ * to the self-authorizing `public.set_member_role` RPC, which scopes a
+ * non-admin caller to clinician/care_coordinator in their own org. The RPC
+ * writes its own audit entry.
  */
 export async function setMemberRoleAction(
   _prev: MemberActionState,
   formData: FormData
 ): Promise<MemberActionState> {
-  const actor = await requirePermission("users.roles.assign");
+  await requirePermission("users.roles.assign");
 
   const memberId = String(formData.get("memberId") ?? "");
   const role = String(formData.get("role") ?? "");
@@ -179,16 +180,12 @@ export async function setMemberRoleAction(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({ role: role as (typeof USER_ROLES)[number], custom_role_id: customRoleId })
-    .eq("id", memberId);
-  if (error) return { error: error.message };
-
-  await recordAudit(actor.id, actor.organisation_id, "member.role_changed", "profiles", memberId, {
-    role,
-    custom_role_id: customRoleId,
+  const { error } = await supabase.rpc("set_member_role", {
+    p_member_id: memberId,
+    p_role: role as (typeof USER_ROLES)[number],
+    p_custom_role_id: customRoleId,
   });
+  if (error) return { error: error.message };
 
   revalidatePath("/admin/settings/members");
   return { message: "Role updated." };
