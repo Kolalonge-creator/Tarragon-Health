@@ -50,6 +50,7 @@ function renderForm(caller: { isSuperAdmin: boolean; organisationId: string | nu
       canEditContact={false}
       canSuspend={false}
       currentMemberId="me"
+      suspendScope={{ isSuperAdmin: false, organisationId: null }}
       canGrant={false}
       canManageRoles={false}
       canViewActivity={false}

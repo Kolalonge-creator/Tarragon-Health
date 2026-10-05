@@ -526,6 +526,7 @@ export const en = {
   "meds.catchup.not_now": "Not now",
   "meds.catchup.saved": "Saved.",
   "meds.catchup.failed": "We could not save that. Try again.",
+  "meds.window.from_yesterday": "From last night, still open",
   "trends.weekday.0": "Sun",
   "trends.weekday.1": "Mon",
   "trends.weekday.2": "Tue",
