@@ -801,3 +801,4 @@ prescription_quantity_duration_required.sql
 prescription_phone_desk.sql
 s06_offline_client_recorded_time.sql
 s08_medicines_schedule_adherence_refill.sql
+s07_my_home_bp_target.sql

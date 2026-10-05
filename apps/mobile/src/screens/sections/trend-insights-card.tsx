@@ -12,7 +12,7 @@ type Tr = (key: MessageKey, params?: Record<string, string | number>) => string;
  * readings, and a per-day list. The words describe what was logged; nothing here
  * says a trend is good, bad or improving, and no reading is called "in range"
  * (the target has no lower limit, so the wording is "above" or "not above"). With
- * no target set there are no statuses at all (see lib/bp-trend-insights.ts).
+ * no target readable there are no statuses at all (see lib/bp-trend-insights.ts).
  *
  * With too few readings for a chart the list is shown straight away, because a
  * line through two dots would imply a trend that is not there.
@@ -84,11 +84,13 @@ export function TrendInsightsCard({
         </View>
       )}
 
-      {insights.target.confirmed || targetKnowable ? (
+      {insights.target.kind !== "none" || targetKnowable ? (
         <AppText variant="body" tone="textMuted">
-          {insights.target.confirmed
+          {insights.target.kind === "care_team"
             ? tr("trends.target.set", { systolic: insights.target.systolicBelow, diastolic: insights.target.diastolicBelow })
-            : tr("trends.target.none")}
+            : insights.target.kind === "standard"
+              ? tr("trends.target.standard", { systolic: insights.target.systolicBelow, diastolic: insights.target.diastolicBelow })
+              : tr("trends.target.none")}
         </AppText>
       ) : null}
 

@@ -534,6 +534,7 @@ export const pcm: Record<MessageKey, string> = {
   "trends.weekday.5": "Fri",
   "trends.weekday.6": "Sat",
   "trends.target.set": "Your care team target: below {systolic}/{diastolic} mmHg.",
+  "trends.target.standard": "Standard starting target: below {systolic}/{diastolic} mmHg. Your care team never set one for you yet.",
   "trends.target.none": "Your care team never set blood pressure target for you yet.",
   "trends.average.title": "Your average",
   "trends.average.value": "Average of {readings} readings for {days} days: {value} mmHg.",
