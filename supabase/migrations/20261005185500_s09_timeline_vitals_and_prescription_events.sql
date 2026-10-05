@@ -103,7 +103,7 @@ begin
     'Prescription signed',
     v_drug_names,
     new.signed_at,
-    (select cs.id from public.clinical_staff cs where cs.user_id = new.signed_by limit 1),
+    (select cs.id from public.clinical_staff cs where cs.profile_id = new.signed_by limit 1),
     jsonb_build_object(
       'state', new.state::text,
       'collection_code', new.collection_code
