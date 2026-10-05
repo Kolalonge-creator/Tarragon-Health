@@ -328,6 +328,24 @@ export function asUiLanguage(value: string | null | undefined): UiLanguage {
   return value === "pcm" ? "pcm" : DEFAULT_UI_LANGUAGE;
 }
 
+/**
+ * `asUiLanguage`, but honouring the platform-wide Pidgin kill switch
+ * (`platform_switches.pidgin_language`, flipped from the admin console).
+ * When Pidgin is off everyone resolves to English, whatever they have saved:
+ * the saved choice is never rewritten, so turning the switch back on restores it.
+ */
+export function resolveUiLanguage(
+  value: string | null | undefined,
+  pidginEnabled: boolean
+): UiLanguage {
+  return pidginEnabled ? asUiLanguage(value) : DEFAULT_UI_LANGUAGE;
+}
+
+/** The language options to offer: Pidgin is hidden while the kill switch is off. */
+export function availableUiLanguages(pidginEnabled: boolean): readonly UiLanguage[] {
+  return pidginEnabled ? UI_LANGUAGES : ([DEFAULT_UI_LANGUAGE] as const);
+}
+
 /** Exported for the coverage test only. */
 export function hasPidgin(english: string): boolean {
   return english in PIDGIN;

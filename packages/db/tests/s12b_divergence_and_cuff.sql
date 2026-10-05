@@ -34,8 +34,8 @@ begin
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_clin := pg_temp.mkuser(v_org, 'clin', 'clinician');
   v_cmo := pg_temp.mkuser(v_org, 'cmo', 'clinician');
-  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, license_verified_at, employment_type)
-  values (v_cmo, v_org, 'S12b CMO', 'chief_medical_officer', true, now(), 'employed') on conflict do nothing;
+  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, license_verified_at, employment_type, indemnity_exempt, indemnity_exempt_by)
+  values (v_cmo, v_org, 'S12b CMO', 'chief_medical_officer', true, now(), 'employed', true, v_admin) on conflict do nothing;
   select id into v_draft from public.triage_rule_sets where code = 'bp_care_triage' and version = 1;
 
   -- Readings: 205/100 (live emergency), 150/95 (live amber), 125/80 (live green), 175/105 (live red), 182/112 (live emergency)

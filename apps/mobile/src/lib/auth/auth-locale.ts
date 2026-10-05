@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
-import { asLocale, DEFAULT_LOCALE, t, type Locale, type MessageKey, type MessageParams } from "@tarragon/i18n";
+import { resolveLocale, DEFAULT_LOCALE, t, type Locale, type MessageKey, type MessageParams } from "@tarragon/i18n";
+import { getPidginEnabled } from "../pidgin-switch";
 
 /**
  * Interface language for signed-OUT auth screens. The choice is kept on the
@@ -11,7 +12,7 @@ export const AUTH_LOCALE_KEY = "auth-locale-v1";
 
 export async function readAuthLocale(): Promise<Locale> {
   try {
-    return asLocale(await SecureStore.getItemAsync(AUTH_LOCALE_KEY));
+    return resolveLocale(await SecureStore.getItemAsync(AUTH_LOCALE_KEY), await getPidginEnabled());
   } catch {
     return DEFAULT_LOCALE;
   }

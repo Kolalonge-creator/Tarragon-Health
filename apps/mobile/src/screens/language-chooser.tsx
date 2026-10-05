@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { LOCALES, type Locale } from "@tarragon/i18n";
 import { ta } from "@/lib/auth/auth-locale";
+import { usePidginEnabled } from "@/lib/pidgin-switch";
 import { colors, inkAlpha, radius } from "@/ui/theme";
 
 /** Small English | Pidgin switch for the signed-out screens. */
@@ -11,6 +12,8 @@ export function LanguageChooser({
   locale: Locale;
   onChange: (next: Locale) => void;
 }) {
+  // Pidgin switched off platform-wide: English only, nothing to choose.
+  if (!usePidginEnabled()) return null;
   return (
     <View
       accessibilityLabel={ta("auth.language.title", locale)}

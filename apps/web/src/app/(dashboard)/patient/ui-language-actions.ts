@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { UI_LANGUAGES, type UiLanguage } from "@tarragon/shared";
 
 export type UpdateUiLanguageState = { success?: boolean; error?: string } | undefined;
@@ -29,6 +30,10 @@ export async function updateUiLanguage(
   const language = formData.get("language");
   if (!isUiLanguage(language)) {
     return { error: "Pick either English or Pidgin." };
+  }
+
+  if (language === "pcm" && !(await getPidginEnabled())) {
+    return { error: "Pidgin is not available right now. English is being used." };
   }
 
   const supabase = await createClient();

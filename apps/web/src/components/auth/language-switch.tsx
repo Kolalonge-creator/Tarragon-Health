@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { LOCALES, t, type Locale } from "@tarragon/i18n";
+import { availableLocales, t, type Locale } from "@tarragon/i18n";
 import { setAuthLocale } from "@/app/language-actions";
 import { cn } from "@/lib/utils";
 
@@ -10,13 +10,16 @@ import { cn } from "@/lib/utils";
  * English / Pidgin choice for the signed-out auth pages (S03). Stores the choice in a cookie via a server action and
  * refreshes so every server-rendered label re-reads it. Plain buttons, no icon-only control, reachable by keyboard.
  */
-export function LanguageSwitch({ locale }: { locale: Locale }) {
+export function LanguageSwitch({ locale, pidginEnabled = true }: { locale: Locale; pidginEnabled?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
+  // Pidgin switched off platform-wide: one language left, so there is nothing to choose.
+  if (!pidginEnabled) return null;
+
   return (
     <div role="group" aria-label={t("auth.language.title", locale)} className="flex justify-end gap-1 text-xs">
-      {LOCALES.map((value) => (
+      {availableLocales(pidginEnabled).map((value) => (
         <button
           key={value}
           type="button"
