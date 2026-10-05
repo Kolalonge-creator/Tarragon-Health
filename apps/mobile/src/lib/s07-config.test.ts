@@ -19,6 +19,12 @@ describe("S07 config loaders", () => {
     expect(loadStreakRules().freezeEarnEveryDays).toBeGreaterThan(0);
   });
 
+  it("keeps the medicine and blood pressure reminder budgets under the phone's 64 pending notifications together", () => {
+    const c = loadReminderBehaviour();
+    expect(c.maxPendingBp).toBeGreaterThan(0);
+    expect(c.maxPending + c.maxPendingBp).toBeLessThan(64);
+  });
+
   it("keep the home-protocol hour ranges well formed and non-overlapping", () => {
     const p = loadHomeProtocol();
     expect(p.morningHours[0]).toBeLessThan(p.morningHours[1]);

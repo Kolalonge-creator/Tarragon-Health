@@ -30,6 +30,7 @@ import { SettingsScreen } from "@/screens/sections/settings-screen";
 import { SupportingScreen } from "@/screens/sections/supporting-screen";
 import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
 import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
+import { RemindersScreen } from "@/screens/sections/reminders-screen";
 import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
 import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
 import { BpHistoryScreen } from "@/screens/sections/bp-history-screen";
@@ -280,6 +281,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       />
     ),
     receipts: () => <ReceiptsScreen />,
+    reminders: () => <RemindersScreen userId={userId} />,
     notificationSettings: () => (
       <NotificationSettingsScreen patientId={userId} organisationId={organisationId} />
     ),

@@ -7,6 +7,7 @@ import { syncAppleHealth, syncHealthConnect } from "./health-sync";
 import { flushDeviceReadingsQueue } from "./offline-queue";
 import { recordSyncError } from "./sync-diagnostics";
 import { flushOutbox } from "./outbox";
+import { syncReminders } from "./reminder-notifications";
 import { replanDoseReminders } from "./dose-reminders";
 import { refreshOfflineSyncConfig } from "./offline-sync-config";
 import { syncThresholdsIfOnline } from "./threshold-sync";
@@ -78,6 +79,9 @@ TaskManager.defineTask(TASK_NAME, async () => {
       await flushOutbox();
       await refreshOfflineSyncConfig();
       await syncThresholdsIfOnline();
+      // Blood pressure reminders are a rolling window of local notifications; topping it up here keeps
+      // them going for someone who has not opened the app in a while. Never prompts for permission.
+      await syncReminders();
     } catch (error) {
       recordSyncError("offline_vitals", `${Platform.OS}:backgroundFlush`, error);
     }
