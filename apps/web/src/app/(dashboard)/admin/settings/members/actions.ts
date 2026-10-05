@@ -7,6 +7,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission, hasAnyPermission, type PermissionKey } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { provisionScope } from "@/lib/auth/member-provision-scope";
 import {
   provisionMemberSchema,
   setMemberPhoneSchema,
@@ -55,6 +56,14 @@ async function recordAudit(
  * API (there is no RLS-expressible equivalent for creating an auth user); the
  * `handle_new_user` trigger then provisions the public.profiles row from the
  * app_metadata role/org we set here. Gated by `users.provision`.
+ *
+ * The service role bypasses every database policy, so the database cannot tell
+ * who is asking and the caller check here is the only enforcement (see
+ * lib/auth/member-provision-scope.ts). `users.provision` is delegable: without
+ * the check, a holder could create a Super Admin login (metadata `role: admin`
+ * becomes an admin profile) or a login in any organisation. A Super Admin can
+ * create anything; anyone else only a clinician or care coordinator in their own
+ * organisation. The check runs before anything is created.
  */
 export async function provisionMemberAction(
   _prev: MemberActionState,
@@ -74,6 +83,12 @@ export async function provisionMemberAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid details" };
   }
   const input = parsed.data;
+
+  const scope = provisionScope(
+    { isSuperAdmin: actor.role === "admin", organisationId: actor.organisation_id },
+    { role: input.role, organisationId: input.organisationId }
+  );
+  if (!scope.allowed) return { error: scope.message };
 
   const svc = createServiceRoleClient();
   const { data, error } = await svc.auth.admin.createUser({

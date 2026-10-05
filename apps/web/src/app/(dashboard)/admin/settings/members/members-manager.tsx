@@ -14,6 +14,11 @@ import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialo
 import { USER_ROLES, USER_ROLE_LABELS, type UserRoleValue } from "@/lib/validation/members";
 import type { MemberRow, PermissionRow, CustomRoleRow, OrgRow } from "./page";
 import {
+  provisionableOrganisations,
+  provisionableRoles,
+  type ProvisionScopeCaller,
+} from "@/lib/auth/member-provision-scope";
+import {
   provisionMemberAction,
   createInstitutionOrgAction,
   setMemberRoleAction,
@@ -61,6 +66,7 @@ export function MembersManager({
   customRoles,
   organisations,
   canProvision,
+  provisionCaller,
   canManageOrgs,
   canAssignRoles,
   canEditContact,
@@ -75,6 +81,8 @@ export function MembersManager({
   customRoles: CustomRoleRow[];
   organisations: OrgRow[];
   canProvision: boolean;
+  /** The caller's own standing, so the create-a-login form offers only what the server accepts. */
+  provisionCaller: ProvisionScopeCaller;
   canManageOrgs: boolean;
   canAssignRoles: boolean;
   canEditContact: boolean;
@@ -118,7 +126,7 @@ export function MembersManager({
       )}
 
       {canProvision && (
-        <CreateLoginCard organisations={organisations} pending={pending} onSubmit={(fd) => run((f) => provisionMemberAction(undefined, f), fd)} />
+        <CreateLoginCard organisations={organisations} caller={provisionCaller} pending={pending} onSubmit={(fd) => run((f) => provisionMemberAction(undefined, f), fd)} />
       )}
 
       <Card>
@@ -224,13 +232,21 @@ function CreateOrgCard({
 
 function CreateLoginCard({
   organisations,
+  caller,
   pending,
   onSubmit,
 }: {
   organisations: OrgRow[];
+  caller: ProvisionScopeCaller;
   pending: boolean;
   onSubmit: (fd: FormData) => void;
 }) {
+  // The server refuses anything outside this (lib/auth/member-provision-scope.ts);
+  // offering only the allowed roles and organisation keeps the form from inviting
+  // a request that can only fail. A Super Admin sees everything, as before.
+  const roles = provisionableRoles(caller, USER_ROLES);
+  const orgs = provisionableOrganisations(caller, organisations);
+  const orgRequired = !caller.isSuperAdmin;
   return (
     <Card>
       <CardHeader>
@@ -266,7 +282,7 @@ function CreateLoginCard({
           <div className="space-y-1">
             <Label htmlFor="role">Role</Label>
             <Select id="role" name="role" defaultValue="clinician">
-              {USER_ROLES.map((r) => (
+              {roles.map((r) => (
                 <option key={r} value={r}>
                   {USER_ROLE_LABELS[r]}
                 </option>
@@ -274,10 +290,15 @@ function CreateLoginCard({
             </Select>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="organisationId">Organisation (optional)</Label>
-            <Select id="organisationId" name="organisationId" defaultValue="">
-              <option value="">None</option>
-              {organisations.map((o) => (
+            <Label htmlFor="organisationId">{orgRequired ? "Organisation" : "Organisation (optional)"}</Label>
+            <Select
+              id="organisationId"
+              name="organisationId"
+              defaultValue={orgRequired ? (orgs[0]?.id ?? "") : ""}
+              required={orgRequired}
+            >
+              {!orgRequired && <option value="">None</option>}
+              {orgs.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name} ({o.type})
                 </option>

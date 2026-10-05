@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { addDays, daysBetween, isValidLocalDate, isValidTime, lagosLocalDate, lagosTimeToUtcMs, weekdayOf } from "./lagos";
-import { allTimes, parseScheduleSpec, slotKey, slotsBetween, slotsOn, specFromLegacyTimes } from "./schedule";
+import { MAX_WINDOW_MINUTES, windowEndTime, allTimes, parseScheduleSpec, slotCloseMinutes, slotKey, slotsBetween, slotsOn, specFromLegacyTimes } from "./schedule";
 import { SCHEDULE_CASES } from "./schedule.fixtures";
 import type { ScheduleSpec } from "./types";
 
@@ -127,6 +127,46 @@ describe("parseScheduleSpec", () => {
   it("refuses a bad as-needed limit", () => {
     expect(errs({ kind: "as_needed", maxPerDay: 0 })).toContain("maxPerDay");
     expect(errs({ kind: "as_needed", maxPerDay: "3" })).toContain("maxPerDay");
+  });
+});
+
+describe("flexible windows", () => {
+  const daily = { kind: "daily", times: ["08:00"] };
+  it("parses a window, defaults to the exact time, and refuses a bad one", () => {
+    expect(parseScheduleSpec({ ...daily, windowMinutes: 120 })).toMatchObject({ ok: true, spec: { windowMinutes: 120 } });
+    expect(parseScheduleSpec(daily)).toMatchObject({ ok: true, spec: { windowMinutes: 0 } });
+    expect(parseScheduleSpec({ ...daily, windowMinutes: null })).toMatchObject({ ok: true, spec: { windowMinutes: 0 } });
+    expect(parseScheduleSpec({ ...daily, windowMinutes: MAX_WINDOW_MINUTES })).toMatchObject({ ok: true });
+    for (const bad of [-5, 361, 12.5, "60"]) {
+      expect(parseScheduleSpec({ ...daily, windowMinutes: bad })).toEqual({ ok: false, errors: ["windowMinutes"] });
+    }
+  });
+  it("closes a slot at the longer of the missed window and the schedule's own window", () => {
+    const spec = (windowMinutes?: number) => ({ startDate: null, endDate: null, foodNote: null, kind: "as_needed" as const, maxPerDay: null, windowMinutes });
+    expect(slotCloseMinutes(spec(undefined), 120)).toBe(120);
+    expect(slotCloseMinutes(spec(60), 120)).toBe(120);
+    expect(slotCloseMinutes(spec(240), 120)).toBe(240);
+  });
+  it("refuses a window that reaches the next dose time, counting the wrap to tomorrow", () => {
+    expect(parseScheduleSpec({ kind: "daily", times: ["08:00", "10:00"], windowMinutes: 120 })).toEqual({ ok: false, errors: ["windowMinutes:overlap"] });
+    expect(parseScheduleSpec({ kind: "daily", times: ["08:00", "10:00"], windowMinutes: 119 })).toMatchObject({ ok: true });
+    expect(parseScheduleSpec({ kind: "daily", times: ["01:00", "23:00"], windowMinutes: 180 })).toEqual({ ok: false, errors: ["windowMinutes:overlap"] });
+    expect(parseScheduleSpec({ kind: "daily", times: ["01:00", "23:00"], windowMinutes: 119 })).toMatchObject({ ok: true });
+    expect(parseScheduleSpec({ kind: "daily", times: ["08:00"], windowMinutes: 360 })).toMatchObject({ ok: true });
+  });
+  it("checks every step of a step-down and ignores as-needed", () => {
+    const steps = (t: string[]) => [{ days: 2, times: t, doseText: "x" }];
+    expect(parseScheduleSpec({ kind: "taper", startDate: "2026-10-01", steps: steps(["08:00", "09:00"]), windowMinutes: 60 })).toEqual({ ok: false, errors: ["windowMinutes:overlap"] });
+    expect(parseScheduleSpec({ kind: "taper", startDate: "2026-10-01", steps: steps(["08:00", "20:00"]), windowMinutes: 60 })).toMatchObject({ ok: true });
+    expect(parseScheduleSpec({ kind: "as_needed", windowMinutes: 120 })).toMatchObject({ ok: true });
+  });
+  it("names the end of a window and wraps past midnight", () => {
+    expect(windowEndTime("08:00", 120)).toBe("10:00");
+    expect(windowEndTime("23:00", 120)).toBe("01:00");
+    expect(windowEndTime("09:30", 45)).toBe("10:15");
+  });
+  it("does not change which slots exist", () => {
+    expect(slotsOn({ startDate: null, endDate: null, foodNote: null, kind: "daily", times: ["08:00"], windowMinutes: 180 }, "2026-10-05").map((s) => s.time)).toEqual(["08:00"]);
   });
 });
 

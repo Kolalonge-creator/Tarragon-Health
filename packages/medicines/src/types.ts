@@ -8,6 +8,12 @@ export interface ScheduleCommon {
   /** Last day, inclusive. Null means ongoing. */
   endDate: LocalDate | null;
   foodNote: FoodNote | null;
+  /**
+   * A flexible window: the dose is on time from its clock time until this many minutes
+   * later (0 or absent means the exact time). The reminder fires at the start and, for a
+   * window long enough, once more at the middle.
+   */
+  windowMinutes?: number;
 }
 
 export interface TaperStep {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { resolveTakenTime, isDoubleTap, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
+import { resolveTakenTime, isDoubleTap, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
 import {
   loadTodaysDoses,
@@ -60,6 +60,13 @@ const ISSUE_TEXT: Record<ReminderIssue, MessageKey> = {
   plan_out_of_date: "meds.reminder_health.plan_out_of_date",
   maker_may_stop_reminders: "meds.reminder_health.maker",
 };
+
+/** "08:00", or "08:00 to 10:00" for a flexible window. */
+function windowLabel(item: DoseChecklistItem, tr: (key: MessageKey, params?: Record<string, string | number>) => string): string {
+  const minutes = item.windowMinutes ?? 0;
+  if (minutes <= 0) return item.time;
+  return tr("meds.window.range", { start: item.time, end: windowEndTime(item.time, minutes) });
+}
 
 function stateOf(item: DoseChecklistItem): SlotState {
   return item.state ?? (item.status === "taken" ? "taken" : item.status === "skipped" ? "skipped" : item.status === "missed" ? "missed" : "upcoming");
@@ -212,7 +219,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
 
   async function takeNow(item: DoseChecklistItem) {
     const at = Date.now();
-    await record(item, item.dueAtMs ? statusForTakenAt(item.dueAtMs, at) : "taken");
+    await record(item, item.dueAtMs ? statusForTakenAt(item.dueAtMs, at, item.closeMinutes) : "taken");
   }
 
   async function takenEarlier(item: DoseChecklistItem, minutesAgo: number) {
@@ -222,7 +229,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
       setPanelNote(tr("meds.earlier.too_old"));
       return;
     }
-    await record(item, item.dueAtMs ? statusForTakenAt(item.dueAtMs, check.atMs) : "taken", { atMs: check.atMs });
+    await record(item, item.dueAtMs ? statusForTakenAt(item.dueAtMs, check.atMs, item.closeMinutes) : "taken", { atMs: check.atMs });
   }
 
   async function undo(item: DoseChecklistItem) {
@@ -239,7 +246,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
       // Back to the clock's answer: due, or upcoming, or missed.
       const due = item.dueAtMs ?? 0;
       const t0 = Date.now();
-      setState(key, "pending", t0 < due ? "upcoming" : t0 < due + missedAfterMinutes * 60_000 ? "due" : "missed");
+      setState(key, "pending", t0 < due ? "upcoming" : t0 < due + (item.closeMinutes ?? missedAfterMinutes) * 60_000 ? "due" : "missed");
       toast.show({ message: tr("meds.undo.done"), tone: "info" });
       const replanned = ownsReminders ? await replanDoseReminders(patientId) : undefined;
       void refreshSide(replanned);
@@ -340,7 +347,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
                       <View style={{ flex: 1, gap: 2 }}>
                         <AppText variant="bodyStrong">{item.drugName}</AppText>
                         <AppText variant="caption" tone="textMuted">
-                          {[item.time, item.doseText ?? item.doseLabel ?? null, item.foodNote ? tr(`meds.food.${item.foodNote}` as MessageKey) : null]
+                          {[windowLabel(item, tr), item.doseText ?? item.doseLabel ?? null, item.foodNote ? tr(`meds.food.${item.foodNote}` as MessageKey) : null]
                             .filter(Boolean)
                             .join(" · ")}
                         </AppText>
