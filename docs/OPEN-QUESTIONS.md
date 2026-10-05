@@ -491,3 +491,15 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Like the other cron-called edge functions it uses `verify_jwt` with the publishable key the cron job sends, so anyone with that public key can trigger a processing pass. Processing is idempotent, so the risk is load, not wrong data.
 - Options: (a) keep, matching the notification sender and the partner webhook drain (recommended for now); (b) add a dedicated shared secret header checked in the function and stored in Vault.
 - Decision (founder): pending.
+
+### OQ-91 Two emails still attach a PDF that names the request (raised by S13)
+- `lab_order_requested_patient` attaches the take-anywhere request PDF (a founder requirement from 2026-08) and `preventive_care_plan_updated` attaches the care plan PDF. The email wording is now neutral, but the attachment itself lists test names and plan items, so an email client preview or a forwarded mailbox can show them. INV-07 says email never names a condition, reading or result.
+- Options: (a) keep the attachment and accept it as the one exception, because the patient asked for a take-away document (recommended only with the founder's explicit sign-off); (b) send the document as a signed, login-protected link instead (no content in the email); (c) drop the attachment and show the PDF in the app only.
+
+### OQ-92 Critical rows can still be sent by SMS in the escalation ladder (raised by S13)
+- INV-08 limits SMS to verification codes, and D-12 allows clinician paging. `private.escalate_unconfirmed_critical_notifications()` can also move a PATIENT-facing critical alert to `sms` as the last hop, and the sender lets any critical row through. S13 leaves this alone so a safety alert is never silenced, and refuses every routine SMS.
+- Options: (a) keep, because live SMS has never delivered (76 failed, 0 sent) and the hop is a no-op until a sender ID exists; (b) end the patient ladder at email and in-app and keep SMS for clinicians only (recommended, needs the CMO to confirm the ladder); (c) leave as is and re-check when a sender ID is approved.
+
+### OQ-93 Pidgin notification text and local terms (raised by S13)
+- Notification templates are English only (locale-keyed, so `pcm` rows can be added). Pidgin settings strings (quiet hours, discreet mode) were written by the build session and need a native reviewer. A Pidgin template set would need its own forbidden words: "sugar" and "pressure" are common words for diabetes and hypertension. "sugar" and "pressure" are already on the English list.
+- Options: (a) add `pcm` template rows only after a native reviewer and the CMO approve them, and run the same lint (recommended); (b) keep notification text English only for now.

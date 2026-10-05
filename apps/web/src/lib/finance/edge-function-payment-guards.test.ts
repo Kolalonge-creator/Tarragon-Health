@@ -17,7 +17,7 @@ import { resolve } from "node:path";
 const WEBHOOK = resolve(__dirname, "../../../../../supabase/functions/paystack-webhook/handler.ts");
 const SENDER = resolve(
   __dirname,
-  "../../../../../supabase/functions/send-pending-notifications/index.ts",
+  "../../../../../supabase/functions/send-pending-notifications/templates.ts",
 );
 
 describe("paystack-webhook signature verification", () => {

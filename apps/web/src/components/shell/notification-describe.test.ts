@@ -110,7 +110,7 @@ describe("patient abnormal-result follow-up", () => {
     const rendered = describeNotification(
       notification("abnormal_result_patient_followup", { condition: "diabetes" })
     );
-    expect(rendered.text).toBe("Your result needs a follow-up. Your care team will be in touch");
+    expect(rendered.text).toBe("Your care team will be in touch. Open the app to see why");
     expect(rendered.href).toBe("/patient/labs");
     // Never the finding itself, only that a follow-up is needed.
     expect(rendered.text.toLowerCase()).not.toContain("diabetes");

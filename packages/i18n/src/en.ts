@@ -744,6 +744,19 @@ export const en = {
   "my_health.share_records_description": "Create a time-limited link to share selected records.",
   "timeline.vitals_recorded": "Vitals",
   "timeline.prescription_signed": "Prescription",
+  "notif.settings.quiet_title": "Quiet hours",
+  "notif.settings.quiet_body": "Reminders and updates wait until quiet hours end. Urgent messages from your care team are never held back.",
+  "notif.settings.quiet_on": "Hold notifications during quiet hours",
+  "notif.settings.quiet_from": "Starts at",
+  "notif.settings.quiet_to": "Ends at",
+  "notif.settings.discreet_title": "Discreet mode",
+  "notif.settings.discreet_body": "Notifications only say \"New message\", with no app name, so a lock screen tells nobody anything about you.",
+  "notif.settings.discreet_on": "Use discreet notifications",
+  "notif.settings.lockscreen_note": "Whatever you choose here, a notification never names a condition, a reading or a result. The details stay inside the app.",
+  "notif.settings.save": "Save",
+  "notif.settings.saved": "Saved.",
+  "notif.settings.error_times": "Choose two different times.",
+  "notif.settings.error_save": "We could not save that. Please try again.",
 } as const;
 
 export type MessageKey = keyof typeof en;
