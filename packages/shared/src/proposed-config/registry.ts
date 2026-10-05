@@ -401,4 +401,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/design/S13.md; docs/research/S13.md",
   },
+  {
+    key: "notifications.rules",
+    // v2 (S13b): adds pushFallback. One generic email when a routine push was accepted but not opened within afterMinutes
+    // (240), for pushes no older than maxAgeHours (24), at most perRecipientPerDay (1) a day, batchSize (200) per 15 minute pass.
+    // Live value: the active row of `notification_rules_config`.
+    value: {
+      quietHours: { enabled: true, start: "21:00", end: "07:00" },
+      routinePushPerDay: 4,
+      receiptCheckMinutes: 15,
+      receiptGiveUpHours: 24,
+      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S13.md; docs/research/S13.md",
+  },
 ];

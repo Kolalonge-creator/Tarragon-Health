@@ -305,6 +305,15 @@ export const TEMPLATE_MAP: Record<
   // S08 (INV-07): the wording names no medicine. The producer
   // (private.queue_medication_refill_reminders) no longer puts drug_name in the
   // payload, and this template would not use it if an older row still carried one.
+  // S13b: sent once by private.queue_push_email_fallbacks() when a routine push was accepted but never opened. It never
+  // repeats or hints at the original message.
+  push_unconfirmed_email_nudge: (payload) => {
+    const name = String(payload.patient_name ?? "there");
+    return {
+      smsText: "Hi, something is waiting for you in the Tarragon Health app. Open the app to see it. Tarragon Health",
+      email: neutralMail("Something is waiting in your Tarragon Health app", [`Hi ${name},`, "Something is waiting for you in the Tarragon Health app. Open the app to see it."]),
+    };
+  },
   medication_refill_reminder: (payload) => {
     const path = "/patient/medications";
     const when = String(payload.refill_date ?? "");

@@ -757,6 +757,22 @@ export const en = {
   "notif.settings.saved": "Saved.",
   "notif.settings.error_times": "Choose two different times.",
   "notif.settings.error_save": "We could not save that. Please try again.",
+  "notif.diag.title": "Notifications not arriving?",
+  "notif.diag.intro": "We check what we can see from here. This is a hint, not a promise.",
+  "notif.diag.permission_off": "Notifications are switched off for this app. Turn them on in your phone settings.",
+  "notif.diag.no_device_registered": "This phone is not registered for notifications yet. Open the app while you are online and allow notifications.",
+  "notif.diag.token_dead": "A phone you used before can no longer receive notifications. Signing in again on this phone fixes it.",
+  "notif.diag.receipts_failing": "Several notifications were not accepted by your phone. Check that the phone is online and the app is not restricted.",
+  "notif.diag.never_opened": "We sent you several notifications and none was opened. Your phone may be stopping the app in the background.",
+  "notif.diag.not_enough_data": "Not enough notifications yet to tell. Check again in a few days.",
+  "notif.diag.all_good": "Everything we can see looks fine. If one is still missing, the app inbox always has it.",
+  "notif.diag.steps_title": "Things to try on this phone",
+  "notif.diag.steps_transsion": "On Tecno, Infinix and Itel phones: open Phone Manager (or Phone Master), find Auto-start, App launch or Power Marathon (the name changes between phones), and allow Tarragon Health. Then set battery use for the app to No restrictions, and lock the app in the recent apps list.",
+  "notif.diag.steps_android": "In your phone settings, open Apps, then Tarragon Health, then Battery, and choose No restrictions. Allow notifications and background activity.",
+  "notif.diag.steps_ios": "In Settings, open Notifications, then Tarragon Health, and allow notifications. Turn off Focus modes that silence the app.",
+  "notif.diag.inbox_note": "Everything also appears in the app inbox, so nothing is lost.",
+  "notif.diag.open_settings": "Open phone settings",
+  "notif.diag.check_again": "Check again",
 } as const;
 
 export type MessageKey = keyof typeof en;

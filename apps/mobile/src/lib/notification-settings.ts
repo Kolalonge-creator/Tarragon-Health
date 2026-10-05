@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fromRow, type NotificationSettingsValue } from "@tarragon/shared";
+import { fromRow, healthFromRow, type DeliveryHealth, type NotificationSettingsValue } from "@tarragon/shared";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 
@@ -19,6 +19,11 @@ type SettingsDatabase = {
     };
     Views: Record<string, never>;
     Functions: {
+      my_notification_delivery_health: {
+        Args: { p_days: number };
+        Returns: Array<{ push_sent: number; push_delivered: number; push_opened: number; push_failed: number; token_dead: number; active_push_devices: number }>;
+      };
+      report_notification_opened: { Args: { p_notification_id: string }; Returns: undefined };
       set_my_notification_settings: {
         Args: { p_quiet_enabled: boolean; p_quiet_start: string; p_quiet_end: string; p_discreet: boolean };
         Returns: undefined;
@@ -49,4 +54,20 @@ export async function saveNotificationSettings(v: NotificationSettingsValue): Pr
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
+}
+
+/** The person's own push counts for the last 14 days (S13b). Null when the call fails: the card then says it cannot tell. */
+export async function loadDeliveryHealth(): Promise<DeliveryHealth | null> {
+  const { data, error } = await client.rpc("my_notification_delivery_health", { p_days: 14 });
+  if (error) return null;
+  return healthFromRow(data?.[0]);
+}
+
+/** Tells the server this notification was opened, so an unopened push can fall back to one email. Best effort. */
+export async function reportNotificationOpened(notificationId: string): Promise<void> {
+  try {
+    await client.rpc("report_notification_opened", { p_notification_id: notificationId });
+  } catch {
+    // never blocks the app
+  }
 }

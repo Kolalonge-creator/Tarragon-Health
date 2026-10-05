@@ -4,6 +4,7 @@ import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { DEFAULT_SETTINGS, normaliseTime, validateSettings, type NotificationSettingsValue } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { loadNotificationSettings, saveNotificationSettings } from "@/lib/notification-settings";
+import { NotificationHealthCard } from "./notification-health-card";
 import {
   loadNotificationPreferences,
   updateNotificationPreference,
@@ -198,6 +199,8 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
         <PrimaryButton title={tr("notif.settings.save")} onPress={() => void saveDelivery()} />
         {deliveryNote && <MutedText>{deliveryNote}</MutedText>}
       </Card>
+
+      <NotificationHealthCard />
 
       {loading && <ActivityIndicator color={colors.brand} />}
       {error && <ErrorText>{error}</ErrorText>}

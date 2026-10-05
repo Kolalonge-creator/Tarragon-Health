@@ -700,6 +700,18 @@ Deno.serve(async () => {
     (preferenceRows ?? []).map((p) => [`${p.patient_id}:${p.category}`, p]),
   );
 
+  // S13b: which message an email nudge stands in for (its category decides whether the patient allows email).
+  const nudgeSources = rows
+    .filter((row) => row.template === "push_unconfirmed_email_nudge" && typeof row.payload?.fallback_for === "string")
+    .map((row) => String(row.payload.fallback_for));
+  const originalTemplateById = new Map<string, string | null>();
+  if (nudgeSources.length > 0) {
+    const { data: originals } = await supabase
+      .from("notifications").select("id, template").in("id", nudgeSources)
+      .returns<Array<{ id: string; template: string | null }>>();
+    for (const o of originals ?? []) originalTemplateById.set(o.id, o.template);
+  }
+
   // SMS (Termii sender-ID approval) is off the founder's near-term plan
   // (CLAUDE.md, 2026-09-15) and had a confirmed 0% live success rate as of
   // 2026-09-18 — every attempt is a guaranteed failure against a real
@@ -718,7 +730,11 @@ Deno.serve(async () => {
 
   function channelAllowed(row: NotificationRow): boolean {
     if (row.priority === "critical") return true; // never gated — see TEMPLATE_CATEGORY's header comment
-    const category = row.template ? TEMPLATE_CATEGORY[row.template] : undefined;
+    // S13b: the email nudge after an unopened push follows the patient's email choice for the ORIGINAL message's category.
+    const effectiveTemplate = row.template === "push_unconfirmed_email_nudge"
+      ? originalTemplateById.get(String(row.payload?.fallback_for ?? "")) ?? null
+      : row.template;
+    const category = effectiveTemplate ? TEMPLATE_CATEGORY[effectiveTemplate] : undefined;
     if (!category) return true; // unclassified templates are never gated
     const pref = preferenceByRecipientCategory.get(`${row.recipient_id}:${category}`);
     if (!pref) return true; // no row on file — table defaults are all-on
