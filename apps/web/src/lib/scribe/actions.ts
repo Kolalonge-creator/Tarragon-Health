@@ -6,6 +6,7 @@ import { MAX_SEGMENT_CHARS, MAX_TYPED_NOTES_CHARS, MIN_TYPED_NOTES_CHARS, parseT
 import { z } from "zod";
 import { loose } from "@/lib/clinician/loose-client";
 import { consentStateSchema } from "./consent-state";
+import { FACT_TYPES, MAX_FACTS, MAX_FACT_QUOTE, MAX_FACT_TEXT } from "./facts";
 
 // One definition of the context the model may see, used by both the recorded and the typed path.
 const PatientContextSchema = z
@@ -198,4 +199,102 @@ export async function recordScribeReview(input: z.input<typeof RecordReviewSchem
     p_sections: parsed.sections,
   });
   if (error) throw new Error(error.message);
+}
+
+// ---------------------------------------------------------------------------
+// The two-stage path (S35c): list the facts, the clinician confirms them, then write the note from the confirmed facts only.
+// ---------------------------------------------------------------------------
+
+async function postScribe(body: Record<string, unknown>): Promise<unknown> {
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) throw new Error("Missing SUPABASE_URL");
+  const res = await fetch(`${supabaseUrl}/functions/v1/scribe-draft`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const failure = await res.json().catch(() => ({}));
+    throw new Error(failure.error ?? `scribe-draft failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+const factSchema = z.object({
+  id: z.string().regex(/^[a-z0-9_-]{1,20}$/i),
+  type: z.enum(FACT_TYPES),
+  text: z.string().min(1).max(MAX_FACT_TEXT),
+  quote: z.string().max(MAX_FACT_QUOTE),
+  speaker: z.enum(["clinician", "patient", "unknown"]),
+});
+
+const factsResponseSchema = z.union([
+  z.object({ status: z.literal("disabled"), reason: z.string().optional() }),
+  z.object({
+    status: z.literal("ok"),
+    facts: z.array(factSchema),
+    droppedUnverified: z.number().int().nonnegative(),
+    modelId: z.string(),
+    promptVersion: z.string(),
+  }),
+]);
+
+const FindFactsSchema = z.object({
+  scribeConsentId: z.string().uuid(),
+  encounterNoteId: z.string().uuid(),
+  language: z.enum(["en-NG", "pcm"]),
+  text: z.string().min(MIN_TYPED_NOTES_CHARS).max(MAX_TYPED_NOTES_CHARS),
+});
+
+/** Stage one for pasted or typed notes: the facts said, each with a quote the server has checked against the text. Nothing is stored. */
+export async function findScribeFactsFromText(input: z.input<typeof FindFactsSchema>) {
+  const parsed = FindFactsSchema.parse(input);
+  const segments = parseTypedNotes(parsed.text);
+  if (segments.length === 0) throw new Error("There is no text to read facts from.");
+  const out = await postScribe({
+    mode: "facts",
+    scribeConsentId: parsed.scribeConsentId,
+    encounterNoteId: parsed.encounterNoteId,
+    segments,
+    language: parsed.language,
+    source: "typed",
+  });
+  return factsResponseSchema.parse(out);
+}
+
+const draftFromFactsResponseSchema = z.union([
+  z.object({ status: z.literal("disabled"), reason: z.string().optional() }),
+  z.object({
+    status: z.literal("ok"),
+    draft: z.object({ history: z.string(), examination: z.string(), assessment: z.string(), plan: z.string(), followUp: z.string() }),
+    patientSummary: z.string(),
+    groundingWarnings: z.array(z.object({ section: z.string(), kind: z.string(), detail: z.string().optional() })),
+    modelId: z.string(),
+    promptVersion: z.string(),
+  }),
+]);
+
+const DraftFromFactsSchema = z.object({
+  scribeConsentId: z.string().uuid(),
+  encounterNoteId: z.string().uuid(),
+  language: z.enum(["en-NG", "pcm"]),
+  confirmedFacts: z.array(factSchema).min(1).max(MAX_FACTS + 10),
+  patientContext: PatientContextSchema,
+});
+
+/** Stage two: the note from the facts the clinician confirmed, and only those. */
+export async function draftScribeFromFacts(input: z.input<typeof DraftFromFactsSchema>) {
+  const parsed = DraftFromFactsSchema.parse(input);
+  const out = await postScribe({
+    mode: "facts_draft",
+    scribeConsentId: parsed.scribeConsentId,
+    encounterNoteId: parsed.encounterNoteId,
+    confirmedFacts: parsed.confirmedFacts,
+    language: parsed.language,
+    patientContext: parsed.patientContext,
+  });
+  return draftFromFactsResponseSchema.parse(out);
 }

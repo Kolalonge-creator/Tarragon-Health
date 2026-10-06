@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DraftReviewPanel, type DraftSection } from "./draft-review-panel";
-import { draftScribeFromText, getScribeConsentState, recordScribeConsent, revokeScribeConsent } from "@/lib/scribe/actions";
+import { draftScribeFromFacts, findScribeFactsFromText, getScribeConsentState, recordScribeConsent, revokeScribeConsent } from "@/lib/scribe/actions";
+import type { ScribeFact } from "@/lib/scribe/facts";
+import { FactsReviewPanel } from "./facts-review-panel";
 import { consentView, type ConsentView } from "@/lib/scribe/consent-state";
 import type { DraftFields } from "@/lib/scribe/draft-review";
 import { scribeErrorMessage } from "@/lib/scribe/error-messages";
@@ -22,8 +24,18 @@ type ScribeState =
   | { step: "gate_error" }
   | { step: "idle" }
   | { step: "input"; consentId: string }
+  | { step: "finding"; consentId: string }
+  | { step: "facts"; consentId: string; facts: readonly ScribeFact[]; dropped: number }
   | { step: "generating"; consentId: string }
-  | { step: "review"; consentId: string; draft: DraftSection; patientSummary: string; modelId: string; promptVersion: string }
+  | {
+      step: "review";
+      consentId: string;
+      draft: DraftSection;
+      patientSummary: string;
+      modelId: string;
+      promptVersion: string;
+      warnings: readonly { section: string; kind: string; detail?: string }[];
+    }
   | { step: "used" }
   | { step: "revoked" }
   | { step: "error"; message: string; consentId?: string };
@@ -88,17 +100,29 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
     });
   }
 
-  function handleGenerate(consentId: string) {
+  // Stage one: list the facts in the clinician's notes. Nothing is drafted yet and nothing is stored.
+  function handleFindFacts(consentId: string) {
+    setState({ step: "finding", consentId });
+    startTransition(async () => {
+      try {
+        const result = await findScribeFactsFromText({ scribeConsentId: consentId, encounterNoteId, language, text });
+        if (result.status === "disabled") {
+          setState({ step: "error", message: t("scribe.unavailable", "en"), consentId });
+          return;
+        }
+        setState({ step: "facts", consentId, facts: result.facts, dropped: result.droppedUnverified });
+      } catch (err) {
+        setState({ step: "error", message: scribeErrorMessage(err), consentId });
+      }
+    });
+  }
+
+  // Stage two: write the note from the facts the clinician confirmed, and only those.
+  function handleWrite(consentId: string, confirmed: ScribeFact[]) {
     setState({ step: "generating", consentId });
     startTransition(async () => {
       try {
-        const result = await draftScribeFromText({
-          scribeConsentId: consentId,
-          encounterNoteId,
-          language,
-          text,
-          patientContext,
-        });
+        const result = await draftScribeFromFacts({ scribeConsentId: consentId, encounterNoteId, language, confirmedFacts: confirmed, patientContext });
         if (result.status === "disabled") {
           setState({ step: "error", message: t("scribe.unavailable", "en"), consentId });
           return;
@@ -108,8 +132,9 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           consentId,
           draft: result.draft,
           patientSummary: result.patientSummary,
-          modelId: typeof result.modelId === "string" ? result.modelId : "unknown",
-          promptVersion: typeof result.promptVersion === "string" ? result.promptVersion : "unversioned",
+          modelId: result.modelId,
+          promptVersion: result.promptVersion,
+          warnings: result.groundingWarnings,
         });
       } catch (err) {
         setState({ step: "error", message: scribeErrorMessage(err), consentId });
@@ -179,8 +204,8 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           <p className="text-xs text-charcoal-ink/50">{t("scribe.input.help", "en")}</p>
           {text.length > 0 && tooShort && <p className="text-xs text-amber-700">{t("scribe.input.too_short", "en")}</p>}
           <div className="flex gap-2">
-            <Button size="sm" disabled={tooShort} onClick={() => handleGenerate(state.consentId)}>
-              {t("scribe.input.generate", "en")}
+            <Button size="sm" disabled={tooShort} onClick={() => handleFindFacts(state.consentId)}>
+              {t("scribe.facts.find", "en")}
             </Button>
             <Button size="sm" variant="ghost" className="text-red-600" onClick={() => handleRevoke(state.consentId)}>
               {t("scribe.consent.revoked_label", "en")}
@@ -190,13 +215,26 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
       );
     }
 
+    case "finding":
     case "generating":
       return (
         <div className="flex items-center gap-2 text-sm text-charcoal-ink/60">
           <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-tarragon-green border-t-transparent" />
-          {t("scribe.draft.generating", "en")}
+          {t(state.step === "finding" ? "scribe.facts.finding" : "scribe.facts.drafting", "en")}
         </div>
       );
+
+    case "facts": {
+      const { consentId } = state;
+      return (
+        <FactsReviewPanel
+          facts={state.facts}
+          dropped={state.dropped}
+          onWrite={(confirmed) => handleWrite(consentId, confirmed)}
+          onBack={() => setState({ step: "input", consentId })}
+        />
+      );
+    }
 
     case "review": {
       const { consentId } = state;
@@ -204,6 +242,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
         <DraftReviewPanel
           draft={state.draft}
           patientSummary={state.patientSummary}
+          warnings={state.warnings}
           onUse={(draft, patientSummary) => {
             onUseDraft({
               draft,
@@ -239,7 +278,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           <div className="flex gap-2">
             {state.consentId && (
               <Button size="sm" variant="outline" onClick={() => setState({ step: "input", consentId: state.consentId as string })}>
-                {t("scribe.input.generate", "en")}
+                {t("scribe.facts.back", "en")}
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={loadGate}>

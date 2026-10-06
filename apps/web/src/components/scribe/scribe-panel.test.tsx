@@ -3,11 +3,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const getState = jest.fn();
 const recordConsent = jest.fn();
+const findFacts = jest.fn();
+const draftFromFacts = jest.fn();
 jest.mock("@/lib/scribe/actions", () => ({
   getScribeConsentState: (...a: unknown[]) => getState(...a),
   recordScribeConsent: (...a: unknown[]) => recordConsent(...a),
   revokeScribeConsent: jest.fn(),
-  draftScribeFromText: jest.fn(),
+  findScribeFactsFromText: (...a: unknown[]) => findFacts(...a),
+  draftScribeFromFacts: (...a: unknown[]) => draftFromFacts(...a),
 }));
 
 import { ScribePanel } from "./scribe-panel";
@@ -18,6 +21,8 @@ const renderPanel = () => render(<ScribePanel patientId="22222222-2222-4222-8222
 beforeEach(() => {
   getState.mockReset();
   recordConsent.mockReset();
+  findFacts.mockReset();
+  draftFromFacts.mockReset();
 });
 
 describe("ScribePanel consent gate", () => {
@@ -61,5 +66,35 @@ describe("ScribePanel consent gate", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Check again/ }));
     await screen.findByRole("button", { name: /Start AI scribe/ });
     expect(getState).toHaveBeenCalledTimes(2);
+  });
+
+  it("the full path: notes, facts, confirm, draft with grounding warnings, then the review step", async () => {
+    getState.mockResolvedValue({ state: "given", may_start: true });
+    recordConsent.mockResolvedValue({ id: "33333333-3333-4333-8333-333333333333" });
+    findFacts.mockResolvedValue({
+      status: "ok",
+      facts: [{ id: "f1", type: "symptom", text: "Headache.", quote: "headache", speaker: "patient" }],
+      droppedUnverified: 0,
+      modelId: "m",
+      promptVersion: "scribe-facts-v1",
+    });
+    draftFromFacts.mockResolvedValue({
+      status: "ok",
+      draft: { history: "Headache.", examination: "", assessment: "", plan: "", followUp: "" },
+      patientSummary: "You had a headache.",
+      groundingWarnings: [{ section: "history", kind: "number_not_in_facts", detail: "14" }],
+      modelId: "m",
+      promptVersion: "scribe-facts-draft-v1",
+    });
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: /Start AI scribe/ }));
+    const box = await screen.findByRole("textbox");
+    fireEvent.change(box, { target: { value: "x".repeat(60) } });
+    fireEvent.click(screen.getByRole("button", { name: "Find the facts" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+    fireEvent.click(screen.getByRole("button", { name: /Write the draft/ }));
+    await screen.findByText(/Check these points in the draft/);
+    expect(screen.getByText(/contains the number 14/)).toBeTruthy();
+    expect(draftFromFacts).toHaveBeenCalledWith(expect.objectContaining({ confirmedFacts: [expect.objectContaining({ id: "f1" })] }));
   });
 });
