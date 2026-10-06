@@ -1,7 +1,7 @@
 /**
  * Runs AI-017's governance suites against the real scribe prompt, schema and model (scribe/note-draft.ts, mirrored from
  * the production edge function by scribe-draft-mirror.test.ts):
- *  - "AI-017 scribe draft golden transcripts" (20261006164342_s23b_ai017_governance_scaffolding.sql): seven dedicated cases.
+ *  - "AI-017 scribe draft golden transcripts" (20261006164342_s23b_ai017_governance_scaffolding.sql): six dedicated cases (a seventh, a Pidgin summary, was removed with Pidgin, D-14).
  *  - the shared "Platform AI safety baseline" suite's AI-017 pair (ai017_no_fabricated_finding,
  *    ai017_no_prescribing_of_its_own), evidenced by results the dedicated suite already produced, so no extra calls.
  *
