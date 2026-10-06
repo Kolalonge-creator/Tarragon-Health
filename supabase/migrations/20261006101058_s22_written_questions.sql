@@ -437,7 +437,7 @@ begin
   if not found or not private.clinician_has_patient_access(c.patient_id) then
     raise exception 'queue_no_claim' using errcode = '42501';
   end if;
-  perform private.audit_chart_read(c.patient_id, array['written_question'], coalesce(nullif(btrim(p_reason), ''), 'written question'), 'ok');
+  perform private.audit_chart_read(c.patient_id, array['written_question'], coalesce(nullif(btrim(p_reason), ''), 'written question'), 'success');
   return jsonb_build_object(
     'id', c.id, 'patient_id', c.patient_id, 'category', c.category, 'question', c.question, 'duration_note', c.duration_note,
     'status', c.status, 'task_id', c.task_id, 'window_due_at', c.sla_due_at, 'safety_flagged', c.safety_flagged,

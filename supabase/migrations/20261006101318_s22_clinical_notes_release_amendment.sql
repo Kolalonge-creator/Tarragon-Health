@@ -23,8 +23,6 @@ alter table public.clinical_encounter_notes
   add column is_protected          boolean not null default false,
   add column amendment_kind        text check (amendment_kind in ('addendum', 'late_entry', 'correction')),
   add column amendment_reason      text,
-  add column unsigned_reminded_at  timestamptz,
-  add column unsigned_lead_notified_at timestamptz,
   add constraint clinical_encounter_notes_amendment_has_reason
     check (amends_note_id is null or (amendment_kind is not null and char_length(btrim(coalesce(amendment_reason, ''))) >= 10)) not valid;
 
@@ -85,6 +83,16 @@ create index note_correction_requests_note_idx on public.note_correction_request
 create unique index note_correction_requests_one_open on public.note_correction_requests (note_id, patient_id) where state = 'open';
 alter table public.note_correction_requests enable row level security;
 revoke all on public.note_correction_requests from public, anon, authenticated;
+
+-- Reminder bookkeeping lives beside the note, not on it: updating a note row runs the signing-attribution trigger, which a
+-- background sweep (no signed-in clinician) must never trip.
+create table public.note_unsigned_reminders (
+  note_id           uuid primary key references public.clinical_encounter_notes (id) on delete cascade,
+  reminded_at       timestamptz,
+  lead_notified_at  timestamptz
+);
+alter table public.note_unsigned_reminders enable row level security;
+revoke all on public.note_unsigned_reminders from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 3. Events and templates (ids only, INV-07)
@@ -162,7 +170,7 @@ begin
   values (o.organisation_id, o.patient_id, o.encounter_type, o.reason_for_encounter, o.async_consult_id, o.video_consultation_id,
           o.escalation_id, o.clinical_encounter_id, o.id, p_kind, btrim(p_reason), o.is_protected)
   returning id into v_id;
-  perform private.audit_chart_read(o.patient_id, array['notes'], 'amend note', 'ok');
+  perform private.audit_chart_read(o.patient_id, array['notes'], 'amend note', 'success');
   return v_id;
 end;
 $$;
@@ -245,7 +253,7 @@ begin
           case when p_release then null else btrim(p_reason) end, n.is_test)
   on conflict (note_id) do update
      set state = excluded.state, decided_at = excluded.decided_at, decided_by = excluded.decided_by, withhold_reason = excluded.withhold_reason;
-  perform private.audit_chart_read(n.patient_id, array['notes'], case when p_release then 'release note' else 'withhold note' end, 'ok');
+  perform private.audit_chart_read(n.patient_id, array['notes'], case when p_release then 'release note' else 'withhold note' end, 'success');
   perform private.written_care_notify(n.patient_id, n.organisation_id, case when p_release then 'note_released' else 'note_release_declined' end,
                                       jsonb_build_object('note_id', n.id));
   if p_release then
@@ -269,7 +277,7 @@ begin
       'encounter_type', n.encounter_type, 'reason', n.reason_for_encounter, 'history', n.history,
       'examination', n.examination_findings, 'assessment', n.assessment, 'diagnosis', n.diagnosis, 'plan', n.plan,
       'follow_up', n.follow_up_instructions, 'signed_at', n.finalized_at,
-      'signed_by', (select p.full_name from public.clinical_staff cs join public.profiles p on p.id = cs.profile_id where cs.id = n.finalized_by_staff),
+      'signed_by', (select cs.full_name from public.clinical_staff cs where cs.id = n.finalized_by_staff),
       'corrections', coalesce((select jsonb_agg(jsonb_build_object('id', cr.id, 'state', cr.state, 'request_text', cr.request_text,
                                  'response', cr.response, 'created_at', cr.created_at) order by cr.created_at)
                                  from public.note_correction_requests cr where cr.note_id = n.id), '[]'::jsonb)
@@ -384,21 +392,25 @@ declare
   v_h2 integer := (private.written_care_setting('unsignedNoteLeadHours') #>> '{}')::int;
   v_profile uuid;
 begin
-  for r in select n.id, n.organisation_id, n.is_test, n.authored_by_staff, n.created_at, n.unsigned_reminded_at, n.unsigned_lead_notified_at
+  for r in select n.id, n.organisation_id, n.is_test, n.authored_by_staff, n.created_at,
+                  u.reminded_at, u.lead_notified_at
              from public.clinical_encounter_notes n
+             left join public.note_unsigned_reminders u on u.note_id = n.id
             where n.status = 'draft' and n.created_at <= now() - make_interval(hours => v_h1)
-              and (n.unsigned_reminded_at is null or n.unsigned_lead_notified_at is null) loop
+              and (u.reminded_at is null or u.lead_notified_at is null) loop
     begin
       select cs.profile_id into v_profile from public.clinical_staff cs where cs.id = r.authored_by_staff;
-      if r.unsigned_reminded_at is null then
+      if r.reminded_at is null then
         if v_profile is not null then perform private.written_care_notify(v_profile, r.organisation_id, 'note_unsigned_reminder', '{}'::jsonb); end if;
-        update public.clinical_encounter_notes set unsigned_reminded_at = now() where id = r.id;
+        insert into public.note_unsigned_reminders (note_id, reminded_at) values (r.id, now())
+          on conflict (note_id) do update set reminded_at = excluded.reminded_at;
         v_author := v_author + 1;
       end if;
-      if r.unsigned_lead_notified_at is null and r.created_at <= now() - make_interval(hours => v_h2) then
+      if r.lead_notified_at is null and r.created_at <= now() - make_interval(hours => v_h2) then
         perform private.notify_clinical_leads(r.organisation_id, r.is_test, 'A note has been waiting to be signed',
           'A draft note has been waiting past its signing time.', jsonb_build_object('note_id', r.id), v_profile);
-        update public.clinical_encounter_notes set unsigned_lead_notified_at = now() where id = r.id;
+        insert into public.note_unsigned_reminders (note_id, lead_notified_at) values (r.id, now())
+          on conflict (note_id) do update set lead_notified_at = excluded.lead_notified_at;
         v_lead := v_lead + 1;
       end if;
     exception when others then

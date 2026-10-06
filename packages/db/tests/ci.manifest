@@ -821,3 +821,5 @@ s17_queue_next.sql
 s17_queue_concurrent_claim.sh
 # S20: quality and safety. Safety case 16 (expired licence removed from queue and rota), audit sampling and scoring (shared cases with Jest), tier 1 counts, hand-back review, the protected speak-up route (admin accounts see nothing), retaliation review. Sabotage: removal turned off must flip the case 16 check.
 s20_quality_and_safety.sql
+# S22: written questions and clinical notes. Intake gate (member, adult, allowance), safety screen, task per question, claim-only audited reads, answer rules (attestation, no diagnosis, call task), follow-up, the response window (reminder, release, allowance returned, CMO told), notes (draft never visible, patient asks and a clinician releases, protected notes need the CMO, amendments, correction requests, unsigned reminders). Sabotage: the visibility rule opened and the allowance removed; both checks must flip.
+s22_written_questions_and_notes.sql
