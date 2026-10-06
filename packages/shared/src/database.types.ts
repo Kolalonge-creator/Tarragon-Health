@@ -41989,6 +41989,15 @@ export type Database = {
         Args: { p_request: string }
         Returns: Json
       }
+      attach_scribe_draft_to_note: {
+        Args: {
+          p_consent: string;
+          p_note: string;
+          p_patient_summary: string;
+          p_summary_language: string;
+        };
+        Returns: undefined;
+      };
       attach_written_question_photo: {
         Args: { p_bytes: number; p_consult: string; p_mime: string; p_path: string };
         Returns: string;
