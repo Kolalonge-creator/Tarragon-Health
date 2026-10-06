@@ -782,14 +782,17 @@ Deno.test({
 });
 
 Deno.test({
-  name: "transfer.failed: a database error is recorded on the event row, not swallowed",
+  name: "transfer.failed: a database error is answered 500 and the event is not kept, so a redelivery is applied",
   permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
   async fn() {
     const client = newClient();
     client.rpcResult = { data: null, error: { message: "boom" } };
-    await postWith(client, transferEvent("transfer.failed"));
-    const txn = client.rows("payment_transactions")[0];
-    assertEquals(txn.processed_at, undefined);
-    assert(String(txn.error).includes("boom"));
+    const { response } = await postWith(client, transferEvent("transfer.failed"));
+    assertEquals(response.status, 500);
+    assertEquals(client.rows("payment_transactions").length, 0);
+    client.rpcResult = { data: { result: "applied" }, error: null };
+    const again = await postWith(client, transferEvent("transfer.failed"));
+    assertEquals(again.json.replay, undefined);
+    assertEquals(client.rpcCalls.length, 2);
   },
 });

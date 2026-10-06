@@ -1170,8 +1170,11 @@ export async function handleWebhookRequest(
           p_reason: (event.data as { reason?: string }).reason ?? null,
         });
         if (applyError) {
-          await markFailed(`apply_payout_transfer_event: ${applyError.message}`);
-          break;
+          // Not recorded as handled: the event row is removed so Paystack's redelivery (or a manual resend) is applied, not
+          // dropped as a replay. A lost transfer.success or transfer.reversed would otherwise leave a payout wrong for good.
+          console.error("paystack-webhook: apply_payout_transfer_event failed", applyError);
+          await supabase.from("payment_transactions").delete().eq("id", txnRow.id);
+          return Response.json({ ok: false, error: "transfer_event_not_applied" }, { status: 500 });
         }
         console.log("paystack-webhook: transfer event", { event: event.event, result: (applied as { result?: string } | null)?.result });
         await markProcessed();

@@ -96,7 +96,8 @@ create table public.clinician_bank_accounts (
   created_at       timestamptz not null default now(),
   check (bank_verified_at is null or (name_match = 'verified' and recipient_code is not null))
 );
-create unique index clinician_bank_accounts_one_current on public.clinician_bank_accounts (clinician_id) where superseded_at is null;
+-- Only one VERIFIED current account: a failed or mismatched attempt never displaces the one that works.
+create unique index clinician_bank_accounts_one_current on public.clinician_bank_accounts (clinician_id) where superseded_at is null and bank_verified_at is not null;
 comment on table public.clinician_bank_accounts is
   'S31: where a contracted clinician is paid. Only the last four digits and the Paystack recipient code are kept. bank_verified_at needs the bank-returned name to match the credentialed name (spec 7.7).';
 
@@ -544,7 +545,7 @@ begin
   if not found then raise exception 'bank_not_a_contracted_clinician' using errcode = '22023'; end if;
   v_match := private.payout_names_match(cs.full_name, p_resolved_name);
   perform set_config('tarragon.payout_write', 'on', true);
-  update public.clinician_bank_accounts set superseded_at = now() where clinician_id = p_clinician and superseded_at is null;
+  update public.clinician_bank_accounts set superseded_at = now() where clinician_id = p_clinician and superseded_at is null and bank_verified_at is null;
   insert into public.clinician_bank_accounts (organisation_id, clinician_id, bank_code, bank_name, account_last4, resolved_name, verified_name, name_match, is_test)
   values (cs.organisation_id, p_clinician, p_bank_code, p_bank_name, p_last4, p_resolved_name, cs.full_name,
           case when v_match then 'verified' else 'mismatch' end, cs.is_test)
@@ -566,6 +567,7 @@ begin
   if b.name_match <> 'verified' then raise exception 'bank_name_does_not_match' using errcode = '23514'; end if;
   if p_recipient_code is null or length(btrim(p_recipient_code)) < 4 then raise exception 'bank_recipient_missing' using errcode = '22023'; end if;
   perform set_config('tarragon.payout_write', 'on', true);
+  update public.clinician_bank_accounts set superseded_at = now() where clinician_id = b.clinician_id and id <> b.id and superseded_at is null and bank_verified_at is not null;
   update public.clinician_bank_accounts set recipient_code = btrim(p_recipient_code), bank_verified_at = now() where id = b.id;
   perform set_config('tarragon.payout_write', 'off', true);
   return jsonb_build_object('id', b.id, 'bank_verified_at', now());
@@ -613,7 +615,7 @@ begin
   return jsonb_build_object(
     'bank', (select jsonb_build_object('bank_name', b.bank_name, 'account_last4', b.account_last4, 'resolved_name', b.resolved_name,
                 'name_match', b.name_match, 'verified', b.bank_verified_at is not null, 'bank_verified_at', b.bank_verified_at)
-               from public.clinician_bank_accounts b where b.clinician_id = v_uid and b.superseded_at is null),
+               from public.clinician_bank_accounts b where b.clinician_id = v_uid and b.superseded_at is null order by (b.bank_verified_at is not null) desc, b.created_at desc limit 1),
     'tax', (select to_jsonb(t) - 'organisation_id' from public.clinician_tax_profiles t where t.clinician_id = v_uid),
     'payouts', coalesce((select jsonb_agg(jsonb_build_object(
         'id', p.id, 'period_start', p.period_start, 'period_end', p.period_end, 'amount_kobo', p.amount_kobo, 'line_count', p.line_count,

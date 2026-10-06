@@ -84,7 +84,7 @@ export class FakeSupabaseClient {
 type QueryResult = { data: unknown; error: { code: string; message: string } | null };
 
 class FakeQueryBuilder implements PromiseLike<QueryResult> {
-  private op: "select" | "insert" | "update" | null = null;
+  private op: "select" | "insert" | "update" | "delete" | null = null;
   private payload: Row | null = null;
   private filters: Filter[] = [];
 
@@ -99,6 +99,11 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
   update(payload: Row) {
     this.op = "update";
     this.payload = payload;
+    return this;
+  }
+
+  delete() {
+    this.op = "delete";
     return this;
   }
 
@@ -206,7 +211,14 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     return { data: rows, error: null };
   }
 
+  private doDelete(): QueryResult {
+    const rows = this.selected();
+    for (const row of rows) this.store.splice(this.store.indexOf(row), 1);
+    return { data: rows, error: null };
+  }
+
   private execute(): QueryResult {
+    if (this.op === "delete") return this.doDelete();
     if (this.op === "insert") return this.doInsert();
     if (this.op === "update") return this.doUpdate();
     return { data: this.selected(), error: null };

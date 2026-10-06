@@ -22,8 +22,8 @@ export async function ClinicianPayoutsView() {
   }
   const overview = res.error ? null : overviewSchema.safeParse(res.data);
   const needsBank = !overview?.success || !overview.data.bank?.verified;
-  const banksRes = needsBank ? await supabase.functions.invoke("payouts", { body: { action: "banks" } }) : null;
-  const banks = banksRes && !banksRes.error ? banksSchema.safeParse(banksRes.data) : null;
+  const banksRes = await supabase.functions.invoke("payouts", { body: { action: "banks" } });
+  const banks = !banksRes.error ? banksSchema.safeParse(banksRes.data) : null;
 
   if (!overview?.success) {
     return <p role="alert" className="text-sm text-red-600">Your payouts could not be loaded. This is not the same as having none.</p>;
