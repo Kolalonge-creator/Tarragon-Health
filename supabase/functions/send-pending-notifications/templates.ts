@@ -1344,9 +1344,36 @@ export const TEMPLATE_MAP: Record<
     const message = String(payload.message ?? "Open Tarragon Health to see the details.");
     return {
       smsText: message,
-      pushUrl: payload.audience === "applicant" ? "/account/clinician" : "/clinician/credentials",
+      pushUrl: payload.audience === "applicant" ? "/account/clinician" : payload.audience === "rota" ? "/clinician/rota" : payload.audience === "lead" ? "/clinician/patients" : "/clinician/credentials",
       email: {
         subject,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hello,</p>` +
+          `<p>${escapeHtmlForBroadcast(message)}</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `Hello,\n\n${message}\n\nTarragon Health`,
+      },
+    };
+  },
+  // S18: the patient is told when their care team lead is set, changes, or is still being arranged. Fixed wording by
+  // kind, no names and nothing clinical (INV-07); the card in the app shows who the lead is. "Your care team", never
+  // "your doctor". Only in_app and email rows are written for it.
+  care_team_notice: (payload) => {
+    const kind = String(payload.kind ?? "");
+    const message =
+      kind === "changed"
+        ? "Your care team lead has changed. Open Tarragon Health to see who is looking after you now."
+        : kind === "arranging"
+          ? "We are arranging your care team lead. We will tell you here as soon as they are in place."
+          : "Your care team has a lead for you. Open Tarragon Health to see who is looking after you.";
+    return {
+      smsText: message,
+      pushUrl: "/patient",
+      email: {
+        subject: "An update about your care team",
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Hello,</p>` +
