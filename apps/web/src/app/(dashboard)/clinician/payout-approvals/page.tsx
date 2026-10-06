@@ -25,7 +25,8 @@ export default async function PayoutApprovalsPage() {
   const [queue, guard] = await Promise.all([supabase.rpc("payout_approval_queue", {}), supabase.rpc("go_live_guard_is_open", { p_key: "payouts_enabled" })]);
   const parsed = queue.error ? null : approvalRowsSchema.safeParse(queue.data);
   const load: ApprovalLoad = parsed?.success ? { ok: true, rows: parsed.data } : { ok: false };
-  const guardOpen = guard.error ? false : guard.data === true;
+  const guardKnown = !guard.error;
+  const guardOpen = guardKnown && guard.data === true;
   const rows = load.ok ? buildApprovalModel(load.rows, guardOpen) : [];
 
   return (
@@ -35,11 +36,11 @@ export default async function PayoutApprovalsPage() {
         <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("payapprove.intro", locale)}</p>
       </div>
 
-      {!guardOpen && (
+      {guardKnown && !guardOpen && (
         <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{t("payapprove.off", locale)}</p>
       )}
 
-      {!load.ok ? (
+      {!guardKnown || !load.ok ? (
         <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{t("payapprove.load_error", locale)}</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-charcoal-ink/70">{t("payapprove.none", locale)}</p>
@@ -48,7 +49,7 @@ export default async function PayoutApprovalsPage() {
           {rows.map((r) => (
             <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-charcoal-ink/10 bg-white p-3 text-sm dark:border-night-ink/15 dark:bg-night-card">
               <div>
-                <p className="font-medium text-charcoal-ink">{r.clinician_name ?? "A clinician"}</p>
+                <p className="font-medium text-charcoal-ink">{r.clinician_name ?? t("payapprove.unnamed", locale)}</p>
                 <p className="text-xs text-charcoal-ink/60">{t("payapprove.earnings", locale, { count: r.line_count, date: r.period_end })}</p>
                 {r.blockedReason === "no_bank" && <p className="text-xs text-red-600">{t("payapprove.no_bank", locale)}</p>}
               </div>

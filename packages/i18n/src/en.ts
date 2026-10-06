@@ -1902,6 +1902,7 @@ export const en = {
   "payapprove.no_bank": "No verified bank account yet, so this cannot be approved.",
   "payapprove.approve": "Approve",
   "payapprove.working": "Working...",
+  "payapprove.unnamed": "A clinician",
 } as const;
 
 export type MessageKey = keyof typeof en;
