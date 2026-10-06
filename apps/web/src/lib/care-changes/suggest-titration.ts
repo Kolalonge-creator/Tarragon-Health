@@ -31,6 +31,7 @@ const DAYS_IN_YEAR = 365.25;
 /** How far back stopped medicines, skipped-dose reasons and the last change are looked for. A look-back, not a clinical threshold. */
 const LOOKBACK_DAYS = 90;
 /** Words that mark a stopped medicine or a skipped dose as a side effect, in the reasons clinicians and patients type. */
+const ADULT_AGE_YEARS = 18;
 const SIDE_EFFECT_WORDS = /side.?effect|adverse|reaction|intoleran|cough|swell|dizz|rash/i;
 const OPEN_ALERT_STATUSES = ["open", "acknowledged", "snoozed"];
 
@@ -128,6 +129,12 @@ export async function suggestTitration(patientId: string): Promise<SuggestTitrat
     if (profile.error || !profile.data) return fail("Could not read the patient.");
     const prof = profileCheck(profile.data);
     if (!prof) return fail("The patient record could not be read.");
+    // The evaluator has no age rule, and a protocol written for adults must never be applied to a child or to a patient whose age is unknown.
+    // 18 is the platform's adult age (the triage rule set's minAdultAgeYears and the written-question gate); an unknown date of birth is not an adult.
+    const age = ageYears(prof.date_of_birth, now);
+    if (age === null || age < ADULT_AGE_YEARS) {
+      return fail("Next-step suggestions are for adults only. This patient is under 18 or has no date of birth on file, so the care team decides by hand.");
+    }
     if (vitals.status !== "ok") return fail(vitals.status === "denied" ? "Readings are not available to you." : "Could not read the readings.");
     if (meds.status !== "ok") return fail(meds.status === "denied" ? "Medicines are not available to you." : "Could not read the medicines.");
     if (plans.error) return fail("Could not read the care plan.");
@@ -185,7 +192,7 @@ export async function suggestTitration(patientId: string): Promise<SuggestTitrat
     const input: TitrationInput = {
       now: now.toISOString(),
       isTest: prof.is_test === true,
-      patient: { ageYears: ageYears(prof.date_of_birth, now) ?? 0, pregnancy: pregnancyStatus },
+      patient: { ageYears: age, pregnancy: pregnancyStatus },
       target,
       readings,
       currentMedications: current,

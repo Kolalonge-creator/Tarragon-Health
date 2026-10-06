@@ -105,6 +105,16 @@ describe("suggestTitration", () => {
     }
   });
 
+  it("never suggests for a child or for a patient with no date of birth", async () => {
+    for (const dob of ["2015-03-01", null]) {
+      setup();
+      tableData.profiles = { data: { date_of_birth: dob, sex: "male", is_test: false }, error: null };
+      const r = await suggestTitration(PATIENT);
+      expect(r.kind).toBe("error");
+      expect(proposeCalls()).toHaveLength(0);
+    }
+  });
+
   it("returns no_protocol when none is approved, and writes nothing", async () => {
     setup();
     overrides.get_approved_protocol = { data: null, error: null };
