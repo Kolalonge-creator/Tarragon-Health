@@ -1359,16 +1359,16 @@ export const TEMPLATE_MAP: Record<
     };
   },
   // S18: the patient is told when their care team lead is set, changes, or is still being arranged. Fixed wording by
-  // kind, no names and nothing clinical (INV-07); the card in the app shows who the lead is. "Your care team", never
-  // "your doctor". Only in_app and email rows are written for it.
+  // kind, no names and nothing clinical (INV-07). No name is promised or shown: the care team card names nobody ahead
+  // of a real review (OQ-129). "Your care team", never "your doctor". Only in_app and email rows are written for it.
   care_team_notice: (payload) => {
     const kind = String(payload.kind ?? "");
     const message =
       kind === "changed"
-        ? "Your care team lead has changed. Open Tarragon Health to see who is looking after you now."
+        ? "Your care team lead has changed. Your care team is still looking after you."
         : kind === "arranging"
           ? "We are arranging your care team lead. We will tell you here as soon as they are in place."
-          : "Your care team has a lead for you. Open Tarragon Health to see who is looking after you.";
+          : "Your care team now has a lead clinician for you. Your care team is looking after you.";
     return {
       smsText: message,
       pushUrl: "/patient",

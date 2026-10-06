@@ -1426,6 +1426,21 @@ as $$
    order by cs.full_name;
 $$;
 
+-- The swaps a clinician is part of (asked of them, or asked by them), still open.
+create function public.my_rota_swaps() returns table (id uuid, rota_id uuid, role text, state public.rota_swap_state, reason text,
+  from_name text, to_name text, direction text, starts_at timestamptz, ends_at timestamptz)
+language sql stable security definer set search_path = ''
+as $$
+  select s.id, s.rota_id, s.role, s.state, s.reason,
+         (select full_name from public.clinical_staff where profile_id = s.from_clinician),
+         (select full_name from public.clinical_staff where profile_id = s.to_clinician),
+         case when s.to_clinician = (select auth.uid()) then 'incoming' else 'outgoing' end, r.starts_at, r.ends_at
+    from public.rota_swaps s join public.on_call_rota r on r.id = s.rota_id
+   where private.working_clinician() is not null and s.state in ('requested', 'accepted')
+     and (s.from_clinician = (select auth.uid()) or s.to_clinician = (select auth.uid()))
+   order by r.starts_at;
+$$;
+
 -- Everything the rota builder shows, in one call (admin or chief medical officer).
 create function public.rota_overview(p_from timestamptz default now(), p_to timestamptz default null) returns jsonb
 language plpgsql stable security definer set search_path = ''
@@ -1471,7 +1486,7 @@ begin
     'public.approve_rota_swap(uuid, text)',
     'public.assign_lead_clinician(uuid)', 'public.change_lead_clinician(uuid, public.lead_end_reason, text)',
     'public.my_care_team_lead()', 'public.my_lead_summary()', 'public.lead_capacity_status(uuid)', 'public.lead_overview(uuid)',
-    'public.on_call_colleagues()', 'public.rota_overview(timestamptz, timestamptz)',
+    'public.on_call_colleagues()', 'public.rota_overview(timestamptz, timestamptz)', 'public.my_rota_swaps()',
     'public.lead_on_clinician_event(uuid, text)', 'public.assign_lead_for_event(uuid, uuid)'
   ] loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
@@ -1485,7 +1500,7 @@ begin
     'public.approve_rota_swap(uuid, text)',
     'public.assign_lead_clinician(uuid)', 'public.change_lead_clinician(uuid, public.lead_end_reason, text)',
     'public.my_care_team_lead()', 'public.my_lead_summary()', 'public.lead_capacity_status(uuid)', 'public.lead_overview(uuid)',
-    'public.on_call_colleagues()', 'public.rota_overview(timestamptz, timestamptz)'
+    'public.on_call_colleagues()', 'public.rota_overview(timestamptz, timestamptz)', 'public.my_rota_swaps()'
   ] loop
     execute format('grant execute on function %s to authenticated', f);
   end loop;

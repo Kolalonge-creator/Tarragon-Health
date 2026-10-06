@@ -138,3 +138,21 @@ describe("task types are searchable (S16)", () => {
     }
   });
 });
+
+describe("the rota and lead clinicians are searchable (S18)", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("finds the rota page by its words, for the admin and for the CMO", () => {
+    for (const q of ["rota", "on call", "backup", "lead clinician", "cover gap"]) {
+      expect(hit(adminIndex, q)).toContain("/admin/rota");
+      expect(hit(cmoIndex, q)).toContain("/clinician/team-rota");
+    }
+  });
+
+  it("a clinician finds their own hours page", () => {
+    const clinicianIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], []);
+    expect(hit(clinicianIndex, "declare hours")).toContain("/clinician/rota");
+  });
+});

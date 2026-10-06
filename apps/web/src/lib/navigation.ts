@@ -539,6 +539,8 @@ export function getNavSections(
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
                 // Documents, licence and cover dates, level and renewal uploads (S15).
                 { label: "Training and profile", href: "/clinician/credentials", icon: "review" },
+                // Declared hours, the on-call rota, cover requests (S18).
+                { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier
                 // per this file's own gating philosophy above; the page
@@ -573,6 +575,8 @@ export function getNavSections(
                 // New clinician applications, licence and cover expiry, and the training and test content (S15).
                 // Chief Medical Officer only; the pages redirect anyone below that tier.
                 { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
+                // The on-call rota, declared on-call hours and lead clinicians (S18). Chief Medical Officer only; the page redirects anyone below that tier.
+                { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
                 // The AI governance console's two CMO-only actions (approving
                 // an ai_system_versions row, labelling an ai_evaluation_cases
                 // clinical-accuracy scenario) — same reachability gap as
@@ -645,6 +649,8 @@ export function getNavSections(
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             // New clinician applications, document and licence checks, licence and indemnity expiry (S15).
             { label: "Clinician credentialing", href: "/admin/credentialing", icon: "review" },
+            // Who is on call, who is declared to work, who leads each care pack patient (S18).
+            { label: "Rota and lead clinicians", href: "/admin/rota", icon: "caseload" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },

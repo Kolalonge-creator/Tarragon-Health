@@ -704,10 +704,10 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) ship as PROPOSED warnings, CMO to set values (recommended); (b) leave rest rules off until the CMO supplies numbers.
 - Decision (founder): pending. S18 proceeds with (a).
 
-### OQ-129 Patient wording when the lead changes (raised by S18)
-- Spec 7.5 shows "name and photo of the lead clinician"; CLAUDE.md says never promise one continuous named doctor. Reassignment must also be told to the patient.
-- Options: (a) "your care team lead" with the team behind them; a neutral in-app and email notice on every change (recommended); (b) name only.
-- Decision (founder): pending. S18 proceeds with (a). Pidgin text needs a native reviewer.
+### OQ-129 Patient wording when the lead changes, and whether the patient sees the lead's name (raised by S18)
+- Spec 7.5 step 3 says to show the patient "name and photo of the lead clinician". The live care team card (`apps/web/src/components/your-care-team.tsx`), `docs/CLINICAL_TRUST_MODEL_SPEC.md` section 2 and CLAUDE.md ("never describe it as one named doctor") say the opposite: no single doctor's name or photo appears ahead of a real review, and `care_team_assignment.clinician_id` is internal routing only. Reassignment must also be told to the patient.
+- Options: (a) keep the card as it is (no name), tell the patient in neutral words whenever their care team lead is set or changes, and keep `my_care_team_lead()` ready for the day the founder decides to show a name (recommended); (b) show the lead's name and photo as the spec says, which reverses the 2026-07-30 founder correction.
+- Decision (founder): pending. S18 proceeds with (a): the patient notices say "your care team lead", never a name; the card is untouched. Pidgin text needs a native reviewer.
 
 ### OQ-130 Changing lead on request (raised by S18)
 - Not in the spec: a patient asking for a different lead, or a clinician asking to be released from a patient for a non-conflict reason.

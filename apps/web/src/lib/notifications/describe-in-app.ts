@@ -556,7 +556,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
           ? "Your care team lead has changed"
           : kind === "arranging"
             ? "We are arranging your care team lead"
-            : "Your care team has a lead for you",
+            : "Your care team now has a lead clinician for you",
       href: "/patient",
     };
   }

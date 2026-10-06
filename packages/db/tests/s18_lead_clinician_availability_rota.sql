@@ -355,7 +355,7 @@ begin
     (select count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public' and p.proname in ('confirm_availability_block', 'set_on_call_rota', 'cancel_on_call_rota', 'rota_coverage_gaps', 'on_call_cover_status', 'my_rota', 'request_rota_swap',
         'respond_rota_swap', 'cancel_rota_swap', 'approve_rota_swap', 'assign_lead_clinician', 'change_lead_clinician', 'my_care_team_lead', 'my_lead_summary',
-        'lead_capacity_status', 'lead_overview', 'lead_on_clinician_event', 'assign_lead_for_event', 'my_availability_blocks', 'on_call_colleagues', 'rota_overview')
+        'lead_capacity_status', 'lead_overview', 'lead_on_clinician_event', 'assign_lead_for_event', 'my_availability_blocks', 'on_call_colleagues', 'rota_overview', 'my_rota_swaps')
         and has_function_privilege('anon', p.oid, 'EXECUTE')));
   perform pg_temp.rec('authenticated cannot execute the service-role entry points', '0',
     (select count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
