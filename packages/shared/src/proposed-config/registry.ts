@@ -603,6 +603,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S20.md; spec 7.8",
   },
   {
+    key: "earnings.rules",
+    // The rules around fees that are not money (S30, spec 7.7). Live values are the active row of `earnings_config`; this entry
+    // mirrors it and a test fails if the migration seed and this value drift. The AMOUNTS are not here on purpose: fee schedule
+    // amounts are set by the founder in the admin console (versioned in `fee_schedules`) and are never hard-coded.
+    value: {
+      lead_month: { min_active_days: 15 },
+      on_call: { backup_fee_pct: 0 },
+      minimum_guarantee: { counted_kinds: ["task", "consultation", "on_call_shift"] },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S30.md; spec 7.7 and 17",
+  },
+  {
     key: "queue.task_types",
     // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
     // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default

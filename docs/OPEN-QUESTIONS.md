@@ -948,6 +948,32 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-176 Service-role writes bypass the signed-medicine trigger (raised by S24)
 - The medicine signature trigger applies to API sessions (role `authenticated`). A server route using the service role, or a migration, is trusted code and is not stopped. No current route writes a clinician-source medicine that way (checked 2026-10-06); a code scan test is the follow-up that would keep it so.
 
+### OQ-177 What a consultation share is a share OF, inside the Membership (raised by S30)
+- D-11 says the consultation share is configurable, and spec 7.7 says `consultation_share_pct` by consultation type. But under the 2026-10-05 Membership model there is no per-consultation price: consultations are inside the 100,000 naira a year Membership, so a "percent of the price" has nothing to be a percent of. **Built**: the share applies to the paid purchase amount when the consultation has one; otherwise to an optional `consultation_reference_price_kobo` per type that the founder sets in the schedule; otherwise the line is a zero line flagged "no price basis" for an admin to correct with an adjustment (never skipped). **Recommendation**: set a reference price per type, or drop the share and pay consultations as a fixed fee per type like tasks (a small change: add the types to `task_types`). Decide which.
+
+### OQ-178 Fee sharing and the MDCN code (raised by S30; counsel needed)
+- The MDCN Code of Medical Ethics forbids fee splitting and payment for referrals (public text, not checked against the current official copy). A percentage of a consultation the clinician delivers themselves is pay for their own service, but whether MDCN reads a percentage of a price paid to Tarragon that way is a legal question. Percentages are configuration the founder sets, and may be set to 0 for every type. **Recommendation**: get a one-page opinion from Nigerian counsel before any non-zero share; until then set all three to 0 and use fixed fees only.
+
+### OQ-179 On-call shift fee: the backup, and being ready (raised by S30)
+- Spec 7.7 has one `on_call_shift_fee_kobo`. **Built**: it is paid to the primary when the shift ends; the backup is paid `backup_fee_pct` of it (PROPOSED 0, in `earnings_config`). The fee does not depend on the clinician being paged or acknowledging anything. **Decide**: should the backup be paid something, and should a shift where the primary was marked as not reachable (S19 escalation reached the backup) pay differently?
+
+### OQ-180 The pilot minimum can be earned by declaring hours and doing nothing (raised by S30)
+- **Built**: only confirmed, eligible blocks count; only the shortfall is paid; one top-up per merged run; contracted clinicians only. **Not built**: any check that the clinician actually took work while declared (claims that expired for inactivity, S17 reliability events, an empty queue is not their fault). **Decide** the rule, or accept the risk for the pilot and review the first month's top-ups by hand (the admin summary shows them as their own kind).
+
+### OQ-181 Work finished before the first schedule is approved (raised by S30)
+- There is no schedule in the database until the founder approves one. **Built**: a finished task or consultation waits (the admin page shows how many); once a schedule is approved the sweep posts them at the FIRST approved schedule and the line says `retroactive_first_schedule`. **Decide**: confirm that is the intent, or pay such early work by hand with adjustments.
+
+### OQ-182 The wait step is read at the final claim (raised by S30)
+- Spec 7.7 says the step depends on how much of the due window had passed. **Built**: measured when the clinician who finishes the task claimed it. If a task is handed back and someone else claims it, the second clinician's step includes the time the first one held it. **Decide**: keep (simple, and the next clinician is rewarded for clearing something old), or measure from the first time the task became available to anyone.
+
+### OQ-183 Staff screens use plain English in the page, not `packages/i18n` (raised by S30)
+- The S30 prompt says every user-facing string goes through `packages/i18n` (en, pcm). Every existing admin and clinician page in `apps/web` (members, rota, credentialing) uses inline English, so the two S30 pages match them. The i18n package is for patient-facing text. **Recommendation**: staff screens stay English (the platform decision for staff tools); confirm.
+
+### OQ-184 Refunds, tax and employed doctors who convert (raised by S30; deferred)
+- A refunded purchase does not reverse a consultation share automatically; an admin posts a negative adjustment. S26 (refunds) should call a reversal. Withholding tax is stored nowhere and calculated nowhere (D-09). A clinician who changes from `employed` to `contracted` earns lines only for work finished after the change and a clinician changed the other way keeps their old lines (each line records `employment_type` as at entry).
+
+### OQ-185 A late line can push a clinician past the pilot minimum (raised by S30)
+- The top-up for a run of declared hours is computed once, from the lines in the ledger when the run is processed (two hours after it ends). A line posted later for work done inside the run (a retried posting, work finished before any schedule existed, a retroactive first schedule) is not netted off, so the clinician can end with more than the guarantee. The amounts are small and visible. **Decide** whether to reverse and repost top-ups when a late line lands, or accept it for the pilot.
 ### OQ-171 update (S24b, 2026-10-06): the CMO's screen for the step table now exists
 - `/clinician/titration-protocols` lets the Chief Medical Officer paste a definition, check it, save it as a draft and approve it (functions `save_protocol_draft` and `approve_protocol`, CMO only, audited). The build wrote no clinical content and approved nothing: the page starts empty. Until the CMO approves a definition for `htn_hearts_ng`, "Suggest next step" still says no approved step table.
 
