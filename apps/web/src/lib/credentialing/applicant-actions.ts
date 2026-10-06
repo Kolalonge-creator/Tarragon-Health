@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getProposedConfig } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getMyApplication, getMyCredentialStatus } from "./queries";
 import { checkDocumentUpload } from "./files";
 import { csv, endOfLagosDay, run, safeReturnTo, text, uuid } from "./action-helpers";
 import { CredentialingError, rpcParsed, rpcVoid } from "./rpc";
@@ -131,7 +134,14 @@ export async function uploadCredentialDocument(fd: FormData): Promise<void> {
     const expiresOn = endOfLagosDay(text(fd, "expires_on"));
 
     const supabase = await createClient();
-    const { error: uploadError } = await supabase.storage.from("clinician-documents").upload(path, bytes, { contentType: check.type.mime, upsert: false });
+    // Only someone with an application or a clinician record may store a document at all.
+    const [mine, staff] = await Promise.all([getMyApplication(), getMyCredentialStatus()]);
+    if (!mine && !staff) throw new CredentialingError("Start your application before uploading documents.", "23514");
+
+    // The bucket has no policy for signed-in users: the file is vetted above, then stored with the service role. The
+    // database function confirms the object exists with the declared size and type before it records anything.
+    const storage = createServiceRoleClient().storage.from("clinician-documents");
+    const { error: uploadError } = await storage.upload(path, bytes, { contentType: check.type.mime, upsert: false });
     if (uploadError) throw new CredentialingError("We could not store that file. Please try again.", undefined);
     try {
       await rpcParsed(
@@ -149,8 +159,11 @@ export async function uploadCredentialDocument(fd: FormData): Promise<void> {
         z.string(),
       );
     } catch (e) {
-      // never leave a stored file with no record behind it
-      await supabase.storage.from("clinician-documents").remove([path]);
+      // never leave a stored file with no record behind it; a failed removal is reported, not hidden
+      await runBestEffort(async () => {
+        const { error } = await storage.remove([path]);
+        if (error) throw error;
+      }, { area: "credentialing.orphan_upload_cleanup", path });
       throw e;
     }
     return "Document uploaded.";

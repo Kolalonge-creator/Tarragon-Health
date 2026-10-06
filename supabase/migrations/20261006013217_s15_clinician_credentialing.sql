@@ -458,6 +458,7 @@ create index credential_grace_periods_staff_idx on public.credential_grace_perio
 
 create table public.credential_expiry_notices (
   id                uuid primary key default gen_random_uuid(),
+  organisation_id   uuid not null references public.organisations (id) on delete restrict,
   clinical_staff_id uuid not null references public.clinical_staff (id) on delete cascade,
   kind              text not null check (kind in ('licence', 'indemnity')),
   expires_on        date not null,
@@ -567,13 +568,10 @@ values ('clinician-documents', 'clinician-documents', false, 8388608,
         array['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
 
-create policy "clinician documents owner insert" on storage.objects
-  for insert to authenticated
-  with check (
-    bucket_id = 'clinician-documents'
-    and (storage.foldername(name))[2] = (select auth.uid())::text
-    and (storage.foldername(name))[1] = (select organisation_id::text from public.profiles where id = (select auth.uid()))
-  );
+-- Deliberately NO policy for authenticated on this bucket (no insert, select, update or delete). Files arrive only through
+-- the web route, which checks the real file type from the first bytes, uploads with the service role, and then calls
+-- register_clinician_document(), which confirms the object exists with the declared size and type. A signed-in user can
+-- therefore neither store an unvetted file here nor fill the bucket with files that have no record.
 
 -- ---------------------------------------------------------------------------
 -- 8. Events (S10 bus). Ids only in payloads.
@@ -650,8 +648,11 @@ begin
   if not found or not p.is_active or p.organisation_id is null then raise exception 'account is not active' using errcode = '42501'; end if;
   if p.role <> 'patient' then raise exception 'only a person account can apply; this account is already %', p.role using errcode = '42501'; end if;
   if p.is_dependent_account then raise exception 'a dependant account cannot apply' using errcode = '42501'; end if;
-  if exists (select 1 from public.clinical_staff where profile_id = v_uid) then
+  if exists (select 1 from public.clinical_staff where profile_id = v_uid and status <> 'offboarded') then
     raise exception 'this account already has a clinician record' using errcode = '42501';
+  end if;
+  if exists (select 1 from public.clinical_staff where profile_id = v_uid and status = 'offboarded') then
+    raise exception 'your earlier clinician record was closed; ask your care team lead to reopen it' using errcode = '42501';
   end if;
   if not exists (select 1 from auth.users where id = v_uid and email_confirmed_at is not null) then
     raise exception 'confirm your email first' using errcode = '42501';
@@ -659,8 +660,10 @@ begin
   if p.phone is null or btrim(p.phone) = '' then raise exception 'add your phone number first' using errcode = '42501'; end if;
   select id into v_id from public.clinician_applications where profile_id = v_uid and state not in ('rejected', 'offboarded');
   if v_id is not null then return v_id; end if;
+  -- Employed or freelance is the organisation's fact, never the applicant's claim: whatever was passed, a self-started
+  -- application is freelance (it needs its own indemnity) until a reviewer sets it with set_application_employment_type().
   insert into public.clinician_applications (organisation_id, profile_id, employment_type, is_test)
-    values (p.organisation_id, v_uid, p_employment_type, p.is_test) returning id into v_id;
+    values (p.organisation_id, v_uid, 'contracted', p.is_test) returning id into v_id;
   insert into public.clinician_application_transitions (organisation_id, application_id, from_state, to_state, actor_id, reason, is_test)
     values (p.organisation_id, v_id, null, 'started', v_uid, 'application started', p.is_test);
   perform private.credential_audit(p.organisation_id, v_uid, 'clinician_application.started', 'clinician_application', v_id, '{}'::jsonb);
@@ -798,11 +801,28 @@ begin
   end if;
   if p_mime not in ('application/pdf', 'image/jpeg', 'image/png', 'image/webp') then raise exception 'file type not allowed' using errcode = '23514'; end if;
   if p_size <= 0 or p_size > v_max then raise exception 'file is too large' using errcode = '23514'; end if;
+  -- The file must really be in the private bucket, with the size and type declared. Nobody can upload there directly
+  -- (no insert policy); the web route checks the first bytes, uploads with the service role, then registers.
+  if not exists (select 1 from storage.objects o where o.bucket_id = 'clinician-documents' and o.name = p_storage_path
+                   and (o.metadata ->> 'size')::bigint = p_size and (o.metadata ->> 'mimetype') = p_mime) then
+    raise exception 'the file was not found; please upload it again' using errcode = '23514';
+  end if;
   if p_application is not null then
     select * into a from public.clinician_applications where id = p_application and profile_id = v_uid;
     if not found then raise exception 'application not found' using errcode = 'P0002'; end if;
     if a.state not in ('started', 'documents_submitted', 'checks_in_progress') then raise exception 'documents can no longer be changed on this application' using errcode = '23514'; end if;
     update public.clinician_documents set superseded_at = now() where application_id = p_application and kind = p_kind and superseded_at is null;
+    -- Replacing a document whose check already passed sends that check back to pending: the evidence changed, so the
+    -- decision about it no longer stands (otherwise a verified file could be swapped for an unchecked one).
+    update public.clinician_checks set result = 'pending', performed_by = null, performed_at = null, evidence_document_id = null
+      where application_id = p_application and result = 'passed'
+        and kind = case p_kind
+          when 'mdcn_practising_licence' then 'licence'::public.credential_check_kind
+          when 'mdcn_portal_screenshot' then 'licence'::public.credential_check_kind
+          when 'graduation_certificate' then 'qualifications'::public.credential_check_kind
+          when 'nysc_certificate' then 'qualifications'::public.credential_check_kind
+          when 'government_id' then 'identity'::public.credential_check_kind
+        end;
     insert into public.clinician_documents (organisation_id, owner_profile_id, application_id, kind, storage_path, mime_type, size_bytes, sha256, expires_at, is_test)
       values (p.organisation_id, v_uid, p_application, p_kind, p_storage_path, p_mime, p_size, p_sha256, p_expires_at, p.is_test) returning id into v_id;
   else
@@ -964,6 +984,11 @@ begin
   if not found then raise exception 'application not found' using errcode = 'P0002'; end if;
   if a.profile_id = auth.uid() then raise exception 'you cannot decide your own application' using errcode = '42501'; end if;
   perform private.apply_application_transition(p_application, 'rejected', auth.uid(), p_reason);
+  -- Approval created a clinician record (switched off, never active). A rejected application must not leave it behind:
+  -- it would hold the folio and block the person from applying again.
+  if a.clinical_staff_id is not null then
+    delete from public.clinical_staff where id = a.clinical_staff_id and not active and status = 'active';
+  end if;
 end;
 $$;
 
@@ -1286,8 +1311,9 @@ as $$
            or private.credential_in_grace(cs.id, 'indemnity', p_at))
   );
 $$;
+-- Server-side callers only (S16 to S19 call it from their own functions): not executable by signed-in users, so nobody can
+-- probe whether an arbitrary profile id is a working clinician. The screens read eligibility through definer functions.
 revoke all on function private.clinician_is_eligible(uuid, timestamptz) from public, anon, authenticated;
-grant execute on function private.clinician_is_eligible(uuid, timestamptz) to authenticated;
 
 create function private.suspend_clinician_internal(p_staff uuid, p_reason text, p_actor uuid)
 returns void language plpgsql security definer set search_path = ''
@@ -1562,11 +1588,11 @@ begin
           select min(w) into v_w from unnest(v_windows) w where w >= v_days;
           if v_w is not null then
             -- quietly mark the wider windows as passed so a late sweep sends one notice, not a burst
-            insert into public.credential_expiry_notices (clinical_staff_id, kind, expires_on, window_days, was_sent)
-              select r.id, v_kind, (v_exp at time zone 'Africa/Lagos')::date, w, false from unnest(v_windows) w where w > v_w
+            insert into public.credential_expiry_notices (organisation_id, clinical_staff_id, kind, expires_on, window_days, was_sent)
+              select r.organisation_id, r.id, v_kind, (v_exp at time zone 'Africa/Lagos')::date, w, false from unnest(v_windows) w where w > v_w
               on conflict do nothing;
-            insert into public.credential_expiry_notices (clinical_staff_id, kind, expires_on, window_days)
-              values (r.id, v_kind, (v_exp at time zone 'Africa/Lagos')::date, v_w) on conflict do nothing;
+            insert into public.credential_expiry_notices (organisation_id, clinical_staff_id, kind, expires_on, window_days)
+              values (r.organisation_id, r.id, v_kind, (v_exp at time zone 'Africa/Lagos')::date, v_w) on conflict do nothing;
             get diagnostics v_rows = row_count;  -- 1 when this window's notice is new
             v_inserted := v_rows > 0;
             if v_inserted then

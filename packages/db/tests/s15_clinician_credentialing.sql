@@ -41,6 +41,14 @@ $f$ begin
 end $f$;
 create function pg_temp.back() returns void language plpgsql as $f$ begin reset role; end $f$;
 
+create function pg_temp.reg(p_app uuid, p_kind public.clinician_document_kind, p_path text, p_mime text, p_size bigint, p_hash text, p_exp timestamptz default null)
+returns uuid language plpgsql security definer as
+$f$ begin
+  -- the web route stores the vetted file with the service role first; this stands in for that step
+  insert into storage.objects (bucket_id, name, metadata) values ('clinician-documents', p_path, jsonb_build_object('size', p_size, 'mimetype', p_mime));
+  return public.register_clinician_document(p_app, p_kind, p_path, p_mime, p_size, p_hash, p_exp);
+end $f$;
+
 create function pg_temp.mkuser(p_org uuid, p_label text, p_role text, p_confirmed boolean default true) returns uuid
 language plpgsql as $f$
 declare v uuid := gen_random_uuid();
@@ -58,8 +66,11 @@ declare v_app uuid; v_k text;
 begin
   perform pg_temp.act(p_uid);
   v_app := public.start_clinician_application('employed');
+  perform pg_temp.back();
+  update public.clinician_applications set employment_type = 'employed' where id = v_app;  -- a reviewer's act in real life
+  perform pg_temp.act(p_uid);
   foreach v_k in array array['mdcn_practising_licence', 'mdcn_portal_screenshot', 'graduation_certificate', 'nysc_certificate', 'government_id', 'cv'] loop
-    perform public.register_clinician_document(v_app, v_k::public.clinician_document_kind, p_org || '/' || p_uid || '/' || v_k || '.pdf', 'application/pdf', 1000, repeat('a', 64));
+    perform pg_temp.reg(v_app, v_k::public.clinician_document_kind, p_org || '/' || p_uid || '/' || v_k || '.pdf', 'application/pdf', 1000, repeat('a', 64));
   end loop;
   perform public.save_clinician_application(v_app, jsonb_build_object(
     'mdcn_folio', p_folio, 'qualification', 'MBBS', 'years_since_house_job', 4,
@@ -73,7 +84,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_cmo_staff uuid; v_c2 uuid; v_c2_staff uuid; v_patient uuid;
-  v_p1 uuid; v_p2 uuid; v_p3 uuid; v_p4 uuid; v_p5 uuid; v_p6 uuid; v_p7 uuid; v_noemail uuid; v_p5_staff uuid;
+  v_p1 uuid; v_p2 uuid; v_p3 uuid; v_p4 uuid; v_p5 uuid; v_p6 uuid; v_p7 uuid; v_p8 uuid; v_p9 uuid; v_app9 uuid; v_app9b uuid; v_staff9 uuid; v_noemail uuid; v_p5_staff uuid;
   v_app uuid; v_app2 uuid; v_app3 uuid; v_app4 uuid; v_app_again uuid; v_staff uuid;
   v_k text; v_doc uuid; v_docs uuid[] := '{}';
   v_res jsonb; v_n integer; v_t text; v_attempt uuid; v_cases jsonb; v_answers jsonb; v_cid uuid;
@@ -95,6 +106,8 @@ begin
   v_p5 := pg_temp.mkuser(v_org, 'grace-clinician', 'clinician');
   v_p6 := pg_temp.mkuser(v_org, 'applicant-6', 'patient');
   v_p7 := pg_temp.mkuser(v_org, 'applicant-7', 'patient');
+  v_p8 := pg_temp.mkuser(v_org, 'applicant-8', 'patient');
+  v_p9 := pg_temp.mkuser(v_org, 'applicant-9', 'patient');
   v_noemail := pg_temp.mkuser(v_org, 'unconfirmed', 'patient', false);
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
@@ -135,17 +148,17 @@ begin
   perform pg_temp.rec('an incomplete application cannot be submitted', '23514', pg_temp.try(format('select public.submit_clinician_application(%L)', v_app)));
   -- documents: path, type, size
   perform pg_temp.rec('a document outside your own folder is refused', '42501',
-    pg_temp.try(format('select public.register_clinician_document(%L, ''cv'', %L, ''application/pdf'', 100, %L)', v_app, v_org || '/' || v_p2 || '/x.pdf', v_hash)));
+    pg_temp.try(format('select pg_temp.reg(%L, ''cv'', %L, ''application/pdf'', 100, %L)', v_app, v_org || '/' || v_p2 || '/x.pdf', v_hash)));
   perform pg_temp.rec('an executable type is refused', '23514',
-    pg_temp.try(format('select public.register_clinician_document(%L, ''cv'', %L, ''application/x-msdownload'', 100, %L)', v_app, v_org || '/' || v_p1 || '/x.exe', v_hash)));
+    pg_temp.try(format('select pg_temp.reg(%L, ''cv'', %L, ''application/x-msdownload'', 100, %L)', v_app, v_org || '/' || v_p1 || '/x.exe', v_hash)));
   perform pg_temp.rec('an oversize file is refused', '23514',
-    pg_temp.try(format('select public.register_clinician_document(%L, ''cv'', %L, ''application/pdf'', 99999999, %L)', v_app, v_org || '/' || v_p1 || '/x.pdf', v_hash)));
+    pg_temp.try(format('select pg_temp.reg(%L, ''cv'', %L, ''application/pdf'', 99999999, %L)', v_app, v_org || '/' || v_p1 || '/x.pdf', v_hash)));
   foreach v_k in array array['mdcn_practising_licence', 'mdcn_portal_screenshot', 'graduation_certificate', 'nysc_certificate', 'government_id', 'cv', 'indemnity_certificate'] loop
-    v_doc := public.register_clinician_document(v_app, v_k::public.clinician_document_kind, v_org || '/' || v_p1 || '/' || v_k || '.pdf', 'application/pdf', 1000, v_hash);
+    v_doc := pg_temp.reg(v_app, v_k::public.clinician_document_kind, v_org || '/' || v_p1 || '/' || v_k || '.pdf', 'application/pdf', 1000, v_hash);
     v_docs := v_docs || v_doc;
   end loop;
   -- replace one document: the old one is superseded
-  v_doc := public.register_clinician_document(v_app, 'cv', v_org || '/' || v_p1 || '/cv2.pdf', 'application/pdf', 1000, v_hash);
+  v_doc := pg_temp.reg(v_app, 'cv', v_org || '/' || v_p1 || '/cv2.pdf', 'application/pdf', 1000, v_hash);
   perform pg_temp.rec('re-uploading a kind supersedes the old file', '1',
     (select count(*)::text from public.clinician_documents where application_id = v_app and kind = 'cv' and superseded_at is null));
   perform public.save_clinician_application(v_app, jsonb_build_object(
@@ -402,9 +415,9 @@ begin
   perform pg_temp.rec('reinstating without a renewed licence is refused', '23514', pg_temp.try(format('select public.reinstate_clinician(%L, ''renewed and checked'')', v_staff)));
   perform pg_temp.back();
   perform pg_temp.act(v_p1);
-  v_renew := public.register_clinician_document(null, 'mdcn_practising_licence', v_org || '/' || v_p1 || '/renewal.pdf', 'application/pdf', 1000, v_hash);
+  v_renew := pg_temp.reg(null, 'mdcn_practising_licence', v_org || '/' || v_p1 || '/renewal.pdf', 'application/pdf', 1000, v_hash);
   perform pg_temp.rec('a suspended clinician can upload a renewal', 'true', (v_renew is not null)::text);
-  perform pg_temp.rec('but not an unrelated document type', '23514', pg_temp.try(format('select public.register_clinician_document(null, ''cv'', %L, ''application/pdf'', 10, %L)', v_org || '/' || v_p1 || '/cv3.pdf', v_hash)));
+  perform pg_temp.rec('but not an unrelated document type', '23514', pg_temp.try(format('select pg_temp.reg(null, ''cv'', %L, ''application/pdf'', 10, %L)', v_org || '/' || v_p1 || '/cv3.pdf', v_hash)));
   perform pg_temp.rec('and cannot verify their own renewal', '42501', pg_temp.try(format('select public.renew_clinician_credential(%L, ''licence'', now() + interval ''300 days'', %L)', v_staff, v_renew)));
   perform pg_temp.back();
   perform pg_temp.act(v_admin);
@@ -541,6 +554,52 @@ begin
   perform pg_temp.rec('a live restriction from the older ladder makes a clinician ineligible', 'false', private.clinician_is_eligible(v_c2)::text);
   update public.provider_restrictions set lifted_at = now(), lift_reason = 'cleared' where clinical_staff_id = v_c2_staff;
   perform pg_temp.rec('and lifting it restores eligibility', 'true', private.clinician_is_eligible(v_c2)::text);
+
+  -- review fixes: employment type, evidence swaps, the storage door, a rejected approval, eligibility exposure
+  perform pg_temp.act(v_p8);
+  v_app9 := public.start_clinician_application('employed');
+  perform pg_temp.back();
+  perform pg_temp.rec('a self-started application is freelance whatever the caller passes', 'contracted', (select employment_type::text from public.clinician_applications where id = v_app9));
+
+  perform pg_temp.act(v_admin);
+  perform public.record_credential_check(v_app4, 'identity', 'passed');
+  perform pg_temp.back();
+  perform pg_temp.rec('identity passed before the swap', 'passed', (select result::text from public.clinician_checks where application_id = v_app4 and kind = 'identity'));
+  perform pg_temp.act(v_p7);
+  perform pg_temp.reg(v_app4, 'government_id', v_org || '/' || v_p7 || '/swapped-id.pdf', 'application/pdf', 1000, v_hash);
+  perform pg_temp.back();
+  perform pg_temp.rec('replacing a verified document sends its check back to pending', 'pending,true',
+    (select c.result::text || ',' || (c.performed_by is null)::text from public.clinician_checks c where c.application_id = v_app4 and c.kind = 'identity'));
+  insert into storage.objects (bucket_id, name, metadata) values ('clinician-documents', v_org || '/' || v_p7 || '/size-lie.pdf', jsonb_build_object('size', 10, 'mimetype', 'application/pdf'));
+  perform pg_temp.act(v_p7);
+  perform pg_temp.rec('a document with no file in storage is refused', '23514',
+    pg_temp.try(format('select public.register_clinician_document(%L, ''cv'', %L, ''application/pdf'', 1000, %L)', v_app4, v_org || '/' || v_p7 || '/never-uploaded.pdf', v_hash)));
+  perform pg_temp.rec('a declared size that does not match the stored file is refused', '23514',
+    pg_temp.try(format('select public.register_clinician_document(%L, ''cv'', %L, ''application/pdf'', 11, %L)', v_app4, v_org || '/' || v_p7 || '/size-lie.pdf', v_hash)));
+  perform pg_temp.back();
+  perform pg_temp.rec('signed-in users have no storage policy on the documents bucket', '0',
+    (select count(*)::text from pg_policies where schemaname = 'storage' and tablename = 'objects' and (coalesce(qual, '') || coalesce(with_check, '')) like '%clinician-documents%'));
+  perform pg_temp.rec('a signed-in user cannot call the eligibility function', 'false', has_function_privilege('authenticated', (select p.oid from pg_proc p where p.pronamespace = 'private'::regnamespace and p.proname = 'clinician_is_eligible'), 'EXECUTE')::text);
+
+  -- rejecting after approval removes the switched-off clinician record, so the person can apply again
+  insert into public.clinician_applications (organisation_id, profile_id, state, employment_type, licence_expires_at, mdcn_folio, years_since_house_job, is_test)
+    values (v_org, v_p9, 'started', 'employed', now() + interval '300 days', 'S15-REJAPPR-1', 5, true) returning id into v_app9b;
+  perform set_config('tarragon.credential_transition', 'on', true);
+  update public.clinician_applications set state = 'test_passed' where id = v_app9b;
+  perform set_config('tarragon.credential_transition', 'off', true);
+  insert into public.clinician_checks (organisation_id, application_id, kind, result, performed_by, performed_at, is_test)
+    values (v_org, v_app9b, 'licence', 'passed', v_admin, now(), true);
+  perform pg_temp.act(v_cmo);
+  v_staff9 := public.approve_clinician_application(v_app9b);
+  perform pg_temp.back();
+  perform pg_temp.rec('approval created a clinician record', 'true', (exists (select 1 from public.clinical_staff where id = v_staff9))::text);
+  perform pg_temp.act(v_admin);
+  perform public.reject_clinician_application(v_app9b, 'changed our mind after approval');
+  perform pg_temp.back();
+  perform pg_temp.rec('rejecting after approval removes the switched-off record', 'false', (exists (select 1 from public.clinical_staff where id = v_staff9))::text);
+  perform pg_temp.act(v_p9);
+  perform pg_temp.rec('and the person can apply again', 'ok', pg_temp.try('select public.start_clinician_application()'));
+  perform pg_temp.back();
 
   -- 8. Whole-surface checks -------------------------------------------------------------------------------
   perform pg_temp.rec('exactly one active credentialing config row', '1', (select count(*)::text from public.credentialing_config where is_active));
