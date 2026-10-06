@@ -42407,8 +42407,6 @@ export type Database = {
         Returns: Json;
       };
       my_care_circle: { Args: never; Returns: Json };
-      my_pending_gifts: { Args: never; Returns: Json };
-      respond_to_gifted_pack: { Args: { p_accept: boolean; p_entitlement: string }; Returns: Json };
       my_supported_people: { Args: never; Returns: Json };
       preview_care_circle_invite: { Args: { p_token: string }; Returns: Json };
       revoke_care_circle_member: { Args: { p_member: string }; Returns: boolean };
