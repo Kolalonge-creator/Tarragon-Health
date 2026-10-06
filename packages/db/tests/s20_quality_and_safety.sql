@@ -895,7 +895,7 @@ begin
   perform pg_temp.ck('X is no longer eligible', 'false', private.clinician_is_eligible(x)::text);
   perform pg_temp.ck('X cannot take work', 'true', (pg_temp.next_outcome(x) <> 'claimed')::text);
   perform pg_temp.ck('X is told nothing clinical: the removal is audited', '1', (select count(*)::text from public.audit_log where action = 'clinician.removed_from_work' and entity_id = v_xs));
-  perform pg_temp.ck('a removal event asks S18 to reassign the lead patients', 'true',
+  perform pg_temp.ck('a removal event asks S18 to reassign the lead patients unless S18 already did', (to_regprocedure('private.lead_on_clinician_removed(uuid)') is null)::text,
     (select (count(*) >= 1 and bool_and((payload ->> 'lead_reassignment_required')::boolean))::text from public.domain_events where event_type = 'clinician.removed_from_work' and payload ->> 'clinical_staff_id' = v_xs::text));
   perform pg_temp.ck('the released task goes to the next clinician', 'true', (pg_temp.next_task(y) = t)::text);
 
