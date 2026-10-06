@@ -83,3 +83,40 @@ Deno.test("an order that is already paid is refused", async () => {
   const r = await handleCheckout(req({ code: "membership_annual", client_key: KEY }), d);
   assertEquals([r.status, (await r.json()).error], [409, "already_paid"]);
 });
+
+// S29: pay for a loved one
+const PATIENT = "99999999-8888-4777-8666-555555555555";
+
+Deno.test("S29: a beneficiary is passed to create_order and the payer's own email is used", async () => {
+  const { d, seen } = deps();
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, beneficiary: PATIENT }), d);
+  assertEquals(res.status, 200);
+  assertEquals(seen.args, { p_code: "membership_annual", p_client_key: KEY, p_beneficiary: PATIENT });
+});
+
+Deno.test("S29: no beneficiary means no p_beneficiary argument (a patient paying for themselves is unchanged)", async () => {
+  const { d, seen } = deps();
+  await handleCheckout(req({ code: "membership_annual", client_key: KEY, beneficiary: null }), d);
+  assertEquals(seen.args, { p_code: "membership_annual", p_client_key: KEY });
+});
+
+Deno.test("S29: a malformed beneficiary is refused before anything is created", async () => {
+  const { d, seen } = deps();
+  for (const bad of ["nope", 42, {}, "99999999-8888-4777-8666-55555555555"]) {
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, beneficiary: bad }), d);
+    assertEquals(res.status, 400);
+  }
+  assertEquals(seen.args, undefined);
+});
+
+Deno.test("S29: the database refusing a payer (no pay_for_care, expired, another patient) is a 403 with a stable code", async () => {
+  const { d } = deps({ rpc: () => ({ data: null, error: { message: "order_beneficiary_not_allowed" } }) });
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, beneficiary: PATIENT }), d);
+  assertEquals([res.status, (await res.json()).error], [403, "order_beneficiary_not_allowed"]);
+});
+
+Deno.test("S29c: paying for someone else with anything but the full yearly Membership is a 403 with its own code", async () => {
+  const { d } = deps({ rpc: () => ({ data: null, error: { message: "gift_item_not_allowed" } }) });
+  const res = await handleCheckout(req({ code: "consult_single", client_key: KEY, beneficiary: PATIENT }), d);
+  assertEquals([res.status, (await res.json()).error], [403, "gift_item_not_allowed"]);
+});

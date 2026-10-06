@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { refuseSupersededDraft } from "@/lib/clinical/refuse-superseded-draft";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 
@@ -60,6 +61,7 @@ export async function createProviderQualityPolicyDraftAction(
 
   revalidatePath(REVALIDATE_PATH);
   revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
 
@@ -72,9 +74,12 @@ export async function createProviderQualityPolicyDraftAction(
  */
 export async function signProviderQualityPolicyAction(policyId: string): Promise<SignProviderQualityPolicyState> {
   const supabase = await createClient();
+  const refused = await refuseSupersededDraft(supabase, "provider_quality_policy", policyId);
+  if (refused) return { error: refused };
   const { error } = await supabase.rpc("sign_provider_quality_policy", { p_policy_id: policyId });
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
   revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }

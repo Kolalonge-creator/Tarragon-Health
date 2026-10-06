@@ -14,6 +14,8 @@ import {
   LAB_RESULT_EXT,
   refusalOf,
   releaseSchema,
+  releasedResultsSchema,
+  type ReleasedResultRow,
   reviewResultSchema,
   type ReviewResult,
   resultEntrySchema,
@@ -295,4 +297,19 @@ export async function submitTeamResult(patientId: string, labOrderId: string | u
     return { error: describeLabError(error) };
   }
   return { success: true };
+}
+
+/** A senior clinician lists a tied patient's released results, to withdraw one. A click, one audited read per open. */
+export async function listReleasedLabResults(patientId: string): Promise<{ results?: ReleasedResultRow[]; error?: string }> {
+  if (!/^[0-9a-f-]{36}$/.test(patientId)) return { error: "Not found." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("patient_released_lab_results", { p_patient: patientId, p_reason: "Looking for a released lab result to withdraw" });
+  if (error) return { error: describeLabError(error) };
+  const refused = refusalOf(data);
+  if (refused) return { error: refused };
+  if (data && typeof data === "object" && "error" in data && (data as { error: unknown }).error === "senior_only") {
+    return { error: "Only a senior clinician can withdraw a released result." };
+  }
+  const parsed = releasedResultsSchema.safeParse(data);
+  return parsed.success ? { results: parsed.data.results } : { error: "That list could not be read. Please try again." };
 }
