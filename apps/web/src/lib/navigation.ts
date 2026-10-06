@@ -547,6 +547,9 @@ export function getNavSections(
                 { label: "Training and profile", href: "/clinician/credentials", icon: "review" },
                 // Declared hours, the on-call rota, cover requests (S18).
                 // Red event pages sent to you: acknowledge, open the chart, close with a note (S19).
+                // The Next task queue, the task I hold, and the patients I lead (S35).
+                { label: "Next task", href: "/clinician/queue", icon: "escalation" },
+                { label: "My lead patients", href: "/clinician/lead-patients", icon: "patientActivity" },
                 { label: "On call", href: "/clinician/on-call", icon: "siren" },
                 { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
                 // What a contracted clinician has earned, line by line, and the fee schedule that applies (S30).

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { refuseSupersededDraft } from "@/lib/clinical/refuse-superseded-draft";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 
@@ -63,6 +64,7 @@ export async function createAlertRulesDraftAction(
 
   revalidatePath(REVALIDATE_PATH);
   revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
 
@@ -75,9 +77,12 @@ export async function createAlertRulesDraftAction(
  */
 export async function signAlertRulesAction(versionId: string): Promise<SignAlertRulesState> {
   const supabase = await createClient();
+  const refused = await refuseSupersededDraft(supabase, "alert_rules", versionId);
+  if (refused) return { error: refused };
   const { error } = await supabase.rpc("sign_alert_rules", { p_id: versionId });
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
   revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
