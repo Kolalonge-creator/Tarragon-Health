@@ -734,15 +734,66 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) a later session adds an in-app SDK (LiveKit or Zoom Video SDK, labels we control, client quality stats) and wires `stepLadder` to it; (b) accept manual fallback only.
 - Recommend (a). Decision: open.
 
-### OQ-137 Mobile Care flow (raised by S21)
+### OQ-158 Mobile Care flow (raised by S21)
 - The consultation room and Care tab changes are on the web (responsive). The Expo app keeps its own older video-visit screens, which hand off to the Zoom app by link. A mobile consultation room needs an EAS dev-client build to check on a device, which this session could not do.
 - Recommend: a short mobile session after S21 merges: the waiting room, consent prompt and "call me" over the same RPCs, then device-tested. Decision: open.
 
-### OQ-138 Clinician access after "Finish consultation" (raised by S21 review)
+### OQ-159 Clinician access after "Finish consultation" (raised by S21 review)
 - `complete_encounter` marks the appointment completed, as the older `set_video_consultation_call_state` already does. `private.clinician_has_patient_access` only ties a clinician to a patient through a live appointment (and the other clauses), so after Finish a clinician who is not on that patient's care list can no longer open the chart to write the note or prescribe (INV-12 is doing its job; the timing is the problem).
 - Options: (a) add one clause to `clinician_has_patient_access`: "my encounter with this patient ended in the last N hours" (recommended; the function is also being changed on the S19 branch, so this must be applied on top of whichever lands last, re-reading the live definition first); (b) keep the appointment `in_progress` until a signed note exists; (c) tell clinicians to finish last (done: the room says so).
 - Decision: open.
 
-### OQ-139 "Joined" is recorded when the link is issued, not when someone enters the call (raised by S21 review)
+### OQ-160 "Joined" is recorded when the link is issued, not when someone enters the call (raised by S21 review)
 - A person can no longer report their own join from the app; the server records it after checking the person and the join window. With link-based Zoom the server still cannot see anyone enter the call, so a clinician who requests the link and never enters still counts as joined and can defeat a no-show report.
 - This closes when the in-app SDK (OQ-136) gives us real presence. Until then the CMO reviews repeat reports, and the no-show report is per consultation, not automatic. Decision: open.
+### OQ-137 Who are the backup readers for safety concerns (raised by S20)
+- Context: spec 7.8 says a concern goes to the clinical lead and cannot be seen by ops. "Ops" here is an admin account (OQ-24), and there is no superadmin role, so nobody can be a backup by role. If the lead is away, conflicted or is the subject, nothing else can read it.
+- Built: a named list (`safety_concern_readers`) that only the lead can add to. A concern nobody acknowledges within 48 hours (4 hours if the person marked it immediate) also becomes readable by them. A concern raised by the lead itself goes to them at once. With no one named, a neutral incident is opened so operations see that something is overdue, never what.
+- Recommendation: name the founder (as a person, not as an admin account) as the first backup reader, and a second senior reviewer when one is hired.
+- Decision (founder, 2026-10-06): the founder is the first backup reader, named as a person by the clinical lead (`add_safety_concern_backup_reader`), not by admin role. Add a second senior reviewer when hired. **Follow-up: the CMO calls the function once the migration is live.**
+
+### OQ-138 Who audits the chief medical officer's own tasks (raised by S20)
+- Context: the reviewer must be an eligible chief medical officer who is not the clinician. With one CMO, the CMO's own audits have no reviewer and stay unassigned (shown at the top of the lead's queue, and the nightly sweep retries).
+- Recommendation: a second senior reviewer once hired; until then accept unassigned, or the founder reviews them in the lead area.
+- Decision (founder, 2026-10-06): leave the CMO's own audits unassigned until a second senior reviewer exists. They show at the top of the lead's queue and the nightly sweep assigns them when a reviewer is added.
+
+### OQ-139 May a safety concern be anonymous (raised by S20)
+- Context: research (NHS Freedom to Speak Up) favours protected-but-named reporting because follow-up, feedback and the 12 month retaliation review all need an identity. A fully anonymous route cannot do those.
+- Built: named but protected (readable only by the raiser, the lead and named backup readers).
+- Recommendation: keep named but protected. Revisit only if clinicians say they will not use it.
+- Decision (founder, 2026-10-06): named but protected. No anonymous route.
+
+### OQ-140 The audit and speak-up numbers need the CMO (raised by S20)
+- Context: 10 percent random sample plus every red event and titration, one audit per clinician per month once they complete 3 tasks, reviewer cap 40 a month, 14 days to complete, 20 audited tasks for level 1, pass mark 85 with no critical miss, score bands 85 and 70, reliability weight 2, acknowledge within 48 hours (4 for immediate), respond within 14 days, 12 month retaliation window. All PROPOSED in `quality_config` (mirrored as `quality.audit`).
+- Recommendation: the CMO reviews the form items and the bands before the first real audit; changing any number is a new config version, never an edit.
+- Decision (founder, 2026-10-06): accepted as proposed for a start, pending the CMO's sign-off (`quality.audit` stays `proposed`; changing any number is a new config version).
+
+### OQ-141 Credential warning windows and the 31 December cluster (raised by S20)
+- Context: S15 warns at 90, 30 and 0 days. Research suggests 60, 30, 14 and 7 days plus a reminder from November, because MDCN annual licences cluster at the end of December (MDCN lists 31 December for renewal; verify the current rule, fee and CPD requirement before relying on it).
+- Not built here: this is S15's `credential_rule('notice_windows_days')` configuration, not S20's.
+- Recommendation: add a November reminder and a capacity check before 1 January once the roster is large enough for a cluster to matter.
+- Decision: open.
+
+### OQ-150 What makes a patient a Member (raised by S22, built in S22b)
+- The 2026-10-05 Membership has no checkout yet (S25). Until then a patient is a Member when `patient_memberships` has an active, in-date row, or still has the old `async_doctor_visit` plan feature. Only an admin (`/admin/members`) or the CMO (`/clinician/members`) can grant or end one, with a reason, audited; a dated membership lapses by itself. S25's checkout, a sponsor's Care Voucher and an employer's cohort should write the same table with source `purchase`, `voucher` or `employer`. The seam stays `private.patient_is_member(uuid)`. A grandfathered paid `async_consult_credit` still works for a non-Member. This reverses OQ-130 (the 2,500 per-question price): the per-question credit is no longer sold.
+
+### OQ-151 Written question allowance and window are PROPOSED (raised by S22)
+- 4 written questions per member per month, 24 hour window, 7 day free follow-up, up to 3 photos. All in `async_question.behaviour` v1, owner CMO. The founder asked the build to choose the allowance: four is about one a week beside 12 monthly calls, keeps a 24 hour window staffable, and a missed window returns the question. Review after the first month of real use. No rollover.
+
+### OQ-152 Notes: stored states and `body jsonb` (raised by S22)
+- Spec 4.3 wants `notes.state` and `body jsonb`. Live `clinical_encounter_notes` wins (OQ-23): `status` stays `draft` or `finalized`, and the S05 `public.notes` view derives `draft`, `signed`, `amended`. No `body jsonb`: the history, examination, assessment, diagnosis and plan columns already are the structured sections. A second stored state or a duplicate body would be two sources of truth.
+
+### OQ-153 NDPA correction deadlines and MDCN text-only limits (raised by S22)
+- Counsel to confirm the NDPA response deadline for a correction request on a clinical record and any clinical-record carve-out, and the primary MDCN telemedicine text on asynchronous advice (research read it only through secondary sources). The design does not depend on either: a correction is attached beside the note and never deletes; no written question ever produces a diagnosis (founder, 2026-10-06), a patient who needs one is called.
+
+### OQ-154 Written questions for under-18s (raised by S22, extends OQ-129)
+- Adults only. A minor's question is refused with a plain message. Whether a guardian may submit for a child is for the founder and CMO.
+
+### OQ-155 Patient access to signed notes reverses part of OQ-58 (raised by S22)
+- OQ-58 (2026-10-01) gave patients the published summary only. Founder decision 2026-10-06: summary by default, and the signed note on request once a clinician releases it, with a recorded withhold reason when not released, and CMO-only release for protected categories. OQ-58 is amended, not removed: nothing is released automatically.
+
+### OQ-156 Pidgin strings for S22 need a native reviewer (raised by S22, extends OQ-19)
+- Every new `pcm` string for written questions, the red-flag guidance shown before sending, the allowance and the release screens was written by the build session. The red-flag text is safety wording and must be reviewed with the CMO before the next store build.
+
+### OQ-157 Direct staff reads of `async_consults`, `care_messages` and summaries stay org-wide (raised by S22)
+- S22 closes the staff read path for written questions only. `care_messages`, `care_message_attachments` and `consultation_patient_summaries` are still readable by any org staff and are not audited (INV-10, INV-12; RECONCILIATION). One surface per session (OQ-54).

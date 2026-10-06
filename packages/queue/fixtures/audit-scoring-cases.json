@@ -1,0 +1,289 @@
+{
+  "form": {
+    "safety_items": [
+      "s1",
+      "s2"
+    ],
+    "quality_items": [
+      "q1",
+      "q2",
+      "q3",
+      "q4"
+    ],
+    "quality_max": 4
+  },
+  "rules": {
+    "satisfactory_min": 85,
+    "minor_concerns_min": 70,
+    "rationale_min_chars": 20
+  },
+  "cases": [
+    {
+      "name": "all safe, full marks",
+      "safety": {
+        "s1": true,
+        "s2": true
+      },
+      "quality": {
+        "q1": 4,
+        "q2": 4,
+        "q3": 4,
+        "q4": 4
+      },
+      "rationale": "",
+      "expect": {
+        "outcome": "satisfactory",
+        "score": 100,
+        "critical": false
+      }
+    },
+    {
+      "name": "satisfactory just above the line",
+      "safety": {
+        "s1": true,
+        "s2": true
+      },
+      "quality": {
+        "q1": 4,
+        "q2": 4,
+        "q3": 4,
+        "q4": 2
+      },
+      "rationale": "",
+      "expect": {
+        "outcome": "satisfactory",
+        "score": 87.5,
+        "critical": false
+      }
+    },
+    {
+      "name": "81.25 is minor concerns, not satisfactory",
+      "safety": {
+        "s1": true,
+        "s2": true
+      },
+      "quality": {
+        "q1": 4,
+        "q2": 3,
+        "q3": 3,
+        "q4": 3
+      },
+      "rationale": "One history element was missing from the note.",
+      "expect": {
+        "outcome": "minor_concerns",
+        "score": 81.3,
+        "critical": false
+      }
+    },
+    {
+      "name": "minor concerns with a reason",
+      "safety": {
+        "s1": true,
+        "s2": true
+      },
+      "quality": {
+        "q1": 3,
+        "q2": 3,
+        "q3": 3,
+        "q4": 3
+      },
+      "rationale": "Documentation was thin on the second visit.",
+      "expect": {
+        "outcome": "minor_concerns",
+        "score": 75,
+        "critical": false
+      }
+    },
+    {
+      "name": "minor concerns without a reason is refused",
+      "safety": {
+        "s1": true,
+        "s2": true
+      },
+      "quality": {
+        "q1": 3,
+        "q2": 3,
+        "q3": 3,
+        "q4": 3
+      },
+      "rationale": "too short",
+      "expect": {
+        "error": "rationale_too_short"
+      }
+    },
+    {
+      "name": "significant concerns",
+      "safety": {
+        "s1": true,
+        "s2": true
+      },
+      "quality": {
+        "q1": 2,
+        "q2": 2,
+        "q3": 2,
+        "q4": 2
+      },
+      "rationale": "Plan did not follow the protocol steps.",
+      "expect": {
+        "outcome": "significant_concerns",
+        "score": 50,
+        "critical": false
+      }
+    },
+    {
+      "name": "a failed safety item is unsafe whatever the quality score",
+      "safety": {
+        "s1": true,
+        "s2": false
+      },
+      "quality": {
+        "q1": 4,
+        "q2": 4,
+        "q3": 4,
+        "q4": 4
+      },
+      "rationale": "Red flag was not acted on at the time.",
+      "expect": {
+        "outcome": "unsafe",
+        "score": 100,
+        "critical": true
+      }
+    },
+    {
+      "name": "unsafe still needs a reason",
+      "safety": {
+        "s1": false,
+        "s2": true
+      },
+      "quality": {
+        "q1": 4,
+        "q2": 4,
+        "q3": 4,
+        "q4": 4
+      },
+      "rationale": "",
+      "expect": {
+        "error": "rationale_too_short"
+      }
+    },
+    {
+      "name": "a missing item is refused",
+      "safety": {
+        "s1": true,
+        "s2": true
+      },
+      "quality": {
+        "q1": 4,
+        "q2": 4,
+        "q3": 4
+      },
+      "rationale": "",
+      "expect": {
+        "error": "form_items_mismatch"
+      }
+    },
+    {
+      "name": "an extra item is refused",
+      "safety": {
+        "s1": true,
+        "s2": true,
+        "s3": true
+      },
+      "quality": {
+        "q1": 4,
+        "q2": 4,
+        "q3": 4,
+        "q4": 4
+      },
+      "rationale": "",
+      "expect": {
+        "error": "form_items_mismatch"
+      }
+    },
+    {
+      "name": "a safety item that is not true or false is refused",
+      "safety": {
+        "s1": "yes",
+        "s2": true
+      },
+      "quality": {
+        "q1": 4,
+        "q2": 4,
+        "q3": 4,
+        "q4": 4
+      },
+      "rationale": "",
+      "expect": {
+        "error": "safety_item_not_boolean"
+      }
+    },
+    {
+      "name": "a score above the maximum is refused",
+      "safety": {
+        "s1": true,
+        "s2": true
+      },
+      "quality": {
+        "q1": 5,
+        "q2": 4,
+        "q3": 4,
+        "q4": 4
+      },
+      "rationale": "",
+      "expect": {
+        "error": "quality_item_out_of_range"
+      }
+    },
+    {
+      "name": "a negative score is refused",
+      "safety": {
+        "s1": true,
+        "s2": true
+      },
+      "quality": {
+        "q1": -1,
+        "q2": 4,
+        "q3": 4,
+        "q4": 4
+      },
+      "rationale": "",
+      "expect": {
+        "error": "quality_item_out_of_range"
+      }
+    },
+    {
+      "name": "a fractional score is refused",
+      "safety": {
+        "s1": true,
+        "s2": true
+      },
+      "quality": {
+        "q1": 3.5,
+        "q2": 4,
+        "q3": 4,
+        "q4": 4
+      },
+      "rationale": "",
+      "expect": {
+        "error": "quality_item_out_of_range"
+      }
+    },
+    {
+      "name": "a score that is not a number is refused",
+      "safety": {
+        "s1": true,
+        "s2": true
+      },
+      "quality": {
+        "q1": "4",
+        "q2": 4,
+        "q3": 4,
+        "q4": 4
+      },
+      "rationale": "",
+      "expect": {
+        "error": "quality_item_out_of_range"
+      }
+    }
+  ]
+}

@@ -252,7 +252,7 @@ do $$
 declare fn text;
 begin
   perform pg_temp.rec('the claim config has one active row', '1', (select count(*)::text from public.queue_claim_config where is_active));
-  foreach fn in array array['public.queue_next()', 'public.queue_summary()', 'public.queue_handback(uuid,text,text)', 'public.queue_extend_claim(uuid)',
+  foreach fn in array array['public.queue_next(text[])', 'public.queue_summary()', 'public.queue_handback(uuid,text,text)', 'public.queue_extend_claim(uuid)',
       'public.queue_complete(uuid,jsonb)', 'public.declare_conflict(uuid,text)', 'public.record_conflict(uuid,uuid,text)', 'public.lift_conflict(uuid,text)',
       'public.declare_availability(text,timestamptz,timestamptz)', 'public.cancel_availability(uuid)'] loop
     perform pg_temp.rec('anon cannot execute ' || fn, 'false', has_function_privilege('anon', fn::regprocedure, 'execute')::text);
@@ -495,9 +495,11 @@ begin
   t := pg_temp.mktask(pg_temp.f('p3'), 'amber_bp_review');
   perform pg_temp.rec('B claims', t::text, pg_temp.next_task(v_b)::text);
   v_before := pg_temp.score_of(v_b);
-  update public.clinical_staff set active = false where profile_id = v_b;
+  -- ineligible through an expired licence (not by deactivating the row): since S20 a deactivation clears the claim and the rota
+  -- at once, so it would never reach this sweep, and flipping it back would leave B without a block for the checks below
+  update public.clinical_staff set license_expires_at = now() - interval '2 days' where profile_id = v_b;
   v_res := private.expire_task_claims();
-  update public.clinical_staff set active = true where profile_id = v_b;
+  update public.clinical_staff set license_expires_at = null where profile_id = v_b;
   perform pg_temp.rec('the claim of an ineligible clinician was released', 'open,cancelled,1', pg_temp.state_of(t) || ',' || (select end_reason from public.task_claims where task_id = t) || ',' || (v_res ->> 'released'));
   perform pg_temp.rec('...without touching their score', coalesce(v_before, 'null'), coalesce(pg_temp.score_of(v_b), 'null'));
   perform pg_temp.clear_queue();

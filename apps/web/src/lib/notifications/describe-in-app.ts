@@ -351,11 +351,46 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/patient/labs",
     };
   }
+  // Retired template (S22): the old ask-a-doctor answer notice. Kept only so historical inbox rows still render.
   if (n.template === "async_consult_answered") {
     return {
-      text: "A doctor answered your question",
+      text: "Your care team replied to your message",
       href: "/patient/care",
     };
+  }
+  // S22 written questions and clinical notes. Neutral by design (INV-07): never the question, a condition or a reading.
+  if (n.template === "written_question_received") {
+    return { text: "Your care team has your message", href: "/patient/care" };
+  }
+  if (n.template === "written_question_answered") {
+    return { text: "Your care team has replied. Open the app to read it", href: "/patient/care" };
+  }
+  if (n.template === "written_question_info_needed") {
+    return { text: "Your care team has a question for you", href: "/patient/care" };
+  }
+  if (n.template === "written_question_window_missed") {
+    return { text: "Sorry for the wait. Your message is still with the team", href: "/patient/care" };
+  }
+  if (n.template === "written_question_call_planned") {
+    return { text: "Your care team will call you. Keep your phone close", href: "/patient/care" };
+  }
+  if (n.template === "written_question_staff_notice") {
+    return { text: "A written message needs attention", href: "/clinician/async-consults" };
+  }
+  if (n.template === "note_correction_requested") {
+    return { text: "A patient asked for a correction to a note. Open your messages to answer", href: "/clinician/messages" };
+  }
+  if (n.template === "note_release_requested") {
+    return { text: "A patient asked about a note. Open your messages to answer", href: "/clinician/messages" };
+  }
+  if (n.template === "note_released") {
+    return { text: "Your care team has made a note available", href: "/patient/care" };
+  }
+  if (n.template === "note_release_declined" || n.template === "note_correction_answered") {
+    return { text: "Your care team has replied to your request", href: "/patient/care" };
+  }
+  if (n.template === "note_unsigned_reminder") {
+    return { text: "A note is waiting for your signature", href: "/clinician/patients" };
   }
   if (n.template === "second_opinion_answered") {
     return {

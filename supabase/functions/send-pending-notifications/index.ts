@@ -83,7 +83,6 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   video_consult_booked: "appointments",
   video_visit_alternate_proposed: "appointments",
   video_visit_declined: "appointments",
-  async_consult_answered: "appointments",
   annual_review_consult_scheduled: "appointments",
 
   medication_refill_reminder: "medications",
@@ -110,6 +109,15 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   referral_patient_confirmation: "referrals",
 
   new_care_message: "care_messages",
+  // S22 written questions and note release (patient-addressed only; the clinician-addressed ones stay ungated).
+  written_question_received: "care_messages",
+  written_question_answered: "care_messages",
+  written_question_info_needed: "care_messages",
+  written_question_window_missed: "care_messages",
+  written_question_call_planned: "care_messages",
+  note_released: "care_messages",
+  note_release_declined: "care_messages",
+  note_correction_answered: "care_messages",
   care_outreach_checkin: "care_messages",
   sponsor_care_reviewed: "care_messages",
   sponsor_person_quiet: "care_messages",
