@@ -3343,6 +3343,7 @@ export type Database = {
           answered_at: string | null;
           answered_by: string | null;
           category: string;
+          client_id: string | null;
           config_version: number | null;
           created_at: string;
           duration_note: string | null;
@@ -3371,6 +3372,7 @@ export type Database = {
           answered_at?: string | null;
           answered_by?: string | null;
           category: string;
+          client_id?: string | null;
           config_version?: number | null;
           created_at?: string;
           duration_note?: string | null;
@@ -3399,6 +3401,7 @@ export type Database = {
           answered_at?: string | null;
           answered_by?: string | null;
           category?: string;
+          client_id?: string | null;
           config_version?: number | null;
           created_at?: string;
           duration_note?: string | null;
@@ -24889,6 +24892,86 @@ export type Database = {
           },
         ]
       }
+      patient_memberships: {
+        Row: {
+          created_at: string;
+          end_reason: string | null;
+          ended_at: string | null;
+          ended_by: string | null;
+          ends_at: string | null;
+          grant_reason: string | null;
+          granted_by: string | null;
+          id: string;
+          is_test: boolean;
+          organisation_id: string;
+          patient_id: string;
+          source: string;
+          starts_at: string;
+          state: string;
+        };
+        Insert: {
+          created_at?: string;
+          end_reason?: string | null;
+          ended_at?: string | null;
+          ended_by?: string | null;
+          ends_at?: string | null;
+          grant_reason?: string | null;
+          granted_by?: string | null;
+          id?: string;
+          is_test?: boolean;
+          organisation_id: string;
+          patient_id: string;
+          source: string;
+          starts_at?: string;
+          state?: string;
+        };
+        Update: {
+          created_at?: string;
+          end_reason?: string | null;
+          ended_at?: string | null;
+          ended_by?: string | null;
+          ends_at?: string | null;
+          grant_reason?: string | null;
+          granted_by?: string | null;
+          id?: string;
+          is_test?: boolean;
+          organisation_id?: string;
+          patient_id?: string;
+          source?: string;
+          starts_at?: string;
+          state?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "patient_memberships_ended_by_fkey";
+            columns: ["ended_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "patient_memberships_granted_by_fkey";
+            columns: ["granted_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "patient_memberships_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "patient_memberships_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       patient_merge_log: {
         Row: {
           id: string
@@ -39239,6 +39322,7 @@ export type Database = {
         Args: { p_notes?: string; p_organisation_id: string; p_status: string }
         Returns: undefined
       }
+      end_membership: { Args: { p_patient: string; p_reason: string }; Returns: undefined };
       enqueue_critical_notification: {
         Args: {
           p_alert_tier: Database["public"]["Enums"]["alert_level"]
@@ -39826,6 +39910,10 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: Json
       }
+      grant_membership: {
+        Args: { p_ends_at: string; p_patient: string; p_reason: string };
+        Returns: string;
+      };
       hand_over_care: {
         Args: {
           p_new_profile_id: string
@@ -40212,6 +40300,7 @@ export type Database = {
           subject_user_id: string
         }[]
       }
+      list_memberships: { Args: { p_search?: string }; Returns: Json };
       list_patient_referrals_audited: {
         Args: { p_include_drafts?: boolean; p_patient: string; p_reason: string }
         Returns: Json
@@ -40336,6 +40425,7 @@ export type Database = {
         }[]
       }
       my_feature_flags: { Args: never; Returns: Json }
+      my_held_call_tasks: { Args: Record<PropertyKey, never>; Returns: Json };
       my_note_index: { Args: Record<PropertyKey, never>; Returns: Json };
       my_note_requests: { Args: Record<PropertyKey, never>; Returns: Json };
       my_pending_auto_drafted_notes: {
@@ -40788,6 +40878,14 @@ export type Database = {
         }
         Returns: Json
       }
+      queue_complete: { Args: { p_outcome: Json; p_task: string }; Returns: undefined };
+      queue_extend_claim: { Args: { p_task: string }; Returns: string };
+      queue_handback: {
+        Args: { p_note?: string; p_reason: string; p_task: string };
+        Returns: undefined;
+      };
+      queue_next: { Args: { p_types?: string[] }; Returns: Json };
+      queue_summary: { Args: Record<PropertyKey, never>; Returns: Json };
       raise_lab_extraction_alert: {
         Args: {
           p_document_id: string
@@ -41807,7 +41905,12 @@ export type Database = {
       clear_sexual_health_pin: { Args: never; Returns: undefined }
       submit_draft_referral: { Args: { p_referral: string }; Returns: undefined }
       submit_written_question: {
-        Args: { p_category: string; p_duration_note?: string; p_question: string };
+        Args: {
+          p_category: string;
+          p_client_id?: string;
+          p_duration_note?: string;
+          p_question: string;
+        };
         Returns: string;
       };
       verify_sexual_health_pin: { Args: { p_pin: string }; Returns: boolean }

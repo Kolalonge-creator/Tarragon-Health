@@ -883,4 +883,12 @@ export const pcm: Record<MessageKey, string> = {
   "notes.empty": "No note yet.",
   "wq.error.photo_rejected": "Dis photo too big or e no be type wey we fit use. Try another one.",
   "wq.error.photo_later": "Your message don go, but one photo no upload. You fit talk am for reply.",
+  "wq.photos.take": "Take photo",
+  "wq.photos.choose": "Choose photo",
+  "wq.queued": "E don save for this phone. E go send when network dey.",
+  "wq.queued.sending": "We dey send your saved message...",
+  "wq.queued.retry": "We no fit send your saved message yet. We go try again.",
+  "wq.queued.discard": "Delete the saved message",
+  "wq.queued.returned": "We no fit send your saved message: {reason}. E don go back for your draft.",
+  "admin.members.title": "Members",
 };

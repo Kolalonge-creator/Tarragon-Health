@@ -884,6 +884,14 @@ export const en = {
   "notes.empty": "No notes yet.",
   "wq.error.photo_rejected": "That photo is too large or not a supported type. Try another one.",
   "wq.error.photo_later": "Your message was sent, but a photo did not upload. You can say so in a reply.",
+  "wq.photos.take": "Take a photo",
+  "wq.photos.choose": "Choose a photo",
+  "wq.queued": "Saved on this phone. It will send when you have signal.",
+  "wq.queued.sending": "Sending your saved message...",
+  "wq.queued.retry": "We could not send your saved message yet. We will try again.",
+  "wq.queued.discard": "Delete saved message",
+  "wq.queued.returned": "Your saved message could not be sent: {reason}. It is back in your draft.",
+  "admin.members.title": "Members",
 } as const;
 
 export type MessageKey = keyof typeof en;
