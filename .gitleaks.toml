@@ -1,0 +1,17 @@
+# S39: gitleaks configuration. Extends the default rules; allows only the reviewed non-secrets below.
+title = "Tarragon Health gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "reviewed non-secrets"
+paths = [
+  '''docs/runbooks/S25-test-payment\.md''',   # sk_test_..._YOURS_HERE placeholder
+  '''\.env\.example$''',
+  '''pnpm-lock\.yaml$''',
+  '''apps/mobile/eas\.json$''',      # EXPO_PUBLIC_SUPABASE_ANON_KEY: public by design
+]
+regexes = [
+  '''sk_test_[A-Za-z0-9_.]*YOURS_HERE''',
+]

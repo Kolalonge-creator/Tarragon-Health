@@ -857,3 +857,10 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 ### S27f: replace while held, liaison list, withdraw from the chart (2026-10-06)
 - **Built**: migration `20261006215918_s27f_*` (guard refuses release or withhold of a replaced result; correction allowed against a held result; supersede trigger; review queue lists current results only; `liaison_recent_uploads()`; `patient_released_lab_results()` senior and tie checked, audited). Screens: liaison "Files you recorded", chart "Released lab results" with Withdraw.
 - **Proof**: `s27_lab_results_release.sql` now 193 checks; web lab-results tests 41 pass.
+
+## S39: Security, privacy and compliance hardening (2026-10-07)
+- **Built**: `s39_security_catalog.sql` (every table and role, 4 sabotages); migration `20261007104237_s39_security_hardening_round1.sql` (RLS on `analytics.rpc_snapshots`; failed-guess counter and one alert on the emergency card and record share doors, config `security_config` mirrored as `security.rules`; two live bugs in `record_share_by_token` fixed); `s39_public_lookup_failures.sql` (19 checks, 2 sabotages); `secret-scan.yml` and `.gitleaks.toml`; `docs/PROCESSORS.md`; `docs/legal/questions-for-nigerian-counsel-S39.md`; `docs/design/S39.md`; `docs/research/S39.md`.
+- **Reused**: `ops_incidents`, the S38 proof pattern, the PROPOSED registry and mirror test, the anon-execute allowlist idea from earlier tests.
+- **Proof**: both SQL proofs pass against live in a rolled-back run with the migration included; shared tests 55 pass. The migration is NOT yet applied to production (waiting for the founder). gitleaks config not run locally (no binary); it runs in CI.
+- **Open**: OQ-260 to OQ-269. Biggest: staff read 226 tables untied and unaudited (OQ-260), PITR off and no backup (OQ-266), no erasure path (OQ-262).
+- **Follow-ups**: tiered audited reads after OQ-260 is decided; erasure and retention after counsel; PITR; DPAs; rate limits on payment, queue and mobile routes.
