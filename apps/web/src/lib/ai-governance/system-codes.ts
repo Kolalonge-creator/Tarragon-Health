@@ -114,6 +114,15 @@ export const AI_SYSTEMS = {
     // 20260922190712_ai016_imaging_report_extraction_registration.sql.
     failClosedIfGovernanceUnavailable: true,
   },
+  scribeDraft: {
+    code: "AI-017",
+    // Generates a structured clinical note from an STT transcript (S23).
+    // Risk class high: the output is clinical content a clinician will sign
+    // into the patient record. Fallback is the manual note editor (the
+    // pre-existing path, zero cost). Registered DISABLED — stays off until
+    // OQ-96's STT vendor scoring is complete.
+    failClosedIfGovernanceUnavailable: true,
+  },
 } as const;
 
 export type AiSystemKey = keyof typeof AI_SYSTEMS;

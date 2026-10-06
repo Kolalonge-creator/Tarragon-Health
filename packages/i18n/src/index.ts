@@ -42,3 +42,5 @@ export function resolveLocale(value: unknown, pidginEnabled: boolean): Locale {
 export function availableLocales(pidginEnabled: boolean): readonly Locale[] {
   return pidginEnabled ? LOCALES : ([DEFAULT_LOCALE] as const);
 }
+
+export * from "./care-change";
