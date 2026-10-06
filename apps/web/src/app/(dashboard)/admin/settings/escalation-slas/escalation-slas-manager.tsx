@@ -256,6 +256,9 @@ export function EscalationSlasManager({
                 : "This version is live and driving every clinician_alert's sla_due_at today. That isn't gated on a signature. A Director's signature is a formal record of review, not a switch."}{" "}
               {activeVersion.notes}
             </p>
+            {/* v1 went live unsigned by design, and the version history below only offers Sign on
+                non-active versions, so without this the live version could not be signed at all. */}
+            {!activeVersion.approved_at && <SignButton versionId={activeVersion.id} />}
           </CardContent>
         </Card>
       ) : (
