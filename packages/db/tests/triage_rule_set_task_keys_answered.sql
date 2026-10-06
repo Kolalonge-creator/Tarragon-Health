@@ -5,6 +5,7 @@
 -- 20261006174040_task_type_amber_bp_review_answers_postpartum_review.sql.
 --
 -- Proves in one rolled-back transaction:
+--   0. Fixture: a draft rule set with a postpartum rule, shaped like BP-P5 (a fresh replay has no such set in it).
 --   1. Every shipped rule set, whatever its status, has no create_task key without an answering task type.
 --   2. postpartum_review is answered by an active, creatable task type.
 --   3. SABOTAGE: with the key removed from its task type, check 1 must find it unanswered.
@@ -23,6 +24,9 @@ $f$
       where t.is_active and t.creatable and t.source_task_keys @> array[x ->> 'task']
    )
 $f$;
+
+insert into public.triage_rule_sets (code, version, status, rules) values ('task_key_fixture', 1, 'draft',
+  '{"code":"task_key_fixture","version":1,"rules":[{"id":"BP-P5","actions":[{"kind":"create_task","task":"postpartum_review","dueMinutes":1440}]}]}'::jsonb);
 
 insert into results values ('real', 'every rule set task key is answered by a task type', '', pg_temp.unanswered());
 insert into results values ('real', 'postpartum_review has an active creatable task type', 'true',
