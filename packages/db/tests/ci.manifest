@@ -872,3 +872,5 @@ s29b_gifted_care_pack.sql
 s29c_care_circle_followup.sql
 # S33: the BP care course gate and events. Only a published lesson with an unexpired review date is served and a reviewer credit needs a complete record; Pidgin is served only when native reviewed; editing a lesson returns it to review; the hourly sweep hides an overdue course lesson; lesson.completed and course.completed fire once and carry codes only. Sabotage: the progress trigger dropped, and the edit trigger dropped; both checks must flip.
 s33_course_gate_events.sql
+# CMO sign-off hub: a governed configuration version cannot be activated while older than one already signed, on all nine versioned tables, so a stale draft can never roll the platform back (real sign_alert_rules; partition columns for cv_risk_config and risk_questionnaire_configs). Sabotage: the trigger dropped; the older draft must then sign.
+governed_config_supersede_guard.sql
