@@ -333,6 +333,19 @@ begin
   perform pg_temp.act(v_cmo);
   perform pg_temp.rec('the chief medical officer reads every lead assignment', 'true', (select (count(*) >= 8)::text from public.lead_assignments));
   perform pg_temp.rec('cover status: enough clinicians for the rota', 'true', (select (public.on_call_cover_status(v_org) ->> 'enough_clinicians')::text));
+  perform pg_temp.rec('lead overview lists the lead-capable clinicians with their load', 'true', (select (jsonb_array_length(public.lead_overview() -> 'leads') >= 3)::text from (select 1) x));
+  perform pg_temp.rec('rota overview lists the live shifts for a reviewer', 'true', (select (jsonb_array_length(public.rota_overview() -> 'shifts') >= 2)::text from (select 1) x));
+  perform pg_temp.rec('rota overview lists the on-call capable clinicians', 'true', (select (jsonb_array_length(public.rota_overview() -> 'clinicians') >= 4)::text from (select 1) x));
+  perform pg_temp.back();
+  perform pg_temp.act(v_a);
+  perform pg_temp.rec('a lead sees their own count against the cap', 'true', (select ((public.my_lead_summary() ->> 'cap')::int = 10 and (public.my_lead_summary() ->> 'lead_capable')::boolean)::text from (select 1) x));
+  perform pg_temp.back();
+  perform pg_temp.act(v_nc);
+  perform pg_temp.rec('a clinician cannot read the reviewer overview', '42501', pg_temp.try('select public.rota_overview()'));
+  perform pg_temp.rec('a clinician lists colleagues who may cover, not themselves', 'true', (select (count(*) >= 3 and bool_and(clinician_id <> v_nc))::text from public.on_call_colleagues()));
+  perform pg_temp.back();
+  perform pg_temp.act(p1);
+  perform pg_temp.rec('a patient cannot list colleagues', '0', (select count(*)::text from public.on_call_colleagues()));
   perform pg_temp.back();
   perform pg_temp.act_anon();
   perform pg_temp.rec('anon reads no lead assignments', '42501', pg_temp.try('select count(*) from public.lead_assignments'));
@@ -342,7 +355,7 @@ begin
     (select count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public' and p.proname in ('confirm_availability_block', 'set_on_call_rota', 'cancel_on_call_rota', 'rota_coverage_gaps', 'on_call_cover_status', 'my_rota', 'request_rota_swap',
         'respond_rota_swap', 'cancel_rota_swap', 'approve_rota_swap', 'assign_lead_clinician', 'change_lead_clinician', 'my_care_team_lead', 'my_lead_summary',
-        'lead_capacity_status', 'lead_overview', 'lead_on_clinician_event', 'assign_lead_for_event', 'my_availability_blocks')
+        'lead_capacity_status', 'lead_overview', 'lead_on_clinician_event', 'assign_lead_for_event', 'my_availability_blocks', 'on_call_colleagues', 'rota_overview')
         and has_function_privilege('anon', p.oid, 'EXECUTE')));
   perform pg_temp.rec('authenticated cannot execute the service-role entry points', '0',
     (select count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace

@@ -1412,6 +1412,51 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- 11b. Reads for the screens
+-- ---------------------------------------------------------------------------
+-- Colleagues a clinician may ask to cover an on-call shift.
+create function public.on_call_colleagues() returns table (clinician_id uuid, name text)
+language sql stable security definer set search_path = ''
+as $$
+  select cs.profile_id, cs.full_name
+    from public.clinical_staff cs
+   where private.working_clinician() is not null and cs.profile_id is not null and cs.profile_id <> (select auth.uid())
+     and cs.organisation_id = (select organisation_id from public.clinical_staff where profile_id = (select auth.uid()))
+     and cs.active and cs.status = 'active' and private.has_competency(cs.profile_id, 'on_call') and private.clinician_is_eligible(cs.profile_id)
+   order by cs.full_name;
+$$;
+
+-- Everything the rota builder shows, in one call (admin or chief medical officer).
+create function public.rota_overview(p_from timestamptz default now(), p_to timestamptz default null) returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  v_org uuid;
+  v_to timestamptz := coalesce(p_to, p_from + make_interval(days => (private.lead_rule('rota_horizon_days') #>> '{}')::integer));
+begin
+  if not private.can_credential_review() then raise exception 'not authorised' using errcode = '42501'; end if;
+  v_org := coalesce((select organisation_id from public.profiles where id = (select auth.uid())), (select id from public.organisations order by created_at limit 1));
+  return jsonb_build_object(
+    'status', public.on_call_cover_status(v_org),
+    'shifts', coalesce((select jsonb_agg(jsonb_build_object('id', r.id, 'starts_at', r.starts_at, 'ends_at', r.ends_at,
+                'primary_id', r.primary_clinician_id, 'primary_name', (select full_name from public.clinical_staff where profile_id = r.primary_clinician_id),
+                'backup_id', r.backup_clinician_id, 'backup_name', (select full_name from public.clinical_staff where profile_id = r.backup_clinician_id),
+                'warnings', to_jsonb(r.warnings), 'override_reason', r.override_reason) order by r.starts_at)
+                from public.on_call_rota r where r.organisation_id = v_org and r.cancelled_at is null and r.ends_at > p_from and r.starts_at < v_to), '[]'::jsonb),
+    'pending_blocks', coalesce((select jsonb_agg(jsonb_build_object('id', b.id, 'clinician_id', b.clinician_id,
+                'name', (select full_name from public.clinical_staff where profile_id = b.clinician_id), 'starts_at', b.starts_at, 'ends_at', b.ends_at) order by b.starts_at)
+                from public.availability_blocks b where b.organisation_id = v_org and b.kind = 'on_call' and b.state = 'declared' and b.ends_at > now()), '[]'::jsonb),
+    'swaps', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'rota_id', s.rota_id, 'role', s.role, 'state', s.state, 'reason', s.reason,
+                'from_name', (select full_name from public.clinical_staff where profile_id = s.from_clinician),
+                'to_name', (select full_name from public.clinical_staff where profile_id = s.to_clinician)) order by s.created_at)
+                from public.rota_swaps s where s.organisation_id = v_org and s.state in ('requested', 'accepted')), '[]'::jsonb),
+    'clinicians', coalesce((select jsonb_agg(jsonb_build_object('id', cs.profile_id, 'name', cs.full_name, 'employment_type', cs.employment_type) order by cs.full_name)
+                from public.clinical_staff cs where cs.organisation_id = v_org and cs.profile_id is not null and cs.active and cs.status = 'active'
+                  and private.has_competency(cs.profile_id, 'on_call') and private.clinician_is_eligible(cs.profile_id)), '[]'::jsonb));
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- 12. Privileges: nothing is callable by anon or PUBLIC; signed-in staff and clinicians get only their own entry points
 -- ---------------------------------------------------------------------------
 do $$
@@ -1426,6 +1471,7 @@ begin
     'public.approve_rota_swap(uuid, text)',
     'public.assign_lead_clinician(uuid)', 'public.change_lead_clinician(uuid, public.lead_end_reason, text)',
     'public.my_care_team_lead()', 'public.my_lead_summary()', 'public.lead_capacity_status(uuid)', 'public.lead_overview(uuid)',
+    'public.on_call_colleagues()', 'public.rota_overview(timestamptz, timestamptz)',
     'public.lead_on_clinician_event(uuid, text)', 'public.assign_lead_for_event(uuid, uuid)'
   ] loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
@@ -1438,7 +1484,8 @@ begin
     'public.request_rota_swap(uuid, text, uuid, text)', 'public.respond_rota_swap(uuid, boolean)', 'public.cancel_rota_swap(uuid)',
     'public.approve_rota_swap(uuid, text)',
     'public.assign_lead_clinician(uuid)', 'public.change_lead_clinician(uuid, public.lead_end_reason, text)',
-    'public.my_care_team_lead()', 'public.my_lead_summary()', 'public.lead_capacity_status(uuid)', 'public.lead_overview(uuid)'
+    'public.my_care_team_lead()', 'public.my_lead_summary()', 'public.lead_capacity_status(uuid)', 'public.lead_overview(uuid)',
+    'public.on_call_colleagues()', 'public.rota_overview(timestamptz, timestamptz)'
   ] loop
     execute format('grant execute on function %s to authenticated', f);
   end loop;
