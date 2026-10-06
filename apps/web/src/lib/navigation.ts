@@ -643,6 +643,8 @@ export function getNavSections(
             { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
+            // New clinician applications, document and licence checks, licence and indemnity expiry (S15).
+            { label: "Clinician credentialing", href: "/admin/credentialing", icon: "review" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },

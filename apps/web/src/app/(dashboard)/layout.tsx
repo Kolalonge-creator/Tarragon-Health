@@ -9,6 +9,8 @@ import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
 import { OfflineBanner } from "@/components/shell/offline-banner";
 import { AiGovernanceSignoffBanner } from "@/components/shell/ai-governance-signoff-banner";
 import { getNavSections } from "@/lib/navigation";
+import { buildAdminSearchIndex } from "@/lib/admin-search";
+import { getVisibleAdminSettingsTabs } from "@/lib/admin-settings-nav";
 import { isActiveChiefMedicalOfficer } from "@/lib/clinical/doctor-tier";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
@@ -106,6 +108,18 @@ export default async function DashboardLayout({
   // data-theme attribute (no flash). Only the patient surface consumes it.
   const theme = parseThemePreference((await cookies()).get(THEME_COOKIE)?.value);
 
+  // Admin only. The admin role is the super admin and holds every capability, so every settings page is visible to it
+  // (no per-page check to repeat here); delegated members do not get the box.
+  const adminSearchEntries =
+    profile?.role === "admin"
+      ? buildAdminSearchIndex(
+          getNavSections(profile.role, profile.receives_care),
+          getVisibleAdminSettingsTabs({ isSuperAdmin: true, keys: new Set() }).flatMap((tab) =>
+            tab.items.map((item) => ({ href: item.href, label: item.label, blurb: item.blurb, group: tab.label })),
+          ),
+        )
+      : undefined;
+
   const embedded = await isEmbeddedInApp();
   if (embedded) {
     // The native shell paints #FAF7F2 around this WebView; the patient's
@@ -139,6 +153,8 @@ export default async function DashboardLayout({
         idValue={idValue}
         profileHref={profileHref}
         navSections={getNavSections(profile?.role, profile?.receives_care)}
+        // The admin console's search box: every page the admin can reach, built from the same lists that draw the menus.
+        adminSearch={profile?.role === "admin" ? adminSearchEntries : undefined}
         // Patient accounts (supporters included — they share the patient
         // role) get the Warm Ivory ground the mobile app already ships;
         // staff and clinical consoles keep the white canvas.
