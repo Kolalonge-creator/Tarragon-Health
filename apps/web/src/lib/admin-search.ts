@@ -39,6 +39,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/go-live", "go live golive guard guards switch on off launch enable disable clinical operations consultations scribe prescribing payouts lab booking signup sign-up sign up cover proposed values config configuration confirm confirmation owner sign-off signoff founder cmo"],
   ["/clinician/go-live", "go live golive guard guards switch on off launch enable disable clinical operations consultations scribe prescribing payouts lab booking signup sign-up sign up cover proposed values config configuration confirm confirmation owner sign-off signoff founder cmo"],
   ["/admin/earnings", "fee fees schedule earnings earned pay paid payout ledger contracted clinician per task consultation share on call shift lead month minimum guarantee adjustment correction statement salary kobo naira"],
+  ["/admin/payouts", "payout payouts weekly draft approve send paystack transfer bank account verified retry failed reversed clinician pay finance"],
+  ["/clinician/payouts", "my payouts weekly statement bank account verify name tax tin withholding contractor paid transfer"],
   ["/clinician/earnings", "my earnings earned pay paid statement ledger fee schedule per task consultation on call shift lead month minimum top up correction"],
   ["/clinician/on-call", "on call page paged priority case red event acknowledge alarm escalation"],
   ["/admin/settings/clinical-staff", "doctor clinician staff mdcn roster verify"],
@@ -48,6 +50,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
+  ["/admin/refund-requests", "refund refunds money back guarantee claim order payment paystack reverse"],
 ];
 
 /** Pages inside an area that are not menu items of their own, but people look for them by name. */

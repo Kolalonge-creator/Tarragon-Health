@@ -745,3 +745,54 @@ Deno.test({
     assert(typeof txn.error === "string" && txn.error.includes("retired platform_credit_topup"));
   },
 });
+
+// ---------------------------------------------------------------------------
+// S31: clinician payout transfers
+// ---------------------------------------------------------------------------
+
+function transferEvent(event: string, reference = "tpo-11111111222233334444555555555555-01") {
+  return { event, data: { reference, transfer_code: "TRF_abc", amount: 18100000, currency: "NGN", reason: "bank returned it" } };
+}
+
+Deno.test({
+  name: "transfer.success then transfer.reversed for one reference: BOTH reach the database (keyed by event, not reference alone)",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+  async fn() {
+    const client = newClient();
+    await postWith(client, transferEvent("transfer.success"));
+    const second = await postWith(client, transferEvent("transfer.reversed"));
+    assertEquals(second.json.replay, undefined);
+    assertEquals(client.rpcCalls.map((c) => c.fn), ["apply_payout_transfer_event", "apply_payout_transfer_event"]);
+    assertEquals(client.rpcCalls.map((c) => c.args.p_event), ["transfer.success", "transfer.reversed"]);
+    assertEquals(client.rpcCalls[1].args.p_reason, "bank returned it");
+    assertEquals(client.rows("payment_transactions").length, 2);
+  },
+});
+
+Deno.test({
+  name: "transfer.success: an identical redelivery is a no-op and never reaches the database twice",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+  async fn() {
+    const client = newClient();
+    await postWith(client, transferEvent("transfer.success"));
+    const again = await postWith(client, transferEvent("transfer.success"));
+    assertEquals(again.json.replay, true);
+    assertEquals(client.rpcCalls.length, 1);
+  },
+});
+
+Deno.test({
+  name: "transfer.failed: a database error is answered 500 and the event is not kept, so a redelivery is applied",
+  permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
+  async fn() {
+    const client = newClient();
+    client.rpcResult = { data: null, error: { message: "boom" } };
+    const { response } = await postWith(client, transferEvent("transfer.failed"));
+    assertEquals(response.status, 500);
+    assertEquals(client.rows("payment_transactions").length, 0);
+    client.rpcResult = { data: { result: "applied" }, error: null };
+    const again = await postWith(client, transferEvent("transfer.failed"));
+    assertEquals(again.json.replay, undefined);
+    assertEquals(client.rpcCalls.length, 2);
+  },
+});

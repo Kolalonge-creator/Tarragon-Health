@@ -1029,6 +1029,65 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-174 update (S24b, 2026-10-06): reviewed and hardened; independent review still advisable
 - Review: `docs/security/S24-confirm-care-plan-change-review.md`. Changes: the signer must hold a currently verified, unexpired licence when the change is applied; a signed stop that matches no active medicine is sent back; the session identity is asserted to be the patient's again before any later write. Residual: the signer's tie is not re-checked at confirm time (CMO to confirm that reading), and the review was written by the build session, so an outside reviewer is still advisable.
 
+### OQ-170 No ledger posting for catalogue orders yet (raised by S25)
+- v5 orders sit beside the live purchase tables and never touch `payment_transactions`, so none of the live finance posting triggers see them. A paid order is therefore not in the general ledger, the revenue-recognition views or the settlement reports. It is visible, not hidden: `payments` holds every verified payment with price, fee and total, and `orders.state` is the status. No money has moved through it (checkout is dormant).
+- Needs a finance decision before the module is switched on: accounts for Membership (deferred revenue over 12 months?) and care pack income, where the Paystack fee sits (the patient pays it; it is not income and not a cost), and the refund reversal. S26 (refunds) and S30 (earnings ledger) are the natural place.
+- Options: (a) a `finance_post_from_order` function that posts `payments` rows, built with the finance owner before go-live (recommended); (b) write a mirror row into `payment_transactions` so the live posting runs (rejected for now: it would also fire the service-purchase, voucher and fraud triggers, which read the same table).
+- **Resolved 2026-10-06 (founder: "fix this")**: built in the same migration. Same accounts as a live service pack, so the finance pages need nothing new: Membership or care pack, Dr 1020 / Cr 2000 for the PRICE and a straight-line schedule into 4020 over the access window; an item with no window, Dr 1020 / Cr 4100 at sale. The processing fee is the patient's and Paystack settles the price, so it is not posted. Test orders are never posted (INV-13). A posting failure never undoes a payment: it opens a financial incident and an hourly job retries. The refund reversal is S26. The finance owner should still read the accounts above before go-live; they are the ones the existing service-pack posting uses.
+
+### OQ-171 Paying for someone else is not open yet (raised by S25)
+- `orders` carries `buyer_profile_id` and `beneficiary_patient_id`, but `create_order` refuses any beneficiary other than the buyer (`order_beneficiary_not_allowed`) until S29 (Care Circle) defines who may pay for whom and what the supporter may see. Spec 19.4 and 19.5 (supporter pays, sponsor-paid shown as already paid) wait for it. `shop.paid_for_you` is already in the catalogue strings.
+- Decision: open, S29.
+
+### OQ-172 Care pack price and what is sold at launch (raised by S25)
+- The 2026-10-05 Membership (100,000 naira a year, 10,000,000 kobo) is founder-confirmed and seeded as `membership_annual`. The spec's 12,000 naira three-month BP care pack (spec line 696) is PROPOSED and seeded as `bp_care_pack_3m`. Both are seeded OFF. Do both exist at launch, or does the Membership replace the care pack? A Member who also buys a care pack would pay twice for overlapping clinician time. The lead-clinician capacity gate counts both.
+- Options: (a) launch with the Membership only and keep the care pack off (recommended: matches the 2026-10-05 pivot, "Free or Member, nothing in between"); (b) both on.
+- **Decided 2026-10-06 (founder): Membership only.** The care pack is no longer seeded; staff can add one later. Prices can be changed at `/admin/catalogue` with a reason; an order keeps the price it was made at.
+
+### OQ-173 Retired payment code paths are still reachable (raised by S25, extends OQ-97)
+- The OQ-97 decision said to delete the retired GBP/USD and plan-based paths in S25 "if unreachable". They are reachable: `handler.ts` still handles `subscription`, `add_on`, `sponsored_subscription` and the plan events, `apps/web/src/lib/paystack` still allows GBP and USD, and live rows in the older purchase tables depend on them. Removing them is a separate removal session with its own row count and `ship the code first, the schema second` order, not a side effect of a checkout build.
+- S25 added the v5 branch and left the legacy one untouched. Naira only holds for everything S25 built (`create_order` has no currency; the adapter and `record_order_payment` reject anything but NGN).
+- **Decided 2026-10-06 (founder): its own removal session after S26** (count live rows first, ship the code before the schema, prove with a rolled-back test).
+
+### OQ-174 Fee estimate is configuration, and its numbers are unverified (raised by S25, extends OQ-97)
+- Paystack has no fee-preview call, so the checkout shows an ESTIMATE labelled as one, from `commerce.processing_fee_estimate` (1.5 percent plus 100 naira, the 100 waived under 2,500 naira, cap 2,000 naira). The figures come from third-party summaries; the official pricing page could not be read when this was written. The exact fee is read from the verified payment and recorded on the order and receipt. Cards issued abroad cost more (reported 3.9 percent plus 100 naira, uncapped), so for those the estimate is too low; the screen says so (`pay.fee.international` exists, shown in the explanation block on web).
+- Still to confirm against Paystack test mode before go-live: the field names `requested_amount` and `fees` on verify and `charge.success` (OQ-97). If `requested_amount` is absent, the database records an `amount` mismatch rather than accepting a different total, so a genuine payment is held for a person, never lost silently.
+- Refunds and the fee (S26): recommended full refund when we cancel returns the fee, a patient-requested partial does not; Paystack reportedly keeps its processing fee on refunds, which would make a fee refund a Tarragon cost.
+- **Fee numbers confirmed 2026-10-06** against paystack.com/pricing: local card and USSD 1.5% + NGN 100 (NGN 100 waived under NGN 2,500), capped at NGN 2,000; international 3.9% + NGN 100. Registry entry is now v2, confirmed. At the 100,000 naira Membership price the local fee is NGN 1,600 (total NGN 101,600). Still open: the `requested_amount` and `fees` field names in test mode, and the refund-and-fee rule (S26).
+
+### OQ-175 Secrets and deploy steps for S25 (raised by S25)
+- Before the module can be tried against Paystack test mode: set `ORDER_RETURN_URL` and `ORDER_RECONCILE_SECRET` as function secrets, add the Vault secret `order_reconcile_secret` with the same value (the 5-minute cron fails closed with a 401 until both exist), deploy `order-checkout`, `order-verify`, `order-reconcile` and the updated `paystack-webhook`, then run one test-mode payment end to end and one replay from the Paystack dashboard. Nothing in S25 was deployed or applied to production by the build session.
+- Secrets and deploy done 2026-10-06. **Go-live order decided (founder):** merge PR 945, run one Paystack TEST-mode payment and one dashboard replay (the founder runs it with test keys in a local copy of the function secrets, with a published Paystack test card; the live key is never used), then a superadmin runs `set_platform_module('v5_checkout', true, '<why>')` and switches `membership_annual` on at `/admin/catalogue`. Nothing is switched on before that.
+
+### OQ-176 Lab panel ranges and critical limits are unsigned (raised by S27)
+- `lab.panels` (registry, mirrored by `lab_panel_versions` v1) holds adult reference ranges and critical limits for the Essential and Annual Health Check panels, PROPOSED by the build, owner CMO. They are not adjusted for age, sex or pregnancy, and the lipid limits are desirable targets, not lab-printed ranges, so many results will wait for review.
+- Safe by design: a wrong range only adds reviews. An all-normal result is the only thing that auto-releases, and a result missing a required analyte is held too.
+- Needed from the CMO: sign the ranges and critical limits (a new `lab_panel_versions` row, never an edit); whether HIV, HBsAg and HCV Ab belong in the Annual Health Check at all (they are optional and entered only if ordered); how an indeterminate screening value is handled (the portal refuses it today and asks for a new sample).
+
+### OQ-177 The older partner PDF path conflicts with INV-03 (raised by S27)
+- `lab_partner_upload_result` and the `lab_result_documents` triggers (live since 2026-07-27) let a patient read a partner's PDF at once and send them a "result document available" notice, with no hold for abnormal values and no sensitive-positive rule. Left unchanged, as the session rules require; the new partner portal does not use it.
+- Recommended: point the old worklist upload at the new submit function (PDF only, held for review) and retire `lab_partner_upload_result` after counting live rows. Founder decision needed on timing.
+
+### OQ-178 Releasing a result does not complete its queue task (raised by S27)
+- `release_lab_result`, `record_lab_disclosure` and `withhold_lab_result` change the result, not the S16 task (`routine_result_review`, `critical_result_review`, `sensitive_result_disclosure`). The clinician still completes the task in the queue. Linking the two is a small follow-up once the Next-task console (S35) shows the task beside the result.
+
+### OQ-179 Audio and AI explanation layers must read `explain_allowed` (raised by S27)
+- `my_lab_results()` returns `explain_allowed = false` for a result with a sensitive positive and for a patient's own upload. The old AI summary on `lab_result_documents` and any future audio bundle (S32) do not read it yet. Before either is shown for a structured result, it must check this flag (INV-04).
+
+### OQ-180 Who may release a critical value (raised by S27)
+- A critical result creates a `critical_result_review` task for a senior doctor (class 2), but `release_lab_result` lets any eligible clinician tied to the patient release it. A positive HBsAg, HCV Ab or HIV needs a senior clinician by the database. Confirm with the CMO whether a critical result should need the same.
+
+### OQ-181 Free patients' own outside uploads wait without a reviewer (raised by S27 review)
+- Doctor time is a paid feature, so a Free patient's own upload creates no task (S27b). It stays held, and the patient is told it is waiting. A Member's upload makes a `routine_result_review` task. Decide whether Free patients should be told plainly that it will be looked at once they join, or whether the upload should be refused for them.
+- Also found: a clinician refused by the tie check raises, which rolls back the "denied" audit row (`lab_review_actor`). The refusal is still enforced, but not recorded. Fixing it means returning a result instead of raising; left for a follow-up that changes the shared pattern, not just this module.
+
+### S27c decisions (founder, 2026-10-06)
+- **OQ-176 (part):** HIV, HBsAg and HCV Ab BELONG in the Annual Health Check. They stay optional per order (entered only when the test was actually done with the patient's consent), and any positive follows INV-04. Ranges and critical limits are still unsigned by the CMO.
+- **OQ-177 CLOSED for the partner path:** `lab_partner_upload_result` and the old worklist upload now create a HELD result (S27c). Related, found while fixing it and not changed: the staff upload path for emailed results (`uploadResultDocumentForPatient`, Lab Liaison, clinician, admin) still writes a visible `lab_result_documents` row and notifies the patient at once. Same INV-03 class; needs its own decision.
+- **OQ-178 CLOSED:** release, disclosure and withhold close the linked task (completed when the acting clinician holds the claim, cancelled with a reason when unclaimed, left alone when claimed by someone else).
+- **OQ-179 PARTLY CLOSED:** one definition of "may be explained" in the database (`lab_result_explain_allowed`, also used by `my_lab_results`). No AI or audio path reads structured results today, so there is nothing yet to gate; S32 (audio) and any future AI summary must call it.
+- **OQ-180 CLOSED:** a critical value can be released only by a Senior Medical Officer or the CMO.
+- **Audit findings CLOSED:** a refused clinician now gets a returned refusal (the denied audit row commits); the review page opens a result only on click.
 ### OQ-190 Should the platform send the Care Circle invite itself, by email? (raised by S29)
 - Today the patient shares the invite link from their own phone (share sheet or copy). INV-08 allows SMS only for sign-in codes and WhatsApp is removed, so no platform SMS or WhatsApp path exists. Email is an allowed channel, but `notifications` rows need a `recipient_id` (a profile) and an invitee may have no account yet.
 - Options: (a) keep patient-shared links only (recommended for now: no new send path, nothing to leak, works for a phone invite too); (b) add an edge function that emails an email-type invite through Resend with the neutral template "Someone invited you to their Care Circle" and the link, rate-limited per patient.
@@ -1109,6 +1168,48 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The spec lists three conditions for `clinical_operations_enabled`. The consultation flow also depends on the CMO's confirmation of `consultations.policy` and the other PROPOSED values it uses, a configured Zoom account with dial-in (S21f), and the scribe's `CON-001` text. The sign-off screen now records the first; nothing stops the guard being switched on while it is unconfirmed.
 - Options: (a) add "the consultation policy value is confirmed by the CMO" as a data condition once the CMO has used the screen (recommended; small); (b) leave it as a human check at switch-on.
 - Decision: open.
+
+### OQ-193 Nigerian withholding tax on clinician payouts: what applies, and who is the payer (raised by S31, D-09)
+- Findings (public sources, not legal advice): the Deduction of Tax at Source (Withholding) Regulations 2024, effective 1 July 2024, replaced the 1997 rules; payments to a Nigerian company for professional, management, technical or consultancy services dropped from 10 percent to 5 percent, 10 percent to a non-resident, and the payer deducts, remits and issues a credit note. Treatment of an individual freelancer is different and depends on whether they are treated as self-employed or as an employee, and the Nigeria Tax Act 2025 (in force 2026) changed personal income tax bands and filing duties. Whether Tarragon's freelance clinicians are independent contractors or workers for tax and labour purposes is a legal question, and the answer decides whether PAYE or withholding applies.
+- What S31 does: stores TIN, contractor status (unknown, individual, company), registered business name and VAT registration per clinician; every statement and payout is gross. Nothing is deducted or calculated, as D-09 says.
+- Options: (a) ask Nigerian tax counsel for the status and rate per contractor type, then add a versioned, PROPOSED withholding rule and a deduction line on the statement (recommended; needs counsel); (b) keep paying gross and have each clinician self-assess (simple, but Tarragon may still owe the deduction as payer).
+- Decision: Decided 2026-10-06: ask Nigerian tax counsel first; payouts_enabled stays off until counsel confirms contractor status and rate, then a versioned withholding rule and credit note are added. Until decided, payouts go out gross; this is a compliance risk if payouts are switched on first.
+
+### OQ-194 Payouts are not posted to the general ledger (raised by S31)
+- The finance ledger posts patient payments and refunds from `payment_transactions`; nothing posts a clinician payout (expense and cash out) or the accrual when an earnings line is written. A transfer event is recorded in `payment_transactions` as an audit row and deliberately not processed into the journal.
+- Options: (a) post a journal entry when a payout is approved (Dr clinician fees, Cr payables) and another when `transfer.success` arrives (Dr payables, Cr cash), using the existing posting functions (recommended, a small follow-up with the finance owner); (b) leave payouts as a sub-ledger until accounts are set up for contractors.
+- Decision: Decided 2026-10-06: follow-up session with the finance owner (accrue on approval, clear cash on transfer.success).
+
+### OQ-195 Bank lookups keep the other person's name on a mismatch (raised by S31)
+- When the bank returns a different name, the row keeps `resolved_name` (a stranger's name) and the last four digits as evidence of why the account was refused. Rows are readable only by the clinician and admins.
+- Options: (a) keep for 12 months then null the name (recommended); (b) null it immediately and keep only "mismatch".
+- Decision: Decided 2026-10-06: keep 12 months, then clear the name (retention job is a follow-up; not yet built).
+
+### OQ-196 Paystack transfer settings that must be right before payouts go live (raised by S31)
+- Transfers need a funded Paystack balance and Paystack's "confirm transfers with OTP" switched off for API transfers, otherwise every payout waits for a person to type a code and shows as needs attention. The webhook URL must receive `transfer.success`, `transfer.failed` and `transfer.reversed`. None of this has been run against Paystack, test mode or live.
+- Options: (a) founder confirms the three settings and attests `paystack_transfers_configured` on the go-live page, then runs one real small payout to a test recipient (recommended); (b) skip the test payout (not recommended).
+- Decision: Decided 2026-10-06: the founder confirms the three Paystack settings and runs one small real payout, then attests paystack_transfers_configured.
+
+### OQ-197 A sent payout that never gets a webhook (raised by S31)
+- If Paystack's webhook is lost, a payout stays `sent`. There is no scheduled check yet that asks Paystack for the status of payouts that have been `sent` for more than an hour (the adapter has `verifyTransfer`); an admin cannot trigger one from the page either.
+- Options: (a) a small scheduled edge function that verifies old `sent` payouts and feeds the same `apply_payout_transfer_event` door (recommended; next session); (b) rely on Paystack retries.
+- Decision: Decided 2026-10-06: build the scheduled status check next session, before go-live.
+
+### OQ-198 The go-live dashboard still says payout sending is not built (raised by S31)
+- The `payouts_enabled` row in `go_live_guards` carries the S37 note "Payout sending is not built yet. Nothing is blocked by this guard today." Approve, send and retry now refuse while it is off, but the note is a guard row the trigger will not let a migration edit.
+- Options: (a) add a sanctioned way to update a guard's description text in a later S37 follow-up (recommended); (b) leave the note and rely on this entry.
+- Decision: Decided 2026-10-06: S37 follow-up adds a sanctioned way to update a guard's description.
+
+### OQ-199 Optional early cash-out for clinicians (raised by S31 competitor research)
+- Bolt and Uber Nigeria let drivers cash out early for a small fee once they have a clean record. Weekly stays the default. An early cash-out would pay out already-earned ledger lines on request, still after the verified-name check, with a small fee and an eligibility rule (for example a number of completed tasks).
+- Options: (a) not now; revisit after the first month of weekly payouts (recommended); (b) build it before launch.
+- Decision: Decided 2026-10-06: not now; weekly only, revisit after the first month of real payouts.
+
+### OQ-200 Downloadable payout statement, tax credit note and refund holdback (raised by S31 competitor research)
+- Deel-style platforms give a downloadable statement per payment; in Nigeria a withholding tax credit note is also needed once OQ-193 is decided. Stripe recommends holding back a balance against later reversals; a refund of a consultation share is a manual adjustment until S26.
+- Options: (a) a PDF statement per payout now and the credit note after OQ-193; no holdback until S26 (recommended); (b) all three together later.
+- Decision: Decided 2026-10-06: PDF statement per payout now, credit note after OQ-193, no holdback until S26.
+> Note (merge of S29): S29's OQ-193 to OQ-198 below are the Care Circle questions. The same numbers are used above by S31 for payout questions (parallel sessions picked the same range, as OQ-170 to OQ-185 already were). Read the title, not the number, until these are renumbered.
 
 ### OQ-197 When the patient pauses sharing, do check-in requests (red alerts) pause too? (raised by S29c)
 - "Pause all sharing" (7 days, silent to supporters, no reason) stops the supporter's page and lists. Whether it also holds back the neutral check-in request is a safety trade-off: a patient who feels watched wants everything off; a patient who pauses and then has a red event would have a family that is not asked to call. The patient's own care team's escalation is a different path and is never paused.

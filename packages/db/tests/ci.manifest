@@ -5,7 +5,6 @@
 # BEGIN/ROLLBACK, and depend on nothing but what the migrations and
 # supabase/seed/seed.sql create. It must fail loudly (raise exception) rather
 # than only recording a FAIL row, though the runner catches both.
-#
 # Everything else lives in ci.excluded with a reason. Nothing may be in
 # neither: the runner fails if a .sql file is unlisted, because a proof that
 # runs nowhere is the exact problem this manifest was added to fix.
@@ -343,7 +342,6 @@ cmo_clinical_rules_insert_dual_gate.sql
 # bidirectional in_app notification. See the migration's own header.
 curbside_consults.sql
 
-# --- Added 2026-09-23 -------------------------------------------------------
 # public.resolve_patient_service_access(): a founder-commissioned launch-scope
 # audit's read model aggregating service_purchases into one patient-facing
 # service status (monitoring_active/service_active/self_tracking), backing
@@ -371,7 +369,6 @@ resolve_patient_service_access.sql
 # live including a wrong-actor-table-join sabotage run.
 doctor_income_attribution_and_analyst_gate.sql
 
-# --- Added 2026-09-23 -------------------------------------------------------
 # public.get_funding_programme_stats(): the ngo_funded_cohort module's own
 # platform_modules.description names "aggregate small-cell-suppressed
 # programme reporting" as an intended capability that was never built (PR
@@ -395,7 +392,6 @@ funding_programme_stats.sql
 # `postgres`, for both patient-facing RPCs.
 sponsored_service_reservations.sql
 
-# --- Added 2026-09-23 -------------------------------------------------------
 # region_service_available's normalized-state fallback
 # (20260923212037_region_service_available_normalized_state_fallback.sql, plus its
 # same-day 20260923213439_fix_region_service_available_review_findings.sql
@@ -454,7 +450,6 @@ diabetes_self_monitoring_acting_supporter.sql
 # repeat-decide idempotency guard against a double refund.
 first_purchase_guarantee_refund.sql
 
-# --- Added 2026-09-24 -------------------------------------------------------
 # doctor_testimonials (20260924210347_doctor_testimonials.sql), the doctor-
 # side counterpart to patient_testimonials — admin-entered/off-platform
 # consent instead of patient self-submit, per an explicit 2026-09-24 founder
@@ -493,7 +488,6 @@ testimonials_condition_check_and_doctor_org_match.sql
 # (a SELECT policy, an UPDATE policy, and the review trigger's own admin
 # check) found live while trying to sabotage it.
 
-# --- Added 2026-09-24 -------------------------------------------------------
 # Reputation & Review-Generation Engine: proves the feature-flag gate, the
 # cross-trigger 90-day cooldown (with a sabotage pass removing it), the
 # claim_pending_reputation_review_prompt()/record_reputation_review_prompt_outcome()
@@ -816,6 +810,8 @@ platform_switch_pidgin_kill_switch.sql
 s15_clinician_credentialing.sql
 s16_clinical_tasks.sql
 s16b_cmo_signoff.sql
+# Regression: every task key a triage rule set can create is answered by an active creatable task type (postpartum_review was not, which blocked the CMO's signing 2026-10-06). Sabotage: the key removed from its task type; the check must flip.
+triage_rule_set_task_keys_answered.sql
 # S17 Next task: the 186-check proof (eligibility cases shared with the TypeScript model, grants, availability gate, order, one claim at a time and an idempotent retry, tier and competency, hand-back reasons and the review flag and cooling-off, safety case 17 conflicts and who may lift them, safety case 19 timeouts and escalation and release without penalty and one extension, offers to an employed doctor and on_call for escalated tasks, reliability arithmetic and an append-only log, RLS, INV-12 ties) with a sabotage that removes the conflict clause from the candidate function and must flip the case 17 check.
 s17_queue_next.sql
 # S17 safety case 18, real contention: 50 concurrent sessions calling queue_next() (30 tasks, then one task) never hand a task out twice; a lock-free control picker must fail in the same harness or the script reports VACUOUS. A .sh proof for the same reason as the finance reversal lock proof (one session cannot race itself); local database only.
@@ -844,6 +840,8 @@ s22b_membership_claim_filter_idempotent_submit.sql
 s22c_credit_return_nullable_end_withdrawn_notes.sql
 # S19b: on-call readiness. Unconfirmed phone checklist refuses a clinician on the rota (primary, backup, swap), confirming needs every item and a clinician account, reviewers see who has not confirmed, a new checklist version clears confirmations. Sabotage: the rota check removed must flip the refusal.
 s19b_on_call_readiness.sql
+# S22e: the care-team inbox stays shared by every org staff account; message bodies and attachments are opened only through audited functions (OQ-157). Staff cannot read the rows directly (headers still work); one audit row per person per 10 minutes; patient unaudited; strangers refused; confidential threads still open for staff; staff can still reply; the communication log has no body. Sabotage: the staff select policy restored and the open function without its audit insert; both checks must flip.
+s22e_audited_care_inbox.sql
 # S25: catalogue, prices, orders, payments, entitlements. Dormant gate (module and item), price snapshot, idempotent order creation, service-role-only payment recording, mismatch (amount, currency, fee) never marks paid and opens an incident, safety case 24 (a replayed payment leaves one payment, one entitlement, one order.paid), membership purchase makes a Member, late payment on a closed order honoured and flagged, versioned immutable prices, RLS and no direct writes. Sabotage: amount check and replay guards removed; both checks must flip.
 s25_catalogue_orders_payments.sql
 # S22d: consultation_patient_summaries readable by staff only through a real tie to the patient (INV-12); a withdrawn note can be neither requested nor released. Sabotage: the old org-wide policy and the release without the withdrawn check; both checks must flip.
@@ -851,19 +849,22 @@ s22d_summaries_tie_and_no_release_of_withdrawn.sql
 s23c_attach_scribe_draft_to_note.sql
 # S24: signed prescribing (prescribe and amend write a signed prescription; controlled medicine hard stop; allergy and duplicate checks), care_plan_changes (unsigned cannot be saved as signed; draft invisible to the patient; applies only on her confirmation; decline, expiry, re-check), protocols (immutable once approved), plan targets only through a signed change, referral consent and chase. Sabotage: the medicine signature trigger and the signature CHECK removed; both checks must flip.
 s24_prescriptions_and_care_plan_changes.sql
+# S26: entitlements lifecycle and refunds. Safety case 25 (care packs never auto-renew; 7-day reminder via reminded_at), entitlement expiry sweep (past ends_at → expired, future → unchanged), refund state machine (invalid transition rejected, valid pending→approved works), one live refund per order (unique partial index), RLS (cross-patient invisible, own visible), anon cannot EXECUTE request_order_refund or record_refund_provider_result. Sabotage: the state-machine trigger and the unique index.
+s26_entitlements_lifecycle_and_refunds.sql
 # S30: fee schedules and the earnings ledger. Admin-only drafts and approval, an approved schedule never changes, the shared fee cases through the SQL, task / consultation / on-call / lead-month / pilot-minimum lines (idempotent, contracted only, flagged zero lines never silent, a posting failure never blocks completion), adjustments, an append-only ledger (payout_id linkable once), access by role and INV-13, queue_summary next_fee_kobo. Sabotage: the append-only guard and the fee-version CHECK removed; both checks must flip.
 s30_fee_schedules_and_earnings_ledger.sql
 # CMO sign-off hub: the active Chief Medical Officer can read unreviewed lpe_content_blocks (so the sign-off count and page are not silently empty); a non-CMO clinician, a patient and anon cannot; the CMO still cannot write a block directly. Sabotage: the new policy dropped; the CMO check must flip.
 lpe_content_blocks_cmo_read.sql
 # S24b: the CMO's protocol functions (CMO only, versioned drafts, approve retires the previous version, approved is immutable, audited) and the hardening of confirm_care_plan_change (expired licence, deactivated signer, stale stop, mid-apply failure leaves the session as the patient, audit actors, replay). Sabotage: the identity restore plus assertion removed, and the CMO check removed; both checks must flip.
 s24b_protocol_signoff_and_confirm_hardening.sql
+# S27: lab results and release rules. Held abnormal results (case 11) and a positive HBsAg (case 12) are invisible to the patient, an all-normal one auto-releases (case 13), only the database classifies, partner/patient/team writers, tied and audited clinician reads, release needs a clinician, disclosure needs a senior clinician plus attestation, items append only. Sabotage: the state guard and the patient policy opened; both checks must flip.
+s27_lab_results_release.sql
+# S37: go-live guards and PROPOSED-config sign-off. Seven guards ship off; no role, including the table owner, can change one except through set_go_live_guard (conditions evaluated, who/when/why logged); consultations and the scribe are wired. Sabotage: the reader forced open, and the guard trigger dropped; both checks must flip.
+s37_go_live_guards.sql
+# S31: weekly payouts. Drafts exclude test accounts and carry over below the minimum; approval needs payouts_enabled, a different approver, a verified bank and an unchanged ledger, then links lines once; Paystack transfer webhooks are idempotent and order tolerant (success then reversed is applied); bank names must match the credentialed name; only the service role writes bank rows and send results; tax data is stored only. Sabotage: name matching forced true, and the payout write guard dropped; both checks must flip.
+s31_weekly_payouts.sql
 # S29: Care Circle. Invite is a one-time hashed token bound to a verified contact, every failure identical, rate limit and attempt cap. SAFETY CASE 21 (a member without weekly_bp_trend reads no vitals through any table, view or the supporter function; with it, weekly averages only and the raw tables stay empty), revoke and expiry end access at once, neutral red alert reaches only members holding red_alerts and a failed alert opens an incident without stopping the page, pay for a loved one needs pay_for_care and opens no record access, entitlement lands on the patient once. Sabotage: the weekly_bp_trend gate, the red_alerts filter and the pay_for_care gate each removed; all three must flip.
 s29_care_circle.sql
 # S29b: a gifted Membership or care pack waits for the patient's yes. Paid but pending: order.paid carries care_pack false and gift_pending true, no Membership starts, no lead is asked for, the patient is asked once and the payer sees nothing; only the patient can answer; accept starts the Membership from the yes and asks for a lead exactly once under its own key; decline closes it, starts nothing and opens a finance incident to refund the payer (payer not told); an unanswered gift is swept as declined after the configured days; buying for yourself is unchanged. Sabotage: the patient check and the gift detection each removed; both must flip.
 s29b_gifted_care_pack.sql
 s29c_care_circle_followup.sql
-
-# S26: entitlements lifecycle and refunds. Safety case 25 (care packs never auto-renew; 7-day reminder via reminded_at), entitlement expiry sweep (past ends_at → expired, future → unchanged), refund state machine (invalid transition rejected, valid pending→approved works), one live refund per order (unique partial index), RLS (cross-patient invisible, own visible), anon cannot EXECUTE request_order_refund or record_refund_provider_result. Sabotage: the state-machine trigger and the unique index.
-s26_entitlements_lifecycle_and_refunds.sql
-# S37: go-live guards and PROPOSED-config sign-off. Seven guards ship off; no role, including the table owner, can change one except through set_go_live_guard (conditions evaluated, who/when/why logged); consultations and the scribe are wired. Sabotage: the reader forced open, and the guard trigger dropped; both checks must flip.
-s37_go_live_guards.sql

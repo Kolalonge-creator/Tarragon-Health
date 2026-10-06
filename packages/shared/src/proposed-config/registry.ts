@@ -439,6 +439,267 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S15.md; docs/research/S15.md; spec 7.1 and 17",
   },
   {
+    key: "lab.panels",
+    // Lab panels and release thresholds (S27). Live values are the active row of `lab_panel_versions`; a test fails if the
+    // migration seed and this value drift. Adult reference and critical limits only, NOT signed: the CMO sets them (OQ-176).
+    // Any value outside the range holds the result for a clinician, so a wrong range makes more reviews, never an early release.
+    value: {
+      "panels": {
+        "essential": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 40,
+              "criticalHigh": 400
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4.0,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4.0
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 2.5,
+              "criticalHigh": 6.5
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 120,
+              "criticalHigh": 160
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 56
+            }
+          ]
+        },
+        "annual_health_check": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 40,
+              "criticalHigh": 400
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4.0,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4.0
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 2.5,
+              "criticalHigh": 6.5
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 120,
+              "criticalHigh": 160
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 56
+            },
+            {
+              "code": "ast",
+              "label": "AST",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 10,
+              "refHigh": 40
+            },
+            {
+              "code": "haemoglobin",
+              "label": "Haemoglobin",
+              "kind": "numeric",
+              "unit": "g/dL",
+              "refLow": 12.0,
+              "refHigh": 17.5,
+              "criticalLow": 7.0,
+              "criticalHigh": 20.0
+            },
+            {
+              "code": "wbc",
+              "label": "White cell count",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 4.0,
+              "refHigh": 11.0,
+              "criticalLow": 1.0,
+              "criticalHigh": 30.0
+            },
+            {
+              "code": "platelets",
+              "label": "Platelets",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 150,
+              "refHigh": 450,
+              "criticalLow": 20,
+              "criticalHigh": 1000
+            },
+            {
+              "code": "tsh",
+              "label": "TSH",
+              "kind": "numeric",
+              "unit": "mIU/L",
+              "refLow": 0.4,
+              "refHigh": 4.0
+            },
+            {
+              "code": "hiv_screen",
+              "label": "HIV screen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true,
+              "optional": true
+            },
+            {
+              "code": "hbsag",
+              "label": "Hepatitis B surface antigen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true,
+              "optional": true
+            },
+            {
+              "code": "hcv_ab",
+              "label": "Hepatitis C antibody",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true,
+              "optional": true
+            }
+          ]
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S27.md; docs/research/S27.md; spec 4.4",
+  },
+  {
     key: "written_care.behaviour",
     // Written questions and clinical notes (S22). Live values are the active row of `written_care_config`; this entry mirrors
     // it and a test fails if the migration seed and this value drift. monthlyAllowance 4 was chosen by the build at the
@@ -643,6 +904,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S30.md; spec 7.7 and 17",
   },
   {
+    key: "payouts.rules",
+    // The rules of the weekly payout run (S31, spec 7.7). Live value is the active row of `payouts_config`; a test fails if the
+    // migration seed and this value drift. The minimum is a floor below which earnings carry over to the next week.
+    value: {
+      cadence: { weekday: 1, hour_lagos: 6 },
+      minimum_payout_kobo: 100000,
+      carry_over_below_minimum: true,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S31.md; spec 7.7",
+  },
+  {
     key: "queue.task_types",
     // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
     // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default
@@ -837,6 +1113,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S23.md",
+  },
+  {
+    key: "care_circle.rules",
+    // Version 1 (S29, spec 4.7): the rules the Care Circle shipped with. Kept as history; version 2 (S29c) adds the 14 and 3 day
+    // expiry notices, the pause length and what a supporter can do about a check-in request, and is the one in force.
+    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 7, gift_decide_days: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S29.md; docs/research/S29.md; spec 4.7, 8.6",
   },
   {
     key: "care_circle.rules",

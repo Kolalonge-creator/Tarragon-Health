@@ -507,6 +507,8 @@ export function getNavSections(
               label: "My work",
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
+                // S27: lab results held before the patient can see them (INV-03, INV-04).
+                { label: "Lab results to review", href: "/clinician/lab-results", icon: "labs" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 // S21: today's and tomorrow's consultation rooms (spec 9.1, "Consultations").
                 { label: "Consultations", href: "/clinician/consultations", icon: "booking" },
@@ -549,6 +551,7 @@ export function getNavSections(
                 { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
                 // What a contracted clinician has earned, line by line, and the fee schedule that applies (S30).
                 { label: "Earnings", href: "/clinician/earnings", icon: "analytics" },
+                { label: "Payouts", href: "/clinician/payouts", icon: "analytics" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier
                 // per this file's own gating philosophy above; the page
@@ -674,6 +677,7 @@ export function getNavSections(
             { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
+            { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
@@ -714,6 +718,8 @@ export function getNavSections(
         {
           items: [
             { label: "Dashboard", href: "/lab-partner", icon: "dashboard", exact: true },
+            // S27: structured result entry (spec 9.6).
+            { label: "Enter results", href: "/lab-partner/results", icon: "labs" },
           ],
         },
       ];
