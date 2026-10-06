@@ -14,6 +14,189 @@ export type Database = {
   }
   public: {
     Tables: {
+      task_types: {
+        Row: {
+          claim_timeout_minutes: number
+          code: string
+          creatable: boolean
+          created_at: string
+          default_due_minutes: number
+          effective_from: string
+          id: string
+          is_active: boolean
+          lead_window_minutes: number
+          min_doctor_tier: string
+          note: string | null
+          priority_class: number
+          pushable: boolean
+          required_competencies: string[]
+          source_task_keys: string[]
+          version: number
+        }
+        Insert: {
+          claim_timeout_minutes?: number
+          code: string
+          creatable?: boolean
+          created_at?: string
+          default_due_minutes: number
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          lead_window_minutes?: number
+          min_doctor_tier: string
+          note?: string | null
+          priority_class: number
+          pushable?: boolean
+          required_competencies?: string[]
+          source_task_keys?: string[]
+          version: number
+        }
+        Update: {
+          claim_timeout_minutes?: number
+          code?: string
+          creatable?: boolean
+          created_at?: string
+          default_due_minutes?: number
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          lead_window_minutes?: number
+          min_doctor_tier?: string
+          note?: string | null
+          priority_class?: number
+          pushable?: boolean
+          required_competencies?: string[]
+          source_task_keys?: string[]
+          version?: number
+        }
+        Relationships: []
+      }
+      earnings_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      earnings_ledger: {
+        Row: {
+          amount_kobo: number
+          calculation: Json
+          clinician_id: string
+          created_at: string
+          created_by: string | null
+          earned_at: string
+          employment_type: string
+          fee_schedule_version_id: string | null
+          id: string
+          is_test: boolean
+          kind: string
+          note: string | null
+          organisation_id: string
+          payout_id: string | null
+          reference_id: string
+          reference_type: string
+        }
+        Insert: {
+          amount_kobo: number
+          calculation: Json
+          clinician_id: string
+          created_at?: string
+          created_by?: string | null
+          earned_at: string
+          employment_type: string
+          fee_schedule_version_id?: string | null
+          id?: string
+          is_test?: boolean
+          kind: string
+          note?: string | null
+          organisation_id: string
+          payout_id?: string | null
+          reference_id: string
+          reference_type: string
+        }
+        Update: {
+          amount_kobo?: number
+          calculation?: Json
+          clinician_id?: string
+          created_at?: string
+          created_by?: string | null
+          earned_at?: string
+          employment_type?: string
+          fee_schedule_version_id?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          note?: string | null
+          organisation_id?: string
+          payout_id?: string | null
+          reference_id?: string
+          reference_type?: string
+        }
+        Relationships: []
+      }
+      fee_schedules: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          items: Json
+          note: string | null
+          organisation_id: string
+          status: string
+          superseded_at: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          items: Json
+          note?: string | null
+          organisation_id: string
+          status?: string
+          superseded_at?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          items?: Json
+          note?: string | null
+          organisation_id?: string
+          status?: string
+          superseded_at?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       account_recovery_requests: {
         Row: {
           approved_at: string | null
@@ -41768,6 +41951,53 @@ export type Database = {
       }
     }
     Functions: {
+      approve_fee_schedule: { Args: { p_id: string; p_note?: string }; Returns: Json }
+      create_fee_schedule_draft: { Args: { p_items?: Json; p_note?: string }; Returns: string }
+      discard_fee_schedule_draft: { Args: { p_id: string }; Returns: undefined }
+      earnings_admin_summary: {
+        Args: { p_from?: string; p_include_test?: boolean; p_to?: string }
+        Returns: {
+          clinician_id: string
+          full_name: string
+          lines: number
+          needs_review: number
+          total_kobo: number
+          unpaid_kobo: number
+        }[]
+      }
+      earnings_health: { Args: { p_include_test?: boolean }; Returns: Json }
+      earnings_needing_review: {
+        Args: { p_include_test?: boolean }
+        Returns: {
+          clinician_id: string
+          earned_at: string
+          id: string
+          kind: string
+          needs_review: string
+          reference_id: string
+          task_type: string
+        }[]
+      }
+      list_fee_schedules: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          approved_at: string
+          created_at: string
+          id: string
+          items: Json
+          note: string
+          status: string
+          superseded_at: string
+          version: number
+        }[]
+      }
+      my_earnings_summary: { Args: { p_from?: string; p_to?: string }; Returns: Json }
+      my_fee_schedule: { Args: Record<PropertyKey, never>; Returns: Json }
+      post_earnings_adjustment: {
+        Args: { p_amount_kobo: number; p_clinician: string; p_corrects?: string; p_reason: string; p_request_id?: string }
+        Returns: string
+      }
+      update_fee_schedule_draft: { Args: { p_id: string; p_items: Json; p_note?: string }; Returns: undefined }
       abnormal_result_dashboard_counts: {
         Args: { p_organisation_id: string }
         Returns: Json
@@ -41989,6 +42219,15 @@ export type Database = {
         Args: { p_request: string }
         Returns: Json
       }
+      attach_scribe_draft_to_note: {
+        Args: {
+          p_consent: string;
+          p_note: string;
+          p_patient_summary: string;
+          p_summary_language: string;
+        };
+        Returns: undefined;
+      };
       attach_written_question_photo: {
         Args: { p_bytes: number; p_consult: string; p_mime: string; p_path: string };
         Returns: string;

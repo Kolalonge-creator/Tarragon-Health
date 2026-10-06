@@ -132,10 +132,13 @@ export function ResultReleasePoliciesManager({
   versions,
   activeVersion,
   nextVersion,
+  canCreateDraft = true,
 }: {
   versions: ResultReleasePolicyVersionRow[];
   activeVersion: ResultReleasePolicyVersionRow | null;
   nextVersion: number;
+  /** Proposing a draft is an admin-only write (RLS); the Chief Medical Officer's page passes false so it never offers a form that cannot succeed for them. */
+  canCreateDraft?: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -153,6 +156,18 @@ export function ResultReleasePoliciesManager({
                 : "This version is live and driving every patient's read access to their own results today. That isn't gated on a signature. A Director's signature is a formal record of review, not a switch."}{" "}
               {activeVersion.notes}
             </p>
+            {/* The live version can be signed in place: the RPC takes any version id, and v1 went
+                live unsigned by design. Without this the only route to a signature was to draft a
+                copy first, which only an admin can do. */}
+            {!activeVersion.approved_at && (
+              <>
+                <p className="text-xs text-charcoal-ink/60">
+                  Review the table below, then sign to put your review on file. This changes nothing
+                  about how results release today; it records that you reviewed it.
+                </p>
+                <SignButton versionId={activeVersion.id} />
+              </>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -165,7 +180,7 @@ export function ResultReleasePoliciesManager({
 
       {activeVersion && <ConfigTable config={activeVersion.config} />}
 
-      <CreateDraftForm nextVersion={nextVersion} />
+      {canCreateDraft && <CreateDraftForm nextVersion={nextVersion} />}
 
       {versions.length > 0 && (
         <div className="space-y-4">

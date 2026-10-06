@@ -2,7 +2,17 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@tarragon/shared";
+import { MAX_SEGMENT_CHARS, MAX_TYPED_NOTES_CHARS, MIN_TYPED_NOTES_CHARS, parseTypedNotes } from "./parse-typed-notes";
 import { z } from "zod";
+
+// One definition of the context the model may see, used by both the recorded and the typed path.
+const PatientContextSchema = z
+  .object({
+    age: z.number().int().min(0).max(130).optional(),
+    sex: z.string().max(20).optional(),
+    conditions: z.array(z.string().max(100)).max(20).optional(),
+  })
+  .optional();
 
 const RecordConsentSchema = z.object({
   patientId: z.string().uuid(),
@@ -52,50 +62,30 @@ export async function revokeScribeConsent(consentId: string) {
   if (cleanupError) throw new Error(cleanupError.message);
 }
 
-const SignDraftSchema = z.object({
+const AttachDraftSchema = z.object({
   encounterNoteId: z.string().uuid(),
   scribeConsentId: z.string().uuid(),
-  history: z.string(),
-  examinationFindings: z.string(),
-  assessment: z.string(),
-  plan: z.string(),
-  followUpInstructions: z.string(),
-  patientSummary: z.string(),
+  patientSummary: z.string().max(4000),
   patientSummaryLanguage: z.enum(["en-NG", "pcm"]),
 });
 
-export async function signScribeDraft(input: z.input<typeof SignDraftSchema>) {
-  const parsed = SignDraftSchema.parse(input);
+/**
+ * Records on a draft encounter note that its text came from the AI scribe: the consent it was made under, the patient
+ * summary and ai_drafted. Notes are written only through audited functions (INV-10), so this calls
+ * attach_scribe_draft_to_note, which re-checks that the consent is still granted, unrevoked and for this note and
+ * patient (INV-11). Signing stays the note's own Sign and finalise step, which still needs an outcome and identity
+ * confirmation.
+ */
+export async function attachScribeDraftToNote(input: z.input<typeof AttachDraftSchema>) {
+  const parsed = AttachDraftSchema.parse(input);
   const supabase = await createClient();
 
-  // INV-11: re-check at signing time. Consent revoked after the draft was generated blocks the write.
-  const { data: consent, error: consentError } = await supabase
-    .from("scribe_consents")
-    .select("granted, revoked_at, encounter_note_id")
-    .eq("id", parsed.scribeConsentId)
-    .maybeSingle();
-  if (consentError) throw new Error(consentError.message);
-  if (!consent || !consent.granted || consent.revoked_at || consent.encounter_note_id !== parsed.encounterNoteId) {
-    throw new Error("Scribe consent is not active for this encounter.");
-  }
-
-  // Setting status = 'finalized' is the clinician's signature; the note trigger stamps finalized_by_staff/at.
-  const { error } = await supabase
-    .from("clinical_encounter_notes")
-    .update({
-      status: "finalized",
-      ai_drafted: true,
-      history: parsed.history,
-      examination_findings: parsed.examinationFindings,
-      assessment: parsed.assessment,
-      plan: parsed.plan,
-      follow_up_instructions: parsed.followUpInstructions,
-      scribe_consent_id: parsed.scribeConsentId,
-      patient_summary: parsed.patientSummary,
-      patient_summary_language: parsed.patientSummaryLanguage,
-    })
-    .eq("id", parsed.encounterNoteId);
-
+  const { error } = await supabase.rpc("attach_scribe_draft_to_note", {
+    p_note: parsed.encounterNoteId,
+    p_consent: parsed.scribeConsentId,
+    p_patient_summary: parsed.patientSummary,
+    p_summary_language: parsed.patientSummaryLanguage,
+  });
   if (error) throw new Error(error.message);
 }
 
@@ -108,20 +98,15 @@ const CallDraftSchema = z.object({
         index: z.number().int().nonnegative(),
         startMs: z.number().nonnegative(),
         endMs: z.number().nonnegative(),
-        text: z.string().max(2000),
+        text: z.string().max(MAX_SEGMENT_CHARS),
         speaker: z.enum(["clinician", "patient", "unknown"]),
       }),
     )
     .min(1)
     .max(2000),
   language: z.enum(["en-NG", "pcm"]),
-  patientContext: z
-    .object({
-      age: z.number().int().min(0).max(130).optional(),
-      sex: z.string().max(20).optional(),
-      conditions: z.array(z.string().max(100)).max(20).optional(),
-    })
-    .optional(),
+  source: z.enum(["stt", "typed"]).default("stt"),
+  patientContext: PatientContextSchema,
 });
 
 export async function callScribeDraft(rawInput: z.input<typeof CallDraftSchema>) {
@@ -148,4 +133,27 @@ export async function callScribeDraft(rawInput: z.input<typeof CallDraftSchema>)
   }
 
   return res.json();
+}
+
+const DraftFromTextSchema = z.object({
+  scribeConsentId: z.string().uuid(),
+  encounterNoteId: z.string().uuid(),
+  language: z.enum(["en-NG", "pcm"]),
+  text: z.string().min(MIN_TYPED_NOTES_CHARS).max(MAX_TYPED_NOTES_CHARS),
+  patientContext: PatientContextSchema,
+});
+
+/** Drafts a note from consultation notes the clinician pasted or typed. The text is sent to the model and not stored. */
+export async function draftScribeFromText(input: z.input<typeof DraftFromTextSchema>) {
+  const parsed = DraftFromTextSchema.parse(input);
+  const segments = parseTypedNotes(parsed.text);
+  if (segments.length === 0) throw new Error("There is no text to draft from.");
+  return callScribeDraft({
+    scribeConsentId: parsed.scribeConsentId,
+    encounterNoteId: parsed.encounterNoteId,
+    segments,
+    language: parsed.language,
+    source: "typed",
+    patientContext: parsed.patientContext,
+  });
 }

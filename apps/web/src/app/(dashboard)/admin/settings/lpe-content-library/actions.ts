@@ -39,6 +39,9 @@ export async function editContentBlockAction(
   // admin/settings/clinical-protocols/page.tsx — which must see the same
   // fresh state whether the edit happened there or on this page directly.
   revalidatePath("/admin/settings/clinical-protocols");
+  // Also reviewed from the Chief Medical Officer's own pages, whose account cannot open /admin.
+  revalidatePath("/clinician/lpe-content-library");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
 
@@ -55,5 +58,8 @@ export async function signContentBlockAction(blockId: string): Promise<ContentAc
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/lpe-content-library");
   revalidatePath("/admin/settings/clinical-protocols");
+  // Also reviewed from the Chief Medical Officer's own pages, whose account cannot open /admin.
+  revalidatePath("/clinician/lpe-content-library");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
