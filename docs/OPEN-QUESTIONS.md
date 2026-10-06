@@ -643,3 +643,38 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision (founder, 2026-10-06): Send from a subdomain (`mail.tarragonhealth.ng`) with SPF, DKIM and DMARC (`p=none` with reports for 2 to 4 weeks, then `quarantine`) before S27 sends partner email. From `Tarragon Health <care@mail.tarragonhealth.ng>` with a monitored Reply-To, not a no-reply address; every email points to the app. Staff email carries no patient name or reading, only a link into the console. Review the two PDF attachments (OQ-91) at the same time.
 - Checked 2026-10-06: `mail.tarragonhealth.ng` is verified in Resend (SPF and DKIM). DMARC `p=none` with reports to `dmarc@tarragonhealth.ng` was added in Cloudflare at `_dmarc.mail` and resolves. Still open: the `dmarc@` mailbox does not exist yet (the Zoho login used was not an admin), Resend shows no webhook yet (add it after the S13 migration is applied and `resend-webhook` is deployed), and `RESEND_FROM` and `RESEND_REPLY_TO` are not changed in production because the live sender already reads `RESEND_FROM` and its current value could not be read.
 - Done 2026-10-06 (by the build session): created the Resend webhook to `https://koiplnmbgnqnbywhpjlf.supabase.co/functions/v1/resend-webhook` listening for email.delivered, email.bounced, email.complained and email.failed. Its signing secret must be set as the `RESEND_WEBHOOK_SECRET` edge secret by the owner. The `resend-webhook` function is NOT deployed yet (only `send-pending-notifications` is), so Resend will show failed deliveries and retry until S13 is deployed. Done 2026-10-06: the Zoho Group "DMARC reports" (`dmarc@tarragonhealth.ng`, accepts mail from Everyone so outside report senders can reach it, member `kola.longe@tarragonhealth.ng`, no paid seat) now exists, so DMARC reports reach the founder. The Zoho org is "TarragonHealth", Mail Free plan, 3 users.
+
+### OQ-115 No `pathway_enrolments` table exists; where does the lead live (raised by S18)
+- Spec 7.5 records `pathway_enrolments.lead_clinician_id`, but that table does not exist (RECONCILIATION.md: new table only if care-pack states are needed). The 12-week pack is a `service_purchases` row scoped to a `chronic_programme_enrolment`.
+- Options: (a) a `lead_assignments` table (current row plus history, end reasons, config version) anchored to the patient and optionally the purchase, mirrored into `care_team_assignment.clinician_id` in the same transaction (recommended); (b) build `pathway_enrolments` now.
+- Decision (founder): pending. S18 proceeds with (a).
+
+### OQ-116 Who may be a lead: spec says tier 2, F-05 collapsed tiers (raised by S18)
+- Spec 7.5 says "active tier 2 clinicians". F-05 and S16 say doctor tier is the only gate and `credentialing_level` is not used. The `lead_clinician` and `on_call` competencies carry `requires_level` 2.
+- Options: (a) lead pool = `lead_clinician` and `hypertension` competencies, active, eligible, doctor tier senior_medical_officer or chief_medical_officer; Medical Officer excluded (recommended); (b) any doctor tier with the competencies.
+- Decision (founder): pending. S18 proceeds with (a).
+
+### OQ-117 `order.paid` has no producer until S25 (raised by S18)
+- S18 registers the subscriber `lead.assign_on_order_paid` and a callable `assign_lead_clinician`, but nothing emits `order.paid` yet; care packs today are `service_purchases`.
+- Options: (a) subscriber now plus a clinical-lead and admin "assign lead" action for the pilot; S25 emits the event (recommended); (b) hook the existing purchase path now.
+- Decision (founder): pending. S18 proceeds with (a).
+
+### OQ-118 Capacity and cover gates are exposed, not wired (raised by S18)
+- Babylon lesson: sales must not outrun declared clinician capacity. S18 builds `lead_capacity_status()` and `rota_coverage_gaps()`; `on_call_cover_ok` has no implementation (S37), so S18 enables no gate (INV-14).
+- Options: (a) read functions only; S25 checkout and S37 guard wire them (recommended); (b) block the existing purchase path now.
+- Decision (founder): pending. S18 proceeds with (a).
+
+### OQ-119 Working-hours, rest and fatigue numbers need clinical review (raised by S18, OQ-112)
+- Defaults modelled on the NHS 2016 junior-doctor rules (11 hours rest, at most 7 consecutive shifts, at most 3 on-calls in 7 days) as configurable warnings with an override reason. They are not Nigerian norms.
+- Options: (a) ship as PROPOSED warnings, CMO to set values (recommended); (b) leave rest rules off until the CMO supplies numbers.
+- Decision (founder): pending. S18 proceeds with (a).
+
+### OQ-120 Patient wording when the lead changes (raised by S18)
+- Spec 7.5 shows "name and photo of the lead clinician"; CLAUDE.md says never promise one continuous named doctor. Reassignment must also be told to the patient.
+- Options: (a) "your care team lead" with the team behind them; a neutral in-app and email notice on every change (recommended); (b) name only.
+- Decision (founder): pending. S18 proceeds with (a). Pidgin text needs a native reviewer.
+
+### OQ-121 Changing lead on request (raised by S18)
+- Not in the spec: a patient asking for a different lead, or a clinician asking to be released from a patient for a non-conflict reason.
+- Options: (a) clinical-lead-only action with a reason, audited, ending reason `patient_request` or `clinician_request` (recommended); (b) self-serve.
+- Decision (founder): pending. S18 proceeds with (a).
