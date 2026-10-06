@@ -48,13 +48,14 @@ begin
     raise exception 'Type between 3 and 80 characters to search' using errcode = '22023';
   end if;
 
-  -- A typed 0801... must match a stored +234801...: compare the last ten digits.
-  v_tail := case when char_length(v_digits) > 10 then right(v_digits, 10) else ltrim(v_digits, '0') end;
+  -- A phone matches only when the FULL national number is typed (10 digits; a typed 0801... matches a stored +234801...), compared
+  -- exactly. A partial suffix would let a script rebuild a masked number one digit at a time without a reason.
+  v_tail := case when char_length(v_digits) >= 10 then right(v_digits, 10) else null end;
 
   -- Escape LIKE wildcards so a typed % or _ is a literal character.
   v_like := '%' || replace(replace(replace(v_q, '\', '\\'), '%', '\%'), '_', '\_') || '%';
 
-  select coalesce(jsonb_agg(to_jsonb(h) order by h.full_name nulls last), '[]'::jsonb) into v_rows
+  select coalesce(jsonb_agg(to_jsonb(h) order by h.full_name nulls last, h.patient_id), '[]'::jsonb) into v_rows
   from (
     select p.id as patient_id,
            p.full_name,
@@ -69,20 +70,21 @@ begin
       and (
         p.full_name ilike v_like escape '\'
         or p.patient_number ilike v_like escape '\'
-        or (char_length(v_tail) >= 6 and regexp_replace(coalesce(p.phone, ''), '[^0-9]', '', 'g') like '%' || v_tail)
+        or (v_tail is not null and right(regexp_replace(coalesce(p.phone, ''), '[^0-9]', '', 'g'), 10) = v_tail)
         or exists (
           select 1 from auth.users u
           where u.id = p.id and v_q like '%@%' and lower(u.email) = lower(v_q)
         )
       )
-    order by p.full_name nulls last
+    order by p.full_name nulls last, p.id
     limit 25
   ) h;
   v_hits := jsonb_array_length(v_rows);
 
   perform private.log_audit(
     'admin.patient_searched', 'patient_search', null,
-    jsonb_build_object('query_length', char_length(v_q), 'result_count', v_hits)
+    jsonb_build_object('query_length', char_length(v_q), 'result_count', v_hits,
+      'patient_ids', (select coalesce(jsonb_agg(r ->> 'patient_id'), '[]'::jsonb) from jsonb_array_elements(v_rows) r))
   );
 
   return query

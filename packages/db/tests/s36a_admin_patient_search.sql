@@ -109,6 +109,7 @@ begin
   insert into results values ('real', 'the audit row never holds the query text', 'false', (coalesce(v_txt, '') ilike '%zzproof%')::text);
   select event into v_event from public.audit_log where actor_id = pg_temp.f('admin') and action = 'admin.patient_searched' order by created_at desc limit 1;
   insert into results values ('real', 'the audit row holds the hit count', '1', v_event ->> 'result_count');
+  insert into results values ('real', 'the audit row names the patients shown', pg_temp.f('pat')::text, v_event -> 'patient_ids' ->> 0);
 end $$;
 
 -- 3. too short, wildcards literal
@@ -122,7 +123,9 @@ begin
   select patient_number into v_pn from public.profiles where id = pg_temp.f('pat');
   insert into results values ('real', 'search by patient number', '1', pg_temp.search_as(pg_temp.f('admin'), v_pn));
 end $$;
-insert into results values ('real', 'search by phone digits', '1', pg_temp.search_as(pg_temp.f('admin'), '08011119876'));
+insert into results values ('real', 'search by the full phone number', '1', pg_temp.search_as(pg_temp.f('admin'), '08011119876'));
+insert into results values ('real', 'a partial phone suffix finds nothing (no rebuilding a masked number)', '0', pg_temp.search_as(pg_temp.f('admin'), '011119876'));
+insert into results values ('real', 'search by the +234 form of the full number', '1', pg_temp.search_as(pg_temp.f('admin'), '+2348011119876'));
 insert into results values ('real', 'search by exact email', '1', pg_temp.search_as(pg_temp.f('admin'), 's36a-pat@example.invalid'));
 insert into results values ('real', 'a partial email finds nothing', '0', pg_temp.search_as(pg_temp.f('admin'), 's36a-pa@exam'));
 
