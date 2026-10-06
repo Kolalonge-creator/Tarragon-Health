@@ -215,7 +215,7 @@ export type CallEventReport =
   | { kind: "fallback_offered" };
 
 /** Recorded as the person's own report (their session), so the database sees who said it. A refused report is returned, never swallowed. */
-export async function reportCallEvent(deps: RoomDeps, encounterId: string, report: CallEventReport): Promise<{ ok: boolean }> {
+export async function reportCallEvent(deps: Pick<RoomDeps, "userRpc">, encounterId: string, report: CallEventReport): Promise<{ ok: boolean }> {
   const payload = report.kind === "mode_changed" ? { mode: report.mode } : {};
   const res = await deps.userRpc.rpc("report_encounter_event", { p_encounter: encounterId, p_kind: report.kind, p_payload: payload });
   return { ok: !res.error };

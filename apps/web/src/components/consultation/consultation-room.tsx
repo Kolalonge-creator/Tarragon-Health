@@ -78,7 +78,7 @@ export function ConsultationRoom({ view, locale, call = null }: { view: RoomView
     startTransition(async () => {
       if (call) {
         const started = await inApp.start(media);
-        if (started === "busy") return;
+        if (started === "busy" || started === "cancelled") return;
         if (started === "started") {
           setAudioHint(media === "audio_only");
           refresh();
@@ -198,9 +198,9 @@ export function ConsultationRoom({ view, locale, call = null }: { view: RoomView
               )}
               {/* Zoom draws its call into this box. It stays in the page at all times so the SDK has somewhere to render. */}
               <div ref={callRoot} data-testid="call-root" className={inApp.state === "idle" ? "hidden" : "min-h-[420px] w-full overflow-hidden rounded-md"} />
-              {inApp.state === "in_call" && (
+              {inApp.state !== "idle" && (
                 <div className="space-y-2">
-                  <p>{t("consult.call.camera_hint", locale)}</p>
+                  {inApp.state === "in_call" && <p>{t("consult.call.camera_hint", locale)}</p>}
                   <Button variant="outline" onClick={() => void inApp.leave()}>
                     {t("consult.call.leave", locale)}
                   </Button>

@@ -420,6 +420,11 @@ describe("the person's own client reporting a call event", () => {
     expect(db.s.mode).toBe("audio_only");
   });
 
+  it("needs nothing but the person's own session: no vendor, no service client", async () => {
+    const { db } = setup();
+    expect(await reportCallEvent({ userRpc: db.user(PATIENT) }, ENC, { kind: "reconnect_grace_started" })).toEqual({ ok: true });
+  });
+
   it("returns a refusal instead of swallowing it: a stranger, a finished consultation, or an attempt to set the phone mode", async () => {
     const { db, deps } = setup();
     expect(await reportCallEvent(deps(STRANGER), ENC, { kind: "fallback_offered" })).toEqual({ ok: false });

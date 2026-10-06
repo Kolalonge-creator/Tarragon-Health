@@ -67,8 +67,14 @@ export async function reportCallEventAction(encounterId: string, report: CallEve
   const id = idSchema.safeParse(encounterId);
   const r = callEventSchema.safeParse(report);
   if (!id.success || !r.success) return { ok: false };
-  const d = await deps();
-  return isFail(d) ? { ok: false } : reportCallEvent(d, id.data, r.data);
+  // Only the person's own session is needed. It must not depend on the video vendor being configured, or a vendor problem would
+  // silently drop the ladder's reports and leave the record disagreeing with what the person was told.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false };
+  return reportCallEvent({ userRpc: supabase as unknown as RpcClient }, id.data, r.data);
 }
 
 /** The numbers and passcode to ring into this consultation by phone. Returned to the signed-in participant only, never stored. */

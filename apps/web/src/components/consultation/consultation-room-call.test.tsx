@@ -85,7 +85,7 @@ describe("ConsultationRoom with the in-app call", () => {
     expect(args).not.toHaveProperty("zak");
     expect(join).not.toHaveBeenCalled();
     expect(window.open).not.toHaveBeenCalled();
-    expect(await screen.findByRole("button", { name: "Leave the call" })).toBeTruthy();
+    expect(await screen.findByText(/camera button/i)).toBeTruthy();
     expect(screen.getByTestId("call-root").classList.contains("hidden")).toBe(false);
     // a second tap on join cannot tear down the call that is already live
     expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(true);
@@ -189,7 +189,8 @@ describe("ConsultationRoom with the in-app call", () => {
       prepare.mockResolvedValue({ ok: true, join: joinInfo });
       const rendered = render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
       click("Join with video");
-      await screen.findByRole("button", { name: "Leave the call" });
+      // the Leave button is there while Zoom is still opening; the camera hint appears only once the person is in the call
+      await screen.findByText(/camera button/i);
       return Object.assign(f, { unmount: rendered.unmount });
     }
 
@@ -261,6 +262,24 @@ describe("ConsultationRoom with the in-app call", () => {
       expect((await screen.findByTestId("dial-in")).textContent).toContain("482913");
       await waitFor(() => expect(screen.queryByRole("button", { name: "Leave the call" })).toBeNull());
       expect(screen.getByTestId("call-notice").textContent).toContain("join by phone");
+    });
+
+    it("Leave works while Zoom is still opening (a join that hangs, or waits for the host): it leaves again, and does not open the link", async () => {
+      let release: () => void = () => undefined;
+      const f = fakeSdk({ join: jest.fn(() => new Promise<unknown>((resolve) => (release = () => resolve(undefined)))) });
+      loadSdk.mockResolvedValue(f.sdk);
+      prepare.mockResolvedValue({ ok: true, join: joinInfo });
+      render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
+      click("Join with video");
+      await waitFor(() => expect(f.client.join).toHaveBeenCalled());
+      click("Leave the call");
+      release();
+      await waitFor(() => expect(f.client.leaveMeeting).toHaveBeenCalled());
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Leave the call" })).toBeNull());
+      expect(join).not.toHaveBeenCalled();
+      expect(window.open).not.toHaveBeenCalled();
+      // and the person can try again afterwards
+      expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false);
     });
 
     it("leaves again at once if the page went away while Zoom was still joining, instead of staying in a call nobody can see", async () => {
