@@ -5,6 +5,10 @@ import { readPatientMedicationsOrThrow, type AuditedMedication } from "@/lib/cli
 import type { Tables } from "@tarragon/shared";
 import type { AmendMedicationInput, MedicationInput } from "@/lib/validation/medications";
 import type { MedicationLogInput } from "@/lib/validation/medication-logs";
+import type { SafetyResubmit } from "@/lib/prescriptions/parse-safety-error";
+
+/** What the signer answered after a signing safety stop (S24): the allergy-list confirmation and the reason for going ahead. */
+export type SafetyAnswers = SafetyResubmit;
 
 export type Medication = Tables<"medications">;
 // medication_logs is append-only (20260830224528) — reads go through the
@@ -144,6 +148,8 @@ export function useAddMedication() {
       input: MedicationInput & {
         patientId: string;
         source: "patient" | "clinician" | "specialist";
+        /** S24 signing checks: only meaningful for a clinician prescription, sent again after a SAFETY_FINDINGS stop. */
+        safety?: SafetyAnswers;
       }
     ) => {
       const supabase = createClient();
@@ -163,6 +169,8 @@ export function useAddMedication() {
           p_repeats_allowed: input.repeats_allowed ?? undefined,
           p_indication: input.indication || undefined,
           p_instructions: input.instructions || undefined,
+          p_allergies_confirmed: input.safety?.allergiesConfirmed === true,
+          p_safety_override_reason: input.safety?.overrideReason?.trim() || undefined,
         });
         if (error) throw error;
         return;
@@ -185,8 +193,11 @@ export function useAddMedication() {
         care_plan_id,
         prescriber_name,
         prescriber_document_url,
+        safety,
         ...rest
       } = input;
+      // The signing answers belong to a clinician prescription only; a patient's own insert never carries them.
+      void safety;
       const { error } = await supabase.from("medications").insert({
         ...rest,
         patient_id: patientId,
@@ -313,11 +324,14 @@ export function useAmendMedication() {
       medicationId,
       organisationId,
       input,
+      safety,
     }: {
       medicationId: string;
       patientId: string;
       organisationId: string;
       input: AmendMedicationInput;
+      /** S24 signing checks, sent again after a SAFETY_FINDINGS stop. */
+      safety?: SafetyAnswers;
     }) => {
       const supabase = createClient();
       // Anything left undefined here is simply omitted from the RPC call
@@ -344,6 +358,8 @@ export function useAmendMedication() {
           input.schedule_times && input.schedule_times.length > 0
             ? input.schedule_times
             : undefined,
+        p_allergies_confirmed: safety?.allergiesConfirmed === true,
+        p_safety_override_reason: safety?.overrideReason?.trim() || undefined,
       });
       if (error) {
         handleIfPermissionDenied(error, {

@@ -9,7 +9,7 @@ import {
   endMembership,
   grantMembership,
   type MembershipActionState,
-} from "@/app/(dashboard)/admin/members/actions";
+} from "@/app/(dashboard)/admin/memberships/actions";
 import type { MembersBasePath } from "@/lib/memberships/members";
 
 function Feedback({ state }: { state: MembershipActionState }) {

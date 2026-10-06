@@ -31,6 +31,7 @@ begin
     (v_smo,    v_org, 'clinician', 'RxQty Tied SMO', '+2348058880902'),
     (v_untied, v_org, 'clinician', 'RxQty Untied',   '+2348058880903')
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+  insert into public.patient_allergies (organisation_id, patient_id, allergen, source) values (v_org, v_pat, 'proof-allergen-none', 'clinician');
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier,
                                      credential_type, credential_number, indemnity_insurer, indemnity_policy_number, indemnity_expires_at) values
     (v_org, v_smo,    'RxQty Tied SMO', true, now(), 'senior_medical_officer', 'MDCN', 'RXQTY-1', 'Probe', 'RXQ-1', now() + interval '1 year'),
@@ -111,7 +112,7 @@ begin
   if v_row.quantity <> '30 tablets' or v_row.duration_days <> 30 then raise exception 'FAIL: legacy amendment values wrong: %', v_row; end if;
 
   -- SABOTAGE: without the checks a prescription with no quantity is accepted
-  select replace(replace(pg_get_functiondef('public.prescribe_medication(uuid,text,text,text,date,jsonb,uuid,text,integer,text,integer,text,text)'::regprocedure),
+  select replace(replace(pg_get_functiondef('public.prescribe_medication(uuid,text,text,text,date,jsonb,uuid,text,integer,text,integer,text,text,boolean,text)'::regprocedure),
                  'if coalesce(btrim(p_quantity), '''') = '''' then', 'if false then'),
                  'if p_duration_days is null or p_duration_days <= 0 then', 'if false then') into v_def;
   if v_def not like '%if false then%if false then%' then raise exception 'SABOTAGE not applied'; end if;

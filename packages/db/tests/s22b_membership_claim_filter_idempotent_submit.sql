@@ -164,20 +164,20 @@ begin
   perform pg_temp.ck('a non-member cannot send a written question', 'true',
     (pg_temp.submit(v_pat, 'My knee has been swollen for two days') like 'ERR:Written messages to your care team are part of Membership%')::text);
   perform pg_temp.ck('a patient cannot grant themselves a membership', 'true',
-    (pg_temp.try_as(v_pat, format($q$select public.grant_membership(%L, null, 'Granting myself a membership')$q$, v_pat)) like 'membership_not_authorised%')::text);
+    (pg_temp.try_as(v_pat, format($q$select public.grant_membership(%L, 'Granting myself a membership')$q$, v_pat)) like 'membership_not_authorised%')::text);
   perform pg_temp.ck('an ordinary clinician cannot grant one', 'true',
-    (pg_temp.try_as(v_doc, format($q$select public.grant_membership(%L, null, 'A doctor trying to grant one')$q$, v_pat)) like 'membership_not_authorised%')::text);
+    (pg_temp.try_as(v_doc, format($q$select public.grant_membership(%L, 'A doctor trying to grant one')$q$, v_pat)) like 'membership_not_authorised%')::text);
   perform pg_temp.ck('a grant needs a real reason', 'membership_reason_needed',
-    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, null, 'short')$q$, v_pat)));
+    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, 'short')$q$, v_pat)));
   perform pg_temp.ck('an end date in the past is refused', 'membership_end_in_past',
-    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, now() - interval '1 day', 'Granting with a past end date')$q$, v_pat)));
+    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, 'Granting with a past end date', now() - interval '1 day')$q$, v_pat)));
   perform pg_temp.ck('an admin grants a membership', 'ok',
-    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, null, 'Founder approved pilot member for the clinic launch')$q$, v_pat)));
+    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, 'Founder approved pilot member for the clinic launch')$q$, v_pat)));
   perform pg_temp.ck('...the patient is now a member', 'true', (select private.patient_is_member(v_pat)::text));
   perform pg_temp.ck('...the grant is audited with the reason', '1',
     (select count(*)::text from public.audit_log where action = 'membership.grant' and subject_patient_id = v_pat and reason like 'Founder approved%'));
   perform pg_temp.ck('...a second grant while one is active is refused', 'membership_already_active',
-    pg_temp.try_as(v_cmo, format($q$select public.grant_membership(%L, null, 'The CMO tries to grant twice here')$q$, v_pat)));
+    pg_temp.try_as(v_cmo, format($q$select public.grant_membership(%L, 'The CMO tries to grant twice here')$q$, v_pat)));
   perform pg_temp.ck('...and the member can send a written question', 'true',
     (pg_temp.submit(v_pat, 'My knee has been swollen for two days') ~ '^[0-9a-f-]{36}$')::text);
   perform pg_temp.ck('the membership table has no direct path', 'true',
@@ -192,12 +192,12 @@ begin
   perform pg_temp.ck('...and the patient is no longer a member', 'false', (select private.patient_is_member(v_pat)::text));
   -- a dated membership lapses by itself
   perform pg_temp.ck('a dated membership is granted', 'ok',
-    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, now() + interval '1 hour', 'Short pilot membership for a launch week')$q$, pg_temp.f('pat2'))));
+    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, 'Short pilot membership for a launch week', now() + interval '1 hour')$q$, pg_temp.f('pat2'))));
   perform pg_temp.ck('...and counts while it runs', 'true', (select private.patient_is_member(pg_temp.f('pat2'))::text));
   update public.patient_memberships set starts_at = now() - interval '2 hours', ends_at = now() - interval '1 hour' where patient_id = pg_temp.f('pat2');
   perform pg_temp.ck('...and stops counting after its end date, with nobody doing anything', 'false', (select private.patient_is_member(pg_temp.f('pat2'))::text));
   perform pg_temp.ck('a lapsed membership can be renewed (not blocked as still active)', 'ok',
-    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, null, 'Renewed after the dated pilot membership ended')$q$, pg_temp.f('pat2'))));
+    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, 'Renewed after the dated pilot membership ended')$q$, pg_temp.f('pat2'))));
   perform pg_temp.ck('...and the patient is a member again', 'true', (select private.patient_is_member(pg_temp.f('pat2'))::text));
   perform pg_temp.ck('...with the lapsed row closed, not deleted', '1',
     (select count(*)::text from public.patient_memberships where patient_id = pg_temp.f('pat2') and state = 'ended' and end_reason like 'Lapsed%'));
@@ -244,7 +244,7 @@ declare
   v_admin uuid := pg_temp.f('admin'); v_p uuid := pg_temp.f('pat3'); v_c uuid := gen_random_uuid(); a text; b text; c text;
 begin
   perform pg_temp.ck('a pilot member is granted for the retry checks', 'ok',
-    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, null, 'Pilot member so the retry proof can send')$q$, v_p)));
+    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, 'Pilot member so the retry proof can send')$q$, v_p)));
   a := pg_temp.submit(v_p, 'First send of the same question', v_c);
   b := pg_temp.submit(v_p, 'First send of the same question', v_c);
   perform pg_temp.ck('a retry with the same client id returns the first question', 'true', (a = b and a ~ '^[0-9a-f-]{36}$')::text);

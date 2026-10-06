@@ -467,6 +467,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S22.md; OQ-151; spec 7.3 async_question and 23.16",
   },
   {
+    key: "care_change.behaviour",
+    // Care plan changes (S24). Live values are the active row of `care_change_config`; this entry mirrors it and a test
+    // fails if the migration seed and this value drift. A signed change waits confirmWindowDays for the patient before it
+    // lapses; a referral is chased after referralChaseDays. Titration thresholds live in the protocol definition, not here.
+    value: { confirmWindowDays: 7, referralChaseDays: 7, minPatientSummaryChars: 10, minRationaleChars: 10 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S24.md",
+  },
+  {
     key: "queue.rules",
     // Task queue rules (S16). Live values are the active row of `queue_config`; this entry mirrors it and a test fails
     // if the migration seed and this value drift. class3_promotion_window_minutes is spec 7.3 ("within 4 hours of its
@@ -755,5 +767,41 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S21.md; docs/research/S21.md",
+  },
+  {
+    key: "scribe.transcript_retention_days",
+    value: 90,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S23.md",
+  },
+  {
+    key: "scribe.claude_model",
+    value: "claude-sonnet-5-5",
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S23.md",
+  },
+  {
+    key: "scribe.claude_max_tokens",
+    value: 4096,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S23.md",
+  },
+  {
+    key: "scribe.prompt_cache_ttl_seconds",
+    value: 3600,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S23.md",
   },
 ];

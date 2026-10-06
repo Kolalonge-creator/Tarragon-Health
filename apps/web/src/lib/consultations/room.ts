@@ -1,4 +1,4 @@
-import type { PhoneBridgeProvider, ProviderResult, RequestedMedia, VideoProvider, VideoRole } from "@tarragon/integrations";
+import type { DialIn, RequestedMedia, VideoProvider, VideoRole } from "@tarragon/integrations";
 
 /**
  * S21: the server side of a consultation room. Pure logic over injected clients so it can be proved end to end against the
@@ -23,9 +23,6 @@ export interface RoomDeps {
   readonly userRpc: RpcClient;
   readonly serviceRpc: RpcClient;
   readonly video: VideoProvider;
-  /** Looks up a profile's E.164 phone number with the service client. Null when none is on file. */
-  readonly phoneOf: (profileId: string) => Promise<string | null>;
-  readonly phone: ProviderResult<PhoneBridgeProvider>;
   readonly now: () => number;
 }
 
@@ -44,7 +41,7 @@ interface RoomView {
 
 export type JoinOutcome =
   | { ok: true; url: string; mediaMode: RequestedMedia; audioOnlyEnforced: boolean; recorded: boolean }
-  | { ok: false; reason: "not_found" | "closed" | "on_phone" | "provider" }
+  | { ok: false; reason: "not_found" | "closed" | "provider" }
   | { ok: false; reason: "not_open"; opensAt: string };
 
 const DONE = new Set(["completed", "no_show_patient", "no_show_clinician", "cancelled", "failed"]);
@@ -59,31 +56,35 @@ async function lookup(deps: RoomDeps, encounterId: string): Promise<{ view: Room
   return role ? { view, role } : null;
 }
 
+/** The vendor room for this consultation, created and recorded on first use. Null when the vendor or the database refused. */
+async function ensureRoom(deps: RoomDeps, view: RoomView, encounterId: string): Promise<string | null> {
+  const existing = view.room?.provider_room_id ?? null;
+  if (existing) return existing;
+  const created = await deps.video.createRoom({ encounterRef: encounterId, expiresAtMs: Date.parse(view.join_closes_at) });
+  if (!created.ok) return null;
+  const opened = await deps.serviceRpc.rpc("service_open_encounter_room", {
+    p_encounter: encounterId,
+    p_provider: deps.video.name === "zoom" ? "zoom" : "mock",
+    p_room_id: created.data.roomId,
+    p_expires_at: new Date(created.data.expiresAtMs).toISOString(),
+  });
+  const row = opened.error ? null : (opened.data as { provider_room_id: string; created: boolean } | null);
+  if (!row) return null;
+  // Two people opened the room at once and the other won: end ours so no orphan meeting is left open.
+  if (!row.created) await deps.video.endRoom(created.data.roomId, "clinician");
+  return row.provider_room_id;
+}
+
 /** Opens the room if it is not open yet and returns the person's own link. Never stores the link. */
 export async function joinConsultation(deps: RoomDeps, encounterId: string, requested: RequestedMedia): Promise<JoinOutcome> {
   const found = await lookup(deps, encounterId);
   if (!found) return { ok: false, reason: "not_found" };
   const { view, role } = found;
   if (DONE.has(view.status)) return { ok: false, reason: "closed" };
-  if (view.final_media_mode === "phone") return { ok: false, reason: "on_phone" };
   if (!view.joinable) return { ok: false, reason: "not_open", opensAt: view.join_opens_at };
 
-  let roomId = view.room?.provider_room_id ?? null;
-  if (!roomId) {
-    const created = await deps.video.createRoom({ encounterRef: encounterId, expiresAtMs: Date.parse(view.join_closes_at) });
-    if (!created.ok) return { ok: false, reason: "provider" };
-    const opened = await deps.serviceRpc.rpc("service_open_encounter_room", {
-      p_encounter: encounterId,
-      p_provider: deps.video.name === "zoom" ? "zoom" : "mock",
-      p_room_id: created.data.roomId,
-      p_expires_at: new Date(created.data.expiresAtMs).toISOString(),
-    });
-    const row = opened.error ? null : (opened.data as { provider_room_id: string; created: boolean } | null);
-    if (!row) return { ok: false, reason: "provider" };
-    roomId = row.provider_room_id;
-    // Two people opened the room at once and the other won: end ours so no orphan meeting is left open.
-    if (!row.created) await deps.video.endRoom(created.data.roomId, "clinician");
-  }
+  const roomId = await ensureRoom(deps, view, encounterId);
+  if (!roomId) return { ok: false, reason: "provider" };
 
   // Once a call has dropped to audio only, anyone who rejoins comes in audio first.
   const mediaMode: RequestedMedia = view.final_media_mode === "audio_only" ? "audio_only" : requested;
@@ -95,39 +96,38 @@ export async function joinConsultation(deps: RoomDeps, encounterId: string, requ
   return { ok: true, url: link.data.url, mediaMode, audioOnlyEnforced: link.data.audioOnlyEnforced, recorded };
 }
 
-export type PhoneOutcome =
-  | { ok: true }
-  | { ok: false; reason: "not_allowed" | "not_open" | "no_number" | "phone_unavailable" };
+/** What a person needs to ring into the same room. Held in memory for the page view only; never stored or logged. */
+export type DialInOutcome =
+  | { ok: true; dialIn: Pick<DialIn, "numbers" | "meetingId" | "passcode"> }
+  | { ok: false; reason: "not_allowed" | "not_open" | "phone_unavailable" };
+
+/** The country the patient dials in from. This platform serves Nigeria only. */
+const DIAL_IN_COUNTRY = "NG";
 
 /**
- * The last step of the ladder: ring both people from a Tarragon number and join the calls. Either person can ask at any time.
- * The mode only changes to phone once the bridge has actually started, so a vendor failure never leaves a consultation on a
- * phone call that is not happening.
+ * The last step of the ladder (OQ-131 revised): join the SAME room by an ordinary phone call, which needs no data and no app. Either
+ * person can ask at any time inside the join window. Nothing is rung from our side and no number of anyone's is held: the person
+ * dials a number the vendor publishes and types the meeting id and passcode. We cannot see whether they dialled, so the consultation
+ * is never marked as "on the phone" here; the clinician stays in the room and admits the caller.
  */
-export async function requestPhoneFallback(deps: RoomDeps, encounterId: string): Promise<PhoneOutcome> {
+export async function requestDialIn(deps: RoomDeps, encounterId: string): Promise<DialInOutcome> {
   const found = await lookup(deps, encounterId);
   if (!found) return { ok: false, reason: "not_allowed" };
   const { view } = found;
   if (!view.clinician_id || DONE.has(view.status)) return { ok: false, reason: "not_allowed" };
-  // Only inside the join window: a call rings a real person's phone, so it is never started days early or after the visit.
+  // Only inside the join window: the room is not opened days early or after the visit.
   if (!view.joinable) return { ok: false, reason: "not_open" };
-  // Already on the phone: do not ring anyone a second time.
-  if (view.final_media_mode === "phone") return { ok: true };
 
+  // Recorded as the person's own request, so the database sees who asked and enforces who may (INV-12).
   const asked = await deps.userRpc.rpc("report_encounter_event", { p_encounter: encounterId, p_kind: "phone_requested", p_payload: {} });
   if (asked.error) return { ok: false, reason: "not_allowed" };
 
-  if (!deps.phone.ok) return { ok: false, reason: "phone_unavailable" };
-  const [patientPhone, clinicianPhone] = await Promise.all([deps.phoneOf(view.patient_id), deps.phoneOf(view.clinician_id)]);
-  if (!patientPhone || !clinicianPhone) return { ok: false, reason: "no_number" };
-
-  const bridge = await deps.phone.data.connect({ encounterRef: encounterId, patientPhone, clinicianPhone, maxMinutes: view.session_minutes });
-  if (!bridge.ok) {
-    await deps.serviceRpc.rpc("service_record_encounter_event", { p_encounter: encounterId, p_kind: "phone_requested", p_actor_role: "system", p_payload: { reason_code: "bridge_failed" } });
+  const roomId = await ensureRoom(deps, view, encounterId);
+  const dial = roomId ? await deps.video.dialIn({ roomId, country: DIAL_IN_COUNTRY }) : null;
+  if (!dial || !dial.ok) {
+    // The reason is a code, never a number or a vendor message.
+    await deps.serviceRpc.rpc("service_record_encounter_event", { p_encounter: encounterId, p_kind: "phone_requested", p_actor_role: "system", p_payload: { reason_code: "dial_in_unavailable" } });
     return { ok: false, reason: "phone_unavailable" };
   }
-  // Only the server can put a consultation on the phone, and only now that the bridge has really started.
-  await deps.serviceRpc.rpc("service_set_phone_mode", { p_encounter: encounterId });
-  await deps.serviceRpc.rpc("service_record_encounter_event", { p_encounter: encounterId, p_kind: "phone_connected", p_actor_role: "system", p_payload: { reason_code: "ringing" } });
-  return { ok: true };
+  return { ok: true, dialIn: { numbers: dial.data.numbers, meetingId: dial.data.meetingId, passcode: dial.data.passcode } };
 }

@@ -1,20 +1,17 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import {
-  createMockPhone,
   createMockVideo,
   INITIAL_LADDER,
   stepLadder,
   type LadderInput,
   type LadderPolicy,
   type LadderState,
-  type PhoneBridgeProvider,
-  type ProviderResult,
   type VideoProvider,
 } from "@tarragon/integrations";
 import { getProposedConfig } from "@tarragon/shared";
-import { joinConsultation, requestPhoneFallback, type RpcClient } from "./room";
+import { joinConsultation, requestDialIn, type RpcClient } from "./room";
 
-// End to end: a consultation joined by both people, degraded to audio only, dropped, and moved to a phone call, against the
+// End to end: a consultation joined by both people, degraded to audio only, dropped, and moved to a dial-in phone call, against the
 // real mock providers and the real ladder. The database side of the same functions is proved in
 // packages/db/tests/s21_encounters_consultations.sql; here the database is an in-memory stand-in that keeps that contract.
 
@@ -22,7 +19,6 @@ const ENC = "7b9c2f0e-5d3a-4c11-9a52-0f6d1e8b7a44";
 const PATIENT = "11111111-1111-4111-8111-111111111111";
 const DOCTOR = "22222222-2222-4222-8222-222222222222";
 const STRANGER = "33333333-3333-4333-8333-333333333333";
-const PHONES: Record<string, string> = { [PATIENT]: "+2348031234567", [DOCTOR]: "+2348097654321" };
 
 type Evt = { kind: string; role: string; payload: Record<string, unknown> };
 const T0 = 1_800_000_000_000;
@@ -93,20 +89,17 @@ function fakeDb(opts: { now: () => number; scheduledAt?: number; status?: string
   return { s, service, user };
 }
 
-const phoneOf = async (id: string) => PHONES[id] ?? null;
 const ladderPolicy: LadderPolicy = {
   ...getProposedConfig<{ poorSamplesToDowngrade: number; goodSamplesToOfferVideo: number; poorBelowKbps: number }>("video.audio_fallback").value,
   reconnectGraceSeconds: getProposedConfig<{ reconnectGraceSeconds: number }>("consultations.policy").value.reconnectGraceSeconds,
 };
 
-function setup(o: Parameters<typeof fakeDb>[0] & { clock?: { now: number }; video?: VideoProvider; phone?: ProviderResult<PhoneBridgeProvider> } = { now: () => T0 }) {
+function setup(o: Parameters<typeof fakeDb>[0] & { clock?: { now: number }; video?: VideoProvider } = { now: () => T0 }) {
   const clock = o.clock ?? { now: T0 };
   const db = fakeDb({ ...o, now: () => clock.now });
   const video = o.video ?? createMockVideo(() => clock.now);
-  const phoneMock = createMockPhone(() => clock.now);
-  const phone: ProviderResult<PhoneBridgeProvider> = o.phone ?? { ok: true, data: phoneMock };
-  const deps = (userId: string) => ({ userId, userRpc: db.user(userId), serviceRpc: db.service, video, phoneOf, phone, now: () => clock.now });
-  return { db, video, phone, phoneMock, deps, clock };
+  const deps = (userId: string) => ({ userId, userRpc: db.user(userId), serviceRpc: db.service, video, now: () => clock.now });
+  return { db, video, deps, clock };
 }
 
 describe("joining a consultation", () => {
@@ -200,7 +193,7 @@ describe("joining a consultation", () => {
   });
 });
 
-describe("who may record a join, and when the phone may ring", () => {
+describe("who may record a join, and when the dial-in numbers are given", () => {
   it("never asks the app session to record a join: the server does", async () => {
     const { db, deps } = setup();
     const userCalls: string[] = [];
@@ -210,34 +203,26 @@ describe("who may record a join, and when the phone may ring", () => {
     expect(db.s.events.some((e) => e.kind === "joined" && e.role === "patient")).toBe(true);
   });
 
-  it("will not ring anyone before the join window, and records nothing", async () => {
-    const { db, deps, phoneMock } = setup({ now: () => T0, scheduledAt: T0 + 3 * 3_600_000 });
-    const connect = jest.spyOn(phoneMock, "connect");
-    expect(await requestPhoneFallback(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "not_open" });
-    expect(connect).not.toHaveBeenCalled();
+  it("gives no dial-in numbers before the join window, and records nothing", async () => {
+    const { db, deps, video } = setup({ now: () => T0, scheduledAt: T0 + 3 * 3_600_000 });
+    const dial = jest.spyOn(video, "dialIn");
+    expect(await requestDialIn(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "not_open" });
+    expect(dial).not.toHaveBeenCalled();
     expect(db.s.events).toHaveLength(0);
   });
 
-  it("will not ring anyone once the consultation is over", async () => {
-    const { db, deps, phoneMock } = setup({ now: () => T0, status: "completed" });
-    const connect = jest.spyOn(phoneMock, "connect");
-    expect(await requestPhoneFallback(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "not_allowed" });
-    expect(connect).not.toHaveBeenCalled();
-    expect(db.s.events).toHaveLength(0);
-  });
-
-  it("does not ring a second time when the consultation is already on the phone", async () => {
-    const { db, deps, phoneMock } = setup({ now: () => T0, mode: "phone", status: "in_progress" });
-    const connect = jest.spyOn(phoneMock, "connect");
-    expect(await requestPhoneFallback(deps(DOCTOR), ENC)).toEqual({ ok: true });
-    expect(connect).not.toHaveBeenCalled();
+  it("gives no dial-in numbers once the consultation is over", async () => {
+    const { db, deps, video } = setup({ now: () => T0, status: "completed" });
+    const dial = jest.spyOn(video, "dialIn");
+    expect(await requestDialIn(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "not_allowed" });
+    expect(dial).not.toHaveBeenCalled();
     expect(db.s.events).toHaveLength(0);
   });
 });
 
 describe("the fallback ladder end to end", () => {
   it("video, then audio only when quality stays poor, then a phone call when the connection is lost", async () => {
-    const { db, deps, clock, phoneMock } = setup();
+    const { db, deps, clock } = setup();
     expect((await joinConsultation(deps(DOCTOR), ENC, "video")).ok).toBe(true);
     const first = await joinConsultation(deps(PATIENT), ENC, "video");
     expect(first).toMatchObject({ ok: true, mediaMode: "video" });
@@ -267,17 +252,16 @@ describe("the fallback ladder end to end", () => {
     const action = stepLadder(ladder, { kind: "tick", atMs: clock.now }, ladderPolicy);
     expect(action.action).toBe("to_phone");
 
-    // the phone bridge rings both people from a Tarragon number; neither number is stored or sent back
-    expect(await requestPhoneFallback(deps(PATIENT), ENC)).toEqual({ ok: true });
-    expect(db.s.mode).toBe("phone");
-    expect(db.s.events.map((e) => e.kind)).toEqual(expect.arrayContaining(["phone_requested", "mode_changed", "phone_connected"]));
-    expect(JSON.stringify(db.s.events)).not.toContain("803");
-    expect(JSON.stringify(db.s.events)).not.toContain("809");
-    const bridge = await phoneMock.status("br_1_" + Math.floor(clock.now % 1_000_000).toString(36));
-    expect(bridge.ok || bridge.error.code === "not_found").toBe(true);
-
-    // once on the phone, the room refuses a join: the call is happening elsewhere
-    expect(await joinConsultation(deps(PATIENT), ENC, "video")).toEqual({ ok: false, reason: "on_phone" });
+    // the patient is given a number to ring into the same room; nothing is rung from our side and nothing is stored
+    const dial = await requestDialIn(deps(PATIENT), ENC);
+    expect(dial).toMatchObject({ ok: true, dialIn: { numbers: [{ country: "NG" }] } });
+    expect(db.s.events.map((e) => e.kind)).toContain("phone_requested");
+    // we cannot see who dialled, so the consultation is not marked as on the phone, and the clinician can still be in the room
+    expect(db.s.mode).toBe("audio_only");
+    expect(await joinConsultation(deps(DOCTOR), ENC, "audio_only")).toMatchObject({ ok: true });
+    // the numbers and passcode are handed to the person and never written to the event log
+    expect(JSON.stringify(db.s.events)).not.toContain(dial.ok ? dial.dialIn.meetingId + dial.dialIn.numbers[0]!.number : "x");
+    expect(JSON.stringify(db.s.events)).not.toMatch(/\+234/);
   });
 
   it("a connection that comes back inside the grace window never reaches the phone", async () => {
@@ -294,39 +278,42 @@ describe("the fallback ladder end to end", () => {
   });
 });
 
-describe("the phone fallback on its own", () => {
-  it("lets the clinician ask too, and records the request even when the bridge cannot start", async () => {
-    const { db, deps } = setup({ now: () => T0, phone: { ok: false, error: { code: "not_configured", message: "Provider is not configured", retryable: false } } });
+describe("the dial-in fallback on its own", () => {
+  it("lets the clinician ask too, and gives the same room's numbers", async () => {
+    const { db, deps } = setup({ now: () => T0 });
     await joinConsultation(deps(DOCTOR), ENC, "video");
-    expect(await requestPhoneFallback(deps(DOCTOR), ENC)).toEqual({ ok: false, reason: "phone_unavailable" });
-    expect(db.s.events.some((e) => e.kind === "phone_requested")).toBe(true);
-    expect(db.s.mode).toBeNull();
+    expect(await requestDialIn(deps(DOCTOR), ENC)).toMatchObject({ ok: true });
+    expect(db.s.events.some((e) => e.kind === "phone_requested" && e.role === "clinician")).toBe(true);
   });
 
-  it("does not move the consultation to phone when the person has no number on file", async () => {
+  it("opens the room if nobody has yet, so the patient can dial in first", async () => {
     const { db, deps } = setup();
-    await joinConsultation(deps(PATIENT), ENC, "video");
-    const noNumber = { ...deps(PATIENT), phoneOf: async () => null };
-    expect(await requestPhoneFallback(noNumber, ENC)).toEqual({ ok: false, reason: "no_number" });
-    expect(db.s.mode).toBeNull();
+    expect(db.s.roomId).toBeNull();
+    expect(await requestDialIn(deps(PATIENT), ENC)).toMatchObject({ ok: true });
+    expect(db.s.roomId).not.toBeNull();
   });
 
-  it("does not move to phone when the vendor cannot place the call, and logs why without any number", async () => {
-    const { db, deps, phoneMock } = setup();
+  it("says the phone is unavailable when the vendor has no number, and records a code, never a number", async () => {
+    const { db, deps, video } = setup();
     await joinConsultation(deps(PATIENT), ENC, "video");
-    phoneMock.failNextCall();
-    expect(await requestPhoneFallback(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "phone_unavailable" });
-    expect(db.s.mode).toBeNull();
-    expect(db.s.events.some((e) => e.kind === "phone_requested" && e.payload.reason_code === "bridge_failed")).toBe(true);
-    expect(JSON.stringify(db.s.events)).not.toMatch(/\+234|803|809/);
+    jest.spyOn(video, "dialIn").mockResolvedValueOnce({ ok: false, error: { code: "not_found", message: "No dial-in number for this country", retryable: false } });
+    expect(await requestDialIn(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "phone_unavailable" });
+    expect(db.s.events.some((e) => e.kind === "phone_requested" && e.payload.reason_code === "dial_in_unavailable")).toBe(true);
+    expect(JSON.stringify(db.s.events)).not.toMatch(/\+234/);
+  });
+
+  it("says the phone is unavailable when the room cannot be opened", async () => {
+    const { deps, video } = setup();
+    jest.spyOn(video, "createRoom").mockResolvedValueOnce({ ok: false, error: { code: "network", message: "x", retryable: true } });
+    expect(await requestDialIn(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "phone_unavailable" });
   });
 
   it("refuses a stranger, an unknown consultation and a finished one", async () => {
     const { db, deps } = setup();
-    expect(await requestPhoneFallback(deps(STRANGER), ENC)).toEqual({ ok: false, reason: "not_allowed" });
-    expect(await requestPhoneFallback(deps(PATIENT), "99999999-9999-4999-8999-999999999999")).toEqual({ ok: false, reason: "not_allowed" });
+    expect(await requestDialIn(deps(STRANGER), ENC)).toEqual({ ok: false, reason: "not_allowed" });
+    expect(await requestDialIn(deps(PATIENT), "99999999-9999-4999-8999-999999999999")).toEqual({ ok: false, reason: "not_allowed" });
     db.s.status = "completed";
-    expect(await requestPhoneFallback(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "not_allowed" });
+    expect(await requestDialIn(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "not_allowed" });
     expect(db.s.events).toHaveLength(0);
   });
 
@@ -338,6 +325,12 @@ describe("the phone fallback on its own", () => {
           ? Promise.resolve({ data: { encounter_id: ENC, patient_id: PATIENT, clinician_id: null, status: "scheduled", final_media_mode: null, join_opens_at: "", join_closes_at: "", joinable: true, session_minutes: 30, room: null }, error: null })
           : Promise.resolve({ data: null, error: { message: `unexpected ${fn} ${JSON.stringify(args)}` } }),
     };
-    expect(await requestPhoneFallback({ ...deps(PATIENT), serviceRpc: noClinician }, ENC)).toEqual({ ok: false, reason: "not_allowed" });
+    expect(await requestDialIn({ ...deps(PATIENT), serviceRpc: noClinician }, ENC)).toEqual({ ok: false, reason: "not_allowed" });
+  });
+
+  it("refuses when the database will not record the request", async () => {
+    const { db, deps } = setup();
+    const refused: RpcClient = { rpc: (fn, args) => (fn === "report_encounter_event" ? Promise.resolve({ data: null, error: { message: "not allowed" } }) : db.user(PATIENT).rpc(fn, args)) };
+    expect(await requestDialIn({ ...deps(PATIENT), userRpc: refused }, ENC)).toEqual({ ok: false, reason: "not_allowed" });
   });
 });

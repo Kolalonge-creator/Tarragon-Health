@@ -11,11 +11,11 @@ const id = "11111111-1111-4111-8111-111111111111";
 
 describe("grantMembershipSchema", () => {
   it("accepts a reason of 10 characters with no end date", () => {
-    const r = grantMembershipSchema.safeParse({ base: "/admin/members", patientId: id, reason: "Staff trial run" });
+    const r = grantMembershipSchema.safeParse({ base: "/admin/memberships", patientId: id, reason: "Staff trial run" });
     expect(r.success).toBe(true);
   });
   it("refuses a short reason", () => {
-    const r = grantMembershipSchema.safeParse({ base: "/admin/members", patientId: id, reason: "short" });
+    const r = grantMembershipSchema.safeParse({ base: "/admin/memberships", patientId: id, reason: "short" });
     expect(r.success).toBe(false);
   });
   it("refuses a base path that is not one of the two pages", () => {
@@ -23,15 +23,15 @@ describe("grantMembershipSchema", () => {
     expect(r.success).toBe(false);
   });
   it("refuses a badly formed end date", () => {
-    const r = grantMembershipSchema.safeParse({ base: "/clinician/members", patientId: id, endsOn: "tomorrow", reason: "Staff trial run" });
+    const r = grantMembershipSchema.safeParse({ base: "/clinician/memberships", patientId: id, endsOn: "tomorrow", reason: "Staff trial run" });
     expect(r.success).toBe(false);
   });
 });
 
 describe("endMembershipSchema", () => {
   it("needs a reason of 10 or more characters", () => {
-    expect(endMembershipSchema.safeParse({ base: "/admin/members", patientId: id, reason: "nine char" }).success).toBe(false);
-    expect(endMembershipSchema.safeParse({ base: "/admin/members", patientId: id, reason: "Left the programme" }).success).toBe(true);
+    expect(endMembershipSchema.safeParse({ base: "/admin/memberships", patientId: id, reason: "nine char" }).success).toBe(false);
+    expect(endMembershipSchema.safeParse({ base: "/admin/memberships", patientId: id, reason: "Left the programme" }).success).toBe(true);
   });
 });
 

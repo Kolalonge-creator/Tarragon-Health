@@ -86,6 +86,10 @@ const ERROR_WORDS: Record<string, string> = {
   note_withhold_reason_needed: "Please give a reason (10 characters or more) for withholding the note.",
   note_amendment_reason_needed: "Please give a reason (10 characters or more) for the amendment.",
   note_correction_response_needed: "Please write a response (10 characters or more).",
+  note_withdraw_author_or_cmo: "Only the clinician who wrote this note, or the Chief Medical Officer, can withdraw it.",
+  note_withdraw_reason_needed: "Please give a reason (10 characters or more) for withdrawing the note.",
+  note_already_withdrawn: "This note has already been withdrawn.",
+  "only a signed note can be withdrawn": "Only a signed note can be withdrawn. Edit a draft instead.",
 };
 
 export interface RpcErrorLike {

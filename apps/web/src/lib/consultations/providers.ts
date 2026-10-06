@@ -1,6 +1,5 @@
 import "server-only";
-import { selectPhone, selectVideo, type FetchLike, type PhoneBridgeProvider, type ProviderResult, type VideoProvider } from "@tarragon/integrations";
-import { createBridgeStore } from "./bridge-store";
+import { selectVideo, type FetchLike, type ProviderResult, type VideoProvider } from "@tarragon/integrations";
 
 /**
  * S21: which vendor runs a consultation. The choice (a real configured vendor first, a mock outside production only, a plain
@@ -11,9 +10,4 @@ const vendorFetch: FetchLike = (url, init) => fetch(url, { method: init.method, 
 
 export function videoProvider(): ProviderResult<VideoProvider> {
   return selectVideo(process.env, vendorFetch);
-}
-
-/** Africa's Talking when AT_VOICE_* is set; a mock outside production; not_configured in production until then (OQ-131). */
-export function phoneProvider(): ProviderResult<PhoneBridgeProvider> {
-  return selectPhone(process.env, vendorFetch, createBridgeStore());
 }
