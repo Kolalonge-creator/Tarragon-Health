@@ -1228,8 +1228,7 @@ export const en = {
   "labres.title": "Your lab results",
   "labres.empty": "Nothing here yet. When your care team adds a result, you will see it here.",
   "labres.status.released": "Ready to read",
-  "labres.status.under_review": "Your care team is looking at this",
-  "labres.status.care_team_will_contact": "Your care team will be in touch with you",
+  "labres.status.under_review": "Your care team is looking at this and will be in touch if they need to talk it through",
   "labres.own.note": "Added by you. Your care team has not looked at it yet.",
   "labres.item.flag.normal": "In the usual range",
   "labres.item.flag.low": "Below the usual range",
@@ -1303,6 +1302,10 @@ export const en = {
   "golive.config.counts": "{open} of {total} values still waiting",
   "golive.config.empty": "No proposed values are listed.",
   "golive.load_error": "This could not be loaded just now. Nothing has been changed. Try again in a moment.",
+  "labres.expected": "Expected by {date}",
+  "labres.replaced": "Replaced by a newer result",
+  "labres.correction": "This is a corrected result. It replaces an earlier one.",
+  "labres.screening": "This is a screening result. It is not a diagnosis, and your care team will tell you what happens next.",
 } as const;
 
 export type MessageKey = keyof typeof en;

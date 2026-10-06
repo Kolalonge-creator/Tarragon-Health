@@ -51,6 +51,26 @@ export const withholdSchema = z.object({
   reason: z.string().trim().min(5, "Please give a reason.").max(500),
 });
 
+export const DISCLOSURE_ATTEMPT_OUTCOMES = ["no_answer", "wrong_number", "asked_to_call_back", "declined_to_hear", "other"] as const;
+export const ATTEMPT_OUTCOME_LABEL: Record<(typeof DISCLOSURE_ATTEMPT_OUTCOMES)[number], string> = {
+  no_answer: "No answer",
+  wrong_number: "Wrong number",
+  asked_to_call_back: "Asked me to call back",
+  declined_to_hear: "Declined to hear it",
+  other: "Something else",
+};
+export const attemptSchema = z.object({
+  resultId: z.string().uuid(),
+  outcome: z.enum(DISCLOSURE_ATTEMPT_OUTCOMES),
+  note: z.string().trim().max(500).optional(),
+});
+export const CORRECTION_KINDS = ["corrected", "amended", "appended"] as const;
+export const correctionSchema = resultEntrySchema.extend({
+  correctsResultId: z.string().uuid(),
+  kind: z.enum(CORRECTION_KINDS),
+  reason: z.string().trim().min(5, "Please say what changed and why.").max(500),
+});
+
 export const releaseSchema = z.object({ resultId: z.string().uuid(), note: z.string().trim().max(500).optional() });
 
 export const panelDefinitionSchema = z.object({
@@ -73,6 +93,9 @@ export const panelDefinitionSchema = z.object({
 });
 export type PanelDefinition = z.infer<typeof panelDefinitionSchema>;
 
+/** Analytes whose positive is a screening result, not a diagnosis (WHO: a reactive screen needs confirmation). */
+export const SCREENING_ANALYTES: ReadonlySet<string> = new Set(["hiv_screen", "hbsag", "hcv_ab"]);
+
 const myItemSchema = z.object({
   analyte_code: z.string(),
   value_numeric: z.number().nullable(),
@@ -81,6 +104,7 @@ const myItemSchema = z.object({
   ref_low: z.number().nullable(),
   ref_high: z.number().nullable(),
   flag: z.enum(["normal", "low", "high", "critical", "positive", "negative"]),
+  sensitive_positive: z.boolean().optional(),
 });
 export const myLabResultsSchema = z.array(
   z.object({
@@ -88,7 +112,11 @@ export const myLabResultsSchema = z.array(
     received_at: z.string(),
     panel_code: z.string().nullable(),
     own_upload: z.boolean(),
-    status: z.enum(["released", "under_review", "care_team_will_contact"]),
+    // every held result is "under_review" (no hint of which one is sensitive or abnormal)
+    status: z.enum(["released", "under_review"]),
+    expected_by: z.string().nullable().optional(),
+    replaced: z.boolean().optional(),
+    correction_kind: z.string().nullable().optional(),
     explain_allowed: z.boolean(),
     has_file: z.boolean(),
     items: z.array(myItemSchema),
@@ -127,6 +155,9 @@ const MESSAGES: Record<string, string> = {
   lab_disclosure_needs_senior_clinician: "A senior clinician must record this disclosure.",
   lab_critical_needs_senior_clinician: "A critical value can be released only by a senior clinician.",
   lab_file_path_invalid: "That file could not be attached.",
+  lab_correction_needs_kind_and_reason: "Say what kind of change this is and why.",
+  lab_correction_target_invalid: "That result can no longer be corrected.",
+  lab_result_not_withdrawable: "This result cannot be withdrawn.",
   lab_result_final: "This result is final and cannot be changed.",
 };
 

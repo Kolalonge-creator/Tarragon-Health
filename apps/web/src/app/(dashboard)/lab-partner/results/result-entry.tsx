@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useMemo, useState, useTransition } from "react";
-import { markOrderCollected, submitPartnerResult } from "@/lib/lab-results/structured-actions";
+import { markOrderCollected, submitPartnerCorrection, submitPartnerResult } from "@/lib/lab-results/structured-actions";
 import {
+  CORRECTION_KINDS,
   formatRange,
   LAB_RESULT_FILE_ACCEPT,
   PANEL_CODES,
@@ -28,6 +29,7 @@ export type PortalOrder = {
   ordered_at: string;
   sample_collected_at: string | null;
   result_received: boolean;
+  latest_result_id: string | null;
 };
 
 type EntryItem = { analyte_code: string; value_numeric?: number; value_text?: string; unit?: string };
@@ -60,7 +62,14 @@ export function OrderResultCard({ order, panels }: { order: PortalOrder; panels:
       </CardHeader>
       <CardContent className="space-y-3">
         {order.result_received ? (
-          <p className="text-sm text-charcoal-ink/70">Thank you. Your result was received. Tarragon reviews it before the patient sees it.</p>
+          <>
+            <p className="text-sm text-charcoal-ink/70">Thank you. Your result was received. Tarragon reviews it before the patient sees it.</p>
+            {order.latest_result_id ? (
+              <Button type="button" variant="outline" className={TOUCH} onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+                {open ? "Close" : "Send a correction"}
+              </Button>
+            ) : null}
+          </>
         ) : (
           <div className="flex flex-wrap gap-2">
             {COLLECTABLE.has(order.status) ? (
@@ -86,15 +95,16 @@ export function OrderResultCard({ order, panels }: { order: PortalOrder; panels:
         )}
         {collectError ? <p role="alert" className="text-sm text-red-700">{collectError}</p> : null}
         {open && !order.result_received ? <EntryForm order={order} panels={panels} /> : null}
+        {open && order.result_received && order.latest_result_id ? <EntryForm order={order} panels={panels} correctsId={order.latest_result_id} /> : null}
       </CardContent>
     </Card>
   );
 }
 
-function EntryForm({ order, panels }: { order: PortalOrder; panels: Record<string, PanelDefinition> }) {
+function EntryForm({ order, panels, correctsId }: { order: PortalOrder; panels: Record<string, PanelDefinition>; correctsId?: string }) {
   const [panel, setPanel] = useState<PanelCode>(isPanel(order.panel_code) ? order.panel_code : "essential");
   const [values, setValues] = useState<Record<string, string>>({});
-  const [state, action, pending] = useActionState(submitPartnerResult, undefined);
+  const [state, action, pending] = useActionState(correctsId ? submitPartnerCorrection : submitPartnerResult, undefined);
   const def = panels[panel];
 
   const items = useMemo((): EntryItem[] => {
@@ -119,6 +129,26 @@ function EntryForm({ order, panels }: { order: PortalOrder; panels: Record<strin
       <input type="hidden" name="order_id" value={order.order_id} />
       <input type="hidden" name="panel" value={panel} />
       <input type="hidden" name="items" value={JSON.stringify(items)} />
+      {correctsId ? (
+        <>
+          <input type="hidden" name="corrects_result_id" value={correctsId} />
+          <p className="text-sm text-charcoal-ink/70">
+            Enter the complete corrected panel. It goes through the same checks as a new result, and the earlier result is replaced only once Tarragon has released this one.
+          </p>
+          <div>
+            <Label htmlFor={`kind-${order.order_id}`}>What kind of change is this?</Label>
+            <Select id={`kind-${order.order_id}`} name="kind" defaultValue="corrected" className={TOUCH}>
+              {CORRECTION_KINDS.map((k) => (
+                <option key={k} value={k}>{k === "corrected" ? "A value was wrong (corrected)" : k === "amended" ? "A value or note changed (amended)" : "More results added (appended)"}</option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor={`reason-${order.order_id}`}>What changed and why?</Label>
+            <Input id={`reason-${order.order_id}`} name="reason" required minLength={5} maxLength={500} className={TOUCH} />
+          </div>
+        </>
+      ) : null}
 
       {isPanel(order.panel_code) ? null : (
         <div>
@@ -168,7 +198,7 @@ function EntryForm({ order, panels }: { order: PortalOrder; panels: Record<strin
 
       {state?.error ? <p role="alert" className="text-sm text-red-700">{state.error}</p> : null}
       <Button type="submit" className={TOUCH} disabled={pending}>
-        {pending ? "Sending" : "Submit result"}
+        {pending ? "Sending" : correctsId ? "Send the correction" : "Submit result"}
       </Button>
     </form>
   );

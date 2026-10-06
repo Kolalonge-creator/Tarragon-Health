@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { t, type Locale } from "@tarragon/i18n";
 import { createClient } from "@/lib/supabase/client";
 import { addOwnLabResult, getOwnResultFileUrl } from "@/lib/lab-results/structured-actions";
-import { formatRange, LAB_RESULT_FILE_ACCEPT, myLabResultsSchema, type MyLabResult } from "@/lib/lab-results/structured";
+import { formatRange, LAB_RESULT_FILE_ACCEPT, myLabResultsSchema, SCREENING_ANALYTES, type MyLabResult } from "@/lib/lab-results/structured";
 import { formatPatientDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +61,11 @@ function ResultCard({ r, locale }: { r: MyLabResult; locale: Locale }) {
         <Badge variant={released ? "green" : "amber"}>{t(`labres.status.${r.status}`, locale)}</Badge>
       </div>
       {r.own_upload && !released ? <p className={`mt-1 text-sm ${MUTED}`}>{t("labres.own.note", locale)}</p> : null}
+      {!released && r.expected_by ? (
+        <p className={`mt-1 text-sm ${MUTED}`}>{t("labres.expected", locale, { date: formatPatientDate(r.expected_by) })}</p>
+      ) : null}
+      {r.replaced ? <p className={`mt-1 text-sm ${MUTED}`}>{t("labres.replaced", locale)}</p> : null}
+      {released && r.correction_kind ? <p className={`mt-1 text-sm ${MUTED}`}>{t("labres.correction", locale)}</p> : null}
       {released && r.items.length > 0 ? (
         <table className="mt-2 w-full text-sm">
           <caption className="sr-only">{t("labres.title", locale)}</caption>
@@ -75,6 +80,9 @@ function ResultCard({ r, locale }: { r: MyLabResult; locale: Locale }) {
             ))}
           </tbody>
         </table>
+      ) : null}
+      {released && r.items.some((i) => SCREENING_ANALYTES.has(i.analyte_code) && i.flag === "positive") ? (
+        <p className={`mt-2 text-sm ${MUTED}`}>{t("labres.screening", locale)}</p>
       ) : null}
       {released && !r.explain_allowed ? <p className={`mt-2 text-sm ${MUTED}`}>{t("labres.explain.off", locale)}</p> : null}
       {r.has_file ? <div className="mt-2"><FileButton id={r.lab_result_id} locale={locale} /></div> : null}

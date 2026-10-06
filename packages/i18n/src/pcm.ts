@@ -1229,8 +1229,7 @@ export const pcm: Record<MessageKey, string> = {
   "labres.title": "Your lab result dem",
   "labres.empty": "Nothing de here yet. When your care team add result, you go see am here.",
   "labres.status.released": "E don ready to read",
-  "labres.status.under_review": "Your care team de look am",
-  "labres.status.care_team_will_contact": "Your care team go contact you",
+  "labres.status.under_review": "Your care team de look am and dem go reach you if dem need talk am through",
   "labres.own.note": "Na you add am. Your care team never look am yet.",
   "labres.item.flag.normal": "E de inside di normal range",
   "labres.item.flag.low": "E low pass di normal range",
@@ -1304,4 +1303,8 @@ export const pcm: Record<MessageKey, string> = {
   "golive.config.counts": "{open} of {total} values still dey wait",
   "golive.config.empty": "No proposed value dey the list.",
   "golive.load_error": "We no fit load this now. Nothing change. Try again small time.",
+  "labres.expected": "Dem expect am by {date}",
+  "labres.replaced": "Dem don replace am with newer result",
+  "labres.correction": "Na corrected result. E replace one wey dey before.",
+  "labres.screening": "Na screening result. E no be diagnosis, and your care team go tell you wetin go happen next.",
 };

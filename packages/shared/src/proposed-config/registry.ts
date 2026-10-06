@@ -439,6 +439,29 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S15.md; docs/research/S15.md; spec 7.1 and 17",
   },
   {
+    key: "lab.release_policy",
+    // Lab release policy (S27d). Live value is the active row of `lab_panel_signoffs`.config; a test fails if the migration seed and this
+    // value drift. maxAttempts and escalateAfterHours are the founder's competitor-research follow-up: a held sensitive result that
+    // cannot be disclosed escalates to the CMO and is NEVER released by default. expectedFromSla points at escalation_slas (the source of
+    // truth for the contact window); 1,440 minutes is only the fallback if that row is ever missing.
+    value: {
+      "disclosure": {
+        "maxAttempts": 3,
+        "escalateAfterHours": 72
+      },
+      "expectedFromSla": {
+        "pathway": "screening_abnormal_result",
+        "tier": "urgent_escalation",
+        "fallbackMinutes": 1440
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/research/S27-competitors.md; docs/design/S27.md",
+  },
+  {
     key: "lab.panels",
     // Lab panels and release thresholds (S27). Live values are the active row of `lab_panel_versions`; a test fails if the
     // migration seed and this value drift. Adult reference and critical limits only, NOT signed: the CMO sets them (OQ-176).
