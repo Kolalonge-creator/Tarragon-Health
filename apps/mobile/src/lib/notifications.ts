@@ -65,6 +65,9 @@ export function describeNotification(n: InAppNotification): { text: string; sect
       // INV-07: an in-app preview never names a medicine, whatever an older row's payload still carries.
       return { text: "A refill is coming up. Open your care plan to see when.", section: null };
     }
+    case "care_change_ready_patient":
+      // S24: neutral by design (INV-07). Opens the Medicines tab, where the change waits for the patient's own answer.
+      return { text: "Your care team has a change for you", section: "medications" };
     case "escalation_resolved":
       return { text: "A doctor has reviewed something on your record", section: null };
     case "family_access_request": {

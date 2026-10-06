@@ -868,3 +868,26 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - To avoid a name collision S21's table is now `public.consultation_scribe_consents`. Two records of the same consent must not both exist: they can disagree.
 - Options: (a) the patient's in-app answer is the only consent. S23 starts transcription only when `scribe_may_start(encounter)` is true and writes its `scribe_consents` row from that answer (server-side, never from a clinician's click), keeping the table as the audit and retention record (recommended); (b) keep the clinician-recorded model and drop S21's prompt (not recommended: against INV-11 and the research); (c) both, with transcription needing both.
 - S23's branch (`s23/ai-scribe-consent-draft`) needs a small follow-up to read S21's precondition once S21 is merged and applied. Decision: open.
+### OQ-170 Medicine safety checks beyond allergy, duplicate and controlled (raised by S24)
+- Blocks: none. S24 enforces three checks at signing: a controlled medicine is a hard stop (no override), an allergy match or an empty allergy list or a duplicate active medicine needs the signer's stated reason. Drug-drug interaction, renal dosing, dose-range and drug-in-pregnancy checks need reference data this platform does not hold (a licensed interaction source and a CMO-approved dose table). The BP-class combination and pregnancy rules in `private.enforce_bp_prescribing_safety` still apply.
+- Options: (a) the CMO and a pharmacist choose the reference source and S24b loads it as versioned data (recommended); (b) licence a commercial interaction service; (c) leave as is.
+- Recommend (a). Until then the sign screen must not imply that an interaction check ran.
+
+### OQ-171 Titration step table and the first approved protocol (raised by S24)
+- Blocks: the "Suggest next step" button producing a proposal for a real patient. `public.protocols` has no row; the evaluator is built and tested on a placeholder marked draft with fictional drug names. The CMO writes the `htn_hearts_ng` definition (steps, thresholds, review window, adherence floor) and approves it. Until then the button answers "no approved step table yet" and a clinician proposes changes by hand.
+- Decision needed from the CMO: the step table content, and the proposed stop thresholds (minimum readings, adherence floor, review window, stale-readings limit) which are PROPOSED values inside the protocol, not code.
+
+### OQ-172 Who reviews an engine proposal, and when (raised by S24)
+- A proposal is a draft `care_plan_changes` row that the lead clinician sees in the patient's chart panel. There is no queue task for it because a new task type needs CMO sign-off (the S16b pattern). Options: (a) add a `titration_review` task type, class 3, created when an engine proposal is saved (recommended once the step table exists); (b) weekly digest to the lead; (c) leave it chart-only.
+
+### OQ-173 Caregivers, guardians and dependants confirming a change (raised by S24, extends OQ-70)
+- Only the patient can confirm or decline a signed change. A parent of a dependant, or a caregiver holding the medications permission, cannot, so a change for a dependant simply expires after the window. Decide whether a guardian may confirm for a child and whether a caregiver may confirm for an adult who cannot (and with what proof).
+
+### OQ-174 The confirm function acts as the signer for the length of the apply (raised by S24)
+- `confirm_care_plan_change` runs for the patient but, so that every existing medication trigger sees the signer's own act (attribution, the clinician allow-list, confirm-only, prescribing safety), it sets the transaction-local session claims to the signer and puts them back before returning. It runs only after the patient, signed state, expiry, re-check and signer authority checks, and fails closed if the signer has lost authority. The alternative is to teach each trigger a signed-change exception, which spreads the exception across eight triggers. Security review wanted before go-live.
+
+### OQ-175 Two copies of the controlled-medicine list (raised by S24)
+- `apps/web/src/lib/rules/controlled-substances.ts` (PDF guard, advisory text) and `private.prescription_safety_findings` (the new hard stop) hold the same illustrative list. It is not an NDLEA or NAFDAC schedule lookup. A pharmacist or the CMO should own one list; until then add a name in both places.
+
+### OQ-176 Service-role writes bypass the signed-medicine trigger (raised by S24)
+- The medicine signature trigger applies to API sessions (role `authenticated`). A server route using the service role, or a migration, is trusted code and is not stopped. No current route writes a clinician-source medicine that way (checked 2026-10-06); a code scan test is the follow-up that would keep it so.

@@ -840,3 +840,5 @@ s22b_membership_claim_filter_idempotent_submit.sql
 s22c_credit_return_nullable_end_withdrawn_notes.sql
 # S19b: on-call readiness. Unconfirmed phone checklist refuses a clinician on the rota (primary, backup, swap), confirming needs every item and a clinician account, reviewers see who has not confirmed, a new checklist version clears confirmations. Sabotage: the rota check removed must flip the refusal.
 s19b_on_call_readiness.sql
+# S24: signed prescribing (prescribe and amend write a signed prescription; controlled medicine hard stop; allergy and duplicate checks), care_plan_changes (unsigned cannot be saved as signed; draft invisible to the patient; applies only on her confirmation; decline, expiry, re-check), protocols (immutable once approved), plan targets only through a signed change, referral consent and chase. Sabotage: the medicine signature trigger and the signature CHECK removed; both checks must flip.
+s24_prescriptions_and_care_plan_changes.sql
