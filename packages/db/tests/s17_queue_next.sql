@@ -495,9 +495,11 @@ begin
   t := pg_temp.mktask(pg_temp.f('p3'), 'amber_bp_review');
   perform pg_temp.rec('B claims', t::text, pg_temp.next_task(v_b)::text);
   v_before := pg_temp.score_of(v_b);
-  update public.clinical_staff set active = false where profile_id = v_b;
+  -- ineligible through an expired licence (not by deactivating the row): since S20 a deactivation clears the claim and the rota
+  -- at once, so it would never reach this sweep, and flipping it back would leave B without a block for the checks below
+  update public.clinical_staff set license_expires_at = now() - interval '2 days' where profile_id = v_b;
   v_res := private.expire_task_claims();
-  update public.clinical_staff set active = true where profile_id = v_b;
+  update public.clinical_staff set license_expires_at = null where profile_id = v_b;
   perform pg_temp.rec('the claim of an ineligible clinician was released', 'open,cancelled,1', pg_temp.state_of(t) || ',' || (select end_reason from public.task_claims where task_id = t) || ',' || (v_res ->> 'released'));
   perform pg_temp.rec('...without touching their score', coalesce(v_before, 'null'), coalesce(pg_temp.score_of(v_b), 'null'));
   perform pg_temp.clear_queue();
