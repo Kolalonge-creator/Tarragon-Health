@@ -74,11 +74,24 @@ export interface JoinTokenInput {
 export interface JoinToken {
   readonly token: string;
   readonly expiresAtMs: number;
+  /**
+   * What the vendor's in-app SDK also needs to enter the room, fetched from the vendor each time and handed to the one
+   * signed-in person only. Never stored, never logged: both are credentials for the room.
+   * - `password`: the room's passcode, when it has one.
+   * - `zak`: the host start key. Only a clinician's token carries it (the clinician hosts), and it is short-lived.
+   */
+  readonly password?: string;
+  readonly zak?: string;
 }
 
+/**
+ * `role` on a participant event comes from the display label, which the person chose themselves, so it is only a hint.
+ * `customerKey` is the opaque value WE gave the person's SDK to join with (see consultation-call.ts); a vendor event that
+ * carries a key that verifies for the encounter is the only thing that proves who entered the call.
+ */
 export type VideoEvent =
-  | { readonly kind: "participant_joined"; readonly roomId: string; readonly role: VideoRole; readonly atMs: number }
-  | { readonly kind: "participant_left"; readonly roomId: string; readonly role: VideoRole; readonly atMs: number }
+  | { readonly kind: "participant_joined"; readonly roomId: string; readonly role: VideoRole; readonly atMs: number; readonly customerKey?: string }
+  | { readonly kind: "participant_left"; readonly roomId: string; readonly role: VideoRole; readonly atMs: number; readonly customerKey?: string }
   | {
       readonly kind: "quality";
       readonly roomId: string;

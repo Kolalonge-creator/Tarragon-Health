@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { t, type Locale } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPatientDateTime } from "@/lib/format-date";
 import type { DialIn } from "@tarragon/integrations";
+import type { CallNotice, CallPolicy } from "@/lib/consultations/call-controller";
+import { useInAppCall } from "./use-in-app-call";
 import {
   answerScribeConsentAction,
   completeConsultationAction,
@@ -42,7 +44,7 @@ const when = (iso: string) => formatPatientDateTime(iso, { weekday: "long", day:
  * room: it asks the scribe consent question, opens the person's own link, offers audio only and the phone fallback, and lets
  * either side say the other did not come. It never shows or stores a link, and refreshes itself while the consultation is live.
  */
-export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Locale }) {
+export function ConsultationRoom({ view, locale, call = null }: { view: RoomView; locale: Locale; call?: { policy: CallPolicy } | null }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
@@ -54,8 +56,23 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
   const [dialIn, setDialIn] = useState<Pick<DialIn, "numbers" | "meetingId" | "passcode"> | null>(null);
   const live = LIVE.has(view.status);
   const isPatient = view.role === "patient";
+  // The in-app call (S21 follow-up). Absent unless the server says the Meeting SDK is configured; every failure falls back to the link.
+  const callRoot = useRef<HTMLDivElement | null>(null);
+  const inApp = useInAppCall(callRoot, {
+    encounterId: view.encounter_id,
+    role: view.role,
+    policy: call?.policy ?? null,
+    initialMode: view.final_media_mode,
+    onPhone: () => phone(),
+  });
 
   const refresh = useCallback(() => router.refresh(), [router]);
+  // The room can stop being live while a call is open (cancelled, completed, no-show). The page then swaps to the "ended" card, which
+  // drops the call box, so the call is left here: nobody must be left connected with a microphone open and no way to leave.
+  const leaveInApp = inApp.leave;
+  useEffect(() => {
+    if (!live) void leaveInApp();
+  }, [live, leaveInApp]);
   useEffect(() => {
     if (!live) return;
     const id = setInterval(refresh, POLL_MS);
@@ -65,6 +82,21 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
   function join(media: "video" | "audio_only") {
     setNote(null);
     startTransition(async () => {
+      if (call) {
+        const started = await inApp.start(media);
+        if (started === "busy" || started === "cancelled") return;
+        if (started === "started") {
+          setAudioHint(media === "audio_only");
+          refresh();
+          return;
+        }
+        if (started === "not_open") {
+          setNote(t("consult.room.not_open", locale, { when: when(view.join_opens_at) }));
+          return;
+        }
+        // Could not run inside the app: say so, then open the link as before.
+        setNote(t("consult.call.fallback_link", locale));
+      }
       const res = await joinConsultationAction(view.encounter_id, media);
       if (res.ok && "url" in res) {
         setAudioHint(res.mediaMode === "audio_only");
@@ -161,11 +193,36 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
           {view.final_media_mode === "audio_only" && <p>{t("consult.room.mode_audio", locale)}</p>}
           {!view.joinable && <p>{t("consult.room.not_open", locale, { when: when(view.join_opens_at) })}</p>}
           {audioHint && <p>{t("consult.room.audio_hint", locale)}</p>}
+          {call && (
+            <div className="space-y-2">
+              {inApp.state === "joining" && <p role="status">{t("consult.call.loading", locale)}</p>}
+              {inApp.notice && (
+                <p role="status" aria-live="polite" data-testid="call-notice">
+                  {callNoticeText(inApp.notice, locale, view.reconnect_grace_seconds)}
+                </p>
+              )}
+              {inApp.notice === "offer_video" && (
+                <Button variant="outline" onClick={inApp.takeVideo}>
+                  {t("consult.call.take_video", locale)}
+                </Button>
+              )}
+              {/* Zoom draws its call into this box. It stays in the page at all times so the SDK has somewhere to render. */}
+              <div ref={callRoot} data-testid="call-root" className={inApp.state === "idle" ? "hidden" : "min-h-[420px] w-full overflow-hidden rounded-md"} />
+              {inApp.state !== "idle" && (
+                <div className="space-y-2">
+                  {inApp.state === "in_call" && <p>{t("consult.call.camera_hint", locale)}</p>}
+                  <Button variant="outline" onClick={() => void inApp.leave()}>
+                    {t("consult.call.leave", locale)}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => join("video")} disabled={pending || !view.joinable || view.final_media_mode === "audio_only"}>
+            <Button onClick={() => join("video")} disabled={pending || inApp.state !== "idle" || !view.joinable || view.final_media_mode === "audio_only"}>
               {t("consult.room.join_video", locale)}
             </Button>
-            <Button variant="outline" onClick={() => join("audio_only")} disabled={pending || !view.joinable}>
+            <Button variant="outline" onClick={() => join("audio_only")} disabled={pending || inApp.state !== "idle" || !view.joinable}>
               {t("consult.room.join_audio", locale)}
             </Button>
           </div>
@@ -270,4 +327,23 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
       )}
     </div>
   );
+}
+
+function callNoticeText(notice: CallNotice, locale: Locale, graceSeconds: number): string {
+  switch (notice) {
+    case "audio_only":
+      return t("consult.call.audio_only_notice", locale);
+    case "offer_video":
+      return t("consult.call.offer_video", locale);
+    case "video_back":
+      return t("consult.call.video_back", locale);
+    case "held_place":
+      return t("consult.call.held_place", locale, { seconds: graceSeconds });
+    case "reconnected":
+      return t("consult.call.reconnected", locale);
+    case "phone":
+      return t("consult.call.phone_notice", locale);
+    case "report_failed":
+      return t("consult.call.report_failed", locale);
+  }
 }
