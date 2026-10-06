@@ -8,7 +8,6 @@
 // AI governance: AI-017 scribeDraft. The edge function checks ai_systems.is_enabled before calling Claude.
 //               If disabled, returns { status: "disabled" } so the UI can fall back to manual note entry.
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import Anthropic from "npm:@anthropic-ai/sdk@0.39";
 
 interface TranscriptSegment {
   readonly index: number;
@@ -81,22 +80,31 @@ CRITICAL RULES:
 - Write in professional but accessible clinical English for the note sections.
 - Write the patient summary in the language variant indicated (en-NG for Nigerian English, pcm for Pidgin).
 
-Respond with ONLY a JSON object matching this schema:
-{
-  "draft": {
-    "history": "...",
-    "examination": "...",
-    "assessment": "...",
-    "plan": "...",
-    "followUp": "..."
-  },
-  "patientSummary": "..."
-}`;
+Respond with the JSON object only.`;
 
-function stripJsonFence(text: string): string {
-  const fenced = /^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$/.exec(text);
-  return (fenced?.[1] ?? text).trim();
-}
+// Schema-constrained output: the API returns text that is guaranteed to be JSON matching this schema, so there is no
+// free-text JSON to mis-parse (a plain "respond with JSON" prompt produced an unparseable reply in live testing).
+const NOTE_SCHEMA = {
+  type: "object",
+  properties: {
+    draft: {
+      type: "object",
+      properties: {
+        history: { type: "string" },
+        examination: { type: "string" },
+        assessment: { type: "string" },
+        plan: { type: "string" },
+        followUp: { type: "string" },
+      },
+      required: ["history", "examination", "assessment", "plan", "followUp"],
+      additionalProperties: false,
+    },
+    patientSummary: { type: "string" },
+  },
+  required: ["draft", "patientSummary"],
+  additionalProperties: false,
+};
+
 
 function validSegments(segments: readonly TranscriptSegment[]): boolean {
   return (
@@ -218,25 +226,38 @@ Deno.serve(async (req) => {
     return Response.json({ error: "anthropic_key_missing" }, { status: 500 });
   }
 
-  const anthropic = new Anthropic({ apiKey });
   const startedAt = Date.now();
 
   try {
-    const response = await anthropic.messages.create({
-      model: SCRIBE_CLAUDE_MODEL,
-      max_tokens: SCRIBE_CLAUDE_MAX_TOKENS,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
+    const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model: SCRIBE_CLAUDE_MODEL,
+        max_tokens: SCRIBE_CLAUDE_MAX_TOKENS,
+        system: SYSTEM_PROMPT,
+        output_config: { format: { type: "json_schema", schema: NOTE_SCHEMA } },
+        messages: [{ role: "user", content: userMessage }],
+      }),
     });
+    if (!apiRes.ok) {
+      console.error("scribe-draft: Claude call failed", apiRes.status, await apiRes.text());
+      return Response.json({ error: "model_call_failed" }, { status: 502 });
+    }
+    const response = (await apiRes.json()) as {
+      model: string;
+      stop_reason: string;
+      content: { type: string; text?: string }[];
+      usage: { input_tokens: number; output_tokens: number };
+    };
 
-    const text = response.content[0]?.type === "text" ? response.content[0].text : null;
-    if (!text) {
+    const text = response.content.find((c) => c.type === "text")?.text;
+    if (!text || response.stop_reason === "max_tokens") {
       return Response.json({ error: "empty_response" }, { status: 502 });
     }
-
     let parsed: { draft: DraftSection; patientSummary: string };
     try {
-      parsed = JSON.parse(stripJsonFence(text));
+      parsed = JSON.parse(text);
     } catch {
       return Response.json({ error: "unparseable_response" }, { status: 502 });
     }

@@ -29,4 +29,10 @@ describe("scribe.* mirrors the scribe-draft edge function constants", () => {
     expect(source).toContain("aiCheck.enabled");
     expect(source).not.toContain("aiCheck.is_enabled");
   });
+
+  it("asks the model for schema-constrained JSON, never free text it must parse", () => {
+    expect(source).toContain("output_config");
+    expect(source).toContain('type: "json_schema"');
+    expect(source).toContain("additionalProperties: false");
+  });
 });

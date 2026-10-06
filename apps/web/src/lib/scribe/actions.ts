@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@tarragon/shared";
 import { z } from "zod";
 
 const RecordConsentSchema = z.object({
@@ -14,14 +15,18 @@ export async function recordScribeConsent(input: z.input<typeof RecordConsentSch
   const parsed = RecordConsentSchema.parse(input);
   const supabase = await createClient();
 
+  // The insert trigger stamps clinician_profile_id, clinician_staff_id and organisation_id (never client-supplied), so
+  // the generated Insert type, which cannot see triggers, is satisfied by assertion rather than by sending them.
+  const row = {
+    patient_id: parsed.patientId,
+    encounter_note_id: parsed.encounterNoteId ?? null,
+    granted: parsed.granted,
+    language: parsed.language,
+  } as Database["public"]["Tables"]["scribe_consents"]["Insert"];
+
   const { data, error } = await supabase
     .from("scribe_consents")
-    .insert({
-      patient_id: parsed.patientId,
-      encounter_note_id: parsed.encounterNoteId ?? null,
-      granted: parsed.granted,
-      language: parsed.language,
-    })
+    .insert(row)
     .select("id")
     .single();
 
