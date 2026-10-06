@@ -4,8 +4,9 @@
  * the outcome passing through untouched, and that nothing is cacheable (a response may hold a join link or a passcode).
  */
 const getUser = jest.fn();
+const userRpc = jest.fn();
 jest.mock("@/lib/supabase/bearer", () => ({
-  createBearerClient: () => ({ auth: { getUser: (...a: unknown[]) => getUser(...a) }, rpc: jest.fn() }),
+  createBearerClient: () => ({ auth: { getUser: (...a: unknown[]) => getUser(...a) }, rpc: (...a: unknown[]) => userRpc(...a) }),
 }));
 jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ rpc: jest.fn() }) }));
 const videoProvider = jest.fn();
@@ -31,6 +32,7 @@ function req(path: string, body: unknown, token: string | null = "tok"): Request
 }
 
 beforeEach(() => {
+  userRpc.mockResolvedValue({ data: { role: "patient" }, error: null });
   getUser.mockResolvedValue({ data: { user: { id: "patient-1" } }, error: null });
   videoProvider.mockReturnValue({ ok: true, data: { name: "mock" } });
   joinConsultation.mockResolvedValue({ ok: true, url: "https://zoom.example/j/1", mediaMode: "video", audioOnlyEnforced: false, recorded: true });
@@ -57,6 +59,27 @@ describe.each([
   it("rejects a malformed body without calling the room logic", async () => {
     expect((await handler(req(path, "{nope"))).status).toBe(400);
     expect((await handler(req(path, { encounterId: "not-a-uuid", media: "video" }))).status).toBe(400);
+    expect(joinConsultation).not.toHaveBeenCalled();
+    expect(requestDialIn).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a clinician on the consultation", { data: { role: "clinician" }, error: null }],
+    ["a stranger or an unknown id (the view is null)", { data: null, error: null }],
+  ])("refuses %s: this room is the patient's, and nothing is issued", async (_label, answer) => {
+    userRpc.mockResolvedValue(answer);
+    const res = await handler(req(path, goodBody));
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(false);
+    expect(userRpc).toHaveBeenCalledWith("consultation_room_view", { p_encounter: ID });
+    expect(joinConsultation).not.toHaveBeenCalled();
+    expect(requestDialIn).not.toHaveBeenCalled();
+  });
+
+  it("answers a failed role check with a 500 (retryable), not a definitive refusal", async () => {
+    userRpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+    const res = await handler(req(path, goodBody));
+    expect(res.status).toBe(500);
     expect(joinConsultation).not.toHaveBeenCalled();
     expect(requestDialIn).not.toHaveBeenCalled();
   });

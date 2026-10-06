@@ -70,7 +70,7 @@ export interface RoomPorts {
   loadRoom: (encounterId: string) => Promise<LoadResult<RoomView | null>>;
   join: (encounterId: string, media: RequestedMedia) => Promise<ConsultationCallResult<JoinResponse>>;
   dialIn: (encounterId: string) => Promise<ConsultationCallResult<DialInResponse>>;
-  answerScribe: (encounterId: string, granted: boolean) => Promise<boolean>;
+  answerScribe: (encounterId: string, granted: boolean, alreadyAsked: boolean) => Promise<boolean>;
   reportNobodyCame: (encounterId: string) => Promise<NoShowResult>;
   /** Hands the link to the Zoom app (Linking.openURL). May reject. */
   openUrl: (url: string) => Promise<unknown>;
@@ -87,6 +87,9 @@ export class RoomController {
   private started = false;
   private foreground = true;
   private refreshing: Promise<void> | null = null;
+  private generation = 0;
+  /** Identifies the load that currently owns `refreshing`. */
+  private token: object | null = null;
 
   constructor(
     private readonly encounterId: string,
@@ -136,7 +139,8 @@ export class RoomController {
   private schedule(): void {
     this.cancelTimer();
     const view = this.state.view;
-    if (!this.started || !this.foreground || (view && !isLive(view.status))) return;
+    // Nothing to poll for once the consultation has ended, or once the server has said it is not this patient's.
+    if (!this.started || !this.foreground || (this.state.notFound && !this.state.offline) || (view && !isLive(view.status))) return;
     // Slower while we cannot reach the server: each failed try costs data and battery for nothing.
     const delay = this.state.offline ? ROOM_POLL_MS * 2 : ROOM_POLL_MS;
     this.timer = (this.ports.setTimer ?? setTimeout)(() => {
@@ -144,12 +148,35 @@ export class RoomController {
     }, delay);
   }
 
+  /**
+   * A load that starts AFTER the caller's own change was saved. A poll already in flight may have been answered before that change;
+   * its answer is discarded (never applied, so the consent question cannot come back after it was answered, even if this fresh load
+   * then fails) and one new load is started straight away, without waiting for the old one.
+   */
+  private refreshFresh(): Promise<void> {
+    this.generation += 1;
+    this.refreshing = null;
+    this.token = null;
+    return this.refresh();
+  }
+
   /** One load of the room. Never overlaps another. */
   refresh(): Promise<void> {
     if (this.refreshing) return this.refreshing;
-    this.refreshing = (async () => {
+    const generation = this.generation;
+    const token = {};
+    const run: Promise<void> = (async () => {
       try {
-        const res = await this.ports.loadRoom(this.encounterId);
+        // Always asynchronous from here, so the slot below is set before anything in this body can finish.
+        await Promise.resolve();
+        let res: Awaited<ReturnType<RoomPorts["loadRoom"]>>;
+        try {
+          res = await this.ports.loadRoom(this.encounterId);
+        } catch {
+          res = { ok: false };
+        }
+        // A change was saved while this load was out: what it brought back may pre-date that change.
+        if (generation !== this.generation) return;
         if (!res.ok) {
           this.set({ loading: false, offline: true });
         } else if (res.data === null) {
@@ -165,11 +192,16 @@ export class RoomController {
           });
         }
       } finally {
-        this.refreshing = null;
-        this.schedule();
+        // Only the current load clears the slot and re-arms the timer; a superseded one leaves that to its replacement.
+        if (this.token === token) {
+          this.refreshing = null;
+          this.schedule();
+        }
       }
     })();
-    return this.refreshing;
+    this.token = token;
+    this.refreshing = run;
+    return run;
   }
 
   private async act(work: () => Promise<void>): Promise<void> {
@@ -195,7 +227,7 @@ export class RoomController {
         if (out.reason === "not_open") this.set({ note: { kind: "not_open" } });
         else this.set({ note: { kind: "link_error" } });
         // "closed" or "not_found" means the room has moved on: show the true state.
-        if (out.reason === "closed" || out.reason === "not_found") await this.refresh();
+        if (out.reason === "closed" || out.reason === "not_found") await this.refreshFresh();
         return;
       }
       try {
@@ -206,7 +238,7 @@ export class RoomController {
         return;
       }
       this.set({ audioHint: out.mediaMode === "audio_only" });
-      await this.refresh();
+      await this.refreshFresh();
     });
   }
 
@@ -215,13 +247,15 @@ export class RoomController {
     return this.act(async () => {
       const res = await this.ports.dialIn(this.encounterId);
       if (!res.ok) {
-        this.set({ note: { kind: "link_error" }, offline: res.offline || this.state.offline });
+        // Only a server that says the vendor is not set up (503) says there is no phone number to give. No answer, an expired
+        // session or a server hiccup keep the "your place is safe, try again" wording.
+        this.set({ note: { kind: res.unavailable ? "phone_unavailable" : "link_error" }, offline: res.offline || this.state.offline });
         return;
       }
       const out = res.data;
       if (out.ok) {
         this.set({ dialIn: out.dialIn });
-        await this.refresh();
+        await this.refreshFresh();
       } else {
         this.set({ note: { kind: out.reason === "not_open" ? "phone_not_open" : "phone_unavailable" } });
       }
@@ -231,7 +265,8 @@ export class RoomController {
   /** The patient's own answer to the AI note-taker question. Shown as saved only when the server confirmed it. */
   answerScribe(granted: boolean): Promise<void> {
     return this.act(async () => {
-      const saved = await this.ports.answerScribe(this.encounterId, granted);
+      // The question is only "opened" the first time; a later change (withdrawing) must not log a fresh "asked".
+      const saved = await this.ports.answerScribe(this.encounterId, granted, this.state.view?.scribe.asked === true);
       if (!saved) {
         // A failed save must never look saved: the question stays on screen.
         this.set({ note: { kind: "save_error" } });
@@ -239,7 +274,7 @@ export class RoomController {
       }
       const view = this.state.view;
       if (view) this.set({ view: { ...view, scribe: { asked: true, granted } } });
-      await this.refresh();
+      await this.refreshFresh();
     });
   }
 
@@ -248,7 +283,7 @@ export class RoomController {
       const res = await this.ports.reportNobodyCame(this.encounterId);
       if (res === "wait_longer") this.set({ note: { kind: "wait_longer" } });
       else if (res === "failed") this.set({ note: { kind: "save_error" } });
-      else await this.refresh();
+      else await this.refreshFresh();
     });
   }
 }

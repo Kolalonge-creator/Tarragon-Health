@@ -86,9 +86,12 @@ export function ConsultationRoomScreen({ encounterId, onBack }: ConsultationRoom
             <Button title={tr("consult.mobile.retry")} variant="secondary" onPress={() => void controller.refresh()} />
           </>
         ) : (
-          <AppText variant="body" tone="textMuted">
-            {tr("consult.mobile.not_found")}
-          </AppText>
+          <>
+            <AppText variant="body" tone="textMuted">
+              {tr("consult.mobile.not_found")}
+            </AppText>
+            <Button title={tr("consult.mobile.retry")} variant="secondary" onPress={() => void controller.refresh()} />
+          </>
         )}
       </View>
     );

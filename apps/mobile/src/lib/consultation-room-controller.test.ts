@@ -121,6 +121,39 @@ describe("polling", () => {
     c.stop();
   });
 
+  it("stops polling a consultation the server says is not this patient's", async () => {
+    const p = ports({ loadRoom: jest.fn().mockResolvedValue({ ok: true, data: null }) });
+    const c = await started(p);
+    await jest.advanceTimersByTimeAsync(ROOM_POLL_MS * 5);
+    expect(p.loadRoom).toHaveBeenCalledTimes(1);
+    c.stop();
+  });
+
+  it("keeps trying, slowly, when a retry on a not-found screen fails offline", async () => {
+    const p = ports({ loadRoom: jest.fn().mockResolvedValue({ ok: true, data: null }) });
+    const c = await started(p);
+    p.loadRoom.mockResolvedValue({ ok: false });
+    await c.refresh();
+    expect(c.getState()).toMatchObject({ notFound: true, offline: true });
+    p.loadRoom.mockResolvedValue({ ok: true, data: view() });
+    await jest.advanceTimersByTimeAsync(ROOM_POLL_MS * 2);
+    expect(c.getState()).toMatchObject({ notFound: false, offline: false });
+    c.stop();
+  });
+
+  it("treats a load that throws as offline and recovers on the next poll", async () => {
+    const p = ports({ loadRoom: jest.fn().mockImplementation(() => { throw new Error("sync boom"); }) });
+    const c = new RoomController("e1", p);
+    c.start();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(c.getState()).toMatchObject({ loading: false, offline: true });
+    p.loadRoom.mockResolvedValue({ ok: true, data: view() });
+    await jest.advanceTimersByTimeAsync(ROOM_POLL_MS * 2);
+    expect(c.getState()).toMatchObject({ offline: false });
+    expect(c.getState().view).not.toBeNull();
+    c.stop();
+  });
+
   it("stops for good after stop()", async () => {
     const p = ports();
     const c = await started(p);
@@ -169,7 +202,7 @@ describe("join", () => {
   });
 
   it("flags offline when the request never got an answer", async () => {
-    const p = ports({ join: jest.fn().mockResolvedValue({ ok: false, offline: true }) });
+    const p = ports({ join: jest.fn().mockResolvedValue({ ok: false, offline: true, unavailable: false }) });
     const c = await started(p);
     await c.join("video");
     expect(c.getState()).toMatchObject({ note: { kind: "link_error" }, offline: true });
@@ -201,7 +234,7 @@ describe("join", () => {
     const first = c.join("video");
     void c.join("video");
     expect(p.join).toHaveBeenCalledTimes(1);
-    release({ ok: false, offline: false });
+    release({ ok: false, offline: false, unavailable: true });
     await first;
     c.stop();
   });
@@ -242,10 +275,26 @@ describe("join by phone call", () => {
   });
 
   it("says the place is safe when the request never got an answer", async () => {
-    const p = ports({ dialIn: jest.fn().mockResolvedValue({ ok: false, offline: true }) });
+    const p = ports({ dialIn: jest.fn().mockResolvedValue({ ok: false, offline: true, unavailable: false }) });
     const c = await started(p);
     await c.phoneFallback();
     expect(c.getState()).toMatchObject({ note: { kind: "link_error" }, offline: true, dialIn: null });
+    c.stop();
+  });
+
+  it("keeps the try-again wording for a server hiccup or an expired session", async () => {
+    const p = ports({ dialIn: jest.fn().mockResolvedValue({ ok: false, offline: false, unavailable: false }) });
+    const c = await started(p);
+    await c.phoneFallback();
+    expect(c.getState()).toMatchObject({ note: { kind: "link_error" }, dialIn: null });
+    c.stop();
+  });
+
+  it("says there is no number to give when the server says the vendor is not set up (503)", async () => {
+    const p = ports({ dialIn: jest.fn().mockResolvedValue({ ok: false, offline: false, unavailable: true }) });
+    const c = await started(p);
+    await c.phoneFallback();
+    expect(c.getState()).toMatchObject({ note: { kind: "phone_unavailable" }, dialIn: null });
     c.stop();
   });
 });
@@ -256,9 +305,41 @@ describe("AI note-taker question", () => {
     const c = await started(p);
     p.loadRoom.mockResolvedValue({ ok: true, data: view({ scribe: { asked: true, granted: true } }) });
     await c.answerScribe(true);
-    expect(p.answerScribe).toHaveBeenCalledWith("e1", true);
+    expect(p.answerScribe).toHaveBeenCalledWith("e1", true, false);
     expect(c.getState().view?.scribe).toEqual({ asked: true, granted: true });
     expect(c.getState().note).toBeNull();
+    c.stop();
+  });
+
+  it("does not let a poll that was already in flight bring the question back after it was answered", async () => {
+    // The 10 second poll goes out before the patient answers; its answer (granted null) lands after the save.
+    let answerStalePoll: (v: { ok: true; data: RoomView }) => void = () => {};
+    const p = ports();
+    const c = await started(p);
+    p.loadRoom.mockReturnValueOnce(new Promise((r) => (answerStalePoll = r)));
+    await jest.advanceTimersByTimeAsync(ROOM_POLL_MS);
+    p.loadRoom.mockResolvedValue({ ok: true, data: view({ scribe: { asked: true, granted: true } }) });
+    const answering = c.answerScribe(true);
+    await jest.advanceTimersByTimeAsync(0);
+    answerStalePoll({ ok: true, data: view() });
+    await answering;
+    expect(c.getState().view?.scribe).toEqual({ asked: true, granted: true });
+    c.stop();
+  });
+
+  it("keeps the answer on screen when the load after saving fails (offline)", async () => {
+    let answerStalePoll: (v: { ok: true; data: RoomView }) => void = () => {};
+    const p = ports();
+    const c = await started(p);
+    p.loadRoom.mockReturnValueOnce(new Promise((r) => (answerStalePoll = r)));
+    await jest.advanceTimersByTimeAsync(ROOM_POLL_MS);
+    p.loadRoom.mockResolvedValue({ ok: false });
+    const answering = c.answerScribe(true);
+    await jest.advanceTimersByTimeAsync(0);
+    answerStalePoll({ ok: true, data: view() });
+    await answering;
+    expect(c.getState().view?.scribe).toEqual({ asked: true, granted: true });
+    expect(c.getState().offline).toBe(true);
     c.stop();
   });
 
@@ -276,7 +357,7 @@ describe("AI note-taker question", () => {
     const c = await started(p);
     p.loadRoom.mockResolvedValue({ ok: true, data: view({ scribe: { asked: true, granted: false } }) });
     await c.answerScribe(false);
-    expect(p.answerScribe).toHaveBeenCalledWith("e1", false);
+    expect(p.answerScribe).toHaveBeenCalledWith("e1", false, true);
     expect(c.getState().view?.scribe.granted).toBe(false);
     c.stop();
   });

@@ -277,9 +277,13 @@ describe("consultation room calls (OQ-158)", () => {
 
   it("tells an unreachable server (offline) from a server that answered with a failure", async () => {
     mockFetch.mockRejectedValue(new TypeError("Network request failed"));
-    await expect(postConsultationJoin("enc-1", "video")).resolves.toEqual({ ok: false, offline: true });
+    await expect(postConsultationJoin("enc-1", "video")).resolves.toEqual({ ok: false, offline: true, unavailable: false });
     mockFetch.mockReset();
     mockFetch.mockResolvedValue(jsonResponse(503, { ok: false, reason: "provider" }));
-    await expect(postConsultationJoin("enc-1", "video")).resolves.toEqual({ ok: false, offline: false });
+    await expect(postConsultationJoin("enc-1", "video")).resolves.toEqual({ ok: false, offline: false, unavailable: true });
+    // Any other failure (a server hiccup) is neither offline nor "unavailable": worth trying again.
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue(jsonResponse(500, {}));
+    await expect(postConsultationDialIn("enc-1")).resolves.toEqual({ ok: false, offline: false, unavailable: false });
   });
 });

@@ -17,6 +17,13 @@ type RpcResult = { data: unknown; error: { message: string } | null };
 type RpcOnly = { rpc: (fn: string, args?: Record<string, unknown>) => PromiseLike<RpcResult> };
 const db = (): RpcOnly => supabase as unknown as RpcOnly;
 
+/** Consultations whose consent question this session has already opened (ids only). */
+const opened = new Set<string>();
+/** For tests. */
+export function resetOpenedScribePrompts(): void {
+  opened.clear();
+}
+
 export type LoadResult<T> = { ok: true; data: T } | { ok: false };
 
 export async function loadUpcomingConsultations(): Promise<LoadResult<UpcomingConsultation[]>> {
@@ -48,10 +55,15 @@ export async function loadRoomView(encounterId: string): Promise<LoadResult<Room
  * CON-001: the patient's own answer for this one consultation (INV-11). Asked, then recorded; returns true only when BOTH calls
  * succeeded, so a failed save can never look like a saved answer.
  */
-export async function answerScribeConsent(encounterId: string, granted: boolean): Promise<boolean> {
+export async function answerScribeConsent(encounterId: string, granted: boolean, alreadyAsked = false): Promise<boolean> {
   try {
-    const asked = await db().rpc("open_scribe_prompt", { p_encounter: encounterId });
-    if (asked.error) return false;
+    // Opened once. A later change of mind (withdrawing), or a retry after the answer step failed, is recorded without logging a
+    // second "asked". `opened` remembers this session's own successful opens, because the screen's view only learns about it later.
+    if (!alreadyAsked && !opened.has(encounterId)) {
+      const asked = await db().rpc("open_scribe_prompt", { p_encounter: encounterId });
+      if (asked.error) return false;
+      opened.add(encounterId);
+    }
     const saved = await db().rpc("record_scribe_consent", { p_encounter: encounterId, p_granted: granted });
     return !saved.error;
   } catch {

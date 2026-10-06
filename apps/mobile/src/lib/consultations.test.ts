@@ -1,10 +1,12 @@
 import { supabase } from "./supabase";
-import { answerScribeConsent, loadRoomView, loadUpcomingConsultations, reportNobodyCame } from "./consultations";
+import { answerScribeConsent, loadRoomView, loadUpcomingConsultations, reportNobodyCame, resetOpenedScribePrompts } from "./consultations";
 
 jest.mock("./supabase", () => ({ supabase: { rpc: jest.fn() } }));
 jest.mock("./api", () => ({ postConsultationJoin: jest.fn(), postConsultationDialIn: jest.fn() }));
 
 const rpc = supabase.rpc as unknown as jest.Mock;
+
+beforeEach(() => resetOpenedScribePrompts());
 
 const room = {
   encounter_id: "e1",
@@ -70,6 +72,20 @@ describe("answerScribeConsent", () => {
     expect(await answerScribeConsent("e1", true)).toBe(true);
     expect(rpc.mock.calls.map((c) => c[0])).toEqual(["open_scribe_prompt", "record_scribe_consent"]);
     expect(rpc).toHaveBeenLastCalledWith("record_scribe_consent", { p_encounter: "e1", p_granted: true });
+  });
+
+  it("does not log a second 'asked' when changing an answer that was already asked", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    expect(await answerScribeConsent("e1", false, true)).toBe(true);
+    expect(rpc.mock.calls.map((c) => c[0])).toEqual(["record_scribe_consent"]);
+  });
+
+  it("does not open the prompt again when retrying after the answer step failed", async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: null }).mockResolvedValueOnce({ data: null, error: { message: "no" } });
+    expect(await answerScribeConsent("e1", true)).toBe(false);
+    rpc.mockResolvedValue({ data: null, error: null });
+    expect(await answerScribeConsent("e1", true)).toBe(true);
+    expect(rpc.mock.calls.map((c) => c[0])).toEqual(["open_scribe_prompt", "record_scribe_consent", "record_scribe_consent"]);
   });
 
   it("carries a decline as a recorded false, not as silence", async () => {

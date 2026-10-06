@@ -34,6 +34,18 @@ export async function mobileRoomDeps(request: Request): Promise<RoomDeps | NextR
   };
 }
 
+/**
+ * The mobile room is the patient's. room.ts takes the role from the consultation itself (so the web action serves both people), so
+ * these routes check, as the signed-in person, that they are the PATIENT on it before anything is issued. consultation_room_view
+ * answers null for a stranger and an unknown id alike, so a refusal here reveals nothing about whether a consultation exists.
+ */
+export async function isPatientOnConsultation(deps: RoomDeps, encounterId: string): Promise<"yes" | "no" | "error"> {
+  const res = await deps.userRpc.rpc("consultation_room_view", { p_encounter: encounterId });
+  // A failed check is not a refusal: the routes answer it with a 500 so the app treats it as worth trying again.
+  if (res.error) return "error";
+  return (res.data as { role?: string } | null)?.role === "patient" ? "yes" : "no";
+}
+
 export async function readJson(request: Request): Promise<unknown> {
   try {
     return await request.json();

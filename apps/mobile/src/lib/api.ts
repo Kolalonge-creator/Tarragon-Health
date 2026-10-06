@@ -98,13 +98,14 @@ export async function fetchVitalsThresholds(): Promise<MobileThresholds | null> 
 
 /** What the consultation routes return when the call itself failed, as opposed to the server answering with a reason. "offline"
  * means the request never got an answer, so the screen can say the place is safe and keep trying. */
-export type ConsultationCallResult<T> = { ok: true; data: T } | { ok: false; offline: boolean };
+export type ConsultationCallResult<T> = { ok: true; data: T } | { ok: false; offline: boolean; unavailable: boolean };
 
 async function consultationCall<T>(path: string, body: unknown): Promise<ConsultationCallResult<T>> {
   const result = await request<T>(path, "POST", body);
   if (result.ok) return { ok: true, data: result.data };
-  // The routes answer 503 with a reason code when the vendor is not configured: not offline, but not usable either.
-  return { ok: false, offline: result.error === NETWORK_ERROR_MESSAGE };
+  // The routes answer 503 with a reason code when the vendor is not configured: not offline, and a retry will not help.
+  // Anything else that failed (an expired session, a server hiccup) is worth trying again.
+  return { ok: false, offline: result.error === NETWORK_ERROR_MESSAGE, unavailable: result.status === 503 };
 }
 
 /** S21 / OQ-158: asks the server for the patient's own join link (apps/web/.../api/mobile/consultations/join). The caller opens the
