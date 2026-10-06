@@ -5,10 +5,11 @@ import {
   getReviewFileUrl,
   openLabResult,
   recordDisclosure,
+  recordDisclosureAttempt,
   releaseResult,
   withholdResult,
 } from "@/lib/lab-results/structured-actions";
-import { formatRange, type ReviewResult } from "@/lib/lab-results/structured";
+import { ATTEMPT_OUTCOME_LABEL, DISCLOSURE_ATTEMPT_OUTCOMES, formatRange, SCREENING_ANALYTES, type ReviewResult } from "@/lib/lab-results/structured";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,7 @@ function ReviewBody({ result }: { result: ReviewResult }) {
                   <td className="py-1">{i.analyte_code.replace(/_/g, " ")}</td>
                   <td>{i.value_numeric !== null ? `${i.value_numeric} ${i.unit}` : i.value_text}</td>
                   <td>{formatRange(i.ref_low, i.ref_high, i.unit)}</td>
-                  <td><Badge variant={FLAG_VARIANT[i.flag]}>{i.sensitive_positive ? "positive (sensitive)" : i.flag}</Badge></td>
+                  <td><Badge variant={FLAG_VARIANT[i.flag]}>{i.sensitive_positive ? "reactive screen (sensitive)" : i.flag}</Badge></td>
                 </tr>
               ))}
             </tbody>
@@ -118,13 +119,25 @@ function ReviewBody({ result }: { result: ReviewResult }) {
           </div>
         ) : null}
 
-        {disclosure ? <DisclosureForm id={result.lab_result_id} /> : <ReleaseForm id={result.lab_result_id} />}
+        {result.items.some((i) => i.sensitive_positive && SCREENING_ANALYTES.has(i.analyte_code)) ? (
+          <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+            This is a screening result. A reactive screen is not a diagnosis and needs confirmatory testing. Say so when you speak with the patient, and arrange the confirmatory test and the next step in care.
+          </p>
+        ) : null}
+        {disclosure ? (
+          <>
+            <AttemptForm id={result.lab_result_id} />
+            <DisclosureForm id={result.lab_result_id} />
+          </>
+        ) : (
+          <ReleaseForm id={result.lab_result_id} critical={result.release_reason === "critical"} />
+        )}
         <WithholdForm id={result.lab_result_id} />
     </div>
   );
 }
 
-function ReleaseForm({ id }: { id: string }) {
+function ReleaseForm({ id, critical }: { id: string; critical?: boolean }) {
   const [state, action, pending] = useActionState(releaseResult, undefined);
   return (
     <form action={action} className="space-y-2 border-t pt-3">
@@ -133,6 +146,7 @@ function ReleaseForm({ id }: { id: string }) {
       <Textarea id={`rn-${id}`} name="note" rows={2} maxLength={500} />
       {state?.error ? <p role="alert" className="text-sm text-red-700">{state.error}</p> : null}
       {state?.success ? <p role="status" className="text-sm text-green-800">Released. The patient has a neutral notice.</p> : null}
+      {critical ? <p className="text-sm text-charcoal-ink/70">A critical value can be released only by a senior clinician.</p> : null}
       <Button type="submit" className={TOUCH} disabled={pending}>Release to the patient</Button>
     </form>
   );
@@ -185,6 +199,29 @@ function WithholdForm({ id }: { id: string }) {
       {state?.error ? <p role="alert" className="text-sm text-red-700">{state.error}</p> : null}
       {state?.success ? <p role="status" className="text-sm text-green-800">Held back.</p> : null}
       <Button type="submit" variant="outline" className={TOUCH} disabled={pending}>Hold this result back</Button>
+    </form>
+  );
+}
+
+function AttemptForm({ id }: { id: string }) {
+  const [state, action, pending] = useActionState(recordDisclosureAttempt, undefined);
+  return (
+    <form action={action} className="space-y-2 border-t pt-3">
+      <input type="hidden" name="result_id" value={id} />
+      <p className="text-sm text-charcoal-ink/70">
+        Could not reach the patient yet? Log the attempt. After the set number of attempts the CMO is told. The result is never released by default.
+      </p>
+      <Label htmlFor={`ao-${id}`}>What happened?</Label>
+      <Select id={`ao-${id}`} name="outcome" defaultValue="no_answer" className={TOUCH}>
+        {DISCLOSURE_ATTEMPT_OUTCOMES.map((o) => (
+          <option key={o} value={o}>{ATTEMPT_OUTCOME_LABEL[o]}</option>
+        ))}
+      </Select>
+      <Label htmlFor={`an-${id}`}>Note (optional)</Label>
+      <Textarea id={`an-${id}`} name="note" rows={2} maxLength={500} />
+      {state?.error ? <p role="alert" className="text-sm text-red-700">{state.error}</p> : null}
+      {state?.success ? <p role="status" className="text-sm text-green-800">Attempt logged.</p> : null}
+      <Button type="submit" variant="outline" className={TOUCH} disabled={pending}>Log an attempt</Button>
     </form>
   );
 }

@@ -439,6 +439,29 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S15.md; docs/research/S15.md; spec 7.1 and 17",
   },
   {
+    key: "lab.release_policy",
+    // Lab release policy (S27d). Live value is the active row of `lab_panel_signoffs`.config; a test fails if the migration seed and this
+    // value drift. maxAttempts and escalateAfterHours are the founder's competitor-research follow-up: a held sensitive result that
+    // cannot be disclosed escalates to the CMO and is NEVER released by default. expectedFromSla points at escalation_slas (the source of
+    // truth for the contact window); 1,440 minutes is only the fallback if that row is ever missing.
+    value: {
+      "disclosure": {
+        "maxAttempts": 3,
+        "escalateAfterHours": 72
+      },
+      "expectedFromSla": {
+        "pathway": "screening_abnormal_result",
+        "tier": "urgent_escalation",
+        "fallbackMinutes": 1440
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/research/S27-competitors.md; docs/design/S27.md",
+  },
+  {
     key: "lab.panels",
     // Lab panels and release thresholds (S27). Live values are the active row of `lab_panel_versions`; a test fails if the
     // migration seed and this value drift. Adult reference and critical limits only, NOT signed: the CMO sets them (OQ-176).
@@ -1056,6 +1079,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     //  flagWindowDays: how long after a consultation the patient can flag a problem for human review.
     //  joinOpensMinutesBefore, joinClosesMinutesAfter: the window around the start time in which a room can be joined.
     //  bookingLeadMinutes: the soonest a slot can be booked from now. bookingHorizonDays: how far ahead slots are listed.
+    //  chartAccessAfterFinishMaxHours: after a clinician finishes a consultation they keep that patient's chart until a signed note exists,
+    //  for at most this long (OQ-159, founder 2026-10-06). Added in policy v2.
     value: {
       minAgeYears: 18,
       requireDateOfBirth: true,
@@ -1071,6 +1096,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       joinClosesMinutesAfter: 60,
       bookingLeadMinutes: 30,
       bookingHorizonDays: 14,
+      chartAccessAfterFinishMaxHours: 72,
     },
     owner: "Founder",
     status: "proposed",
@@ -1113,6 +1139,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S23.md",
+  },
+  {
+    key: "care_circle.rules",
+    // Version 1 (S29, spec 4.7): the rules the Care Circle shipped with. Kept as history; version 2 (S29c) adds the 14 and 3 day
+    // expiry notices, the pause length and what a supporter can do about a check-in request, and is the one in force.
+    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 7, gift_decide_days: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S29.md; docs/research/S29.md; spec 4.7, 8.6",
+  },
+  {
+    key: "care_circle.rules",
+    // Care Circle (S29, spec 4.7). Live values are the active row of `care_circle_config`; this entry mirrors it and a test fails
+    // if the migration seed and this value drift. invite_ttl_hours: how long an invite link works. default_grant_days: how long a
+    // supporter's access lasts unless the patient chooses otherwise (the patient can renew or end it any time). max_invites_per_day:
+    // per patient, counting cancelled ones. max_members: active supporters per patient. max_attempts: wrong-contact tries before an
+    // invite is dead. view_weeks: how many weekly blood pressure averages a supporter sees. alert_visible_hours: how long a check-in request stays on a supporter's screen. expiry_notice_days: how many days before a member's access ends the patient gets the first notice, and expiry_final_notice_days the second (each is sent once per expiry date, so a renewal starts them again). pause_days: how long \"pause all sharing\" lasts (the patient can end it sooner). gift_decide_days: how long a patient has to accept a care pack or Membership someone else paid for before it is treated as declined and the payer is refunded.
+    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 14, expiry_final_notice_days: 3, pause_days: 7, gift_decide_days: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
   },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {

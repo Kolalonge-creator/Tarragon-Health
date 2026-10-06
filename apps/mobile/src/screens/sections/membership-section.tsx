@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Text, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
@@ -24,7 +24,10 @@ function lagos(iso: string): string {
  * server. When the browser closes the app asks the server (which asks Paystack) whether the order is paid: coming back from
  * the browser is never proof of payment. Nothing here stores or shows a balance (INV-09).
  */
-export function MembershipSection() {
+/** Set when a supporter pays for someone in their Care Circle (S29): the order is for them, the card is the payer's own. */
+export interface Beneficiary { id: string; name: string }
+
+export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }) {
   const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const tr = useCallback((key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params), [locale]);
@@ -53,6 +56,18 @@ export function MembershipSection() {
     void refresh();
   }, [refresh]);
 
+  /** For someone else the name and what happens come first, before any card is touched (S29c): they are asked to accept, and a no is a refund. */
+  function confirmGift(item: CatalogueItem) {
+    if (!beneficiary) {
+      void pay(item);
+      return;
+    }
+    Alert.alert(tr("circle.pay.confirm_title", { name: beneficiary.name }), tr("circle.pay.confirm_body", { name: beneficiary.name }), [
+      { text: tr("circle.pay.confirm_no"), style: "cancel" },
+      { text: tr("circle.pay.confirm_yes", { name: beneficiary.name }), onPress: () => void pay(item) },
+    ]);
+  }
+
   async function pay(item: CatalogueItem) {
     setErrorKey(null);
     setNotice(null);
@@ -62,10 +77,11 @@ export function MembershipSection() {
       key = Crypto.randomUUID();
       keys.current.set(item.code, key);
     }
-    const r = await startCheckout(item.code, key);
+    const r = await startCheckout(item.code, key, beneficiary?.id);
     if (!r.ok) {
       if (!keepsRetryKey(r.code)) keys.current.delete(item.code);
-      setErrorKey(checkoutErrorKey(r.code));
+      // "You are already a member" would be wrong when the order was for somebody else.
+      setErrorKey(beneficiary && r.code === "already_member" ? "circle.pay.already_member" : checkoutErrorKey(r.code));
       setBusy(null);
       return;
     }
@@ -88,12 +104,14 @@ export function MembershipSection() {
   if (!loaded) return <ActivityIndicator />;
   return (
     <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{tr("shop.title")}</Text>
-      {membership.isMember && membership.endsAt ? <MutedText>{tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText> : null}
+      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{beneficiary ? tr("circle.pay.who", { name: beneficiary.name }) : tr("shop.title")}</Text>
+      {beneficiary ? <MutedText>{tr("circle.pay.note", { name: beneficiary.name })}</MutedText> : null}
+      {beneficiary ? <MutedText>{tr("circle.pay.only_year")}</MutedText> : null}
+      {!beneficiary && membership.isMember && membership.endsAt ? <MutedText>{tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText> : null}
       {items.length === 0 ? <MutedText>{tr("shop.not_open")}</MutedText> : null}
-      {items.map((item) => {
+      {items.filter((item) => !beneficiary || item.kind === "membership").map((item) => {
         const b = estimatedBreakdown(item.amountKobo, fee);
-        const blocked = item.kind === "membership" && membership.isMember;
+        const blocked = !beneficiary && item.kind === "membership" && membership.isMember;
         return (
           <Card key={item.code}>
             <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{copy(item.nameKey)}</Text>
@@ -108,7 +126,7 @@ export function MembershipSection() {
             <MutedText>{tr("pay.fee.explain")}</MutedText>
             <MutedText>{tr("shop.fee.estimate")}</MutedText>
             <MutedText>{tr("shop.no_renew")}</MutedText>
-            {blocked ? null : <PrimaryButton title={busy === item.code ? tr("shop.paying") : tr("shop.pay")} onPress={() => void pay(item)} disabled={busy !== null} />}
+            {blocked ? null : <PrimaryButton title={busy === item.code ? tr("shop.paying") : tr("shop.pay")} onPress={() => confirmGift(item)} disabled={busy !== null} />}
           </Card>
         );
       })}

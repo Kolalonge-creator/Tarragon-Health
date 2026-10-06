@@ -220,7 +220,9 @@ export async function proxy(request: NextRequest) {
       pathname.startsWith("/patient/messages/") ||
       // What they pay for other people, not a plan of their own.
       pathname === "/patient/subscription" ||
-      pathname.startsWith("/patient/subscription/");
+      pathname.startsWith("/patient/subscription/") ||
+      // Where Paystack sends a payer back after they pay for a loved one (S29). Only the status page, never the shop for themselves.
+      pathname === "/patient/membership/paid";
     if (!allowed) {
       return NextResponse.redirect(new URL("/patient/supporting", request.url));
     }
