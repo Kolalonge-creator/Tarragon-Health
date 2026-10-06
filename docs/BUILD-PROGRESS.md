@@ -845,3 +845,6 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 ### S27f: replace while held, liaison list, withdraw from the chart (2026-10-06)
 - **Built**: migration `20261006215918_s27f_*` (guard refuses release or withhold of a replaced result; correction allowed against a held result; supersede trigger; review queue lists current results only; `liaison_recent_uploads()`; `patient_released_lab_results()` senior and tie checked, audited). Screens: liaison "Files you recorded", chart "Released lab results" with Withdraw.
 - **Proof**: `s27_lab_results_release.sql` now 193 checks; web lab-results tests 41 pass.
+
+### S29d: gift window 14 days (2026-10-07)
+- Founder decisions: check-in requests stay on during a pause by default (no change); an unanswered gift waits 14 days with one reminder on day 7. Migration `20261007101733_s29d_gift_window_14_days.sql` (config v3; v1 and v2 stay as history, the validity check applies from v3), `expire_pending_gifts` reminds once via the existing `circle_gift_waiting` notice. Proofs: `s29b` 46 checks (reminder once at day 10, declined at day 15), full suite 147 of 147. Not applied to production yet.
