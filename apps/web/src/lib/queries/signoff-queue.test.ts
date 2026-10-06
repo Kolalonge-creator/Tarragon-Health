@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import { getSignoffQueue } from "./signoff-queue";
+import { getSignoffQueue, readSignoffQueue } from "./signoff-queue";
 
 type Settled = { data: unknown; error: unknown; count: number | null };
 type Chain = {
@@ -10,6 +10,7 @@ type Chain = {
   in: () => Chain;
   not: () => Chain;
   is: () => Chain;
+  or: () => Chain;
   order: () => Chain;
   maybeSingle: () => Promise<Settled>;
   then: Promise<Settled>["then"];
@@ -27,6 +28,7 @@ function client(tables: Record<string, { data?: unknown; error?: unknown; count?
         in: () => chain,
         not: () => chain,
         is: () => chain,
+        or: () => chain,
         order: () => chain,
         maybeSingle: async () => settled,
         then: (resolve, reject) => Promise.resolve(settled).then(resolve, reject),
@@ -37,7 +39,7 @@ function client(tables: Record<string, { data?: unknown; error?: unknown; count?
 }
 
 const unsignedAlertRules = {
-  alert_rules: { data: { version: 4, approved_by: null, created_at: "2026-09-01T00:00:00Z" } },
+  alert_rules: { data: [{ id: "a4", version: 4, is_active: true, approved_by: null, approved_at: null, created_at: "2026-09-01T00:00:00Z" }] },
 };
 
 describe("getSignoffQueue links", () => {
@@ -143,5 +145,71 @@ describe("getSignoffQueue clinical rules", () => {
     );
     expect(items.find((i) => i.key === "clinical_rules_ready")?.count).toBe(1);
     expect(items.find((i) => i.key === "clinical_rules_needs_setup")?.count).toBe(2);
+  });
+});
+
+describe("getSignoffQueue pending drafts of governed configs", () => {
+  const live = { id: "l", version: 5, is_active: true, approved_by: "staff", approved_at: "2026-09-01T00:00:00Z", created_at: "2026-09-01T00:00:00Z" };
+  const draft = (version: number, notes = "Adds fever and abdominal pain. More detail follows.") => ({
+    id: `d${version}`,
+    version,
+    is_active: false,
+    approved_by: null,
+    approved_at: null,
+    created_at: "2026-09-10T00:00:00Z",
+    notes,
+  });
+
+  it("lists an unsigned draft newer than the live version, with what it changes", async () => {
+    const items = await getSignoffQueue(client({ triage_protocols: { data: [live, draft(6)] } }), "/clinician");
+    const item = items.find((i) => i.key === "versioned_draft:triage_protocols");
+    expect(item?.severity).toBe("draft_pending");
+    expect(item?.href).toBe("/clinician/triage-protocols");
+    expect(item?.detail).toContain("Version 6");
+    expect(item?.detail).toContain("newer than the live version 5");
+    expect(item?.detail).toContain("Adds fever and abdominal pain.");
+    expect(item?.detail).not.toContain("More detail follows");
+  });
+
+  it("ignores old unsigned drafts that a later version superseded", async () => {
+    const items = await getSignoffQueue(client({ escalation_slas: { data: [live, draft(1), draft(3), draft(4)] } }));
+    expect(items.find((i) => i.key.includes("escalation_slas"))).toBeUndefined();
+  });
+
+  it("names only the highest newer draft when several are waiting", async () => {
+    const items = await getSignoffQueue(client({ alert_rules: { data: [live, draft(6), draft(7)] } }));
+    const mine = items.filter((i) => i.key === "versioned_draft:alert_rules");
+    expect(mine).toHaveLength(1);
+    expect(mine[0]?.detail).toContain("Version 7");
+  });
+
+  it("reports the live-unsigned version rather than a draft when the live one is unsigned", async () => {
+    const unsignedLive = { ...live, approved_by: null, approved_at: null };
+    const items = await getSignoffQueue(client({ alert_rules: { data: [unsignedLive, draft(6)] } }));
+    expect(items.filter((i) => i.key.includes("alert_rules")).map((i) => i.key)).toEqual(["versioned:alert_rules"]);
+  });
+});
+
+describe("readSignoffQueue partial failure", () => {
+  it("keeps every other line and names the source that failed", async () => {
+    const result = await readSignoffQueue(
+      client({
+        ...unsignedAlertRules,
+        lpe_content_blocks: { error: { message: "boom" } },
+      }),
+      "/clinician"
+    );
+    expect(result.failedSources).toEqual(["lpe_content_blocks"]);
+    expect(result.items.find((i) => i.key === "versioned:alert_rules")).toBeDefined();
+  });
+
+  it("reports no failed sources when everything was readable", async () => {
+    expect((await readSignoffQueue(client({}))).failedSources).toEqual([]);
+  });
+
+  it("getSignoffQueue still throws, naming the source, so the admin hub never shows a short list", async () => {
+    await expect(getSignoffQueue(client({ lpe_content_blocks: { error: { message: "boom" } } }))).rejects.toThrow(
+      /lpe_content_blocks/
+    );
   });
 });
