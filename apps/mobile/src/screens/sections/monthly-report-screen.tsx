@@ -10,7 +10,7 @@ import { AppText, Button, Card, EmptyState, Screen, Skeleton, SkeletonGroup } fr
  * "Your month" (S38c, Module 22.5): the person's own readings for the last closed month, written once after the month ends. It shows
  * no comparison with anyone, no ranking and no risk score. With too few readings it says so instead of showing an average.
  */
-export function MonthlyReportScreen() {
+export function MonthlyReportScreen({ acting = false }: { acting?: boolean }) {
   const locale = asLocale(useUiLanguage());
   const [data, setData] = useState<MonthlyReportsLoad | null>(null);
 
@@ -20,8 +20,9 @@ export function MonthlyReportScreen() {
   }, [locale]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    // A summary belongs to the person it is about, so nothing is read while acting for someone else.
+    if (!acting) void load();
+  }, [load, acting]);
 
   const first = data?.ok ? data.reports[0] : undefined;
   return (
@@ -37,14 +38,16 @@ export function MonthlyReportScreen() {
         ) : null}
       </View>
 
-      {data === null ? (
+      {acting ? (
+        <EmptyState icon="heart" title={t("progress.title", locale)} body={t("progress.own_only", locale)} />
+      ) : data === null ? (
         <SkeletonGroup label={t("progress.title", locale)}>
           <Skeleton width="100%" height={120} />
         </SkeletonGroup>
       ) : !data.ok ? (
         <Card style={{ gap: space.md }}>
           <AppText variant="body">{t("progress.load_error", locale)}</AppText>
-          <Button title={t("common.continue", locale)} onPress={() => void load()} variant="secondary" />
+          <Button title={t("history.retry", locale)} onPress={() => void load()} variant="secondary" />
         </Card>
       ) : data.reports.length === 0 ? (
         <EmptyState icon="heart" title={t("progress.title", locale)} body={t("progress.empty", locale)} />

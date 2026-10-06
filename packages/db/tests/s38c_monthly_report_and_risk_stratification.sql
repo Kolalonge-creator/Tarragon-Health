@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Proof: 20261006224713_s38c_monthly_report_and_risk_stratification.sql (v5 S38, Module 22.3 and 22.5; INV-10, INV-12, INV-13, INV-16).
+-- Proof: 20261007103011_s38c_monthly_report_and_risk_stratification.sql (v5 S38, Module 22.3 and 22.5; INV-10, INV-12, INV-13, INV-16).
 --
 -- RISK
 --   1. Exact scores and reasons: a high-BP person with a red event is 85/high with both reasons; a person in target is 0/low with no

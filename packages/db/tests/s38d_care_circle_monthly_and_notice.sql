@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Proof: S38c notice + 20261007004233_s38d_care_circle_monthly_block.sql (OQ-252, Module 22.5, 22.9; INV-07, INV-10).
+-- Proof: S38c notice + 20261007103245_s38d_care_circle_monthly_block.sql (OQ-252, Module 22.5, 22.9; INV-07, INV-10).
 --
 -- NOTICE
 --   1. A neutral "monthly_report_ready" notice (in-app and push, routine, empty payload, non_clinical) is made once, only for the month
@@ -46,7 +46,7 @@ declare
   v_org uuid := (select id from public.organisations order by created_at limit 1);
   v_first date := date_trunc('month', (now() at time zone 'Africa/Lagos'))::date;
   v_m date := date_trunc('month', (now() at time zone 'Africa/Lagos')::date - interval '1 month')::date;
-  v_now3 timestamptz; h uuid; s1 uuid; s2 uuid; s3 uuid; s4 uuid; adm uuid; clin uuid; v_mem4 uuid;
+  v_now3 timestamptz; s5 uuid; h uuid; s1 uuid; s2 uuid; s3 uuid; s4 uuid; adm uuid; clin uuid; v_mem4 uuid;
   v_rep jsonb; v_view jsonb; v_n integer; i integer; v_txt text; v_ok boolean; v_ok2 boolean; v_ok3 boolean; k integer;
 begin
   v_now3 := pg_temp.at_day(v_first + 2);
@@ -67,6 +67,8 @@ begin
     (v_org, h, s2, 'son',      array['adherence_summary'], now() + interval '30 days'),
     (v_org, h, s3, 'friend',   array['appointments'], now() + interval '30 days'),
     (v_org, h, s4, 'spouse',   array['weekly_bp_trend', 'adherence_summary'], now() + interval '30 days');
+  -- these four were added long ago, so they may see all three months; s5 (below) was added just now
+  update public.care_circle_members set created_at = now() - interval '200 days' where patient_id = h;
   select id into v_mem4 from public.care_circle_members where patient_id = h and supporter_id = s4;
 
   -- =============================== 1. NOTICE ===============================
@@ -127,6 +129,17 @@ begin
   insert into s38d_results values ('2g both ticks: both parts', ((v_view #>> '{monthly,0}')::jsonb ? 'average')::text || '/' || ((v_view #>> '{monthly,0}')::jsonb ? 'adherence_shared')::text, 'true/true',
     case when (v_view #>> '{monthly,0}')::jsonb ? 'average' and (v_view #>> '{monthly,0}')::jsonb ? 'adherence_shared' then 'PASS' else 'FAIL' end);
   insert into s38d_results values ('3a a supporter cannot read monthly_reports directly', v_n::text, '0', case when v_n = 0 then 'PASS' else 'FAIL' end);
+
+  -- a supporter added just now sees no history from before they were added
+  s5 := pg_temp.mkuser('patient', 'S38d Supporter New');
+  insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at)
+  values (v_org, h, s5, 'neighbour', array['weekly_bp_trend', 'adherence_summary'], now() + interval '30 days');
+  perform set_config('request.jwt.claims', json_build_object('sub', s5, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_rep := public.circle_supporter_view(h);
+  execute 'reset role';
+  insert into s38d_results values ('2h a supporter added just now sees no months from before they were added', coalesce(jsonb_array_length(v_rep -> 'monthly'), -1)::text, '0',
+    case when jsonb_array_length(v_rep -> 'monthly') = 0 then 'PASS' else 'FAIL' end);
 
   -- the patient's own preview shows the same block
   perform set_config('request.jwt.claims', json_build_object('sub', h, 'role', 'authenticated')::text, true);

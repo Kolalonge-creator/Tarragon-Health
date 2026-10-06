@@ -10,6 +10,8 @@
 -- only while the circle is not paused and the member is not expired or removed (circle_member_for is still the gate), and every read is
 -- already logged by circle_supporter_view. A supporter has no table access to monthly_reports (RLS: the patient's own rows only).
 --
+-- A supporter sees months from the month they were added onward only (never history from before the patient chose to share).
+--
 -- Done by renaming S29's function and wrapping it, so S29's body is not copied and cannot drift. The proof asserts the block comes back
 -- through circle_supporter_view, so a later migration that redefines circle_view_blocks without it fails CI.
 
@@ -18,8 +20,14 @@ alter function private.circle_view_blocks(uuid, text[]) rename to circle_view_bl
 create function private.circle_monthly_block(p_patient uuid, p_permissions text[]) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
-declare v_bp boolean := 'weekly_bp_trend' = any (p_permissions); v_adh boolean := 'adherence_summary' = any (p_permissions); v_rows jsonb;
+declare v_bp boolean := 'weekly_bp_trend' = any (p_permissions); v_adh boolean := 'adherence_summary' = any (p_permissions); v_rows jsonb; v_from date;
 begin
+  -- A supporter sees only months from the month they were added onward, never the history from before the patient chose to share with
+  -- them. The patient's own preview (no member row yet, or the patient is the caller) is not filtered.
+  select date_trunc('month', m.created_at at time zone 'Africa/Lagos')::date into v_from
+    from public.care_circle_members m
+   where m.patient_id = p_patient and m.supporter_id = (select auth.uid()) and m.state = 'active'
+   order by m.created_at limit 1;
   if not (v_bp or v_adh) then return '{}'::jsonb; end if;
   select coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
            'month', r.month,
@@ -32,7 +40,7 @@ begin
            'adherence_pct', case when v_adh then (r.payload ->> 'adherence_pct')::integer end,
            'adherence_shared', case when v_adh then true end)) order by r.month desc), '[]'::jsonb)
     into v_rows
-    from (select month, payload from public.monthly_reports where patient_id = p_patient order by month desc limit 3) r;
+    from (select month, payload from public.monthly_reports where patient_id = p_patient and (v_from is null or month >= v_from) order by month desc limit 3) r;
   return jsonb_build_object('monthly', v_rows);
 end $$;
 revoke all on function private.circle_monthly_block(uuid, text[]) from public, anon, authenticated;

@@ -18,7 +18,7 @@ export default async function OutcomesExportPage() {
         backTo={{ href: "/admin/outcomes", label: "Outcomes" }}
         description="A file of the 90-day blood pressure report for a pilot or a renewal conversation. It holds the same figures as the Outcomes page, with the definition and the limits. It lists no individual and makes no claim about cause."
       />
-      <form method="get" action="/admin/outcomes/export/download" className="flex flex-wrap items-end gap-3">
+      <form method="post" action="/admin/outcomes/export/download" className="flex flex-wrap items-end gap-3">
         <label className="space-y-1">
           <span className="block text-sm">Joined from</span>
           <input type="date" name="from" className="min-h-11 rounded border px-2" />

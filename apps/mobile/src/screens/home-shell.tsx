@@ -244,8 +244,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       ),
     vitals: () => <VitalsScreen patientId={subjectId} beneficiaryProfileId={acting?.profileId} />,
     bpHistory: () => <BpHistoryScreen patientId={subjectId} userId={userId} organisationId={organisationId} />,
-    // A summary belongs to the person it is about, so it is not shown while acting for someone else.
-    monthlySummary: () => (acting ? <OverviewScreen patientId={subjectId} patientName={acting.fullName ?? patientName} onNavigate={handleSelect} onOpenVideoVisit={setOpenVideoVisitId} /> : <MonthlyReportScreen />),
+    // A summary belongs to the person it is about: while acting for someone else the screen says so and reads nothing.
+    monthlySummary: () => <MonthlyReportScreen acting={!!acting} />,
     medications: () => (
       <MedicationsScreen
         patientId={subjectId}

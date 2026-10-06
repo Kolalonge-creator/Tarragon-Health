@@ -1473,6 +1473,7 @@ export const en = {
   "circle.view.monthly.similar": "About the same as the month before.",
   "circle.view.monthly.adherence": "{month}: medicines taken as planned, {percent} percent.",
   "circle.view.monthly.adherence_none": "{month}: nothing to show about medicines.",
+  "progress.own_only": "A monthly summary belongs to the person it is about. Open your own account to see yours.",
 } as const;
 
 export type MessageKey = keyof typeof en;

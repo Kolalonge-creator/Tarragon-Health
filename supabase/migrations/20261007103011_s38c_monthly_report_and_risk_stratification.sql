@@ -132,6 +132,23 @@ as $$
 $$;
 revoke all on function private.risk_is_current_member(uuid, timestamptz) from public, anon, authenticated;
 
+-- A neutral, empty-payload notice with the same dedupe as the Care Circle helper (recipient, template, channel, source), kept here so this
+-- job does not depend on a Care Circle function. Nothing in the payload can name a condition, reading or number (INV-07).
+create function private.neutral_notify(p_recipient uuid, p_org uuid, p_template text, p_source_table text, p_source uuid, p_channels text[], p_priority text) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare c text;
+begin
+  foreach c in array p_channels loop
+    if not exists (select 1 from public.notifications n where n.recipient_id = p_recipient and n.template = p_template
+                      and n.channel = c::public.notification_channel and n.source_table = p_source_table and n.source_id = p_source) then
+      insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
+      values (p_recipient, p_org, c::public.notification_channel, p_template, '{}'::jsonb, 'pending', 'non_clinical', p_priority::public.notification_priority, p_source_table, p_source);
+    end if;
+  end loop;
+end $$;
+revoke all on function private.neutral_notify(uuid, uuid, text, text, uuid, text[], text) from public, anon, authenticated;
+
 -- One open incident per failing job, kept up to date; a failure is never only a log line.
 create function private.open_job_incident(p_ref text, p_title text, p_summary text) returns void
 language plpgsql security definer set search_path = ''
@@ -514,7 +531,7 @@ begin
         -- priority so quiet hours and the daily cap apply. Empty payload, so it can name no condition, reading or number (INV-07).
         -- Nothing depends on it being delivered: the report is on the page either way.
         if v_rid is not null and v_month = v_latest then
-          perform private.circle_notify(r.patient_id, r.organisation_id, 'monthly_report_ready', 'monthly_reports', v_rid, array['in_app', 'push'], 'routine', r.is_test);
+          perform private.neutral_notify(r.patient_id, r.organisation_id, 'monthly_report_ready', 'monthly_reports', v_rid, array['in_app', 'push'], 'routine');
         end if;
       exception when others then
         v_failed := v_failed + 1; v_last := sqlerrm;
@@ -548,6 +565,6 @@ begin
   if has_table_privilege('authenticated', 'public.monthly_reports', 'INSERT,UPDATE,DELETE') or has_table_privilege('anon', 'public.monthly_reports', 'SELECT') then raise exception 'S38c: monthly_reports has a wrong grant'; end if;
   if has_function_privilege('anon', 'public.clinician_risk_worklist(integer)', 'EXECUTE') or has_function_privilege('anon', 'public.override_patient_risk(uuid,text,text,integer)', 'EXECUTE')
      or has_function_privilege('anon', 'public.risk_distribution_report()', 'EXECUTE') or has_function_privilege('anon', 'public.my_monthly_reports(integer)', 'EXECUTE') then raise exception 'S38c: anon can execute a risk or report function'; end if;
-  if has_function_privilege('authenticated', 'private.open_job_incident(text,text,text)', 'EXECUTE') or has_function_privilege('authenticated', 'private.risk_is_current_member(uuid,timestamptz)', 'EXECUTE') then raise exception 'S38c: a helper is callable by users'; end if;
+  if has_function_privilege('authenticated', 'private.open_job_incident(text,text,text)', 'EXECUTE') or has_function_privilege('authenticated', 'private.risk_is_current_member(uuid,timestamptz)', 'EXECUTE') or has_function_privilege('authenticated', 'private.neutral_notify(uuid,uuid,text,text,uuid,text[],text)', 'EXECUTE') then raise exception 'S38c: a helper is callable by users'; end if;
   if has_function_privilege('authenticated', 'private.compute_risk_scores(timestamptz)', 'EXECUTE') or has_function_privilege('authenticated', 'private.generate_monthly_reports(timestamptz)', 'EXECUTE') then raise exception 'S38c: a user can run a job'; end if;
 end $$;

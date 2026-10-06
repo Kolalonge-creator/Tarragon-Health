@@ -1474,4 +1474,5 @@ export const pcm: Record<MessageKey, string> = {
   "circle.view.monthly.similar": "E near the same as the month before.",
   "circle.view.monthly.adherence": "{month}: medicine wey dem take as planned, {percent} percent.",
   "circle.view.monthly.adherence_none": "{month}: nothing to show about medicine.",
+  "progress.own_only": "Monthly summary na for the person wey e concern. Open your own account to see yours.",
 };

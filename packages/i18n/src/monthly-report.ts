@@ -1,4 +1,4 @@
-import { t, type Locale } from "./index";
+import { t, type Locale } from "./translate";
 
 /**
  * The personal monthly progress report and its Care Circle summary, as the database stores them (S38c, S38d). Parsed by hand and never
