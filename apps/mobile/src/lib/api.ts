@@ -98,14 +98,16 @@ export async function fetchVitalsThresholds(): Promise<MobileThresholds | null> 
 
 /** What the consultation routes return when the call itself failed, as opposed to the server answering with a reason. "offline"
  * means the request never got an answer, so the screen can say the place is safe and keep trying. */
-export type ConsultationCallResult<T> = { ok: true; data: T } | { ok: false; offline: boolean; unavailable: boolean };
+export type ConsultationCallResult<T> = { ok: true; data: T } | { ok: false; offline: boolean };
 
 async function consultationCall<T>(path: string, body: unknown): Promise<ConsultationCallResult<T>> {
-  const result = await request<T>(path, "POST", body);
+  // Not retried blind: a join request that reached the server may already have issued a link, and a dial-in request logs the ask, so
+  // a repeat after a timeout would do both twice. The patient can tap again; the screen says their place is safe.
+  const result = await request<T>(path, "POST", body, false, true);
   if (result.ok) return { ok: true, data: result.data };
-  // The routes answer 503 with a reason code when the vendor is not configured: not offline, and a retry will not help.
-  // Anything else that failed (an expired session, a server hiccup) is worth trying again.
-  return { ok: false, offline: result.error === NETWORK_ERROR_MESSAGE, unavailable: result.status === 503 };
+  // "The vendor is not set up" arrives as an ordinary answer with a reason code (HTTP 200), never as a status the app has to guess
+  // at. Anything that failed here (no answer, an expired session, a server hiccup) is worth trying again.
+  return { ok: false, offline: result.error === NETWORK_ERROR_MESSAGE };
 }
 
 /** S21 / OQ-158: asks the server for the patient's own join link (apps/web/.../api/mobile/consultations/join). The caller opens the
@@ -516,7 +518,8 @@ async function request<T>(
   path: string,
   method: "GET" | "POST",
   body?: unknown,
-  isRetry = false
+  isRetry = false,
+  noRetry = false
 ): Promise<RequestResult<T>> {
   const {
     data: { session },
@@ -537,7 +540,7 @@ async function request<T>(
 
   let response: Response;
   try {
-    response = await fetchWithTimeoutAndRetry(url, init);
+    response = noRetry ? await fetchWithTimeout(url, init) : await fetchWithTimeoutAndRetry(url, init);
   } catch {
     return { ok: false, error: NETWORK_ERROR_MESSAGE };
   }
@@ -550,7 +553,7 @@ async function request<T>(
   if (response.status === 401 && !isRetry) {
     const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
     if (!refreshError && refreshed.session) {
-      return request<T>(path, method, body, true);
+      return request<T>(path, method, body, true, noRetry);
     }
     await supabase.auth.signOut();
     return { ok: false, error: "Your session expired — please sign in again.", status: 401 };

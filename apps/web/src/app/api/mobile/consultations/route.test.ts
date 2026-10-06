@@ -87,7 +87,7 @@ describe.each([
   it("answers with a reason code, not a vendor message, when the vendor is not configured", async () => {
     videoProvider.mockReturnValue({ ok: false, error: { code: "not_configured", message: "ZOOM_SECRET missing" } });
     const res = await handler(req(path, goodBody));
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: false, reason: "provider" });
   });
 });

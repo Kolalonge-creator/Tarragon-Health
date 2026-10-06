@@ -206,7 +206,7 @@ describe("join", () => {
   });
 
   it("flags offline when the request never got an answer", async () => {
-    const p = ports({ join: jest.fn().mockResolvedValue({ ok: false, offline: true, unavailable: false }) });
+    const p = ports({ join: jest.fn().mockResolvedValue({ ok: false, offline: true }) });
     const c = await started(p);
     await c.join("video");
     expect(c.getState()).toMatchObject({ note: { kind: "link_error" }, offline: true });
@@ -247,7 +247,7 @@ describe("join", () => {
     const first = c.join("video");
     void c.join("video");
     expect(p.join).toHaveBeenCalledTimes(1);
-    release({ ok: false, offline: false, unavailable: true });
+    release({ ok: false, offline: false });
     await first;
     c.stop();
   });
@@ -288,7 +288,7 @@ describe("join by phone call", () => {
   });
 
   it("says the place is safe when the request never got an answer", async () => {
-    const p = ports({ dialIn: jest.fn().mockResolvedValue({ ok: false, offline: true, unavailable: false }) });
+    const p = ports({ dialIn: jest.fn().mockResolvedValue({ ok: false, offline: true }) });
     const c = await started(p);
     await c.phoneFallback();
     expect(c.getState()).toMatchObject({ note: { kind: "link_error" }, offline: true, dialIn: null });
@@ -296,15 +296,15 @@ describe("join by phone call", () => {
   });
 
   it("keeps the try-again wording for a server hiccup or an expired session", async () => {
-    const p = ports({ dialIn: jest.fn().mockResolvedValue({ ok: false, offline: false, unavailable: false }) });
+    const p = ports({ dialIn: jest.fn().mockResolvedValue({ ok: false, offline: false }) });
     const c = await started(p);
     await c.phoneFallback();
     expect(c.getState()).toMatchObject({ note: { kind: "link_error" }, dialIn: null });
     c.stop();
   });
 
-  it("says there is no number to give when the server says the vendor is not set up (503)", async () => {
-    const p = ports({ dialIn: jest.fn().mockResolvedValue({ ok: false, offline: false, unavailable: true }) });
+  it("says there is no number to give when the server answers that the vendor is not set up", async () => {
+    const p = ports({ dialIn: jest.fn().mockResolvedValue({ ok: true, data: { ok: false, reason: "provider" } }) });
     const c = await started(p);
     await c.phoneFallback();
     expect(c.getState()).toMatchObject({ note: { kind: "phone_unavailable" }, dialIn: null });

@@ -22,8 +22,9 @@ export async function mobileRoomDeps(request: Request): Promise<RoomDeps | NextR
   if (error || !user) return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 });
 
   const video = videoProvider();
-  // The reason is a code the app maps to its own wording; never a vendor message.
-  if (!video.ok) return NextResponse.json({ ok: false, reason: "provider" }, { status: 503 });
+  // The reason is a code the app maps to its own wording; never a vendor message. It is an ordinary answer (200), not a 503, so the
+  // app can tell "the vendor is not set up" from a gateway or deploy hiccup that also answers 503.
+  if (!video.ok) return NextResponse.json({ ok: false, reason: "provider" }, { headers: { "Cache-Control": "no-store" } });
 
   return {
     userId: user.id,

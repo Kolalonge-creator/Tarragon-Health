@@ -251,9 +251,9 @@ export class RoomController {
     return this.act(async () => {
       const res = await this.ports.dialIn(this.encounterId);
       if (!res.ok) {
-        // Only a server that says the vendor is not set up (503) says there is no phone number to give. No answer, an expired
-        // session or a server hiccup keep the "your place is safe, try again" wording.
-        this.set({ note: { kind: res.unavailable ? "phone_unavailable" : "link_error" }, offline: res.offline || this.state.offline });
+        // No answer, an expired session or a server hiccup: "your place is safe, try again". "No phone number" is only ever the
+        // server's own answer (a reason code below), never a guess from a status.
+        this.set({ note: { kind: "link_error" }, offline: res.offline || this.state.offline });
         return;
       }
       const out = res.data;
