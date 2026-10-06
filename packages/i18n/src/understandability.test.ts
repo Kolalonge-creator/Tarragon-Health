@@ -51,6 +51,15 @@ describe("scoreLessons", () => {
     expect(scores.map((s) => `${s.lesson}/${s.language}/${s.participants}`)).toEqual(["BPC-01/en/10", "BPC-01/pcm/10", "BPC-02/en/10"]);
   });
 
+  it("lets a repeated row replace, never add to, the participant's earlier one", () => {
+    const rows = [...many(10, (i) => ({ recalledMessage: i >= 3 })), ...many(10, (i) => ({ recalledMessage: i >= 3 }))];
+    const [s] = scoreLessons(rows, RULE);
+    expect(s).toMatchObject({ participants: 10, recalledMessage: 7, both: 7, verdict: "fail" });
+    // the correction wins: a later row that fixes a typo changes the result
+    const fixed = scoreLessons([...many(10, () => ({ recalledMessage: false })), ...many(10)], RULE)[0];
+    expect(fixed.verdict).toBe("pass");
+  });
+
   it("counts interviewer-read sessions so reading ability is visible in the result", () => {
     expect(scoreLessons(many(10, (i) => ({ interviewerRead: i < 4 })), RULE)[0].interviewerRead).toBe(4);
   });
@@ -82,6 +91,12 @@ describe("parseSessionCsv", () => {
 
   it("fails loudly if a column is missing, so a bad sheet cannot score as a pass", () => {
     expect(() => parseSessionCsv("participant,language,lesson\nP1,en,BPC-01")).toThrow(/recalled_message/);
+  });
+
+  it("keeps a quoted note with a line break in one record", () => {
+    const rows = parseSessionCsv('participant,language,lesson,recalled_message,named_action,unsafe_misunderstanding,interviewer_read,notes\nP1,en,BPC-01,Y,Y,N,N,"line one\nline two"\nP2,en,BPC-01,Y,N,N,N,');
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toMatchObject({ participant: "P2", namedAction: false });
   });
 
   it("returns nothing for an empty sheet", () => {

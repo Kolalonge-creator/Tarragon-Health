@@ -40,8 +40,12 @@ export interface LessonScore {
 }
 
 export function scoreLessons(rows: readonly SessionRow[], rule: PassRule): LessonScore[] {
+  // One row per participant per lesson and language: if a row is entered twice the last one wins, so a repeat can never
+  // raise a count above the number of people tested.
+  const latest = new Map<string, SessionRow>();
+  for (const r of rows) latest.set(`${r.lesson}\u0000${r.language}\u0000${r.participant}`, r);
   const groups = new Map<string, SessionRow[]>();
-  for (const r of rows) {
+  for (const r of latest.values()) {
     const key = `${r.lesson}\u0000${r.language}`;
     groups.set(key, [...(groups.get(key) ?? []), r]);
   }
@@ -94,7 +98,22 @@ const yes = (v: string): boolean => /^(y|yes|1|true)$/i.test(v.trim());
 
 /** Reads the session sheet (`participant-session-sheet.csv`). Header names are matched case-insensitively. */
 export function parseSessionCsv(text: string): SessionRow[] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "" && !l.startsWith("#"));
+  // Split into records honouring quotes, so a quoted note with a line break stays in one record.
+  const lines: string[] = [];
+  {
+    let cur = "";
+    let q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '"') q = !q;
+      if ((c === "\n" || c === "\r") && !q) {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        if (cur.trim() !== "" && !cur.startsWith("#")) lines.push(cur);
+        cur = "";
+      } else cur += c;
+    }
+    if (cur.trim() !== "" && !cur.startsWith("#")) lines.push(cur);
+  }
   if (lines.length === 0) return [];
   const split = (l: string): string[] => {
     const cells: string[] = [];

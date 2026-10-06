@@ -12,7 +12,9 @@ import { readFileSync } from "node:fs";
 import { parseSessionCsv, scoreLessons } from "../../packages/i18n/src/understandability.ts";
 
 const args = process.argv.slice(2);
-const file = args.find((a) => !a.startsWith("--") && !/^\d|^0\./.test(a));
+const OPTIONS = new Set(["min-n", "min-recall", "max-unsafe"]);
+// The sheet is the first argument that is neither an option nor an option's value (so a file name may start with a digit).
+const file = args.find((a, i) => !a.startsWith("--") && !(i > 0 && OPTIONS.has(args[i - 1].replace(/^--/, ""))));
 const opt = (name, fallback) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? Number(args[i + 1]) : fallback;

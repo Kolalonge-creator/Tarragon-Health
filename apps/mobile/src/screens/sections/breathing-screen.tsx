@@ -59,12 +59,13 @@ export function BreathingScreen({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     if (stage !== "running") return;
     const sub = AppState.addEventListener("change", (s) => {
-      if (s !== "active") stop();
+      // iOS reports "inactive" for a banner or Control Centre; only a real background ends the session.
+      if (s === "background") stop();
     });
     const id = setInterval(() => {
       const elapsed = Date.now() - startedAt.current;
       const next = stateAt(pace, elapsed);
-      if (haptics) for (let i = 0; i < dueCues(cues, lastMs.current, elapsed).length; i++) haptic.light();
+      if (haptics && dueCues(cues, lastMs.current, elapsed).length > 0) haptic.light(); // one tap per tick, even after a stall
       if (shouldAnnounce(lastState.current, next)) {
         AccessibilityInfo.announceForAccessibility(tr("breathing.a11y_phase", { phase: tr(phaseKey(next.phase)), n: next.secondsLeft }));
       }
