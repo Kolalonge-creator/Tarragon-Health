@@ -335,6 +335,38 @@ begin
   perform pg_temp.ck('the ledger retry is scheduled', '1', (select count(*)::text from cron.job where jobname = 'order-ledger-retry'));
 end $$;
 
+-- 5d. Period fallback, refund cancels the schedule, and the automatic post for a real order ---------------------------------
+do $$
+declare
+  v_p2 uuid := pg_temp.f('pat2'); v_mem uuid := (select id from public.orders where buyer_profile_id = pg_temp.f('pat3') and amount_kobo = 10000000 and paystack_reference <> 'tho_overlap0000000000000000000000' limit 1);
+  ref text; o uuid; v_month date := date_trunc('month', (now() at time zone 'Africa/Lagos')::date)::date; v_old uuid; v_ok boolean;
+begin
+  -- the automatic path: a REAL (not test) order is posted by the payment itself, with no direct call
+  ref := pg_temp.order_ref(v_p2, 'proof_consult', gen_random_uuid());
+  o := (select id from public.orders where paystack_reference = ref);
+  update public.orders set is_test = false where id = o;
+  perform pg_temp.pay(ref, 500000, 150, 500150);
+  perform pg_temp.ck('a real order is posted to the ledger by the payment itself', '1',
+    (select count(*)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || o));
+  update public.orders set is_test = true where id = o;
+
+  -- a paid date inside a closed month posts today instead of failing for ever
+  v_old := pg_temp.f('ord2');
+  update public.orders set paid_at = (date_trunc('month', now()) - interval '10 days') where id = v_mem;
+  delete from public.revenue_recognition_schedules where source_kind = 'order' and source_id = v_mem;
+  delete from public.finance_journal_lines where entry_id in (select id from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem);
+  delete from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem;
+  insert into public.finance_periods (period_month, status) values (date_trunc('month', now() - interval '10 days')::date, 'closed') on conflict (period_month) do update set status = 'closed';
+  v_ok := private.post_order_safely(v_mem, true);
+  perform pg_temp.ck('an order paid in a closed month posts into the current month', 'true/1/paid',
+    v_ok::text || '/' || (select count(*) filter (where entry_date >= v_month)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem) || '/' || (select state from public.orders where id = v_mem));
+
+  -- a refund cancels the recognition schedule
+  perform pg_temp.ck('the schedule is active before a refund', 'active', (select status from public.revenue_recognition_schedules where source_kind = 'order' and source_id = v_mem));
+  update public.orders set state = 'refunded' where id = v_mem;
+  perform pg_temp.ck('moving the order to refunded cancels its schedule', 'cancelled', (select status from public.revenue_recognition_schedules where source_kind = 'order' and source_id = v_mem));
+end $$;
+
 -- 6. Prices are versioned and immutable ----------------------------------------------------------------------------------
 do $$
 declare v_admin uuid := pg_temp.f('admin'); v_pat uuid := pg_temp.f('pat'); v_item uuid := (select id from public.catalog_items where code = 'proof_consult' and organisation_id = pg_temp.f('org'));
