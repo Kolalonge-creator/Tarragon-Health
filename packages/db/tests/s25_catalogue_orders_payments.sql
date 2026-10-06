@@ -296,6 +296,45 @@ begin
   perform pg_temp.ck('the second payment still has its own entitlement', '1', (select count(*)::text from public.entitlements where order_id = o));
 end $$;
 
+-- 5c. The general ledger (OQ-170) -----------------------------------------------------------------------------------------
+do $$
+declare
+  v_mem uuid := (select id from public.orders where buyer_profile_id = pg_temp.f('pat3') and amount_kobo = 10000000 and paystack_reference <> 'tho_overlap0000000000000000000000' limit 1);
+  v_cons uuid := pg_temp.f('ord1'); v_late uuid := pg_temp.f('ord2'); v_e uuid; v_month date := date_trunc('month', (now() at time zone 'Africa/Lagos')::date)::date; n integer;
+begin
+  perform pg_temp.ck('a test order is never posted to the ledger on its own (INV-13)', '0',
+    (select count(*)::text from public.finance_journal_entries where source = 'payment' and source_ref in ('order:' || v_mem, 'order:' || v_cons)));
+  v_e := private.post_order_to_ledger(v_mem, true);
+  perform pg_temp.ck('a Membership posts Dr clearing, Cr deferred revenue, for the price only', '1020/10000000/2000/10000000',
+    (select max(case when debit_minor > 0 then account_code || '/' || debit_minor end) || '/' || max(case when credit_minor > 0 then account_code || '/' || credit_minor end)
+       from public.finance_journal_lines where entry_id = v_e));
+  perform private.post_order_to_ledger(v_mem, true);
+  perform private.post_order_to_ledger(v_mem, true);
+  perform pg_temp.ck('posting again changes nothing: one entry', '1', (select count(*)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem));
+  perform pg_temp.ck('and one recognition schedule over the 365 day window into service pack revenue', '1/10000000/365/4020',
+    (select count(*) || '/' || max(total_minor) || '/' || max(period_end - period_start) || '/' || max(revenue_account_code)
+       from public.revenue_recognition_schedules where source_kind = 'order' and source_id = v_mem));
+  perform private.post_order_to_ledger(v_cons, true);
+  perform pg_temp.ck('an item with no window is recognised at the sale into 4100, price only (the fee is not income)', '500000/4100',
+    (select sum(l.credit_minor) || '/' || max(l.account_code) from public.finance_journal_lines l join public.finance_journal_entries e on e.id = l.entry_id
+      where e.source = 'payment' and e.source_ref = 'order:' || v_cons and l.credit_minor > 0));
+  perform pg_temp.ck('an unpaid order is never posted', 'null', coalesce(private.post_order_to_ledger((select id from public.orders where state = 'created' limit 1), true)::text, 'null'));
+
+  -- a closed accounting period must not undo a payment: it opens an incident, and the retry job posts it once the period is open
+  update public.finance_periods set status = 'closed' where period_month = v_month;
+  insert into public.finance_periods (period_month, status) values (v_month, 'closed') on conflict (period_month) do update set status = 'closed';
+  perform pg_temp.ck('a posting failure returns false and does not raise', 'false', private.post_order_safely(v_late, true)::text);
+  perform pg_temp.ck('and opens one financial incident', '1', (select count(*)::text from public.ops_incidents where external_reference = 'order-ledger:' || v_late and status not in ('resolved', 'closed')));
+  perform pg_temp.ck('the order is still paid', 'paid', (select state from public.orders where id = v_late));
+  update public.finance_periods set status = 'open' where period_month = v_month;
+  n := private.post_unposted_orders(true);
+  perform pg_temp.ck('the retry job posts what was missed', 'true', (n >= 1)::text);
+  perform pg_temp.ck('so the late order now has its entry', '1', (select count(*)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_late));
+  perform pg_temp.ck('and running the retry again posts nothing more', '0', private.post_unposted_orders(true)::text);
+  perform pg_temp.ck('a user cannot post to the ledger', 'true', (pg_temp.q_as(pg_temp.f('pat3'), format('select private.post_order_to_ledger(%L)::text', v_mem)) like '%permission denied%')::text);
+  perform pg_temp.ck('the ledger retry is scheduled', '1', (select count(*)::text from cron.job where jobname = 'order-ledger-retry'));
+end $$;
+
 -- 6. Prices are versioned and immutable ----------------------------------------------------------------------------------
 do $$
 declare v_admin uuid := pg_temp.f('admin'); v_pat uuid := pg_temp.f('pat'); v_item uuid := (select id from public.catalog_items where code = 'proof_consult' and organisation_id = pg_temp.f('org'));

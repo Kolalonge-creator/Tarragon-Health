@@ -196,6 +196,89 @@ values ('v5_checkout', 'Catalogue checkout',
 on conflict (key) do nothing;
 
 -- ---------------------------------------------------------------------------
+-- General ledger (OQ-170). Same accounts and mechanics as a live service pack, so the finance pages need nothing new:
+--   a bounded-duration item (Membership, care pack): Dr 1020 payment processor clearing / Cr 2000 deferred revenue for the PRICE, then a
+--   straight-line recognition schedule over the access window into 4020; an item with no window: Dr 1020 / Cr 4100 at the point of sale.
+-- The processing fee is the patient's (OQ-97): Paystack settles the price, so the fee is not income, not a cost and is not posted.
+-- A test order is never posted (INV-13). A failure to post (a closed accounting period, say) never undoes a payment: it opens a
+-- financial incident, and an hourly job retries every paid order that has no journal entry.
+-- ---------------------------------------------------------------------------
+alter table public.revenue_recognition_schedules drop constraint revenue_recognition_schedules_source_kind_check;
+alter table public.revenue_recognition_schedules add constraint revenue_recognition_schedules_source_kind_check
+  check (source_kind = any (array['subscription', 'add_on', 'service_purchase', 'order']));
+
+create function private.post_order_to_ledger(p_order uuid, p_include_test boolean default false) returns uuid
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  o public.orders%rowtype;
+  it public.catalog_items%rowtype;
+  v_date date;
+  v_ref text;
+  v_entry uuid;
+  v_end date;
+begin
+  select * into o from public.orders where id = p_order;
+  if not found or o.state not in ('paid', 'refunded') then return null; end if;
+  if o.is_test and not p_include_test then return null; end if;
+  select * into it from public.catalog_items where id = o.catalog_item_id;
+  v_date := (coalesce(o.paid_at, now()) at time zone 'Africa/Lagos')::date;
+  v_ref := 'order:' || o.id;
+
+  if it.duration_days is null then
+    v_entry := private.finance_post_journal(v_date, 'NGN', 'payment', v_ref, 'Order payment: ' || it.code,
+      jsonb_build_array(
+        jsonb_build_object('account_code', '1020', 'debit_minor', o.amount_kobo, 'credit_minor', 0, 'organisation_id', o.organisation_id),
+        jsonb_build_object('account_code', '4100', 'debit_minor', 0, 'credit_minor', o.amount_kobo, 'organisation_id', o.organisation_id)), null);
+  else
+    v_entry := private.finance_post_journal(v_date, 'NGN', 'payment', v_ref, 'Order payment: ' || it.code,
+      jsonb_build_array(
+        jsonb_build_object('account_code', '1020', 'debit_minor', o.amount_kobo, 'credit_minor', 0, 'organisation_id', o.organisation_id),
+        jsonb_build_object('account_code', '2000', 'debit_minor', 0, 'credit_minor', o.amount_kobo, 'organisation_id', o.organisation_id)), null);
+    v_end := v_date + it.duration_days;
+    if not exists (select 1 from public.revenue_recognition_schedules where source_kind = 'order' and source_id = o.id) then
+      perform private.finance_create_recognition_schedule('order', o.id, null, o.organisation_id, '4020', 'NGN', o.amount_kobo, v_date, v_end);
+    end if;
+  end if;
+  return v_entry;
+end $$;
+revoke all on function private.post_order_to_ledger(uuid, boolean) from public, anon, authenticated;
+
+-- Never raises: a posting failure must not undo a payment. It is a person's problem, loudly.
+create function private.post_order_safely(p_order uuid, p_include_test boolean default false) returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+declare v_org uuid;
+begin
+  perform private.post_order_to_ledger(p_order, p_include_test);
+  return true;
+exception when others then
+  select organisation_id into v_org from public.orders where id = p_order;
+  perform private.order_incident(v_org, 'order-ledger:' || p_order, 'A paid order could not be posted to the ledger',
+    'Order ' || p_order || ' is paid but its journal entry failed (' || left(sqlerrm, 300) || '). The hourly job retries; if it keeps failing, check the accounting period.');
+  return false;
+end $$;
+revoke all on function private.post_order_safely(uuid, boolean) from public, anon, authenticated;
+
+create function private.post_unposted_orders(p_include_test boolean default false) returns integer
+language plpgsql security definer set search_path = ''
+as $$
+declare r record; n integer := 0;
+begin
+  for r in
+    select o.id from public.orders o
+     where o.state in ('paid', 'refunded') and (p_include_test or not o.is_test)
+       and not exists (select 1 from public.finance_journal_entries e where e.source = 'payment' and e.source_ref = 'order:' || o.id)
+     order by o.paid_at limit 200
+  loop
+    if private.post_order_safely(r.id, p_include_test) then n := n + 1; end if;
+  end loop;
+  return n;
+end $$;
+revoke all on function private.post_unposted_orders(boolean) from public, anon, authenticated;
+select cron.schedule('order-ledger-retry', '41 * * * *', $$ select private.post_unposted_orders(); $$);
+
+-- ---------------------------------------------------------------------------
 -- Writers
 -- ---------------------------------------------------------------------------
 create function private.current_price(p_item uuid) returns public.prices
@@ -381,6 +464,8 @@ begin
   perform private.emit_domain_event('order.paid', o.organisation_id,
     jsonb_build_object('order_id', o.id, 'care_pack', it.grants_lead, 'kind', it.kind, 'code', it.code),
     'order:' || o.id, o.beneficiary_patient_id, 'order', o.id);
+
+  if v_ent is not null then perform private.post_order_safely(o.id); end if;
 
   return jsonb_build_object('result', case when v_ent is null then 'replay' else 'paid' end, 'order_id', o.id, 'entitlement_id', v_ent);
 end $$;
@@ -611,25 +696,21 @@ grant execute on function public.record_order_payment(text, bigint, bigint, bigi
 revoke all on function private.prices_immutable(), private.orders_state_machine() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- Seed: two inactive items for the first organisation. Prices are data, versioned in prices; an item stays off until staff switch it on
--- AND the v5_checkout module is enabled. Membership 100,000 naira is the founder-confirmed 2026-10-05 value; the 12,000 naira care pack is
--- PROPOSED (spec line 696, registry key commerce.care_pack_price_kobo) and is not on sale until the founder confirms it (OQ-172).
+-- Seed: the Membership, inactive, for the first organisation (membership only at launch, OQ-172; a care pack is added later by staff). Prices are data, versioned in prices; an item stays off until staff switch it on
+-- AND the v5_checkout module is enabled. Membership 100,000 naira is the founder-confirmed 2026-10-05 value.
 -- ---------------------------------------------------------------------------
 with org as (select id from public.organisations order by created_at limit 1),
   ins as (
     insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, included_keys, duration_days, grants_lead, active, note)
-    select org.id, v.code, v.kind, v.code_key || '.name', v.code_key || '.description',
-           array[v.code_key || '.incl.1', v.code_key || '.incl.2', v.code_key || '.incl.3', v.code_key || '.incl.4'],
-           v.days, true, false, v.note
-      from org, (values
-        ('membership_annual', 'membership', 'catalog.membership_annual', 365, 'Founder confirmed 2026-10-05 (docs/MEMBERSHIP_MODEL_PLAN.md).'),
-        ('bp_care_pack_3m',   'care_pack',  'catalog.bp_care_pack_3m',    90,  'PROPOSED price, see OQ-172.')
-      ) as v(code, kind, code_key, days, note)
+    select org.id, 'membership_annual', 'membership', 'catalog.membership_annual.name', 'catalog.membership_annual.description',
+           array['catalog.membership_annual.incl.1', 'catalog.membership_annual.incl.2', 'catalog.membership_annual.incl.3', 'catalog.membership_annual.incl.4'],
+           365, true, false, 'Founder confirmed 2026-10-05 (docs/MEMBERSHIP_MODEL_PLAN.md). The only item sold at launch (OQ-172, decided 2026-10-06).'
+      from org
     on conflict (organisation_id, code) do nothing
-    returning id, organisation_id, code
+    returning id, organisation_id
   )
 insert into public.prices (organisation_id, catalog_item_id, amount_kobo, valid_from, reason)
-select ins.organisation_id, ins.id, case ins.code when 'membership_annual' then 10000000 else 1200000 end, now(), 'Seeded by S25'
+select ins.organisation_id, ins.id, 10000000, now(), 'Seeded by S25'
   from ins;
 
 -- ---------------------------------------------------------------------------

@@ -162,13 +162,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // The estimate shown BEFORE payment for Paystack's processing fee on a local card or bank payment (S25, OQ-97): 1.5 percent
     // plus 100 naira, the 100 waived under 2,500 naira, capped at 2,000 naira. Paystack has no fee-preview call, so this is only an
     // estimate and is labelled as one; the exact fee comes from the verified payment and is recorded on the order and receipt.
-    // Unverified against Paystack's current published pricing (the page could not be read when this was written).
+    // v1 was unverified; v2 below confirms it against paystack.com/pricing.
     value: { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 },
     owner: "Founder",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S25.md section 2 item 7; docs/research/S25.md (Paystack pricing, unverified)",
+  },
+  {
+    key: "commerce.processing_fee_estimate",
+    // Confirmed against Paystack's published pricing on 2026-10-06 (v2). Still only an ESTIMATE on screen: Paystack has no fee-preview call,
+    // international cards cost more (3.9% + NGN 100, uncapped), and the exact fee is read from the verified payment.
+    value: { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 2,
+    effectiveFrom: "2026-10-06",
+    source: "paystack.com/pricing read 2026-10-06: local card and USSD 1.5% + NGN 100 (NGN 100 waived under NGN 2,500), capped at NGN 2,000; international 3.9% + NGN 100",
   },
   {
     key: "privacy.transcript_retention",
