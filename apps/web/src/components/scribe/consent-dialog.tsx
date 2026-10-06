@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { t, type Locale } from "@tarragon/i18n";
+import { t } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { recordScribeConsent } from "@/lib/scribe/actions";
@@ -9,23 +9,17 @@ import { recordScribeConsent } from "@/lib/scribe/actions";
 interface ScribeConsentDialogProps {
   patientId: string;
   encounterNoteId?: string;
-  language: "en-NG" | "pcm";
   onConsented: (consentId: string) => void;
   onDeclined: () => void;
-}
-
-function toLocale(lang: "en-NG" | "pcm"): Locale {
-  return lang === "pcm" ? "pcm" : "en";
 }
 
 export function ScribeConsentDialog({
   patientId,
   encounterNoteId,
-  language,
   onConsented,
   onDeclined,
 }: ScribeConsentDialogProps) {
-  const locale = toLocale(language);
+  const locale = "en" as const;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +30,7 @@ export function ScribeConsentDialog({
     setError(null);
     startTransition(async () => {
       try {
-        const result = await recordScribeConsent({ patientId, encounterNoteId, granted: true, language });
+        const result = await recordScribeConsent({ patientId, encounterNoteId, granted: true });
         if (result.ok) onConsented(result.id);
         else setError(result.reason === "not_allowed" ? t("scribe.consent.not_allowed", locale) : t("scribe.consent.start_failed", locale));
       } catch {

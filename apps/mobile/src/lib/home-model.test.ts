@@ -1,4 +1,4 @@
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import { agoLine, dueLine, heroMetric, nextBestStep, type Line } from "./home-model";
 import type { SummaryStats } from "./overview";
 
@@ -61,10 +61,10 @@ describe("dueLine and agoLine", () => {
   });
 });
 
-describe("every Home key exists in English and Pidgin", () => {
+describe("every Home key exists in English", () => {
   const keys = Object.keys(en).filter((k) => k.startsWith("home."));
   it.each(keys)("%s", (k) => {
-    expect(pcm[k as keyof typeof pcm]).toBeTruthy();
+    expect(en[k as keyof typeof en]).toBeTruthy();
   });
   it("has the keys the model can emit", () => {
     const lines: Line[] = [dueLine("2026-10-03"), agoLine(new Date().toISOString()), nextBestStep(base, TODAY).title];
@@ -75,8 +75,7 @@ describe("every Home key exists in English and Pidgin", () => {
 describe("score card dynamic keys", () => {
   const words = ["morning", "afternoon", "evening"];
   const levels = ["low", "moderate", "high", "very_high"];
-  it.each([...words.map((w) => `home.score.eyebrow.${w}`), ...levels.map((l) => `home.score.word.${l}`)])("%s exists in English and Pidgin", (key) => {
+  it.each([...words.map((w) => `home.score.eyebrow.${w}`), ...levels.map((l) => `home.score.word.${l}`)])("%s exists in English", (key) => {
     expect(en[key as keyof typeof en]).toBeTruthy();
-    expect(pcm[key as keyof typeof pcm]).toBeTruthy();
   });
 });

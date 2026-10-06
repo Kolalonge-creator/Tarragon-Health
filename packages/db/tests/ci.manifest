@@ -804,8 +804,6 @@ s12b_divergence_and_cuff.sql
 s09_record_shares_and_timeline_events.sql
 s13_notifications_framework.sql
 s13b_push_email_fallback.sql
-# The platform-wide Pidgin kill switch: an admin turns it off in one call (no note) and it reads false for a signed-in patient and a signed-out (anon) caller, back on restores it; a patient and anon cannot change it; each change is audited once; an unknown key reads false and cannot be written; sabotage clears the anon opt-in and the anon read must flip false.
-platform_switch_pidgin_kill_switch.sql
 # S15 clinician credentialing: state moves only through the credentialing functions (direct update refused, skipped state invalid), checks need evidence and a reviewer who is not the applicant, the answer key never reaches the applicant, 80 percent AND every red scenario right, a CMO who verified cannot approve, activation (not approval) flips the role, expiry notices at 90, 30 and 0 days once each, suspension after expiry removes the role and never fires on a missing date or inside an audited grace period, documents open only for the owner or a reviewer and every open is logged, RLS for other applicants, clinicians, patients and anon; sabotage drops the state guard and the direct-update check must change.
 s15_clinician_credentialing.sql
 s16_clinical_tasks.sql
@@ -874,3 +872,7 @@ s29b_gifted_care_pack.sql
 s29c_care_circle_followup.sql
 # CMO sign-off hub: a governed configuration version cannot be activated while older than one already signed, on all nine versioned tables, so a stale draft can never roll the platform back (real sign_alert_rules; partition columns for cv_risk_config and risk_questionnaire_configs). Sabotage: the trigger dropped; the older draft must then sign.
 governed_config_supersede_guard.sql
+# Nigerian Pidgin removal: profiles.language accepts en and rejects pcm and fr, the scribe language CHECKs allow only en-NG, the pidgin_language platform switch is gone and reads false; sabotage control table with the old expression accepts pcm.
+remove_pidgin_english_only.sql
+# The platform switch mechanism on a throwaway key: an admin turns it off in one call (no note) and it reads false for a signed-in patient and a signed-out (anon) caller, back on restores it; a patient and anon cannot change it; each change is audited once; an unknown key reads false and cannot be written; sabotage clears the anon opt-in and the anon read must flip false.
+platform_switch_acl_and_audit.sql

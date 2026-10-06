@@ -15,10 +15,10 @@ function deps(manifest: Manifest, present: ((id: string) => boolean) | "all" = "
 
 describe("emergency and triage clips with no network (INV-06, safety case 1 area)", () => {
   const manifest = withFinished("all");
-  it("plays every bundled EMG and TRI clip in both languages from the phone alone", async () => {
+  it("plays every bundled EMG and TRI clip from the phone alone", async () => {
     const { d, issues } = deps(manifest);
     for (const c of manifest.clips.filter((x) => x.group === "EMG" || x.group === "TRI")) {
-      for (const lang of ["en", "pcm"] as const) {
+      for (const lang of ["en"] as const) {
         const r = await resolveClips([c.id], lang, d);
         expect([c.id, lang, r.complete]).toEqual([c.id, lang, true]);
         expect(r.lang).toBe(lang);
@@ -49,7 +49,7 @@ describe("a missing clip shows the text and logs a non-fatal issue (spec 8.8)", 
     const clip = m.clips.find((c) => c.id === "EMG-001")!;
     const stripped: Manifest = {
       ...m,
-      clips: m.clips.map((c) => (c === clip ? { ...c, files: { en: { ...c.files.en!, approvals: [] }, pcm: c.files.pcm } } : c)),
+      clips: m.clips.map((c) => (c === clip ? { ...c, files: { en: { ...c.files.en!, approvals: [] } } } : c)),
     };
     const { d, issues } = deps(stripped);
     expect((await resolveClips(["EMG-001"], "en", d)).complete).toBe(false);
@@ -130,53 +130,23 @@ describe("a stitched pattern plays only when a clinician signed the whole phrase
     expect((await resolvePhrase(reading(), "en", deps(withPhraseSignoffs(re)).d)).complete).toBe(true);
   });
 
-  it("checks the sign-off for the language it would actually play (English fallback needs the English sign-off)", async () => {
-    const m = withFinished("all");
-    const onlyPcm = { ...m, phrase_signoffs: m.phrase_signoffs.filter((s) => s.lang === "pcm") };
-    const held = { ...onlyPcm, clips: onlyPcm.clips.map((c) => (c.id.startsWith("NUM-P") || c.id === "TRI-003" ? { ...c, pcm_text: "held_as_english" as const, files: { ...c.files, pcm: { ...c.files.pcm!, approvals: [] } } } : c)) };
-    const { d } = deps(held);
-    const r = await resolvePhrase(reading(), "pcm", d);
-    expect(r.complete).toBe(false);
-  });
-
   it("starts with nothing signed in the real manifest", () => {
     expect(realManifest().phrase_signoffs).toEqual([]);
   });
 });
 
 describe("language", () => {
-  it("falls back to English audio for held clinical Pidgin, because the Pidgin text is English too", async () => {
-    const m = withFinished("all");
-    // Pidgin recording of EMG-001 is withheld (not signed); the English one is fine.
-    const noPcm: Manifest = {
-      ...m,
-      clips: m.clips.map((c) => (c.id === "EMG-001" ? { ...c, pcm_text: "held_as_english" as const, files: { en: c.files.en, pcm: { ...c.files.pcm!, approvals: [] } } } : c)),
-    };
-    const { d } = deps(noPcm);
-    const r = await resolveClips(["EMG-001"], "pcm", d);
-    expect(r).toMatchObject({ complete: true, lang: "en", text: scriptText("EMG-001", "en") });
-  });
-
-  it("does NOT swap in English audio under draft Pidgin text that is not held (it would say something else)", async () => {
-    const m = withFinished("all");
-    const noPcm: Manifest = { ...m, clips: m.clips.map((c) => (c.id === "ONB-002" ? { ...c, files: { en: c.files.en, pcm: { ...c.files.pcm!, approvals: [] } } } : c)) };
-    const { d, issues } = deps(noPcm);
-    const r = await resolveClips(["ONB-002"], "pcm", d);
-    expect(r).toMatchObject({ complete: false, lang: "pcm", text: scriptText("ONB-002", "pcm") });
-    expect(issues[0]).toMatchObject({ code: "clip_awaiting_review", lang: "pcm" });
-  });
-
-  it("has no fallback for English, and an unknown id is not a Pidgin fallback candidate either", async () => {
+  it("plays in English, and an unknown id does not play", async () => {
     const { d } = deps(withFinished([]));
     expect((await resolveClips(["EMG-001"], "en", d)).lang).toBe("en");
-    expect((await resolveClips(["EMG-001L"], "pcm", d)).complete).toBe(false);
+    expect((await resolveClips(["EMG-001L"], "en", d)).complete).toBe(false);
   });
 
-  it("plays number clips for a Pidgin reader from the shared recording", async () => {
+  it("plays number clips from the shared recording", async () => {
     const { d } = deps(withFinished("all"));
-    const r = await resolvePhrase(reading(120, 80), "pcm", d);
-    expect(r).toMatchObject({ complete: true, lang: "pcm" });
-    expect(r.steps.map((s) => s.key)).toEqual(["pcm", "shared", "pcm", "shared", "pcm"]);
+    const r = await resolvePhrase(reading(120, 80), "en", d);
+    expect(r).toMatchObject({ complete: true, lang: "en" });
+    expect(r.steps.map((s) => s.key)).toEqual(["en", "shared", "en", "shared", "en"]);
   });
 });
 

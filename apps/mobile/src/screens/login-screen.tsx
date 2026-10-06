@@ -7,8 +7,7 @@ import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import { ta } from "@/lib/auth/auth-locale";
 import { requestPhoneCode, signInWithPhonePassword } from "@/lib/auth/auth-flow";
-import { useAuthLocale } from "@/lib/auth/use-auth-locale";
-import { LanguageChooser } from "@/screens/language-chooser";
+import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { VerifyCodeStep } from "@/screens/verify-code-step";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
@@ -52,7 +51,7 @@ type PhoneMode = "password" | "code";
 type PhoneStep = "form" | "verify-confirm" | "verify-code";
 
 export function LoginScreen() {
-  const [locale, chooseLocale] = useAuthLocale();
+  const locale = DEFAULT_LOCALE;
   const [method, setMethod] = useState<SignInMethod>("phone");
   const [phoneMode, setPhoneMode] = useState<PhoneMode>("password");
   const [phoneStep, setPhoneStep] = useState<PhoneStep>("form");
@@ -155,7 +154,6 @@ export function LoginScreen() {
           </Text>
           <MutedText>Care that stays with you.</MutedText>
         </View>
-        <LanguageChooser locale={locale} onChange={chooseLocale} />
         {method === "phone" && phoneStep !== "form" && verifyPhone ? (
           <VerifyCodeStep
             phone={verifyPhone}
