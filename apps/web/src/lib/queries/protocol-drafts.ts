@@ -28,6 +28,13 @@ async function getCallerOrganisationId(): Promise<string> {
 }
 
 /** Every protocol draft in the caller's org, newest first. Any org staff may read. */
+/**
+ * Mutation-key prefix for the mutations that change what the Chief Medical
+ * Officer's sign-off hub lists (a draft appears, is promoted, or is rejected).
+ * The hub watches for it so it re-renders only for these, not for any mutation.
+ */
+export const PROTOCOL_DRAFT_QUEUE_MUTATION = "protocol-draft-queue";
+
 export function useProtocolDrafts() {
   return useQuery({
     queryKey: DRAFTS_KEY,
@@ -52,6 +59,7 @@ export function useProtocolDrafts() {
 export function useCreateProtocolDraft() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: [PROTOCOL_DRAFT_QUEUE_MUTATION, "create"],
     mutationFn: async (input: {
       protocolId: string;
       title: string;
@@ -139,6 +147,7 @@ export function useAddProtocolDraftComment() {
 export function usePromoteProtocolDraft() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: [PROTOCOL_DRAFT_QUEUE_MUTATION, "promote"],
     mutationFn: async (draftId: string) => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("promote_protocol_draft", { p_draft_id: draftId });
@@ -156,6 +165,7 @@ export function usePromoteProtocolDraft() {
 export function useRejectProtocolDraft() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: [PROTOCOL_DRAFT_QUEUE_MUTATION, "reject"],
     mutationFn: async ({ draftId, reason }: { draftId: string; reason: string }) => {
       const supabase = createClient();
       const { error } = await supabase.rpc("reject_protocol_draft", { p_draft_id: draftId, p_reason: reason });

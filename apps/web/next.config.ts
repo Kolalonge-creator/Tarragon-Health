@@ -135,7 +135,7 @@ const nextConfig: NextConfig = {
     },
   },
   // Compile TypeScript sources imported from workspace packages.
-  transpilePackages: ["@tarragon/shared", "@tarragon/ui", "@tarragon/auth", "@tarragon/i18n", "@tarragon/staff-core", "@tarragon/lifestyle-engine", "@tarragon/symptom-triage-engine", "@tarragon/medicines", "@tarragon/clinical"],
+  transpilePackages: ["@tarragon/shared", "@tarragon/ui", "@tarragon/auth", "@tarragon/i18n", "@tarragon/staff-core", "@tarragon/lifestyle-engine", "@tarragon/symptom-triage-engine", "@tarragon/medicines", "@tarragon/clinical", "@tarragon/commerce"],
   // Dev-server-only (ignored in production builds). Next auto-allows only
   // the exact hostname the dev server was initialized with (`localhost` by
   // default; see allowedDevOrigins docs) — every other origin needs to be

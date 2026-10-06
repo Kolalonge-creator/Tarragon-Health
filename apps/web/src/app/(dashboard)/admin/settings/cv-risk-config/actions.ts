@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { refuseSupersededDraft } from "@/lib/clinical/refuse-superseded-draft";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import {
@@ -63,6 +64,7 @@ export async function createCvRiskConfigDraftAction(
 
   revalidatePath("/admin/settings/cv-risk-config");
   revalidatePath("/clinician/cv-risk-config");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
 
@@ -77,9 +79,12 @@ export async function signCvRiskConfigAction(
   configId: string
 ): Promise<SignCvRiskConfigState> {
   const supabase = await createClient();
+  const refused = await refuseSupersededDraft(supabase, "cv_risk_config", configId);
+  if (refused) return { error: refused };
   const { error } = await supabase.rpc("sign_cv_risk_config", { p_config_id: configId });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/cv-risk-config");
   revalidatePath("/clinician/cv-risk-config");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
