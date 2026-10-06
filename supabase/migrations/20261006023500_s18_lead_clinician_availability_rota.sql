@@ -14,14 +14,14 @@
 --     table owner; the only writers are the functions below.
 --   * private.lead_candidates / choose_lead, assign and reassign functions, subscribers on clinician.suspended,
 --     clinician.reinstated, clinician.competency_changed and order.paid, a nightly reconcile and a retry sweep.
---   * rota_coverage_gaps(), on_call_cover_status(), lead_capacity_status(): read functions, no gate (OQ-118).
+--   * rota_coverage_gaps(), on_call_cover_status(), lead_capacity_status(): read functions, no gate (OQ-127).
 --   * private.create_clinical_task() now reads the lead from lead_assignments (falls back to care_team_assignment, so
 --     existing named-clinician patients keep working), skips a conflicted or resting clinician, and applies the working
 --     hours and post-call rest rule for contracted clinicians (OQ-111, OQ-112).
 --
 -- Founder decisions: F-03 (hybrid: employed doctors are pushed tasks, contracted ones pull and must declare hours),
--- F-05 (doctor tier is the gate, credentialing_level is not used), OQ-111 and OQ-112 (2026-10-06). Open: OQ-115 to
--- OQ-121 (recommended option (a) in each is what this migration does).
+-- F-05 (doctor tier is the gate, credentialing_level is not used), OQ-111 and OQ-112 (2026-10-06). Open: OQ-124 to
+-- OQ-130 (recommended option (a) in each is what this migration does).
 --
 -- Counts before this migration (live): availability_blocks, on_call_rota, conflicts, lead_assignments and lead_config
 -- do not exist; care_team_assignment is read and upserted only for patients who are given a lead. No data conversion.
