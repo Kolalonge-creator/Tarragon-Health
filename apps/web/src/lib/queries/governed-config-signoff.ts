@@ -38,6 +38,7 @@ export const GOVERNED_CONFIG_TABLES = [
     title: "Vaccination schedule",
     slug: "vaccination-schedule",
   },
+  { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
 ] as const;
 
 export type GovernedConfigSignoff = {

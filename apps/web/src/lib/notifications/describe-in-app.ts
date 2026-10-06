@@ -362,6 +362,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "written_question_received") {
     return { text: "Your care team has your message", href: "/patient/care" };
   }
+  if (n.template === "lab_result_corrected") {
+    return { text: "Your care team has updated something in your health record. Open the app to see what changed", href: "/patient/labs" };
+  }
   if (n.template === "lab_result_ready") {
     return { text: "Your care team has added something to your health record. Open the app to see it", href: "/patient/labs" };
   }

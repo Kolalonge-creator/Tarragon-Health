@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { Database } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { submitPartnerResult } from "@/lib/lab-results/structured-actions";
+import { submitPartnerResult, submitTeamResult } from "@/lib/lab-results/structured-actions";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
 import { testCodeLabel } from "@/lib/labs/test-code-labels";
@@ -127,51 +127,13 @@ export async function uploadResultDocumentForPatient(
     return { error: "That patient isn't in your organisation." };
   }
 
-  const service = createServiceRoleClient();
-  const ext = EXT_BY_MIME[file.type] ?? "bin";
-  const path = `${patientId}/${randomUUID()}.${ext}`;
-
-  const { error: uploadError } = await service.storage
-    .from(RESULT_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (uploadError) return { error: uploadError.message };
-
-  // Routed through an RPC (rather than a raw .insert()) so the write can be attributed to the
-  // uploading staff member in public.audit_log despite running on the service-role client — see
-  // 20260812041044_service_role_write_actor_attribution.sql.
-  const { data: insertedId, error: insertError } = await service.rpc(
-    "insert_audited_lab_result_document",
-    {
-      p_organisation_id: patient.organisation_id,
-      p_patient_id: patientId,
-      p_lab_order_id: (labOrderId ?? null) as unknown as string,
-      p_file_path: path,
-      p_original_filename: file.name,
-      p_mime_type: file.type,
-      p_file_size_bytes: file.size,
-      p_source: source,
-      p_uploaded_by: user.id,
-      p_note: (note ?? null) as unknown as string,
-      p_actor_id: user.id,
-    },
-  );
-  const inserted = insertedId ? { id: insertedId } : null;
-  if (insertError || !inserted) {
-    // Roll back the orphaned object so a failed insert leaves no stray file.
-    await service.storage.from(RESULT_DOC_BUCKET).remove([path]);
-    return { error: insertError?.message ?? "Could not save that upload." };
-  }
-
-  // Same structured read as the patient-upload path — an emailed result is no
-  // less worth turning into trendable numbers. Never throws.
-  await runLabReportExtraction(service, {
-    documentId: inserted.id,
-    organisationId: patient.organisation_id,
-    patientId,
-    filePath: path,
-    mimeType: file.type,
-  });
-
+  // S27d (INV-03): an emailed or staff-supplied result is recorded as a HELD result in the private store. The older path wrote a
+  // visible document, announced it to the patient at once and read its numbers into the patient's trends before any clinician had
+  // looked. The patient now sees it only after review. The free-text note is not kept (a held result has no text a patient could be
+  // shown) and the automatic number extraction is not run on an unreviewed file.
+  const held = await submitTeamResult(patientId, labOrderId, file);
+  if (held?.error) return { error: held.error };
+  void note;
   revalidatePath("/lab-liaison");
   revalidatePath(`/clinician/patients/${patientId}`);
   return { success: true };
