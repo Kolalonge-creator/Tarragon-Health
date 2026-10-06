@@ -16,6 +16,7 @@ import {
   PATIENT_BOOKABLE_APPOINTMENT_TYPES,
   PAID_APPOINTMENT_PRODUCT_CODE,
 } from "./appointment-labels";
+import { CONSULTATIONS_GUARD } from "@/lib/go-live/model";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 import { ConsultationRuleCard } from "@/components/consultation/consultation-rule";
@@ -79,16 +80,15 @@ export function BookAppointment({
 
   // S37 (INV-14): consultations stay closed until the clinical_operations_enabled guard is on. The database refuses a hold either
   // way; this keeps a patient from filling in a form that cannot work, and says so calmly.
-  const guard = useGoLiveGuardOpen("clinical_operations_enabled", patientId);
   // Every type offered here is booked as a remote consultation (consultationMethod is always telemedicine), and the database refuses all of them.
-  const guardedType = consultationMethod === "telemedicine";
-  const closed = guardedType && !guard.isLoading && guard.data !== true;
+  const guard = useGoLiveGuardOpen(CONSULTATIONS_GUARD, patientId);
+  const closed = !guard.isLoading && guard.data !== true;
   const { data: slots, isLoading } = useAvailableAppointmentSlots({
     organisationId,
     appointmentType,
     patientId,
     consultationMethod: consultationMethod || undefined,
-    enabled: !guardedType || guard.data === true,
+    enabled: guard.data === true,
   });
   const hold = useHoldAppointmentSlot();
   const confirm = useConfirmAppointmentBooking();

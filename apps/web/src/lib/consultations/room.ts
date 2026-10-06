@@ -104,7 +104,7 @@ export async function joinConsultation(deps: RoomDeps, encounterId: string, requ
 /** What a person needs to ring into the same room. Held in memory for the page view only; never stored or logged. */
 export type DialInOutcome =
   | { ok: true; dialIn: Pick<DialIn, "numbers" | "meetingId" | "passcode"> }
-  | { ok: false; reason: "not_allowed" | "not_open" | "phone_unavailable" };
+  | { ok: false; reason: "not_allowed" | "not_open" | "phone_unavailable" | "not_live" };
 
 /** The country the patient dials in from. This platform serves Nigeria only. */
 const DIAL_IN_COUNTRY = "NG";
@@ -120,6 +120,8 @@ export async function requestDialIn(deps: RoomDeps, encounterId: string): Promis
   if (!found) return { ok: false, reason: "not_allowed" };
   const { view } = found;
   if (!view.clinician_id || DONE.has(view.status)) return { ok: false, reason: "not_allowed" };
+  // S37 (INV-14): paused consultations say so (not "opens at ..."), and nothing is recorded
+  if (view.go_live_open !== true) return { ok: false, reason: "not_live" };
   // Only inside the join window: the room is not opened days early or after the visit.
   if (!view.joinable) return { ok: false, reason: "not_open" };
 

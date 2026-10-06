@@ -150,7 +150,7 @@ describe("joining a consultation", () => {
 
   it("with the guard off, a request for the dial-in details is refused too", async () => {
     const { db, deps } = setup({ now: () => T0, guardOff: true });
-    expect(await requestDialIn(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "not_open" });
+    expect(await requestDialIn(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "not_live" });
     expect(db.s.events).toHaveLength(0);
   });
 

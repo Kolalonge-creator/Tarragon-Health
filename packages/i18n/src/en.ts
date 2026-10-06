@@ -1127,13 +1127,11 @@ export const en = {
   "golive.cond.source.data": "Read from the records",
   "golive.cond.source.attestation": "Recorded by a person",
   "golive.cond.source.switch": "Given by switching it on",
-  "golive.cond.recorded_by": "Record that this has been checked",
   "golive.cond.attest.note": "What was checked, and by whom",
   "golive.cond.attest.confirm": "Record as met",
   "golive.cond.attest.withdraw": "Withdraw",
   "golive.switch.who.admin": "Only an admin can switch this on.",
   "golive.switch.who.cmo": "Only the Chief Medical Officer can switch this on.",
-  "golive.switch.not_you": "You can switch this off but not on.",
   "golive.switch.on": "Switch on",
   "golive.switch.off": "Switch off",
   "golive.switch.note": "Why (needed to switch on)",
@@ -1152,10 +1150,8 @@ export const en = {
   "golive.error.input": "That was not recognised. Nothing was changed.",
   "golive.config.title": "Proposed values to confirm",
   "golive.config.intro": "Every value the specification marks as proposed, who owns it, and whether the owner has confirmed it. Confirming here records your decision. It does not change the value in use: a confirmed value becomes a new version in the configuration, which is a code change.",
-  "golive.config.col.key": "Value",
   "golive.config.col.owner": "Owner",
   "golive.config.col.version": "Version",
-  "golive.config.col.status": "Status",
   "golive.config.col.value": "Current value",
   "golive.config.status.awaiting": "Waiting for confirmation",
   "golive.config.status.signed": "Confirmed by {who} on {when}",
@@ -1169,7 +1165,6 @@ export const en = {
   "golive.config.counts": "{open} of {total} values still waiting",
   "golive.config.empty": "No proposed values are listed.",
   "golive.load_error": "This could not be loaded just now. Nothing has been changed. Try again in a moment.",
-  "golive.nav.guards": "Go-live guards",
 } as const;
 
 export type MessageKey = keyof typeof en;

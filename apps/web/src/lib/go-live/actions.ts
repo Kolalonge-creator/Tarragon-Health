@@ -39,6 +39,15 @@ function readable(error: { message: string; code?: string }): { notice: string; 
   return written ? { notice: "golive.error.generic", detail: error.message } : { notice: "golive.error.generic" };
 }
 
+/** True only for the version the registry resolves for today. A key with nothing effective yet is simply "not in force", never an error. */
+function isVersionInForce(key: string, version: number): boolean {
+  try {
+    return getProposedConfig(key).version === version;
+  } catch {
+    return false;
+  }
+}
+
 async function who(raw: FormDataEntryValue | null): Promise<Viewer | null> {
   const viewer = raw === "admin" ? "admin" : raw === "cmo" ? "cmo" : null;
   if (!viewer) return null;
@@ -100,7 +109,7 @@ export async function signoffConfigAction(formData: FormData): Promise<void> {
   const note = noteSchema.safeParse(formData.get("note") ?? undefined);
   if (!key.success || !version.success || !decision.success || !note.success) return fail(viewer, "golive.error.input");
   const entry = findEntry(PROPOSED_CONFIG, key.data, version.data);
-  if (!entry || !viewerOwns(entry.owner, viewer) || getProposedConfig(entry.key).version !== entry.version) return fail(viewer, "golive.error.input");
+  if (!entry || !viewerOwns(entry.owner, viewer) || !isVersionInForce(entry.key, entry.version)) return fail(viewer, "golive.error.input");
   const {
     data: { user },
   } = await (await createClient()).auth.getUser();

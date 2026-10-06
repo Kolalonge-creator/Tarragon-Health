@@ -449,6 +449,8 @@ begin
   perform pg_temp.rec('...every guard then reads as not satisfied', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where not (g ->> 'all_met')::boolean));
   perform pg_temp.rec('...and the stop button still works (scribe_enabled is on here)', 'true', (public.set_go_live_guard('scribe_enabled', false, 'Proof: stop under a broken evaluator.') ->> 'changed'));
   perform pg_temp.rec('...and no scribe consent is left open after the scribe is switched off', '0', (select count(*)::text from public.scribe_consents where granted and revoked_at is null));
+  perform pg_temp.rec('...and the patient''s in-app allow on the open consultation went back to unanswered', 'null',
+    coalesce((select granted::text from public.consultation_scribe_consents where encounter_id = v_enc), 'null'));
   perform pg_temp.rec('...but switching on is refused, fail closed', '22023', pg_temp.try('select public.set_go_live_guard(''payouts_enabled'', true, ''go'')'));
   perform pg_temp.back();
 

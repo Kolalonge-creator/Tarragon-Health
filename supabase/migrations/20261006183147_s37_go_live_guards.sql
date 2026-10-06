@@ -358,6 +358,10 @@ begin
   -- switched on again a patient has to be asked again.
   if p_key = 'scribe_enabled' and not p_on then
     update public.scribe_consents set revoked_at = now() where granted and revoked_at is null;
+    -- and the patient's own in-app ALLOW on a consultation still open goes back to "asked, not answered" (a decline stays a decline), so
+    -- switching the scribe on again never restarts it on an answer given under the earlier switch-on
+    update public.consultation_scribe_consents c set granted = null, answered_at = null
+     where c.granted is true and c.encounter_id in (select e.id from public.encounters e where e.status in ('scheduled', 'waiting', 'in_progress'));
   end if;
   perform private.log_audit(case when p_on then 'go_live_guard.switched_on' else 'go_live_guard.switched_off' end, 'go_live_guard', null,
     jsonb_build_object('key', p_key, 'role', v_role));
@@ -372,9 +376,13 @@ begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
   if private.go_live_actor_role() is null then raise exception 'only an admin or the Chief Medical Officer can record this' using errcode = '42501'; end if;
   if not exists (select 1 from public.go_live_guards where key = p_key) then raise exception 'no such go-live guard: %', p_key using errcode = '22023'; end if;
-  if not exists (select 1 from jsonb_array_elements(private.go_live_conditions(p_key, private.caller_org())) c
-                  where c ->> 'code' = p_code and c ->> 'source' = 'attestation') then
-    raise exception 'that condition is read from the data, it cannot be attested' using errcode = '22023';
+  -- the conditions a person records (the rest are read from the data). A fixed list, so a broken data query cannot block recording one.
+  if (p_key, p_code) not in (
+       ('lab_booking_enabled', 'results_flow_tested'),
+       ('scribe_enabled', 'con001_legal_review_recorded'), ('scribe_enabled', 'speech_provider_configured'),
+       ('payouts_enabled', 'fee_schedule_approved'), ('payouts_enabled', 'paystack_transfers_configured'),
+       ('public_signup_enabled', 'stage2_exit_criteria_met')) then
+    raise exception 'that condition is read from the data (or does not exist), it cannot be attested' using errcode = '22023';
   end if;
   if p_met is null or length(btrim(coalesce(p_note, ''))) < 10 then
     raise exception 'say what was checked and by whom, in a sentence' using errcode = '22023';
