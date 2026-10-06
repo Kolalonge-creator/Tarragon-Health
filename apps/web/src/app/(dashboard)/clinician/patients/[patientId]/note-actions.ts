@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { describeRpcError } from "@/lib/clinician/written-questions";
 import {
@@ -8,6 +9,7 @@ import {
   noteRequestsSchema,
   respondCorrectionSchema,
   setProtectedSchema,
+  withdrawNoteSchema,
   type NoteActionState,
   type NoteRequests,
 } from "@/lib/clinician/note-requests";
@@ -32,6 +34,20 @@ export async function createNoteAmendment(
   });
   if (error) return { error: describeRpcError(error) };
   return { message: "An amendment draft was created. Edit and sign it in the notes list.", draftId: typeof data === "string" ? data : undefined };
+}
+
+/**
+ * Withdraws a signed note as "entered in error". The note is never deleted or edited: staff still see it marked withdrawn,
+ * the patient sees that it was withdrawn and why but none of its text, and it cannot be amended.
+ */
+export async function withdrawNoteAsEnteredInError(input: { noteId: string; reason: string }): Promise<NoteActionState> {
+  const parsed = withdrawNoteSchema.safeParse(input);
+  if (!parsed.success) return { error: firstIssue(parsed.error.issues) };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("mark_note_entered_in_error", { p_note: parsed.data.noteId, p_reason: parsed.data.reason });
+  if (error) return { error: describeRpcError(error) };
+  revalidatePath("/clinician/patients/[patientId]", "page");
+  return { message: "The note was withdrawn as entered in error." };
 }
 
 export async function setNoteProtected(input: { noteId: string; protected: boolean }): Promise<NoteActionState> {

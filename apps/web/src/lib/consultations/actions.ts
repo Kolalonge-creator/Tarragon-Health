@@ -3,8 +3,8 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { joinConsultation, requestPhoneFallback, type JoinOutcome, type PhoneOutcome, type RoomDeps, type RpcClient } from "./room";
-import { phoneProvider, videoProvider } from "./providers";
+import { joinConsultation, requestDialIn, type DialInOutcome, type JoinOutcome, type RoomDeps, type RpcClient } from "./room";
+import { videoProvider } from "./providers";
 
 /**
  * S21 server actions shared by the patient and clinician consultation pages. Each one checks the signed-in person first and
@@ -30,12 +30,7 @@ async function deps(): Promise<RoomDeps | Fail> {
     userRpc: supabase as unknown as RpcClient,
     serviceRpc: service as unknown as RpcClient,
     video: video.data,
-    phone: phoneProvider(),
     now: () => Date.now(),
-    phoneOf: async (profileId) => {
-      const { data } = await service.from("profiles").select("phone").eq("id", profileId).maybeSingle();
-      return typeof data?.phone === "string" && data.phone.length > 0 ? data.phone : null;
-    },
   };
 }
 const isFail = (d: RoomDeps | Fail): d is Fail => "ok" in d;
@@ -48,11 +43,12 @@ export async function joinConsultationAction(encounterId: string, media: "video"
   return isFail(d) ? d : joinConsultation(d, id.data, m.data);
 }
 
-export async function requestPhoneAction(encounterId: string): Promise<PhoneOutcome | Fail> {
+/** The numbers and passcode to ring into this consultation by phone. Returned to the signed-in participant only, never stored. */
+export async function requestDialInAction(encounterId: string): Promise<DialInOutcome | Fail> {
   const id = idSchema.safeParse(encounterId);
   if (!id.success) return { ok: false, reason: "not_allowed" };
   const d = await deps();
-  return isFail(d) ? d : requestPhoneFallback(d, id.data);
+  return isFail(d) ? d : requestDialIn(d, id.data);
 }
 
 /** CON-001: the patient's own answer, asked and recorded for this one consultation (INV-11). */

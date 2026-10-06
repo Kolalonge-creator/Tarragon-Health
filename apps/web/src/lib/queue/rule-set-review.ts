@@ -17,7 +17,7 @@ const actionSchema = z.object({ kind: z.string(), task: z.string().optional(), d
 const ruleSchema = z.object({
   id: z.string(),
   description: z.string(),
-  result: z.enum(["grade", "recheck"]),
+  result: z.enum(["grade", "recheck", "ask"]),
   grade: z.enum(["green", "amber", "red"]).optional(),
   actions: z.array(actionSchema),
 });
@@ -26,7 +26,7 @@ const rulesSchema = z.object({ rules: z.array(ruleSchema) }).passthrough();
 export interface RuleSummary {
   id: string;
   description: string;
-  outcome: "red" | "amber" | "green" | "repeat reading";
+  outcome: "red" | "amber" | "green" | "repeat reading" | "asks about symptoms";
   pagesOnCall: boolean;
   tasks: { task: string; dueMinutes: number | null }[];
 }
@@ -38,7 +38,7 @@ export function summariseRules(rules: unknown): RuleSummary[] | null {
   return parsed.data.rules.map((r) => ({
     id: r.id,
     description: r.description,
-    outcome: r.result === "recheck" ? "repeat reading" : (r.grade ?? "green"),
+    outcome: r.result === "recheck" ? "repeat reading" : r.result === "ask" ? "asks about symptoms" : (r.grade ?? "green"),
     pagesOnCall: r.actions.some((a) => a.kind === "page_on_call"),
     tasks: r.actions.filter((a) => a.kind === "create_task" && a.task).map((a) => ({ task: a.task as string, dueMinutes: a.dueMinutes ?? null })),
   }));

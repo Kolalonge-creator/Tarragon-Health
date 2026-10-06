@@ -391,7 +391,7 @@ begin
   -- the clinician leaving draft is the signing act, stamped as herself
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  perform public.submit_draft_referral(v_ref);
+  perform public.submit_draft_referral(v_ref, now());
   execute 'reset role';
   select signed_by into v_signed_by from public.specialist_referrals where id = v_ref;
   if v_signed_by is distinct from v_tied or (select signed_at from public.specialist_referrals where id = v_ref) is null then

@@ -55,6 +55,7 @@ begin
     (v_sup,        v_org,  'patient',    'S05fC2 Supporter',    '+2348058880008'),
     (v_cg,         v_org,  'patient',    'S05fC2 Caregiver',    '+2348058880009')
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+  insert into public.patient_allergies (organisation_id, patient_id, allergen, source) values (v_org, v_pat, 'proof-allergen-none', 'clinician');
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier,
                                      indemnity_insurer, indemnity_policy_number, indemnity_expires_at) values
     (v_org,  v_tied_smo,   'S05fC2 Tied SMO',      true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S05F-1', now() + interval '1 year'),
@@ -113,7 +114,7 @@ begin
   exception when invalid_parameter_value then v_failed := true; end;
   execute 'reset role';
   if not v_failed then raise exception 'FAIL 2c: an empty drug name was accepted'; end if;
-  if has_function_privilege('anon', 'public.prescribe_medication(uuid,text,text,text,date,jsonb,uuid,text,integer,text,integer,text,text)', 'EXECUTE')
+  if has_function_privilege('anon', 'public.prescribe_medication(uuid,text,text,text,date,jsonb,uuid,text,integer,text,integer,text,text,boolean,text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.confirm_medication_refill(uuid,date)', 'EXECUTE') then
     raise exception 'FAIL 2d: anon can execute a medication write function';
   end if;
@@ -232,12 +233,14 @@ begin
   -- SABOTAGE 2: without the allow-list trigger the patient rewrites the prescribed dose
   update public.medications set is_active = true, stopped_at = null where id = v_id;
   alter table public.medications disable trigger medications_a_patient_allowlist;
+  alter table public.medications disable trigger medications_b_require_signed_prescription;
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   update public.medications set dose = '999mg' where id = v_id;
   get diagnostics v_n = row_count;
   execute 'reset role';
   alter table public.medications enable trigger medications_a_patient_allowlist;
+  alter table public.medications enable trigger medications_b_require_signed_prescription;
   if v_n = 0 or (select dose from public.medications where id = v_id) <> '999mg' then
     raise exception 'SABOTAGE 2 FAIL: disabling the allow-list trigger did not let the patient rewrite the dose, so checks 5d/5e prove nothing';
   end if;

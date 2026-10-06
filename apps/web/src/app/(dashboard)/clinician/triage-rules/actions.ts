@@ -44,8 +44,11 @@ export async function approveRuleSetAction(formData: FormData): Promise<void> {
   const id = z.string().uuid().safeParse(formData.get("id"));
   if (!id.success) back(path, "error", "That rule set was not recognised.");
   // Signing is deliberate: the box must be ticked and the typed word must match, so a stray press cannot sign.
-  if (formData.get("understood") !== "on" || String(formData.get("typed") ?? "").trim().toUpperCase() !== "SIGN") {
-    back(path, "error", "To sign, tick the box and type SIGN. Nothing was signed.");
+  const ticked = formData.get("understood") !== null;
+  const typed = String(formData.get("typed") ?? "").trim().toUpperCase();
+  if (!ticked || typed !== "SIGN") {
+    const reason = !ticked ? "Tick the checkbox first." : `Type the word SIGN, not "${String(formData.get("typed") ?? "").trim()}".`;
+    back(path, "error", `${reason} Nothing was signed.`);
   }
   const note = noteSchema.safeParse(formData.get("note") ?? undefined);
   const supabase = await createClient();

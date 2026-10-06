@@ -577,14 +577,14 @@ export function getNavSections(
                 // triage protocols); the other 7 plus this checklist were
                 // reachable only via /admin, which a real CMO account
                 // (always `profiles.role = "clinician"`) cannot open.
-                { label: "Clinical sign-off", href: "/clinician/clinical-signoff", icon: "review" },
+                { label: "Sign-off hub", href: "/clinician/clinical-signoff", icon: "review" },
                 // New clinician applications, licence and cover expiry, and the training and test content (S15).
                 // Chief Medical Officer only; the pages redirect anyone below that tier.
                 { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
                 // The on-call rota, declared on-call hours and lead clinicians (S18). Chief Medical Officer only; the page redirects anyone below that tier.
                 { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
                 // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
-                { label: "Memberships", href: "/clinician/members", icon: "members" },
+                { label: "Memberships", href: "/clinician/memberships", icon: "members" },
                 // The AI governance console's two CMO-only actions (approving
                 // an ai_system_versions row, labelling an ai_evaluation_cases
                 // clinical-accuracy scenario) — same reachability gap as
@@ -592,6 +592,7 @@ export function getNavSections(
                 // page's own comment for the admin-banner/proxy.ts history.
                 { label: "AI governance sign-off", href: "/clinician/ai-governance", icon: "review" },
                 { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
+                { label: "Titration protocols", href: "/clinician/titration-protocols", icon: "review" },
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
                 { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
                 { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
@@ -662,7 +663,7 @@ export function getNavSections(
             // Who is on call, who is declared to work, who leads each care pack patient (S18).
             { label: "Rota and lead clinicians", href: "/admin/rota", icon: "caseload" },
             // Grant or end a Membership by hand until checkout exists (S22b).
-            { label: "Memberships", href: "/admin/members", icon: "members" },
+            { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // What can be bought, its price and its history; switch an item on or off (S25).
             { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },

@@ -271,6 +271,7 @@ export function useCreateReferral() {
       requestedService,
       appropriatenessFlags,
       asDraft,
+      patientConsentAt,
     }: {
       patientId: string;
       organisationId: string;
@@ -281,6 +282,8 @@ export function useCreateReferral() {
       requestedService: string;
       appropriatenessFlags: AppropriatenessFlag[];
       asDraft: boolean;
+      /** S24: when the patient agreed to share their record. Required by the database for anything but a draft; null for a draft. */
+      patientConsentAt: string | null;
     }) => {
       const supabase = createClient();
       // The organisation is derived from the patient on the server (input.organisationId is unused); the create-gate trigger still
@@ -294,6 +297,7 @@ export function useCreateReferral() {
         p_requested_service: requestedService,
         p_flags: appropriatenessFlags as unknown as Json,
         p_as_draft: asDraft,
+        p_patient_consent_at: asDraft ? undefined : (patientConsentAt ?? undefined),
       });
       if (error) throw error;
       return { id: data };
@@ -309,9 +313,9 @@ export function useCreateReferral() {
 export function useSubmitDraftReferral() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (referralId: string) => {
+    mutationFn: async ({ referralId, patientConsentAt }: { referralId: string; patientConsentAt: string }) => {
       const supabase = createClient();
-      const { error } = await supabase.rpc("submit_draft_referral", { p_referral: referralId });
+      const { error } = await supabase.rpc("submit_draft_referral", { p_referral: referralId, p_patient_consent_at: patientConsentAt });
       if (error) throw error;
     },
     onSuccess: () => {
