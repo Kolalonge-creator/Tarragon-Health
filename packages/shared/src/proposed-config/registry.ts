@@ -1245,4 +1245,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S32.md (an estimate for one number clip; replace with the measured average once the number clips are recorded)",
   },
+  {
+    key: "breathing.bre01",
+    value: {
+      inhale_seconds: 4,
+      exhale_seconds: 6,
+      duration_seconds: 180,
+      short_duration_seconds: 60,
+      gentle_inhale_seconds: 3,
+      gentle_exhale_seconds: 5,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S33.md section 5 and docs/research/S33.md section 4 (about six breaths a minute with a longer out-breath; the pace and length are the CMO's to confirm, and the exercise is never presented as a treatment)",
+  },
 ];
