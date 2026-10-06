@@ -1,6 +1,7 @@
 import type { MessageKey } from "@tarragon/i18n";
 import {
   ROOM_POLL_MS,
+  pollDelayMs,
   isLive,
   type DialInInfo,
   type DialInResponse,
@@ -142,7 +143,7 @@ export class RoomController {
     if (!this.started || !this.foreground || (view && !isLive(view.status))) return;
     // Slower while we cannot reach the server, or while the answer is "not found" (which can be a session that has lapsed, or a
     // consultation not visible yet): each try costs data and battery, but it must keep trying so it recovers on its own.
-    const delay = this.state.offline || this.state.notFound ? ROOM_POLL_MS * 2 : ROOM_POLL_MS;
+    const delay = pollDelayMs(this.state.offline || this.state.notFound ? ROOM_POLL_MS * 2 : ROOM_POLL_MS);
     this.timer = (this.ports.setTimer ?? setTimeout)(() => {
       void this.refresh();
     }, delay);
@@ -266,8 +267,10 @@ export class RoomController {
       // The question is only "opened" the first time; a later change (withdrawing) must not log a fresh "asked".
       const saved = await this.ports.answerScribe(this.encounterId, granted, this.state.view?.scribe.asked === true);
       if (!saved) {
-        // A failed save must never look saved: the question stays on screen.
+        // A failed save must never look saved: the question stays on screen. A save that timed out may still have landed, so learn
+        // the true state rather than guess.
         this.set({ note: { kind: "save_error" } });
+        void this.refresh();
         return;
       }
       const view = this.state.view;
@@ -280,7 +283,11 @@ export class RoomController {
     return this.act(async () => {
       const res = await this.ports.reportNobodyCame(this.encounterId);
       if (res === "wait_longer") this.set({ note: { kind: "wait_longer" } });
-      else if (res === "failed") this.set({ note: { kind: "save_error" } });
+      else if (res === "failed") {
+        // A report that timed out may still have gone through: learn the true state rather than guess.
+        this.set({ note: { kind: "save_error" } });
+        void this.refresh();
+      }
       else await this.refreshFresh();
     });
   }
