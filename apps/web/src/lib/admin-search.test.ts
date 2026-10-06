@@ -66,6 +66,8 @@ describe("the real admin menus", () => {
 
   it("finds the hand-granted Membership page (every console page needs a search entry)", () => {
     expect(top("membership")).toContain("/admin/members");
+    expect(top("catalogue")).toContain("/admin/catalogue");
+    expect(top("price list")).toContain("/admin/catalogue");
     expect(top("grant")).toContain("/admin/members");
   });
 

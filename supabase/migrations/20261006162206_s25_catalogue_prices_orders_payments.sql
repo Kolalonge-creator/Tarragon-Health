@@ -493,6 +493,78 @@ begin
   return v_id;
 end $$;
 
+-- The patient's own membership state for the Membership screen. patient_memberships has no patient read policy (S22b), so this is the
+-- one safe way for the app to ask. Returns is_member false with no dates when there is none.
+create function public.my_membership() returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare v_uid uuid := (select auth.uid()); m public.patient_memberships%rowtype;
+begin
+  if v_uid is null then raise exception 'order_not_authorised' using errcode = '42501'; end if;
+  select * into m from public.patient_memberships
+   where patient_id = v_uid and state = 'active' and starts_at <= now() and (ends_at is null or ends_at > now())
+   order by starts_at desc limit 1;
+  if not found then return jsonb_build_object('is_member', false, 'ends_at', null, 'source', null); end if;
+  return jsonb_build_object('is_member', true, 'ends_at', m.ends_at, 'source', m.source);
+end $$;
+
+-- Staff: every item with its price history and a count of paid orders (the admin catalogue screen).
+create function public.admin_catalogue() returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare v_org uuid := (select organisation_id from public.profiles where id = (select auth.uid()));
+begin
+  if not private.is_admin() then raise exception 'catalogue_not_authorised' using errcode = '42501'; end if;
+  return jsonb_build_object(
+    'checkout_open', coalesce((select is_enabled from public.platform_modules where key = 'v5_checkout'), false),
+    'items', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'code', i.code, 'kind', i.kind, 'name_key', i.name_key, 'active', i.active, 'note', i.note, 'duration_days', i.duration_days, 'uses', i.uses,
+        'grants_lead', i.grants_lead,
+        'paid_orders', (select count(*) from public.orders o where o.catalog_item_id = i.id and o.state = 'paid' and not o.is_test),
+        'prices', coalesce((select jsonb_agg(jsonb_build_object('amount_kobo', p.amount_kobo, 'components', p.components, 'valid_from', p.valid_from,
+                    'valid_to', p.valid_to, 'reason', p.reason) order by p.valid_from desc) from public.prices p where p.catalog_item_id = i.id), '[]'::jsonb))
+        order by i.kind, i.code)
+      from public.catalog_items i where i.organisation_id = v_org), '[]'::jsonb));
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Housekeeping and the sweeper schedule
+-- ---------------------------------------------------------------------------
+-- An unpaid order nobody paid for three days is cancelled (the sweeper stops asking Paystack after three days). A late payment on
+-- one is still honoured by record_order_payment.
+create function private.expire_stale_orders() returns integer
+language plpgsql security definer set search_path = ''
+as $$
+declare n integer;
+begin
+  update public.orders set state = 'cancelled', cancelled_at = now(), failure_reason = 'expired'
+   where state = 'created' and created_at < now() - interval '3 days';
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function private.expire_stale_orders() from public, anon, authenticated;
+select cron.schedule('order-expire-stale', '17 * * * *', $$ select private.expire_stale_orders(); $$);
+
+-- Every 5 minutes: the order-reconcile edge function asks Paystack about unpaid orders. Fails closed until the Vault secret
+-- order_reconcile_secret exists and the function has the same value as ORDER_RECONCILE_SECRET (it answers 401 otherwise), exactly
+-- like process-events. project_url and edge_function_publishable_key are the shared secrets S10 and S13 already use.
+select cron.schedule(
+  'order-reconcile',
+  '*/5 * * * *',
+  $$
+  select net.http_post(
+    url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/order-reconcile',
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'edge_function_publishable_key'),
+      'x-order-reconcile-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'order_reconcile_secret'),
+      'Content-Type', 'application/json'
+    ),
+    timeout_milliseconds := 25000
+  ) as request_id;
+  $$
+);
+
 -- ---------------------------------------------------------------------------
 -- Grants (anon and PUBLIC revoked explicitly: execute is inherited through PUBLIC)
 -- ---------------------------------------------------------------------------
@@ -503,9 +575,11 @@ revoke all on function public.my_orders() from public, anon;
 revoke all on function public.catalogue() from public, anon;
 revoke all on function public.set_catalog_item_active(text, boolean, text) from public, anon;
 revoke all on function public.set_item_price(text, bigint, jsonb, text, timestamptz) from public, anon;
+revoke all on function public.admin_catalogue() from public, anon;
+revoke all on function public.my_membership() from public, anon;
 grant execute on function public.create_order(text, uuid, uuid), public.cancel_order(uuid), public.order_for_checkout(text),
   public.my_orders(), public.catalogue(), public.set_catalog_item_active(text, boolean, text),
-  public.set_item_price(text, bigint, jsonb, text, timestamptz) to authenticated;
+  public.set_item_price(text, bigint, jsonb, text, timestamptz), public.admin_catalogue(), public.my_membership() to authenticated;
 -- service role only
 revoke all on function public.record_order_payment(text, bigint, bigint, bigint, text, text, text, text, timestamptz, jsonb) from public, anon, authenticated;
 revoke all on function public.close_unpaid_order(text, text) from public, anon, authenticated;

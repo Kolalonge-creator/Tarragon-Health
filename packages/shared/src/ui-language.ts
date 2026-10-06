@@ -103,6 +103,7 @@ const PIDGIN: Record<string, string> = {
   "Your finances": "Your money",
   "My services": "Wetin you don pay for",
   "Payments": "Payment",
+  "Membership": "Membership",
   "Receipts": "Receipt",
   "Notification settings": "Alert settings",
   "Technical support": "App wahala",

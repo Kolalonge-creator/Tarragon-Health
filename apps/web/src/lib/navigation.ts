@@ -243,6 +243,8 @@ export function getNavSections(
             // sign this points at the old recurring-plan page — it renders
             // the current one-off service catalogue.
             { label: "My services", href: "/patient/subscription", icon: "billing" },
+            // Buy the Membership or a care pack, see what is included and the price, and see your payments (S25).
+            { label: "Membership", href: "/patient/membership", icon: "billing" },
             { label: "Family", href: "/patient/family", icon: "family" },
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
@@ -661,6 +663,8 @@ export function getNavSections(
             { label: "Rota and lead clinicians", href: "/admin/rota", icon: "caseload" },
             // Grant or end a Membership by hand until checkout exists (S22b).
             { label: "Memberships", href: "/admin/members", icon: "members" },
+            // What can be bought, its price and its history; switch an item on or off (S25).
+            { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },

@@ -262,6 +262,9 @@ begin
   perform pg_temp.ck('the membership order holds 100,000 naira', '10000000', (select amount_kobo::text from public.orders where id = o));
   perform pg_temp.ck('paying the membership', 'paid', pg_temp.res(pg_temp.pay(ref, 10000000, 15000, 10015000)));
   perform pg_temp.ck('a paid membership makes the patient a Member', 'true', (select private.patient_is_member(v_p3)::text));
+  perform pg_temp.ck('my_membership tells the member so', 'true/purchase', pg_temp.q_as(v_p3, $q$select (public.my_membership()->>'is_member') || '/' || (public.my_membership()->>'source')$q$));
+  perform pg_temp.ck('my_membership tells a non-member so', 'false', pg_temp.q_as(pg_temp.f('pat'), $q$select (public.my_membership()->>'is_member')$q$));
+  perform pg_temp.ck('anon cannot ask my_membership', '42501', pg_temp.try_anon($q$select public.my_membership()$q$));
   perform pg_temp.ck('the membership row says purchase and runs a year', 'purchase/365',
     (select source || '/' || extract(day from (ends_at - starts_at))::int from public.patient_memberships where patient_id = v_p3 and state = 'active'));
   perform pg_temp.ck('the entitlement is a membership', 'membership', (select kind from public.entitlements where order_id = o));
@@ -344,6 +347,34 @@ begin
     (pg_temp.q_as(v_p2, format($q$select public.flag_order_payment_mismatch(%L, 'fee', 1, 1, 'webhook')::text$q$, ref)) like '%permission denied%')::text);
   perform pg_temp.ck('flagging a paid order is a replay, not a mismatch', 'replay',
     pg_temp.res(pg_temp.svc(format($q$select public.flag_order_payment_mismatch(%L, 'fee', 1, 1, 'webhook')::text$q$, (select paystack_reference from public.orders where id = pg_temp.f('ord1'))))));
+end $$;
+
+-- 7c. Housekeeping --------------------------------------------------------------------------------------------------------
+do $$
+declare v_p2 uuid := pg_temp.f('pat2'); ref text; o uuid;
+begin
+  ref := pg_temp.order_ref(v_p2, 'proof_consult', gen_random_uuid());
+  o := (select id from public.orders where paystack_reference = ref);
+  update public.orders set created_at = now() - interval '4 days' where id = o;
+  perform pg_temp.ck('a three day old unpaid order is cancelled by the housekeeping job', 'true', (private.expire_stale_orders() >= 1)::text);
+  perform pg_temp.ck('and its state is cancelled', 'cancelled', (select state from public.orders where id = o));
+  perform pg_temp.ck('the housekeeping job never touches a paid order', 'paid', (select state from public.orders where id = pg_temp.f('ord1')));
+  perform pg_temp.ck('both jobs are scheduled', '2', (select count(*)::text from cron.job where jobname in ('order-expire-stale', 'order-reconcile')));
+  perform pg_temp.ck('a user cannot run the housekeeping job', 'true',
+    (pg_temp.q_as(v_p2, 'select private.expire_stale_orders()::text') like '%permission denied%')::text);
+end $$;
+
+-- 7d. The admin catalogue view ---------------------------------------------------------------------------------------------
+do $$
+declare v_admin uuid := pg_temp.f('admin'); v_pat uuid := pg_temp.f('pat');
+begin
+  perform pg_temp.ck('a patient cannot read the admin catalogue', 'true',
+    (pg_temp.q_as(v_pat, 'select public.admin_catalogue()::text') like '%catalogue_not_authorised%')::text);
+  perform pg_temp.ck('staff see every item with its price history', '2',
+    pg_temp.q_as(v_admin, $q$select jsonb_array_length((select e->'prices' from jsonb_array_elements(public.admin_catalogue()->'items') e where e->>'code' = 'proof_consult'))::text$q$));
+  perform pg_temp.ck('the admin view says whether checkout is open', 'true', pg_temp.q_as(v_admin, $q$select (public.admin_catalogue()->>'checkout_open')$q$));
+  perform pg_temp.ck('test orders are not counted as paid orders (INV-13)', '0',
+    pg_temp.q_as(v_admin, $q$select (select e->>'paid_orders' from jsonb_array_elements(public.admin_catalogue()->'items') e where e->>'code' = 'proof_consult')$q$));
 end $$;
 
 -- 8. SABOTAGE: the amount check and the replay guards removed; both checks must flip ---------------------------------------
