@@ -178,7 +178,7 @@ export class RoomController {
         if (!res.ok) {
           this.set({ loading: false, offline: true });
         } else if (res.data === null) {
-          this.set({ loading: false, offline: false, notFound: true, view: null });
+          this.set({ loading: false, offline: false, notFound: true, view: null, dialIn: null, audioHint: false });
         } else {
           this.set({
             loading: false,

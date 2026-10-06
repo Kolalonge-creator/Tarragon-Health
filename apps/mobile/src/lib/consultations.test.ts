@@ -55,6 +55,16 @@ describe("a stalled connection", () => {
     expect(await room).toEqual({ ok: false });
     expect(await list).toEqual({ ok: false });
   });
+
+  it("never leaves a save or a no-show report hanging, so the room's buttons come back", async () => {
+    jest.useFakeTimers();
+    rpc.mockReturnValue(new Promise(() => {}));
+    const consent = answerScribeConsent("e1", true);
+    const noShow = reportNobodyCame("e1");
+    await jest.advanceTimersByTimeAsync(15_000);
+    expect(await consent).toBe(false);
+    expect(await noShow).toBe("failed");
+  });
 });
 
 describe("loadRoomView", () => {

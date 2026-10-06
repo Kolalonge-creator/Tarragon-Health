@@ -78,11 +78,11 @@ export async function answerScribeConsent(encounterId: string, granted: boolean,
     // Opened once. A later change of mind (withdrawing), or a retry after the answer step failed, is recorded without logging a
     // second "asked". `opened` remembers this session's own successful opens, because the screen's view only learns about it later.
     if (!alreadyAsked && !opened.has(encounterId)) {
-      const asked = await db().rpc("open_scribe_prompt", { p_encounter: encounterId });
+      const asked = await withTimeout(db().rpc("open_scribe_prompt", { p_encounter: encounterId }));
       if (asked.error) return false;
       opened.add(encounterId);
     }
-    const saved = await db().rpc("record_scribe_consent", { p_encounter: encounterId, p_granted: granted });
+    const saved = await withTimeout(db().rpc("record_scribe_consent", { p_encounter: encounterId, p_granted: granted }));
     return !saved.error;
   } catch {
     return false;
@@ -94,7 +94,7 @@ export type NoShowResult = "ok" | "wait_longer" | "failed";
 /** "Tell us nobody came". The database applies the wait rule from its own clock and policy; the app never decides it. */
 export async function reportNobodyCame(encounterId: string): Promise<NoShowResult> {
   try {
-    const { error } = await db().rpc("mark_encounter_no_show", { p_encounter: encounterId });
+    const { error } = await withTimeout(db().rpc("mark_encounter_no_show", { p_encounter: encounterId }));
     if (!error) return "ok";
     return /wait a little longer/.test(error.message) ? "wait_longer" : "failed";
   } catch {
