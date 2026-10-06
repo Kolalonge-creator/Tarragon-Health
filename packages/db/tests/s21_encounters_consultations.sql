@@ -597,6 +597,41 @@ begin
     pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docB, v_start + interval '6 days', v_start + interval '6 days' + interval '30 minutes')));
   perform pg_temp.back();
 
+  -- 8f. The phone bridge store: service role only, and the clinician's number is forgotten when the bridge is over ------------
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('a signed-in patient cannot read the bridge table', '42501', pg_temp.try('select count(*) from public.phone_bridges'));
+  perform pg_temp.back();
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('...nor can a clinician', '42501', pg_temp.try('select count(*) from public.phone_bridges'));
+  perform pg_temp.back();
+  perform pg_temp.act_anon();
+  perform pg_temp.rec('...nor anon', '42501', pg_temp.try('select count(*) from public.phone_bridges'));
+  perform pg_temp.back();
+  perform pg_temp.act_service();
+  insert into public.phone_bridges (bridge_id, organisation_id, encounter_id, provider, clinician_phone, expires_at, is_test)
+  values ('br_0123456789abcdef01234567', v_org, v_e7, 'mock', '+2348097654321', now() + interval '30 minutes', true);
+  perform pg_temp.rec('the service role can hold a bridge with the clinician number while it is live', '+2348097654321', (select clinician_phone from public.phone_bridges where bridge_id = 'br_0123456789abcdef01234567'));
+  perform pg_temp.rec('a malformed bridge id is refused', '23514', pg_temp.try(format('insert into public.phone_bridges (bridge_id, organisation_id, encounter_id, provider, expires_at) values (''bad id'', %L, %L, ''mock'', now() + interval ''5 minutes'')', v_org, v_e7)));
+  perform pg_temp.rec('a number that is not E.164 is refused', '23514', pg_temp.try(format('insert into public.phone_bridges (bridge_id, organisation_id, encounter_id, provider, clinician_phone, expires_at) values (''br_aaaaaaaaaaaaaaaaaaaaaaaa'', %L, %L, ''mock'', ''08097654321'', now() + interval ''5 minutes'')', v_org, v_e7)));
+  update public.phone_bridges set state = 'connected', patient_answered = true, clinician_dialled = true where bridge_id = 'br_0123456789abcdef01234567';
+  perform pg_temp.rec('a connected bridge still holds the number', 'true', (select (clinician_phone is not null)::text from public.phone_bridges where bridge_id = 'br_0123456789abcdef01234567'));
+  update public.phone_bridges set state = 'ended' where bridge_id = 'br_0123456789abcdef01234567';
+  perform pg_temp.rec('the number is gone the moment the bridge ends, and the end is stamped', 'true/true',
+    (select (clinician_phone is null)::text || '/' || (ended_at is not null)::text from public.phone_bridges where bridge_id = 'br_0123456789abcdef01234567'));
+  insert into public.phone_bridges (bridge_id, organisation_id, encounter_id, provider, clinician_phone, state, started_at, expires_at, is_test)
+  values ('br_fedcba9876543210fedcba98', v_org, v_e7, 'mock', '+2348097654321', 'failed', now() - interval '1 hour', now() - interval '30 minutes', true);
+  perform pg_temp.rec('a bridge that fails never keeps the number', 'true', (select (clinician_phone is null)::text from public.phone_bridges where bridge_id = 'br_fedcba9876543210fedcba98'));
+  insert into public.phone_bridges (bridge_id, organisation_id, encounter_id, provider, clinician_phone, state, started_at, expires_at, is_test)
+  values ('br_aabbccddeeff001122334455', v_org, v_e7, 'mock', '+2348097654321', 'ringing', now() - interval '1 hour', now() - interval '30 minutes', true);
+  perform pg_temp.back();
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('a signed-in user cannot run the sweep', '42501', pg_temp.try('select private.sweep_phone_bridges()'));
+  perform pg_temp.back();
+  perform private.sweep_phone_bridges();
+  perform pg_temp.rec('the sweep closes an expired bridge and forgets its number', 'ended/true',
+    (select state || '/' || (clinician_phone is null)::text from public.phone_bridges where bridge_id = 'br_aabbccddeeff001122334455'));
+  perform pg_temp.rec('the sweep is scheduled every 10 minutes', '1', (select count(*)::text from cron.job where jobname = 's21-phone-bridge-sweep' and schedule = '*/10 * * * *'));
+
   -- 9. Grants -------------------------------------------------------------------------------------------------
   perform pg_temp.rec('anon cannot run any consultation function', '0',
     (select count(*)::text from pg_proc p where p.pronamespace = 'public'::regnamespace
@@ -635,6 +670,11 @@ begin
   drop trigger video_visit_requests_adult_gate on public.video_visit_requests;
   insert into results values ('sabotaged', 'the older video-visit path refuses a minor', 'P0001',
     pg_temp.try(format('insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)', v_org, v_minor, gen_random_uuid())));
+  -- (e) the bridge no longer forgets the clinician's number when it ends: the number now stays on an ended bridge
+  drop trigger phone_bridges_forget_number on public.phone_bridges;
+  insert into public.phone_bridges (bridge_id, organisation_id, encounter_id, provider, clinician_phone, state, expires_at, is_test)
+  values ('br_112233445566778899aabbcc', v_org, v_e7, 'mock', '+2348097654321', 'ended', now() + interval '5 minutes', true);
+  insert into results values ('sabotaged', 'the number is gone when the bridge has ended', 'true', (select (clinician_phone is null)::text from public.phone_bridges where bridge_id = 'br_112233445566778899aabbcc'));
 end $$;
 
 do $$
@@ -647,8 +687,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 4 then
-    raise exception 'VACUOUS TEST: expected all four sabotage runs to change a check, only % did', v_caught;
+  if v_caught < 5 then
+    raise exception 'VACUOUS TEST: expected all five sabotage runs to change a check, only % did', v_caught;
   end if;
 end $$;
 

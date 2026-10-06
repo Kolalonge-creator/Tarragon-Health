@@ -1,5 +1,6 @@
 import type { FetchLike } from "./http.ts";
-import { videoFromEnv, type Env } from "./from-env.ts";
+import { phoneFromEnv, videoFromEnv, type Env } from "./from-env.ts";
+import type { BridgeStore } from "./phone-store.ts";
 import { createMockPhone } from "./phone-mock.ts";
 import type { PhoneBridgeProvider } from "./phone.ts";
 import type { ProviderResult } from "./result.ts";
@@ -20,7 +21,10 @@ export function selectVideo(env: Env, fetch: FetchLike): ProviderResult<VideoPro
   return selectProvider({ environment: environmentFrom(env["APP_ENV"]), real: videoFromEnv(env, fetch), mock: () => (mockVideo ??= createMockVideo()) });
 }
 
-/** No phone bridge vendor is chosen yet (OQ-131), so there is no real one: production reports not_configured until there is. */
-export function selectPhone(env: Env): ProviderResult<PhoneBridgeProvider> {
-  return selectProvider<PhoneBridgeProvider>({ environment: environmentFrom(env["APP_ENV"]), real: null, mock: () => (mockPhone ??= createMockPhone()) });
+/**
+ * The phone bridge: Africa's Talking when AT_VOICE_* is set (it needs the store the callback route also uses), a mock outside
+ * production, and not_configured in production until the vendor is set up (OQ-131).
+ */
+export function selectPhone(env: Env, fetch: FetchLike, store: BridgeStore): ProviderResult<PhoneBridgeProvider> {
+  return selectProvider<PhoneBridgeProvider>({ environment: environmentFrom(env["APP_ENV"]), real: phoneFromEnv(env, fetch, store), mock: () => (mockPhone ??= createMockPhone()) });
 }

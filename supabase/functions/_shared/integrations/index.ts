@@ -19,3 +19,5 @@ export * from "./consultation-ladder.ts";
 export * from "./phone.ts";
 export { createMockPhone, type MockPhoneControl } from "./phone-mock.ts";
 export * from "./runtime.ts";
+export * from "./phone-store.ts";
+export { createAfricasTalkingPhone, handleAfricasTalkingCallback, type AfricasTalkingConfig, type CallbackDeps } from "./phone-africastalking.ts";
