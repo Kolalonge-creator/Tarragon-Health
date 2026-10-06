@@ -846,6 +846,8 @@ s22c_credit_return_nullable_end_withdrawn_notes.sql
 s19b_on_call_readiness.sql
 # S25: catalogue, prices, orders, payments, entitlements. Dormant gate (module and item), price snapshot, idempotent order creation, service-role-only payment recording, mismatch (amount, currency, fee) never marks paid and opens an incident, safety case 24 (a replayed payment leaves one payment, one entitlement, one order.paid), membership purchase makes a Member, late payment on a closed order honoured and flagged, versioned immutable prices, RLS and no direct writes. Sabotage: amount check and replay guards removed; both checks must flip.
 s25_catalogue_orders_payments.sql
+# S22d: consultation_patient_summaries readable by staff only through a real tie to the patient (INV-12); a withdrawn note can be neither requested nor released. Sabotage: the old org-wide policy and the release without the withdrawn check; both checks must flip.
+s22d_summaries_tie_and_no_release_of_withdrawn.sql
 s23c_attach_scribe_draft_to_note.sql
 # S24: signed prescribing (prescribe and amend write a signed prescription; controlled medicine hard stop; allergy and duplicate checks), care_plan_changes (unsigned cannot be saved as signed; draft invisible to the patient; applies only on her confirmation; decline, expiry, re-check), protocols (immutable once approved), plan targets only through a signed change, referral consent and chase. Sabotage: the medicine signature trigger and the signature CHECK removed; both checks must flip.
 s24_prescriptions_and_care_plan_changes.sql
@@ -857,3 +859,5 @@ lpe_content_blocks_cmo_read.sql
 s24b_protocol_signoff_and_confirm_hardening.sql
 # S27: lab results and release rules. Held abnormal results (case 11) and a positive HBsAg (case 12) are invisible to the patient, an all-normal one auto-releases (case 13), only the database classifies, partner/patient/team writers, tied and audited clinician reads, release needs a clinician, disclosure needs a senior clinician plus attestation, items append only. Sabotage: the state guard and the patient policy opened; both checks must flip.
 s27_lab_results_release.sql
+# S37: go-live guards and PROPOSED-config sign-off. Seven guards ship off; no role, including the table owner, can change one except through set_go_live_guard (conditions evaluated, who/when/why logged); consultations and the scribe are wired. Sabotage: the reader forced open, and the guard trigger dropped; both checks must flip.
+s37_go_live_guards.sql

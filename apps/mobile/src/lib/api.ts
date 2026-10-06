@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import { PLATFORM_URL } from "./platform-url";
 import type { HealthReadingType, HealthSample } from "./healthkit";
 import type { HealthProvider } from "./health-sync";
+import type { DialInResponse, JoinResponse } from "./consultation-room-model";
 
 /**
  * The mobile app is a separate deployment from the web app, so it hits the
@@ -93,6 +94,31 @@ export interface MobileThresholds {
 export async function fetchVitalsThresholds(): Promise<MobileThresholds | null> {
   const result = await request<MobileThresholds>("/api/mobile/vitals-thresholds", "GET");
   return result.ok ? result.data : null;
+}
+
+/** What the consultation routes return when the call itself failed, as opposed to the server answering with a reason. "offline"
+ * means the request never got an answer, so the screen can say the place is safe and keep trying. */
+export type ConsultationCallResult<T> = { ok: true; data: T } | { ok: false; offline: boolean };
+
+async function consultationCall<T>(path: string, body: unknown): Promise<ConsultationCallResult<T>> {
+  // Not retried blind: a join request that reached the server may already have issued a link, and a dial-in request logs the ask, so
+  // a repeat after a timeout would do both twice. The patient can tap again; the screen says their place is safe.
+  const result = await request<T>(path, "POST", body, false, true);
+  if (result.ok) return { ok: true, data: result.data };
+  // "The vendor is not set up" arrives as an ordinary answer with a reason code (HTTP 200), never as a status the app has to guess
+  // at. Anything that failed here (no answer, an expired session, a server hiccup) is worth trying again.
+  return { ok: false, offline: result.error === NETWORK_ERROR_MESSAGE };
+}
+
+/** S21 / OQ-158: asks the server for the patient's own join link (apps/web/.../api/mobile/consultations/join). The caller opens the
+ * link and drops it; it is never stored or logged. */
+export function postConsultationJoin(encounterId: string, media: "video" | "audio_only"): Promise<ConsultationCallResult<JoinResponse>> {
+  return consultationCall<JoinResponse>("/api/mobile/consultations/join", { encounterId, media });
+}
+
+/** S21 / OQ-158: the Zoom dial-in number, meeting id and passcode for the same room. Held in memory for the screen only. */
+export function postConsultationDialIn(encounterId: string): Promise<ConsultationCallResult<DialInResponse>> {
+  return consultationCall<DialInResponse>("/api/mobile/consultations/dial-in", { encounterId });
 }
 
 export interface HealthSyncCursor {
@@ -492,7 +518,8 @@ async function request<T>(
   path: string,
   method: "GET" | "POST",
   body?: unknown,
-  isRetry = false
+  isRetry = false,
+  noRetry = false
 ): Promise<RequestResult<T>> {
   const {
     data: { session },
@@ -513,7 +540,7 @@ async function request<T>(
 
   let response: Response;
   try {
-    response = await fetchWithTimeoutAndRetry(url, init);
+    response = noRetry ? await fetchWithTimeout(url, init) : await fetchWithTimeoutAndRetry(url, init);
   } catch {
     return { ok: false, error: NETWORK_ERROR_MESSAGE };
   }
@@ -526,7 +553,7 @@ async function request<T>(
   if (response.status === 401 && !isRetry) {
     const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
     if (!refreshError && refreshed.session) {
-      return request<T>(path, method, body, true);
+      return request<T>(path, method, body, true, noRetry);
     }
     await supabase.auth.signOut();
     return { ok: false, error: "Your session expired — please sign in again.", status: 401 };
