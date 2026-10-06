@@ -47,6 +47,16 @@ interface DraftResponse {
   readonly outputTokens: number;
 }
 
+// Mirrors packages/shared/src/proposed-config (scribe.claude_model, scribe.claude_max_tokens). A Deno function cannot
+// import the registry, so scribe-mirror.test.ts asserts these two literals equal the registry values.
+const SCRIBE_CLAUDE_MODEL = "claude-sonnet-5-5";
+const SCRIBE_CLAUDE_MAX_TOKENS = 4096;
+
+const MAX_SEGMENTS = 2000;
+const MAX_SEGMENT_CHARS = 2000;
+const MAX_CONDITIONS = 20;
+const MAX_CONDITION_CHARS = 100;
+
 const SYSTEM_PROMPT = `You are an AI clinical note assistant for TarragonHealth, a Nigerian digital health platform.
 You will receive a transcript of a clinician-patient consultation, broken into speaker-tagged segments.
 Your job is to produce TWO outputs:
@@ -83,6 +93,35 @@ Respond with ONLY a JSON object matching this schema:
   "patientSummary": "..."
 }`;
 
+function stripJsonFence(text: string): string {
+  const fenced = /^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$/.exec(text);
+  return (fenced?.[1] ?? text).trim();
+}
+
+function validSegments(segments: readonly TranscriptSegment[]): boolean {
+  return (
+    segments.length <= MAX_SEGMENTS &&
+    segments.every(
+      (s) =>
+        typeof s.text === "string" &&
+        s.text.length <= MAX_SEGMENT_CHARS &&
+        Number.isFinite(s.startMs) &&
+        ["clinician", "patient", "unknown"].includes(s.speaker),
+    )
+  );
+}
+
+function validContext(ctx: RequestBody["patientContext"]): boolean {
+  if (!ctx) return true;
+  if (ctx.age !== undefined && !(Number.isInteger(ctx.age) && ctx.age >= 0 && ctx.age <= 130)) return false;
+  if (ctx.sex !== undefined && (typeof ctx.sex !== "string" || ctx.sex.length > 20)) return false;
+  if (ctx.conditions !== undefined) {
+    if (!Array.isArray(ctx.conditions) || ctx.conditions.length > MAX_CONDITIONS) return false;
+    if (!ctx.conditions.every((c) => typeof c === "string" && c.length <= MAX_CONDITION_CHARS)) return false;
+  }
+  return true;
+}
+
 function formatTranscript(segments: readonly TranscriptSegment[]): string {
   return segments
     .map((s) => {
@@ -116,6 +155,10 @@ Deno.serve(async (req) => {
     return Response.json({ error: "unsupported_language" }, { status: 400 });
   }
 
+  if (!validSegments(body.segments) || !validContext(body.patientContext)) {
+    return Response.json({ error: "invalid_input" }, { status: 400 });
+  }
+
   // Supabase client with the caller's JWT.
   const client = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: auth } },
@@ -123,18 +166,21 @@ Deno.serve(async (req) => {
   });
 
   // AI governance gate: check ai_systems.is_enabled for AI-017.
-  const { data: aiCheck, error: aiError } = await client.rpc("ai_runtime_config", { system_code: "AI-017" });
-  if (aiError || !aiCheck) {
+  const { data: aiCheck, error: aiError } = await client.rpc("ai_runtime_config", { p_system_code: "AI-017" });
+  if (aiError || !aiCheck || aiCheck.registered !== true) {
     return Response.json({ status: "disabled", reason: "governance_unavailable" });
   }
-  if (!aiCheck.is_enabled) {
+  if (aiCheck.enabled !== true) {
     return Response.json({ status: "disabled", reason: "system_off" });
   }
+
+  const { data: userData } = await client.auth.getUser();
+  const actorId = userData.user?.id ?? null;
 
   // Verify the consent row exists and is granted (not revoked).
   const { data: consent, error: consentErr } = await client
     .from("scribe_consents")
-    .select("id, granted, revoked_at")
+    .select("id, granted, revoked_at, organisation_id, patient_id, encounter_note_id")
     .eq("id", body.scribeConsentId)
     .maybeSingle();
 
@@ -143,6 +189,10 @@ Deno.serve(async (req) => {
   }
   if (!consent.granted || consent.revoked_at) {
     return Response.json({ error: "consent_not_active" }, { status: 403 });
+  }
+  // INV-11: consent is per-encounter. A consent recorded for another encounter (or none) cannot be reused here.
+  if (consent.encounter_note_id !== body.encounterNoteId) {
+    return Response.json({ error: "consent_encounter_mismatch" }, { status: 403 });
   }
 
   // Build the Claude prompt.
@@ -169,11 +219,12 @@ Deno.serve(async (req) => {
   }
 
   const anthropic = new Anthropic({ apiKey });
+  const startedAt = Date.now();
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
+      model: SCRIBE_CLAUDE_MODEL,
+      max_tokens: SCRIBE_CLAUDE_MAX_TOKENS,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     });
@@ -185,7 +236,7 @@ Deno.serve(async (req) => {
 
     let parsed: { draft: DraftSection; patientSummary: string };
     try {
-      parsed = JSON.parse(text);
+      parsed = JSON.parse(stripJsonFence(text));
     } catch {
       return Response.json({ error: "unparseable_response" }, { status: 502 });
     }
@@ -194,22 +245,30 @@ Deno.serve(async (req) => {
       return Response.json({ error: "incomplete_response" }, { status: 502 });
     }
 
-    // Record the interaction in ai_interaction_log.
+    // Record the interaction in ai_interaction_log. Fail closed: a draft with no audit row is not returned.
     const serviceClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
       auth: { persistSession: false },
     });
-    await serviceClient.from("ai_interaction_log").insert({
-      system_code: "AI-017",
+    const { error: logError } = await serviceClient.from("ai_interaction_log").insert({
+      organisation_id: consent.organisation_id,
+      ai_system_id: aiCheck.system_id,
       model_identifier: response.model,
-      prompt_version: "s23-v1",
-      input_summary: `Transcript: ${body.segments.length} segments, ${body.language}`,
-      output_summary: `Draft: ${Object.keys(parsed.draft).length} sections + patient summary`,
-      safety_classification: "safe",
-      outcome: "completed",
+      subject_profile_id: consent.patient_id,
+      actor_profile_id: actorId,
+      input_category: "scribe_transcript",
+      output_summary: `Draft: ${Object.keys(parsed.draft).length} sections + patient summary (${body.language})`,
+      status: "completed",
+      resulting_action: "draft_generated",
+      resulting_entity_type: "clinical_encounter_note",
+      resulting_entity_id: body.encounterNoteId,
+      latency_ms: Date.now() - startedAt,
       input_token_count: response.usage.input_tokens,
       output_token_count: response.usage.output_tokens,
-      resulting_action: "draft_generated",
     });
+    if (logError) {
+      console.error("scribe-draft: audit log insert failed", logError);
+      return Response.json({ error: "audit_unavailable" }, { status: 500 });
+    }
 
     const result: DraftResponse = {
       status: "ok",

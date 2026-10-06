@@ -828,6 +828,7 @@ export const en = {
   "scribe.draft.plan": "Plan",
   "scribe.draft.follow_up": "Follow-up and safety net",
   "scribe.draft.patient_summary": "Patient summary",
+  "scribe.draft.discard": "Discard draft",
   "scribe.draft.sign": "Sign and save",
   "scribe.draft.signing": "Saving...",
   "scribe.draft.saved": "Signed and saved to the patient record.",

@@ -30,14 +30,19 @@ export async function recordScribeConsent(input: z.input<typeof RecordConsentSch
 }
 
 export async function revokeScribeConsent(consentId: string) {
+  const id = z.string().uuid().parse(consentId);
   const supabase = await createClient();
 
   const { error } = await supabase
     .from("scribe_consents")
     .update({ revoked_at: new Date().toISOString() })
-    .eq("id", consentId);
+    .eq("id", id);
 
   if (error) throw new Error(error.message);
+
+  // Revocation cleanup: the patient withdrew, so the captured transcript is removed rather than left to expire.
+  const { error: cleanupError } = await supabase.from("scribe_transcripts").delete().eq("scribe_consent_id", id);
+  if (cleanupError) throw new Error(cleanupError.message);
 }
 
 const SignDraftSchema = z.object({
@@ -56,9 +61,23 @@ export async function signScribeDraft(input: z.input<typeof SignDraftSchema>) {
   const parsed = SignDraftSchema.parse(input);
   const supabase = await createClient();
 
+  // INV-11: re-check at signing time. Consent revoked after the draft was generated blocks the write.
+  const { data: consent, error: consentError } = await supabase
+    .from("scribe_consents")
+    .select("granted, revoked_at, encounter_note_id")
+    .eq("id", parsed.scribeConsentId)
+    .maybeSingle();
+  if (consentError) throw new Error(consentError.message);
+  if (!consent || !consent.granted || consent.revoked_at || consent.encounter_note_id !== parsed.encounterNoteId) {
+    throw new Error("Scribe consent is not active for this encounter.");
+  }
+
+  // Setting status = 'finalized' is the clinician's signature; the note trigger stamps finalized_by_staff/at.
   const { error } = await supabase
     .from("clinical_encounter_notes")
     .update({
+      status: "finalized",
+      ai_drafted: true,
       history: parsed.history,
       examination_findings: parsed.examinationFindings,
       assessment: parsed.assessment,
@@ -73,23 +92,33 @@ export async function signScribeDraft(input: z.input<typeof SignDraftSchema>) {
   if (error) throw new Error(error.message);
 }
 
-export async function callScribeDraft(input: {
-  scribeConsentId: string;
-  encounterNoteId: string;
-  segments: Array<{
-    index: number;
-    startMs: number;
-    endMs: number;
-    text: string;
-    speaker: "clinician" | "patient" | "unknown";
-  }>;
-  language: "en-NG" | "pcm";
-  patientContext?: {
-    age?: number;
-    sex?: string;
-    conditions?: readonly string[];
-  };
-}) {
+const CallDraftSchema = z.object({
+  scribeConsentId: z.string().uuid(),
+  encounterNoteId: z.string().uuid(),
+  segments: z
+    .array(
+      z.object({
+        index: z.number().int().nonnegative(),
+        startMs: z.number().nonnegative(),
+        endMs: z.number().nonnegative(),
+        text: z.string().max(2000),
+        speaker: z.enum(["clinician", "patient", "unknown"]),
+      }),
+    )
+    .min(1)
+    .max(2000),
+  language: z.enum(["en-NG", "pcm"]),
+  patientContext: z
+    .object({
+      age: z.number().int().min(0).max(130).optional(),
+      sex: z.string().max(20).optional(),
+      conditions: z.array(z.string().max(100)).max(20).optional(),
+    })
+    .optional(),
+});
+
+export async function callScribeDraft(rawInput: z.input<typeof CallDraftSchema>) {
+  const input = CallDraftSchema.parse(rawInput);
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Not authenticated");

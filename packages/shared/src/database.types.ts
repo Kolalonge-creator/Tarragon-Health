@@ -7161,8 +7161,11 @@ export type Database = {
           organisation_id: string
           outcome: Database["public"]["Enums"]["consultation_outcome"] | null
           patient_id: string
+          patient_summary: string | null
+          patient_summary_language: string | null
           plan: string | null
           reason_for_encounter: string
+          scribe_consent_id: string | null
           status: string
           updated_at: string
           video_consultation_id: string | null
@@ -7227,8 +7230,11 @@ export type Database = {
           organisation_id?: string
           outcome?: Database["public"]["Enums"]["consultation_outcome"] | null
           patient_id?: string
+          patient_summary?: string | null
+          patient_summary_language?: string | null
           plan?: string | null
           reason_for_encounter?: string
+          scribe_consent_id?: string | null
           status?: string
           updated_at?: string
           video_consultation_id?: string | null
@@ -7281,6 +7287,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_encounter_notes_scribe_consent_id_fkey"
+            columns: ["scribe_consent_id"]
+            isOneToOne: false
+            referencedRelation: "scribe_consents"
             referencedColumns: ["id"]
           },
           {
@@ -34623,6 +34636,145 @@ export type Database = {
             referencedRelation: "screening_results"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      scribe_consents: {
+        Row: {
+          clinician_profile_id: string
+          clinician_staff_id: string
+          created_at: string
+          encounter_note_id: string | null
+          granted: boolean
+          id: string
+          language: string
+          organisation_id: string
+          patient_id: string
+          recorded_at: string
+          revoked_at: string | null
+        }
+        Insert: {
+          clinician_profile_id?: string
+          clinician_staff_id?: string
+          created_at?: string
+          encounter_note_id?: string | null
+          granted: boolean
+          id?: string
+          language: string
+          organisation_id?: string
+          patient_id: string
+          recorded_at?: string
+          revoked_at?: string | null
+        }
+        Update: {
+          clinician_profile_id?: string
+          clinician_staff_id?: string
+          created_at?: string
+          encounter_note_id?: string | null
+          granted?: boolean
+          id?: string
+          language?: string
+          organisation_id?: string
+          patient_id?: string
+          recorded_at?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scribe_consents_clinician_profile_id_fkey"
+            columns: ["clinician_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scribe_consents_clinician_staff_id_fkey"
+            columns: ["clinician_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scribe_consents_encounter_note_id_fkey"
+            columns: ["encounter_note_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_encounter_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scribe_consents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scribe_consents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      scribe_transcripts: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          encounter_note_id: string | null
+          expires_at: string
+          id: string
+          language: string
+          organisation_id: string
+          scribe_consent_id: string
+          segments_encrypted: string
+          speaker_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms: number
+          encounter_note_id?: string | null
+          expires_at?: string
+          id?: string
+          language: string
+          organisation_id: string
+          scribe_consent_id: string
+          segments_encrypted: string
+          speaker_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          encounter_note_id?: string | null
+          expires_at?: string
+          id?: string
+          language?: string
+          organisation_id?: string
+          scribe_consent_id?: string
+          segments_encrypted?: string
+          speaker_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scribe_transcripts_encounter_note_id_fkey"
+            columns: ["encounter_note_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_encounter_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scribe_transcripts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scribe_transcripts_scribe_consent_id_fkey"
+            columns: ["scribe_consent_id"]
+            isOneToOne: false
+            referencedRelation: "scribe_consents"
+            referencedColumns: ["id"]
+          }
         ]
       }
       second_opinion_requests: {

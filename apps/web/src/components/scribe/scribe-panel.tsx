@@ -35,7 +35,7 @@ interface ScribePanelProps {
   patientContext?: {
     age?: number;
     sex?: string;
-    conditions?: readonly string[];
+    conditions?: string[];
   };
 }
 
@@ -53,13 +53,18 @@ export function ScribePanel({
 
     startTransition(async () => {
       try {
-        // In a real implementation, the segments would come from the STT stream.
-        // For now, this is wired to the edge function with a placeholder segments array.
-        // The actual STT integration happens when OQ-96 resolves the vendor decision.
+        // Segments come from the STT stream, which is not wired until OQ-96 resolves the vendor. With no
+        // transcript there is nothing to draft from, so say so instead of calling the function and failing.
+        const segments: Parameters<typeof callScribeDraft>[0]["segments"] = [];
+        if (segments.length === 0) {
+          setState({ step: "error", message: t("scribe.unavailable", "en"), consentId });
+          return;
+        }
+
         const result = await callScribeDraft({
           scribeConsentId: consentId,
           encounterNoteId,
-          segments: [],
+          segments,
           language,
           patientContext,
         });
@@ -110,7 +115,7 @@ export function ScribePanel({
 
     case "declined":
       return (
-        <Badge variant="outline" className="text-charcoal-ink/50">
+        <Badge variant="grey">
           {t("scribe.consent.declined_label", "en")}
         </Badge>
       );
@@ -153,7 +158,7 @@ export function ScribePanel({
 
     case "revoked":
       return (
-        <Badge variant="outline" className="text-amber-600">
+        <Badge variant="amber">
           {t("scribe.consent.revoked_label", "en")}
         </Badge>
       );

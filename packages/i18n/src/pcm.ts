@@ -827,6 +827,7 @@ export const pcm: Record<MessageKey, string> = {
   "scribe.draft.plan": "Plan",
   "scribe.draft.follow_up": "Follow-up and safety net",
   "scribe.draft.patient_summary": "Patient summary",
+  "scribe.draft.discard": "Throw away draft",
   "scribe.draft.sign": "Sign and save",
   "scribe.draft.signing": "Saving...",
   "scribe.draft.saved": "Don sign and save to patient record.",

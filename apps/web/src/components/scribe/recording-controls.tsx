@@ -55,7 +55,7 @@ export function RecordingControls({
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-tarragon-green/20 bg-tarragon-green/5 px-4 py-3">
-      <Badge variant="outline" className="border-red-500 text-red-600">
+      <Badge variant="grey" className="border-red-500 text-red-600">
         {paused ? t("scribe.recording.paused", locale) : t("scribe.recording.status", locale)}
       </Badge>
 

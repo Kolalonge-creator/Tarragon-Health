@@ -99,7 +99,7 @@ export function DraftReviewPanel({
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">{t("scribe.draft.heading", "en")}</CardTitle>
-          <Badge variant="outline" className="border-amber-400 text-amber-600">Draft</Badge>
+          <Badge variant="grey" className="border-amber-400 text-amber-600">Draft</Badge>
         </div>
         <p className="text-xs text-charcoal-ink/50">
           {t("scribe.draft.disclaimer", "en")}
@@ -130,7 +130,7 @@ export function DraftReviewPanel({
             onClick={onDiscard}
             disabled={pending}
           >
-            Discard
+            {t("scribe.draft.discard", "en")}
           </Button>
         </div>
       </CardContent>
