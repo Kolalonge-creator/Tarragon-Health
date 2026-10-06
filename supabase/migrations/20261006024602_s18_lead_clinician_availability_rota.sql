@@ -6,11 +6,15 @@
 -- switches a clinical feature on; capacity and cover are exposed as read functions for S25/S37), INV-16 (each lead
 -- assignment records the lead_config version it used).
 --
+-- Built on top of S17 (migration 20261006020013, already live): S17 owns availability_blocks (minimal), clinician_conflicts,
+-- declare_conflict / record_conflict / lift_conflict and declare_availability / cancel_availability. S18 extends them:
+-- triggers add the on-call, minimum-length, leave and minimum-guarantee rules, and a new trigger replaces a lead who is
+-- the subject of a conflict. S18 adds no table or function under those names.
+--
 -- What this adds:
 --   * lead_config (versioned, mirrored as queue.lead_rules in packages/shared/src/proposed-config; a test keeps the two
 --     identical). Every number below is PROPOSED and the CMO's to set.
---   * availability_blocks (queue, on_call, bookable_consultations), on_call_rota (primary + backup), rota_swaps,
---     conflicts, lead_assignments (current row plus history). Direct writes are refused for every role including the
+--   * on_call_rota (primary + backup), rota_swaps, lead_assignments (current row plus history). Direct writes are refused for every role including the
 --     table owner; the only writers are the functions below.
 --   * private.lead_candidates / choose_lead, assign and reassign functions, subscribers on clinician.suspended,
 --     clinician.reinstated, clinician.competency_changed and order.paid, a nightly reconcile and a retry sweep.
@@ -29,10 +33,6 @@
 -- ---------------------------------------------------------------------------
 -- 1. Enums
 -- ---------------------------------------------------------------------------
-create type public.availability_block_kind as enum ('queue', 'on_call', 'bookable_consultations');
-create type public.availability_block_state as enum ('declared', 'confirmed', 'cancelled');
-create type public.conflict_source as enum ('declared', 'handback', 'clinical_lead');
-create type public.conflict_state as enum ('active', 'lifted');
 create type public.lead_state as enum ('active', 'ended', 'unassigned');
 create type public.lead_end_reason as enum (
   'suspended', 'offboarded', 'licence_expired', 'competency_revoked', 'conflict', 'ineligible',
@@ -150,30 +150,12 @@ revoke all on function private.guard_lead_write() from public, anon, authenticat
 -- ---------------------------------------------------------------------------
 -- 4. Tables
 -- ---------------------------------------------------------------------------
-create table public.availability_blocks (
-  id                         uuid primary key default gen_random_uuid(),
-  organisation_id            uuid not null references public.organisations (id) on delete restrict,
-  clinician_id               uuid not null references public.profiles (id) on delete cascade,
-  starts_at                  timestamptz not null,
-  ends_at                    timestamptz not null,
-  kind                       public.availability_block_kind not null,
-  state                      public.availability_block_state not null default 'declared',
-  minimum_guarantee_eligible boolean not null default false,
-  declared_by                uuid references public.profiles (id) on delete set null,
-  confirmed_by               uuid references public.profiles (id) on delete set null,
-  confirmed_at               timestamptz,
-  cancelled_reason           text,
-  cancelled_at               timestamptz,
-  is_test                    boolean not null default false,
-  created_at                 timestamptz not null default now(),
-  check (ends_at > starts_at),
-  check (state <> 'confirmed' or confirmed_at is not null),
-  check (state <> 'cancelled' or (cancelled_at is not null and cancelled_reason is not null))
-);
-create index availability_blocks_clinician_idx on public.availability_blocks (clinician_id, starts_at, ends_at) where state <> 'cancelled';
-create index availability_blocks_kind_idx on public.availability_blocks (organisation_id, kind, starts_at) where state = 'confirmed';
+-- S17 created availability_blocks (kind and state are text there). S18 only adds who confirmed an on-call block.
+alter table public.availability_blocks
+  add column confirmed_by uuid references public.profiles (id) on delete set null,
+  add column confirmed_at timestamptz;
 comment on column public.availability_blocks.minimum_guarantee_eligible is
-  'Stored only. S30 decides what the pilot minimum per declared hour pays; S18 pays nothing.';
+  'Stored only. S30 decides what the pilot minimum per declared hour pays; S18 sets the flag for contracted clinicians and pays nothing.';
 
 create table public.on_call_rota (
   id                   uuid primary key default gen_random_uuid(),
@@ -215,26 +197,6 @@ create table public.rota_swaps (
 );
 create unique index rota_swaps_one_live on public.rota_swaps (rota_id, role) where state in ('requested', 'accepted');
 
-create table public.conflicts (
-  id              uuid primary key default gen_random_uuid(),
-  organisation_id uuid not null references public.organisations (id) on delete restrict,
-  clinician_id    uuid not null references public.profiles (id) on delete cascade,
-  patient_id      uuid not null references public.profiles (id) on delete cascade,
-  reason          text not null,
-  source          public.conflict_source not null,
-  state           public.conflict_state not null default 'active',
-  recorded_by     uuid references public.profiles (id) on delete set null,
-  lifted_by       uuid references public.profiles (id) on delete set null,
-  lifted_at       timestamptz,
-  lifted_reason   text,
-  is_test         boolean not null default false,
-  created_at      timestamptz not null default now(),
-  check (clinician_id <> patient_id),
-  check (state <> 'lifted' or (lifted_at is not null and lifted_reason is not null))
-);
-create unique index conflicts_one_active on public.conflicts (clinician_id, patient_id) where state = 'active';
-create index conflicts_patient_idx on public.conflicts (patient_id) where state = 'active';
-
 create table public.lead_assignments (
   id               uuid primary key default gen_random_uuid(),
   organisation_id  uuid not null references public.organisations (id) on delete restrict,
@@ -252,7 +214,9 @@ create table public.lead_assignments (
   assigned_by      uuid references public.profiles (id) on delete set null,
   is_test          boolean not null default false,
   created_at       timestamptz not null default now(),
-  check ((state = 'unassigned') = (clinician_id is null)),
+  -- an active row always names a clinician, an unassigned one never does; an ended row keeps whatever it had
+  check (state <> 'active' or clinician_id is not null),
+  check (state <> 'unassigned' or clinician_id is null),
   check ((state = 'ended') = (ended_at is not null)),
   check (state <> 'ended' or end_reason is not null)
 );
@@ -261,40 +225,29 @@ create unique index lead_assignments_one_live on public.lead_assignments (patien
 create index lead_assignments_clinician_idx on public.lead_assignments (clinician_id) where state = 'active';
 
 -- Guards and RLS
-create trigger availability_blocks_guard before insert or update or delete on public.availability_blocks
-  for each row execute function private.guard_lead_write();
 create trigger on_call_rota_guard before insert or update or delete on public.on_call_rota
   for each row execute function private.guard_lead_write();
 create trigger rota_swaps_guard before insert or update or delete on public.rota_swaps
   for each row execute function private.guard_lead_write();
-create trigger conflicts_guard before insert or update or delete on public.conflicts
-  for each row execute function private.guard_lead_write();
 create trigger lead_assignments_guard before insert or update or delete on public.lead_assignments
   for each row execute function private.guard_lead_write();
 
-alter table public.availability_blocks enable row level security;
 alter table public.on_call_rota enable row level security;
 alter table public.rota_swaps enable row level security;
-alter table public.conflicts enable row level security;
 alter table public.lead_assignments enable row level security;
 
 -- "Ops or clinical lead" is a capability (admin, or the active chief medical officer), as in S15.
-create policy availability_blocks_read on public.availability_blocks for select to authenticated
-  using (clinician_id = (select auth.uid()) or private.can_credential_review());
 create policy on_call_rota_read on public.on_call_rota for select to authenticated
   using (private.working_clinician() is not null or private.can_credential_review());
 create policy rota_swaps_read on public.rota_swaps for select to authenticated
   using (from_clinician = (select auth.uid()) or to_clinician = (select auth.uid()) or private.can_credential_review());
--- A clinician sees their own declared conflicts only; the patient never sees any (they would reveal a relationship).
-create policy conflicts_read on public.conflicts for select to authenticated
-  using (clinician_id = (select auth.uid()) or private.can_credential_review());
 create policy lead_assignments_read on public.lead_assignments for select to authenticated
   using (clinician_id = (select auth.uid()) or private.can_credential_review());
 
 do $$
 declare t text;
 begin
-  foreach t in array array['availability_blocks', 'on_call_rota', 'rota_swaps', 'conflicts', 'lead_assignments'] loop
+  foreach t in array array['on_call_rota', 'rota_swaps', 'lead_assignments'] loop
     execute format('revoke all on public.%I from anon', t);
     execute format('revoke insert, update, delete, truncate, references, trigger on public.%I from authenticated', t);
     execute format('grant select on public.%I to authenticated', t);
@@ -309,185 +262,76 @@ insert into public.event_types (event_type, description, owner_section, is_urgen
   ('lead.reassigned', 'A patient''s lead clinician changed', 'S18', false),
   ('lead.unassigned', 'A patient has no eligible lead clinician; an alert is open', 'S18', true),
   ('rota.changed', 'The on-call rota changed', 'S18', false),
-  ('rota.gap_detected', 'Hours in the next days have no on-call cover', 'S18', true),
-  ('conflict.recorded', 'A conflict of interest between a clinician and a patient was recorded', 'S18', false);
+  ('rota.gap_detected', 'Hours in the next days have no on-call cover', 'S18', true);
 insert into public.event_type_versions (event_type, version, required_keys) values
   ('lead.assigned', 1, array['patient_id', 'clinician_id']),
   ('lead.reassigned', 1, array['patient_id', 'from_clinician_id']),
   ('lead.unassigned', 1, array['count']),
   ('rota.changed', 1, array['change']),
-  ('rota.gap_detected', 1, array['gap_count']),
-  ('conflict.recorded', 1, array['conflict_id']);
+  ('rota.gap_detected', 1, array['gap_count']);
 
 -- ---------------------------------------------------------------------------
--- 6. Conflicts of interest
+-- 6. Conflicts of interest (S17 owns clinician_conflicts and its writers; S18 reads it and reacts)
 -- ---------------------------------------------------------------------------
+-- A live conflict (pending_review or active, S17) bars the clinician from leading this patient or being offered their work.
 create function private.has_conflict(p_clinician uuid, p_patient uuid) returns boolean
 language sql stable security definer set search_path = ''
-as $$ select exists (select 1 from public.conflicts c where c.clinician_id = p_clinician and c.patient_id = p_patient and c.state = 'active'); $$;
+as $$ select exists (select 1 from public.clinician_conflicts c where c.clinician_id = p_clinician and c.patient_id = p_patient and c.status <> 'lifted'); $$;
 revoke all on function private.has_conflict(uuid, uuid) from public, anon, authenticated;
 
--- Writes the conflict and, if the clinician is this patient's lead, moves the patient to someone else (forward declared;
--- defined in section 9).
-create function private.record_conflict_internal(p_clinician uuid, p_patient uuid, p_reason text, p_source public.conflict_source, p_actor uuid)
-returns uuid language plpgsql security definer set search_path = ''
-as $$
-declare
-  pr public.profiles%rowtype;
-  v_id uuid;
-begin
-  select * into pr from public.profiles where id = p_patient and role = 'patient';
-  if not found or not exists (select 1 from public.clinical_staff cs where cs.profile_id = p_clinician) then return null; end if;
-  perform set_config('tarragon.lead_write', 'on', true);
-  insert into public.conflicts (organisation_id, clinician_id, patient_id, reason, source, recorded_by, is_test)
-  values (pr.organisation_id, p_clinician, p_patient, p_reason, p_source, p_actor, pr.is_test)
-  on conflict (clinician_id, patient_id) where state = 'active' do nothing
-  returning id into v_id;
-  perform set_config('tarragon.lead_write', 'off', true);
-  if v_id is null then
-    select id into v_id from public.conflicts where clinician_id = p_clinician and patient_id = p_patient and state = 'active';
-    return v_id;
-  end if;
-  perform private.credential_audit(pr.organisation_id, p_actor, 'conflict.recorded', 'conflict', v_id,
-    jsonb_build_object('source', p_source, 'clinician_id', p_clinician));
-  perform private.emit_domain_event('conflict.recorded', pr.organisation_id, jsonb_build_object('conflict_id', v_id),
-    'conflict.recorded:' || v_id, p_patient, 'conflict', v_id);
-  -- A conflicted lead is replaced at once (spec 7.2: never offered to that clinician; 7.5: same rules).
-  if exists (select 1 from public.lead_assignments la where la.patient_id = p_patient and la.clinician_id = p_clinician and la.state = 'active') then
-    perform private.replace_lead_internal(p_patient, p_clinician, 'conflict', p_actor, 'conflict of interest recorded');
-  end if;
-  return v_id;
-end;
-$$;
-revoke all on function private.record_conflict_internal(uuid, uuid, text, public.conflict_source, uuid) from public, anon, authenticated;
-
--- A clinician declares their own conflict. The answer is the same whether or not the patient exists (no lookup oracle).
-create function public.declare_conflict(p_patient uuid, p_reason text) returns void
-language plpgsql security definer set search_path = ''
-as $$
-declare v_c uuid := private.working_clinician();
-begin
-  if v_c is null then raise exception 'not authorised' using errcode = '42501'; end if;
-  if char_length(btrim(coalesce(p_reason, ''))) < 3 then raise exception 'say briefly why (for example a family member)' using errcode = '22023'; end if;
-  perform private.record_conflict_internal(v_c, p_patient, btrim(p_reason), 'declared', v_c);
-end;
-$$;
-
-create function public.record_conflict(p_clinician uuid, p_patient uuid, p_reason text) returns uuid
+-- A clinician who is the patient's lead and becomes the subject of a conflict (their own declaration, the CMO's record or
+-- a hand-back) is replaced at once (spec 7.2: never offered; 7.5: same rules). Forward reference: replace_lead_internal is
+-- defined in section 9.
+create function private.conflict_replaces_lead() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  if not private.can_credential_review() then raise exception 'not authorised' using errcode = '42501'; end if;
-  if char_length(btrim(coalesce(p_reason, ''))) < 3 then raise exception 'a reason is required' using errcode = '22023'; end if;
-  return private.record_conflict_internal(p_clinician, p_patient, btrim(p_reason), 'clinical_lead', (select auth.uid()));
-end;
-$$;
-
-create function public.lift_conflict(p_conflict uuid, p_reason text) returns void
-language plpgsql security definer set search_path = ''
-as $$
-declare c public.conflicts%rowtype;
-begin
-  if not private.can_credential_review() then raise exception 'not authorised' using errcode = '42501'; end if;
-  if char_length(btrim(coalesce(p_reason, ''))) < (private.lead_rule('override_reason_min_chars') #>> '{}')::integer then
-    raise exception 'lifting a conflict needs a written reason' using errcode = '22023';
+  if new.status <> 'lifted' and exists (select 1 from public.lead_assignments la
+      where la.patient_id = new.patient_id and la.clinician_id = new.clinician_id and la.state = 'active') then
+    perform private.replace_lead_internal(new.patient_id, new.clinician_id, 'conflict', new.declared_by, 'conflict of interest on record');
   end if;
-  select * into c from public.conflicts where id = p_conflict for update;
-  if not found or c.state <> 'active' then raise exception 'unknown or already lifted conflict' using errcode = '22023'; end if;
-  perform set_config('tarragon.lead_write', 'on', true);
-  update public.conflicts set state = 'lifted', lifted_by = (select auth.uid()), lifted_at = now(), lifted_reason = btrim(p_reason) where id = p_conflict;
-  perform set_config('tarragon.lead_write', 'off', true);
-  perform private.credential_audit(c.organisation_id, (select auth.uid()), 'conflict.lifted', 'conflict', c.id, jsonb_build_object('reason', btrim(p_reason)));
+  return null;
 end;
 $$;
-
--- A hand-back for conflict of interest (S17 writes task_handbacks) records the conflict at once, pending review.
-create function private.handback_records_conflict() returns trigger
-language plpgsql security definer set search_path = ''
-as $$
-declare v_patient uuid;
-begin
-  if new.reason_code = 'conflict_of_interest' then
-    select patient_id into v_patient from public.clinical_tasks where id = new.task_id;
-    if v_patient is not null then
-      perform private.record_conflict_internal(new.clinician_id, v_patient, coalesce(nullif(btrim(new.note), ''), 'handed back as a conflict of interest'), 'handback', new.clinician_id);
-    end if;
-  end if;
-  return new;
-end;
-$$;
-revoke all on function private.handback_records_conflict() from public, anon, authenticated;
-create trigger task_handbacks_record_conflict after insert on public.task_handbacks
-  for each row execute function private.handback_records_conflict();
+revoke all on function private.conflict_replaces_lead() from public, anon, authenticated;
+create trigger clinician_conflicts_replace_lead after insert or update of status on public.clinician_conflicts
+  for each row execute function private.conflict_replaces_lead();
 
 -- ---------------------------------------------------------------------------
 -- 7. Declared availability
 -- ---------------------------------------------------------------------------
-create function public.declare_availability_block(p_kind public.availability_block_kind, p_starts_at timestamptz, p_ends_at timestamptz)
-returns uuid language plpgsql security definer set search_path = ''
-as $$
-declare
-  v_c uuid := private.working_clinician();
-  cs public.clinical_staff%rowtype;
-  v_hours numeric;
-  v_state public.availability_block_state;
-  v_id uuid;
-begin
-  if v_c is null then raise exception 'not authorised' using errcode = '42501'; end if;
-  select * into cs from public.clinical_staff where profile_id = v_c;
-  if not private.clinician_is_eligible(v_c) then raise exception 'your credentials need attention before you can declare hours' using errcode = '42501'; end if;
-  if p_ends_at <= p_starts_at then raise exception 'the block must end after it starts' using errcode = '22023'; end if;
-  if p_starts_at < now() - interval '5 minutes' then raise exception 'a block cannot start in the past' using errcode = '22023'; end if;
-  v_hours := extract(epoch from (p_ends_at - p_starts_at)) / 3600.0;
-  if v_hours < (private.lead_rule('block_min_hours') #>> '{}')::numeric then
-    raise exception 'a block is at least % hours', private.lead_rule('block_min_hours') #>> '{}' using errcode = '22023';
-  end if;
-  if v_hours > (private.lead_rule('block_max_hours') #>> '{}')::numeric then
-    raise exception 'a block is at most % hours', private.lead_rule('block_max_hours') #>> '{}' using errcode = '22023';
-  end if;
-  if p_kind = 'on_call' and not private.has_competency(v_c, 'on_call') then
-    raise exception 'on-call hours need the on-call competency' using errcode = '42501';
-  end if;
-  if private.clinician_on_leave_during(v_c, p_starts_at, p_ends_at) then
-    raise exception 'you are on leave for part of this time' using errcode = '22023';
-  end if;
-  if exists (select 1 from public.availability_blocks b where b.clinician_id = v_c and b.state <> 'cancelled' and b.starts_at < p_ends_at and b.ends_at > p_starts_at) then
-    raise exception 'this overlaps hours you already declared' using errcode = '23P01';
-  end if;
-  v_state := case when (private.lead_rule('auto_confirm_kinds') ? p_kind::text) then 'confirmed' else 'declared' end;
-  perform set_config('tarragon.lead_write', 'on', true);
-  insert into public.availability_blocks (organisation_id, clinician_id, starts_at, ends_at, kind, state, minimum_guarantee_eligible,
-                                           declared_by, confirmed_at, is_test)
-  values (cs.organisation_id, v_c, p_starts_at, p_ends_at, p_kind, v_state,
-          (cs.employment_type = 'contracted' and (private.lead_rule('minimum_guarantee_kinds') ? p_kind::text)),
-          v_c, case when v_state = 'confirmed' then now() end, coalesce((select is_test from public.profiles where id = v_c), false))
-  returning id into v_id;
-  perform set_config('tarragon.lead_write', 'off', true);
-  return v_id;
-end;
-$$;
-
-create function public.cancel_availability_block(p_block uuid, p_reason text) returns void
+-- S17's declare_availability() inserts the row. These two triggers add the S18 rules to every insert and cancel.
+create function private.availability_s18_rules() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
-declare b public.availability_blocks%rowtype;
+declare cs public.clinical_staff%rowtype;
 begin
-  select * into b from public.availability_blocks where id = p_block for update;
-  if not found then raise exception 'unknown block' using errcode = '22023'; end if;
-  if b.clinician_id <> (select auth.uid()) and not private.can_credential_review() then raise exception 'not authorised' using errcode = '42501'; end if;
-  if char_length(btrim(coalesce(p_reason, ''))) < 3 then raise exception 'a reason is required' using errcode = '22023'; end if;
-  if b.state = 'cancelled' then return; end if;
-  if b.ends_at <= now() then raise exception 'this block has already ended' using errcode = '22023'; end if;
-  if b.kind = 'on_call' and exists (select 1 from public.on_call_rota r
-        where r.cancelled_at is null and r.ends_at > now() and r.starts_at < b.ends_at and r.ends_at > b.starts_at
-          and (r.primary_clinician_id = b.clinician_id or r.backup_clinician_id = b.clinician_id)) then
-    raise exception 'you are on the rota in this block: ask for a swap instead' using errcode = '22023';
+  if tg_op = 'INSERT' then
+    select * into cs from public.clinical_staff where profile_id = new.clinician_id;
+    if extract(epoch from (new.ends_at - new.starts_at)) / 3600.0 < (private.lead_rule('block_min_hours') #>> '{}')::numeric then
+      raise exception 'availability_too_short' using errcode = '22023';
+    end if;
+    if new.kind = 'on_call' and not private.has_competency(new.clinician_id, 'on_call') then
+      raise exception 'availability_needs_on_call_competency' using errcode = '42501';
+    end if;
+    if new.state <> 'cancelled' and private.clinician_on_leave_during(new.clinician_id, new.starts_at, new.ends_at) then
+      raise exception 'availability_during_leave' using errcode = '22023';
+    end if;
+    new.minimum_guarantee_eligible := coalesce(cs.employment_type = 'contracted', false)
+      and (private.lead_rule('minimum_guarantee_kinds') ? new.kind);
+  elsif new.state = 'cancelled' and old.state <> 'cancelled' and new.kind = 'on_call'
+        and coalesce(current_setting('tarragon.lead_write', true), '') <> 'on'
+        and exists (select 1 from public.on_call_rota r
+          where r.cancelled_at is null and r.ends_at > now() and r.starts_at < new.ends_at and r.ends_at > new.starts_at
+            and (r.primary_clinician_id = new.clinician_id or r.backup_clinician_id = new.clinician_id)) then
+    raise exception 'availability_on_the_rota: ask for a swap instead' using errcode = '22023';
   end if;
-  perform set_config('tarragon.lead_write', 'on', true);
-  update public.availability_blocks set state = 'cancelled', cancelled_at = now(), cancelled_reason = btrim(p_reason) where id = p_block;
-  perform set_config('tarragon.lead_write', 'off', true);
+  return new;
 end;
 $$;
+revoke all on function private.availability_s18_rules() from public, anon, authenticated;
+create trigger availability_blocks_s18_rules before insert or update of state on public.availability_blocks
+  for each row execute function private.availability_s18_rules();
 
 create function public.confirm_availability_block(p_block uuid) returns void
 language plpgsql security definer set search_path = ''
@@ -497,14 +341,12 @@ begin
   if not private.can_credential_review() then raise exception 'not authorised' using errcode = '42501'; end if;
   select * into b from public.availability_blocks where id = p_block for update;
   if not found or b.state <> 'declared' then raise exception 'only a declared block can be confirmed' using errcode = '22023'; end if;
-  perform set_config('tarragon.lead_write', 'on', true);
   update public.availability_blocks set state = 'confirmed', confirmed_by = (select auth.uid()), confirmed_at = now() where id = p_block;
-  perform set_config('tarragon.lead_write', 'off', true);
 end;
 $$;
 
 create function public.my_availability_blocks(p_from timestamptz default now(), p_to timestamptz default null)
-returns table (id uuid, kind public.availability_block_kind, state public.availability_block_state, starts_at timestamptz, ends_at timestamptz, minimum_guarantee_eligible boolean)
+returns table (id uuid, kind text, state text, starts_at timestamptz, ends_at timestamptz, minimum_guarantee_eligible boolean)
 language sql stable security definer set search_path = ''
 as $$
   select b.id, b.kind, b.state, b.starts_at, b.ends_at, b.minimum_guarantee_eligible
@@ -540,7 +382,7 @@ begin
   if private.clinician_in_post_call_rest(p_profile, p_from) then return false; end if;
   if cs.employment_type = 'contracted' and coalesce((private.lead_rule('contracted_needs_declared_hours'))::boolean, true) then
     return exists (select 1 from public.availability_blocks b
-      where b.clinician_id = p_profile and b.state = 'confirmed' and b.kind in ('queue', 'bookable_consultations')
+      where b.clinician_id = p_profile and b.state in ('declared', 'confirmed') and b.kind in ('queue', 'bookable_consultations')
         and b.starts_at < p_to and b.ends_at > p_from);
   end if;
   return true;
@@ -755,7 +597,7 @@ begin
      where external_reference = v_ref and status not in ('resolved', 'closed');
   else
     insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
-    values (p_org, 'clinical', case when v_now > 0 then 'sev1' else 'sev2' end, 'On-call rota has uncovered or thin hours',
+    values (p_org, 'clinical', (case when v_now > 0 then 'sev1' else 'sev2' end)::public.ops_incident_severity, 'On-call rota has uncovered or thin hours',
             'On-call cover problem in the next ' || v_hours || ' hours: ' || v_summary, v_ref, now(), now());
     perform private.credential_notify_reviewers(p_org, 'On-call cover gap', 'Some upcoming hours have no on-call cover or no working backup. Open the rota to fix it.', jsonb_build_object('audience', 'rota'));
   end if;
@@ -1172,7 +1014,7 @@ as $$
 declare r public.on_call_rota%rowtype; n integer := 0; v_org uuid;
 begin
   perform set_config('tarragon.lead_write', 'on', true);
-  update public.availability_blocks set state = 'cancelled', cancelled_at = now(), cancelled_reason = p_reason
+  update public.availability_blocks set state = 'cancelled'
    where clinician_id = p_clinician and state <> 'cancelled' and ends_at > now();
   for r in select * from public.on_call_rota where cancelled_at is null and ends_at > now()
             and (primary_clinician_id = p_clinician or backup_clinician_id = p_clinician) for update loop
@@ -1432,7 +1274,7 @@ begin
                  and private.has_competency(cs.profile_id, 'lead_clinician')), '[]'::jsonb),
     'unassigned', coalesce((select jsonb_agg(jsonb_build_object('patient_id', patient_id, 'since', started_at) order by started_at)
                               from public.lead_assignments where organisation_id = v_org and state = 'unassigned'), '[]'::jsonb),
-    'conflicts_active', (select count(*) from public.conflicts where organisation_id = v_org and state = 'active'));
+    'conflicts_open', (select count(*) from public.clinician_conflicts where organisation_id = v_org and status <> 'lifted'));
 end;
 $$;
 
@@ -1576,9 +1418,7 @@ do $$
 declare f text;
 begin
   foreach f in array array[
-    'public.declare_conflict(uuid, text)', 'public.record_conflict(uuid, uuid, text)', 'public.lift_conflict(uuid, text)',
-    'public.declare_availability_block(public.availability_block_kind, timestamptz, timestamptz)',
-    'public.cancel_availability_block(uuid, text)', 'public.confirm_availability_block(uuid)',
+    'public.confirm_availability_block(uuid)',
     'public.my_availability_blocks(timestamptz, timestamptz)',
     'public.set_on_call_rota(timestamptz, timestamptz, uuid, uuid, text)', 'public.cancel_on_call_rota(uuid, text)',
     'public.rota_coverage_gaps(uuid, timestamptz, timestamptz)', 'public.on_call_cover_status(uuid)', 'public.my_rota(timestamptz, timestamptz)',
@@ -1591,9 +1431,7 @@ begin
     execute format('revoke all on function %s from public, anon, authenticated', f);
   end loop;
   foreach f in array array[
-    'public.declare_conflict(uuid, text)', 'public.record_conflict(uuid, uuid, text)', 'public.lift_conflict(uuid, text)',
-    'public.declare_availability_block(public.availability_block_kind, timestamptz, timestamptz)',
-    'public.cancel_availability_block(uuid, text)', 'public.confirm_availability_block(uuid)',
+    'public.confirm_availability_block(uuid)',
     'public.my_availability_blocks(timestamptz, timestamptz)',
     'public.set_on_call_rota(timestamptz, timestamptz, uuid, uuid, text)', 'public.cancel_on_call_rota(uuid, text)',
     'public.rota_coverage_gaps(uuid, timestamptz, timestamptz)', 'public.on_call_cover_status(uuid)', 'public.my_rota(timestamptz, timestamptz)',
@@ -1619,12 +1457,12 @@ revoke all on function private.create_clinical_task(uuid, text, integer, text, u
 do $$
 begin
   if exists (select 1 from information_schema.role_table_grants
-              where table_schema = 'public' and table_name in ('availability_blocks', 'on_call_rota', 'rota_swaps', 'conflicts', 'lead_assignments', 'lead_config')
+              where table_schema = 'public' and table_name in ('availability_blocks', 'clinician_conflicts', 'on_call_rota', 'rota_swaps', 'lead_assignments', 'lead_config')
                 and grantee in ('anon', 'PUBLIC')) then
     raise exception 'S18: anon or PUBLIC has table privileges';
   end if;
   if exists (select 1 from information_schema.role_table_grants
-              where table_schema = 'public' and table_name in ('availability_blocks', 'on_call_rota', 'rota_swaps', 'conflicts', 'lead_assignments', 'lead_config')
+              where table_schema = 'public' and table_name in ('availability_blocks', 'clinician_conflicts', 'on_call_rota', 'rota_swaps', 'lead_assignments', 'lead_config')
                 and grantee = 'authenticated' and privilege_type <> 'SELECT') then
     raise exception 'S18: authenticated has a write privilege on an S18 table';
   end if;
