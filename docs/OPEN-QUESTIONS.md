@@ -1298,7 +1298,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The existing status function lets any admin move a row to approved and published, and "approved" sets `clinician_reviewed` and the date but not the reviewer's name, so no credit shows. D.4 says content is owned and reviewed by a named clinical lead.
 - Options: (a) course lessons can be approved only by the CMO and the CMO's name is recorded as `reviewed_by_name` at approval (recommended; one small function and a CMO screen, a follow-up build); (b) keep the admin route and have the CMO sign outside the system (not recommended: the credit would stay blank).
 - Wording the CMO must check, lesson by lesson, is in `docs/research/s33-understandability/cmo-review-checklist.md`.
-- Decision: open.
+- Decision (founder, 2026-10-06): option (a). Only the CMO approves a course lesson, and the CMO's name is recorded at approval. Follow-up build, not yet done.
 
 ### OQ-243 Pidgin for the lessons and the screens (raised by S33)
 - Pidgin drafts exist in the source for seven lessons (BPC-01, 07, 08, 09, 10, 11, 14). Nothing is seeded: a Pidgin row is inserted only for a clip id listed in `audio/source/pcm-released.json` after the CMO and a native speaker have signed it, and the database serves a row only when it is `native_reviewed`. The other seven lessons (numbers, medicines, side effects, herbal products, warning signs) are held in English plus audio (OQ-19, OQ-87).
@@ -1320,7 +1320,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-246 The understandability test needs people, a budget and two sites (raised by S33)
 - The kit is built (protocol, scoring sheets, scorer, in-app clarity signals); no participant has seen a lesson. The protocol needs 10 to 15 adults per language, at least one site outside Lagos, mixed literacy (3 to 4 low-literacy participants, read-aloud sessions), paid for their time, two PEMAT raters and a native Pidgin interviewer.
 - Options: (a) the founder names who recruits and moderates and sets a budget; run before any lesson is published (recommended); (b) publish after the automatic checks and the CMO review only, and run the test on the live course (not recommended for the medicines and warning-signs lessons).
-- Decision: open.
+- Decision (founder, 2026-10-06): option (a), run before any lesson is published. The founder will name who recruits and moderates; not named yet, so this stays open until then.
 
 ### OQ-247 Course text needs a connection; offline lesson download is not built (raised by S33)
 - Spec 9.6 asks for offline downloads. The lesson text is read from the server each time and is not cached on the phone; the breathing exercise and the emergency guidance work with no connection. The audio manifest already supports on-demand download (OQ-200).
