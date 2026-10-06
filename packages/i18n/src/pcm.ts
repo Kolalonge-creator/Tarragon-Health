@@ -1286,4 +1286,13 @@ export const pcm: Record<MessageKey, string> = {
   "scribe.review.look_for": "Before you confirm, check wetin no dey, no be only wetin wrong: allergies, medicine and dose, wetin patient talk say e no get, and di follow-up plan. Wetin miss na di common mistake for AI notes.",
   "queue.updated": "We update am {time}",
   "scribe.review.empty_summary": "Dem no draft patient summary. Write one, or confirm say e no dey.",
+  "scribe.gate.checking": "We dey check if di patient don allow AI note-taking...",
+  "scribe.gate.no_consultation": "AI note-taking dey only for consultation wey dem book for di app.",
+  "scribe.gate.not_asked": "Di patient never answer. Dem go ask dem for di app when consultation start. You no fit answer for dem.",
+  "scribe.gate.declined": "Di patient say no to AI note-taking. Abeg write di note yourself. You no fit change am from here.",
+  "scribe.gate.not_available_now": "Di patient agree, but AI note-taking no dey available now (di consultation no dey live, or dem don off di feature).",
+  "scribe.gate.agreed": "Di patient agree for di app.",
+  "scribe.gate.refresh": "Check again",
+  "scribe.gate.load_error": "We no fit read di patient answer. We never start anything.",
+  "scribe.review.record_failed": "We no fit record di review, so we no save di note. Abeg try again.",
 };

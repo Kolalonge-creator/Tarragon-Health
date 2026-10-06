@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@tarragon/shared";
 import { MAX_SEGMENT_CHARS, MAX_TYPED_NOTES_CHARS, MIN_TYPED_NOTES_CHARS, parseTypedNotes } from "./parse-typed-notes";
 import { z } from "zod";
+import { loose } from "@/lib/clinician/loose-client";
+import { consentStateSchema } from "./consent-state";
 
 // One definition of the context the model may see, used by both the recorded and the typed path.
 const PatientContextSchema = z
@@ -154,4 +156,46 @@ export async function draftScribeFromText(input: z.input<typeof DraftFromTextSch
     source: "typed",
     patientContext: parsed.patientContext,
   });
+}
+
+/** The patient's own answer for this note's consultation. Fails closed: an unreadable answer is an error, never "given". */
+export async function getScribeConsentState(noteId: string) {
+  const id = z.string().uuid().parse(noteId);
+  const supabase = loose(await createClient());
+  const { data, error } = await supabase.rpc("scribe_consent_state", { p_note: id });
+  if (error) throw new Error(error.message);
+  return consentStateSchema.parse(data);
+}
+
+const RecordReviewSchema = z.object({
+  noteId: z.string().uuid(),
+  consentId: z.string().uuid(),
+  model: z.string().min(1).max(100),
+  promptVersion: z.string().min(1).max(40),
+  draftHash: z.string().regex(/^[0-9a-f]{64}$/),
+  source: z.enum(["stt", "typed"]),
+  sections: z.record(
+    z.string(),
+    z.object({ state: z.enum(["unchanged", "edited", "emptied", "added", "empty_kept"]), flagged_empty: z.boolean() }),
+  ),
+});
+
+/**
+ * Records what the clinician did with each section of the AI draft (S35c). Called just before a note is signed, so
+ * the outcomes describe the text that is about to be signed. Per-section outcome and a hash of the draft as
+ * generated; no draft text. The database re-checks that the consent is active for this note.
+ */
+export async function recordScribeReview(input: z.input<typeof RecordReviewSchema>) {
+  const parsed = RecordReviewSchema.parse(input);
+  const supabase = loose(await createClient());
+  const { error } = await supabase.rpc("record_scribe_review", {
+    p_note: parsed.noteId,
+    p_consent: parsed.consentId,
+    p_model: parsed.model,
+    p_prompt_version: parsed.promptVersion,
+    p_draft_hash: parsed.draftHash,
+    p_source: parsed.source,
+    p_sections: parsed.sections,
+  });
+  if (error) throw new Error(error.message);
 }

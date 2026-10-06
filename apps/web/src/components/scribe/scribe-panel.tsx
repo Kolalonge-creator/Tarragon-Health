@@ -1,27 +1,29 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { t } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ScribeConsentDialog } from "./consent-dialog";
 import { DraftReviewPanel, type DraftSection } from "./draft-review-panel";
-import { draftScribeFromText, revokeScribeConsent } from "@/lib/scribe/actions";
+import { draftScribeFromText, getScribeConsentState, recordScribeConsent, revokeScribeConsent } from "@/lib/scribe/actions";
+import { consentView, type ConsentView } from "@/lib/scribe/consent-state";
+import type { DraftFields } from "@/lib/scribe/draft-review";
 import { scribeErrorMessage } from "@/lib/scribe/error-messages";
 import { MAX_TYPED_NOTES_CHARS, MIN_TYPED_NOTES_CHARS } from "@/lib/scribe/parse-typed-notes";
 
 type Language = "en-NG" | "pcm";
 
 type ScribeState =
+  | { step: "checking" }
+  | { step: "gate"; view: ConsentView }
+  | { step: "gate_error" }
   | { step: "idle" }
-  | { step: "consent" }
-  | { step: "declined" }
   | { step: "input"; consentId: string }
   | { step: "generating"; consentId: string }
-  | { step: "review"; consentId: string; draft: DraftSection; patientSummary: string }
+  | { step: "review"; consentId: string; draft: DraftSection; patientSummary: string; modelId: string; promptVersion: string }
   | { step: "used" }
   | { step: "revoked" }
   | { step: "error"; message: string; consentId?: string };
@@ -32,6 +34,11 @@ export interface ScribeDraftResult {
   patientSummary: string;
   consentId: string;
   language: Language;
+  /** The draft exactly as the model generated it, before the clinician edited anything (for the review record's hash and outcomes). */
+  original: DraftFields;
+  modelId: string;
+  promptVersion: string;
+  source: "stt" | "typed";
 }
 
 interface ScribePanelProps {
@@ -46,10 +53,40 @@ interface ScribePanelProps {
 }
 
 export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseDraft }: ScribePanelProps) {
-  const [state, setState] = useState<ScribeState>({ step: "idle" });
+  const [state, setState] = useState<ScribeState>({ step: "checking" });
   const [language, setLanguage] = useState<Language>("en-NG");
   const [text, setText] = useState("");
   const [, startTransition] = useTransition();
+
+  // The patient's own in-app answer decides whether the scribe can start. The clinician never answers for the patient.
+  const fetchGate = useCallback(() => {
+    getScribeConsentState(encounterNoteId)
+      .then((s) => {
+        const view = consentView(s);
+        setState(view.kind === "can_start" ? { step: "idle" } : { step: "gate", view });
+      })
+      .catch(() => setState({ step: "gate_error" }));
+  }, [encounterNoteId]);
+  const loadGate = useCallback(() => {
+    setState({ step: "checking" });
+    fetchGate();
+  }, [fetchGate]);
+  // First load: the state already starts as "checking", so the effect only starts the read.
+  useEffect(() => {
+    fetchGate();
+  }, [fetchGate]);
+
+  function handleStart() {
+    startTransition(async () => {
+      try {
+        // The database accepts this row only because the patient allowed it in the app (S21g); it is the audit record.
+        const row = await recordScribeConsent({ patientId, encounterNoteId, granted: true, language });
+        setState({ step: "input", consentId: row.id });
+      } catch (err) {
+        setState({ step: "error", message: scribeErrorMessage(err) });
+      }
+    });
+  }
 
   function handleGenerate(consentId: string) {
     setState({ step: "generating", consentId });
@@ -66,7 +103,14 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           setState({ step: "error", message: t("scribe.unavailable", "en"), consentId });
           return;
         }
-        setState({ step: "review", consentId, draft: result.draft, patientSummary: result.patientSummary });
+        setState({
+          step: "review",
+          consentId,
+          draft: result.draft,
+          patientSummary: result.patientSummary,
+          modelId: typeof result.modelId === "string" ? result.modelId : "unknown",
+          promptVersion: typeof result.promptVersion === "string" ? result.promptVersion : "unversioned",
+        });
       } catch (err) {
         setState({ step: "error", message: scribeErrorMessage(err), consentId });
       }
@@ -84,9 +128,29 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
   }
 
   switch (state.step) {
+    case "checking":
+      return <p className="text-sm text-charcoal-ink/60">{t("scribe.gate.checking", "en")}</p>;
+
+    case "gate":
+      return (
+        <div className="space-y-2 rounded-md border border-charcoal-ink/15 p-3">
+          <p role="status" className="text-sm text-charcoal-ink">{t(state.view.kind === "blocked" ? state.view.messageKey : "scribe.gate.checking", "en")}</p>
+          <Button size="sm" variant="outline" onClick={loadGate}>{t("scribe.gate.refresh", "en")}</Button>
+        </div>
+      );
+
+    case "gate_error":
+      return (
+        <div className="space-y-2">
+          <p role="alert" className="text-sm text-red-600">{t("scribe.gate.load_error", "en")}</p>
+          <Button size="sm" variant="outline" onClick={loadGate}>{t("scribe.gate.refresh", "en")}</Button>
+        </div>
+      );
+
     case "idle":
       return (
         <div className="flex flex-wrap items-end gap-3">
+          <p className="w-full text-xs text-brand-green">{t("scribe.gate.agreed", "en")}</p>
           <div>
             <Label>{t("scribe.language.label", "en")}</Label>
             <Select value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
@@ -94,25 +158,11 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
               <option value="pcm">{t("scribe.language.pcm", "en")}</option>
             </Select>
           </div>
-          <Button size="sm" variant="outline" onClick={() => setState({ step: "consent" })}>
+          <Button size="sm" variant="outline" onClick={handleStart}>
             {t("scribe.start", "en")}
           </Button>
         </div>
       );
-
-    case "consent":
-      return (
-        <ScribeConsentDialog
-          patientId={patientId}
-          encounterNoteId={encounterNoteId}
-          language={language}
-          onConsented={(consentId) => setState({ step: "input", consentId })}
-          onDeclined={() => setState({ step: "declined" })}
-        />
-      );
-
-    case "declined":
-      return <Badge variant="grey">{t("scribe.consent.declined_label", "en")}</Badge>;
 
     case "input": {
       const tooShort = text.trim().length < MIN_TYPED_NOTES_CHARS;
@@ -155,13 +205,22 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           draft={state.draft}
           patientSummary={state.patientSummary}
           onUse={(draft, patientSummary) => {
-            onUseDraft({ draft, patientSummary, consentId, language });
+            onUseDraft({
+              draft,
+              patientSummary,
+              consentId,
+              language,
+              original: { ...state.draft, patientSummary: state.patientSummary },
+              modelId: state.modelId,
+              promptVersion: state.promptVersion,
+              source: "typed",
+            });
             setText("");
             setState({ step: "used" });
           }}
           onDiscard={() => {
             setText("");
-            setState({ step: "idle" });
+            loadGate();
           }}
         />
       );
@@ -183,7 +242,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
                 {t("scribe.input.generate", "en")}
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={() => setState({ step: "idle" })}>
+            <Button size="sm" variant="ghost" onClick={loadGate}>
               {t("scribe.draft.discard", "en")}
             </Button>
           </div>

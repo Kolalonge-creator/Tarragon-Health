@@ -1285,6 +1285,15 @@ export const en = {
   "scribe.review.look_for": "Before you confirm, look for what is missing, not only what is wrong: allergies, medicines and doses, things the patient said they do NOT have, and the follow-up plan. Missing items are the most common error in AI notes.",
   "queue.updated": "Updated {time}",
   "scribe.review.empty_summary": "No patient summary was drafted. Write one, or confirm there is none.",
+  "scribe.gate.checking": "Checking whether the patient has allowed AI note-taking...",
+  "scribe.gate.no_consultation": "AI note-taking is only offered during a consultation booked in the app.",
+  "scribe.gate.not_asked": "The patient has not answered yet. They are asked in the app when the consultation starts. You cannot answer for them.",
+  "scribe.gate.declined": "The patient declined AI note-taking. Please write the note yourself. This cannot be changed from here.",
+  "scribe.gate.not_available_now": "The patient agreed, but AI note-taking is not available right now (the consultation is not live, or the feature is switched off).",
+  "scribe.gate.agreed": "The patient agreed in the app.",
+  "scribe.gate.refresh": "Check again",
+  "scribe.gate.load_error": "The patient's answer could not be read. Nothing has been started.",
+  "scribe.review.record_failed": "The review could not be recorded, so the note was not saved. Please try again.",
 } as const;
 
 export type MessageKey = keyof typeof en;
