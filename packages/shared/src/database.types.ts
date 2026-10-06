@@ -42763,6 +42763,7 @@ export type Database = {
     }
     Functions: {
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       lab_partner_mark_collected: { Args: { p_order: string }; Returns: undefined };
       lab_partner_portal_orders: {
@@ -42803,8 +42804,6 @@ export type Database = {
       team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
       withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
       apply_payout_transfer_event: {
-      bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
-      record_refund_provider_result: {
         Args: {
           p_event: string
           p_reason?: string
