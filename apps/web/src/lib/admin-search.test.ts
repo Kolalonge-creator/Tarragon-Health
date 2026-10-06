@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { buildAdminSearchIndex, searchAdminEntries, type AdminSearchEntry } from "./admin-search";
+import { buildAdminSearchIndex, CMO_EXTRA_PAGES, searchAdminEntries, type AdminSearchEntry } from "./admin-search";
 import type { NavSection } from "./navigation";
 
 const sections: NavSection[] = [
@@ -42,6 +42,20 @@ describe("buildAdminSearchIndex", () => {
   it("names where each page lives", () => {
     expect(index.find((e) => e.href === "/admin")?.group).toBe("Main");
     expect(index.find((e) => e.href === "/admin/settings/members")?.group).toBe("Settings, People & Access");
+  });
+});
+
+describe("the Chief Medical Officer index", () => {
+  const cmo = buildAdminSearchIndex(
+    [{ label: "Clinical governance", items: [{ label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" }] }],
+    [],
+    CMO_EXTRA_PAGES,
+  );
+
+  it("points at the /clinician pages, never /admin (which a clinician account cannot open)", () => {
+    expect(cmo.every((e) => e.href.startsWith("/clinician"))).toBe(true);
+    expect(searchAdminEntries(cmo, "test content").map((e) => e.href)).toContain("/clinician/credentialing/content");
+    expect(searchAdminEntries(cmo, "licence").map((e) => e.href)).toContain("/clinician/credentialing/expiry");
   });
 });
 

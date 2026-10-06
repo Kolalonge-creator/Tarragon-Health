@@ -18,6 +18,9 @@ export interface AdminSearchEntry {
 
 /** Words an admin may use for a page whose title does not say it. Keyed by the path they match. */
 const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
+  ["/clinician/credentialing/expiry", "licence license mdcn indemnity expiry expires renewal renew grace suspended reinstate"],
+  ["/clinician/credentialing/content", "training test scenarios questions modules approve content exam"],
+  ["/clinician/credentialing", "doctor clinician onboarding application applicant apply verify verification mdcn folio credentials referees nysc approve"],
   ["/admin/credentialing/expiry", "licence license mdcn indemnity expiry expires renewal renew grace suspended reinstate"],
   ["/admin/credentialing", "doctor clinician onboarding application applicant apply verify verification mdcn folio credentials referees nysc"],
   ["/admin/settings/clinical-staff", "doctor clinician staff mdcn roster verify"],
@@ -29,6 +32,18 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/leads", "enquiries prospects contact form"],
 ];
 
+/** Pages inside an area that are not menu items of their own, but people look for them by name. */
+export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
+  { label: "Licences and cover", href: "/admin/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." },
+];
+
+/** The same, for the Chief Medical Officer, whose account role cannot open /admin. */
+export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
+  { label: "Clinician applications", href: "/clinician/credentialing", group: "Clinician credentialing", hint: "Review new clinicians, approve, grant competencies." },
+  { label: "Licences and cover", href: "/clinician/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." },
+  { label: "Training and test content", href: "/clinician/credentialing/content", group: "Clinician credentialing", hint: "Write and approve the training modules and test scenarios." },
+];
+
 export interface SettingsPageInput {
   href: string;
   label: string;
@@ -37,7 +52,11 @@ export interface SettingsPageInput {
 }
 
 /** Sidebar items plus settings pages, de-duplicated by path (the sidebar wins), with extra keywords attached. */
-export function buildAdminSearchIndex(sections: NavSection[], settings: SettingsPageInput[]): AdminSearchEntry[] {
+export function buildAdminSearchIndex(
+  sections: NavSection[],
+  settings: SettingsPageInput[],
+  extras: AdminSearchEntry[] = ADMIN_EXTRA_PAGES,
+): AdminSearchEntry[] {
   const seen = new Set<string>();
   const entries: AdminSearchEntry[] = [];
   const add = (entry: AdminSearchEntry) => {
@@ -50,8 +69,7 @@ export function buildAdminSearchIndex(sections: NavSection[], settings: Settings
     for (const item of section.items) add({ label: item.label, href: item.href, group: section.label ?? "Main" });
   }
   for (const page of settings) add({ label: page.label, href: page.href, group: `Settings, ${page.group}`, hint: page.blurb });
-  // Pages inside an area that are not menu items of their own, but people look for them by name.
-  add({ label: "Licences and cover", href: "/admin/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." });
+  for (const extra of extras) add(extra);
   return entries;
 }
 
