@@ -368,6 +368,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "lab_result_ready") {
     return { text: "Your care team has added something to your health record. Open the app to see it", href: "/patient/labs" };
   }
+  // S28 pharmacy collection. Neutral by design (INV-07): never a medicine, a person or a collection code.
+  if (n.template === "pharmacy_collection_waiting") {
+    return { text: "Something is waiting for you", href: "/pharmacist/prescriptions" };
+  }
+  if (n.template === "pharmacy_collection_update") {
+    return { text: "Your pharmacy has an update. Open the app to see it", href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_collection_question") {
+    return { text: "A pharmacy has a question for you", href: "/clinician" };
+  }
   if (n.template === "written_question_answered") {
     return { text: "Your care team has replied. Open the app to read it", href: "/patient/care" };
   }

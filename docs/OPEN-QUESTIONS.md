@@ -1234,3 +1234,38 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - **Liaison view CLOSED:** the Lab Liaison sees a neutral list of the files they recorded (last 30 days): date, patient number, order, file name and one of two words, "waiting for review" or "reviewed". Never values, reasons, or whether a result was withheld.
 - **Held corrections CLOSED:** a lab can replace a result that is still held. The held one is marked replaced at once, its review task is cancelled, and it can no longer be released or withheld (`lab_result_replaced`). The replacement goes through the same gate, the reviewer sees the kind and reason, and if the patient never saw the first result they get the normal release notice, not a "corrected" one. A claimed task held by another clinician is left to that clinician, who will find the release refused.
 - **Withdraw screen CLOSED (patient-scoped):** on a tied senior clinician's patient chart, "Released lab results" opens on a click (one audited read) and offers Withdraw with a required reason. There is deliberately no org-wide list.
+
+### OQ-208 Two prescription chains, one pharmacy (raised by S28)
+- The live chain is the `medications` row (rx_number, 6-character code, QR token, repeats): it feeds the PDF, the public verify, the supply record and the phone desk. The S05/S24 `prescriptions` row has the pharmacy and the new collection code. A partner dispense writes the `pharmacy_order_dispenses` row for the linked medicine in the same transaction, so the repeat limit and the QR verify agree. After the first partner supply the `prescriptions` row is `dispensed` and terminal; a repeat supply still goes through the QR or the phone desk, not the collection code.
+- Decision needed: whether a repeat should create a new `sent` step (needs a state back from `dispensed`, a change to the forward-only machine) or stay on the QR path (recommended for now).
+
+### OQ-209 Delivery data is still readable by patients (raised by S28; extends OQ-16)
+- `pharmacy_partners.delivery` (default true) and `delivery_fee_kobo` are exposed to every patient through `pharmacy_partner_directory`, and the older patient catalogue reads them. S28 returns and reads neither (a test proves no delivery column in the new function), but the older data and the legacy `pharmacy_orders` delivery columns remain. Part C.2 says no home delivery.
+- Recommended: after a count of live rows, remove `delivery` and `delivery_fee_kobo` from the directory view and drop the dormant delivery columns and `pharmacy_order_delivery_attempts` (the OQ-16 pattern).
+
+### OQ-210 The older pharmacist reads are unaudited and untagged (raised by S28)
+- `pharmacist_orders`, `pharmacist_order_allergies`, `pharmacist_order_medications`, `pharmacist_record_dispense` and `verify_prescription` give a partner a patient's name, number and allergies with no `audit_log` row (INV-10). `pharmacy_orders`, `pharmacy_order_dispenses` and `medication_dispense_flags` have no `is_test` (INV-13), so a test patient's supply would count in partner statements. The legacy order SMS carries a patient name and number (INV-07, INV-08). S28's own functions audit and carry `is_test`; the older ones are untouched (session rules).
+- Recommended: a follow-up that adds the audit rows and `is_test`, and moves the order alerts to the neutral in-app template.
+
+### OQ-211 "Verified batch" and NAFDAC (raised by S28; spec 8.8, 8.11)
+- Built: a pharmacy can be chosen only while its verified licence has at least 30 days left (PROPOSED, `pharmacy.quality`, owner CMO), and the pharmacist can record batch number and expiry. Not built: any check that a batch is genuine. Tarragon does not run the supply chain, so "verified" can only mean "the pharmacy's licence is verified".
+- Needed: the CMO's quality rules (turnaround, complaints, removal for poor performance, spec 21.7), and whether the NAFDAC Mobile Authentication Service can be used in a pharmacy workflow.
+
+### OQ-212 Price comparison is a name match (raised by S28)
+- Prices come from each pharmacy's own `pharmacy_medications` list, matched on the normalised drug name only (not strength or pack). A pharmacy that lists a different strength under the same name would show its price. The screen says "closest listed match" and the pharmacist dispenses against the signed item, never the listing.
+- Needed: whether partner price lists must carry strength and form, and whether the list is audited for accuracy.
+
+### OQ-213 Pharmacist chat is not built (raised by S28; spec 8.12)
+- Who answers (the pharmacy or Tarragon), liability, retention, and whether a message may carry clinical content are undecided. The "query to prescriber" flag covers the safety need meanwhile (a neutral notice reaches the signing clinician; the pharmacist's note is staff-only).
+
+### OQ-214 A caregiver cannot send a prescription yet (raised by S28)
+- Sending shares the patient's record with a pharmacy, so S28 allows only the patient and hides the card while acting for someone. Whether a Care Circle member with the right permission may send for them is a consent decision (S29 permissions).
+
+### OQ-215 Refill reminder does not open the chosen pharmacy (raised by S28; spec 8.10)
+- The S08 refill countdown and running-low reminder exist and stay neutral. S28 remembers the last pharmacy (`patient_pharmacy_preference`) and puts it first in the list, but the reminder does not deep-link to "collect from your pharmacy", and a repeat is not a new send (OQ-208).
+
+### OQ-216 Pharmacy collection is behind `platform_modules`, not a go-live guard (raised by S28; extends S37 OQ-184)
+- `pharmacy_collection` is dormant in `platform_modules` (like `v5_checkout`). S37's `prescribing_enabled` guard ("at least one active pharmacy partner; clinical lead sign-off") is the right switch for clinical go-live but is not wired to anything yet. When S37 wires it, `private.pharmacy_collection_on()` should also require it.
+
+### OQ-217 The prescriber cannot yet see collection status (raised by S28)
+- The signing clinician gets a neutral notice when a pharmacy asks a question, and can read the question (`prescription_pharmacy_questions`, tie-checked and audited), but there is no screen for it and no "was it collected?" view. S35's console clinician area is where it belongs.

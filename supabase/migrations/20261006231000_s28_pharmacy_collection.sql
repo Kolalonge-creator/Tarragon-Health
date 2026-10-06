@@ -5,7 +5,7 @@
 -- What was already here: `prescriptions` has pharmacy_partner_id, collection_code, state draft/signed/sent/dispensed/cancelled, the
 -- signing CHECK and the frozen-items trigger. Nothing ever set sent, the partner, the code or dispensed_at. The direct partner
 -- policies on it returned whole rows (patient_id, items), so they are dropped; partners read and act only through the functions below.
--- Live counts before this change: prescriptions in state 'sent' or 'dispensed' = 0 (checked 2026-10-06), so no data to convert.
+-- Live counts before this change: the prescriptions table has no rows in any state (checked on the live project 2026-10-06), so no data to convert.
 --
 -- Dormant (INV-14): platform module `pharmacy_collection` is off. Every function refuses while it is off.
 -- INV-02: a prescription reaches a pharmacy only once signed; items stay frozen (existing trigger).
@@ -45,7 +45,7 @@ create table public.prescription_pharmacy_events (
   organisation_id      uuid not null references public.organisations (id),
   prescription_id      uuid not null references public.prescriptions (id) on delete cascade,
   event_type           text not null check (event_type in
-                         ('sent', 'rerouted', 'flagged_out_of_stock', 'flagged_query', 'dispensed', 'dispensed_partial')),
+                         ('sent', 'rerouted', 'withdrawn', 'flagged_out_of_stock', 'flagged_query', 'dispensed', 'dispensed_partial')),
   pharmacy_partner_id  uuid not null references public.pharmacy_partners (id),
   actor_id             uuid references public.profiles (id) on delete set null,
   note                 text check (note is null or char_length(note) <= 500),
@@ -65,6 +65,7 @@ create trigger prescription_pharmacy_events_append_only before update or delete 
 -- The patient's most recent pharmacy, so a repeat defaults to it. A preference, not a balance (INV-09).
 create table public.patient_pharmacy_preference (
   patient_id           uuid primary key references public.profiles (id) on delete cascade,
+  organisation_id      uuid not null references public.organisations (id),
   pharmacy_partner_id  uuid not null references public.pharmacy_partners (id),
   updated_at           timestamptz not null default now()
 );
@@ -105,6 +106,8 @@ begin
          (old.state = 'draft'  and new.state in ('signed', 'cancelled'))
       or (old.state = 'signed' and new.state in ('sent', 'cancelled'))
       or (old.state = 'sent'   and new.state in ('dispensed', 'cancelled'))
+      -- S28: the patient takes it back from the pharmacy. Only the definer function (flag on) may do this, and it clears the routing.
+      or (v_routing and old.state = 'sent' and new.state = 'signed')
     ) then
       raise exception 'invalid prescription state change % -> %', old.state, new.state using errcode = '23514';
     end if;
@@ -173,6 +176,16 @@ create function private.pharmacy_choosable(p_partner uuid) returns boolean langu
        and pp.license_expires_at >= current_date + (select q.min_licence_days_left from public.pharmacy_quality_config q where q.is_active))
 $$;
 revoke all on function private.pharmacy_choosable(uuid) from public, anon, authenticated;
+
+-- A prescription is current while the medicine it created is still active, not replaced, not stopped and not expired. An amended
+-- or stopped medicine leaves its OLD prescription row 'signed', so state alone is not enough to say "send this".
+create function private.prescription_is_current(p_prescription uuid) returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from public.medications m
+     where m.prescription_id = p_prescription and m.is_active and m.superseded_at is null
+       and (m.expires_at is null or m.expires_at > now()))
+$$;
+revoke all on function private.prescription_is_current(uuid) from public, anon, authenticated;
 
 create function private.new_collection_code() returns text language plpgsql volatile set search_path = '' as $$
 declare
@@ -255,6 +268,7 @@ begin
   if not private.pharmacy_collection_on() then raise exception 'pharmacy_collection_off' using errcode = '55000'; end if;
   select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_uid and state in ('signed', 'sent');
   if not found then raise exception 'prescription_not_found' using errcode = '42501'; end if;
+  if not private.prescription_is_current(p_prescription) then raise exception 'prescription_not_current' using errcode = '22023'; end if;
   select pharmacy_partner_id into v_pref from public.patient_pharmacy_preference where patient_id = v_uid;
 
   return query
@@ -283,6 +297,14 @@ begin
    order by (ph.id = v_pref) desc, ph.name;
 end $$;
 
+-- Should the patient screen offer this at all? On, and at least one pharmacy can be chosen right now.
+create function public.pharmacy_collection_available()
+returns boolean language sql stable security definer set search_path = '' as $$
+  select (select auth.uid()) is not null
+     and private.pharmacy_collection_on()
+     and exists (select 1 from public.pharmacy_partners pp where private.pharmacy_choosable(pp.id))
+$$;
+
 -- ---------------------------------------------------------------------------
 -- 8. Patient: send, and re-send to a different pharmacy while it is still waiting
 -- ---------------------------------------------------------------------------
@@ -305,6 +327,7 @@ begin
   if p_event = 'rerouted' and v_rx.state <> 'sent' then raise exception 'prescription_not_waiting' using errcode = '22023'; end if;
   if p_event = 'rerouted' and v_rx.pharmacy_partner_id = p_partner then raise exception 'same_pharmacy' using errcode = '22023'; end if;
   if v_rx.signed_by is null or v_rx.signed_at is null then raise exception 'prescription_not_signed' using errcode = '22023'; end if;
+  if not private.prescription_is_current(p_prescription) then raise exception 'prescription_not_current' using errcode = '22023'; end if;
   if not private.pharmacy_choosable(p_partner) then raise exception 'pharmacy_not_available' using errcode = '22023'; end if;
   select name into v_name from public.pharmacy_partners where id = p_partner;
 
@@ -326,7 +349,7 @@ begin
 
   insert into public.prescription_pharmacy_events (organisation_id, prescription_id, event_type, pharmacy_partner_id, actor_id, is_test)
   values (v_rx.organisation_id, p_prescription, p_event, p_partner, v_uid, v_rx.is_test);
-  insert into public.patient_pharmacy_preference (patient_id, pharmacy_partner_id) values (v_uid, p_partner)
+  insert into public.patient_pharmacy_preference (patient_id, organisation_id, pharmacy_partner_id) values (v_uid, v_rx.organisation_id, p_partner)
   on conflict (patient_id) do update set pharmacy_partner_id = excluded.pharmacy_partner_id, updated_at = now();
   perform private.log_audit('prescription.' || p_event, 'prescriptions', p_prescription,
     jsonb_build_object('pharmacy_partner_id', p_partner, 'consent', true));
@@ -371,6 +394,43 @@ begin
     'needs_other_pharmacy', (v_rx.state = 'sent' and v_last = 'flagged_out_of_stock'));
 end $$;
 
+-- The patient takes it back. Consent to share is revocable: the pharmacy stops seeing it at once and the prescription goes back to
+-- 'signed'. Works whether or not collection is switched on, because it only removes sharing.
+create function public.withdraw_prescription_from_pharmacy(p_prescription uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := (select auth.uid());
+  v_rx public.prescriptions%rowtype;
+begin
+  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
+  select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_uid for update;
+  if not found then raise exception 'prescription_not_found' using errcode = '42501'; end if;
+  if v_rx.state <> 'sent' then raise exception 'prescription_not_waiting' using errcode = '22023'; end if;
+  perform set_config('tarragon.rx_routing', 'on', true);
+  update public.prescriptions set state = 'signed', pharmacy_partner_id = null, collection_code = null, sent_at = null where id = p_prescription;
+  perform set_config('tarragon.rx_routing', 'off', true);
+  insert into public.prescription_pharmacy_events (organisation_id, prescription_id, event_type, pharmacy_partner_id, actor_id, is_test)
+  values (v_rx.organisation_id, p_prescription, 'withdrawn', v_rx.pharmacy_partner_id, v_uid, v_rx.is_test);
+  perform private.log_audit('prescription.withdrawn', 'prescriptions', p_prescription, jsonb_build_object('pharmacy_partner_id', v_rx.pharmacy_partner_id));
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- The patient's list for the Medicines screen. Reads only her own rows, whether or not collection is on (a code she holds must stay
+-- visible), and says whether each is still current so a replaced or stopped medicine is never offered for sending.
+create function public.my_collection_prescriptions()
+returns table (prescription_id uuid, state text, items jsonb, signed_at timestamptz, is_current boolean)
+language plpgsql stable security definer set search_path = '' as $$
+#variable_conflict use_column
+declare v_uid uuid := (select auth.uid());
+begin
+  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
+  return query
+  select rx.id, rx.state::text, rx.items, rx.signed_at, private.prescription_is_current(rx.id)
+    from public.prescriptions rx
+   where rx.patient_id = v_uid and rx.state in ('signed', 'sent', 'dispensed') and rx.signed_at >= now() - interval '90 days'
+   order by rx.signed_at desc limit 10;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- 9. Pharmacy: inbox, detail (audited), mark supplied, flag a problem
 -- ---------------------------------------------------------------------------
@@ -379,6 +439,11 @@ declare v_partner uuid := private.pharmacist_partner();
 begin
   if (select auth.uid()) is null or v_partner is null then raise exception 'This action is for partner pharmacies' using errcode = '42501'; end if;
   if not private.pharmacy_collection_on() then raise exception 'pharmacy_collection_off' using errcode = '55000'; end if;
+  -- A pharmacy that has been switched off, or whose licence has run out, stops seeing patients' prescriptions at once.
+  if not exists (select 1 from public.pharmacy_partners pp
+                  where pp.id = v_partner and pp.is_active and pp.license_expires_at is not null and pp.license_expires_at >= current_date) then
+    raise exception 'pharmacy_not_active' using errcode = '42501';
+  end if;
   return v_partner;
 end $$;
 revoke all on function private.require_pharmacist() from public, anon, authenticated;
@@ -422,7 +487,8 @@ begin
   select full_name into v_signer from public.profiles where id = v_rx.signed_by;
   select * into v_med from public.medications where prescription_id = p_prescription limit 1;
   if v_med.id is not null then
-    select count(*)::integer into v_dispensed from public.pharmacy_order_dispenses d where d.medication_id = v_med.id and d.source = 'pharmacy';
+    select count(*)::integer into v_dispensed from public.pharmacy_order_dispenses d
+       where d.medication_id = v_med.id and d.source = 'pharmacy' and not coalesce(d.is_partial, false);
     v_permitted := 1 + coalesce((select count(*) from public.medication_repeat_requests r where r.medication_id = v_med.id and r.status = 'approved'), 0)::integer;
     v_permitted := least(v_permitted, 1 + coalesce(v_med.repeats_allowed, 0));
   end if;
@@ -483,7 +549,9 @@ begin
   if v_med.id is null then
     return jsonb_build_object('ok', false, 'reason', 'not_linked');
   end if;
-  select count(*)::integer into v_dispensed from public.pharmacy_order_dispenses d where d.medication_id = v_med.id and d.source = 'pharmacy';
+  -- A partial supply is part of one supply, not a supply of its own: only complete ones use up the permitted number.
+  select count(*)::integer into v_dispensed from public.pharmacy_order_dispenses d
+   where d.medication_id = v_med.id and d.source = 'pharmacy' and not coalesce(d.is_partial, false);
   v_permitted := least(1 + coalesce((select count(*) from public.medication_repeat_requests r where r.medication_id = v_med.id and r.status = 'approved'), 0)::integer,
                        1 + coalesce(v_med.repeats_allowed, 0));
   if v_med.superseded_at is not null or not v_med.is_active or (v_med.expires_at is not null and v_med.expires_at < now()) then
@@ -571,7 +639,8 @@ begin
     'public.reroute_prescription_pharmacy(uuid,uuid,boolean)', 'public.my_prescription_pharmacy(uuid)',
     'public.pharmacy_inbox()', 'public.pharmacy_prescription_detail(uuid)',
     'public.pharmacy_mark_dispensed(uuid,text,text,text,text,text,date,boolean,text)',
-    'public.pharmacy_flag_prescription(uuid,text,text)', 'public.prescription_pharmacy_questions(uuid)']
+    'public.pharmacy_flag_prescription(uuid,text,text)', 'public.prescription_pharmacy_questions(uuid)',
+    'public.pharmacy_collection_available()', 'public.withdraw_prescription_from_pharmacy(uuid)', 'public.my_collection_prescriptions()']
   loop
     execute format('revoke all on function %s from public', f);
     execute format('grant execute on function %s to authenticated', f);
@@ -590,6 +659,7 @@ begin
     'public.pharmacy_inbox()', 'public.pharmacy_prescription_detail(uuid)',
     'public.pharmacy_mark_dispensed(uuid,text,text,text,text,text,date,boolean,text)',
     'public.pharmacy_flag_prescription(uuid,text,text)', 'public.prescription_pharmacy_questions(uuid)',
+    'public.pharmacy_collection_available()', 'public.withdraw_prescription_from_pharmacy(uuid)', 'public.my_collection_prescriptions()',
     'private.route_prescription(uuid,uuid,boolean,text)', 'private.rx_notify(uuid,uuid,text,jsonb)']
   loop
     if has_function_privilege('anon', f, 'EXECUTE') then raise exception 'anon can execute %', f; end if;

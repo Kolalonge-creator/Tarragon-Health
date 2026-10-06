@@ -150,7 +150,10 @@ begin
   perform pg_temp.ck('while off, the pharmacy inbox refuses', 'true',
     (pg_temp.q_as(pg_temp.f('ph_a'), 'select count(*) from public.pharmacy_inbox()') like 'ERR:pharmacy_collection_off')::text);
 
+  perform pg_temp.ck('while off, the patient screen is told not to offer it', 'false', pg_temp.q_as(v_pat, 'select public.pharmacy_collection_available()::text'));
   update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = pg_temp.f('admin'), activation_note = 'S28 proof' where key = 'pharmacy_collection';
+  perform pg_temp.ck('once on with approved pharmacies, the screen is told to offer it', 'true', pg_temp.q_as(v_pat, 'select public.pharmacy_collection_available()::text'));
+  perform pg_temp.ck('anon is not told anything', '42501', pg_temp.try_anon('select public.pharmacy_collection_available()'));
 
   perform pg_temp.ck('anon cannot list pharmacies', '42501', pg_temp.try_anon(format('select * from public.pharmacies_for_prescription(%L)', rx)));
   perform pg_temp.ck('anon cannot send', '42501', pg_temp.try_anon(format('select public.send_prescription_to_pharmacy(%L, %L, true)', rx, pg_temp.f('pa'))));
@@ -322,6 +325,82 @@ begin
   perform pg_temp.ck('turning the module off stops a pharmacy again', 'true',
     (pg_temp.q_as(ph_a, 'select count(*) from public.pharmacy_inbox()') like 'ERR:pharmacy_collection_off')::text);
   update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = pg_temp.f('admin'), activation_note = 'S28 proof' where key = 'pharmacy_collection';
+end $$;
+
+-- 7b. Review fixes: current-only sending, withdraw, partial then complete, an inactive pharmacy ----------------------------------------------
+do $$
+declare
+  v_pat uuid := pg_temp.f('pat'); v_doc uuid := pg_temp.f('doc'); pa uuid := pg_temp.f('pa');
+  ph_a uuid := pg_temp.f('ph_a'); ph_a2 uuid := pg_temp.f('ph_a2');
+  rx_old uuid; rx_w uuid; rx_p uuid; v_code text; v_code2 text; r jsonb; v_med_old uuid;
+begin
+  -- an amended or stopped medicine leaves its OLD prescription row signed: it must not be offered or sent
+  rx_old := pg_temp.mkrx(v_doc, v_pat, 'Paracetamol', 0);
+  perform pg_temp.ck('a live prescription is listed as current', 'true',
+    pg_temp.q_as(v_pat, format('select is_current::text from public.my_collection_prescriptions() where prescription_id = %L', rx_old)));
+  -- the real amendment, by the prescriber: it replaces the medicine and signs a NEW prescription, leaving the old row 'signed'
+  select id into v_med_old from public.medications where prescription_id = rx_old;
+  perform pg_temp.ck('the amendment itself succeeded', 'true',
+    (pg_temp.q_as(v_doc, format($q$select public.amend_medication(%L, 'Dose changed', null, '500 mg', null, null, null, null, null, null, null, null, null, true)::text$q$, v_med_old)) not like 'ERR:%')::text);
+  perform pg_temp.ck('amending left the old prescription signed (why state alone is not enough)', 'signed', pg_temp.state_of(rx_old));
+  perform pg_temp.ck('once its medicine is replaced it is listed as not current', 'false',
+    pg_temp.q_as(v_pat, format('select is_current::text from public.my_collection_prescriptions() where prescription_id = %L', rx_old)));
+  perform pg_temp.ck('...it cannot be priced', 'true',
+    (pg_temp.q_as(v_pat, format('select count(*) from public.pharmacies_for_prescription(%L)', rx_old)) like 'ERR:prescription_not_current')::text);
+  perform pg_temp.ck('...and it cannot be sent', 'true',
+    (pg_temp.q_as(v_pat, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', rx_old, pa)) like 'ERR:prescription_not_current')::text);
+  perform pg_temp.ck('the list shows only her own', '0',
+    pg_temp.q_as(pg_temp.f('pat2'), 'select count(*)::text from public.my_collection_prescriptions()'));
+  perform pg_temp.ck('anon cannot read the list', '42501', pg_temp.try_anon('select * from public.my_collection_prescriptions()'));
+  perform pg_temp.ck('anon cannot withdraw', '42501', pg_temp.try_anon(format('select public.withdraw_prescription_from_pharmacy(%L)', rx_old)));
+
+  -- withdraw: consent to share is revocable
+  rx_w := pg_temp.mkrx(v_doc, v_pat, 'Omeprazole', 0);
+  r := pg_temp.q_as(v_pat, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', rx_w, pa))::jsonb;
+  v_code := r ->> 'collection_code';
+  perform pg_temp.ck('before withdrawing, the pharmacy sees it', 'true', (pg_temp.inbox_codes(ph_a2) like '%' || v_code || '%')::text);
+  perform pg_temp.ck('another patient cannot withdraw it', 'true',
+    (pg_temp.q_as(pg_temp.f('pat2'), format('select public.withdraw_prescription_from_pharmacy(%L)::text', rx_w)) like 'ERR:prescription_not_found')::text);
+  perform pg_temp.ck('a pharmacist cannot withdraw it', 'true',
+    (pg_temp.q_as(ph_a2, format('select public.withdraw_prescription_from_pharmacy(%L)::text', rx_w)) like 'ERR:prescription_not_found')::text);
+  perform pg_temp.ck('the patient can withdraw it', 'true', (pg_temp.q_as(v_pat, format('select public.withdraw_prescription_from_pharmacy(%L)::text', rx_w))::jsonb ->> 'ok'));
+  perform pg_temp.ck('...it is back to signed with no pharmacy and no code', 'signed||',
+    (select state::text || '|' || coalesce(pharmacy_partner_id::text, '') || '|' || coalesce(collection_code, '') from public.prescriptions where id = rx_w));
+  perform pg_temp.ck('...the pharmacy no longer lists it', 'false', (pg_temp.inbox_codes(ph_a2) like '%' || v_code || '%')::text);
+  perform pg_temp.ck('...nor can it open it', 'true',
+    (pg_temp.q_as(ph_a2, format('select public.pharmacy_prescription_detail(%L)::text', rx_w)) like 'ERR:prescription_not_found')::text);
+  perform pg_temp.ck('...nor dispense it with the old code', 'not_waiting', (pg_temp.dispense(ph_a2, rx_w, v_code) ->> 'reason'));
+  perform pg_temp.ck('...the patient sees it as not sent', 'false', (pg_temp.mine(v_pat, rx_w) ->> 'sent'));
+  perform pg_temp.ck('...withdrawing again is refused', 'true',
+    (pg_temp.q_as(v_pat, format('select public.withdraw_prescription_from_pharmacy(%L)::text', rx_w)) like 'ERR:prescription_not_waiting')::text);
+  perform pg_temp.ck('...a withdrawn event was kept', '1',
+    (select count(*)::text from public.prescription_pharmacy_events where prescription_id = rx_w and event_type = 'withdrawn'));
+  r := pg_temp.q_as(v_pat, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', rx_w, pa))::jsonb;
+  perform pg_temp.ck('...and she can send it again, with a fresh code', 'true', ((r ->> 'collection_code') is not null and (r ->> 'collection_code') <> v_code)::text);
+
+  -- a partial supply is not a whole supply: completing it later must still work
+  rx_p := pg_temp.mkrx(v_doc, v_pat, 'Cetirizine', 0);
+  perform pg_temp.q_as(v_pat, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', rx_p, pa));
+  v_code2 := pg_temp.mine(v_pat, rx_p) ->> 'collection_code';
+  perform pg_temp.ck('a partial supply is accepted', 'true',
+    (pg_temp.dispense(ph_a2, rx_p, v_code2, $q$, '10 tablets', null, null, true, 'Remainder on Friday'$q$) ->> 'ok'));
+  perform pg_temp.ck('...it does not use up the only permitted supply', '0|1',
+    (pg_temp.q_as(ph_a2, format('select (public.pharmacy_prescription_detail(%L) ->> ''supplies_recorded'') || ''|'' || (public.pharmacy_prescription_detail(%L) ->> ''supplies_permitted'')', rx_p, rx_p))));
+  perform pg_temp.ck('...so the rest can be supplied when she comes back', 'true|dispensed',
+    (pg_temp.dispense(ph_a2, rx_p, v_code2, $q$, '20 tablets'$q$) ->> 'ok') || '|' || pg_temp.state_of(rx_p));
+
+  -- a pharmacy that is switched off, or whose licence has run out, sees nothing
+  perform pg_temp.q_as(v_pat, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', pg_temp.mkrx(v_doc, v_pat, 'Loratadine', 0), pa));
+  update public.pharmacy_partners set is_active = false where id = pa;
+  perform pg_temp.ck('a switched-off pharmacy cannot read its inbox', 'true',
+    (pg_temp.q_as(ph_a2, 'select count(*) from public.pharmacy_inbox()') like 'ERR:pharmacy_not_active')::text);
+  update public.pharmacy_partners set is_active = true, license_expires_at = current_date - 1 where id = pa;
+  perform pg_temp.ck('a pharmacy with an expired licence cannot read its inbox', 'true',
+    (pg_temp.q_as(ph_a2, 'select count(*) from public.pharmacy_inbox()') like 'ERR:pharmacy_not_active')::text);
+  perform pg_temp.ck('...nor open anything', 'true',
+    (pg_temp.q_as(ph_a2, format('select public.pharmacy_prescription_detail(%L)::text', rx_p)) like 'ERR:pharmacy_not_active')::text);
+  update public.pharmacy_partners set license_expires_at = current_date + 365 where id = pa;
+  perform pg_temp.ck('once the licence is back it works again', 'true', (pg_temp.q_as(ph_a2, 'select count(*) from public.pharmacy_inbox()') not like 'ERR:%')::text);
 end $$;
 
 -- 8. SABOTAGE: the licence rule opened and a direct partner policy restored; both checks must flip ----------------------------------------

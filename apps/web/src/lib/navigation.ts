@@ -707,6 +707,7 @@ export function getNavSections(
           items: [
             { label: "Overview", href: "/pharmacist", icon: "dashboard", exact: true },
             { label: "Orders", href: "/pharmacist/orders", icon: "pharmacy" },
+            { label: "Prescriptions", href: "/pharmacist/prescriptions", icon: "medication" },
             { label: "Verify a prescription", href: "/pharmacist/verify", icon: "approvals" },
             { label: "Dispensing history", href: "/pharmacist/history", icon: "audit" },
             { label: "Pharmacy profile", href: "/pharmacist/profile", icon: "settings" },
