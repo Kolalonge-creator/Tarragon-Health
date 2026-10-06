@@ -33,8 +33,7 @@ describe("answerWrittenQuestion", () => {
 
   it("sends the attested reply with no diagnosis argument", async () => {
     rpc.mockResolvedValue({ data: {}, error: null });
-    const result = await answerWrittenQuestion(undefined, form({ ...reply, attested: "on" }));
-    expect(result?.message).toBeDefined();
+    await expect(answerWrittenQuestion(undefined, form({ ...reply, attested: "on" }))).rejects.toThrow("REDIRECT:/clinician/async-consults?replied=guidance");
     expect(rpc).toHaveBeenCalledWith("answer_written_question", {
       p_consult: id,
       p_kind: "guidance",
@@ -43,10 +42,11 @@ describe("answerWrittenQuestion", () => {
     });
   });
 
-  it("tells the clinician a call task was created for 'needs a call'", async () => {
+  it("carries a 'needs a call' outcome to the confirmation on the list page", async () => {
     rpc.mockResolvedValue({ data: {}, error: null });
-    const result = await answerWrittenQuestion(undefined, form({ ...reply, kind: "needs_call", attested: "on" }));
-    expect(result?.message).toMatch(/told they will be called/);
+    await expect(
+      answerWrittenQuestion(undefined, form({ ...reply, kind: "needs_call", attested: "on" })),
+    ).rejects.toThrow("REDIRECT:/clinician/async-consults?replied=needs_call");
   });
 
   it("maps a lost claim to plain words", async () => {

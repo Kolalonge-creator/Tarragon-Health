@@ -39,6 +39,15 @@ export default async function WrittenQuestionsPage({ searchParams }: { searchPar
   });
   const { open, held, type } = params.success ? params.data : { open: undefined, held: undefined, type: undefined };
   const none = first(raw.none) === "1";
+  const repliedKind = first(raw.replied);
+  const replied =
+    repliedKind === "needs_call"
+      ? "Sent. A call task has been created and the patient has been told they will be called."
+      : repliedKind === "needs_more_information"
+        ? "Sent. The patient has been asked for a little more, and the question comes back to the queue when they reply."
+        : repliedKind === "guidance"
+          ? "Reply sent to the patient."
+          : null;
 
   const supabase = await createClient();
   const claimsRes = await supabase.rpc("my_written_question_claims");
@@ -83,6 +92,11 @@ export default async function WrittenQuestionsPage({ searchParams }: { searchPar
         </CardHeader>
         <CardContent className="space-y-3">
           <TakeNextForm />
+          {replied && (
+            <p role="status" className="rounded-md bg-brand-green/10 p-3 text-sm text-brand-green">
+              {replied}
+            </p>
+          )}
           {none && <p className="text-sm text-charcoal-ink/60">Nothing is waiting for you right now.</p>}
           {held && (
             <div role="status" className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-charcoal-ink">

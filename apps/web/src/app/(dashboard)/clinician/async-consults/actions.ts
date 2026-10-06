@@ -102,10 +102,6 @@ export async function answerWrittenQuestion(
   });
   if (error) return { error: describeRpcError(error) };
   revalidatePath(BASE);
-  return {
-    message:
-      parsed.data.kind === "needs_call"
-        ? "Sent. A call task has been created and the patient has been told they will be called."
-        : "Reply sent to the patient.",
-  };
+  // The claim has ended, so the open question's form is gone; carry the confirmation to the list instead.
+  redirect(`${BASE}?replied=${parsed.data.kind}`);
 }
