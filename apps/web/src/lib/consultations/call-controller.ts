@@ -71,11 +71,16 @@ export class CallController {
     return this.ladder.mode;
   }
 
+  /** True while a dropped connection is inside its grace window. */
+  get inGrace(): boolean {
+    return this.ladder.lostAtMs !== null;
+  }
+
   /** Starts listening. Call once the person is in the meeting. */
   start(): void {
     this.listen("connection-change", (p) => {
       const input = ladderInputFromConnection(typeof p === "object" && p !== null ? (p as { state?: unknown }).state : undefined, this.o.now());
-      if (input === "closed") this.o.onClosed();
+      if (input === "closed") this.closed();
       else if (input) this.apply(input);
     });
     this.listen("network-quality-change", (p) => {
@@ -109,6 +114,15 @@ export class CallController {
     if (this.o.role === "patient") this.apply({ kind: "patient_takes_video", atMs: this.o.now() });
   }
 
+  /**
+   * The SDK reports the call closed. Normally that is the call ending. But if it closes while a drop is still being held, the link was
+   * lost for good and no "back online" is coming, so the person goes to the phone at once instead of being left with nothing.
+   */
+  private closed(): void {
+    if (this.inGrace) this.apply({ kind: "patient_requests_phone", atMs: this.o.now() });
+    this.o.onClosed();
+  }
+
   private listen(event: string, fn: (payload: unknown) => void): void {
     this.handlers.push({ event, fn });
     this.o.client.on(event, fn);
@@ -118,8 +132,9 @@ export class CallController {
     const atMs = this.o.now();
     this.readings.set(key, { quality, atMs });
     if (!isSampleDue(this.lastSampleAtMs, atMs, this.o.policy.sampleIntervalSeconds)) return;
-    // Only fresh readings count: the network level stops arriving when the camera goes off, and a stale poor one must not outlive it.
-    const freshMs = this.o.policy.sampleIntervalSeconds * 1000;
+    // The network level is reported when it CHANGES, so a level stays true until replaced. It cannot stay true for ever, because it
+    // stops arriving when the camera goes off. A reading therefore counts for as long as it would take to downgrade on its own.
+    const freshMs = this.o.policy.sampleIntervalSeconds * this.o.policy.poorSamplesToDowngrade * 1000;
     let worst: ConnectionQuality | null = null;
     for (const r of this.readings.values()) {
       if (atMs - r.atMs < freshMs) worst = worst === null ? r.quality : worstQuality(worst, r.quality);

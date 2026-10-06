@@ -311,17 +311,17 @@ describe("zoom adapter", () => {
   it("will not verify webhooks without a secret, and reads a non-JSON or shapeless signed body safely", async () => {
     const fake = createFakeZoom();
     const none = zoomFor(fake, {});
-    expect((await none.parseWebhook("{}", {}, 1))).toMatchObject({ ok: false, error: { code: "not_configured" } });
+    expect((await none.parseWebhook("{}", {}, 1_800_000_000_000))).toMatchObject({ ok: false, error: { code: "not_configured" } });
     const z = zoomFor(fake);
     const sign = async (raw: string) => {
-      const ts = "1";
+      const ts = "1800000000";
       const { hmacHex } = await import("../../../supabase/functions/_shared/integrations/crypto.ts");
       return { "x-zm-request-timestamp": ts, "x-zm-signature": `v0=${await hmacHex("SHA-256", fake.webhookSecret, `v0:${ts}:${raw}`)}` };
     };
-    expect(await z.parseWebhook("nope", await sign("nope"), 1)).toMatchObject({ ok: false, error: { code: "bad_response" } });
-    expect(await z.parseWebhook("[]", await sign("[]"), 1)).toEqual({ ok: true, data: null });
+    expect(await z.parseWebhook("nope", await sign("nope"), 1_800_000_000_000)).toMatchObject({ ok: false, error: { code: "bad_response" } });
+    expect(await z.parseWebhook("[]", await sign("[]"), 1_800_000_000_000)).toEqual({ ok: true, data: null });
     const noTs = JSON.stringify({ event: "meeting.ended", payload: { object: { id: 123456789 } } });
-    expect(await z.parseWebhook(noTs, await sign(noTs), 77)).toEqual({ ok: true, data: { kind: "room_ended", roomId: "123456789", atMs: 77 } });
+    expect(await z.parseWebhook(noTs, await sign(noTs), 1_800_000_000_077)).toEqual({ ok: true, data: { kind: "room_ended", roomId: "123456789", atMs: 1_800_000_000_077 } });
   });
 
   describe("in-app SDK join", () => {
@@ -378,13 +378,32 @@ describe("zoom adapter", () => {
       const z = zoomFor(fake);
       const key = "p0123456789abcdef0123456789abcdef012";
       const named = await fake.signedEvent("meeting.participant_joined", "123456789", "clinician", key);
-      expect(await z.parseWebhook(named.rawBody, named.headers, 1)).toEqual({ ok: true, data: { kind: "participant_joined", roomId: "123456789", role: "clinician", atMs: fake.clock.now, customerKey: key } });
+      expect(await z.parseWebhook(named.rawBody, named.headers, fake.clock.now)).toEqual({ ok: true, data: { kind: "participant_joined", roomId: "123456789", role: "clinician", atMs: fake.clock.now, customerKey: key } });
       const renamed = await fake.signedEvent("meeting.participant_left", "123456789", "Ada Obi", key);
-      expect(await z.parseWebhook(renamed.rawBody, renamed.headers, 1)).toEqual({ ok: true, data: { kind: "participant_left", roomId: "123456789", role: "observer", atMs: fake.clock.now, customerKey: key } });
+      expect(await z.parseWebhook(renamed.rawBody, renamed.headers, fake.clock.now)).toEqual({ ok: true, data: { kind: "participant_left", roomId: "123456789", role: "observer", atMs: fake.clock.now, customerKey: key } });
       // no key and no known label (a plain link joiner who typed a name) is still ignored
       const link = await fake.signedEvent("meeting.participant_joined", "123456789", "Ada Obi");
-      expect(await z.parseWebhook(link.rawBody, link.headers, 1)).toEqual({ ok: true, data: null });
+      expect(await z.parseWebhook(link.rawBody, link.headers, fake.clock.now)).toEqual({ ok: true, data: null });
     });
+  });
+
+  it("refuses a validly signed webhook that is stale, from the future or has no usable timestamp, so a captured one cannot be replayed", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = zoomFor(fake);
+    const evt = await fake.signedEvent("meeting.ended", "123456789");
+    expect((await z.parseWebhook(evt.rawBody, evt.headers, fake.clock.now)).ok).toBe(true);
+    // four minutes later still fine, six minutes later refused, and so is the same distance into the past
+    expect((await z.parseWebhook(evt.rawBody, evt.headers, fake.clock.now + 4 * 60_000)).ok).toBe(true);
+    for (const at of [fake.clock.now + 6 * 60_000, fake.clock.now - 6 * 60_000]) {
+      expect(await z.parseWebhook(evt.rawBody, evt.headers, at)).toMatchObject({ ok: false, error: { code: "invalid_signature" } });
+    }
+    // a timestamp that is not a plain number of seconds is refused even when it is correctly signed
+    const { hmacHex } = await import("../../../supabase/functions/_shared/integrations/crypto.ts");
+    for (const ts of ["abc", "", "-5", "1.5e9"]) {
+      const sig = `v0=${await hmacHex("SHA-256", fake.webhookSecret, `v0:${ts}:${evt.rawBody}`)}`;
+      const r = await z.parseWebhook(evt.rawBody, { "x-zm-request-timestamp": ts, "x-zm-signature": sig }, fake.clock.now);
+      expect(r.ok).toBe(false);
+    }
   });
 
   it("delivers in-process events (connection quality from the device SDK) to subscribers", async () => {

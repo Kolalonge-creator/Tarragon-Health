@@ -42,7 +42,7 @@ describe("presence from the vendor's webhook", () => {
     const key = await participantKey(SECRET, ENC, "clinician");
     // the person typed their own name; it plays no part
     expect(await send({ type: "participant_joined", roomId: "room_1", label: "Ada Obi", customerKey: key })).toEqual({ status: 200, body: { handled: true, kind: "participant_joined", role: "clinician" } });
-    expect(calls).toEqual([{ fn: "service_record_join", args: { p_encounter: ENC, p_role: "clinician", p_mode: "video" } }]);
+    expect(calls).toEqual([{ fn: "service_record_join", args: { p_encounter: ENC, p_role: "clinician", p_mode: "unknown" } }]);
   });
 
   it("refuses a patient who calls themselves the clinician: their own key says patient, so that is all that is recorded", async () => {
@@ -126,11 +126,22 @@ describe("presence from the vendor's webhook", () => {
   });
 
   describe("the one-time URL handshake", () => {
-    const challenge = JSON.stringify({ event: "endpoint.url_validation", payload: { plainToken: "abc123" } });
+    const challenge = JSON.stringify({ event: "endpoint.url_validation", payload: { plainToken: "abc12345xyz" } });
     it("answers with the challenge and its HMAC under our secret", async () => {
       const { deps } = setup();
       const r = await handleVideoWebhook(deps, challenge, {});
-      expect(r).toEqual({ status: 200, body: { plainToken: "abc123", encryptedToken: await hmacHex("SHA-256", HOOK, "abc123") } });
+      expect(r).toEqual({ status: 200, body: { plainToken: "abc12345xyz", encryptedToken: await hmacHex("SHA-256", HOOK, "abc12345xyz") } });
+    });
+    it("is not an oracle for forging a signature: a challenge shaped like a signed message (v0:timestamp:body) is refused", async () => {
+      const { deps } = setup();
+      const forged = JSON.stringify({ event: "endpoint.url_validation", payload: { plainToken: 'v0:1800000000:{"event":"meeting.participant_joined"}' } });
+      const r = await handleVideoWebhook(deps, forged, {});
+      expect(r.status).toBe(401);
+      expect(r.body).not.toHaveProperty("encryptedToken");
+      for (const token of ["has space token", "a".repeat(257), "colon:inside", "", "tab\there"]) {
+        const body = JSON.stringify({ event: "endpoint.url_validation", payload: { plainToken: token } });
+        expect((await handleVideoWebhook(deps, body, {})).body).not.toHaveProperty("encryptedToken");
+      }
     });
     it("cannot answer without the secret, and does not mistake other bodies for a challenge", async () => {
       const { deps } = setup({ webhookSecretToken: null });

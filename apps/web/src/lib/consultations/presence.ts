@@ -1,4 +1,4 @@
-import { hmacHex, roleFromParticipantKey, type VideoProvider } from "@tarragon/integrations";
+import { hmacHex, isSafeWebhookChallenge, roleFromParticipantKey, type VideoProvider } from "@tarragon/integrations";
 import type { RpcClient } from "./room";
 
 /**
@@ -12,6 +12,8 @@ import type { RpcClient } from "./room";
  * minted for (encounter, role) (participantKey in @tarragon/integrations), the vendor hands it back as `customer_key`, and only a key
  * that verifies for the encounter the room belongs to counts. A person who joined by plain link or by phone carries no key and so
  * proves nothing: they stay on the older, weaker path and never write presence here.
+ *
+ * A webhook cannot say how the person joined (video or audio), so the join is recorded with mode "unknown"; the mode_changed events carry the real one.
  *
  * Pure logic over injected clients, so it is proved without a network (presence.test.ts). The Next route is a thin wrapper.
  */
@@ -38,10 +40,12 @@ export interface PresenceResponse {
 /** Database errors that mean "this event cannot be recorded, and retrying will not change that" (outside the window, no such consultation). */
 const FINAL_CODES = new Set(["P0001", "P0002", "22023"]);
 
+
 const respond = (status: number, body: Record<string, unknown>): PresenceResponse => ({ status, body });
 
 export async function handleVideoWebhook(deps: PresenceDeps, rawBody: string, headers: Readonly<Record<string, string | null>>): Promise<PresenceResponse> {
-  // The vendor's one-time URL handshake. It only echoes an HMAC of the challenge under our own secret, so it reveals nothing.
+  // The vendor's one-time URL handshake. Its answer is an HMAC under the same secret that signs real events, so plainTokenFrom only
+  // accepts a challenge that cannot be a signed message (see isSafeWebhookChallenge).
   const challenge = plainTokenFrom(rawBody);
   if (challenge !== null) {
     if (!deps.webhookSecretToken) return respond(503, { error: "not_configured" });
@@ -75,7 +79,7 @@ export async function handleVideoWebhook(deps: PresenceDeps, rawBody: string, he
 
   const res =
     event.kind === "participant_joined"
-      ? await deps.serviceRpc.rpc("service_record_join", { p_encounter: room.encounterId, p_role: role, p_mode: "video" })
+      ? await deps.serviceRpc.rpc("service_record_join", { p_encounter: room.encounterId, p_role: role, p_mode: "unknown" })
       : await deps.serviceRpc.rpc("service_record_encounter_event", { p_encounter: room.encounterId, p_kind: "left", p_actor_role: role, p_payload: {} });
   if (res.error) {
     const final = res.error.code !== undefined && FINAL_CODES.has(res.error.code);
@@ -93,7 +97,7 @@ function plainTokenFrom(rawBody: string): string | null {
     const root = json as Record<string, unknown>;
     const payload = root["payload"];
     const token = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>)["plainToken"] : undefined;
-    return root["event"] === "endpoint.url_validation" && typeof token === "string" && token.length > 0 ? token : null;
+    return root["event"] === "endpoint.url_validation" && typeof token === "string" && isSafeWebhookChallenge(token) ? token : null;
   } catch {
     return null;
   }

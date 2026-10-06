@@ -78,6 +78,7 @@ export function ConsultationRoom({ view, locale, call = null }: { view: RoomView
     startTransition(async () => {
       if (call) {
         const started = await inApp.start(media);
+        if (started === "busy") return;
         if (started === "started") {
           setAudioHint(media === "audio_only");
           refresh();
@@ -208,10 +209,10 @@ export function ConsultationRoom({ view, locale, call = null }: { view: RoomView
             </div>
           )}
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => join("video")} disabled={pending || !view.joinable || view.final_media_mode === "audio_only"}>
+            <Button onClick={() => join("video")} disabled={pending || inApp.state !== "idle" || !view.joinable || view.final_media_mode === "audio_only"}>
               {t("consult.room.join_video", locale)}
             </Button>
-            <Button variant="outline" onClick={() => join("audio_only")} disabled={pending || !view.joinable}>
+            <Button variant="outline" onClick={() => join("audio_only")} disabled={pending || inApp.state !== "idle" || !view.joinable}>
               {t("consult.room.join_audio", locale)}
             </Button>
           </div>

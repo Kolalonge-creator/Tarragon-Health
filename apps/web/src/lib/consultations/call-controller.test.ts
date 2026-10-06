@@ -95,16 +95,28 @@ describe("video to audio only", () => {
     expect(f.c.mode).toBe("audio_only");
   });
 
-  it("ignores readings it cannot use, and a stale poor reading does not outlive the camera going off", () => {
+  it("ignores readings it cannot use", () => {
     const f = setup();
     f.emit("network-quality-change", { level: 99, type: "uplink", userId: SELF });
     f.emit("network-quality-change", null);
     f.emit("audio-statistic-data-change", { data: {} });
     f.emit("audio-statistic-data-change", "nope");
     expect(f.notices).toEqual([]);
-    // one poor video reading, then the camera goes off: only good audio readings follow, and they are not held back by the old one
+  });
+
+  it("the vendor reports its network level when it CHANGES, so one poor level stays true until replaced and the call downgrades while audio looks fine", () => {
+    const f = setup();
     clock += STEP;
     f.emit("network-quality-change", { level: 0, type: "uplink", userId: SELF });
+    for (let i = 0; i < policy.poorSamplesToDowngrade - 1; i++) audioSample(f, "good");
+    expect(f.c.mode).toBe("audio_only");
+  });
+
+  it("but a level cannot stay true for ever (it stops arriving when the camera goes off): it expires after the time a downgrade takes", () => {
+    const f = setup();
+    clock += STEP;
+    f.emit("network-quality-change", { level: 0, type: "uplink", userId: SELF });
+    clock += STEP * policy.poorSamplesToDowngrade * 2;
     for (let i = 0; i < policy.poorSamplesToDowngrade + 2; i++) audioSample(f, "good");
     expect(f.c.mode).toBe("video");
   });
@@ -192,6 +204,19 @@ describe("a lost connection", () => {
     f.emit("connection-change", { state: "Reconnecting" });
     f.emit("connection-change", { state: "Reconnecting" });
     expect(f.notices).toEqual(["held_place"]);
+  });
+
+  it("a close that arrives while a drop is being held means the link is gone for good: the phone card is shown at once, not nothing", () => {
+    const f = setup();
+    f.emit("connection-change", { state: "Reconnecting" });
+    f.emit("connection-change", { state: "Closed" });
+    expect(f.notices).toEqual(["held_place", "phone"]);
+    expect(f.phone).toHaveBeenCalledTimes(1);
+    expect(f.closed).toHaveBeenCalledTimes(1);
+    expect(f.c.mode).toBe("phone");
+    // and the clock that was counting down has stopped, so nothing fires a second time
+    jest.advanceTimersByTime(10 * grace * 1000);
+    expect(f.phone).toHaveBeenCalledTimes(1);
   });
 
   it("closing is the call ending, not a lost connection", () => {

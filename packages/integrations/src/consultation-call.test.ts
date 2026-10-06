@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   createMockVideo,
+  isSafeWebhookChallenge,
   isSampleDue,
   ladderInputFromConnection,
   participantKey,
@@ -91,6 +92,13 @@ describe("SDK signals to ladder inputs", () => {
     expect(isSampleDue(null, 1000, 3)).toBe(true);
     expect(isSampleDue(1000, 3999, 3)).toBe(false);
     expect(isSampleDue(1000, 4000, 3)).toBe(true);
+  });
+});
+
+describe("webhook URL challenge (the answer is an HMAC under the secret that signs events)", () => {
+  it("accepts a plain token and refuses anything that could be a signed message", () => {
+    for (const ok of ["qgg8vlvZRS6UYooatFL8Aw", "a", "tok-en_9=="]) expect(isSafeWebhookChallenge(ok)).toBe(true);
+    for (const bad of ['v0:1800000000:{"event":"meeting.ended"}', "has space", "tab\there", "", "a".repeat(257), 5, null, undefined, {}]) expect(isSafeWebhookChallenge(bad)).toBe(false);
   });
 });
 

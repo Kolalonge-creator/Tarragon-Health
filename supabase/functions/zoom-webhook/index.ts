@@ -15,6 +15,7 @@
 // has an equivalent handshake step.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { isSafeWebhookChallenge } from "../_shared/integrations/webhook-challenge.ts";
 
 interface ZoomWebhookEvent {
   event: string;
@@ -80,6 +81,12 @@ Deno.serve(async (req) => {
     const plainToken = event.payload?.plainToken;
     if (!secret || !plainToken) {
       return Response.json({ ok: false, error: "not_configured" }, { status: 200 });
+    }
+    // This answer is an HMAC under the SAME secret that signs real events, so an unchecked challenge is an oracle: sending
+    // `v0:<timestamp>:<forged body>` would return the exact signature for that forged event. A real challenge is a plain token
+    // with no colon or whitespace; anything else is refused (S21 review, mirrors apps/web/src/lib/consultations/presence.ts).
+    if (!isSafeWebhookChallenge(plainToken)) {
+      return Response.json({ ok: false, error: "invalid_challenge" }, { status: 200 });
     }
     const encryptedToken = await hmacHex(secret, plainToken);
     return Response.json({ plainToken, encryptedToken });

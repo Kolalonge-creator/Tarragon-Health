@@ -11,11 +11,12 @@ import { loadZoomEmbedded, type ZoomEmbeddedClient, type ZoomEmbeddedGlobal } fr
  * The in-app Zoom call for the consultation room (S21 follow-up, OQ-136). `start` answers one of:
  *  - "started": the person is in the call, shown inside the page
  *  - "not_open": the join window is closed (the page says when it opens)
+ *  - "busy": a call is already live or opening (the page does nothing)
  *  - "fallback": the in-app call could not be used for ANY reason (keys not set, the SDK would not load, the browser is not supported,
  *    Zoom refused the join). The caller then opens the person's link exactly as before, so a failure here never leaves anyone without
  *    a way into the call. The reason is only ever a code, never a message from Zoom.
  */
-export type StartResult = "started" | "not_open" | "fallback";
+export type StartResult = "started" | "not_open" | "fallback" | "busy";
 export type CallState = "idle" | "joining" | "in_call";
 
 export interface InAppCallOptions {
@@ -56,18 +57,23 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
     }
   }, []);
 
-  useEffect(
-    () => () => {
+  // A start that is still loading or joining when the page goes away must not leave the person in a call nothing is showing.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       void teardown();
-    },
-    [teardown],
-  );
+    };
+  }, [teardown]);
 
-  const start = useCallback(
+  const run = useCallback(
     async (media: "video" | "audio_only"): Promise<StartResult> => {
       const { encounterId, role, policy, initialMode, onPhone } = opts.current;
       if (!policy) return "fallback";
       const prepared = await prepareSdkJoinAction(encounterId, media);
+      // a stale notice (for example the phone card from an earlier drop) must not linger once the person tries again
+      setNotice(null);
       if (!prepared.ok) return prepared.reason === "not_open" ? "not_open" : "fallback";
       const root = rootRef.current;
       if (!root) return "fallback";
@@ -106,11 +112,22 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
           onClosed: () => {
             void teardown().then(() => {
               setState("idle");
-              setNotice(null);
+              // a phone notice raised by this very close stays on screen: it is how the person is told what to do next
+              setNotice((n) => (n === "phone" ? n : null));
             });
           },
           onPhone: () => onPhone(),
         });
+        if (!mounted.current) {
+          // the page went away while Zoom was joining: leave again at once rather than stay in a call nobody can see
+          try {
+            await client.leaveMeeting();
+          } catch {
+            // already out
+          }
+          sdk.destroyClient();
+          return "fallback";
+        }
         controller.start();
         live.current = { sdk, client, controller };
         setNotice(null);
@@ -130,6 +147,21 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
       }
     },
     [rootRef, teardown],
+  );
+
+  const starting = useRef(false);
+  const start = useCallback(
+    async (media: "video" | "audio_only"): Promise<StartResult> => {
+      // Already in a call, or opening one: a second start would tear the first down (Zoom's client is a singleton) and leak its listeners.
+      if (live.current || starting.current) return "busy";
+      starting.current = true;
+      try {
+        return await run(media);
+      } finally {
+        starting.current = false;
+      }
+    },
+    [run],
   );
 
   const leave = useCallback(async () => {

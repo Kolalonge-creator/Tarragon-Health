@@ -87,6 +87,9 @@ describe("ConsultationRoom with the in-app call", () => {
     expect(window.open).not.toHaveBeenCalled();
     expect(await screen.findByRole("button", { name: "Leave the call" })).toBeTruthy();
     expect(screen.getByTestId("call-root").classList.contains("hidden")).toBe(false);
+    // a second tap on join cannot tear down the call that is already live
+    expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Join with audio only" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("hands the clinician's host key to the SDK, and only when there is one", async () => {
@@ -247,6 +250,30 @@ describe("ConsultationRoom with the in-app call", () => {
       const f = await joined();
       act(() => f.emit("connection-change", { state: "Closed" }));
       await waitFor(() => expect(screen.queryByRole("button", { name: "Leave the call" })).toBeNull());
+      expect(f.sdk.destroyClient).toHaveBeenCalled();
+    });
+
+    it("the phone card stays on screen when the call closes because the connection was lost for good", async () => {
+      dialIn.mockResolvedValue({ ok: true, dialIn: { numbers: [{ country: "NG", number: "+234 1 888 0000", city: "Lagos", kind: "toll" }], meetingId: "81000000001", passcode: "482913", expiresAtMs: 0 } });
+      const f = await joined();
+      act(() => f.emit("connection-change", { state: "Reconnecting" }));
+      act(() => f.emit("connection-change", { state: "Closed" }));
+      expect((await screen.findByTestId("dial-in")).textContent).toContain("482913");
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Leave the call" })).toBeNull());
+      expect(screen.getByTestId("call-notice").textContent).toContain("join by phone");
+    });
+
+    it("leaves again at once if the page went away while Zoom was still joining, instead of staying in a call nobody can see", async () => {
+      let release: () => void = () => undefined;
+      const f = fakeSdk({ join: jest.fn(() => new Promise<unknown>((resolve) => (release = () => resolve(undefined)))) });
+      loadSdk.mockResolvedValue(f.sdk);
+      prepare.mockResolvedValue({ ok: true, join: joinInfo });
+      const { unmount } = render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
+      click("Join with video");
+      await waitFor(() => expect(f.client.join).toHaveBeenCalled());
+      unmount();
+      release();
+      await waitFor(() => expect(f.client.leaveMeeting).toHaveBeenCalled());
       expect(f.sdk.destroyClient).toHaveBeenCalled();
     });
 

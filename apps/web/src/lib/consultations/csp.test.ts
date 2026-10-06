@@ -26,7 +26,11 @@ describe("Content-Security-Policy for the in-app call", () => {
     const room = list.find((r) => r.source.includes("consultation"));
     expect(room?.source).toBe("/(patient|clinician)/consultation/:encounterId");
     const value = csp(room!);
-    expect(value).toMatch(/script-src [^;]*https:\/\/\*\.zoom\.us/);
+    // script may come only from Zoom's SDK host: no wildcard host and no blob: scripts on pages that carry the most sensitive data
+    expect(value).toMatch(/script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https:\/\/source\.zoom\.us(;|$)/);
+    expect(value).not.toMatch(/script-src[^;]*blob:/);
+    expect(value).not.toMatch(/script-src[^;]*\*/);
+    expect(value).not.toMatch(/frame-src[^;]*zoom/);
     expect(value).toMatch(/connect-src [^;]*wss:\/\/\*\.zoom\.us/);
     expect(value).toContain("'wasm-unsafe-eval'");
     expect(value).toMatch(/worker-src 'self' blob:/);

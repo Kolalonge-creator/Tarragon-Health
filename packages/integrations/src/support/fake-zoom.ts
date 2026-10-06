@@ -90,12 +90,12 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
     },
     async signedEvent(event, meetingId, userName, customerKey) {
       const rawBody = body(event, meetingId, userName, customerKey);
-      const ts = String(clock.now);
+      const ts = String(Math.floor(clock.now / 1000));
       return { rawBody, headers: { "x-zm-request-timestamp": ts, "x-zm-signature": await sign(rawBody, ts) } };
     },
     async forgedEvent(event, meetingId) {
       const rawBody = body(event, meetingId);
-      return { rawBody, headers: { "x-zm-request-timestamp": String(clock.now), "x-zm-signature": `v0=${"0".repeat(64)}` } };
+      return { rawBody, headers: { "x-zm-request-timestamp": String(Math.floor(clock.now / 1000)), "x-zm-signature": `v0=${"0".repeat(64)}` } };
     },
   };
 }

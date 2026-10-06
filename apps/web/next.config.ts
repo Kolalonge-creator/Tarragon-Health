@@ -73,9 +73,14 @@ const supabaseWebSocketOrigin = supabaseOrigin.replace(/^https:/, "wss:");
 //   browser, so they need no CSP entry either.
 // The in-app Zoom call (S21 follow-up, OQ-136) needs more than the rest of the app, so the extra allowances are added ONLY on the two
 // consultation routes (see headers() below) and nowhere else. They are Zoom's own hosts: its Meeting SDK script and assets
-// (source.zoom.us), its signalling and media over https and wss (*.zoom.us, and *.zoom.com for its new domain), blob: for the media
-// and workers the SDK creates, and 'wasm-unsafe-eval' for its WebAssembly media engine (not 'unsafe-eval': nothing in the SDK
-// bundle was found to need it, and if a live test shows otherwise the call falls back to the link and this is where to look).
+// (source.zoom.us: the only host allowed to supply SCRIPT, and no blob: scripts, because these pages carry the most sensitive data), its
+// signalling and media over https and wss (*.zoom.us, and *.zoom.com for its new domain), blob: for the media and workers the SDK
+// creates, and 'wasm-unsafe-eval' for its WebAssembly media engine (not 'unsafe-eval': nothing in the SDK bundle was found to need it).
+// Evidence for leaving blob: out of script-src: in the 6.5.0 bundle the audio worklets are loaded by path from source.zoom.us
+// (`audioWorkletPath`), and the blob URLs it creates feed an Audio element (media-src), not scripts; the SDK's workers are blob
+// workers (worker-src) that importScripts from source.zoom.us. Not verified live.
+// Anything narrower than this that a live call turns out to need (an iframe, a blob script, eval) is added HERE, one directive at a
+// time, after a real violation report; until a live test the call falls back to the link if the SDK is blocked.
 // Cross-origin isolation (COOP/COEP) is deliberately NOT turned on: it would break every other embed on these pages, and without it
 // the SDK simply runs without SharedArrayBuffer (no gallery view, lower send resolution), which a one-to-one consultation does not need.
 const zoomHosts = "https://*.zoom.us https://*.zoom.com";
@@ -83,12 +88,12 @@ function buildCsp(opts: { inAppCall: boolean }): string {
   const call = opts.inAppCall;
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'" + (call ? ` 'wasm-unsafe-eval' ${zoomHosts} blob:` : ""),
-    "style-src 'self' 'unsafe-inline'" + (call ? ` ${zoomHosts}` : ""),
+    "script-src 'self' 'unsafe-inline'" + (call ? " 'wasm-unsafe-eval' https://source.zoom.us" : ""),
+    "style-src 'self' 'unsafe-inline'" + (call ? " https://source.zoom.us" : ""),
     "img-src 'self' data: blob: " + supabaseOrigin + (call ? ` ${zoomHosts}` : ""),
-    "font-src 'self'" + (call ? ` data: ${zoomHosts}` : ""),
+    "font-src 'self'" + (call ? " data: https://source.zoom.us" : ""),
     call ? `media-src 'self' blob: ${zoomHosts}` : "",
-    call ? "worker-src 'self' blob:" : "",
+    call ? "worker-src 'self' blob: https://source.zoom.us" : "",
     [
       "connect-src 'self'",
       supabaseOrigin,
@@ -98,7 +103,7 @@ function buildCsp(opts: { inAppCall: boolean }): string {
       "https://*.ingest.sentry.io",
       ...(call ? [zoomHosts, "wss://*.zoom.us", "wss://*.zoom.com"] : []),
     ].join(" "),
-    `frame-src ${supabaseOrigin} https://www.youtube-nocookie.com` + (call ? ` ${zoomHosts}` : ""),
+    `frame-src ${supabaseOrigin} https://www.youtube-nocookie.com`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
