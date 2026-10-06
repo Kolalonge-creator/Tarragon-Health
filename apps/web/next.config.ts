@@ -186,6 +186,15 @@ const nextConfig: NextConfig = {
           { key: "Content-Security-Policy", value: cspDirectives },
         ],
       },
+      {
+        // S36i: the speak-up screens show private words and who wrote them (spec INV-07). Never cached by a browser, a proxy or
+        // the CDN, and the address is never sent on as a referrer. This entry comes after the catch-all above so it wins for these paths.
+        source: "/clinician/(quality/concerns|my-concerns)",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
     ];
   },
 };

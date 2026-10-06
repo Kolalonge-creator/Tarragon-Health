@@ -863,3 +863,5 @@ s35_clinician_patient_summary.sql
 s36a_admin_patient_search.sql
 # S36b: go_live_guard_status is readable by a holder of ops.console.view (read-only dashboard for ops, spec 9.4); ops still cannot switch a guard on or off or attest a condition (42501), a plain clinician and a patient cannot read, revoking the permission closes the read. Sabotage: the permission clause removed; the ops read must flip.
 s36b_go_live_status_ops_read.sql
+# S36i: speak-up screens over S20. Admin, finance, care coordinator, analyst, patient and anon read zero concern rows and can call no lead function; the raiser reads only their own; the lead sees identity and 48 hour / 14 day deadlines; answer shapes carry every key the page schemas need; no notice, event or audit row carries a concern. Sabotage: reader check opened to all must flip the admin checks.
+s36i_speak_up_screens.sql
