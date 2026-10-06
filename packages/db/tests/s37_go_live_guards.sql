@@ -441,6 +441,13 @@ begin
   perform pg_temp.rec('nothing is seeded: no sign-off exists that this proof did not write', '0',
     (select count(*)::text from public.proposed_config_signoffs where signed_by not in (v_cmo, v_admin)));
 
+  -- every condition the dashboard shows as recorded by a person can actually be recorded (the attestable list matches the conditions)
+  perform pg_temp.act(v_admin);
+  perform pg_temp.rec('every attestation condition the dashboard lists can be attested', '0',
+    (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g, jsonb_array_elements(g -> 'conditions') c
+      where c ->> 'source' = 'attestation'
+        and pg_temp.try(format('select public.attest_go_live_condition(%L, %L, true, ''Proof: checked by the proof.'')', g ->> 'key', c ->> 'code')) <> 'ok'));
+  perform pg_temp.back();
   -- A condition that cannot be evaluated is unmet, never an error: the stop button and the dashboard survive a broken query
   create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb language plpgsql stable security definer set search_path = '' as $f$
     begin raise exception 'simulated broken condition query'; end $f$;

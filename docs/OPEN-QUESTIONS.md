@@ -982,7 +982,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision: open.
 
 ### OQ-187 The room view still enables the join buttons while the guard is off (raised by S37)
-- `consultation_room_view` (S21c) feeds the room page and does not read the guard, so with the guard off the Join buttons can be enabled inside the join window and a press says consultations are paused; outside the window the page still says when the room opens. The refusal is correct (`service_get_encounter_room` and `joinConsultation`); the page text is not. Needs a one-line change to that view.
+- The room also still asks the patient to allow the AI note-taker while `scribe_enabled` is off (the answer is then refused with the generic save error), because the room view carries no scribe flag. `consultation_room_view` (S21c) feeds the room page and does not read the guard, so with the guard off the Join buttons can be enabled inside the join window and a press says consultations are paused; outside the window the page still says when the room opens. The refusal is correct (`service_get_encounter_room` and `joinConsultation`); the page text is not. Needs a one-line change to that view.
 - Decision: open.
 
 ### OQ-186 The guard tables are deployment-wide, with no organisation_id (raised by S37)

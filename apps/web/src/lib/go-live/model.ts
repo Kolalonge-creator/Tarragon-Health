@@ -10,19 +10,10 @@ import type { ConfigOwner, ConfigValue, ProposedConfigEntry } from "@tarragon/sh
  * change shows up as a calm "could not be loaded" state, never as a silently empty list.
  */
 
-export const GUARD_KEYS = [
-  "clinical_operations_enabled",
-  "on_call_cover_ok",
-  "lab_booking_enabled",
-  "prescribing_enabled",
-  "scribe_enabled",
-  "payouts_enabled",
-  "public_signup_enabled",
-] as const;
-export type GuardKey = (typeof GUARD_KEYS)[number];
+import { CONSULTATIONS_GUARD, GUARD_KEYS, type GuardKey } from "./constants";
 
-/** The guard the consultation flow is wired to (INV-14). */
-export const CONSULTATIONS_GUARD: GuardKey = "clinical_operations_enabled";
+export { CONSULTATIONS_GUARD, GUARD_KEYS };
+export type { GuardKey };
 
 export const conditionSchema = z.object({
   code: z.string(),

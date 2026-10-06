@@ -19,6 +19,7 @@ jest.mock("next/navigation", () => ({
 let slots: unknown[] | undefined;
 let isLoading = false;
 let guardOpen: boolean | undefined = true;
+let guardError = false;
 jest.mock("@/lib/queries/appointments", () => ({
   useAvailableAppointmentSlots: () => ({ data: slots, isLoading }),
   useHoldAppointmentSlot: () => ({
@@ -31,7 +32,7 @@ jest.mock("@/lib/queries/appointments", () => ({
   }),
   useJoinWaitingList: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useMyConsultationRule: () => ({ data: undefined }),
-  useGoLiveGuardOpen: () => ({ data: guardOpen, isLoading: false }),
+  useGoLiveGuardOpen: () => ({ data: guardOpen, isLoading: false, isError: guardError }),
   useEnsureAppointmentVideoConsultation: () => ({
     mutateAsync: jest.fn(async () => ({ videoConsultationId: "vc-1" })),
     isPending: false,
@@ -43,6 +44,7 @@ describe("BookAppointment accessibility", () => {
     slots = undefined;
     isLoading = false;
     guardOpen = true;
+    guardError = false;
   });
 
   it("with the go-live guard off, shows a calm closed state and no times or booking buttons (S37, INV-14)", async () => {
@@ -54,6 +56,15 @@ describe("BookAppointment accessibility", () => {
     expect(screen.getByText("Consultations are not open yet")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Book" })).toBeNull();
     expect(screen.queryByText("Join the waiting list")).toBeNull();
+  });
+
+  it("says the check failed (not that booking is closed) when the guard check errors, and still shows no booking buttons", async () => {
+    guardOpen = undefined;
+    guardError = true;
+    render(<BookAppointment organisationId="org-1" patientId="patient-1" />);
+    expect(screen.getByText("We could not check just now whether booking is open. Please try again in a moment.")).toBeTruthy();
+    expect(screen.queryByText("Consultations are not open yet")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Book" })).toBeNull();
   });
 
   it("fails closed when the guard check has no answer", async () => {

@@ -8,7 +8,8 @@
 --
 -- WHAT IS WIRED IN THIS MIGRATION, and nothing else:
 --   clinical_operations_enabled -> hold_appointment_slot, confirm_appointment_booking, service_get_encounter_room
---                                  (consultations only: appointment types telemedicine and result_interpretation), and the
+--                                  (consultations only: any remote clinician appointment, meaning the types telemedicine and result_interpretation or any
+--                                  type booked with the telemedicine method, staff-booked ones included; a hold needs a clinician id), and the
 --                                  older video-visit request path (insert trigger on video_visit_requests,
 --                                  accept_video_visit_request, select_video_visit_alternate_slot): without it a patient could
 --                                  still reach a consultation around the booking functions. 0 rows ever in video_visit_requests.

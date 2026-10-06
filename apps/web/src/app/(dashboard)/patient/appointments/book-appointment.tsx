@@ -16,7 +16,7 @@ import {
   PATIENT_BOOKABLE_APPOINTMENT_TYPES,
   PAID_APPOINTMENT_PRODUCT_CODE,
 } from "./appointment-labels";
-import { CONSULTATIONS_GUARD } from "@/lib/go-live/model";
+import { CONSULTATIONS_GUARD } from "@/lib/go-live/constants";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 import { ConsultationRuleCard } from "@/components/consultation/consultation-rule";
@@ -292,7 +292,12 @@ export function BookAppointment({
           </p>
         </div>
 
-        {closed && (
+        {closed && guard.isError && (
+          <div role="status" className="space-y-1 rounded-md border border-charcoal-ink/15 bg-charcoal-ink/5 p-3">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("golive.consultations.check_failed", locale)}</p>
+          </div>
+        )}
+        {closed && !guard.isError && (
           <div role="status" className="space-y-1 rounded-md border border-charcoal-ink/15 bg-charcoal-ink/5 p-3">
             <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{t("golive.consultations.closed.title", locale)}</p>
             <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("golive.consultations.closed.body", locale)}</p>
