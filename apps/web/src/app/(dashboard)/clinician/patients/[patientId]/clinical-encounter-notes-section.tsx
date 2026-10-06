@@ -18,6 +18,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
 import { ConsultationFollowUpsPanel } from "./consultation-follow-ups-panel";
+import { ScribePanel, type ScribeDraftResult } from "@/components/scribe";
+import { attachScribeDraftToNote } from "@/lib/scribe/actions";
+import { useScribeAvailable } from "@/lib/scribe/use-scribe-available";
 import { createNoteAmendment, setNoteProtected, withdrawNoteAsEnteredInError } from "./note-actions";
 import { AMENDMENT_KINDS, AMENDMENT_KIND_LABEL, type AmendmentKind, type NoteActionState } from "@/lib/clinician/note-requests";
 
@@ -426,6 +429,50 @@ function DraftNoteCard({
   const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const update = useUpdateEncounterNoteDraft();
   const finalize = useFinalizeEncounterNote();
+  const scribeAvailable = useScribeAvailable().data === true;
+  // Set when the clinician uses an AI scribe draft; recorded on the note (consent, summary, ai_drafted) at the next save or sign.
+  const [scribe, setScribe] = useState<(ScribeDraftResult & { persisted: boolean }) | null>(null);
+  const [scribeError, setScribeError] = useState<string | null>(null);
+
+  function applyScribeDraft(result: ScribeDraftResult) {
+    const add = (existing: string, incoming: string) =>
+      incoming.trim() ? (existing.trim() ? `${existing.trim()}\n\n${incoming.trim()}` : incoming.trim()) : existing;
+    setFields((f) => ({
+      ...f,
+      history: add(f.history, result.draft.history),
+      examinationFindings: add(f.examinationFindings, result.draft.examination),
+      assessment: add(f.assessment, result.draft.assessment),
+      plan: add(f.plan, result.draft.plan),
+      followUpInstructions: add(f.followUpInstructions, result.draft.followUp),
+    }));
+    setScribe({ ...result, persisted: false });
+  }
+
+  /** Records the scribe's consent and summary on the note before a save or sign. Returns false (and says why) if refused. */
+  async function persistScribe(): Promise<boolean> {
+    setScribeError(null);
+    if (!scribe || scribe.persisted) return true;
+    try {
+      await attachScribeDraftToNote({
+        encounterNoteId: note.id,
+        scribeConsentId: scribe.consentId,
+        patientSummary: scribe.patientSummary,
+        patientSummaryLanguage: scribe.language,
+      });
+      setScribe({ ...scribe, persisted: true });
+      return true;
+    } catch (err) {
+      setScribeError(err instanceof Error ? err.message : "Could not record the AI scribe on this note.");
+      return false;
+    }
+  }
+
+  // Computed once on mount (the lint rule forbids Date.now() during render); age only needs to be right to the year.
+  const [ageYears] = useState(() =>
+    patientDateOfBirth
+      ? Math.floor((Date.now() - new Date(patientDateOfBirth).getTime()) / (365.25 * 24 * 3600 * 1000))
+      : undefined
+  );
 
   return (
     <Card>
@@ -446,6 +493,18 @@ function DraftNoteCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <NoteFields values={fields} onChange={(field, value) => setFields((f) => ({ ...f, [field]: value }))} />
+        {scribeAvailable && (
+          <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
+            <ScribePanel
+              patientId={patientId}
+              encounterNoteId={note.id}
+              patientContext={ageYears !== undefined && ageYears >= 0 && ageYears <= 130 ? { age: ageYears } : undefined}
+              onUseDraft={applyScribeDraft}
+            />
+            {scribe && <p className="text-xs text-charcoal-ink/50">AI-drafted text is in the fields above. It is yours to edit; nothing is saved until you save or sign.</p>}
+          </div>
+        )}
+        {scribeError && <p className="text-sm text-red-600">{scribeError}</p>}
         {update.isError && <p className="text-sm text-red-600">{(update.error as Error).message}</p>}
         {finalize.isError && <p className="text-sm text-red-600">{(finalize.error as Error).message}</p>}
         <div className="flex gap-2">
@@ -453,7 +512,8 @@ function DraftNoteCard({
             size="sm"
             variant="outline"
             disabled={update.isPending}
-            onClick={() =>
+            onClick={async () => {
+              if (!(await persistScribe())) return;
               update.mutate({
                 noteId: note.id,
                 patientId,
@@ -466,8 +526,8 @@ function DraftNoteCard({
                   plan: fields.plan.trim() || null,
                   follow_up_instructions: fields.followUpInstructions.trim() || null,
                 },
-              })
-            }
+              });
+            }}
           >
             {update.isPending ? "Saving…" : "Save changes"}
           </Button>
@@ -501,14 +561,15 @@ function DraftNoteCard({
                 finalize.isPending
               }
               title="Locks this note permanently, no further edits after signing"
-              onClick={() =>
+              onClick={async () => {
+                if (!(await persistScribe())) return;
                 finalize.mutate({
                   noteId: note.id,
                   patientId,
                   outcome: outcome as NonNullable<ClinicalEncounterNote["outcome"]>,
                   identityConfirmed,
-                })
-              }
+                });
+              }}
             >
               {finalize.isPending ? "Signing…" : "Sign & finalise"}
             </Button>

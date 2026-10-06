@@ -1,75 +1,100 @@
 /**
- * INV-11: an AI-drafted note only reaches the patient record through signScribeDraft, and only while the scribe
- * consent is still granted, unrevoked and bound to the same encounter. Sabotage check: delete the consent guard in
- * signScribeDraft and the "revoked" and "other encounter" cases fail.
+ * INV-11 / INV-10: an AI draft is attached to a draft encounter note only through attach_scribe_draft_to_note (the table
+ * is closed to direct writes), and the database refuses it when consent is revoked or belongs to another encounter. The
+ * action must surface that refusal instead of swallowing it, and must never write to the table directly.
+ * Sabotage check: change attachScribeDraftToNote to catch and ignore the RPC error and the "refusal" case fails.
  */
 
-const ENCOUNTER = "11111111-1111-4111-8111-111111111111";
-const OTHER_ENCOUNTER = "33333333-3333-4333-8333-333333333333";
+const NOTE = "11111111-1111-4111-8111-111111111111";
 const CONSENT = "22222222-2222-4222-8222-222222222222";
 
-const consentRow = jest.fn();
-const updateMock = jest.fn();
-const deleteEqMock = jest.fn();
+const rpcMock = jest.fn();
+const fromMock = jest.fn();
+const getSessionMock = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({
-    from: (table: string) => {
-      if (table === "scribe_consents") {
-        return { select: () => ({ eq: () => ({ maybeSingle: () => consentRow() }) }) };
-      }
-      if (table === "scribe_transcripts") {
-        return { delete: () => ({ eq: (...a: unknown[]) => deleteEqMock(...a) }) };
-      }
-      return { update: (v: unknown) => ({ eq: () => updateMock(v) }) };
-    },
+    rpc: (...a: unknown[]) => rpcMock(...a),
+    from: (...a: unknown[]) => fromMock(...a),
+    auth: { getSession: () => getSessionMock() },
   }),
 }));
 
-import { signScribeDraft } from "./actions";
+import { attachScribeDraftToNote, draftScribeFromText } from "./actions";
 
-const input = {
-  encounterNoteId: ENCOUNTER,
-  scribeConsentId: CONSENT,
-  history: "h",
-  examinationFindings: "e",
-  assessment: "a",
-  plan: "p",
-  followUpInstructions: "f",
-  patientSummary: "s",
-  patientSummaryLanguage: "en-NG" as const,
-};
-
-describe("signScribeDraft", () => {
+describe("attachScribeDraftToNote", () => {
   beforeEach(() => {
-    consentRow.mockReset();
-    updateMock.mockReset().mockResolvedValue({ error: null });
+    rpcMock.mockReset().mockResolvedValue({ error: null });
+    fromMock.mockReset();
   });
 
-  it("finalizes the note as AI-drafted when consent is active for this encounter", async () => {
-    consentRow.mockResolvedValue({
-      data: { granted: true, revoked_at: null, encounter_note_id: ENCOUNTER },
-      error: null,
+  it("calls the audited function with the consent and summary, and never touches the table directly", async () => {
+    await attachScribeDraftToNote({
+      encounterNoteId: NOTE,
+      scribeConsentId: CONSENT,
+      patientSummary: "Rest.",
+      patientSummaryLanguage: "pcm",
     });
-    await signScribeDraft(input);
-    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ status: "finalized", ai_drafted: true }));
+    expect(rpcMock).toHaveBeenCalledWith("attach_scribe_draft_to_note", {
+      p_note: NOTE,
+      p_consent: CONSENT,
+      p_patient_summary: "Rest.",
+      p_summary_language: "pcm",
+    });
+    expect(fromMock).not.toHaveBeenCalled();
   });
 
-  it("refuses to write when consent was revoked after the draft was generated", async () => {
-    consentRow.mockResolvedValue({
-      data: { granted: true, revoked_at: "2026-10-06T10:00:00Z", encounter_note_id: ENCOUNTER },
-      error: null,
-    });
-    await expect(signScribeDraft(input)).rejects.toThrow("not active");
-    expect(updateMock).not.toHaveBeenCalled();
+  it("surfaces the database's refusal (revoked consent, other encounter, finalized note)", async () => {
+    rpcMock.mockResolvedValue({ error: { message: "Scribe consent is not active for this encounter." } });
+    await expect(
+      attachScribeDraftToNote({
+        encounterNoteId: NOTE,
+        scribeConsentId: CONSENT,
+        patientSummary: "",
+        patientSummaryLanguage: "en-NG",
+      })
+    ).rejects.toThrow("not active");
   });
 
-  it("refuses to write when the consent belongs to another encounter", async () => {
-    consentRow.mockResolvedValue({
-      data: { granted: true, revoked_at: null, encounter_note_id: OTHER_ENCOUNTER },
-      error: null,
+  it("rejects malformed ids before any call", async () => {
+    await expect(
+      attachScribeDraftToNote({
+        encounterNoteId: "nope",
+        scribeConsentId: CONSENT,
+        patientSummary: "",
+        patientSummaryLanguage: "en-NG",
+      })
+    ).rejects.toThrow();
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("draftScribeFromText", () => {
+  const fetchMock = jest.fn();
+  beforeEach(() => {
+    getSessionMock.mockReset().mockResolvedValue({ data: { session: { access_token: "t" } } });
+    fetchMock.mockReset().mockResolvedValue({ ok: true, json: async () => ({ status: "ok" }) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+  });
+
+  it("sends parsed segments marked as typed notes", async () => {
+    await draftScribeFromText({
+      scribeConsentId: CONSENT,
+      encounterNoteId: NOTE,
+      language: "en-NG",
+      text: "Patient: headache for two weeks\nDoctor: BP 164/98, review in two weeks",
     });
-    await expect(signScribeDraft(input)).rejects.toThrow("not active");
-    expect(updateMock).not.toHaveBeenCalled();
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.source).toBe("typed");
+    expect(body.segments).toHaveLength(2);
+    expect(body.segments[0]).toMatchObject({ speaker: "patient", text: "headache for two weeks" });
+  });
+
+  it("refuses text that is too short to draft from, without calling the function", async () => {
+    await expect(
+      draftScribeFromText({ scribeConsentId: CONSENT, encounterNoteId: NOTE, language: "en-NG", text: "short" })
+    ).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

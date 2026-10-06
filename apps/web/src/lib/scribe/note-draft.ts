@@ -70,12 +70,26 @@ export type ScribeNoteResult =
   | { readonly ok: true; readonly note: ScribeNoteDraft; readonly model: string }
   | { readonly ok: false; readonly reason: string };
 
-export function buildScribeUserMessage(language: "en-NG" | "pcm", transcript: string): string {
-  return [`Language variant: ${language}`, `Transcript:\n${transcript}`].join("\n\n");
+export function buildScribeUserMessage(
+  language: "en-NG" | "pcm",
+  transcript: string,
+  source: "stt" | "typed" = "stt"
+): string {
+  return [
+    `Language variant: ${language}`,
+    source === "typed" ? "Input type: notes the clinician typed or pasted about the consultation (not a recording)." : null,
+    `Transcript:\n${transcript}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /** Never throws: a failed call is a result the evaluation records as a failure, not a crash. */
-export async function generateScribeNote(language: "en-NG" | "pcm", transcript: string): Promise<ScribeNoteResult> {
+export async function generateScribeNote(
+  language: "en-NG" | "pcm",
+  transcript: string,
+  source: "stt" | "typed" = "stt"
+): Promise<ScribeNoteResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { ok: false, reason: "ANTHROPIC_API_KEY is not set" };
 
@@ -87,7 +101,7 @@ export async function generateScribeNote(language: "en-NG" | "pcm", transcript: 
       max_tokens: SCRIBE_CLAUDE_MAX_TOKENS,
       system: SCRIBE_SYSTEM_PROMPT,
       output_config: { format: { type: "json_schema", schema: SCRIBE_NOTE_SCHEMA } },
-      messages: [{ role: "user", content: buildScribeUserMessage(language, transcript) }],
+      messages: [{ role: "user", content: buildScribeUserMessage(language, transcript, source) }],
     }),
   });
   if (!res.ok) return { ok: false, reason: `model call failed (${res.status})` };
