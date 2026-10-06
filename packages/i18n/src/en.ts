@@ -1274,6 +1274,16 @@ export const en = {
   "task.dedicated_link": "Open the written questions page",
   "concern.err.description": "Please write at least 20 characters.",
   "concern.err.generic": "The concern could not be sent. Please try again, or tell the clinical lead directly.",
+  "scribe.review.empty_flag": "Nothing was drafted here. Check the conversation: something may have been missed.",
+  "scribe.review.confirm_read": "I have read this section",
+  "scribe.review.confirm_empty": "Nothing was discussed about this",
+  "scribe.review.remaining": "{count} sections still to confirm",
+  "scribe.review.all_done": "All sections confirmed. You can use the draft in the note.",
+  "scribe.review.edited": "You changed this section, so please confirm it again.",
+  "queue.overdue": "Overdue",
+  "queue.due_in": "Due in {minutes} minutes",
+  "scribe.review.look_for": "Before you confirm, look for what is missing, not only what is wrong: allergies, medicines and doses, things the patient said they do NOT have, and the follow-up plan. Missing items are the most common error in AI notes.",
+  "queue.updated": "Updated {time}",
 } as const;
 
 export type MessageKey = keyof typeof en;
