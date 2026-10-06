@@ -1420,3 +1420,41 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - **Liaison view CLOSED:** the Lab Liaison sees a neutral list of the files they recorded (last 30 days): date, patient number, order, file name and one of two words, "waiting for review" or "reviewed". Never values, reasons, or whether a result was withheld.
 - **Held corrections CLOSED:** a lab can replace a result that is still held. The held one is marked replaced at once, its review task is cancelled, and it can no longer be released or withheld (`lab_result_replaced`). The replacement goes through the same gate, the reviewer sees the kind and reason, and if the patient never saw the first result they get the normal release notice, not a "corrected" one. A claimed task held by another clinician is left to that clinician, who will find the release refused.
 - **Withdraw screen CLOSED (patient-scoped):** on a tied senior clinician's patient chart, "Released lab results" opens on a click (one audited read) and offers Withdraw with a required reason. There is deliberately no org-wide list.
+
+## S28: pharmacy partner, collection and dispensing (raised 2026-10-07)
+
+### OQ-270 Two prescription models, one supply count (decided)
+- The paper and QR path is keyed on `medications.public_token`; the routed path is keyed on `prescriptions.state`. A prescription could be supplied by the QR scan, the phone desk and the partner list.
+- **Decided 2026-10-07 (founder): one shared supply count.** All paths write `pharmacy_order_dispenses` and lock the same `medications` row. A PARTIAL partner supply is not counted by the partner path, but the QR and phone-desk paths count every row, so they can only refuse sooner, never supply more. Proved both ways in `s28_pharmacy_collection_and_dispensing.sql`.
+
+### OQ-271 Older pharmacist functions still read patient data with no audit row (INV-10)
+- `pharmacist_orders`, `pharmacist_order_medications` (the patient's whole active medicine list) and `pharmacist_order_allergies` belong to the dormant order model (0 orders). S28 makes the new prescription path audited and limited (the sent prescription, the patient's name and number, allergies, nothing else), but did not change the dormant order functions.
+- Options: (a) audit and narrow them when the order model is revived, or retire it (recommended: retire with OQ-173's legacy removal session); (b) audit now.
+- Decision: open (founder).
+
+### OQ-272 Delivery schema is still present (Part C.2 says no home delivery)
+- `fulfilment_method delivery`, `delivery_fee_kobo`, `logistics_partner_id`, delivery statuses and `pharmacy_order_delivery_attempts` remain (OQ-16 open). S28 is collection only and wires none of it.
+- Decision: open (founder), with OQ-16.
+
+### OQ-273 Not built in S28: price comparison, verified batches, pharmacist chat
+- Price comparison (8.9) needs per-pharmacy prices; `pharmacy_medications` has 0 rows and the spec puts it in Release 2. Verified-batch sourcing (8.11) needs a NAFDAC check (8.8), also Release 2. Pharmacist chat (8.12) is a new message thread between a patient and a pharmacist and needs its own decision (who moderates, what it may discuss, retention).
+- Options: (a) leave all three for Release 2 (recommended, as chosen); (b) chat first.
+- **Decided 2026-10-07 (founder): send, collection code, dispense, flags only.**
+
+### OQ-274 No pharmacy can receive a prescription until its licence is verified
+- 4 partner rows exist (Medplus, HealthPlus, Alpha, MedsPal), all inactive with unverified licences. The chooser offers only active partners with a verified, unexpired PCN licence and a verified location, so today it shows none, and the `prescribing_enabled` go-live guard stays off. Verifying a licence, adding locations and creating pharmacist logins are admin steps, not code.
+- Decision: open (founder, pharmacy lead). Do not activate a partner without a verified licence (spec D.6).
+
+### OQ-275 One medicine per prescription
+- S24 signs one item per prescription (`issue_signed_prescription`), so a patient with three medicines chooses a pharmacy three times and gets three codes.
+- Options: (a) let the patient choose once for all her waiting prescriptions and get one code per pharmacy visit (recommended, next); (b) leave.
+- Decision: open (founder).
+
+### OQ-276 Controlled medicines and repeats at the counter
+- Signing hard-stops controlled medicines (an illustrative list, OQ-170). S28 adds no second check at the counter. After a full supply the prescription is `dispensed`, so an approved repeat is supplied through the existing QR and phone-desk path, not the partner list.
+- Options: (a) add a counter check against the controlled list and let the partner list handle approved repeats (recommended); (b) leave.
+- Decision: open (CMO).
+
+### OQ-277 Patient mobile screen and Pidgin review
+- The patient chooser and code are on the web only. The mobile app has no screen for it yet, and the Pidgin strings need a native reviewer.
+- Decision: open (founder).

@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import Page from "./page";
 
 const ID = "11111111-1111-4111-8111-111111111111";
-const row = (state: string) => ({ prescription_id: ID, state, collection_code: "AB12CD", sent_at: null, dispensed_at: null, patient_name: "Test Patient", patient_number: "TH1", items: [{ drug: "Medicine", dose: "5 mg" }], open_flags: 0 });
+const row = (state: string) => ({ prescription_id: ID, state, sent_at: null, dispensed_at: null, patient_name: "Test Patient", patient_number: "TH1", items: [{ drug: "Medicine", dose: "5 mg" }], open_flags: 0, location_name: null, code_locked: false });
 const render = async (n?: string) => renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ n }) }));
 
 beforeEach(() => {

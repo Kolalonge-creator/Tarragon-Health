@@ -56,9 +56,17 @@ export default async function PharmacistPrescriptionsPage({ searchParams }: { se
                 ))}
               </ul>
               <p className="mt-2 text-xs text-charcoal-ink/60">
-                {t("pharmflag.collection_code", locale)}: <span className="font-mono">{rx.collection_code ?? "-"}</span> · {t("pharmflag.sent", locale)} {lagos(rx.sent_at)}
+                {rx.location_name ? <>{rx.location_name} · </> : null}{t("pharmflag.sent", locale)} {lagos(rx.sent_at)}
                 {rx.open_flags > 0 && <> · {t("pharmflag.open_flags", locale, { count: String(rx.open_flags) })}</>}
               </p>
+              {rx.state === "sent" && (
+                <p className="mt-3">
+                  <a href={`/pharmacist/prescriptions/${rx.prescription_id}`} className="text-sm font-semibold text-brand-green underline">
+                    {t("pharmdesk.open", locale)}
+                  </a>
+                  {rx.code_locked && <span className="ml-2 text-xs text-amber-800">{t("pharmdesk.locked_short", locale)}</span>}
+                </p>
+              )}
               {rx.state === "sent" && (
                 <details className="mt-3">
                   <summary className="cursor-pointer text-sm font-semibold text-clinical-navy">{t("pharmflag.flag_button", locale)}</summary>

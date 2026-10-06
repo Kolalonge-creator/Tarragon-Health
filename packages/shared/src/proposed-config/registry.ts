@@ -857,6 +857,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S17.md; spec 7.6 and 7.8",
   },
   {
+    key: "pharmacy.collection_rules",
+    // Pharmacy collection codes (S28, spec 9.6). Live values are the active row of `pharmacy_config`; this entry mirrors it and a test
+    // fails if the migration seed and this value drift. PROPOSED, owned by the CMO with the pharmacy lead: how long the code is, how many
+    // days it stays valid, and how many wrong tries lock it (the patient then gets a new code in the app).
+    value: { code_length: 8, code_valid_days: 14, max_wrong_attempts: 5 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S28.md; spec 9.6 and 8.9",
+  },
+  {
     key: "quality.audit",
     // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
     // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
