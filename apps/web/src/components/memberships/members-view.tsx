@@ -17,7 +17,7 @@ const date = (value: string): string =>
   new Date(value).toLocaleDateString("en-GB", { dateStyle: "medium", timeZone: "Africa/Lagos" });
 
 /**
- * The members page body, shared by /admin/members (admin) and /clinician/members (Chief Medical Officer, whose
+ * The members page body, shared by /admin/memberships (admin) and /clinician/memberships (Chief Medical Officer, whose
  * account role cannot open /admin). The caller does the access check; the database checks it again on every call.
  * No price or amount appears anywhere (INV-09).
  */

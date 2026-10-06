@@ -1,4 +1,4 @@
-import { canRequestRelease, checkCorrectionText, correctionStateKey, parseNoteIndex, parseReleasedNotes, visibleSections } from "./notes";
+import { canRequestRelease, checkCorrectionText, correctionStateKey, isWithdrawn, parseNoteIndex, parseReleasedNotes, visibleSections } from "./notes";
 
 describe("parseNoteIndex", () => {
   it("parses release states and defaults unknown to not_requested", () => {
@@ -42,5 +42,35 @@ describe("release and correction rules", () => {
   });
   it("maps correction states to keys", () => {
     expect(correctionStateKey("declined")).toBe("notes.correction.declined");
+  });
+});
+
+describe("withdrawn notes", () => {
+  it("the old shapes without the field parse as not withdrawn", () => {
+    const [i] = parseNoteIndex([{ id: "n1", signed_at: "2026-10-01T00:00:00Z" }]);
+    const [n] = parseReleasedNotes([{ id: "n1", signed_at: "2026-10-01T00:00:00Z", reason: "Cough" }]);
+    expect(i.enteredInError).toBe(false);
+    expect(n.enteredInError).toBe(false);
+    expect(n.withdrawnAt).toBeNull();
+  });
+  it("parses a withdrawn index entry and a withdrawn note with no text", () => {
+    const [i] = parseNoteIndex([{ id: "n1", signed_at: "2026-10-01T00:00:00Z", release_state: "released", entered_in_error: true }]);
+    const [n] = parseReleasedNotes([
+      { id: "n1", signed_at: "2026-10-01T00:00:00Z", encounter_type: "consult", entered_in_error: true, withdrawn_at: "2026-10-05T00:00:00Z", withdrawn_reason: "Wrong patient", amends_note_id: null },
+    ]);
+    expect(i.enteredInError).toBe(true);
+    expect(n).toMatchObject({ enteredInError: true, withdrawnReason: "Wrong patient", withdrawnAt: "2026-10-05T00:00:00Z", reason: null });
+    expect(visibleSections(n)).toEqual([]);
+  });
+  it("never shows sections even if text were present, and never offers a request", () => {
+    const [n] = parseReleasedNotes([{ id: "n1", signed_at: "2026-10-01T00:00:00Z", entered_in_error: true, plan: "leaked" }]);
+    expect(visibleSections(n)).toEqual([]);
+    expect(canRequestRelease("not_requested", true)).toBe(false);
+    expect(canRequestRelease("declined", true)).toBe(false);
+  });
+  it("isWithdrawn is true if either the index entry or the note says so", () => {
+    expect(isWithdrawn({ enteredInError: true }, null)).toBe(true);
+    expect(isWithdrawn({ enteredInError: false }, { enteredInError: true })).toBe(true);
+    expect(isWithdrawn({ enteredInError: false }, null)).toBe(false);
   });
 });

@@ -14,5 +14,5 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
   if (profile?.role !== "admin") redirect("/admin");
   const raw = (await searchParams).q;
   const search = searchParamSchema.catch("").parse(Array.isArray(raw) ? raw[0] : (raw ?? ""));
-  return <MembersView base="/admin/members" search={search} />;
+  return <MembersView base="/admin/memberships" search={search} />;
 }

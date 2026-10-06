@@ -182,8 +182,10 @@ begin
   perform pg_temp.ck('...and is marked as paid with a credit', 'true', (select paid_with_credit::text from public.async_consults where id = c1));
   perform pg_temp.ck('with the credit spent, a second question is refused', 'true',
     (pg_temp.submit(v_pc, 'Another question while no credit is left') like 'ERR:Written messages to your care team are part of Membership%')::text);
+  update public.service_purchases set expires_at = now() + interval '2 days' where id = v_pur;
   update public.async_consults set window_started_at = now() - interval '1500 minutes' where id = c1;
   perform private.sweep_written_question_windows();
+  perform pg_temp.ck('a returned credit that was about to expire gets a month', 'true', ((select expires_at from public.service_purchases where id = v_pur) > now() + interval '29 days')::text);
   perform pg_temp.ck('a missed window returns the credit', 'false', ((select redeemed_at from public.service_purchases where id = v_pur) is not null)::text);
   perform pg_temp.ck('...clearing all three redemption fields', 'true',
     (select (redeemed_entity_type is null and redeemed_entity_id is null)::text from public.service_purchases where id = v_pur));
@@ -231,7 +233,7 @@ end $f$;
 do $$
 declare
   v_doc uuid := pg_temp.f('doc'); v_doc2 uuid := pg_temp.f('doc2'); v_cmo uuid := pg_temp.f('cmo'); v_np uuid := pg_temp.f('np');
-  n1 uuid; n2 uuid; n3 uuid; nd uuid; t1 uuid; t2 uuid; t3 uuid; v_before integer;
+  n1 uuid; n2 uuid; n3 uuid; nd uuid; n5 uuid; a5 uuid; t1 uuid; t2 uuid; t3 uuid; v_before integer;
 begin
   perform pg_temp.clear_queue();
   t1 := pg_temp.mktask(v_np, 'async_question');
@@ -283,6 +285,23 @@ begin
     (pg_temp.try_sql(format('delete from public.note_error_flags where note_id = %L', n1)) = '42501'
       and pg_temp.try_sql(format($q$update public.note_error_flags set reason = 'A different reason entirely' where note_id = %L$q$, n1)) = '42501')::text);
   perform pg_temp.ck('a signed-in user still sees zero rows of the flag table', '0', pg_temp.q_as(v_np, 'select count(*)::text from public.note_error_flags'));
+
+  -- a released note with a signed amendment: withdrawing the original takes the amendment with it
+  n5 := pg_temp.signed_note(v_doc, v_np);
+  perform pg_temp.ck('a fifth note is released', 'ok', pg_temp.try_as(v_doc, format('select public.decide_note_release(%L, true, null)', n5)));
+  perform pg_temp.act(v_doc);
+  a5 := public.create_note_amendment(n5, 'addendum', 'Adding the follow up detail for the patient');
+  perform public.update_encounter_note_draft(a5, '{"plan":"Amended plan text for five."}'::jsonb);
+  perform public.finalize_encounter_note(a5, 'continue_monitoring', true);
+  perform pg_temp.back();
+  perform pg_temp.ck('the patient sees the amendment beside the original first', 'true',
+    (pg_temp.q_as(v_np, $q$select public.my_released_notes()::text$q$) like '%Amended plan text for five%')::text);
+  perform pg_temp.ck('the author withdraws the original', 'ok',
+    pg_temp.try_as(v_doc, format($q$select public.mark_note_entered_in_error(%L, 'Entered on the wrong patient chart')$q$, n5)));
+  perform pg_temp.ck('the signed amendment no longer reaches the patient', 'false',
+    (pg_temp.q_as(v_np, $q$select public.my_released_notes()::text$q$) like '%Amended plan text for five%')::text);
+  perform pg_temp.ck('...and the withdrawn original still shows as the marker', 'true',
+    (pg_temp.q_as(v_np, $q$select public.my_released_notes()::text$q$) like '%' || n5::text || '%')::text);
 
   -- an unreleased note: withdrawn without telling a patient who could never see it
   select count(*) into v_before from public.notifications where recipient_id = v_np and template = 'note_withdrawn';

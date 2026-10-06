@@ -15,8 +15,10 @@ language plpgsql security definer set search_path = ''
 as $$
 declare v_n integer;
 begin
+  -- a returned credit is only worth something if it can still be spent: one that would expire inside a month gets a month
   update public.service_purchases
-     set redeemed_at = null, redeemed_entity_type = null, redeemed_entity_id = null
+     set redeemed_at = null, redeemed_entity_type = null, redeemed_entity_id = null,
+         expires_at = case when expires_at is not null then greatest(expires_at, now() + interval '30 days') else expires_at end
    where redeemed_entity_type = 'async_consult' and redeemed_entity_id = p_consult and redeemed_at is not null;
   get diagnostics v_n = row_count;
   return v_n > 0;
@@ -212,6 +214,22 @@ begin
   perform private.audit_chart_read(o.patient_id, array['notes'], 'amend note', 'success');
   return v_id;
 end;
+$$;
+
+-- A withdrawn note takes its amendments with it: a signed amendment of a note that was entered in error (for example on the wrong
+-- patient) would otherwise keep showing the patient the same content. The withdrawn note itself stays visible, as the marker.
+create or replace function private.note_patient_visible(p_note uuid, p_patient uuid) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  with recursive chain as (
+    select n.id, n.amends_note_id, n.is_protected from public.clinical_encounter_notes n
+     where n.id = p_note and n.patient_id = p_patient and n.status = 'finalized'
+    union all
+    select o.id, o.amends_note_id, o.is_protected from public.clinical_encounter_notes o join chain c on c.amends_note_id = o.id
+     where o.status = 'finalized' and not c.is_protected
+  )
+  select exists (select 1 from chain c join public.note_releases r on r.note_id = c.id and r.state = 'released')
+     and not exists (select 1 from chain c2 join public.note_error_flags f on f.note_id = c2.id where c2.id <> p_note);
 $$;
 
 -- The patient sees that a note was withdrawn and why, and none of its clinical text.

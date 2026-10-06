@@ -19,6 +19,11 @@ export const createAmendmentSchema = z.object({
   reason: z.string().trim().min(10, "Please give a reason of 10 characters or more.").max(1000),
 });
 
+export const withdrawNoteSchema = z.object({
+  noteId: z.string().uuid(),
+  reason: z.string().trim().min(10, "Please give a reason of 10 characters or more.").max(1000),
+});
+
 export const setProtectedSchema = z.object({ noteId: z.string().uuid(), protected: z.boolean() });
 
 export const decideReleaseSchema = z
