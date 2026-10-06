@@ -6329,6 +6329,72 @@ export type Database = {
           },
         ];
       };
+      note_error_flags: {
+        Row: {
+          flagged_at: string;
+          flagged_by: string | null;
+          is_test: boolean;
+          note_id: string;
+          organisation_id: string;
+          patient_id: string;
+          reason: string;
+        };
+        Insert: {
+          flagged_at?: string;
+          flagged_by?: string | null;
+          is_test?: boolean;
+          note_id: string;
+          organisation_id: string;
+          patient_id: string;
+          reason: string;
+        };
+        Update: {
+          flagged_at?: string;
+          flagged_by?: string | null;
+          is_test?: boolean;
+          note_id?: string;
+          organisation_id?: string;
+          patient_id?: string;
+          reason?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "note_error_flags_flagged_by_fkey";
+            columns: ["flagged_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "note_error_flags_note_id_fkey";
+            columns: ["note_id"];
+            isOneToOne: true;
+            referencedRelation: "clinical_encounter_notes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "note_error_flags_note_id_fkey";
+            columns: ["note_id"];
+            isOneToOne: true;
+            referencedRelation: "notes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "note_error_flags_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "note_error_flags_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       note_releases: {
         Row: {
           created_at: string;
@@ -41533,7 +41599,7 @@ export type Database = {
         Returns: Json
       }
       grant_membership: {
-        Args: { p_ends_at: string; p_patient: string; p_reason: string };
+        Args: { p_ends_at?: string; p_patient: string; p_reason: string };
         Returns: string;
       };
       list_assisted_recovery_requests: {
@@ -41566,6 +41632,10 @@ export type Database = {
         Args: { p_status?: Database["public"]["Enums"]["referral_status"] }
         Returns: Json
       }
+      mark_note_entered_in_error: {
+        Args: { p_note: string; p_reason: string };
+        Returns: undefined;
+      };
       medication_weekly_adherence: {
         Args: { p_patient: string; p_reason?: string }
         Returns: Json
