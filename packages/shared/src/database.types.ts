@@ -14,6 +14,459 @@ export type Database = {
   }
   public: {
     Tables: {
+      payments: {
+        Row: {
+          amount_kobo: number
+          created_at: string
+          event_key: string | null
+          fee_kobo: number
+          id: string
+          is_test: boolean
+          mismatch_reason: string | null
+          order_id: string
+          organisation_id: string
+          provider: string
+          provider_reference: string
+          raw: Json
+          source: string
+          status: string
+          total_kobo: number
+          verified_at: string
+        }
+        Insert: {
+          amount_kobo: number
+          created_at?: string
+          event_key?: string | null
+          fee_kobo?: number
+          id?: string
+          is_test?: boolean
+          mismatch_reason?: string | null
+          order_id: string
+          organisation_id: string
+          provider?: string
+          provider_reference: string
+          raw?: Json
+          source: string
+          status: string
+          total_kobo: number
+          verified_at?: string
+        }
+        Update: {
+          amount_kobo?: number
+          created_at?: string
+          event_key?: string | null
+          fee_kobo?: number
+          id?: string
+          is_test?: boolean
+          mismatch_reason?: string | null
+          order_id?: string
+          organisation_id?: string
+          provider?: string
+          provider_reference?: string
+          raw?: Json
+          source?: string
+          status?: string
+          total_kobo?: number
+          verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prices: {
+        Row: {
+          amount_kobo: number
+          catalog_item_id: string
+          components: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          organisation_id: string
+          reason: string | null
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          amount_kobo: number
+          catalog_item_id: string
+          components?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organisation_id: string
+          reason?: string | null
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          amount_kobo?: number
+          catalog_item_id?: string
+          components?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organisation_id?: string
+          reason?: string | null
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prices_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prices_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_items: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          description_key: string
+          duration_days: number | null
+          grants_lead: boolean
+          id: string
+          included_keys: string[]
+          kind: string
+          name_key: string
+          note: string | null
+          organisation_id: string
+          updated_at: string
+          uses: number | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          description_key: string
+          duration_days?: number | null
+          grants_lead?: boolean
+          id?: string
+          included_keys?: string[]
+          kind: string
+          name_key: string
+          note?: string | null
+          organisation_id: string
+          updated_at?: string
+          uses?: number | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          description_key?: string
+          duration_days?: number | null
+          grants_lead?: boolean
+          id?: string
+          included_keys?: string[]
+          kind?: string
+          name_key?: string
+          note?: string | null
+          organisation_id?: string
+          updated_at?: string
+          uses?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_items_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          amount_kobo: number
+          beneficiary_patient_id: string
+          buyer_profile_id: string
+          cancelled_at: string | null
+          catalog_item_id: string
+          checkout_url: string | null
+          client_key: string | null
+          components: Json
+          created_at: string
+          expires_at: string
+          failure_reason: string | null
+          fee_kobo: number | null
+          id: string
+          is_test: boolean
+          organisation_id: string
+          paid_at: string | null
+          paystack_reference: string
+          price_id: string
+          state: string
+          total_kobo: number | null
+          updated_at: string
+        }
+        Insert: {
+          amount_kobo: number
+          beneficiary_patient_id: string
+          buyer_profile_id: string
+          cancelled_at?: string | null
+          catalog_item_id: string
+          checkout_url?: string | null
+          client_key?: string | null
+          components?: Json
+          created_at?: string
+          expires_at?: string
+          failure_reason?: string | null
+          fee_kobo?: number | null
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          paid_at?: string | null
+          paystack_reference: string
+          price_id: string
+          state?: string
+          total_kobo?: number | null
+          updated_at?: string
+        }
+        Update: {
+          amount_kobo?: number
+          beneficiary_patient_id?: string
+          buyer_profile_id?: string
+          cancelled_at?: string | null
+          catalog_item_id?: string
+          checkout_url?: string | null
+          client_key?: string | null
+          components?: Json
+          created_at?: string
+          expires_at?: string
+          failure_reason?: string | null
+          fee_kobo?: number | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          paid_at?: string | null
+          paystack_reference?: string
+          price_id?: string
+          state?: string
+          total_kobo?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_beneficiary_patient_id_fkey"
+            columns: ["beneficiary_patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_buyer_profile_id_fkey"
+            columns: ["buyer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_price_id_fkey"
+            columns: ["price_id"]
+            isOneToOne: false
+            referencedRelation: "prices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      refunds: {
+        Row: {
+          amount_kobo: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          is_test: boolean
+          order_id: string
+          organisation_id: string
+          provider: string
+          provider_reference: string | null
+          provider_response: Json
+          reason: string
+          requested_by: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          amount_kobo: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          is_test?: boolean
+          order_id: string
+          organisation_id: string
+          provider?: string
+          provider_reference?: string | null
+          provider_response?: Json
+          reason: string
+          requested_by?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_kobo?: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          is_test?: boolean
+          order_id?: string
+          organisation_id?: string
+          provider?: string
+          provider_reference?: string | null
+          provider_response?: Json
+          reason?: string
+          requested_by?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refunds_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entitlements: {
+        Row: {
+          created_at: string
+          ends_at: string | null
+          id: string
+          is_test: boolean
+          kind: string
+          order_id: string
+          organisation_id: string
+          patient_id: string
+          remaining_uses: number | null
+          reminded_at: string | null
+          starts_at: string
+          state: string
+        }
+        Insert: {
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind: string
+          order_id: string
+          organisation_id: string
+          patient_id: string
+          remaining_uses?: number | null
+          reminded_at?: string | null
+          starts_at?: string
+          state?: string
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          order_id?: string
+          organisation_id?: string
+          patient_id?: string
+          remaining_uses?: number | null
+          reminded_at?: string | null
+          starts_at?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entitlements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_recovery_requests: {
         Row: {
           approved_at: string | null
@@ -41768,6 +42221,28 @@ export type Database = {
       }
     }
     Functions: {
+      record_refund_provider_result: {
+        Args: {
+          p_reference?: string
+          p_refund: string
+          p_response?: Json
+          p_success: boolean
+        }
+        Returns: Json
+      }
+      decide_order_refund: {
+        Args: { p_approved: boolean; p_note?: string; p_refund: string }
+        Returns: Json
+      }
+      request_order_refund: {
+        Args: { p_order: string; p_reason: string }
+        Returns: Json
+      }
+      revoke_entitlement: {
+        Args: { p_entitlement: string; p_reason?: string }
+        Returns: boolean
+      }
+      consume_entitlement: { Args: { p_entitlement: string }; Returns: Json }
       abnormal_result_dashboard_counts: {
         Args: { p_organisation_id: string }
         Returns: Json

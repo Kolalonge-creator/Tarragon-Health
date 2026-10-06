@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { formatPatientDate } from "@/lib/format-date";
 import { formatKobo } from "@/lib/format-money";
+import { itemLabel } from "@/lib/commerce/item-label";
 
 export type AdminOrderRefund = {
   id: string;
@@ -24,7 +25,7 @@ export type AdminOrderRefund = {
     amount_kobo: number;
     state: string;
     paid_at: string | null;
-    catalog_item: { code: string; name: string } | null;
+    catalog_item: { code: string; name_key: string } | null;
     beneficiary: { full_name: string | null; phone: string | null } | null;
   } | null;
   requester: { full_name: string | null } | null;
@@ -79,7 +80,7 @@ export function OrderRefundsAdmin() {
                       <p className="text-sm font-medium text-charcoal-ink">
                         {order?.beneficiary?.full_name ?? "Unknown patient"}{" "}
                         <span className="font-normal text-charcoal-ink/60">
-                          &rarr; {order?.catalog_item?.name ?? "Order item"}
+                          &rarr; {itemLabel(order?.catalog_item?.name_key, order?.catalog_item?.code ?? "Order item")}
                         </span>
                       </p>
                       <p className="text-xs text-charcoal-ink/60">
@@ -192,7 +193,7 @@ export function OrderRefundsAdmin() {
                 },
                 {
                   label: "Item",
-                  value: pending.refund.order?.catalog_item?.name ?? "Order item",
+                  value: itemLabel(pending.refund.order?.catalog_item?.name_key, pending.refund.order?.catalog_item?.code ?? "Order item"),
                 },
                 { label: "Amount", value: formatKobo(pending.refund.amount_kobo) },
               ]}
