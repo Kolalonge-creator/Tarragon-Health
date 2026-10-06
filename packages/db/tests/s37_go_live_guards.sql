@@ -235,6 +235,14 @@ begin
   perform pg_temp.back();
   update public.clinical_staff set is_test = false where profile_id = v_smo;   -- the first real tier 2 clinician (fixture)
   perform pg_temp.act(v_admin);
+  -- S37b: with protocol, rule set and a real clinician all met, no recorded safety case still blocks the switch
+  perform pg_temp.rec('safety case missing: the switch is refused although every data condition is met', '22023',
+    pg_temp.try('select public.set_go_live_guard(''clinical_operations_enabled'', true, ''Proof: no safety case recorded yet.'')'));
+  perform pg_temp.rec('safety case: a vague note is refused', '22023',
+    pg_temp.try('select public.attest_go_live_condition(''clinical_operations_enabled'', ''clinical_safety_case_current'', true, ''checked it okay'')'));
+  perform public.attest_go_live_condition('clinical_operations_enabled', 'clinical_safety_case_current', true, 'Proof safety case SC-1 v1 signed by the safety officer.');
+  perform pg_temp.back();
+  perform pg_temp.act(v_admin);
   perform pg_temp.rec('a test clinician never counts toward the condition (control: the real one now does)', 'true',
     (select (g ->> 'all_met')::text from jsonb_array_elements(public.go_live_guard_status()) g where g ->> 'key' = 'clinical_operations_enabled'));
   perform pg_temp.back();
@@ -367,6 +375,7 @@ begin
     pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language) values (%L, true, ''en-NG'')', v_tp)));
   perform pg_temp.back();
   perform pg_temp.act(v_admin);
+  perform public.attest_go_live_condition('scribe_enabled', 'clinical_safety_case_current', true, 'Proof safety case SC-1 v1 signed by the safety officer.');
   perform public.attest_go_live_condition('scribe_enabled', 'con001_legal_review_recorded', true, 'Counsel reviewed CON-001 on the proof date.');
   perform public.attest_go_live_condition('scribe_enabled', 'speech_provider_configured', true, 'The speech provider key is set and a test file transcribed.');
   perform public.set_go_live_guard('scribe_enabled', true, 'Proof: legal review recorded and speech provider configured.');
