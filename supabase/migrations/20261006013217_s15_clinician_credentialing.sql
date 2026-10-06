@@ -1632,6 +1632,127 @@ where o.id = (select organisation_id from public.clinical_staff order by created
 on conflict do nothing;
 
 -- ---------------------------------------------------------------------------
+-- 17b. Read functions for the screens (one jsonb call per page; each checks who is asking).
+-- ---------------------------------------------------------------------------
+create function public.my_clinician_application()
+returns jsonb language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  a public.clinician_applications%rowtype;
+  v_uid uuid := auth.uid();
+  v_max int := coalesce((private.credential_rule('test_max_attempts'))::int, 3);
+  v_cool int := coalesce((private.credential_rule('test_retake_cooldown_hours'))::int, 24);
+  v_used int; v_last timestamptz; v_passed boolean; v_open uuid;
+begin
+  if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
+  select * into a from public.clinician_applications where profile_id = v_uid
+    order by (state not in ('rejected', 'offboarded')) desc, created_at desc limit 1;
+  if not found then return null; end if;
+  select count(*) filter (where submitted_at is not null), max(submitted_at), coalesce(bool_or(passed), false)
+    into v_used, v_last, v_passed from public.credential_test_attempts where application_id = a.id;
+  select id into v_open from public.credential_test_attempts where application_id = a.id and submitted_at is null;
+  return jsonb_build_object(
+    'id', a.id, 'state', a.state, 'employment_type', a.employment_type,
+    'details', jsonb_build_object('mdcn_folio', a.mdcn_folio, 'qualification', a.qualification, 'graduation_year', a.graduation_year,
+      'nysc_year', a.nysc_year, 'years_since_house_job', a.years_since_house_job, 'specialties', to_jsonb(a.specialties),
+      'languages', to_jsonb(a.languages), 'referees', a.referees, 'conflicts_declaration', a.conflicts_declaration,
+      'indemnity_insurer', a.indemnity_insurer, 'indemnity_policy_number', a.indemnity_policy_number, 'indemnity_expires_at', a.indemnity_expires_at),
+    'missing', case when a.state = 'started' then to_jsonb(private.application_missing(a.id)) else '[]'::jsonb end,
+    'documents', (select coalesce(jsonb_agg(jsonb_build_object('id', d.id, 'kind', d.kind, 'created_at', d.created_at, 'verified', d.verified_at is not null) order by d.created_at), '[]'::jsonb)
+                  from public.clinician_documents d where d.application_id = a.id and d.superseded_at is null),
+    'transitions', (select coalesce(jsonb_agg(jsonb_build_object('to_state', t.to_state, 'created_at', t.created_at) order by t.created_at), '[]'::jsonb)
+                    from public.clinician_application_transitions t where t.application_id = a.id),
+    'modules', (select coalesce(jsonb_agg(jsonb_build_object('id', m.id, 'title', m.title, 'summary', m.summary, 'content', m.content, 'minutes', m.estimated_minutes,
+                  'completed', exists (select 1 from public.training_progress tp where tp.application_id = a.id and tp.module_id = m.id)) order by m.created_at), '[]'::jsonb)
+                from public.training_modules m where m.status = 'approved' and m.organisation_id = a.organisation_id),
+    'test', jsonb_build_object('attempts_used', v_used, 'attempts_allowed', v_max + a.test_extra_attempts, 'open_attempt_id', v_open,
+      'next_allowed_at', case when v_last is null then null else v_last + make_interval(hours => v_cool) end, 'passed', v_passed));
+end;
+$$;
+
+create function public.credentialing_queue()
+returns jsonb language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if not private.can_credential_review() then raise exception 'not allowed' using errcode = '42501'; end if;
+  return (select coalesce(jsonb_agg(x order by (x ->> 'updated_at') desc), '[]'::jsonb) from (
+    select jsonb_build_object('id', a.id, 'state', a.state, 'employment_type', a.employment_type, 'applicant_name', p.full_name,
+      'mdcn_folio', a.mdcn_folio, 'folio_flag', a.folio_flag, 'submitted_at', a.submitted_at, 'updated_at', a.updated_at,
+      'checks_passed', (select count(*) from public.clinician_checks c where c.application_id = a.id and c.result = 'passed'),
+      'checks_total', (select count(*) from public.clinician_checks c where c.application_id = a.id),
+      'clinical_staff_id', a.clinical_staff_id) as x
+    from public.clinician_applications a join public.profiles p on p.id = a.profile_id
+  ) q);
+end;
+$$;
+
+create function public.credentialing_application_detail(p_application uuid)
+returns jsonb language plpgsql stable security definer set search_path = ''
+as $$
+declare a public.clinician_applications%rowtype; p public.profiles%rowtype;
+begin
+  if not private.can_credential_review() then raise exception 'not allowed' using errcode = '42501'; end if;
+  select * into a from public.clinician_applications where id = p_application;
+  if not found then raise exception 'application not found' using errcode = 'P0002'; end if;
+  select * into p from public.profiles where id = a.profile_id;
+  return jsonb_build_object(
+    'application', to_jsonb(a),
+    'applicant', jsonb_build_object('full_name', p.full_name, 'phone', p.phone, 'email', (select email from auth.users where id = a.profile_id), 'role', p.role),
+    'documents', (select coalesce(jsonb_agg(jsonb_build_object('id', d.id, 'kind', d.kind, 'mime_type', d.mime_type, 'size_bytes', d.size_bytes, 'created_at', d.created_at,
+        'verified_at', d.verified_at, 'verified_by_name', (select full_name from public.profiles where id = d.verified_by), 'superseded', d.superseded_at is not null, 'expires_at', d.expires_at)
+        order by d.kind, d.created_at), '[]'::jsonb) from public.clinician_documents d where d.application_id = a.id),
+    'checks', (select coalesce(jsonb_agg(jsonb_build_object('kind', c.kind, 'result', c.result, 'performed_at', c.performed_at, 'performed_by_name', (select full_name from public.profiles where id = c.performed_by),
+        'notes', c.notes, 'details', c.details) order by c.kind), '[]'::jsonb) from public.clinician_checks c where c.application_id = a.id),
+    'transitions', (select coalesce(jsonb_agg(jsonb_build_object('from_state', t.from_state, 'to_state', t.to_state, 'reason', t.reason, 'created_at', t.created_at,
+        'actor_name', (select full_name from public.profiles where id = t.actor_id)) order by t.created_at), '[]'::jsonb) from public.clinician_application_transitions t where t.application_id = a.id),
+    'attempts', (select coalesce(jsonb_agg(jsonb_build_object('attempt_number', t.attempt_number, 'score_percent', t.score_percent, 'red_total', t.red_total, 'red_correct', t.red_correct,
+        'passed', t.passed, 'submitted_at', t.submitted_at) order by t.attempt_number), '[]'::jsonb) from public.credential_test_attempts t where t.application_id = a.id),
+    'training', jsonb_build_object(
+        'completed', (select count(*) from public.training_progress tp where tp.application_id = a.id),
+        'required', (select count(*) from public.training_modules m where m.status = 'approved' and m.organisation_id = a.organisation_id)),
+    'staff', (select jsonb_build_object('id', cs.id, 'status', cs.status, 'active', cs.active, 'level', cs.credentialing_level, 'license_expires_at', cs.license_expires_at,
+        'indemnity_expires_at', cs.indemnity_expires_at, 'competencies', (select coalesce(jsonb_agg(cc.competency_code order by cc.competency_code), '[]'::jsonb) from public.clinician_competencies cc where cc.clinical_staff_id = cs.id and cc.revoked_at is null))
+        from public.clinical_staff cs where cs.id = a.clinical_staff_id),
+    'folio_conflict', (select coalesce(jsonb_agg(jsonb_build_object('full_name', cs.full_name, 'status', cs.status)), '[]'::jsonb) from public.clinical_staff cs
+        where cs.profile_id is distinct from a.profile_id and cs.status <> 'offboarded'
+          and upper(regexp_replace(cs.credential_number, '\s', '', 'g')) = upper(regexp_replace(a.mdcn_folio, '\s', '', 'g'))));
+end;
+$$;
+
+create function public.credentialing_expiry_overview()
+returns jsonb language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if not private.can_credential_review() then raise exception 'not allowed' using errcode = '42501'; end if;
+  return (select coalesce(jsonb_agg(x order by coalesce(x ->> 'soonest', '9999')), '[]'::jsonb) from (
+    select jsonb_build_object('id', cs.id, 'profile_id', cs.profile_id, 'full_name', cs.full_name, 'status', cs.status, 'active', cs.active, 'doctor_tier', cs.doctor_tier,
+      'employment_type', cs.employment_type, 'level', cs.credentialing_level, 'license_expires_at', cs.license_expires_at, 'indemnity_expires_at', cs.indemnity_expires_at,
+      'indemnity_required', coalesce(private.indemnity_required(cs.id), false),
+      'soonest', least(cs.license_expires_at, case when coalesce(private.indemnity_required(cs.id), false) then cs.indemnity_expires_at end),
+      'eligible', private.clinician_is_eligible(cs.profile_id),
+      'grace', (select coalesce(jsonb_agg(jsonb_build_object('id', g.id, 'kind', g.kind, 'ends_at', g.ends_at, 'reason', g.reason) order by g.ends_at), '[]'::jsonb)
+                from public.credential_grace_periods g where g.clinical_staff_id = cs.id and g.revoked_at is null and g.ends_at > now()),
+      'competencies', (select coalesce(jsonb_agg(cc.competency_code order by cc.competency_code), '[]'::jsonb) from public.clinician_competencies cc where cc.clinical_staff_id = cs.id and cc.revoked_at is null),
+      'audited_task_count', cs.audited_task_count) as x
+    from public.clinical_staff cs where cs.status <> 'offboarded' and cs.profile_id is not null
+  ) q);
+end;
+$$;
+
+create function public.credentialing_content()
+returns jsonb language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if not private.can_credential_review() then raise exception 'not allowed' using errcode = '42501'; end if;
+  return jsonb_build_object(
+    'test_cases', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'scenario', c.scenario, 'options', c.options, 'correct_option_id', c.correct_option_id,
+        'is_red', c.is_red, 'rationale', c.rationale, 'status', c.status) order by c.code), '[]'::jsonb) from public.credential_test_cases c),
+    'modules', (select coalesce(jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code, 'title', m.title, 'summary', m.summary, 'content', m.content, 'minutes', m.estimated_minutes,
+        'status', m.status) order by m.code), '[]'::jsonb) from public.training_modules m));
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- 18. Grants on the public functions: signed-in users only (anon and PUBLIC revoked).
 -- ---------------------------------------------------------------------------
 do $$
@@ -1666,7 +1787,12 @@ begin
     'set_clinician_level(uuid, smallint, text)',
     'grant_credential_grace(uuid, text, integer, text)',
     'revoke_credential_grace(uuid)',
-    'my_credential_status()']
+    'my_credential_status()',
+    'my_clinician_application()',
+    'credentialing_queue()',
+    'credentialing_application_detail(uuid)',
+    'credentialing_expiry_overview()',
+    'credentialing_content()']
   loop
     execute format('revoke all on function public.%s from public, anon', f);
     execute format('grant execute on function public.%s to authenticated', f);

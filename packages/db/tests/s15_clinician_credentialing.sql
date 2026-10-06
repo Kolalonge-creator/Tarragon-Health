@@ -505,6 +505,28 @@ begin
   perform pg_temp.rec('practice after house job below the minimum cannot pass', '23514', pg_temp.try(format('select public.record_credential_check(%L, ''practice_years'', ''passed'')', v_app4)));
   perform pg_temp.back();
 
+  -- read functions for the screens: each checks who is asking
+  perform pg_temp.act(v_p7);
+  v_status := public.my_clinician_application();
+  perform pg_temp.rec('an applicant reads their own overview', 'checks_in_progress', v_status ->> 'state');
+  perform pg_temp.rec('the overview carries no reviewer notes or other people', 'false', (v_status::text like '%reason%' or v_status::text like '%folio_flag%')::text);
+  perform pg_temp.rec('an applicant cannot read the review queue', '42501', pg_temp.try('select public.credentialing_queue()'));
+  perform pg_temp.rec('an applicant cannot read an application detail', '42501', pg_temp.try(format('select public.credentialing_application_detail(%L)', v_app4)));
+  perform pg_temp.rec('an applicant cannot read the content with the answer key', '42501', pg_temp.try('select public.credentialing_content()'));
+  perform pg_temp.rec('an applicant cannot read the expiry overview', '42501', pg_temp.try('select public.credentialing_expiry_overview()'));
+  perform pg_temp.back();
+  perform pg_temp.act(v_c2);
+  perform pg_temp.rec('a plain clinician cannot read the review queue', '42501', pg_temp.try('select public.credentialing_queue()'));
+  perform pg_temp.back();
+  perform pg_temp.act(v_admin);
+  perform pg_temp.rec('a reviewer reads the queue', 'true', ((public.credentialing_queue()) @> jsonb_build_array(jsonb_build_object('id', v_app4)))::text);
+  v_status := public.credentialing_application_detail(v_app4);
+  perform pg_temp.rec('a reviewer sees the folio flag and the applicant contact', 'previously_rejected,true',
+    (v_status -> 'application' ->> 'folio_flag') || ',' || ((v_status -> 'applicant' ->> 'email') is not null)::text);
+  perform pg_temp.rec('the expiry overview lists clinicians with eligibility', 'true', (jsonb_array_length(public.credentialing_expiry_overview()) >= 2)::text);
+  perform pg_temp.rec('the content list includes the answer key for a reviewer', 'true', (public.credentialing_content()::text like '%correct_option_id%')::text);
+  perform pg_temp.back();
+
   -- employment type is the organisation's fact, not the applicant's claim
   perform pg_temp.act(v_p6);
   perform pg_temp.rec('an applicant cannot set their own employment type', '42501', pg_temp.try(format('select public.set_application_employment_type(%L, ''employed'')', v_app3)));
