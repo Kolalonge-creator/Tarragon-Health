@@ -825,3 +825,4 @@ s20_quality_and_safety.sql
 # S23 AI Scribe: consent immutability, transcript patient-invisible (safety case 15),
 # patient cannot insert consent, no deletes, revocation works, staff can read transcripts.
 scribe_consent_and_transcript_rls.sql
+s23b_ai017_governance_scaffolding.sql
