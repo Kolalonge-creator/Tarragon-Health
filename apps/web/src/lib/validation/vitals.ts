@@ -39,6 +39,7 @@ export const bloodPressureSchema = z
       .max(160, "Please re-check — diastolic above 160 mmHg is outside the measurable range"),
     note: noteField,
     taken_at: takenAtField,
+    cuff_type: z.enum(["upper_arm", "wrist", "not_sure"]).optional(),
   })
   .refine((data) => data.systolic > data.diastolic, {
     path: ["systolic"],

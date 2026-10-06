@@ -415,6 +415,35 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S15.md; docs/research/S15.md; spec 7.1 and 17",
   },
   {
+    key: "triage.bp_rule_set",
+    // Blood pressure triage rules (S11). The thresholds themselves live in the rule set, `packages/clinical`
+    // (`BP_CARE_V1`) and the `triage_rule_sets` row of the same code and version; this entry records the owner and
+    // the sign-off state so the go-live guards dashboard lists it. The rule set stays a draft (the database row is
+    // never `approved`) until the CMO signs it. Rules BP-P1, BP-P2 and BP-A6 are additions beyond the spec table.
+    value: { code: "bp_care_triage", ruleSetVersion: 1, adultAgeYears: 18 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-05",
+    source: "docs/design/S11.md; docs/BUILD-SPEC-v5.md Section 6.2; OQ-86, OQ-87",
+  },
+  {
+    key: "triage.wiring_rules",
+    // Triage wiring (S12). These are copied into migration 20261005220819 (the SQL cannot read this registry), so a
+    // change here needs a new migration. symptomLinkMinutes: a symptom ticked within this many minutes of a reading
+    // (before or after it) is graded with that reading. historyDays: how far back the grader looks for earlier readings.
+    // missingEventCatchUpHours: the sweep re-emits a reading with no event if it is newer than this. The phone's own
+    // limits (contextBudgetMs: how long it waits for local history before grading with what it has, so a red result is
+    // never held back; subjectWaitMs: the same for reading the session; staleAfterDays: how long since the phone last checked for the approved rule set before the BP screen says its guidance may be out of date) are engineering budgets for the 1 second red
+    // rule (INV-06), kept with the rest so they are reviewed together.
+    value: { symptomLinkMinutes: 10, historyDays: 14, missingEventCatchUpHours: 24, contextBudgetMs: 600, subjectWaitMs: 250, staleAfterDays: 7 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-05",
+    source: "docs/design/S12.md; OQ-88",
+  },
+  {
     key: "notifications.rules",
     // Notification framework (S13). The live values are the active row of `notification_rules_config` (versioned in the
     // database); this entry mirrors it so the owner and the version are recorded with the other PROPOSED values.

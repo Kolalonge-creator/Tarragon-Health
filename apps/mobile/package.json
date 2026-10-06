@@ -28,6 +28,7 @@
     "@shopify/react-native-skia": "2.2.12",
     "@supabase/supabase-js": "^2.110.0",
     "@tarragon/auth": "workspace:*",
+    "@tarragon/clinical": "workspace:*",
     "@tarragon/i18n": "workspace:*",
     "@tarragon/medicines": "workspace:*",
     "@tarragon/shared": "workspace:*",

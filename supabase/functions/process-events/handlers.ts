@@ -5,7 +5,12 @@
 // a notification (INV-07).
 
 import { noopHandler, type HandlerRegistry } from "../_shared/event-bus/dispatch.ts";
+import { makeObservationHandler, TRIAGE_HANDLER_KEY } from "../_shared/triage/observation-handler.ts";
+import { triagePorts, type RpcClient } from "./triage-ports.ts";
 
-export const handlers: HandlerRegistry = {
-  "bus.noop": noopHandler,
-};
+export function buildHandlers(client: RpcClient): HandlerRegistry {
+  return {
+    "bus.noop": noopHandler,
+    [TRIAGE_HANDLER_KEY]: makeObservationHandler(triagePorts(client)),
+  };
+}

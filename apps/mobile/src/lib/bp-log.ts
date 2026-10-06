@@ -1,6 +1,9 @@
 import type { VitalReadingPayload } from "./api";
 import type { BpChecklistSymptom, BpLogPlan } from "./bp-checklist";
+import type { SymptomCode } from "@tarragon/clinical";
+import { t } from "@tarragon/i18n";
 import { enqueueGroup, flushOutbox, listOutbox, type EnqueueInput } from "./outbox";
+import { gradeOnDevice, type DeviceTriage } from "./triage-device";
 import { supabase } from "./supabase";
 import { loadActiveThresholds } from "./threshold-sync";
 import { classifyVitalOffline, type OfflineVitalFlag } from "./vitals";
@@ -9,18 +12,23 @@ import { classifyVitalOffline, type OfflineVitalFlag } from "./vitals";
  * Saving one blood pressure log with its optional pulse and ticked symptoms
  * (S07), and the one seam where on-device triage attaches.
  *
- * The seam is `TriageEvaluator`. Version 1 (`evaluateOnDevice`) adds no rules:
- * it wraps the existing on-device blood pressure check (classifyVitalOffline,
- * the synced thresholds) and treats any red-flag tick as a reason to show the
- * emergency guidance that is already bundled in the app (INV-06). Showing
- * guidance is not grading. S11/S12 replace this function with the governed
- * rules and record the rule version; until then it records the threshold
- * version it used. No language model is ever consulted here (INV-01).
+ * The seam is `TriageEvaluator`. It runs two checks side by side and shows the stricter: the
+ * existing on-device blood pressure check (classifyVitalOffline, the synced thresholds, which is
+ * also what the live server alerts use) and, from S12, the governed triage engine
+ * (`gradeOnDevice`, the same pure rules as the server, from `@tarragon/clinical`). The engine can
+ * only ADD guidance (OQ-88: its rule set is a draft until the Chief Medical Officer signs it), never
+ * remove what the older check shows. A red-flag tick always shows the emergency guidance already
+ * bundled in the app (INV-06). The engine's rule set version is recorded on the outcome (INV-16).
+ * No language model is ever consulted here (INV-01).
  */
 export interface TriageInput {
   systolic: number;
   diastolic: number;
   redFlagTicked: readonly BpChecklistSymptom[];
+  /** Every symptom ticked on the form (not only the red-flag ones); the engine reads them all. */
+  symptoms?: readonly BpChecklistSymptom[];
+  /** Whose readings these are, for the on-device history; without it the engine still grades every red rule. */
+  subjectId?: string;
 }
 
 export interface TriageOutcome {
@@ -32,27 +40,58 @@ export interface TriageOutcome {
   symptomFlag: boolean;
   /** Which threshold set the check used (INV-16). */
   thresholdVersion: string;
+  /** The governed engine's answer (S12), or null when it could not run. */
+  device: DeviceTriage | null;
 }
 
 export type TriageEvaluator = (input: TriageInput) => Promise<TriageOutcome>;
 
 export const evaluateOnDevice: TriageEvaluator = async (input) => {
   // A failed blood pressure check must not hide the red-flag symptom check, which needs no thresholds.
-  const [bpFlag, thresholds] = await Promise.all([
+  const [bpFlag, thresholds, device] = await Promise.all([
     classifyVitalOffline({ vital_type: "blood_pressure", systolic: input.systolic, diastolic: input.diastolic }).catch(
       () => null,
     ),
     loadActiveThresholds().catch(() => null),
+    // The engine never throws, but a bug in it must not hide the older check either.
+    gradeOnDevice({
+      subjectId: input.subjectId ?? "",
+      systolic: input.systolic,
+      diastolic: input.diastolic,
+      symptoms: (input.symptoms ?? input.redFlagTicked) as readonly SymptomCode[],
+    }).catch(() => null),
   ]);
   const symptomFlag = input.redFlagTicked.length > 0;
-  const severity = symptomFlag || bpFlag?.severity === "emergency" ? "emergency" : (bpFlag?.severity ?? null);
-  return { severity, bpFlag, symptomFlag, thresholdVersion: thresholds?.version ?? "unavailable" };
+  const legacy = symptomFlag || bpFlag?.severity === "emergency" ? "emergency" : (bpFlag?.severity ?? null);
+  // The stricter of the two: the engine adds guidance, it never takes any away (OQ-88).
+  const severity = device?.severity === "emergency" ? "emergency" : legacy;
+  return { severity, bpFlag, symptomFlag, thresholdVersion: thresholds?.version ?? "unavailable", device };
 };
 
 /** What to use when the evaluator itself fails: nothing from the reading, but a ticked red flag still counts. */
 function fallbackOutcome(input: TriageInput): TriageOutcome {
   const symptomFlag = input.redFlagTicked.length > 0;
-  return { severity: symptomFlag ? "emergency" : null, bpFlag: null, symptomFlag, thresholdVersion: "unavailable" };
+  return { severity: symptomFlag ? "emergency" : null, bpFlag: null, symptomFlag, thresholdVersion: "unavailable", device: null };
+}
+
+const SUBJECT_WAIT_MS = 250;
+
+/** Who is being logged for: the dependant if given, else the signed-in user; empty when the session cannot be read quickly. */
+async function resolveSubject(beneficiaryProfileId?: string): Promise<string> {
+  if (beneficiaryProfileId) return beneficiaryProfileId;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const slow = new Promise<string>((resolve) => {
+    timer = setTimeout(() => resolve(""), SUBJECT_WAIT_MS);
+  });
+  const read = supabase.auth
+    .getSession()
+    .then(({ data: { session } }) => session?.user?.id ?? "")
+    .catch(() => "");
+  try {
+    return await Promise.race([read, slow]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export interface LogBpResult {
@@ -90,16 +129,27 @@ export async function logBpWithExtras(
   evaluate: TriageEvaluator = evaluateOnDevice,
   onOutcome?: (outcome: TriageOutcome) => void,
 ): Promise<LogBpResult> {
+  // The subject is needed for the on-device history, but never worth waiting for: a slow or expired
+  // session read must not hold back the emergency guidance (INV-06), so the check proceeds without it.
+  let subjectId = await resolveSubject(beneficiaryProfileId);
   const triageInput: TriageInput = {
     systolic: plan.systolic,
     diastolic: plan.diastolic,
     redFlagTicked: plan.redFlagTicked,
+    symptoms: plan.symptoms.map((x) => x.symptom_type),
+    ...(subjectId ? { subjectId } : {}),
   };
   const outcome = await evaluate(triageInput).catch(() => fallbackOutcome(triageInput));
   onOutcome?.(outcome);
 
-  let subjectId = beneficiaryProfileId;
+  // The engine's own plausibility check (spec 6.2): an implausible reading is never saved or graded. The form
+  // already refuses these, so this only guards against the two lists drifting apart.
+  if (outcome.device?.result.status === "rejected" && outcome.device.result.reason === "implausible_reading") {
+    return { error: t("triage.tri_006.body", "en"), outcome };
+  }
+
   if (!subjectId) {
+    // The quick read gave up; the save itself may wait for the session (the guidance is already showing).
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -119,8 +169,13 @@ export async function logBpWithExtras(
     {
       ...common,
       kind: "vital",
-      payload: { vital_type: "blood_pressure", systolic: plan.systolic, diastolic: plan.diastolic },
-      danger: outcome.bpFlag !== null,
+      payload: {
+        vital_type: "blood_pressure",
+        systolic: plan.systolic,
+        diastolic: plan.diastolic,
+        ...(plan.cuffType ? { cuff_type: plan.cuffType } : {}),
+      },
+      danger: outcome.bpFlag !== null || outcome.severity !== null,
     },
     ...(plan.pulse === null
       ? []

@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
@@ -7,8 +8,9 @@ import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
 import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-trend";
 import { loadActiveThresholds } from "@/lib/threshold-sync";
-import { BP_CHECKLIST_SYMPTOMS, planBpLog, redFlagsAmong, type BpChecklistSymptom } from "@/lib/bp-checklist";
+import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChecklistSymptom, type CuffType } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
+import { refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, type DeviceTriage } from "@/lib/triage-device";
 import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
 import {
   validateOtherEntry,
@@ -129,9 +131,37 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
+  const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info" } | null>(null);
+  const [cuffType, setCuffType] = useState<CuffType | null>(null);
+  const [rulesStale, setRulesStale] = useState(false);
   const [symptomOpen, setSymptomOpen] = useState(false);
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
+
+  // The governed engine's message for a reading (S12). Emergency guidance has its own full-screen modal, so it
+  // never also becomes a card. Colour is always paired with the words in the message.
+  const showTriage = useCallback(
+    (d: DeviceTriage | null | undefined) => {
+      if (!d || d.severity === "emergency" || !d.message) {
+        setTriageCard(null);
+        return;
+      }
+      const tone = d.result.status === "recheck_required" || d.result.grade === "amber" ? "warn" : "info";
+      setTriageCard({ message: `${t(d.message.title as MessageKey, locale)}. ${t(d.message.body as MessageKey, locale)}`, tone });
+    },
+    [locale],
+  );
+  useEffect(() => {
+    // A first elevated reading whose repeat never came is graded as if repeated (spec 6.2); and the rules are kept fresh.
+    void refreshApprovedRuleSet()
+      .then(() => rulesMayBeStale())
+      .then(setRulesStale)
+      .catch(() => {});
+    void refreshPatientFacts(patientId);
+    void resolveExpiredRecheck(patientId)
+      .then((d) => d && showTriage(d))
+      .catch(() => {});
+  }, [patientId, showTriage]);
 
   const load = useCallback(async () => {
     // Enough for a 30 day chart even for someone who logs several times a day.
@@ -139,6 +169,18 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setRawReadings(list);
     setNowMs(Date.now());
   }, [patientId]);
+
+  const cuffKey = `@tarragon/cuff-type/v1:${patientId}`;
+  useEffect(() => {
+    AsyncStorage.getItem(cuffKey)
+      .then((v) => setCuffType(CUFF_TYPES.find((c) => c === v) ?? null))
+      .catch(() => {});
+  }, [cuffKey]);
+  const chooseCuff = (c: CuffType | "none") => {
+    const next = c === "none" ? null : c;
+    setCuffType(next);
+    void (next ? AsyncStorage.setItem(cuffKey, next) : AsyncStorage.removeItem(cuffKey)).catch(() => {});
+  };
 
   const draftKey = `bp:${patientId}`;
   const draftRestored = useRef(false);
@@ -185,14 +227,19 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   useEffect(() => setSelected(null), [windowDays, readings]);
 
   async function handleSave() {
-    const plan = planBpLog({ systolic: sys, diastolic: dia, pulse, symptoms: ticked }, SYMPTOM_CHECKLIST.severity);
+    const plan = planBpLog({ systolic: sys, diastolic: dia, pulse, symptoms: ticked, cuffType }, SYMPTOM_CHECKLIST.severity);
     const symptomList = (list: readonly BpChecklistSymptom[]) => list.map((s) => tr(`vitals.symptom.${s}` as MessageKey)).join(", ");
     if (!plan.ok) {
-      setSaveError(null);
+      // An implausible reading (out of range, or the second number higher than the first) is rejected with the
+      // TRI-006 message and never graded (spec 6.2). Entry that is not numbers keeps its own message.
+      const implausible = plan.field === "bp" && (plan.error === "range" || plan.error === "order");
+      setSaveError(implausible ? `${tr("triage.tri_006.title")}. ${tr("triage.tri_006.body")}` : null);
       setErrorKey(
-        plan.field === "pulse"
-          ? (plan.error === "number" ? "vitals.error.pulse_number" : "vitals.error.pulse_range")
-          : (`vitals.error.${plan.error}` as MessageKey)
+        implausible
+          ? null
+          : plan.field === "pulse"
+            ? (plan.error === "number" ? "vitals.error.pulse_number" : "vitals.error.pulse_range")
+            : (`vitals.error.${plan.error}` as MessageKey)
       );
       // Guidance for a ticked red-flag symptom never waits for a valid reading: someone with chest
       // pain who has not typed the numbers (or mistyped them) still sees it. Nothing was saved, so
@@ -205,6 +252,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setErrorKey(null);
     setSaveError(null);
     setUrgentBanner(null);
+    setTriageCard(null);
 
     // The emergency guidance and the urgent banner come from the on-device check and appear at
     // once, before anything is sent: a crisis-range reading or a red-flag symptom is dangerous
@@ -219,6 +267,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       } else if (outcome.severity === "urgent" && outcome.bpFlag) {
         setUrgentBanner(outcome.bpFlag.detail);
       }
+      showTriage(outcome.device);
     });
     setSaving(false);
     if (result.error) {
@@ -398,6 +447,18 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           </View>
         </View>
         <Field label={tr("vitals.log.pulse")} hint={tr("vitals.log.pulse_hint")} keyboardType="number-pad" value={pulse} onChangeText={setPulse} />
+        <SegmentedControl
+          accessibilityLabel={tr("vitals.cuff.label")}
+          value={cuffType ?? "none"}
+          onChange={chooseCuff}
+          options={[
+            { value: "upper_arm", label: tr("vitals.cuff.upper_arm") },
+            { value: "wrist", label: tr("vitals.cuff.wrist") },
+            { value: "not_sure", label: tr("vitals.cuff.not_sure") },
+            { value: "none", label: tr("vitals.cuff.none") },
+          ]}
+        />
+        {cuffType === "wrist" ? <InlineAlert tone="info" message={tr("vitals.cuff.wrist_hint")} /> : null}
         <SymptomChecklist
           tr={tr}
           selected={ticked}
@@ -406,6 +467,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         {errorKey ? <InlineAlert tone="danger" message={tr(errorKey)} /> : null}
         {saveError ? <InlineAlert tone="danger" message={saveError} /> : null}
         {urgentBanner ? <InlineAlert tone="warn" message={urgentBanner} /> : null}
+        {rulesStale ? <InlineAlert tone="info" message={tr("triage.stale.rules")} /> : null}
+        {triageCard ? <InlineAlert tone={triageCard.tone} message={triageCard.message} /> : null}
         <Button title={tr("vitals.log.save")} onPress={handleSave} loading={saving} />
       </Card>
 

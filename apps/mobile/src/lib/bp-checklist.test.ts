@@ -14,7 +14,14 @@ const base: BpLogInput = { systolic: "150", diastolic: "95", pulse: "", symptoms
 describe("planBpLog", () => {
   it("plans just the blood pressure when nothing optional is given", () => {
     const plan = planBpLog(base, SEVERITY);
-    expect(plan).toEqual({ ok: true, systolic: 150, diastolic: 95, pulse: null, symptoms: [], redFlagTicked: [] });
+    expect(plan).toEqual({ ok: true, systolic: 150, diastolic: 95, pulse: null, symptoms: [], redFlagTicked: [], cuffType: null });
+  });
+
+  it("keeps a known cuff type and drops anything else", () => {
+    expect(planBpLog({ ...base, cuffType: "wrist" }, SEVERITY)).toMatchObject({ ok: true, cuffType: "wrist" });
+    expect(planBpLog({ ...base, cuffType: "upper_arm" }, SEVERITY)).toMatchObject({ cuffType: "upper_arm" });
+    expect(planBpLog({ ...base, cuffType: "finger" as never }, SEVERITY)).toMatchObject({ cuffType: null });
+    expect(planBpLog({ ...base, cuffType: null }, SEVERITY)).toMatchObject({ cuffType: null });
   });
 
   it("adds a companion pulse when one is typed and treats blank or spaces as none", () => {

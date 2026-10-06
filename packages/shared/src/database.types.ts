@@ -37598,6 +37598,31 @@ export type Database = {
           },
         ]
       }
+      triage_events: {
+        Row: {
+          actions: Json
+          created_at: string
+          explanation_key: string | null
+          grade: string
+          id: string
+          is_test: boolean
+          matched_rule_ids: string[]
+          organisation_id: string
+          patient_id: string | null
+          rule_id: string | null
+          rule_set_code: string
+          rule_set_id: string
+          rule_set_status: string
+          rule_set_version: number
+          shadow: boolean
+          task_key: string | null
+          trigger_id: string
+          trigger_type: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       triage_protocols: {
         Row: {
           approved_at: string | null
@@ -38733,6 +38758,7 @@ export type Database = {
           received_at: string | null
           time_basis: string | null
           created_at: string
+          cuff_type: string | null
           device_id: string | null
           diastolic: number | null
           external_reading_id: string | null
@@ -38774,6 +38800,7 @@ export type Database = {
           received_at?: string | null
           time_basis?: string | null
           created_at?: string
+          cuff_type?: string | null
           device_id?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
@@ -38817,6 +38844,7 @@ export type Database = {
           received_at?: string | null
           time_basis?: string | null
           created_at?: string
+          cuff_type?: string | null
           device_id?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
@@ -40601,6 +40629,7 @@ export type Database = {
           patient_id: string | null
           priority: number | null
           recurrence: string | null
+          source: string | null
           source_event_id: string | null
           state: string | null
           status: Database["public"]["Enums"]["care_task_status"] | null
@@ -42733,6 +42762,7 @@ export type Database = {
         Returns: Json
       }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
+      get_approved_triage_rule_set: { Args: { p_code: string }; Returns: Json }
       get_available_appointment_slots: {
         Args: {
           p_appointment_type: Database["public"]["Enums"]["appointment_type"]
