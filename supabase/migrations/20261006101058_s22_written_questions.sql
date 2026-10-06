@@ -224,6 +224,8 @@ begin
   new.window_started_at := now();
   new.sla_due_at := now() + make_interval(mins => new.window_minutes);
 
+  -- two sends at once must not both pass the monthly count
+  perform pg_advisory_xact_lock(hashtextextended('written_question:' || new.patient_id::text, 0));
   if private.patient_is_member(new.patient_id) then
     v_allow := (private.written_care_setting('monthlyAllowance') #>> '{}')::int;
     v_start := date_trunc('month', now() at time zone v_tz) at time zone v_tz;
@@ -605,8 +607,9 @@ drop policy if exists async_consults_update on public.async_consults;
 create policy async_consults_select_staff_counts on public.async_consults
   for select to authenticated using (private.is_org_staff(organisation_id));
 revoke all on public.async_consults from authenticated;
-grant select (id, organisation_id, patient_id, category, status, sla_due_at, answered_at, created_at, updated_at,
-              task_id, is_test, answer_kind, follow_up_until, window_started_at, window_missed_at, safety_flagged)
+-- Staff counts need only these columns. patient_id, category and the text stay closed: a clinician reads a question only through
+-- read_written_question_audited, with a claim (INV-10, INV-12).
+grant select (id, organisation_id, status, created_at, sla_due_at, is_test)
   on public.async_consults to authenticated;
 
 -- ---------------------------------------------------------------------------

@@ -38,8 +38,8 @@ begin
 end; $$;
 create trigger clinical_encounter_notes_00_is_test before insert on public.clinical_encounter_notes
   for each row execute function private.stamp_note_is_test();
-update public.clinical_encounter_notes n set is_test = true
-  from public.profiles p where p.id = n.patient_id and p.is_test and not n.is_test and n.status = 'draft';
+-- No backfill of existing rows: updating a note row runs the signing-attribution trigger, which needs a signed-in clinician and
+-- would abort this migration. Old rows keep is_test = false; metrics already filter on the patient's own is_test flag.
 
 -- ---------------------------------------------------------------------------
 -- 2. Release and correction tables (no direct grants: functions only)
@@ -108,6 +108,7 @@ insert into public.event_type_versions (event_type, version, required_keys) valu
 
 insert into public.notification_templates (key, category, business_priority, audience, default_channels, timing, description) values
   ('note_release_requested', 'operational', 'routine', 'clinician', array['in_app']::public.notification_channel[], 'immediate', 'A patient asked to open a signed note.'),
+  ('note_correction_requested', 'operational', 'routine', 'clinician', array['in_app']::public.notification_channel[], 'immediate', 'A patient asked for a correction to a signed note.'),
   ('note_released', 'operational', 'routine', 'patient', array['in_app','push']::public.notification_channel[], 'immediate', 'A note is now available to open.'),
   ('note_release_declined', 'operational', 'routine', 'patient', array['in_app']::public.notification_channel[], 'immediate', 'The note request has an answer.'),
   ('note_correction_answered', 'operational', 'routine', 'patient', array['in_app','push']::public.notification_channel[], 'immediate', 'Your correction request has an answer.'),
@@ -115,6 +116,7 @@ insert into public.notification_templates (key, category, business_priority, aud
 on conflict (key) do nothing;
 insert into public.notification_template_locales (template_key, locale, channel, subject, body) values
   ('note_release_requested', 'en', 'in_app', 'A patient asked to open a note', 'A patient asked to open a signed note. Open your notes to answer.'),
+  ('note_correction_requested', 'en', 'in_app', 'A patient asked for a correction', 'A patient asked for a correction to a signed note. Open your notes to answer.'),
   ('note_released', 'en', 'in_app', 'A note is ready to open', 'Your care team has made a note available. Open the app to read it.'),
   ('note_released', 'en', 'push', 'A note is ready to open', 'Open the app to read it.'),
   ('note_release_declined', 'en', 'in_app', 'About your request', 'Your care team has replied to your request. Open the app to see the reply.'),
@@ -191,13 +193,15 @@ $$;
 create function private.note_patient_visible(p_note uuid, p_patient uuid) returns boolean
 language sql stable security definer set search_path = ''
 as $$
-  -- a signed note the patient owns, that is released itself or amends (through any number of signed amendments) a released one
+  -- A signed note the patient owns is visible when it is released itself, or when it amends (through signed, unprotected
+  -- amendments only) a released note. A protected note is visible only through its OWN release, never by inheriting one:
+  -- the walk upward stops at a protected note, so marking an amendment protected keeps it for the CMO to release.
   with recursive chain as (
-    select n.id, n.amends_note_id from public.clinical_encounter_notes n
+    select n.id, n.amends_note_id, n.is_protected from public.clinical_encounter_notes n
      where n.id = p_note and n.patient_id = p_patient and n.status = 'finalized'
     union all
-    select o.id, o.amends_note_id from public.clinical_encounter_notes o join chain c on c.amends_note_id = o.id
-     where o.status = 'finalized'
+    select o.id, o.amends_note_id, o.is_protected from public.clinical_encounter_notes o join chain c on c.amends_note_id = o.id
+     where o.status = 'finalized' and not c.is_protected
   )
   select exists (select 1 from chain c join public.note_releases r on r.note_id = c.id and r.state = 'released');
 $$;
@@ -326,7 +330,7 @@ begin
   insert into public.note_correction_requests (organisation_id, note_id, patient_id, request_text, due_at, is_test)
   values (n.organisation_id, n.id, v_uid, btrim(p_text), now() + make_interval(days => v_days), n.is_test) returning id into v_id;
   select cs.profile_id into v_author from public.clinical_staff cs where cs.id = n.authored_by_staff;
-  if v_author is not null then perform private.written_care_notify(v_author, n.organisation_id, 'note_release_requested', jsonb_build_object('note_id', n.id)); end if;
+  if v_author is not null then perform private.written_care_notify(v_author, n.organisation_id, 'note_correction_requested', jsonb_build_object('note_id', n.id)); end if;
   perform private.notify_clinical_leads(n.organisation_id, n.is_test, 'A note correction was requested',
     'A patient asked for a correction to a signed note.', jsonb_build_object('note_id', n.id), v_author);
   return v_id;
@@ -416,6 +420,8 @@ begin
     exception when others then
       v_errors := v_errors + 1;
       raise warning 'sweep_unsigned_notes: % failed: %', r.id, sqlerrm;
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      values (r.organisation_id, 'unsigned_note_sweep.error', 'clinical_note', r.id, jsonb_build_object('error', sqlerrm));
     end;
   end loop;
   return jsonb_build_object('reminded', v_author, 'lead_notified', v_lead, 'errors', v_errors);

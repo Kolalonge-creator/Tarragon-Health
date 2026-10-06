@@ -201,6 +201,11 @@ begin
   perform pg_temp.ck('a signed-in patient cannot insert directly', 'true',
     (pg_temp.try_as(v_free, format($q$insert into public.async_consults (organisation_id, patient_id, category, question) values (%L, %L, 'general', 'a direct insert that should fail')$q$,
        pg_temp.f('org'), v_free)) like 'permission denied%')::text);
+  perform pg_temp.ck('staff cannot see which patient asked, or what category, directly', 'true',
+    (pg_temp.q_as(pg_temp.f('doc'), 'select patient_id from public.async_consults limit 1') like 'ERR:permission denied%'
+      and pg_temp.q_as(pg_temp.f('doc'), 'select category from public.async_consults limit 1') like 'ERR:permission denied%')::text);
+  perform pg_temp.ck('staff can still count by status', 'true',
+    (pg_temp.q_as(pg_temp.f('doc'), 'select count(*)::text from public.async_consults where status = ''submitted''') ~ '^[0-9]+$')::text);
   perform pg_temp.ck('staff cannot read the answer text directly', 'true',
     (pg_temp.q_as(pg_temp.f('doc'), 'select answer from public.async_consults limit 1') like 'ERR:permission denied%')::text);
 end $$;
@@ -490,6 +495,19 @@ begin
   perform pg_temp.ck('...the patient sees the answer beside the note', 'true', (pg_temp.q_as(v_np, $q$select public.my_released_notes()::text$q$) like '%We have recorded%' or pg_temp.q_as(v_np, $q$select public.my_released_notes()::text$q$) like '%corrected note%')::text);
   perform pg_temp.ck('...nothing was deleted', 'true', ((select count(*) from public.clinical_encounter_notes where id in (n1, n2, n3, n4, a1, v_am)) = 6)::text);
   perform pg_temp.ck('an answered request cannot be answered again', 'true', (pg_temp.try_as(v_doc, format($q$select public.respond_note_correction(%L, 'declined', 'Trying to answer a second time.')$q$, q)) like 'already answered%')::text);
+
+  -- a protected amendment never inherits the release of its unprotected original
+  perform pg_temp.act(v_doc);
+  v_am := public.create_note_amendment(n1, 'addendum', 'Added the missing follow up detail for the patient');
+  perform public.set_note_protected(v_am, true);
+  perform public.update_encounter_note_draft(v_am, '{"plan":"Sensitive addition."}'::jsonb);
+  perform public.finalize_encounter_note(v_am, 'continue_monitoring', true);
+  perform pg_temp.back();
+  perform pg_temp.ck('a protected amendment of a released note stays hidden until the CMO releases it', 'false',
+    (pg_temp.q_as(v_np, $q$select public.my_released_notes()::text$q$) like '%Sensitive addition%')::text);
+  perform pg_temp.ck('...the CMO can release it (the gate opens)', 'ok', pg_temp.try_as(v_cmo, format('select public.decide_note_release(%L, true, null)', v_am)));
+  perform pg_temp.ck('...and then the patient reads it', 'true',
+    (pg_temp.q_as(v_np, $q$select public.my_released_notes()::text$q$) like '%Sensitive addition%')::text);
 
   -- unsigned notes
   set local session_replication_role = replica;

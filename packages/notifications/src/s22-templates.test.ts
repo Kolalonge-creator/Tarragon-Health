@@ -16,6 +16,7 @@ const KEYS = [
   "written_question_call_planned",
   "written_question_staff_notice",
   "note_release_requested",
+  "note_correction_requested",
   "note_released",
   "note_release_declined",
   "note_correction_answered",

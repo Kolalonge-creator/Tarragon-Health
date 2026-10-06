@@ -583,6 +583,10 @@ export const TEMPLATE_MAP: Record<
     smsText: "A written message needs attention. Open your queue.",
     pushUrl: "/clinician/async-consults",
   }),
+  note_correction_requested: () => ({
+    smsText: "A patient asked for a correction to a signed note. Open your messages to answer.",
+    pushUrl: "/clinician/messages",
+  }),
   note_release_requested: () => ({
     smsText: "A patient asked about a signed note. Open your messages to answer.",
     pushUrl: "/clinician/messages",

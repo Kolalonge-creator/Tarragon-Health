@@ -364,6 +364,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "written_question_staff_notice") {
     return { text: "A written message needs attention", href: "/clinician/async-consults" };
   }
+  if (n.template === "note_correction_requested") {
+    return { text: "A patient asked for a correction to a note. Open your messages to answer", href: "/clinician/messages" };
+  }
   if (n.template === "note_release_requested") {
     return { text: "A patient asked about a note. Open your messages to answer", href: "/clinician/messages" };
   }
