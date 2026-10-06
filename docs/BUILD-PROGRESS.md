@@ -713,3 +713,11 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Tests**: DB proof `s37_go_live_guards.sql` 113 checks, 0 failures, two sabotage checks that flip (reader forced open; guard trigger dropped), run in a rolled-back transaction against the migrated live schema; the S21, appointment-engine and lab-result-consult proofs re-run the same way (the last needed its fixture patients marked test, since a real patient can no longer create a video visit request while the guard is off) (S21's own phone-bridge section fails on `public.phone_bridges`, which S21f dropped live; that is PR 942, not this change). Jest: go-live model, actions, page, search, booking card, join refusal.
 - **Open questions**: OQ-180 to OQ-185 (why not `platform_modules`; the test-pair rule; no auto switch-off on drift; one-person attestations; guards to wire later; the consultation policy confirmation as a future condition). OQ-135 answered.
 - **Follow-ups**: apply the migration before deploying (see `docs/design/S37.md` section 7); `database.types.ts` not spliced (the screens parse results with Zod); the mobile app's own older booking path will get the database refusal but has no client-side calm state (OQ-158); S36 console screens were not finished and the founder said to proceed, so the screens sit with the other staff pages in `apps/web`.
+
+## Competitor review: Report for your visit (2026-10-06, branch `feat/competitor-review-visit-report`)
+
+- **Built**: `/api/patient/visit-report/pdf?days=7|30|90`, `lib/visit-report` (pure `summariseReadings`, PDF document), and a card on `/patient/vitals`. Own readings only through the caller's RLS session; plain statistics, no thresholds; unvalidated readings excluded and counted; wearable estimates counted separately.
+- **Reused**: the react-pdf route pattern from lab results, `vitals_readings`.
+- **Review and plan**: `docs/COMPETITOR_REVIEW_AND_PLAN_2026-10.md` and two research files.
+- **Tests**: 12 Jest tests (summary, document tree, route auth and own-id read); typecheck and eslint clean; a real render was checked visually. No migration, no database change.
+- **Not done**: i18n strings, caregiver access, mobile button, browser click-through, `/code-review high`.

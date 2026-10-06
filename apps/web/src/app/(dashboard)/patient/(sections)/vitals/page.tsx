@@ -19,6 +19,7 @@ import { SymptomTriageCheck } from "@/app/(dashboard)/patient/symptom-triage-che
 import { listAvailablePresentingComplaints } from "@/app/(dashboard)/patient/symptom-triage-actions";
 import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
+import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 
 export default async function PatientVitalsPage() {
   const { profile, subjectId, subjectDateOfBirth } = await getPatientDashboardContext();
@@ -61,6 +62,7 @@ export default async function PatientVitalsPage() {
       <SymptomTriageCheck patientId={subjectId} presentingComplaints={presentingComplaints} />
 
       <VitalsHistory patientId={subjectId} />
+      <VisitReportCard />
       {/* Renders nothing unless the patient has an active diabetes care
           plan — see diabetes-daily-log.tsx for the gate. */}
       <DiabetesDailyLog patientId={subjectId} />
