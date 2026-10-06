@@ -1066,3 +1066,25 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-216 Speak-up concerns screen (S20, S36)
 - Blocks: the clinician and lead screens for safety concerns. Live: the S20 functions exist; concerns are readable only by the person who raised them, the CMO and named backup readers, and never by operations. The founder is not yet a named backup reader (OQ-158).
 - Decision: open. Build only after the CMO names backup readers and reviews the wording shown to someone raising a concern. Not in S36.
+
+### OQ-235 Directory verification cadence is built as PROPOSED, not signed (S36g, refines OQ-214)
+- Blocks: calling the schedule final. Built: 12 months for every listing, 6 months for pharmacies, in `directory_verification_config` v1, mirrored as `directory.verification_cadence` (owner Founder, status proposed) with a drift test. No sign-off was created.
+- Options: keep (a) flat 12/6; (b) tie the due date to the partner's licence expiry; (c) risk tiers by volume. Changing it is a new config version, not a code change.
+- Decision: open. Founder for partner terms, CMO for clinical partners (labs, pharmacies, specialists).
+
+### OQ-236 What happens to a listing that stays overdue (S36g, spec 25.9)
+- Blocks: any escalation beyond the reminder. Built: the nightly job marks a past-due listing stale, tells ops once (re-reminds every 30 days), and the screen says "verification overdue". It never hides, deactivates or suspends a listing and never changes what patients see.
+- Options: (a) stay visible-only forever (current); (b) after a set number of overdue days, show patients a neutral "details last checked on" note; (c) require a person to pause the listing.
+- Decision: open. Needs the founder; (b) and (c) change a patient-facing surface and need a reviewed wording.
+
+### OQ-237 Who may record a verification (S36g)
+- Blocks: nothing. Built: the `partners.<kind>.manage` permission for that kind of listing (admin holds all); `ops.console.view` alone may read but not record, so an operations user needs the matching manage grant to do the check. Two-person checking (maker-checker) was not added.
+- Decision: open. Confirm this is the intended split, or whether ops should record without a manage grant.
+
+### OQ-238 Where the verification date shows to patients (S36g)
+- Blocks: nothing built. The date lives in `directory_freshness` and is shown only on the ops screen. Practo and Vezeeta show "verified" signals to patients; no copy for a patient-facing "last checked" line has been written or reviewed.
+- Decision: open. Needs the founder and wording review; public location views (`public_partner_locations`) are untouched.
+
+### OQ-239 Scope of the six listing kinds, and `is_test` (S36g)
+- Blocks: nothing. Covered: laboratories, pharmacies, specialists, facilities, home visit providers, delivery partners (every table that has a partner licence or directory row). Not covered: pharmacy and specialist branch rows (`pharmacy_partner_locations`, `specialist_provider_locations`), `network_partner_organisations`, `cgm_partners`. None of the six has an `is_test` column, so there is nothing to exclude; if test rows are ever added to them the list needs the filter.
+- Decision: open. Confirm whether branches should carry their own verification date.
