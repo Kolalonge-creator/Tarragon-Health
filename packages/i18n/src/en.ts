@@ -1110,6 +1110,8 @@ export const en = {
   "notes.withdrawn.on": "Withdrawn {date}",
   "golive.consultations.closed.title": "Consultations are not open yet",
   "golive.consultations.closed.body": "We are still getting our care team ready. You will see a message in the app as soon as you can book. Nothing has been booked and nothing has been charged.",
+  "golive.consultations.paused": "Consultations are paused for now. Your care team will tell you in the app what happens to this appointment.",
+  "golive.switch.confirm": "I have checked the conditions and I want this switched on.",
   "golive.title": "Go-live guards",
   "golive.intro": "A guard keeps a clinical feature switched off until its conditions are met. A guard can only be switched on here, which checks the conditions against real records and writes down who switched it on, when and why. Nobody can change a guard any other way.",
   "golive.state.on": "On",

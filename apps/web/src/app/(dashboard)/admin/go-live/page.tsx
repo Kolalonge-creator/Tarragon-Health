@@ -9,10 +9,10 @@ export const metadata = { title: "Go-live guards" };
 export const dynamic = "force-dynamic";
 
 /** S37: the founder's door to the go-live guards and the proposed values they own. The CMO uses /clinician/go-live. */
-export default async function AdminGoLive() {
+export default async function AdminGoLive({ searchParams }: { searchParams: Promise<{ n?: string }> }) {
   const profile = await getCurrentProfile();
   if (profile?.role !== "admin") redirect("/admin");
-  const flash = await readFlash();
+  const flash = await readFlash((await searchParams).n);
   const locale = resolveUiLanguage(profile.language, await getPidginEnabled());
   return <GoLivePage viewer="admin" locale={locale} notice={flash?.notice} detail={flash?.detail} ok={flash?.ok} />;
 }

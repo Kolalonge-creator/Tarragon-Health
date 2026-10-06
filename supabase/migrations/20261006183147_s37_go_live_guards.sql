@@ -208,12 +208,8 @@ declare
   v_gaps integer;
 begin
   if p_key = 'clinical_operations_enabled' then
-    -- public.protocols arrives with S24 (not on main-dev yet): read it dynamically so this migration and its functions work before and after it
-    if to_regclass('public.protocols') is not null then
-      execute 'select count(*) from public.protocols where status = ''approved'' and code ~ ''^(htn|hypertension)''' into v_n;
-    else
-      v_n := 0;
-    end if;
+    -- the approved hypertension protocol is a public.protocols row (S24) whose code starts htn or hypertension (the S24 placeholder is htn_hearts_ng)
+    select count(*) into v_n from public.protocols where status = 'approved' and code ~ '^(htn|hypertension)';
     return jsonb_build_array(
       private.go_live_cond('hypertension_protocol_approved', 'An approved hypertension protocol', v_n > 0, 'data', v_n || ' approved'),
       private.go_live_cond('triage_rule_set_approved', 'An approved blood pressure triage rule set',
@@ -326,6 +322,8 @@ begin
   if g.is_on = p_on then
     return jsonb_build_object('ok', true, 'key', g.key, 'is_on', g.is_on, 'changed', false);
   end if;
+  -- a person who is both the admin and the CMO acts in the role the guard names, so the permanent record is not mislabelled
+  v_role := case when g.switch_role = 'cmo' and private.credential_is_cmo() then 'cmo' when private.is_admin() then 'admin' else 'cmo' end;
   v_conditions := private.go_live_conditions_safe(p_key, private.caller_org());
 
   if p_on then
@@ -354,6 +352,12 @@ begin
          changed_by = v_uid,
          change_note = case when p_on then btrim(p_note) else nullif(btrim(p_note), '') end
    where key = p_key;
+  -- Switching the scribe OFF is a stop, not only a closed door: a granted scribe consent is what the scribe-draft function checks, so end
+  -- every consent still open (revoked_at is the existing "no longer active" mark; the rows stay as the audit record). When the guard is
+  -- switched on again a patient has to be asked again.
+  if p_key = 'scribe_enabled' and not p_on then
+    update public.scribe_consents set revoked_at = now() where granted and revoked_at is null;
+  end if;
   perform private.log_audit(case when p_on then 'go_live_guard.switched_on' else 'go_live_guard.switched_off' end, 'go_live_guard', null,
     jsonb_build_object('key', p_key, 'role', v_role));
   return jsonb_build_object('ok', true, 'key', p_key, 'is_on', p_on, 'changed', true);
@@ -496,7 +500,7 @@ insert into public.go_live_guards (key, label, blocks, condition_text, switch_ro
   ('prescribing_enabled', 'Prescribing', 'Prescriptions', 'At least one active pharmacy partner; clinical lead sign-off', 'cmo', '{}',
    'Prescribing (S24, signed prescriptions) is not behind this guard yet. Nothing is blocked by it today.'),
   ('scribe_enabled', 'AI scribe', 'AI scribe', 'Legal review of CON-001 recorded; speech provider configured', 'admin',
-   array['scribe_consents insert (the scribe-draft path)', 'scribe_may_start (the consultation room)'], 'The scribe-draft edge function itself does not read the guard: it is closed by refusing new consents. A consent recorded before a switch-off stays valid until it is revoked.'),
+   array['scribe_consents insert (the scribe-draft path)', 'scribe_may_start (the consultation room)'], 'The scribe-draft edge function itself does not read the guard: it is closed by refusing new granted consents, and switching the guard off revokes every consent still open (the rows stay as the audit record).'),
   ('payouts_enabled', 'Payouts', 'Payout sending', 'Fee schedule approved; Paystack transfers configured', 'admin', '{}',
    'Payout sending is not built yet (S30). Nothing is blocked by this guard today.'),
   ('public_signup_enabled', 'Public sign-up', 'Sign-ups outside the pilot allow-list', 'Stage 2 exit criteria met', 'admin', '{}',

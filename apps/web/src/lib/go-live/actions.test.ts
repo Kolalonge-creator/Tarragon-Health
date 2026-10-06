@@ -16,7 +16,7 @@ jest.mock("next/navigation", () => ({
   },
 }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
-jest.mock("./flash", () => ({ setFlash: (f: { notice: string; detail?: string; ok: boolean }) => flash(f) }));
+jest.mock("./flash", () => ({ setFlash: async (f: { notice: string; detail?: string; ok: boolean }) => { await flash(f); return "n-1"; } }));
 jest.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({ rpc, auth: { getUser: async () => ({ data: { user: signedIn ? { id: "signer-1" } : null } }) } }),
 }));
@@ -64,16 +64,22 @@ describe("switchGuardAction", () => {
 
   it("refuses a key that is not one of the seven guards before calling the database", async () => {
     const msg = await run(switchGuardAction(form({ viewer: "admin", key: "made_up", on: "1", note: "x" })));
-    expect(msg).toBe("REDIRECT:/admin/go-live");
+    expect(msg).toBe("REDIRECT:/admin/go-live?n=n-1");
     expect(flash).toHaveBeenCalledWith(expect.objectContaining({ notice: "golive.error.input", ok: false }));
     expect(rpc).not.toHaveBeenCalled();
   });
 
   it("calls the one switching function and reports success in a one-shot notice, not in the address", async () => {
-    const msg = await run(switchGuardAction(form({ viewer: "admin", key: "payouts_enabled", on: "1", note: "ready" })));
+    const msg = await run(switchGuardAction(form({ viewer: "admin", key: "payouts_enabled", on: "1", confirm: "on", note: "ready" })));
     expect(rpc).toHaveBeenCalledWith("set_go_live_guard", { p_key: "payouts_enabled", p_on: true, p_note: "ready" });
-    expect(msg).toBe("REDIRECT:/admin/go-live");
+    expect(msg).toBe("REDIRECT:/admin/go-live?n=n-1");
     expect(flash).toHaveBeenCalledWith({ notice: "golive.done.switched_on", detail: undefined, ok: true });
+  });
+
+  it("will not switch a guard on without the tick-box, so a stray Enter in the note field cannot make a feature live", async () => {
+    await run(switchGuardAction(form({ viewer: "admin", key: "payouts_enabled", on: "1", note: "ready" })));
+    expect(rpc).not.toHaveBeenCalled();
+    expect(flash).toHaveBeenCalledWith(expect.objectContaining({ notice: "golive.error.input", ok: false }));
   });
 
   it("treats anything other than on=1 as switching off", async () => {
@@ -83,21 +89,21 @@ describe("switchGuardAction", () => {
 
   it("shows what the database says is missing (22023) and never reports success", async () => {
     rpc.mockResolvedValue({ data: null, error: { code: "22023", message: "cannot switch on Payouts: not yet met: A fee schedule is approved" } });
-    await run(switchGuardAction(form({ viewer: "admin", key: "payouts_enabled", on: "1", note: "go" })));
+    await run(switchGuardAction(form({ viewer: "admin", key: "payouts_enabled", on: "1", confirm: "on", note: "go" })));
     expect(flash).toHaveBeenCalledWith({ notice: "golive.error.generic", detail: "cannot switch on Payouts: not yet met: A fee schedule is approved", ok: false });
   });
 
   it("hides an unexpected database error behind a generic notice", async () => {
     rpc.mockResolvedValue({ data: null, error: { code: "XX000", message: "relation secret.table exploded" } });
-    await run(switchGuardAction(form({ viewer: "admin", key: "payouts_enabled", on: "1", note: "go" })));
+    await run(switchGuardAction(form({ viewer: "admin", key: "payouts_enabled", on: "1", confirm: "on", note: "go" })));
     expect(flash).toHaveBeenCalledWith({ notice: "golive.error.generic", detail: undefined, ok: false });
   });
 
   it("lets the CMO through at the CMO door, and returns to the CMO page", async () => {
     role = "clinician";
     cmo = true;
-    const msg = await run(switchGuardAction(form({ viewer: "cmo", key: "prescribing_enabled", on: "1", note: "signed off" })));
-    expect(msg).toBe("REDIRECT:/clinician/go-live");
+    const msg = await run(switchGuardAction(form({ viewer: "cmo", key: "prescribing_enabled", on: "1", confirm: "on", note: "signed off" })));
+    expect(msg).toBe("REDIRECT:/clinician/go-live?n=n-1");
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 });

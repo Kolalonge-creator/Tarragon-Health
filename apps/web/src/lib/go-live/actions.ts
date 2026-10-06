@@ -27,8 +27,8 @@ const keySchema = z.enum(GUARD_KEYS);
 type Back = { notice: string; detail?: string; failed: boolean };
 
 async function back(viewer: Viewer, r: Back): Promise<never> {
-  await setFlash({ notice: r.notice, detail: r.detail?.slice(0, 400), ok: !r.failed });
-  return redirect(PATHS[viewer]);
+  const n = await setFlash({ notice: r.notice, detail: r.detail?.slice(0, 400), ok: !r.failed });
+  return redirect(`${PATHS[viewer]}?n=${n}`);
 }
 
 const fail = (viewer: Viewer, notice = "golive.error.generic", detail?: string): Promise<never> => back(viewer, { notice, detail, failed: true });
@@ -54,7 +54,8 @@ export async function switchGuardAction(formData: FormData): Promise<void> {
   const key = keySchema.safeParse(formData.get("key"));
   const on = formData.get("on") === "1";
   const note = noteSchema.safeParse(formData.get("note") ?? undefined);
-  if (!key.success || !note.success) return fail(viewer, "golive.error.input");
+  // Switching ON needs the tick-box as well (a stray Enter in the note field must never make a clinical feature live)
+  if (!key.success || !note.success || (on && formData.get("confirm") !== "on")) return fail(viewer, "golive.error.input");
   const { error } = await (await client()).rpc("set_go_live_guard", { p_key: key.data, p_on: on, p_note: note.data || null });
   if (error) {
     const r = readable(error);

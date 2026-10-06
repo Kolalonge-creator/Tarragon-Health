@@ -12,6 +12,7 @@ import {
   type Viewer,
 } from "@/lib/go-live/model";
 import { attestConditionAction, signoffConfigAction, switchGuardAction } from "@/lib/go-live/actions";
+import { FlashClean } from "./flash-clean";
 
 const lagos = (iso: string) => new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const today = () => new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -50,6 +51,7 @@ export async function GoLivePage({
         <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("golive.intro", locale)}</p>
       </div>
 
+      {noticeText && <FlashClean />}
       {noticeText && (
         <p role={ok ? "status" : "alert"} className={`rounded-xl border p-3 text-sm ${ok ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-red-300 bg-red-50 text-red-900"}`}>
           {noticeText}
@@ -172,6 +174,12 @@ function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer; loca
             <label className="block text-xs text-charcoal-ink">
               {t("golive.switch.note", locale)}
               <input name="note" required maxLength={1000} className={field} />
+            </label>
+            {/* Enter in the note field submits this form. Switching on needs the box ticked (the browser refuses to submit without it and
+                the action checks it again), so a stray Enter cannot make a clinical feature live. */}
+            <label className="flex items-start gap-2 text-xs text-charcoal-ink">
+              <input type="checkbox" name="confirm" required disabled={!g.all_met} className="mt-0.5" />
+              {t("golive.switch.confirm", locale)}
             </label>
             <button type="submit" name="on" value="1" disabled={!g.all_met} className={`${button} bg-brand-green text-white`}>{t("golive.switch.on", locale)}</button>
             {!g.all_met && <p className="text-xs text-charcoal-ink/70">{t("golive.switch.blocked", locale)}</p>}

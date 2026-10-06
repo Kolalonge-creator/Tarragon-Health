@@ -109,9 +109,7 @@ begin
   v_pat := pg_temp.mkuser(v_org, 'patient', 'patient');
   -- deterministic start whatever production holds today: no approved blood pressure rule set and no approved hypertension protocol
   update public.triage_rule_sets set status = 'retired' where code = 'bp_care_triage' and status = 'approved';
-  if to_regclass('public.protocols') is not null then
-    execute 'update public.protocols set status = ''retired'' where status = ''approved'' and code ~ ''^(htn|hypertension)''';
-  end if;
+  update public.protocols set status = 'retired' where status = 'approved' and code ~ '^(htn|hypertension)';
   update public.consultation_policy_config set config = config || '{"bookingLeadMinutes":5,"bookingHorizonDays":21}'::jsonb where is_active;
 
   -- 1. Shape ----------------------------------------------------------------------------------------------------
@@ -222,11 +220,6 @@ begin
   perform pg_temp.rec('with no protocol, rule set or tier 2 clinician the switch names all three', 'true',
     (v_txt like '22023:%hypertension protocol%triage rule set%tier 2 clinician%')::text);
   perform pg_temp.back();
-  if to_regclass('public.protocols') is null then
-    -- the protocols table arrives with S24; this proof must also run where it is not merged yet (the shape mirrors the live table)
-    create table public.protocols (id uuid primary key default gen_random_uuid(), code text not null, version integer not null,
-      status text not null default 'draft', definition jsonb not null, approved_by uuid, approved_at timestamptz, created_at timestamptz not null default now());
-  end if;
   insert into public.protocols (code, version, status, definition, approved_by, approved_at)
   values ('htn_hearts_ng', 9001, 'approved', '{"code":"htn_hearts_ng","version":9001}'::jsonb, v_cmo, now());
   perform pg_temp.act(v_admin);
@@ -448,6 +441,7 @@ begin
   perform pg_temp.rec('a broken condition query does not blank the dashboard', '7', jsonb_array_length(public.go_live_guard_status())::text);
   perform pg_temp.rec('...every guard then reads as not satisfied', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where not (g ->> 'all_met')::boolean));
   perform pg_temp.rec('...and the stop button still works (scribe_enabled is on here)', 'true', (public.set_go_live_guard('scribe_enabled', false, 'Proof: stop under a broken evaluator.') ->> 'changed'));
+  perform pg_temp.rec('...and no scribe consent is left open after the scribe is switched off', '0', (select count(*)::text from public.scribe_consents where granted and revoked_at is null));
   perform pg_temp.rec('...but switching on is refused, fail closed', '22023', pg_temp.try('select public.set_go_live_guard(''payouts_enabled'', true, ''go'')'));
   perform pg_temp.back();
 

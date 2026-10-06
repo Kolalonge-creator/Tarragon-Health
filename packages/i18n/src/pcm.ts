@@ -1111,6 +1111,8 @@ export const pcm: Record<MessageKey, string> = {
   "notes.withdrawn.on": "Dem withdraw am {date}",
   "golive.consultations.closed.title": "Dem never open consultation yet",
   "golive.consultations.closed.body": "We still dey ready our care team. You go see message for the app as soon as you fit book. Nothing dey booked and dem no collect any money.",
+  "golive.consultations.paused": "Dem don pause consultation for now. Your care team go tell you for the app wetin go happen to this appointment.",
+  "golive.switch.confirm": "I don check the conditions and I want make dem switch am on.",
   "golive.title": "Go-live guards",
   "golive.intro": "Guard dey keep clinical feature off until dem meet the conditions. You fit only switch guard on here, and e go check the conditions against real records and write who switch am on, when and why. Nobody fit change guard any other way.",
   "golive.state.on": "On",
