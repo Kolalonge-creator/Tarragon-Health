@@ -582,7 +582,7 @@ export function getNavSections(
                 // The on-call rota, declared on-call hours and lead clinicians (S18). Chief Medical Officer only; the page redirects anyone below that tier.
                 { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
                 // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
-                { label: "Memberships", href: "/clinician/members", icon: "members" },
+                { label: "Memberships", href: "/clinician/memberships", icon: "members" },
                 // The AI governance console's two CMO-only actions (approving
                 // an ai_system_versions row, labelling an ai_evaluation_cases
                 // clinical-accuracy scenario) — same reachability gap as
@@ -660,7 +660,7 @@ export function getNavSections(
             // Who is on call, who is declared to work, who leads each care pack patient (S18).
             { label: "Rota and lead clinicians", href: "/admin/rota", icon: "caseload" },
             // Grant or end a Membership by hand until checkout exists (S22b).
-            { label: "Memberships", href: "/admin/members", icon: "members" },
+            { label: "Memberships", href: "/admin/memberships", icon: "members" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },

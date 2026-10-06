@@ -210,6 +210,30 @@ describe("written question queue", () => {
     expect(ra.sent).toBe(1);
   });
 
+  it("two different patients flushing at once are both sent, not the second skipped", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const submit: string[] = [];
+    const { queue, calls } = build({
+      async submit(i) {
+        submit.push(i.clientId);
+        await gate;
+        return { ok: true, id: `c-${i.clientId}` };
+      },
+    });
+    const a = await queue.enqueue("user-a", { ...input, photos: [] });
+    const b = await queue.enqueue("user-b", { ...input, photos: [] });
+    const fa = queue.flush("user-a");
+    const fb = queue.flush("user-b");
+    expect(fa).not.toBe(fb);
+    release();
+    const [ra, rb] = await Promise.all([fa, fb]);
+    expect(ra.sent).toBe(1);
+    expect(rb.sent).toBe(1);
+    expect(submit.sort()).toEqual([a.clientId, b.clientId].sort());
+    expect(calls.submit).toHaveLength(0);
+  });
+
   it("keeps each patient's items apart: another account's items are never listed, sent or discarded", async () => {
     const { queue, items, calls } = build();
     const a = await queue.enqueue("user-a", { ...input, photos: [] });

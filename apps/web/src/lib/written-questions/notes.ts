@@ -25,6 +25,10 @@ export const releasedNoteSchema = z.object({
   signed_at: z.string().nullable().optional(),
   signed_by: z.string().nullable().optional(),
   corrections: z.array(correctionSchema).nullable().optional(),
+  // A withdrawn note carries no clinical text, only these. An older response without the field is a normal note.
+  entered_in_error: z.boolean().nullish().transform((v) => v === true),
+  withdrawn_at: z.string().nullable().optional(),
+  withdrawn_reason: z.string().nullable().optional(),
 });
 export type ReleasedNote = z.infer<typeof releasedNoteSchema>;
 
@@ -34,6 +38,7 @@ export const noteIndexEntrySchema = z.object({
   signed_at: z.string().nullable().optional(),
   release_state: z.enum(["not_requested", "requested", "released", "declined"]),
   withhold_reason: z.string().nullable().optional(),
+  entered_in_error: z.boolean().nullish().transform((v) => v === true),
 });
 export type NoteIndexEntry = z.infer<typeof noteIndexEntrySchema>;
 
@@ -101,7 +106,8 @@ export function groupNotes(index: NoteIndexEntry[], released: ReleasedNote[]): N
     .filter((e) => !hiddenAsAmendment.has(e.id))
     .map((entry) => ({
       entry,
-      note: entry.release_state === "released" ? (byId.get(entry.id) ?? null) : null,
+      // A withdrawn note is shown (as withdrawn, with no text) whatever its release state.
+      note: entry.release_state === "released" || entry.entered_in_error ? (byId.get(entry.id) ?? null) : null,
       amendments: released.filter((n) => n.amends_note_id === entry.id),
     }));
 }

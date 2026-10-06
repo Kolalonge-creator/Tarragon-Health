@@ -108,13 +108,27 @@ export function PatientNotesCard({ locale }: { locale: Locale }) {
         {requestRelease.isError && <FormError id={fieldErrorId("notes-release")} message={t("wq.error.generic", locale)} />}
         {groups.length === 0 && !index.isLoading && <p className={`text-sm ${MUTED}`}>{t("notes.empty", locale)}</p>}
         <ul className="space-y-4">
-          {groups.map(({ entry, note, amendments }) => (
+          {groups.map(({ entry, note, amendments: allAmendments }) => {
+            const amendments = allAmendments.filter((a) => !a.entered_in_error);
+            return (
             <li key={entry.id} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3 dark:border-night-ink/15">
               <div className="flex flex-wrap items-center gap-2">
                 {entry.signed_at && <p className="text-sm font-medium">{t("notes.signed_on", locale, { date: formatPatientDate(entry.signed_at) })}</p>}
-                {entry.release_state === "released" && <Badge variant="green">{t("notes.released_badge", locale)}</Badge>}
+                {entry.release_state === "released" && !entry.entered_in_error && <Badge variant="green">{t("notes.released_badge", locale)}</Badge>}
               </div>
-              {entry.release_state === "not_requested" && (
+              {(entry.entered_in_error || note?.entered_in_error) && (
+                <div className="space-y-1">
+                  <Badge variant="amber">{t("notes.withdrawn", locale)}</Badge>
+                  {(note?.withdrawn_at ?? null) && (
+                    <p className={`text-sm ${MUTED}`}>{t("notes.withdrawn.on", locale, { date: formatPatientDate(note?.withdrawn_at ?? "") })}</p>
+                  )}
+                  {(note?.withdrawn_reason ?? "") !== "" && (
+                    <p className={`text-sm ${MUTED}`}>{t("notes.withdrawn.reason", locale, { reason: note?.withdrawn_reason ?? "" })}</p>
+                  )}
+                  <p className={`text-sm ${MUTED}`}>{t("notes.withdrawn.explain", locale)}</p>
+                </div>
+              )}
+              {entry.release_state === "not_requested" && !entry.entered_in_error && (
                 <Button size="sm" variant="outline" className={TOUCH} onClick={() => requestRelease.mutate(entry.id)} disabled={requestRelease.isPending}>
                   {t("notes.request", locale)}
                 </Button>
@@ -123,7 +137,7 @@ export function PatientNotesCard({ locale }: { locale: Locale }) {
               {entry.release_state === "declined" && (
                 <p className={`text-sm ${MUTED}`}>{t("notes.declined", locale, { reason: entry.withhold_reason ?? "" })}</p>
               )}
-              {note && (
+              {note && !note.entered_in_error && !entry.entered_in_error && (
                 <div className="space-y-3">
                   {amendments.length > 0 && amendments[0].signed_at && (
                     <p className="text-xs font-medium">{t("notes.amended", locale, { date: formatPatientDate(amendments[0].signed_at) })}</p>
@@ -143,7 +157,8 @@ export function PatientNotesCard({ locale }: { locale: Locale }) {
                 </div>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       </CardContent>
     </Card>

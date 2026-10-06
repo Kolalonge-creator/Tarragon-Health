@@ -11,12 +11,12 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /**
  * Chief Medical Officer only (canAssignCases). The CMO's account role is `clinician` and cannot open /admin, so
- * this is the same page as /admin/members at a path the CMO can reach. The database checks the role again.
+ * this is the same page as /admin/memberships at a path the CMO can reach. The database checks the role again.
  */
 export default async function ClinicianMembersPage({ searchParams }: { searchParams: SearchParams }) {
   const staff = await getCurrentClinicalStaff();
   if (!canAssignCases(staff)) redirect("/clinician");
   const raw = (await searchParams).q;
   const search = searchParamSchema.catch("").parse(Array.isArray(raw) ? raw[0] : (raw ?? ""));
-  return <MembersView base="/clinician/members" search={search} />;
+  return <MembersView base="/clinician/memberships" search={search} />;
 }

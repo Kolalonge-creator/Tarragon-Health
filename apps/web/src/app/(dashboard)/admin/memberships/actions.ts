@@ -27,8 +27,9 @@ export async function grantMembership(
   const supabase = await createClient();
   const { error } = await supabase.rpc("grant_membership", {
     p_patient: parsed.data.patientId,
-    p_ends_at: parsed.data.endsOn ? endOfDayLagos(parsed.data.endsOn) : (null as unknown as string),
     p_reason: parsed.data.reason,
+    // Omitted when there is no end date: the argument is optional in the database.
+    ...(parsed.data.endsOn ? { p_ends_at: endOfDayLagos(parsed.data.endsOn) } : {}),
   });
   if (error) return { error: describeMembershipError(error) };
   revalidatePath(parsed.data.base);
