@@ -68,17 +68,15 @@ describe("ConsultationRoom", () => {
     expect((await screen.findByTestId("dial-in")).textContent).not.toContain("passcode");
   });
 
-  it("says so, kindly, when there is no phone number, it is too early, or it fails", async () => {
-    dialIn.mockResolvedValueOnce({ ok: false, reason: "phone_unavailable" });
+  it.each([
+    ["phone_unavailable", "could not find a phone number"],
+    ["not_open", "You can dial in then"],
+    ["not_allowed", "could not open the room"],
+  ])("says so, kindly, when the phone answer is %s", async (reason, text) => {
+    dialIn.mockResolvedValue({ ok: false, reason });
     render(<ConsultationRoom view={base} locale="en" />);
     fireEvent.click(screen.getByRole("button", { name: "Join by phone call instead" }));
-    expect((await screen.findByRole("alert")).textContent).toContain("could not find a phone number");
-    dialIn.mockResolvedValueOnce({ ok: false, reason: "not_open" });
-    fireEvent.click(screen.getByRole("button", { name: "Join by phone call instead" }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("You can dial in then"));
-    dialIn.mockResolvedValueOnce({ ok: false, reason: "not_allowed" });
-    fireEvent.click(screen.getByRole("button", { name: "Join by phone call instead" }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("could not open the room"));
+    expect((await screen.findByRole("alert")).textContent).toContain(text);
   });
 
   it("does not offer the phone before the room opens", () => {
