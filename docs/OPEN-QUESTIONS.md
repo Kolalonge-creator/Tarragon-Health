@@ -679,6 +679,70 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-123 Test isolation (raised by S17)
 - A test clinician only sees test tasks and a real clinician never sees a test task.
 - Decision (founder, 2026-10-06): accepted.
+### OQ-124 No `pathway_enrolments` table exists; where does the lead live (raised by S18)
+- Spec 7.5 records `pathway_enrolments.lead_clinician_id`, but that table does not exist (RECONCILIATION.md: new table only if care-pack states are needed). The 12-week pack is a `service_purchases` row scoped to a `chronic_programme_enrolment`.
+- Options: (a) a `lead_assignments` table (current row plus history, end reasons, config version) anchored to the patient and optionally the purchase, mirrored into `care_team_assignment.clinician_id` in the same transaction (recommended); (b) build `pathway_enrolments` now.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-125 Who may be a lead: spec says tier 2, F-05 collapsed tiers (raised by S18)
+- Spec 7.5 says "active tier 2 clinicians". F-05 and S16 say doctor tier is the only gate and `credentialing_level` is not used. The `lead_clinician` and `on_call` competencies carry `requires_level` 2.
+- Options: (a) lead pool = `lead_clinician` and `hypertension` competencies, active, eligible, doctor tier senior_medical_officer or chief_medical_officer; Medical Officer excluded (recommended); (b) any doctor tier with the competencies.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-126 `order.paid` has no producer until S25 (raised by S18)
+- S18 registers the subscriber `lead.assign_on_order_paid` and a callable `assign_lead_clinician`, but nothing emits `order.paid` yet; care packs today are `service_purchases`.
+- Options: (a) subscriber now plus a clinical-lead and admin "assign lead" action for the pilot; S25 emits the event (recommended); (b) hook the existing purchase path now.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-127 Capacity and cover gates are exposed, not wired (raised by S18)
+- Babylon lesson: sales must not outrun declared clinician capacity. S18 builds `lead_capacity_status()` and `rota_coverage_gaps()`; `on_call_cover_ok` has no implementation (S37), so S18 enables no gate (INV-14).
+- Options: (a) read functions only; S25 checkout and S37 guard wire them (recommended); (b) block the existing purchase path now.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-128 Working-hours, rest and fatigue numbers need clinical review (raised by S18, OQ-112)
+- Defaults modelled on the NHS 2016 junior-doctor rules (11 hours rest, at most 7 consecutive shifts, at most 3 on-calls in 7 days) as configurable warnings with an override reason. They are not Nigerian norms.
+- Options: (a) ship as PROPOSED warnings, CMO to set values (recommended); (b) leave rest rules off until the CMO supplies numbers.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-129 Patient wording when the lead changes, and whether the patient sees the lead's name (raised by S18)
+- Spec 7.5 step 3 says to show the patient "name and photo of the lead clinician". The live care team card (`apps/web/src/components/your-care-team.tsx`), `docs/CLINICAL_TRUST_MODEL_SPEC.md` section 2 and CLAUDE.md ("never describe it as one named doctor") say the opposite: no single doctor's name or photo appears ahead of a real review, and `care_team_assignment.clinician_id` is internal routing only. Reassignment must also be told to the patient.
+- Options: (a) keep the card as it is (no name), tell the patient in neutral words whenever their care team lead is set or changes, and keep `my_care_team_lead()` ready for the day the founder decides to show a name (recommended); (b) show the lead's name and photo as the spec says, which reverses the 2026-07-30 founder correction.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it: the patient notices say "your care team lead", never a name; the card is untouched. Pidgin text needs a native reviewer.
+
+### OQ-130 Changing lead on request (raised by S18)
+- Not in the spec: a patient asking for a different lead, or a clinician asking to be released from a patient for a non-conflict reason.
+- Options: (a) clinical-lead-only action with a reason, audited, ending reason `patient_request` or `clinician_request` (recommended); (b) self-serve.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-131 Chart access starts at acknowledgement, not at the page (raised by S19)
+- Spec INV-12 says a clinician sees patients for whom they hold "an on-call page". A paged clinician who has not answered has taken no responsibility, so S19 ties them to the chart only once they acknowledge.
+- Options: (a) access from acknowledgement (recommended, built); (b) access from the moment of the page, so a clinician can look before acknowledging.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-132 What a red page should say to Care Circle supporters and the clinical lead's review (raised by S19)
+- The spec's red event table also notifies Care Circle members with `red_alerts` and creates an incident review task for the clinical lead. S19 builds the page and the escalation only.
+- Options: (a) Care Circle notices in S29 and the review task in S20 (recommended); (b) pull them into S19 now.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-133 Acknowledgement targets and how long the lead is re-alerted (raised by S19)
+- 5 and 10 minutes (spec) and a 5 minute repeat of the lead alert are PROPOSED numbers with no Nigerian benchmark. No re-alert ever reaches a person after the clinical lead and ops if all of them are away.
+- Options: (a) ship the numbers, CMO to set them in `paging_config` (recommended); (b) add a third rung (a named deputy or the founder) with its own phone.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-134 Contractor status and declared hours (raised by S18, second pass)
+- Declared availability blocks, a displayed weekly floor and a lead cap can look like control over a contractor (Hims lists contractor classification as a risk in its annual report; Wheel and Amwell Associates are 1099 contractors). Nigerian labour-law treatment of the freelance clinicians is not established here.
+- Options: (a) take Nigerian employment-law advice before contracted clinicians are onboarded, and keep the weekly floor a display only (recommended, built); (b) enforce a minimum now.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-135 Strikes and a doctor's other job (raised by S18 and S19, second pass)
+- NARD issued an ultimatum effective 1 October 2026 and has struck or threatened in each recent quarter; public hospitals are moving towards biometric work-hour logging; dual jobs are common. A freelance resident could be unreachable inside their own shifts, and the rota assumes people are available when they declared it.
+- Options: (a) for now, rely on declared blocks and the backup, with the employed tier and the CMO as the last rung, and record the doctor's main-employer hours later using the existing availability rules (recommended); (b) add a strike-window switch that widens escalation, and a voice-call rung for the CMO tier only (D-12 currently allows push, in-console alarm and email only, so this needs a decision).
+- Decision (founder, 2026-10-06): (a), as recommended. S18 and S19 built it.
+
+### OQ-136 Acknowledgement targets are not clinically validated (raised by S19, second pass)
+- 5 and 10 minutes match vendor example defaults (PagerDuty, Opsgenie) and the Manchester Triage targets measure first clinical contact, not acknowledgement; the Joint Commission requires a written, measured time but sets none. No Nigerian benchmark was found.
+- Options: (a) ship the PROPOSED numbers, record them as policy and review the measured acknowledgement times from `paging_overview` after the pilot (recommended); (b) have the CMO set stricter numbers now.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
 
 ### OQ-137 Who are the backup readers for safety concerns (raised by S20)
 - Context: spec 7.8 says a concern goes to the clinical lead and cannot be seen by ops. "Ops" here is an admin account (OQ-24), and there is no superadmin role, so nobody can be a backup by role. If the lead is away, conflicted or is the subject, nothing else can read it.
