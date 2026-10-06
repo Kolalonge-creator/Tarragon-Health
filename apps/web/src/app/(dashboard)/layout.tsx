@@ -7,6 +7,7 @@ import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
 import { ConsentNudgeBanner } from "@/components/shell/consent-nudge-banner";
 import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
 import { OnCallAlarm } from "@/components/paging/on-call-alarm";
+import { SafetyConcernButton } from "@/components/clinician/safety-concern";
 import { OfflineBanner } from "@/components/shell/offline-banner";
 import { SigningHubBanner } from "@/components/shell/signing-hub-banner";
 import { getNavSections } from "@/lib/navigation";
@@ -183,6 +184,8 @@ export default async function DashboardLayout({
         )}
         {/* The in-console alarm for a red event page (S19): clinicians only; it only ever reads the caller's own pages. */}
         {profile?.role === "clinician" && <OnCallAlarm />}
+        {/* Always visible to a clinician (S35, spec 9.1): the safety concern report. */}
+        {profile?.role === "clinician" && <SafetyConcernButton />}
         {profile?.role === "clinician" && (
           <PendingJobsBanner jobs={pendingJobItems} staffId={clinicalStaffId} />
         )}
