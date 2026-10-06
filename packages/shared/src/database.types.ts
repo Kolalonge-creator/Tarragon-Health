@@ -41504,6 +41504,7 @@ export type Database = {
       }
       my_released_notes: { Args: Record<PropertyKey, never>; Returns: Json };
       my_written_question_allowance: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_written_question_claims: { Args: Record<PropertyKey, never>; Returns: Json };
       my_written_questions: { Args: Record<PropertyKey, never>; Returns: Json };
       open_patient_document_audited: {
         Args: { p_document: string; p_reason: string }

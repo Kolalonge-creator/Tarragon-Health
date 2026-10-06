@@ -40363,6 +40363,7 @@ export type Database = {
       }
       my_released_notes: { Args: Record<PropertyKey, never>; Returns: Json };
       my_written_question_allowance: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_written_question_claims: { Args: Record<PropertyKey, never>; Returns: Json };
       my_written_questions: { Args: Record<PropertyKey, never>; Returns: Json };
       notifications_using_unregistered_templates: {
         Args: { p_since?: string }

@@ -449,6 +449,23 @@ begin
 end;
 $$;
 
+-- The written questions the signed-in clinician currently holds a live claim on (no question text: opening one is the audited read).
+create function public.my_written_question_claims() returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare v_uid uuid := (select auth.uid());
+begin
+  if v_uid is null then raise exception 'queue_not_clinician' using errcode = '42501'; end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object('id', c.id, 'category', c.category, 'created_at', c.created_at, 'window_due_at', c.sla_due_at,
+             'safety_flagged', c.safety_flagged, 'task_id', c.task_id, 'claim_expires_at', k.expires_at,
+             'is_follow_up', c.answered_at is not null or exists (select 1 from public.async_consult_messages m where m.consult_id = c.id))
+           order by c.safety_flagged desc, c.sla_due_at)
+      from public.task_claims k join public.async_consults c on c.task_id = k.task_id
+     where k.clinician_id = v_uid and k.ended_at is null), '[]'::jsonb);
+end;
+$$;
+
 -- One entry for both the first answer and a reply inside the follow-up window.
 -- There is deliberately no diagnosis argument. The clinician attests; a call outcome creates a call task.
 create function public.answer_written_question(p_consult uuid, p_kind text, p_body text, p_attested boolean)
@@ -602,6 +619,8 @@ revoke all on function public.my_written_questions() from public, anon;
 revoke all on function public.my_written_question_allowance() from public, anon;
 revoke all on function public.read_written_question_audited(uuid, text) from public, anon;
 revoke all on function public.answer_written_question(uuid, text, text, boolean) from public, anon;
+revoke all on function public.my_written_question_claims() from public, anon;
+grant execute on function public.my_written_question_claims() to authenticated;
 grant execute on function public.submit_written_question(text, text, text) to authenticated;
 grant execute on function public.attach_written_question_photo(uuid, text, text, bigint) to authenticated;
 grant execute on function public.post_written_question_message(uuid, text) to authenticated;
@@ -616,7 +635,7 @@ begin
   foreach v_fn in array array[
     'public.submit_written_question(text,text,text)', 'public.attach_written_question_photo(uuid,text,text,bigint)',
     'public.post_written_question_message(uuid,text)', 'public.my_written_questions()', 'public.my_written_question_allowance()',
-    'public.read_written_question_audited(uuid,text)', 'public.answer_written_question(uuid,text,text,boolean)'] loop
+    'public.read_written_question_audited(uuid,text)', 'public.answer_written_question(uuid,text,text,boolean)', 'public.my_written_question_claims()'] loop
     if has_function_privilege('anon', v_fn, 'EXECUTE') then raise exception 'S22 assertion: anon can execute %', v_fn; end if;
   end loop;
   foreach v_fn in array array['private.sweep_written_question_windows()', 'private.written_care_notify(uuid,uuid,text,jsonb)',

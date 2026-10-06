@@ -262,6 +262,11 @@ begin
   v_got := pg_temp.next_task(v_doc);
   perform pg_temp.ck('the clinician is handed the written question through the queue', v_task::text, v_got::text);
   select count(*) into v_before from public.audit_log where subject_patient_id = v_m;
+  perform pg_temp.ck('the claimed question appears in the clinician''s own list, with no question text', 'true',
+    (pg_temp.q_as(v_doc, 'select public.my_written_question_claims()::text') like '%' || c::text || '%'
+      and pg_temp.q_as(v_doc, 'select public.my_written_question_claims()::text') not like '%knee%')::text);
+  perform pg_temp.ck('another clinician''s list does not show it', 'false',
+    (pg_temp.q_as(v_doc2, 'select public.my_written_question_claims()::text') like '%' || c::text || '%')::text);
   perform pg_temp.ck('a tied clinician can read it', 'true',
     (pg_temp.q_as(v_doc, format('select public.read_written_question_audited(%L, %L)::text', c, 'proof')) like '%knee%')::text);
   perform pg_temp.ck('...and the read is audited (INV-10)', 'true',
