@@ -9,7 +9,7 @@ import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
 import { OfflineBanner } from "@/components/shell/offline-banner";
 import { AiGovernanceSignoffBanner } from "@/components/shell/ai-governance-signoff-banner";
 import { getNavSections } from "@/lib/navigation";
-import { buildAdminSearchIndex } from "@/lib/admin-search";
+import { buildAdminSearchIndex, CMO_EXTRA_PAGES } from "@/lib/admin-search";
 import { getVisibleAdminSettingsTabs } from "@/lib/admin-settings-nav";
 import { isActiveChiefMedicalOfficer } from "@/lib/clinical/doctor-tier";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
@@ -118,7 +118,9 @@ export default async function DashboardLayout({
             tab.items.map((item) => ({ href: item.href, label: item.label, blurb: item.blurb, group: tab.label })),
           ),
         )
-      : undefined;
+      : profile?.role === "clinician" && isChiefMedicalOfficer
+        ? buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES)
+        : undefined;
 
   const embedded = await isEmbeddedInApp();
   if (embedded) {
@@ -153,8 +155,8 @@ export default async function DashboardLayout({
         idValue={idValue}
         profileHref={profileHref}
         navSections={getNavSections(profile?.role, profile?.receives_care)}
-        // The admin console's search box: every page the admin can reach, built from the same lists that draw the menus.
-        adminSearch={profile?.role === "admin" ? adminSearchEntries : undefined}
+        // The search box for the admin and the Chief Medical Officer: every page they can reach, built from the lists that draw the menus.
+        adminSearch={adminSearchEntries}
         // Patient accounts (supporters included — they share the patient
         // role) get the Warm Ivory ground the mobile app already ships;
         // staff and clinical consoles keep the white canvas.

@@ -1,11 +1,6 @@
 /**
- * Vendor adapter interfaces (sms, voice, email, pay). Build spec v3 §2.1:
- * "Every external vendor sits behind an adapter interface in packages/integrations.
- * No vendor SDK may be imported directly by application code."
- *
- * Not yet built. Populated incrementally alongside M6 (notifications rails) and the
- * billing work (§15, buildable in parallel from M4 onward). Open vendor decisions
- * (voice provider, USSD aggregator) are tracked in the spec's §21/§6 -- do not guess
- * a vendor; the adapter interface itself is not blocked on that decision.
+ * Vendor adapter interfaces and mocks (S14): payments (Paystack), video, speech to text and email (Resend). The code
+ * lives in `supabase/functions/_shared/integrations` because an edge function cannot import a workspace package; this
+ * file re-exports it so web code and the console use the same copy. See docs/design/S14.md.
  */
-export {};
+export * from "../../../supabase/functions/_shared/integrations/index.ts";

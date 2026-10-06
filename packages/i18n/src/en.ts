@@ -799,6 +799,13 @@ export const en = {
   "notif.diag.open_settings": "Open phone settings",
   "notif.diag.check_again": "Check again",
   "notif.diag.not_sure_maker": "Not sure which phone this is, or using a Tecno, Infinix or Itel? Try this too:",
+
+  // S14: checkout fee lines (used by S25). The fee is the payment partner's, shown before the patient pays.
+  "pay.fee.price": "Price",
+  "pay.fee.line": "Payment fee",
+  "pay.fee.total": "Total to pay",
+  "pay.fee.explain": "This small fee is charged by our payment partner, Paystack, for processing your card or bank payment. Tarragon Health does not keep it. It is added at checkout so the price of your care stays the same.",
+  "pay.fee.international": "Cards issued outside Nigeria cost a little more to process, so the fee can be higher.",
 } as const;
 
 export type MessageKey = keyof typeof en;

@@ -21,10 +21,17 @@ const PAID_STATUSES = new Set(["active", "completed", "expired"]);
  * super admin may drill into an individual patient) this stays admin-role
  * only, full stop.
  */
-export default async function AdminPatientsPage() {
+export default async function AdminPatientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (profile.role !== "admin") redirect("/admin");
+
+  const sp = await searchParams;
+  const initialQuery = (Array.isArray(sp.q) ? sp.q[0] : sp.q)?.trim().slice(0, 80) ?? "";
 
   const svc = createServiceRoleClient();
 
@@ -151,7 +158,7 @@ export default async function AdminPatientsPage() {
           incomplete — reload before exporting or relying on this list.
         </LoadFailure>
       ) : (
-        <PatientsDirectory rows={rows} />
+        <PatientsDirectory rows={rows} initialQuery={initialQuery} />
       )}
     </div>
   );
