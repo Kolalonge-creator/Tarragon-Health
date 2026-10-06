@@ -103,6 +103,22 @@ describe("scripts/audio/ingest-recordings.mjs", () => {
     expect(existsSync(join(w.assets, "TH-NAV-001-EN.mp3"))).toBe(false);
   });
 
+  it("keeps clips bundled from an earlier folder when a later batch is ingested (regression: the assets folder was wiped)", () => {
+    const w = workspace();
+    writeFileSync(join(w.masters, "TH-EMG-001-EN.mp3"), "emergency audio");
+    w.run();
+    w.sign(["TH-EMG-001-EN.mp3"]);
+    w.run();
+    const batch2 = mkdtempSync(join(tmpdir(), "audio-batch2-"));
+    writeFileSync(join(batch2, "TH-NUM-148.mp3"), "148");
+    execFileSync("node", [SCRIPT, batch2, "--manifest", w.manifest, "--assets-dir", w.assets, "--map", w.map]);
+    w.sign(["TH-NUM-148.mp3"]);
+    const out = execFileSync("node", [SCRIPT, batch2, "--manifest", w.manifest, "--assets-dir", w.assets, "--map", w.map], { encoding: "utf8" });
+    expect(out).toMatch(/2 bundled/);
+    expect(existsSync(join(w.assets, "TH-EMG-001-EN.mp3"))).toBe(true);
+    expect(readFileSync(w.map, "utf8")).toContain("TH-EMG-001-EN.mp3");
+  });
+
   it("needs a folder", () => {
     expect(() => execFileSync("node", [SCRIPT], { stdio: "pipe" })).toThrow();
   });

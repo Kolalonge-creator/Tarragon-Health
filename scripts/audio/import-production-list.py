@@ -164,11 +164,18 @@ def main():
     # Wording changed since the last run: the audio no longer matches, so drop file facts and approvals.
     for c in clips:
         p = prior.get(c["id"])
+        sc = scripts.get(c["id"])
+        hashes = {"en": script_hash(sc["en"] if sc else num_words.get(c["id"])), "pcm": script_hash(sc["pcm"]) if sc else None}
         if p:
-            same = p.get("script_hash") == script_hash(scripts.get(c["id"]) or num_words.get(c["id"]))
-            if same:
-                c["files"] = p["files"]
-        c["script_hash"] = script_hash(scripts.get(c["id"]) or num_words.get(c["id"]))
+            # Per language: releasing Pidgin must not wipe the signed English recording.
+            for key in c["files"]:
+                h = hashes["pcm"] if key == "pcm" else hashes["en"]
+                old = p.get("pcm_script_hash") if key == "pcm" else p.get("script_hash")
+                if old == h and key in p["files"]:
+                    c["files"][key] = p["files"][key]
+        c["script_hash"] = hashes["en"]
+        if sc:
+            c["pcm_script_hash"] = hashes["pcm"]
     clips.sort(key=lambda c: (list(group_meta).index(c["group"]), c["id"]))
 
     manifest = {

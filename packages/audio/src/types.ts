@@ -52,6 +52,8 @@ export interface ManifestClip {
   readonly files: Readonly<Partial<Record<FileKey, ClipFile>>>;
   /** Hash of the words the recording was made from; a changed script drops the recording's facts and approvals. */
   readonly script_hash: string | null;
+  /** Same for the Pidgin words, so releasing Pidgin does not invalidate the English recording. */
+  readonly pcm_script_hash?: string | null;
 }
 
 export interface ManifestGroup {

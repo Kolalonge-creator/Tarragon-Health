@@ -1199,7 +1199,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ### OQ-202 Smaller reconciliations in S32 (raised by S32)
 - The session prompt says "Safety case 22 area (audio present offline)". Spec 15.1 case 22 is "test accounts do not appear in metrics"; the offline-emergency case is 1 and the invariant is INV-06. S32 proved the audio side under INV-06 and case 1; nothing here touches case 22.
-- Steps between 601 and 999, and above 20,500, have no number clip; they get text only. Fractions are said to one decimal place (the meter's own precision), never rounded to a whole number.
+- Steps between 601 and 999, and from 20,250 up, have no number clip; they get text only. Fractions are said to one decimal place (the meter's own precision), never rounded to a whole number.
 - The 40 MB app target was superseded (DG-1). S32 tracks the bundled-audio size against a PROPOSED 15 MB budget (`audio.bundled_max_bytes`); projected today: 13.1 MB without SYM, 13.9 MB with it. S34 owns the whole-app size.
 - SYM ships only with `--with-sym` on the ingest script (spec 8.8). Which build turns it on is a founder call once the symptom checker is in the mobile app.
 - Options: (a) accept all four as built (recommended); (b) change any of them.
