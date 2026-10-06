@@ -847,7 +847,7 @@ export const en = {
   "consult.room.waiting_patient": "Waiting for the patient to join.",
   "consult.room.connected_patient": "The patient has joined.",
   "consult.room.call_both_hint": "If your connection is poor, you or the patient can join the same call by an ordinary phone call. No data is needed. The patient may show in your waiting room as a phone number: admit them.",
-  "consult.room.finish_hint": "Write your note and prescribe before you finish. Finishing ends your access to this record unless the patient is on your care list.",
+  "consult.room.finish_hint": "Write your note and prescribe before you finish. After you finish you keep this record until your note is signed, for up to 72 hours, unless the patient is on your care list.",
   "consult.room.title": "Your consultation",
   "consult.room.when": "Starts {when}",
   "consult.room.not_open": "The room opens {when}. Come back then.",
