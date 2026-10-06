@@ -16603,6 +16603,8 @@ export type Database = {
           updated_at: string
           version: number
           video_url: string | null
+          audio_clip_id: string | null
+          next_action: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -16641,6 +16643,8 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          audio_clip_id?: string | null
+          next_action?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -16679,6 +16683,8 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          audio_clip_id?: string | null
+          next_action?: string | null
         }
         Relationships: []
       }
@@ -17115,6 +17121,9 @@ export type Database = {
           translated_at: string
           translated_by: string | null
           updated_at: string
+          knowledge_check: Json | null
+          next_action: string | null
+          review_state: string
         }
         Insert: {
           body: string
@@ -17127,6 +17136,9 @@ export type Database = {
           translated_at?: string
           translated_by?: string | null
           updated_at?: string
+          knowledge_check?: Json | null
+          next_action?: string | null
+          review_state?: string
         }
         Update: {
           body?: string
@@ -17139,6 +17151,9 @@ export type Database = {
           translated_at?: string
           translated_by?: string | null
           updated_at?: string
+          knowledge_check?: Json | null
+          next_action?: string | null
+          review_state?: string
         }
         Relationships: [
           {
@@ -43060,6 +43075,28 @@ export type Database = {
         }[]
       }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
+      learning_course: {
+        Args: { p_programme_code: string }
+        Returns: {
+          audio_clip_id: string
+          body: string
+          check_score: number
+          check_total: number
+          content_code: string
+          content_id: string
+          estimated_minutes: number
+          knowledge_check: Json
+          language_served: string
+          module_number: number
+          next_action: string
+          next_review_due: string
+          reviewed_at: string
+          reviewed_by_name: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          summary: string
+          title: string
+        }[]
+      }
       list_fee_schedules: {
         Args: Record<PropertyKey, never>
         Returns: {

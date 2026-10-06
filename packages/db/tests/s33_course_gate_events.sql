@@ -65,7 +65,7 @@ declare
   v_org uuid; v_pat uuid; v_pcm uuid; v_admin uuid; v_prog uuid;
   v_l1 uuid; v_l2 uuid; v_l3 uuid; v_l4 uuid; v_other uuid; v_other_due uuid; v_other2 uuid;
   v_today date := pg_temp.lagos_today();
-  v_n integer; v_row record; v_hist integer;
+  v_n integer; v_row record; v_hist integer; v_ids uuid[];
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
@@ -104,9 +104,12 @@ begin
   update public.health_education_content set content_status = 'published', next_review_due = null where id = v_l2;              -- no review date
   update public.health_education_content set content_status = 'published', next_review_due = v_today - 1 where id = v_l3;       -- date passed
   -- v_l4 stays draft
-  perform pg_temp.rec('a published lesson is not served while the programme is inactive', '0', (select count(*)::text from (select pg_temp.act(v_pat)) x, lateral (select * from public.learning_course('bp_care_course')) c));
+  -- The programme row stays inactive for good: learning_course checks every lesson, the older programme functions only check the row.
+  perform pg_temp.act(v_pat);
+  perform pg_temp.rec('the older programme list never shows the course (its programme stays inactive)', '0',
+    (select count(*)::text from public.health_education_programmes_list() where code = 'bp_care_course'));
+  perform pg_temp.rec('the older programme detail returns nothing for it', '0', (select count(*)::text from public.health_education_programme_detail('bp_care_course')));
   perform pg_temp.back();
-  update public.health_education_programmes set is_active = true where id = v_prog;
   perform pg_temp.act(v_pat);
   perform pg_temp.rec('only the published, in-date lesson is served', 'bpc_01_what_blood_pressure_is', pg_temp.served_codes());
   perform pg_temp.rec('a lesson with no review date is not served', 'false', (pg_temp.served_codes() like '%bpc_02%')::text);
@@ -203,11 +206,11 @@ begin
   insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pat, v_other, 'understood');
   perform pg_temp.back();
   perform pg_temp.rec('a lesson outside any course emits no lesson event', '1', pg_temp.events('lesson.completed', v_pat));
-  -- finish the other thirteen
+  -- finish the other thirteen (the lesson ids are read as the owner: a patient cannot read the modules of an inactive programme)
+  select array_agg(m.content_id) into v_ids from public.health_education_programme_modules m where m.programme_id = v_prog and m.content_id <> v_l1;
   perform pg_temp.act(v_pat);
   insert into public.health_education_progress (organisation_id, patient_id, content_id, status)
-    select v_org, v_pat, m.content_id, 'needs_review'
-    from public.health_education_programme_modules m where m.programme_id = v_prog and m.content_id <> v_l1;
+    select v_org, v_pat, unnest(v_ids), 'needs_review';
   perform pg_temp.back();
   perform pg_temp.rec('fourteen lesson events after fourteen lessons', '14', pg_temp.events('lesson.completed', v_pat));
   perform pg_temp.rec('finishing every lesson emits course.completed once', '1', pg_temp.events('course.completed', v_pat));

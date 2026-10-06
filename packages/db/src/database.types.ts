@@ -14138,6 +14138,8 @@ export type Database = {
           updated_at: string
           version: number
           video_url: string | null
+          audio_clip_id: string | null
+          next_action: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -14176,6 +14178,8 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          audio_clip_id?: string | null
+          next_action?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -14214,6 +14218,8 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          audio_clip_id?: string | null
+          next_action?: string | null
         }
         Relationships: []
       }
@@ -14650,6 +14656,9 @@ export type Database = {
           translated_at: string
           translated_by: string | null
           updated_at: string
+          knowledge_check: Json | null
+          next_action: string | null
+          review_state: string
         }
         Insert: {
           body: string
@@ -14662,6 +14671,9 @@ export type Database = {
           translated_at?: string
           translated_by?: string | null
           updated_at?: string
+          knowledge_check?: Json | null
+          next_action?: string | null
+          review_state?: string
         }
         Update: {
           body?: string
@@ -14674,6 +14686,9 @@ export type Database = {
           translated_at?: string
           translated_by?: string | null
           updated_at?: string
+          knowledge_check?: Json | null
+          next_action?: string | null
+          review_state?: string
         }
         Relationships: [
           {

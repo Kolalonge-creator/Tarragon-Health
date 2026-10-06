@@ -5,7 +5,8 @@
  * Safety shape of the seed (docs/design/S33.md section 3):
  *   - every lesson is inserted as `draft`, so it is invisible until the CMO moves it through clinical review;
  *   - no reviewer name, no `clinician_reviewed`, no approval is written;
- *   - the course programme itself is inserted inactive;
+ *   - the course programme is inserted inactive and STAYS inactive: the older programme functions check only that flag and would
+ *     serve its drafts. The course is read through `learning_course()`, which checks every lesson;
  *   - Pidgin rows are inserted only for clip ids listed in `audio/source/pcm-released.json` (a native speaker and the
  *     CMO have signed them), and then as `native_reviewed`. Today that list is empty, so no Pidgin row exists and
  *     English is served (OQ-19, OQ-87).

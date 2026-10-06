@@ -5,7 +5,9 @@
 --   * health_education_translations: knowledge_check, next_action and review_state (needs_native_review | native_reviewed).
 --     A Pidgin row is served only when native_reviewed (OQ-19, OQ-87: clinical Pidgin is held as English until a native speaker
 --     and the CMO have signed it). Otherwise the learner gets English.
---   * public.learning_course(programme_code): the one call the mobile and web course screens make. Strict at read time: only a
+--   * public.learning_course(programme_code): the one call the mobile and web course screens make. It does not look at
+--     programmes.is_active: the course programme stays INACTIVE for good, because the older health_education_programme_detail and
+--     _programmes_list functions check the programme flag only and would serve its drafts. Strict at read time: only a
 --     published lesson with a review date that has not passed is returned, and a reviewer credit is returned only from a real
 --     review record (clinician_reviewed, reviewed_by_name and reviewed_at all set).
 --   * private.learning_hide_overdue_course_lessons(): hourly, moves a course lesson whose review date has passed back to
@@ -125,7 +127,6 @@ as $$
   left join public.health_education_progress p
     on p.content_id = c.id and p.patient_id = me.uid
   where g.code = p_programme_code
-    and g.is_active
     and me.uid is not null
     -- Only reviewed, in-date content is served (spec 9, "Safety rules"). The Lagos date, never UTC.
     and c.content_status = 'published'
