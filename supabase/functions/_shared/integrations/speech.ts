@@ -8,7 +8,7 @@ import type { ProviderResult } from "./result.ts";
  * - A transcript is health data. It is returned to the caller and nowhere else: never logged, never put in an error.
  * - Nothing here calls a language model (INV-01) or writes to the patient record (INV-11); a draft is the clinician's to sign.
  */
-export type SpeechLanguage = "en-NG" | "pcm";
+export type SpeechLanguage = "en-NG";
 export type Speaker = "clinician" | "patient" | "unknown";
 
 export interface StartStreamInput {
@@ -57,4 +57,4 @@ export interface SpeechToText {
   startStream(input: StartStreamInput): Promise<ProviderResult<SpeechStream>>;
 }
 
-export const SUPPORTED_LANGUAGES: readonly SpeechLanguage[] = ["en-NG", "pcm"];
+export const SUPPORTED_LANGUAGES: readonly SpeechLanguage[] = ["en-NG"];

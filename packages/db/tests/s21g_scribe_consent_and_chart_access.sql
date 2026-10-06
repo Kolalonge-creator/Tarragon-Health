@@ -118,7 +118,7 @@ begin
   v_adult := pg_temp.mkuser(v_org, 'adult', 'patient', (current_date - interval '45 years')::date);
   v_adult2 := pg_temp.mkuser(v_org, 'adult-2', 'patient', (current_date - interval '30 years')::date);
   insert into public.clinical_staff (organisation_id, profile_id, full_name, is_test, active, languages, license_verified_at, license_expires_at, specialty, indemnity_exempt, indemnity_exempt_by, doctor_tier)
-  values (v_org, v_docA, 'S21 doctor-a', true, true, array['en', 'pcm'], now() - interval '10 days', now() + interval '1 year', 'General practice', true, v_admin, 'senior_medical_officer'),
+  values (v_org, v_docA, 'S21 doctor-a', true, true, array['en', 'ig'], now() - interval '10 days', now() + interval '1 year', 'General practice', true, v_admin, 'senior_medical_officer'),
          (v_org, v_docB, 'S21 doctor-b', true, true, array['en'], now() - interval '3 days', now() + interval '1 year', 'General practice', true, v_admin, 'senior_medical_officer');
   update public.consultation_policy_config set config = config || '{"bookingLeadMinutes":5,"bookingHorizonDays":21}'::jsonb where is_active;
 

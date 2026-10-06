@@ -21,7 +21,7 @@ interface RequestBody {
   readonly scribeConsentId: string;
   readonly encounterNoteId: string;
   readonly segments: readonly TranscriptSegment[];
-  readonly language: "en-NG" | "pcm";
+  readonly language: "en-NG";
   // "typed": the clinician pasted or typed notes of the consultation (no recording, so no timestamps).
   readonly source?: "stt" | "typed";
   readonly patientContext?: {
@@ -80,7 +80,7 @@ CRITICAL RULES:
 - Use the speaker tags to distinguish clinician statements from patient statements.
 - If the transcript quality is poor or unintelligible, say so in the relevant section rather than guessing.
 - Write in professional but accessible clinical English for the note sections.
-- Write the patient summary in the language variant indicated (en-NG for Nigerian English, pcm for Pidgin).
+- Write the patient summary in the language variant indicated (en-NG for Nigerian English).
 
 Respond with the JSON object only.`;
 
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "missing_fields" }, { status: 400 });
   }
 
-  if (!["en-NG", "pcm"].includes(body.language)) {
+  if (body.language !== "en-NG") {
     return Response.json({ error: "unsupported_language" }, { status: 400 });
   }
 

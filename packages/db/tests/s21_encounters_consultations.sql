@@ -135,7 +135,7 @@ begin
   -- fixture: the two doctors need a clinical_staff row (booking checks the licence); the booking lead time is 5 minutes and the horizon 21 days in this
   -- transaction only, so a consultation 10 minutes away can be booked
   insert into public.clinical_staff (organisation_id, profile_id, full_name, is_test, active, languages, license_verified_at, license_expires_at, specialty, indemnity_exempt, indemnity_exempt_by)
-  values (v_org, v_docA, 'S21 doctor-a', true, true, array['en', 'pcm'], now() - interval '10 days', now() + interval '1 year', 'General practice', true, v_admin),
+  values (v_org, v_docA, 'S21 doctor-a', true, true, array['en', 'ig'], now() - interval '10 days', now() + interval '1 year', 'General practice', true, v_admin),
          (v_org, v_docB, 'S21 doctor-b', true, true, array['en'], now() - interval '3 days', now() + interval '1 year', 'General practice', true, v_admin);
   update public.consultation_policy_config set config = config || '{"bookingLeadMinutes":5,"bookingHorizonDays":21}'::jsonb where is_active;
 
@@ -560,7 +560,7 @@ begin
     (select count(*)::text || '/' || max(x ->> 'specialty') || '/' || bool_and((x ->> 'licence_current')::boolean)::text
        from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days')) x where (x ->> 'clinician_id')::uuid = v_docA));
   perform pg_temp.rec('a language filter keeps only clinicians who speak it', '4/0',
-    (select count(*)::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days', 'pcm')) x where (x ->> 'clinician_id')::uuid = v_docA)
+    (select count(*)::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days', 'ig')) x where (x ->> 'clinician_id')::uuid = v_docA)
     || '/' || (select count(*)::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days', 'yo')) x where (x ->> 'clinician_id')::uuid = v_docA));
   perform pg_temp.rec('the listing carries no phone number, link or email', 'false',
     (public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days')::text ~ '(https?://|@|\+234)')::text);
