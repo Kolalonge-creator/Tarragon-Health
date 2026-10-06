@@ -35,7 +35,7 @@ export function runSpeechContract(name: string, make: () => SpeechFixture): void
 
     it("streams ordered, timestamped segments and returns them all on stop", async () => {
       const f = make();
-      const s = await f.provider.startStream({ encounterRef: ENC, language: "pcm", scribeConsentId: CONSENT });
+      const s = await f.provider.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT });
       if (!s.ok) throw new Error("stream");
       const live: TranscriptSegment[] = [];
       s.data.onSegment((seg) => live.push(seg));
@@ -43,7 +43,7 @@ export function runSpeechContract(name: string, make: () => SpeechFixture): void
       const t = await s.data.stop();
       expect(t.ok).toBe(true);
       if (!t.ok) return;
-      expect(t.data.language).toBe("pcm");
+      expect(t.data.language).toBe("en-NG");
       expect(t.data.segments.length).toBeGreaterThan(0);
       expect(t.data.segments).toEqual(live);
       t.data.segments.forEach((seg, i) => {

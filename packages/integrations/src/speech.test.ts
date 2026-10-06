@@ -29,7 +29,7 @@ describe("mock speech to text", () => {
 
   it("a script shorter than the audio just yields no more segments", async () => {
     const stt = createMockSpeech({ script: script.slice(0, 1) });
-    const s = await stt.startStream({ encounterRef: ENC, language: "pcm", scribeConsentId: CONSENT });
+    const s = await stt.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT });
     if (!s.ok) throw new Error("stream");
     for (let i = 0; i < 4; i++) await s.data.push(new Uint8Array([1]));
     const t = await s.data.stop();

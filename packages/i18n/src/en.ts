@@ -39,7 +39,6 @@ export const en = {
   // S03: sign-up, verification, sign-in, recovery, biometric unlock.
   "auth.language.title": "Choose your language",
   "auth.language.en": "English",
-  "auth.language.pcm": "Pidgin",
   "auth.method.phone": "Phone",
   "auth.method.email": "Email",
   "auth.field.first_name": "First name",
@@ -446,7 +445,7 @@ export const en = {
   "drawer.sign_out": "Sign out",
   "drawer.expanded": "{group}, expanded",
   "drawer.collapsed": "{group}, collapsed",
-  // S08: medicines. Pidgin needs a native reviewer before the next store build (OQ-61 pattern).
+  // S08: medicines.
   "medicines.notify.title": "Care plan reminder",
   "medicines.notify.body": "Time for your care plan check. Open TarragonHealth to see what is due.",
   "medicines.notify.channel": "Care plan reminders",
@@ -540,7 +539,7 @@ export const en = {
   "meds.weekday.6": "Sat",
   "meds.confirm.title": "Check this medicine",
   "meds.confirm.body": "Check the name, strength, dose and times. If anything differs from what you were given, message your care team before you start.",
-  // S08b: flexible dose windows and the catch-up sheet. Pidgin needs a native reviewer (OQ-74).
+  // S08b: flexible dose windows and the catch-up sheet.
   "medicines.notify.follow_up_title": "Still open",
   "medicines.notify.follow_up_body": "Your care plan check is still open. No rush. Open TarragonHealth when you can.",
   "meds.window.title": "Flexible window",
@@ -886,7 +885,6 @@ export const en = {
   "scribe.input.too_short": "Add a little more text to draft from.",
   "scribe.language.label": "Patient summary language",
   "scribe.language.en": "English",
-  "scribe.language.pcm": "Pidgin",
   "scribe.draft.use": "Use in note",
   "scribe.draft.use_help": "Fills the note fields below. Nothing is saved until you save or sign the note. Text already in a field is kept and the draft is added after it.",
   "scribe.draft.used": "Draft added to the note below. Review and edit it, then save or sign the note.",
@@ -980,8 +978,8 @@ export const en = {
   "consult.book.hold": "We are holding your slot for {minutes} minutes while you pay.",
   "consult.book.paid_unconfirmed": "Paid but not confirmed yet. Payments can take up to a day to settle. If a payment fails after your bank was charged, your bank returns it, usually within 24 hours.",
 
-  // S22: written questions and clinical notes. Pidgin written by the build session, needs a native reviewer (OQ-156);
-  // the red-flag text is safety wording and stays English until the CMO and a reviewer sign it (OQ-74 pattern).
+  // S22: written questions and clinical notes.
+  // The red-flag text is safety wording and needs CMO sign-off (OQ-74 pattern).
   "wq.title": "Ask your care team",
   "wq.intro": "Send your care team a written message. They reply in the app within {hours} hours. A written reply gives guidance, never a diagnosis. If your care team needs to make a diagnosis, they will call you.",
   "wq.window": "Reply within {hours} hours",
@@ -1128,7 +1126,7 @@ export const en = {
   "titration.label.inputs": "What this was worked out from",
   "titration.label.draft_note": "This is a draft for you to review. You can edit it, reject it with a reason, or sign it. The patient sees nothing until you sign.",
   "admin.members.title": "Members",
-  // S25: catalogue items and the checkout screens. Pidgin written by the build session, needs a native reviewer (OQ-156 pattern).
+  // S25: catalogue items and the checkout screens.
   "catalog.membership_annual.name": "Tarragon Membership",
   "catalog.membership_annual.description": "A year of care with your care team, on your phone. Medicines are not included: you take your prescription to any pharmacy and pay there.",
   "catalog.membership_annual.incl.1": "A yearly blood test, with your results held for your care team to review before you see them",
@@ -1181,7 +1179,7 @@ export const en = {
   "notes.withdrawn.reason": "Why: {reason}",
   "notes.withdrawn.explain": "The text is hidden. Ask your care team if you have questions.",
   "notes.withdrawn.on": "Withdrawn {date}",
-  // S25: catalogue items and the checkout screens. Pidgin written by the build session, needs a native reviewer (OQ-156 pattern).
+  // S25: catalogue items and the checkout screens.
   "circle.title": "Your Care Circle",
   "circle.intro": "Choose people you trust and exactly what each one can see. You can change or remove anyone at any time.",
   "circle.members.title": "People in your circle",
@@ -1359,7 +1357,7 @@ export const en = {
   "admin.refunds.note_placeholder": "Add a note (optional)",
   "admin.refunds.confirm_approve": "Approve this refund of {{amount}}? The money will be returned to the patient's card.",
   "admin.refunds.confirm_reject": "Decline this refund request?",
-  // S27: lab results. Pidgin written by the build session, needs a native reviewer (OQ-156).
+  // S27: lab results.
   "labres.title": "Your lab results",
   "labres.empty": "Nothing here yet. When your care team adds a result, you will see it here.",
   "labres.status.released": "Ready to read",
