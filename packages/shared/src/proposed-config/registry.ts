@@ -382,6 +382,39 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S10.md; docs/research/S10.md",
   },
   {
+    key: "credentialing.rules",
+    // Clinician credentialing (S15). The live values are the active row of `credentialing_config` (versioned in the
+    // database); this entry mirrors it, and a test fails if the migration seed and this value drift apart. Keys are the
+    // database's own snake_case names so the two can be compared directly.
+    //  min_practice_years / pass_percent / all_red_correct / audited_task_count repeat the clinician.* spec values
+    //  (confirmed together here as one decision record). referees_required and referee_independent_contact: two referees,
+    //  reached through an independently sourced institutional contact. test_*: attempt cap, cooldown, scenarios per attempt.
+    //  notice_windows_days: licence and indemnity notices at 90 days, 30 days and on the day (founder, 2026-10-06).
+    //  grace_max_days: the longest audited grace period a reviewer can record. separate_verifier_and_approver: the person who
+    //  verified a check cannot approve. document_*: upload size cap and how long documents are kept after offboarding.
+    value: {
+      min_practice_years: 2,
+      pass_percent: 80,
+      all_red_correct: true,
+      audited_task_count: 20,
+      referees_required: 2,
+      referee_independent_contact: true,
+      test_max_attempts: 3,
+      test_retake_cooldown_hours: 24,
+      test_scenarios_per_attempt: 10,
+      notice_windows_days: [90, 30, 0],
+      grace_max_days: 14,
+      separate_verifier_and_approver: true,
+      document_max_bytes: 8388608,
+      document_retention_years_after_offboarding: 7,
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S15.md; docs/research/S15.md; spec 7.1 and 17",
+  },
+  {
     key: "triage.bp_rule_set",
     // Blood pressure triage rules (S11). The thresholds themselves live in the rule set, `packages/clinical`
     // (`BP_CARE_V1`) and the `triage_rule_sets` row of the same code and version; this entry records the owner and
