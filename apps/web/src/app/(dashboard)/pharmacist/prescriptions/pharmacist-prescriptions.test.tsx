@@ -72,7 +72,8 @@ describe("PharmacistPrescriptions", () => {
       expect.objectContaining({ prescriptionId: ID, code: "WRONG", pharmacistName: "Ada Pharmacist", batchNumber: "B7", batchExpiry: "2027-06-30", partial: false }),
     );
     fireEvent.change(screen.getByLabelText(/Collection code/), { target: { value: "K7M2QX9P" } });
-    fireEvent.click(screen.getByRole("button", { name: "Mark dispensed" }));
+    // the button reads "Saving" until the first answer has fully settled
+    fireEvent.click(await screen.findByRole("button", { name: "Mark dispensed" }, { timeout: 5000 }));
     await screen.findByText("Supply recorded.", undefined, { timeout: 5000 });
     expect(refresh).toHaveBeenCalled();
   });
