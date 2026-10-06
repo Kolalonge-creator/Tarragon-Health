@@ -88,7 +88,10 @@ export function planDownloads(manifest: Manifest, ctx: DownloadContext, features
 
 /** Where a downloaded recording lives. The checksum is in the path, so a re-recorded clip never serves a stale file. */
 export function fileUrl(baseUrl: string, file: ClipFile): string | null {
-  return file.sha256 === null ? null : `${baseUrl.replace(/\/+$/, "")}/${file.sha256.slice(0, 16)}/${file.file}`;
+  if (file.sha256 === null) return null;
+  let end = baseUrl.length;
+  while (end > 0 && baseUrl.charCodeAt(end - 1) === 47) end -= 1; // trailing slashes, without a backtracking regex
+  return `${baseUrl.slice(0, end)}/${file.sha256.slice(0, 16)}/${file.file}`;
 }
 
 export interface RecordedFacts {

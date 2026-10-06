@@ -71,6 +71,8 @@ describe("file locations and recordings", () => {
   it("puts the checksum in the path so a re-recorded clip never serves a stale file", () => {
     const f = withFinished(["NAV-001"]).clips.find((c) => c.id === "NAV-001")!.files.en!;
     expect(fileUrl("https://x.test/audio/", f)).toBe(`https://x.test/audio/${SHA.slice(0, 16)}/TH-NAV-001-EN.mp3`);
+    expect(fileUrl("https://x.test/audio///", f)).toBe(`https://x.test/audio/${SHA.slice(0, 16)}/TH-NAV-001-EN.mp3`);
+    expect(fileUrl("/".repeat(50000), f)).toBe(`/${SHA.slice(0, 16)}/TH-NAV-001-EN.mp3`);
     expect(fileUrl("https://x.test", realManifest().clips[0].files.en!)).toBeNull();
   });
 
