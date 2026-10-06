@@ -707,3 +707,14 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) Tarragon-owned number bridge on Twilio Voice; (b) LiveKit SIP or a Nigerian carrier trunk; (c) Zoom toll dial-in only, patient pays carrier rate.
 - Recommend (a) behind an adapter with a mock, after checking NCC caller-ID rules with the carrier. Vendor choice is the founder's.
 - Decision: open.
+
+### OQ-132 Legacy video paths left alone in S21 (raised by S21)
+- `consult_availability_slots` with `video_visit_requests` (a second slot system, used by mobile) and the org-wide `video_consultations` read policy that exposes `host_start_url` to any org staff member each have about 8 call sites. Narrowing either now would blank live screens (the PR 789 failure).
+- Recommend: S21 leaves both, routes the new flow through `encounters` and issued join tokens, and a follow-up session inventories and migrates the call sites, then closes the policy.
+- Decision: open.
+
+### OQ-133 Cash refund of a cancelled consultation (raised by S21)
+- S21 returns the consultation credit when the patient cancels 2 hours or more before, or when a clinician cancels or does not attend. Returning money already paid to Paystack is refund work that belongs to S26 and is not built here (INV-09: no balance, no stored value).
+- Options: (a) credit returned, cash refund on request through S26; (b) cash refund automatically.
+- Recommend (a) now, (b) when S26 lands.
+- Decision: open.
