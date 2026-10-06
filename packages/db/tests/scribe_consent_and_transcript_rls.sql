@@ -25,6 +25,9 @@ create temporary table sc_result(
   verdict    text
 ) on commit drop;
 
+-- The tests record verdicts while running as `authenticated`, so that role needs the scratch tables.
+grant all on sc_fixture, sc_result to authenticated;
+
 -- --------------------------------------------------------------------------
 -- Fixtures: org, clinician (staff), patient
 -- --------------------------------------------------------------------------
@@ -40,28 +43,24 @@ begin
     raise exception 'No organisation found -- seed data required';
   end if;
 
-  -- Insert profiles for clinician and patient.
-  insert into auth.users (id, email, raw_user_meta_data, created_at, updated_at)
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values
-    (v_clinician, 'scribe-test-clinician@tarragon.test', '{}', now(), now()),
-    (v_patient,   'scribe-test-patient@tarragon.test',   '{}', now(), now())
-  on conflict (id) do nothing;
+    (v_clinician, 's23-clinician-' || v_clinician || '@example.invalid', 'x', now(), '{}', '{}'),
+    (v_patient,   's23-patient-' || v_patient || '@example.invalid',   'x', now(), '{}', '{}');
 
-  insert into public.profiles (id, user_role, organisation_id, full_name)
+  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
   values
-    (v_clinician, 'clinician', v_org, 'Dr Test Scribe'),
-    (v_patient,   'patient',   v_org, 'Patient Scribe Test')
-  on conflict (id) do update set user_role = excluded.user_role, organisation_id = excluded.organisation_id;
+    (v_clinician, v_org, 'clinician', 'S23 clinician', '+23480' || lpad((random() * 99999999)::int::text, 8, '0'),
+     (current_date - interval '45 years')::date, true),
+    (v_patient, v_org, 'patient', 'S23 patient', '+23480' || lpad((random() * 99999999)::int::text, 8, '0'),
+     (current_date - interval '40 years')::date, true)
+  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true;
 
-  -- Clinical staff row for the clinician.
-  insert into public.clinical_staff (id, profile_id, organisation_id, doctor_tier, active)
-  values (gen_random_uuid(), v_clinician, v_org, 'senior_medical_officer', true)
-  on conflict do nothing
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
+      license_verified_at, doctor_tier, employment_type, credentialing_level, is_test)
+  values (v_org, v_clinician, 'S23 clinician', 'MDCN', 'S23-' || substr(v_clinician::text, 1, 8), true, 'active', now(),
+      'senior_medical_officer', 'employed', 2, true)
   returning id into v_staff_id;
-
-  if v_staff_id is null then
-    select id into v_staff_id from public.clinical_staff where profile_id = v_clinician limit 1;
-  end if;
 
   insert into sc_fixture values ('org', v_org), ('clinician', v_clinician), ('patient', v_patient), ('staff', v_staff_id);
 end $$;
@@ -85,8 +84,9 @@ begin
   )::text, true);
   set local role authenticated;
 
-  insert into public.scribe_consents (organisation_id, patient_id, granted, language)
-  values (v_org, v_patient, true, 'en-NG')
+  -- Same shape as the app's recordScribeConsent: no organisation, clinician or timestamps from the client.
+  insert into public.scribe_consents (patient_id, granted, language)
+  values (v_patient, true, 'en-NG')
   returning id into v_consent;
 
   v_ok := v_consent is not null;
@@ -176,6 +176,7 @@ declare
   v_clinician uuid := (select v from sc_fixture where k='clinician');
   v_consent   uuid := (select v from sc_fixture where k='consent');
   v_granted   boolean;
+  v_refused   boolean := false;
 begin
   perform set_config('request.jwt.claims', json_build_object(
     'sub', v_clinician::text,
@@ -184,11 +185,15 @@ begin
   )::text, true);
   set local role authenticated;
 
-  -- Try to change granted from true to false.
-  update public.scribe_consents set granted = false where id = v_consent;
+  -- Try to change granted from true to false: the policy must refuse it outright (42501), not silently skip it.
+  begin
+    update public.scribe_consents set granted = false where id = v_consent;
+  exception when insufficient_privilege then
+    v_refused := true;
+  end;
 
-  -- Check if it actually changed.
   select granted into v_granted from public.scribe_consents where id = v_consent;
+  v_granted := v_granted and v_refused;
 
   insert into sc_result values (
     'consent_granted_immutable',
@@ -252,7 +257,7 @@ begin
     insert into public.scribe_consents (organisation_id, patient_id, granted, language)
     values (v_org, v_patient, true, 'en-NG');
     v_ok := true;
-  exception when others then
+  exception when insufficient_privilege then
     v_ok := false;
   end;
 
@@ -286,7 +291,7 @@ begin
   begin
     delete from public.scribe_consents where id = v_consent;
     v_ok := true;
-  exception when others then
+  exception when insufficient_privilege then
     v_ok := false;
   end;
 
@@ -302,6 +307,29 @@ begin
     'still exists',
     case when not v_ok then 'PASS' else 'FAIL' end
   );
+
+  reset role;
+end $$;
+
+-- --------------------------------------------------------------------------
+-- Test 8: Staff can delete a transcript (revocation cleanup in revokeScribeConsent)
+-- --------------------------------------------------------------------------
+do $$
+declare
+  v_clinician uuid := (select v from sc_fixture where k='clinician');
+  v_consent   uuid := (select v from sc_fixture where k='consent');
+  v_left      integer;
+begin
+  perform set_config('request.jwt.claims', json_build_object(
+    'sub', v_clinician::text, 'role', 'authenticated', 'aud', 'authenticated')::text, true);
+  set local role authenticated;
+
+  delete from public.scribe_transcripts where scribe_consent_id = v_consent;
+  select count(*) into v_left from public.scribe_transcripts where scribe_consent_id = v_consent;
+
+  insert into sc_result values (
+    'staff_can_delete_transcripts_on_revocation', 'clinician', v_left::text, '0',
+    case when v_left = 0 then 'PASS' else 'FAIL' end);
 
   reset role;
 end $$;

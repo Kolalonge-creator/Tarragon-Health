@@ -62,11 +62,23 @@ create policy scribe_consents_update_revoke on public.scribe_consents
 -- Grants
 grant select, insert, update on public.scribe_consents to authenticated;
 
--- Trigger: stamp clinician_profile_id from auth.uid() on insert (server-derived, never trust client)
+-- Trigger: stamp the clinician and organisation server-side on insert (never trust the client). The RLS insert
+-- policy then checks the stamped clinician_staff_id against auth.uid(), so a caller cannot record consent as someone else.
 create or replace function private.enforce_scribe_consent_attribution()
-returns trigger language plpgsql security definer as $$
+returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   new.clinician_profile_id := auth.uid();
+  select cs.id into new.clinician_staff_id
+  from public.clinical_staff cs
+  where cs.profile_id = auth.uid() and cs.active = true
+  limit 1;
+  if new.clinician_staff_id is null then
+    raise exception 'Only an active clinician can record scribe consent.' using errcode = '42501';
+  end if;
+  select p.organisation_id into new.organisation_id from public.profiles p where p.id = new.patient_id;
+  if new.organisation_id is null then
+    raise exception 'Unknown patient for scribe consent.' using errcode = '23503';
+  end if;
   new.recorded_at := now();
   new.created_at := now();
   return new;

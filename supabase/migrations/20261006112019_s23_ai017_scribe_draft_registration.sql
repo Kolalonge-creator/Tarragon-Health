@@ -6,23 +6,27 @@
 begin;
 
 insert into public.ai_systems (
-  code, name, description,
-  risk_class, autonomy_level,
-  is_enabled, runtime_governed,
-  fallback_behaviour
+  system_code, name, purpose, owner_role,
+  risk_class, autonomy_level, clinically_meaningful,
+  lifecycle_status, is_enabled, runtime_governed,
+  fallback_behaviour, code_reference
 ) values (
   'AI-017',
   'Scribe Draft',
   'Generates a structured clinical note draft from an STT transcript of a patient consultation. '
   || 'The clinician reviews and edits the draft before signing it into the patient record (INV-11). '
   || 'Never writes medications, doses or prescribing instructions (INV-02).',
+  'Clinical Director',
   'high',
-  'assistive',
+  'assist',
+  true,
+  'draft',
   false,   -- disabled until STT vendor scoring (OQ-96)
   false,   -- no runtime governance until enabled and proven
   'Manual note entry via the existing clinical_encounter_notes editor. '
-  || 'The pre-existing path; every consultation worked this way before the scribe.'
-) on conflict (code) do nothing;
+  || 'The pre-existing path; every consultation worked this way before the scribe.',
+  'supabase/functions/scribe-draft/index.ts'
+) on conflict (system_code) do nothing;
 
 -- ── closing assertion: ai_systems row count must match system-codes.ts ──
 -- system-codes.ts will have 17 keys after this session adds scribeDraft.
