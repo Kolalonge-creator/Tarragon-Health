@@ -17,6 +17,14 @@
  */
 export const ZOOM_SDK_VERSION = "6.5.0";
 export const ZOOM_SDK_SCRIPT = `https://source.zoom.us/${ZOOM_SDK_VERSION}/zoom-meeting-embedded-${ZOOM_SDK_VERSION}.min.js`;
+/**
+ * Subresource Integrity for the pinned build: the browser refuses the script if its bytes are not the ones reviewed, so a changed or
+ * compromised file on Zoom's host cannot run on pages that carry the most sensitive data. A mismatch is a load failure, and the room
+ * then uses the link. Zoom publishes no hash, so this one was computed from the 6.5.0 file; when the version is bumped, recompute it:
+ *   curl -s <ZOOM_SDK_SCRIPT> | openssl dgst -sha384 -binary | openssl base64 -A
+ * If Zoom ever patches the file in place under the same version, the call quietly stops working (link fallback) until this is updated.
+ */
+export const ZOOM_SDK_INTEGRITY = "sha384-ImYj+E9pPxFOOyrLY/OLcP6Fke/uY5bNoTGERQFHjrHGtNc3sx3ww9mglTbnkfWe";
 
 export interface ZoomSelfUser {
   readonly userId: number;
@@ -71,6 +79,7 @@ export function loadZoomEmbedded(document_?: Document | null, timeoutMs = 20_000
     script.src = ZOOM_SDK_SCRIPT;
     script.async = true;
     script.crossOrigin = "anonymous";
+    script.integrity = ZOOM_SDK_INTEGRITY;
     script.onload = () => finish(win?.ZoomMtgEmbedded ?? null);
     script.onerror = () => finish(null);
     doc.head.appendChild(script);

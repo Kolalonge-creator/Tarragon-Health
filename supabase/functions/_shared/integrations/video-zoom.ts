@@ -232,7 +232,9 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       const customerKey = typeof key === "string" && key.length > 0 ? key : undefined;
       const role = asVideoRole(participant?.["user_name"]) ?? (customerKey ? "observer" : null);
       const withKey = customerKey ? { customerKey } : {};
-      if (root["event"] === "meeting.participant_joined" && role) return ok({ kind: "participant_joined", roomId, role, atMs, ...withKey });
+      // A person sitting in the waiting room has arrived (the room has a waiting room on): that is what "joined" has always meant for the
+      // no-show rules, so the waiting-room event counts too. Admission fires `meeting.participant_joined` again, which changes nothing.
+      if ((root["event"] === "meeting.participant_joined" || root["event"] === "meeting.participant_joined_waiting_room") && role) return ok({ kind: "participant_joined", roomId, role, atMs, ...withKey });
       if (root["event"] === "meeting.participant_left" && role) return ok({ kind: "participant_left", roomId, role, atMs, ...withKey });
       return ok(null);
     },

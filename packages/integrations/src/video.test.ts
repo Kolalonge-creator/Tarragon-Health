@@ -381,6 +381,9 @@ describe("zoom adapter", () => {
       expect(await z.parseWebhook(named.rawBody, named.headers, fake.clock.now)).toEqual({ ok: true, data: { kind: "participant_joined", roomId: "123456789", role: "clinician", atMs: fake.clock.now, customerKey: key } });
       const renamed = await fake.signedEvent("meeting.participant_left", "123456789", "Ada Obi", key);
       expect(await z.parseWebhook(renamed.rawBody, renamed.headers, fake.clock.now)).toEqual({ ok: true, data: { kind: "participant_left", roomId: "123456789", role: "observer", atMs: fake.clock.now, customerKey: key } });
+      // arriving in the waiting room is arriving: the patient waits there until the clinician admits them
+      const waiting = await fake.signedEvent("meeting.participant_joined_waiting_room", "123456789", "patient", key);
+      expect(await z.parseWebhook(waiting.rawBody, waiting.headers, fake.clock.now)).toEqual({ ok: true, data: { kind: "participant_joined", roomId: "123456789", role: "patient", atMs: fake.clock.now, customerKey: key } });
       // no key and no known label (a plain link joiner who typed a name) is still ignored
       const link = await fake.signedEvent("meeting.participant_joined", "123456789", "Ada Obi");
       expect(await z.parseWebhook(link.rawBody, link.headers, fake.clock.now)).toEqual({ ok: true, data: null });

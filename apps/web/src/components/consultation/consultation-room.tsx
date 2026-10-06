@@ -67,6 +67,12 @@ export function ConsultationRoom({ view, locale, call = null }: { view: RoomView
   });
 
   const refresh = useCallback(() => router.refresh(), [router]);
+  // The room can stop being live while a call is open (cancelled, completed, no-show). The page then swaps to the "ended" card, which
+  // drops the call box, so the call is left here: nobody must be left connected with a microphone open and no way to leave.
+  const leaveInApp = inApp.leave;
+  useEffect(() => {
+    if (!live) void leaveInApp();
+  }, [live, leaveInApp]);
   useEffect(() => {
     if (!live) return;
     const id = setInterval(refresh, POLL_MS);

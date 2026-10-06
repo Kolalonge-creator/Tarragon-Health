@@ -31,6 +31,9 @@ export interface InAppCallOptions {
 
 const LANGUAGE = "en-US";
 
+/** The one place the page reloads itself, so a test can watch it (jsdom will not let a test replace location.reload). */
+export const pageActions = { reload: () => window.location.reload() };
+
 /** `rootRef` is the box Zoom draws its call into; the page owns it so it can render it. */
 export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options: InAppCallOptions) {
   const [state, setState] = useState<CallState>("idle");
@@ -69,6 +72,17 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
     };
   }, [teardown]);
 
+  // The wider Content-Security-Policy for the call is a header on the consultation routes, and a policy belongs to the DOCUMENT. A
+  // person who got here by a client-side navigation (a Next link or router.push) is still in the document of the page they came from,
+  // with the strict policy, so Zoom's script would be blocked. One full load fixes that, whatever the entry point; it cannot loop,
+  // because after the reload the document's own URL is this page.
+  useEffect(() => {
+    if (!options.policy) return;
+    const nav = typeof performance !== "undefined" ? performance.getEntriesByType?.("navigation")[0] : undefined;
+    if (nav && new URL(nav.name).pathname !== window.location.pathname) pageActions.reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- decided once, on arrival
+  }, []);
+
   const run = useCallback(
     async (media: "video" | "audio_only"): Promise<StartResult> => {
       const { encounterId, role, policy, initialMode, onPhone } = opts.current;
@@ -80,13 +94,15 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
       if (!prepared.ok) return prepared.reason === "not_open" ? "not_open" : "fallback";
       const root = rootRef.current;
       if (!root) return "fallback";
+      // Pressing Leave while the call is opening means "do not join": a failure after that must not open the link instead.
+      const fallbackOrCancelled = (): StartResult => (cancelled.current ? "cancelled" : "fallback");
 
       // Zoom measures the box it draws into, so the box must be visible in the page before init runs.
       flushSync(() => setState("joining"));
       const sdk = await loadZoomEmbedded();
       if (!sdk) {
         setState("idle");
-        return "fallback";
+        return fallbackOrCancelled();
       }
       let client: ZoomEmbeddedClient | null = null;
       try {
@@ -119,7 +135,12 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
               setNotice((n) => (n === "phone" ? n : null));
             });
           },
-          onPhone: () => onPhone(),
+          onPhone: () => {
+            // The connection did not come back in time. Leave the web call so the person is not in the room twice (web and phone)
+            // when it recovers, then show the dial-in card.
+            void teardown().then(() => setState("idle"));
+            onPhone();
+          },
         });
         if (!mounted.current || cancelled.current) {
           // the page went away, or the person pressed Leave, while Zoom was joining: leave again at once rather than stay in a call
@@ -148,7 +169,7 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
           }
         }
         setState("idle");
-        return "fallback";
+        return fallbackOrCancelled();
       }
     },
     [rootRef, teardown],

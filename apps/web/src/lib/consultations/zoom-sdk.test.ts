@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
-import { loadZoomEmbedded, ZOOM_SDK_SCRIPT, ZOOM_SDK_VERSION, type ZoomEmbeddedGlobal } from "./zoom-sdk";
+import { loadZoomEmbedded, ZOOM_SDK_INTEGRITY, ZOOM_SDK_SCRIPT, ZOOM_SDK_VERSION, type ZoomEmbeddedGlobal } from "./zoom-sdk";
 
 const fakeGlobal = (): ZoomEmbeddedGlobal => ({ VERSION: ZOOM_SDK_VERSION, createClient: () => { throw new Error("not used"); }, destroyClient: () => undefined });
 const scripts = () => [...document.head.querySelectorAll("script")];
@@ -23,6 +23,9 @@ describe("loading Zoom's embedded Meeting SDK", () => {
     const p = loadZoomEmbedded();
     expect(scripts()).toHaveLength(1);
     expect(scripts()[0]?.src).toBe(ZOOM_SDK_SCRIPT);
+    // the browser checks the bytes against the reviewed hash, so a changed file on Zoom's host cannot run on these pages
+    expect(scripts()[0]?.integrity).toBe(ZOOM_SDK_INTEGRITY);
+    expect(ZOOM_SDK_INTEGRITY).toMatch(/^sha384-[A-Za-z0-9+/]{64}$/);
     window.ZoomMtgEmbedded = fakeGlobal();
     scripts()[0]?.dispatchEvent(new Event("load"));
     expect(await p).toBe(window.ZoomMtgEmbedded);

@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { ConsultationRoom, type RoomView } from "./consultation-room";
 import type { CallPolicy } from "@/lib/consultations/call-controller";
 import type { ZoomEmbeddedClient, ZoomEmbeddedGlobal } from "@/lib/consultations/zoom-sdk";
+import { pageActions } from "./use-in-app-call";
 
 const refresh = jest.fn();
 jest.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: jest.fn(), replace: jest.fn() }) }));
@@ -70,6 +71,31 @@ beforeEach(() => {
 });
 
 const click = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
+
+describe("a client-side navigation into the room", () => {
+  // jsdom has no navigation timing, so the document's own navigation entry is supplied by the test
+  const entry = (name: string) => Object.defineProperty(performance, "getEntriesByType", { value: () => [{ name }], configurable: true, writable: true });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    Reflect.deleteProperty(performance, "getEntriesByType");
+  });
+
+  it("reloads once, because the wider Content-Security-Policy belongs to the document and the old page's was strict", () => {
+    const reload = jest.spyOn(pageActions, "reload").mockImplementation(() => undefined);
+    entry(`${window.location.origin}/patient/care`);
+    render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reload when the document was loaded at this page, or when the in-app call is not on", () => {
+    const reload = jest.spyOn(pageActions, "reload").mockImplementation(() => undefined);
+    entry(`${window.location.origin}${window.location.pathname}`);
+    render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
+    entry(`${window.location.origin}/patient/care`);
+    render(<ConsultationRoom view={view} locale="en" />);
+    expect(reload).not.toHaveBeenCalled();
+  });
+});
 
 describe("ConsultationRoom with the in-app call", () => {
   it("joins inside the page with the role word as the label and the server's key, and never opens the link", async () => {
@@ -217,6 +243,8 @@ describe("ConsultationRoom with the in-app call", () => {
         expect(box.textContent).toContain("482913");
         expect(dialIn).toHaveBeenCalledWith(view.encounter_id);
         expect(screen.getByTestId("call-notice").textContent).toContain("join by phone");
+        // the web call is left, so the person is not in the room twice (web and phone) if the connection recovers
+        expect(f.client.leaveMeeting).toHaveBeenCalled();
       } finally {
         jest.useRealTimers();
       }
@@ -280,6 +308,32 @@ describe("ConsultationRoom with the in-app call", () => {
       expect(window.open).not.toHaveBeenCalled();
       // and the person can try again afterwards
       expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it("leaves the call when the consultation stops being live under it (cancelled, completed, no-show)", async () => {
+      const f = fakeSdk();
+      loadSdk.mockResolvedValue(f.sdk);
+      prepare.mockResolvedValue({ ok: true, join: joinInfo });
+      const { rerender } = render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
+      click("Join with video");
+      await screen.findByText(/camera button/i);
+      rerender(<ConsultationRoom view={{ ...view, status: "completed" }} locale="en" call={{ policy }} />);
+      await waitFor(() => expect(f.client.leaveMeeting).toHaveBeenCalled());
+      expect(f.sdk.destroyClient).toHaveBeenCalled();
+    });
+
+    it("Leave pressed while opening is honoured even when the SDK then fails: the link is not opened for someone who chose not to join", async () => {
+      let fail: (e: unknown) => void = () => undefined;
+      const f = fakeSdk({ join: jest.fn(() => new Promise<unknown>((_, reject) => (fail = reject))) });
+      loadSdk.mockResolvedValue(f.sdk);
+      prepare.mockResolvedValue({ ok: true, join: joinInfo });
+      render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
+      click("Join with video");
+      await waitFor(() => expect(f.client.join).toHaveBeenCalled());
+      click("Leave the call");
+      fail({ errorCode: 3000 });
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Leave the call" })).toBeNull());
+      expect(join).not.toHaveBeenCalled();
     });
 
     it("leaves again at once if the page went away while Zoom was still joining, instead of staying in a call nobody can see", async () => {
