@@ -1088,6 +1088,47 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - **OQ-179 PARTLY CLOSED:** one definition of "may be explained" in the database (`lab_result_explain_allowed`, also used by `my_lab_results`). No AI or audio path reads structured results today, so there is nothing yet to gate; S32 (audio) and any future AI summary must call it.
 - **OQ-180 CLOSED:** a critical value can be released only by a Senior Medical Officer or the CMO.
 - **Audit findings CLOSED:** a refused clinician now gets a returned refusal (the denied audit row commits); the review page opens a result only on click.
+### OQ-190 Should the platform send the Care Circle invite itself, by email? (raised by S29)
+- Today the patient shares the invite link from their own phone (share sheet or copy). INV-08 allows SMS only for sign-in codes and WhatsApp is removed, so no platform SMS or WhatsApp path exists. Email is an allowed channel, but `notifications` rows need a `recipient_id` (a profile) and an invitee may have no account yet.
+- Options: (a) keep patient-shared links only (recommended for now: no new send path, nothing to leak, works for a phone invite too); (b) add an edge function that emails an email-type invite through Resend with the neutral template "Someone invited you to their Care Circle" and the link, rate-limited per patient.
+- Recommendation: (a) for launch; revisit (b) if diaspora supporters turn out not to receive links reliably.
+- **Decided 2026-10-06 (founder): patient-shared links only.** No platform-sent invite email. Revisit if diaspora supporters turn out not to receive links reliably.
+
+### OQ-191 A paid-for care pack starts a lead assignment for a patient who did not ask for it (raised by S29)
+- Pay for a loved one lets a supporter holding `pay_for_care` buy a care pack, and a paid care pack triggers lead clinician assignment (S18) for the beneficiary like any care pack. The patient ticked `pay_for_care`, is told "someone has paid for your care" and can remove the supporter, but is not asked to accept the pack itself.
+- Options: (a) the tick is the consent; no further step (built); (b) a gifted care pack stays "waiting for you to accept" and assigns the lead only when the patient accepts in the app (needs an `accepted_at` on the entitlement and a screen).
+- Recommendation: (b) before the care pack is switched on for sale; (a) is fine while only the Membership is sold, because it assigns no lead.
+- **Decided 2026-10-06 (founder): yes, a gifted pack waits for the patient's acceptance.** Built in migration `*_s29b_gifted_care_pack_acceptance.sql`: a gift that grants a lead (care pack, Membership) is paid but pending; no Membership starts and no lead is asked for until the patient accepts (`respond_to_gifted_pack`); a decline refunds the payer through a finance incident (S26 builds refunds) and tells the payer nothing; an unanswered gift is swept as declined after `gift_decide_days` (30, PROPOSED). Proof `s29b_gifted_care_pack.sql`.
+
+### OQ-192 Several older read paths admit ANY profile_access grantee with no permission check (found by S29)
+- Found while deciding where Care Circle members live: `profiles_select` (the whole patient profile row), `booking_requests_select`, `vaccination_adverse_events_select`, `vaccination_card_extractions_select`, and the vaccination record and schedule updates admit any `profile_access` grantee, whatever `permissions` or categories they hold. For legacy family and caregiver grants that may be intended (a guardian of a child), but a caregiver with only `view_appointments` can read the patient's whole profile and booking requests.
+- S29 does not touch them: Care Circle members are stored in a separate table that none of these policies read, so the Circle is not affected. There are 0 `profile_access` rows live today.
+- Options: (a) leave until `profile_access` has real rows and the family flow is next reviewed; (b) tighten each to the matching category or permission now (a change to the RLS surface of several tables, to be proved with a simulated session and a control).
+- Recommendation: (b) in its own small session, before any real caregiver grant is created.
+
+### OQ-193 Supporters abroad: organisation, signup and the join link (raised by S29)
+- The Care Circle, like the older care-access guard, requires the supporter and the patient to share an `organisation_id`. A supporter signing up from the diaspora lands in the default organisation today, so it works, but only because there is one. Signing up from an invite link loses the link across the email-verification redirect (the user reopens it).
+- Not changed. If a second organisation or a distinct diaspora organisation is ever created, `accept_care_circle_invite` and `create_order` need an explicit cross-organisation rule.
+- Native app deep links for the join link are not built (the link opens the web page).
+
+### OQ-194 What a red alert tells a supporter, and who chose it (raised by S29, extends OQ-132)
+- A member holding `red_alerts` gets "Someone in your Care Circle may need you. Please call them." in the app and as push, for every ROOT page (red event), once. No condition, reading or grade is shown, but the message itself says something is wrong. The patient ticks it knowingly (the wording says "when my care team sees something urgent"), and can untick it any time.
+- To confirm with the founder and counsel: the NDPA basis (the patient's explicit consent, per tick), whether amber events should ever alert a supporter (built: red only), and whether a supporter abroad needs a second channel (built: push, in-app only; SMS is barred by INV-08).
+
+### OQ-195 Care Circle PROPOSED values and permission wording to confirm (raised by S29)
+- `care_circle.rules` v1 (PROPOSED, Founder): invite link lasts 72 hours, default access 365 days (choices of 30, 90, 365 offered), 5 invites a day per patient, 8 members, 5 wrong-account tries, 8 weekly averages. The five permission labels (`circle.perm.*`) are plain-language drafts; the Pidgin lines have not been reviewed by a native speaker.
+- Not signed off by anyone: confirm by publishing a v2 entry as `confirmed`.
+
+### OQ-196 The Care Circle contact hash has no secret pepper, and a payer can learn some state of the person they pay for (found by the S29 review)
+- `invitee_hash` is plain SHA-256 of the normalised phone or email. Nigerian mobile numbers are about 10^10 possibilities, so the hash is reversible by anyone who can read the table. A keyed hash (HMAC) needs a server secret outside the database (a Vault secret added by hand, like `order_reconcile_secret`), so it was not done in this build without the founder adding that secret. Until then the invitee contact is hashed, not protected.
+- `create_order` for a beneficiary raises `already_member` and `no_capacity`, which tells a payer holding only `pay_for_care` whether the patient already has a membership. Kept on purpose (the payer needs to know why a payment was refused); a single generic refusal for beneficiary orders is the stricter alternative.
+- Recommendation: add the Vault pepper and move to HMAC before real invites are made; keep the payer messages.
+- **Decided 2026-10-06 (founder): add the Vault secret.** Built: the S29 migration creates the Vault secret `care_circle_contact_pepper` (random per environment, if absent) and hashes invitee contacts with HMAC-SHA256 under it (`private.circle_contact_hash`); with no secret an invite fails closed (`circle_not_configured`). Rotating the secret makes every pending invite unusable. The payer-sees-membership-state message stays as it is.
+
+### OQ-192 addendum (2026-10-06): live `create_order` already let any `profile_access` grantee pay
+- S26's `create_order` (live since 2026-10-06) allows ANY `profile_access` grantee, whatever their permissions, to buy for the patient. The S29 `create_order` keeps that path (so nothing live changes) beside the Care Circle `pay_for_care` path, with the organisation and test-flag checks added to both. A gift that grants a lead now waits for the patient's yes whichever path paid. Tightening the older path to `manage_payments` is part of OQ-192.
+
+
 
 ### OQ-180 Guards live in `go_live_guards`, not `platform_modules` (raised by S37; conflicts with OQ-18)
 - OQ-18 said go-live guards reuse `platform_modules`. `set_platform_module()` needs only a superadmin and a note, never evaluates a condition against data, and its row is updatable by the table owner. S37's requirement is a switch only a condition-evaluating function can flip, with who, when and why in an append-only log, provable even against the migration role. So S37 added `go_live_guards`, `go_live_guard_log` and `go_live_attestations` and left `platform_modules` untouched (it still serves the payer, provider-org, NGO and `v5_checkout` modules).
@@ -1168,6 +1209,19 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Deel-style platforms give a downloadable statement per payment; in Nigeria a withholding tax credit note is also needed once OQ-193 is decided. Stripe recommends holding back a balance against later reversals; a refund of a consultation share is a manual adjustment until S26.
 - Options: (a) a PDF statement per payout now and the credit note after OQ-193; no holdback until S26 (recommended); (b) all three together later.
 - Decision: Decided 2026-10-06: PDF statement per payout now, credit note after OQ-193, no holdback until S26.
+> Note (merge of S29): S29's OQ-193 to OQ-198 below are the Care Circle questions. The same numbers are used above by S31 for payout questions (parallel sessions picked the same range, as OQ-170 to OQ-185 already were). Read the title, not the number, until these are renumbered.
+
+### OQ-197 When the patient pauses sharing, do check-in requests (red alerts) pause too? (raised by S29c)
+- "Pause all sharing" (7 days, silent to supporters, no reason) stops the supporter's page and lists. Whether it also holds back the neutral check-in request is a safety trade-off: a patient who feels watched wants everything off; a patient who pauses and then has a red event would have a family that is not asked to call. The patient's own care team's escalation is a different path and is never paused.
+- Built (after the review): the patient chooses, with a plain warning beside the tick, and the tick is OFF by default, so a plain pause hides the summary and leaves the check-in request on. Holding back check-in requests is an explicit opt-in. A request sent while they were held back is never shown after the pause ends. A pause always ends by itself after `pause_days` (7) and the patient is told once.
+- Options: (a) as built; (b) tick ON by default ("pause all" means all, less safe); (c) never pause check-in requests.
+- Recommendation: (a) with the CMO reading the warning wording; revisit if a real incident happens during a pause.
+- Decision: open (CMO and founder).
+
+### OQ-198 Only the full yearly Membership can be paid for someone else (decided by the founder 2026-10-06, built by S29c)
+- Founder: "the gift should be someone paying for a full yearly membership". `create_order` now refuses any beneficiary order that is not a Membership of 365 days or more (`gift_item_not_allowed`), on both the Care Circle path and the older `profile_access` path (OQ-192). Single consultations, short memberships and care packs sold on their own cannot be gifted; a patient still buys those for themselves.
+- Checkout asks the payer to confirm the person's name, says the person is asked to accept it and that a no is a refund, and says the payer sees no health information.
+- Still open from OQ-191: the unanswered-gift window (`gift_decide_days`, 30 today; the plan suggests 14) is a founder number.
 
 ### S27d: follow-ups built (founder, 2026-10-06, "fix all")
 - **OQ-176 (CMO ranges): built, NOT signed.** `lab_panel_signoffs` and `sign_lab_panels()` (CMO only), shown in the CMO signing hub and at `/clinician/lab-panels`. Until the CMO signs, nothing auto-releases: every result is held for review (fail closed). I did not and cannot sign for the CMO. Doctors will see every normal result in their queue until then; sign early.
