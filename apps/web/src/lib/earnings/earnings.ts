@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { nairaInputToKobo } from "@/lib/format-money";
+import { formatKobo, nairaInputToKobo } from "@/lib/format-money";
 
 /**
  * Fee schedules and the earnings ledger (S30, spec 7.7). Input schemas, the plain-words error mapping, the parsers for the
@@ -227,7 +227,7 @@ export const reviewWords = (code: string | null): string => (code ? (REVIEW_WORD
 export function explainLine(row: Pick<LedgerRow, "kind" | "calculation">): string {
   const c = row.calculation;
   const num = (k: string): number | null => (typeof c[k] === "number" ? (c[k] as number) : null);
-  const kobo = (n: number | null): string => (n === null ? "" : `₦${(n / 100).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  const kobo = (n: number | null): string => (n === null ? "" : formatKobo(n));
   if (typeof c.needs_review === "string") return reviewWords(c.needs_review);
   switch (row.kind) {
     case "task": {

@@ -385,6 +385,8 @@ begin
   select * into cs from public.clinical_staff where profile_id = t.claimed_by;
   if not found or cs.employment_type::text <> 'contracted' then return true; end if;
   if exists (select 1 from public.earnings_ledger where clinician_id = t.claimed_by and kind = 'task' and reference_id = t.id) then return true; end if;
+  -- a task that produced a paid live consultation is paid once, by the consultation share, not twice
+  if exists (select 1 from public.encounters e where e.task_id = t.id and e.type in ('video', 'audio', 'phone')) then return true; end if;
   fs := private.fee_schedule_at(t.organisation_id, t.completed_at);
   if fs.id is null then return false; end if;
   v_claimed := coalesce(t.claimed_at, t.completed_at);
@@ -427,7 +429,9 @@ begin
   fs := private.fee_schedule_at(e.organisation_id, v_at);
   if fs.id is null then return false; end if;
   select sp.amount_kobo into v_purchase from public.service_purchases sp
-   where sp.id = e.service_purchase_id and sp.status in ('active', 'expired');
+   where sp.id = e.service_purchase_id and sp.status in ('active', 'expired')
+     -- only a purchase this very consultation used up is a price for it; a Membership or pack that covers many is not
+     and sp.redeemed_entity_id in (e.id, e.appointment_id, e.video_consultation_id);
   v_calc := private.fee_consultation_calc(fs.items, e.type, v_purchase);
   if (v_calc ->> 'ok')::boolean then v_amount := (v_calc ->> 'amount_kobo')::bigint; end if;
   v_calc := v_calc || jsonb_build_object('consultation_type', e.type, 'schedule_version', fs.version)
@@ -632,7 +636,7 @@ declare
   v_shifts integer := 0;
 begin
   for r in select ct.id from public.clinical_tasks ct
-            where ct.state = 'completed' and ct.claimed_by is not null and ct.completed_at > now() - interval '90 days'
+            where ct.state = 'completed' and ct.claimed_by is not null and ct.completed_at > now() - interval '365 days'
               and not exists (select 1 from public.earnings_ledger l where l.kind = 'task' and l.reference_id = ct.id and l.clinician_id = ct.claimed_by) loop
     begin
       if private.post_task_earning(r.id) then v_posted := v_posted + 1; else v_deferred := v_deferred + 1; end if;
@@ -642,7 +646,7 @@ begin
     end;
   end loop;
   for r in select e.id from public.encounters e
-            where e.status = 'completed' and e.type in ('video', 'audio', 'phone') and e.clinician_id is not null and e.updated_at > now() - interval '90 days'
+            where e.status = 'completed' and e.type in ('video', 'audio', 'phone') and e.clinician_id is not null and e.updated_at > now() - interval '365 days'
               and not exists (select 1 from public.earnings_ledger l where l.kind = 'consultation' and l.reference_id = e.id and l.clinician_id = e.clinician_id) loop
     begin
       if private.post_consultation_earning(r.id) then v_posted := v_posted + 1; else v_deferred := v_deferred + 1; end if;

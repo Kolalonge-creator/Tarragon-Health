@@ -54,7 +54,9 @@ export async function ClinicianEarningsView() {
           ) : lines.data.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">Nothing yet. Lines appear when you finish a task or consultation, an on-call shift ends, or a lead month closes.</p>
           ) : (
-            lines.data.map((l) => (
+            <>
+              {lines.data.length >= 300 && <p className="text-xs text-charcoal-ink/60">Showing your latest 300 lines. The totals above count all of them.</p>}
+              {lines.data.map((l) => (
               <div key={l.id} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-charcoal-ink/10 py-2 text-sm">
                 <div>
                   <p className="font-medium">
@@ -65,7 +67,8 @@ export async function ClinicianEarningsView() {
                 </div>
                 <p className={l.amount_kobo < 0 ? "font-semibold text-red-600" : "font-semibold"}>{formatKobo(l.amount_kobo)}</p>
               </div>
-            ))
+              ))}
+            </>
           )}
         </CardContent>
       </Card>
