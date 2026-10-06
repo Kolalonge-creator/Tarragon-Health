@@ -14,7 +14,7 @@ jest.mock("@/lib/supabase/service-role", () => ({
   }),
 }));
 
-import { addOwnLabResult, getOwnResultFileUrl, recordDisclosure, submitPartnerResult } from "./structured-actions";
+import { addOwnLabResult, getOwnResultFileUrl, openLabResult, recordDisclosure, releaseResult, submitPartnerResult, withholdResult } from "./structured-actions";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const items = JSON.stringify([{ analyte_code: "creatinine", value_numeric: 1.9, unit: "mg/dL" }]);
@@ -100,5 +100,37 @@ describe("recordDisclosure", () => {
     const r = await recordDisclosure(undefined, form({ result_id: id, method: "phone", attested: "on" }));
     expect(r).toEqual({ success: true });
     expect(rpc).toHaveBeenCalledWith("record_lab_disclosure", { p_result: id, p_method: "phone", p_attested: true, p_note: undefined });
+  });
+});
+
+describe("refusals returned by the database (the denied audit row commits)", () => {
+  const refusal = { data: { error: "not_permitted" }, error: null };
+  it("release, withhold and disclosure turn a returned refusal into an access message", async () => {
+    rpc.mockResolvedValue(refusal);
+    expect((await releaseResult(undefined, form({ result_id: id })))?.error).toMatch(/access/);
+    expect((await withholdResult(undefined, form({ result_id: id, reason: "Wrong patient" })))?.error).toMatch(/access/);
+    expect((await recordDisclosure(undefined, form({ result_id: id, method: "phone", attested: "on" })))?.error).toMatch(/access/);
+  });
+  it("a critical value refused for a medical officer shows the senior-clinician message", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "lab_critical_needs_senior_clinician" } });
+    expect((await releaseResult(undefined, form({ result_id: id })))?.error).toMatch(/senior/);
+  });
+});
+
+describe("openLabResult (the audited read happens on a click)", () => {
+  it("returns the parsed result", async () => {
+    rpc.mockResolvedValue({
+      data: { lab_result_id: id, patient_id: id, release_state: "awaiting_review", release_reason: "abnormal", panel_code: "essential", received_at: "2026-10-06T10:00:00Z", submitted_by_kind: "partner", file_path: null, items: [] },
+      error: null,
+    });
+    const r = await openLabResult(id);
+    expect(r.result?.release_reason).toBe("abnormal");
+    expect(rpc).toHaveBeenCalledWith("lab_result_for_review", expect.objectContaining({ p_result: id }));
+  });
+  it("shows nothing for a refusal", async () => {
+    rpc.mockResolvedValue({ data: { error: "not_permitted" }, error: null });
+    const r = await openLabResult(id);
+    expect(r.result).toBeUndefined();
+    expect(r.error).toMatch(/access/);
   });
 });

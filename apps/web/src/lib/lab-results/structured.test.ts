@@ -2,6 +2,7 @@ import {
   describeLabError,
   disclosureSchema,
   formatRange,
+  refusalOf,
   myLabResultsSchema,
   resultEntrySchema,
   validateLabResultFile,
@@ -76,5 +77,13 @@ describe("formatRange", () => {
     expect(formatRange(null, 200, "mg/dL")).toBe("up to 200 mg/dL");
     expect(formatRange(40, null, "mg/dL")).toBe("40 or more mg/dL");
     expect(formatRange(null, null, "")).toBe("");
+  });
+});
+
+describe("refusalOf", () => {
+  it("recognises the returned refusal and nothing else", () => {
+    expect(refusalOf({ error: "not_permitted" })).toMatch(/access/);
+    expect(refusalOf({ ok: true })).toBeNull();
+    expect(refusalOf(null)).toBeNull();
   });
 });

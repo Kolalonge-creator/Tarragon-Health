@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import {
   getReviewFileUrl,
+  openLabResult,
   recordDisclosure,
   releaseResult,
   withholdResult,
@@ -19,20 +20,57 @@ import { Textarea } from "@/components/ui/textarea";
 const TOUCH = "min-h-11";
 const FLAG_VARIANT = { normal: "green", low: "amber", high: "amber", critical: "red", positive: "amber", negative: "green" } as const;
 
-export function ReviewCard({ result }: { result: ReviewResult }) {
+export type ReviewSummary = { id: string; state: string; reason: string | null; receivedAt: string };
+
+/** A queued result, closed. Opening it is the audited read; nothing about the patient is shown until then. */
+export function ReviewCard({ summary }: { summary: ReviewSummary }) {
+  const [result, setResult] = useState<ReviewResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const disclosure = summary.state === "clinician_disclosure_required";
+  const label = disclosure ? "Disclose in person" : summary.reason === "critical" ? "Critical value" : "Held for review";
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle className="text-base">Received {new Date(summary.receivedAt).toLocaleString("en-NG", { timeZone: "Africa/Lagos" })}</CardTitle>
+        <Badge variant={disclosure || summary.reason === "critical" ? "red" : "amber"}>{label}</Badge>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {result ? (
+          <ReviewBody result={result} />
+        ) : (
+          <>
+            <Button
+              type="button"
+              className={TOUCH}
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  const r = await openLabResult(summary.id);
+                  if (r.result) setResult(r.result);
+                  setError(r.error ?? null);
+                })
+              }
+            >
+              Open this result
+            </Button>
+            {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReviewBody({ result }: { result: ReviewResult }) {
   const disclosure = result.release_state === "clinician_disclosure_required";
   const [fileError, setFileError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
-        <CardTitle className="text-base">
-          {result.panel_code ? result.panel_code.replace(/_/g, " ") : "Report only"} · received {new Date(result.received_at).toLocaleString("en-NG", { timeZone: "Africa/Lagos" })}
-        </CardTitle>
-        <Badge variant={disclosure ? "red" : "amber"}>{disclosure ? "Disclose in person" : result.release_reason === "critical" ? "Critical value" : "Held for review"}</Badge>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-4">
+
         {result.items.length > 0 ? (
           <table className="w-full text-sm">
             <caption className="sr-only">Values entered by the lab</caption>
@@ -82,8 +120,7 @@ export function ReviewCard({ result }: { result: ReviewResult }) {
 
         {disclosure ? <DisclosureForm id={result.lab_result_id} /> : <ReleaseForm id={result.lab_result_id} />}
         <WithholdForm id={result.lab_result_id} />
-      </CardContent>
-    </Card>
+    </div>
   );
 }
 

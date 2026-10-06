@@ -10,7 +10,10 @@ import {
   disclosureSchema,
   LAB_RESULT_BUCKET,
   LAB_RESULT_EXT,
+  refusalOf,
   releaseSchema,
+  reviewResultSchema,
+  type ReviewResult,
   resultEntrySchema,
   validateLabResultFile,
   withholdSchema,
@@ -120,7 +123,7 @@ export async function getReviewFileUrl(resultId: string): Promise<{ url?: string
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("lab_result_for_review", { p_result: resultId, p_reason: "Opening the lab report file for review" });
   const path = (data as { file_path?: string | null } | null)?.file_path;
-  if (error || !path) return { error: "Not found." };
+  if (error || refusalOf(data) || !path) return { error: "Not found." };
   const signed = await createServiceRoleClient().storage.from(LAB_RESULT_BUCKET).createSignedUrl(path, 60);
   return signed.data?.signedUrl ? { url: signed.data.signedUrl } : { error: "Not found." };
 }
@@ -129,8 +132,10 @@ export async function releaseResult(_prev: LabActionState, formData: FormData): 
   const parsed = releaseSchema.safeParse({ resultId: String(formData.get("result_id") ?? ""), note: String(formData.get("note") ?? "") || undefined });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
   const supabase = await createClient();
-  const { error } = await supabase.rpc("release_lab_result", { p_result: parsed.data.resultId, p_note: parsed.data.note });
+  const { data, error } = await supabase.rpc("release_lab_result", { p_result: parsed.data.resultId, p_note: parsed.data.note });
   if (error) return { error: describeLabError(error) };
+  const refused = refusalOf(data);
+  if (refused) return { error: refused };
   revalidatePath("/clinician/lab-results");
   return { success: true };
 }
@@ -139,8 +144,10 @@ export async function withholdResult(_prev: LabActionState, formData: FormData):
   const parsed = withholdSchema.safeParse({ resultId: String(formData.get("result_id") ?? ""), reason: String(formData.get("reason") ?? "") });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
   const supabase = await createClient();
-  const { error } = await supabase.rpc("withhold_lab_result", { p_result: parsed.data.resultId, p_reason: parsed.data.reason });
+  const { data, error } = await supabase.rpc("withhold_lab_result", { p_result: parsed.data.resultId, p_reason: parsed.data.reason });
   if (error) return { error: describeLabError(error) };
+  const refused = refusalOf(data);
+  if (refused) return { error: refused };
   revalidatePath("/clinician/lab-results");
   return { success: true };
 }
@@ -154,13 +161,29 @@ export async function recordDisclosure(_prev: LabActionState, formData: FormData
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
   const supabase = await createClient();
-  const { error } = await supabase.rpc("record_lab_disclosure", {
+  const { data, error } = await supabase.rpc("record_lab_disclosure", {
     p_result: parsed.data.resultId,
     p_method: parsed.data.method,
     p_attested: true,
     p_note: parsed.data.note,
   });
   if (error) return { error: describeLabError(error) };
+  const refused = refusalOf(data);
+  if (refused) return { error: refused };
   revalidatePath("/clinician/lab-results");
   return { success: true };
+}
+
+const READ_REASON = "Reviewing a lab result held for my review";
+
+/** Opens one held result for the tied clinician. This is the audited read (INV-10): it happens on a click, once per open. */
+export async function openLabResult(resultId: string): Promise<{ result?: ReviewResult; error?: string }> {
+  if (!/^[0-9a-f-]{36}$/.test(resultId)) return { error: "Not found." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("lab_result_for_review", { p_result: resultId, p_reason: READ_REASON });
+  if (error) return { error: describeLabError(error) };
+  const refused = refusalOf(data);
+  if (refused) return { error: refused };
+  const parsed = reviewResultSchema.safeParse(data);
+  return parsed.success ? { result: parsed.data } : { error: "That result could not be read. Please try again." };
 }

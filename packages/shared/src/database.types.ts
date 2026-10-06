@@ -41235,6 +41235,7 @@ export type Database = {
         }[];
       };
       lab_partner_submit_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string }; Returns: Json };
+      lab_result_explain_allowed: { Args: { p_result: string }; Returns: boolean };
       lab_result_file_path: { Args: { p_result: string }; Returns: string };
       lab_result_for_review: { Args: { p_reason: string; p_result: string }; Returns: Json };
       lab_results_review_queue: {
@@ -41243,10 +41244,10 @@ export type Database = {
       };
       my_lab_results: { Args: Record<PropertyKey, never>; Returns: Json };
       patient_add_lab_result: { Args: { p_file: Json }; Returns: Json };
-      record_lab_disclosure: { Args: { p_attested: boolean; p_method: string; p_note?: string; p_result: string }; Returns: undefined };
-      release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: undefined };
+      record_lab_disclosure: { Args: { p_attested: boolean; p_method: string; p_note?: string; p_result: string }; Returns: Json };
+      release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };
       team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
-      withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: undefined };
+      withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
       abnormal_result_dashboard_counts: {
         Args: { p_organisation_id: string }
         Returns: Json

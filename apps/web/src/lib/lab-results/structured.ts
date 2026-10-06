@@ -125,6 +125,8 @@ const MESSAGES: Record<string, string> = {
   lab_result_not_for_disclosure: "This result does not need a personal disclosure.",
   lab_disclosure_needs_attestation: "Choose how you told the patient and confirm it.",
   lab_disclosure_needs_senior_clinician: "A senior clinician must record this disclosure.",
+  lab_critical_needs_senior_clinician: "A critical value can be released only by a senior clinician.",
+  lab_file_path_invalid: "That file could not be attached.",
   lab_result_final: "This result is final and cannot be changed.",
 };
 
@@ -141,4 +143,12 @@ export function formatRange(low: number | null, high: number | null, unit: strin
   if (high !== null) return `up to ${high} ${unit}`;
   if (low !== null) return `${low} or more ${unit}`;
   return "";
+}
+
+/** The audit-safe refusal the review functions return instead of raising (so the denied audit row commits). */
+export function refusalOf(data: unknown): string | null {
+  if (data && typeof data === "object" && "error" in data && (data as { error: unknown }).error === "not_permitted") {
+    return "You do not have access to that.";
+  }
+  return null;
 }

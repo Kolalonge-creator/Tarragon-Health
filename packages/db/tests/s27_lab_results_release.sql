@@ -201,7 +201,9 @@ begin
   perform pg_temp.ck('...the order is processing, not resulted', 'processing', pg_temp.order_status(o));
   perform pg_temp.ck('another patient cannot see it either', '0', pg_temp.visible_to(pg_temp.f('pat2'), rid));
   perform pg_temp.ck('a clinician with no tie cannot open it', 'true',
-    (pg_temp.q_as(pg_temp.f('stranger'), format($q$select public.lab_result_for_review(%L, 'checking')::text$q$, rid)) like 'ERR:Not permitted')::text);
+    (pg_temp.q_as(pg_temp.f('stranger'), format($q$select public.lab_result_for_review(%L, 'checking')::text$q$, rid)) like '%not_permitted%')::text);
+  perform pg_temp.ck('...and the refusal is recorded in the audit log (it is returned, not raised, so it commits)', 'true',
+    (exists (select 1 from public.audit_log where subject_patient_id = v_pat and action = 'staff.chart_read' and result = 'denied' and actor_id = pg_temp.f('stranger')))::text);
   perform pg_temp.ck('...a reason is required', 'true',
     (pg_temp.q_as(pg_temp.f('doc'), format($q$select public.lab_result_for_review(%L, '')::text$q$, rid)) like 'ERR:A reason is required')::text);
   q := pg_temp.q_as(pg_temp.f('doc'), format($q$select public.lab_result_for_review(%L, 'Reviewing a held lab result')::text$q$, rid));
@@ -212,17 +214,21 @@ begin
     pg_temp.q_as(pg_temp.f('doc'), format('select count(*)::text from public.lab_results_review_queue() where lab_result_id = %L', rid)));
   perform pg_temp.ck('...and not for a stranger', '0',
     pg_temp.q_as(pg_temp.f('stranger'), format('select count(*)::text from public.lab_results_review_queue() where lab_result_id = %L', rid)));
+  perform pg_temp.ck('the review queue and an open do not release anything', 'awaiting_review', pg_temp.state_of(rid));
   perform pg_temp.ck('a patient cannot release their own result', 'true',
     (pg_temp.q_as(v_pat, format($q$select public.release_lab_result(%L)$q$, rid)) like 'ERR:This action is for clinicians')::text);
   perform pg_temp.ck('the partner cannot release it either', 'true',
     (pg_temp.q_as(pg_temp.f('labA'), format($q$select public.release_lab_result(%L)$q$, rid)) like 'ERR:This action is for clinicians')::text);
   perform pg_temp.ck('a stranger clinician cannot release it', 'true',
-    (pg_temp.q_as(pg_temp.f('stranger'), format($q$select public.release_lab_result(%L)$q$, rid)) like 'ERR:Not permitted')::text);
+    (pg_temp.q_as(pg_temp.f('stranger'), format($q$select public.release_lab_result(%L)::text$q$, rid)) like '%not_permitted%')::text);
+  perform pg_temp.ck('...and the result is still held after that attempt', 'awaiting_review', pg_temp.state_of(rid));
   perform pg_temp.ck('the tied clinician releases it', 'true', (coalesce(pg_temp.q_as(pg_temp.f('doc'), format($q$select public.release_lab_result(%L, 'Reviewed, advised a repeat in 3 months')::text$q$, rid)), '') not like 'ERR:%')::text);
   perform pg_temp.ck('...now released', 'released', pg_temp.state_of(rid));
   perform pg_temp.ck('...reason clinician_review, by the clinician', 'clinician_review|true',
     (select release_reason || '|' || (reviewed_by = pg_temp.f('doc'))::text from public.lab_results where id = rid));
   perform pg_temp.ck('...the patient can now read it', '1', pg_temp.visible_to(v_pat, rid));
+  perform pg_temp.ck('...its unclaimed review task was closed by the release (OQ-178)', 'cancelled',
+    (select state::text from public.clinical_tasks where dedup_key = 'lab_result:' || rid));
   perform pg_temp.ck('...the order is resulted', 'resulted', pg_temp.order_status(o));
   perform pg_temp.ck('...one neutral notice now exists for this patient (two in all)', '2', (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'lab_result_ready'));
   perform pg_temp.ck('a released result cannot be released or withheld again', 'true',
@@ -232,6 +238,12 @@ begin
   o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
   r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', replace(pg_temp.items(0.9), '"potassium","value_numeric":4.1', '"potassium","value_numeric":7.2'));
   perform pg_temp.ck('a critical potassium makes a critical result review task', 'critical_result_review', pg_temp.task_of(pg_temp.rid(r)));
+  perform pg_temp.setf('res_crit', pg_temp.rid(r));
+  perform pg_temp.ck('a medical officer cannot release a critical value (OQ-180)', 'true',
+    (pg_temp.q_as(pg_temp.f('doc'), format($q$select public.release_lab_result(%L)::text$q$, pg_temp.rid(r))) like 'ERR:lab_critical_needs_senior_clinician')::text);
+  perform pg_temp.ck('...it is still held', 'awaiting_review', pg_temp.state_of(pg_temp.rid(r)));
+  perform pg_temp.ck('a senior clinician can', 'true',
+    (pg_temp.q_as(pg_temp.f('senior'), format($q$select public.release_lab_result(%L)::text$q$, pg_temp.rid(r))) like '%"ok": true%')::text);
 end $$;
 
 -- 4. Case 12: positive HBsAg ---------------------------------------------------------------------------------------------------
@@ -249,7 +261,7 @@ begin
   perform pg_temp.ck('...the patient cannot read the row or the items', '0|0', pg_temp.visible_to(v_pat, rid) || '|' || pg_temp.items_visible_to(v_pat, rid));
   perform pg_temp.ck('...the list says the care team will contact them, explain is not allowed', 'care_team_will_contact|false',
     (pg_temp.mine(v_pat, rid) ->> 'status') || '|' || (pg_temp.mine(v_pat, rid) ->> 'explain_allowed'));
-  perform pg_temp.ck('...and no notice was sent', '2', (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'lab_result_ready'));
+  perform pg_temp.ck('...and no notice was sent', '3', (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'lab_result_ready'));
   perform pg_temp.ck('the ordinary release function refuses it', 'true',
     (pg_temp.q_as(pg_temp.f('senior'), format($q$select public.release_lab_result(%L)$q$, rid)) like 'ERR:lab_result_not_awaiting_review')::text);
   perform pg_temp.ck('a medical officer cannot record the disclosure', 'true',
@@ -263,6 +275,7 @@ begin
   perform pg_temp.ck('the state is unchanged after those attempts', 'clinician_disclosure_required', pg_temp.state_of(rid));
   perform pg_temp.ck('the senior clinician records the disclosure', 'true',
     (coalesce(pg_temp.q_as(pg_temp.f('senior'), format($q$select public.record_lab_disclosure(%L, 'in_person', true, 'Told the patient face to face')::text$q$, rid)), '') not like 'ERR:%')::text);
+  perform pg_temp.ck('...the disclosure task was closed', 'cancelled', (select state::text from public.clinical_tasks where dedup_key = 'lab_result:' || rid));
   perform pg_temp.ck('...now released with the method and attestation', 'released|in_person|true|disclosure_recorded',
     (select release_state || '|' || disclosure_method || '|' || disclosure_attested::text || '|' || release_reason from public.lab_results where id = rid));
   perform pg_temp.ck('...the patient can read it, but an explanation is still not allowed', 'true|false',
@@ -300,6 +313,35 @@ begin
      pg_temp.partner_submit(pg_temp.f('labA'), pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'pending_payment'), 'essential', pg_temp.items(0.9)) like 'ERR:lab_order_not_payable_state')::text);
   perform pg_temp.ck('the partner worklist shows only its own orders', 'true',
     (pg_temp.q_as(pg_temp.f('labB'), 'select count(*)::text from public.lab_partner_portal_orders()') = '0')::text);
+end $$;
+
+-- 5b. The older partner PDF function now holds the result (OQ-177) and the explain gate (OQ-179) -------------------------------
+do $$
+declare v_pat uuid := pg_temp.f('pat'); v_org uuid := pg_temp.f('org'); o uuid; r text; rid uuid; n_docs integer; n_notes integer;
+begin
+  o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
+  select count(*) into n_notes from public.notifications where recipient_id = v_pat and template = 'result_document_available';
+  r := pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_upload_result(%L, %L, 'old.pdf', 'application/pdf', 1000, 'note')::text$q$, o, v_pat::text || '/old.pdf'));
+  perform pg_temp.ck('the older partner upload returns a result id', 'true', (r ~ '^[0-9a-f-]{36}$')::text);
+  select id into rid from public.lab_results where lab_order_id = o;
+  perform pg_temp.ck('...which is held for review', 'awaiting_review', pg_temp.state_of(rid));
+  perform pg_temp.ck('...the patient cannot see it', '0', pg_temp.visible_to(v_pat, rid));
+  select count(*) into n_docs from public.lab_result_documents where lab_order_id = o;
+  perform pg_temp.ck('...no visible document row was written', '0', n_docs::text);
+  perform pg_temp.ck('...and the patient was not notified that a result document is available', n_notes::text,
+    (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'result_document_available'));
+  perform pg_temp.ck('...the order is processing, not resulted', 'processing', pg_temp.order_status(o));
+  perform pg_temp.ck('the older upload also refuses another lab''s order', 'true',
+    (pg_temp.q_as(pg_temp.f('labB'), format($q$select public.lab_partner_upload_result(%L, %L, 'old.pdf', 'application/pdf', 1000, null)::text$q$, o, v_pat::text || '/old2.pdf')) like 'ERR:Order not found for this lab')::text);
+  perform pg_temp.ck('explain gate: a normal released partner result may be explained', 'true',
+    pg_temp.q_as(v_pat, format('select public.lab_result_explain_allowed(%L)::text', pg_temp.f('res_normal'))));
+  perform pg_temp.ck('explain gate: a released sensitive-positive result may not', 'false',
+    pg_temp.q_as(v_pat, format('select public.lab_result_explain_allowed(%L)::text', pg_temp.f('res_sens'))));
+  perform pg_temp.ck('explain gate: a held result may not', 'false',
+    pg_temp.q_as(v_pat, format('select public.lab_result_explain_allowed(%L)::text', rid)));
+  perform pg_temp.ck('explain gate: another patient asking gets false', 'false',
+    pg_temp.q_as(pg_temp.f('pat2'), format('select public.lab_result_explain_allowed(%L)::text', pg_temp.f('res_normal'))));
+  perform pg_temp.ck('explain gate: anon cannot call it', '42501', pg_temp.try_anon(format('select public.lab_result_explain_allowed(%L)', pg_temp.f('res_normal'))));
 end $$;
 
 -- 6. Patient upload, team upload, withhold ------------------------------------------------------------------------------------------
@@ -350,7 +392,7 @@ begin
   perform pg_temp.ck('every structured result names its panel version (INV-16)', '0',
     (select count(*)::text from public.lab_results where source = 'portal_entry' and panel_version_id is null));
   perform pg_temp.ck('test accounts carry is_test through', '0', (select count(*)::text from public.lab_results r where not r.is_test));
-  perform pg_temp.ck('a held result cannot be auto-released by writing RES-001 onto an abnormal one', '42501',
+  perform pg_temp.ck('a held result (abnormal or incomplete) cannot be auto-released by writing RES-001 onto it', '42501',
     pg_temp.try_sql(format($q$update public.lab_results set release_state = 'released', release_reason = 'RES-001', released_at = now() where id = %L$q$,
       (select id from public.lab_results where release_state = 'awaiting_review' and source = 'portal_entry' limit 1))));
 end $$;
