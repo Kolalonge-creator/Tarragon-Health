@@ -1274,6 +1274,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S38c.md; docs/research/S38.md section 22.5",
+  },
+  {
     key: "audio.bundled_max_bytes",
     value: 15000000,
     owner: "Founder",
