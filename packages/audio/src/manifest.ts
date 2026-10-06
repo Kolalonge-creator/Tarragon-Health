@@ -32,7 +32,7 @@ export function fileNameFor(clipId: string, key: FileKey): string {
 }
 
 /** Who has to sign a recording before it may play. Brand always; the rest by what the clip is (list section 4). */
-export function requiredReviews(clip: Pick<ManifestClip, "clinical" | "legal">, key: FileKey): readonly ReviewKind[] {
+export function requiredReviews(clip: Pick<ManifestClip, "clinical" | "legal">, _key?: FileKey): readonly ReviewKind[] {
   const r: ReviewKind[] = ["brand"];
   if (clip.clinical) r.push("clinical");
   if (clip.legal) r.push("legal");
