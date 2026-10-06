@@ -41,10 +41,12 @@ create policy consultation_policy_config_read on public.consultation_policy_conf
   for select to authenticated using (true);
 revoke all on public.consultation_policy_config from anon, public, authenticated;
 grant select on public.consultation_policy_config to authenticated;
+-- policy-v1-begin
 insert into public.consultation_policy_config (version, is_active, config, note) values
   (1, true,
-   '{"minAgeYears":18,"requireDateOfBirth":true,"cancelWindowHours":2,"lateCancelCreditReturned":false,"holdMinutes":10,"reconnectGraceSeconds":120,"clinicianNoShowWaitMinutes":15,"patientNoShowWaitMinutes":10,"sessionMinutes":30,"flagWindowDays":3}'::jsonb,
+   $json${"minAgeYears":18,"requireDateOfBirth":true,"cancelWindowHours":2,"lateCancelCreditReturned":false,"holdMinutes":10,"reconnectGraceSeconds":120,"clinicianNoShowWaitMinutes":15,"patientNoShowWaitMinutes":10,"sessionMinutes":30,"flagWindowDays":3}$json$::jsonb,
    'S21 PROPOSED: adults only, full credit back when the patient cancels 2 hours or more before, clinician cancel or no-show always returns it.');
+-- policy-v1-end
 
 create function private.consult_policy() returns jsonb
 language sql stable security definer set search_path = ''

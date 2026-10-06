@@ -561,4 +561,34 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S14.md; docs/research/S14.md",
   },
+  {
+    key: "consultations.policy",
+    // Remote consultations (S21, founder decisions OQ-124 to OQ-131). Mirrored by consultation_policy_config v1 (a drift
+    // test compares the two).
+    //  minAgeYears, requireDateOfBirth: adults only; no date of birth means no booking (fail closed).
+    //  cancelWindowHours: a patient who cancels this many hours or more before gets the consultation credit back.
+    //  lateCancelCreditReturned: whether a late cancel also gets it back (false: the credit is kept).
+    //  holdMinutes: how long a slot is held while the patient pays.
+    //  reconnectGraceSeconds: a lost connection has this long to return before the call moves to the phone.
+    //  clinicianNoShowWaitMinutes, patientNoShowWaitMinutes: how long after the start time before a no-show can be marked.
+    //  sessionMinutes: planned length; the clock pauses during reconnect grace.
+    //  flagWindowDays: how long after a consultation the patient can flag a problem for human review.
+    value: {
+      minAgeYears: 18,
+      requireDateOfBirth: true,
+      cancelWindowHours: 2,
+      lateCancelCreditReturned: false,
+      holdMinutes: 10,
+      reconnectGraceSeconds: 120,
+      clinicianNoShowWaitMinutes: 15,
+      patientNoShowWaitMinutes: 10,
+      sessionMinutes: 30,
+      flagWindowDays: 3,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S21.md; docs/research/S21.md",
+  },
 ];

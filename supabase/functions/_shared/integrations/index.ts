@@ -15,3 +15,4 @@ export { createResendEmail, type ResendConfig } from "./email-resend.ts";
 export { createMockEmail, type MockEmailControl } from "./email-mock.ts";
 export * from "./select.ts";
 export * from "./from-env.ts";
+export * from "./consultation-ladder.ts";
