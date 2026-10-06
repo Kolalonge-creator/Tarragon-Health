@@ -19,6 +19,16 @@ describe("summariseRules", () => {
     ]);
   });
 
+  it("shows a rule that asks about symptoms instead of failing the whole list (the live v2 rule set has one, BP-X1)", () => {
+    const out = summariseRules({
+      rules: [
+        { id: "BP-X1", description: "Ask about symptoms", result: "ask", actions: [{ kind: "ask_symptoms" }] },
+        { id: "R2", description: "Raised", result: "grade", grade: "amber", actions: [] },
+      ],
+    });
+    expect(out?.map((r) => r.outcome)).toEqual(["asks about symptoms", "amber"]);
+  });
+
   it("returns null for JSON that is not a rule list", () => {
     expect(summariseRules({})).toBeNull();
     expect(summariseRules(null)).toBeNull();
