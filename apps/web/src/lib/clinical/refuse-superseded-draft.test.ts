@@ -20,6 +20,10 @@ function client(target: Answer, active: Answer, liveFilters: Array<[string, unkn
             else liveFilters.push([column, value]);
             return chain;
           },
+          is: (column: string, value: unknown) => {
+            liveFilters.push([`${column} is`, value]);
+            return chain;
+          },
           maybeSingle: async () => (isTargetLookup.value ? target : active),
         };
         return chain;
@@ -112,5 +116,16 @@ describe("refuseSupersededDraft partitions", () => {
     const filters: Array<[string, unknown]> = [];
     await refuseSupersededDraft(client(ok({ version: 2, is_active: false }), ok({ version: 1 }), filters), "alert_rules", "x");
     expect(filters.map(([c]) => c)).toEqual(["is_active"]);
+  });
+
+  it("matches a null partition value with is-null, as the database trigger does", async () => {
+    const filters: Array<[string, unknown]> = [];
+    await refuseSupersededDraft(
+      client(ok({ version: 2, is_active: false, organisation_id: null }), ok({ version: 1 }), filters),
+      "cv_risk_config",
+      "x"
+    );
+    expect(filters).toContainEqual(["organisation_id is", null]);
+    expect(filters.find(([c]) => c === "organisation_id")).toBeUndefined();
   });
 });

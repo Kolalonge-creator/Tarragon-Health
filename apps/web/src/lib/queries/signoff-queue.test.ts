@@ -245,3 +245,25 @@ describe("pending draft wording", () => {
     expect(line?.detail).not.toContain("your signature");
   });
 });
+
+describe("readSignoffQueue corrupt state", () => {
+  const live = (id: string, signed: boolean) => ({
+    id,
+    version: 6,
+    is_active: true,
+    approved_by: signed ? "staff" : null,
+    approved_at: signed ? "2026-09-01T00:00:00Z" : null,
+    created_at: "2026-09-01T00:00:00Z",
+  });
+
+  it("names a config with two live versions as unreadable instead of picking one", async () => {
+    const result = await readSignoffQueue(client({ escalation_slas: { data: [live("a", true), live("b", false)] } }));
+    expect(result.failedSources).toContain("escalation_slas");
+    expect(result.settledConfigs.find((c) => c.table === "escalation_slas")).toBeUndefined();
+  });
+
+  it("does the same for the result release policy", async () => {
+    const result = await readSignoffQueue(client({ result_release_policies: { data: [live("a", true), live("b", true)] } }));
+    expect(result.failedSources).toContain("result_release_policies");
+  });
+});

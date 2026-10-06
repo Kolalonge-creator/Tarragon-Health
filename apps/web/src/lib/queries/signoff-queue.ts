@@ -86,6 +86,17 @@ type VersionRow = {
 const isSigned = (r: VersionRow) => Boolean(r.approved_by ?? r.approved_at);
 
 /**
+ * The live row, or null. More than one live row is a corrupt state (five of these tables have
+ * no unique one-live-row index to prevent it), and silently taking the first could show a
+ * signed row while an unsigned one is also live, so it is reported as an unreadable source.
+ */
+function singleLiveRow(rows: VersionRow[], source: string): VersionRow | null {
+  const live = rows.filter((r) => r.is_active);
+  if (live.length > 1) throw new Error(`failed reading ${source}: ${live.length} versions are live at once`);
+  return live[0] ?? null;
+}
+
+/**
  * The unsigned draft worth the Chief Medical Officer's attention: the highest
  * unsigned version that is NEWER than the live one. Older unsigned drafts that a
  * later version superseded are history, not work, and signing one would put the
@@ -140,7 +151,7 @@ export async function readSignoffQueue(
           .or("is_active.eq.true,approved_by.is.null");
         if (error) fail(def.table, error.message);
         const rows = (data ?? []) as unknown as VersionRow[];
-        const live = rows.find((r) => r.is_active);
+        const live = singleLiveRow(rows, def.table);
         const href = `${basePath}/${def.slug}`;
         if (live && isSigned(live)) settledConfigs.push({ table: def.table, title: def.title, href, version: live.version });
         if (live && !isSigned(live)) {
@@ -239,7 +250,7 @@ export async function readSignoffQueue(
         .select("id, version, is_active, approved_at");
       if (error) fail("result_release_policies", error.message);
       const rows = (data ?? []) as unknown as VersionRow[];
-      const live = rows.find((r) => r.is_active);
+      const live = singleLiveRow(rows, "result_release_policies");
       const href = `${basePath}/result-release-policies`;
       if (live && !isSigned(live)) {
         return [

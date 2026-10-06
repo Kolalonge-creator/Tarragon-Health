@@ -212,8 +212,10 @@ export default async function ClinicianClinicalSignoffPage() {
       {hasSigned && (
         <details className="rounded-md border border-mist-grey/40 p-4">
           <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
-            Already signed ({checklist.signedRules.length} clinical rules, {settledConfigs.length} of{" "}
-            {checklist.totalConfigCount} configurations)
+            Already signed ({checklist.signedRules.length} clinical rules,{" "}
+            {hub.failed
+              ? `${settledConfigs.length} configurations confirmed, some not checked`
+              : `${settledConfigs.length} of ${checklist.totalConfigCount} configurations`})
           </summary>
           <div className="mt-4">
             <SignoffChecklist

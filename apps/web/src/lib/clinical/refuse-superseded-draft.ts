@@ -63,11 +63,16 @@ export async function refuseSupersededDraft(
     .eq("id", id)
     .maybeSingle();
   if (targetError || !target) return COULD_NOT_CHECK;
-  const row = target as unknown as { version: number; is_active: boolean } & Record<string, string>;
+  const row = target as unknown as { version: number; is_active: boolean } & Record<string, string | null>;
   if (row.is_active) return null;
 
   let liveQuery = supabase.from(table).select("version").eq("is_active", true);
-  for (const column of partition) liveQuery = liveQuery.eq(column, row[column]);
+  // A null partition value must match with `is null`, as the database trigger's
+  // `is not distinct from` does; `.eq(column, null)` would filter on the string "null".
+  for (const column of partition) {
+    const value = row[column];
+    liveQuery = value === null || value === undefined ? liveQuery.is(column, null) : liveQuery.eq(column, value);
+  }
   const { data: active, error: activeError } = await liveQuery.maybeSingle();
   if (activeError) return COULD_NOT_CHECK;
   const live = active as { version: number } | null;
