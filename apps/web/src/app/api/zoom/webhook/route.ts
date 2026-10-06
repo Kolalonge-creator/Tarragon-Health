@@ -6,9 +6,11 @@ import { videoProvider } from "@/lib/consultations/providers";
 import type { RpcClient } from "@/lib/consultations/room";
 
 /**
- * Zoom event subscription for consultation presence (S21 follow-up, OQ-160). Subscribe the Zoom app to
- * `meeting.participant_joined` and `meeting.participant_left` and point it here; Zoom validates the URL with a one-time challenge
- * this route answers. All the decisions live in lib/consultations/presence.ts; this is the wrapper.
+ * Consultation presence from Zoom's participant events (S21 follow-up, OQ-160). Zoom allows ONE subscription URL per app, and that is the
+ * `zoom-webhook` edge function: it forwards `meeting.participant_joined`, `..._joined_waiting_room` and `..._left` here unchanged (see
+ * forwardPresenceEvent), and this route verifies the signature itself. Pointing the subscription straight at this route also works
+ * (it answers the one-time challenge) but then meeting started and ended for the older visit flow would not be handled, so do not.
+ * All the decisions live in lib/consultations/presence.ts; this is the wrapper.
  *
  * The body is read as raw text: Zoom signs the exact bytes it sent, so re-serialised JSON would not verify. Nothing here is
  * reachable without a valid Zoom signature (except the one-time URL challenge, which only echoes an HMAC under our own secret).

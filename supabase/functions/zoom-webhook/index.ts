@@ -16,6 +16,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { isSafeWebhookChallenge } from "../_shared/integrations/webhook-challenge.ts";
+import { forwardPresenceEvent, isPresenceEvent } from "../_shared/integrations/webhook-forward.ts";
 
 interface ZoomWebhookEvent {
   event: string;
@@ -99,6 +100,24 @@ Deno.serve(async (req) => {
   );
   if (!signatureValid) {
     return Response.json({ ok: false, error: "invalid_signature" }, { status: 200 });
+  }
+
+  // Zoom allows ONE event-subscription URL per app, and this is it. The consultation presence route (apps/web /api/zoom/webhook) needs the
+  // participant events, so they are handed to it unchanged (it verifies the signature again itself) and not recorded here: the idempotency
+  // key below is built from the meeting, so two people joining the same meeting would collide and the second would be dropped as a replay.
+  // If the route cannot be reached the answer is a 502 so Zoom sends the event again.
+  if (isPresenceEvent(event.event)) {
+    const outcome = await forwardPresenceEvent(
+      (url, init) => fetch(url, { method: init.method, headers: init.headers, body: init.body, signal: init.signal }),
+      Deno.env.get("APP_BASE_URL"),
+      rawBody,
+      { timestamp: req.headers.get("x-zm-request-timestamp"), signature: req.headers.get("x-zm-signature") },
+    );
+    if (outcome === "retry") {
+      console.error("zoom-webhook: could not hand a participant event to the presence route");
+      return Response.json({ ok: false, error: "forward_failed" }, { status: 502 });
+    }
+    return Response.json({ ok: true, forwarded: outcome === "forwarded" });
   }
 
   const supabase = createClient(

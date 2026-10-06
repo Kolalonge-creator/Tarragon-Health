@@ -398,8 +398,11 @@ describe("zoom adapter", () => {
     // four minutes later still fine, six minutes later refused, and so is the same distance into the past
     expect((await z.parseWebhook(evt.rawBody, evt.headers, fake.clock.now + 4 * 60_000)).ok).toBe(true);
     for (const at of [fake.clock.now + 6 * 60_000, fake.clock.now - 6 * 60_000]) {
-      expect(await z.parseWebhook(evt.rawBody, evt.headers, at)).toMatchObject({ ok: false, error: { code: "invalid_signature" } });
+      // validly signed but late: its own code, so the caller can acknowledge it rather than treat it as a forgery
+      expect(await z.parseWebhook(evt.rawBody, evt.headers, at)).toMatchObject({ ok: false, error: { code: "stale_event" } });
     }
+    // a bad signature is still a bad signature, however fresh
+    expect(await z.parseWebhook(evt.rawBody, { ...evt.headers, "x-zm-signature": "v0=00" }, fake.clock.now)).toMatchObject({ ok: false, error: { code: "invalid_signature" } });
     // a timestamp that is not a plain number of seconds is refused even when it is correctly signed
     const { hmacHex } = await import("../../../supabase/functions/_shared/integrations/crypto.ts");
     for (const ts of ["abc", "", "-5", "1.5e9"]) {

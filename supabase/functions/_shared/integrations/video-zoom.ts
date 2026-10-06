@@ -211,7 +211,10 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       if (!constantTimeEqual(signature, expected)) return fail("invalid_signature", "Signature does not match", false);
       // The timestamp is part of what was signed, so once the signature holds it can be trusted: refuse a stale or far-future one (seconds since the epoch).
       const sentAtMs = /^\d{1,12}$/.test(timestamp) ? Number(timestamp) * 1000 : Number.NaN;
-      if (!Number.isFinite(sentAtMs) || Math.abs(nowMs - sentAtMs) > WEBHOOK_TOLERANCE_MS) return fail("invalid_signature", "Timestamp is outside the allowed window", false);
+      if (!Number.isFinite(sentAtMs)) return fail("invalid_signature", "Timestamp is not usable", false);
+      // Signed correctly but outside the window: not forged, only late (an outage on our side, a slow retry). A different code from a bad
+      // signature so the caller can acknowledge it instead of answering 401, which a vendor counts as a failing endpoint.
+      if (Math.abs(nowMs - sentAtMs) > WEBHOOK_TOLERANCE_MS) return fail("stale_event", "Timestamp is outside the allowed window", false);
       let json: unknown;
       try {
         json = JSON.parse(rawBody);

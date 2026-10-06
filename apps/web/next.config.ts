@@ -73,7 +73,7 @@ const supabaseWebSocketOrigin = supabaseOrigin.replace(/^https:/, "wss:");
 //   browser, so they need no CSP entry either.
 // The in-app Zoom call (S21 follow-up, OQ-136) needs more than the rest of the app, so the extra allowances are added ONLY on the two
 // consultation routes (see headers() below) and nowhere else. They are Zoom's own hosts: its Meeting SDK script and assets
-// (source.zoom.us: the only host allowed to supply SCRIPT, and no blob: scripts, because these pages carry the most sensitive data), its
+// (source.zoom.us at the pinned SDK version's path only: the only place allowed to supply SCRIPT, and no blob: scripts, because these pages carry the most sensitive data), its
 // signalling and media over https and wss (*.zoom.us, and *.zoom.com for its new domain), blob: for the media and workers the SDK
 // creates, and 'wasm-unsafe-eval' for its WebAssembly media engine (not 'unsafe-eval': nothing in the SDK bundle was found to need it).
 // Evidence for leaving blob: out of script-src: in the 6.5.0 bundle the audio worklets are loaded by path from source.zoom.us
@@ -84,16 +84,20 @@ const supabaseWebSocketOrigin = supabaseOrigin.replace(/^https:/, "wss:");
 // Cross-origin isolation (COOP/COEP) is deliberately NOT turned on: it would break every other embed on these pages, and without it
 // the SDK simply runs without SharedArrayBuffer (no gallery view, lower send resolution), which a one-to-one consultation does not need.
 const zoomHosts = "https://*.zoom.us https://*.zoom.com";
+// SCRIPT and WORKER code may come only from the one pinned SDK version's path on Zoom's host, not from anywhere on source.zoom.us.
+// Keep this version equal to ZOOM_SDK_VERSION in src/lib/consultations/zoom-sdk.ts (csp.test.ts fails if they drift). A browser matches
+// a path prefix only on the URL as requested, so a redirect to another path would be blocked: that is the intent.
+const ZOOM_SDK_CODE_SOURCE = "https://source.zoom.us/6.5.0/";
 function buildCsp(opts: { inAppCall: boolean }): string {
   const call = opts.inAppCall;
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'" + (call ? " 'wasm-unsafe-eval' https://source.zoom.us" : ""),
+    "script-src 'self' 'unsafe-inline'" + (call ? ` 'wasm-unsafe-eval' ${ZOOM_SDK_CODE_SOURCE}` : ""),
     "style-src 'self' 'unsafe-inline'" + (call ? " https://source.zoom.us" : ""),
     "img-src 'self' data: blob: " + supabaseOrigin + (call ? ` ${zoomHosts}` : ""),
     "font-src 'self'" + (call ? " data: https://source.zoom.us" : ""),
     call ? `media-src 'self' blob: ${zoomHosts}` : "",
-    call ? "worker-src 'self' blob: https://source.zoom.us" : "",
+    call ? `worker-src 'self' blob: ${ZOOM_SDK_CODE_SOURCE}` : "",
     [
       "connect-src 'self'",
       supabaseOrigin,

@@ -59,8 +59,10 @@ describe("presence from the vendor's webhook", () => {
     expect((await send({ type: "participant_joined", roomId: "room_1", label: "clinician", customerKey: await participantKey(SECRET, OTHER_ENC, "clinician") })).body).toEqual({ handled: false, reason: "key_mismatch" });
     expect((await send({ type: "participant_joined", roomId: "room_1", label: "clinician" })).body).toEqual({ handled: false, reason: "no_key" });
     expect(calls).toHaveLength(0);
-    // the log names the encounter and nothing else: no key, label or body
-    expect(logs).toHaveLength(2);
+    // the log names the encounter and nothing else: no key, label or body (a key-less event is logged too, so a vendor that never sends
+    // the key back shows up in the logs instead of presence silently doing nothing)
+    expect(logs).toHaveLength(3);
+    expect(logs[2]).toContain("without a participant key");
     expect(logs.join(" ")).not.toMatch(/deadbeef|clinician|Ada/);
   });
 
@@ -89,6 +91,14 @@ describe("presence from the vendor's webhook", () => {
     expect(await handleVideoWebhook({ ...deps, participantKeySecret: null }, body.rawBody, body.headers)).toEqual({ status: 503, body: { error: "not_configured" } });
     const notJson = await handleVideoWebhook(deps, "nope", { "x-mock-signature": await hmacHex("SHA-256", "mock-video-webhook-secret", "nope") });
     expect(notJson).toMatchObject({ status: 400 });
+  });
+
+  it("acknowledges a correctly signed event that arrived outside the replay window (200, logged), instead of a 401 the vendor counts as failing", async () => {
+    const { deps, video, logs, calls } = setup();
+    jest.spyOn(video, "parseWebhook").mockResolvedValueOnce({ ok: false, error: { code: "stale_event", message: "x", retryable: false } });
+    expect(await handleVideoWebhook(deps, "{}", {})).toEqual({ status: 200, body: { handled: false, reason: "stale" } });
+    expect(logs).toHaveLength(1);
+    expect(calls).toHaveLength(0);
   });
 
   it("maps a vendor that cannot check signatures to 503 so it is retried", async () => {

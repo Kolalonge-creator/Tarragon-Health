@@ -355,12 +355,28 @@ describe("the in-app call: what the person is handed to enter the room", () => {
     expect(db.s.opened).toBe(1);
   });
 
-  it("records nothing when the vendor's webhook is live: presence is the vendor's to report", async () => {
+  it("when the vendor's webhook is live, records nothing for the clinician: their presence is the vendor's to report", async () => {
     const { db, deps } = setup();
-    const r = await prepareSdkJoin(deps(PATIENT), ENC, "video", live);
+    const r = await prepareSdkJoin(deps(DOCTOR), ENC, "video", live);
     expect(r).toMatchObject({ ok: true, join: { recordedAtIssue: false } });
     expect(db.s.events).toHaveLength(0);
     expect(db.s.status).toBe("scheduled");
+  });
+
+  it("...but still records the patient when handed the way in, so a missing participant key can never get a present patient marked absent", async () => {
+    const { db, deps } = setup();
+    const r = await prepareSdkJoin(deps(PATIENT), ENC, "video", live);
+    expect(r).toMatchObject({ ok: true, join: { recordedAtIssue: true } });
+    expect(db.s.events.map((e) => `${e.kind}:${e.role}`)).toEqual(["joined:patient"]);
+  });
+
+  it("a patient handed the dial-in numbers is recorded as arrived (they carry no key), a clinician is not", async () => {
+    const a = setup();
+    expect(await requestDialIn(a.deps(PATIENT), ENC)).toMatchObject({ ok: true });
+    expect(a.db.s.events.filter((e) => e.kind === "joined").map((e) => e.role)).toEqual(["patient"]);
+    const b = setup();
+    expect(await requestDialIn(b.deps(DOCTOR), ENC)).toMatchObject({ ok: true });
+    expect(b.db.s.events.some((e) => e.kind === "joined")).toBe(false);
   });
 
   it("keeps the older behaviour (recorded when handed the way in) until the webhook is switched on", async () => {

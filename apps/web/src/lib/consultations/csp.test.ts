@@ -1,4 +1,5 @@
 import { describe, expect, it, jest } from "@jest/globals";
+import { ZOOM_SDK_VERSION } from "./zoom-sdk";
 
 jest.mock("@sentry/nextjs", () => ({ withSentryConfig: (config: unknown) => config }));
 
@@ -27,7 +28,11 @@ describe("Content-Security-Policy for the in-app call", () => {
     expect(room?.source).toBe("/(patient|clinician)/consultation/:encounterId");
     const value = csp(room!);
     // script may come only from Zoom's SDK host: no wildcard host and no blob: scripts on pages that carry the most sensitive data
-    expect(value).toMatch(/script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https:\/\/source\.zoom\.us(;|$)/);
+    expect(value).toMatch(/script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https:\/\/source\.zoom\.us\/[0-9.]+\/(;|$)/);
+    // ...and only at the pinned SDK version's path, not the whole host (the version here must equal the one the page loads)
+    expect(value).toContain(`script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://source.zoom.us/${ZOOM_SDK_VERSION}/`);
+    expect(value).toContain(`worker-src 'self' blob: https://source.zoom.us/${ZOOM_SDK_VERSION}/`);
+    expect(value).not.toMatch(/(script|worker)-src[^;]*https:\/\/source\.zoom\.us(?!\/[0-9])/);
     expect(value).not.toMatch(/script-src[^;]*blob:/);
     expect(value).not.toMatch(/script-src[^;]*\*/);
     expect(value).not.toMatch(/frame-src[^;]*zoom/);

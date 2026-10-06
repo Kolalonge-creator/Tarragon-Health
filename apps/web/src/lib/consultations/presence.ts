@@ -55,20 +55,32 @@ export async function handleVideoWebhook(deps: PresenceDeps, rawBody: string, he
   const parsed = await deps.video.parseWebhook(rawBody, headers, deps.now());
   if (!parsed.ok) {
     const code = parsed.error.code;
+    // A genuine event that came late (an outage, a slow retry) is acknowledged: a 401 would make the vendor count this endpoint as failing.
+    // Presence for it is lost, but the DB refuses a join outside the window anyway, and the log says it happened.
+    if (code === "stale_event") {
+      deps.log("zoom presence: a correctly signed event arrived outside the replay window and was ignored");
+      return respond(200, { handled: false, reason: "stale" });
+    }
     return respond(code === "invalid_signature" ? 401 : code === "not_configured" ? 503 : 400, { error: code });
   }
   const event = parsed.data;
   // Not an event we act on. Acknowledged so the vendor does not retry it.
   if (!event || (event.kind !== "participant_joined" && event.kind !== "participant_left")) return respond(200, { handled: false });
-  if (!event.customerKey) return respond(200, { handled: false, reason: "no_key" });
-  if (!deps.participantKeySecret) return respond(503, { error: "not_configured" });
 
   const room = await deps.encounterForRoom(event.roomId);
   if (room === "error") {
     deps.log("zoom presence: could not look up the room");
     return respond(500, { error: "lookup_failed" });
   }
+  // Rooms of the older visit flow share the account, so an unknown room is ordinary and not logged.
   if (!room) return respond(200, { handled: false, reason: "unknown_room" });
+  if (!event.customerKey) {
+    // A link or phone joiner never carries a key. But if EVERY event for our own consultations takes this path, the vendor is not sending
+    // the key back (or the SDK is not passing it), and presence is silently doing nothing: this line, per event, is how that shows up.
+    deps.log(`zoom presence: ${event.kind} without a participant key for encounter ${room.encounterId}`);
+    return respond(200, { handled: false, reason: "no_key" });
+  }
+  if (!deps.participantKeySecret) return respond(503, { error: "not_configured" });
 
   const role = await roleFromParticipantKey(deps.participantKeySecret, room.encounterId, event.customerKey);
   if (!role) {

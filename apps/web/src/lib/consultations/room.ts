@@ -113,7 +113,7 @@ const DIAL_IN_COUNTRY = "NG";
 export async function requestDialIn(deps: RoomDeps, encounterId: string): Promise<DialInOutcome> {
   const found = await lookup(deps, encounterId);
   if (!found) return { ok: false, reason: "not_allowed" };
-  const { view } = found;
+  const { view, role } = found;
   if (!view.clinician_id || DONE.has(view.status)) return { ok: false, reason: "not_allowed" };
   // Only inside the join window: the room is not opened days early or after the visit.
   if (!view.joinable) return { ok: false, reason: "not_open" };
@@ -129,6 +129,10 @@ export async function requestDialIn(deps: RoomDeps, encounterId: string): Promis
     await deps.serviceRpc.rpc("service_record_encounter_event", { p_encounter: encounterId, p_kind: "phone_requested", p_actor_role: "system", p_payload: { reason_code: "dial_in_unavailable" } });
     return { ok: false, reason: "phone_unavailable" };
   }
+  // A patient who rings in carries no participant key, so the vendor's webhook can never say they entered. Being handed the number counts
+  // as arriving (as a link does), so a phone-only patient is not marked absent while they are on the call. The clinician stays in the
+  // room, so nothing is recorded for them. A refused record (outside the window) does not stop the numbers being given.
+  if (role === "patient") await deps.serviceRpc.rpc("service_record_join", { p_encounter: encounterId, p_role: "patient", p_mode: "phone" });
   return { ok: true, dialIn: { numbers: dial.data.numbers, meetingId: dial.data.meetingId, passcode: dial.data.passcode } };
 }
 
@@ -158,9 +162,10 @@ export interface SdkJoinOptions {
   /** Server-only secret the participant keys are minted with. Absent means the in-app client is not available. */
   readonly participantKeySecret: string | null;
   /**
-   * True once the vendor's presence webhook is live (ZOOM_PRESENCE_WEBHOOK). Then a join is recorded only when the vendor says the
-   * person entered. False keeps today's behaviour (recorded when the person is given the way in), so a missing webhook can never
-   * leave two people in a call that the database thinks nobody entered (it would let one of them report the other as absent).
+   * True once the vendor's presence webhook is live (ZOOM_PRESENCE_WEBHOOK). Then the CLINICIAN's join is recorded only when the vendor
+   * says they entered (the patient's is still recorded when they are handed the way in, see prepareSdkJoin). False keeps today's
+   * behaviour for both (recorded when the person is given the way in), so a missing webhook can never leave two people in a call that
+   * the database thinks nobody entered (it would let one of them report the other as absent).
    */
   readonly presenceFromWebhook: boolean;
 }
@@ -188,8 +193,12 @@ export async function prepareSdkJoin(deps: RoomDeps, encounterId: string, reques
   if (!token.ok) return { ok: false, reason: token.error.code === "not_configured" ? "not_configured" : "provider" };
 
   const mediaMode: RequestedMedia = view.final_media_mode === "audio_only" ? "audio_only" : requested;
+  // The vendor's webhook proves the CLINICIAN entered; until it has been seen to work, and always for the patient, being handed the way in
+  // counts. The asymmetry follows the harm: a patient wrongly counted as present only stops the clinician reporting them absent (it is
+  // what the link flow has always done), while a patient wrongly counted absent loses their credit if Zoom never sends the participant
+  // key back or they enter some other way. A clinician counted present without entering is what OQ-160 set out to stop, so that stays strict.
   let recordedAtIssue = false;
-  if (!options.presenceFromWebhook) {
+  if (!options.presenceFromWebhook || role === "patient") {
     recordedAtIssue = !(await deps.serviceRpc.rpc("service_record_join", { p_encounter: encounterId, p_role: role, p_mode: mediaMode })).error;
   }
   return {
