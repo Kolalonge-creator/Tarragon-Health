@@ -122,6 +122,19 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/patient",
     };
   }
+  // S21: neutral previews (INV-07).
+  if (n.template === "video_call_requested") {
+    return { text: "Your care team would like a quick call. Open the app to join.", href: `/patient/video-visit/${String(payload.consultation_id ?? "")}` };
+  }
+  if (n.template === "consult_join_ready") {
+    return { text: "Your consultation room is open. Open the app to join.", href: `/patient/consultation/${String(payload.encounter_id ?? "")}` };
+  }
+  if (n.template === "consult_missed") {
+    return {
+      text: payload.credit_returned === true ? "Your consultation did not go ahead. Your credit is back in the app." : "Your consultation did not go ahead. Open the app to rebook.",
+      href: "/patient/care",
+    };
+  }
   if (n.template === "video_visit_alternate_proposed") {
     return {
       text: "Your doctor offered a different time for your video visit: pick one",
@@ -338,11 +351,46 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/patient/labs",
     };
   }
+  // Retired template (S22): the old ask-a-doctor answer notice. Kept only so historical inbox rows still render.
   if (n.template === "async_consult_answered") {
     return {
-      text: "A doctor answered your question",
+      text: "Your care team replied to your message",
       href: "/patient/care",
     };
+  }
+  // S22 written questions and clinical notes. Neutral by design (INV-07): never the question, a condition or a reading.
+  if (n.template === "written_question_received") {
+    return { text: "Your care team has your message", href: "/patient/care" };
+  }
+  if (n.template === "written_question_answered") {
+    return { text: "Your care team has replied. Open the app to read it", href: "/patient/care" };
+  }
+  if (n.template === "written_question_info_needed") {
+    return { text: "Your care team has a question for you", href: "/patient/care" };
+  }
+  if (n.template === "written_question_window_missed") {
+    return { text: "Sorry for the wait. Your message is still with the team", href: "/patient/care" };
+  }
+  if (n.template === "written_question_call_planned") {
+    return { text: "Your care team will call you. Keep your phone close", href: "/patient/care" };
+  }
+  if (n.template === "written_question_staff_notice") {
+    return { text: "A written message needs attention", href: "/clinician/async-consults" };
+  }
+  if (n.template === "note_correction_requested") {
+    return { text: "A patient asked for a correction to a note. Open your messages to answer", href: "/clinician/messages" };
+  }
+  if (n.template === "note_release_requested") {
+    return { text: "A patient asked about a note. Open your messages to answer", href: "/clinician/messages" };
+  }
+  if (n.template === "note_released") {
+    return { text: "Your care team has made a note available", href: "/patient/care" };
+  }
+  if (n.template === "note_release_declined" || n.template === "note_correction_answered") {
+    return { text: "Your care team has replied to your request", href: "/patient/care" };
+  }
+  if (n.template === "note_unsigned_reminder") {
+    return { text: "A note is waiting for your signature", href: "/clinician/patients" };
   }
   if (n.template === "second_opinion_answered") {
     return {
@@ -547,6 +595,29 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // "no branching to reproduce" shape as clinician_alert_ack_timeout_*.
     return { text: String(payload.message ?? "A clinician's credentials need review"), href: "/admin" };
   }
+  if (n.template === "on_call_page") {
+    // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
+    return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
+  }
+  if (n.template === "on_call_unfinished") {
+    return { text: "A priority case is acknowledged but still open", href: "/rota" };
+  }
+  if (n.template === "on_call_escalation") {
+    return { text: "A priority case has not been picked up", href: "/rota" };
+  }
+  if (n.template === "care_team_notice") {
+    // From private.lead_notify_patient (S18): fixed wording by kind, no names, nothing clinical (INV-07).
+    const kind = payload.kind;
+    return {
+      text:
+        kind === "changed"
+          ? "Your care team lead has changed"
+          : kind === "arranging"
+            ? "We are arranging your care team lead"
+            : "Your care team now has a lead clinician for you",
+      href: "/patient",
+    };
+  }
   if (n.template === "credential_notice") {
     // From 20261006013217_s15_clinician_credentialing.sql (private.credential_notify). payload.message is the fully
     // resolved sentence. audience says who is reading: an applicant or a paused clinician (their role is back to
@@ -555,7 +626,13 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     const audience = payload.audience;
     return {
       text: String(payload.message ?? "There is an update about your clinician account"),
-      href: audience === "applicant" ? "/account/clinician" : audience === "reviewer" ? "/credentialing" : "/clinician/credentials",
+      href:
+        audience === "applicant" ? "/account/clinician"
+        : audience === "reviewer" ? "/credentialing"
+        : audience === "rota_review" ? "/rota"
+        : audience === "rota" ? "/clinician/rota"
+        : audience === "lead" ? "/clinician/patients"
+        : "/clinician/credentials",
     };
   }
   if (n.template === "clinician_alert_sla_breach") {

@@ -20,6 +20,23 @@ export interface CreateRoomInput {
 export interface VideoRoom {
   readonly roomId: string;
   readonly expiresAtMs: number;
+  /** Recording is always off (S21, OQ-128). An adapter that cannot guarantee it must refuse to create the room. */
+  readonly recording: "off";
+}
+/** What the participant asks for on joining. A vendor link cannot always force it; see `audioOnlyEnforced`. */
+export type RequestedMedia = "video" | "audio_only";
+export interface JoinLinkInput {
+  readonly roomId: string;
+  readonly role: VideoRole;
+  readonly mediaMode: RequestedMedia;
+}
+export interface JoinLink {
+  /** Issued on demand and never stored: it can carry a passcode or a host key. */
+  readonly url: string;
+  readonly expiresAtMs: number;
+  readonly mediaMode: RequestedMedia;
+  /** True only when the vendor itself keeps the camera off. A plain meeting link cannot, so the app also tells the person. */
+  readonly audioOnlyEnforced: boolean;
 }
 export interface JoinTokenInput {
   readonly roomId: string;
@@ -55,6 +72,11 @@ export interface VideoProvider {
    * authorisation: the caller must first check the signed-in user holds the clinician assignment for this encounter (INV-12).
    */
   joinToken(input: JoinTokenInput): Promise<ProviderResult<JoinToken>>;
+  /**
+   * The link-based join (S21, OQ-126): what a person opens when the vendor's app, not our own SDK, runs the call. Fetched
+   * from the vendor each time and never stored. The clinician's link is the host link; a patient's is not.
+   */
+  joinLink(input: JoinLinkInput): Promise<ProviderResult<JoinLink>>;
   endRoom(roomId: string, actingRole: VideoRole): Promise<ProviderResult<{ endedAtMs: number }>>;
   /**
    * In-process events for a room, for example connection quality reported by the vendor's client SDK on the device.

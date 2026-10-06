@@ -252,7 +252,7 @@ do $$
 declare fn text;
 begin
   perform pg_temp.rec('the claim config has one active row', '1', (select count(*)::text from public.queue_claim_config where is_active));
-  foreach fn in array array['public.queue_next()', 'public.queue_summary()', 'public.queue_handback(uuid,text,text)', 'public.queue_extend_claim(uuid)',
+  foreach fn in array array['public.queue_next(text[])', 'public.queue_summary()', 'public.queue_handback(uuid,text,text)', 'public.queue_extend_claim(uuid)',
       'public.queue_complete(uuid,jsonb)', 'public.declare_conflict(uuid,text)', 'public.record_conflict(uuid,uuid,text)', 'public.lift_conflict(uuid,text)',
       'public.declare_availability(text,timestamptz,timestamptz)', 'public.cancel_availability(uuid)'] loop
     perform pg_temp.rec('anon cannot execute ' || fn, 'false', has_function_privilege('anon', fn::regprocedure, 'execute')::text);

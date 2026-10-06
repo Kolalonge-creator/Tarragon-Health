@@ -64,6 +64,11 @@ describe("the real admin menus", () => {
     expect(top("promo")).toContain("/admin/promo-codes");
   });
 
+  it("finds the hand-granted Membership page (every console page needs a search entry)", () => {
+    expect(top("membership")).toContain("/admin/members");
+    expect(top("grant")).toContain("/admin/members");
+  });
+
   it("indexes a useful number of pages with no path twice", () => {
     expect(real.length).toBeGreaterThan(60);
     expect(new Set(real.map((e) => e.href)).size).toBe(real.length);
@@ -136,5 +141,33 @@ describe("task types are searchable (S16)", () => {
       expect(hit(index, q)).toContain("/admin/task-types");
       expect(hit(cmoIndex, q)).toContain("/clinician/task-types");
     }
+  });
+});
+
+describe("the rota and lead clinicians are searchable (S18)", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("finds the rota page by its words, for the admin and for the CMO", () => {
+    for (const q of ["rota", "on call", "backup", "lead clinician", "cover gap"]) {
+      expect(hit(adminIndex, q)).toContain("/admin/rota");
+      expect(hit(cmoIndex, q)).toContain("/clinician/team-rota");
+    }
+  });
+
+  it("a clinician finds their own hours page", () => {
+    const clinicianIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], []);
+    expect(hit(clinicianIndex, "declare hours")).toContain("/clinician/rota");
+  });
+});
+
+describe("the real Chief Medical Officer menu", () => {
+  const real = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+
+  it("finds the Members page at a path a clinician account can open", () => {
+    const hits = searchAdminEntries(real, "membership").map((e) => e.href);
+    expect(hits).toContain("/clinician/members");
+    expect(hits).not.toContain("/admin/members");
   });
 });

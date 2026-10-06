@@ -168,3 +168,6 @@ D-02 to D-04 are not defined in the spec.
 ### S17, 2026-10-06
 - Founder accepted every S17 recommendation (OQ-115 to OQ-121 and OQ-123): minimal availability now, clinician-declared and automatic conflicts, the spec's five hand-back codes, idempotent retry, one extension and no heartbeat, employed doctors push and pull, strict class order, test isolation.
 - Reliability and queue limits stay PROPOSED until the CMO signs them (OQ-122).
+
+### S21, 2026-10-06
+- Plan accepted (OQ-124 to OQ-131): merge S18 first, new authoritative `encounters` table, link-based Zoom with a server-owned video to audio to phone ladder, full refund 2 hours or more before, per-consultation in-app consent, adults only, NGN 10,000 a consultation.
