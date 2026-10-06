@@ -1260,6 +1260,20 @@ export const en = {
   "concern.description": "Describe it (20 characters or more). Do not put a patient's name here.",
   "concern.submit": "Send to the clinical lead",
   "concern.thanks": "Sent. The clinical lead has been told.",
+  "queue.handed_back": "Task handed back to the queue.",
+  "queue.err.open": "The queue could not be opened. Please try again.",
+  "queue.err.unreadable": "The queue gave an answer this page could not read. Please try again.",
+  "queue.err.task_not_found": "That task could not be found.",
+  "queue.err.extension_used": "You have already used your extra time on this task.",
+  "queue.err.extend": "The hold could not be extended. Please try again.",
+  "queue.err.check_form": "Please check the form and try again.",
+  "task.err.note_short": "Please write what you did (10 characters or more).",
+  "task.err.note_long": "Please keep this under 1,000 characters.",
+  "task.err.dedicated_flow": "This kind of task is finished from its own page, not here.",
+  "task.dedicated_flow": "This task is finished from its own page.",
+  "task.dedicated_link": "Open the written questions page",
+  "concern.err.description": "Please write at least 20 characters.",
+  "concern.err.generic": "The concern could not be sent. Please try again, or tell the clinical lead directly.",
 } as const;
 
 export type MessageKey = keyof typeof en;

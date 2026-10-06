@@ -7,7 +7,7 @@ import { loose } from "@/lib/clinician/loose-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PatientSummaryView } from "@/components/clinician/patient-summary";
-import { heldTaskSchema, minutesLeft, patientSummarySchema, TASK_SUMMARY_READ_REASON } from "@/lib/clinician/queue-console";
+import { DEDICATED_FLOW_TASK_TYPES, heldTaskSchema, minutesLeft, patientSummarySchema, TASK_SUMMARY_READ_REASON, uuidSchema } from "@/lib/clinician/queue-console";
 import { CompleteForm, ExtendForm, HandBackForm } from "../../queue/forms";
 
 export const metadata = { title: "Task" };
@@ -26,7 +26,7 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   const { taskId } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(taskId)) redirect("/clinician/queue");
+  if (!uuidSchema.safeParse(taskId).success) redirect("/clinician/queue");
 
   const supabase = loose(await createClient());
   const { data, error } = await supabase
@@ -54,6 +54,7 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
   const summaryRes = await supabase.rpc("clinician_patient_summary", { p_patient: task.patient_id, p_reason: TASK_SUMMARY_READ_REASON });
   const summary = summaryRes.error ? null : patientSummarySchema.safeParse(summaryRes.data);
   const left = minutesLeft(task.claim_expires_at, new Date());
+  const dedicatedFlow = DEDICATED_FLOW_TASK_TYPES[task.type];
 
   return (
     <div className="space-y-6">
@@ -78,7 +79,16 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
 
       <Card>
         <CardHeader><CardTitle>{t("task.complete_title", "en")}</CardTitle></CardHeader>
-        <CardContent><CompleteForm taskId={task.id} /></CardContent>
+        <CardContent>
+          {dedicatedFlow ? (
+            <p className="text-sm text-charcoal-ink">
+              {t("task.dedicated_flow", "en")}{" "}
+              <Link href={dedicatedFlow} className="font-medium text-brand-green underline">{t("task.dedicated_link", "en")}</Link>
+            </p>
+          ) : (
+            <CompleteForm taskId={task.id} />
+          )}
+        </CardContent>
       </Card>
       <HandBackForm taskId={task.id} />
     </div>

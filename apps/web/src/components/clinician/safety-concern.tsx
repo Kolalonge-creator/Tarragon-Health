@@ -16,15 +16,17 @@ import { raiseSafetyConcern, type SafetyConcernState } from "./safety-concern-ac
  */
 export function SafetyConcernButton() {
   const pathname = usePathname();
+  const taskId = /^\/clinician\/tasks\/([0-9a-f-]{36})/i.exec(pathname)?.[1];
   const [state, action, pending] = useActionState<SafetyConcernState, FormData>(raiseSafetyConcern, undefined);
   return (
-    <details className="fixed bottom-4 right-4 z-40 max-w-sm rounded-md border border-charcoal-ink/20 bg-white p-2 shadow-lg dark:bg-night-surface">
+    <details className="fixed bottom-20 right-4 z-40 max-h-[70vh] max-w-sm overflow-y-auto rounded-md border sm:bottom-4 border-charcoal-ink/20 bg-white p-2 shadow-lg dark:bg-night-surface">
       <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">{t("concern.button", "en")}</summary>
       {state?.sent ? (
         <p role="status" className="p-2 text-sm text-brand-green">{t("concern.thanks", "en")}</p>
       ) : (
         <form action={action} className="space-y-2 p-2">
           <input type="hidden" name="screen" value={pathname} />
+          {taskId && <input type="hidden" name="task_id" value={taskId} />}
           <div>
             <Label htmlFor="concern-category">{t("concern.category", "en")}</Label>
             <Select id="concern-category" name="category" defaultValue="patient_safety">

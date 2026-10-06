@@ -1,4 +1,5 @@
 const rpc = jest.fn();
+const heldType = jest.fn();
 const redirect = jest.fn((path: string) => {
   throw new Error(`REDIRECT:${path}`);
 });
@@ -6,7 +7,10 @@ const redirect = jest.fn((path: string) => {
 jest.mock("next/navigation", () => ({ redirect: (p: string) => redirect(p) }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 jest.mock("@/lib/supabase/server", () => ({
-  createClient: jest.fn().mockResolvedValue({ rpc: (...args: unknown[]) => rpc(...args) }),
+  createClient: jest.fn().mockResolvedValue({
+    rpc: (...args: unknown[]) => rpc(...args),
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve(heldType()) }) }) }),
+  }),
 }));
 
 import { completeTask, extendClaim, handBack, takeNextTask } from "./actions";
@@ -20,6 +24,8 @@ const form = (entries: Record<string, string>): FormData => {
 
 beforeEach(() => {
   rpc.mockReset();
+  heldType.mockReset();
+  heldType.mockReturnValue({ data: { type: "amber_bp_review" }, error: null });
   redirect.mockClear();
 });
 
@@ -60,6 +66,20 @@ describe("completeTask", () => {
     rpc.mockResolvedValue({ data: null, error: null });
     await expect(completeTask(undefined, form({ task_id: id, note: "Called the patient and agreed a recheck." }))).rejects.toThrow("REDIRECT:/clinician/queue?done=1");
     expect(rpc).toHaveBeenCalledWith("queue_complete", { p_task: id, p_outcome: { kind: "completed", note: "Called the patient and agreed a recheck." } });
+  });
+
+  it.each(["async_question", "written_question_call"])("will not close a %s task with a free-text note", async (type) => {
+    heldType.mockReturnValue({ data: { type }, error: null });
+    const result = await completeTask(undefined, form({ task_id: id, note: "Called the patient and agreed a recheck." }));
+    expect(result?.error).toMatch(/own page/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("does not complete when the task type cannot be read", async () => {
+    heldType.mockReturnValue({ data: null, error: { message: "boom" } });
+    const result = await completeTask(undefined, form({ task_id: id, note: "Called the patient and agreed a recheck." }));
+    expect(result?.error).toBeDefined();
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("says so when the hold has lapsed", async () => {
@@ -104,6 +124,6 @@ describe("extendClaim", () => {
 
   it("confirms an extension", async () => {
     rpc.mockResolvedValue({ data: "2026-10-06T12:00:00Z", error: null });
-    expect(await extendClaim(undefined, form({ task_id: id }))).toEqual({ message: "extended" });
+    expect(await extendClaim(undefined, form({ task_id: id }))).toEqual({ message: "extended", expiresAt: "2026-10-06T12:00:00Z" });
   });
 });

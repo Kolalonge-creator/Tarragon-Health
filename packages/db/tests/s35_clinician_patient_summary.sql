@@ -7,7 +7,8 @@
 --   4. Readings are the last 14 days only; shadow triage events are excluded; staff cannot read triage_events directly.
 --   5. Care circle is a count with no identities; results carry no values.
 --   6. my_lead_patients lists only my own active leads and audits each one.
---   7. SABOTAGE: the "no readable section means denied" branch removed (an untied clinician must then get through), and the reason check removed.
+--   7. A lead with no other tie gets the summary (basis 'lead'), and leading one patient opens no other; the audit helper is not callable by staff.
+--   8. SABOTAGE: the "no readable section means denied" branch removed, the reason check removed, and the lead tie removed; each must flip a check.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -78,7 +79,7 @@ end $f$;
 
 -- 0. Fixtures ----------------------------------------------------------------------------------------------------------
 do $$
-declare v_org uuid; v_admin uuid; v_doc uuid; v_other uuid; v_pat uuid; v_pat2 uuid; v_sup uuid; v_rs uuid;
+declare v_org uuid; v_admin uuid; v_doc uuid; v_other uuid; v_pat uuid; v_pat2 uuid; v_pat3 uuid; v_sup uuid; v_rs uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -86,7 +87,9 @@ begin
   v_other := pg_temp.mkdoc(v_org, 'untied', v_admin);
   v_pat := pg_temp.mkuser(v_org, 'patient', 'patient');
   v_pat2 := pg_temp.mkuser(v_org, 'patient2', 'patient');
+  v_pat3 := pg_temp.mkuser(v_org, 'patient3', 'patient');
   v_sup := pg_temp.mkuser(v_org, 'supporter', 'patient');
+  perform pg_temp.setf('pat3', v_pat3);
   perform pg_temp.setf('org', v_org); perform pg_temp.setf('doc', v_doc); perform pg_temp.setf('other', v_other);
   perform pg_temp.setf('pat', v_pat); perform pg_temp.setf('pat2', v_pat2); perform pg_temp.setf('admin', v_admin);
 
@@ -96,7 +99,8 @@ begin
   set local session_replication_role = replica;
   -- the lead guard trigger only lets the lead functions write; a proof fixture goes round it
   insert into public.lead_assignments (organisation_id, patient_id, clinician_id, state, source, config_version, is_test)
-  values (v_org, v_pat, v_doc, 'active', 'admin', 1, true);
+  values (v_org, v_pat, v_doc, 'active', 'admin', 1, true),
+         (v_org, v_pat3, v_other, 'active', 'admin', 1, true);
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source)
   values (v_org, v_pat, 'blood_pressure', 150, 95, now() - interval '1 day', 'manual'),
          (v_org, v_pat, 'blood_pressure', 118, 76, now() - interval '20 days', 'manual');
@@ -153,18 +157,30 @@ begin
     pg_temp.q_as(pg_temp.f('doc'), format($q$select count(*)::text from public.triage_events where patient_id = %L$q$, pg_temp.f('pat'))));
 end $$;
 
--- 4. my_lead_patients -------------------------------------------------------------------------------------------------------
+-- 4. my_lead_patients, and the lead tie (a lead has no care_team_assignment, no task and no appointment) ----------------------
 do $$
-declare v_mine text; v_theirs text; v_before int; v_after int;
+declare v_mine text; v_theirs text; v_before int; v_after int; v_again int; r jsonb;
 begin
   v_before := pg_temp.audit_rows(pg_temp.f('pat'), pg_temp.f('doc'));
   v_mine := pg_temp.q_as(pg_temp.f('doc'), $q$select jsonb_array_length(public.my_lead_patients())::text$q$);
   v_after := pg_temp.audit_rows(pg_temp.f('pat'), pg_temp.f('doc'));
-  v_theirs := pg_temp.q_as(pg_temp.f('other'), $q$select jsonb_array_length(public.my_lead_patients())::text$q$);
+  perform pg_temp.q_as(pg_temp.f('doc'), $q$select jsonb_array_length(public.my_lead_patients())::text$q$);
+  v_again := pg_temp.audit_rows(pg_temp.f('pat'), pg_temp.f('doc'));
+  v_theirs := pg_temp.q_as(pg_temp.f('other'), format($q$select (select string_agg(x ->> 'patient_id', ',') from jsonb_array_elements(public.my_lead_patients()) x)$q$));
   insert into results values ('real', 'lead list: I see my own lead', '1', v_mine);
-  insert into results values ('real', 'lead list: another clinician sees none', '0', v_theirs);
+  insert into results values ('real', 'lead list: another clinician sees only their own lead, never mine', pg_temp.f('pat3')::text, v_theirs);
   insert into results values ('real', 'lead list: each patient is audited', '1', (v_after - v_before)::text);
+  insert into results values ('real', 'lead list: a second load the same day adds no row', '0', (v_again - v_after)::text);
   insert into results values ('real', 'lead list: a patient caller is refused', 'ERR:42501', pg_temp.q_as(pg_temp.f('pat'), $q$select public.my_lead_patients()::text$q$));
+
+  r := pg_temp.summary_as(pg_temp.f('other'), pg_temp.f('pat3'), 'Reviewing a patient I lead');
+  insert into results values ('real', 'a lead with no other tie gets the summary', 'true', (r ->> 'status' in ('ok','partial'))::text);
+  insert into results values ('real', 'that open is audited with basis lead', '1', (select count(*)::text from public.audit_log
+    where subject_patient_id = pg_temp.f('pat3') and actor_id = pg_temp.f('other') and event ->> 'basis' = 'lead' and event -> 'sections' ? 'summary'));
+  r := pg_temp.summary_as(pg_temp.f('other'), pg_temp.f('pat'), 'Looking at a patient I do not lead');
+  insert into results values ('real', 'leading one patient does not open another', 'denied', r ->> 'status');
+  insert into results values ('real', 'staff cannot call the audit helper directly', 'ERR:42501',
+    pg_temp.q_as(pg_temp.f('other'), format($q$select private.s35_audit_read(%L, array['x'], 'forged row to hide a read', 'success')::text$q$, pg_temp.f('pat3'))));
 end $$;
 
 -- 5. SABOTAGE ---------------------------------------------------------------------------------------------------------------
@@ -186,6 +202,16 @@ begin
   r := pg_temp.summary_as(pg_temp.f('doc'), pg_temp.f('pat'), 'short');
   insert into results values ('sabotaged', 'a short reason is refused', '22023', coalesce(r ->> 'err', 'accepted'));
   execute v_orig;
+
+  -- the lead tie removed: a lead with no other tie must then be denied
+  v_def := pg_get_functiondef('private.s35_is_my_lead(uuid)'::regprocedure);
+  v_orig := v_def;
+  v_def := replace(v_def, 'select exists (select 1 from public.lead_assignments la', 'select false and exists (select 1 from public.lead_assignments la');
+  if v_def = v_orig then raise exception 'SABOTAGE 3 not applied'; end if;
+  execute v_def;
+  r := pg_temp.summary_as(pg_temp.f('other'), pg_temp.f('pat3'), 'Reviewing a patient I lead');
+  insert into results values ('sabotaged', 'a lead with no other tie gets the summary', 'ok', coalesce(r ->> 'status', 'err'));
+  execute v_orig;
 end $$;
 
 do $$
@@ -198,8 +224,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 2 then
-    raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks (%)', v_caught,
+  if v_caught < 3 then
+    raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks (%)', v_caught,
       (select string_agg(check_name || ' => ' || actual, '; ') from results where phase = 'sabotaged');
   end if;
 end $$;

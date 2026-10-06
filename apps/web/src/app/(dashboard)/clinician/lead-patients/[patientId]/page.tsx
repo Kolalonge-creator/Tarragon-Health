@@ -5,7 +5,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
 import { PatientSummaryView } from "@/components/clinician/patient-summary";
-import { LEAD_SUMMARY_READ_REASON, patientSummarySchema } from "@/lib/clinician/queue-console";
+import { LEAD_SUMMARY_READ_REASON, patientSummarySchema, uuidSchema } from "@/lib/clinician/queue-console";
 
 export const metadata = { title: "Patient summary" };
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export default async function LeadPatientSummaryPage({ params }: { params: Promi
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   const { patientId } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(patientId)) redirect("/clinician/lead-patients");
+  if (!uuidSchema.safeParse(patientId).success) redirect("/clinician/lead-patients");
   const supabase = loose(await createClient());
   const res = await supabase.rpc("clinician_patient_summary", { p_patient: patientId, p_reason: LEAD_SUMMARY_READ_REASON });
   const parsed = res.error ? null : patientSummarySchema.safeParse(res.data);

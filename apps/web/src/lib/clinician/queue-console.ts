@@ -1,10 +1,23 @@
 import { z } from "zod";
+import { t } from "@tarragon/i18n";
 
 /**
  * S35: the shapes the clinician queue, task view, patient summary and lead list read, parsed with Zod because the
  * generated types do not carry the newest functions. Pure: no clock of its own (callers pass `now`), no I/O.
  * A parse failure is shown as a load error, never as "nothing here".
  */
+
+export const uuidSchema = z.string().uuid();
+
+/**
+ * Task types that have their own completion flow. A free-text "Mark as done" would close the task, and pay the fee,
+ * without the patient getting their answer or call, so the generic outcome form is not offered for them (and the server
+ * action refuses it). The value is where the clinician finishes the task.
+ */
+export const DEDICATED_FLOW_TASK_TYPES: Record<string, string> = {
+  async_question: "/clinician/async-consults",
+  written_question_call: "/clinician/async-consults",
+};
 
 export const queueSummarySchema = z.object({
   open: z.boolean(),
@@ -109,7 +122,7 @@ export function classCounts(byClass: Record<string, number>): { rows: { key: str
 
 export const completeTaskSchema = z.object({
   taskId: z.string().uuid(),
-  note: z.string().trim().min(10, "Please write what you did (10 characters or more).").max(1000, "Please keep this under 1,000 characters."),
+  note: z.string().trim().min(10, t("task.err.note_short", "en")).max(1000, t("task.err.note_long", "en")),
 });
 
 export const SAFETY_CONCERN_CATEGORIES = [
@@ -125,7 +138,7 @@ export const SAFETY_CONCERN_SEVERITIES = ["low", "medium", "high", "immediate"] 
 export const safetyConcernSchema = z.object({
   category: z.enum(SAFETY_CONCERN_CATEGORIES),
   severity: z.enum(SAFETY_CONCERN_SEVERITIES),
-  description: z.string().trim().min(20, "Please write at least 20 characters.").max(4000),
+  description: z.string().trim().min(20, t("concern.err.description", "en")).max(4000),
   screen: z.string().max(100).optional(),
-  taskId: z.string().uuid().optional(),
+  taskId: uuidSchema.optional(),
 });

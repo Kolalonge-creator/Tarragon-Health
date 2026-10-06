@@ -36,7 +36,12 @@ export function ExtendForm({ taskId, locale = "en" }: { taskId: string; locale?:
       <Button type="submit" variant="outline" size="sm" disabled={pending}>
         {t("queue.extend", locale)}
       </Button>
-      {state?.message && <p role="status" className="text-sm text-brand-green">{t("queue.extended", locale)}</p>}
+      {state?.message && (
+        <p role="status" className="text-sm text-brand-green">
+          {t("queue.extended", locale)}
+          {state.expiresAt ? ` ${new Date(state.expiresAt).toLocaleTimeString("en-GB", { timeStyle: "short", timeZone: "Africa/Lagos" })}` : ""}
+        </p>
+      )}
       <Err text={state?.error} />
     </form>
   );

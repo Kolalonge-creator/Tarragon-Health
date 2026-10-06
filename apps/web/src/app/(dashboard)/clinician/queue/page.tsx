@@ -53,6 +53,7 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
       </div>
 
       {first(raw.none) === "1" && <p role="status" className="text-sm text-charcoal-ink/70">{t("queue.none", "en")}</p>}
+      {first(raw.handed_back) === "1" && <p role="status" className="text-sm text-brand-green">{t("queue.handed_back", "en")}</p>}
       {first(raw.done) === "1" && <p role="status" className="text-sm text-brand-green">{t("task.completed", "en")}</p>}
 
       <Card>

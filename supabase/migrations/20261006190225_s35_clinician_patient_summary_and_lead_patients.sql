@@ -11,6 +11,46 @@
 -- values, so INV-03/INV-04 are untouched. Care circle shows a count, never identities.
 -- reproductive_health is not a section here; it is never surfaced by this function.
 
+
+-- The tie for these two functions only. A clinician who is the ACTIVE LEAD for a patient has a tie (INV-12, spec 9.1),
+-- but private.clinician_has_patient_access does not list lead_assignments, and that shared function is deliberately not
+-- touched here. So the lead tie is evaluated inside the S35 functions, and the audit row says basis 'lead'.
+create or replace function private.s35_is_my_lead(p_patient uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.lead_assignments la
+                  where la.patient_id = p_patient and la.clinician_id = (select auth.uid()) and la.state = 'active');
+$$;
+
+create or replace function private.s35_audit_read(p_patient uuid, p_sections text[], p_reason text, p_result text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare v_basis text;
+begin
+  v_basis := case
+    when private.clinician_has_patient_access(p_patient) then 'tied'
+    when private.s35_is_my_lead(p_patient) then 'lead'
+    when private.has_emergency_access(p_patient) then 'break_glass'
+    when private.can_support_view(p_patient) then 'support_view'
+    else 'none' end;
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, reason, result, subject_patient_id, ip)
+  select pr.organisation_id, (select auth.uid()), 'staff.chart_read', 'patient_chart', pr.id,
+         jsonb_build_object('reason', btrim(p_reason), 'sections', to_jsonb(p_sections), 'basis', v_basis),
+         btrim(p_reason), p_result, pr.id, private.request_ip()
+    from public.profiles pr where pr.id = p_patient;
+  if not found then raise exception 'unknown patient' using errcode = '22023'; end if;
+end;
+$$;
+revoke all on function private.s35_is_my_lead(uuid) from public, anon, authenticated;
+revoke all on function private.s35_audit_read(uuid, text[], text, text) from public, anon, authenticated;
+
 create or replace function public.clinician_patient_summary(p_patient uuid, p_reason text)
 returns jsonb
 language plpgsql
@@ -23,6 +63,7 @@ declare
   v_sections text[] := '{}';
   v_denied text[] := '{}';
   v_name text;
+  v_lead boolean;
 begin
   if v_uid is null then
     raise exception 'not authorised' using errcode = '42501';
@@ -37,8 +78,10 @@ begin
     raise exception 'not a patient' using errcode = '22023';
   end if;
 
-  -- readings with the target band, last 14 days
-  if private.can_staff_read_clinical(p_patient, 'vitals_readings'::public.care_access_category) then
+  v_lead := private.s35_is_my_lead(p_patient);
+
+  -- readings, last 14 days; the target band belongs to the care plan, so it is only returned with that category
+  if v_lead or private.can_staff_read_clinical(p_patient, 'vitals_readings'::public.care_access_category) then
     v_sections := v_sections || 'readings'::text;
     v_out := v_out || jsonb_build_object('readings', jsonb_build_object(
       'window_days', 14,
@@ -47,20 +90,23 @@ begin
             from public.observations
            where patient_id = p_patient and measured_at >= now() - interval '14 days'
            order by measured_at desc limit 200) o), '[]'::jsonb),
-      'targets', coalesce((select jsonb_agg(jsonb_build_object('condition', cp.condition, 'target_ranges', cp.target_ranges))
-                             from public.care_plans cp where cp.patient_id = p_patient and cp.status = 'active'), '[]'::jsonb)));
+      'targets', case when v_lead or private.can_staff_read_clinical(p_patient, 'appointments_care_plan'::public.care_access_category)
+                      then coalesce((select jsonb_agg(jsonb_build_object('condition', cp.condition, 'target_ranges', cp.target_ranges))
+                             from public.care_plans cp where cp.patient_id = p_patient and cp.status = 'active'), '[]'::jsonb)
+                      else '[]'::jsonb end));
     v_sections := v_sections || 'triage_events'::text;
     v_out := v_out || jsonb_build_object('triage_events', coalesce((select jsonb_agg(to_jsonb(t) order by t.created_at desc) from (
         select grade, trigger_type, explanation_key, created_at
           from public.triage_events
          where patient_id = p_patient and not shadow and created_at >= now() - interval '30 days'
+           and (trigger_type <> 'result' or v_lead or private.can_staff_read_clinical(p_patient, 'labs_results'::public.care_access_category))
          order by created_at desc limit 5) t), '[]'::jsonb));
   else
     v_denied := v_denied || array['readings','triage_events'];
   end if;
 
   -- current medicines and adherence
-  if private.can_staff_read_clinical(p_patient, 'medications'::public.care_access_category) then
+  if v_lead or private.can_staff_read_clinical(p_patient, 'medications'::public.care_access_category) then
     v_sections := v_sections || 'medications'::text;
     v_out := v_out || jsonb_build_object('medications', jsonb_build_object(
       'active', coalesce((select jsonb_agg(jsonb_build_object('id', m.id, 'drug_name', m.drug_name, 'dose', m.dose,
@@ -72,7 +118,7 @@ begin
   end if;
 
   -- care plan, pending proposals, signed notes
-  if private.can_staff_read_clinical(p_patient, 'appointments_care_plan'::public.care_access_category) then
+  if v_lead or private.can_staff_read_clinical(p_patient, 'appointments_care_plan'::public.care_access_category) then
     v_sections := v_sections || array['care_plan','pending_proposals','signed_notes'];
     v_out := v_out || jsonb_build_object(
       'care_plan', coalesce((select jsonb_agg(jsonb_build_object('id', cp.id, 'condition', cp.condition, 'status', cp.status,
@@ -92,7 +138,7 @@ begin
   end if;
 
   -- results: metadata only, never values
-  if private.can_staff_read_clinical(p_patient, 'labs_results'::public.care_access_category) then
+  if v_lead or private.can_staff_read_clinical(p_patient, 'labs_results'::public.care_access_category) then
     v_sections := v_sections || 'results'::text;
     v_out := v_out || jsonb_build_object('results', coalesce((select jsonb_agg(to_jsonb(r) order by r.received_at desc) from (
         select id, panel_code, release_state, received_at, reviewed_at
@@ -103,7 +149,7 @@ begin
   end if;
 
   -- allergies and conditions
-  if private.can_staff_read_clinical(p_patient, 'medical_history'::public.care_access_category) then
+  if v_lead or private.can_staff_read_clinical(p_patient, 'medical_history'::public.care_access_category) then
     v_sections := v_sections || array['allergies','conditions'];
     v_out := v_out || jsonb_build_object(
       'allergies', coalesce((select jsonb_agg(jsonb_build_object('allergen', a.allergen, 'reaction', a.reaction, 'severity', a.severity))
@@ -116,7 +162,7 @@ begin
 
   -- no section readable means no tie, no break-glass and no support view
   if cardinality(v_sections) = 0 then
-    perform private.audit_chart_read(p_patient, array['summary'], p_reason, 'denied');
+    perform private.s35_audit_read(p_patient, array['summary'], p_reason, 'denied');
     return jsonb_build_object('status', 'denied');
   end if;
 
@@ -127,14 +173,14 @@ begin
                         where m.patient_id = p_patient and m.state = 'active' and (m.expires_at is null or m.expires_at > now()))));
 
   select split_part(pr.full_name, ' ', 1) into v_name from public.profiles pr where pr.id = p_patient;
-  perform private.audit_chart_read(p_patient, array['summary'] || v_sections, p_reason, 'success');
+  perform private.s35_audit_read(p_patient, array['summary'] || v_sections, p_reason, 'success');
   return jsonb_build_object('status', case when cardinality(v_denied) = 0 then 'ok' else 'partial' end,
                             'denied', to_jsonb(v_denied), 'patient_first_name', v_name) || v_out;
 end;
 $$;
 
 -- "My lead patients": the people I lead, with the few numbers that tell me who needs me.
--- Capped by the lead capacity, so one audit row per patient is bounded and small.
+-- Every row is a patient I lead, which is itself the tie (INV-12), so no further category gate applies to the few numbers shown.
 create or replace function public.my_lead_patients()
 returns jsonb
 language plpgsql
@@ -156,7 +202,13 @@ begin
      where la.clinician_id = v_uid and la.state = 'active'
      order by la.started_at limit 200
   loop
-    perform private.audit_chart_read(r.patient_id, array['lead_list'], 'Viewing my lead patient list', 'success');
+    -- one audit row per patient per day, not one per page load: a lead list refreshed all day is one access, and a
+    -- 200-patient list would otherwise write 200 rows every time it is opened
+    if not exists (select 1 from public.audit_log al
+                    where al.actor_id = v_uid and al.subject_patient_id = r.patient_id and al.action = 'staff.chart_read'
+                      and al.event -> 'sections' ? 'lead_list' and al.created_at > now() - interval '24 hours') then
+      perform private.s35_audit_read(r.patient_id, array['lead_list'], 'Viewing my lead patient list', 'success');
+    end if;
     v_item := jsonb_build_object(
       'patient_id', r.patient_id,
       'first_name', r.first_name,
