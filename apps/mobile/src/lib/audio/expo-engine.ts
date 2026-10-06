@@ -22,6 +22,8 @@ export interface ExpoPlayer {
 export const STALL_GRACE_MS = 5_000;
 export const DEFAULT_CLIP_MS = 60_000;
 
+const IDLE_MODE = { playsInSilentMode: false, interruptionMode: "mixWithOthers", allowsRecording: false, shouldPlayInBackground: false, shouldRouteThroughEarpiece: false } as const;
+
 /**
  * Plays clips one after another with `expo-audio`.
  *
@@ -70,11 +72,16 @@ export function createExpoAudioEngine(mod: ExpoAudioModule): AudioEngine {
         shouldPlayInBackground: false,
         shouldRouteThroughEarpiece: false,
       });
-      for (const source of sources) {
-        if (mine !== generation) throw new AudioStopped(); // stop() came between two clips
-        await playOne(source);
+      try {
+        for (const source of sources) {
+          if (mine !== generation) throw new AudioStopped(); // stop() came between two clips
+          await playOne(source);
+        }
+        if (mine !== generation) throw new AudioStopped();
+      } finally {
+        // Give audio focus back (other apps resume) and stop forcing playback past the ringer switch.
+        if (mine === generation) await mod.setAudioModeAsync(IDLE_MODE).catch(() => undefined);
       }
-      if (mine !== generation) throw new AudioStopped();
     },
     stop() {
       generation += 1;

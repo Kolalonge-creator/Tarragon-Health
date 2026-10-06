@@ -5,10 +5,13 @@ import type { DownloadedFiles } from "./service";
 export interface FileSystemPort {
   /** `file:///` uri of a downloaded clip (folder named by checksum), and whether it is on the phone. */
   locate(file: ClipFile): { uri: string; exists: boolean };
-  /** Download to the located path. Resolves when the file is on the phone. */
+  /** Download to a temporary `.part` file beside the final path, never to the final path itself. */
   download(url: string, file: ClipFile): Promise<void>;
-  /** sha256 hex of what is on the phone at the located path. */
+  /** sha256 hex of the downloaded temporary file. */
   sha256(file: ClipFile): Promise<string>;
+  /** Move the verified temporary file to the final path: only now does `locate().exists` become true. */
+  commit(file: ClipFile): void;
+  /** Delete the temporary file and any file at the final path. */
   remove(file: ClipFile): void;
 }
 
@@ -51,7 +54,10 @@ export async function downloadPostSignupClips(
 ): Promise<DownloadResult> {
   if (!baseUrl) return { downloaded: 0, failed: 0 };
   const have = new Set<string>();
-  for (const clip of manifest.clips) for (const f of Object.values(clip.files)) if (f && f.sha256 !== null && fs.locate(f).exists) have.add(haveKey(f));
+  for (const clip of manifest.clips) {
+    if (clip.bundle_group !== "post_signup") continue;
+    for (const f of Object.values(clip.files)) if (f && f.sha256 !== null && fs.locate(f).exists) have.add(haveKey(f));
+  }
   let downloaded = 0;
   let failed = 0;
   for (const ref of planDownloads(manifest, { ...ctx, have }, features)) {
@@ -65,6 +71,7 @@ export async function downloadPostSignupClips(
         report({ code: "clip_checksum_mismatch", clipId: ref.clipId, lang: ref.key === "shared" ? null : ref.key, detail: ref.file.file });
         continue;
       }
+      fs.commit(ref.file);
       downloaded += 1;
     } catch (e) {
       failed += 1;

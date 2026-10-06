@@ -75,6 +75,15 @@ describe("the expo-audio engine", () => {
     expect(modes[0]).toMatchObject({ playsInSilentMode: false, interruptionMode: "duckOthers" });
   });
 
+  it("gives audio focus back and stops forcing the ringer switch once the clips are done", async () => {
+    const { mod, players, modes } = fakeModule();
+    const done = createExpoAudioEngine(mod).play([bundled(1)], { emergency: true });
+    await flush();
+    players[0].finish();
+    await done;
+    expect(modes[modes.length - 1]).toMatchObject({ playsInSilentMode: false, interruptionMode: "mixWithOthers" });
+  });
+
   it("stop() ends the current clip with AudioStopped and plays nothing further", async () => {
     const { mod, players } = fakeModule();
     const engine = createExpoAudioEngine(mod);
@@ -145,16 +154,24 @@ describe("downloaded clips", () => {
 
   function fakeFs(over: Partial<{ hash: string; failDownload: boolean }> = {}) {
     const onPhone = new Set<string>();
+    const parts = new Set<string>();
     const fs: FileSystemPort = {
       locate: (f) => ({ uri: `file:///audio/${f.file}`, exists: onPhone.has(f.file) }),
       download: async (_u, f) => {
         if (over.failDownload) throw new Error("offline");
-        onPhone.add(f.file);
+        parts.add(f.file); // a download only ever lands in the temporary file
       },
       sha256: async () => over.hash ?? SHA,
-      remove: (f) => void onPhone.delete(f.file),
+      commit: (f) => {
+        parts.delete(f.file);
+        onPhone.add(f.file);
+      },
+      remove: (f) => {
+        parts.delete(f.file);
+        onPhone.delete(f.file);
+      },
     };
-    return { fs, onPhone };
+    return { fs, onPhone, parts };
   }
 
   it("serves a clip from the phone only when it is there", () => {
@@ -186,13 +203,25 @@ describe("downloaded clips", () => {
     expect(await downloadPostSignupClips(m, { ...ctx, lowData: true }, features, "https://x", fs, () => undefined)).toEqual({ downloaded: 0, failed: 0 });
   });
 
+  it("a download that never finishes leaves nothing the app would play (it is only a temporary file)", async () => {
+    const m = recorded(manifest, ["NAV-001"]);
+    const { fs, onPhone, parts } = fakeFs();
+    fs.sha256 = () => Promise.reject(new Error("app killed"));
+    const r = await downloadPostSignupClips(m, ctx, features, "https://x", fs, () => undefined);
+    expect(r.failed).toBe(1);
+    expect(onPhone.size).toBe(0);
+    expect(parts.size).toBe(0);
+    expect(createDownloadedFiles(fs).uriFor(m.clips.find((c) => c.id === "NAV-001")!.files.en!)).toBeNull();
+  });
+
   it("deletes a download whose checksum is not the signed recording, and reports it", async () => {
     const m = recorded(manifest, ["NAV-001"]);
-    const { fs, onPhone } = fakeFs({ hash: "b".repeat(64) });
+    const { fs, onPhone, parts } = fakeFs({ hash: "b".repeat(64) });
     const issues: string[] = [];
     const r = await downloadPostSignupClips(m, ctx, features, "https://x", fs, (i) => issues.push(i.code));
     expect(r).toEqual({ downloaded: 0, failed: 1 });
     expect(onPhone.size).toBe(0);
+    expect(parts.size).toBe(0);
     expect(issues).toEqual(["clip_checksum_mismatch"]);
   });
 

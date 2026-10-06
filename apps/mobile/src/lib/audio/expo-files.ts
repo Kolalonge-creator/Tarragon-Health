@@ -10,6 +10,7 @@ export function loadExpoFileSystem(): FileSystemPort | null {
     /* eslint-enable @typescript-eslint/no-require-imports */
     const dir = (file: ClipFile) => new fsMod.Directory(fsMod.Paths.document, "audio", (file.sha256 ?? "unrecorded").slice(0, 16));
     const at = (file: ClipFile) => new fsMod.File(dir(file), file.file);
+    const part = (file: ClipFile) => new fsMod.File(dir(file), `${file.file}.part`);
     const toHex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
     return {
       locate: (file) => {
@@ -19,12 +20,16 @@ export function loadExpoFileSystem(): FileSystemPort | null {
       download: async (url, file) => {
         const d = dir(file);
         if (!d.exists) d.create({ intermediates: true, idempotent: true });
-        await fsMod.File.downloadFileAsync(url, at(file), { idempotent: true });
+        await fsMod.File.downloadFileAsync(url, part(file), { idempotent: true });
       },
-      sha256: async (file) => toHex(await crypto.digest(crypto.CryptoDigestAlgorithm.SHA256, await at(file).bytes())),
+      sha256: async (file) => toHex(await crypto.digest(crypto.CryptoDigestAlgorithm.SHA256, await part(file).bytes())),
+      commit: (file) => {
+        const final = at(file);
+        if (final.exists) final.delete();
+        part(file).move(final);
+      },
       remove: (file) => {
-        const f = at(file);
-        if (f.exists) f.delete();
+        for (const f of [part(file), at(file)]) if (f.exists) f.delete();
       },
     };
   } catch {

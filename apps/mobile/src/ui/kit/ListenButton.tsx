@@ -21,17 +21,24 @@ interface ListenButtonProps {
 export function ListenButton({ clipIds, phrase, lang }: ListenButtonProps) {
   const [playing, setPlaying] = useState(false);
   const alive = useRef(true);
+  // Only stop audio THIS button started: the service is shared, and another message (an emergency clip) may be playing.
+  const mine = useRef(false);
+  const stopMine = () => {
+    if (mine.current) getAudioService().stop();
+  };
 
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
-      getAudioService().stop();
+      stopMine();
     };
   }, []);
 
+  const firstLang = useRef(lang);
   useEffect(() => {
-    getAudioService().stop(); // a language switch ends whatever is playing in the old language
+    if (firstLang.current !== lang) stopMine(); // a language switch ends this button's clip in the old language
+    firstLang.current = lang;
   }, [lang]);
 
   const label = (key: "audio.listen" | "audio.stop") => t(key, "en" as Locale);
@@ -39,14 +46,16 @@ export function ListenButton({ clipIds, phrase, lang }: ListenButtonProps) {
   const onPress = async () => {
     const service = getAudioService();
     if (playing) {
-      service.stop();
+      stopMine();
       return;
     }
     setPlaying(true);
+    mine.current = true;
     try {
       if (phrase) await service.playPhrase(phrase, lang);
       else if (clipIds) await service.playClips(clipIds, lang);
     } finally {
+      mine.current = false;
       if (alive.current) setPlaying(false);
     }
   };
