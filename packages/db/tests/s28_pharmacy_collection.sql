@@ -464,6 +464,8 @@ begin
   perform pg_temp.ck('the pharmacy sees the answer on the prescription', 'substitute_needed|new_prescription_coming',
     (pg_temp.q_as(ph_a, format('select public.pharmacy_prescription_detail(%L)::text', rx_q))::jsonb -> 'questions' -> 0 ->> 'reason_code') || '|' ||
     (pg_temp.q_as(ph_a, format('select public.pharmacy_prescription_detail(%L)::text', rx_q))::jsonb -> 'questions' -> 0 ->> 'answer_code'));
+  perform pg_temp.ck('after the answer the pharmacy sees no open question on its inbox row', 'false',
+    (pg_temp.q_as(ph_a, format('select has_open_flag::text from public.pharmacy_inbox() where prescription_id = %L', rx_q))));
   perform pg_temp.ck('the answer was audited', '1',
     (select count(*)::text from public.audit_log where action = 'prescription.pharmacy_question_answered' and entity_id = rx_q));
   perform pg_temp.ck('an answer changes nothing on the signed prescription (INV-02)', 'sent|Ibuprofen',
@@ -545,6 +547,17 @@ begin
     (select (c ->> 'met') from jsonb_array_elements(private.go_live_conditions('prescribing_enabled', v_org)) c where c ->> 'code' = 'pharmacy_licence_current'));
   update public.pharmacy_partners set license_expires_at = current_date + 365 where is_active;
   perform pg_temp.guard(true);
+  -- E. A question cannot be answered once the prescription has left the pharmacy that asked
+  declare rx_z uuid; q_z uuid;
+  begin
+    rx_z := pg_temp.mkrx(v_doc, v_pat, 'Folic acid', 0);
+    perform pg_temp.q_as(v_pat, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', rx_z, pa));
+    perform pg_temp.q_as(ph_a, format($q$select public.pharmacy_flag_prescription(%L, 'query_to_prescriber', 'call_me')::text$q$, rx_z));
+    select id into q_z from public.prescription_pharmacy_events where prescription_id = rx_z and event_type = 'flagged_query';
+    perform pg_temp.q_as(v_pat, format('select public.withdraw_prescription_from_pharmacy(%L)::text', rx_z));
+    perform pg_temp.ck('an answer after the prescription left the pharmacy is refused', 'not_waiting',
+      (pg_temp.q_as(v_doc, format($q$select public.answer_pharmacy_question(%L, 'keep_as_written')::text$q$, q_z))::jsonb ->> 'reason'));
+  end;
 end $$;
 
 -- 8. SABOTAGE: the licence rule opened, a direct partner policy restored, the caregiver gate opened, the go-live guard ignored; every check must flip ----------------------------------------

@@ -492,7 +492,9 @@ begin
          split_part(coalesce(p.full_name, ''), ' ', 1),
          jsonb_array_length(rx.items),
          exists (select 1 from public.prescription_pharmacy_events e
-                  where e.prescription_id = rx.id and e.event_type in ('flagged_out_of_stock', 'flagged_query')
+                  where e.prescription_id = rx.id
+                    and (e.event_type = 'flagged_out_of_stock'
+                         or (e.event_type = 'flagged_query' and not exists (select 1 from public.prescription_pharmacy_events a where a.answers_event_id = e.id)))
                     and e.created_at > coalesce((select max(e2.created_at) from public.prescription_pharmacy_events e2
                                                   where e2.prescription_id = rx.id and e2.event_type in ('sent', 'rerouted')), 'epoch')),
          rx.is_test
@@ -685,7 +687,7 @@ begin
     join public.pharmacy_partners pp on pp.id = q.pharmacy_partner_id
     left join public.prescription_pharmacy_events a on a.answers_event_id = q.id
    where q.event_type = 'flagged_query' and rx.signed_by = v_uid and private.clinician_has_patient_access(rx.patient_id)
-     and q.created_at > now() - interval '30 days';
+     and (a.id is null or a.created_at > now() - interval '30 days');
   select coalesce(jsonb_agg(jsonb_build_object(
            'prescription_id', rx.id, 'state', rx.state, 'patient_name', p.full_name, 'sent_at', rx.sent_at, 'dispensed_at', rx.dispensed_at,
            'pharmacy_name', pp.name, 'medicines', (select coalesce(jsonb_agg(it ->> 'drug_name' order by it ->> 'drug_name'), '[]'::jsonb) from jsonb_array_elements(rx.items) it))
@@ -722,6 +724,10 @@ begin
   end if;
   if exists (select 1 from public.prescription_pharmacy_events where answers_event_id = p_question) then
     return jsonb_build_object('ok', false, 'reason', 'already_answered');
+  end if;
+  -- Only while the prescription is still waiting at the pharmacy that asked: after a re-route, a withdrawal or a supply there is nobody to tell.
+  if v_rx.state <> 'sent' or v_rx.pharmacy_partner_id is distinct from v_q.pharmacy_partner_id then
+    return jsonb_build_object('ok', false, 'reason', 'not_waiting');
   end if;
   insert into public.prescription_pharmacy_events (organisation_id, prescription_id, event_type, pharmacy_partner_id, actor_id, reason_code, answers_event_id, is_test)
   values (v_rx.organisation_id, v_q.prescription_id, 'answered_query', v_q.pharmacy_partner_id, v_uid, p_answer, p_question, v_rx.is_test);

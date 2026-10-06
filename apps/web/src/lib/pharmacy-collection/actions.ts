@@ -198,7 +198,7 @@ export async function answerPharmacyQuestion(input: unknown): Promise<StaffResul
   const result = z.object({ ok: z.boolean(), reason: z.string().optional() }).safeParse(data);
   // An unreadable answer is never treated as "answered".
   if (!result.success) return { ok: false, error: "That could not be recorded. Please try again." };
-  if (!result.data.ok) return { ok: false, error: result.data.reason === "already_answered" ? "That question has already been answered." : "That could not be recorded. Please try again." };
+  if (!result.data.ok) return { ok: false, error: result.data.reason === "already_answered" ? "That question has already been answered." : result.data.reason === "not_waiting" ? "That prescription is no longer waiting at the pharmacy that asked." : "That could not be recorded. Please try again." };
   revalidatePath("/clinician/pharmacy");
   return { ok: true };
 }
