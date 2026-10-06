@@ -934,6 +934,25 @@ begin
 end;
 $$;
 
+-- Employed or freelance is the organisation's fact about the person, never the applicant's claim: it decides
+-- whether individual indemnity is needed and which earnings path S30 uses. Reviewer sets it before approval.
+create function public.set_application_employment_type(p_application uuid, p_employment_type public.staff_employment_type)
+returns void language plpgsql security definer set search_path = ''
+as $$
+declare a public.clinician_applications%rowtype;
+begin
+  if not private.can_credential_review() then raise exception 'not allowed' using errcode = '42501'; end if;
+  select * into a from public.clinician_applications where id = p_application for update;
+  if not found then raise exception 'application not found' using errcode = 'P0002'; end if;
+  if a.profile_id = auth.uid() then raise exception 'you cannot change your own application' using errcode = '42501'; end if;
+  if a.state in ('approved_tier1', 'active', 'suspended', 'offboarded', 'rejected') then
+    raise exception 'employment type can no longer be changed' using errcode = '23514'; end if;
+  update public.clinician_applications set employment_type = p_employment_type where id = p_application;
+  perform private.credential_audit(a.organisation_id, auth.uid(), 'clinician_application.employment_type', 'clinician_application', a.id,
+    jsonb_build_object('employment_type', p_employment_type));
+end;
+$$;
+
 create function public.reject_clinician_application(p_application uuid, p_reason text)
 returns void language plpgsql security definer set search_path = ''
 as $$
@@ -1259,6 +1278,8 @@ as $$
   select exists (
     select 1 from public.clinical_staff cs
     where cs.profile_id = p_profile and cs.active and cs.status = 'active'
+      -- the older quality ladder (20260829093830) can also restrict work; never loosen it
+      and not private.provider_work_restricted(cs.id)
       and (cs.license_expires_at is null or private.credential_valid_on(cs.license_expires_at, p_at) or private.credential_in_grace(cs.id, 'licence', p_at))
       and (not coalesce(private.indemnity_required(cs.id), false)
            or (cs.indemnity_expires_at is not null and cs.indemnity_expires_at > p_at)
@@ -1624,6 +1645,7 @@ begin
     'open_clinician_document(uuid)',
     'verify_clinician_document(uuid, text)',
     'begin_credential_checks(uuid)',
+    'set_application_employment_type(uuid, public.staff_employment_type)',
     'record_credential_check(uuid, public.credential_check_kind, public.credential_check_result, text, jsonb, timestamptz)',
     'reject_clinician_application(uuid, text)',
     'complete_training_module(uuid, uuid)',

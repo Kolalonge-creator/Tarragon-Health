@@ -505,6 +505,21 @@ begin
   perform pg_temp.rec('practice after house job below the minimum cannot pass', '23514', pg_temp.try(format('select public.record_credential_check(%L, ''practice_years'', ''passed'')', v_app4)));
   perform pg_temp.back();
 
+  -- employment type is the organisation's fact, not the applicant's claim
+  perform pg_temp.act(v_p6);
+  perform pg_temp.rec('an applicant cannot set their own employment type', '42501', pg_temp.try(format('select public.set_application_employment_type(%L, ''employed'')', v_app3)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_admin);
+  perform public.set_application_employment_type(v_app3, 'contracted');
+  perform pg_temp.back();
+  perform pg_temp.rec('a reviewer sets the employment type', 'contracted', (select employment_type::text from public.clinician_applications where id = v_app3));
+
+  -- the older quality ladder can only tighten eligibility
+  insert into public.provider_restrictions (organisation_id, clinical_staff_id, stage, reason) values (v_org, v_c2_staff, 'suspension', 'governance_directive');
+  perform pg_temp.rec('a live restriction from the older ladder makes a clinician ineligible', 'false', private.clinician_is_eligible(v_c2)::text);
+  update public.provider_restrictions set lifted_at = now(), lift_reason = 'cleared' where clinical_staff_id = v_c2_staff;
+  perform pg_temp.rec('and lifting it restores eligibility', 'true', private.clinician_is_eligible(v_c2)::text);
+
   -- 8. Whole-surface checks -------------------------------------------------------------------------------
   perform pg_temp.rec('exactly one active credentialing config row', '1', (select count(*)::text from public.credentialing_config where is_active));
   perform pg_temp.rec('seven competencies are seeded', '7', (select count(*)::text from public.competencies));
