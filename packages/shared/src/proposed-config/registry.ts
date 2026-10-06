@@ -463,9 +463,10 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "paging.rules",
     // Red event paging (S19, spec 7.9). Live values are the active row of `paging_config`; this entry mirrors it and a test
     // fails if the migration seed and this value drift. escalation_minutes repeats paging.escalation_minutes: the backup is
-    // paged at the first, the clinical lead and ops at the second. page_access_hours: how long an open page can keep a
-    // clinician tied to a patient's chart (INV-12) before it closes itself.
-    value: { escalation_minutes: [5, 10], page_access_hours: 24 },
+    // paged at the first, the clinical lead and ops at the second. lead_repeat_minutes: how often the clinical lead and ops are
+    // re-alerted while nobody has acknowledged. page_access_hours: how long an ACKNOWLEDGED page can keep a clinician tied to a
+    // patient's chart (INV-12) before it closes itself; an unacknowledged page never closes itself.
+    value: { escalation_minutes: [5, 10], lead_repeat_minutes: 5, page_access_hours: 24 },
     owner: "CMO",
     status: "proposed",
     version: 1,

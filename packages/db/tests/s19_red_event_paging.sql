@@ -73,6 +73,12 @@ begin
   returning id into v_id;
   return v_id;
 end $f$;
+create function pg_temp.age_lead(p_page uuid, p_minutes integer) returns void language plpgsql as
+$f$ begin
+  perform set_config('tarragon.paging_write', 'on', true);
+  update public.pages set lead_alerted_at = now() - make_interval(mins => p_minutes), last_lead_alert_at = null where id = p_page;
+  perform set_config('tarragon.paging_write', 'off', true);
+end $f$;
 -- fixture-only: move a page's clock (the guard allows it behind its own flag)
 create function pg_temp.age(p_page uuid, p_minutes integer) returns void language plpgsql as
 $f$ begin
@@ -88,7 +94,7 @@ declare
   v_rs_ok uuid; v_rs_draft uuid; e_shadow uuid; e_green uuid; e1 uuid; e2 uuid; e3 uuid; e4 uuid; e5 uuid; e6 uuid;
   v_root uuid; v_backup_page uuid; v_esc uuid; v_root2 uuid; v_root3 uuid; v_root4 uuid; v_root5 uuid; v_root6 uuid; v_txt text;
   v_forbidden text := 'blood|pressure|hypertens|diabet|result|reading|glucose|medicine|dose|symptom|S19 ';
-  v_rota jsonb;
+  v_rota jsonb; pt8 uuid; pt9 uuid; pt10 uuid; e7 uuid; e9 uuid; e10 uuid; v_root9 uuid; v_root10 uuid; v_sweep jsonb;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -101,7 +107,8 @@ begin
   v_other := pg_temp.mkdoc(v_org, v_admin, 'other', 'senior_medical_officer');
   pt1 := pg_temp.mkuser(v_org, 'patient-1', 'patient'); pt2 := pg_temp.mkuser(v_org, 'patient-2', 'patient'); pt3 := pg_temp.mkuser(v_org, 'patient-3', 'patient');
   pt4 := pg_temp.mkuser(v_org, 'patient-4', 'patient'); pt5 := pg_temp.mkuser(v_org, 'patient-5', 'patient'); pt6 := pg_temp.mkuser(v_org, 'patient-6', 'patient');
-  pt7 := pg_temp.mkuser(v_org, 'patient-7', 'patient');
+  pt7 := pg_temp.mkuser(v_org, 'patient-7', 'patient'); pt8 := pg_temp.mkuser(v_org, 'patient-8', 'patient');
+  pt9 := pg_temp.mkuser(v_org, 'patient-9', 'patient'); pt10 := pg_temp.mkuser(v_org, 'patient-10', 'patient');
   insert into fx values ('admin', v_admin), ('cmo', v_cmo), ('primary', v_p), ('backup', v_b);
 
   select id into v_rs_draft from public.triage_rule_sets where status = 'draft' order by version desc limit 1;
@@ -114,6 +121,11 @@ begin
   perform pg_temp.rec('authenticated holds only SELECT', '0', (select count(*)::text from information_schema.role_table_grants where table_schema = 'public' and table_name in ('pages', 'paging_config') and grantee = 'authenticated' and privilege_type <> 'SELECT'));
   perform pg_temp.rec('anon holds nothing', '0', (select count(*)::text from information_schema.role_table_grants where table_schema = 'public' and table_name in ('pages', 'paging_config') and grantee in ('anon', 'PUBLIC')));
   perform pg_temp.rec('the configured times are the registry values 5 and 10', '5,10', (select (private.paging_rule('escalation_minutes') ->> 0) || ',' || (private.paging_rule('escalation_minutes') ->> 1)));
+
+  perform pg_temp.rec('a paging config with one time is refused by the database', '23514', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (98, false, current_date, '{"escalation_minutes":[5],"lead_repeat_minutes":5,"page_access_hours":24}')$q$));
+  perform pg_temp.rec('a config whose times are not increasing is refused', '23514', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (97, false, current_date, '{"escalation_minutes":[10,5],"lead_repeat_minutes":5,"page_access_hours":24}')$q$));
+  perform pg_temp.rec('a config with a string time is refused', '23514', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (96, false, current_date, '{"escalation_minutes":["5","x"],"lead_repeat_minutes":5,"page_access_hours":24}')$q$));
+  perform pg_temp.rec('a valid new config is accepted', 'ok', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (95, false, current_date, '{"escalation_minutes":[3,6],"lead_repeat_minutes":2,"page_access_hours":12}')$q$));
 
   -- the rota: primary and backup on call now (an employed clinician needs no declared hours)
   perform pg_temp.act(v_cmo);
@@ -137,7 +149,7 @@ begin
   perform pg_temp.rec('one root per event and no duplicate notices', '1,3', (select count(*)::text from public.pages where triage_event_id = e1) || ',' || (select count(*)::text from public.notifications where source_id = v_root));
   perform pg_temp.rec('page.sent was emitted urgent', 'true', (select (count(*) = 1 and bool_and(priority = 'urgent'))::text from public.domain_events where event_type = 'page.sent' and aggregate_id = v_root));
   perform pg_temp.act(v_p);
-  perform pg_temp.rec('the paged clinician is tied to the patient from the moment of the page (INV-12)', 'true', private.clinician_has_patient_access(pt1)::text);
+  perform pg_temp.rec('being paged is not enough for chart access: only acknowledging ties the clinician (INV-12)', 'false', private.clinician_has_patient_access(pt1)::text);
   perform pg_temp.back();
   perform pg_temp.act(v_other);
   perform pg_temp.rec('an unrelated clinician has no tie to the patient', 'false', private.clinician_has_patient_access(pt1)::text);
@@ -163,6 +175,13 @@ begin
   perform pg_temp.rec('both escalations were emitted urgent', '2', (select count(*)::text from public.domain_events where event_type = 'page.escalated' and priority = 'urgent' and aggregate_id in (v_backup_page, v_esc)));
   perform private.sweep_pages();
   perform pg_temp.rec('a repeat sweep adds no second escalation', '1', (select count(*)::text from public.pages where parent_page_id = v_root and role = 'escalation'));
+
+  -- the lead alert is repeated every few minutes until someone acknowledges
+  perform pg_temp.age_lead(v_root, 6);
+  perform private.sweep_pages();
+  perform pg_temp.rec('the clinical lead is alerted again while nobody has acknowledged', '6', (select count(*)::text from public.notifications where recipient_id = v_cmo and template = 'on_call_escalation' and source_id = v_esc));
+  perform private.sweep_pages();
+  perform pg_temp.rec('and not again straight away', '6', (select count(*)::text from public.notifications where recipient_id = v_cmo and template = 'on_call_escalation' and source_id = v_esc));
 
   -- 5. Acknowledge and close ------------------------------------------------------------------------------------
   perform pg_temp.act(v_admin);
@@ -192,6 +211,7 @@ begin
   perform pg_temp.act(v_p);
   perform pg_temp.rec('close ends chart access for the first page recipient too', 'false', private.clinician_has_patient_access(pt1)::text);
   perform pg_temp.back();
+  perform pg_temp.rec('acknowledging cancels the stale class 1 task', 'cancelled', (select state::text from public.clinical_tasks where patient_id = pt1 and type = 'red_event_unacknowledged'));
   perform pg_temp.rec('every page of the family is closed with the note', '3', (select count(*)::text from public.pages where coalesce(parent_page_id, id) = v_root and closed_at is not null and close_note like 'patient reached%'));
 
   -- acknowledgement stops the ladder
@@ -210,11 +230,24 @@ begin
   -- 6. The access window ------------------------------------------------------------------------------------------
   e4 := pg_temp.red(pt4, v_rs_ok, 'red', false);
   v_root4 := public.create_red_page(e4);
-  perform pg_temp.act(v_p); perform pg_temp.rec('while open the page ties the clinician to the patient', 'true', private.clinician_has_patient_access(pt4)::text); perform pg_temp.back();
+  perform pg_temp.act(v_p);
+  perform pg_temp.rec('a paged clinician who has not acknowledged has no chart access', 'false', private.clinician_has_patient_access(pt4)::text);
+  perform public.acknowledge_page(v_root4);
+  perform pg_temp.rec('after acknowledging the open page ties the clinician to the patient', 'true', private.clinician_has_patient_access(pt4)::text);
+  perform pg_temp.back();
   perform pg_temp.age(v_root4, 25 * 60);
+  e7 := pg_temp.red(pt8, v_rs_ok, 'red', false);
+  perform public.create_red_page(e7);
+  perform pg_temp.age((select id from public.pages where triage_event_id = e7 and parent_page_id is null), 25 * 60);
   perform private.sweep_pages();
-  perform pg_temp.rec('a page past the access window closes itself', 'true', (select (closed_at is not null)::text from public.pages where id = v_root4));
-  perform pg_temp.act(v_p); perform pg_temp.rec('and the access ends', 'false', private.clinician_has_patient_access(pt4)::text); perform pg_temp.back();
+  perform pg_temp.rec('an acknowledged page past the access window closes itself', 'true', (select (closed_at is not null)::text from public.pages where id = v_root4));
+  perform pg_temp.rec('an UNACKNOWLEDGED page past the window is never closed quietly', 'true', (select (closed_at is null)::text from public.pages where triage_event_id = e7 and parent_page_id is null));
+  perform pg_temp.act(v_p); perform pg_temp.rec('and the access of the closed one ends', 'false', private.clinician_has_patient_access(pt4)::text); perform pg_temp.back();
+  -- settle e7 so it does not interfere: the paged primary acknowledges and closes it
+  perform pg_temp.act(v_p);
+  perform public.acknowledge_page((select id from public.pages where triage_event_id = e7 and parent_page_id is null));
+  perform public.close_page((select id from public.pages where triage_event_id = e7 and parent_page_id is null), 'settled by the proof after the window check');
+  perform pg_temp.back();
 
   -- 7. SAFETY CASE 9: no cover --------------------------------------------------------------------------------------
   perform pg_temp.act(v_cmo);
@@ -258,7 +291,7 @@ begin
   perform pg_temp.rec('an unrelated clinician cannot read the overview', '42501', pg_temp.try('select * from public.paging_overview()'));
   perform pg_temp.back();
   perform pg_temp.act(v_y);
-  perform pg_temp.rec('the paged clinician sees their open page with the patient', 'true', (select (count(*) = 1 and bool_and(patient_id = pt6))::text from public.my_active_pages()));
+  perform pg_temp.rec('the paged clinician sees their open page but not the patient until they acknowledge', 'true', (select (count(*) = 1 and bool_and(patient_id is null))::text from public.my_active_pages()));
   perform pg_temp.rec('and reads only their own pages', 'true', (select (count(*) >= 1 and bool_and(to_clinician_id = v_y or acknowledged_by = v_y))::text from public.pages));
   perform pg_temp.back();
   perform pg_temp.act(v_admin);
@@ -283,6 +316,27 @@ begin
       where n.nspname = 'public' and p.proname in ('acknowledge_page', 'close_page', 'my_active_pages', 'paging_overview') and has_function_privilege('anon', p.oid, 'EXECUTE')));
   perform pg_temp.rec('INV-07: no paging notice carries a clinical word, a name or a reading', '0',
     (select count(*)::text from public.notifications n where n.template in ('on_call_page', 'on_call_escalation') and (n.payload::text ~* v_forbidden or n.payload - 'page_id' <> '{}'::jsonb)));
+  -- one failing page must not stop the others (the sweep isolates each page) and must not pass unnoticed
+  perform pg_temp.act(v_cmo);
+  perform public.cancel_on_call_rota((select id from public.on_call_rota where cancelled_at is null and starts_at <= now() and ends_at > now() limit 1), 'proof: replace the shift for the isolation check');
+  perform public.set_on_call_rota(now() - interval '1 minute', now() + interval '10 hours', v_p, v_b, null);
+  perform pg_temp.back();
+  insert into fx values ('poison', pt9);
+  create function public.s19_poison() returns trigger language plpgsql as $f$
+  begin
+    if new.role = 'backup' and exists (select 1 from pg_temp.fx where label = 'poison' and id = new.patient_id) then raise exception 'poisoned page'; end if;
+    return new;
+  end $f$;
+  create trigger s19_poison before insert on public.pages for each row execute function public.s19_poison();
+  e9 := pg_temp.red(pt9, v_rs_ok, 'red', false); v_root9 := public.create_red_page(e9);
+  e10 := pg_temp.red(pt10, v_rs_ok, 'red', false); v_root10 := public.create_red_page(e10);
+  perform pg_temp.age(v_root9, 6); perform pg_temp.age(v_root10, 6);
+  v_sweep := private.sweep_pages();
+  drop trigger s19_poison on public.pages;
+  perform pg_temp.rec('the failing page is reported, not hidden', 'true', ((v_sweep ->> 'errors')::integer >= 1)::text);
+  perform pg_temp.rec('the other page was still escalated', '1', (select count(*)::text from public.pages where parent_page_id = v_root10 and role = 'backup'));
+  perform pg_temp.rec('the failing page escalated nothing and rolled back cleanly', '0,true', (select count(*)::text from public.pages where parent_page_id = v_root9) || ',' || (select (backup_paged_at is null)::text from public.pages where id = v_root9));
+  perform pg_temp.rec('an incident and an audit line record the failure', '1,true', (select count(*)::text from public.ops_incidents where external_reference = 'page_sweep_failed' and status not in ('resolved', 'closed')) || ',' || (select (count(*) >= 1)::text from public.audit_log where action = 'page_sweep.error' and entity_id = v_root9));
 end $$;
 
 -- 9. SABOTAGE ------------------------------------------------------------------------------------------------------

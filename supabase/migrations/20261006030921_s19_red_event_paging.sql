@@ -35,10 +35,31 @@ create table public.paging_config (
 );
 create unique index paging_config_one_active on public.paging_config (is_active) where is_active;
 
+-- A bad edit (one time, a string, zero) would make the comparisons null and the ladder silently stop escalating, so the
+-- shape is checked by the database itself.
+create function private.paging_rules_valid(r jsonb) returns boolean
+language plpgsql immutable set search_path = ''
+as $$
+begin
+  return jsonb_typeof(r -> 'escalation_minutes') = 'array'
+     and jsonb_array_length(r -> 'escalation_minutes') = 2
+     and (r -> 'escalation_minutes' ->> 0) ~ '^[0-9]+$' and (r -> 'escalation_minutes' ->> 1) ~ '^[0-9]+$'
+     and (r -> 'escalation_minutes' ->> 0)::integer > 0
+     and (r -> 'escalation_minutes' ->> 0)::integer < (r -> 'escalation_minutes' ->> 1)::integer
+     and (r ->> 'lead_repeat_minutes') ~ '^[0-9]+$' and (r ->> 'lead_repeat_minutes')::integer > 0
+     and (r ->> 'page_access_hours') ~ '^[0-9]+$' and (r ->> 'page_access_hours')::integer > 0;
+exception when others then
+  return false;
+end;
+$$;
+revoke all on function private.paging_rules_valid(jsonb) from public, anon, authenticated;
+alter table public.paging_config add constraint paging_config_rules_valid check (private.paging_rules_valid(rules));
+
 -- paging-rules-begin
 insert into public.paging_config (version, is_active, effective_from, rules) values (1, true, '2026-10-06', $json$
 {
   "escalation_minutes": [5, 10],
+  "lead_repeat_minutes": 5,
   "page_access_hours": 24
 }
 $json$::jsonb);
@@ -84,6 +105,7 @@ create table public.pages (
   -- timer bookkeeping on the root page: each step happens once
   backup_paged_at    timestamptz,
   lead_alerted_at    timestamptz,
+  last_lead_alert_at timestamptz,
   no_cover           boolean not null default false,
   config_version     integer not null,
   is_test            boolean not null default false,
@@ -94,6 +116,7 @@ create table public.pages (
 create unique index pages_one_root_per_event on public.pages (triage_event_id) where parent_page_id is null;
 create unique index pages_one_child_per_role on public.pages (parent_page_id, role) where parent_page_id is not null;
 create index pages_open_idx on public.pages (to_clinician_id) where closed_at is null;
+create index pages_ack_idx on public.pages (acknowledged_by) where closed_at is null and acknowledged_by is not null;
 create index pages_patient_open_idx on public.pages (patient_id) where closed_at is null;
 create index pages_sweep_idx on public.pages (sent_at) where parent_page_id is null and role = 'primary' and acknowledged_at is null and closed_at is null;
 
@@ -151,10 +174,10 @@ $$;
 revoke all on function private.page_notify(uuid, uuid, text, uuid) from public, anon, authenticated;
 
 -- The clinical lead (chief medical officer) and ops (admin) of the organisation, matched on the test flag.
-create function private.page_notify_leadership(p_org uuid, p_page uuid, p_test boolean) returns void
+create function private.page_notify_leadership(p_org uuid, p_page uuid, p_test boolean) returns integer
 language plpgsql security definer set search_path = ''
 as $$
-declare r record;
+declare r record; n integer := 0;
 begin
   for r in
     select p.id from public.profiles p where p.organisation_id = p_org and p.is_active and p.role = 'admin' and p.is_test = p_test
@@ -164,7 +187,14 @@ begin
        and cs.doctor_tier = 'chief_medical_officer' and p.is_test = p_test
   loop
     perform private.page_notify(r.id, p_org, 'on_call_escalation', p_page);
+    n := n + 1;
   end loop;
+  if n = 0 then
+    -- nobody to tell is itself an emergency, not a quiet success
+    perform private.page_incident(p_org, 'page_no_leadership', 'A red event alert had nobody to go to',
+      'A red event needed the clinical lead and ops alerted but no active chief medical officer or admin account matched. Add or activate one.');
+  end if;
+  return n;
 end;
 $$;
 revoke all on function private.page_notify_leadership(uuid, uuid, boolean) from public, anon, authenticated;
@@ -290,6 +320,7 @@ declare
   v_child uuid;
   v_backups integer := 0;
   v_leads integer := 0;
+  v_repeats integer := 0;
   v_errors integer := 0;
   v_closed integer;
   v_rule_set integer;
@@ -360,18 +391,62 @@ begin
     end;
   end loop;
 
-  -- an open page ties a clinician to the chart; it does not stay open for ever
+  -- a level 2 alert is repeated until someone acknowledges: one push to a sleeping lead is not an escalation
+  for r in
+    select * from public.pages
+     where parent_page_id is null and acknowledged_at is null and closed_at is null and lead_alerted_at is not null
+       and coalesce(last_lead_alert_at, lead_alerted_at) <= now() - make_interval(mins => (private.paging_rule('lead_repeat_minutes') #>> '{}')::integer)
+     order by sent_at for update skip locked
+  loop
+    begin
+      select coalesce((select c.id from public.pages c where c.parent_page_id = r.id and c.role = 'escalation'), r.id) into v_child;
+      perform private.page_notify_leadership(r.organisation_id, v_child, r.is_test);
+      perform set_config('tarragon.paging_write', 'on', true);
+      update public.pages set last_lead_alert_at = now() where id = r.id;
+      perform set_config('tarragon.paging_write', 'off', true);
+      v_repeats := v_repeats + 1;
+    exception when others then
+      v_errors := v_errors + 1;
+      perform set_config('tarragon.paging_write', 'off', true);
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values (r.organisation_id, 'page_sweep.error', 'page', r.id, jsonb_build_object('error', sqlerrm, 'step', 'repeat'));
+      perform private.page_incident(r.organisation_id, 'page_sweep_failed', 'Red event escalation failed for a page',
+        'The escalation timer failed for at least one red event page; see audit_log action page_sweep.error. A page may not have been escalated.');
+    end;
+  end loop;
+
+  -- an ACKNOWLEDGED page ties a clinician to the chart; it does not stay open for ever. An unacknowledged page is never closed
+  -- here: it keeps ringing and keeps being re-alerted, because quietly closing it would hide a red event nobody has seen.
   perform set_config('tarragon.paging_write', 'on', true);
   update public.pages set closed_at = now(), close_note = coalesce(close_note, 'closed automatically after the access window')
-   where closed_at is null and sent_at < now() - make_interval(hours => (private.paging_rule('page_access_hours') #>> '{}')::integer);
+   where closed_at is null and sent_at < now() - make_interval(hours => (private.paging_rule('page_access_hours') #>> '{}')::integer)
+     and exists (select 1 from public.pages root where root.id = coalesce(pages.parent_page_id, pages.id) and root.acknowledged_at is not null);
   get diagnostics v_closed = row_count;
   perform set_config('tarragon.paging_write', 'off', true);
-  return jsonb_build_object('backups', v_backups, 'leads', v_leads, 'errors', v_errors, 'closed', v_closed);
+  return jsonb_build_object('backups', v_backups, 'leads', v_leads, 'repeats', v_repeats, 'errors', v_errors, 'closed', v_closed);
 end;
 $$;
 revoke all on function private.sweep_pages() from public, anon, authenticated;
 
-select cron.schedule('sweep-pages', '* * * * *', $$ select private.sweep_pages(); $$);
+-- every 15 seconds (pg_cron 1.6 supports it, process-events already does): a minute of lag on a 5 minute ladder is 20 percent late
+select cron.schedule('sweep-pages', '15 seconds', $$ select private.sweep_pages(); $$);
+
+-- Once a clinician has acknowledged, the unacknowledged-page task is stale: cancel it unless somebody already claimed it
+-- (then they are working it and it must not be pulled from under them). A failure is audited and never undoes the acknowledgement.
+create function private.page_task_settle(p_root public.pages) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare t record;
+begin
+  for t in select id from public.clinical_tasks where dedup_key = 'page:' || p_root.id and state in ('created', 'offered_to_lead', 'open', 'escalated') loop
+    perform private.apply_task_transition(t.id, 'cancelled', 'lead', null, 'the red event page was acknowledged by a clinician');
+  end loop;
+exception when others then
+  insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+    values (p_root.organisation_id, 'page_task_settle.error', 'page', p_root.id, jsonb_build_object('error', sqlerrm));
+end;
+$$;
+revoke all on function private.page_task_settle(public.pages) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 7. Acknowledge, close, read
@@ -397,6 +472,7 @@ begin
   perform set_config('tarragon.paging_write', 'on', true);
   update public.pages set acknowledged_at = now(), acknowledged_by = v_uid where coalesce(parent_page_id, id) = root.id and acknowledged_at is null;
   perform set_config('tarragon.paging_write', 'off', true);
+  perform private.page_task_settle(root);
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values (root.organisation_id, v_uid, 'page.acknowledged', 'page', root.id, jsonb_build_object('seconds_after_sent', extract(epoch from now() - root.sent_at)::integer));
   perform private.emit_domain_event('page.acknowledged', root.organisation_id, jsonb_build_object('page_id', root.id),
@@ -431,15 +507,15 @@ begin
 end;
 $$;
 
--- The caller's open pages. The patient reference is returned only to a clinician the page was sent to or who acknowledged
--- it (the chief medical officer sees an unacknowledged level 2 row without one until they acknowledge).
+-- The caller's open pages. The patient reference is returned only to the clinician who acknowledged the event: being paged
+-- gives no chart access (INV-12), so it gives no patient reference either.
 create function public.my_active_pages() returns table (
   page_id uuid, root_id uuid, role public.page_role, escalation_level smallint, sent_at timestamptz,
   acknowledged_at timestamptz, patient_id uuid, seconds_waiting integer)
 language sql stable security definer set search_path = ''
 as $$
   select pg.id, root.id, pg.role, pg.escalation_level, pg.sent_at, root.acknowledged_at,
-         case when pg.to_clinician_id = (select auth.uid()) or root.acknowledged_by = (select auth.uid()) then pg.patient_id end,
+         case when root.acknowledged_by = (select auth.uid()) then pg.patient_id end,
          extract(epoch from now() - root.sent_at)::integer
     from public.pages pg join public.pages root on root.id = coalesce(pg.parent_page_id, pg.id)
    where pg.closed_at is null
@@ -528,11 +604,12 @@ as $$
              or (ct.state in ('claimed', 'escalated') and ct.claimed_by = (select auth.uid()))
            )
       )
-      -- an open red event page sent to me or acknowledged by me (S19, INV-12); closed pages and pages past the access window do not count
+      -- an open red event page I have ACKNOWLEDGED (S19, INV-12): being paged is not enough, taking responsibility is; closed
+      -- pages and pages past the access window do not count
       or exists (
         select 1 from public.pages pg
          where pg.patient_id = p_patient and pg.closed_at is null
-           and (select auth.uid()) in (pg.to_clinician_id, pg.acknowledged_by)
+           and pg.acknowledged_by = (select auth.uid())
       )
       -- an open specialist referral assigned to me
       or exists (

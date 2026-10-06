@@ -713,3 +713,18 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Not in the spec: a patient asking for a different lead, or a clinician asking to be released from a patient for a non-conflict reason.
 - Options: (a) clinical-lead-only action with a reason, audited, ending reason `patient_request` or `clinician_request` (recommended); (b) self-serve.
 - Decision (founder): pending. S18 proceeds with (a).
+
+### OQ-131 Chart access starts at acknowledgement, not at the page (raised by S19)
+- Spec INV-12 says a clinician sees patients for whom they hold "an on-call page". A paged clinician who has not answered has taken no responsibility, so S19 ties them to the chart only once they acknowledge.
+- Options: (a) access from acknowledgement (recommended, built); (b) access from the moment of the page, so a clinician can look before acknowledging.
+- Decision (founder): pending. S19 proceeds with (a).
+
+### OQ-132 What a red page should say to Care Circle supporters and the clinical lead's review (raised by S19)
+- The spec's red event table also notifies Care Circle members with `red_alerts` and creates an incident review task for the clinical lead. S19 builds the page and the escalation only.
+- Options: (a) Care Circle notices in S29 and the review task in S20 (recommended); (b) pull them into S19 now.
+- Decision (founder): pending. S19 proceeds with (a).
+
+### OQ-133 Acknowledgement targets and how long the lead is re-alerted (raised by S19)
+- 5 and 10 minutes (spec) and a 5 minute repeat of the lead alert are PROPOSED numbers with no Nigerian benchmark. No re-alert ever reaches a person after the clinical lead and ops if all of them are away.
+- Options: (a) ship the numbers, CMO to set them in `paging_config` (recommended); (b) add a third rung (a named deputy or the founder) with its own phone.
+- Decision (founder): pending. S19 proceeds with (a).
