@@ -479,7 +479,11 @@ export async function handleWebhookRequest(
     return Response.json({ ok: false, error: "refund_unidentifiable" }, { status: 200 });
   }
 
+  // S31: a transfer's events share one reference (success, then possibly reversed). Keyed by the reference alone, the reversal of a
+  // payout would be dropped as a replay of the success, so a transfer event is keyed by its type as well.
+  const isTransferEvent = typeof event.event === "string" && event.event.startsWith("transfer.") && typeof event.data?.reference === "string";
   const providerEventId = (refundKey !== null ? refundProviderEventId(event.event, refundKey) : null) ??
+    (isTransferEvent ? `${event.event}:${event.data.reference}` : null) ??
     (event.data?.reference ??
       (event.data?.id !== undefined ? String(event.data.id) : null) ??
       event.data?.subscription_code ??
@@ -1146,6 +1150,34 @@ export async function handleWebhookRequest(
           organisationId = original?.organisation_id ?? null;
         }
         await markProcessed(organisationId ? { organisation_id: organisationId } : {});
+        break;
+      }
+
+      case "transfer.success":
+      case "transfer.failed":
+      case "transfer.reversed": {
+        // S31: a clinician payout. The database decides what the event means (idempotent, order tolerant, never invents a
+        // state); a reference that is not ours (a transfer made some other way) is ignored. Nothing here posts to the ledger.
+        const reference = event.data.reference;
+        if (!reference) {
+          await markFailed("transfer event without a reference");
+          break;
+        }
+        const { data: applied, error: applyError } = await supabase.rpc("apply_payout_transfer_event", {
+          p_event: event.event,
+          p_reference: reference,
+          p_transfer_code: (event.data as { transfer_code?: string }).transfer_code ?? null,
+          p_reason: (event.data as { reason?: string }).reason ?? null,
+        });
+        if (applyError) {
+          // Not recorded as handled: the event row is removed so Paystack's redelivery (or a manual resend) is applied, not
+          // dropped as a replay. A lost transfer.success or transfer.reversed would otherwise leave a payout wrong for good.
+          console.error("paystack-webhook: apply_payout_transfer_event failed", applyError);
+          await supabase.from("payment_transactions").delete().eq("id", txnRow.id);
+          return Response.json({ ok: false, error: "transfer_event_not_applied" }, { status: 500 });
+        }
+        console.log("paystack-webhook: transfer event", { event: event.event, result: (applied as { result?: string } | null)?.result });
+        await markProcessed();
         break;
       }
 

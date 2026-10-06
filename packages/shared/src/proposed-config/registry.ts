@@ -904,6 +904,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S30.md; spec 7.7 and 17",
   },
   {
+    key: "payouts.rules",
+    // The rules of the weekly payout run (S31, spec 7.7). Live value is the active row of `payouts_config`; a test fails if the
+    // migration seed and this value drift. The minimum is a floor below which earnings carry over to the next week.
+    value: {
+      cadence: { weekday: 1, hour_lagos: 6 },
+      minimum_payout_kobo: 100000,
+      carry_over_below_minimum: true,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S31.md; spec 7.7",
+  },
+  {
     key: "queue.task_types",
     // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
     // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default

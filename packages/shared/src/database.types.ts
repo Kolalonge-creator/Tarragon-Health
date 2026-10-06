@@ -14,6 +14,331 @@ export type Database = {
   }
   public: {
     Tables: {
+      clinician_bank_accounts: {
+        Row: {
+          account_last4: string
+          bank_code: string
+          bank_name: string
+          bank_verified_at: string | null
+          clinician_id: string
+          created_at: string
+          id: string
+          is_test: boolean
+          name_match: string
+          organisation_id: string
+          recipient_code: string | null
+          resolved_name: string
+          superseded_at: string | null
+          verified_name: string
+        }
+        Insert: {
+          account_last4: string
+          bank_code: string
+          bank_name: string
+          bank_verified_at?: string | null
+          clinician_id: string
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          name_match: string
+          organisation_id: string
+          recipient_code?: string | null
+          resolved_name: string
+          superseded_at?: string | null
+          verified_name: string
+        }
+        Update: {
+          account_last4?: string
+          bank_code?: string
+          bank_name?: string
+          bank_verified_at?: string | null
+          clinician_id?: string
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          name_match?: string
+          organisation_id?: string
+          recipient_code?: string | null
+          resolved_name?: string
+          superseded_at?: string | null
+          verified_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinician_bank_accounts_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_bank_accounts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinician_tax_profiles: {
+        Row: {
+          clinician_id: string
+          contractor_status: string
+          note: string | null
+          organisation_id: string
+          registered_name: string | null
+          tin: string | null
+          updated_at: string
+          vat_registered: boolean
+        }
+        Insert: {
+          clinician_id: string
+          contractor_status?: string
+          note?: string | null
+          organisation_id: string
+          registered_name?: string | null
+          tin?: string | null
+          updated_at?: string
+          vat_registered?: boolean
+        }
+        Update: {
+          clinician_id?: string
+          contractor_status?: string
+          note?: string | null
+          organisation_id?: string
+          registered_name?: string | null
+          tin?: string | null
+          updated_at?: string
+          vat_registered?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinician_tax_profiles_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_tax_profiles_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payout_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          detail: string | null
+          from_state: string | null
+          id: number
+          payout_id: string
+          source: string
+          to_state: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: string | null
+          from_state?: string | null
+          id?: never
+          payout_id: string
+          source: string
+          to_state: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: string | null
+          from_state?: string | null
+          id?: never
+          payout_id?: string
+          source?: string
+          to_state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_events_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "payouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payout_transfers: {
+        Row: {
+          attempt: number
+          created_at: string
+          id: string
+          payout_id: string
+          paystack_transfer_code: string | null
+          reason: string | null
+          reference: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          attempt: number
+          created_at?: string
+          id?: string
+          payout_id: string
+          paystack_transfer_code?: string | null
+          reason?: string | null
+          reference: string
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt?: number
+          created_at?: string
+          id?: string
+          payout_id?: string
+          paystack_transfer_code?: string | null
+          reason?: string | null
+          reference?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_transfers_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "payouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payouts: {
+        Row: {
+          amount_kobo: number
+          approved_at: string | null
+          approved_by: string | null
+          bank_account_id: string | null
+          clinician_id: string
+          created_at: string
+          failure_reason: string | null
+          id: string
+          is_test: boolean
+          line_count: number
+          organisation_id: string
+          payouts_config_id: string
+          paystack_transfer_code: string | null
+          period_end: string
+          period_start: string
+          recipient_code: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          amount_kobo: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_id?: string | null
+          clinician_id: string
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          is_test?: boolean
+          line_count: number
+          organisation_id: string
+          payouts_config_id: string
+          paystack_transfer_code?: string | null
+          period_end: string
+          period_start: string
+          recipient_code?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_kobo?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_id?: string | null
+          clinician_id?: string
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          is_test?: boolean
+          line_count?: number
+          organisation_id?: string
+          payouts_config_id?: string
+          paystack_transfer_code?: string | null
+          period_end?: string
+          period_start?: string
+          recipient_code?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payouts_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payouts_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payouts_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payouts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payouts_payouts_config_id_fkey"
+            columns: ["payouts_config_id"]
+            isOneToOne: false
+            referencedRelation: "payouts_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payouts_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
+        }
+        Relationships: []
+      }
       task_types: {
         Row: {
           claim_timeout_minutes: number
@@ -41983,9 +42308,25 @@ export type Database = {
       release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };
       team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
       withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
+      apply_payout_transfer_event: {
+        Args: {
+          p_event: string
+          p_reason?: string
+          p_reference: string
+          p_transfer_code: string
+        }
+        Returns: Json
+      }
       approve_fee_schedule: { Args: { p_id: string; p_note?: string }; Returns: Json }
+      approve_payout: { Args: { p_id: string }; Returns: Json }
+      attach_bank_recipient: {
+        Args: { p_account: string; p_recipient_code: string }
+        Returns: Json
+      }
+      build_payout_drafts_now: { Args: { p_force?: boolean }; Returns: number }
       create_fee_schedule_draft: { Args: { p_items?: Json; p_note?: string }; Returns: string }
       discard_fee_schedule_draft: { Args: { p_id: string }; Returns: undefined }
+      discard_payout_draft: { Args: { p_id: string }; Returns: undefined }
       earnings_admin_summary: {
         Args: { p_from?: string; p_include_test?: boolean; p_to?: string }
         Returns: {
@@ -42010,6 +42351,7 @@ export type Database = {
           task_type: string
         }[]
       }
+      go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
       list_fee_schedules: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -42023,11 +42365,62 @@ export type Database = {
           version: number
         }[]
       }
+      list_payouts: {
+        Args: { p_state?: string }
+        Returns: {
+          amount_kobo: number
+          approved_at: string
+          bank_ready: boolean
+          clinician_id: string
+          clinician_name: string
+          created_at: string
+          failure_reason: string
+          id: string
+          line_count: number
+          period_end: string
+          period_start: string
+          reference: string
+          state: string
+        }[]
+      }
       my_earnings_summary: { Args: { p_from?: string; p_to?: string }; Returns: Json }
       my_fee_schedule: { Args: Record<PropertyKey, never>; Returns: Json }
+      my_payout_overview: { Args: never; Returns: Json }
+      payout_bank_check_allowed: { Args: never; Returns: undefined }
+      payout_prepare_send: { Args: { p_id: string }; Returns: Json }
+      payout_record_send: {
+        Args: {
+          p_error?: string
+          p_reference: string
+          p_status: string
+          p_transfer_code: string
+        }
+        Returns: Json
+      }
       post_earnings_adjustment: {
         Args: { p_amount_kobo: number; p_clinician: string; p_corrects?: string; p_reason: string; p_request_id?: string }
         Returns: string
+      }
+      record_bank_resolution: {
+        Args: {
+          p_bank_code: string
+          p_bank_name: string
+          p_clinician: string
+          p_last4: string
+          p_resolved_name: string
+        }
+        Returns: Json
+      }
+      retry_payout: { Args: { p_id: string }; Returns: Json }
+      save_my_tax_profile: {
+        Args: {
+          p_note?: string
+          p_registered_name: string
+          p_status: string
+          p_tin: string
+          p_vat: boolean
+        }
+        Returns: undefined
       }
       update_fee_schedule_draft: { Args: { p_id: string; p_items: Json; p_note?: string }; Returns: undefined }
       abnormal_result_dashboard_counts: {
