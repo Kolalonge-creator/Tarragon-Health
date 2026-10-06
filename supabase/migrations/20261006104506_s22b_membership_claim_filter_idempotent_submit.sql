@@ -71,6 +71,10 @@ begin
   end if;
   if char_length(btrim(coalesce(p_reason, ''))) < 10 then raise exception 'membership_reason_needed' using errcode = '22023'; end if;
   if p_ends_at is not null and p_ends_at <= now() then raise exception 'membership_end_in_past' using errcode = '22023'; end if;
+  -- a dated membership that has run out is closed here, so renewing it is not blocked by its own expired row
+  update public.patient_memberships
+     set state = 'ended', ended_at = now(), end_reason = 'Lapsed on its end date, closed automatically'
+   where patient_id = p_patient and state = 'active' and ends_at is not null and ends_at <= now();
   if exists (select 1 from public.patient_memberships where patient_id = p_patient and state = 'active') then
     raise exception 'membership_already_active' using errcode = 'P0001';
   end if;

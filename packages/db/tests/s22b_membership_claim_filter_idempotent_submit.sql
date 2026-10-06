@@ -196,6 +196,11 @@ begin
   perform pg_temp.ck('...and counts while it runs', 'true', (select private.patient_is_member(pg_temp.f('pat2'))::text));
   update public.patient_memberships set starts_at = now() - interval '2 hours', ends_at = now() - interval '1 hour' where patient_id = pg_temp.f('pat2');
   perform pg_temp.ck('...and stops counting after its end date, with nobody doing anything', 'false', (select private.patient_is_member(pg_temp.f('pat2'))::text));
+  perform pg_temp.ck('a lapsed membership can be renewed (not blocked as still active)', 'ok',
+    pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, null, 'Renewed after the dated pilot membership ended')$q$, pg_temp.f('pat2'))));
+  perform pg_temp.ck('...and the patient is a member again', 'true', (select private.patient_is_member(pg_temp.f('pat2'))::text));
+  perform pg_temp.ck('...with the lapsed row closed, not deleted', '1',
+    (select count(*)::text from public.patient_memberships where patient_id = pg_temp.f('pat2') and state = 'ended' and end_reason like 'Lapsed%'));
 end $$;
 
 -- 2. queue_next asks for its own types ----------------------------------------------------------------------------------
