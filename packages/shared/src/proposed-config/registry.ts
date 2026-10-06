@@ -573,6 +573,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     //  clinicianNoShowWaitMinutes, patientNoShowWaitMinutes: how long after the start time before a no-show can be marked.
     //  sessionMinutes: planned length; the clock pauses during reconnect grace.
     //  flagWindowDays: how long after a consultation the patient can flag a problem for human review.
+    //  joinOpensMinutesBefore, joinClosesMinutesAfter: the window around the start time in which a room can be joined.
     value: {
       minAgeYears: 18,
       requireDateOfBirth: true,
@@ -584,6 +585,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       patientNoShowWaitMinutes: 10,
       sessionMinutes: 30,
       flagWindowDays: 3,
+      joinOpensMinutesBefore: 15,
+      joinClosesMinutesAfter: 60,
     },
     owner: "Founder",
     status: "proposed",

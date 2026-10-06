@@ -14,7 +14,9 @@
 --      and keeps only whitelisted keys, completion closes the appointment and emits the event.
 --   7. Cancellation (OQ-127): in time returns the credit, late keeps it, a clinician cancel always returns it.
 --   8. No-shows: too early is refused, a clinician no-show returns the credit, a patient no-show keeps it.
---   9. SABOTAGE: with the adult gate trigger dropped, and with the adult check emptied, a minor gets through.
+--   8b. Service functions: only service_role can call them; the join window; the room opens once; events keep only whitelisted keys.
+--   9. SABOTAGE: with the adult gate trigger dropped, with the adult check emptied, a minor gets through; with the room lookup
+--      granted to signed-in users, a patient can call it.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -36,6 +38,11 @@ $f$ begin
   set local role anon;
 end $f$;
 create function pg_temp.back() returns void language plpgsql as $f$ begin reset role; end $f$;
+create function pg_temp.act_service() returns void language plpgsql as
+$f$ begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  set local role service_role;
+end $f$;
 create function pg_temp.mkuser(p_org uuid, p_label text, p_role text, p_dob date) returns uuid
 language plpgsql as $f$
 declare v uuid := gen_random_uuid();
@@ -81,6 +88,7 @@ declare
   v_admin uuid; v_docA uuid; v_docB uuid;
   v_adult uuid; v_minor uuid; v_nodob uuid; v_stranger uuid; v_adult2 uuid; v_adult3 uuid; v_adult4 uuid;
   v_cr1 uuid; v_cr2 uuid; v_cr3 uuid; v_cr4 uuid; v_cr5 uuid; v_cr6 uuid;
+  v_a7 uuid; v_a8 uuid; v_e7 uuid; v_e8 uuid; v_room jsonb;
   v_a1 uuid; v_a2 uuid; v_a3 uuid; v_a4 uuid; v_a5 uuid; v_a6 uuid;
   v_e1 uuid; v_e2 uuid; v_e3 uuid; v_e4 uuid; v_e5 uuid; v_e6 uuid;
   v_start timestamptz := date_trunc('hour', now()) + interval '3 days' + interval '9 hours';
@@ -277,10 +285,53 @@ begin
   perform pg_temp.rec('...the credit stays spent', '1', pg_temp.credits_on(v_a6));
   perform pg_temp.rec('...the appointment is a no-show', 'no_show', (select status::text from public.appointments where id = v_a6));
 
+  -- 8b. Service functions (part 2): the join window, open the room once, record events -------------------------
+  perform pg_temp.mkcredit(v_adult);
+  v_a7 := pg_temp.book(v_adult, v_docA, now() + interval '10 minutes');
+  select id into v_e7 from public.encounters where appointment_id = v_a7;
+  perform pg_temp.mkcredit(v_adult3);
+  v_a8 := pg_temp.book(v_adult3, v_docA, v_start + interval '7 days');
+  select id into v_e8 from public.encounters where appointment_id = v_a8;
+
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('a signed-in patient cannot call the room lookup', '42501', pg_temp.try(format('select public.service_get_encounter_room(%L)', v_e7)));
+  perform pg_temp.rec('...nor open a room', '42501', pg_temp.try(format('select public.service_open_encounter_room(%L, ''mock'', ''room_x'', now() + interval ''1 hour'')', v_e7)));
+  perform pg_temp.rec('...nor record a service event', '42501', pg_temp.try(format('select public.service_record_encounter_event(%L, ''phone_connected'', ''system'')', v_e7)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('a clinician cannot call them either', '42501', pg_temp.try(format('select public.service_get_encounter_room(%L)', v_e7)));
+  perform pg_temp.back();
+  perform pg_temp.act_anon();
+  perform pg_temp.rec('anon cannot call them', '42501', pg_temp.try(format('select public.service_get_encounter_room(%L)', v_e7)));
+  perform pg_temp.back();
+
+  perform pg_temp.act_service();
+  perform pg_temp.rec('a consultation starting in 10 minutes is joinable, with no room yet', 'true/true',
+    (public.service_get_encounter_room(v_e7) ->> 'joinable') || '/' || ((public.service_get_encounter_room(v_e7) -> 'room' ->> 'provider_room_id') is null)::text);
+  perform pg_temp.rec('one starting in 7 days is not joinable yet', 'false', public.service_get_encounter_room(v_e8) ->> 'joinable');
+  perform pg_temp.rec('a completed consultation is not joinable', 'false', public.service_get_encounter_room(v_e1) ->> 'joinable');
+  perform pg_temp.rec('a cancelled one is not joinable', 'false', public.service_get_encounter_room((select id from public.encounters where appointment_id = v_a2)) ->> 'joinable');
+  perform pg_temp.rec('an unknown encounter answers null', 'true', (public.service_get_encounter_room(gen_random_uuid()) is null)::text);
+  perform pg_temp.rec('the lookup never carries a join or host URL', 'false', (public.service_get_encounter_room(v_e7)::text ~ 'https?://')::text);
+  v_room := public.service_open_encounter_room(v_e7, 'mock', 'room_first', now() + interval '40 minutes');
+  perform pg_temp.rec('the first call opens the room', 'true/room_first/open', (v_room ->> 'created') || '/' || (v_room ->> 'provider_room_id') || '/' || (v_room ->> 'state'));
+  v_room := public.service_open_encounter_room(v_e7, 'mock', 'room_second', now() + interval '40 minutes');
+  perform pg_temp.rec('a second call returns the first room and says it did not create one', 'false/room_first', (v_room ->> 'created') || '/' || (v_room ->> 'provider_room_id'));
+  perform pg_temp.rec('an unknown provider is refused', '22023', pg_temp.try(format('select public.service_open_encounter_room(%L, ''bogus'', ''r'', now())', v_e8)));
+  perform pg_temp.rec('an empty room id is refused', '22023', pg_temp.try(format('select public.service_open_encounter_room(%L, ''zoom'', '''', now())', v_e8)));
+  perform pg_temp.rec('opening a room for no encounter is refused', 'P0002', pg_temp.try(format('select public.service_open_encounter_room(%L, ''zoom'', ''r'', now())', gen_random_uuid())));
+  perform public.service_record_encounter_event(v_e7, 'phone_connected', 'system', '{"mode":"phone","full_name":"Nope","bitrate_kbps":0}'::jsonb);
+  perform pg_temp.rec('a service event is logged with only the whitelisted keys', 'phone/false',
+    (select (payload ->> 'mode') || '/' || (payload ? 'full_name')::text from public.encounter_events where encounter_id = v_e7 and kind = 'phone_connected'));
+  perform pg_temp.rec('a service event cannot be a completion', '22023', pg_temp.try(format('select public.service_record_encounter_event(%L, ''completed'', ''system'')', v_e7)));
+  perform pg_temp.rec('...nor have an unknown actor', '22023', pg_temp.try(format('select public.service_record_encounter_event(%L, ''joined'', ''admin'')', v_e7)));
+  perform pg_temp.rec('...nor target an unknown encounter', 'P0002', pg_temp.try(format('select public.service_record_encounter_event(%L, ''joined'', ''system'')', gen_random_uuid())));
+  perform pg_temp.back();
+
   -- 9. Grants -------------------------------------------------------------------------------------------------
   perform pg_temp.rec('anon cannot run any consultation function', '0',
     (select count(*)::text from pg_proc p where p.pronamespace = 'public'::regnamespace
-       and p.proname in ('report_encounter_event', 'complete_encounter', 'mark_encounter_no_show', 'open_scribe_prompt', 'record_scribe_consent', 'scribe_may_start', 'my_consultation_rule')
+       and p.proname in ('report_encounter_event', 'complete_encounter', 'mark_encounter_no_show', 'open_scribe_prompt', 'record_scribe_consent', 'scribe_may_start', 'my_consultation_rule', 'service_get_encounter_room', 'service_open_encounter_room', 'service_record_encounter_event')
        and has_function_privilege('anon', p.oid, 'EXECUTE')));
   perform pg_temp.rec('authenticated cannot run the private helpers', '0',
     (select count(*)::text from pg_proc p where p.pronamespace = 'private'::regnamespace
@@ -305,6 +356,12 @@ begin
   insert into results values ('sabotaged', 'a minor cannot hold a remote consultation', 'P0001',
     pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '6 days', v_start + interval '6 days' + interval '30 minutes')));
   perform pg_temp.back();
+  -- (c) the room lookup is granted to signed-in users: a patient can now call it
+  grant execute on function public.service_get_encounter_room(uuid) to authenticated;
+  perform pg_temp.act(v_adult);
+  insert into results values ('sabotaged', 'a signed-in patient cannot call the room lookup', '42501',
+    pg_temp.try(format('select public.service_get_encounter_room(%L)', v_e7)));
+  perform pg_temp.back();
 end $$;
 
 do $$
@@ -317,8 +374,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 2 then
-    raise exception 'VACUOUS TEST: expected both sabotage runs to change a check, only % did', v_caught;
+  if v_caught < 3 then
+    raise exception 'VACUOUS TEST: expected all three sabotage runs to change a check, only % did', v_caught;
   end if;
 end $$;
 

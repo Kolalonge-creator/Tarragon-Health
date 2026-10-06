@@ -35,7 +35,7 @@ create table public.consultation_policy_config (
 );
 create unique index consultation_policy_config_one_active on public.consultation_policy_config ((true)) where is_active;
 comment on table public.consultation_policy_config is
-  'PROPOSED consultation rules: minAgeYears, requireDateOfBirth, cancelWindowHours, lateCancelCreditReturned, holdMinutes, reconnectGraceSeconds, clinicianNoShowWaitMinutes, patientNoShowWaitMinutes, sessionMinutes, flagWindowDays. Mirrored in packages/shared proposed-config as consultations.policy. A change is a new row (INV-16).';
+  'PROPOSED consultation rules: minAgeYears, requireDateOfBirth, cancelWindowHours, lateCancelCreditReturned, holdMinutes, reconnectGraceSeconds, clinicianNoShowWaitMinutes, patientNoShowWaitMinutes, sessionMinutes, flagWindowDays, joinOpensMinutesBefore, joinClosesMinutesAfter. Mirrored in packages/shared proposed-config as consultations.policy. A change is a new row (INV-16).';
 alter table public.consultation_policy_config enable row level security;
 create policy consultation_policy_config_read on public.consultation_policy_config
   for select to authenticated using (true);
@@ -44,7 +44,7 @@ grant select on public.consultation_policy_config to authenticated;
 -- policy-v1-begin
 insert into public.consultation_policy_config (version, is_active, config, note) values
   (1, true,
-   $json${"minAgeYears":18,"requireDateOfBirth":true,"cancelWindowHours":2,"lateCancelCreditReturned":false,"holdMinutes":10,"reconnectGraceSeconds":120,"clinicianNoShowWaitMinutes":15,"patientNoShowWaitMinutes":10,"sessionMinutes":30,"flagWindowDays":3}$json$::jsonb,
+   $json${"minAgeYears":18,"requireDateOfBirth":true,"cancelWindowHours":2,"lateCancelCreditReturned":false,"holdMinutes":10,"reconnectGraceSeconds":120,"clinicianNoShowWaitMinutes":15,"patientNoShowWaitMinutes":10,"sessionMinutes":30,"flagWindowDays":3,"joinOpensMinutesBefore":15,"joinClosesMinutesAfter":60}$json$::jsonb,
    'S21 PROPOSED: adults only, full credit back when the patient cancels 2 hours or more before, clinician cancel or no-show always returns it.');
 -- policy-v1-end
 
