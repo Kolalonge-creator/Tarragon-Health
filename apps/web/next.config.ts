@@ -71,26 +71,44 @@ const supabaseWebSocketOrigin = supabaseOrigin.replace(/^https:/, "wss:");
 //   carry `import "server-only"` or an explicit "never import from a 'use
 //   client' file" comment and run on the Node/Edge server, never the
 //   browser, so they need no CSP entry either.
-const cspDirectives = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: " + supabaseOrigin,
-  "font-src 'self'",
-  [
-    "connect-src 'self'",
-    supabaseOrigin,
-    supabaseWebSocketOrigin,
-    "https://*.ingest.us.sentry.io",
-    "https://*.ingest.de.sentry.io",
-    "https://*.ingest.sentry.io",
-  ].join(" "),
-  `frame-src ${supabaseOrigin} https://www.youtube-nocookie.com`,
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'self'",
-].join("; ");
+// The in-app Zoom call (S21 follow-up, OQ-136) needs more than the rest of the app, so the extra allowances are added ONLY on the two
+// consultation routes (see headers() below) and nowhere else. They are Zoom's own hosts: its Meeting SDK script and assets
+// (source.zoom.us), its signalling and media over https and wss (*.zoom.us, and *.zoom.com for its new domain), blob: for the media
+// and workers the SDK creates, and 'wasm-unsafe-eval' for its WebAssembly media engine (not 'unsafe-eval': nothing in the SDK
+// bundle was found to need it, and if a live test shows otherwise the call falls back to the link and this is where to look).
+// Cross-origin isolation (COOP/COEP) is deliberately NOT turned on: it would break every other embed on these pages, and without it
+// the SDK simply runs without SharedArrayBuffer (no gallery view, lower send resolution), which a one-to-one consultation does not need.
+const zoomHosts = "https://*.zoom.us https://*.zoom.com";
+function buildCsp(opts: { inAppCall: boolean }): string {
+  const call = opts.inAppCall;
+  return [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'" + (call ? ` 'wasm-unsafe-eval' ${zoomHosts} blob:` : ""),
+    "style-src 'self' 'unsafe-inline'" + (call ? ` ${zoomHosts}` : ""),
+    "img-src 'self' data: blob: " + supabaseOrigin + (call ? ` ${zoomHosts}` : ""),
+    "font-src 'self'" + (call ? ` data: ${zoomHosts}` : ""),
+    call ? `media-src 'self' blob: ${zoomHosts}` : "",
+    call ? "worker-src 'self' blob:" : "",
+    [
+      "connect-src 'self'",
+      supabaseOrigin,
+      supabaseWebSocketOrigin,
+      "https://*.ingest.us.sentry.io",
+      "https://*.ingest.de.sentry.io",
+      "https://*.ingest.sentry.io",
+      ...(call ? [zoomHosts, "wss://*.zoom.us", "wss://*.zoom.com"] : []),
+    ].join(" "),
+    `frame-src ${supabaseOrigin} https://www.youtube-nocookie.com` + (call ? ` ${zoomHosts}` : ""),
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+  ]
+    .filter((d) => d.length > 0)
+    .join("; ");
+}
+const cspDirectives = buildCsp({ inAppCall: false });
+const consultationCspDirectives = buildCsp({ inAppCall: true });
 
 const nextConfig: NextConfig = {
   // In a monorepo, trace files from the repo root so shared workspace
@@ -185,6 +203,13 @@ const nextConfig: NextConfig = {
           },
           { key: "Content-Security-Policy", value: cspDirectives },
         ],
+      },
+      {
+        // The consultation rooms only. Declared after the rule above on purpose: when two rules set the same header on one path, the
+        // last one wins (Next's "Header Overriding Behavior"), so these two routes get the wider policy and everything else keeps the
+        // strict one.
+        source: "/(patient|clinician)/consultation/:encounterId",
+        headers: [{ key: "Content-Security-Policy", value: consultationCspDirectives }],
       },
     ];
   },

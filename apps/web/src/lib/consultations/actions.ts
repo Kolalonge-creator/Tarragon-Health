@@ -3,8 +3,9 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { joinConsultation, requestDialIn, type DialInOutcome, type JoinOutcome, type RoomDeps, type RpcClient } from "./room";
+import { joinConsultation, prepareSdkJoin, reportCallEvent, requestDialIn, type CallEventReport, type DialInOutcome, type JoinOutcome, type RoomDeps, type RpcClient, type SdkJoinOutcome } from "./room";
 import { videoProvider } from "./providers";
+import { participantKeySecret, presenceFromWebhook } from "./call-config";
 
 /**
  * S21 server actions shared by the patient and clinician consultation pages. Each one checks the signed-in person first and
@@ -41,6 +42,33 @@ export async function joinConsultationAction(encounterId: string, media: "video"
   if (!id.success || !m.success) return { ok: false, reason: "not_found" };
   const d = await deps();
   return isFail(d) ? d : joinConsultation(d, id.data, m.data);
+}
+
+/**
+ * What the in-app Zoom client needs to enter the room, for the signed-in participant only. Never stored. Any failure here is a code the
+ * page answers by falling back to the link, so the room always works (including when the Meeting SDK keys are not set).
+ */
+export async function prepareSdkJoinAction(encounterId: string, media: "video" | "audio_only"): Promise<SdkJoinOutcome | Fail> {
+  const id = idSchema.safeParse(encounterId);
+  const m = mediaSchema.safeParse(media);
+  if (!id.success || !m.success) return { ok: false, reason: "not_found" };
+  const d = await deps();
+  return isFail(d) ? d : prepareSdkJoin(d, id.data, m.data, { participantKeySecret: participantKeySecret(), presenceFromWebhook: presenceFromWebhook() });
+}
+
+const callEventSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("mode_changed"), mode: z.enum(["video", "audio_only"]) }),
+  z.object({ kind: z.literal("reconnect_grace_started") }),
+  z.object({ kind: z.literal("fallback_offered") }),
+]);
+
+/** The person's own client reports a mode change or a held-place moment. The database decides whether it is accepted; a refusal comes back as not ok. */
+export async function reportCallEventAction(encounterId: string, report: CallEventReport): Promise<{ ok: boolean }> {
+  const id = idSchema.safeParse(encounterId);
+  const r = callEventSchema.safeParse(report);
+  if (!id.success || !r.success) return { ok: false };
+  const d = await deps();
+  return isFail(d) ? { ok: false } : reportCallEvent(d, id.data, r.data);
 }
 
 /** The numbers and passcode to ring into this consultation by phone. Returned to the signed-in participant only, never stored. */

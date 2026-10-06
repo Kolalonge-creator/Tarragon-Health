@@ -12,8 +12,9 @@ import { asVideoRole, MAX_TOKEN_TTL_SECONDS, type DialInNumber, type VideoEvent,
  * Zoom specifics worth knowing:
  * - Rooms are scheduled meetings with the waiting room on and join-before-host off. The topic is a fixed neutral string.
  * - A join token is a Meeting SDK signature (HS256 JWT): role 1 (host) for a clinician, 0 for everyone else.
- * - Zoom takes a participant's display label from the client SDK, not from the token. The app must join with the role
- *   word ("patient", "clinician", "observer") as the label, so webhook events can be mapped back to a role without a name.
+ * - Zoom takes a participant's display label from the client SDK, not from the token. The app joins with the role word
+ *   ("patient", "clinician") as the label so no name reaches Zoom, but a label is chosen by the client and proves nothing: who
+ *   actually entered is proved by the `customerKey` the server issues (see consultation-call.ts).
  * - Zoom's webhooks carry presence and meeting end, but not connection quality. Quality samples come from the client
  *   SDK on the device and are handed to `subscribe` handlers by the app.
  */
@@ -108,7 +109,8 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       const endsAtMs = meetingEnd(d);
       if (endsAtMs === null) return fail("bad_response", "Zoom sent an unexpected meeting reply");
       if (endsAtMs <= now()) return fail("conflict", "Room is closed", false);
-      const iat = Math.floor(now() / 1000);
+      // Zoom asks for an issue time a little in the past so a device clock that runs slow is still accepted.
+      const iat = Math.floor(now() / 1000) - 30;
       const expiresAtMs = Math.min(now() + input.ttlSeconds * 1000, endsAtMs);
       const exp = Math.floor(expiresAtMs / 1000);
       const sdkKey = config.sdkKey;
@@ -121,7 +123,17 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
         exp,
         tokenExp: exp,
       });
-      return ok({ token, expiresAtMs });
+      // The web SDK asks for the room's passcode on join. It is in the meeting we just read, never stored.
+      const pass = d?.["password"];
+      const password = typeof pass === "string" && pass.length > 0 ? pass : undefined;
+      if (input.role !== "clinician") return ok({ token, expiresAtMs, ...(password ? { password } : {}) });
+      // The clinician hosts the room (the meeting is owned by the service account), and an SDK host needs the owner's start key.
+      // It lasts as long as the token and no longer, and is only ever returned for the clinician role.
+      const zak = await call("GET", `/users/me/token?type=zak&ttl=${Math.max(1, Math.ceil((expiresAtMs - now()) / 1000))}`);
+      if (!zak.ok) return zak;
+      const zakToken = asObject(zak.data)?.["token"];
+      if (typeof zakToken !== "string" || zakToken.length === 0) return fail("bad_response", "Zoom sent an unexpected host key reply");
+      return ok({ token, expiresAtMs, zak: zakToken, ...(password ? { password } : {}) });
     },
 
     async joinLink(input) {
@@ -208,9 +220,15 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       const roomId = String(meetingId);
       const atMs = typeof root["event_ts"] === "number" ? root["event_ts"] : nowMs;
       if (root["event"] === "meeting.ended") return ok({ kind: "room_ended", roomId, atMs });
-      const role = asVideoRole(asObject(object?.["participant"])?.["user_name"]);
-      if (root["event"] === "meeting.participant_joined" && role) return ok({ kind: "participant_joined", roomId, role, atMs });
-      if (root["event"] === "meeting.participant_left" && role) return ok({ kind: "participant_left", roomId, role, atMs });
+      const participant = asObject(object?.["participant"]);
+      // The label is chosen by the person, so it is a hint. The key we issued (`customer_key`, "the participant's SDK identifier" in
+      // Zoom's webhook reference) is what the caller verifies; a person who joined by plain link or by phone has none.
+      const key = participant?.["customer_key"];
+      const customerKey = typeof key === "string" && key.length > 0 ? key : undefined;
+      const role = asVideoRole(participant?.["user_name"]) ?? (customerKey ? "observer" : null);
+      const withKey = customerKey ? { customerKey } : {};
+      if (root["event"] === "meeting.participant_joined" && role) return ok({ kind: "participant_joined", roomId, role, atMs, ...withKey });
+      if (root["event"] === "meeting.participant_left" && role) return ok({ kind: "participant_left", roomId, role, atMs, ...withKey });
       return ok(null);
     },
   };

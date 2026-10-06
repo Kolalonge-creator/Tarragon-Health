@@ -697,6 +697,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S14.md; docs/research/S14.md",
   },
   {
+    key: "video.audio_fallback",
+    // Version 2 (S21 follow-up, in-app Zoom Meeting SDK, OQ-136): the same three values plus what the SDK actually reports.
+    // The SDK gives a network level (0 to 5, which the code reads on the vendor's own scale) while the camera is on, and audio
+    // statistics (packet loss, round trip time) all the time. Audio statistics are what lets the ladder see a link recover
+    // while the camera is off.
+    //  poorAudioLossPercent: average audio packet loss at or above this counts as a poor sample (unit unconfirmed against a live
+    //  call; see OQ-136).
+    //  poorAudioRttMs: audio round trip time at or above this, in milliseconds, counts as a poor sample.
+    //  sampleIntervalSeconds: statistics arrive about every second; they are thinned to one sample per this many seconds, so
+    //  "3 poor samples in a row" means a few seconds of bad link, not a few packets.
+    value: { poorSamplesToDowngrade: 3, goodSamplesToOfferVideo: 6, poorBelowKbps: 100, poorAudioLossPercent: 10, poorAudioRttMs: 600, sampleIntervalSeconds: 3 },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S21.md; docs/research/S21.md",
+  },
+  {
     key: "consultations.policy",
     // Remote consultations (S21, founder decisions OQ-124 to OQ-131). Mirrored by consultation_policy_config v1 (a drift
     // test compares the two).

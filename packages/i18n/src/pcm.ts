@@ -844,6 +844,18 @@ export const pcm: Record<MessageKey, string> = {
   "consult.room.ended": "Dis consultation don end.",
   "consult.room.cancelled": "Dem cancel dis consultation.",
   "consult.room.link_error": "We no fit open di room now. Your place dey safe, abeg try again.",
+  "consult.call.loading": "Dey open di call",
+  "consult.call.fallback_link": "We no fit open di call inside di app, so we open am di normal way. Your place dey safe.",
+  "consult.call.leave": "Comot from di call",
+  "consult.call.camera_hint": "Use di camera button for di call to put your camera on or off.",
+  "consult.call.audio_only_notice": "Your network weak, so we dey move to audio only. Abeg put your camera off for di call. You fit stay for di call.",
+  "consult.call.offer_video": "Your network look better. You wan make video come back?",
+  "consult.call.take_video": "Yes, put video on",
+  "consult.call.video_back": "Video fit work again. Put your camera on for di call.",
+  "consult.call.held_place": "Your network drop. We dey hold your place for {seconds} seconds.",
+  "consult.call.reconnected": "You don return for di call.",
+  "consult.call.phone_notice": "We no fit bring you back online, so see how to join with phone instead.",
+  "consult.call.report_failed": "We no fit save dat change. Your call dey continue.",
   // CON-001 (consent text): kept in English on purpose until legal review and a clinician-signed Pidgin translation exist (see
   // docs/OPEN-QUESTIONS.md OQ-134). The key must still exist so the catalogues stay in step.
   "consult.scribe.title": "Can your care team use an AI note-taker?",

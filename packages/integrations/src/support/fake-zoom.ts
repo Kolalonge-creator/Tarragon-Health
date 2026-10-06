@@ -8,7 +8,7 @@ export interface FakeZoom {
   readonly webhookSecret: string;
   readonly clock: { now: number };
   failNextCall(): void;
-  signedEvent(event: string, meetingId: string, userName?: string): Promise<{ rawBody: string; headers: Record<string, string> }>;
+  signedEvent(event: string, meetingId: string, userName?: string, customerKey?: string): Promise<{ rawBody: string; headers: Record<string, string> }>;
   forgedEvent(event: string, meetingId: string): Promise<{ rawBody: string; headers: Record<string, string> }>;
 }
 
@@ -39,6 +39,9 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
       meetings.set(id, { start_time: body?.["start_time"] as string, duration: body?.["duration"] as number });
       return reply(201, { id: Number(id), join_url: `https://zoom.example/j/${id}`, ...meetings.get(id) });
     }
+    if (init.method === "GET" && u.pathname === "/v2/users/me/token") {
+      return u.searchParams.get("type") === "zak" ? reply(200, { token: `zak_ttl${u.searchParams.get("ttl")}` }) : reply(400, { message: "bad type" });
+    }
     const m = /^\/v2\/meetings\/(\d+)(\/status)?$/.exec(u.pathname);
     if (m) {
       const id = m[1]!;
@@ -50,6 +53,7 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
           join_url: `https://zoom.example/j/${id}?pwd=guest`,
           start_url: `https://zoom.example/s/${id}?zak=hostkey`,
           pstn_password: "482913",
+          password: "pw123",
           settings: {
             global_dial_in_numbers: [
               { country: "NG", country_name: "Nigeria", city: "Lagos", number: "+234 1 888 0000", type: "toll" },
@@ -69,8 +73,12 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
   };
 
   const sign = async (raw: string, ts: string) => `v0=${await hmacHex("SHA-256", webhookSecret, `v0:${ts}:${raw}`)}`;
-  const body = (event: string, meetingId: string, userName?: string) =>
-    JSON.stringify({ event, event_ts: clock.now, payload: { object: { id: meetingId, ...(userName ? { participant: { user_name: userName } } : {}) } } });
+  const body = (event: string, meetingId: string, userName?: string, customerKey?: string) =>
+    JSON.stringify({
+      event,
+      event_ts: clock.now,
+      payload: { object: { id: meetingId, ...(userName || customerKey ? { participant: { ...(userName ? { user_name: userName } : {}), ...(customerKey ? { customer_key: customerKey } : {}) } } : {}) } },
+    });
 
   return {
     fetch: fetchImpl,
@@ -80,8 +88,8 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
     failNextCall() {
       failNext = true;
     },
-    async signedEvent(event, meetingId, userName) {
-      const rawBody = body(event, meetingId, userName);
+    async signedEvent(event, meetingId, userName, customerKey) {
+      const rawBody = body(event, meetingId, userName, customerKey);
       const ts = String(clock.now);
       return { rawBody, headers: { "x-zm-request-timestamp": ts, "x-zm-signature": await sign(rawBody, ts) } };
     },

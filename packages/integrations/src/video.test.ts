@@ -324,6 +324,69 @@ describe("zoom adapter", () => {
     expect(await z.parseWebhook(noTs, await sign(noTs), 77)).toEqual({ ok: true, data: { kind: "room_ended", roomId: "123456789", atMs: 77 } });
   });
 
+  describe("in-app SDK join", () => {
+    const meeting = '"start_time":"2027-01-15T08:00:00Z","duration":30';
+
+    it("returns the room passcode to a patient and no host key, and the host key to a clinician only", async () => {
+      const fake = createFakeZoom({ now: 1_800_000_000_000 });
+      const z = zoomFor(fake);
+      const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      if (!room.ok) throw new Error("room");
+      const pat = await z.joinToken({ roomId: room.data.roomId, role: "patient", identity: ID, ttlSeconds: 600 });
+      const doc = await z.joinToken({ roomId: room.data.roomId, role: "clinician", identity: ID, ttlSeconds: 600 });
+      expect(pat).toMatchObject({ ok: true, data: { password: "pw123" } });
+      expect(pat.ok && pat.data.zak).toBeUndefined();
+      expect(doc).toMatchObject({ ok: true, data: { password: "pw123", zak: "zak_ttl600" } });
+      // the host key is asked for with the token's own lifetime, never longer
+      expect(fake.calls.filter((c) => c.path === "/v2/users/me/token")).toHaveLength(1);
+      // neither credential is inside the signed token
+      if (!doc.ok) throw new Error("token");
+      expect(JSON.stringify(decode(doc.data.token))).not.toMatch(/pw123|zak_/);
+    });
+
+    it("backdates the token's issue time by 30 seconds for a slow device clock", async () => {
+      const fake = createFakeZoom({ now: 1_800_000_000_000 });
+      const z = zoomFor(fake);
+      const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      if (!room.ok) throw new Error("room");
+      const pat = await z.joinToken({ roomId: room.data.roomId, role: "patient", identity: ID, ttlSeconds: 600 });
+      if (!pat.ok) throw new Error("token");
+      expect(decode(pat.data.token)["iat"]).toBe(1_800_000_000 - 30);
+    });
+
+    it("gives a token with no passcode when the meeting has none, and refuses a clinician token when the host key cannot be had", async () => {
+      const now = () => Date.parse("2027-01-15T08:10:00Z");
+      const base = { accountId: "a", clientId: "c", clientSecret: "s", sdkKey: "k", sdkSecret: "s", now };
+      const okMeeting = async (u: string) => ({ status: 200, ok: true, text: async () => (u.includes("oauth") ? '{"access_token":"t","expires_in":3600}' : `{${meeting}}`) });
+      const noPass = createZoomVideo({ ...base, fetch: okMeeting });
+      const pat = await noPass.joinToken({ roomId: "123456789", role: "patient", identity: ID, ttlSeconds: 60 });
+      expect(pat.ok && "password" in pat.data).toBe(false);
+      // a host key reply with no token is a bad reply, not an empty key
+      expect(await noPass.joinToken({ roomId: "123456789", role: "clinician", identity: ID, ttlSeconds: 60 })).toMatchObject({ ok: false, error: { code: "bad_response" } });
+      // a clinician with no passcode still gets the host key
+      const hostOnly = createZoomVideo({ ...base, fetch: async (u) => (u.includes("/users/me/token") ? { status: 200, ok: true, text: async () => '{"token":"zakx"}' } : okMeeting(u)) });
+      const doc = await hostOnly.joinToken({ roomId: "123456789", role: "clinician", identity: ID, ttlSeconds: 60 });
+      expect(doc).toMatchObject({ ok: true, data: { zak: "zakx" } });
+      expect(doc.ok && "password" in doc.data).toBe(false);
+      // Zoom refusing the host key (for example the app lacks the scope) is a failure the caller falls back from
+      const refused = createZoomVideo({ ...base, fetch: async (u) => (u.includes("/users/me/token") ? { status: 400, ok: false, text: async () => "{}" } : okMeeting(u)) });
+      expect(await refused.joinToken({ roomId: "123456789", role: "clinician", identity: ID, ttlSeconds: 60 })).toMatchObject({ ok: false });
+    });
+
+    it("webhook: carries the customer key we issued, and a keyed event with an unknown label is kept as a hint, not dropped", async () => {
+      const fake = createFakeZoom();
+      const z = zoomFor(fake);
+      const key = "p0123456789abcdef0123456789abcdef012";
+      const named = await fake.signedEvent("meeting.participant_joined", "123456789", "clinician", key);
+      expect(await z.parseWebhook(named.rawBody, named.headers, 1)).toEqual({ ok: true, data: { kind: "participant_joined", roomId: "123456789", role: "clinician", atMs: fake.clock.now, customerKey: key } });
+      const renamed = await fake.signedEvent("meeting.participant_left", "123456789", "Ada Obi", key);
+      expect(await z.parseWebhook(renamed.rawBody, renamed.headers, 1)).toEqual({ ok: true, data: { kind: "participant_left", roomId: "123456789", role: "observer", atMs: fake.clock.now, customerKey: key } });
+      // no key and no known label (a plain link joiner who typed a name) is still ignored
+      const link = await fake.signedEvent("meeting.participant_joined", "123456789", "Ada Obi");
+      expect(await z.parseWebhook(link.rawBody, link.headers, 1)).toEqual({ ok: true, data: null });
+    });
+  });
+
   it("delivers in-process events (connection quality from the device SDK) to subscribers", async () => {
     const z = zoomFor(createFakeZoom());
     const off = z.subscribe("123456789", () => undefined);
