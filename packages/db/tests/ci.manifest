@@ -857,3 +857,5 @@ lpe_content_blocks_cmo_read.sql
 s24b_protocol_signoff_and_confirm_hardening.sql
 # S37: go-live guards and PROPOSED-config sign-off. Seven guards ship off; no role, including the table owner, can change one except through set_go_live_guard (conditions evaluated, who/when/why logged); consultations and the scribe are wired. Sabotage: the reader forced open, and the guard trigger dropped; both checks must flip.
 s37_go_live_guards.sql
+# S35: the clinician patient summary and my-lead-patients reads. One audit row per open, tie required (an untied clinician and a clinician tied to another patient are denied and the denial is audited), reason and caller checks, 14-day readings, shadow triage events excluded, care circle is a count, staff cannot read triage_events directly, lead list is my own and audited per patient. Sabotage: the no-readable-section denial removed, and the reason check removed; both checks must flip.
+s35_clinician_patient_summary.sql
