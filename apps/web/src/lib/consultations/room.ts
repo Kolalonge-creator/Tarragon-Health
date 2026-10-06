@@ -175,6 +175,8 @@ export interface SdkJoinOptions {
    * the database thinks nobody entered (it would let one of them report the other as absent).
    */
   readonly presenceFromWebhook: boolean;
+  /** How long a clinician's host key may live (`consultations.host_key`). */
+  readonly hostKeyTtlSeconds: number;
 }
 
 /** One signature lasts this long at most; the vendor shortens it to the room's own end. */
@@ -196,8 +198,15 @@ export async function prepareSdkJoin(deps: RoomDeps, encounterId: string, reques
   const roomId = await ensureRoom(deps, view, encounterId);
   if (!roomId) return { ok: false, reason: "provider" };
 
-  const token = await deps.video.joinToken({ roomId, role, identity: deps.userId, ttlSeconds: SDK_TOKEN_SECONDS });
+  const token = await deps.video.joinToken({ roomId, role, identity: deps.userId, ttlSeconds: SDK_TOKEN_SECONDS, hostKeyTtlSeconds: options.hostKeyTtlSeconds });
   if (!token.ok) return { ok: false, reason: token.error.code === "not_configured" ? "not_configured" : "provider" };
+  // A host key lets its holder start meetings as the consultation host user, so every issue is on the record BEFORE it leaves the server
+  // (who: the encounter's clinician; when: the event time; never the key). If it cannot be recorded it is not handed out, and the room
+  // falls back to the link, so the audit trail cannot be skipped by a failing write.
+  if (role === "clinician" && token.data.zak) {
+    const audited = await deps.serviceRpc.rpc("service_record_encounter_event", { p_encounter: encounterId, p_kind: "host_key_issued", p_actor_role: "clinician", p_payload: {} });
+    if (audited.error) return { ok: false, reason: "provider" };
+  }
 
   const mediaMode: RequestedMedia = view.final_media_mode === "audio_only" ? "audio_only" : requested;
   // The vendor's webhook proves the CLINICIAN entered; until it has been seen to work, and always for the patient, being handed the way in
