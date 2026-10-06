@@ -312,7 +312,7 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
       summary: "Walking, dancing and housework all count. Start slowly and build up.",
       body: paras(
         "Moving your body helps your heart and your blood vessels, and it can help bring your blood pressure down. You do not need a gym, special clothes or any money.",
-        "A good goal for most adults is about 30 minutes of moderate activity on most days. Moderate means your heart beats faster and you breathe harder, but you can still talk. You can split it up. Ten minutes three times a day counts just as well.",
+        "A good goal for most adults is about thirty minutes of moderate activity on most days. Moderate means your heart beats faster and you breathe harder, but you can still talk. You can split it up. Ten minutes three times a day counts just as well.",
         "Walking is the easiest place to start. Walk to the shop, get off the bus a stop early, or walk around the compound while you talk on the phone. Dancing counts. So does sweeping, fetching water, gardening and washing clothes by hand.",
         "If you have not been active for a while, start slowly. Five or ten minutes is a fine start. Add a few minutes each week. Warm up with a slow walk first and cool down at the end.",
         "Choose cooler times of day, drink water, and wear comfortable shoes.",
@@ -331,7 +331,7 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
       summary: "Waka, dance and house work all dey count. Start slow and add small small.",
       body: paras(
         "To dey move your body dey help your heart and your blood vessel, and e fit help bring your blood pressure down. You no need gym, special cloth or any money.",
-        "Good target for most big person na about 30 minutes of moderate movement for most days. Moderate mean say your heart dey beat faster and you dey breathe harder, but you still fit talk. You fit break am into pieces. Ten minutes three times for day count the same way.",
+        "Good target for most big person na about thirty minutes of moderate movement for most days. Moderate mean say your heart dey beat faster and you dey breathe harder, but you still fit talk. You fit break am into pieces. Ten minutes three times for day count the same way.",
         "To waka na the easiest place to start. Waka go shop, comot from bus one stop before, or waka round the compound when you dey talk for phone. Dance count. Sweep, fetch water, farm work and wash cloth by hand count too.",
         "If you never move body for some time, start slow. Five or ten minutes na fine start. Add few minutes every week. Waka slow first before you start, and slow down for the end.",
         "Choose cool time of the day, drink water, and wear shoe wey comfortable.",
@@ -459,11 +459,11 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
     pcmHeldBecause: "Red-flag wording; held in English plus audio until the CMO signs it and a native speaker reviews it (INV-06).",
     en: {
       title: "Warning signs that need urgent care",
-      summary: "Some signs mean act now. Call 112 or go to the nearest hospital emergency department.",
+      summary: "Some signs mean act now. Call one one two or go to the nearest hospital emergency department.",
       body: paras(
         "Most of the time, blood pressure care is steady and calm. Sometimes a warning sign means you need help right away.",
         "Get emergency help now if you have any of these. A very bad headache that is not like your usual one. Chest pain or a heavy feeling in the chest. Trouble breathing. Weakness or numbness in the face, an arm or a leg. Trouble speaking, or confusion. Sudden problems with your sight.",
-        "Call 112 or go to the nearest hospital emergency department. If you can, ask someone to come with you or to drive you. Do not drive yourself if you feel faint, confused or weak.",
+        "Call one one two or go to the nearest hospital emergency department. If you can, ask someone to come with you or to drive you. Do not drive yourself if you feel faint, confused or weak.",
         "Do not wait to see if it passes. Do not take another reading to decide. Do not try a home or herbal remedy first. These signs can be a stroke or a heart emergency, and every minute counts.",
         "The app has emergency guidance that works even without data. You can open it at any time from the emergency button. It shows what to do and who to call.",
         "Tell the people at home about these signs ahead of time. If you cannot speak for yourself, they will know what to do.",
@@ -472,7 +472,7 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
       nextAction: "Find the emergency button in the app today and tell one person at home what these warning signs are.",
       check: {
         question: "You have chest pain and trouble breathing. What should you do?",
-        options: ["Take another reading and wait an hour", "Call 112 or go to the nearest hospital emergency department", "Try a herbal drink first"],
+        options: ["Take another reading and wait an hour", "Call one one two or go to the nearest hospital emergency department", "Try a herbal drink first"],
         answerIndex: 1,
       },
     },

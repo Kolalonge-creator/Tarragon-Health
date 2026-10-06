@@ -10,7 +10,7 @@ const MAX_SENTENCE_WORDS = 28;
 const MAX_AVG_SENTENCE_WORDS = 17;
 const MAX_FK_GRADE = 8.5;
 
-const BANNED = [/\bcures?\b/i, /\bcured\b/i, /instant doctor/i, /free healthcare/i, /your doctor/i, /\bdoctor\b/i, /—/, /silent killer/i, /mmhg/i, /\b\d{2,3}\s*\/\s*\d{2,3}\b/];
+const BANNED = [/\d/, /\be\.g\./i, /\bi\.e\./i, /\bcures?\b/i, /\bcured\b/i, /instant doctor/i, /free healthcare/i, /your doctor/i, /\bdoctor\b/i, /—/, /silent killer/i, /mmhg/i];
 // A medicine name, a dose or a herb claim must come from a signed wording, never from a build session.
 const MEDICINE_NAMES =
   /\b(amlodipine|lisinopril|losartan|telmisartan|valsartan|hydrochlorothiazide|indapamide|atenolol|bisoprolol|nifedipine|ramipril|enalapril|furosemide|metoprolol|carvedilol|spironolactone|aspirin|paracetamol|ibuprofen)\b/i;
@@ -126,7 +126,7 @@ describe("BPC course source", () => {
   it("routes the warning-signs lesson to emergency care and never tells the learner to wait", () => {
     const l = BPC_LESSONS.find((x) => x.code === "BPC-13");
     expect(l).toBeDefined();
-    expect(l?.en.body).toMatch(/112/);
+    expect(l?.en.body).toMatch(/one one two/);
     expect(l?.en.body).toMatch(/emergency/i);
     expect(l?.en.body).toMatch(/Do not wait/);
   });
