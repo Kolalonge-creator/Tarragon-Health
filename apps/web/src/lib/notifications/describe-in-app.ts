@@ -547,6 +547,13 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // "no branching to reproduce" shape as clinician_alert_ack_timeout_*.
     return { text: String(payload.message ?? "A clinician's credentials need review"), href: "/admin" };
   }
+  if (n.template === "on_call_page") {
+    // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
+    return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
+  }
+  if (n.template === "on_call_escalation") {
+    return { text: "A priority case has not been picked up", href: "/rota" };
+  }
   if (n.template === "care_team_notice") {
     // From private.lead_notify_patient (S18): fixed wording by kind, no names, nothing clinical (INV-07).
     const kind = payload.kind;
@@ -571,6 +578,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href:
         audience === "applicant" ? "/account/clinician"
         : audience === "reviewer" ? "/credentialing"
+        : audience === "rota_review" ? "/rota"
         : audience === "rota" ? "/clinician/rota"
         : audience === "lead" ? "/clinician/patients"
         : "/clinician/credentials",

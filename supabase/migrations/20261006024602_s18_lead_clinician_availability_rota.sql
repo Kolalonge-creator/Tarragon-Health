@@ -608,7 +608,7 @@ begin
     insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
     values (p_org, 'clinical', (case when v_now > 0 then 'sev1' else 'sev2' end)::public.ops_incident_severity, 'On-call rota has uncovered or thin hours',
             'On-call cover problem in the next ' || v_hours || ' hours: ' || v_summary, v_ref, now(), now());
-    perform private.credential_notify_reviewers(p_org, 'On-call cover gap', 'Some upcoming hours have no on-call cover or no working backup. Open the rota to fix it.', jsonb_build_object('audience', 'rota'));
+    perform private.credential_notify_reviewers(p_org, 'On-call cover gap', 'Some upcoming hours have no on-call cover or no working backup. Open the rota to fix it.', jsonb_build_object('audience', 'rota_review'));
   end if;
   perform private.emit_domain_event('rota.gap_detected', p_org, jsonb_build_object('gap_count', v_n),
     'rota.gap_detected:' || p_org || ':' || to_char(date_trunc('hour', now()), 'YYYYMMDDHH24'), null, null, null, 'urgent');
@@ -699,7 +699,7 @@ begin
          accepted_at = case when p_accept then now() end where id = p_swap;
   perform set_config('tarragon.lead_write', 'off', true);
   if p_accept then
-    perform private.credential_notify_reviewers(s.organisation_id, 'Rota swap to approve', 'A rota swap was accepted and needs approval.', jsonb_build_object('audience', 'rota'));
+    perform private.credential_notify_reviewers(s.organisation_id, 'Rota swap to approve', 'A rota swap was accepted and needs approval.', jsonb_build_object('audience', 'rota_review'));
   end if;
 end;
 $$;
@@ -882,7 +882,7 @@ begin
     insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
     values (p_org, 'clinical', 'sev2', 'Patients without a lead clinician',
             format('%s patient(s) have no eligible lead clinician. Add lead-capable clinicians or free capacity.', v_n), v_ref, now(), now());
-    perform private.credential_notify_reviewers(p_org, 'Patients without a lead clinician', 'Some care pack patients have no lead clinician. Open the lead overview.', jsonb_build_object('audience', 'lead'));
+    perform private.credential_notify_reviewers(p_org, 'Patients without a lead clinician', 'Some care pack patients have no lead clinician. Open the lead overview.', jsonb_build_object('audience', 'rota_review'));
   end if;
   perform private.emit_domain_event('lead.unassigned', p_org, jsonb_build_object('patient_id', null, 'count', v_n),
     'lead.unassigned:' || p_org || ':' || to_char(date_trunc('hour', now()), 'YYYYMMDDHH24'), null, null, null, 'urgent');

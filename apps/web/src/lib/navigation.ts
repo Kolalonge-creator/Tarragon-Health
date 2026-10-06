@@ -540,6 +540,8 @@ export function getNavSections(
                 // Documents, licence and cover dates, level and renewal uploads (S15).
                 { label: "Training and profile", href: "/clinician/credentials", icon: "review" },
                 // Declared hours, the on-call rota, cover requests (S18).
+                // Red event pages sent to you: acknowledge, open the chart, close with a note (S19).
+                { label: "On call", href: "/clinician/on-call", icon: "siren" },
                 { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier

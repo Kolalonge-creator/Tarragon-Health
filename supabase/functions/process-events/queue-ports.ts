@@ -1,6 +1,7 @@
 // S16: the database side of the task handler, over the service-role client.
 import type { QueuePorts } from "../_shared/queue/triage-task-handler.ts";
 import type { LeadPorts } from "../_shared/queue/lead-handlers.ts";
+import type { PagingPorts } from "../_shared/queue/paging-handler.ts";
 import type { RpcClient } from "./triage-ports.ts";
 
 export function queuePorts(client: RpcClient): QueuePorts {
@@ -23,6 +24,17 @@ export function leadPorts(client: RpcClient): LeadPorts {
     async assignForOrder(patientId, orderId) {
       const { error } = await client.rpc("assign_lead_for_event", { p_patient: patientId, p_order: orderId });
       if (error) throw new Error(`assign_lead_for_event: ${error.message}`);
+    },
+  };
+}
+
+// S19: the database side of the paging handler, over the service-role client.
+export function pagingPorts(client: RpcClient): PagingPorts {
+  return {
+    async createRedPage(triageEventId) {
+      const { data, error } = await client.rpc("create_red_page", { p_triage_event: triageEventId });
+      if (error) throw new Error(`create_red_page: ${error.message}`);
+      return typeof data === "string" ? data : null;
     },
   };
 }

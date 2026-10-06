@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Field, fieldClass, Flash, Hidden, Muted, Section, SubmitButton } from "@/components/credentialing/shared";
 import { approveSwap, assignLead, cancelShift, changeLead, confirmHours, setShift } from "@/lib/rota/actions";
 import { getLeadCapacity, getLeadOverview, getRotaOverview } from "@/lib/rota/queries";
+import { getPagingOverview } from "@/lib/paging/queries";
+import { formatWaiting } from "@/lib/paging/alarm";
 import { GAP_LABEL } from "@/lib/rota/schemas";
 import { defaultStartInput, formatLagos, formatLagosRange } from "@/lib/rota/time";
 import { firstParam, type SearchParams } from "@/lib/credentialing/params";
@@ -14,7 +16,7 @@ import { firstParam, type SearchParams } from "@/lib/credentialing/params";
  */
 export async function RotaBuilderPage({ returnTo, searchParams }: { returnTo: string; searchParams: SearchParams }) {
   const sp = await searchParams;
-  const [overview, leads, capacity] = await Promise.all([getRotaOverview(), getLeadOverview(), getLeadCapacity()]);
+  const [overview, leads, capacity, paging] = await Promise.all([getRotaOverview(), getLeadOverview(), getLeadCapacity(), getPagingOverview()]);
   const start = defaultStartInput(new Date());
   const { status } = overview;
 
@@ -41,6 +43,26 @@ export async function RotaBuilderPage({ returnTo, searchParams }: { returnTo: st
           </ul>
         ) : (
           <Muted>No gaps in the next {status.horizon_days} days.</Muted>
+        )}
+      </Section>
+
+      <Section title="Priority case pages" hint="The last 7 days. A page nobody acknowledges alerts the backup after the first time and you after the second. Ops are told but cannot silence a page.">
+        {paging.length === 0 ? (
+          <Muted>No priority case has been paged in the last 7 days.</Muted>
+        ) : (
+          <ul className="divide-y divide-charcoal-ink/10 text-sm">
+            {paging.map((p) => (
+              <li key={p.root_id} className="flex flex-wrap items-center gap-2 py-2">
+                <span>{formatLagos(p.sent_at)}</span>
+                <Badge variant={p.acknowledged_at ? "green" : p.closed_at ? "grey" : "red"}>
+                  {p.acknowledged_at ? `Acknowledged by ${p.acknowledged_by_name ?? "a clinician"} after ${formatWaiting(p.seconds_waiting)}` : p.closed_at ? "Closed unacknowledged" : `Waiting ${formatWaiting(p.seconds_waiting)}`}
+                </Badge>
+                {p.no_cover ? <Badge variant="red">Nobody was on call</Badge> : null}
+                {p.max_level >= 1 ? <Badge variant="amber">Backup paged</Badge> : null}
+                {p.max_level >= 2 ? <Badge variant="amber">Lead and ops alerted</Badge> : null}
+              </li>
+            ))}
+          </ul>
         )}
       </Section>
 

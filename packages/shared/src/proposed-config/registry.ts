@@ -460,6 +460,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S18.md; docs/research/S18.md; spec 7.2, 7.5, 7.9",
   },
   {
+    key: "paging.rules",
+    // Red event paging (S19, spec 7.9). Live values are the active row of `paging_config`; this entry mirrors it and a test
+    // fails if the migration seed and this value drift. escalation_minutes repeats paging.escalation_minutes: the backup is
+    // paged at the first, the clinical lead and ops at the second. page_access_hours: how long an open page can keep a
+    // clinician tied to a patient's chart (INV-12) before it closes itself.
+    value: { escalation_minutes: [5, 10], page_access_hours: 24 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S19.md; spec 7.9",
+  },
+  {
     key: "queue.claims",
     // Claim, hand-back and reliability rules (S17, spec 7.6 and 7.8). Live values are the active row of
     // `queue_claim_config`; this entry mirrors it and a test fails if the migration seed and this value drift.

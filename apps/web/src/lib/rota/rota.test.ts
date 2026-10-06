@@ -6,10 +6,11 @@ import { colleaguesSchema, leadOverviewSchema, myBlocksSchema, rotaOverviewSchem
 import { z } from "zod";
 
 describe("return path guard", () => {
-  it("only honours the three rota pages", () => {
+  it("only honours the rota and on-call pages", () => {
     expect(safeRotaReturnTo("/admin/rota", "/clinician/rota")).toBe("/admin/rota");
     expect(safeRotaReturnTo("/clinician/team-rota?ok=1", "/admin/rota")).toBe("/clinician/team-rota");
     expect(safeRotaReturnTo("/clinician/rota", "/admin/rota")).toBe("/clinician/rota");
+    expect(safeRotaReturnTo("/clinician/on-call", "/admin/rota")).toBe("/clinician/on-call");
   });
   it("is not an open redirect", () => {
     for (const bad of ["https://evil.example/admin/rota", "//evil.example", "/admin/rota/../../login", "/admin/rota%2f..", "/admin\\rota", "/other", null]) {

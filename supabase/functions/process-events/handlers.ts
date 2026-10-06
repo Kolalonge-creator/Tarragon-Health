@@ -10,7 +10,8 @@ import { makeTriageTaskHandler, QUEUE_HANDLER_KEY } from "../_shared/queue/triag
 import {
   LEAD_CLINICIAN_EVENT_HANDLER_KEY, LEAD_ORDER_PAID_HANDLER_KEY, makeClinicianEventHandler, makeOrderPaidLeadHandler,
 } from "../_shared/queue/lead-handlers.ts";
-import { leadPorts, queuePorts } from "./queue-ports.ts";
+import { makePagingHandler, PAGING_HANDLER_KEY } from "../_shared/queue/paging-handler.ts";
+import { leadPorts, pagingPorts, queuePorts } from "./queue-ports.ts";
 import { triagePorts, type RpcClient } from "./triage-ports.ts";
 
 export function buildHandlers(client: RpcClient): HandlerRegistry {
@@ -20,5 +21,6 @@ export function buildHandlers(client: RpcClient): HandlerRegistry {
     [QUEUE_HANDLER_KEY]: makeTriageTaskHandler(queuePorts(client)),
     [LEAD_CLINICIAN_EVENT_HANDLER_KEY]: makeClinicianEventHandler(leadPorts(client)),
     [LEAD_ORDER_PAID_HANDLER_KEY]: makeOrderPaidLeadHandler(leadPorts(client)),
+    [PAGING_HANDLER_KEY]: makePagingHandler(pagingPorts(client)),
   };
 }

@@ -1,8 +1,8 @@
 /**
- * Every rota form posts a hidden `returnTo`. It is honoured only when it is one of the three rota pages, so a form
+ * Every rota and paging form posts a hidden `returnTo`. It is honoured only when it is one of the rota or on-call pages, so a form
  * cannot be turned into an open redirect. The outcome travels back as ?ok= or ?error= and the page shows it.
  */
-export const ROTA_PAGES = ["/clinician/rota", "/admin/rota", "/clinician/team-rota"] as const;
+export const ROTA_PAGES = ["/clinician/rota", "/admin/rota", "/clinician/team-rota", "/clinician/on-call"] as const;
 
 export function safeRotaReturnTo(raw: FormDataEntryValue | null, fallback: (typeof ROTA_PAGES)[number]): string {
   if (typeof raw !== "string") return fallback;
