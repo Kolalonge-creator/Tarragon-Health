@@ -54,6 +54,7 @@ export default async function AdminOutcomesPage({ searchParams }: { searchParams
         backTo={{ href: "/admin", label: "Admin" }}
         description="Blood pressure control 90 days after people join. Everyone whose day-90 window has closed is counted, including people who stopped logging. Small numbers are withheld. This page lists no individual."
       />
+      <p className="text-sm">Ranges are by whole calendar month of joining, so a figure cannot be narrowed to a few people.{report?.range?.from ? ` Showing ${report.range.from} to ${report.range.to ?? "now"}.` : ""}</p>
       <form method="get" className="flex flex-wrap items-end gap-3">
         <label className="space-y-1">
           <span className="block text-sm">Joined from</span>
@@ -105,6 +106,7 @@ export default async function AdminOutcomesPage({ searchParams }: { searchParams
                   <li>No usable reading at day 90: {pct(report.data_quality.day90_no_reading_pct)}.</li>
                   <li>Held to the default 140/90 because no personal target was set: {pct(report.data_quality.default_target_used_pct)}.</li>
                   <li>Readings that arrived after the snapshot was taken: {pct(report.data_quality.readings_arriving_after_snapshot_pct)}.</li>
+                  <li>Adherence could not be read: {pct(report.data_quality.adherence_unavailable_pct) ?? "not reported"}.</li>
                 </ul>
               )}
             </CardContent>

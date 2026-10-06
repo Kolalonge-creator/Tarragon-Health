@@ -84,8 +84,9 @@ do $$
 declare
   v_org uuid; v_admin uuid; i integer; v_one uuid;
   a date := current_date - 100;     -- the main cohort: all joined on this date, so the report can be limited to it
-  a2 date := current_date - 101;    -- a cohort with one small category
-  a3 date := current_date - 102;    -- a cohort under the minimum
+  a2 date := current_date - 131;    -- a cohort with one small category (reports are by calendar month, so each cohort needs its own month)
+  a3 date := current_date - 162;    -- a cohort under the minimum
+  a4 date := current_date - 195;    -- a cohort whose baseline-uncontrolled subset leaves a small remainder
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   perform pg_temp.setf('org', v_org);
@@ -105,10 +106,13 @@ begin
   insert into public.patient_bp_targets (organisation_id, patient_id, category, home_systolic, home_diastolic, office_systolic, office_diastolic, rationale, set_by)
   values (v_org, v_one, 'standard', 130, 80, 140, 90, 'S38 proof target', null);
   -- cohort 2: 3 controlled, 12 not, 12 none (the controlled cell is small); cohort 3: only 4 people
-  for i in 1 .. 3 loop perform pg_temp.mkpat(v_org, 'D' || i, false, 101, 3, 150, 95, 3, 125, 80); end loop;
-  for i in 1 .. 12 loop perform pg_temp.mkpat(v_org, 'E' || i, false, 101, 3, 150, 95, 3, 148, 94); end loop;
-  for i in 1 .. 12 loop perform pg_temp.mkpat(v_org, 'F' || i, false, 101, 3, 150, 95, 0, 0, 0); end loop;
-  for i in 1 .. 4 loop perform pg_temp.mkpat(v_org, 'G' || i, false, 102, 3, 150, 95, 3, 125, 80); end loop;
+  for i in 1 .. 3 loop perform pg_temp.mkpat(v_org, 'D' || i, false, 131, 3, 150, 95, 3, 125, 80); end loop;
+  for i in 1 .. 12 loop perform pg_temp.mkpat(v_org, 'E' || i, false, 131, 3, 150, 95, 3, 148, 94); end loop;
+  for i in 1 .. 12 loop perform pg_temp.mkpat(v_org, 'F' || i, false, 131, 3, 150, 95, 0, 0, 0); end loop;
+  for i in 1 .. 4 loop perform pg_temp.mkpat(v_org, 'G' || i, false, 162, 3, 150, 95, 3, 125, 80); end loop;
+  -- cohort 4: 20 started above target and are still above; 4 started under target and worsened (remainder 4: the baseline cohort must be withheld)
+  for i in 1 .. 20 loop perform pg_temp.mkpat(v_org, 'H' || i, false, 195, 3, 150, 95, 3, 148, 94); end loop;
+  for i in 1 .. 4 loop perform pg_temp.mkpat(v_org, 'J' || i, false, 195, 3, 125, 80, 3, 148, 94); end loop;
   -- timing: 50 days in (day 90 not due), 31 days in (day 30 closed yesterday, inside the grace), 34 days in (day 30 closed 4 days ago)
   perform pg_temp.setf('t50', pg_temp.mkpat(v_org, 'T50', false, 50, 3, 150, 95, 0, 0, 0));
   perform pg_temp.setf('t31', pg_temp.mkpat(v_org, 'T31', false, 31, 3, 150, 95, 0, 0, 0));
@@ -187,7 +191,7 @@ end $$;
 -- 4. The report ---------------------------------------------------------------------------------------------------------
 do $$
 declare
-  v_admin uuid := pg_temp.f('admin'); a date := current_date - 100; a2 date := current_date - 101; a3 date := current_date - 102; r jsonb;
+  v_admin uuid := pg_temp.f('admin'); a date := current_date - 100; a2 date := current_date - 131; a3 date := current_date - 162; a4 date := current_date - 195; r jsonb;
 begin
   perform pg_temp.ck('a person cannot run the report', 'true', (pg_temp.q_as(pg_temp.f('plain'), 'select public.bp_control_report()::text') like '%outcomes_not_authorised%')::text);
   perform pg_temp.ck('anon cannot run the report', '42501', pg_temp.try_anon('select public.bp_control_report()'));
@@ -225,6 +229,20 @@ begin
     (jsonb_array_length(r -> 'by_enrolment_month') = 1)::text || '/' || (r #>> '{by_enrolment_month,0,suppressed}'));
 end $$;
 
+do $$
+declare a date := current_date - 100; a2 date := current_date - 131; a3 date := current_date - 162; a4 date := current_date - 195; r jsonb; r2 jsonb;
+begin
+  r := private.bp_control_aggregate(a, a); r2 := private.bp_control_aggregate(date_trunc('month', a)::date, (date_trunc('month', a) + interval '1 month' - interval '1 day')::date);
+  perform pg_temp.ck('a range inside one month is the whole month: two ranges one day apart cannot be subtracted', 'true', ((r #>> '{cohort_all_due,n}') = (r2 #>> '{cohort_all_due,n}'))::text);
+  perform pg_temp.ck('the report names the month-aligned range it used', 'true', ((r #>> '{range,from}')::date = date_trunc('month', a)::date)::text);
+  r := private.bp_control_aggregate(a3, a);
+  perform pg_temp.ck('when any month is withheld the by-month list is not returned at all (it would equal overall minus the listed months)', 'true',
+    ((r ->> 'months_withheld')::int = 2 and jsonb_array_length(r -> 'by_enrolment_month') = 0 and (r #>> '{cohort_all_due,suppressed}') = 'false')::text);
+  r := private.bp_control_aggregate(a4, a4);
+  perform pg_temp.ck('the baseline cohort is withheld when the people left over are too few to show (24 due, 20 baseline, remainder 4)', 'true/24',
+    (r #>> '{cohort_baseline_uncontrolled,suppressed}') || '/' || (r #>> '{cohort_all_due,n}'));
+end $$;
+
 -- 5. Change among those measured and the baseline cohort --------------------------------------------------------------------
 do $$
 declare r jsonb := private.bp_control_aggregate(current_date - 100, current_date - 100);
@@ -234,17 +252,54 @@ begin
     ((r #>> '{change_among_measured,n}')::int = 25 and (r #>> '{change_among_measured,mean_systolic_change}')::numeric < 0)::text);
 end $$;
 
+-- 5b. Failures are not silent, adherence faults are recorded, and a later test flag reaches old snapshots ----------------------------------
+do $$
+declare v_org uuid := pg_temp.f('org'); p1 uuid; p2 uuid; n integer; a1 uuid := (select id from public.profiles where full_name = 'S38 A1'); before_n integer; after_n integer; a date := current_date - 100;
+begin
+  perform pg_temp.ck('a person with no medicines has adherence recorded as no_doses (or unavailable when no medicine_config is active)', 'true',
+    (pg_temp.snap(a1, 90, 'adherence_status') = case when exists (select 1 from public.medicine_config where is_active) then 'no_doses' else 'unavailable' end)::text);
+  p1 := pg_temp.mkpat(v_org, 'FAIL1', false, 40, 3, 150, 95, 0, 0, 0);
+  p2 := pg_temp.mkpat(v_org, 'ADH1', false, 41, 3, 150, 95, 0, 0, 0);
+  -- an adherence fault is recorded as unavailable, not stored as the same null as having no doses
+  update public.medicine_config set is_active = false;
+  alter table public.outcome_snapshots add constraint s38_force_failure check (day <> 30) not valid;
+  n := private.compute_outcome_snapshots();
+  perform pg_temp.ck('a snapshot that fails is counted out of the result, not hidden', 'true', (pg_temp.snap(p1, 30, 'id') is null)::text);
+  perform pg_temp.ck('a failing run opens one incident a person will see', '1', (select count(*)::text from public.ops_incidents where external_reference = 'outcome-snapshots-failing' and status not in ('resolved', 'closed')));
+  perform pg_temp.ck('a failed adherence read is recorded as unavailable', 'unavailable', pg_temp.snap(p2, 0, 'adherence_status'));
+  alter table public.outcome_snapshots drop constraint s38_force_failure;
+  update public.medicine_config set is_active = true where version = (select max(version) from public.medicine_config);
+  n := private.compute_outcome_snapshots();
+  perform pg_temp.ck('the next run picks the failed day up (it was never recorded as done)', 'true', (pg_temp.snap(p1, 30, 'id') is not null)::text);
+  -- a person flagged as a test account AFTER their snapshots were taken leaves every report and view
+  select (private.bp_control_aggregate(a, a) #>> '{cohort_all_due,n}')::int into before_n;
+  update public.profiles set is_test = true where id = a1;
+  select (private.bp_control_aggregate(a, a) #>> '{cohort_all_due,n}')::int into after_n;
+  perform pg_temp.ck('INV-13: a person flagged test later drops out of the report', 'true', (after_n = before_n - 1)::text);
+  perform pg_temp.ck('and out of the analytics rows', '0', (select count(*)::text from analytics.v_outcome_snapshots v join analytics.subjects s on s.subject_key = v.subject_key where s.patient_id = a1));
+end $$;
+
 -- 6. SABOTAGE: the is_test filter removed from the view and the report; both checks must flip ---------------------------------
 create or replace view analytics.v_outcome_snapshots as
   select sub.subject_key, s.organisation_id, s.pathway_code, s.day, date_trunc('month', s.anchor_date)::date as enrolment_month,
          s.bp_avg_7d_sys, s.bp_avg_7d_dia, s.bp_readings_7d, s.bp_status, s.target_source, s.adherence_pct, s.adherence_doses_due, s.config_version, s.computed_at::date as computed_on
     from public.outcome_snapshots s join analytics.subjects sub on sub.patient_id = s.patient_id;
 
+create or replace view private.v_bp_cohort_90d as
+  select s90.patient_id, s90.anchor_date as anchor, s90.bp_status as s90, s0.bp_status as s0,
+         case when s90.bp_status <> 'insufficient_data' and s0.bp_status is not null and s0.bp_status <> 'insufficient_data' then s90.bp_avg_7d_sys - s0.bp_avg_7d_sys end as d_sys,
+         case when s90.bp_status <> 'insufficient_data' and s0.bp_status is not null and s0.bp_status <> 'insufficient_data' then s90.bp_avg_7d_dia - s0.bp_avg_7d_dia end as d_dia,
+         s90.adherence_pct::integer as adh, s90.adherence_status = 'unavailable' as adh_unavailable, s90.target_source = 'default' as defaulted, false as late
+    from public.outcome_snapshots s90 left join public.outcome_snapshots s0 on s0.patient_id = s90.patient_id and s0.pathway_code = s90.pathway_code and s0.day = 0
+   where s90.pathway_code = 'bp' and s90.day = 90;
+
 do $$
-declare t1 uuid := (select id from public.profiles where full_name = 'S38 T1'); n integer;
+declare t1 uuid := (select id from public.profiles where full_name = 'S38 T1'); n integer; m integer;
 begin
   select count(*) into n from analytics.v_outcome_snapshots v join analytics.subjects s on s.subject_key = v.subject_key where s.patient_id = t1;
   insert into results values ('sabotaged', 'SAFETY CASE 22: the test account is not in the analytics rows', '0', n::text);
+  select (private.bp_control_aggregate(current_date - 100, current_date - 100) #>> '{cohort_all_due,n}')::int into m;
+  insert into results values ('sabotaged', 'SAFETY CASE 22: the report counts no test account (37 real people after A1 was flagged)', '37', m::text);
 end $$;
 
 do $$
@@ -257,7 +312,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 1 then raise exception 'VACUOUS TEST: the sabotage flipped % of 1 checks', v_caught; end if;
+  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

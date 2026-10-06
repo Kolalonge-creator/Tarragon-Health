@@ -76,6 +76,7 @@ create table public.outcome_snapshots (
   target_source            text not null check (target_source in ('patient', 'default')),
   adherence_pct            smallint check (adherence_pct is null or adherence_pct between 0 and 100),
   adherence_doses_due      integer,
+  adherence_status         text not null default 'ok' check (adherence_status in ('ok', 'no_doses', 'unavailable')),
   config_version           integer not null references public.outcome_config (version),
   computed_at              timestamptz not null default now(),
   is_test                  boolean not null default false,
@@ -146,7 +147,7 @@ declare
   v_t record; v_tsys integer; v_tdia integer; v_tsrc text;
   v_avg_s numeric; v_avg_d numeric; v_n integer;
   v_status text; v_ctrl boolean;
-  v_adh jsonb; v_adh_pct integer; v_adh_due integer;
+  v_adh jsonb; v_adh_pct integer; v_adh_due integer; v_adh_status text := 'ok';
   v_id uuid;
 begin
   if v_anchor is null then return null; end if;
@@ -188,16 +189,18 @@ begin
     v_adh := private.weekly_adherence(p_patient, ((v_end + 1)::timestamp at time zone 'Africa/Lagos') - interval '1 second');
     v_adh_pct := nullif(v_adh ->> 'percent', '')::integer;
     v_adh_due := nullif(v_adh ->> 'due', '')::integer;
+    if v_adh_pct is null then v_adh_status := 'no_doses'; end if;
   exception when others then
-    v_adh_pct := null; v_adh_due := null;
+    -- not the same as having no doses: it is recorded, and the report counts it (a missing medicine_config must not look like no medicines)
+    v_adh_pct := null; v_adh_due := null; v_adh_status := 'unavailable';
   end;
 
   insert into public.outcome_snapshots (organisation_id, patient_id, pathway_code, day, anchor_date, window_start, window_end,
       bp_avg_7d_sys, bp_avg_7d_dia, bp_readings_7d, bp_status, controlled, target_sys, target_dia, target_source,
-      adherence_pct, adherence_doses_due, config_version, computed_at, is_test)
+      adherence_pct, adherence_doses_due, adherence_status, config_version, computed_at, is_test)
   values (pr.organisation_id, p_patient, 'bp', p_day, v_anchor, v_start, v_end,
       v_avg_s, v_avg_d, v_n, v_status, v_ctrl, v_tsys, v_tdia, v_tsrc,
-      v_adh_pct, v_adh_due, v_cfg, p_now, coalesce(pr.is_test, false))
+      v_adh_pct, v_adh_due, v_adh_status, v_cfg, p_now, coalesce(pr.is_test, false))
   on conflict (patient_id, pathway_code, day) do nothing
   returning id into v_id;
 
@@ -218,8 +221,9 @@ as $$
 declare
   v_today date := (p_now at time zone 'Africa/Lagos')::date;
   v_grace integer := (private.outcome_rule('grace_days') #>> '{}')::integer;
-  r record; d integer; v_win daterange; n integer := 0;
+  r record; d integer; v_win daterange; n integer := 0; v_failed integer := 0; v_last text; v_org uuid;
 begin
+  -- Only people with a due day that has no snapshot yet, oldest due first, so a large backlog of finished people never crowds out new ones.
   for r in
     select a.patient_id, a.anchor from (
       select patient_id, min(dt) as anchor from (
@@ -227,6 +231,10 @@ begin
         union all
         select patient_id, (starts_at at time zone 'Africa/Lagos')::date from public.entitlements where kind in ('membership', 'care_pack')
       ) u group by patient_id) a
+     where exists (
+       select 1 from jsonb_array_elements_text(private.outcome_rule('days')) dd(day)
+        where upper(private.outcome_window(a.anchor, dd.day::integer)) - 1 + v_grace <= v_today
+          and not exists (select 1 from public.outcome_snapshots s where s.patient_id = a.patient_id and s.pathway_code = 'bp' and s.day = dd.day::integer))
      order by a.anchor limit 5000
   loop
     for d in select jsonb_array_elements_text(private.outcome_rule('days'))::integer loop
@@ -236,10 +244,23 @@ begin
       begin
         if private.outcome_compute_snapshot(r.patient_id, d, p_now) is not null then n := n + 1; end if;
       exception when others then
-        raise warning 'outcome snapshot failed for day % (%)', d, sqlerrm;
+        v_failed := v_failed + 1; v_last := sqlerrm;
       end;
     end loop;
   end loop;
+  -- A failure is never only a log line: count it and open one incident a person will see.
+  if v_failed > 0 then
+    select id into v_org from public.organisations order by created_at limit 1;
+    if exists (select 1 from public.ops_incidents where external_reference = 'outcome-snapshots-failing' and status not in ('resolved', 'closed')) then
+      update public.ops_incidents set summary = v_failed || ' snapshots failed on the last run (' || left(v_last, 200) || ').'
+       where external_reference = 'outcome-snapshots-failing' and status not in ('resolved', 'closed');
+    else
+      insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+      values (v_org, 'operational', 'sev3', 'Outcome snapshots are failing',
+              v_failed || ' snapshots failed on the last run (' || left(v_last, 200) || '). Outcome reports cover fewer people until it is fixed.',
+              'outcome-snapshots-failing', now() + interval '1 day', now() + interval '3 days');
+    end if;
+  end if;
   return n;
 end $$;
 revoke all on function private.compute_outcome_snapshots(timestamptz) from public, anon, authenticated;
@@ -268,7 +289,8 @@ create view analytics.v_outcome_snapshots with (security_invoker = off) as
          s.adherence_pct, s.adherence_doses_due, s.config_version, s.computed_at::date as computed_on
     from public.outcome_snapshots s
     join analytics.subjects sub on sub.patient_id = s.patient_id
-   where not s.is_test;
+    join public.profiles pr on pr.id = s.patient_id
+   where not s.is_test and not coalesce(pr.is_test, false);
 revoke all on analytics.v_outcome_snapshots from public, anon, authenticated;
 grant select on analytics.v_outcome_snapshots to service_role;
 comment on view analytics.v_outcome_snapshots is
@@ -304,6 +326,21 @@ begin
 end $$;
 revoke all on function private.outcome_cohort_json(integer, integer, integer, integer, integer) from public, anon, authenticated;
 
+-- The one place the cohort is defined and test accounts are excluded (INV-13): a snapshot flagged test, or a person flagged test now.
+create view private.v_bp_cohort_90d with (security_invoker = off) as
+  select s90.patient_id, s90.anchor_date as anchor, s90.bp_status as s90, s0.bp_status as s0,
+         case when s90.bp_status <> 'insufficient_data' and s0.bp_status is not null and s0.bp_status <> 'insufficient_data' then s90.bp_avg_7d_sys - s0.bp_avg_7d_sys end as d_sys,
+         case when s90.bp_status <> 'insufficient_data' and s0.bp_status is not null and s0.bp_status <> 'insufficient_data' then s90.bp_avg_7d_dia - s0.bp_avg_7d_dia end as d_dia,
+         s90.adherence_pct::integer as adh, s90.adherence_status = 'unavailable' as adh_unavailable, s90.target_source = 'default' as defaulted,
+         exists (select 1 from public.vitals_readings o where o.patient_id = s90.patient_id and o.vital_type = 'blood_pressure'
+                    and (o.validation_status = 'valid' or coalesce(o.validation_flags, '{}'::text[]) <@ array['insufficient_context']::text[])
+                    and (o.taken_at at time zone 'Africa/Lagos')::date between s90.window_start and s90.window_end and o.created_at > s90.computed_at) as late
+    from public.outcome_snapshots s90
+    join public.profiles pr on pr.id = s90.patient_id
+    left join public.outcome_snapshots s0 on s0.patient_id = s90.patient_id and s0.pathway_code = s90.pathway_code and s0.day = 0
+   where s90.pathway_code = 'bp' and s90.day = 90 and not s90.is_test and not coalesce(pr.is_test, false);
+revoke all on private.v_bp_cohort_90d from public, anon, authenticated;
+
 create function private.bp_control_aggregate(p_from date, p_to date) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -313,27 +350,19 @@ declare
   v_today date := (now() at time zone 'Africa/Lagos')::date;
   a record; b record; q record; m jsonb; v_enrolled integer; v_notdue integer; v_months_withheld integer := 0;
 begin
+  -- Reports are by whole calendar month of joining: two ranges one day apart could otherwise be subtracted to expose a small cohort.
+  if p_from is not null then p_from := date_trunc('month', p_from)::date; end if;
+  if p_to is not null then p_to := (date_trunc('month', p_to) + interval '1 month' - interval '1 day')::date; end if;
   drop table if exists pg_temp._s38_cohort;
-  create temp table _s38_cohort (patient_id uuid, anchor date, s90 text, s0 text, d_sys numeric, d_dia numeric, adh integer,
-    defaulted boolean, late boolean) on commit drop;
-  insert into _s38_cohort
-    select s90.patient_id, s90.anchor_date, s90.bp_status, s0.bp_status,
-           case when s90.bp_status <> 'insufficient_data' and s0.bp_status is not null and s0.bp_status <> 'insufficient_data' then s90.bp_avg_7d_sys - s0.bp_avg_7d_sys end,
-           case when s90.bp_status <> 'insufficient_data' and s0.bp_status is not null and s0.bp_status <> 'insufficient_data' then s90.bp_avg_7d_dia - s0.bp_avg_7d_dia end,
-           s90.adherence_pct::integer, s90.target_source = 'default',
-           exists (select 1 from public.vitals_readings o where o.patient_id = s90.patient_id and o.vital_type = 'blood_pressure'
-                      and (o.validation_status = 'valid' or coalesce(o.validation_flags, '{}'::text[]) <@ array['insufficient_context']::text[])
-                      and (o.taken_at at time zone 'Africa/Lagos')::date between s90.window_start and s90.window_end and o.created_at > s90.computed_at)
-      from public.outcome_snapshots s90
-      left join public.outcome_snapshots s0 on s0.patient_id = s90.patient_id and s0.pathway_code = s90.pathway_code and s0.day = 0
-     where s90.pathway_code = 'bp' and s90.day = 90 and not s90.is_test
-       and (p_from is null or s90.anchor_date >= p_from) and (p_to is null or s90.anchor_date <= p_to);
+  create temp table _s38_cohort on commit drop as
+    select * from private.v_bp_cohort_90d c
+     where (p_from is null or c.anchor >= p_from) and (p_to is null or c.anchor <= p_to);
 
   select count(*) as n, count(*) filter (where s90 = 'controlled') c, count(*) filter (where s90 = 'uncontrolled') u,
          count(*) filter (where s90 = 'insufficient_data') i,
          count(*) filter (where s0 is null or s0 = 'insufficient_data') base_missing,
          count(*) filter (where d_sys is not null) n_both, avg(d_sys) filter (where d_sys is not null) mean_d_sys, avg(d_dia) filter (where d_dia is not null) mean_d_dia,
-         count(*) filter (where adh is not null) n_adh, avg(adh) filter (where adh is not null) mean_adh,
+         count(*) filter (where adh is not null) n_adh, avg(adh) filter (where adh is not null) mean_adh, count(*) filter (where adh_unavailable) n_adh_unavail,
          count(*) filter (where defaulted) n_def, count(*) filter (where late) n_late
     into a from _s38_cohort;
   select count(*) as n, count(*) filter (where s90 = 'controlled') c, count(*) filter (where s90 = 'uncontrolled') u,
@@ -365,17 +394,26 @@ begin
     'config_version', (select version from public.outcome_config where is_active),
     'minimum_cell', v_min,
     'cohort_all_due', private.outcome_cohort_json(a.n::integer, a.c::integer, a.u::integer, a.i::integer, v_min),
-    'cohort_baseline_uncontrolled', private.outcome_cohort_json(b.n::integer, b.c::integer, b.u::integer, b.i::integer, v_min),
+    -- The baseline cohort is a subset of everyone due: show it only when what is left over (people who started under target or unmeasured) is itself
+    -- either empty or large enough in every category, so subtraction cannot expose a small group.
+    'cohort_baseline_uncontrolled', case
+        when (a.n - b.n = 0 or a.n - b.n >= v_min)
+         and ((a.c - b.c) = 0 or (a.c - b.c) >= v_min) and ((a.u - b.u) = 0 or (a.u - b.u) >= v_min) and ((a.i - b.i) = 0 or (a.i - b.i) >= v_min)
+        then private.outcome_cohort_json(b.n::integer, b.c::integer, b.u::integer, b.i::integer, v_min)
+        else jsonb_build_object('suppressed', true, 'reason', 'small_cell', 'minimum', v_min) end,
     'change_among_measured', case when a.n_both >= v_min then jsonb_build_object('n', a.n_both, 'mean_systolic_change', round(a.mean_d_sys, 1), 'mean_diastolic_change', round(a.mean_d_dia, 1))
                                   else jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min) end,
     'adherence_separate', case when a.n_adh >= v_min then jsonb_build_object('n', a.n_adh, 'mean_pct', round(a.mean_adh, 1))
                                else jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min) end,
-    'by_enrolment_month', m, 'months_withheld', v_months_withheld,
+    -- If any month is withheld the list is not returned at all: the withheld month would equal the overall total minus the listed ones.
+    'by_enrolment_month', case when v_months_withheld = 0 then m else '[]'::jsonb end, 'months_withheld', v_months_withheld,
+    'range', jsonb_build_object('from', p_from, 'to', p_to),
     'data_quality', case when a.n >= v_min then jsonb_build_object(
         'enrolled_total', v_enrolled, 'not_yet_due', v_notdue,
         'baseline_missing_pct', round(100.0 * a.base_missing / a.n, 1),
         'day90_no_reading_pct', round(100.0 * a.i / a.n, 1),
         'default_target_used_pct', round(100.0 * a.n_def / a.n, 1),
+        'adherence_unavailable_pct', round(100.0 * a.n_adh_unavail / a.n, 1),
         'readings_arriving_after_snapshot_pct', round(100.0 * a.n_late / a.n, 1))
       else jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min, 'enrolled_total', v_enrolled, 'not_yet_due', v_notdue) end,
     'definition', (select numerator_definition || ' Denominator: ' || denominator_definition from public.outcome_measure_specs where code = 'bp_control_90d' and spec_version = 1),
@@ -406,7 +444,8 @@ create view analytics.v_bp_control_90d_by_month with (security_invoker = off) as
     select date_trunc('month', s.anchor_date)::date as enrolment_month, count(*) n,
            count(*) filter (where s.bp_status = 'controlled') ctrl, count(*) filter (where s.bp_status = 'uncontrolled') unctrl,
            count(*) filter (where s.bp_status = 'insufficient_data') insuf
-      from public.outcome_snapshots s where s.pathway_code = 'bp' and s.day = 90 and not s.is_test group by 1)
+      from public.outcome_snapshots s join public.profiles pr on pr.id = s.patient_id
+     where s.pathway_code = 'bp' and s.day = 90 and not s.is_test and not coalesce(pr.is_test, false) group by 1)
   select enrolment_month, n, ctrl as controlled, unctrl as uncontrolled, insuf as insufficient_data,
          round(100.0 * ctrl / n, 1) as rate_strict_pct,
          round(100.0 * insuf / n, 1) as missing_pct

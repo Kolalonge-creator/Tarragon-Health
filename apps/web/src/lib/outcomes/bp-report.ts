@@ -34,12 +34,13 @@ export const reportSchema = z.object({
   data_quality: z.union([
     z.object({
       enrolled_total: z.number().int(), not_yet_due: z.number().int(), baseline_missing_pct: z.number(), day90_no_reading_pct: z.number(),
-      default_target_used_pct: z.number(), readings_arriving_after_snapshot_pct: z.number(),
+      default_target_used_pct: z.number(), readings_arriving_after_snapshot_pct: z.number(), adherence_unavailable_pct: z.number().optional(),
     }),
     withheld.extend({ enrolled_total: z.number().int().optional(), not_yet_due: z.number().int().optional() }),
   ]),
   definition: z.string(),
   limitations: z.string(),
+  range: z.object({ from: z.string().nullable(), to: z.string().nullable() }).optional(),
   not_a_causal_claim: z.literal(true),
   generated_at: z.string(),
 });
