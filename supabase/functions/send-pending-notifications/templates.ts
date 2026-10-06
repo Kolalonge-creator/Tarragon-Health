@@ -563,6 +563,10 @@ export const TEMPLATE_MAP: Record<
     smsText: "Your care team has your message. Open the Tarragon Health app for the time to expect a reply.",
     pushUrl: "/patient/care",
   }),
+  lab_result_ready: () => ({
+    smsText: "Your care team has added something to your health record. Open the Tarragon Health app to see it.",
+    pushUrl: "/patient/labs",
+  }),
   written_question_answered: () => ({
     smsText: "Your care team has replied. Open the Tarragon Health app to read it.",
     pushUrl: "/patient/care",
