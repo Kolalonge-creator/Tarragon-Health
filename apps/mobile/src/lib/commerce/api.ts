@@ -34,8 +34,10 @@ async function errorCodeOf(error: unknown): Promise<string> {
   return "unknown";
 }
 
-export async function startCheckout(code: string, clientKey: string): Promise<CheckoutResult> {
-  const { data, error } = await supabase.functions.invoke("order-checkout", { body: { code, client_key: clientKey } });
+/** `beneficiary` is set only when paying for someone in the caller's Care Circle (S29); the database decides whether that is allowed. */
+export async function startCheckout(code: string, clientKey: string, beneficiary?: string): Promise<CheckoutResult> {
+  const body = { code, client_key: clientKey, ...(beneficiary ? { beneficiary } : {}) };
+  const { data, error } = await supabase.functions.invoke("order-checkout", { body });
   if (error) return { ok: false, code: await errorCodeOf(error) };
   const parsed = parseCheckout(data);
   return parsed ? { ok: true, ...parsed } : { ok: false, code: "unknown" };

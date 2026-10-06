@@ -190,6 +190,25 @@ describe("supporter default-deny gate", () => {
     const res = await proxy(request("/patient/supporting"));
     expect(res.status).toBe(200);
   });
+
+  // S29 Care Circle: a supporter-only account joins by a link, reads one page about the person, and pays for them.
+  it.each([
+    "/patient/supporting/join/abcdefghijklmnopqrstuvwxyz0123456789",
+    "/patient/supporting/circle/11111111-2222-4333-8444-555555555555",
+    "/patient/supporting/circle/11111111-2222-4333-8444-555555555555/pay",
+    "/patient/membership/paid",
+  ])("allows %s", async (path) => {
+    stubSession({ user: { id: "u1" }, profile: supporter });
+    const res = await proxy(request(path));
+    expect(res.status).toBe(200);
+  });
+
+  it.each(["/patient/membership", "/patient/care-circle"])("still refuses %s (a supporter-only account has no plan or circle of its own)", async (path) => {
+    stubSession({ user: { id: "u1" }, profile: supporter });
+    const res = await proxy(request(path));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/patient/supporting");
+  });
 });
 
 describe("marketing pages on the app host", () => {

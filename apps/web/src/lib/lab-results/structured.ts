@@ -158,6 +158,7 @@ const MESSAGES: Record<string, string> = {
   lab_correction_needs_kind_and_reason: "Say what kind of change this is and why.",
   lab_correction_target_invalid: "A correction cannot be sent for this result right now.",
   lab_result_not_withdrawable: "This result cannot be withdrawn.",
+  lab_result_replaced: "This result was replaced by a corrected one, so it cannot be changed.",
   lab_result_final: "This result is final and cannot be changed.",
 };
 
@@ -183,3 +184,33 @@ export function refusalOf(data: unknown): string | null {
   }
   return null;
 }
+
+export const releasedResultsSchema = z.object({
+  results: z.array(
+    z.object({
+      lab_result_id: z.string().uuid(),
+      received_at: z.string(),
+      released_at: z.string().nullable(),
+      panel_code: z.string().nullable(),
+      order_number: z.string().nullable(),
+      submitted_by_kind: z.string(),
+      withdrawn: z.boolean(),
+      replaced: z.boolean(),
+      abnormal_count: z.number(),
+      item_count: z.number(),
+    }),
+  ),
+});
+export type ReleasedResultRow = z.infer<typeof releasedResultsSchema>["results"][number];
+
+export const liaisonUploadsSchema = z.array(
+  z.object({
+    lab_result_id: z.string().uuid(),
+    received_at: z.string(),
+    order_number: z.string().nullable(),
+    patient_number: z.string().nullable(),
+    file_name: z.string().nullable(),
+    status: z.enum(["waiting_for_review", "reviewed"]),
+  }),
+);
+export type LiaisonUploadRow = z.infer<typeof liaisonUploadsSchema>[number];

@@ -41725,7 +41725,9 @@ export type Database = {
       }
       entitlements: {
         Row: {
+          acceptance: string
           created_at: string
+          decided_at: string | null
           ends_at: string | null
           id: string
           is_test: boolean
@@ -41739,7 +41741,9 @@ export type Database = {
           state: string
         }
         Insert: {
+          acceptance?: string
           created_at?: string
+          decided_at?: string | null
           ends_at?: string | null
           id?: string
           is_test?: boolean
@@ -41753,7 +41757,9 @@ export type Database = {
           state?: string
         }
         Update: {
+          acceptance?: string
           created_at?: string
+          decided_at?: string | null
           ends_at?: string | null
           id?: string
           is_test?: boolean
@@ -42116,6 +42122,210 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      care_circle_alert_acks: {
+        Row: {
+          acked_at: string
+          organisation_id: string
+          page_id: string
+          patient_id: string
+          supporter_id: string
+        }
+        Insert: {
+          acked_at?: string
+          organisation_id: string
+          page_id: string
+          patient_id: string
+          supporter_id: string
+        }
+        Update: {
+          acked_at?: string
+          organisation_id?: string
+          page_id?: string
+          patient_id?: string
+          supporter_id?: string
+        }
+        Relationships: []
+      }
+      care_circle_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      care_circle_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          attempts: number
+          created_at: string
+          expires_at: string
+          grant_days: number
+          id: string
+          invitee_hash: string
+          invitee_hint: string
+          invitee_kind: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          state: string
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          attempts?: number
+          created_at?: string
+          expires_at: string
+          grant_days: number
+          id?: string
+          invitee_hash: string
+          invitee_hint: string
+          invitee_kind: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          state?: string
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          attempts?: number
+          created_at?: string
+          expires_at?: string
+          grant_days?: number
+          id?: string
+          invitee_hash?: string
+          invitee_hint?: string
+          invitee_kind?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          permissions?: string[]
+          relationship?: string
+          state?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
+      care_circle_members: {
+        Row: {
+          alert_mode: string
+          created_at: string
+          expires_at: string
+          id: string
+          invite_id: string | null
+          is_test: boolean
+          notice_final_for: string | null
+          notice_first_for: string | null
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          revoked_at: string | null
+          revoked_by: string | null
+          state: string
+          supporter_id: string
+          updated_at: string
+        }
+        Insert: {
+          alert_mode?: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          invite_id?: string | null
+          is_test?: boolean
+          notice_final_for?: string | null
+          notice_first_for?: string | null
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          state?: string
+          supporter_id: string
+          updated_at?: string
+        }
+        Update: {
+          alert_mode?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invite_id?: string | null
+          is_test?: boolean
+          notice_final_for?: string | null
+          notice_first_for?: string | null
+          organisation_id?: string
+          patient_id?: string
+          permissions?: string[]
+          relationship?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          state?: string
+          supporter_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      care_circle_pauses: {
+        Row: {
+          created_at: string
+          ended_notice_sent: boolean
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          pause_alerts: boolean
+          paused_until: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_notice_sent?: boolean
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          pause_alerts?: boolean
+          paused_until: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_notice_sent?: boolean
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          pause_alerts?: boolean
+          paused_until?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -42770,6 +42980,11 @@ export type Database = {
       override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };
       risk_distribution_report: { Args: Record<PropertyKey, never>; Returns: Json };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
+      liaison_recent_uploads: {
+        Args: Record<PropertyKey, never>;
+        Returns: { lab_result_id: string; received_at: string; order_number: string | null; patient_number: string | null; file_name: string | null; status: string }[];
+      };
+      patient_released_lab_results: { Args: { p_patient: string; p_reason: string }; Returns: Json };
       lab_partner_mark_collected: { Args: { p_order: string }; Returns: undefined };
       lab_partner_portal_orders: {
         Args: Record<PropertyKey, never>;
@@ -47585,6 +47800,29 @@ export type Database = {
         Args: { p_entitlement: string; p_reason?: string }
         Returns: boolean
       }
+      accept_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      cancel_care_circle_invite: { Args: { p_invite: string }; Returns: boolean };
+      circle_open_alerts: { Args: never; Returns: Json };
+      circle_ack_alert: { Args: { p_patient: string }; Returns: boolean };
+      circle_preview_member: { Args: { p_member: string }; Returns: Json };
+      circle_preview_permissions: { Args: { p_permissions: string[]; p_relationship?: string }; Returns: Json };
+      pause_care_circle: { Args: { p_pause_alerts?: boolean }; Returns: Json };
+      renew_care_circle_member: { Args: { p_member: string }; Returns: Json };
+      resume_care_circle: { Args: never; Returns: boolean };
+      set_circle_alert_mode: { Args: { p_mode: string; p_patient: string }; Returns: boolean };
+      circle_supporter_view: { Args: { p_patient: string }; Returns: Json };
+      circle_view_log: { Args: { p_limit?: number }; Returns: Json };
+      create_care_circle_invite: {
+        Args: { p_contact: string; p_grant_days?: number; p_kind: string; p_permissions: string[]; p_relationship: string };
+        Returns: Json;
+      };
+      my_care_circle: { Args: never; Returns: Json };
+      my_supported_people: { Args: never; Returns: Json };
+      preview_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      revoke_care_circle_member: { Args: { p_member: string }; Returns: boolean };
+      update_care_circle_member: { Args: { p_expires_at?: string; p_member: string; p_permissions: string[] }; Returns: boolean };
+      my_pending_gifts: { Args: never; Returns: Json };
+      respond_to_gifted_pack: { Args: { p_accept: boolean; p_entitlement: string }; Returns: Json };
     }
     Enums: {
       lab_integration_status: "api" | "hl7_fhir" | "file_exchange" | "structured_upload" | "manual"

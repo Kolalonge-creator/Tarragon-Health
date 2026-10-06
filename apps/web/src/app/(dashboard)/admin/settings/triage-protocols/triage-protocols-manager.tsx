@@ -12,6 +12,7 @@ import {
   type CreateTriageProtocolDraftState,
   type SignTriageProtocolsState,
 } from "./actions";
+import { isSupersededVersion } from "@/lib/clinical/refuse-superseded-draft";
 
 type RedFlagRuleRow = { key: string; label: string; category: string };
 type PathwayRow = {
@@ -205,7 +206,13 @@ export function TriageProtocolsManager({
                     {Array.isArray(v.config?.pathways) ? v.config.pathways.length : 0} pathway
                     {Array.isArray(v.config?.pathways) && v.config.pathways.length === 1 ? "" : "s"}
                   </p>
-                  {!v.is_active && (
+                  {isSupersededVersion(v, activeVersion?.version) && (
+                    <p className="text-xs text-charcoal-ink/50">
+                      Superseded: a newer version is live, so this draft can no longer be signed. To change
+                      anything, draft a new version.
+                    </p>
+                  )}
+                  {!v.is_active && !isSupersededVersion(v, activeVersion?.version) && (
                     <>
                       <p className="text-xs text-charcoal-ink/60">
                         Signing requires an active Clinical Director account and brings this version into

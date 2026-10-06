@@ -2,6 +2,7 @@ import {
   describeLabError,
   disclosureSchema,
   formatRange,
+  liaisonUploadsSchema,
   refusalOf,
   myLabResultsSchema,
   resultEntrySchema,
@@ -85,5 +86,15 @@ describe("refusalOf", () => {
     expect(refusalOf({ error: "not_permitted" })).toMatch(/access/);
     expect(refusalOf({ ok: true })).toBeNull();
     expect(refusalOf(null)).toBeNull();
+  });
+});
+
+describe("liaisonUploadsSchema", () => {
+  it("accepts only the two neutral statuses", () => {
+    const base = { lab_result_id: id, received_at: "2026-10-06T10:00:00Z", order_number: null, patient_number: "TH-1", file_name: "a.pdf" };
+    expect(liaisonUploadsSchema.safeParse([{ ...base, status: "waiting_for_review" }]).success).toBe(true);
+    expect(liaisonUploadsSchema.safeParse([{ ...base, status: "reviewed" }]).success).toBe(true);
+    expect(liaisonUploadsSchema.safeParse([{ ...base, status: "withheld" }]).success).toBe(false);
+    expect(liaisonUploadsSchema.safeParse([{ ...base, status: "released" }]).success).toBe(false);
   });
 });

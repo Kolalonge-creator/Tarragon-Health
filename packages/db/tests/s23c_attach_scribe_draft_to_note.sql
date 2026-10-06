@@ -45,6 +45,10 @@ begin
   values (v_org, v_pat, v_tied, now()) on conflict (patient_id) do update set clinician_id = v_tied;
 
   -- the tied doctor creates two draft notes and records consents the way the app does
+  -- S21g (OQ-161): a granted consent normally needs the patient's own in-app answer for a live S21 consultation (proved in
+  -- s21g_scribe_consent_and_chart_access.sql). THIS proof is about attach_scribe_draft_to_note, which only reads consent rows, so its
+  -- fixture rows are written with that one trigger off (owner, rolled back with everything else) and it is switched on again straight after.
+  execute 'alter table public.scribe_consents disable trigger scribe_consents_require_patient_answer';
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   select public.create_encounter_note(v_pat, 'phone', 'S23c review') into v_note;
@@ -55,6 +59,7 @@ begin
   insert into public.scribe_consents (patient_id, encounter_note_id, granted, language) values (v_pat, v_note2, true, 'en-NG') returning id into v_other;
   insert into public.scribe_consents (patient_id, encounter_note_id, granted, language) values (v_pat, v_note, false, 'en-NG') returning id into v_declined;
   execute 'reset role';
+  execute 'alter table public.scribe_consents enable trigger scribe_consents_require_patient_answer';
 
   -- ===== 2. refusals first, so the note is untouched =====
   -- 2a untied doctor
