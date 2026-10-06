@@ -878,3 +878,5 @@ s29b_gifted_care_pack.sql
 s29c_care_circle_followup.sql
 # S38d: the "monthly_report_ready" notice (neutral, in-app and push, only for the month that just closed, none when nothing was written) and the Care Circle monthly block (only through the ticks already given, at most 3 months, no target/week/count fields, not shared is not zero, expired and paused get nothing, the patient's preview shows the same block) and the audited export log. Sabotage: a later redefinition of circle_view_blocks without the monthly block must lose it and flip the checks.
 s38d_care_circle_monthly_and_notice.sql
+# CMO sign-off hub: a governed configuration version cannot be activated while older than one already signed, on all nine versioned tables, so a stale draft can never roll the platform back (real sign_alert_rules; partition columns for cv_risk_config and risk_questionnaire_configs). Sabotage: the trigger dropped; the older draft must then sign.
+governed_config_supersede_guard.sql
