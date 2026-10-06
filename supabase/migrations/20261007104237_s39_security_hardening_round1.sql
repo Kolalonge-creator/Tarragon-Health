@@ -54,12 +54,23 @@ begin
   on conflict (kind, hour_start) do update set failures = f.failures + 1
   returning * into v_row;
   if v_limit is not null and v_row.failures >= v_limit and not v_row.alerted then
-    update public.public_lookup_failures set alerted = true where kind = p_kind and hour_start = v_hour;
-    select id into v_org from public.organisations order by created_at limit 1;
-    insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
-    values (v_org, 'security', 'sev3', 'Many failed lookups on a public door (' || p_kind || ')',
-            v_row.failures || ' failed lookups in one hour on ' || p_kind || '. This may be someone guessing tokens. Check the lookups and, if needed, rotate or expire the tokens in use.',
-            'public-lookup-' || p_kind || '-' || to_char(v_hour, 'YYYYMMDDHH24'), now() + interval '1 day', now() + interval '3 days');
+    -- The alert must never turn a miss into an error (a guesser would see the difference and the counter row would roll back),
+    -- so a failure here is raised as a WARNING in the database log and retried on the next failed guess.
+    begin
+      select id into v_org from public.organisations order by created_at limit 1;
+      if exists (select 1 from public.ops_incidents where external_reference = 'public-lookup-' || p_kind and status not in ('resolved', 'closed')) then
+        update public.ops_incidents set summary = v_row.failures || ' failed lookups in the hour from ' || to_char(v_hour, 'HH24:MI') || ' on ' || p_kind || '. Still open: this may be someone guessing tokens.'
+         where external_reference = 'public-lookup-' || p_kind and status not in ('resolved', 'closed');
+      else
+        insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+        values (v_org, 'security', 'sev3', 'Many failed lookups on a public door (' || p_kind || ')',
+                v_row.failures || ' failed lookups in one hour on ' || p_kind || '. This may be someone guessing tokens. Check the lookups and, if needed, rotate or expire the tokens in use.',
+                'public-lookup-' || p_kind, now() + interval '1 day', now() + interval '3 days');
+      end if;
+      update public.public_lookup_failures set alerted = true where kind = p_kind and hour_start = v_hour;
+    exception when others then
+      raise warning 'S39: could not record the failed-lookup alert for %: %', p_kind, sqlerrm;
+    end;
   end if;
 end $$;
 revoke all on function private.log_public_lookup_failure(text) from public, anon, authenticated;
@@ -79,7 +90,6 @@ declare
   v_payload jsonb;
 begin
   if p_token is null or length(p_token) < 32 then
-    perform private.log_public_lookup_failure('emergency_card');
     return null;
   end if;
 
@@ -172,7 +182,6 @@ declare
   v_result  jsonb := '{}'::jsonb;
 begin
   if p_token is null or length(p_token) < 32 then
-    perform private.log_public_lookup_failure('record_share');
     return null;
   end if;
 

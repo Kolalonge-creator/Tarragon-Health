@@ -56,22 +56,36 @@ begin
   perform pg_temp.ck('real', 'a wrong card token still returns null', 'true', (public.emergency_card_by_token(md5('x') || md5('y')) is null)::text);
   perform pg_temp.ck('real', 'a short card token still returns null', 'true', (public.emergency_card_by_token('abc') is null)::text);
   perform pg_temp.ck('real', 'a null card token still returns null', 'true', (public.emergency_card_by_token(null) is null)::text);
-  perform pg_temp.ck('real', 'three failed card guesses add three to the card counter', '3', (pg_temp.fails('emergency_card') - n_before)::text);
+  perform pg_temp.ck('real', 'only the well-formed wrong guess is counted; a short or null token is not a guess', '1', (pg_temp.fails('emergency_card') - n_before)::text);
   n_before := pg_temp.fails('record_share');
   perform pg_temp.ck('real', 'a wrong share token still returns null', 'true', (public.record_share_by_token(md5('p') || md5('q')) is null)::text);
   perform pg_temp.ck('real', 'one failed share guess adds one to the share counter', '1', (pg_temp.fails('record_share') - n_before)::text);
-  perform pg_temp.ck('real', 'the share door did not alarm the card door', '0', (select count(*) from public.ops_incidents where external_reference like 'public-lookup-emergency_card-%' and created_at > now() - interval '1 minute')::text);
+  perform pg_temp.ck('real', 'the share door did not alarm the card door', '0', (select count(*) from public.ops_incidents where external_reference = 'public-lookup-emergency_card' and created_at > now() - interval '1 minute')::text);
   perform pg_temp.ck('real', 'the counter holds no token', '0', (select count(*) from information_schema.columns where table_name = 'public_lookup_failures' and column_name ~ 'token|ip|hash')::text);
 
   -- the alert: reaching the limit opens exactly one incident, a further failure opens no second
   update public.security_config set config = jsonb_set(config, '{lookup_failure_alert_per_hour}', to_jsonb(pg_temp.fails('emergency_card') + 2)) where is_active;
-  perform public.emergency_card_by_token('z1');
-  perform pg_temp.ck('real', 'below the threshold there is no incident yet', '0', (select count(*) from public.ops_incidents where external_reference like 'public-lookup-emergency_card-%')::text);
-  perform public.emergency_card_by_token('z2');
-  perform pg_temp.ck('real', 'reaching the threshold opens one security incident', '1', (select count(*) from public.ops_incidents where external_reference like 'public-lookup-emergency_card-%' and category = 'security')::text);
-  perform public.emergency_card_by_token('z3');
-  perform public.emergency_card_by_token('z4');
-  perform pg_temp.ck('real', 'more failures in the same hour open no second incident', '1', (select count(*) from public.ops_incidents where external_reference like 'public-lookup-emergency_card-%')::text);
+  perform public.emergency_card_by_token(md5('z1') || md5('z1'));
+  perform pg_temp.ck('real', 'below the threshold there is no incident yet', '0', (select count(*) from public.ops_incidents where external_reference = 'public-lookup-emergency_card')::text);
+  perform public.emergency_card_by_token(md5('z2') || md5('z2'));
+  perform pg_temp.ck('real', 'reaching the threshold opens one security incident', '1', (select count(*) from public.ops_incidents where external_reference = 'public-lookup-emergency_card' and category = 'security')::text);
+  perform public.emergency_card_by_token(md5('z3') || md5('z3'));
+  perform public.emergency_card_by_token(md5('z4') || md5('z4'));
+  perform pg_temp.ck('real', 'more failures in the same hour open no second incident', '1', (select count(*) from public.ops_incidents where external_reference = 'public-lookup-emergency_card')::text);
+  -- a new hour while the incident is still open updates it and opens no second one
+  update public.public_lookup_failures set hour_start = hour_start - interval '1 hour' where kind = 'emergency_card';
+  perform public.emergency_card_by_token(md5('n1') || md5('n1'));
+  perform public.emergency_card_by_token(md5('n2') || md5('n2'));
+  perform pg_temp.ck('real', 'an attack across hours keeps ONE open incident', '1', (select count(*) from public.ops_incidents where external_reference = 'public-lookup-emergency_card')::text);
+  -- the alert failing never breaks the lookup: with no organisation to attach it to, the door still answers null
+  update public.security_config set config = jsonb_set(config, '{lookup_failure_alert_per_hour}', '1'::jsonb) where is_active;
+  update public.public_lookup_failures set alerted = false where kind = 'record_share';
+  alter table public.ops_incidents disable trigger user;
+  update public.ops_incidents set status = 'resolved', root_cause = 'test' where external_reference = 'public-lookup-record_share';
+  alter table public.ops_incidents add constraint s39_force_fail check (false) not valid;
+  perform pg_temp.ck('real', 'a failing alert never turns a miss into an error', 'true', (public.record_share_by_token(md5('w1') || md5('w2')) is null)::text);
+  alter table public.ops_incidents drop constraint s39_force_fail;
+  alter table public.ops_incidents enable trigger user;
 
   -- anon cannot read or call the counter
   perform pg_temp.ck('real', 'anon cannot read the counter table', '42501', pg_temp.try_anon('select * from public.public_lookup_failures'));
@@ -90,10 +104,9 @@ begin
   v_def := replace(v_def, E'perform private.log_public_lookup_failure(''emergency_card'');\n    return null;', 'return null;');
   execute v_def;
   v_before := pg_temp.fails('emergency_card');
-  perform public.emergency_card_by_token('sabotage-short');
-  perform public.emergency_card_by_token(md5('s1') || md5('s2'));
+    perform public.emergency_card_by_token(md5('s1') || md5('s2'));
   v_after := pg_temp.fails('emergency_card');
-  insert into results values ('sabotaged', 'SABOTAGE: two failed card guesses add two to the counter', '2', (v_after - v_before)::text);
+  insert into results values ('sabotaged', 'SABOTAGE: one well-formed failed card guess adds one to the counter', '1', (v_after - v_before)::text);
 end $$;
 
 do $$

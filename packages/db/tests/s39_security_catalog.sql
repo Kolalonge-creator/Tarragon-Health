@@ -6,8 +6,9 @@
 --   3. every SECURITY DEFINER function pins its search_path;
 --   4. the only views that run as their owner are the reviewed ones, and none is readable by anon;
 --   5. the only public storage buckets are the reviewed ones;
---   6. a person with no relationship to anyone (a patient, a clinician, an admin, a care coordinator and a finance user, each in a
---      brand-new organisation) and anon read ZERO rows from every table that carries a patient_id.
+--   6. a person with no relationship to anyone (a patient, a clinician, a care coordinator and a finance user, each in a brand-new
+--      organisation) and anon read ZERO rows about anybody else from every table that carries a patient_id. Not covered: tables with an
+--      organisation_id but no patient_id, and the admin role (see the note under the allowlists).
 -- SABOTAGE: RLS switched off on one table, a function made anon-executable, a view switched to owner rights and an open policy added to a
 -- patient table; each of the four checks must flip.
 begin;
@@ -44,7 +45,7 @@ insert into allow values
   -- addresses is OQ-S39-avatars (every place that shows an avatar would change)
   ('public_bucket', 'patient-avatars'),
   -- tables with a patient_id that any signed-in person may legitimately read in full (none today)
-  ('open_patient_table', 'public.clinical_rules');   -- global rules (organisation_id null) are readable by every signed-in person; patient_id is only an override
+  ('open_patient_table', '__none__');
 -- NOT swept: the platform admin role. It reads across organisations by design (customer support and investigations, INV-12 note); its reads
 -- of clinical records are the INV-10 audit question tracked in docs/design/S39.md section 5 and OPEN-QUESTIONS.
 
@@ -114,7 +115,7 @@ begin
   begin
     set local statement_timeout = '20s';
     -- a person may of course read rows about themselves (the fixture's own profile write leaves correction rows about them)
-    execute format('select count(*) from %s where patient_id is not null and patient_id is distinct from %L::uuid', p_table, p_uid) into r;
+    execute format('select count(*) from (select 1 from %s where patient_id is not null and patient_id is distinct from %L::uuid limit 1) x', p_table, p_uid) into r;
   exception when insufficient_privilege then r := 0;     -- refused outright is fine
             when others then r := -1;                      -- anything else is reported below, never hidden
   end;
