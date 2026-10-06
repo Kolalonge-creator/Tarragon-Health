@@ -164,7 +164,7 @@ revoke all on function private.queue_entitlement_expiry_reminders() from public,
 
 -- Register the CON-010 notification template
 insert into public.notification_templates (key, category, business_priority, audience, default_channels, timing, description)
-values ('entitlement_expiring_soon', 'transactional', 'high', 'patient', '{in_app,push,email}', 'scheduled',
+values ('entitlement_expiring_soon', 'operational', 'important', 'patient', '{in_app,push,email}', 'scheduled',
         'Sent 7 days before an entitlement (care pack or membership) expires. Safety case 25: notifies only, never auto-renews.')
 on conflict (key) do nothing;
 
@@ -180,7 +180,7 @@ on conflict (template_key, locale, channel) do nothing;
 
 -- Register a refund notification template
 insert into public.notification_templates (key, category, business_priority, audience, default_channels, timing, description)
-values ('order_refund_completed', 'transactional', 'high', 'patient', '{in_app,push,email}', 'immediate',
+values ('order_refund_completed', 'operational', 'important', 'patient', '{in_app,push,email}', 'immediate',
         'Sent when a refund has been completed and money is on its way back to the patient.')
 on conflict (key) do nothing;
 
@@ -215,7 +215,7 @@ begin
 
   insert into public.refunds (organisation_id, order_id, amount_kobo, reason, requested_by, is_test)
   values (o.organisation_id, o.id, o.amount_kobo, p_reason, v_uid, o.is_test)
-  on conflict on constraint refunds_one_live do nothing
+  on conflict (order_id) where state in ('pending', 'approved', 'processing', 'completed') do nothing
   returning id into v_refund;
 
   if v_refund is null then return jsonb_build_object('result', 'already_requested'); end if;
@@ -419,6 +419,11 @@ revoke all on function private.post_refund_reversal(uuid, bigint) from public, a
 -- ---------------------------------------------------------------------------
 grant select on public.refunds to authenticated;
 
+-- `revoke ... from public` also removes the EXECUTE authenticated inherits through PUBLIC,
+-- so the two RPCs called from signed-in sessions need an explicit grant.
+grant execute on function public.request_order_refund(uuid, text) to authenticated;
+grant execute on function public.decide_order_refund(uuid, boolean, text) to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 8. Self-check
 -- ---------------------------------------------------------------------------
@@ -459,6 +464,15 @@ begin
   end if;
   if has_function_privilege('anon', 'public.record_refund_provider_result(uuid, boolean, text, jsonb)', 'EXECUTE') then
     raise exception 'S26: anon must not have EXECUTE on record_refund_provider_result';
+  end if;
+  if not has_function_privilege('authenticated', 'public.request_order_refund(uuid, text)', 'EXECUTE') then
+    raise exception 'S26: authenticated must have EXECUTE on request_order_refund';
+  end if;
+  if not has_function_privilege('authenticated', 'public.decide_order_refund(uuid, boolean, text)', 'EXECUTE') then
+    raise exception 'S26: authenticated must have EXECUTE on decide_order_refund';
+  end if;
+  if has_function_privilege('anon', 'public.decide_order_refund(uuid, boolean, text)', 'EXECUTE') then
+    raise exception 'S26: anon must not have EXECUTE on decide_order_refund';
   end if;
   raise notice 'S26: all checks passed';
 end $$;
