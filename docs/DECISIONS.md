@@ -153,6 +153,7 @@ D-02 to D-04 are not defined in the spec.
 - The minimum-tier gate on a task is `doctor_tier` only; `credentialing_level` is not used.
 - `fee_kobo_at_completion` and `fee_schedule_version_id` stay empty until S30.
 - Paging fallback is email, not SMS (OQ-113).
+- OQ-110: keep `adherence_follow_up`. OQ-111: `care_team_assignment` stands in for the lead until S18. OQ-112: S17 hides offered tasks from others; S18 adds working hours and rest.
 ### S14, 2026-10-06
 - Adapters live in `supabase/functions/_shared/integrations` (an edge function cannot import a workspace package) and `@tarragon/integrations` re-exports them, the same layout as S10 and S13.
 - Every adapter call returns `ProviderResult` and never throws. Money is integer kobo, NGN only. There is no balance, wallet or top-up method on `PaymentProvider` (INV-09), and a contract test fails if one appears.

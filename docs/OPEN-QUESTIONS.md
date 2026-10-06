@@ -596,17 +596,17 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The S11 rule set emits `adherence_review` and `silence_check`; spec 7.3 lists nine task types and neither is among them. The live keys `urgent_bp_review`, `bp_review` and `low_bp_review` map to `amber_bp_review` (the due time comes from the rule), `referral_review` to `admin_clinical`.
 - S16 added one type, `adherence_follow_up` (class 8, 48 hours, logistics only, minimum tier `care_coordinator`), so the work is not dropped. A key that no type answers raises and dead-letters visibly.
 - Options: (a) keep the extra type and have the CMO confirm the class and tier (recommended); (b) fold both into `symptom_review` (would send a check-in to a doctor's queue).
-- Decision:
+- Decision (founder, 2026-10-06): option (a), keep `adherence_follow_up`. The CMO confirms its class and tier when signing the rule set.
 
 ### OQ-111 Who is "the lead" until S18 (raised by S16)
 - Spec 7.4 offers a task to the patient's lead clinician first. S18 builds lead assignment. Until then S16 uses `care_team_assignment.clinician_id` as the named clinician, only if they are eligible (S15), not on leave and at or above the type's tier. An employed doctor with no named clinician is chosen by least open load (reusing the leave and hours checks of escalation auto-assignment). The same `offered_to_lead` state and window serve both a lead and a pushed employed doctor.
 - Options: (a) accept as a stand-in and replace the lookup in S18 (recommended); (b) hold all tasks in the pool until S18.
-- Decision:
+- Decision (founder, 2026-10-06): option (a), use `care_team_assignment` as the stand-in and replace the lookup in S18.
 
 ### OQ-112 A task pushed to one doctor is hidden from the pool only while the window lasts (raised by S16)
 - A pushed or offered task returns to the pool when its window ends, and escalates when past due. Nothing yet tells the pushed doctor that a window is about to lapse, and S17's next-task query must not show an offered task to anyone else. Working hours and post-call rest for freelancers are also not applied (S17 and S18).
 - Options: (a) S17 excludes offered tasks from other clinicians and S18 adds the hours rule (recommended); (b) show offered tasks to all, with a marker.
-- Decision:
+- Decision (founder, 2026-10-06): option (a). S17's next-task query hides offered tasks from other clinicians; S18 adds the working-hours and post-call rest rule.
 
 ### OQ-113 Paging fallback is email, not SMS (raised by S16, founder 2026-10-06)
 - INV-08 limits SMS to verification codes and D-12 allows clinician paging. For S19 the founder chose email as the fallback after push and in-app. S16 only emits `clinical_task.escalated` (urgent); nothing pages from it yet.
