@@ -13,6 +13,9 @@ export const taskTypeSchema = z.object({
   creatable: z.boolean(),
   source_task_keys: z.array(z.string()),
   note: z.string().nullable(),
+  needs_confirmation: z.boolean(),
+  confirmed_at: z.string().nullable(),
+  confirmation_note: z.string().nullable(),
 });
 export type TaskTypeRow = z.infer<typeof taskTypeSchema>;
 
@@ -48,6 +51,3 @@ export function formatMinutes(minutes: number): string {
 export function taskTypeSearchWords(code: string): string {
   return `${code} ${code.replace(/_/g, " ")} ${TASK_TYPE_LABEL[code] ?? ""}`.trim();
 }
-
-/** A task type the spec does not list: the CMO confirms it when signing the rule set (OQ-110). */
-export const UNCONFIRMED_TASK_TYPES: readonly string[] = ["adherence_follow_up"];

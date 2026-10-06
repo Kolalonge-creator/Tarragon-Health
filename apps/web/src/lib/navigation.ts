@@ -420,7 +420,7 @@ export function getNavSections(
                   icon: "messages",
                   countKey: "careThreadsAwaitingReply",
                 },
-                { label: "Async consults", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
+                { label: "Written questions", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
                 // Real pages with no prior sidebar entry at all — previously
                 // reachable only via the dashboard's "All worklists" strip,
                 // so a doctor who didn't happen to scroll that far never
@@ -506,6 +506,8 @@ export function getNavSections(
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
+                // S21: today's and tomorrow's consultation rooms (spec 9.1, "Consultations").
+                { label: "Consultations", href: "/clinician/consultations", icon: "booking" },
                 {
                   label: "Lab result consults",
                   href: "/clinician/lab-result-consults",
@@ -539,6 +541,10 @@ export function getNavSections(
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
                 // Documents, licence and cover dates, level and renewal uploads (S15).
                 { label: "Training and profile", href: "/clinician/credentials", icon: "review" },
+                // Declared hours, the on-call rota, cover requests (S18).
+                // Red event pages sent to you: acknowledge, open the chart, close with a note (S19).
+                { label: "On call", href: "/clinician/on-call", icon: "siren" },
+                { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier
                 // per this file's own gating philosophy above; the page
@@ -573,6 +579,10 @@ export function getNavSections(
                 // New clinician applications, licence and cover expiry, and the training and test content (S15).
                 // Chief Medical Officer only; the pages redirect anyone below that tier.
                 { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
+                // The on-call rota, declared on-call hours and lead clinicians (S18). Chief Medical Officer only; the page redirects anyone below that tier.
+                { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
+                // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
+                { label: "Memberships", href: "/clinician/memberships", icon: "members" },
                 // The AI governance console's two CMO-only actions (approving
                 // an ai_system_versions row, labelling an ai_evaluation_cases
                 // clinical-accuracy scenario) — same reachability gap as
@@ -581,6 +591,8 @@ export function getNavSections(
                 { label: "AI governance sign-off", href: "/clinician/ai-governance", icon: "review" },
                 { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
+                { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
+                { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
                 { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
                 { label: "Alert rules", href: "/clinician/alert-rules", icon: "siren" },
                 { label: "Escalation SLAs", href: "/clinician/escalation-slas", icon: "escalation" },
@@ -645,6 +657,10 @@ export function getNavSections(
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             // New clinician applications, document and licence checks, licence and indemnity expiry (S15).
             { label: "Clinician credentialing", href: "/admin/credentialing", icon: "review" },
+            // Who is on call, who is declared to work, who leads each care pack patient (S18).
+            { label: "Rota and lead clinicians", href: "/admin/rota", icon: "caseload" },
+            // Grant or end a Membership by hand until checkout exists (S22b).
+            { label: "Memberships", href: "/admin/memberships", icon: "members" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },

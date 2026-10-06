@@ -29,6 +29,7 @@ jest.mock("@/lib/queries/appointments", () => ({
     isPending: false,
   }),
   useJoinWaitingList: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useMyConsultationRule: () => ({ data: undefined }),
   useEnsureAppointmentVideoConsultation: () => ({
     mutateAsync: jest.fn(async () => ({ videoConsultationId: "vc-1" })),
     isPending: false,

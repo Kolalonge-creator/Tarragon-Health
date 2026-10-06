@@ -133,10 +133,26 @@ runVideoContract(
   () => zoomClock.now,
 );
 
+/** A Zoom whose meeting lookup answers with the given body, for replies the fake never produces. */
+const zoomWith = (meetingBody: string) =>
+  createZoomVideo({
+    accountId: "a", clientId: "c", clientSecret: "s", sdkKey: "k", sdkSecret: "s", now: () => Date.parse("2027-01-15T08:10:00Z"),
+    fetch: async (u) => ({ status: 200, ok: true, text: async () => (u.includes("oauth") ? '{"access_token":"t","expires_in":3600}' : meetingBody) }),
+  });
+
 describe("zoom adapter", () => {
   const ENC = "7b9c2f0e-5d3a-4c11-9a52-0f6d1e8b7a44";
   const ID = "2f4b8c1d-9e07-4a63-b5d2-6c8e0a1f3d97";
   const decode = (jwt: string) => JSON.parse(Buffer.from(jwt.split(".")[1]!, "base64url").toString()) as Record<string, unknown>;
+
+  it("without Meeting SDK keys it still creates rooms and join links, and only refuses an SDK token", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = createZoomVideo({ accountId: "acc", clientId: "cid", clientSecret: "csecret", fetch: fake.fetch, now: () => fake.clock.now });
+    const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+    if (!room.ok) throw new Error("room");
+    expect((await z.joinLink({ roomId: room.data.roomId, role: "patient", mediaMode: "video" })).ok).toBe(true);
+    expect(await z.joinToken({ roomId: room.data.roomId, role: "patient", identity: ID, ttlSeconds: 60 })).toMatchObject({ ok: false, error: { code: "not_configured" } });
+  });
 
   it("refuses an encounter reference or identity that only looks like a uuid", async () => {
     const z = zoomFor(createFakeZoom());
@@ -166,6 +182,73 @@ describe("zoom adapter", () => {
     expect(decode(pat.data.token)).toMatchObject({ role: 0, exp: Math.floor((fake.clock.now + 600_000) / 1000) });
     expect(JSON.stringify(decode(doc.data.token))).not.toContain(ID);
     expect(doc.data.token).not.toContain("sdk_secret_value");
+  });
+
+  it("turns automatic recording off when it creates the meeting", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = zoomFor(fake);
+    await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+    const call = fake.calls.find((c) => c.path === "/v2/users/me/meetings")!;
+    expect(call.body).toMatchObject({ settings: { auto_recording: "none" } });
+  });
+
+  it("gives only a clinician the host link, fetched from Zoom each time and never a stored one", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = zoomFor(fake);
+    const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+    if (!room.ok) throw new Error("room");
+    const pat = await z.joinLink({ roomId: room.data.roomId, role: "patient", mediaMode: "audio_only" });
+    const doc = await z.joinLink({ roomId: room.data.roomId, role: "clinician", mediaMode: "video" });
+    expect(pat.ok && pat.data.url).toContain("pwd=guest");
+    expect(pat.ok && pat.data.url).not.toContain("zak=");
+    expect(doc.ok && doc.data.url).toContain("zak=hostkey");
+    expect(pat.ok && pat.data.audioOnlyEnforced).toBe(false);
+    expect(fake.calls.filter((c) => c.method === "GET" && c.path === `/v2/meetings/${room.data.roomId}`)).toHaveLength(2);
+  });
+
+  it("refuses a join link for a malformed room id, an expired meeting, or a reply without a usable link", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = zoomFor(fake);
+    expect(await z.joinLink({ roomId: "abc", role: "patient", mediaMode: "video" })).toMatchObject({ ok: false, error: { code: "not_found" } });
+    const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 60_000 });
+    if (!room.ok) throw new Error("room");
+    fake.clock.now += 3_600_000;
+    expect(await z.joinLink({ roomId: room.data.roomId, role: "patient", mediaMode: "video" })).toMatchObject({ ok: false, error: { code: "conflict" } });
+    const reply = (body: string) => zoomWith(body);
+    expect(await reply('{"start_time":"2027-01-15T08:00:00Z","duration":30}').joinLink({ roomId: "123456789", role: "patient", mediaMode: "video" })).toMatchObject({ ok: false, error: { code: "bad_response" } });
+    expect(await reply('{"start_time":"2027-01-15T08:00:00Z","duration":30,"join_url":"http://insecure.example/j/1"}').joinLink({ roomId: "123456789", role: "patient", mediaMode: "video" })).toMatchObject({ ok: false, error: { code: "bad_response" } });
+    expect(await reply("{}").joinLink({ roomId: "123456789", role: "patient", mediaMode: "video" })).toMatchObject({ ok: false, error: { code: "bad_response" } });
+  });
+
+  it("asks Zoom for audio by computer or phone with Nigerian numbers, and returns only Nigerian numbers with the phone passcode", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = zoomFor(fake);
+    const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+    if (!room.ok) throw new Error("room");
+    const created = fake.calls.find((c) => c.method === "POST" && c.path === "/v2/users/me/meetings");
+    expect(created?.body?.["settings"]).toMatchObject({ audio: "both", global_dial_in_countries: ["NG"] });
+    const d = await z.dialIn({ roomId: room.data.roomId, country: "NG" });
+    expect(d).toMatchObject({ ok: true, data: { meetingId: room.data.roomId, passcode: "482913", numbers: [{ country: "NG", city: "Lagos", kind: "toll" }] } });
+    expect(d.ok && d.data.numbers).toHaveLength(1);
+    expect(d.ok && JSON.stringify(d.data)).not.toContain("zak=");
+  });
+
+  it("dial-in: no number for the country is not_found; a bad room, country or expired meeting is refused; an unusable passcode becomes none", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = zoomFor(fake);
+    expect(await z.dialIn({ roomId: "abc", country: "NG" })).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(await z.dialIn({ roomId: "123456789", country: "ng" })).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 60_000 });
+    if (!room.ok) throw new Error("room");
+    expect(await z.dialIn({ roomId: room.data.roomId, country: "GH" })).toMatchObject({ ok: false, error: { code: "not_found" } });
+    fake.clock.now += 3_600_000;
+    expect(await z.dialIn({ roomId: room.data.roomId, country: "NG" })).toMatchObject({ ok: false, error: { code: "conflict" } });
+    const reply = (body: string) => zoomWith(body);
+    const base = '"start_time":"2027-01-15T08:00:00Z","duration":30';
+    expect(await reply(`{${base}}`).dialIn({ roomId: "123456789", country: "NG" })).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(await reply("{}").dialIn({ roomId: "123456789", country: "NG" })).toMatchObject({ ok: false, error: { code: "bad_response" } });
+    const noPass = `{${base},"pstn_password":"abc","settings":{"global_dial_in_numbers":[{"country":"NG","number":"+234 1 888 0000","type":"tollfree"},{"country":"NG","number":"","type":"toll"},{"country":"NG","number":"+234 9","type":"weird"}]}}`;
+    expect(await reply(noPass).dialIn({ roomId: "123456789", country: "NG" })).toMatchObject({ ok: true, data: { passcode: null, numbers: [{ kind: "toll_free", city: null }] } });
   });
 
   it("reuses the OAuth token until it nears expiry, then fetches a new one", async () => {

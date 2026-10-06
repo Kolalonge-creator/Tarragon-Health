@@ -78,7 +78,7 @@ begin
   end if;
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  perform public.submit_draft_referral(v_ref);
+  perform public.submit_draft_referral(v_ref, now());
   perform public.set_referral_urgency(v_ref, 'priority');
   execute 'reset role';
   if not exists (select 1 from public.specialist_referrals where id = v_ref and status = 'pending' and urgency = 'priority'
@@ -189,7 +189,7 @@ begin
   execute 'reset role';
   if not v_failed or v_sqlstate <> '22023' then raise exception 'FAIL 2g: a short reason was accepted'; end if;
   if has_function_privilege('anon', 'public.get_referral_audited(uuid,text)', 'EXECUTE')
-     or has_function_privilege('anon', 'public.create_specialist_referral(uuid,public.specialist_type,public.referral_source,public.referral_urgency,text,text,jsonb,boolean)', 'EXECUTE') then
+     or has_function_privilege('anon', 'public.create_specialist_referral(uuid,public.specialist_type,public.referral_source,public.referral_urgency,text,text,jsonb,boolean,timestamptz)', 'EXECUTE') then
     raise exception 'FAIL 2h: anon can execute a referral function';
   end if;
 

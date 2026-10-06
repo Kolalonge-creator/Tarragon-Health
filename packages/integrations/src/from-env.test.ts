@@ -14,7 +14,7 @@ describe("adapters from the environment", () => {
     expect(paymentFromEnv({ PAYSTACK_SECRET_KEY: "" }, noFetch)).toBeNull();
     expect(emailFromEnv({ RESEND_API_KEY: "k" }, noFetch)).toBeNull();
     expect(emailFromEnv({ RESEND_FROM: "a <a@example.com>" }, noFetch)).toBeNull();
-    for (const missing of Object.keys(zoomEnv)) {
+    for (const missing of ["ZOOM_ACCOUNT_ID", "ZOOM_CLIENT_ID", "ZOOM_CLIENT_SECRET"]) {
       expect(videoFromEnv({ ...zoomEnv, [missing]: undefined }, noFetch)).toBeNull();
     }
   });
@@ -25,6 +25,8 @@ describe("adapters from the environment", () => {
     expect(emailFromEnv({ RESEND_API_KEY: "k", RESEND_FROM: "a <a@example.com>", RESEND_WEBHOOK_SECRET: "whsec_x", RESEND_REPLY_TO: "care@example.com" }, noFetch)).toMatchObject({ name: "resend" });
     expect(emailFromEnv({ RESEND_API_KEY: "k", RESEND_FROM: "a <a@example.com>" }, noFetch)).toMatchObject({ name: "resend" });
     expect(videoFromEnv(zoomEnv, noFetch)).toMatchObject({ name: "zoom" });
+    // the SDK keys are optional: the link-based flow needs only the account credentials
+    expect(videoFromEnv({ ...zoomEnv, ZOOM_SDK_KEY: undefined, ZOOM_SDK_SECRET: undefined }, noFetch)).toMatchObject({ name: "zoom" });
     expect(videoFromEnv({ ...zoomEnv, ZOOM_WEBHOOK_SECRET_TOKEN: "t" }, noFetch)).toMatchObject({ name: "zoom" });
   });
 

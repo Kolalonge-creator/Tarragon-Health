@@ -3,7 +3,12 @@ import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 import { ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
 
-export type ClinicalEncounterNote = Tables<"clinical_encounter_notes">;
+/** A note as the audited chart read returns it: the table row plus its withdrawn-as-entered-in-error state. */
+export type ClinicalEncounterNote = Tables<"clinical_encounter_notes"> & {
+  entered_in_error?: boolean;
+  withdrawn_reason?: string | null;
+  withdrawn_at?: string | null;
+};
 
 const notesQueryKey = (patientId: string) => ["clinical-encounter-notes", patientId];
 

@@ -2,7 +2,7 @@ import { constantTimeEqual, hmacHex, signJwtHs256 } from "./crypto.ts";
 import { isUuid } from "./ids.ts";
 import { asObject, httpJson, type FetchLike } from "./http.ts";
 import { fail, ok, type ProviderResult } from "./result.ts";
-import { asVideoRole, MAX_TOKEN_TTL_SECONDS, type VideoEvent, type VideoProvider } from "./video.ts";
+import { asVideoRole, MAX_TOKEN_TTL_SECONDS, type DialInNumber, type VideoEvent, type VideoProvider } from "./video.ts";
 
 /**
  * Zoom adapter for `VideoProvider` (skeleton, S14; OQ-22 decided: a Zoom adapter and a mock, a second vendor later).
@@ -21,8 +21,9 @@ export interface ZoomConfig {
   readonly accountId: string;
   readonly clientId: string;
   readonly clientSecret: string;
-  readonly sdkKey: string;
-  readonly sdkSecret: string;
+  /** Meeting SDK keys. Only `joinToken` needs them; the link-based flow (S21) does not, so they are optional. */
+  readonly sdkKey?: string;
+  readonly sdkSecret?: string;
   /** The "Secret Token" from the Zoom app's Feature page, used to verify webhooks. */
   readonly webhookSecretToken?: string;
   readonly fetch: FetchLike;
@@ -86,15 +87,16 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
         start_time: new Date(startMs).toISOString(),
         duration,
         timezone: "Africa/Lagos",
-        settings: { join_before_host: false, waiting_room: true, host_video: true, participant_video: true, mute_upon_entry: false },
+        settings: { join_before_host: false, waiting_room: true, host_video: true, participant_video: true, mute_upon_entry: false, auto_recording: "none", audio: "both", global_dial_in_countries: ["NG"] },
       });
       if (!res.ok) return res;
       const id = asObject(res.data)?.["id"];
       if (typeof id !== "number" && typeof id !== "string") return fail("bad_response", "Zoom sent an unexpected meeting reply");
-      return ok({ roomId: String(id), expiresAtMs: startMs + duration * 60_000 });
+      return ok({ roomId: String(id), expiresAtMs: startMs + duration * 60_000, recording: "off" });
     },
 
     async joinToken(input) {
+      if (!config.sdkKey || !config.sdkSecret) return fail("not_configured", "Meeting SDK keys are not set", false);
       if (!isUuid(input.identity)) return fail("invalid_input", "Identity must be an opaque uuid");
       if (!Number.isInteger(input.ttlSeconds) || input.ttlSeconds <= 0 || input.ttlSeconds > MAX_TOKEN_TTL_SECONDS) {
         return fail("invalid_input", "Token lifetime is out of range");
@@ -109,9 +111,10 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       const iat = Math.floor(now() / 1000);
       const expiresAtMs = Math.min(now() + input.ttlSeconds * 1000, endsAtMs);
       const exp = Math.floor(expiresAtMs / 1000);
+      const sdkKey = config.sdkKey;
       const token = await signJwtHs256(config.sdkSecret, {
-        appKey: config.sdkKey,
-        sdkKey: config.sdkKey,
+        appKey: sdkKey,
+        sdkKey,
         mn: input.roomId,
         role: input.role === "clinician" ? 1 : 0,
         iat,
@@ -119,6 +122,47 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
         tokenExp: exp,
       });
       return ok({ token, expiresAtMs });
+    },
+
+    async joinLink(input) {
+      if (!/^\d{9,12}$/.test(input.roomId)) return fail("not_found", "No such room", false);
+      const meeting = await call("GET", `/meetings/${input.roomId}`);
+      if (!meeting.ok) return meeting;
+      const d = asObject(meeting.data);
+      const endsAtMs = meetingEnd(d);
+      if (endsAtMs === null) return fail("bad_response", "Zoom sent an unexpected meeting reply");
+      if (endsAtMs <= now()) return fail("conflict", "Room is closed", false);
+      // The host link carries a start key, so only a clinician is ever given it.
+      const url = d?.[input.role === "clinician" ? "start_url" : "join_url"];
+      if (typeof url !== "string" || !url.startsWith("https://")) return fail("bad_response", "Zoom sent an unexpected meeting reply");
+      // A plain Zoom link cannot keep a camera off, so audio-only is guidance the app gives, not something Zoom enforces.
+      return ok({ url, expiresAtMs: endsAtMs, mediaMode: input.mediaMode, audioOnlyEnforced: false });
+    },
+
+    async dialIn(input) {
+      if (!/^\d{9,12}$/.test(input.roomId)) return fail("not_found", "No such room", false);
+      if (!/^[A-Z]{2}$/.test(input.country)) return fail("invalid_input", "Country must be a two-letter code");
+      const meeting = await call("GET", `/meetings/${input.roomId}`);
+      if (!meeting.ok) return meeting;
+      const d = asObject(meeting.data);
+      const endsAtMs = meetingEnd(d);
+      if (endsAtMs === null) return fail("bad_response", "Zoom sent an unexpected meeting reply");
+      if (endsAtMs <= now()) return fail("conflict", "Room is closed", false);
+      const listed = asObject(d?.["settings"])?.["global_dial_in_numbers"];
+      const numbers: DialInNumber[] = [];
+      for (const raw of Array.isArray(listed) ? listed : []) {
+        const n = asObject(raw);
+        const number = n?.["number"];
+        const type = n?.["type"];
+        if (n?.["country"] !== input.country || typeof number !== "string" || number.trim().length === 0) continue;
+        if (type !== "toll" && type !== "tollfree") continue;
+        numbers.push({ country: input.country, number: number.trim(), city: typeof n["city"] === "string" && n["city"].length > 0 ? n["city"] : null, kind: type === "toll" ? "toll" : "toll_free" });
+      }
+      // Nothing for this country is a real answer, not an error: the account may not carry Nigerian numbers.
+      if (numbers.length === 0) return fail("not_found", "No dial-in number for this country", false);
+      // A phone caller types digits, so it is the numeric phone passcode, never the web passcode.
+      const pass = d?.["pstn_password"];
+      return ok({ numbers, meetingId: input.roomId, passcode: typeof pass === "string" && /^\d{4,10}$/.test(pass) ? pass : null, expiresAtMs: endsAtMs });
     },
 
     async endRoom(roomId, actingRole) {

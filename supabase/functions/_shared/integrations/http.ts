@@ -16,6 +16,8 @@ export interface HttpRequest {
   readonly method: "GET" | "POST" | "PUT" | "DELETE";
   readonly headers: Record<string, string>;
   readonly body?: unknown;
+  /** A form-encoded body, for vendors that do not take JSON. Used instead of `body`. */
+  readonly form?: Readonly<Record<string, string>>;
 }
 
 const asObject = (v: unknown): Record<string, unknown> | null => (typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
@@ -33,8 +35,8 @@ export async function httpJson(deps: HttpDeps, req: HttpRequest): Promise<Provid
   try {
     const res = await deps.fetch(req.url, {
       method: req.method,
-      headers: { ...(req.body === undefined ? {} : { "Content-Type": "application/json" }), ...req.headers },
-      body: req.body === undefined ? undefined : JSON.stringify(req.body),
+      headers: { ...(req.form ? { "Content-Type": "application/x-www-form-urlencoded" } : req.body === undefined ? {} : { "Content-Type": "application/json" }), ...req.headers },
+      body: req.form ? new URLSearchParams(req.form).toString() : req.body === undefined ? undefined : JSON.stringify(req.body),
       signal: controller.signal,
     });
     const raw = await res.text();

@@ -865,7 +865,7 @@ declare
   v_org uuid := pg_temp.f('org'); v_adm uuid := pg_temp.f('admin'); v_cmo uuid := pg_temp.f('cmo');
   x uuid; y uuid; z uuid; w uuid; g uuid; t uuid; v_xs uuid; v_res jsonb; v_claimed uuid;
 begin
-  x := pg_temp.mkdoc(v_org, 'x', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_adm);
+  x := pg_temp.mkdoc(v_org, 'x', 'senior_medical_officer', 'contracted', '{hypertension,adult_general,on_call}', v_adm);
   y := pg_temp.mkdoc(v_org, 'y', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_adm);
   z := pg_temp.mkdoc(v_org, 'z', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_adm);
   w := pg_temp.mkdoc(v_org, 'w', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_adm);
@@ -895,7 +895,7 @@ begin
   perform pg_temp.ck('X is no longer eligible', 'false', private.clinician_is_eligible(x)::text);
   perform pg_temp.ck('X cannot take work', 'true', (pg_temp.next_outcome(x) <> 'claimed')::text);
   perform pg_temp.ck('X is told nothing clinical: the removal is audited', '1', (select count(*)::text from public.audit_log where action = 'clinician.removed_from_work' and entity_id = v_xs));
-  perform pg_temp.ck('a removal event asks S18 to reassign the lead patients', 'true',
+  perform pg_temp.ck('a removal event asks S18 to reassign the lead patients unless S18 already did', (to_regprocedure('private.lead_on_clinician_removed(uuid)') is null)::text,
     (select (count(*) >= 1 and bool_and((payload ->> 'lead_reassignment_required')::boolean))::text from public.domain_events where event_type = 'clinician.removed_from_work' and payload ->> 'clinical_staff_id' = v_xs::text));
   perform pg_temp.ck('the released task goes to the next clinician', 'true', (pg_temp.next_task(y) = t)::text);
 
@@ -934,7 +934,11 @@ end $$;
 -- 10b. When S18 is present its lead reassignment runs inside the removal (here a stand-in that records the call)
 create temp table s18_calls(staff uuid) on commit drop;
 grant all on s18_calls to public;
-create function private.lead_on_clinician_removed(p_staff uuid) returns jsonb language plpgsql security definer set search_path = '' as
+-- S18 defines the real entry point; keep its definition so it can be put back after the stand-in has recorded the call
+create temp table s18_real(def text) on commit drop;
+grant all on s18_real to public;
+insert into s18_real select pg_get_functiondef(to_regprocedure('private.lead_on_clinician_removed(uuid)')) where to_regprocedure('private.lead_on_clinician_removed(uuid)') is not null;
+create or replace function private.lead_on_clinician_removed(p_staff uuid) returns jsonb language plpgsql security definer set search_path = '' as
 $$ begin insert into s18_calls values (p_staff); return jsonb_build_object('leads_moved', 0); end $$;
 do $$
 declare v uuid; v_org uuid := pg_temp.f('org'); v_adm uuid := pg_temp.f('admin'); v_s uuid;
@@ -947,7 +951,10 @@ begin
   perform pg_temp.ck('with S18 present, the nightly removal also reassigns the leads', '1', (select count(*)::text from s18_calls where staff = v_s));
   perform pg_temp.ck('...and the event no longer says reassignment is outstanding', 'false', (select (payload ->> 'lead_reassignment_required') from public.domain_events where event_type = 'clinician.removed_from_work' and payload ->> 'clinical_staff_id' = v_s::text order by occurred_at desc limit 1));
 end $$;
-drop function private.lead_on_clinician_removed(uuid);
+do $$ declare v_def text; begin
+  select def into v_def from s18_real;
+  if v_def is null then drop function private.lead_on_clinician_removed(uuid); else execute v_def; end if;
+end $$;
 
 -- 10c. A removal failure must never block the suspension itself
 create or replace function private.remove_clinician_from_work(p_profile uuid, p_reason text) returns jsonb

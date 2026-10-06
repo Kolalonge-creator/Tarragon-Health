@@ -7,6 +7,8 @@ import type { MedicationWithCarePlan } from "@/lib/queries/medications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { isSafetyResubmitReady, parseSafetyError } from "@/lib/prescriptions/parse-safety-error";
+import { SafetyFindingsPrompt } from "@/components/prescribing/safety-findings-prompt";
 
 /**
  * Spec §62.14 amendment — "a changed prescription should create a new
@@ -40,6 +42,9 @@ export function AmendMedicationForm({
   const [instructions, setInstructions] = useState(medication.instructions ?? "");
   const [reason, setReason] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  // S24 signing checks: answers to a SAFETY_FINDINGS stop. Never pre-ticked.
+  const [allergiesConfirmed, setAllergiesConfirmed] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -72,13 +77,16 @@ export function AmendMedicationForm({
         patientId,
         organisationId: medication.organisation_id,
         input: parsed.data,
+        safety: { allergiesConfirmed, overrideReason },
       },
       { onSuccess: onDone }
     );
   }
 
-  const mutationError = (amendMedication.error as Error | null)?.message ?? null;
+  const safetyError = amendMedication.isError ? parseSafetyError(amendMedication.error) : null;
+  const mutationError = safetyError ? null : ((amendMedication.error as Error | null)?.message ?? null);
   const displayError = validationError ?? mutationError;
+  const safetyReady = safetyError ? isSafetyResubmitReady(safetyError, { allergiesConfirmed, overrideReason }) : true;
 
   return (
     <form
@@ -209,9 +217,19 @@ export function AmendMedicationForm({
           className="h-8 text-xs"
         />
       </div>
+      {safetyError && (
+        <SafetyFindingsPrompt
+          error={safetyError}
+          idPrefix={`amend-${medication.id}`}
+          allergiesConfirmed={allergiesConfirmed}
+          onAllergiesConfirmedChange={setAllergiesConfirmed}
+          overrideReason={overrideReason}
+          onOverrideReasonChange={setOverrideReason}
+        />
+      )}
       {displayError && <p className="text-xs text-red-600">{displayError}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" size="sm" disabled={amendMedication.isPending}>
+        <Button type="submit" size="sm" disabled={amendMedication.isPending || !safetyReady}>
           {amendMedication.isPending ? "Saving…" : "Sign amended version"}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>

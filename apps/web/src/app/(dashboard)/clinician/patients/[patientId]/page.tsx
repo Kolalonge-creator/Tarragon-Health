@@ -28,9 +28,11 @@ import { MedicationReconciliationPanel } from "./medication-reconciliation-panel
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
 import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
 import { MedicationChangeRequestsPanel } from "./medication-change-requests-panel";
+import { CarePlanChangesPanel } from "./care-plan-changes/care-plan-changes-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
+import { DeclareConflictForm } from "@/components/rota/declare-conflict-form";
 import { HandOverCareSection } from "./hand-over-care-section";
 import { CareManagementPanel } from "./care-management-panel";
 import { OrderLabTestForm } from "./order-lab-test-form";
@@ -235,6 +237,7 @@ export default async function ClinicianPatientPage({
                 {patient.organisation_id && (
                   <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
                 )}
+                <DeclareConflictForm patientId={patient.id} />
                 <HandOverCareSection patientId={patient.id} />
                 <CareManagementPanel patientId={patient.id} organisationId={patient.organisation_id} />
               </>
@@ -272,6 +275,9 @@ export default async function ClinicianPatientPage({
                     reviewing this is the same class of act as amending a
                     prescription. */}
                 <MedicationChangeRequestsPanel patientId={patient.id} canReview={canPrescribe} />
+                {/* S24: signed care plan changes. Hidden for a Care Coordinator (logistics only);
+                    proposing and signing need prescribing authority, enforced in the DB. */}
+                {isClinicalTier(callerStaff) && <CarePlanChangesPanel patientId={patient.id} canAct={canPrescribe} />}
                 <MedicationsList
                   patientId={patient.id}
                   refillCoordinationEnabled
