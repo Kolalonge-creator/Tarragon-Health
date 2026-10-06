@@ -42,7 +42,11 @@ export const pendingInviteSchema = z.object({
 });
 export type PendingInvite = z.infer<typeof pendingInviteSchema>;
 
-export const myCircleSchema = z.object({ members: z.array(memberSchema), invites: z.array(pendingInviteSchema) });
+/** A pause the patient started (S29c). Null or absent means sharing is on. */
+export const pauseSchema = z.object({ paused_until: z.string(), pause_alerts: z.boolean() });
+export type CirclePause = z.infer<typeof pauseSchema>;
+
+export const myCircleSchema = z.object({ members: z.array(memberSchema), invites: z.array(pendingInviteSchema), pause: pauseSchema.nullable().optional(), pause_days: z.number().optional() });
 export type MyCircle = z.infer<typeof myCircleSchema>;
 export const EMPTY_CIRCLE: MyCircle = { members: [], invites: [] };
 
@@ -51,6 +55,10 @@ export function parseMyCircle(data: unknown): MyCircle {
   return r.success ? r.data : EMPTY_CIRCLE;
 }
 
+/** A supporter can drop the push for one person and keep the in-app request. There are no quiet hours: a request must never be hidden by the clock. */
+export const ALERT_MODES = ["push_and_app", "app_only"] as const;
+export type AlertMode = (typeof ALERT_MODES)[number];
+
 export const supportedPersonSchema = z.object({
   patient_id: z.string(),
   member_id: z.string(),
@@ -58,6 +66,7 @@ export const supportedPersonSchema = z.object({
   relationship: z.string(),
   permissions: z.array(permissionSchema),
   expires_at: z.string(),
+  alert_mode: z.enum(ALERT_MODES).catch("push_and_app"),
 });
 export type SupportedPerson = z.infer<typeof supportedPersonSchema>;
 
@@ -93,7 +102,7 @@ export function parseSupporterView(data: unknown): SupporterView | null {
   return r.success ? r.data : null;
 }
 
-export const openAlertSchema = z.object({ patient_id: z.string(), name: z.string(), since: z.string() });
+export const openAlertSchema = z.object({ patient_id: z.string(), name: z.string(), since: z.string(), called: z.boolean().catch(false) });
 export type OpenAlert = z.infer<typeof openAlertSchema>;
 export function parseOpenAlerts(data: unknown): OpenAlert[] {
   if (!Array.isArray(data)) return [];
@@ -101,6 +110,23 @@ export function parseOpenAlerts(data: unknown): OpenAlert[] {
     const r = openAlertSchema.safeParse(row);
     return r.success ? [r.data] : [];
   });
+}
+
+/** What the patient sees when they preview a supporter's page: the same blocks, a null end date before anyone is invited, and whether a check-in request was ticked. */
+export const previewViewSchema = supporterViewSchema.extend({ shared_until: z.string().nullable(), preview: z.literal(true), alert_sample: z.boolean() });
+export type PreviewView = z.infer<typeof previewViewSchema>;
+export function parsePreviewView(data: unknown): PreviewView | null {
+  const r = previewViewSchema.safeParse(data);
+  return r.success ? r.data : null;
+}
+
+export const renewSchema = z.object({ ok: z.boolean() });
+export const pauseResultSchema = z.object({ paused_until: z.string(), pause_alerts: z.boolean() });
+
+/** True when the access ends within `days` days (the first notice window, 14 by default) and has not already ended. */
+export function endsSoon(expiresAt: string, nowMs: number, days = 14): boolean {
+  const end = Date.parse(expiresAt);
+  return Number.isFinite(end) && end > nowMs && end - nowMs <= days * 24 * 60 * 60 * 1000;
 }
 
 export const viewLogRowSchema = z.object({ viewer: z.string(), at: z.string() });

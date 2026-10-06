@@ -1478,6 +1478,34 @@ export const TEMPLATE_MAP: Record<
       text: "Someone's access to your Care Circle ends soon.\n\nOpen Tarragon Health if you want to renew it.\n\nTarragon Health",
     },
   }),
+  circle_expiring_soon: () => ({
+    smsText: "Someone's access to your Care Circle ends in a few days. Tarragon Health",
+    pushUrl: "/patient/care-circle",
+    email: {
+      subject: "Someone's Care Circle access ends in a few days",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone's access to your Care Circle ends in a few days.</p>` +
+        `<p>Open Tarragon Health and renew it with one tap if you want them to keep it.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone's access to your Care Circle ends in a few days.\n\nOpen Tarragon Health and renew it with one tap if you want them to keep it.\n\nTarragon Health",
+    },
+  }),
+  circle_pause_ended: () => ({
+    smsText: "Your pause on sharing has ended. Tarragon Health",
+    pushUrl: "/patient/care-circle",
+    email: {
+      subject: "Your pause on sharing has ended",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your pause on sharing has ended.</p>` +
+        `<p>The people in your Care Circle can see what you chose to share again. You can pause again, or change who sees what, in Tarragon Health.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Your pause on sharing has ended.\n\nThe people in your Care Circle can see what you chose to share again. You can pause again, or change who sees what, in Tarragon Health.\n\nTarragon Health",
+    },
+  }),
   circle_gift_waiting: () => ({
     smsText: "Someone has paid for care for you. Open Tarragon Health to accept it. Tarragon Health",
     pushUrl: "/patient/care-circle",

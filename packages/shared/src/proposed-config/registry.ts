@@ -844,13 +844,13 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // if the migration seed and this value drift. invite_ttl_hours: how long an invite link works. default_grant_days: how long a
     // supporter's access lasts unless the patient chooses otherwise (the patient can renew or end it any time). max_invites_per_day:
     // per patient, counting cancelled ones. max_members: active supporters per patient. max_attempts: wrong-contact tries before an
-    // invite is dead. view_weeks: how many weekly blood pressure averages a supporter sees. alert_visible_hours: how long a check-in request stays on a supporter's screen. expiry_notice_days: how long before a member's access ends the patient is told, once. gift_decide_days: how long a patient has to accept a care pack or Membership someone else paid for before it is treated as declined and the payer is refunded.
-    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 7, gift_decide_days: 30 },
+    // invite is dead. view_weeks: how many weekly blood pressure averages a supporter sees. alert_visible_hours: how long a check-in request stays on a supporter's screen. expiry_notice_days: how many days before a member's access ends the patient gets the first notice, and expiry_final_notice_days the second (each is sent once per expiry date, so a renewal starts them again). pause_days: how long \"pause all sharing\" lasts (the patient can end it sooner). gift_decide_days: how long a patient has to accept a care pack or Membership someone else paid for before it is treated as declined and the payer is refunded.
+    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 14, expiry_final_notice_days: 3, pause_days: 7, gift_decide_days: 30 },
     owner: "Founder",
     status: "proposed",
-    version: 1,
+    version: 2,
     effectiveFrom: "2026-10-06",
-    source: "docs/design/S29.md; docs/research/S29.md; spec 4.7, 8.6",
+    source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
   },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {

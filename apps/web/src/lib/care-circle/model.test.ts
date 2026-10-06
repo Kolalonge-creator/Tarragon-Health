@@ -1,7 +1,7 @@
 import { en, pcm } from "@tarragon/i18n";
 import {
   CIRCLE_PERMISSIONS, circleErrorKey, inviteLinkPath, parseAccept, parseMyCircle, parseOpenAlerts, parsePreview, parseSupported,
-  parseSupporterView, parseViewLog, permissionKey, parsePendingGifts, parseGiftResult,
+  parseSupporterView, parseViewLog, permissionKey, parsePendingGifts, parseGiftResult, endsSoon, parsePreviewView,
 } from "./model";
 
 describe("care circle model", () => {
@@ -24,7 +24,7 @@ describe("care circle model", () => {
 
   it("drops a supported-person row that carries a legacy or unknown permission, keeps the rest", () => {
     const good = { patient_id: "p", member_id: "m", name: "Mum", relationship: "Mother", permissions: ["pay_for_care"], expires_at: "2027-01-01T00:00:00Z" };
-    expect(parseSupported([good, { ...good, permissions: ["view_results"] }, 5])).toEqual([good]);
+    expect(parseSupported([good, { ...good, permissions: ["view_results"] }, 5])).toEqual([{ ...good, alert_mode: "push_and_app" }]);
     expect(parseSupported("nope")).toEqual([]);
   });
 
@@ -76,5 +76,43 @@ describe("care circle model", () => {
     expect(parseGiftResult({ result: "declined" })).toBe("declined");
     expect(parseGiftResult({ result: "not_found" })).toBe("other");
     expect(parseGiftResult("x")).toBe("other");
+  });
+});
+
+describe("care circle follow-up (S29c)", () => {
+  it("reads a pause when there is one and none when there is not", () => {
+    const base = { members: [], invites: [] };
+    expect(parseMyCircle({ ...base, pause: { paused_until: "2026-10-14T00:00:00Z", pause_alerts: true }, pause_days: 7 }).pause).toEqual({ paused_until: "2026-10-14T00:00:00Z", pause_alerts: true });
+    expect(parseMyCircle({ ...base, pause: null, pause_days: 7 }).pause).toBeNull();
+    expect(parseMyCircle({ ...base, pause: { paused_until: 5 } })).toEqual({ members: [], invites: [] });
+  });
+
+  it("an unknown alert mode falls back to the safer one (push and in app), never to silence", () => {
+    const row = { patient_id: "p", member_id: "m", name: "Mum", relationship: "Mother", permissions: ["red_alerts"], expires_at: "2027-01-01T00:00:00Z" };
+    expect(parseSupported([{ ...row, alert_mode: "app_only" }])[0]?.alert_mode).toBe("app_only");
+    expect(parseSupported([{ ...row, alert_mode: "never" }])[0]?.alert_mode).toBe("push_and_app");
+    expect(parseSupported([row])[0]?.alert_mode).toBe("push_and_app");
+  });
+
+  it("an open request is not called unless the database says so", () => {
+    expect(parseOpenAlerts([{ patient_id: "p", name: "Mum", since: "t" }])[0]?.called).toBe(false);
+    expect(parseOpenAlerts([{ patient_id: "p", name: "Mum", since: "t", called: true }])[0]?.called).toBe(true);
+  });
+
+  it("endsSoon is true only inside the 14 day window and before the end", () => {
+    const now = Date.parse("2026-10-07T00:00:00Z");
+    expect(endsSoon("2026-10-20T00:00:00Z", now)).toBe(true);
+    expect(endsSoon("2026-10-22T00:00:00Z", now)).toBe(false);
+    expect(endsSoon("2026-10-06T00:00:00Z", now)).toBe(false);
+    expect(endsSoon("not a date", now)).toBe(false);
+  });
+
+  it("a preview parses like the supporter's page, allows no end date, and rejects anything that is not marked a preview", () => {
+    const v = parsePreviewView({ patient_id: "p", name: "Me", relationship: "", permissions: ["adherence_summary"], shared_until: null, preview: true, alert_sample: false, adherence: { days: 7, taken: 3, due: 4, percent: 75 } });
+    expect(v?.adherence?.percent).toBe(75);
+    expect(v?.bp_trend).toBeUndefined();
+    expect(v?.shared_until).toBeNull();
+    expect(parsePreviewView({ patient_id: "p", name: "Me", relationship: "", permissions: [], shared_until: null, alert_sample: false })).toBeNull();
+    expect(parsePreviewView(null)).toBeNull();
   });
 });

@@ -618,6 +618,12 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "circle_expiring") {
     return { text: "Someone's access to your Care Circle ends soon", href: "/patient/care-circle" };
   }
+  if (n.template === "circle_expiring_soon") {
+    return { text: "Someone's access to your Care Circle ends in a few days. Renew it if you want them to keep it", href: "/patient/care-circle" };
+  }
+  if (n.template === "circle_pause_ended") {
+    return { text: "Your pause on sharing has ended. Your Care Circle can see what you chose to share again", href: "/patient/care-circle" };
+  }
   if (n.template === "circle_gift_waiting") {
     return { text: "Someone has paid for care for you. Open it to accept", href: "/patient/care-circle" };
   }

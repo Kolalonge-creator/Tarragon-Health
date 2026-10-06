@@ -20,9 +20,13 @@ export const permissionKey = (p: CirclePermission): MessageKey => PERMISSION_KEY
 
 export interface CircleMember { memberId: string; name: string; relationship: string; permissions: CirclePermission[]; expiresAt: string }
 export interface PendingInvite { inviteId: string; hint: string; relationship: string; expiresAt: string }
-export interface MyCircle { members: CircleMember[]; invites: PendingInvite[] }
-export interface SupportedPerson { patientId: string; memberId: string; name: string; relationship: string; permissions: CirclePermission[]; expiresAt: string }
-export interface OpenAlert { patientId: string; name: string; since: string }
+export interface CirclePause { pausedUntil: string; pauseAlerts: boolean }
+export interface MyCircle { members: CircleMember[]; invites: PendingInvite[]; pause?: CirclePause; pauseDays?: number }
+/** A supporter can drop the push for one person and keep the in-app request. No quiet hours: a request must never be hidden by the clock. */
+export const ALERT_MODES = ["push_and_app", "app_only"] as const;
+export type AlertMode = (typeof ALERT_MODES)[number];
+export interface SupportedPerson { patientId: string; memberId: string; name: string; relationship: string; permissions: CirclePermission[]; expiresAt: string; alertMode: AlertMode }
+export interface OpenAlert { patientId: string; name: string; since: string; called: boolean }
 export interface ViewLogRow { viewer: string; at: string }
 export interface SupporterView {
   patientId: string;
@@ -57,6 +61,9 @@ export function parseMyCircle(data: unknown): MyCircle {
       }
     }
   }
+  const p = data["pause"];
+  if (isObj(p) && str(p["paused_until"]) && typeof p["pause_alerts"] === "boolean") out.pause = { pausedUntil: p["paused_until"], pauseAlerts: p["pause_alerts"] };
+  if (num(data["pause_days"])) out.pauseDays = data["pause_days"];
   if (Array.isArray(data["invites"])) {
     for (const i of data["invites"]) {
       if (isObj(i) && str(i["invite_id"]) && str(i["hint"]) && str(i["relationship"]) && str(i["expires_at"])) {
@@ -74,7 +81,7 @@ export function parseSupported(data: unknown): SupportedPerson[] {
     if (!isObj(r)) continue;
     const perms = permissions(r["permissions"]);
     if (str(r["patient_id"]) && str(r["member_id"]) && str(r["name"]) && str(r["relationship"]) && perms && str(r["expires_at"])) {
-      out.push({ patientId: r["patient_id"], memberId: r["member_id"], name: r["name"], relationship: r["relationship"], permissions: perms, expiresAt: r["expires_at"] });
+      out.push({ patientId: r["patient_id"], memberId: r["member_id"], name: r["name"], relationship: r["relationship"], permissions: perms, expiresAt: r["expires_at"], alertMode: r["alert_mode"] === "app_only" ? "app_only" : "push_and_app" });
     }
   }
   return out;
@@ -82,7 +89,7 @@ export function parseSupported(data: unknown): SupportedPerson[] {
 
 export function parseAlerts(data: unknown): OpenAlert[] {
   if (!Array.isArray(data)) return [];
-  return data.flatMap((r) => (isObj(r) && str(r["patient_id"]) && str(r["name"]) && str(r["since"]) ? [{ patientId: r["patient_id"], name: r["name"], since: r["since"] }] : []));
+  return data.flatMap((r) => (isObj(r) && str(r["patient_id"]) && str(r["name"]) && str(r["since"]) ? [{ patientId: r["patient_id"], name: r["name"], since: r["since"], called: r["called"] === true }] : []));
 }
 
 export function parseViewLog(data: unknown): ViewLogRow[] {
@@ -110,6 +117,23 @@ export function parseSupporterView(data: unknown): SupporterView | null {
   if (isObj(p) && num(p["missed_30d"])) v.appointments = { nextAt: str(p["next_at"]) ? p["next_at"] : null, missed30d: p["missed_30d"] };
   return v;
 }
+
+/** True when the access ends within `days` days (the first notice window, 14 by default) and has not already ended. */
+export function endsSoon(expiresAt: string, nowMs: number, days = 14): boolean {
+  const end = Date.parse(expiresAt);
+  return Number.isFinite(end) && end > nowMs && end - nowMs <= days * 24 * 60 * 60 * 1000;
+}
+
+/** What the patient sees when they preview a supporter's page: the same blocks (parsed by the same function), whether the check-in sample applies, and no end date before anyone is invited. */
+export interface PreviewView extends SupporterView { alertSample: boolean }
+export function parsePreviewView(data: unknown): PreviewView | null {
+  if (!isObj(data) || data["preview"] !== true) return null;
+  const v = parseSupporterView(isObj(data) && data["shared_until"] === null ? { ...data, shared_until: "" } : data);
+  return v ? { ...v, alertSample: data["alert_sample"] === true } : null;
+}
+/** The renew and pause calls answer with an object; only a clean ok counts. */
+export const parseOk = (data: unknown): boolean => isObj(data) && data["ok"] === true;
+export const parsePaused = (data: unknown): boolean => isObj(data) && str(data["paused_until"]);
 
 export type InviteMade = { ok: true; token: string; expiresAt: string } | { ok: false; errorKey: MessageKey };
 export function parseInviteMade(data: unknown): { token: string; expiresAt: string } | null {

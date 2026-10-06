@@ -17,6 +17,11 @@ const create = jest.fn();
 const update = jest.fn();
 const revoke = jest.fn();
 const cancel = jest.fn();
+const renew = jest.fn();
+const pause = jest.fn();
+const resume = jest.fn();
+let previewMember: { data: unknown; isPending: boolean; isError: boolean };
+let previewPerms: { data: unknown; isPending: boolean; isError: boolean };
 jest.mock("@/lib/queries/care-circle", () => {
   const actual = jest.requireActual("@/lib/queries/care-circle");
   return {
@@ -27,15 +32,22 @@ jest.mock("@/lib/queries/care-circle", () => {
     useUpdateMember: () => ({ mutateAsync: update, isPending: false }),
     useRevokeMember: () => ({ mutate: revoke, isPending: false }),
     useCancelInvite: () => ({ mutate: cancel, isPending: false }),
+    useRenewMember: () => ({ mutateAsync: renew, isPending: false }),
+    usePauseCircle: () => ({ mutateAsync: pause, isPending: false }),
+    useResumeCircle: () => ({ mutateAsync: resume, isPending: false }),
+    usePreviewMember: () => previewMember,
+    usePreviewPermissions: () => previewPerms,
     usePendingGifts: () => ({ data: [] }),
     useRespondToGift: () => ({ mutateAsync: jest.fn(), isPending: false }),
   };
 });
 
 beforeEach(() => {
-  circle = { data: { members: [MEMBER], invites: [INVITE] }, isSuccess: true };
+  circle = { data: { members: [MEMBER], invites: [INVITE], pause: null, pause_days: 7 }, isSuccess: true };
+  previewMember = { data: undefined, isPending: true, isError: false };
+  previewPerms = { data: undefined, isPending: true, isError: false };
   log = { data: [{ viewer: "Ngozi Eze", at: "2026-10-06T10:00:00Z" }], isSuccess: true };
-  [create, update, revoke, cancel].forEach((f) => f.mockReset());
+  [create, update, revoke, cancel, renew, pause, resume].forEach((f) => f.mockReset());
 });
 
 describe("CareCircleManager", () => {
@@ -96,7 +108,7 @@ describe("CareCircleManager", () => {
     const confirm = jest.spyOn(window, "confirm");
     confirm.mockReturnValueOnce(false).mockReturnValueOnce(true);
     render(<CareCircleManager locale="en" origin="https://app.example" />);
-    const remove = screen.getByRole("button", { name: "Remove" });
+    const remove = screen.getByRole("button", { name: "Stop sharing" });
     fireEvent.click(remove);
     expect(revoke).not.toHaveBeenCalled();
     fireEvent.click(remove);
@@ -118,15 +130,75 @@ describe("CareCircleManager", () => {
     expect(cancel).toHaveBeenCalledWith("i1");
   });
 
-  it("renews a member for a year with their permissions unchanged", async () => {
-    update.mockResolvedValue(undefined);
-    const before = Date.now();
+  it("renews a member with one tap and leaves their permissions alone (the server does the dates)", async () => {
+    renew.mockResolvedValue(undefined);
     render(<CareCircleManager locale="en" origin="https://app.example" />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Renew for a year" })));
-    const arg = update.mock.calls[0]![0] as { memberId: string; permissions: string[]; expiresAt: string };
-    expect([arg.memberId, arg.permissions]).toEqual(["m1", ["red_alerts"]]);
-    const days = (new Date(arg.expiresAt).getTime() - before) / 86_400_000;
-    expect(days).toBeGreaterThan(364);
-    expect(days).toBeLessThan(366);
+    expect(renew).toHaveBeenCalledWith("m1");
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("says when a member's access ends soon, and not when it does not", () => {
+    const soon = new Date(Date.now() + 5 * 86_400_000).toISOString();
+    circle = { data: { members: [{ ...MEMBER, expires_at: soon }], invites: [] }, isSuccess: true };
+    const { unmount } = render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect(screen.getByText(/Access ends soon/)).toBeTruthy();
+    unmount();
+    circle = { data: { members: [{ ...MEMBER, expires_at: new Date(Date.now() + 200 * 86_400_000).toISOString() }], invites: [] }, isSuccess: true };
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect(screen.queryByText(/Access ends soon/)).toBeNull();
+  });
+
+  it("keeps stopping as visible as sharing: the button says Stop sharing and a reminder says it is one tap", () => {
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect(screen.getByText(/stop sharing with anyone, at any time, with one tap/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Stop sharing" })).toBeTruthy();
+  });
+
+  it("pauses sharing but keeps check-in requests on unless the patient ticks to pause them too", async () => {
+    pause.mockResolvedValue(undefined);
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect(screen.getByText(/no one in your circle can see anything. They are not told/)).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pause for 7 days" })));
+    expect(pause).toHaveBeenLastCalledWith(false);
+    fireEvent.click(screen.getByLabelText(/Also pause check-in requests/));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pause for 7 days" })));
+    expect(pause).toHaveBeenLastCalledWith(true);
+  });
+
+  it("while paused, says so with the date and offers to start again", async () => {
+    resume.mockResolvedValue(undefined);
+    circle = { data: { members: [MEMBER], invites: [], pause: { paused_until: "2026-10-14T00:00:00Z", pause_alerts: false }, pause_days: 7 }, isSuccess: true };
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect(screen.getByText(/Sharing is paused until/)).toBeTruthy();
+    expect(screen.getByText("Check-in requests are still on.")).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Start sharing again" })));
+    expect(resume).toHaveBeenCalled();
+  });
+
+  it("shows what a member sees, only when asked, in the supporter page's own blocks", () => {
+    previewMember = { data: { patient_id: "p", name: "Me", relationship: "Daughter", permissions: ["adherence_summary", "red_alerts"], shared_until: "2027-06-01T00:00:00Z", preview: true, alert_sample: true, adherence: { days: 7, taken: 5, due: 7, percent: 71 } }, isPending: false, isError: false };
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect(screen.queryByText("Medicines this week")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "See what they see" }));
+    expect(screen.getByText("Medicines this week")).toBeTruthy();
+    expect(screen.getByText(/5 of 7 doses taken/)).toBeTruthy();
+    expect(screen.getByText(/They see only your name, never what happened/)).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: "Hide" })[0]!);
+    expect(screen.queryByText("Medicines this week")).toBeNull();
+  });
+
+  it("previews an invite before it is made, and asks for a choice first when nothing is ticked", () => {
+    previewPerms = { data: { patient_id: "p", name: "Me", relationship: "", permissions: ["adherence_summary"], shared_until: null, preview: true, alert_sample: false, adherence: { days: 7, taken: 1, due: 2, percent: 50 } }, isPending: false, isError: false };
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    fireEvent.click(screen.getByRole("button", { name: "See what this would show" }));
+    expect(screen.getByText("Choose something to share to see what it would show.")).toBeTruthy();
+  });
+
+  it("is axe-clean with a pause, a preview and an ending-soon notice on screen", async () => {
+    const soon = new Date(Date.now() + 5 * 86_400_000).toISOString();
+    circle = { data: { members: [{ ...MEMBER, expires_at: soon }], invites: [INVITE], pause: { paused_until: "2026-10-14T00:00:00Z", pause_alerts: true }, pause_days: 7 }, isSuccess: true };
+    previewMember = { data: { patient_id: "p", name: "Me", relationship: "Daughter", permissions: ["red_alerts"], shared_until: soon, preview: true, alert_sample: true }, isPending: false, isError: false };
+    await expectNoA11yViolations(<CareCircleManager locale="en" origin="https://app.example" />);
   });
 });

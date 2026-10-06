@@ -384,8 +384,8 @@ begin
   perform set_config('tarragon.paging_write', 'off', true);
   perform pg_temp.ck('after the window it is gone', '[]', pg_temp.q_as(v_b, 'select public.circle_open_alerts()::text'));
 
-  -- the patient is told once, a week before someone's access ends, so an alert does not stop in silence
-  update public.care_circle_members set expires_at = now() + interval '3 days' where id = pg_temp.member(v_pat, v_c);
+  -- the patient is told once, two weeks before someone's access ends (S29c: 14 days, then 3; the final notice is proved in s29c), so an alert does not stop in silence
+  update public.care_circle_members set expires_at = now() + interval '10 days' where id = pg_temp.member(v_pat, v_c);
   v_swept := private.expire_care_circle();
   v_swept := private.expire_care_circle();
   perform pg_temp.ck('the patient is told once that an access ends soon', '1',
@@ -417,27 +417,32 @@ begin
   values (v_org, 's29_consult', 'consultation', 'catalog.proof.name', 'catalog.proof.description', 1, false, true) returning id into v_item;
   insert into public.prices (organisation_id, catalog_item_id, amount_kobo, components, reason)
   values (v_org, v_item, 500000, '{"partner_fee_kobo":300000,"tarragon_fee_kobo":200000}', 'proof');
+  -- S29c: for someone else only a full yearly Membership can be bought, so the gift fixtures use one (s29_consult stays the self-order item)
+  insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, duration_days, grants_lead, active)
+  values (v_org, 's29_year', 'membership', 'catalog.proof.name', 'catalog.proof.description', 365, false, true) returning id into v_item;
+  insert into public.prices (organisation_id, catalog_item_id, amount_kobo, components, reason)
+  values (v_org, v_item, 500000, '{"partner_fee_kobo":300000,"tarragon_fee_kobo":200000}', 'proof');
   update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = v_admin, activation_note = 'S29 proof run' where key = 'v5_checkout';
 
   perform pg_temp.ck('a member without pay_for_care cannot pay for the patient', 'true',
-    (pg_temp.q_as(v_b, format($q$select public.create_order('s29_consult', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
+    (pg_temp.q_as(v_b, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
   perform pg_temp.ck('a stranger cannot pay for the patient', 'true',
-    (pg_temp.q_as(v_other, format($q$select public.create_order('s29_consult', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
+    (pg_temp.q_as(v_other, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
   -- the older family grant (profile_access, S26's rule) still lets its grantee pay, exactly as it did live; removing it ends that
   insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level) values (v_pat, v_other, v_pat, 'view');
   perform pg_temp.ck('an older family grant still lets its grantee pay for the patient', 'true',
-    (pg_temp.q_as(v_other, format($q$select public.create_order('s29_consult', gen_random_uuid(), %L)::text$q$, v_pat)) like '%"reference"%')::text);
+    (pg_temp.q_as(v_other, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%"reference"%')::text);
   delete from public.profile_access where profile_id = v_pat and grantee_user_id = v_other;
   perform pg_temp.ck('and once the grant is gone the same person is refused again', 'true',
-    (pg_temp.q_as(v_other, format($q$select public.create_order('s29_consult', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
+    (pg_temp.q_as(v_other, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
   -- v_ph holds red_alerts and pay_for_care from the phone invite above
   perform pg_temp.ck('a member with pay_for_care pays for the patient', 'true',
-    (pg_temp.q_as(v_ph, format($q$select public.create_order('s29_consult', gen_random_uuid(), %L)::text$q$, v_pat)) like '%"reference"%')::text);
+    (pg_temp.q_as(v_ph, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%"reference"%')::text);
   select id, paystack_reference into v_ord, v_ref from public.orders where buyer_profile_id = v_ph order by created_at desc limit 1;
   perform pg_temp.ck('the buyer is the supporter and the beneficiary the patient', 'true',
     (select (buyer_profile_id = v_ph and beneficiary_patient_id = v_pat) from public.orders where id = v_ord)::text);
   perform pg_temp.ck('a member cannot pay for a different patient', 'true',
-    (pg_temp.q_as(v_ph, format($q$select public.create_order('s29_consult', gen_random_uuid(), %L)::text$q$, v_pat2)) like '%order_beneficiary_not_allowed%')::text);
+    (pg_temp.q_as(v_ph, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat2)) like '%order_beneficiary_not_allowed%')::text);
   perform pg_temp.svc(format($q$select public.record_order_payment(%L, 500000, 150, 500150, 'NGN', 'success', 'webhook', 'evt-s29', now(), '{}'::jsonb)::text$q$, v_ref));
   perform pg_temp.svc(format($q$select public.record_order_payment(%L, 500000, 150, 500150, 'NGN', 'success', 'webhook', 'evt-s29', now(), '{}'::jsonb)::text$q$, v_ref));
   perform pg_temp.svc(format($q$select public.record_order_payment(%L, 500000, 150, 500150, 'NGN', 'success', 'return', null, now(), '{}'::jsonb)::text$q$, v_ref));
@@ -453,7 +458,7 @@ begin
   perform pg_temp.ck('the patient sees the gift order', 'true', (pg_temp.q_as(v_pat, 'select public.my_orders()::text') like '%catalog.proof.name%')::text);
   update public.care_circle_members set expires_at = now() - interval '1 minute' where id = pg_temp.member(v_pat, v_ph);
   perform pg_temp.ck('an expired member cannot order for the patient', 'true',
-    (pg_temp.q_as(v_ph, format($q$select public.create_order('s29_consult', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
+    (pg_temp.q_as(v_ph, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
   update public.care_circle_members set expires_at = now() + interval '30 days' where id = pg_temp.member(v_pat, v_ph);
   perform pg_temp.ck('a supporter-only account cannot buy for itself', 'true',
     (pg_temp.q_as(v_ph, $q$select public.create_order('s29_consult', gen_random_uuid())::text$q$) like '%order_not_authorised%')::text);
@@ -474,9 +479,10 @@ declare
   d text; r text; v_page uuid; n integer;
 begin
   -- (a) the weekly_bp_trend gate removed
-  select pg_get_functiondef('public.circle_supporter_view(uuid)'::regprocedure) into d;
-  d := replace(d, '''weekly_bp_trend'' = any (m.permissions)', 'true');
-  if d = pg_get_functiondef('public.circle_supporter_view(uuid)'::regprocedure) then raise exception 'sabotage (a) did not change the function'; end if;
+  -- (S29c moved the blocks into private.circle_view_blocks, which the supporter's page and the patient's preview both call)
+  select pg_get_functiondef('private.circle_view_blocks(uuid, text[])'::regprocedure) into d;
+  d := replace(d, '''weekly_bp_trend'' = any (p_permissions)', 'true');
+  if d = pg_get_functiondef('private.circle_view_blocks(uuid, text[])'::regprocedure) then raise exception 'sabotage (a) did not change the function'; end if;
   execute d;
   r := pg_temp.view_as(v_c, v_pat);   -- member C holds adherence_summary only
   insert into results values ('sabotaged', 'SAFETY CASE 21: a member without weekly_bp_trend gets no blood pressure block', 'false', (r like '%bp_trend%')::text);
@@ -495,7 +501,7 @@ begin
   d := replace(d, 'select (private.circle_member_for(p_patient, ''pay_for_care'')).id is not null', 'select true');
   if d = pg_get_functiondef('private.circle_can_pay_for(uuid)'::regprocedure) then raise exception 'sabotage (c) did not change the function'; end if;
   execute d;
-  r := pg_temp.q_as(v_other, format($q$select public.create_order('s29_consult', gen_random_uuid(), %L)::text$q$, v_pat));
+  r := pg_temp.q_as(v_other, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat));
   insert into results values ('sabotaged', 'a stranger cannot pay for the patient', 'true', (r like '%order_beneficiary_not_allowed%')::text);
 end $$;
 

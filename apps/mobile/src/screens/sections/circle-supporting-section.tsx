@@ -2,17 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Text, View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { loadOpenAlerts, loadSupported, loadSupporterView, revokeMember } from "@/lib/care-circle/api";
-import type { OpenAlert, SupportedPerson, SupporterView } from "@/lib/care-circle/parse";
+import { ackAlert, loadOpenAlerts, loadSupported, loadSupporterView, revokeMember, setAlertMode } from "@/lib/care-circle/api";
+import { ALERT_MODES, type AlertMode, type OpenAlert, type SupportedPerson, type SupporterView } from "@/lib/care-circle/parse";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { MembershipSection } from "./membership-section";
+import { SupporterBlocks } from "./supporter-blocks";
 
 function lagosDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
-}
-function lagosDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 /** One read about one person: only the blocks the database sent. Read only: no export, no copy, no raw readings. */
@@ -49,7 +47,6 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
     );
   }
 
-  const dir = view.bpTrend?.direction ?? null;
   return (
     <View style={{ gap: 12 }}>
       <SecondaryButton title={t("circle.supporting.title", locale)} onPress={onBack} />
@@ -57,35 +54,7 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
       <MutedText>{t("circle.view.privacy", locale, { name: view.name })}</MutedText>
       <MutedText>{t("circle.view.shared_until", locale, { date: lagosDate(view.sharedUntil) })}</MutedText>
 
-      {view.adherence ? (
-        <Card style={{ gap: 4 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.view.adherence.title", locale)}</Text>
-          {view.adherence.due === 0 || view.adherence.percent === null ? (
-            <MutedText>{t("circle.view.adherence.none", locale)}</MutedText>
-          ) : (
-            <Text style={{ color: colors.ink }}>{t("circle.view.adherence.line", locale, { taken: view.adherence.taken, due: view.adherence.due, percent: view.adherence.percent })}</Text>
-          )}
-        </Card>
-      ) : null}
-
-      {view.bpTrend ? (
-        <Card style={{ gap: 4 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.view.bp.title", locale)}</Text>
-          {view.bpTrend.weeks.length === 0 ? <MutedText>{t("circle.view.bp.none", locale)}</MutedText> : null}
-          {view.bpTrend.weeks.map((w) => (
-            <Text key={w.weekStart} style={{ color: colors.ink }}>{t("circle.view.bp.row", locale, { date: lagosDate(w.weekStart), systolic: w.systolic, diastolic: w.diastolic, count: w.readings })}</Text>
-          ))}
-          {dir ? <Text style={{ fontWeight: "600", color: colors.ink }}>{t(`circle.view.bp.${dir}`, locale)}</Text> : null}
-        </Card>
-      ) : null}
-
-      {view.appointments ? (
-        <Card style={{ gap: 4 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.view.appt.title", locale)}</Text>
-          <Text style={{ color: colors.ink }}>{view.appointments.nextAt ? t("circle.view.appt.next", locale, { date: lagosDateTime(view.appointments.nextAt) }) : t("circle.view.appt.none", locale)}</Text>
-          <MutedText>{t("circle.view.appt.missed", locale, { count: view.appointments.missed30d })}</MutedText>
-        </Card>
-      ) : null}
+      <SupporterBlocks view={view} />
 
       {view.canPay ? <PrimaryButton title={t("circle.view.pay", locale)} onPress={() => setPaying(true)} /> : null}
       <SecondaryButton
@@ -97,6 +66,70 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
           ])
         }
       />
+    </View>
+  );
+}
+
+const MODE_KEYS = { push_and_app: "circle.supporting.alert_mode.push_and_app", app_only: "circle.supporting.alert_mode.app_only" } as const;
+
+/** A check-in request: a name and a request to call. "I called them" is one status, no text, private to this supporter. */
+function AlertCard({ alert, onChanged }: { alert: OpenAlert; onChanged: () => void }) {
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  return (
+    <Card style={{ gap: 6 }}>
+      <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("circle.alert.title", locale, { name: alert.name })}</Text>
+      <Text style={{ color: colors.ink }}>{t("circle.alert.body", locale, { name: alert.name })}</Text>
+      {alert.called ? (
+        <MutedText>{t("circle.alert.called_done", locale)}</MutedText>
+      ) : (
+        <PrimaryButton
+          title={t("circle.alert.called", locale)}
+          disabled={busy}
+          onPress={() => {
+            setBusy(true);
+            setFailed(false);
+            void ackAlert(alert.patientId).then((ok) => {
+              setBusy(false);
+              if (ok) onChanged();
+              else setFailed(true);
+            });
+          }}
+        />
+      )}
+      {failed ? <ErrorText>{t("circle.alert.error", locale)}</ErrorText> : null}
+    </Card>
+  );
+}
+
+/** Only for someone who can receive check-in requests: drop the push, never the request in the app, and no quiet hours. */
+function AlertModePicker({ person, onChanged }: { person: SupportedPerson; onChanged: () => void }) {
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const [busy, setBusy] = useState(false);
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.supporting.alert_mode", locale, { name: person.name })}</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {ALERT_MODES.map((m: AlertMode) => (
+          <SecondaryButton
+            key={m}
+            title={`${person.alertMode === m ? "● " : ""}${t(MODE_KEYS[m], locale)}`}
+            disabled={busy}
+            onPress={() => {
+              if (person.alertMode === m) return;
+              setBusy(true);
+              void setAlertMode(person.patientId, m).then(() => {
+                setBusy(false);
+                onChanged();
+              });
+            }}
+          />
+        ))}
+      </View>
+      {person.alertMode === "app_only" ? <MutedText>{t("circle.supporting.alert_mode.note", locale)}</MutedText> : null}
     </View>
   );
 }
@@ -124,18 +157,14 @@ export function CircleSupportingSection() {
 
   return (
     <View style={{ gap: 12 }}>
-      {alerts.map((a) => (
-        <Card key={a.patientId} style={{ gap: 4 }}>
-          <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("circle.alert.title", locale, { name: a.name })}</Text>
-          <Text style={{ color: colors.ink }}>{t("circle.alert.body", locale, { name: a.name })}</Text>
-        </Card>
-      ))}
+      {alerts.map((a) => <AlertCard key={a.patientId} alert={a} onChanged={() => void refresh()} />)}
       <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{t("circle.supporting.title", locale)}</Text>
       {people.map((p) => (
         <Card key={p.memberId} style={{ gap: 6 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{p.name}</Text>
+          <Text style={{ fontWeight: "700", color: colors.ink }}>{alerts.some((a) => a.patientId === p.patientId && !a.called) ? `${p.name} · ${t("circle.supporting.needs_attention", locale)}` : p.name}</Text>
           <MutedText>{`${t("circle.supporting.relationship", locale, { relationship: p.relationship })} · ${t("circle.view.shared_until", locale, { date: lagosDate(p.expiresAt) })}`}</MutedText>
           <PrimaryButton title={t("circle.supporting.open", locale)} onPress={() => setOpen(p)} />
+          {p.permissions.includes("red_alerts") ? <AlertModePicker person={p} onChanged={() => void refresh()} /> : null}
         </Card>
       ))}
     </View>

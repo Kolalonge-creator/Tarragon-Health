@@ -1,12 +1,12 @@
 import { en, pcm } from "@tarragon/i18n";
 import {
   CIRCLE_PERMISSIONS, circleErrorKey, inviteLinkPath, parseAlerts, parseInviteMade, parseMyCircle, parseSupported, parseSupporterView,
-  parseViewLog, permissionKey, parsePendingGifts, parseGiftAnswer,
+  parseViewLog, permissionKey, parsePendingGifts, parseGiftAnswer, endsSoon, parsePreviewView,
 } from "./parse";
 
 const mockRpc = jest.fn();
 jest.mock("../supabase", () => ({ supabase: { rpc: (...a: unknown[]) => mockRpc(...a) } }));
-import { answerGift, loadPendingGifts, cancelInvite, createInvite, loadMyCircle, loadOpenAlerts, loadSupported, loadSupporterView, loadViewLog, revokeMember, updateMember } from "./api";
+import { ackAlert, loadPreviewMember, loadPreviewPermissions, pauseCircle, renewMember, resumeCircle, setAlertMode, answerGift, loadPendingGifts, cancelInvite, createInvite, loadMyCircle, loadOpenAlerts, loadSupported, loadSupporterView, loadViewLog, revokeMember, updateMember } from "./api";
 
 beforeEach(() => mockRpc.mockReset());
 
@@ -149,5 +149,69 @@ describe("S29b gifts", () => {
     expect(mockRpc).toHaveBeenLastCalledWith("respond_to_gifted_pack", { p_entitlement: "e1", p_accept: true });
     mockRpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
     expect(await answerGift("e1", false)).toBeNull();
+  });
+});
+
+describe("S29c follow-up", () => {
+  it("reads a pause only when it is whole, and the configured pause length", () => {
+    expect(parseMyCircle({ members: [], invites: [], pause: { paused_until: "t", pause_alerts: true }, pause_days: 7 })).toEqual({ members: [], invites: [], pause: { pausedUntil: "t", pauseAlerts: true }, pauseDays: 7 });
+    expect(parseMyCircle({ members: [], invites: [], pause: null })).toEqual({ members: [], invites: [] });
+    expect(parseMyCircle({ members: [], invites: [], pause: { paused_until: 5 } })).toEqual({ members: [], invites: [] });
+  });
+
+  it("an unknown alert mode falls back to push and in-app, never to silence; an open request is not called unless said so", () => {
+    const row = { patient_id: "p", member_id: "m", name: "Mum", relationship: "Mother", permissions: ["red_alerts"], expires_at: "t" };
+    expect(parseSupported([{ ...row, alert_mode: "app_only" }])[0]?.alertMode).toBe("app_only");
+    expect(parseSupported([{ ...row, alert_mode: "never" }])[0]?.alertMode).toBe("push_and_app");
+    expect(parseAlerts([{ patient_id: "p", name: "Mum", since: "t" }])[0]?.called).toBe(false);
+    expect(parseAlerts([{ patient_id: "p", name: "Mum", since: "t", called: true }])[0]?.called).toBe(true);
+  });
+
+  it("endsSoon is true only inside 14 days and before the end", () => {
+    const now = Date.parse("2026-10-07T00:00:00Z");
+    expect(endsSoon("2026-10-20T00:00:00Z", now)).toBe(true);
+    expect(endsSoon("2026-10-22T00:00:00Z", now)).toBe(false);
+    expect(endsSoon("2026-10-06T00:00:00Z", now)).toBe(false);
+  });
+
+  it("a preview keeps only the blocks sent (no stray field), allows no end date, and must be marked a preview", () => {
+    const v = parsePreviewView({ patient_id: "p", name: "Me", shared_until: null, preview: true, alert_sample: true, bp_trend: { weeks: [{ week_start: "w", systolic: 140, diastolic: 90, readings: 2, note: "dizzy" }], direction: "steady" } });
+    expect(v?.alertSample).toBe(true);
+    expect(v?.adherence).toBeUndefined();
+    expect(JSON.stringify(v)).not.toContain("dizzy");
+    expect(parsePreviewView({ patient_id: "p", name: "Me", shared_until: null, alert_sample: false })).toBeNull();
+    expect(parsePreviewView(null)).toBeNull();
+  });
+
+  it("renew, pause, resume, alert mode and 'I called them' report success only on a clean answer", async () => {
+    mockRpc.mockResolvedValueOnce({ data: { ok: true, expires_at: "t" }, error: null });
+    expect(await renewMember("m")).toBe(true);
+    mockRpc.mockResolvedValueOnce({ data: { ok: false }, error: null });
+    expect(await renewMember("m")).toBe(false);
+    mockRpc.mockResolvedValueOnce({ data: { paused_until: "t", pause_alerts: true }, error: null });
+    expect(await pauseCircle(true)).toBe(true);
+    expect(mockRpc).toHaveBeenLastCalledWith("pause_care_circle", { p_pause_alerts: true });
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
+    expect(await pauseCircle(false)).toBe(false);
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    expect(await resumeCircle()).toBe(true);
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    expect(await setAlertMode("p", "app_only")).toBe(true);
+    expect(mockRpc).toHaveBeenLastCalledWith("set_circle_alert_mode", { p_patient: "p", p_mode: "app_only" });
+    mockRpc.mockResolvedValueOnce({ data: false, error: null });
+    expect(await ackAlert("p")).toBe(false);
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    expect(await ackAlert("p")).toBe(true);
+    expect(mockRpc).toHaveBeenLastCalledWith("circle_ack_alert", { p_patient: "p" });
+  });
+
+  it("the previews call the read-only functions and surface an error instead of throwing", async () => {
+    mockRpc.mockResolvedValueOnce({ data: { patient_id: "p", name: "Me", shared_until: "t", preview: true, alert_sample: false }, error: null });
+    const m = await loadPreviewMember("m1");
+    expect(m.ok && m.data?.name).toBe("Me");
+    expect(mockRpc).toHaveBeenLastCalledWith("circle_preview_member", { p_member: "m1" });
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "circle_not_found" } });
+    expect(await loadPreviewPermissions(["red_alerts"], "Son")).toEqual({ ok: false, error: "circle_not_found" });
+    expect(mockRpc).toHaveBeenLastCalledWith("circle_preview_permissions", { p_permissions: ["red_alerts"], p_relationship: "Son" });
   });
 });

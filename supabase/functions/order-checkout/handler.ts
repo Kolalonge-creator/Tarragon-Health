@@ -22,7 +22,7 @@ const CODE = /^[a-z][a-z0-9_]{2,63}$/;
 
 const STATUS: Record<string, number> = {
   email_needed: 422, checkout_not_open: 409, item_not_available: 409, already_member: 409, no_capacity: 409, too_many_open_orders: 429,
-  order_beneficiary_not_allowed: 403, order_not_authorised: 403, already_paid: 409, order_closed: 409, payment_unavailable: 502, checkout_link_lost: 409, unknown: 500,
+  order_beneficiary_not_allowed: 403, gift_item_not_allowed: 403, order_not_authorised: 403, already_paid: 409, order_closed: 409, payment_unavailable: 502, checkout_link_lost: 409, unknown: 500,
 };
 
 export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<Response> {

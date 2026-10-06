@@ -8,7 +8,7 @@ import type { OrderStore } from "./orders.ts";
  */
 export const ORDER_ERROR_CODES = [
   "checkout_not_open", "item_not_available", "already_member", "no_capacity", "too_many_open_orders",
-  "order_beneficiary_not_allowed", "order_not_authorised",
+  "order_beneficiary_not_allowed", "gift_item_not_allowed", "order_not_authorised",
 ] as const;
 export type OrderErrorCode = (typeof ORDER_ERROR_CODES)[number];
 

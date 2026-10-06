@@ -82,7 +82,7 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   checkout_not_open: "shop.error.checkout_not_open", item_not_available: "shop.error.item_not_available", already_member: "shop.error.already_member",
   no_capacity: "shop.error.no_capacity", too_many_open_orders: "shop.error.too_many_open_orders", email_needed: "shop.error.email_needed",
   payment_unavailable: "shop.error.payment_unavailable", checkout_link_lost: "shop.error.checkout_link_lost", already_paid: "shop.error.already_paid",
-  order_closed: "shop.error.order_closed", order_beneficiary_not_allowed: "shop.error.order_beneficiary_not_allowed",
+  order_closed: "shop.error.order_closed", order_beneficiary_not_allowed: "shop.error.order_beneficiary_not_allowed", gift_item_not_allowed: "shop.error.gift_item_not_allowed",
 };
 export function checkoutErrorKey(code: unknown): MessageKey {
   return (typeof code === "string" ? ERROR_KEYS[code] : undefined) ?? "shop.error.unknown";

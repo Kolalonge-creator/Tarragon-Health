@@ -5431,6 +5431,30 @@ export type Database = {
           },
         ]
       }
+      care_circle_alert_acks: {
+        Row: {
+          acked_at: string
+          organisation_id: string
+          page_id: string
+          patient_id: string
+          supporter_id: string
+        }
+        Insert: {
+          acked_at?: string
+          organisation_id: string
+          page_id: string
+          patient_id: string
+          supporter_id: string
+        }
+        Update: {
+          acked_at?: string
+          organisation_id?: string
+          page_id?: string
+          patient_id?: string
+          supporter_id?: string
+        }
+        Relationships: []
+      }
       care_circle_config: {
         Row: {
           created_at: string
@@ -5520,11 +5544,14 @@ export type Database = {
       }
       care_circle_members: {
         Row: {
+          alert_mode: string
           created_at: string
           expires_at: string
           id: string
           invite_id: string | null
           is_test: boolean
+          notice_final_for: string | null
+          notice_first_for: string | null
           organisation_id: string
           patient_id: string
           permissions: string[]
@@ -5536,11 +5563,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alert_mode?: string
           created_at?: string
           expires_at: string
           id?: string
           invite_id?: string | null
           is_test?: boolean
+          notice_final_for?: string | null
+          notice_first_for?: string | null
           organisation_id: string
           patient_id: string
           permissions: string[]
@@ -5552,11 +5582,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alert_mode?: string
           created_at?: string
           expires_at?: string
           id?: string
           invite_id?: string | null
           is_test?: boolean
+          notice_final_for?: string | null
+          notice_first_for?: string | null
           organisation_id?: string
           patient_id?: string
           permissions?: string[]
@@ -5565,6 +5598,39 @@ export type Database = {
           revoked_by?: string | null
           state?: string
           supporter_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      care_circle_pauses: {
+        Row: {
+          created_at: string
+          ended_notice_sent: boolean
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          pause_alerts: boolean
+          paused_until: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_notice_sent?: boolean
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          pause_alerts?: boolean
+          paused_until: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_notice_sent?: boolean
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          pause_alerts?: boolean
+          paused_until?: string
           updated_at?: string
         }
         Relationships: []
@@ -42881,6 +42947,13 @@ export type Database = {
       accept_care_circle_invite: { Args: { p_token: string }; Returns: Json };
       cancel_care_circle_invite: { Args: { p_invite: string }; Returns: boolean };
       circle_open_alerts: { Args: never; Returns: Json };
+      circle_ack_alert: { Args: { p_patient: string }; Returns: boolean };
+      circle_preview_member: { Args: { p_member: string }; Returns: Json };
+      circle_preview_permissions: { Args: { p_permissions: string[]; p_relationship?: string }; Returns: Json };
+      pause_care_circle: { Args: { p_pause_alerts?: boolean }; Returns: Json };
+      renew_care_circle_member: { Args: { p_member: string }; Returns: Json };
+      resume_care_circle: { Args: never; Returns: boolean };
+      set_circle_alert_mode: { Args: { p_mode: string; p_patient: string }; Returns: boolean };
       circle_supporter_view: { Args: { p_patient: string }; Returns: Json };
       circle_view_log: { Args: { p_limit?: number }; Returns: Json };
       create_care_circle_invite: {

@@ -114,3 +114,9 @@ Deno.test("S29: the database refusing a payer (no pay_for_care, expired, another
   const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, beneficiary: PATIENT }), d);
   assertEquals([res.status, (await res.json()).error], [403, "order_beneficiary_not_allowed"]);
 });
+
+Deno.test("S29c: paying for someone else with anything but the full yearly Membership is a 403 with its own code", async () => {
+  const { d } = deps({ rpc: () => ({ data: null, error: { message: "gift_item_not_allowed" } }) });
+  const res = await handleCheckout(req({ code: "consult_single", client_key: KEY, beneficiary: PATIENT }), d);
+  assertEquals([res.status, (await res.json()).error], [403, "gift_item_not_allowed"]);
+});

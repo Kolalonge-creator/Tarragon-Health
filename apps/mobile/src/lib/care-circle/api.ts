@@ -1,8 +1,8 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import {
-  circleErrorKey, parseAlerts, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseSupported, parseSupporterView, parseViewLog,
-  type CirclePermission, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type SupportedPerson, type SupporterView, type ViewLogRow,
+  circleErrorKey, parseAlerts, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseOk, parsePaused, parsePreviewView, parseSupported, parseSupporterView, parseViewLog,
+  type AlertMode, type CirclePermission, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type PreviewView, type SupportedPerson, type SupporterView, type ViewLogRow,
 } from "./parse";
 
 export async function loadMyCircle(): Promise<QueryResult<MyCircle>> {
@@ -60,4 +60,38 @@ export async function loadPendingGifts(): Promise<QueryResult<PendingGift[]>> {
 export async function answerGift(entitlementId: string, accept: boolean): Promise<"accepted" | "declined" | null> {
   const { data, error } = await supabase.rpc("respond_to_gifted_pack", { p_entitlement: entitlementId, p_accept: accept });
   return error ? null : parseGiftAnswer(data);
+}
+
+/** One tap: another year from today, never shorter than the access already has. The database does the date arithmetic. */
+export async function renewMember(memberId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("renew_care_circle_member", { p_member: memberId });
+  return !error && parseOk(data);
+}
+/** Pause all sharing for the configured days; `pauseAlerts` also holds back the check-in requests. */
+export async function pauseCircle(pauseAlerts: boolean): Promise<boolean> {
+  const { data, error } = await supabase.rpc("pause_care_circle", { p_pause_alerts: pauseAlerts });
+  return !error && parsePaused(data);
+}
+export async function resumeCircle(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("resume_care_circle");
+  return !error && data === true;
+}
+/** What a supporter sees right now (read only, never logged as a look). */
+export async function loadPreviewMember(memberId: string): Promise<QueryResult<PreviewView | null>> {
+  const { data, error } = await supabase.rpc("circle_preview_member", { p_member: memberId });
+  return error ? { ok: false, error: error.message } : { ok: true, data: parsePreviewView(data) };
+}
+/** What these choices would show, before anyone is invited. */
+export async function loadPreviewPermissions(permissions: CirclePermission[], relationship: string): Promise<QueryResult<PreviewView | null>> {
+  const { data, error } = await supabase.rpc("circle_preview_permissions", { p_permissions: permissions, p_relationship: relationship });
+  return error ? { ok: false, error: error.message } : { ok: true, data: parsePreviewView(data) };
+}
+export async function setAlertMode(patientId: string, mode: AlertMode): Promise<boolean> {
+  const { data, error } = await supabase.rpc("set_circle_alert_mode", { p_patient: patientId, p_mode: mode });
+  return !error && data === true;
+}
+/** "I called them": one status, no text. */
+export async function ackAlert(patientId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("circle_ack_alert", { p_patient: patientId });
+  return !error && data === true;
 }

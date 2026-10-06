@@ -8,6 +8,10 @@ import {
   parseOpenAlerts,
   parsePendingGifts,
   parsePreview,
+  parsePreviewView,
+  pauseResultSchema,
+  renewSchema,
+  type AlertMode,
   parseSupported,
   parseSupporterView,
   parseViewLog,
@@ -123,6 +127,102 @@ export function useCancelInvite() {
   });
 }
 
+/** One tap: another year from today, never shorter than the access already has. The server does the date arithmetic. */
+export function useRenewMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (memberId: string) => {
+      const { data, error } = await createClient().rpc("renew_care_circle_member", { p_member: memberId });
+      if (error) throw new CircleError(error.message);
+      const r = renewSchema.safeParse(data);
+      if (!r.success || !r.data.ok) throw new CircleError("unknown");
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: circleKeys.mine }),
+  });
+}
+
+/** Pause all sharing for the configured days. `pauseAlerts` also holds back the check-in requests (the patient chooses). */
+export function usePauseCircle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (pauseAlerts: boolean) => {
+      const { data, error } = await createClient().rpc("pause_care_circle", { p_pause_alerts: pauseAlerts });
+      if (error) throw new CircleError(error.message);
+      if (!pauseResultSchema.safeParse(data).success) throw new CircleError("unknown");
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: circleKeys.mine }),
+  });
+}
+
+export function useResumeCircle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await createClient().rpc("resume_care_circle");
+      if (error) throw new CircleError(error.message);
+      if (data !== true) throw new CircleError("unknown");
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: circleKeys.mine }),
+  });
+}
+
+/** What a supporter sees right now, for a member already in the circle. Fetched only when the patient asks; never a logged look. */
+export function usePreviewMember(memberId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["care-circle", "preview-member", memberId] as const,
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_preview_member", { p_member: memberId });
+      if (error) throw new CircleError(error.message);
+      const v = parsePreviewView(data);
+      if (!v) throw new CircleError("unknown");
+      return v;
+    },
+  });
+}
+
+/** What these choices would show, before anyone is invited. */
+export function usePreviewPermissions(permissions: readonly CirclePermission[], relationship: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["care-circle", "preview-permissions", [...permissions].sort().join(","), relationship] as const,
+    enabled: enabled && permissions.length > 0,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_preview_permissions", { p_permissions: [...permissions], p_relationship: relationship });
+      if (error) throw new CircleError(error.message);
+      const v = parsePreviewView(data);
+      if (!v) throw new CircleError("unknown");
+      return v;
+    },
+  });
+}
+
+export function useSetAlertMode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { patientId: string; mode: AlertMode }) => {
+      const { data, error } = await createClient().rpc("set_circle_alert_mode", { p_patient: input.patientId, p_mode: input.mode });
+      if (error) throw new CircleError(error.message);
+      if (data !== true) throw new CircleError("unknown");
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: circleKeys.supported }),
+  });
+}
+
+/** "I called them": one status, no text. */
+export function useAckAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (patientId: string) => {
+      const { data, error } = await createClient().rpc("circle_ack_alert", { p_patient: patientId });
+      if (error) throw new CircleError(error.message);
+      if (data !== true) throw new CircleError("unknown");
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: circleKeys.alerts }),
+  });
+}
+
 export function useUpdateMember() {
   const qc = useQueryClient();
   return useMutation({
@@ -135,7 +235,11 @@ export function useUpdateMember() {
       if (error) throw new CircleError(error.message);
       if (data !== true) throw new CircleError("unknown");
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: circleKeys.mine }),
+    // a changed permission changes what the preview shows, so a cached preview must not be shown as current
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: circleKeys.mine });
+      void qc.invalidateQueries({ queryKey: ["care-circle", "preview-member"] });
+    },
   });
 }
 

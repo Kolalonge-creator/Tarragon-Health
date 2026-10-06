@@ -109,6 +109,12 @@ describe("MembershipShop", () => {
   });
 
   // S29: pay for a loved one
+  let confirm: jest.SpyInstance;
+  beforeEach(() => {
+    confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
+  });
+  afterEach(() => confirm.mockRestore());
+
   it("when paying for someone, names them, sends their id with the code and key, and ignores the payer's own membership", async () => {
     membership = { data: { is_member: true, ends_at: "2027-01-01T00:00:00Z", source: "purchase" } };
     mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
@@ -119,6 +125,33 @@ describe("MembershipShop", () => {
     const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
     expect(Object.keys(arg).sort()).toEqual(["beneficiary", "clientKey", "code"]);
     expect(arg.beneficiary).toBe("p-9");
+  });
+
+  it("when paying for someone, names them and says what happens before any order is made, and a no creates nothing", async () => {
+    confirm.mockReturnValue(false);
+    render(<MembershipShop locale="en" fee={FEE} go={assign} beneficiary={{ id: "p-9", name: "Mama Eze" }} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    const text = String(confirm.mock.calls[0]![0]);
+    expect(text).toMatch(/Pay for Mama Eze's Membership\?/);
+    expect(text).toMatch(/asked to accept it, and you are refunded if they say no/);
+    expect(text).toMatch(/will not see any health information/);
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("paying for yourself asks for no extra confirmation", async () => {
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(mutateAsync).toHaveBeenCalled();
+  });
+
+  it("paying for someone else with anything but the yearly Membership is refused in plain words", async () => {
+    mutateAsync.mockRejectedValue(new CheckoutError("gift_item_not_allowed"));
+    render(<MembershipShop locale="en" fee={FEE} go={assign} beneficiary={{ id: "p-9", name: "Mama Eze" }} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    expect(screen.getByRole("alert").textContent).toBe("Only the full yearly Membership can be paid for someone else.");
   });
 
   it("when paying for someone, an already-a-member refusal talks about them, not the payer", async () => {

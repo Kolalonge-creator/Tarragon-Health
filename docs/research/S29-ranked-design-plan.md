@@ -59,3 +59,6 @@ Effort: S = under a day, M = a few days, L = a session or more. "Decision" = nee
 2. **S25/S26 copy and reminder pass (items 9, 10, 12, 14, 16):** after #945 and #955 are on `main-dev`.
 3. **Your decisions:** items 11, 13, 19, 20 and the 14-versus-30-day gift window (15), plus the CMO's wording for item 5.
 4. **Separate sessions:** item 1 (offline red path, needs a real device), item 6 (shared-phone mode), item 7 (discreet mode), then Tier 4.
+
+## Status (2026-10-06): S29 follow-up pack built
+Items 2, 3, 4, 8, 15, 17 and 18 are built on `s29/care-circle` (migration `20261006214127_s29c_care_circle_followup.sql`, not yet applied to production). Deviations: item 17 has no quiet hours or digest (a time window could hide a red alert; a supporter can only drop the push); item 15 keeps the 30-day gift window until the founder chooses 14 or 30, and the gift is now the full yearly Membership only (founder, 2026-10-06, OQ-198). Item 3's "pause check-in requests too" default is OQ-197. See `docs/BUILD-PROGRESS.md`, "S29c".

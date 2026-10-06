@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Text, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
@@ -56,6 +56,18 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
     void refresh();
   }, [refresh]);
 
+  /** For someone else the name and what happens come first, before any card is touched (S29c): they are asked to accept, and a no is a refund. */
+  function confirmGift(item: CatalogueItem) {
+    if (!beneficiary) {
+      void pay(item);
+      return;
+    }
+    Alert.alert(tr("circle.pay.confirm_title", { name: beneficiary.name }), tr("circle.pay.confirm_body", { name: beneficiary.name }), [
+      { text: tr("circle.pay.confirm_no"), style: "cancel" },
+      { text: tr("circle.pay.confirm_yes", { name: beneficiary.name }), onPress: () => void pay(item) },
+    ]);
+  }
+
   async function pay(item: CatalogueItem) {
     setErrorKey(null);
     setNotice(null);
@@ -94,9 +106,10 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
     <View style={{ gap: 12 }}>
       <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{beneficiary ? tr("circle.pay.who", { name: beneficiary.name }) : tr("shop.title")}</Text>
       {beneficiary ? <MutedText>{tr("circle.pay.note", { name: beneficiary.name })}</MutedText> : null}
+      {beneficiary ? <MutedText>{tr("circle.pay.only_year")}</MutedText> : null}
       {!beneficiary && membership.isMember && membership.endsAt ? <MutedText>{tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText> : null}
       {items.length === 0 ? <MutedText>{tr("shop.not_open")}</MutedText> : null}
-      {items.map((item) => {
+      {items.filter((item) => !beneficiary || item.kind === "membership").map((item) => {
         const b = estimatedBreakdown(item.amountKobo, fee);
         const blocked = !beneficiary && item.kind === "membership" && membership.isMember;
         return (
@@ -113,7 +126,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
             <MutedText>{tr("pay.fee.explain")}</MutedText>
             <MutedText>{tr("shop.fee.estimate")}</MutedText>
             <MutedText>{tr("shop.no_renew")}</MutedText>
-            {blocked ? null : <PrimaryButton title={busy === item.code ? tr("shop.paying") : tr("shop.pay")} onPress={() => void pay(item)} disabled={busy !== null} />}
+            {blocked ? null : <PrimaryButton title={busy === item.code ? tr("shop.paying") : tr("shop.pay")} onPress={() => confirmGift(item)} disabled={busy !== null} />}
           </Card>
         );
       })}

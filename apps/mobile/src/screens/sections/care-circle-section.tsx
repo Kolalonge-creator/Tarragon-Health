@@ -3,11 +3,14 @@ import { ActivityIndicator, Alert, Share, Switch, Text, TextInput, View } from "
 import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { answerGift, cancelInvite, createInvite, loadMyCircle, loadPendingGifts, loadViewLog, revokeMember, updateMember } from "@/lib/care-circle/api";
 import {
-  CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, inviteLinkPath, permissionKey,
-  type CircleMember, type CirclePermission, type MyCircle, type PendingGift, type ViewLogRow,
+  answerGift, cancelInvite, createInvite, loadMyCircle, loadPendingGifts, loadPreviewMember, loadPreviewPermissions, loadViewLog, pauseCircle, renewMember, resumeCircle, revokeMember, updateMember,
+} from "@/lib/care-circle/api";
+import {
+  CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, endsSoon, inviteLinkPath, permissionKey,
+  type CircleMember, type CirclePause, type CirclePermission, type MyCircle, type PendingGift, type PreviewView, type ViewLogRow,
 } from "@/lib/care-circle/parse";
+import { SupporterBlocks } from "./supporter-blocks";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
@@ -62,6 +65,83 @@ function GiftCards({ gifts, onAnswered }: { gifts: PendingGift[]; onAnswered: ()
   );
 }
 
+/** What a supporter would see, read only and sent to no one. The blocks are the supporter page's own component. */
+function PreviewPanel({ view, failed }: { view: PreviewView | null | undefined; failed: boolean }) {
+  const locale = asLocale(useUiLanguage());
+  if (failed || view === null) return <ErrorText>{t("circle.preview.error", locale)}</ErrorText>;
+  if (view === undefined) return <ActivityIndicator />;
+  return (
+    <View style={{ gap: 8 }}>
+      <Text accessibilityRole="header" style={{ fontWeight: "700" }}>{t("circle.preview.title", locale)}</Text>
+      <MutedText>{t("circle.preview.note", locale)}</MutedText>
+      <SupporterBlocks view={view} />
+      {view.alertSample ? <Text>{t("circle.preview.alert", locale)}</Text> : null}
+    </View>
+  );
+}
+
+function MemberPreview({ memberId }: { memberId: string }) {
+  const locale = asLocale(useUiLanguage());
+  const [open, setOpen] = useState(false);
+  const [view, setView] = useState<PreviewView | null | undefined>(undefined);
+  const [failed, setFailed] = useState(false);
+  function toggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    setView(undefined);
+    setFailed(false);
+    void loadPreviewMember(memberId).then((r) => (r.ok ? setView(r.data) : setFailed(true)));
+  }
+  return (
+    <View style={{ gap: 8 }}>
+      <SecondaryButton title={open ? t("circle.preview.hide", locale) : t("circle.preview.button", locale)} onPress={toggle} />
+      {open ? <PreviewPanel view={view} failed={failed} /> : null}
+    </View>
+  );
+}
+
+/** One tap to stop everyone seeing anything for a while. Silent to supporters, no reason asked; the patient chooses whether check-in requests pause too. */
+function PauseCard({ pause, days, onChanged }: { pause: CirclePause | undefined; days: number; onChanged: () => void }) {
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const [alsoAlerts, setAlsoAlerts] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  async function run(action: () => Promise<boolean>) {
+    setBusy(true);
+    setFailed(false);
+    const ok = await action();
+    setBusy(false);
+    if (ok) onChanged();
+    else setFailed(true);
+  }
+  return (
+    <Card style={{ gap: 8 }}>
+      <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.pause.title", locale)}</Text>
+      {pause ? (
+        <>
+          <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.pause.active", locale, { date: lagosDate(pause.pausedUntil) })}</Text>
+          <MutedText>{t(pause.pauseAlerts ? "circle.pause.alerts_paused" : "circle.pause.alerts_on", locale)}</MutedText>
+          <PrimaryButton title={t("circle.pause.resume", locale)} onPress={() => void run(resumeCircle)} disabled={busy} />
+        </>
+      ) : (
+        <>
+          <Text style={{ color: colors.ink }}>{t("circle.pause.body", locale, { days })}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
+            <Switch accessibilityLabel={t("circle.pause.alerts", locale)} value={alsoAlerts} onValueChange={setAlsoAlerts} />
+            <Text style={{ flex: 1, color: colors.ink }}>{t("circle.pause.alerts", locale)}</Text>
+          </View>
+          <PrimaryButton title={t("circle.pause.button", locale, { days })} onPress={() => void run(() => pauseCircle(alsoAlerts))} disabled={busy} />
+        </>
+      )}
+      {failed ? <ErrorText>{t("circle.pause.error", locale)}</ErrorText> : null}
+    </Card>
+  );
+}
+
 function PermissionSwitches({ value, onChange }: { value: readonly CirclePermission[]; onChange: (next: CirclePermission[]) => void }) {
   const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
@@ -104,8 +184,7 @@ function MemberCard({ member, onChanged }: { member: CircleMember; onChanged: ()
   async function renew() {
     setBusy(true);
     setFailed(false);
-    const until = new Date(Date.now() + GRANT_DAY_CHOICES[GRANT_DAY_CHOICES.length - 1] * 24 * 60 * 60 * 1000).toISOString();
-    const ok = await updateMember(member.memberId, member.permissions, until);
+    const ok = await renewMember(member.memberId);
     setBusy(false);
     if (ok) onChanged();
     else setFailed(true);
@@ -127,10 +206,12 @@ function MemberCard({ member, onChanged }: { member: CircleMember; onChanged: ()
     <Card style={{ gap: 8 }}>
       <Text style={{ fontWeight: "700", color: colors.ink }}>{`${member.name} (${member.relationship})`}</Text>
       <MutedText>{t("circle.member.until", locale, { date: lagosDate(member.expiresAt) })}</MutedText>
+      {endsSoon(member.expiresAt, Date.now()) ? <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.member.ends_soon", locale)}</Text> : null}
       <PermissionSwitches value={draft} onChange={(n) => { setDraft(n); setSaved(false); }} />
       <PrimaryButton title={t("circle.member.save", locale)} onPress={() => void save()} disabled={!changed || draft.length === 0 || busy} />
       <SecondaryButton title={t("circle.member.renew", locale)} onPress={() => void renew()} disabled={busy} />
       <SecondaryButton title={t("circle.member.remove", locale)} onPress={remove} disabled={busy} />
+      <MemberPreview memberId={member.memberId} />
       {saved ? <MutedText>{t("circle.member.saved", locale)}</MutedText> : null}
       {failed ? <ErrorText>{t("circle.error.unknown", locale)}</ErrorText> : null}
     </Card>
@@ -150,6 +231,20 @@ function InviteForm({ onMade }: { onMade: () => void }) {
   const [busy, setBusy] = useState(false);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   const [made, setMade] = useState<{ link: string; expiresAt: string } | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [preview, setPreview] = useState<PreviewView | null | undefined>(undefined);
+  const [previewFailed, setPreviewFailed] = useState(false);
+
+  function togglePreview() {
+    if (showPreview) {
+      setShowPreview(false);
+      return;
+    }
+    setShowPreview(true);
+    setPreview(undefined);
+    setPreviewFailed(false);
+    if (perms.length > 0) void loadPreviewPermissions(perms, relationship.trim()).then((r) => (r.ok ? setPreview(r.data) : setPreviewFailed(true)));
+  }
 
   async function submit() {
     setBusy(true);
@@ -206,7 +301,9 @@ function InviteForm({ onMade }: { onMade: () => void }) {
       <Text style={{ color: colors.ink }}>{t("circle.invite.relationship", locale)}</Text>
       <TextInput accessibilityLabel={t("circle.invite.relationship", locale)} keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={relationship} onChangeText={setRelationship} maxLength={40} style={inputStyle} />
       <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.invite.permissions", locale)}</Text>
-      <PermissionSwitches value={perms} onChange={setPerms} />
+      <PermissionSwitches value={perms} onChange={(n) => { setPerms(n); setShowPreview(false); }} />
+      <SecondaryButton title={showPreview ? t("circle.preview.hide", locale) : t("circle.preview.invite_button", locale)} onPress={togglePreview} />
+      {showPreview ? (perms.length === 0 ? <MutedText>{t("circle.preview.empty", locale)}</MutedText> : <PreviewPanel view={preview} failed={previewFailed} />) : null}
       <Text style={{ color: colors.ink }}>{t("circle.invite.days", locale)}</Text>
       <View style={{ flexDirection: "row", gap: 8 }}>
         {GRANT_DAY_CHOICES.map((d) => (
@@ -249,6 +346,8 @@ export function CareCircleSection() {
       <GiftCards gifts={gifts} onAnswered={() => void refresh()} />
       <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{t("circle.title", locale)}</Text>
       <MutedText>{t("circle.intro", locale)}</MutedText>
+      <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.stop.reminder", locale)}</Text>
+      <PauseCard pause={circle.pause} days={circle.pauseDays ?? 7} onChanged={() => void refresh()} />
       {circle.members.length === 0 ? <MutedText>{t("circle.members.empty", locale)}</MutedText> : null}
       {circle.members.map((m) => <MemberCard key={m.memberId} member={m} onChanged={() => void refresh()} />)}
       {circle.invites.map((i) => (

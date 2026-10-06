@@ -30,7 +30,7 @@ const goTo: Go = (url) => window.location.assign(url);
 /** Set when a supporter pays for someone in their Care Circle (S29): the order is for them, the card is the payer's own. */
 export interface Beneficiary { readonly id: string; readonly name: string }
 
-function ItemCard({ item, locale, fee, memberUntil, go, beneficiary }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go; beneficiary: string | undefined }) {
+function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiaryName }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go; beneficiary: string | undefined; beneficiaryName: string | undefined }) {
   const start = useStartCheckout();
   // One key per card, made on first use and kept, so a double tap or a retry after a dropped connection is the SAME order.
   const clientKey = useRef<string | null>(null);
@@ -39,6 +39,11 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary }: { item: C
   const blocked = item.kind === "membership" && memberUntil !== null;
 
   async function pay() {
+    // For someone else, say their name and what happens before any card is touched (S29c): they are asked to accept, and a no is a refund.
+    if (beneficiary !== undefined) {
+      const who = beneficiaryName ?? t("circle.pay.someone", locale);
+      if (!window.confirm(`${t("circle.pay.confirm_title", locale, { name: who })}\n\n${t("circle.pay.confirm_body", locale, { name: who })}`)) return;
+    }
     setErrorKey(null);
     clientKey.current ??= crypto.randomUUID();
     try {
@@ -158,6 +163,7 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
         <section aria-labelledby="pay-for" className="space-y-1">
           <h2 id="pay-for" className="font-heading text-lg font-semibold">{t("circle.pay.who", locale, { name: beneficiary.name })}</h2>
           <p className={MUTED}>{t("circle.pay.note", locale, { name: beneficiary.name })}</p>
+          <p className={MUTED}>{t("circle.pay.only_year", locale)}</p>
         </section>
       ) : null}
       {memberUntil ? <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p> : null}
@@ -178,8 +184,8 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
         </fieldset>
       ) : null}
       {catalogue.isSuccess && items.length === 0 ? <p>{t("shop.not_open", locale)}</p> : null}
-      {items.map((item) => (
-        <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} />
+      {items.filter((item) => !chosenId || item.kind === "membership").map((item) => (
+        <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} />
       ))}
       <History rows={orders.data ?? []} locale={locale} />
     </div>
