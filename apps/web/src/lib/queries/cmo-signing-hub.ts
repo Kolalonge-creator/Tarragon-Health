@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import { getSignoffQueue, SEVERITY_RANK, type SignoffQueueItem } from "@/lib/queries/signoff-queue";
+import { readSignoffQueue, SEVERITY_RANK, type SignoffQueueItem } from "@/lib/queries/signoff-queue";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 
 export type CmoSigningHub = {
@@ -9,10 +9,14 @@ export type CmoSigningHub = {
   items: SignoffQueueItem[];
   /** At least one read failed, so `items` may be short. Never render this state as an all-clear. */
   failed: boolean;
+  /** Which sources could not be read, by name, so the warning can say what is missing. */
+  failedSources: string[];
 };
 
 /** The key the merged clinical-rules line carries, so the page can attach the guided signing forms to it. */
 export const CLINICAL_RULES_ITEM_KEY = "clinical_rules";
+/** The key the merged protocol-drafts line carries; the one manager lists every draft, so there is one line, not one per draft. */
+export const PROTOCOL_DRAFTS_ITEM_KEY = "protocol_drafts";
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -34,22 +38,39 @@ export const CLINICAL_RULES_ITEM_KEY = "clinical_rules";
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queueResult, ai] = await Promise.all([
-    getSignoffQueue(supabase, "/clinician").then(
-      (items) => ({ items, failed: false }),
-      () => ({ items: [] as SignoffQueueItem[], failed: true })
-    ),
+  const [queue, ai] = await Promise.all([
+    readSignoffQueue(supabase, "/clinician").catch(() => ({
+      items: [] as SignoffQueueItem[],
+      failedSources: ["the sign-off queue"],
+    })),
     readPendingAiGovernanceSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
   let ruleCount = 0;
-  for (const item of queueResult.items) {
+  const protocolDrafts: SignoffQueueItem[] = [];
+  for (const item of queue.items) {
     if (item.key === "clinical_rules_needs_setup" || item.key === "clinical_rules_ready") {
       ruleCount += item.count ?? 0;
       continue;
     }
+    if (item.key.startsWith("protocol_draft:")) {
+      protocolDrafts.push(item);
+      continue;
+    }
     items.push(item);
+  }
+
+  if (protocolDrafts.length > 0) {
+    const titles = protocolDrafts.map((d) => d.title);
+    items.push({
+      key: PROTOCOL_DRAFTS_ITEM_KEY,
+      title: "Clinical protocol drafts",
+      detail: `${protocolDrafts.length} draft${protocolDrafts.length === 1 ? "" : "s"} waiting to be promoted and signed: ${titles.slice(0, 3).join(", ")}${titles.length > 3 ? ` and ${titles.length - 3} more` : ""}.`,
+      href: "/clinician/protocols",
+      severity: "draft_pending",
+      count: protocolDrafts.length,
+    });
   }
 
   if (ruleCount > 0) {
@@ -80,6 +101,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  const failedSources = [...queue.failedSources, ...(ai.failed ? ["AI governance"] : [])];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
-  return { items, failed: queueResult.failed || ai.failed };
+  return { items, failed: failedSources.length > 0, failedSources };
 }

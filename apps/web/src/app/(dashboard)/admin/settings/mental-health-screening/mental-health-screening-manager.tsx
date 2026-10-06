@@ -11,6 +11,7 @@ import {
   type CreateScreeningCadenceDraftState,
   type SignScreeningCadenceState,
 } from "./actions";
+import { isSupersededVersion } from "@/lib/clinical/refuse-superseded-draft";
 
 type CadenceRow = {
   instrument: string;
@@ -168,7 +169,13 @@ export function MentalHealthScreeningManager({
                     {Array.isArray(v.config) ? v.config.length : 0} instrument
                     {Array.isArray(v.config) && v.config.length === 1 ? "" : "s"}
                   </p>
-                  {!v.approved_at && (
+                  {isSupersededVersion(v, activeVersion?.version) && (
+                    <p className="text-xs text-charcoal-ink/50">
+                      Superseded: a newer version is live, so this draft can no longer be signed. To change
+                      anything, draft a new version.
+                    </p>
+                  )}
+                  {!v.approved_at && !isSupersededVersion(v, activeVersion?.version) && (
                     <>
                       <p className="text-xs text-charcoal-ink/60">
                         Signing requires an active Clinical Director account and brings this version
