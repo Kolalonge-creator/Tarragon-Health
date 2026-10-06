@@ -13,7 +13,7 @@ describe("triage message codes and the manifest (safety case 1 area)", () => {
 
   it("has a clip for every spoken triage code except the ones recorded as open", () => {
     const missing = spoken.filter((k) => !ids.has(k)).sort();
-    // EMG-001L (the low-pressure variant) is not in the Audio Production List. Raised as OQ-198.
+    // EMG-001L (the low-pressure variant) is not in the Audio Production List. Raised as OQ-202.
     expect(missing).toEqual(["EMG-001L"]);
   });
 

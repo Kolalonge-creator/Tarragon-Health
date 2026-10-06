@@ -269,7 +269,7 @@ describe("history and the rule set on the phone", () => {
 
   it("audio ids are manifest clip ids; a code with no recording and null both give none", () => {
     expect(triageAudioId("TRI-001")).toBe("TRI-001");
-    expect(triageAudioId("EMG-001L")).toBeNull(); // the Audio Production List has no low-pressure clip (OQ-198)
+    expect(triageAudioId("EMG-001L")).toBeNull(); // the Audio Production List has no low-pressure clip (OQ-202)
     expect(triageAudioId(null)).toBeNull();
   });
 });

@@ -22,7 +22,7 @@ export type AudioSource = { readonly kind: "bundled"; readonly module: number } 
 
 /**
  * The part of the app that makes sound. It is a port because the native audio module is a native dependency that
- * needs a new build and a `runtimeVersion` bump (OQ-197); until one is registered, every request shows its text.
+ * needs a new build and a `runtimeVersion` bump (OQ-201); until one is registered, every request shows its text.
  * `play` resolves when the last source has finished, or rejects; `stop` ends whatever is playing at once.
  */
 export interface AudioEngine {

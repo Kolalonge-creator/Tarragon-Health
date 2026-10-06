@@ -1170,34 +1170,34 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision: Decided 2026-10-06: PDF statement per payout now, credit note after OQ-193, no holdback until S26.
 
 
-### OQ-197 The audio player is a native module and needs a new build (raised by S32)
+### OQ-201 The audio player is a native module and needs a new build (raised by S32)
 - The app has no audio library (`expo-audio` or `expo-av`) and no file-system module for downloaded clips. Adding either is a native dependency: a new EAS build and a `runtimeVersion` bump (as OQ-73), and the OTA auto-publisher will skip the push.
 - S32 built the player as a port (`AudioEngine`, `DownloadedFiles` in `apps/mobile/src/lib/audio/service.ts`). With no engine registered every request shows its text and logs one `engine_unavailable` issue. No recording exists yet anyway, so nothing is lost today.
 - Options: (a) add `expo-audio` and `expo-file-system` in the next native build, with the first recordings (recommended); (b) add them now and cut a build for nothing to play.
 - Decision: open.
 
-### OQ-198 EMG-001L is not in the Audio Production List (raised by S32)
+### OQ-202 EMG-001L is not in the Audio Production List (raised by S32)
 - The triage engine (S11, OQ-87) emits `EMG-001L` for a low reading with fainting. The list has EMG-001 to EMG-013 and no low-pressure variant, so that guidance has text and no voice. A test lists this gap so closing it is a deliberate change.
 - Options: (a) the CMO writes the low-pressure script, it is added to the list and recorded (recommended); (b) play EMG-001 for it (wrong advice for a low reading, not recommended).
 - Decision: open.
 
-### OQ-199 The recorded scripts and the text on screen differ, so no Listen button is wired (raised by S32)
+### OQ-203 The recorded scripts and the text on screen differ, so no Listen button is wired (raised by S32)
 - A voice must say what the screen says. They differ today. The list's EMG-001 says "call one one two or go to the nearest hospital emergency department"; S11's EMG-001 text prints no number (OQ-87, PR #785) and the list itself says to confirm 112 first. The list's TRI-002 is for care pack members and promises a reply within twenty-four hours; S11 uses TRI-002 for every amber. TRI-003 and TRI-005 differ in wording too.
 - S32 added the scripts as `AUDIO_SCRIPTS` (generated, the words each clip will say) beside the existing `triage.*` catalogue and changed neither. `triageAudioId` now returns the real clip id, but no screen shows a Listen button.
 - Options: (a) the CMO signs one wording per code, the catalogue and the list are made identical, then Listen buttons are wired to EMG and TRI (recommended); (b) the screen shows the list's script text whenever it plays the clip.
 - Decision: open.
 
-### OQ-200 Where post-sign-up and on-demand audio is hosted (raised by S32)
+### OQ-204 Where post-sign-up and on-demand audio is hosted (raised by S32)
 - NAV, HLP, CON, SYS and REM download once after sign-up; RES downloads when first played. There is no bucket or CDN for them. Files are addressed by checksum (`fileUrl`), so any static host works.
 - Options: (a) a public Supabase Storage bucket `audio`, created when the first recordings are approved (recommended; non-personal content, no new table); (b) a CDN in front of it later.
 - Decision: open.
 
-### OQ-201 First-use walkthroughs are an offer, and the app's tabs are not the list's tabs (raised by S32)
+### OQ-205 First-use walkthroughs are an offer, and the app's tabs are not the list's tabs (raised by S32)
 - The list says NAV clips play "the first time a person opens each tab". S32 built `tourOffer` as an offer ("Listen to a short tour"), not autoplay, because a phone can be in a public place and discreet mode matters (D.3). The list's five tabs (Home, My Health, Care, Wellbeing, Family) also differ from the app's current sections, so NAV and HLP are mapped by name (`NAV_CLIPS`, `HLP_CLIPS`) but not wired to screens.
 - Options: (a) offer, not autoplay, wired when the S34 or S35 shell settles the tab names (recommended); (b) autoplay once per tab.
 - Decision: open.
 
-### OQ-202 Smaller reconciliations in S32 (raised by S32)
+### OQ-206 Smaller reconciliations in S32 (raised by S32)
 - The session prompt says "Safety case 22 area (audio present offline)". Spec 15.1 case 22 is "test accounts do not appear in metrics"; the offline-emergency case is 1 and the invariant is INV-06. S32 proved the audio side under INV-06 and case 1; nothing here touches case 22.
 - Steps between 601 and 999, and from 20,250 up, have no number clip; they get text only. Fractions are said to one decimal place (the meter's own precision), never rounded to a whole number.
 - The 40 MB app target was superseded (DG-1). S32 tracks the bundled-audio size against a PROPOSED 15 MB budget (`audio.bundled_max_bytes`); projected today: 13.1 MB without SYM, 13.9 MB with it. S34 owns the whole-app size.
@@ -1206,10 +1206,10 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision: open.
 
 
-### OQ-203 Items from the competitor review that are not built yet (raised by S32)
+### OQ-207 Items from the competitor review that are not built yet (raised by S32)
 - Blood pressure has no unit clip in the Audio Production List (no "millimetres of mercury"), so a spoken reading is "148 over 94" with no unit. Every other reading has one. Options: (a) add a unit clip to the list and the NUM group (recommended); (b) accept no unit for blood pressure.
 - Screen readers (VoiceOver, TalkBack) will read Pidgin text in an English voice. Options: (a) test on real devices and decide per screen whether the label points to the bundled clip (recommended); (b) leave to the OS.
-- Playback in silent mode, with headphones, during a call, or from the lock screen needs the native module (OQ-197).
+- Playback in silent mode, with headphones, during a call, or from the lock screen needs the native module (OQ-201).
 - Whether spoken triage makes the app regulated software in Nigeria is unconfirmed (NAFDAC, D.6). Ask counsel before the symptom clips (SYM) ship.
 - Voice input in Pidgin is out of scope until recognition meets a clinical accuracy bar (the best published Pidgin result was 29.6 percent word error rate).
 - Decision: open.
