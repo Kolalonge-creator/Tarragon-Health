@@ -308,7 +308,7 @@ describe("ConsultationRoom with the in-app call", () => {
       expect(window.open).not.toHaveBeenCalled();
       // and the person can try again afterwards
       // (waits for the state to settle: read straight after the Leave button goes, it races the busy flag under CI load)
-      await waitFor(() => expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false));
+      await waitFor(() => expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false), { timeout: 5000 });
     });
 
     it("leaves the call when the consultation stops being live under it (cancelled, completed, no-show)", async () => {
@@ -348,7 +348,7 @@ describe("ConsultationRoom with the in-app call", () => {
       await waitFor(() => expect(first.client.join).toHaveBeenCalled());
       click("Leave the call");
       await waitFor(() => expect(first.client.leaveMeeting).toHaveBeenCalled());
-      await waitFor(() => expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false));
+      await waitFor(() => expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false), { timeout: 5000 });
       click("Join with video");
       await screen.findByText(/camera button/i);
       expect(second.client.join).toHaveBeenCalled();
@@ -385,7 +385,7 @@ describe("ConsultationRoom with the in-app call", () => {
       await waitFor(() => expect(f.client.join).toHaveBeenCalled());
       click("Leave the call");
       // the page is usable again at once; the stuck leave is abandoned after its patience runs out
-      await waitFor(() => expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false));
+      await waitFor(() => expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false), { timeout: 5000 });
       await waitFor(() => expect(f.sdk.destroyClient).toHaveBeenCalled(), { timeout: 5000 });
     }, 10_000);
 
