@@ -675,6 +675,8 @@ export function getNavSections(
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // What can be bought, its price and its history; switch an item on or off (S25).
             { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
+            // Blood pressure control 90 days after joining: aggregate only, small numbers withheld (S38).
+            { label: "Outcomes", href: "/admin/outcomes", icon: "analytics" },
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },

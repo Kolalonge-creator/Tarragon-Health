@@ -42803,6 +42803,8 @@ export type Database = {
       team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
       withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
       apply_payout_transfer_event: {
+      bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      record_refund_provider_result: {
         Args: {
           p_event: string
           p_reason?: string

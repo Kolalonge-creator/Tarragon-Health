@@ -857,6 +857,29 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S17.md; spec 7.6 and 7.8",
   },
   {
+    key: "outcomes.snapshot_rules",
+    // Outcome snapshots and the 90-day BP control report (S38, spec 4.10 and Module 22). Live values are the active row of
+    // `outcome_config`; this entry mirrors it and a test fails if the migration seed and this value drift. Every number is PROPOSED
+    // and owned by the CMO: the snapshot days, the 7-day window, the days allowed for offline readings to arrive, the readings needed
+    // for a verdict, the default target when a person has none, and the smallest cell ever shown (11, the usual health-reporting
+    // rule; 20 when a cut uses two attributes).
+    value: {
+      days: [0, 30, 90, 180],
+      window_days: 7,
+      grace_days: 3,
+      min_readings: 3,
+      default_target: { systolic: 140, diastolic: 90 },
+      min_cell: 11,
+      min_cell_cross: 20,
+      report_spec: "bp_control_90d",
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S38.md; spec 4.10 and Module 22; docs/research/S38.md",
+  },
+  {
     key: "quality.audit",
     // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
     // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
