@@ -80,6 +80,10 @@ describe("join buttons", () => {
     expect(joinAvailability(view({ final_media_mode: "audio_only" }))).toEqual({ video: false, audio: true });
   });
 
+  it("drop video once the consultation has moved to the phone", () => {
+    expect(joinAvailability(view({ final_media_mode: "phone" }))).toEqual({ video: false, audio: true });
+  });
+
   it("are off once the consultation is over", () => {
     expect(joinAvailability(view({ status: "cancelled" }))).toEqual({ video: false, audio: false });
   });
@@ -127,7 +131,9 @@ describe("parsing what the server returns", () => {
     expect(parseRoomView({ ...view(), scribe: { asked: true } })).toBeNull();
     expect(parseRoomView({ ...view(), scribe: { asked: true, granted: "yes" } })).toBeNull();
     expect(parseRoomView({ ...view(), scribe: { asked: true, granted: false } })).not.toBeNull();
-    expect(parseRoomView({ ...view(), joinable: undefined })).toBeNull();
+    expect(parseRoomView({ ...view(), joinable: "yes" })).toBeNull();
+    // No active policy: the server answers null for both. That is "not joinable yet", not an error.
+    expect(parseRoomView({ ...view(), joinable: null, join_opens_at: null })).toMatchObject({ joinable: false, join_opens_at: "" });
   });
 
   it("accepts a list of upcoming consultations and rejects a changed shape", () => {

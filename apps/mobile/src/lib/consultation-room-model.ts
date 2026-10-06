@@ -100,7 +100,8 @@ export function isCareTeamIn(view: RoomView): boolean {
 /** Whether the "join" buttons can be pressed. Once the call has dropped to audio only, video is no longer offered. */
 export function joinAvailability(view: RoomView): { video: boolean; audio: boolean } {
   const open = isLive(view.status) && view.joinable;
-  return { video: open && view.final_media_mode !== "audio_only", audio: open };
+  // Once the call has dropped to audio only, or onto the phone, video is no longer offered.
+  return { video: open && view.final_media_mode !== "audio_only" && view.final_media_mode !== "phone", audio: open };
 }
 
 /** The server decides the wait rule and sets this flag; the app only shows the button when the server says it may be used. */
@@ -145,8 +146,11 @@ export function parseRoomView(raw: unknown): RoomView | null {
   // never as "answered", or the patient would be told a consent they never gave is saved.
   const granted = (v.scribe as { granted?: unknown }).granted;
   if (granted !== null && typeof granted !== "boolean") return null;
-  if (typeof v.joinable !== "boolean" || typeof v.join_opens_at !== "string") return null;
-  return raw as RoomView;
+  // With no active consultation policy the server answers null for both: that is "not joinable yet", not an unreachable server.
+  const joinable = v.joinable === true;
+  const opens = typeof v.join_opens_at === "string" ? v.join_opens_at : "";
+  if (v.joinable != null && typeof v.joinable !== "boolean") return null;
+  return { ...(raw as RoomView), joinable, join_opens_at: opens };
 }
 
 export function parseUpcoming(raw: unknown): UpcomingConsultation[] | null {
