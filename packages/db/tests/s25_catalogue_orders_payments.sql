@@ -367,6 +367,18 @@ begin
   perform pg_temp.ck('moving the order to refunded cancels its schedule', 'cancelled', (select status from public.revenue_recognition_schedules where source_kind = 'order' and source_id = v_mem));
 end $$;
 
+-- 5e. A refund before posting is not posted; a late retry keeps the schedule on the entry's own date -------------------------------
+do $$
+declare v_p2 uuid := pg_temp.f('pat2'); ref text; o uuid;
+begin
+  ref := pg_temp.order_ref(v_p2, 'proof_consult', gen_random_uuid());
+  o := (select id from public.orders where paystack_reference = ref);
+  perform pg_temp.pay(ref, 500000, 150, 500150);
+  update public.orders set state = 'refunded' where id = o;
+  perform pg_temp.ck('an order refunded before it was posted is not posted', 'null', coalesce(private.post_order_to_ledger(o, true)::text, 'null'));
+  perform pg_temp.ck('and leaves no deferred revenue behind', '0', (select count(*)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || o));
+end $$;
+
 -- 6. Prices are versioned and immutable ----------------------------------------------------------------------------------
 do $$
 declare v_admin uuid := pg_temp.f('admin'); v_pat uuid := pg_temp.f('pat'); v_item uuid := (select id from public.catalog_items where code = 'proof_consult' and organisation_id = pg_temp.f('org'));
