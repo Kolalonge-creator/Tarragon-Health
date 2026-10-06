@@ -6,11 +6,14 @@
 
 import { noopHandler, type HandlerRegistry } from "../_shared/event-bus/dispatch.ts";
 import { makeObservationHandler, TRIAGE_HANDLER_KEY } from "../_shared/triage/observation-handler.ts";
+import { makeTriageTaskHandler, QUEUE_HANDLER_KEY } from "../_shared/queue/triage-task-handler.ts";
+import { queuePorts } from "./queue-ports.ts";
 import { triagePorts, type RpcClient } from "./triage-ports.ts";
 
 export function buildHandlers(client: RpcClient): HandlerRegistry {
   return {
     "bus.noop": noopHandler,
     [TRIAGE_HANDLER_KEY]: makeObservationHandler(triagePorts(client)),
+    [QUEUE_HANDLER_KEY]: makeTriageTaskHandler(queuePorts(client)),
   };
 }
