@@ -4630,6 +4630,144 @@ export type Database = {
           },
         ]
       }
+      care_circle_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      care_circle_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          attempts: number
+          created_at: string
+          expires_at: string
+          grant_days: number
+          id: string
+          invitee_hash: string
+          invitee_hint: string
+          invitee_kind: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          state: string
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          attempts?: number
+          created_at?: string
+          expires_at: string
+          grant_days: number
+          id?: string
+          invitee_hash: string
+          invitee_hint: string
+          invitee_kind: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          state?: string
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          attempts?: number
+          created_at?: string
+          expires_at?: string
+          grant_days?: number
+          id?: string
+          invitee_hash?: string
+          invitee_hint?: string
+          invitee_kind?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          permissions?: string[]
+          relationship?: string
+          state?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
+      care_circle_members: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          invite_id: string | null
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          revoked_at: string | null
+          revoked_by: string | null
+          state: string
+          supporter_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          invite_id?: string | null
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          state?: string
+          supporter_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invite_id?: string | null
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          permissions?: string[]
+          relationship?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          state?: string
+          supporter_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       care_management_barriers: {
         Row: {
           case_id: string
@@ -41468,6 +41606,20 @@ export type Database = {
         Args: { p_kind: string; p_original: string; p_reason: string };
         Returns: string;
       };
+      accept_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      cancel_care_circle_invite: { Args: { p_invite: string }; Returns: boolean };
+      circle_open_alerts: { Args: never; Returns: Json };
+      circle_supporter_view: { Args: { p_patient: string }; Returns: Json };
+      circle_view_log: { Args: { p_limit?: number }; Returns: Json };
+      create_care_circle_invite: {
+        Args: { p_contact: string; p_grant_days?: number; p_kind: string; p_permissions: string[]; p_relationship: string };
+        Returns: Json;
+      };
+      my_care_circle: { Args: never; Returns: Json };
+      my_supported_people: { Args: never; Returns: Json };
+      preview_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      revoke_care_circle_member: { Args: { p_member: string }; Returns: boolean };
+      update_care_circle_member: { Args: { p_expires_at?: string; p_member: string; p_permissions: string[] }; Returns: boolean };
       create_order: {
         Args: { p_beneficiary?: string; p_client_key?: string; p_code: string };
         Returns: Json;

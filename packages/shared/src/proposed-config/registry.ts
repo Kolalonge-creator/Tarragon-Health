@@ -756,4 +756,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S21.md; docs/research/S21.md",
   },
+  {
+    key: "care_circle.rules",
+    // Care Circle (S29, spec 4.7). Live values are the active row of `care_circle_config`; this entry mirrors it and a test fails
+    // if the migration seed and this value drift. invite_ttl_hours: how long an invite link works. default_grant_days: how long a
+    // supporter's access lasts unless the patient chooses otherwise (the patient can renew or end it any time). max_invites_per_day:
+    // per patient, counting cancelled ones. max_members: active supporters per patient. max_attempts: wrong-contact tries before an
+    // invite is dead. view_weeks: how many weekly blood pressure averages a supporter sees.
+    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S29.md; docs/research/S29.md; spec 4.7, 8.6",
+  },
 ];
