@@ -1,3 +1,4 @@
+import { isEmailShape } from "./ids.ts";
 import type { ProviderResult } from "./result.ts";
 
 /**
@@ -133,7 +134,7 @@ export const isValidChargeReference = (s: unknown): s is string => typeof s === 
 /** Paystack transfer references: lower case letters, digits, dash, underscore, 16 to 50 characters. */
 export const isValidTransferReference = (s: unknown): s is string => typeof s === "string" && /^[a-z0-9_-]{16,50}$/.test(s);
 
-export const isValidEmail = (s: unknown): s is string => typeof s === "string" && s.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+export const isValidEmail = isEmailShape;
 
 export const isValidAccountNumber = (s: unknown): s is string => typeof s === "string" && /^\d{10}$/.test(s);
 export const isValidBankCode = (s: unknown): s is string => typeof s === "string" && /^\d{3,6}$/.test(s);

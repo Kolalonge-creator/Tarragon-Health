@@ -1,6 +1,7 @@
 import type { MappedResend, SvixHeaders } from "../notifications/resend.ts";
 import { lintText } from "../notifications/neutral.ts";
 import { verifySvix, mapResendEvent, type ResendEvent } from "../notifications/resend.ts";
+import { isEmailShape } from "./ids.ts";
 import { fail, ok, type ProviderResult } from "./result.ts";
 
 /**
@@ -44,7 +45,7 @@ const TAG = /^[A-Za-z0-9_-]{1,256}$/;
 
 /** Shared input rules, so the mock refuses what the real adapter would. Returns a failure or null when the input is fine. */
 export function validateSendEmail(input: SendEmailInput): ProviderResult<never> | null {
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.to) || input.to.length > 254) return fail("invalid_input", "Recipient address is not valid");
+  if (!isEmailShape(input.to)) return fail("invalid_input", "Recipient address is not valid");
   if (input.subject.trim().length === 0 || input.subject.length > 200) return fail("invalid_input", "Subject is required and must be short");
   if (input.text.trim().length === 0) return fail("invalid_input", "A plain text body is required");
   if (input.idempotencyKey.length === 0 || input.idempotencyKey.length > 256) return fail("invalid_input", "Idempotency key is required");
@@ -60,7 +61,20 @@ export function validateSendEmail(input: SendEmailInput): ProviderResult<never> 
   return null;
 }
 
-export const stripTags = (html: string): string => html.replace(/<[^>]*>/g, " ");
+/** Replaces each `<...>` tag with a space. A scan, not a regular expression, so a hostile string cannot make it slow. */
+export function stripTags(html: string): string {
+  let out = "";
+  let i = 0;
+  while (i < html.length) {
+    const open = html.indexOf("<", i);
+    if (open === -1) break;
+    const close = html.indexOf(">", open + 1);
+    if (close === -1) break;
+    out += html.slice(i, open) + " ";
+    i = close + 1;
+  }
+  return out + html.slice(i);
+}
 
 /** Svix signature check on the RAW body, then the S13 mapping. Shared by the Resend adapter and the mock so they cannot drift. */
 export async function parseResendWebhook(secret: string, rawBody: string, headers: SvixHeaders, nowMs: number): Promise<ProviderResult<MappedResend | null>> {
