@@ -41,13 +41,16 @@ create function private.paging_rules_valid(r jsonb) returns boolean
 language plpgsql immutable set search_path = ''
 as $$
 begin
-  return jsonb_typeof(r -> 'escalation_minutes') = 'array'
+  -- a missing key makes a comparison null; a CHECK treats null as passing, so the whole answer is coalesced to false
+  return coalesce(jsonb_typeof(r -> 'escalation_minutes') = 'array'
      and jsonb_array_length(r -> 'escalation_minutes') = 2
      and (r -> 'escalation_minutes' ->> 0) ~ '^[0-9]+$' and (r -> 'escalation_minutes' ->> 1) ~ '^[0-9]+$'
      and (r -> 'escalation_minutes' ->> 0)::integer > 0
      and (r -> 'escalation_minutes' ->> 0)::integer < (r -> 'escalation_minutes' ->> 1)::integer
      and (r ->> 'lead_repeat_minutes') ~ '^[0-9]+$' and (r ->> 'lead_repeat_minutes')::integer > 0
-     and (r ->> 'page_access_hours') ~ '^[0-9]+$' and (r ->> 'page_access_hours')::integer > 0;
+     and (r ->> 'lead_repeat_max') ~ '^[0-9]+$' and (r ->> 'lead_repeat_max')::integer > 0
+     and (r ->> 'unclosed_alert_minutes') ~ '^[0-9]+$' and (r ->> 'unclosed_alert_minutes')::integer > 0
+     and (r ->> 'page_access_hours') ~ '^[0-9]+$' and (r ->> 'page_access_hours')::integer > 0, false);
 exception when others then
   return false;
 end;
@@ -60,6 +63,8 @@ insert into public.paging_config (version, is_active, effective_from, rules) val
 {
   "escalation_minutes": [5, 10],
   "lead_repeat_minutes": 5,
+  "lead_repeat_max": 12,
+  "unclosed_alert_minutes": 60,
   "page_access_hours": 24
 }
 $json$::jsonb);
@@ -106,6 +111,8 @@ create table public.pages (
   backup_paged_at    timestamptz,
   lead_alerted_at    timestamptz,
   last_lead_alert_at timestamptz,
+  lead_repeat_count  integer not null default 0,
+  action_alerted_at  timestamptz,
   no_cover           boolean not null default false,
   config_version     integer not null,
   is_test            boolean not null default false,
@@ -160,21 +167,21 @@ insert into public.event_type_versions (event_type, version, required_keys) valu
 -- ---------------------------------------------------------------------------
 -- Push, in-app and email together, critical priority (never held back by quiet hours), neutral wording (the template).
 -- Email goes with the push, not after it fails: a push needs data and a live app, and a page must not depend on either.
-create function private.page_notify(p_recipient uuid, p_org uuid, p_template text, p_page uuid) returns void
+create function private.page_notify(p_recipient uuid, p_org uuid, p_template text, p_page uuid, p_channels text[] default array['push', 'in_app', 'email']) returns void
 language plpgsql security definer set search_path = ''
 as $$
-declare c public.notification_channel;
+declare c text;
 begin
-  foreach c in array array['push', 'in_app', 'email']::public.notification_channel[] loop
+  foreach c in array p_channels loop
     insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
-    values (p_recipient, p_org, c, p_template, jsonb_build_object('page_id', p_page), 'pending', 'non_clinical', 'critical', 'pages', p_page);
+    values (p_recipient, p_org, c::public.notification_channel, p_template, jsonb_build_object('page_id', p_page), 'pending', 'non_clinical', 'critical', 'pages', p_page);
   end loop;
 end;
 $$;
-revoke all on function private.page_notify(uuid, uuid, text, uuid) from public, anon, authenticated;
+revoke all on function private.page_notify(uuid, uuid, text, uuid, text[]) from public, anon, authenticated;
 
 -- The clinical lead (chief medical officer) and ops (admin) of the organisation, matched on the test flag.
-create function private.page_notify_leadership(p_org uuid, p_page uuid, p_test boolean) returns integer
+create function private.page_notify_leadership(p_org uuid, p_page uuid, p_test boolean, p_template text default 'on_call_escalation', p_channels text[] default array['push', 'in_app', 'email']) returns integer
 language plpgsql security definer set search_path = ''
 as $$
 declare r record; n integer := 0;
@@ -186,7 +193,7 @@ begin
      where cs.organisation_id = p_org and cs.profile_id is not null and cs.active and cs.status = 'active'
        and cs.doctor_tier = 'chief_medical_officer' and p.is_test = p_test
   loop
-    perform private.page_notify(r.id, p_org, 'on_call_escalation', p_page);
+    perform private.page_notify(r.id, p_org, p_template, p_page, p_channels);
     n := n + 1;
   end loop;
   if n = 0 then
@@ -197,7 +204,7 @@ begin
   return n;
 end;
 $$;
-revoke all on function private.page_notify_leadership(uuid, uuid, boolean) from public, anon, authenticated;
+revoke all on function private.page_notify_leadership(uuid, uuid, boolean, text, text[]) from public, anon, authenticated;
 
 -- The rota row covering now (test and real rotas never mix).
 create function private.on_call_now(p_org uuid, p_test boolean) returns table (rota_id uuid, primary_id uuid, backup_id uuid)
@@ -321,6 +328,8 @@ declare
   v_backups integer := 0;
   v_leads integer := 0;
   v_repeats integer := 0;
+  v_unclosed integer := 0;
+  v_rep_max integer := (private.paging_rule('lead_repeat_max') #>> '{}')::integer;
   v_errors integer := 0;
   v_closed integer;
   v_rule_set integer;
@@ -391,25 +400,56 @@ begin
     end;
   end loop;
 
-  -- a level 2 alert is repeated until someone acknowledges: one push to a sleeping lead is not an escalation
+  -- a level 2 alert is repeated until someone acknowledges: one push to a sleeping lead is not an escalation. Repeats are push and
+  -- in-app only (email goes once, with the first alert, so a lead's inbox is not flooded), and they stop at lead_repeat_max with a
+  -- sev1 incident, because an unbounded loop only trains a person to ignore it (published tools cap repeats too).
   for r in
     select * from public.pages
      where parent_page_id is null and acknowledged_at is null and closed_at is null and lead_alerted_at is not null
+       and lead_repeat_count < v_rep_max
        and coalesce(last_lead_alert_at, lead_alerted_at) <= now() - make_interval(mins => (private.paging_rule('lead_repeat_minutes') #>> '{}')::integer)
      order by sent_at for update skip locked
   loop
     begin
       select coalesce((select c.id from public.pages c where c.parent_page_id = r.id and c.role = 'escalation'), r.id) into v_child;
-      perform private.page_notify_leadership(r.organisation_id, v_child, r.is_test);
+      perform private.page_notify_leadership(r.organisation_id, v_child, r.is_test, 'on_call_escalation', array['push', 'in_app']);
       perform set_config('tarragon.paging_write', 'on', true);
-      update public.pages set last_lead_alert_at = now() where id = r.id;
+      update public.pages set last_lead_alert_at = now(), lead_repeat_count = lead_repeat_count + 1 where id = r.id;
       perform set_config('tarragon.paging_write', 'off', true);
+      if r.lead_repeat_count + 1 >= v_rep_max then
+        perform private.page_incident(r.organisation_id, 'page_unanswered_exhausted:' || r.id, 'A red event page is still unanswered after every alert',
+          'The clinical lead and ops were alerted repeatedly and nobody acknowledged a red event page. Alerts have stopped repeating: act on this directly.');
+      end if;
       v_repeats := v_repeats + 1;
     exception when others then
       v_errors := v_errors + 1;
       perform set_config('tarragon.paging_write', 'off', true);
       insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
         values (r.organisation_id, 'page_sweep.error', 'page', r.id, jsonb_build_object('error', sqlerrm, 'step', 'repeat'));
+      perform private.page_incident(r.organisation_id, 'page_sweep_failed', 'Red event escalation failed for a page',
+        'The escalation timer failed for at least one red event page; see audit_log action page_sweep.error. A page may not have been escalated.');
+    end;
+  end loop;
+
+  -- acknowledged is not handled: a page acknowledged but still not closed after unclosed_alert_minutes tells the clinical lead and
+  -- ops once, so "acknowledged and then nothing happened" is caught (Opsgenie offers re-notify after acknowledge for the same reason)
+  for r in
+    select * from public.pages
+     where parent_page_id is null and acknowledged_at is not null and closed_at is null and action_alerted_at is null
+       and acknowledged_at <= now() - make_interval(mins => (private.paging_rule('unclosed_alert_minutes') #>> '{}')::integer)
+     order by sent_at for update skip locked
+  loop
+    begin
+      perform private.page_notify_leadership(r.organisation_id, r.id, r.is_test, 'on_call_unfinished', array['push', 'in_app']);
+      perform set_config('tarragon.paging_write', 'on', true);
+      update public.pages set action_alerted_at = now() where id = r.id;
+      perform set_config('tarragon.paging_write', 'off', true);
+      v_unclosed := v_unclosed + 1;
+    exception when others then
+      v_errors := v_errors + 1;
+      perform set_config('tarragon.paging_write', 'off', true);
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values (r.organisation_id, 'page_sweep.error', 'page', r.id, jsonb_build_object('error', sqlerrm, 'step', 'unclosed'));
       perform private.page_incident(r.organisation_id, 'page_sweep_failed', 'Red event escalation failed for a page',
         'The escalation timer failed for at least one red event page; see audit_log action page_sweep.error. A page may not have been escalated.');
     end;
@@ -423,7 +463,7 @@ begin
      and exists (select 1 from public.pages root where root.id = coalesce(pages.parent_page_id, pages.id) and root.acknowledged_at is not null);
   get diagnostics v_closed = row_count;
   perform set_config('tarragon.paging_write', 'off', true);
-  return jsonb_build_object('backups', v_backups, 'leads', v_leads, 'repeats', v_repeats, 'errors', v_errors, 'closed', v_closed);
+  return jsonb_build_object('backups', v_backups, 'leads', v_leads, 'repeats', v_repeats, 'unclosed', v_unclosed, 'errors', v_errors, 'closed', v_closed);
 end;
 $$;
 revoke all on function private.sweep_pages() from public, anon, authenticated;

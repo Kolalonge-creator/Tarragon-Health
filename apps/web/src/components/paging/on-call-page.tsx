@@ -24,6 +24,15 @@ export async function OnCallPage({ searchParams }: { searchParams: SearchParams 
         description="Priority cases that were sent to you. Acknowledge one as soon as you see it: that stops the escalation. The case shows no name or details here; the patient's chart opens only once you have acknowledged."
       />
       <Flash ok={firstParam(sp.ok)} error={firstParam(sp.error)} />
+      <Section title="Make sure alerts reach you" hint="Phones often stop apps in the background to save battery, and power and data cuts are common. These steps help; they are guidance from phone makers and have not been tested on every handset.">
+        <ul className="list-disc space-y-1 pl-5 text-sm">
+          <li>Allow notifications for Tarragon Health and keep them on while you are on call.</li>
+          <li>Turn off battery saving for Tarragon Health, and allow it to start by itself (on Tecno and Infinix phones, look for App Power Saving or Auto-start; on other phones, Battery optimisation).</li>
+          <li>Keep mobile data or Wi-Fi on, and a charger or power bank nearby for long shifts.</li>
+          <li>Make sure the email on your account opens on your phone. Every page is also sent by email.</li>
+          <li>If you cannot take a shift because of power, data or anything else, ask a colleague to cover it from Hours and rota before it starts.</li>
+        </ul>
+      </Section>
       {roots.length === 0 ? (
         <Section title="Nothing waiting">
           <Muted>No priority case is waiting for you. This page checks again every few seconds.</Muted>

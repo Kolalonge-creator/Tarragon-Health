@@ -68,9 +68,14 @@ insert into public.lead_config (version, is_active, effective_from, rules) value
   "fatigue_min_rest_hours": 11,
   "fatigue_max_consecutive_days": 7,
   "fatigue_max_shifts_per_7_days": 3,
+  "fatigue_max_hours_per_7_days": 72,
+  "fatigue_long_shift_hours": 10,
+  "fatigue_max_long_shifts_per_7_days": 4,
   "post_call_rest_hours": 8,
   "post_call_rest_min_shift_hours": 8,
   "contracted_needs_declared_hours": true,
+  "contracted_min_declared_hours_per_week": 10,
+  "swap_urgent_hours": 4,
   "override_reason_min_chars": 10
 }
 $json$::jsonb);
@@ -142,6 +147,25 @@ begin
 end;
 $$;
 revoke all on function private.guard_lead_write() from public, anon, authenticated;
+
+-- S15's credential_notify_reviewers forces payload.audience to 'reviewer', which links to the credentialing pages. S18 notices to
+-- reviewers must land on the rota, so this sends the same notice to the same people (active admins and the chief medical officer)
+-- with its own audience (rota_review, which the app routes through the /rota doorway).
+create function private.rota_notify_reviewers(p_org uuid, p_subject text, p_message text) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare r record;
+begin
+  for r in
+    select p.id from public.profiles p where p.is_active and p.role = 'admin'
+    union
+    select cs.profile_id from public.clinical_staff cs where cs.profile_id is not null and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer'
+  loop
+    perform private.credential_notify(r.id, p_org, p_subject, p_message, jsonb_build_object('audience', 'rota_review'), false);
+  end loop;
+end;
+$$;
+revoke all on function private.rota_notify_reviewers(uuid, text, text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 4. Tables
@@ -431,6 +455,10 @@ declare
   v_rest integer := (private.lead_rule('fatigue_min_rest_hours') #>> '{}')::integer;
   v_maxdays integer := (private.lead_rule('fatigue_max_consecutive_days') #>> '{}')::integer;
   v_maxshifts integer := (private.lead_rule('fatigue_max_shifts_per_7_days') #>> '{}')::integer;
+  v_maxhours numeric := (private.lead_rule('fatigue_max_hours_per_7_days') #>> '{}')::numeric;
+  v_longh numeric := (private.lead_rule('fatigue_long_shift_hours') #>> '{}')::numeric;
+  v_maxlong integer := (private.lead_rule('fatigue_max_long_shifts_per_7_days') #>> '{}')::integer;
+  v_hours numeric;
   w text[] := '{}';
   v_name text;
   n integer;
@@ -453,6 +481,30 @@ begin
         and (r.primary_clinician_id = p_profile or r.backup_clinician_id = p_profile) and r.starts_at < p_start + interval '7 days' and r.ends_at > p_start))
     into n;
   if n + 1 > v_maxshifts then w := w || format('%s would have %s shifts inside 7 days (limit %s)', v_name, n + 1, v_maxshifts); end if;
+
+  -- hours worked: the NHS contract caps 72 hours in any 168 (documented, 2016 doctors in training FAQ). Checked over the 7 days
+  -- ending with this shift and the 7 days starting with it, counting this shift in full.
+  select greatest(
+    coalesce((select sum(extract(epoch from (least(r.ends_at, p_end) - greatest(r.starts_at, p_end - interval '7 days'))) / 3600.0)
+                from public.on_call_rota r where r.organisation_id = p_org and r.cancelled_at is null and r.id is distinct from p_exclude
+                 and (r.primary_clinician_id = p_profile or r.backup_clinician_id = p_profile) and r.starts_at < p_end and r.ends_at > p_end - interval '7 days'), 0),
+    coalesce((select sum(extract(epoch from (least(r.ends_at, p_start + interval '7 days') - greatest(r.starts_at, p_start))) / 3600.0)
+                from public.on_call_rota r where r.organisation_id = p_org and r.cancelled_at is null and r.id is distinct from p_exclude
+                 and (r.primary_clinician_id = p_profile or r.backup_clinician_id = p_profile) and r.starts_at < p_start + interval '7 days' and r.ends_at > p_start), 0))
+    + extract(epoch from (p_end - p_start)) / 3600.0
+    into v_hours;
+  if v_hours > v_maxhours then w := w || format('%s would work %s hours inside 7 days (limit %s)', v_name, round(v_hours), v_maxhours); end if;
+
+  -- long shifts: the contract allows at most 4 consecutive long shifts; approximated as at most 4 shifts over the long-shift
+  -- length in any 7 days, counting this one
+  if extract(epoch from (p_end - p_start)) / 3600.0 > v_longh then
+    select count(*) into n from public.on_call_rota r
+     where r.organisation_id = p_org and r.cancelled_at is null and r.id is distinct from p_exclude
+       and (r.primary_clinician_id = p_profile or r.backup_clinician_id = p_profile)
+       and extract(epoch from (r.ends_at - r.starts_at)) / 3600.0 > v_longh
+       and r.starts_at < p_start + interval '7 days' and r.ends_at > p_start - interval '7 days';
+    if n + 1 > v_maxlong then w := w || format('%s would work %s long shifts (over %s hours) inside 7 days (limit %s)', v_name, n + 1, v_longh, v_maxlong); end if;
+  end if;
 
   -- consecutive days with a shift, in Lagos local dates, including this one
   select array_agg(distinct x::date order by x::date) into v_dates from (
@@ -608,7 +660,7 @@ begin
     insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
     values (p_org, 'clinical', (case when v_now > 0 then 'sev1' else 'sev2' end)::public.ops_incident_severity, 'On-call rota has uncovered or thin hours',
             'On-call cover problem in the next ' || v_hours || ' hours: ' || v_summary, v_ref, now(), now());
-    perform private.credential_notify_reviewers(p_org, 'On-call cover gap', 'Some upcoming hours have no on-call cover or no working backup. Open the rota to fix it.', jsonb_build_object('audience', 'rota_review'));
+    perform private.rota_notify_reviewers(p_org, 'On-call cover gap', 'Some upcoming hours have no on-call cover or no working backup. Open the rota to fix it.');
   end if;
   perform private.emit_domain_event('rota.gap_detected', p_org, jsonb_build_object('gap_count', v_n),
     'rota.gap_detected:' || p_org || ':' || to_char(date_trunc('hour', now()), 'YYYYMMDDHH24'), null, null, null, 'urgent');
@@ -689,7 +741,10 @@ $$;
 create function public.respond_rota_swap(p_swap uuid, p_accept boolean) returns void
 language plpgsql security definer set search_path = ''
 as $$
-declare s public.rota_swaps%rowtype;
+declare
+  s public.rota_swaps%rowtype;
+  r public.on_call_rota%rowtype;
+  w text[];
 begin
   select * into s from public.rota_swaps where id = p_swap for update;
   if not found then raise exception 'unknown swap' using errcode = '22023'; end if;
@@ -698,8 +753,28 @@ begin
   update public.rota_swaps set state = case when p_accept then 'accepted' else 'declined' end::public.rota_swap_state,
          accepted_at = case when p_accept then now() end where id = p_swap;
   perform set_config('tarragon.lead_write', 'off', true);
-  if p_accept then
-    perform private.credential_notify_reviewers(s.organisation_id, 'Rota swap to approve', 'A rota swap was accepted and needs approval.', jsonb_build_object('audience', 'rota_review'));
+  if not p_accept then return; end if;
+
+  select * into r from public.on_call_rota where id = s.rota_id and cancelled_at is null for update;
+  if found and r.ends_at > now() and r.starts_at <= now() + make_interval(hours => (private.lead_rule('swap_urgent_hours') #>> '{}')::integer) then
+    -- URGENT COVER: the shift starts within a few hours or has started. Waiting for a reviewer could leave the shift
+    -- uncovered, so the colleague's acceptance applies it at once. It is audited, the fatigue warnings are recorded, and the
+    -- reviewers are told straight away so they can check it. (Other platforms leave this open; a rota must not stall on approval.)
+    perform private.rota_validate_clinician(s.to_clinician, r.organisation_id, greatest(r.starts_at, now()), r.ends_at);
+    w := private.rota_fatigue_warnings(s.to_clinician, r.organisation_id, greatest(r.starts_at, now()), r.ends_at, r.id);
+    perform set_config('tarragon.lead_write', 'on', true);
+    if s.role = 'primary' then update public.on_call_rota set primary_clinician_id = s.to_clinician where id = r.id;
+    else update public.on_call_rota set backup_clinician_id = s.to_clinician where id = r.id; end if;
+    update public.rota_swaps set state = 'approved', decided_by = s.to_clinician, decided_at = now() where id = p_swap;
+    perform set_config('tarragon.lead_write', 'off', true);
+    perform private.credential_audit(r.organisation_id, s.to_clinician, 'rota.swap_urgent', 'rota_swap', s.id,
+      jsonb_build_object('rota_id', r.id, 'role', s.role, 'from', s.from_clinician, 'to', s.to_clinician, 'warnings', to_jsonb(w)));
+    perform private.emit_domain_event('rota.changed', r.organisation_id, jsonb_build_object('change', 'swap', 'rota_id', r.id), 'rota.changed:' || s.id || ':swap');
+    perform private.rota_notify_reviewers(r.organisation_id, 'Urgent rota cover taken', 'An on-call shift starting soon was covered by a colleague without waiting for approval. Please check it.');
+    perform private.credential_notify(s.from_clinician, r.organisation_id, 'Your shift is covered', 'A colleague has taken your on-call shift. You are no longer on call for it.', jsonb_build_object('audience', 'rota'), true);
+    perform private.rota_gap_alert(r.organisation_id);
+  else
+    perform private.rota_notify_reviewers(s.organisation_id, 'Rota swap to approve', 'A rota swap was accepted and needs approval.');
   end if;
 end;
 $$;
@@ -882,7 +957,7 @@ begin
     insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
     values (p_org, 'clinical', 'sev2', 'Patients without a lead clinician',
             format('%s patient(s) have no eligible lead clinician. Add lead-capable clinicians or free capacity.', v_n), v_ref, now(), now());
-    perform private.credential_notify_reviewers(p_org, 'Patients without a lead clinician', 'Some care pack patients have no lead clinician. Open the lead overview.', jsonb_build_object('audience', 'rota_review'));
+    perform private.rota_notify_reviewers(p_org, 'Patients without a lead clinician', 'Some care pack patients have no lead clinician. Open the lead overview.');
   end if;
   perform private.emit_domain_event('lead.unassigned', p_org, jsonb_build_object('patient_id', null, 'count', v_n),
     'lead.unassigned:' || p_org || ':' || to_char(date_trunc('hour', now()), 'YYYYMMDDHH24'), null, null, null, 'urgent');

@@ -4,6 +4,7 @@ import { defaultStartInput, formatLagos, formatLagosRange, lagosLocalToIso } fro
 import { RotaError, rotaErrorMessage, rpcParsed, rpcVoid, toRotaError } from "./rpc";
 import { colleaguesSchema, leadOverviewSchema, myBlocksSchema, rotaOverviewSchema } from "./schemas";
 import { z } from "zod";
+import { declaredHoursNext7Days } from "./hours";
 
 describe("return path guard", () => {
   it("only honours the rota and on-call pages", () => {
@@ -80,5 +81,29 @@ describe("answers from the database are parsed, not trusted", () => {
     expect(leadOverviewSchema.parse({ leads: [], unassigned: [{ patient_id: id, since: "2026-10-07T07:00:00Z" }], conflicts_open: 0 }).unassigned).toHaveLength(1);
     expect(colleaguesSchema.parse([{ clinician_id: id, name: null }])).toHaveLength(1);
     expect(myBlocksSchema.safeParse([{ id, kind: "dinner", state: "declared", starts_at: "2026-10-07T07:00:00Z", ends_at: "2026-10-07T09:00:00Z", minimum_guarantee_eligible: false }]).success).toBe(false);
+  });
+});
+
+describe("declared hours in the next seven days", () => {
+  const now = new Date("2026-10-07T06:00:00.000Z");
+  const block = (kind: string, from: string, to: string, state = "declared") => ({ kind, state, starts_at: from, ends_at: to });
+  it("adds queue and bookable hours and ignores on-call and cancelled blocks", () => {
+    expect(
+      declaredHoursNext7Days(
+        [
+          block("queue", "2026-10-07T08:00:00Z", "2026-10-07T12:00:00Z"),
+          block("bookable_consultations", "2026-10-08T08:00:00Z", "2026-10-08T10:30:00Z"),
+          block("on_call", "2026-10-09T08:00:00Z", "2026-10-09T20:00:00Z"),
+          block("queue", "2026-10-09T08:00:00Z", "2026-10-09T12:00:00Z", "cancelled"),
+        ],
+        now,
+      ),
+    ).toBe(6.5);
+  });
+  it("counts only the part of a block that falls inside the window", () => {
+    expect(declaredHoursNext7Days([block("queue", "2026-10-07T04:00:00Z", "2026-10-07T08:00:00Z")], now)).toBe(2);
+    expect(declaredHoursNext7Days([block("queue", "2026-10-14T04:00:00Z", "2026-10-14T10:00:00Z")], now)).toBe(2);
+    expect(declaredHoursNext7Days([block("queue", "2026-10-14T07:00:00Z", "2026-10-14T10:00:00Z")], now)).toBe(0);
+    expect(declaredHoursNext7Days([], now)).toBe(0);
   });
 });

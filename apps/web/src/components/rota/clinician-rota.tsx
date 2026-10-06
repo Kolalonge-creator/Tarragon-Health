@@ -4,9 +4,13 @@ import { cancelHours, cancelSwap, declareHours, requestSwap, respondSwap } from 
 import { getColleagues, getMyBlocks, getMyLeadSummary, getMyRota, getMySwaps } from "@/lib/rota/queries";
 import { BLOCK_KIND_LABEL } from "@/lib/rota/schemas";
 import { defaultStartInput, formatLagosRange } from "@/lib/rota/time";
+import { declaredHoursNext7Days } from "@/lib/rota/hours";
+import { getProposedConfig } from "@tarragon/shared";
 import { firstParam, type SearchParams } from "@/lib/credentialing/params";
 
 const RETURN_TO = "/clinician/rota";
+/** The pilot floor for a contracted clinician (PROPOSED, CMO owner): shown, not enforced. */
+const MIN_WEEKLY_HOURS = (getProposedConfig("lead.rules").value as { contracted_min_declared_hours_per_week: number }).contracted_min_declared_hours_per_week;
 
 /** A working clinician's own page: hours they declare, the on-call rota, cover requests, their lead list. */
 export async function ClinicianRotaPage({ searchParams }: { searchParams: SearchParams }) {
@@ -50,6 +54,12 @@ export async function ClinicianRotaPage({ searchParams }: { searchParams: Search
           </Field>
           <SubmitButton>Declare</SubmitButton>
         </form>
+      </Section>
+
+      <Section title="This week" hint="Queue and bookable hours you have declared in the next 7 days. Nothing here stops you, it only shows where you are.">
+        <p className="text-sm">
+          {declaredHoursNext7Days(blocks, new Date())} hours declared. The pilot asks contracted clinicians for at least {MIN_WEEKLY_HOURS} hours a week so patients are not left waiting.
+        </p>
       </Section>
 
       <Section title="Your declared hours">

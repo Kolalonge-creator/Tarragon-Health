@@ -94,7 +94,7 @@ declare
   v_rs_ok uuid; v_rs_draft uuid; e_shadow uuid; e_green uuid; e1 uuid; e2 uuid; e3 uuid; e4 uuid; e5 uuid; e6 uuid;
   v_root uuid; v_backup_page uuid; v_esc uuid; v_root2 uuid; v_root3 uuid; v_root4 uuid; v_root5 uuid; v_root6 uuid; v_txt text;
   v_forbidden text := 'blood|pressure|hypertens|diabet|result|reading|glucose|medicine|dose|symptom|S19 ';
-  v_rota jsonb; pt8 uuid; pt9 uuid; pt10 uuid; e7 uuid; e9 uuid; e10 uuid; v_root9 uuid; v_root10 uuid; v_sweep jsonb;
+  v_rota jsonb; pt8 uuid; pt9 uuid; pt10 uuid; e7 uuid; e9 uuid; e10 uuid; v_root9 uuid; v_root10 uuid; v_sweep jsonb; v_cnt integer;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -122,10 +122,11 @@ begin
   perform pg_temp.rec('anon holds nothing', '0', (select count(*)::text from information_schema.role_table_grants where table_schema = 'public' and table_name in ('pages', 'paging_config') and grantee in ('anon', 'PUBLIC')));
   perform pg_temp.rec('the configured times are the registry values 5 and 10', '5,10', (select (private.paging_rule('escalation_minutes') ->> 0) || ',' || (private.paging_rule('escalation_minutes') ->> 1)));
 
-  perform pg_temp.rec('a paging config with one time is refused by the database', '23514', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (98, false, current_date, '{"escalation_minutes":[5],"lead_repeat_minutes":5,"page_access_hours":24}')$q$));
-  perform pg_temp.rec('a config whose times are not increasing is refused', '23514', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (97, false, current_date, '{"escalation_minutes":[10,5],"lead_repeat_minutes":5,"page_access_hours":24}')$q$));
-  perform pg_temp.rec('a config with a string time is refused', '23514', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (96, false, current_date, '{"escalation_minutes":["5","x"],"lead_repeat_minutes":5,"page_access_hours":24}')$q$));
-  perform pg_temp.rec('a valid new config is accepted', 'ok', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (95, false, current_date, '{"escalation_minutes":[3,6],"lead_repeat_minutes":2,"page_access_hours":12}')$q$));
+  perform pg_temp.rec('a paging config with one time is refused by the database', '23514', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (98, false, current_date, '{"escalation_minutes":[5],"lead_repeat_minutes":5,"lead_repeat_max":12,"unclosed_alert_minutes":60,"page_access_hours":24}')$q$));
+  perform pg_temp.rec('a config whose times are not increasing is refused', '23514', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (97, false, current_date, '{"escalation_minutes":[10,5],"lead_repeat_minutes":5,"lead_repeat_max":12,"unclosed_alert_minutes":60,"page_access_hours":24}')$q$));
+  perform pg_temp.rec('a config with a string time is refused', '23514', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (96, false, current_date, '{"escalation_minutes":["5","x"],"lead_repeat_minutes":5,"lead_repeat_max":12,"unclosed_alert_minutes":60,"page_access_hours":24}')$q$));
+  perform pg_temp.rec('a config with no repeat cap is refused', '23514', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (94, false, current_date, '{"escalation_minutes":[5,10],"lead_repeat_minutes":5,"unclosed_alert_minutes":60,"page_access_hours":24}')$q$));
+  perform pg_temp.rec('a valid new config is accepted', 'ok', pg_temp.try($q$insert into public.paging_config (version, is_active, effective_from, rules) values (95, false, current_date, '{"escalation_minutes":[3,6],"lead_repeat_minutes":2,"lead_repeat_max":5,"unclosed_alert_minutes":30,"page_access_hours":12}')$q$));
 
   -- the rota: primary and backup on call now (an employed clinician needs no declared hours)
   perform pg_temp.act(v_cmo);
@@ -179,9 +180,9 @@ begin
   -- the lead alert is repeated every few minutes until someone acknowledges
   perform pg_temp.age_lead(v_root, 6);
   perform private.sweep_pages();
-  perform pg_temp.rec('the clinical lead is alerted again while nobody has acknowledged', '6', (select count(*)::text from public.notifications where recipient_id = v_cmo and template = 'on_call_escalation' and source_id = v_esc));
+  perform pg_temp.rec('the clinical lead is alerted again (push and in-app only, no second email) while nobody has acknowledged', '5', (select count(*)::text from public.notifications where recipient_id = v_cmo and template = 'on_call_escalation' and source_id = v_esc));
   perform private.sweep_pages();
-  perform pg_temp.rec('and not again straight away', '6', (select count(*)::text from public.notifications where recipient_id = v_cmo and template = 'on_call_escalation' and source_id = v_esc));
+  perform pg_temp.rec('and not again straight away', '5', (select count(*)::text from public.notifications where recipient_id = v_cmo and template = 'on_call_escalation' and source_id = v_esc));
 
   -- 5. Acknowledge and close ------------------------------------------------------------------------------------
   perform pg_temp.act(v_admin);
@@ -314,6 +315,27 @@ begin
   perform pg_temp.rec('anon has no execute on the clinician functions', '0',
     (select count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public' and p.proname in ('acknowledge_page', 'close_page', 'my_active_pages', 'paging_overview') and has_function_privilege('anon', p.oid, 'EXECUTE')));
+  -- acknowledged is not handled: still unclosed an hour later, the lead and ops are told once
+  perform set_config('tarragon.paging_write', 'on', true);
+  update public.pages set acknowledged_at = now() - interval '61 minutes' where coalesce(parent_page_id, id) = v_root2;
+  perform set_config('tarragon.paging_write', 'off', true);
+  perform private.sweep_pages();
+  perform pg_temp.rec('an acknowledged page still open after an hour tells the lead and ops', '2,2', (select count(*)::text from public.notifications where recipient_id = v_cmo and template = 'on_call_unfinished' and source_id = v_root2) || ',' || (select count(*)::text from public.notifications where recipient_id = v_admin and template = 'on_call_unfinished' and source_id = v_root2));
+  perform private.sweep_pages();
+  perform pg_temp.rec('and only once', '2', (select count(*)::text from public.notifications where recipient_id = v_cmo and template = 'on_call_unfinished' and source_id = v_root2));
+  -- the lead alert repeats a bounded number of times, then stops with an incident
+  select id into v_esc from public.pages where parent_page_id = v_root6 and role = 'escalation';
+  perform set_config('tarragon.paging_write', 'on', true);
+  update public.pages set lead_repeat_count = 11, last_lead_alert_at = now() - interval '6 minutes' where id = v_root6;
+  perform set_config('tarragon.paging_write', 'off', true);
+  perform private.sweep_pages();
+  perform pg_temp.rec('the twelfth repeat opens a sev1 incident', '1', (select count(*)::text from public.ops_incidents where external_reference = 'page_unanswered_exhausted:' || v_root6 and status not in ('resolved', 'closed')));
+  perform set_config('tarragon.paging_write', 'on', true);
+  update public.pages set last_lead_alert_at = now() - interval '6 minutes' where id = v_root6;
+  perform set_config('tarragon.paging_write', 'off', true);
+  select count(*) into v_cnt from public.notifications where recipient_id = v_cmo and source_id = v_esc and template = 'on_call_escalation';
+  perform private.sweep_pages();
+  perform pg_temp.rec('after the cap the sweep sends no more', v_cnt::text, (select count(*)::text from public.notifications where recipient_id = v_cmo and source_id = v_esc and template = 'on_call_escalation'));
   perform pg_temp.rec('INV-07: no paging notice carries a clinical word, a name or a reading', '0',
     (select count(*)::text from public.notifications n where n.template in ('on_call_page', 'on_call_escalation') and (n.payload::text ~* v_forbidden or n.payload - 'page_id' <> '{}'::jsonb)));
   -- one failing page must not stop the others (the sweep isolates each page) and must not pass unnoticed

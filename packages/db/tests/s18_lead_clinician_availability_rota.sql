@@ -239,6 +239,21 @@ begin
   perform public.approve_rota_swap(v_swap);
   perform pg_temp.back();
   perform pg_temp.rec('an approved swap changes the primary', v_d::text, (select primary_clinician_id::text from public.on_call_rota where id = v_r1_id));
+  -- urgent cover: a swap on a shift that starts within the urgent window applies on acceptance, audited, reviewers told
+  perform set_config('tarragon.lead_write', 'on', true);
+  insert into public.on_call_rota (organisation_id, starts_at, ends_at, primary_clinician_id, backup_clinician_id, is_test)
+    values (v_org, now() - interval '10 minutes', now() + interval '3 hours', v_a, v_c, true) returning id into v_r2_id;
+  perform set_config('tarragon.lead_write', 'off', true);
+  perform pg_temp.act(v_a); v_swap := public.request_rota_swap(v_r2_id, 'primary', v_d, 'urgent: called away'); perform pg_temp.back();
+  perform pg_temp.act(v_d); perform public.respond_rota_swap(v_swap, true); perform pg_temp.back();
+  perform pg_temp.rec('urgent cover applies on acceptance without waiting for a reviewer', v_d::text || ',approved', (select r.primary_clinician_id::text || ',' || s.state::text from public.on_call_rota r join public.rota_swaps s on s.rota_id = r.id where s.id = v_swap));
+  perform pg_temp.rec('an urgent swap is audited with its warnings', '1', (select count(*)::text from public.audit_log where action = 'rota.swap_urgent' and entity_id = v_swap));
+  perform pg_temp.rec('the reviewers are told straight away', 'true', (select (count(*) >= 1)::text from public.notifications where recipient_id = v_cmo and template = 'credential_notice' and payload ->> 'audience' = 'rota_review' and payload ->> 'subject' = 'Urgent rota cover taken'));
+  perform pg_temp.rec('the clinician who handed it over is told', '1', (select count(*)::text from public.notifications where recipient_id = v_a and payload ->> 'subject' = 'Your shift is covered' and channel = 'in_app'));
+  perform set_config('tarragon.lead_write', 'on', true);
+  delete from public.rota_swaps where rota_id = v_r2_id;
+  delete from public.on_call_rota where id = v_r2_id;
+  perform set_config('tarragon.lead_write', 'off', true);
   perform pg_temp.act(v_b);
   perform pg_temp.rec('lead-b is primary in a live shift: cancelling the on-call hours is refused (S18 rule)', '22023', pg_temp.try(format('select public.cancel_availability(%L)', v_blk_b_oncall)));
   perform pg_temp.back();
@@ -404,6 +419,22 @@ begin
     (select count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'private' and p.proname in ('lead_candidates', 'choose_lead', 'assign_lead_internal', 'replace_lead_internal', 'lead_reconcile', 'retry_unassigned_leads', 'rota_gap_alert', 'has_conflict')
         and has_function_privilege('authenticated', p.oid, 'EXECUTE')));
+  -- weekly hours and long shifts (NHS 2016 contract limits as configurable warnings)
+  perform pg_temp.rec('a 60 hour stretch on top of 24 hours already rostered breaks the 72 hours in 7 days warning', 'true',
+    (select (array_to_string(private.rota_fatigue_warnings(v_c, v_org, t1 + interval '24 hours', t1 + interval '84 hours'), '; ') like '%hours inside 7 days%')::text));
+  perform pg_temp.rec('a short shift well clear of other shifts raises no hours warning', 'true',
+    (select (array_to_string(private.rota_fatigue_warnings(v_c, v_org, t1 + interval '30 days', t1 + interval '30 days 8 hours'), '; ') not like '%hours inside 7 days%')::text));
+  perform set_config('tarragon.lead_write', 'on', true);
+  insert into public.on_call_rota (organisation_id, starts_at, ends_at, primary_clinician_id, backup_clinician_id, is_test)
+    select v_org, t1 + interval '40 days' + make_interval(days => g), t1 + interval '40 days 12 hours' + make_interval(days => g), v_c, v_d, true from generate_series(0, 3) g;
+  perform set_config('tarragon.lead_write', 'off', true);
+  perform pg_temp.rec('a fifth long shift in 7 days is warned', 'true',
+    (select (array_to_string(private.rota_fatigue_warnings(v_c, v_org, t1 + interval '44 days', t1 + interval '44 days 12 hours'), '; ') like '%long shifts%')::text));
+  perform pg_temp.rec('a long shift well clear of that cluster is not warned', 'true',
+    (select (array_to_string(private.rota_fatigue_warnings(v_c, v_org, t1 + interval '33 days 13 hours', t1 + interval '33 days 23 hours 30 minutes'), '; ') not like '%long shifts%')::text));
+  perform set_config('tarragon.lead_write', 'on', true);
+  delete from public.on_call_rota where starts_at >= t1 + interval '40 days';
+  perform set_config('tarragon.lead_write', 'off', true);
   perform pg_temp.rec('INV-07: no S18 notice carries a clinical word', '0',
     (select count(*)::text from public.notifications n where n.template in ('care_team_notice', 'credential_notice') and n.created_at >= now() - interval '1 hour'
         and n.recipient_id in (select id from public.profiles where full_name like 'S18 %') and n.payload::text ~* v_forbidden));
