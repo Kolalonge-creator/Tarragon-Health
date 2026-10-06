@@ -362,6 +362,7 @@ export function getNavSections(
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
                 { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
                 { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
               ],
@@ -591,6 +592,8 @@ export function getNavSections(
                 { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
                 // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
                 { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
+                // Every clinician with status, licence, competencies; decide competency grants and reinstatements, pause someone (S36d). CMO only; the page redirects others.
+                { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
                 // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
                 { label: "Memberships", href: "/clinician/memberships", icon: "members" },
                 // The AI governance console's two CMO-only actions (approving
@@ -640,6 +643,7 @@ export function getNavSections(
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
                 { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
               ],
             },
           ];
@@ -679,6 +683,7 @@ export function getNavSections(
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
@@ -763,6 +768,7 @@ export function getNavSections(
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
         },
@@ -806,6 +812,7 @@ export function getNavSections(
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
           ],
         },
         {

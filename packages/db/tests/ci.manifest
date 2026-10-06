@@ -863,3 +863,5 @@ s35_clinician_patient_summary.sql
 s36a_admin_patient_search.sql
 # S36b: go_live_guard_status is readable by a holder of ops.console.view (read-only dashboard for ops, spec 9.4); ops still cannot switch a guard on or off or attest a condition (42501), a plain clinician and a patient cannot read, revoking the permission closes the read. Sabotage: the permission clause removed; the ops read must flip.
 s36b_go_live_status_ops_read.sql
+# S36d: clinician roster (ops view, request and suspend; CMO-only competency grant and reinstatement decisions, never your own request) and the role-grants history (admin or users.permissions.grant only). Ops cannot reinstate, grant or decide directly; a plain clinician and a patient read neither the roster nor the history; no client write to the requests table. Sabotage: the history gate opened, and the CMO check removed from the decision door; each must flip a check.
+s36d_clinician_roster_and_grants_history.sql

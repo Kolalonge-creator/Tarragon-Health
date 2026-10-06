@@ -1066,3 +1066,25 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-216 Speak-up concerns screen (S20, S36)
 - Blocks: the clinician and lead screens for safety concerns. Live: the S20 functions exist; concerns are readable only by the person who raised them, the CMO and named backup readers, and never by operations. The founder is not yet a named backup reader (OQ-158).
 - Decision: open. Build only after the CMO names backup readers and reviews the wording shown to someone raising a concern. Not in S36.
+
+### OQ-220 Admin accounts can still reinstate a clinician directly (S36d, spec 9.4)
+- Blocks: nothing. Spec 9.4 says only the clinical lead reinstates. Live (S15, unchanged): `public.reinstate_clinician` admits an admin account or the CMO (`can_credential_review`); the S15 proof reinstates as an admin. The new roster gives operations (a delegated `clinical_staff.manage` holder) only a REQUEST door, and `decide_clinician_change` is CMO only (an admin account is refused). The /clinician/roster screen is the CMO's; /admin/ops/clinicians offers ops no reinstate button.
+- Options: (a) accept while the founder holds the only admin account (recommended); (b) tighten `reinstate_clinician` to the CMO and change the S15 proof, a one-line change to a shipped function.
+- Decision: open. Recommend (a) now, (b) when a second admin exists.
+
+### OQ-221 Role grants do not expire (S36d, spec roles table)
+- Blocks: showing a grant expiry. Live: `user_permission_grants` has no expiry column, so the history view shows "No expiry" for every grant. Adding one means changing `private.has_permission`, the most reused security function (it gates RLS on many tables).
+- Options: (a) accept; revoke by hand, the history shows who granted what and when (recommended now); (b) add `expires_at` and honour it in `has_permission`, with its own proof and a full re-run of the RLS tests.
+- Decision: open.
+
+### OQ-222 Ops cannot suspend through S15's own door (S36d)
+- Blocks: nothing. S15's `suspend_clinician` admits only admin or CMO; ops is a delegated permission, so `ops_suspend_clinician` (reason of 10+ characters, audited, runs S15's own internal suspend) was added for `clinical_staff.manage` holders. Decision wanted: should ops be allowed to suspend at all without the CMO, or only to request it? Suspension is the safe direction (it removes a clinician from queues), which is why it was allowed.
+- Decision: open. Recommend keep.
+
+### OQ-223 Competency request notice reaches admins and the CMO only (S36d)
+- Blocks: nothing. A request notifies reviewers (admin accounts and the active CMO) in app only; the requester is told in app when it is decided. No email, since the notice contains a clinician name.
+- Decision: open.
+
+### OQ-224 Roster is filtered to the caller's organisation (S36d)
+- Blocks: nothing. `clinician_roster` shows clinicians of the caller's own organisation (all of them if the caller has no organisation, as the cross-org superadmin pattern elsewhere). S15's `credentialing_expiry_overview` does not filter by organisation. Decide if the platform will ever run more than one clinical organisation.
+- Decision: open.
