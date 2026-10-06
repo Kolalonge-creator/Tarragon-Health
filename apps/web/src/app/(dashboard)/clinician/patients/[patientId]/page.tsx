@@ -31,6 +31,7 @@ import { MedicationChangeRequestsPanel } from "./medication-change-requests-pane
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
+import { DeclareConflictForm } from "@/components/rota/declare-conflict-form";
 import { HandOverCareSection } from "./hand-over-care-section";
 import { CareManagementPanel } from "./care-management-panel";
 import { OrderLabTestForm } from "./order-lab-test-form";
@@ -235,6 +236,7 @@ export default async function ClinicianPatientPage({
                 {patient.organisation_id && (
                   <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
                 )}
+                <DeclareConflictForm patientId={patient.id} />
                 <HandOverCareSection patientId={patient.id} />
                 <CareManagementPanel patientId={patient.id} organisationId={patient.organisation_id} />
               </>
