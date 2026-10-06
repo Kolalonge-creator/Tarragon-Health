@@ -37,7 +37,7 @@ declare
   v_org uuid; v_p uuid; v_p2 uuid; v_admin uuid; v_clin uuid; v_cmo uuid;
   v_draft uuid; v_appr uuid;
   v_r1 uuid; v_r2 uuid; v_r3 uuid; v_r4 uuid; v_r5 uuid; v_sym uuid;
-  v_ctx jsonb; v_out jsonb; v_te uuid; v_n integer; v_err text;
+  v_ctx jsonb; v_out jsonb; v_te uuid; v_sab uuid; v_n integer; v_err text;
   v_green jsonb;
   v_red jsonb;
   v_recheck jsonb;
@@ -306,9 +306,11 @@ begin
 
   -- 6. SABOTAGE
   drop trigger triage_events_no_update on public.triage_events;
-  update public.triage_events set grade = 'amber' where id = (select id from public.triage_events where patient_id = v_p limit 1);
+  -- Read the SAME row back by id: after an UPDATE the row moves in the heap, so a second `limit 1` can return a different row.
+  select id into v_sab from public.triage_events where patient_id = v_p limit 1;
+  update public.triage_events set grade = 'amber' where id = v_sab;
   insert into results values ('sabotaged', 'a result cannot be edited', 'refused',
-    case when (select grade from public.triage_events where patient_id = v_p limit 1) = 'amber' then 'changed' else 'refused' end);
+    case when (select grade from public.triage_events where id = v_sab) = 'amber' then 'changed' else 'refused' end);
 end $$;
 
 do $$

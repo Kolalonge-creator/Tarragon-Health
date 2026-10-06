@@ -84,6 +84,16 @@ export function createMockVideo(now: () => number = () => Date.now()): VideoProv
       });
     },
 
+    async dialIn(input) {
+      const d = dropped();
+      if (d) return d;
+      const room = rooms.get(input.roomId);
+      if (!room) return fail("not_found", "No such room", false);
+      if (room.ended || room.expiresAtMs <= now()) return fail("conflict", "Room is closed", false);
+      if (input.country !== "NG") return fail("not_found", "No dial-in number for this country", false);
+      return ok({ numbers: [{ country: "NG", number: "+234 000 000 0000", city: "Lagos", kind: "toll" as const }], meetingId: "000000000", passcode: "0000", expiresAtMs: room.expiresAtMs });
+    },
+
     async endRoom(roomId, actingRole: VideoRole) {
       const d = dropped();
       if (d) return d;

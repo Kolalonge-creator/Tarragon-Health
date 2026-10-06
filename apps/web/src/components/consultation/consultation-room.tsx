@@ -6,12 +6,13 @@ import { t, type Locale } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPatientDateTime } from "@/lib/format-date";
+import type { DialIn } from "@tarragon/integrations";
 import {
   answerScribeConsentAction,
   completeConsultationAction,
   joinConsultationAction,
   reportNoShowAction,
-  requestPhoneAction,
+  requestDialInAction,
 } from "@/lib/consultations/actions";
 
 /** What consultation_room_view() returns. Nothing in it is a name, a link or a reading. */
@@ -49,6 +50,8 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
   // The person's own link, held in memory only for this page view (never stored). Browsers block a popup opened after an awaited
   // call, so the link is also offered as a plain link the person can tap.
   const [callUrl, setCallUrl] = useState<string | null>(null);
+  // The phone numbers and passcode for this call, held in memory for this page view only (never stored, never logged).
+  const [dialIn, setDialIn] = useState<Pick<DialIn, "numbers" | "meetingId" | "passcode"> | null>(null);
   const live = LIVE.has(view.status);
   const isPatient = view.role === "patient";
 
@@ -70,8 +73,6 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
         refresh();
       } else if (!res.ok && res.reason === "not_open") {
         setNote(t("consult.room.not_open", locale, { when: when(view.join_opens_at) }));
-      } else if (!res.ok && res.reason === "on_phone") {
-        setNote(t("consult.room.phone_moving", locale));
       } else {
         setNote(t("consult.room.link_error", locale));
       }
@@ -81,9 +82,16 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
   function phone() {
     setNote(null);
     startTransition(async () => {
-      const res = await requestPhoneAction(view.encounter_id);
-      setNote(res.ok ? t("consult.room.phone_moving", locale) : t("consult.room.link_error", locale));
-      refresh();
+      const res = await requestDialInAction(view.encounter_id);
+      if (res.ok && "dialIn" in res) {
+        setDialIn(res.dialIn);
+      } else if (!res.ok && res.reason === "not_open") {
+        setNote(t("consult.room.phone_not_open", locale, { when: when(view.join_opens_at) }));
+      } else if (!res.ok && res.reason === "phone_unavailable") {
+        setNote(t("consult.room.phone_unavailable", locale));
+      } else {
+        setNote(t("consult.room.link_error", locale));
+      }
     });
   }
 
@@ -207,9 +215,30 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
       <Card>
         <CardContent className="space-y-2 pt-4 text-sm">
           <p>{isPatient ? t("consult.room.call_me_hint", locale) : t("consult.room.call_both_hint", locale)}</p>
-          <Button variant="outline" onClick={phone} disabled={pending}>
+          <Button variant="outline" onClick={phone} disabled={pending || !view.joinable}>
             {t("consult.room.call_me", locale)}
           </Button>
+          {dialIn && dialIn.numbers[0] && (
+            <div className="space-y-2" data-testid="dial-in">
+              <p>
+                {t(dialIn.passcode ? "consult.room.phone_steps" : "consult.room.phone_steps_nocode", locale, {
+                  number: dialIn.numbers[0].number,
+                  id: dialIn.meetingId,
+                  code: dialIn.passcode ?? "",
+                })}
+              </p>
+              <a href={`tel:${dialIn.numbers[0].number.replace(/[^+\d]/g, "")}`} className="font-medium text-brand-green underline">
+                {dialIn.numbers[0].number}
+              </a>
+              {dialIn.numbers.length > 1 && (
+                <p>
+                  {t("consult.room.phone_more_numbers", locale)}{" "}
+                  {dialIn.numbers.slice(1).map((n) => n.number).join(", ")}
+                </p>
+              )}
+              <p>{t("consult.room.phone_cost", locale)}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
