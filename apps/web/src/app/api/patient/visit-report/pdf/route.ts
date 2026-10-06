@@ -1,6 +1,12 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
-import { parsePeriodDays, summariseReadings } from "@/lib/visit-report/summarise";
+import { z } from "zod";
+import { getGlucoseDisplayUnit } from "@/lib/patient/glucose-unit";
+import {
+  ALLOWED_PERIOD_DAYS,
+  VISIT_REPORT_FIELDS,
+  summariseReadings,
+} from "@/lib/visit-report/summarise";
 import { VisitReportDocument } from "@/lib/visit-report/visit-report-document";
 
 /**
@@ -11,6 +17,18 @@ import { VisitReportDocument } from "@/lib/visit-report/visit-report-document";
  *
  * ?days=7|30|90 (anything else is 30)
  */
+const READING_CAP = 5000;
+
+/** ?days is 7, 30 or 90; anything else, or nothing, means 30. */
+const querySchema = z.object({
+  days: z
+    .string()
+    .nullable()
+    .transform((v) => Number(v))
+    .pipe(z.number().refine((n) => (ALLOWED_PERIOD_DAYS as readonly number[]).includes(n)))
+    .catch(30),
+});
+
 export async function GET(request: Request): Promise<Response> {
   const supabase = await createClient();
   const {
@@ -18,7 +36,7 @@ export async function GET(request: Request): Promise<Response> {
   } = await supabase.auth.getUser();
   if (!user) return new Response("Not signed in", { status: 401 });
 
-  const days = parsePeriodDays(new URL(request.url).searchParams.get("days"));
+  const { days } = querySchema.parse({ days: new URL(request.url).searchParams.get("days") });
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: profile } = await supabase
@@ -30,22 +48,25 @@ export async function GET(request: Request): Promise<Response> {
 
   const { data: readings, error } = await supabase
     .from("vitals_readings")
-    .select(
-      "vital_type, taken_at, systolic, diastolic, pulse_bpm, glucose_mmol_l, glucose_context, weight_kg, validation_status, source",
-    )
+    .select(VISIT_REPORT_FIELDS)
     .eq("patient_id", user.id)
     .gte("taken_at", since)
-    .order("taken_at", { ascending: true })
-    .limit(5000);
+    // Newest first so the cap drops the oldest rows, never the latest.
+    .order("taken_at", { ascending: false })
+    .limit(READING_CAP);
   if (error) return new Response("Could not load readings", { status: 500 });
 
-  const summary = summariseReadings(readings ?? [], days);
+  const rows = readings ?? [];
+  const summary = summariseReadings(rows, days);
+  const glucoseUnit = await getGlucoseDisplayUnit();
   const buffer = await renderToBuffer(
     VisitReportDocument({
       data: {
         patientName: profile.full_name ?? "Patient",
         generatedAt: new Date().toISOString(),
         summary,
+        glucoseUnit,
+        truncated: rows.length >= READING_CAP,
       },
     }),
   );

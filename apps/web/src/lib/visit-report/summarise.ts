@@ -160,3 +160,14 @@ export function parsePeriodDays(raw: string | null): number {
   const n = Number(raw);
   return (ALLOWED_PERIOD_DAYS as readonly number[]).includes(n) ? n : 30;
 }
+
+/** The vitals columns both the PDF route and the weekly card read. */
+export const VISIT_REPORT_FIELDS =
+  "vital_type, taken_at, systolic, diastolic, pulse_bpm, glucose_mmol_l, glucose_context, weight_kg, validation_status, source";
+
+export const GLUCOSE_CONTEXT_LABEL: Record<string, string> = {
+  fasting: "Fasting",
+  post_meal: "After a meal",
+  random: "Any time",
+  bedtime: "Bedtime",
+};

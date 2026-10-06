@@ -4,7 +4,7 @@ jest.mock("expo-secure-store", () => ({
   setItemAsync: async (k: string, v: string) => void mockStore.set(k, v),
 }));
 
-import { LOW_DATA_KEY, loadLowDataPreference, readLowDataEnabled, writeLowDataEnabled } from "./low-data";
+import { LOW_DATA_KEY, ensureLowDataLoaded, loadLowDataPreference, resetLowDataLoadedForTests, readLowDataEnabled, writeLowDataEnabled } from "./low-data";
 import { LOW_DATA_BUDGET, OFFLINE_BUDGET, activeBudget, setLowDataActive } from "./offline-budget";
 
 beforeEach(() => {
@@ -43,5 +43,13 @@ describe("preference", () => {
     expect(activeBudget()).toBe(LOW_DATA_BUDGET);
     await writeLowDataEnabled(false);
     expect(activeBudget()).toBe(OFFLINE_BUDGET);
+  });
+
+  it("ensureLowDataLoaded applies the saved choice before a pull can read the budget", async () => {
+    mockStore.set(LOW_DATA_KEY, "true");
+    resetLowDataLoadedForTests();
+    expect(activeBudget()).toBe(OFFLINE_BUDGET); // saved choice not read yet
+    await ensureLowDataLoaded();
+    expect(activeBudget()).toBe(LOW_DATA_BUDGET);
   });
 });

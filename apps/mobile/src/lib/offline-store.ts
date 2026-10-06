@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 import { recordSyncError } from "./sync-diagnostics";
 import { loadOfflineSyncConfig } from "./offline-sync-config";
 import { activeBudget } from "./offline-budget";
+import { ensureLowDataLoaded } from "./low-data";
 import { classifyFailure, pullFloor, type OfflineSyncConfig } from "./outbox-rules";
 import { fetchPatientTasks } from "./task-source";
 
@@ -226,6 +227,7 @@ async function pullTasks(db: SQLite.SQLiteDatabase, owner: string, subjectId: st
 export async function pullChanges(subjectId: string): Promise<PullResult> {
   const result: PullResult = { pulled: 0, stoppedOffline: false, pages: 0, bytes: 0 };
   try {
+    await ensureLowDataLoaded();
     const owner = await currentUserId();
     if (!owner) return result;
     const db = await getDb();

@@ -37,10 +37,15 @@ const bp: VisitReportReading = {
   source: "wearable",
 };
 
-const data = (readings: VisitReportReading[]) => ({
+const data = (
+  readings: VisitReportReading[],
+  extra: { glucoseUnit?: "mg_dl" | "mmol_l"; truncated?: boolean } = {},
+) => ({
   patientName: "Test Patient",
   generatedAt: "2026-10-06T10:00:00Z",
   summary: summariseReadings(readings, 30),
+  glucoseUnit: extra.glucoseUnit ?? ("mg_dl" as const),
+  truncated: extra.truncated,
 });
 
 describe("VisitReportDocument", () => {
@@ -60,5 +65,34 @@ describe("VisitReportDocument", () => {
     const text = allText(VisitReportDocument({ data: data([bp]) }));
     expect(text).not.toContain("—");
     expect(text.toLowerCase()).not.toContain("your doctor");
+  });
+
+  const glucose: VisitReportReading = {
+    ...bp,
+    vital_type: "glucose",
+    systolic: null,
+    diastolic: null,
+    glucose_mmol_l: 6.1,
+    glucose_context: "fasting",
+    source: "manual",
+  };
+
+  it("shows glucose in the patient's own unit, mg/dL by default, never a stray mmol/L", () => {
+    const text = allText(VisitReportDocument({ data: data([glucose]) }));
+    expect(text).toContain("mg/dL");
+    expect(text).toContain("110");
+    expect(text).not.toContain("mmol");
+  });
+
+  it("shows mmol/L when that is the patient's choice", () => {
+    const text = allText(VisitReportDocument({ data: data([glucose], { glucoseUnit: "mmol_l" }) }));
+    expect(text).toContain("6.1 mmol/L");
+  });
+
+  it("says when the oldest readings were left out by the cap", () => {
+    expect(allText(VisitReportDocument({ data: data([bp], { truncated: true }) }))).toContain(
+      "oldest ones are not",
+    );
+    expect(allText(VisitReportDocument({ data: data([bp]) }))).not.toContain("oldest ones are not");
   });
 });

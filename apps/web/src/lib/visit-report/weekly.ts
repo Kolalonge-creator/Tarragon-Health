@@ -15,6 +15,8 @@ export interface WeeklySummary {
   lastWeek: VisitReportSummary;
   /** This week's average minus last week's, only when both weeks have BP readings. */
   bpAverageChange: { systolic: number; diastolic: number } | null;
+  /** True when the query hit its row cap, so older rows (last week) may be incomplete. */
+  partial: boolean;
 }
 
 const DAY_MS = 86_400_000;
@@ -23,7 +25,12 @@ function lagosDay(iso: string): string {
   return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
 }
 
-export function buildWeeklySummary(readings: WeeklyReading[], now: Date): WeeklySummary {
+export function buildWeeklySummary(
+  readings: WeeklyReading[],
+  now: Date,
+  options: { partial?: boolean } = {},
+): WeeklySummary {
+  const partial = options.partial === true;
   const t = now.getTime();
   const thisStart = t - 7 * DAY_MS;
   const lastStart = t - 14 * DAY_MS;
@@ -43,12 +50,12 @@ export function buildWeeklySummary(readings: WeeklyReading[], now: Date): Weekly
   );
 
   const bpAverageChange =
-    thisWeek.bp && lastWeek.bp
+    !partial && thisWeek.bp && lastWeek.bp
       ? {
           systolic: thisWeek.bp.averageSystolic - lastWeek.bp.averageSystolic,
           diastolic: thisWeek.bp.averageDiastolic - lastWeek.bp.averageDiastolic,
         }
       : null;
 
-  return { loggedDays: days.size, thisWeek, lastWeek, bpAverageChange };
+  return { loggedDays: days.size, thisWeek, lastWeek, bpAverageChange, partial };
 }

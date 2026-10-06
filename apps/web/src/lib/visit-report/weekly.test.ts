@@ -74,4 +74,15 @@ describe("buildWeeklySummary", () => {
     expect(s.thisWeek.totalConsidered).toBe(0);
     expect(s.lastWeek.totalConsidered).toBe(0);
   });
+
+  it("withholds the BP comparison when the data is partial", () => {
+    const rows = [
+      r({ systolic: 140, diastolic: 90, taken_at: "2026-10-06T08:00:00Z" }),
+      r({ systolic: 130, diastolic: 84, taken_at: "2026-09-30T08:00:00Z" }),
+    ];
+    const s = buildWeeklySummary(rows, NOW, { partial: true });
+    expect(s.partial).toBe(true);
+    expect(s.bpAverageChange).toBeNull();
+    expect(s.thisWeek.bp?.count).toBe(1);
+  });
 });

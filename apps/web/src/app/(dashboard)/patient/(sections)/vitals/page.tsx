@@ -23,7 +23,7 @@ import { WeeklySummaryCard } from "@/app/(dashboard)/patient/weekly-summary-card
 import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 
 export default async function PatientVitalsPage() {
-  const { profile, subjectId, subjectDateOfBirth } = await getPatientDashboardContext();
+  const { profile, subjectId, subjectDateOfBirth, glucoseUnit } = await getPatientDashboardContext();
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
   const presentingComplaints = await listAvailablePresentingComplaints();
 
@@ -35,7 +35,7 @@ export default async function PatientVitalsPage() {
       icon={SEMANTIC_ICON.bp}
     >
       <VitalsTrendChart patientId={subjectId} />
-      <WeeklySummaryCard patientId={subjectId} />
+      <WeeklySummaryCard patientId={subjectId} glucoseUnit={glucoseUnit} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Directly above the form someone logs a reading into, which is the

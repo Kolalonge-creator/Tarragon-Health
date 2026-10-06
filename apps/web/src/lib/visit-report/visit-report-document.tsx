@@ -1,10 +1,14 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { VisitReportSummary } from "./summarise";
+import { formatGlucose, type GlucoseDisplayUnit } from "@tarragon/shared";
+import { GLUCOSE_CONTEXT_LABEL, type VisitReportSummary } from "./summarise";
 
 export interface VisitReportData {
   patientName: string;
   generatedAt: string;
   summary: VisitReportSummary;
+  glucoseUnit: GlucoseDisplayUnit;
+  /** The reading cap was hit, so the oldest readings in the period are not included. */
+  truncated?: boolean;
 }
 
 const styles = StyleSheet.create({
@@ -28,13 +32,6 @@ const styles = StyleSheet.create({
   footer: { marginTop: 20, fontSize: 8, color: "#666", lineHeight: 1.5 },
 });
 
-const CONTEXT_LABEL: Record<string, string> = {
-  fasting: "Fasting",
-  post_meal: "After a meal",
-  random: "Any time",
-  bedtime: "Bedtime",
-};
-
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -55,6 +52,8 @@ function Row({ label, value }: { label: string; value: string }) {
 
 export function VisitReportDocument({ data }: { data: VisitReportData }) {
   const { summary } = data;
+  const glucose = (mmolL: number, withUnit = true): string =>
+    formatGlucose(mmolL, data.glucoseUnit, { withUnit }) ?? "";
   const empty =
     !summary.bp && summary.glucoseByContext.length === 0 && !summary.pulse && !summary.weight;
   return (
@@ -97,12 +96,12 @@ export function VisitReportDocument({ data }: { data: VisitReportData }) {
 
         {summary.glucoseByContext.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Blood sugar (mmol/L)</Text>
+            <Text style={styles.sectionTitle}>Blood sugar</Text>
             {summary.glucoseByContext.map((g) => (
               <Row
                 key={g.context}
-                label={`${CONTEXT_LABEL[g.context] ?? g.context} (${g.count})`}
-                value={`average ${g.average}, from ${g.min} to ${g.max}`}
+                label={`${GLUCOSE_CONTEXT_LABEL[g.context] ?? g.context} (${g.count})`}
+                value={`average ${glucose(g.average)}, from ${glucose(g.min, false)} to ${glucose(g.max)}`}
               />
             ))}
           </View>
@@ -149,6 +148,13 @@ export function VisitReportDocument({ data }: { data: VisitReportData }) {
             />
           )}
         </View>
+
+        {data.truncated && (
+          <Text style={styles.footer}>
+            You have a very large number of readings in this period, so the oldest ones are not
+            included here.
+          </Text>
+        )}
 
         <Text style={styles.footer}>
           This is a summary of readings you logged yourself. It describes them and does not give a

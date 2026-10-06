@@ -729,3 +729,10 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Tests**: web 427 suites / 3,778 tests, shared 156, mobile 95 suites / 1,356, all passing; typecheck and eslint clean on touched files. New: 7 weekly model, 2 weekly card, 5 low-data.
 - **Not done**: mobile weekly card; optional weekly push; web low-data mode; data actually saved was not measured on a device; Settings text and the new cards are English only (i18n en/pcm still owed); no browser or device click-through; `/code-review high` not run yet.
 - **Note**: turning low-data off does not backfill the 30-day gap on an already-synced phone; a new phone after turning it on gets 30 days, not 90.
+
+## Competitor review: `/code-review high` pass (2026-10-06, same branch)
+
+- **Found and fixed (8)**: glucose was hard-coded mmol/L in the visit PDF and weekly card while the app default is mg/dL (now `formatGlucose` with the caller's unit); both queries ordered oldest first under a row cap, so a dense CGM or wearable feed would drop the newest readings (now newest first, with a note on the PDF and a skipped comparison on the card when capped); the PDF route now validates `?days` with Zod; shared column list and glucose labels; low-data preference could load after the first pull (now `ensureLowDataLoaded()` awaited in `pullChanges`).
+- **Regression tests added**: unit shown in mg/dL and mmol/L (sabotage-checked: forcing mmol/L makes it fail), truncation note, partial-week comparison withheld, newest-first query, `days` fallback, low-data load-before-pull.
+- **Tests**: web 427 suites / 3,786, mobile 95 suites / 1,357, shared unchanged; typecheck and eslint clean.
+- **Still not done**: mobile weekly card and weekly push (reminder-channel and quiet-hours rules undecided); web low-data mode; i18n (English only by decision); no browser or device click-through.

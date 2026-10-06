@@ -19,9 +19,28 @@ export async function readLowDataEnabled(): Promise<boolean> {
 export async function writeLowDataEnabled(enabled: boolean): Promise<void> {
   await SecureStore.setItemAsync(LOW_DATA_KEY, String(enabled));
   setLowDataActive(enabled);
+  // A later ensureLowDataLoaded() must not re-read and undo this.
+  loaded = Promise.resolve();
 }
 
-/** Call once at start-up so the first sync already honours the saved choice. */
+/** Reads the saved choice into the active budget. */
 export async function loadLowDataPreference(): Promise<void> {
   setLowDataActive(await readLowDataEnabled());
+}
+
+let loaded: Promise<void> | null = null;
+
+/**
+ * Resolves once the saved choice has been applied, reading it only once per
+ * process. The pull code awaits this, so a first sync after a cold start can
+ * never run with the normal budget just because the read had not finished.
+ */
+export function ensureLowDataLoaded(): Promise<void> {
+  loaded ??= loadLowDataPreference();
+  return loaded;
+}
+
+/** Test seam: forget that the preference was loaded so the next ensure re-reads it. */
+export function resetLowDataLoadedForTests(): void {
+  loaded = null;
 }
