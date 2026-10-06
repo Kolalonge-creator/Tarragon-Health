@@ -549,6 +549,9 @@ begin
   perform pg_temp.ck('the lab can replace a result that is still held', 'true', (c ~ '^\{')::text);
   perform pg_temp.ck('...the held one is marked replaced at once', 'true', (select (superseded_by = repl)::text from public.lab_results where id = held));
   perform pg_temp.ck('...its review task was cancelled', 'cancelled', (select state::text from public.clinical_tasks where dedup_key = 'lab_result:' || held));
+  perform pg_temp.ck('...the task history says the lab replaced it, not that a clinician acted', 'true',
+    (select (reason like '%replaced by a corrected result' and reason not like '%tied clinician%')::text from public.clinical_task_transitions
+      where task_id = (select id from public.clinical_tasks where dedup_key = 'lab_result:' || held) and to_state = 'cancelled' limit 1));
   perform pg_temp.ck('...it no longer appears in the review queue, the replacement does or has auto-released', '0',
     pg_temp.q_as(pg_temp.f('doc'), format('select count(*)::text from public.lab_results_review_queue() where lab_result_id = %L', held)));
   perform pg_temp.ck('...a clinician cannot release the replaced one', 'true',
