@@ -44,7 +44,7 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
       const id = m[1]!;
       const meeting = meetings.get(id);
       if (!meeting) return reply(404, { code: 3001, message: "Meeting does not exist" });
-      if (init.method === "GET") return reply(200, { id: Number(id), ...meeting });
+      if (init.method === "GET") return reply(200, { id: Number(id), join_url: `https://zoom.example/j/${id}?pwd=guest`, start_url: `https://zoom.example/s/${id}?zak=hostkey`, ...meeting });
       if (init.method === "PUT") return reply(204, undefined);
       if (init.method === "DELETE") {
         meetings.delete(id);

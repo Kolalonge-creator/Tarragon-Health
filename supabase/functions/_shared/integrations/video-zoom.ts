@@ -86,12 +86,12 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
         start_time: new Date(startMs).toISOString(),
         duration,
         timezone: "Africa/Lagos",
-        settings: { join_before_host: false, waiting_room: true, host_video: true, participant_video: true, mute_upon_entry: false },
+        settings: { join_before_host: false, waiting_room: true, host_video: true, participant_video: true, mute_upon_entry: false, auto_recording: "none" },
       });
       if (!res.ok) return res;
       const id = asObject(res.data)?.["id"];
       if (typeof id !== "number" && typeof id !== "string") return fail("bad_response", "Zoom sent an unexpected meeting reply");
-      return ok({ roomId: String(id), expiresAtMs: startMs + duration * 60_000 });
+      return ok({ roomId: String(id), expiresAtMs: startMs + duration * 60_000, recording: "off" });
     },
 
     async joinToken(input) {
@@ -119,6 +119,21 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
         tokenExp: exp,
       });
       return ok({ token, expiresAtMs });
+    },
+
+    async joinLink(input) {
+      if (!/^\d{9,12}$/.test(input.roomId)) return fail("not_found", "No such room", false);
+      const meeting = await call("GET", `/meetings/${input.roomId}`);
+      if (!meeting.ok) return meeting;
+      const d = asObject(meeting.data);
+      const endsAtMs = meetingEnd(d);
+      if (endsAtMs === null) return fail("bad_response", "Zoom sent an unexpected meeting reply");
+      if (endsAtMs <= now()) return fail("conflict", "Room is closed", false);
+      // The host link carries a start key, so only a clinician is ever given it.
+      const url = d?.[input.role === "clinician" ? "start_url" : "join_url"];
+      if (typeof url !== "string" || !url.startsWith("https://")) return fail("bad_response", "Zoom sent an unexpected meeting reply");
+      // A plain Zoom link cannot keep a camera off, so audio-only is guidance the app gives, not something Zoom enforces.
+      return ok({ url, expiresAtMs: endsAtMs, mediaMode: input.mediaMode, audioOnlyEnforced: false });
     },
 
     async endRoom(roomId, actingRole) {
