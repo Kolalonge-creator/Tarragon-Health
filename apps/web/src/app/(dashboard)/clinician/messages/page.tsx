@@ -1,4 +1,5 @@
 import { ClinicianMessagesWorklist } from "./worklist";
+import { NoteRequestsPanel } from "./note-requests-panel";
 
 export default function ClinicianMessagesPage() {
   return (
@@ -10,6 +11,7 @@ export default function ClinicianMessagesPage() {
         </p>
       </div>
       <ClinicianMessagesWorklist />
+      <NoteRequestsPanel />
     </div>
   );
 }

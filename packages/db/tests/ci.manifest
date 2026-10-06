@@ -815,6 +815,7 @@ platform_switch_pidgin_kill_switch.sql
 # S15 clinician credentialing: state moves only through the credentialing functions (direct update refused, skipped state invalid), checks need evidence and a reviewer who is not the applicant, the answer key never reaches the applicant, 80 percent AND every red scenario right, a CMO who verified cannot approve, activation (not approval) flips the role, expiry notices at 90, 30 and 0 days once each, suspension after expiry removes the role and never fires on a missing date or inside an audited grace period, documents open only for the owner or a reviewer and every open is logged, RLS for other applicants, clinicians, patients and anon; sabotage drops the state guard and the direct-update check must change.
 s15_clinician_credentialing.sql
 s16_clinical_tasks.sql
+s16b_cmo_signoff.sql
 # S17 Next task: the 186-check proof (eligibility cases shared with the TypeScript model, grants, availability gate, order, one claim at a time and an idempotent retry, tier and competency, hand-back reasons and the review flag and cooling-off, safety case 17 conflicts and who may lift them, safety case 19 timeouts and escalation and release without penalty and one extension, offers to an employed doctor and on_call for escalated tasks, reliability arithmetic and an append-only log, RLS, INV-12 ties) with a sabotage that removes the conflict clause from the candidate function and must flip the case 17 check.
 s17_queue_next.sql
 # S17 safety case 18, real contention: 50 concurrent sessions calling queue_next() (30 tasks, then one task) never hand a task out twice; a lock-free control picker must fail in the same harness or the script reports VACUOUS. A .sh proof for the same reason as the finance reversal lock proof (one session cannot race itself); local database only.
@@ -827,3 +828,9 @@ s19_red_event_paging.sql
 s19_page_ack_sweep_race.sh
 # S18 concurrency: 20 concurrent lead assignments against three clinicians capped at four never exceed the cap or give a patient two live leads, and several sessions writing the same rota window produce exactly one shift; control with a lock-free assigner that must exceed the cap. Needs a local stack; written and its SQL checked, first full run is CI.
 s18_lead_capacity_race.sh
+# S20: quality and safety. Safety case 16 (expired licence removed from queue and rota), audit sampling and scoring (shared cases with Jest), tier 1 counts, hand-back review, the protected speak-up route (admin accounts see nothing), retaliation review. Sabotage: removal turned off must flip the case 16 check.
+s20_quality_and_safety.sql
+# S22: written questions and clinical notes. Intake gate (member, adult, allowance), safety screen, task per question, claim-only audited reads, answer rules (attestation, no diagnosis, call task), follow-up, the response window (reminder, release, allowance returned, CMO told), notes (draft never visible, patient asks and a clinician releases, protected notes need the CMO, amendments, correction requests, unsigned reminders). Sabotage: the visibility rule opened and the allowance removed; both checks must flip.
+s22_written_questions_and_notes.sql
+# S22b: membership (admin or CMO grants and ends, audited, dated memberships lapse), the queue_next type filter (claims only the types asked for; no argument keeps strict class order), and idempotent submit (a retry returns the first question and uses one allowance). Sabotage: membership always true and the retry check removed; both checks must flip.
+s22b_membership_claim_filter_idempotent_submit.sql

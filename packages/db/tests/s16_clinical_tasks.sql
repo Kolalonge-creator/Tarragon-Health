@@ -107,7 +107,8 @@ begin
     values ('s16test', 1, 'approved', '{"code":"s16test","version":1}'::jsonb, v_cmo, now(), 'S16 proof fixture') returning id into v_rs_ok;
 
   -- 1. Seed -----------------------------------------------------------------------------------------------
-  perform pg_temp.rec('ten task types seeded', '10', (select count(*)::text from public.task_types where is_active));
+  -- S22 added written_question_call, so S16's own ten are counted by excluding later sections' types
+  perform pg_temp.rec('ten task types seeded', '10', (select count(*)::text from public.task_types where is_active and code <> 'written_question_call'));
   perform pg_temp.rec('one active version per code', '0', (select count(*)::text from (select code from public.task_types where is_active group by code having count(*) > 1) x));
   perform pg_temp.rec('a red-class type has no lead window', '0', (select lead_window_minutes::text from public.task_types where code = 'red_event_unacknowledged'));
   perform pg_temp.rec('amber review is class 4, 24 hours, 4 hour lead window', '4,1440,240',

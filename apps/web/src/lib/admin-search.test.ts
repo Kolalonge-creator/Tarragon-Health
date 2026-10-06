@@ -64,6 +64,11 @@ describe("the real admin menus", () => {
     expect(top("promo")).toContain("/admin/promo-codes");
   });
 
+  it("finds the hand-granted Membership page (every console page needs a search entry)", () => {
+    expect(top("membership")).toContain("/admin/members");
+    expect(top("grant")).toContain("/admin/members");
+  });
+
   it("indexes a useful number of pages with no path twice", () => {
     expect(real.length).toBeGreaterThan(60);
     expect(new Set(real.map((e) => e.href)).size).toBe(real.length);
@@ -154,5 +159,15 @@ describe("the rota and lead clinicians are searchable (S18)", () => {
   it("a clinician finds their own hours page", () => {
     const clinicianIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], []);
     expect(hit(clinicianIndex, "declare hours")).toContain("/clinician/rota");
+  });
+});
+
+describe("the real Chief Medical Officer menu", () => {
+  const real = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+
+  it("finds the Members page at a path a clinician account can open", () => {
+    const hits = searchAdminEntries(real, "membership").map((e) => e.href);
+    expect(hits).toContain("/clinician/members");
+    expect(hits).not.toContain("/admin/members");
   });
 });

@@ -420,7 +420,7 @@ export function getNavSections(
                   icon: "messages",
                   countKey: "careThreadsAwaitingReply",
                 },
-                { label: "Async consults", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
+                { label: "Written questions", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
                 // Real pages with no prior sidebar entry at all — previously
                 // reachable only via the dashboard's "All worklists" strip,
                 // so a doctor who didn't happen to scroll that far never
@@ -579,6 +579,8 @@ export function getNavSections(
                 { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
                 // The on-call rota, declared on-call hours and lead clinicians (S18). Chief Medical Officer only; the page redirects anyone below that tier.
                 { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
+                // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
+                { label: "Memberships", href: "/clinician/members", icon: "members" },
                 // The AI governance console's two CMO-only actions (approving
                 // an ai_system_versions row, labelling an ai_evaluation_cases
                 // clinical-accuracy scenario) — same reachability gap as
@@ -587,6 +589,8 @@ export function getNavSections(
                 { label: "AI governance sign-off", href: "/clinician/ai-governance", icon: "review" },
                 { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
+                { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
+                { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
                 { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
                 { label: "Alert rules", href: "/clinician/alert-rules", icon: "siren" },
                 { label: "Escalation SLAs", href: "/clinician/escalation-slas", icon: "escalation" },
@@ -653,6 +657,8 @@ export function getNavSections(
             { label: "Clinician credentialing", href: "/admin/credentialing", icon: "review" },
             // Who is on call, who is declared to work, who leads each care pack patient (S18).
             { label: "Rota and lead clinicians", href: "/admin/rota", icon: "caseload" },
+            // Grant or end a Membership by hand until checkout exists (S22b).
+            { label: "Memberships", href: "/admin/members", icon: "members" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
