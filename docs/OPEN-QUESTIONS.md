@@ -1170,6 +1170,26 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) add "the consultation policy value is confirmed by the CMO" as a data condition once the CMO has used the screen (recommended; small); (b) leave it as a human check at switch-on.
 - Decision: open.
 
+## Raised by S35 (clinician area and patient summary)
+
+### OQ-209 The S35 screens are in `apps/web`, not `apps/console` (raised by S35)
+- The session plan put them in the console. The console serves only roles whose home is an extracted area, `clinician` is not, CLAUDE.md forbids widening it, and the other 215 clinician files are still in `apps/web`. Founder decision 2026-10-06: build under `/clinician` in `apps/web` now, as thin routes over shared components and package logic, so a later extraction is a move. Same answer as OQ-99 (credentialing).
+- Decision: decided (founder, 2026-10-06). Extraction itself stays S01d step 8.
+
+### OQ-210 The consultation room does not host the scribe or the patient summary (raised by S35)
+- The scribe panel, the note editor and signing live in the note editor (`clinical-encounter-notes-section.tsx`, reached from the video-visit page), which is where a draft becomes a signed note (INV-11). The consultation room links to it ("Notes, scribe and prescribing"). `consultation_room_view` returns no patient id, so the room cannot open the audited summary, and `consultation_prep_bundle` still keys on `video_consultations.id`, not `encounters.id` (S22 design says build on `clinical_encounters`).
+- Options: (a) add the patient id to the room view for the participating clinician only, then mount the summary and the scribe panel in the room (recommended, a small migration plus a component move); (b) leave the link.
+- Decision: open.
+
+### OQ-211 Two scribe consents (raised by S35)
+- `consultation_scribe_consents` (S21, answered by the patient, read by `scribe_may_start`) and `scribe_consents` (S23, inserted by the clinician, the only one `scribe-draft` and `attach_scribe_draft_to_note` check) are unrelated. The edge function never reads the patient-answered row, so a patient who declines in the room does not stop a clinician recording consent on their behalf. Spec 9.3 has the patient answering in the app.
+- Options: (a) make `scribe-draft` and the clinician insert require the patient's `granted` row for the same encounter (recommended; INV-11); (b) keep the clinician-recorded consent for phone consults where the patient has no room.
+- Decision: open.
+
+### OQ-212 Playwright for the clinician flows could not be written to run (raised by S35)
+- Next task, hand-back, claim timeout and scribe sign need a clinician, a competency, a queue availability block and a claimable task. Tasks are created by `private.create_clinical_task`, which the API cannot call, and `apps/web/e2e-browser` has only a service-role REST helper and no direct database connection. The scribe draft also needs the model key. These are covered at the database (`s17_queue_next`, `s23c`, `s35_clinician_patient_summary`) and in Jest, not in a browser.
+- Options: (a) give `e2e-browser` a `pg` connection helper to the local stack and add a seeded clinician fixture (recommended, its own session); (b) a test-only `public` seeding function behind the local-stack guard.
+- Decision: open.
 ### OQ-193 Nigerian withholding tax on clinician payouts: what applies, and who is the payer (raised by S31, D-09)
 - Findings (public sources, not legal advice): the Deduction of Tax at Source (Withholding) Regulations 2024, effective 1 July 2024, replaced the 1997 rules; payments to a Nigerian company for professional, management, technical or consultancy services dropped from 10 percent to 5 percent, 10 percent to a non-resident, and the payer deducts, remits and issues a credit note. Treatment of an individual freelancer is different and depends on whether they are treated as self-employed or as an employee, and the Nigeria Tax Act 2025 (in force 2026) changed personal income tax bands and filing duties. Whether Tarragon's freelance clinicians are independent contractors or workers for tax and labour purposes is a legal question, and the answer decides whether PAYE or withholding applies.
 - What S31 does: stores TIN, contractor status (unknown, individual, company), registered business name and VAT registration per clinician; every statement and payout is gross. Nothing is deducted or calculated, as D-09 says.
