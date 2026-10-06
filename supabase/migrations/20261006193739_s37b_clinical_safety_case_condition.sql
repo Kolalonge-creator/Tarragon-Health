@@ -80,6 +80,10 @@ begin
   if p_met is null or length(btrim(coalesce(p_note, ''))) < 10 then
     raise exception 'say what was checked and by whom, in a sentence' using errcode = '22023';
   end if;
+  -- the safety case is the safety officer's: an admin who is not the CMO cannot record it
+  if p_code = 'clinical_safety_case_current' and not private.credential_is_cmo() then
+    raise exception 'only the Chief Medical Officer can record the clinical safety case' using errcode = '42501';
+  end if;
   if p_code = 'clinical_safety_case_current' and p_met and length(btrim(p_note)) < 25 then
     raise exception 'name the safety case document, its version and who signed it' using errcode = '22023';
   end if;
