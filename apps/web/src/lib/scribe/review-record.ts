@@ -47,3 +47,22 @@ export async function draftHash(original: DraftFields, subtle: Pick<SubtleCrypto
   const digest = await subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+// ---------------------------------------------------------------------------
+// The CMO's quality figures (public.scribe_edit_rates, public.scribe_audit_sample). Parsed with Zod: a figure that cannot be
+// read is shown as a load error, never as zero.
+// ---------------------------------------------------------------------------
+import { z } from "zod";
+
+const sectionCounts = z.object({
+  unchanged: z.number(),
+  edited: z.number(),
+  emptied: z.number(),
+  added: z.number(),
+  empty_kept: z.number(),
+  flagged_empty: z.number(),
+});
+export const editRatesSchema = z.object({ reviews: z.number(), sections: z.record(z.string(), sectionCounts) });
+export const auditSampleSchema = z.array(
+  z.object({ note_id: z.string().uuid(), finalized_at: z.string().nullable(), author_profile_id: z.string().uuid().nullable(), has_hash: z.boolean() }),
+);

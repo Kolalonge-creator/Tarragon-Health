@@ -555,6 +555,8 @@ export function getNavSections(
                 // per this file's own gating philosophy above; the page
                 // itself redirects/shows a friendly message for anyone else.
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
+                // Chief Medical Officer only: how AI scribe drafts are used, and a random sample to check (S35c).
+                { label: "Scribe quality", href: "/clinician/scribe-quality", icon: "analytics" },
               ],
             },
             // Chief Medical Officer / Clinical Director governance surfaces
