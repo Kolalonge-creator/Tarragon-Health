@@ -76,6 +76,8 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
         refresh();
       } else if (!res.ok && res.reason === "not_open") {
         setNote(t("consult.room.not_open", locale, { when: when(view.join_opens_at) }));
+      } else if (!res.ok && res.reason === "not_live") {
+        setNote(t("golive.consultations.paused", locale));
       } else {
         setNote(t("consult.room.link_error", locale));
       }
@@ -88,6 +90,8 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
       const res = await requestDialInAction(view.encounter_id);
       if (res.ok && "dialIn" in res) {
         setDialIn(res.dialIn);
+      } else if (!res.ok && res.reason === "not_live") {
+        setNote(t("golive.consultations.paused", locale));
       } else if (!res.ok && res.reason === "not_open") {
         setNote(t("consult.room.phone_not_open", locale, { when: when(view.join_opens_at) }));
       } else if (!res.ok && res.reason === "phone_unavailable") {

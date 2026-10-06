@@ -847,8 +847,8 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ### OQ-135 Consultations are not behind a go-live guard yet (raised by S21)
 - INV-14 and spec 14 say the `clinical_operations_enabled` guard blocks consultations. The guard mechanism (`app_config.go_live`) is S37. Until then a consultation can be booked as soon as a clinician has bookable slots and the patient holds a credit.
-- Recommend: S37 wires the guard into `hold_appointment_slot` and `service_get_encounter_room`. Do not switch consultations on for real patients before then, or before the Zoom dial-in is confirmed on the live account (OQ-131), the slot RPC (OQ-124) and the CMO's sign-off exist.
-- Decision: open.
+- Recommend: S37 wires the guard into `hold_appointment_slot` and `service_get_encounter_room`. Do not switch consultations on for real patients before then, or before the phone bridge vendor (OQ-131), the slot RPC (OQ-124) and the CMO's sign-off exist.
+- Decision (founder, 2026-10-06): build it now, so consultations cannot be switched on until the guard is satisfied. S37 built it: `clinical_operations_enabled` is wired into `hold_appointment_slot`, `confirm_appointment_booking`, `service_get_encounter_room` and the booking screen. It starts off and cannot be switched on until an approved hypertension protocol and an approved triage rule set exist (neither does today). The phone bridge (OQ-131) and the CMO's own sign-off of the consultation policy are still separate human steps; the guard does not check them (see OQ-180 follow-ups).
 
 ### OQ-136 Automatic fallback needs the in-app call SDK (raised by S21)
 - With link-based Zoom the page cannot see call quality and Zoom's presence webhook cannot tell patient from clinician, so automatic downgrade to audio only and automatic phone callback on a dropped call cannot be built honestly in S21. The ladder and its clock are proved in code (`stepLadder`) and the manual steps work (audio-only join, "call me", no-show reporting).
@@ -921,8 +921,9 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-156 Pidgin strings for S22 need a native reviewer (raised by S22, extends OQ-19)
 - Every new `pcm` string for written questions, the red-flag guidance shown before sending, the allowance and the release screens was written by the build session. The red-flag text is safety wording and must be reviewed with the CMO before the next store build.
 
-### OQ-157 Direct staff reads of `async_consults`, `care_messages` and summaries stay org-wide (raised by S22)
-- S22 closes the staff read path for written questions only. `care_messages`, `care_message_attachments` and `consultation_patient_summaries` are still readable by any org staff and are not audited (INV-10, INV-12; RECONCILIATION). One surface per session (OQ-54).
+### OQ-157 Direct staff reads of `async_consults`, `care_messages` and summaries (raised by S22; partly closed by S22d)
+- Closed: `async_consults` (S22: staff read only through the audited, claim-tied function), `consultation_patient_summaries` (S22d: staff only through a tie to the patient).
+- Open, and a decision for the founder and CMO: `care_messages`, `care_message_threads` and `care_message_attachments` are the care team's shared inbox, readable by any org staff account (coordinators answer logistics there) and not audited per read (INV-10, INV-12). Options: (a) keep the inbox org-wide and add an audited "open thread" function so every read of message bodies is logged; (b) tie bodies to clinicians with a relationship to the patient (lead, claim, escalation, appointment) and let coordinators see only thread headers, which needs messages routed as tasks; (c) leave as is and record the decision. S22 recommends (a) as the smallest change that closes INV-10, and a separate decision on (b).
 
 ### OQ-161 Two scribe consent records: patient answers in the app (S21) or the clinician records it (S23) (raised by S21)
 - S23 (AI scribe) was built in parallel and its migration `20261006112016_s23_scribe_consents.sql` is live. Its `public.scribe_consents` is keyed by `encounter_note_id`, is **written by the clinician** (an insert policy needs an active clinician and a trigger stamps them), and records `language`. S21's consent is **answered by the patient in the app** at the start of every consultation (`open_scribe_prompt`, `record_scribe_consent`, `scribe_may_start`), stored per encounter. INV-11 and spec 9.3 describe the patient's own answer (CON-001 shown in the patient app); the clinician-recorded model is what the Abridge suits allege is the weak point (consent typed by someone other than the patient).
@@ -985,3 +986,43 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-174 update (S24b, 2026-10-06): reviewed and hardened; independent review still advisable
 - Review: `docs/security/S24-confirm-care-plan-change-review.md`. Changes: the signer must hold a currently verified, unexpired licence when the change is applied; a signed stop that matches no active medicine is sent back; the session identity is asserted to be the patient's again before any later write. Residual: the signer's tie is not re-checked at confirm time (CMO to confirm that reading), and the review was written by the build session, so an outside reviewer is still advisable.
 
+
+
+### OQ-180 Guards live in `go_live_guards`, not `platform_modules` (raised by S37; conflicts with OQ-18)
+- OQ-18 said go-live guards reuse `platform_modules`. `set_platform_module()` needs only a superadmin and a note, never evaluates a condition against data, and its row is updatable by the table owner. S37's requirement is a switch only a condition-evaluating function can flip, with who, when and why in an append-only log, provable even against the migration role. So S37 added `go_live_guards`, `go_live_guard_log` and `go_live_attestations` and left `platform_modules` untouched (it still serves the payer, provider-org, NGO and `v5_checkout` modules).
+- Options: (a) keep two mechanisms, `platform_modules` for dormant whole platforms and `go_live_guards` for clinical go-live (recommended; the two answer different questions); (b) later migrate the four `platform_modules` rows onto the guard table and retire it, which needs each module's RLS and route guards re-pointed.
+- Decision: open. Not blocking.
+
+### OQ-181 Test accounts pass the guard as a pair (raised by S37)
+- A booking where the patient and the clinician are both `is_test` passes `clinical_operations_enabled` (and the scribe start check passes `scribe_enabled`), so the consultation flow can be tried end to end with test accounts in the single production database before launch, and the existing DB proofs (all test accounts) keep their meaning. A real person is never reachable: `profiles.is_test` is changeable only by an admin or a service context.
+- Options: (a) keep the test-pair rule (recommended); (b) remove it and exercise consultations only after launch (not recommended: nothing could be tested first).
+- Decision: open.
+
+### OQ-182 A guard that is on is not switched off when its condition lapses (raised by S37)
+- If the only tier 2 clinician is suspended while consultations are on, the guard stays on and the dashboard shows a red notice. An automatic switch-off would close a live consultation service without a human decision, which is itself a patient-safety event; the existing rota gap alert and credential suspension already page people.
+- Options: (a) show the notice only (recommended; as built); (b) send the founder and the CMO an in-app notice when a guard drifts (small, additive follow-up); (c) auto-switch-off (not recommended).
+- Decision: open.
+
+### OQ-183 Attestations are one person's word (raised by S37)
+- Conditions the database cannot see (CON-001 legal review, speech provider configured, fee schedule approved, Paystack transfers configured, SYNLAB results flow tested, Stage 2 exit criteria) are recorded as attestations by an admin or the CMO with a note. No attestation exists; none was written by an agent. They are not verified by the system.
+- Options: (a) accept a single attester with a permanent record (recommended for a solo founder); (b) require two people (founder and CMO) for the clinical ones.
+- Decision: open.
+
+### OQ-184 Guards wired later, and what each still needs (raised by S37)
+- Not wired in S37 because each feature is either already live (and wiring would switch off running behaviour) or not on main-dev yet: `on_call_cover_ok` (care pack sales, not built), `lab_booking_enabled` (health check sales are live with SYNLAB active: wiring it now would stop them, so it needs a decision to either seed it on with the conditions recorded or leave it unwired), `prescribing_enabled` (S24 is PR 943), `payouts_enabled` (S30), `public_signup_enabled` (the pilot allow-list, `pilot_invites`), and the remainder of `clinical_operations_enabled`: "all clinical tasks" is live with S16 and left running; "care pack sales" is not built; the lab result consult request flow (`lab_result_consult_requests`, accept/reschedule/release functions) is live (one real cancelled request) and left running, so a real patient can still buy and book a result consult with the guard off. Wiring it is a founder decision because it would switch off a running flow; written questions (S22 `async_consults`) are likewise unguarded. Also not guarded: other places that create `video_consultations` and Zoom meetings directly (clinician escalation video, annual-review video, availability-slot video, the mobile health-check confirm-video-slot route) and `ensure_appointment_video_consultation`, which joins an already-booked appointment even after a switch-off. They need an inventory like OQ-132's before the guard can honestly be described as blocking every consultation; until then the dashboard lists exactly what is enforced. Also known: `reschedule_appointment`, the waiting-list functions (`join_waiting_list`, `offer_next_waiting_list_candidate`) `confirm_health_check_video_slot`, `ensure_appointment_video_consultation`, `mark_encounter_no_show` (a paused, paid consultation can still be marked a patient no-show, with no credit returned: the stop button needs a rule for bookings it interrupts) and the mutating room functions (`service_open_encounter_room`, `service_record_join`; the guard is read by the room view every caller goes through) still run while the guard is off (an offered hold is refused at confirm), the mobile `bookAppointment` shows the raw refusal text, and switching the guard off while people hold paid, confirmed bookings needs a decision on how they are told or refunded (the room says consultations are paused and that the care team will say what happens).
+- Recommend: each session that builds the feature wires its guard in the same PR, using `private.go_live_open(key, patient, clinician)` in the database function and `go_live_guard_is_open` in the client.
+- Decision: open.
+
+### OQ-187 The room view still enables the join buttons while the guard is off (raised by S37)
+- The room also still asks the patient to allow the AI note-taker while `scribe_enabled` is off (the answer is then refused with the generic save error), because the room view carries no scribe flag. `consultation_room_view` (S21c) feeds the room page and does not read the guard, so with the guard off the Join buttons can be enabled inside the join window and a press says consultations are paused; outside the window the page still says when the room opens. The refusal is correct (`service_get_encounter_room` and `joinConsultation`); the page text is not. Needs a one-line change to that view.
+- Decision: open.
+
+### OQ-186 The guard tables are deployment-wide, with no organisation_id (raised by S37)
+- CLAUDE.md says every table has `organisation_id`. A go-live guard is one fact for the whole deployment (like `platform_modules` and `platform_switches`, which carry none either), and the log, attestations and sign-offs are read through one global admin-or-CMO policy. If a second organisation is ever onboarded onto this production database, an admin of one could read the other's guard history and attestation notes.
+- Options: (a) accept as deployment-wide while there is one organisation (recommended; recorded in the migration header); (b) add `organisation_id` and scope the reads before a second organisation is onboarded.
+- Decision: open.
+
+### OQ-185 More conditions the guard does not check yet (raised by S37)
+- The spec lists three conditions for `clinical_operations_enabled`. The consultation flow also depends on the CMO's confirmation of `consultations.policy` and the other PROPOSED values it uses, a configured Zoom account with dial-in (S21f), and the scribe's `CON-001` text. The sign-off screen now records the first; nothing stops the guard being switched on while it is unconfirmed.
+- Options: (a) add "the consultation policy value is confirmed by the CMO" as a data condition once the CMO has used the screen (recommended; small); (b) leave it as a human check at switch-on.
+- Decision: open.

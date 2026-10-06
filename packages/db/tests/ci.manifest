@@ -846,6 +846,8 @@ s22b_membership_claim_filter_idempotent_submit.sql
 s22c_credit_return_nullable_end_withdrawn_notes.sql
 # S19b: on-call readiness. Unconfirmed phone checklist refuses a clinician on the rota (primary, backup, swap), confirming needs every item and a clinician account, reviewers see who has not confirmed, a new checklist version clears confirmations. Sabotage: the rota check removed must flip the refusal.
 s19b_on_call_readiness.sql
+# S22d: consultation_patient_summaries readable by staff only through a real tie to the patient (INV-12); a withdrawn note can be neither requested nor released. Sabotage: the old org-wide policy and the release without the withdrawn check; both checks must flip.
+s22d_summaries_tie_and_no_release_of_withdrawn.sql
 s23c_attach_scribe_draft_to_note.sql
 # S24: signed prescribing (prescribe and amend write a signed prescription; controlled medicine hard stop; allergy and duplicate checks), care_plan_changes (unsigned cannot be saved as signed; draft invisible to the patient; applies only on her confirmation; decline, expiry, re-check), protocols (immutable once approved), plan targets only through a signed change, referral consent and chase. Sabotage: the medicine signature trigger and the signature CHECK removed; both checks must flip.
 s24_prescriptions_and_care_plan_changes.sql
@@ -855,3 +857,5 @@ s30_fee_schedules_and_earnings_ledger.sql
 lpe_content_blocks_cmo_read.sql
 # S24b: the CMO's protocol functions (CMO only, versioned drafts, approve retires the previous version, approved is immutable, audited) and the hardening of confirm_care_plan_change (expired licence, deactivated signer, stale stop, mid-apply failure leaves the session as the patient, audit actors, replay). Sabotage: the identity restore plus assertion removed, and the CMO check removed; both checks must flip.
 s24b_protocol_signoff_and_confirm_hardening.sql
+# S37: go-live guards and PROPOSED-config sign-off. Seven guards ship off; no role, including the table owner, can change one except through set_go_live_guard (conditions evaluated, who/when/why logged); consultations and the scribe are wired. Sabotage: the reader forced open, and the guard trigger dropped; both checks must flip.
+s37_go_live_guards.sql
