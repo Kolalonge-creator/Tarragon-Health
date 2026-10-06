@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { buildAdminSearchIndex, CMO_EXTRA_PAGES, searchAdminEntries, type AdminSearchEntry } from "./admin-search";
-import type { NavSection } from "./navigation";
+import { getNavSections, type NavSection } from "./navigation";
+import { getVisibleAdminSettingsTabs } from "./admin-settings-nav";
 
 const sections: NavSection[] = [
   {
@@ -42,6 +43,30 @@ describe("buildAdminSearchIndex", () => {
   it("names where each page lives", () => {
     expect(index.find((e) => e.href === "/admin")?.group).toBe("Main");
     expect(index.find((e) => e.href === "/admin/settings/members")?.group).toBe("Settings, People & Access");
+  });
+});
+
+describe("the real admin menus", () => {
+  // Built from the same functions the layout uses, so a renamed or removed page shows up here.
+  const real = buildAdminSearchIndex(
+    getNavSections("admin", null),
+    getVisibleAdminSettingsTabs({ isSuperAdmin: true, keys: new Set() }).flatMap((tab) =>
+      tab.items.map((item) => ({ href: item.href, label: item.label, blurb: item.blurb, group: tab.label })),
+    ),
+  );
+  const top = (q: string) => searchAdminEntries(real, q, 5).map((e) => e.href);
+
+  it("finds the functionality an admin asks for by name", () => {
+    expect(top("credential")[0]).toBe("/admin/credentialing");
+    expect(top("ai coach")).toContain("/admin/settings/ai-coach");
+    expect(top("licence")).toContain("/admin/credentialing/expiry");
+    expect(top("members")).toContain("/admin/settings/members");
+    expect(top("promo")).toContain("/admin/promo-codes");
+  });
+
+  it("indexes a useful number of pages with no path twice", () => {
+    expect(real.length).toBeGreaterThan(60);
+    expect(new Set(real.map((e) => e.href)).size).toBe(real.length);
   });
 });
 

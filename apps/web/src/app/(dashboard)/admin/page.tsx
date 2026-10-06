@@ -13,6 +13,7 @@ import { LoadFailure } from "@/components/ui/load-failure";
 import { anyQueryFailed, failedQueryLabels, joinLabels } from "@/lib/queries/server-query-state";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
+import { OpenAdminSearchBar } from "@/components/shell/open-admin-search-bar";
 
 export const metadata = { title: "Dashboard" };
 
@@ -503,6 +504,7 @@ export default async function AdminPage() {
 
   return (
     <div className="space-y-6">
+      <OpenAdminSearchBar />
       <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-clinical-navy to-brand-green p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
         <div>
           <h1 className="font-heading text-2xl font-semibold sm:text-3xl">

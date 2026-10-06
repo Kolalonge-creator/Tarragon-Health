@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { searchAdminEntries, type AdminSearchEntry } from "@/lib/admin-search";
+import { OPEN_ADMIN_SEARCH_EVENT } from "./admin-search-event";
 
 type PersonResult = { label: string; href: string; group: string; hint: string };
 
@@ -49,6 +50,16 @@ export function AdminSearch({ entries }: { entries: AdminSearchEntry[] }) {
   React.useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+
+  // Other parts of the page (the dashboard's search bar) open this same box instead of building a second one.
+  React.useEffect(() => {
+    function onOpen() {
+      opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setOpen(true);
+    }
+    window.addEventListener(OPEN_ADMIN_SEARCH_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_ADMIN_SEARCH_EVENT, onOpen);
+  }, []);
 
   // People lookup, debounced. Each answer is stored with the text it was for, and only shown while that is still what
   // is typed, so a slow or stale answer can never appear under a newer query.
