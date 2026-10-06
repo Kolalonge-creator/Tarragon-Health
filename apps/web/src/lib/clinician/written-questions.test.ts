@@ -56,6 +56,9 @@ describe("describeRpcError", () => {
     expect(describeRpcError({ message: "note_release_cmo_only", code: "42501" })).toBe(
       "This note is protected. Only the Chief Medical Officer can release it.",
     );
+    expect(describeRpcError({ message: "note_withdrawn_cannot_release", code: "P0001" })).toBe(
+      "This note was withdrawn as entered in error, so it cannot be released.",
+    );
   });
   it("maps a lost claim and never leaks raw SQL text", () => {
     expect(describeRpcError({ message: "queue_no_claim" })).toMatch(/no longer hold/);

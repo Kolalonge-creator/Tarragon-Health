@@ -83,6 +83,7 @@ const ERROR_WORDS: Record<string, string> = {
   queue_note_needed: "Please add a short note explaining the hand-back.",
   written_question_attest_no_diagnosis: "Please confirm that you have not made a diagnosis.",
   note_release_cmo_only: "This note is protected. Only the Chief Medical Officer can release it.",
+  note_withdrawn_cannot_release: "This note was withdrawn as entered in error, so it cannot be released.",
   note_withhold_reason_needed: "Please give a reason (10 characters or more) for withholding the note.",
   note_amendment_reason_needed: "Please give a reason (10 characters or more) for the amendment.",
   note_correction_response_needed: "Please write a response (10 characters or more).",

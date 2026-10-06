@@ -836,3 +836,5 @@ s22_written_questions_and_notes.sql
 s22b_membership_claim_filter_idempotent_submit.sql
 # S22c: a paid credit returned on a missed window, grant_membership with a nullable end date, and notes withdrawn as entered in error (author or CMO only, permanent flag, the patient sees the withdrawal and none of the text, no amendment or dispute). Sabotage: credit return off and the author-or-CMO rule removed; both checks must flip.
 s22c_credit_return_nullable_end_withdrawn_notes.sql
+# S22d: consultation_patient_summaries readable by staff only through a real tie to the patient (INV-12); a withdrawn note can be neither requested nor released. Sabotage: the old org-wide policy and the release without the withdrawn check; both checks must flip.
+s22d_summaries_tie_and_no_release_of_withdrawn.sql
