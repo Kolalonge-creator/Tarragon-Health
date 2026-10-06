@@ -1,0 +1,331 @@
+-- S21 proof: encounters, consultation rooms and events, scribe consent, adult-only booking, policy-driven cancellation,
+-- no-show handling (migration *_s21_encounters_consultations.sql).
+--
+-- Proves in one rolled-back transaction:
+--   1. Seed: policy v1 active (2 hour window, 18 and over), the consultation price is NGN 10,000, five S21 event types.
+--   2. Adults only (OQ-129): a 15 year old and a patient with no date of birth are refused a remote booking
+--      (fail closed); an adult books, confirms with a credit, and gets an encounter and a room stub.
+--   3. The room: recording cannot be turned on; no join URL column exists; events are append only.
+--   4. Access (INV-12): the patient and the assigned clinician read the encounter; a stranger, another clinician read
+--      nothing; a patient never reads the room reference; no direct writes; anon cannot execute anything.
+--   5. Scribe consent (INV-11, OQ-38): only the patient can ask or answer; scribe_may_start is true only for the assigned
+--      clinician while the consultation is live and consent is granted; a withdrawal turns it off and is logged.
+--   6. The live path: join events move scheduled to waiting to in progress, a mode change counts one fallback step
+--      and keeps only whitelisted keys, completion closes the appointment and emits the event.
+--   7. Cancellation (OQ-127): in time returns the credit, late keeps it, a clinician cancel always returns it.
+--   8. No-shows: too early is refused, a clinician no-show returns the credit, a patient no-show keeps it.
+--   9. SABOTAGE: with the adult gate trigger dropped, and with the adult check emptied, a minor gets through.
+begin;
+
+create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
+grant all on results to public;
+
+create function pg_temp.rec(p_name text, p_expected text, p_actual text) returns void language sql as
+$$ insert into results values ('real', p_name, p_expected, p_actual) $$;
+create function pg_temp.try(p_sql text) returns text language plpgsql as
+$f$ begin execute p_sql; return 'ok'; exception when others then return sqlstate; end $f$;
+create function pg_temp.act(p_uid uuid) returns void language plpgsql as
+$f$ begin
+  perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  set local role authenticated;
+end $f$;
+create function pg_temp.act_anon() returns void language plpgsql as
+$f$ begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
+  set local role anon;
+end $f$;
+create function pg_temp.back() returns void language plpgsql as $f$ begin reset role; end $f$;
+create function pg_temp.mkuser(p_org uuid, p_label text, p_role text, p_dob date) returns uuid
+language plpgsql as $f$
+declare v uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v, 's21-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
+  values (v, p_org, p_role::public.user_role, 'S21 ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), p_dob, true)
+  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone, date_of_birth = excluded.date_of_birth;
+  return v;
+end $f$;
+-- one unredeemed consultation credit for a patient (a fixture: what a paid checkout leaves behind)
+create function pg_temp.mkcredit(p_patient uuid) returns uuid language plpgsql as
+$f$ declare v uuid;
+begin
+  insert into public.service_purchases (organisation_id, patient_id, service_product_id, status, amount_kobo, currency, voucher_covered_kobo, purchased_at)
+  select pr.organisation_id, p_patient, sp.id, 'active', sp.price_kobo, 'NGN', 0, now()
+    from public.profiles pr, public.service_products sp
+   where pr.id = p_patient and sp.code = 'video_visit_credit'
+  returning id into v;
+  return v;
+end $f$;
+-- hold and confirm as the patient; returns the appointment id
+create function pg_temp.book(p_patient uuid, p_clinician uuid, p_start timestamptz) returns uuid language plpgsql as
+$f$ declare v_org uuid; v_id uuid;
+begin
+  select organisation_id into v_org from public.profiles where id = p_patient;
+  perform pg_temp.act(p_patient);
+  select id into v_id from public.hold_appointment_slot(v_org, p_clinician, 'telemedicine', 'telemedicine', p_start, p_start + interval '30 minutes');
+  perform public.confirm_appointment_booking(v_id);
+  perform pg_temp.back();
+  return v_id;
+end $f$;
+create function pg_temp.credit_redeemed(p_purchase uuid) returns text language sql as
+$$ select (redeemed_at is not null)::text from public.service_purchases where id = p_purchase $$;
+-- how many credits are currently spent on this appointment (a credit freed earlier can be picked again, so check by target)
+create function pg_temp.credits_on(p_appt uuid) returns text language sql as
+$$ select count(*)::text from public.service_purchases where redeemed_entity_type = 'appointment' and redeemed_entity_id = p_appt $$;
+
+do $$
+declare
+  v_org uuid;
+  v_admin uuid; v_docA uuid; v_docB uuid;
+  v_adult uuid; v_minor uuid; v_nodob uuid; v_stranger uuid; v_adult2 uuid; v_adult3 uuid; v_adult4 uuid;
+  v_cr1 uuid; v_cr2 uuid; v_cr3 uuid; v_cr4 uuid; v_cr5 uuid; v_cr6 uuid;
+  v_a1 uuid; v_a2 uuid; v_a3 uuid; v_a4 uuid; v_a5 uuid; v_a6 uuid;
+  v_e1 uuid; v_e2 uuid; v_e3 uuid; v_e4 uuid; v_e5 uuid; v_e6 uuid;
+  v_start timestamptz := date_trunc('hour', now()) + interval '3 days' + interval '9 hours';
+  v_res text;
+begin
+  select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
+  if v_org is null then raise exception 'need an organisation to run this proof'; end if;
+
+  v_admin := pg_temp.mkuser(v_org, 'admin', 'admin', (current_date - interval '45 years')::date);
+  v_docA := pg_temp.mkuser(v_org, 'doctor-a', 'clinician', (current_date - interval '40 years')::date);
+  v_docB := pg_temp.mkuser(v_org, 'doctor-b', 'clinician', (current_date - interval '40 years')::date);
+  v_adult := pg_temp.mkuser(v_org, 'adult', 'patient', (current_date - interval '45 years')::date);
+  v_adult2 := pg_temp.mkuser(v_org, 'adult-2', 'patient', (current_date - interval '30 years')::date);
+  v_adult3 := pg_temp.mkuser(v_org, 'adult-3', 'patient', (current_date - interval '35 years')::date);
+  v_adult4 := pg_temp.mkuser(v_org, 'adult-4', 'patient', (current_date - interval '50 years')::date);
+  v_minor := pg_temp.mkuser(v_org, 'minor', 'patient', (current_date - interval '15 years')::date);
+  v_nodob := pg_temp.mkuser(v_org, 'no-dob', 'patient', null);
+  v_stranger := pg_temp.mkuser(v_org, 'stranger', 'patient', (current_date - interval '33 years')::date);
+
+  -- 1. Seed ---------------------------------------------------------------------------------------------------
+  perform pg_temp.rec('policy v1 is the one active policy', '1', (select count(*)::text from public.consultation_policy_config where is_active and version = 1));
+  perform pg_temp.rec('the policy has a 2 hour window and a minimum age of 18', '2/18',
+    (select (config ->> 'cancelWindowHours') || '/' || (config ->> 'minAgeYears') from public.consultation_policy_config where is_active));
+  perform pg_temp.rec('a consultation costs NGN 10,000 (1,000,000 kobo, OQ-130)', '1000000', (select price_kobo::text from public.service_products where code = 'video_visit_credit'));
+  perform pg_temp.rec('five S21 encounter event types exist', '5', (select count(*)::text from public.event_types where owner_section = 'S21' and event_type like 'encounter.%'));
+
+  -- 2. Adults only --------------------------------------------------------------------------------------------
+  perform pg_temp.act(v_minor);
+  perform pg_temp.rec('a 15 year old cannot hold a remote consultation', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start, v_start + interval '30 minutes')));
+  perform pg_temp.back();
+  perform pg_temp.act(v_nodob);
+  perform pg_temp.rec('a patient with no date of birth cannot hold one (fail closed)', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start, v_start + interval '30 minutes')));
+  perform pg_temp.back();
+  perform pg_temp.rec('nothing was held for either of them', '0',
+    (select count(*)::text from public.appointments where patient_id in (v_minor, v_nodob)));
+
+  v_cr1 := pg_temp.mkcredit(v_adult);
+  v_a1 := pg_temp.book(v_adult, v_docA, v_start);
+  perform pg_temp.rec('control: an adult books and the booking is confirmed with the credit', 'confirmed/paid',
+    (select status::text || '/' || payment_status::text from public.appointments where id = v_a1));
+  select id into v_e1 from public.encounters where appointment_id = v_a1;
+  perform pg_temp.rec('confirming created exactly one encounter', '1', (select count(*)::text from public.encounters where appointment_id = v_a1));
+  perform pg_temp.rec('the encounter is a video consultation for the clinician, on policy v1, marked test', 'video/true/1/true',
+    (select type || '/' || (clinician_id = v_docA)::text || '/' || policy_version::text || '/' || is_test::text from public.encounters where id = v_e1));
+  perform pg_temp.rec('the encounter points at the credit that paid for it', 'true', (select (service_purchase_id = v_cr1)::text from public.encounters where id = v_e1));
+  perform pg_temp.rec('a room stub exists and recording is off', '1/false', (select count(*)::text || '/' || bool_or(recording_enabled)::text from public.encounter_rooms where encounter_id = v_e1));
+  perform pg_temp.rec('encounter.scheduled was emitted once', '1', (select count(*)::text from public.domain_events where event_type = 'encounter.scheduled' and aggregate_id = v_e1));
+
+  -- 3. The room -----------------------------------------------------------------------------------------------
+  perform pg_temp.rec('recording cannot be switched on', '23514', pg_temp.try(format('update public.encounter_rooms set recording_enabled = true where encounter_id = %L', v_e1)));
+  perform pg_temp.rec('no encounter column holds a join or host URL', '0',
+    (select count(*)::text from information_schema.columns where table_schema = 'public' and table_name in ('encounters', 'encounter_rooms', 'encounter_events', 'scribe_consents') and column_name ~ 'url'));
+  perform pg_temp.rec('an event cannot be edited', '23514', pg_temp.try(format('update public.encounter_events set kind = ''left'' where encounter_id = %L', v_e1)));
+  perform pg_temp.rec('an event cannot be deleted', '23514', pg_temp.try(format('delete from public.encounter_events where encounter_id = %L', v_e1)));
+  perform pg_temp.rec('one encounter per appointment', '23505',
+    pg_temp.try(format('insert into public.encounters (organisation_id, patient_id, type, scheduled_at, appointment_id, policy_version) values (%L, %L, ''video'', now(), %L, 1)', v_org, v_adult, v_a1)));
+
+  -- 4. Access -------------------------------------------------------------------------------------------------
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('the patient reads their own encounter', '1', (select count(*)::text from public.encounters where id = v_e1));
+  perform pg_temp.rec('...and its events', 'true', (select (count(*) >= 1)::text from public.encounter_events where encounter_id = v_e1));
+  perform pg_temp.rec('...but never the provider room reference', '0', (select count(*)::text from public.encounter_rooms where encounter_id = v_e1));
+  perform pg_temp.rec('a patient cannot insert an encounter directly', '42501',
+    pg_temp.try(format('insert into public.encounters (organisation_id, patient_id, type, scheduled_at, policy_version) values (%L, %L, ''video'', now(), 1)', v_org, v_adult)));
+  perform pg_temp.rec('a patient cannot edit a scribe consent row directly', '42501', pg_temp.try(format('update public.scribe_consents set granted = true where encounter_id = %L', v_e1)));
+  perform pg_temp.rec('a patient cannot delete an event', '42501', pg_temp.try(format('delete from public.encounter_events where encounter_id = %L', v_e1)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_stranger);
+  perform pg_temp.rec('a stranger reads no encounter', '0', (select count(*)::text from public.encounters where id = v_e1));
+  perform pg_temp.rec('...no event', '0', (select count(*)::text from public.encounter_events where encounter_id = v_e1));
+  perform pg_temp.rec('...and cannot report an event', '42501', pg_temp.try(format('select public.report_encounter_event(%L, ''joined'')', v_e1)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_docB);
+  perform pg_temp.rec('another clinician reads no encounter (INV-12)', '0', (select count(*)::text from public.encounters where id = v_e1));
+  perform pg_temp.back();
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('the assigned clinician reads it', '1', (select count(*)::text from public.encounters where id = v_e1));
+  perform pg_temp.rec('...and the room reference', '1', (select count(*)::text from public.encounter_rooms where encounter_id = v_e1));
+  perform pg_temp.back();
+  perform pg_temp.act(v_admin);
+  perform pg_temp.rec('admin reads it', '1', (select count(*)::text from public.encounters where id = v_e1));
+  perform pg_temp.back();
+  perform pg_temp.act_anon();
+  perform pg_temp.rec('anon cannot read encounters', '42501', pg_temp.try('select count(*) from public.encounters'));
+  perform pg_temp.back();
+
+  -- 5. Scribe consent -----------------------------------------------------------------------------------------
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('a clinician cannot answer the consent prompt for the patient', '42501', pg_temp.try(format('select public.record_scribe_consent(%L, true)', v_e1)));
+  perform pg_temp.rec('...nor open it', '42501', pg_temp.try(format('select public.open_scribe_prompt(%L)', v_e1)));
+  perform pg_temp.rec('scribe may not start with no answer', 'false', public.scribe_may_start(v_e1)::text);
+  perform pg_temp.back();
+  perform pg_temp.act(v_stranger);
+  perform pg_temp.rec('a stranger cannot open the prompt', '42501', pg_temp.try(format('select public.open_scribe_prompt(%L)', v_e1)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('the patient is asked: a row exists, unanswered', 'null/true', (select coalesce(granted::text, 'null') || '/' || (asked_at is not null)::text from public.open_scribe_prompt(v_e1)));
+  perform pg_temp.rec('the patient grants', 'true', (select granted::text from public.record_scribe_consent(v_e1, true)));
+  perform pg_temp.rec('a null answer is refused', '22023', pg_temp.try(format('select public.record_scribe_consent(%L, null)', v_e1)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('granted but the consultation is not live yet: scribe may not start', 'false', public.scribe_may_start(v_e1)::text);
+  perform pg_temp.back();
+
+  -- 6. The live path ------------------------------------------------------------------------------------------
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('an unknown event kind cannot be reported', '22023', pg_temp.try(format('select public.report_encounter_event(%L, ''completed'')', v_e1)));
+  perform pg_temp.rec('the patient joins: waiting', 'waiting', (select status from public.report_encounter_event(v_e1, 'joined')));
+  perform pg_temp.back();
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('the clinician joins: in progress, start stamped', 'in_progress/true', (select status || '/' || (started_at is not null)::text from public.report_encounter_event(v_e1, 'joined')));
+  perform pg_temp.rec('the appointment follows', 'in_progress', (select status::text from public.appointments where id = v_a1));
+  perform pg_temp.rec('scribe may now start for the assigned clinician', 'true', public.scribe_may_start(v_e1)::text);
+  perform pg_temp.back();
+  perform pg_temp.rec('encounter.started was emitted once', '1', (select count(*)::text from public.domain_events where event_type = 'encounter.started' and aggregate_id = v_e1));
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('the patient cannot ask for the scribe', 'false', public.scribe_may_start(v_e1)::text);
+  perform pg_temp.rec('a bad mode is refused', '22023', pg_temp.try(format('select public.report_encounter_event(%L, ''mode_changed'', ''{"mode":"hologram"}'')', v_e1)));
+  perform pg_temp.rec('dropping to audio only counts one fallback step', 'audio_only/1',
+    (select final_media_mode || '/' || fallback_steps::text from public.report_encounter_event(v_e1, 'mode_changed', '{"mode":"audio_only","bitrate_kbps":60,"full_name":"Should Not Be Kept"}'::jsonb)));
+  perform pg_temp.rec('only whitelisted keys are stored (no name)', 'false',
+    (select (payload ? 'full_name')::text from public.encounter_events where encounter_id = v_e1 and kind = 'mode_changed' order by created_at desc limit 1));
+  perform pg_temp.rec('the bitrate was kept', '60', (select payload ->> 'bitrate_kbps' from public.encounter_events where encounter_id = v_e1 and kind = 'mode_changed' order by created_at desc limit 1));
+  perform pg_temp.rec('the patient withdraws scribe consent', 'false', (select granted::text from public.record_scribe_consent(v_e1, false)));
+  perform pg_temp.back();
+  perform pg_temp.rec('the withdrawal is logged once', '1', (select count(*)::text from public.encounter_events where encounter_id = v_e1 and kind = 'scribe_consent_changed'));
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('after withdrawal scribe may not start', 'false', public.scribe_may_start(v_e1)::text);
+  perform pg_temp.back();
+  perform pg_temp.rec('encounter.fallback was emitted', '1', (select count(*)::text from public.domain_events where event_type = 'encounter.fallback' and aggregate_id = v_e1));
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('a patient cannot complete a consultation', '42501', pg_temp.try(format('select public.complete_encounter(%L)', v_e1)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('the clinician completes it', 'completed/true', (select status || '/' || (ended_at is not null)::text from public.complete_encounter(v_e1)));
+  perform pg_temp.back();
+  perform pg_temp.rec('the appointment is completed', 'completed', (select status::text from public.appointments where id = v_a1));
+  perform pg_temp.rec('encounter.completed was emitted once', '1', (select count(*)::text from public.domain_events where event_type = 'encounter.completed' and aggregate_id = v_e1));
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('a finished consultation takes no more events', 'P0001', pg_temp.try(format('select public.report_encounter_event(%L, ''left'')', v_e1)));
+  perform pg_temp.back();
+
+  -- 7. Cancellation -------------------------------------------------------------------------------------------
+  v_cr2 := pg_temp.mkcredit(v_adult2);
+  v_a2 := pg_temp.book(v_adult2, v_docA, v_start + interval '1 day');
+  perform pg_temp.rec('the credit is spent when the booking is confirmed', 'true', pg_temp.credit_redeemed(v_cr2));
+  perform pg_temp.act(v_adult2);
+  perform pg_temp.rec('a patient cancelling 3 days ahead gets the credit back (status)', 'patient_cancelled/refunded', (select status::text || '/' || payment_status::text from public.cancel_appointment(v_a2, 'plans changed')));
+  perform pg_temp.back();
+  perform pg_temp.rec('...the credit is free to use again', 'false', pg_temp.credit_redeemed(v_cr2));
+  perform pg_temp.rec('...the encounter is cancelled', 'cancelled', (select status from public.encounters where appointment_id = v_a2));
+  perform pg_temp.rec('...and a credit_returned event was logged', '1', (select count(*)::text from public.encounter_events ev join public.encounters en on en.id = ev.encounter_id where en.appointment_id = v_a2 and ev.kind = 'credit_returned'));
+
+  v_cr3 := pg_temp.mkcredit(v_adult3);
+  v_a3 := pg_temp.book(v_adult3, v_docB, now() + interval '1 hour');
+  perform pg_temp.act(v_adult3);
+  perform pg_temp.rec('a patient cancelling 1 hour ahead keeps the credit spent', 'patient_cancelled/paid', (select status::text || '/' || payment_status::text from public.cancel_appointment(v_a3, 'running late')));
+  perform pg_temp.back();
+  perform pg_temp.rec('...the credit stays redeemed', 'true', pg_temp.credit_redeemed(v_cr3));
+
+  v_cr4 := pg_temp.mkcredit(v_adult4);
+  v_a4 := pg_temp.book(v_adult4, v_docB, now() + interval '90 minutes');
+  perform pg_temp.act(v_docB);
+  perform pg_temp.rec('a clinician cancelling 90 minutes ahead returns the credit', 'provider_cancelled/refunded', (select status::text || '/' || payment_status::text from public.cancel_appointment(v_a4, 'unwell')));
+  perform pg_temp.back();
+  perform pg_temp.rec('...the credit is free again', 'false', pg_temp.credit_redeemed(v_cr4));
+  perform pg_temp.rec('cancelling twice is refused', 'P0001', pg_temp.try(format('select public.cancel_appointment(%L)', v_a4)));
+
+  -- 8. No-shows -----------------------------------------------------------------------------------------------
+  v_cr5 := pg_temp.mkcredit(v_adult2);
+  v_a5 := pg_temp.book(v_adult2, v_docA, v_start + interval '2 days');
+  select id into v_e5 from public.encounters where appointment_id = v_a5;
+  perform pg_temp.rec('the booking spent one credit', '1', pg_temp.credits_on(v_a5));
+  perform pg_temp.act(v_adult2);
+  perform pg_temp.rec('reporting a clinician no-show before the wait is refused', 'P0001', pg_temp.try(format('select public.mark_encounter_no_show(%L)', v_e5)));
+  perform pg_temp.back();
+  update public.encounters set scheduled_at = now() - interval '30 minutes' where id = v_e5;
+  perform pg_temp.act(v_adult2);
+  perform pg_temp.rec('after the wait the patient reports a clinician no-show', 'no_show_clinician', (select status from public.mark_encounter_no_show(v_e5)));
+  perform pg_temp.back();
+  perform pg_temp.rec('...the credit is returned', '0', pg_temp.credits_on(v_a5));
+  perform pg_temp.rec('...the appointment is cancelled by the provider side', 'provider_cancelled', (select status::text from public.appointments where id = v_a5));
+  perform pg_temp.rec('encounter.no_show was emitted', '1', (select count(*)::text from public.domain_events where event_type = 'encounter.no_show' and aggregate_id = v_e5));
+
+  v_cr6 := pg_temp.mkcredit(v_adult4);
+  v_a6 := pg_temp.book(v_adult4, v_docA, v_start + interval '2 days' + interval '2 hours');
+  select id into v_e6 from public.encounters where appointment_id = v_a6;
+  update public.encounters set scheduled_at = now() - interval '30 minutes' where id = v_e6;
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('the clinician marks a patient no-show after the wait', 'no_show_patient', (select status from public.mark_encounter_no_show(v_e6)));
+  perform pg_temp.back();
+  perform pg_temp.rec('...the credit stays spent', '1', pg_temp.credits_on(v_a6));
+  perform pg_temp.rec('...the appointment is a no-show', 'no_show', (select status::text from public.appointments where id = v_a6));
+
+  -- 9. Grants -------------------------------------------------------------------------------------------------
+  perform pg_temp.rec('anon cannot run any consultation function', '0',
+    (select count(*)::text from pg_proc p where p.pronamespace = 'public'::regnamespace
+       and p.proname in ('report_encounter_event', 'complete_encounter', 'mark_encounter_no_show', 'open_scribe_prompt', 'record_scribe_consent', 'scribe_may_start', 'my_consultation_rule')
+       and has_function_privilege('anon', p.oid, 'EXECUTE')));
+  perform pg_temp.rec('authenticated cannot run the private helpers', '0',
+    (select count(*)::text from pg_proc p where p.pronamespace = 'private'::regnamespace
+       and p.proname in ('ensure_encounter_for_appointment', 'return_consultation_credit', 'log_encounter_event', 'assert_adult_for_consultation', 'patient_age_years')
+       and has_function_privilege('authenticated', p.oid, 'EXECUTE')));
+  perform pg_temp.rec('every S21 table has row level security', '0',
+    (select count(*)::text from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
+       and c.relname in ('encounters', 'encounter_rooms', 'encounter_events', 'scribe_consents', 'consultation_policy_config') and not c.relrowsecurity));
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('a patient sees the rule and the price before paying', '1000000/2/18',
+    (select (r ->> 'price_kobo') || '/' || (r ->> 'cancel_window_hours') || '/' || (r ->> 'min_age_years') from (select public.my_consultation_rule() as r) x));
+  perform pg_temp.back();
+
+  -- 10. SABOTAGE ----------------------------------------------------------------------------------------------
+  -- (a) the adult gate trigger on encounters is dropped: a minor's encounter row must now insert
+  drop trigger encounters_adult_gate on public.encounters;
+  insert into results values ('sabotaged', 'an encounter for a minor is refused', 'P0001',
+    pg_temp.try(format('insert into public.encounters (organisation_id, patient_id, type, scheduled_at, policy_version) values (%L, %L, ''video'', now() + interval ''5 days'', 1)', v_org, v_minor)));
+  -- (b) the adult check is emptied: a minor can now hold a booking
+  create or replace function private.assert_adult_for_consultation(p_patient uuid) returns void language plpgsql as $s$ begin null; end $s$;
+  perform pg_temp.act(v_minor);
+  insert into results values ('sabotaged', 'a minor cannot hold a remote consultation', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '6 days', v_start + interval '6 days' + interval '30 minutes')));
+  perform pg_temp.back();
+end $$;
+
+do $$
+declare v_bad integer; v_caught integer;
+begin
+  select count(*) into v_bad from results where phase = 'real' and expected is distinct from actual;
+  if v_bad > 0 then
+    raise exception 'S21 proof FAILED on the real migration: %',
+      (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ')
+         from results where phase = 'real' and expected is distinct from actual);
+  end if;
+  select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
+  if v_caught < 2 then
+    raise exception 'VACUOUS TEST: expected both sabotage runs to change a check, only % did', v_caught;
+  end if;
+end $$;
+
+select phase, check_name, expected, actual,
+       case when expected = actual then 'PASS' else 'FAIL' end as result
+from results where phase = 'real' order by check_name;
+-- The sabotaged rows are asserted to FAIL inside the DO block above. They are deliberately not printed: the runner
+-- treats any FAIL verdict in the output as a failed proof.
+
+rollback;
