@@ -1,0 +1,55 @@
+{
+  "placeholder": true,
+  "note": "TEST FIXTURE ONLY. Fictional drugs and invented numbers. The CMO supplies the real, signed step table as a protocols row; nothing here is clinical guidance.",
+  "code": "htn_hearts_ng",
+  "version": 1,
+  "status": "draft",
+  "params": {
+    "minReadings": 4,
+    "windowDays": 7,
+    "minAdherencePercent": 80,
+    "reviewWindowDays": 14,
+    "staleAfterDays": 3,
+    "requireValidated": true,
+    "validation": { "systolicMin": 60, "systolicMax": 260, "diastolicMin": 30, "diastolicMax": 160 }
+  },
+  "steps": [
+    {
+      "id": "step_0_start",
+      "label": "Start",
+      "requires": [],
+      "propose": {
+        "action": "start",
+        "item": { "drugName": "TestDrugA", "dose": "5 mg", "frequency": "once daily", "route": "oral", "durationDays": 28, "quantity": "28 tablets", "repeatsAllowed": 0, "indication": "Test indication", "instructions": "Test instructions" }
+      }
+    },
+    {
+      "id": "step_1_raise_a",
+      "label": "Raise TestDrugA",
+      "requires": [{ "drugName": "TestDrugA", "dose": "5 mg" }],
+      "propose": {
+        "action": "change",
+        "changes": "TestDrugA",
+        "item": { "drugName": "TestDrugA", "dose": "10 mg", "frequency": "once daily", "durationDays": 28, "quantity": "28 tablets" }
+      },
+      "rationale": "Placeholder rationale."
+    },
+    {
+      "id": "step_2_add_b",
+      "label": "Add TestDrugB",
+      "requires": [{ "drugName": "TestDrugA", "dose": "10 mg", "frequency": "once daily" }],
+      "propose": {
+        "action": "start",
+        "item": { "drugName": "TestDrugB", "dose": "25 mg", "frequency": "once daily", "durationDays": 28, "quantity": "28 tablets" }
+      }
+    },
+    {
+      "id": "step_3_final",
+      "requires": [
+        { "drugName": "TestDrugA", "dose": "10 mg" },
+        { "drugName": "TestDrugB", "dose": "25 mg" }
+      ],
+      "propose": null
+    }
+  ]
+}

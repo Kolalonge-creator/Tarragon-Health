@@ -82,6 +82,31 @@ export function runVideoContract(name: string, make: () => VideoFixture, nowMs: 
       expect((await f.provider.joinLink({ roomId: room.data.roomId, role: "patient", mediaMode: "video" })).ok).toBe(false);
     });
 
+    it("gives Nigerian dial-in numbers, the meeting id and a keypad passcode for the same room, and nothing about a person", async () => {
+      const f = make();
+      const room = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 600_000 });
+      if (!room.ok) throw new Error("room");
+      const d = await f.provider.dialIn({ roomId: room.data.roomId, country: "NG" });
+      expect(d.ok).toBe(true);
+      if (!d.ok) return;
+      expect(d.data.numbers.length).toBeGreaterThan(0);
+      expect(d.data.numbers.every((n) => n.country === "NG" && /^\+?[0-9 ]{8,}$/.test(n.number))).toBe(true);
+      expect(d.data.meetingId).toMatch(/^\d{9,12}$/);
+      expect(d.data.passcode === null || /^\d{4,10}$/.test(d.data.passcode)).toBe(true);
+      expect(d.data.expiresAtMs).toBeLessThanOrEqual(room.data.expiresAtMs);
+      expect(JSON.stringify(d.data)).not.toContain(ENC);
+    });
+
+    it("refuses dial-in for an unknown room, a closed room, or a country with no number", async () => {
+      const f = make();
+      expect((await f.provider.dialIn({ roomId: "room_missing", country: "NG" })).ok).toBe(false);
+      const room = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 600_000 });
+      if (!room.ok) throw new Error("room");
+      expect(await f.provider.dialIn({ roomId: room.data.roomId, country: "ZZ" })).toMatchObject({ ok: false, error: { code: "not_found" } });
+      await f.provider.endRoom(room.data.roomId, "clinician");
+      expect((await f.provider.dialIn({ roomId: room.data.roomId, country: "NG" })).ok).toBe(false);
+    });
+
     timed("refuses a join link once the room has expired", async () => {
       const f = make();
       const room = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 1000 });

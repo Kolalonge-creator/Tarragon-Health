@@ -4,9 +4,6 @@ import type { FetchLike } from "./http.ts";
 import { createPaystackPayment } from "./payment-paystack.ts";
 import type { PaymentProvider } from "./payment.ts";
 import { createZoomVideo } from "./video-zoom.ts";
-import { createAfricasTalkingPhone } from "./phone-africastalking.ts";
-import type { PhoneBridgeProvider } from "./phone.ts";
-import type { BridgeStore } from "./phone-store.ts";
 import type { VideoProvider } from "./video.ts";
 
 /**
@@ -37,16 +34,4 @@ export function videoFromEnv(env: Env, fetch: FetchLike): VideoProvider | null {
   const sdkKey = has(env["ZOOM_SDK_KEY"]) ? env["ZOOM_SDK_KEY"] : undefined;
   const sdkSecret = has(env["ZOOM_SDK_SECRET"]) ? env["ZOOM_SDK_SECRET"] : undefined;
   return createZoomVideo({ accountId, clientId, clientSecret, sdkKey, sdkSecret, webhookSecretToken: has(env["ZOOM_WEBHOOK_SECRET_TOKEN"]) ? env["ZOOM_WEBHOOK_SECRET_TOKEN"] : undefined, fetch });
-}
-
-/**
- * The real phone bridge (Africa's Talking Voice), or null when it is not configured. Needs the bridge store because the second call
- * is placed from the vendor's callback. AT_VOICE_SANDBOX=true points it at the vendor's sandbox.
- */
-export function phoneFromEnv(env: Env, fetch: FetchLike, store: BridgeStore): PhoneBridgeProvider | null {
-  const username = env["AT_VOICE_USERNAME"];
-  const apiKey = env["AT_VOICE_API_KEY"];
-  const callerNumber = env["AT_VOICE_NUMBER"];
-  if (!has(username) || !has(apiKey) || !has(callerNumber)) return null;
-  return createAfricasTalkingPhone({ username, apiKey, callerNumber, sandbox: env["AT_VOICE_SANDBOX"] === "true", fetch, store });
 }

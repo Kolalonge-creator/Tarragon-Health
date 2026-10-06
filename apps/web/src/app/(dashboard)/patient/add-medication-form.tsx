@@ -6,6 +6,8 @@ import { checkMedicationSafetyAfterAdd } from "./actions";
 import { prescriptionDetailSchema, medicationSchema, type MedicationInput } from "@/lib/validation/medications";
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
+import { isSafetyResubmitReady, parseSafetyError } from "@/lib/prescriptions/parse-safety-error";
+import { SafetyFindingsPrompt } from "@/components/prescribing/safety-findings-prompt";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,6 +76,9 @@ export function AddMedicationForm({
   // acknowledgement for a controlled/restricted medicine, required alongside
   // (not instead of) the general safety-notes checkbox above.
   const [controlledAcknowledged, setControlledAcknowledged] = useState(false);
+  // S24 signing checks: answers to a SAFETY_FINDINGS stop. Never pre-ticked, never carried over to a new attempt on its own.
+  const [allergiesConfirmed, setAllergiesConfirmed] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
 
   function addTime() {
     addScheduleTime(newTime);
@@ -110,12 +115,19 @@ export function AddMedicationForm({
     setPendingData(null);
     setAcknowledged(false);
     setControlledAcknowledged(false);
+    setAllergiesConfirmed(false);
+    setOverrideReason("");
   }
 
   function submitMedication(data: MedicationInput) {
     const effectiveSource = specialistFieldsShown ? "specialist" : source;
     addMedication.mutate(
-      { ...data, patientId, source: effectiveSource },
+      {
+        ...data,
+        patientId,
+        source: effectiveSource,
+        safety: source === "clinician" ? { allergiesConfirmed, overrideReason } : undefined,
+      },
       {
         onSuccess: () => {
           setSuccess(true);
@@ -188,9 +200,10 @@ export function AddMedicationForm({
   // for table \"medications\"" in front of a patient. The validation message
   // above is ours and is worth showing; a failed insert gets one human
   // sentence instead.
-  const mutationError = addMedication.isError
-    ? "We could not save this medication just then. Please try again."
-    : null;
+  const safetyError = source === "clinician" && addMedication.isError ? parseSafetyError(addMedication.error) : null;
+  const mutationError =
+    addMedication.isError && !safetyError ? "We could not save this medication just then. Please try again." : null;
+  const safetyReady = safetyError ? isSafetyResubmitReady(safetyError, { allergiesConfirmed, overrideReason }) : true;
   const displayError = validationError ?? mutationError;
   const errorId = fieldErrorId("add-medication");
   const errorProps = fieldErrorProps(errorId, Boolean(displayError));
@@ -275,20 +288,41 @@ export function AddMedicationForm({
             patient, and confirm this prescription is correct.
           </label>
 
+          {safetyError && (
+            <SafetyFindingsPrompt
+              error={safetyError}
+              idPrefix="add-medication"
+              allergiesConfirmed={allergiesConfirmed}
+              onAllergiesConfirmedChange={setAllergiesConfirmed}
+              overrideReason={overrideReason}
+              onOverrideReasonChange={setOverrideReason}
+            />
+          )}
+
           <FormError id={errorId} message={displayError} />
 
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               onClick={handleSign}
-              disabled={!acknowledged || (!!controlledInfo && !controlledAcknowledged) || addMedication.isPending}
+              disabled={
+                !acknowledged ||
+                (!!controlledInfo && !controlledAcknowledged) ||
+                addMedication.isPending ||
+                !safetyReady
+              }
             >
               {addMedication.isPending ? "Signing…" : "Sign & prescribe"}
             </Button>
             <Button
               type="button"
               variant="outline"
-              onClick={() => setStep("form")}
+              onClick={() => {
+                addMedication.reset();
+                setAllergiesConfirmed(false);
+                setOverrideReason("");
+                setStep("form");
+              }}
               disabled={addMedication.isPending}
             >
               Back to edit

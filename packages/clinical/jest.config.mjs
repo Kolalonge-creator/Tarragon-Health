@@ -22,6 +22,7 @@ export default {
     "<rootDir>/supabase/functions/_shared/triage/*.ts",
     "<rootDir>/supabase/functions/process-events/triage-ports.ts",
     "<rootDir>/packages/clinical/src/rules/*.ts",
+    "<rootDir>/packages/clinical/src/titration.ts",
   ],
   coverageThreshold: { global: { branches: 100, functions: 100, lines: 100, statements: 100 } },
 };
