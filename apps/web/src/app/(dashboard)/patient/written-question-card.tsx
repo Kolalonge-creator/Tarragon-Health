@@ -8,7 +8,7 @@ import {
   useSendWrittenQuestion,
   useWrittenQuestionAllowance,
 } from "@/lib/queries/written-questions";
-import { clearDraft, loadDraft, saveDraft, type WrittenQuestionDraft } from "@/lib/written-questions/draft";
+import { clearDraft, loadDraft, newClientId, saveDraft, type WrittenQuestionDraft } from "@/lib/written-questions/draft";
 import { mapWrittenQuestionError, type MappedError } from "@/lib/written-questions/errors";
 import { checkPhoto, compressPhoto } from "@/lib/written-questions/photos";
 import { viewWrittenQuestion } from "@/lib/written-questions/status";
@@ -124,6 +124,7 @@ function QuestionForm({ patientId, locale, allowance }: { patientId: string; loc
     category: initialDraft && isCategory(initialDraft.category) ? initialDraft.category : "general",
     question: initialDraft?.question ?? "",
     duration: initialDraft?.duration ?? "",
+    clientId: initialDraft?.clientId ?? newClientId(),
   }));
   const [draftSaved, setDraftSaved] = useState(() => initialDraft !== null);
   const category: WrittenQuestionCategory = isCategory(fields.category) ? fields.category : "general";
@@ -184,7 +185,8 @@ function QuestionForm({ patientId, locale, allowance }: { patientId: string; loc
       category,
       question,
       durationNote: duration,
-      photos: photos.map((p) => p.blob),
+      clientId: fields.clientId,
+      photos: photos.map((p) => ({ id: p.id, blob: p.blob })),
       redFlagAcknowledged: acknowledged,
     });
     if (outcome.kind === "red_flag") {
@@ -197,7 +199,8 @@ function QuestionForm({ patientId, locale, allowance }: { patientId: string; loc
       return;
     }
     clearDraft(patientId);
-    setFields({ category, question: "", duration: "" });
+    // A sent question's id is spent; the next question gets its own.
+    setFields({ category, question: "", duration: "", clientId: newClientId() });
     setDraftSaved(false);
     setPhotos([]);
     setSent(true);

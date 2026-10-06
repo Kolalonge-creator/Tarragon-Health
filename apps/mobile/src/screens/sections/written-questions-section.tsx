@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
 import { useUiLanguage } from "@/lib/ui-language";
 import { supabase } from "@/lib/supabase";
+import * as Crypto from "expo-crypto";
 import { isTerminalWrittenQuestionError } from "@/lib/written-questions/errors";
+import { toBase64 } from "@/lib/written-questions/base64";
+import { writtenQuestionQueue } from "@/lib/written-questions/queue-instance";
+import type { QueuedItem } from "@/lib/written-questions/queue";
 import {
   loadAllowance,
   loadWrittenQuestions,
   postWrittenQuestionMessage,
-  submitWrittenQuestion,
-  uploadQuestionPhoto,
+  readCleanPhoto,
 } from "@/lib/written-questions/api";
 import {
   checkPhotoAdd,
@@ -43,8 +46,13 @@ interface QuestionDraft {
 }
 
 interface PickedPhoto {
+  id: string;
+  /** For showing the photo only; what is sent is `bytes`, already stripped of metadata. */
   uri: string;
+  bytes: Uint8Array;
 }
+
+const QUEUE_POLL_MS = 10_000;
 
 function lagos(iso: string, withTime: boolean): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -62,9 +70,10 @@ function lagos(iso: string, withTime: boolean): string {
  * INV-06) and works with no signal. The draft is saved on every change so a
  * dead battery loses nothing. No price, balance or credit is shown (INV-09).
  *
- * Offline: the S06 outbox carries single-row logs (readings, symptoms, doses)
- * and cannot carry a question followed by photo uploads, so a send with no
- * signal keeps the draft and says so rather than queueing half a submission.
+ * Offline: Send writes the message and its photos to the phone first (the durable
+ * queue in lib/written-questions/queue.ts), then tries to send. The server dedupes on
+ * the client id, so a retry never uses a second allowance. A refusal that can never
+ * succeed puts the text and photos back in the draft.
  */
 export function WrittenQuestionsSection() {
   const colors = useLegacyColors();
@@ -88,8 +97,11 @@ export function WrittenQuestionsSection() {
   const [submitting, setSubmitting] = useState(false);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   const [sent, setSent] = useState(false);
-  const [photoFailed, setPhotoFailed] = useState(false);
   const [gateOpen, setGateOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [queued, setQueued] = useState<QueuedItem[]>([]);
+  const [flushing, setFlushing] = useState(false);
+  const [returnedNotice, setReturnedNotice] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [a, q] = await Promise.all([loadAllowance(), loadWrittenQuestions()]);
@@ -97,9 +109,69 @@ export function WrittenQuestionsSection() {
     if (q.ok) setQuestions(q.data);
   }, []);
 
+  const reloadQueue = useCallback(async (uid: string | null) => {
+    if (!uid) return;
+    try {
+      setQueued(await writtenQuestionQueue.list(uid));
+    } catch {
+      // A failed read of the local queue must not blank the screen.
+    }
+  }, []);
+
+  /**
+   * Puts a refused item's text and photos back in the form (only when the form is empty, so
+   * nothing the patient is typing is overwritten), then removes it from the queue. If the app
+   * dies in between, the item is still stored and comes back next time.
+   */
+  const restoreReturned = useCallback(
+    async (uid: string, items: QueuedItem[]) => {
+      const item = items.find((i) => i.state === "returned");
+      if (!item || question.trim().length > 0) return;
+      const restored: PickedPhoto[] = [];
+      for (const photo of item.photos) {
+        const bytes = await writtenQuestionQueue.photoBytes(item.clientId, photo.id);
+        if (bytes) restored.push({ id: photo.id, bytes, uri: `data:image/jpeg;base64,${toBase64(bytes)}` });
+      }
+      setCategory(item.category);
+      setQuestion(item.question);
+      setDuration(item.durationNote);
+      setPhotos(restored);
+      const reason = item.returnedKey ? tr(item.returnedKey, { min: QUESTION_MIN_CHARS }) : tr("wq.error.generic");
+      setReturnedNotice(tr("wq.queued.returned", { reason }));
+      await saveDraft(DRAFT_KEY, {
+        category: item.category,
+        question: item.question,
+        duration: item.durationNote,
+      } satisfies QuestionDraft);
+      await writtenQuestionQueue.discard(uid, item.clientId);
+      await reloadQueue(uid);
+    },
+    [question, reloadQueue, tr],
+  );
+
+  const doFlush = useCallback(
+    async (uid: string, force: boolean) => {
+      setFlushing(true);
+      try {
+        const summary = await writtenQuestionQueue.flush(uid, { force });
+        if (summary.sent > 0) setSent(true);
+        const items = await writtenQuestionQueue.list(uid);
+        setQueued(items);
+        if (summary.sent > 0 || summary.returned > 0) await refresh();
+        if (items.some((i) => i.state === "returned")) await restoreReturned(uid, items);
+      } finally {
+        setFlushing(false);
+      }
+    },
+    [refresh, restoreReturned],
+  );
+
   useEffect(() => {
     let alive = true;
     void (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id ?? null;
+      if (alive) setUserId(uid);
       const draft = await loadDraft<QuestionDraft>(DRAFT_KEY);
       if (alive && draft) {
         setCategory(draft.category);
@@ -110,11 +182,30 @@ export function WrittenQuestionsSection() {
       if (alive) setDraftReady(true);
       await refresh();
       if (alive) setLoading(false);
+      if (alive && uid) {
+        await reloadQueue(uid);
+        await doFlush(uid, true);
+      }
     })();
     return () => {
       alive = false;
     };
-  }, [refresh]);
+    // Runs once on mount; later changes are driven by the poll below.
+  }, []);
+
+  // The app-wide flusher may send or return an item while this screen is open.
+  useEffect(() => {
+    if (!userId) return;
+    const timer = setInterval(() => {
+      void (async () => {
+        const items = await writtenQuestionQueue.list(userId).catch(() => null);
+        if (!items) return;
+        setQueued(items);
+        if (items.some((i) => i.state === "returned")) await restoreReturned(userId, items);
+      })();
+    }, QUEUE_POLL_MS);
+    return () => clearInterval(timer);
+  }, [userId, restoreReturned]);
 
   // Saved on every change (power-cut resilience, spec section 11).
   useEffect(() => {
@@ -135,29 +226,39 @@ export function WrittenQuestionsSection() {
   const lockedKey: MessageKey | null =
     allowance === null || canAsk ? null : allowance.isMember ? "wq.allowance.none" : "wq.members_only";
 
-  async function pickPhoto() {
+  async function pickPhoto(source: "library" | "camera") {
     setErrorKey(null);
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.6,
-      exif: false,
-      allowsMultipleSelection: false,
-    });
+    const permission =
+      source === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      // A calm message, no nagging: the form still works without a photo.
+      if (source === "camera") setErrorKey("labs.err.camera");
+      return;
+    }
+    const options = { mediaTypes: ["images"] as ImagePicker.MediaType[], quality: 0.6, exif: false };
+    const result =
+      source === "camera"
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync({ ...options, allowsMultipleSelection: false });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
-    const check = checkPhotoAdd(photos.length, asset.fileSize ?? 1, maxPhotos, maxBytes);
+    const bytes = await readCleanPhoto(asset.uri, maxBytes);
+    if (!bytes) {
+      setErrorKey("wq.error.photo_rejected");
+      return;
+    }
+    const check = checkPhotoAdd(photos.length, bytes.length, maxPhotos, maxBytes);
     if (!check.ok) {
       setErrorKey(check.reason === "limit" ? "wq.photos.limit" : "wq.error.photo_rejected");
       return;
     }
-    setPhotos((prev) => [...prev, { uri: asset.uri }]);
+    setPhotos((prev) => [...prev, { id: Crypto.randomUUID(), uri: asset.uri, bytes }]);
   }
 
   function attemptSend() {
     setSent(false);
-    setPhotoFailed(false);
     const length = checkQuestionLength(question);
     if (!length.ok) {
       setErrorKey(length.key);
@@ -173,31 +274,49 @@ export function WrittenQuestionsSection() {
   }
 
   async function send() {
-    setSubmitting(true);
-    setErrorKey(null);
-    const result = await submitWrittenQuestion({ category, question, durationNote: duration });
-    if (!result.ok) {
-      // The draft stays: nothing the patient typed is lost.
-      setErrorKey(result.key);
-      setSubmitting(false);
+    if (!userId) {
+      setErrorKey("wq.error.generic");
       return;
     }
-    const consultId = result.data;
-    const { data: auth } = await supabase.auth.getUser();
-    const userId = auth.user?.id;
-    let failed = false;
-    for (const photo of photos) {
-      const ok = userId ? await uploadQuestionPhoto({ userId, consultId, uri: photo.uri, maxBytes }) : false;
-      if (!ok) failed = true;
+    setSubmitting(true);
+    setErrorKey(null);
+    setReturnedNotice(null);
+    try {
+      // Durable first: the message and its photos are on the phone before any network call.
+      await writtenQuestionQueue.enqueue(userId, {
+        category,
+        question,
+        durationNote: duration,
+        photos: photos.map((p) => ({ bytes: p.bytes })),
+      });
+    } catch {
+      // Nothing was saved, so the draft stays exactly as it is.
+      setErrorKey("wq.error.generic");
+      setSubmitting(false);
+      return;
     }
     await clearDraft(DRAFT_KEY);
     setQuestion("");
     setDuration("");
     setPhotos([]);
-    setSent(true);
-    setPhotoFailed(failed);
+    setSent(false);
     setSubmitting(false);
-    await refresh();
+    await reloadQueue(userId);
+    await doFlush(userId, true);
+  }
+
+  function confirmDiscard(item: QueuedItem) {
+    Alert.alert(tr("wq.queued.discard"), undefined, [
+      { text: tr("common.cancel"), style: "cancel" },
+      {
+        text: tr("wq.queued.discard"),
+        style: "destructive",
+        onPress: () => {
+          if (!userId) return;
+          void writtenQuestionQueue.discard(userId, item.clientId).then(() => reloadQueue(userId));
+        },
+      },
+    ]);
   }
 
   function onAcknowledge() {
@@ -284,7 +403,7 @@ export function WrittenQuestionsSection() {
           {photos.length > 0 ? (
             <ScrollView horizontal contentContainerStyle={{ gap: 10 }}>
               {photos.map((p, index) => (
-                <View key={p.uri} style={{ gap: 6 }}>
+                <View key={p.id} style={{ gap: 6 }}>
                   <Image
                     source={{ uri: p.uri }}
                     accessibilityIgnoresInvertColors
@@ -303,7 +422,10 @@ export function WrittenQuestionsSection() {
             </ScrollView>
           ) : null}
           {photos.length < maxPhotos ? (
-            <SecondaryButton title={tr("wq.photos.add")} onPress={() => void pickPhoto()} disabled={submitting} />
+            <View style={{ gap: 8 }}>
+              <SecondaryButton title={tr("wq.photos.take")} onPress={() => void pickPhoto("camera")} disabled={submitting} />
+              <SecondaryButton title={tr("wq.photos.choose")} onPress={() => void pickPhoto("library")} disabled={submitting} />
+            </View>
           ) : (
             <MutedText>{tr("wq.photos.limit", { max: maxPhotos })}</MutedText>
           )}
@@ -318,8 +440,8 @@ export function WrittenQuestionsSection() {
                   : tr(errorKey)}
             </ErrorText>
           ) : null}
+          {returnedNotice ? <ErrorText>{returnedNotice}</ErrorText> : null}
           {sent ? <Text style={{ fontSize: 13.5, color: colors.brandPressed }}>{tr("wq.sent")}</Text> : null}
-          {photoFailed ? <ErrorText>{tr("wq.error.photo_later")}</ErrorText> : null}
           <PrimaryButton
             title={submitting ? tr("wq.sending") : tr("wq.send")}
             onPress={attemptSend}
@@ -331,7 +453,28 @@ export function WrittenQuestionsSection() {
 
       {errorKey && !canAsk && isTerminalWrittenQuestionError(errorKey) ? <ErrorText>{tr(errorKey)}</ErrorText> : null}
 
-      {!loading && questions.length === 0 ? <MutedText>{tr("wq.empty")}</MutedText> : null}
+      {queued.map((item, index) => (
+        <Card key={item.clientId} style={{ gap: 8 }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{item.question}</Text>
+          <MutedText>
+            {item.state === "returned"
+              ? tr("wq.queued.returned", {
+                  reason: item.returnedKey ? tr(item.returnedKey, { min: QUESTION_MIN_CHARS }) : tr("wq.error.generic"),
+                })
+              : flushing && index === 0
+                ? tr("wq.queued.sending")
+                : item.attempts > 0
+                  ? tr("wq.queued.retry")
+                  : tr("wq.queued")}
+          </MutedText>
+          {item.state === "queued" && userId ? (
+            <SecondaryButton title={tr("wq.send")} onPress={() => void doFlush(userId, true)} disabled={flushing} />
+          ) : null}
+          <SecondaryButton title={tr("wq.queued.discard")} onPress={() => confirmDiscard(item)} />
+        </Card>
+      ))}
+
+      {!loading && questions.length === 0 && queued.length === 0 ? <MutedText>{tr("wq.empty")}</MutedText> : null}
       {questions.map((q) => (
         <QuestionCard key={q.id} q={q} windowHours={windowHours} tr={tr} onChanged={refresh} />
       ))}

@@ -2,7 +2,16 @@ export interface WrittenQuestionDraft {
   category: string;
   question: string;
   duration: string;
+  /**
+   * One id per unsent question. It is kept with the draft so a refresh or a lost reply retries with the same id and
+   * the server returns the first question instead of using a second allowance. Cleared only after a successful send.
+   */
+  clientId: string;
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export const newClientId = (): string => crypto.randomUUID();
 
 interface DraftStore {
   getItem(key: string): string | null;
@@ -29,7 +38,9 @@ export function loadDraft(patientId: string, store: DraftStore | null = defaultS
     if (typeof v !== "object" || v === null) return null;
     const o = v as Record<string, unknown>;
     if (typeof o.category !== "string" || typeof o.question !== "string" || typeof o.duration !== "string") return null;
-    return { category: o.category, question: o.question, duration: o.duration };
+    // A draft saved before ids existed gets one now; it was never sent, so a fresh id is correct.
+    const clientId = typeof o.clientId === "string" && UUID_RE.test(o.clientId) ? o.clientId : newClientId();
+    return { category: o.category, question: o.question, duration: o.duration, clientId };
   } catch {
     return null;
   }

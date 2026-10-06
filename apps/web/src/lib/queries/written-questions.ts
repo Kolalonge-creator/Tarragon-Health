@@ -40,26 +40,34 @@ export function useWrittenQuestionAllowance() {
   });
 }
 
+/** Storage answers 409 / "already exists" when the first attempt's upload did land. That is done, not a failure. */
+function isAlreadyThere(error: { message?: string; statusCode?: string | number }): boolean {
+  return String(error.statusCode ?? "") === "409" || /already exists/i.test(error.message ?? "");
+}
+
 function browserGateway(): WrittenQuestionGateway {
   const supabase = createClient();
   return {
-    async submitQuestion({ category, question, durationNote }) {
+    async submitQuestion({ category, question, durationNote, clientId }) {
       const { data, error } = await supabase.rpc("submit_written_question", {
         p_category: category satisfies WrittenQuestionCategory,
         p_question: question,
         p_duration_note: durationNote ?? undefined,
+        p_client_id: clientId,
       });
       return { id: typeof data === "string" ? data : null, error: error?.message ?? null };
     },
-    async uploadPhoto(consultId, blob) {
+    async uploadPhoto(consultId, { id, blob }) {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) return { path: null, error: "not signed in" };
-      const path = `${userId}/${consultId}/${crypto.randomUUID()}.jpg`;
+      // The photo's own stable id, not a fresh one: a retry after a lost reply writes the same path.
+      const path = `${userId}/${consultId}/${id}.jpg`;
       const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, {
         contentType: "image/jpeg",
         upsert: false,
       });
+      if (error && isAlreadyThere(error)) return { path, error: null };
       return { path: error ? null : path, error: error?.message ?? null };
     },
     async attachPhoto({ consultId, path, mime, bytes }) {

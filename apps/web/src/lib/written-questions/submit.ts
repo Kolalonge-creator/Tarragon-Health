@@ -4,16 +4,30 @@ import { QUESTION_MAX_LENGTH, QUESTION_MIN_LENGTH, type WrittenQuestionCategory 
 
 /** The only calls the send flow needs; the real implementation wraps the Supabase client (see the query file). */
 export interface WrittenQuestionGateway {
-  submitQuestion(args: { category: WrittenQuestionCategory; question: string; durationNote: string | null }): Promise<{ id: string | null; error: string | null }>;
-  uploadPhoto(consultId: string, blob: Blob): Promise<{ path: string | null; error: string | null }>;
+  submitQuestion(args: {
+    category: WrittenQuestionCategory;
+    question: string;
+    durationNote: string | null;
+    clientId: string;
+  }): Promise<{ id: string | null; error: string | null }>;
+  /** The path is built from the photo's own stable id, so a retry writes the same path. "Already there" counts as done. */
+  uploadPhoto(consultId: string, photo: PhotoToSend): Promise<{ path: string | null; error: string | null }>;
   attachPhoto(args: { consultId: string; path: string; mime: string; bytes: number }): Promise<{ error: string | null }>;
 }
 
+export interface PhotoToSend {
+  /** Stable for the life of the picked photo, so a retry reuses the same storage path. */
+  id: string;
+  blob: Blob;
+}
+
 export interface SubmitInput {
+  /** One id per unsent question (see draft.ts). A retry sends the same id. */
+  clientId: string;
   category: WrittenQuestionCategory;
   question: string;
   durationNote: string;
-  photos: Blob[];
+  photos: PhotoToSend[];
   /** The patient chose "I understand" after the red-flag panel. */
   redFlagAcknowledged: boolean;
 }
@@ -38,14 +52,15 @@ export async function sendWrittenQuestion(gateway: WrittenQuestionGateway, input
     return { kind: "red_flag" };
   }
 
-  const created = await gateway.submitQuestion({ category: input.category, question, durationNote: duration || null });
+  const created = await gateway.submitQuestion({ category: input.category, question, durationNote: duration || null, clientId: input.clientId });
   if (created.error !== null || created.id === null) {
     return { kind: "error", error: mapWrittenQuestionError(created.error) };
   }
 
   let photoFailures = 0;
-  for (const blob of input.photos) {
-    const up = await gateway.uploadPhoto(created.id, blob);
+  for (const photo of input.photos) {
+    const { blob } = photo;
+    const up = await gateway.uploadPhoto(created.id, photo);
     if (up.error !== null || up.path === null) {
       photoFailures += 1;
       continue;

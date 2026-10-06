@@ -1,10 +1,9 @@
-import * as Crypto from "expo-crypto";
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import { mapWrittenQuestionError } from "./errors";
-import { photoStoragePath, stripJpegMetadata } from "./limits";
+import { stripJpegMetadata } from "./limits";
 import { parseAllowance, parseWrittenQuestions } from "./parse";
-import type { WrittenQuestion, WrittenQuestionAllowance, WrittenQuestionCategory } from "./types";
+import type { WrittenQuestion, WrittenQuestionAllowance } from "./types";
 import type { MessageKey } from "@tarragon/i18n";
 
 /**
@@ -30,20 +29,6 @@ export async function loadWrittenQuestions(): Promise<QueryResult<WrittenQuestio
   return { ok: true, data: parseWrittenQuestions(data) };
 }
 
-export async function submitWrittenQuestion(input: {
-  category: WrittenQuestionCategory;
-  question: string;
-  durationNote: string;
-}): Promise<ApiResult<string>> {
-  const { data, error } = await supabase.rpc("submit_written_question", {
-    p_category: input.category,
-    p_question: input.question.trim(),
-    ...(input.durationNote.trim() ? { p_duration_note: input.durationNote.trim() } : {}),
-  });
-  if (error || !data) return { ok: false, key: mapWrittenQuestionError(error?.message) };
-  return { ok: true, data };
-}
-
 export async function postWrittenQuestionMessage(consultId: string, body: string): Promise<ApiResult<string>> {
   const { data, error } = await supabase.rpc("post_written_question_message", {
     p_consult: consultId,
@@ -54,34 +39,18 @@ export async function postWrittenQuestionMessage(consultId: string, body: string
 }
 
 /**
- * Uploads one photo to the private bucket, then registers it. The metadata is
- * stripped from the JPEG bytes first. Returns false on any failure so the caller
- * can say the photo did not go; the question itself is already sent by then.
+ * Reads a picked or captured photo and returns the JPEG bytes with the metadata (location, device)
+ * stripped, or null when the file is unreadable, not a JPEG, empty or over the size limit. The
+ * queue stores these cleaned bytes, so what is sent is exactly what was checked.
  */
-export async function uploadQuestionPhoto(input: {
-  userId: string;
-  consultId: string;
-  uri: string;
-  maxBytes: number;
-}): Promise<boolean> {
+export async function readCleanPhoto(uri: string, maxBytes: number): Promise<Uint8Array | null> {
   try {
-    const response = await fetch(input.uri);
+    const response = await fetch(uri);
     const raw = new Uint8Array(await response.arrayBuffer());
     const clean = stripJpegMetadata(raw);
-    if (!clean || clean.length > input.maxBytes) return false;
-    const path = photoStoragePath(input.userId, input.consultId, Crypto.randomUUID());
-    const { error: uploadError } = await supabase.storage
-      .from(WRITTEN_QUESTION_BUCKET)
-      .upload(path, clean, { contentType: "image/jpeg", upsert: false });
-    if (uploadError) return false;
-    const { error } = await supabase.rpc("attach_written_question_photo", {
-      p_consult: input.consultId,
-      p_path: path,
-      p_mime: "image/jpeg",
-      p_bytes: clean.length,
-    });
-    return !error;
+    if (!clean || clean.length === 0 || clean.length > maxBytes) return null;
+    return clean;
   } catch {
-    return false;
+    return null;
   }
 }

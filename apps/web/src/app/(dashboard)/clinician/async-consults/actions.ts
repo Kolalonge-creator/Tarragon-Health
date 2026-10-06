@@ -3,9 +3,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { looseRpc } from "@/lib/clinician/loose-rpc";
 import {
   answerWrittenQuestionSchema,
+  WRITTEN_QUESTION_TASK_TYPES,
+  callDoneSchema,
   claimRedirectPath,
   describeRpcError,
   handbackSchema,
@@ -17,13 +18,14 @@ export type WrittenQuestionActionState = { error?: string; message?: string } | 
 const BASE = "/clinician/async-consults";
 
 /**
- * "Take the next task" (S17 bridge until the full Next-task console). The server picks and claims atomically; the
- * clinician cannot browse or choose. A task that is not a written question is never dropped: the redirect carries it
- * to a notice that says it is held and can be handed back.
+ * "Take the next written question" (S17 bridge until the full Next-task console). The server picks and claims
+ * atomically from written-question work only (p_types); the clinician cannot browse or choose. If they are already
+ * at the claim cap holding a task of another type, it is never dropped: the redirect carries it to a notice that
+ * says it is held and can be handed back.
  */
 export async function takeNextTask(): Promise<WrittenQuestionActionState> {
   const supabase = await createClient();
-  const { data, error } = await looseRpc(supabase)("queue_next");
+  const { data, error } = await supabase.rpc("queue_next", { p_types: WRITTEN_QUESTION_TASK_TYPES });
   if (error) return { error: describeRpcError(error, "The queue could not be opened. Please try again.") };
   const parsed = queueNextResultSchema.safeParse(data);
   if (!parsed.success) return { error: "The queue gave an answer this page could not read. Please try again." };
@@ -44,10 +46,31 @@ export async function handBackTask(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
 
   const supabase = await createClient();
-  const { error } = await looseRpc(supabase)("queue_handback", {
+  const { error } = await supabase.rpc("queue_handback", {
     p_task: parsed.data.taskId,
     p_reason: parsed.data.reason,
-    p_note: parsed.data.note ?? null,
+    p_note: parsed.data.note,
+  });
+  if (error) return { error: describeRpcError(error) };
+  revalidatePath(BASE);
+  redirect(BASE);
+}
+
+/** Records that a call was made. The claim on the call task ends the clinician's tie to the patient. */
+export async function markCallDone(
+  _prev: WrittenQuestionActionState,
+  formData: FormData,
+): Promise<WrittenQuestionActionState> {
+  const parsed = callDoneSchema.safeParse({
+    taskId: String(formData.get("task_id") ?? ""),
+    note: String(formData.get("note") ?? ""),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the note and try again." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("queue_complete", {
+    p_task: parsed.data.taskId,
+    p_outcome: { kind: "call_done", note: parsed.data.note },
   });
   if (error) return { error: describeRpcError(error) };
   revalidatePath(BASE);

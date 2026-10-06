@@ -1,10 +1,12 @@
 import { mapWrittenQuestionError } from "./errors";
 import { checkPhoto, targetSize } from "./photos";
 import { viewWrittenQuestion } from "./status";
-import { sendWrittenQuestion, type WrittenQuestionGateway } from "./submit";
-import { loadDraft, saveDraft } from "./draft";
+import { sendWrittenQuestion, type PhotoToSend, type WrittenQuestionGateway } from "./submit";
+import { clearDraft, loadDraft, newClientId, saveDraft } from "./draft";
 import { groupNotes, noteSections, parseNoteIndex, parseReleasedNotes } from "./notes";
 import type { WrittenQuestion } from "./types";
+
+const CID = "11111111-1111-4111-8111-111111111111";
 
 function gateway(): jest.Mocked<WrittenQuestionGateway> {
   return {
@@ -13,7 +15,7 @@ function gateway(): jest.Mocked<WrittenQuestionGateway> {
     attachPhoto: jest.fn().mockResolvedValue({ error: null }),
   };
 }
-const base = { category: "general" as const, durationNote: "", photos: [] as Blob[], redFlagAcknowledged: false };
+const base = { category: "general" as const, durationNote: "", photos: [] as PhotoToSend[], clientId: "client-1", redFlagAcknowledged: false };
 
 describe("mapWrittenQuestionError", () => {
   it("maps database messages by prefix", () => {
@@ -91,14 +93,14 @@ describe("sendWrittenQuestion red-flag gate", () => {
   it("submits first, then uploads and registers each photo; counts failures", async () => {
     const g = gateway();
     g.uploadPhoto.mockResolvedValueOnce({ path: null, error: "x" });
-    const r = await sendWrittenQuestion(g, { ...base, question: "A normal question about my medicine", photos: [new Blob(["a"]), new Blob(["b"])] });
+    const r = await sendWrittenQuestion(g, { ...base, question: "A normal question about my medicine", photos: [{ id: "p1", blob: new Blob(["a"]) }, { id: "p2", blob: new Blob(["b"]) }] });
     expect(r).toEqual({ kind: "sent", consultId: "c1", photoFailures: 1 });
     expect(g.attachPhoto).toHaveBeenCalledTimes(1);
   });
   it("maps a database refusal and uploads nothing", async () => {
     const g = gateway();
     g.submitQuestion.mockResolvedValue({ id: null, error: "You have used your written messages for this month." });
-    const r = await sendWrittenQuestion(g, { ...base, question: "A normal question about my medicine", photos: [new Blob(["a"])] });
+    const r = await sendWrittenQuestion(g, { ...base, question: "A normal question about my medicine", photos: [{ id: "p1", blob: new Blob(["a"]) }] });
     expect(r).toEqual({ kind: "error", error: { key: "wq.allowance.none" } });
     expect(g.uploadPhoto).not.toHaveBeenCalled();
   });
@@ -111,11 +113,11 @@ describe("draft storage", () => {
   };
   it("round-trips and survives a throwing store", () => {
     const s = mem();
-    expect(saveDraft("p", { category: "general", question: "hello there", duration: "" }, s)).toBe(true);
+    expect(saveDraft("p", { category: "general", question: "hello there", duration: "", clientId: CID }, s)).toBe(true);
     expect(loadDraft("p", s)?.question).toBe("hello there");
     const bad = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); }, removeItem: () => { throw new Error("blocked"); } };
     expect(loadDraft("p", bad)).toBeNull();
-    expect(saveDraft("p", { category: "general", question: "x", duration: "" }, bad)).toBe(false);
+    expect(saveDraft("p", { category: "general", question: "x", duration: "", clientId: CID }, bad)).toBe(false);
   });
 });
 
@@ -137,5 +139,53 @@ describe("notes", () => {
     expect(groups.map((g) => g.entry.id)).toEqual(["n1", "n3"]);
     expect(groups[0].amendments.map((a) => a.id)).toEqual(["n2"]);
     expect(groups[1].note).toBeNull();
+  });
+});
+
+describe("client id for a safe retry", () => {
+  const long = "A normal question about my medicine";
+  it("sends the client id with the question", async () => {
+    const g = gateway();
+    await sendWrittenQuestion(g, { ...base, question: long, clientId: CID });
+    expect(g.submitQuestion).toHaveBeenCalledWith(expect.objectContaining({ clientId: CID }));
+  });
+  it("a retry after a lost reply reuses the same id and the same photo ids", async () => {
+    const g = gateway();
+    g.submitQuestion.mockResolvedValueOnce({ id: null, error: "network" });
+    const photos = [{ id: "photo-1", blob: new Blob(["a"]) }];
+    const first = await sendWrittenQuestion(g, { ...base, question: long, clientId: CID, photos });
+    expect(first.kind).toBe("error");
+    const second = await sendWrittenQuestion(g, { ...base, question: long, clientId: CID, photos });
+    expect(second.kind).toBe("sent");
+    const ids = g.submitQuestion.mock.calls.map((c) => c[0].clientId);
+    expect(ids).toEqual([CID, CID]);
+    expect(g.uploadPhoto).toHaveBeenCalledWith("c1", photos[0]);
+  });
+  it("a new question gets a new id", () => {
+    expect(newClientId()).not.toBe(newClientId());
+  });
+});
+
+describe("draft client id", () => {
+  const store = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) };
+  };
+  it("round-trips the id so a refresh retries with the same one", () => {
+    const s = store();
+    saveDraft("p", { category: "general", question: "hello there", duration: "", clientId: CID }, s);
+    expect(loadDraft("p", s)?.clientId).toBe(CID);
+  });
+  it("gives an old draft with no id a fresh valid one", () => {
+    const s = store();
+    s.setItem("tarragon.wq.draft.p", JSON.stringify({ category: "general", question: "hello", duration: "" }));
+    const d = loadDraft("p", s);
+    expect(d?.clientId).toMatch(/^[0-9a-f-]{36}$/);
+  });
+  it("clears the id with the draft after a successful send", () => {
+    const s = store();
+    saveDraft("p", { category: "general", question: "hello there", duration: "", clientId: CID }, s);
+    clearDraft("p", s);
+    expect(loadDraft("p", s)).toBeNull();
   });
 });

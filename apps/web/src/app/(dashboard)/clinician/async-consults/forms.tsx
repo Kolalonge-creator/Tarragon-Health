@@ -14,6 +14,7 @@ import {
 import {
   answerWrittenQuestion,
   handBackTask,
+  markCallDone,
   takeNextTask,
   type WrittenQuestionActionState,
 } from "./actions";
@@ -23,7 +24,7 @@ export function TakeNextForm() {
   return (
     <form action={action} className="space-y-2">
       <Button type="submit" disabled={pending}>
-        {pending ? "Looking for the next task..." : "Take the next task"}
+        {pending ? "Looking for the next question..." : "Take the next written question"}
       </Button>
       {state?.error && (
         <p role="alert" className="text-sm text-red-600">
@@ -102,6 +103,27 @@ export function AnswerForm({ consultId }: { consultId: string }) {
       {state?.message && <p className="text-sm text-brand-green">{state.message}</p>}
       <Button type="submit" disabled={pending}>
         {pending ? "Sending..." : "Send reply"}
+      </Button>
+    </form>
+  );
+}
+
+export function CallDoneForm({ taskId }: { taskId: string }) {
+  const [state, action, pending] = useActionState<WrittenQuestionActionState, FormData>(markCallDone, undefined);
+  return (
+    <form action={action} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+      <input type="hidden" name="task_id" value={taskId} />
+      <div>
+        <Label htmlFor={`call-note-${taskId}`}>What happened on the call (10 to 1,000 characters)</Label>
+        <Textarea id={`call-note-${taskId}`} name="note" rows={3} minLength={10} maxLength={1000} required />
+      </div>
+      {state?.error && (
+        <p role="alert" className="text-sm text-red-600">
+          {state.error}
+        </p>
+      )}
+      <Button type="submit" size="sm" disabled={pending}>
+        {pending ? "Saving..." : "Mark call done"}
       </Button>
     </form>
   );

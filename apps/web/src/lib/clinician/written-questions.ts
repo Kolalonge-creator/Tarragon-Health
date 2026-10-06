@@ -151,11 +151,35 @@ export const queueNextResultSchema = z.object({
 export type QueueNextResult = z.infer<typeof queueNextResultSchema>;
 
 export const WRITTEN_QUESTION_TASK_TYPE = "async_question";
+export const WRITTEN_QUESTION_CALL_TASK_TYPE = "written_question_call";
+/** The only task types this page asks the queue for. A blood pressure review is never claimed from here. */
+export const WRITTEN_QUESTION_TASK_TYPES: string[] = [WRITTEN_QUESTION_TASK_TYPE, WRITTEN_QUESTION_CALL_TASK_TYPE];
 
-/** The destination after a claim: a written question stays on the list, anything else shows the held notice. */
+/**
+ * The destination after a claim: a written question or a call stays on the page (each has its own list), anything
+ * else (only possible when the clinician already held it, at the claim cap) shows the held notice with a hand-back.
+ */
 export function claimRedirectPath(result: QueueNextResult, base: string): string {
   if (!result.task) return `${base}?none=1`;
-  if (result.task.type === WRITTEN_QUESTION_TASK_TYPE) return base;
+  if (WRITTEN_QUESTION_TASK_TYPES.includes(result.task.type)) return base;
   const params = new URLSearchParams({ held: result.task.id, type: result.task.type });
   return `${base}?${params.toString()}`;
 }
+
+export const callDoneSchema = z.object({
+  taskId: z.string().uuid(),
+  note: z
+    .string()
+    .trim()
+    .min(10, "Please write a short note about the call (10 characters or more).")
+    .max(1000, "Please keep the note under 1,000 characters."),
+});
+
+export const heldCallTaskSchema = z.object({
+  task_id: z.string().uuid(),
+  patient_id: z.string().uuid(),
+  due_at: z.string().nullable(),
+  claim_expires_at: z.string().nullable(),
+});
+export type HeldCallTask = z.infer<typeof heldCallTaskSchema>;
+export const heldCallTasksSchema = z.array(heldCallTaskSchema);

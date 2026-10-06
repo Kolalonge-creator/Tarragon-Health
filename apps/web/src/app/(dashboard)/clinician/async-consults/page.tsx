@@ -8,12 +8,14 @@ import {
   WRITTEN_QUESTION_READ_REASON,
   claimedQuestionsSchema,
   describeRpcError,
+  heldCallTasksSchema,
   openQuestionParamsSchema,
   writtenQuestionSchema,
   type AnswerKind,
   type ClaimedQuestion,
+  type HeldCallTask,
 } from "@/lib/clinician/written-questions";
-import { AnswerForm, HandBackForm, TakeNextForm } from "./forms";
+import { AnswerForm, CallDoneForm, HandBackForm, TakeNextForm } from "./forms";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,11 @@ export default async function WrittenQuestionsPage({ searchParams }: { searchPar
   // Flagged first, then as returned (the function already orders by window).
   const ordered = [...claims].sort((a, b) => Number(b.safety_flagged) - Number(a.safety_flagged));
 
+  const callsRes = await supabase.rpc("my_held_call_tasks");
+  const callsParsed = callsRes.error ? null : heldCallTasksSchema.safeParse(callsRes.data);
+  const calls: HeldCallTask[] = callsParsed?.success ? callsParsed.data : [];
+  const callsFailed = Boolean(callsRes.error) || (callsParsed !== null && !callsParsed.success);
+
   let openQuestion: ReturnType<typeof writtenQuestionSchema.parse> | null = null;
   let openError: string | null = null;
   if (open) {
@@ -72,7 +79,7 @@ export default async function WrittenQuestionsPage({ searchParams }: { searchPar
 
       <Card>
         <CardHeader>
-          <CardTitle>Next task</CardTitle>
+          <CardTitle>Next written question</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <TakeNextForm />
@@ -80,10 +87,10 @@ export default async function WrittenQuestionsPage({ searchParams }: { searchPar
           {held && (
             <div role="status" className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-charcoal-ink">
               <p>
-                You have claimed a task that is not a written question
-                {type ? ` (type: ${type.replace(/_/g, " ")})` : ""}. It is held for you for 30 minutes and then returns
-                to the queue. You can hand it back below if it is not right for you. The full task screen is coming;
-                until then this page cannot open it.
+                You are holding the most tasks you can at once, and one of them is not written-question work
+                {type ? ` (type: ${type.replace(/_/g, " ")})` : ""}. It is held for you until the hold runs out and
+                then returns to the queue. You can hand it back below if it is not right for you. The full task screen
+                is coming; until then this page cannot open it.
               </p>
               <HandBackForm taskId={held} />
             </div>
@@ -120,6 +127,42 @@ export default async function WrittenQuestionsPage({ searchParams }: { searchPar
                   >
                     {open === c.id ? "Open" : "Read and reply"}
                   </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Calls to make</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {callsFailed && (
+            <p role="alert" className="text-sm text-red-600">
+              Your calls could not be loaded. This is not the same as having none.
+            </p>
+          )}
+          {!callsFailed && calls.length === 0 && (
+            <p className="text-sm text-charcoal-ink/60">You are not holding any calls to make.</p>
+          )}
+          {calls.length > 0 && (
+            <ul className="divide-y divide-charcoal-ink/10">
+              {calls.map((c) => (
+                <li key={c.task_id} className="space-y-3 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="blue">Call</Badge>
+                    {c.due_at && <span className="text-xs text-charcoal-ink/60">Call by {dateTime(c.due_at)}</span>}
+                    <Link
+                      href={`/clinician/patients/${c.patient_id}`}
+                      className="ml-auto text-sm font-medium text-brand-green underline"
+                    >
+                      Open the patient chart
+                    </Link>
+                  </div>
+                  <CallDoneForm taskId={c.task_id} />
+                  <HandBackForm taskId={c.task_id} />
                 </li>
               ))}
             </ul>

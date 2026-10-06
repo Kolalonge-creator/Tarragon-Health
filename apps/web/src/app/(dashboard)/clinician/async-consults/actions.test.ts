@@ -9,7 +9,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({ rpc: (...args: unknown[]) => rpc(...args) }),
 }));
 
-import { answerWrittenQuestion, handBackTask, takeNextTask } from "./actions";
+import { answerWrittenQuestion, handBackTask, markCallDone, takeNextTask } from "./actions";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const form = (entries: Record<string, string>): FormData => {
@@ -71,7 +71,7 @@ describe("handBackTask", () => {
   it("hands back and returns to the list", async () => {
     rpc.mockResolvedValue({ data: null, error: null });
     await expect(handBackTask(undefined, form({ task_id: id, reason: "outside_competence" }))).rejects.toThrow("REDIRECT:/clinician/async-consults");
-    expect(rpc).toHaveBeenCalledWith("queue_handback", { p_task: id, p_reason: "outside_competence", p_note: null });
+    expect(rpc).toHaveBeenCalledWith("queue_handback", { p_task: id, p_reason: "outside_competence" });
   });
 });
 
@@ -80,9 +80,50 @@ describe("takeNextTask", () => {
     rpc.mockResolvedValue({ data: { already_claimed: false, task: { id, type: "triage_review" } }, error: null });
     await expect(takeNextTask()).rejects.toThrow(`REDIRECT:/clinician/async-consults?held=${id}&type=triage_review`);
   });
+  it("asks the queue for written-question work only", async () => {
+    rpc.mockResolvedValue({ data: { already_claimed: false, task: { id, type: "async_question" } }, error: null });
+    await expect(takeNextTask()).rejects.toThrow("REDIRECT:/clinician/async-consults");
+    expect(rpc).toHaveBeenCalledWith("queue_next", { p_types: ["async_question", "written_question_call"] });
+  });
+  it("stays on the page when the claim is a call task", async () => {
+    rpc.mockResolvedValue({ data: { already_claimed: false, task: { id, type: "written_question_call" } }, error: null });
+    await expect(takeNextTask()).rejects.toThrow(/^REDIRECT:\/clinician\/async-consults$/);
+  });
+  it("shows an already-held task of another type as held, never silently", async () => {
+    rpc.mockResolvedValue({ data: { already_claimed: true, task: { id, type: "bp_review" } }, error: null });
+    await expect(takeNextTask()).rejects.toThrow(`REDIRECT:/clinician/async-consults?held=${id}&type=bp_review`);
+  });
   it("reports a closed queue in words", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "queue_cooling_off", code: "42501" } });
     const result = await takeNextTask();
     expect(result?.error).toMatch(/handed back/);
+  });
+});
+
+describe("markCallDone", () => {
+  it("refuses a note under 10 characters without calling the database", async () => {
+    const result = await markCallDone(undefined, form({ task_id: id, note: "short" }));
+    expect(result?.error).toMatch(/10 characters/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("refuses a note over 1000 characters", async () => {
+    const result = await markCallDone(undefined, form({ task_id: id, note: "x".repeat(1001) }));
+    expect(result?.error).toMatch(/1,000/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("completes the call task with a call_done outcome", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    await expect(markCallDone(undefined, form({ task_id: id, note: "  Spoke to the patient, advised review.  " }))).rejects.toThrow(
+      "REDIRECT:/clinician/async-consults",
+    );
+    expect(rpc).toHaveBeenCalledWith("queue_complete", {
+      p_task: id,
+      p_outcome: { kind: "call_done", note: "Spoke to the patient, advised review." },
+    });
+  });
+  it("maps a lost claim to plain words", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "queue_no_claim", code: "42501" } });
+    const result = await markCallDone(undefined, form({ task_id: id, note: "Spoke to the patient." }));
+    expect(result?.error).toMatch(/no longer hold/);
   });
 });
