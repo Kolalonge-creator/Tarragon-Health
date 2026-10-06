@@ -149,6 +149,9 @@ importers:
       '@tarragon/clinical':
         specifier: workspace:*
         version: link:../../packages/clinical
+      '@tarragon/commerce':
+        specifier: workspace:*
+        version: link:../../packages/commerce
       '@tarragon/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
