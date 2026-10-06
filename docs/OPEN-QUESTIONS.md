@@ -707,3 +707,27 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Not built here: this is S15's `credential_rule('notice_windows_days')` configuration, not S20's.
 - Recommendation: add a November reminder and a capacity check before 1 January once the roster is large enough for a cluster to matter.
 - Decision: open.
+
+### OQ-150 What makes a patient a Member (raised by S22)
+- The 2026-10-05 membership model is not built in the database; there is no membership table. S22 gates written questions through one seam, `private.patient_is_member(uuid)`, which today treats the legacy `async_doctor_visit` plan feature as membership and grandfathers any unredeemed paid `async_consult_credit` (so no one who already paid is stranded). It shows no price to a non-member (INV-09). The real definition lands with the membership and checkout build; until then the seam, not the trigger, is what to change. This reverses OQ-130 (the 2,500 per-question price): the per-question credit stops being sold.
+
+### OQ-151 Written question allowance and window are PROPOSED (raised by S22)
+- 4 written questions per member per month, 24 hour window, 7 day free follow-up, up to 3 photos. All in `async_question.behaviour` v1, owner CMO. The founder asked the build to choose the allowance: four is about one a week beside 12 monthly calls, keeps a 24 hour window staffable, and a missed window returns the question. Review after the first month of real use. No rollover.
+
+### OQ-152 Notes: stored states and `body jsonb` (raised by S22)
+- Spec 4.3 wants `notes.state` and `body jsonb`. Live `clinical_encounter_notes` wins (OQ-23): `status` stays `draft` or `finalized`, and the S05 `public.notes` view derives `draft`, `signed`, `amended`. No `body jsonb`: the history, examination, assessment, diagnosis and plan columns already are the structured sections. A second stored state or a duplicate body would be two sources of truth.
+
+### OQ-153 NDPA correction deadlines and MDCN text-only limits (raised by S22)
+- Counsel to confirm the NDPA response deadline for a correction request on a clinical record and any clinical-record carve-out, and the primary MDCN telemedicine text on asynchronous advice (research read it only through secondary sources). The design does not depend on either: a correction is attached beside the note and never deletes; no written question ever produces a diagnosis (founder, 2026-10-06), a patient who needs one is called.
+
+### OQ-154 Written questions for under-18s (raised by S22, extends OQ-129)
+- Adults only. A minor's question is refused with a plain message. Whether a guardian may submit for a child is for the founder and CMO.
+
+### OQ-155 Patient access to signed notes reverses part of OQ-58 (raised by S22)
+- OQ-58 (2026-10-01) gave patients the published summary only. Founder decision 2026-10-06: summary by default, and the signed note on request once a clinician releases it, with a recorded withhold reason when not released, and CMO-only release for protected categories. OQ-58 is amended, not removed: nothing is released automatically.
+
+### OQ-156 Pidgin strings for S22 need a native reviewer (raised by S22, extends OQ-19)
+- Every new `pcm` string for written questions, the red-flag guidance shown before sending, the allowance and the release screens was written by the build session. The red-flag text is safety wording and must be reviewed with the CMO before the next store build.
+
+### OQ-157 Direct staff reads of `async_consults`, `care_messages` and summaries stay org-wide (raised by S22)
+- S22 closes the staff read path for written questions only. `care_messages`, `care_message_attachments` and `consultation_patient_summaries` are still readable by any org staff and are not audited (INV-10, INV-12; RECONCILIATION). One surface per session (OQ-54).
