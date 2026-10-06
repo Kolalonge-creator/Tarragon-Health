@@ -451,6 +451,14 @@ begin
   perform pg_temp.ck('the adapter-side mismatch is recorded', 'mismatch',
     pg_temp.res(pg_temp.svc(format($q$select public.flag_order_payment_mismatch(%L, 'fee', 500000, 900000, 'webhook')::text$q$, ref))));
   perform pg_temp.ck('and the order stays unpaid', 'created', (select state from public.orders where paystack_reference = ref));
+  perform pg_temp.svc(format($q$select public.flag_order_payment_mismatch(%L, 'fee', 500000, 950000, 'webhook', 'evt-fee', 450000, '{"processor_fee_kobo":150}'::jsonb)::text$q$, ref));
+  perform pg_temp.ck('a flagged mismatch keeps the fee and evidence it was given, not zeros', '450000|150',
+    (select p.fee_kobo::text || '|' || (p.raw->>'processor_fee_kobo') from public.payments p
+      where p.provider_reference = ref and p.status = 'mismatch' and p.total_kobo = 950000));
+  perform pg_temp.ck('a customer fee above the processor fee is refused as a fee mismatch and the order stays unpaid', 'mismatch|created',
+    pg_temp.res(pg_temp.svc(format($q$select public.record_order_payment(%L, %s, 900, %s, 'NGN', 'success', 'webhook', 'evt-cap', now(), '{}'::jsonb, 100)::text$q$,
+        ref, (select amount_kobo from public.orders where paystack_reference = ref), (select amount_kobo + 900 from public.orders where paystack_reference = ref))))
+      || '|' || (select state from public.orders where paystack_reference = ref));
   perform pg_temp.ck('a user cannot flag a mismatch', 'true',
     (pg_temp.q_as(v_p2, format($q$select public.flag_order_payment_mismatch(%L, 'fee', 1, 1, 'webhook')::text$q$, ref)) like '%permission denied%')::text);
   perform pg_temp.ck('flagging a paid order is a replay, not a mismatch', 'replay',
@@ -488,7 +496,8 @@ end $$;
 -- 8. SABOTAGE: the amount check and the replay guards removed; both checks must flip ---------------------------------------
 create or replace function public.record_order_payment(
   p_reference text, p_amount_kobo bigint, p_fee_kobo bigint, p_total_kobo bigint, p_currency text, p_status text,
-  p_source text, p_event_key text default null, p_paid_at timestamptz default null, p_raw jsonb default '{}'::jsonb
+  p_source text, p_event_key text default null, p_paid_at timestamptz default null, p_raw jsonb default '{}'::jsonb,
+  p_processor_fee_kobo bigint default null
 ) returns jsonb language plpgsql security definer set search_path = '' as $$
 declare o public.orders%rowtype;
 begin

@@ -92,6 +92,9 @@ describe("confirmPayment", () => {
     const r = await confirmPayment(deps, { reference: REF, source: "webhook" });
     expect(r).toMatchObject({ outcome: "mismatch", reason: "fee" });
     expect(store.orders.get(REF)!.state).toBe("created");
+    // the evidence row keeps what was actually charged, not zeros
+    expect(store.mismatches[0]).toMatchObject({ reason: "fee", feeKobo: 900_000, totalKobo: PRICE + 900_000 });
+    expect(store.mismatches[0]!.raw).toMatchObject({ processor_fee_kobo: 150_000 });
   });
   it("flags a reference swap and a foreign currency", async () => {
     for (const patch of [{ reference: "tho_swapped000000000000000000000000" }, { currency: "USD" }] as const) {
@@ -159,6 +162,22 @@ describe("handleOrderWebhook", () => {
     expect(await handleOrderWebhook(deps, legacy.rawBody, legacy.signature)).toEqual({ handled: false, reason: "not_an_order_event" });
     const refund = await payments.signedWebhook({ event: "refund.processed", data: { transaction_reference: REF, status: "processed" } });
     expect(await handleOrderWebhook(deps, refund.rawBody, refund.signature)).toEqual({ handled: false, reason: "not_an_order_event" });
+  });
+  it("a pre-verified event skips the signature round-trip but still pays only after Paystack's verify, once", async () => {
+    const { payments, store, deps } = await setup({ fee: 150_000 });
+    payments.settle(REF, "success");
+    const pre = { reference: REF, key: `charge.success:${REF}` };
+    const outs = [];
+    for (let i = 0; i < 2; i++) outs.push(await handleOrderWebhook(deps, "{}", null, pre));
+    expect(outs.map((o) => (o.handled ? o.confirm.outcome : "unhandled"))).toEqual(["paid", "replay"]);
+    expect(store.entitlements).toHaveLength(1);
+    expect(store.payments[0]).toMatchObject({ source: "webhook", eventKey: pre.key, processorFeeKobo: expect.any(Number) });
+  });
+  it("a pre-verified event for an unpaid charge still pays nothing", async () => {
+    const { store, deps } = await setup();
+    const out = await handleOrderWebhook(deps, "{}", null, { reference: REF, key: `charge.success:${REF}` });
+    expect(out).toEqual({ handled: true, confirm: { outcome: "pending" } });
+    expect(store.entitlements).toHaveLength(0);
   });
   it("trusts Paystack's verify, not the webhook body: a body that claims success for an unpaid charge pays nothing", async () => {
     const { payments, store, deps } = await setup();

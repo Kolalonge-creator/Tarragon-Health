@@ -1,4 +1,4 @@
-import type { PaymentProvider } from "../integrations/payment.ts";
+import { paymentMatchesOrder, type PaymentProvider } from "../integrations/payment.ts";
 import { fail, ok, type ProviderResult } from "../integrations/result.ts";
 
 /**
@@ -14,6 +14,7 @@ export interface RecordPaymentInput {
   readonly reference: string;
   readonly amountKobo: number;
   readonly feeKobo: number;
+  readonly processorFeeKobo: number;
   readonly totalKobo: number;
   readonly currency: string;
   readonly source: PaymentSource;
@@ -25,9 +26,11 @@ export interface MismatchInput {
   readonly reference: string;
   readonly reason: string;
   readonly amountKobo: number;
+  readonly feeKobo: number;
   readonly totalKobo: number;
   readonly source: PaymentSource;
   readonly eventKey: string | null;
+  readonly raw: Readonly<Record<string, unknown>>;
 }
 export type RecordResult = "paid" | "replay" | "mismatch" | "not_found" | "not_paid";
 export interface RecordOutcome {
@@ -80,29 +83,25 @@ export async function confirmPayment(
   if (v.status === "pending") return { outcome: "pending" };
   if (v.status !== "success") return { outcome: "unpaid", status: v.status };
 
-  const customerFeeKobo = v.amountKobo - v.requestedAmountKobo;
-  const reason =
-    v.reference !== args.reference ? "reference"
-    : v.currency !== "NGN" ? "currency"
-    : customerFeeKobo < 0 || customerFeeKobo > v.feesKobo ? "fee"
-    : null;
-  if (reason !== null) {
-    const flagged = await deps.store.flagMismatch({ reference: args.reference, reason, amountKobo: v.requestedAmountKobo, totalKobo: v.amountKobo, source: args.source, eventKey });
+  const raw = { reference: v.reference, status: v.status, currency: v.currency, processor_fee_kobo: v.feesKobo, paid_at: v.paidAt };
+  const match = paymentMatchesOrder(v, { reference: args.reference, amountKobo: v.requestedAmountKobo });
+  if (!match.ok) {
+    const flagged = await deps.store.flagMismatch({ reference: args.reference, reason: match.reason, amountKobo: v.requestedAmountKobo, feeKobo: v.amountKobo - v.requestedAmountKobo, totalKobo: v.amountKobo, source: args.source, eventKey, raw });
     if (!flagged.ok) return { outcome: "retry", where: "store" };
-    return flagged.data.result === "not_found" ? { outcome: "not_found" } : { outcome: "mismatch", reason, orderId: flagged.data.orderId };
+    return flagged.data.result === "not_found" ? { outcome: "not_found" } : { outcome: "mismatch", reason: match.reason, orderId: flagged.data.orderId };
   }
 
   const recorded = await deps.store.record({
     reference: args.reference,
     amountKobo: v.requestedAmountKobo,
-    feeKobo: customerFeeKobo,
+    feeKobo: match.customerFeeKobo,
+    processorFeeKobo: v.feesKobo,
     totalKobo: v.amountKobo,
     currency: v.currency,
     source: args.source,
     eventKey,
     paidAt: v.paidAt,
-    // A minimised record: ids, amounts and the processor's own fee. Never the customer, card or bank block.
-    raw: { reference: v.reference, status: v.status, currency: v.currency, processor_fee_kobo: v.feesKobo, paid_at: v.paidAt },
+    raw,
   });
   if (!recorded.ok) return { outcome: "retry", where: "store" };
   const r = recorded.data;
@@ -126,13 +125,24 @@ export type WebhookOutcome =
 /**
  * A raw Paystack webhook body. Handled only when its signature is good AND it is a `charge.success` for one of our v5 orders
  * (`metadata.kind = "order"`). Anything else is not ours and `handled` is false, so the legacy handler can carry on.
+ *
+ * When the caller has already verified the signature and parsed the event (the outer paystack-webhook handler does both),
+ * pass `preVerified` to skip a second round-trip through `parseWebhook`.
  */
-export async function handleOrderWebhook(deps: CommerceDeps, rawBody: string, signature: string | null): Promise<WebhookOutcome> {
-  const parsed = await deps.payments.parseWebhook(rawBody, signature);
-  if (!parsed.ok) return { handled: false, reason: "invalid_signature" };
-  const e = parsed.data;
-  if (e.kind !== "charge_success" || e.metadata["kind"] !== "order") return { handled: false, reason: "not_an_order_event" };
-  return { handled: true, confirm: await confirmPayment(deps, { reference: e.reference, source: "webhook", eventKey: e.key }) };
+export async function handleOrderWebhook(
+  deps: CommerceDeps,
+  rawBody: string,
+  signature: string | null,
+  preVerified?: { readonly reference: string; readonly key: string | null },
+): Promise<WebhookOutcome> {
+  if (!preVerified) {
+    const parsed = await deps.payments.parseWebhook(rawBody, signature);
+    if (!parsed.ok) return { handled: false, reason: "invalid_signature" };
+    const e = parsed.data;
+    if (e.kind !== "charge_success" || e.metadata["kind"] !== "order") return { handled: false, reason: "not_an_order_event" };
+    return { handled: true, confirm: await confirmPayment(deps, { reference: e.reference, source: "webhook", eventKey: e.key }) };
+  }
+  return { handled: true, confirm: await confirmPayment(deps, { reference: preVerified.reference, source: "webhook", eventKey: preVerified.key }) };
 }
 
 const SWEEP_CONCURRENCY = 5;

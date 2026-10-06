@@ -72,7 +72,7 @@ function client(handler: (fn: string, args: Record<string, unknown>) => { data: 
 }
 
 describe("supabaseOrderStore", () => {
-  const input = { reference: REF, amountKobo: 1, feeKobo: 0, totalKobo: 1, currency: "NGN", source: "webhook" as const, eventKey: "e", paidAt: null, raw: {} };
+  const input = { reference: REF, amountKobo: 1, feeKobo: 0, processorFeeKobo: 0, totalKobo: 1, currency: "NGN", source: "webhook" as const, eventKey: "e", paidAt: null, raw: {} };
   it("calls the service-role functions with the right arguments and reads their replies", async () => {
     const c = client((fn) => {
       if (fn === "record_order_payment") return { data: { result: "paid", order_id: "o1" }, error: null };
@@ -83,15 +83,16 @@ describe("supabaseOrderStore", () => {
     });
     const s = supabaseOrderStore(c);
     expect(await s.record(input)).toEqual({ ok: true, data: { result: "paid", orderId: "o1", reason: null } });
-    expect(c.calls[0]![1]).toMatchObject({ p_status: "success", p_reference: REF });
-    expect(await s.flagMismatch({ reference: REF, reason: "fee", amountKobo: 1, totalKobo: 2, source: "sweep", eventKey: null })).toEqual({ ok: true, data: { result: "mismatch", orderId: "o1", reason: "fee" } });
+    expect(c.calls[0]![1]).toMatchObject({ p_status: "success", p_reference: REF, p_fee_kobo: 0, p_processor_fee_kobo: 0 });
+    expect(await s.flagMismatch({ reference: REF, reason: "fee", amountKobo: 1, feeKobo: 1, totalKobo: 2, source: "sweep", eventKey: null, raw: { processor_fee_kobo: 0 } })).toEqual({ ok: true, data: { result: "mismatch", orderId: "o1", reason: "fee" } });
+    expect(c.calls[1]![1]).toMatchObject({ p_fee_kobo: 1, p_raw: { processor_fee_kobo: 0 } });
     expect(await s.close(REF, "expired")).toEqual({ ok: true, data: true });
     expect(await s.setCheckoutUrl(REF, "https://x")).toEqual({ ok: true, data: false });
     expect(await s.listOpen(10)).toEqual({ ok: true, data: [{ reference: REF, orderId: "o1", expired: true }] });
   });
   it("turns a database error, a throw or a strange reply into a failure value, never an exception", async () => {
     const bad = supabaseOrderStore(client(() => ({ data: null, error: { message: "boom" } })));
-    for (const r of [await bad.record(input), await bad.flagMismatch({ reference: REF, reason: "x", amountKobo: 1, totalKobo: 1, source: "webhook", eventKey: null }), await bad.close(REF, "failed"), await bad.listOpen(1), await bad.setCheckoutUrl(REF, "https://x")]) {
+    for (const r of [await bad.record(input), await bad.flagMismatch({ reference: REF, reason: "x", amountKobo: 1, feeKobo: 0, totalKobo: 1, source: "webhook", eventKey: null, raw: {} }), await bad.close(REF, "failed"), await bad.listOpen(1), await bad.setCheckoutUrl(REF, "https://x")]) {
       expect(r.ok).toBe(false);
     }
     const thrown = supabaseOrderStore(client(() => "throw"));

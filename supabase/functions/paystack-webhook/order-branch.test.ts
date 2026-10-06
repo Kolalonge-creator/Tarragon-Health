@@ -106,13 +106,35 @@ Deno.test("no Paystack key configured answers 500", async () => {
   assertEquals((await post(rawBody, signature, () => null)).res.status, 500);
 });
 
-Deno.test("an adapter that disagrees about the signature answers 500, never a silent 200", async () => {
+Deno.test("the order branch trusts the outer signature check (no second parse) and still pays only after Paystack's verify", async () => {
   const { payments, db } = await fixture();
   payments.settle(REF, "success");
   const { rawBody, signature } = await payments.signedChargeWebhook(REF);
-  const other = createMockPayment();
-  const { res } = await post(rawBody, signature, () => ({ payments: { ...other, parseWebhook: () => Promise.resolve({ ok: false as const, error: { code: "invalid_signature" as const, message: "x", retryable: false } }) }, store: supabaseOrderStore(db.client) }));
-  assertEquals(res.status, 500);
+  let parsed = 0;
+  let verified = 0;
+  const spy = {
+    ...payments,
+    parseWebhook: (...a: Parameters<typeof payments.parseWebhook>) => { parsed++; return payments.parseWebhook(...a); },
+    verifyTransaction: (r: string) => { verified++; return payments.verifyTransaction(r); },
+  };
+  const { res } = await post(rawBody, signature, () => ({ payments: spy, store: supabaseOrderStore(db.client) }));
+  assertEquals(res.status, 200);
+  assertEquals(parsed, 0);
+  assertEquals(verified, 1);
+  assertEquals(db.state.entitlements, 1);
+});
+
+Deno.test("the idempotency key sent to the database is the adapter's own, so a redelivery is one payment", async () => {
+  const { payments, db } = await fixture();
+  payments.settle(REF, "success");
+  const { rawBody, signature } = await payments.signedChargeWebhook(REF);
+  const keys: unknown[] = [];
+  const client = { rpc: (fn: string, args: Record<string, unknown> = {}) => { if (fn === "record_order_payment") keys.push(args.p_event_key); return db.client.rpc(fn, args); } };
+  const factory: DepsFactory = () => ({ payments, store: supabaseOrderStore(client) });
+  await post(rawBody, signature, factory);
+  await post(rawBody, signature, factory);
+  assertEquals(keys, [`charge.success:${REF}`, `charge.success:${REF}`]);
+  assertEquals(db.state.entitlements, 1);
 });
 
 Deno.test("a bad signature never reaches the order branch", async () => {

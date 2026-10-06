@@ -10,7 +10,7 @@
 // accept, or a charge Paystack still calls pending answers 500. The sweeper (order-reconcile) is the second net behind that.
 
 import { handleOrderWebhook, supabaseOrderStore, type CommerceDeps, type RpcClient } from "../_shared/commerce/index.ts";
-import { paymentFromEnv, type PaymentProvider } from "../_shared/integrations/index.ts";
+import { isValidChargeReference, paymentFromEnv, type PaymentProvider } from "../_shared/integrations/index.ts";
 
 export type DepsFactory = (supabase: RpcClient) => CommerceDeps | null;
 
@@ -32,7 +32,14 @@ export async function handleOrderCharge(rawBody: string, signature: string | nul
     console.error("paystack-webhook: an order payment arrived but PAYSTACK_SECRET_KEY is not configured");
     return Response.json({ ok: false, error: "payments_not_configured" }, { status: 500 });
   }
-  const out = await handleOrderWebhook(deps, rawBody, signature);
+  // The outer handler already verified the signature and parsed the JSON, so hand over the reference and the adapter's own
+  // idempotency key shape (`charge.success:<reference>`) rather than verifying the same body a second time.
+  let preVerified: { reference: string; key: string } | undefined;
+  try {
+    const ref: unknown = JSON.parse(rawBody)?.data?.reference;
+    if (typeof ref === "string" && isValidChargeReference(ref)) preVerified = { reference: ref, key: `charge.success:${ref}` };
+  } catch { /* unparseable here means the adapter path below decides */ }
+  const out = await handleOrderWebhook(deps, rawBody, signature, preVerified);
   if (!out.handled) {
     // The handler already verified the signature with PAYSTACK_WEBHOOK_SECRET; the adapter disagreeing means the two secrets differ.
     console.error("paystack-webhook: order webhook not accepted by the payment adapter", out.reason);
