@@ -272,7 +272,11 @@ export function usePostMessage() {
   });
 }
 
-export type CareMessageDraftReply = Tables<"care_message_draft_replies">;
+/** The row staff can read: the model's input snapshot (the last messages, verbatim) is not readable by staff, so it is not here. */
+export type CareMessageDraftReply = Omit<Tables<"care_message_draft_replies">, "input_snapshot">;
+
+const DRAFT_REPLY_COLUMNS =
+  "id, organisation_id, patient_id, thread_id, status, model_id, draft_text, needs_clinical_review, review_reason, error_message, generated_at";
 
 /** The current AI-drafted reply suggestion for a thread, staff-only (RLS).
  * Null when none has been generated yet. */
@@ -283,11 +287,11 @@ export function useDraftReply(threadId: string | null) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("care_message_draft_replies")
-        .select("*")
+        .select(DRAFT_REPLY_COLUMNS)
         .eq("thread_id", threadId as string)
         .maybeSingle();
       if (error) throw error;
-      return data as CareMessageDraftReply | null;
+      return data as unknown as CareMessageDraftReply | null;
     },
     enabled: !!threadId,
   });

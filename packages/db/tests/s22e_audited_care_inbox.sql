@@ -158,6 +158,7 @@ begin
   perform pg_temp.setf('doc2', pg_temp.mkdoc(v_org, 'doc2', 'medical_officer', 'contracted', '{adult_general}', v_admin));
   perform pg_temp.setf('np', pg_temp.mkuser(v_org, 'np', 'patient'));
   perform pg_temp.setf('np2', pg_temp.mkuser(v_org, 'np2', 'patient'));
+  perform pg_temp.setf('sup', pg_temp.mkuser(v_org, 'sup', 'patient'));
   perform pg_temp.setf('pat', pg_temp.f('np'));
 end $$;
 
@@ -251,7 +252,7 @@ end $$;
 
 -- 4. Staff can still reply, and the communication log keeps working with no body ----------------------------------------
 do $$
-declare v_np uuid := pg_temp.f('np'); v_np2 uuid := pg_temp.f('np2'); v_doc uuid := pg_temp.f('doc'); t uuid := pg_temp.f('t');
+declare v_np uuid := pg_temp.f('np'); v_np2 uuid := pg_temp.f('np2'); v_doc uuid := pg_temp.f('doc'); t uuid := pg_temp.f('t'); v_pa uuid;
 begin
   perform pg_temp.ck('a staff member replies to the thread (the gate opens)', 'ok',
     pg_temp.try_as(v_doc, format($q$select public.post_care_message(%L, 'Please keep the knee raised and call us if it worsens.')$q$, t)));
@@ -263,6 +264,19 @@ begin
   perform pg_temp.ck('the log has no body column', '0',
     (select count(*)::text from information_schema.columns where table_name = 'care_message_communication_log' and column_name = 'body'));
   perform pg_temp.ck('a patient sees only their own log rows', '0', pg_temp.q_as(v_np2, 'select count(*)::text from public.care_message_communication_log'));
+  -- the AI draft's snapshot is the other place the last messages sit verbatim
+  insert into public.care_message_draft_replies (organisation_id, patient_id, thread_id, status, model_id, draft_text, input_snapshot)
+  values (pg_temp.f('org'), v_np, t, 'generated', 'proof-model', 'Please keep the knee raised.', '{"messages":[{"body":"My knee hurts today"}]}'::jsonb);
+  perform pg_temp.ck('staff cannot read the draft input snapshot (the last messages, verbatim)', 'true',
+    (pg_temp.q_as(v_doc, 'select input_snapshot::text from public.care_message_draft_replies limit 1') like 'ERR:permission denied%')::text);
+  perform pg_temp.ck('...but still read the draft text they review', 'Please keep the knee raised.', pg_temp.q_as(v_doc, 'select draft_text from public.care_message_draft_replies limit 1'));
+  -- a supporter with messaging access keeps the log (parity with the message policy); a stranger does not get it
+  set local session_replication_role = replica;
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, clinical_access) values (v_np, pg_temp.f('sup'), 'view', v_np, true) returning id into v_pa;
+  insert into public.profile_access_categories (profile_access_id, category) values (v_pa, 'messaging');
+  set local session_replication_role = origin;
+  perform pg_temp.ck('a supporter with messaging access reads the non-confidential log rows', '2', pg_temp.q_as(pg_temp.f('sup'), 'select count(*)::text from public.care_message_communication_log'));
+  perform pg_temp.ck('...and still reads message rows directly under the policy branch that remains', '2', pg_temp.q_as(pg_temp.f('sup'), 'select count(*)::text from public.care_messages'));
 end $$;
 
 -- 5. SABOTAGE: the staff select policy restored, and the open function without its audit insert --------------------------

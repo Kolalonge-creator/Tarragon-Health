@@ -133,7 +133,7 @@ create policy care_message_attachments_select on public.care_message_attachments
   );
 
 -- ---------------------------------------------------------------------------
--- 5. The communication log is message metadata only (no body), so it keeps working for staff through an explicit filter
+-- 5. The communication log is message metadata only (no body), so it keeps working through an explicit filter that mirrors the message policy
 -- ---------------------------------------------------------------------------
 create or replace view public.care_message_communication_log as
   select
@@ -163,10 +163,32 @@ create or replace view public.care_message_communication_log as
   left join lateral (
     select count(*) as attachment_count from public.care_message_attachments a where a.message_id = m.id
   ) att on true
-  where m.patient_id = (select auth.uid()) or private.is_org_staff(m.organisation_id);
+  where m.patient_id = (select auth.uid())
+     or private.is_org_staff(m.organisation_id)
+     or (not t.confidential
+         and (private.can_read_clinical(m.patient_id, 'messaging'::public.care_access_category)
+              or private.has_emergency_access(m.patient_id, 'messaging'::public.care_access_category)
+              or private.can_read_clinical(m.patient_id, 'communicate_with_care_team'::public.caregiver_permission)));
 alter view public.care_message_communication_log set (security_invoker = false);
 comment on view public.care_message_communication_log is
   '77.15 communication audit trail: message metadata only, never the body. Runs as its owner with an explicit filter (the patient, or org staff) because staff can no longer read message rows directly (S22e, OQ-157).';
+
+-- ---------------------------------------------------------------------------
+-- 6. The AI draft's input snapshot holds the last messages verbatim, so it would be a way around the audit
+-- ---------------------------------------------------------------------------
+-- The snapshot is written by the service role and read by nobody in the app (it is the model's own audit record). Staff keep every
+-- other column, including the draft text they review. Table-level select is revoked first because a column revoke alone does
+-- nothing under a table-level grant.
+revoke select on public.care_message_draft_replies from authenticated;
+grant select (id, organisation_id, patient_id, thread_id, status, model_id, draft_text, needs_clinical_review, review_reason,
+              error_message, generated_at)
+  on public.care_message_draft_replies to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 7. The de-duplication lookup in the open functions needs its own small index (audit_log is large and has only an actor index)
+-- ---------------------------------------------------------------------------
+create index audit_log_inbox_open_idx on public.audit_log (actor_id, entity_id, created_at desc)
+  where action in ('care_thread.open', 'care_attachment.open');
 
 -- ---------------------------------------------------------------------------
 -- Grants and self-checks
@@ -187,6 +209,12 @@ begin
   if exists (select 1 from pg_policies where schemaname = 'public' and tablename in ('care_messages', 'care_message_attachments')
               and cmd = 'SELECT' and qual like '%is_org_staff%') then
     raise exception 'S22e assertion: a select policy on message bodies or attachments still admits org staff directly';
+  end if;
+  if has_column_privilege('authenticated', 'public.care_message_draft_replies', 'input_snapshot', 'SELECT') then
+    raise exception 'S22e assertion: staff can still read the draft input snapshot (the last messages, verbatim)';
+  end if;
+  if not has_column_privilege('authenticated', 'public.care_message_draft_replies', 'draft_text', 'SELECT') then
+    raise exception 'S22e assertion: staff lost the draft text they review';
   end if;
   if (select count(*) from pg_policies where schemaname = 'public' and tablename = 'care_messages' and cmd = 'SELECT') <> 1 then
     raise exception 'S22e assertion: exactly one select policy on care_messages';
