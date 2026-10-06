@@ -706,4 +706,4 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Context: S15 warns at 90, 30 and 0 days. Research suggests 60, 30, 14 and 7 days plus a reminder from November, because MDCN annual licences cluster at the end of December (MDCN lists 31 December for renewal; verify the current rule, fee and CPD requirement before relying on it).
 - Not built here: this is S15's `credential_rule('notice_windows_days')` configuration, not S20's.
 - Recommendation: add a November reminder and a capacity check before 1 January once the roster is large enough for a cluster to matter.
-- Decision: open.
+- Decision (2026-10-06): keep [90, 30, 0] for now. The mechanism already reads from `credentialing_config` via `credential_rule('notice_windows_days')`, so changing to [90, 60, 30, 14, 7, 0] is a one-row config update, not code. The November cluster reminder and a capacity-planning dashboard are worth adding once the roster is large enough for a 31 December cluster to create operational risk. Closed as configurable; reopen when the roster exceeds approximately 20 clinicians.
