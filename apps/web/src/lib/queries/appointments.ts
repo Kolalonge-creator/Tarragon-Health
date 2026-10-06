@@ -142,17 +142,21 @@ export function useMyConsultationRule() {
 
 /**
  * S37 (INV-14, client side): whether consultations are open for the signed-in person. This only decides what the screen shows;
- * hold_appointment_slot and confirm_appointment_booking refuse in the database whatever this says. Fails closed: an error is
- * "not open", so a failed check never shows a booking form that the database would refuse anyway.
+ * hold_appointment_slot and confirm_appointment_booking refuse in the database whatever this says. Fails closed: with no answer the
+ * screen shows "not open". It answers for the signed-in person only (a test account sees the form because the database lets a test
+ * patient with a test clinician through); a test patient with a real clinician, or someone booking for another person, can still be
+ * refused by the database, which says so in plain words.
  */
 export function useGoLiveGuardOpen(guardKey: string) {
   return useQuery({
     queryKey: ["go-live", "guard-open", guardKey] as const,
     staleTime: 60_000,
+    retry: 1,
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("go_live_guard_is_open" as never, { p_key: guardKey } as never);
-      if (error) return false;
+      // An error is thrown, not cached as an answer: with no data the screen shows the closed state (fails closed) and asks again later.
+      if (error) throw error;
       return data === true;
     },
   });

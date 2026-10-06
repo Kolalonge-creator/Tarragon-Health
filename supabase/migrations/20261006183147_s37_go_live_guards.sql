@@ -24,6 +24,10 @@
 -- Live conditions today: protocols 0 rows, triage rule sets 2 drafts and 0 approved, 1 active tier 2 SMO and 1 CMO,
 -- no pharmacy partner active, rota empty. So clinical_operations_enabled and prescribing_enabled cannot be switched on yet.
 --
+-- NO organisation_id ON THESE TABLES, on purpose: a go-live guard is a deployment-wide fact (one platform, one production database), like
+-- platform_modules and platform_switches, which carry none either. The log, attestations and sign-offs are read by an admin or the CMO
+-- through one global policy. If a second organisation is ever onboarded onto this deployment, scope these reads then (recorded as OQ-186).
+--
 -- TEST PAIR RULE: a booking where BOTH the patient and the clinician are is_test accounts passes the guard, so the
 -- consultation flow can be exercised end to end with test accounts before the guard is on, and so the existing proofs
 -- (which use test accounts only) keep their meaning. A real person is never reachable through it.
@@ -206,7 +210,7 @@ begin
   if p_key = 'clinical_operations_enabled' then
     -- public.protocols arrives with S24 (not on main-dev yet): read it dynamically so this migration and its functions work before and after it
     if to_regclass('public.protocols') is not null then
-      execute 'select count(*) from public.protocols where status = ''approved'' and code ilike ''%hypertension%''' into v_n;
+      execute 'select count(*) from public.protocols where status = ''approved'' and code ~ ''^(htn|hypertension)''' into v_n;
     else
       v_n := 0;
     end if;
@@ -249,6 +253,16 @@ begin
   end if;
   -- An unknown key has no conditions, and a guard with no conditions is never satisfied (fail closed).
   return jsonb_build_array(private.go_live_cond('unknown_guard', 'This guard has no defined condition', false, 'data', null));
+end $$;
+
+-- A condition that cannot be evaluated is an unmet condition, never an error: the dashboard still loads for the other guards, switching
+-- ON is refused (fail closed), and switching OFF (the stop button) cannot be blocked by a broken query.
+create or replace function private.go_live_conditions_safe(p_key text, p_org uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  return private.go_live_conditions(p_key, p_org);
+exception when others then
+  return jsonb_build_array(private.go_live_cond('evaluation_failed', 'The conditions could not be evaluated just now', false, 'data', sqlstate));
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -312,7 +326,7 @@ begin
   if g.is_on = p_on then
     return jsonb_build_object('ok', true, 'key', g.key, 'is_on', g.is_on, 'changed', false);
   end if;
-  v_conditions := private.go_live_conditions(p_key, private.caller_org());
+  v_conditions := private.go_live_conditions_safe(p_key, private.caller_org());
 
   if p_on then
     -- Switching ON is the consequential direction: the right person, a reason, and every condition met right now.
@@ -384,7 +398,7 @@ begin
                 from (select * from public.go_live_guard_log where guard_key = g.key order by id desc limit 5) l), '[]'::jsonb)
     ) order by g.created_at, g.key)
     from public.go_live_guards g
-    cross join lateral (select private.go_live_conditions(g.key, v_org) as conds) c
+    cross join lateral (select private.go_live_conditions_safe(g.key, v_org) as conds) c
   ), '[]'::jsonb);
 end $$;
 
@@ -449,6 +463,7 @@ revoke all on function private.go_live_guards_guard() from public;
 revoke all on function private.go_live_cond(text, text, boolean, text, text) from public;
 revoke all on function private.go_live_attested(text, text) from public;
 revoke all on function private.go_live_conditions(text, uuid) from public;
+revoke all on function private.go_live_conditions_safe(text, uuid) from public;
 revoke all on function private.go_live_guard_on(text) from public;
 revoke all on function private.go_live_open(text, uuid, uuid) from public;
 revoke all on function private.go_live_open_patient(text, uuid) from public;

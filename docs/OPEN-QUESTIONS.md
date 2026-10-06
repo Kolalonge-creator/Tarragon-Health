@@ -974,6 +974,11 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Recommend: each session that builds the feature wires its guard in the same PR, using `private.go_live_open(key, patient, clinician)` in the database function and `go_live_guard_is_open` in the client.
 - Decision: open.
 
+### OQ-186 The guard tables are deployment-wide, with no organisation_id (raised by S37)
+- CLAUDE.md says every table has `organisation_id`. A go-live guard is one fact for the whole deployment (like `platform_modules` and `platform_switches`, which carry none either), and the log, attestations and sign-offs are read through one global admin-or-CMO policy. If a second organisation is ever onboarded onto this production database, an admin of one could read the other's guard history and attestation notes.
+- Options: (a) accept as deployment-wide while there is one organisation (recommended; recorded in the migration header); (b) add `organisation_id` and scope the reads before a second organisation is onboarded.
+- Decision: open.
+
 ### OQ-185 More conditions the guard does not check yet (raised by S37)
 - The spec lists three conditions for `clinical_operations_enabled`. The consultation flow also depends on the CMO's confirmation of `consultations.policy` and the other PROPOSED values it uses, a configured Zoom account with dial-in (S21f), and the scribe's `CON-001` text. The sign-off screen now records the first; nothing stops the guard being switched on while it is unconfirmed.
 - Options: (a) add "the consultation policy value is confirmed by the CMO" as a data condition once the CMO has used the screen (recommended; small); (b) leave it as a human check at switch-on.

@@ -35,8 +35,8 @@ interface RoomView {
   join_opens_at: string;
   join_closes_at: string;
   joinable: boolean;
-  /** S37 (INV-14): false while the clinical_operations_enabled guard is off for this pair. Absent on an older database, read as open. */
-  go_live_open?: boolean;
+  /** S37 (INV-14): true only while the clinical_operations_enabled guard is on for this pair, or a consultation is already under way. */
+  go_live_open: boolean;
   session_minutes: number;
   room: { provider: "zoom" | "mock"; provider_room_id: string | null; state: string; expires_at: string | null } | null;
 }
@@ -82,9 +82,10 @@ export async function joinConsultation(deps: RoomDeps, encounterId: string, requ
   const found = await lookup(deps, encounterId);
   if (!found) return { ok: false, reason: "not_found" };
   const { view, role } = found;
-  // S37 (INV-14): with the guard off nothing is opened, no link is made and nothing is recorded
-  if (view.go_live_open === false) return { ok: false, reason: "not_live" };
   if (DONE.has(view.status)) return { ok: false, reason: "closed" };
+  // S37 (INV-14): with the guard off nothing is opened, no link is made and nothing is recorded. Fails closed: a view that does not
+  // say the room is open (an older database, a changed shape) is treated as not open.
+  if (view.go_live_open !== true) return { ok: false, reason: "not_live" };
   if (!view.joinable) return { ok: false, reason: "not_open", opensAt: view.join_opens_at };
 
   const roomId = await ensureRoom(deps, view, encounterId);

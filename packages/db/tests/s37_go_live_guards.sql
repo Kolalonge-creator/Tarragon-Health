@@ -110,7 +110,7 @@ begin
   -- deterministic start whatever production holds today: no approved blood pressure rule set and no approved hypertension protocol
   update public.triage_rule_sets set status = 'retired' where code = 'bp_care_triage' and status = 'approved';
   if to_regclass('public.protocols') is not null then
-    execute 'update public.protocols set status = ''retired'' where status = ''approved'' and code ilike ''%hypertension%''';
+    execute 'update public.protocols set status = ''retired'' where status = ''approved'' and code ~ ''^(htn|hypertension)''';
   end if;
   update public.consultation_policy_config set config = config || '{"bookingLeadMinutes":5,"bookingHorizonDays":21}'::jsonb where is_active;
 
@@ -228,8 +228,10 @@ begin
       status text not null default 'draft', definition jsonb not null, approved_by uuid, approved_at timestamptz, created_at timestamptz not null default now());
   end if;
   insert into public.protocols (code, version, status, definition, approved_by, approved_at)
-  values ('hypertension_proof', 1, 'approved', '{"code":"hypertension_proof","version":1}'::jsonb, v_cmo, now());
+  values ('htn_hearts_ng', 9001, 'approved', '{"code":"htn_hearts_ng","version":9001}'::jsonb, v_cmo, now());
   perform pg_temp.act(v_admin);
+  perform pg_temp.rec('the evaluator reads the real protocol code (htn_hearts_ng) as an approved hypertension protocol', 'true',
+    (select (c ->> 'met')::text from jsonb_array_elements(private.go_live_conditions('clinical_operations_enabled', v_org)) c where c ->> 'code' = 'hypertension_protocol_approved'));
   perform pg_temp.rec('a protocol alone is not enough', '22023', pg_temp.try('select public.set_go_live_guard(''clinical_operations_enabled'', true, ''go'')'));
   perform pg_temp.back();
   update public.triage_rule_sets set status = 'retired' where code = 'bp_care_triage' and status = 'approved';
@@ -438,6 +440,16 @@ begin
     pg_temp.try('update public.proposed_config_signoffs set decision = ''confirmed''') || '/' || pg_temp.try('delete from public.proposed_config_signoffs'));
   perform pg_temp.rec('nothing is seeded: no sign-off exists that this proof did not write', '0',
     (select count(*)::text from public.proposed_config_signoffs where signed_by not in (v_cmo, v_admin)));
+
+  -- A condition that cannot be evaluated is unmet, never an error: the stop button and the dashboard survive a broken query
+  create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb language plpgsql stable security definer set search_path = '' as $f$
+    begin raise exception 'simulated broken condition query'; end $f$;
+  perform pg_temp.act(v_admin);
+  perform pg_temp.rec('a broken condition query does not blank the dashboard', '7', jsonb_array_length(public.go_live_guard_status())::text);
+  perform pg_temp.rec('...every guard then reads as not satisfied', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where not (g ->> 'all_met')::boolean));
+  perform pg_temp.rec('...and the stop button still works (scribe_enabled is on here)', 'true', (public.set_go_live_guard('scribe_enabled', false, 'Proof: stop under a broken evaluator.') ->> 'changed'));
+  perform pg_temp.rec('...but switching on is refused, fail closed', '22023', pg_temp.try('select public.set_go_live_guard(''payouts_enabled'', true, ''go'')'));
+  perform pg_temp.back();
 
   -- 7. SABOTAGE -------------------------------------------------------------------------------------------------
   -- (a) the reader forced open: a real patient must now get through, so the guard-closed check flips

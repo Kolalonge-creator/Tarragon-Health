@@ -7,7 +7,9 @@ import { z } from "zod";
  * to switch a clinical feature on or sign off a value: only the action that actually ran can set it. Host-only (no domain).
  */
 export const FLASH_COOKIE = "golive_flash";
-const MAX_AGE_SECONDS = 20;
+// Short on purpose: a Server Component cannot delete the cookie after showing it, so it expires almost at once (the redirect and the
+// render take well under a second) and a reload a few seconds later shows no stale banner.
+const MAX_AGE_SECONDS = 5;
 
 const flashSchema = z.object({
   notice: z.string().regex(/^golive\.(done|error)\.[a-z_]+$/),
