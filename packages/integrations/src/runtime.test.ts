@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { selectVideo, type FetchLike } from "../../../supabase/functions/_shared/integrations/index.ts";
+import { selectPayment, selectVideo, type FetchLike } from "../../../supabase/functions/_shared/integrations/index.ts";
 
 const noFetch: FetchLike = async () => {
   throw new Error("no network in this test");
@@ -33,5 +33,27 @@ describe("which vendor runs a consultation", () => {
 
   it("Zoom account credentials alone are enough: the Meeting SDK keys are not needed for links", () => {
     expect(selectVideo({ ...zoomEnv, APP_ENV: "production" }, noFetch).ok).toBe(true);
+  });
+});
+
+describe("which vendor moves payout money", () => {
+  it("in production with no Paystack key is not_configured, never a mock", () => {
+    expect(selectPayment({ APP_ENV: "production" }, noFetch)).toMatchObject({ ok: false, error: { code: "not_configured" } });
+    expect(selectPayment({}, noFetch)).toMatchObject({ ok: false, error: { code: "not_configured" } });
+  });
+
+  it("outside production gives one mock per process", () => {
+    const a = selectPayment({ APP_ENV: "development" }, noFetch);
+    const b = selectPayment({ APP_ENV: "test" }, noFetch);
+    expect(a.ok && a.data.isMock).toBe(true);
+    expect(a.ok && b.ok && a.data === b.data).toBe(true);
+  });
+
+  it("a configured Paystack key wins in every environment, including production", () => {
+    for (const APP_ENV of ["production", "development"]) {
+      const p = selectPayment({ PAYSTACK_SECRET_KEY: "sk_test_x", APP_ENV }, noFetch);
+      expect(p.ok && p.data.name).toBe("paystack");
+      expect(p.ok && p.data.isMock).toBe(false);
+    }
   });
 });

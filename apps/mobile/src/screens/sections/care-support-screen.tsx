@@ -39,10 +39,12 @@ import {
 } from "@/lib/care";
 import { PatientNotesSection } from "./patient-notes-section";
 import { WrittenQuestionsSection } from "./written-questions-section";
+import { MembershipSection } from "./membership-section";
 import { SecondOpinionSection } from "./second-opinion-section";
 import { SeniorCaseReviewSection } from "./senior-case-review-section";
 import { VerifiedDocumentsSection } from "./verified-documents-section";
 import { VideoVisitBookingSection } from "./video-visit-booking-section";
+import { UpcomingConsultationsSection } from "./upcoming-consultations-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
   loadMyVouchers,
@@ -77,6 +79,8 @@ interface CareSupportScreenProps {
   /** Pushes the native "manage this visit" screen once a video-visit
    * request reaches 'accepted' — see home-shell.tsx's openVideoVisitId. */
   onOpenVideoVisit: (consultationId: string) => void;
+  /** Opens the S21 consultation room (OQ-158); see home-shell.tsx's openConsultationId. */
+  onOpenConsultation: (encounterId: string) => void;
 }
 
 /**
@@ -115,7 +119,7 @@ interface CareSupportScreenProps {
  * vouchers, wellness points, testimonials) that the web page itself treats
  * as lower priority than the content above.
  */
-export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit }: CareSupportScreenProps) {
+export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit, onOpenConsultation }: CareSupportScreenProps) {
   const colors = useLegacyColors();
   return (
     <ScrollView
@@ -127,6 +131,7 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit 
         <MutedText>Your care plan, reviews, and referrals.</MutedText>
       </View>
 
+      <UpcomingConsultationsSection onOpenConsultation={onOpenConsultation} />
       <CarePlanSection patientId={patientId} />
       <EscalationsSection patientId={patientId} />
       <ReferralsSection patientId={patientId} />
@@ -136,6 +141,7 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit 
         organisationId={organisationId}
         onOpenVideoVisit={onOpenVideoVisit}
       />
+      <MembershipSection />
       <WrittenQuestionsSection />
       <PatientNotesSection />
       <SecondOpinionSection patientId={patientId} organisationId={organisationId} />

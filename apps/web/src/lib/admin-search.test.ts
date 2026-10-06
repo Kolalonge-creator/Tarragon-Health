@@ -67,12 +67,15 @@ describe("the real admin menus", () => {
   it("finds the hand-granted Membership page (every console page needs a search entry)", () => {
     expect(top("membership")).toContain("/admin/memberships");
     expect(top("grant")).toContain("/admin/memberships");
+    expect(top("catalogue")).toContain("/admin/catalogue");
+    expect(top("price list")).toContain("/admin/catalogue");
   });
 
   it("finds the fees and earnings page (every console page needs a search entry)", () => {
     expect(top("fee schedule")).toContain("/admin/earnings");
     expect(top("payout")).toContain("/admin/earnings");
     expect(top("adjustment")).toContain("/admin/earnings");
+    expect(top("weekly payout")).toContain("/admin/payouts");
   });
 
   it("indexes a useful number of pages with no path twice", () => {
@@ -175,6 +178,20 @@ describe("the rota and lead clinicians are searchable (S18)", () => {
     const clinicianIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], []);
     expect(hit(clinicianIndex, "declare hours")).toContain("/clinician/rota");
     expect(hit(clinicianIndex, "my earnings")).toContain("/clinician/earnings");
+    expect(hit(clinicianIndex, "my payouts bank account")).toContain("/clinician/payouts");
+  });
+});
+
+describe("the go-live guards are searchable (S37)", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("finds the guards page by its words, for the admin and for the CMO", () => {
+    for (const q of ["go live", "go-live guards", "guard", "switch on", "clinical operations", "proposed values", "sign-off"]) {
+      expect(hit(adminIndex, q)).toContain("/admin/go-live");
+      expect(hit(cmoIndex, q)).toContain("/clinician/go-live");
+    }
   });
 });
 
