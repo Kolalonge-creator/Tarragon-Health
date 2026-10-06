@@ -708,8 +708,8 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Recommendation: add a November reminder and a capacity check before 1 January once the roster is large enough for a cluster to matter.
 - Decision: open.
 
-### OQ-150 What makes a patient a Member (raised by S22)
-- The 2026-10-05 membership model is not built in the database; there is no membership table. S22 gates written questions through one seam, `private.patient_is_member(uuid)`, which today treats the legacy `async_doctor_visit` plan feature as membership and grandfathers any unredeemed paid `async_consult_credit` (so no one who already paid is stranded). It shows no price to a non-member (INV-09). The real definition lands with the membership and checkout build; until then the seam, not the trigger, is what to change. This reverses OQ-130 (the 2,500 per-question price): the per-question credit stops being sold.
+### OQ-150 What makes a patient a Member (raised by S22, built in S22b)
+- The 2026-10-05 Membership has no checkout yet (S25). Until then a patient is a Member when `patient_memberships` has an active, in-date row, or still has the old `async_doctor_visit` plan feature. Only an admin (`/admin/members`) or the CMO (`/clinician/members`) can grant or end one, with a reason, audited; a dated membership lapses by itself. S25's checkout, a sponsor's Care Voucher and an employer's cohort should write the same table with source `purchase`, `voucher` or `employer`. The seam stays `private.patient_is_member(uuid)`. A grandfathered paid `async_consult_credit` still works for a non-Member. This reverses OQ-130 (the 2,500 per-question price): the per-question credit is no longer sold.
 
 ### OQ-151 Written question allowance and window are PROPOSED (raised by S22)
 - 4 written questions per member per month, 24 hour window, 7 day free follow-up, up to 3 photos. All in `async_question.behaviour` v1, owner CMO. The founder asked the build to choose the allowance: four is about one a week beside 12 monthly calls, keeps a 24 hour window staffable, and a missed window returns the question. Review after the first month of real use. No rollover.
