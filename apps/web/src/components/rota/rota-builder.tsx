@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Field, fieldClass, Flash, Hidden, Muted, Section, SubmitButton } from "@/components/credentialing/shared";
 import { approveSwap, assignLead, cancelShift, changeLead, confirmHours, setShift } from "@/lib/rota/actions";
 import { getLeadCapacity, getLeadOverview, getRotaOverview } from "@/lib/rota/queries";
-import { getPagingOverview } from "@/lib/paging/queries";
+import { getPagingOverview, getReadinessOverview } from "@/lib/paging/queries";
 import { formatWaiting } from "@/lib/paging/alarm";
 import { GAP_LABEL } from "@/lib/rota/schemas";
 import { defaultStartInput, formatLagos, formatLagosRange } from "@/lib/rota/time";
@@ -16,7 +16,7 @@ import { firstParam, type SearchParams } from "@/lib/credentialing/params";
  */
 export async function RotaBuilderPage({ returnTo, searchParams }: { returnTo: string; searchParams: SearchParams }) {
   const sp = await searchParams;
-  const [overview, leads, capacity, paging] = await Promise.all([getRotaOverview(), getLeadOverview(), getLeadCapacity(), getPagingOverview()]);
+  const [overview, leads, capacity, paging, readiness] = await Promise.all([getRotaOverview(), getLeadOverview(), getLeadCapacity(), getPagingOverview(), getReadinessOverview()]);
   const start = defaultStartInput(new Date());
   const { status } = overview;
 
@@ -24,6 +24,22 @@ export async function RotaBuilderPage({ returnTo, searchParams }: { returnTo: st
     <div className="space-y-5">
       <PageHeader title="Rota and lead clinicians" description="Who is on call, who is declared to work, and who leads each care pack patient. All times are Lagos time." />
       <Flash ok={firstParam(sp.ok)} error={firstParam(sp.error)} />
+
+      <Section title="On-call readiness" hint="A clinician must confirm the on-call phone checklist before they can be put on the rota or take a swap. They do this on their On call page.">
+        {readiness.length === 0 ? (
+          <Muted>No active clinician has the on-call competency yet.</Muted>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {readiness.map((c) => (
+              <li key={c.clinician_id} className="flex flex-wrap items-center gap-2">
+                <Badge variant={c.ready ? "green" : "amber"}>{c.ready ? "Ready" : "Not confirmed"}</Badge>
+                <span>{c.name}</span>
+                {c.confirmed_at ? <span className="text-xs text-muted-foreground">{formatLagos(c.confirmed_at)}</span> : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
 
       <Section title="On-call cover" hint={`The next ${status.horizon_days} days. Uncovered hours open an incident, so nothing is left to chance.`}>
         <div className="flex flex-wrap items-center gap-2 text-sm">

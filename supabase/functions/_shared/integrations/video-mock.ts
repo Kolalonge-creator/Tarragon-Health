@@ -51,7 +51,7 @@ export function createMockVideo(now: () => number = () => Date.now()): VideoProv
       // Opaque on purpose: nothing derived from the encounter or a person.
       const roomId = `room_${seq.toString(36)}_${Math.floor(now() % 1_000_000).toString(36)}`;
       rooms.set(roomId, { expiresAtMs: input.expiresAtMs, ended: false });
-      return ok({ roomId, expiresAtMs: input.expiresAtMs });
+      return ok({ roomId, expiresAtMs: input.expiresAtMs, recording: "off" });
     },
 
     async joinToken(input) {
@@ -67,6 +67,21 @@ export function createMockVideo(now: () => number = () => Date.now()): VideoProv
       // A token never outlives the room.
       const expiresAtMs = Math.min(now() + input.ttlSeconds * 1000, room.expiresAtMs);
       return ok({ token: `mocktoken.${input.roomId}.${input.role}.${expiresAtMs}`, expiresAtMs });
+    },
+
+    async joinLink(input) {
+      const d = dropped();
+      if (d) return d;
+      const room = rooms.get(input.roomId);
+      if (!room) return fail("not_found", "No such room", false);
+      if (room.ended || room.expiresAtMs <= now()) return fail("conflict", "Room is closed", false);
+      // The mock models a vendor SDK that can keep the camera off.
+      return ok({
+        url: `https://video.mock.invalid/r/${input.roomId}?as=${input.role}&media=${input.mediaMode}`,
+        expiresAtMs: room.expiresAtMs,
+        mediaMode: input.mediaMode,
+        audioOnlyEnforced: input.mediaMode === "audio_only",
+      });
     },
 
     async endRoom(roomId, actingRole: VideoRole) {

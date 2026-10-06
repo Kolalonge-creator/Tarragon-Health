@@ -87,6 +87,7 @@ begin
               r.tier = 'chief_medical_officer', case when r.tier = 'chief_medical_officer' then v_admin end, true)
       returning id into v_staff;
     insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (v_org, v_staff, 'on_call', v_admin, true);
+    insert into public.on_call_readiness (clinician_id, checklist_version, organisation_id, items, is_test) values (r.id, private.readiness_version(), v_org, private.readiness_items(), true);
   end loop;
   insert into public.triage_rule_sets (code, version, status, rules, approved_by, approved_at, note)
     values ('$TAG', 1, 'approved', jsonb_build_object('code', '$TAG', 'version', 1), v_cmo, now(), 'S19 race proof fixture');
@@ -187,9 +188,10 @@ for ((i = 1; i <= 3; i++)); do
   new_page >/dev/null 2>&1 || fail "control round $i: could not create a page"
   ROOT=$(root_of_last)
   race "$ROOT" "public.s19_sweep_naive('$ROOT')"
-  sessions_ran_clean || fail "control round $i: a racing session failed: $(cat "$WORK/ack.out" "$WORK/sweep.out" | tr '\n' ' ')"
+  # the lock-free sweep may also trip the one-backup-per-page constraint when it loses the race: that is the race showing itself
+  grep -q '^exit 0$' "$WORK/ack.out" && ! grep -q 'ERROR:' "$WORK/ack.out" || fail "control round $i: the acknowledging session failed: $(cat "$WORK/ack.out" | tr '\n' ' ')"
   read -r unacked backups tasks < <(family_state "$ROOT")
-  [[ "$unacked" -gt 0 ]] && violations=$((violations + 1))
+  if [[ "$unacked" -gt 0 ]] || grep -q 'pages_one_child_per_role' "$WORK/sweep.out"; then violations=$((violations + 1)); fi
 done
 [[ "$violations" -gt 0 ]] || fail "VACUOUS: the lock-free sweep never left a half-acknowledged family, so this harness does not create real contention"
 pass "control: a lock-free sweep left a half-acknowledged family in $violations of 3 rounds, so the race is real"

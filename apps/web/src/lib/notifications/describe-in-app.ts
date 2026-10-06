@@ -122,6 +122,19 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/patient",
     };
   }
+  // S21: neutral previews (INV-07).
+  if (n.template === "video_call_requested") {
+    return { text: "Your care team would like a quick call. Open the app to join.", href: `/patient/video-visit/${String(payload.consultation_id ?? "")}` };
+  }
+  if (n.template === "consult_join_ready") {
+    return { text: "Your consultation room is open. Open the app to join.", href: `/patient/consultation/${String(payload.encounter_id ?? "")}` };
+  }
+  if (n.template === "consult_missed") {
+    return {
+      text: payload.credit_returned === true ? "Your consultation did not go ahead. Your credit is back in the app." : "Your consultation did not go ahead. Open the app to rebook.",
+      href: "/patient/care",
+    };
+  }
   if (n.template === "video_visit_alternate_proposed") {
     return {
       text: "Your doctor offered a different time for your video visit: pick one",

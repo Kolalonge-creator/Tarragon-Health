@@ -2,9 +2,10 @@ import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Field, fieldClass, Flash, Hidden, Muted, Section, SubmitButton } from "@/components/credentialing/shared";
-import { acknowledgePage, closePage } from "@/lib/paging/actions";
+import { acknowledgePage, closePage, confirmReadiness } from "@/lib/paging/actions";
+import { READINESS_ITEMS, type ReadinessKey } from "@/lib/paging/schemas";
 import { formatWaiting, pageHeadline } from "@/lib/paging/alarm";
-import { getMyActivePages } from "@/lib/paging/queries";
+import { getMyActivePages, getMyReadiness } from "@/lib/paging/queries";
 import { formatLagos } from "@/lib/rota/time";
 import { firstParam, type SearchParams } from "@/lib/credentialing/params";
 
@@ -13,7 +14,7 @@ const RETURN_TO = "/clinician/on-call";
 /** The clinician's open red event pages. Acknowledging stops the escalation; closing needs a note and ends the chart access the page gave. */
 export async function OnCallPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const pages = await getMyActivePages();
+  const [pages, readiness] = await Promise.all([getMyActivePages(), getMyReadiness()]);
   // one card per event: the family of pages (primary, backup, escalation) is one case
   const roots = [...new Map(pages.map((p) => [p.root_id, p])).values()];
 
@@ -24,14 +25,24 @@ export async function OnCallPage({ searchParams }: { searchParams: SearchParams 
         description="Priority cases that were sent to you. Acknowledge one as soon as you see it: that stops the escalation. The case shows no name or details here; the patient's chart opens only once you have acknowledged."
       />
       <Flash ok={firstParam(sp.ok)} error={firstParam(sp.error)} />
-      <Section title="Make sure alerts reach you" hint="Phones often stop apps in the background to save battery, and power and data cuts are common. These steps help; they are guidance from phone makers and have not been tested on every handset.">
-        <ul className="list-disc space-y-1 pl-5 text-sm">
-          <li>Allow notifications for Tarragon Health and keep them on while you are on call.</li>
-          <li>Turn off battery saving for Tarragon Health, and allow it to start by itself (on Tecno and Infinix phones, look for App Power Saving or Auto-start; on other phones, Battery optimisation).</li>
-          <li>Keep mobile data or Wi-Fi on, and a charger or power bank nearby for long shifts.</li>
-          <li>Make sure the email on your account opens on your phone. Every page is also sent by email.</li>
-          <li>If you cannot take a shift because of power, data or anything else, ask a colleague to cover it from Hours and rota before it starts.</li>
-        </ul>
+      <Section
+        title="Make sure alerts reach you"
+        hint="Phones often stop apps in the background to save battery, and power and data cuts are common. These steps are guidance from phone makers and have not been tested on every handset. Ticking them is your own statement: it is recorded, and you cannot be put on the on-call rota until you have done it."
+      >
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Badge variant={readiness.confirmed_at ? "green" : "amber"}>{readiness.confirmed_at ? `Confirmed ${formatLagos(readiness.confirmed_at)}` : "Not confirmed yet"}</Badge>
+        </div>
+        <form action={confirmReadiness} className="space-y-2">
+          <Hidden name="returnTo" value={RETURN_TO} />
+          {(Object.keys(READINESS_ITEMS) as ReadinessKey[]).map((key) => (
+            <label key={key} className="flex items-start gap-2 text-sm">
+              <input type="checkbox" name="item" value={key} required defaultChecked={readiness.confirmed_at !== null} className="mt-1" />
+              <span>{READINESS_ITEMS[key]}</span>
+            </label>
+          ))}
+          <p className="text-xs text-muted-foreground">On Tecno and Infinix phones look for App Power Saving or Auto-start; on other phones, Battery optimisation. Every page is also sent by email.</p>
+          <SubmitButton>{readiness.confirmed_at ? "Confirm again" : "I have done these"}</SubmitButton>
+        </form>
       </Section>
       {roots.length === 0 ? (
         <Section title="Nothing waiting">

@@ -506,6 +506,8 @@ export function getNavSections(
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
+                // S21: today's and tomorrow's consultation rooms (spec 9.1, "Consultations").
+                { label: "Consultations", href: "/clinician/consultations", icon: "booking" },
                 {
                   label: "Lab result consults",
                   href: "/clinician/lab-result-consults",
