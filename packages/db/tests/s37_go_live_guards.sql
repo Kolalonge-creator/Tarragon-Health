@@ -47,6 +47,11 @@ $f$ begin
   perform set_config('request.jwt.claims', '', true);
   perform set_config('request.jwt.claim.role', '', true);
 end $f$;
+create function pg_temp.act_service() returns void language plpgsql as
+$f$ begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  set local role service_role;
+end $f$;
 create function pg_temp.mkuser(p_org uuid, p_label text, p_role text, p_test boolean default true) returns uuid
 language plpgsql as $f$
 declare v uuid := gen_random_uuid();
@@ -102,6 +107,11 @@ begin
   v_cmo := pg_temp.mkdoc(v_org, v_admin, 'cmo', 'chief_medical_officer');
   v_smo := pg_temp.mkdoc(v_org, v_admin, 'smo', 'senior_medical_officer');
   v_pat := pg_temp.mkuser(v_org, 'patient', 'patient');
+  -- deterministic start whatever production holds today: no approved blood pressure rule set and no approved hypertension protocol
+  update public.triage_rule_sets set status = 'retired' where code = 'bp_care_triage' and status = 'approved';
+  if to_regclass('public.protocols') is not null then
+    execute 'update public.protocols set status = ''retired'' where status = ''approved'' and code ilike ''%hypertension%''';
+  end if;
   update public.consultation_policy_config set config = config || '{"bookingLeadMinutes":5,"bookingHorizonDays":21}'::jsonb where is_active;
 
   -- 1. Shape ----------------------------------------------------------------------------------------------------
@@ -256,7 +266,9 @@ begin
   -- a different appointment type is not touched by this guard
   perform pg_temp.act(v_real);
   v_txt := pg_temp.msg(format('select public.hold_appointment_slot(%L, %L, ''gp'', ''telemedicine'', %L, %L)', v_org, v_realdoc, v_start, v_start + interval '30 minutes'));
-  perform pg_temp.rec('guard off: other appointment types are not blocked by it', 'true', (v_txt not like '%consultations are not open yet%')::text);
+  perform pg_temp.rec('guard off: any appointment booked as a remote consultation is blocked, not only the two consultation types', 'P0001:consultations are not open yet', v_txt);
+  v_txt := pg_temp.msg(format('select public.hold_appointment_slot(%L, %L, ''gp'', ''in_person'', %L, %L)', v_org, v_realdoc, v_start, v_start + interval '30 minutes'));
+  perform pg_temp.rec('guard off: an in-person appointment is not touched by it', 'true', (v_txt not like '%consultations are not open yet%')::text);
   perform pg_temp.back();
 
   -- guard off, test pair: passes the guard, so the flow can be exercised with test accounts
@@ -343,12 +355,19 @@ begin
 
   -- the scribe: a live consultation with a granted consent starts only while scribe_enabled is on (real pair)
   update public.encounters set status = 'in_progress', started_at = now() where id = v_enc;
+  v_view := public.service_get_encounter_room(v_enc);
+  perform pg_temp.rec('guard off: a consultation already in progress is not ended by the switch-off', 'true/false',
+    (v_view ->> 'go_live_open') || '/' || (v_view ->> 'joinable' is null)::text);
   perform pg_temp.act(v_tp);
   perform public.open_scribe_prompt(v_enc);
   perform public.record_scribe_consent(v_enc, true);
   perform pg_temp.back();
   perform pg_temp.act(v_td);
   perform pg_temp.rec('scribe off: consent granted and the consultation live, but the scribe may not start', 'false', public.scribe_may_start(v_enc)::text);
+  perform pg_temp.back();
+  perform pg_temp.act(v_td);
+  perform pg_temp.rec('scribe off: the scribe-draft path cannot start, a new consent is refused for a real pair', 'P0001',
+    pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language) values (%L, true, ''en-NG'')', v_tp)));
   perform pg_temp.back();
   perform pg_temp.act(v_admin);
   perform public.attest_go_live_condition('scribe_enabled', 'con001_legal_review_recorded', true, 'Counsel reviewed CON-001 on the proof date.');
@@ -357,40 +376,63 @@ begin
   perform pg_temp.back();
   perform pg_temp.act(v_td);
   perform pg_temp.rec('scribe on: the same consultation may now start the scribe', 'true', public.scribe_may_start(v_enc)::text);
+  perform pg_temp.rec('scribe on: a new consent gets past the guard (any other answer is fine)', 'true',
+    (pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language) values (%L, true, ''en-NG'')', v_tp)) <> 'P0001')::text);
   perform pg_temp.back();
 
   -- 6. PROPOSED-config sign-off -----------------------------------------------------------------------------------
-  perform pg_temp.act(v_pat);
-  perform pg_temp.rec('a patient cannot record a sign-off', '42501',
-    pg_temp.try(format('select public.record_proposed_config_signoff(''paging.escalation_minutes'', 1, %L, ''CMO'', ''confirmed'')', repeat('a', 64))));
-  perform pg_temp.back();
-  perform pg_temp.act(v_smo);
-  perform pg_temp.rec('a clinician who is not the CMO cannot confirm a CMO value', '42501',
-    pg_temp.try(format('select public.record_proposed_config_signoff(''paging.escalation_minutes'', 1, %L, ''CMO'', ''confirmed'')', repeat('a', 64))));
-  perform pg_temp.back();
+  -- the function is for the server only: no signed-in session, whoever they are, can call it
   perform pg_temp.act(v_admin);
-  perform pg_temp.rec('the founder cannot confirm a CMO value', '42501',
-    pg_temp.try(format('select public.record_proposed_config_signoff(''paging.escalation_minutes'', 1, %L, ''CMO'', ''confirmed'')', repeat('a', 64))));
-  perform pg_temp.rec('a value that needs counsel needs a note saying who advised', '22023',
-    pg_temp.try(format('select public.record_proposed_config_signoff(''retention.transcript'', 1, %L, ''Founder and counsel'', ''confirmed'')', repeat('b', 64))));
-  perform pg_temp.rec('a hash that is not a sha-256 is refused', '23514',
-    pg_temp.try('select public.record_proposed_config_signoff(''paging.escalation_minutes'', 1, ''abc'', ''Founder'', ''confirmed'')'));
-  perform public.record_proposed_config_signoff('fees.care_pack', 1, repeat('c', 64), 'Founder', 'confirmed', 'Price confirmed.');
+  perform pg_temp.rec('a signed-in admin cannot call the sign-off function directly', '42501',
+    pg_temp.try(format('select public.record_proposed_config_signoff(%L, ''fees.care_pack'', 1, %L, ''Founder'', ''confirmed'')', v_admin, repeat('c', 64))));
   perform pg_temp.back();
   perform pg_temp.act(v_cmo);
+  perform pg_temp.rec('...nor the CMO', '42501',
+    pg_temp.try(format('select public.record_proposed_config_signoff(%L, ''paging.escalation_minutes'', 1, %L, ''CMO'', ''confirmed'')', v_cmo, repeat('a', 64))));
+  perform pg_temp.back();
+  perform pg_temp.act_anon();
+  perform pg_temp.rec('...nor anon', '42501',
+    pg_temp.try(format('select public.record_proposed_config_signoff(%L, ''paging.escalation_minutes'', 1, %L, ''CMO'', ''confirmed'')', v_cmo, repeat('a', 64))));
+  perform pg_temp.back();
+  -- the server (service role) names the signer; the database checks the signer is the owner's role
+  perform pg_temp.act_service();
+  perform pg_temp.rec('a patient cannot be named as the signer', '42501',
+    pg_temp.try(format('select public.record_proposed_config_signoff(%L, ''paging.escalation_minutes'', 1, %L, ''CMO'', ''confirmed'')', v_pat, repeat('a', 64))));
+  perform pg_temp.rec('no signer named is refused', '42501',
+    pg_temp.try(format('select public.record_proposed_config_signoff(null, ''paging.escalation_minutes'', 1, %L, ''CMO'', ''confirmed'')', repeat('a', 64))));
+  perform pg_temp.rec('a clinician who is not the CMO cannot confirm a CMO value', '42501',
+    pg_temp.try(format('select public.record_proposed_config_signoff(%L, ''paging.escalation_minutes'', 1, %L, ''CMO'', ''confirmed'')', v_td, repeat('a', 64))));
+  perform pg_temp.rec('the founder cannot confirm a CMO value', '42501',
+    pg_temp.try(format('select public.record_proposed_config_signoff(%L, ''paging.escalation_minutes'', 1, %L, ''CMO'', ''confirmed'')', v_admin, repeat('a', 64))));
   perform pg_temp.rec('the CMO cannot confirm a founder value', '42501',
-    pg_temp.try(format('select public.record_proposed_config_signoff(''fees.care_pack'', 1, %L, ''Founder'', ''confirmed'')', repeat('c', 64))));
+    pg_temp.try(format('select public.record_proposed_config_signoff(%L, ''fees.care_pack'', 1, %L, ''Founder'', ''confirmed'')', v_cmo, repeat('c', 64))));
+  perform pg_temp.rec('a value that needs counsel needs a note saying who advised', '22023',
+    pg_temp.try(format('select public.record_proposed_config_signoff(%L, ''retention.transcript'', 1, %L, ''Founder and counsel'', ''confirmed'')', v_admin, repeat('b', 64))));
+  perform pg_temp.rec('a hash that is not a sha-256 is refused', '23514',
+    pg_temp.try(format('select public.record_proposed_config_signoff(%L, ''paging.escalation_minutes'', 1, ''abc'', ''Founder'', ''confirmed'')', v_admin)));
   perform pg_temp.rec('asking for a change needs a note', '22023',
-    pg_temp.try(format('select public.record_proposed_config_signoff(''paging.escalation_minutes'', 1, %L, ''CMO'', ''changes_requested'')', repeat('a', 64))));
-  perform public.record_proposed_config_signoff('paging.escalation_minutes', 1, repeat('a', 64), 'CMO', 'confirmed', null);
+    pg_temp.try(format('select public.record_proposed_config_signoff(%L, ''paging.escalation_minutes'', 1, %L, ''CMO'', ''changes_requested'')', v_cmo, repeat('a', 64))));
+  perform public.record_proposed_config_signoff(v_admin, 'fees.care_pack', 1, repeat('c', 64), 'Founder', 'confirmed', 'Price confirmed.');
+  perform public.record_proposed_config_signoff(v_cmo, 'paging.escalation_minutes', 1, repeat('a', 64), 'CMO', 'confirmed', null);
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
   perform pg_temp.rec('the CMO confirms their own value', 'confirmed',
     (select e ->> 'decision' from jsonb_array_elements(public.proposed_config_signoffs_current()) e where e ->> 'key' = 'paging.escalation_minutes'));
-  perform public.record_proposed_config_signoff('paging.escalation_minutes', 1, repeat('a', 64), 'CMO', 'changes_requested', 'Make the second step 8 minutes.');
+  perform pg_temp.back();
+  perform pg_temp.act_service();
+  perform public.record_proposed_config_signoff(v_cmo, 'paging.escalation_minutes', 1, repeat('a', 64), 'CMO', 'changes_requested', 'Make the second step 8 minutes.');
+  perform public.record_proposed_config_signoff(v_cmo, 'paging.escalation_minutes', 2, repeat('d', 64), 'CMO', 'confirmed', null);
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
   perform pg_temp.rec('the newest decision wins', 'changes_requested',
-    (select e ->> 'decision' from jsonb_array_elements(public.proposed_config_signoffs_current()) e where e ->> 'key' = 'paging.escalation_minutes'));
-  perform pg_temp.rec('...but both are kept', '2', (select count(*)::text from public.proposed_config_signoffs where config_key = 'paging.escalation_minutes'));
-  perform public.record_proposed_config_signoff('paging.escalation_minutes', 2, repeat('d', 64), 'CMO', 'confirmed', null);
+    (select e ->> 'decision' from jsonb_array_elements(public.proposed_config_signoffs_current()) e where e ->> 'key' = 'paging.escalation_minutes' and (e ->> 'version')::int = 1));
   perform pg_temp.rec('another version is its own record', '2', (select count(*)::text from jsonb_array_elements(public.proposed_config_signoffs_current()) e where e ->> 'key' = 'paging.escalation_minutes'));
+  perform pg_temp.back();
+  perform pg_temp.rec('...but every decision is kept', '3', (select count(*)::text from public.proposed_config_signoffs where config_key = 'paging.escalation_minutes'));
+  perform pg_temp.rec('the signer on the audit trail is the person named', '1',
+    (select count(*)::text from public.audit_log where action = 'proposed_config.confirmed' and actor_id = v_admin));
+  perform pg_temp.act(v_pat);
+  perform pg_temp.rec('a patient cannot read the sign-offs', '0', (select count(*)::text from public.proposed_config_signoffs));
   perform pg_temp.back();
   perform pg_temp.rec('a sign-off cannot be edited or deleted, even by the owner', '42501/42501',
     pg_temp.try('update public.proposed_config_signoffs set decision = ''confirmed''') || '/' || pg_temp.try('delete from public.proposed_config_signoffs'));

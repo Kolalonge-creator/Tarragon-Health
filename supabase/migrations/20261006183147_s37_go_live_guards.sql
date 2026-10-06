@@ -14,7 +14,7 @@
 --                                  still reach a consultation around the booking functions. 0 rows ever in video_visit_requests.
 --                                  NOT wired: lab_result_consult_requests (1 real cancelled request exists: a live flow,
 --                                  left running; see OQ-184).
---   scribe_enabled              -> scribe_may_start
+--   scribe_enabled              -> scribe_may_start (the consultation room, and S21g's consent check) and a trigger on scribe_consents
 -- Every other guard is a recorded row whose conditions are evaluated for the dashboard but which blocks nothing yet.
 -- Clinical tasks (S16), credentialing (S15) and the rota and paging (S18, S19) are live today and are deliberately NOT
 -- put behind a guard here: that would switch off running behaviour. See docs/design/S37.md.
@@ -254,25 +254,36 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- 4. The reader the features call. Fail closed: an unknown key, or a guard that is off, is closed.
 -- ---------------------------------------------------------------------------
+create or replace function private.go_live_guard_on(p_key text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce((select g.is_on from public.go_live_guards g where g.key = p_key), false)
+$$;
+
+-- The three questions a caller can ask, all built on the one lookup above. They differ only in the TEST RULE:
+--   go_live_open         booking, room, scribe: open when the guard is on, or when a patient AND a clinician are both given and both test.
+--   go_live_open_patient a request with no clinician yet (video visit request insert) and the client's own check: on, or the patient is test.
+--   go_live_guard_is_open (public) the client's courtesy check for the signed-in person: go_live_open_patient on themselves.
 create or replace function private.go_live_open(p_key text, p_patient uuid default null, p_clinician uuid default null)
 returns boolean language sql stable security definer set search_path = '' as $$
-  select coalesce((select g.is_on from public.go_live_guards g where g.key = p_key), false)
+  select private.go_live_guard_on(p_key)
       or (
-        -- TEST PAIR RULE: only when a patient AND a clinician are both given and both are test accounts.
         p_patient is not null and p_clinician is not null
         and exists (select 1 from public.profiles where id = p_patient and is_test)
         and exists (select 1 from public.profiles where id = p_clinician and is_test)
       )
 $$;
 
+create or replace function private.go_live_open_patient(p_key text, p_patient uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select private.go_live_guard_on(p_key)
+      or exists (select 1 from public.profiles where id = p_patient and is_test)
+$$;
+
 -- The client's courtesy check (INV-14: server and client). It answers for the signed-in person only, so it can be used to
--- show a calm "not open yet" state; the database functions above are what actually refuse.
+-- show a calm "not open yet" state; the database functions refuse whatever this says.
 create or replace function public.go_live_guard_is_open(p_key text) returns boolean
 language sql stable security definer set search_path = '' as $$
-  select (select auth.uid()) is not null and (
-    coalesce((select g.is_on from public.go_live_guards g where g.key = p_key), false)
-    or exists (select 1 from public.profiles where id = (select auth.uid()) and is_test)
-  )
+  select (select auth.uid()) is not null and private.go_live_open_patient(p_key, (select auth.uid()))
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -380,20 +391,27 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- 6. PROPOSED-config sign-off
 -- ---------------------------------------------------------------------------
+-- Called ONLY by the server (service role), never by a signed-in browser session: the server names the signer (the person whose
+-- session it has just checked) and takes the owner and the value hash from the registry in code. A signed-in admin therefore
+-- cannot call this directly to confirm a value that someone else owns, or to record a hash of their choosing. The function still
+-- checks, in the database, that the named signer really is the owner's role.
 create or replace function public.record_proposed_config_signoff(
-  p_key text, p_version integer, p_value_hash text, p_owner text, p_decision text, p_note text default null
+  p_signer uuid, p_key text, p_version integer, p_value_hash text, p_owner text, p_decision text, p_note text default null
 ) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_uid uuid := (select auth.uid());
+  v_is_cmo boolean;
+  v_is_admin boolean;
 begin
-  if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
+  if p_signer is null then raise exception 'no signer named' using errcode = '42501'; end if;
   if p_owner not in ('CMO', 'Founder', 'Founder and counsel') then raise exception 'unknown owner' using errcode = '22023'; end if;
+  select exists (select 1 from public.clinical_staff where profile_id = p_signer and active and status = 'active' and doctor_tier = 'chief_medical_officer') into v_is_cmo;
+  select exists (select 1 from public.profiles where id = p_signer and role = 'admin' and is_active) into v_is_admin;
   -- Only the value's owner confirms it. The founder is the admin account; the CMO is the Chief Medical Officer.
-  if p_owner = 'CMO' and not private.credential_is_cmo() then
+  if p_owner = 'CMO' and not v_is_cmo then
     raise exception 'only the Chief Medical Officer can confirm a value owned by the CMO' using errcode = '42501';
   end if;
-  if p_owner in ('Founder', 'Founder and counsel') and not private.is_admin() then
+  if p_owner in ('Founder', 'Founder and counsel') and not v_is_admin then
     raise exception 'only the founder (admin) can confirm a value owned by the founder' using errcode = '42501';
   end if;
   if p_decision not in ('confirmed', 'changes_requested') then raise exception 'unknown decision' using errcode = '22023'; end if;
@@ -404,9 +422,10 @@ begin
     raise exception 'a value that needs counsel must say who advised and when' using errcode = '22023';
   end if;
   insert into public.proposed_config_signoffs (config_key, config_version, value_hash, owner, decision, note, signed_by)
-  values (p_key, p_version, p_value_hash, p_owner, p_decision, nullif(btrim(p_note), ''), v_uid);
-  perform private.log_audit('proposed_config.' || p_decision, 'proposed_config', null,
-    jsonb_build_object('key', p_key, 'version', p_version, 'owner', p_owner));
+  values (p_key, p_version, p_value_hash, p_owner, p_decision, nullif(btrim(p_note), ''), p_signer);
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+  values ((select organisation_id from public.profiles where id = p_signer), p_signer, 'proposed_config.' || p_decision, 'proposed_config', null,
+          jsonb_build_object('key', p_key, 'version', p_version, 'owner', p_owner));
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -430,19 +449,21 @@ revoke all on function private.go_live_guards_guard() from public;
 revoke all on function private.go_live_cond(text, text, boolean, text, text) from public;
 revoke all on function private.go_live_attested(text, text) from public;
 revoke all on function private.go_live_conditions(text, uuid) from public;
+revoke all on function private.go_live_guard_on(text) from public;
 revoke all on function private.go_live_open(text, uuid, uuid) from public;
+revoke all on function private.go_live_open_patient(text, uuid) from public;
 revoke all on function private.go_live_actor_role() from public;
 revoke all on function public.go_live_guard_is_open(text) from public, anon;
 revoke all on function public.set_go_live_guard(text, boolean, text) from public, anon;
 revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
 revoke all on function public.go_live_guard_status() from public, anon;
-revoke all on function public.record_proposed_config_signoff(text, integer, text, text, text, text) from public, anon;
+revoke all on function public.record_proposed_config_signoff(uuid, text, integer, text, text, text, text) from public, anon, authenticated;
 revoke all on function public.proposed_config_signoffs_current() from public, anon;
 grant execute on function public.go_live_guard_is_open(text) to authenticated;
 grant execute on function public.set_go_live_guard(text, boolean, text) to authenticated;
 grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;
 grant execute on function public.go_live_guard_status() to authenticated;
-grant execute on function public.record_proposed_config_signoff(text, integer, text, text, text, text) to authenticated;
+grant execute on function public.record_proposed_config_signoff(uuid, text, integer, text, text, text, text) to service_role;
 grant execute on function public.proposed_config_signoffs_current() to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -458,9 +479,9 @@ insert into public.go_live_guards (key, label, blocks, condition_text, switch_ro
   ('lab_booking_enabled', 'Lab booking', 'Health check sales', 'SYNLAB partner active with collection sites and a tested results flow', 'admin', '{}',
    'Health check sales are not behind this guard yet. Nothing is blocked by it today.'),
   ('prescribing_enabled', 'Prescribing', 'Prescriptions', 'At least one active pharmacy partner; clinical lead sign-off', 'cmo', '{}',
-   'Prescribing is not behind this guard yet (the prescription session is S24). Nothing is blocked by it today.'),
+   'Prescribing (S24, signed prescriptions) is not behind this guard yet. Nothing is blocked by it today.'),
   ('scribe_enabled', 'AI scribe', 'AI scribe', 'Legal review of CON-001 recorded; speech provider configured', 'admin',
-   array['scribe_may_start'], 'Only the start check is wired; no other scribe entry point exists yet.'),
+   array['scribe_consents insert (the scribe-draft path)', 'scribe_may_start (the consultation room)'], 'The scribe-draft edge function itself does not read the guard: it is closed by refusing new consents. A consent recorded before a switch-off stays valid until it is revoked.'),
   ('payouts_enabled', 'Payouts', 'Payout sending', 'Fee schedule approved; Paystack transfers configured', 'admin', '{}',
    'Payout sending is not built yet (S30). Nothing is blocked by this guard today.'),
   ('public_signup_enabled', 'Public sign-up', 'Sign-ups outside the pilot allow-list', 'Stage 2 exit criteria met', 'admin', '{}',
@@ -498,8 +519,9 @@ begin
     raise exception 'only staff, or someone with permission to book appointments for this person, may book on their behalf';
   end if;
 
-  -- S37 (INV-14): consultations stay closed until the clinical_operations_enabled guard is on (a test patient with a test clinician passes)
-  if p_appointment_type in ('telemedicine', 'result_interpretation')
+  -- S37 (INV-14): consultations stay closed until the clinical_operations_enabled guard is on (a test patient with a test clinician passes).
+  -- A consultation is any remote clinician appointment: the two consultation types, or any type booked with the telemedicine method.
+  if (p_appointment_type in ('telemedicine', 'result_interpretation') or p_consultation_method = 'telemedicine')
      and not private.go_live_open('clinical_operations_enabled', v_patient, p_clinician_id) then
     raise exception 'consultations are not open yet' using errcode = 'P0001', hint = 'go_live_guard:clinical_operations_enabled';
   end if;
@@ -590,7 +612,7 @@ begin
   end if;
 
   -- S37 (INV-14): a hold made before the guard was switched off is not confirmed, and no credit is spent
-  if v_appt.appointment_type in ('telemedicine', 'result_interpretation')
+  if (v_appt.appointment_type in ('telemedicine', 'result_interpretation') or v_appt.consultation_method = 'telemedicine')
      and not private.go_live_open('clinical_operations_enabled', v_appt.patient_id, v_appt.clinician_id) then
     raise exception 'consultations are not open yet' using errcode = 'P0001', hint = 'go_live_guard:clinical_operations_enabled';
   end if;
@@ -690,8 +712,10 @@ begin
   select * into r from public.encounter_rooms where encounter_id = e.id;
   v_opens := e.scheduled_at - ((c ->> 'joinOpensMinutesBefore')::integer * interval '1 minute');
   v_closes := e.scheduled_at + ((c ->> 'joinClosesMinutesAfter')::integer * interval '1 minute');
-  -- S37 (INV-14): with the guard off the room is neither joinable nor described; the caller shows the calm "not open yet" state
-  v_open := private.go_live_open('clinical_operations_enabled', e.patient_id, e.clinician_id);
+  -- S37 (INV-14): with the guard off the room is neither joinable nor described; the caller shows the calm "not open yet" state.
+  -- A consultation already under way (one person in, or in progress) is not ended by a switch-off: the stop closes the door to new
+  -- consultations and never cuts off a person mid-call or one who must reconnect.
+  v_open := private.go_live_open('clinical_operations_enabled', e.patient_id, e.clinician_id) or e.status in ('waiting', 'in_progress');
   return jsonb_build_object(
     'encounter_id', e.id,
     'organisation_id', e.organisation_id,
@@ -732,18 +756,31 @@ as $function$
 $function$;
 
 -- ---------------------------------------------------------------------------
+-- 9a. The AI scribe's real entry point. The draft is made by the scribe-draft edge function, which needs a granted scribe_consents row
+-- (it never calls scribe_may_start itself). Refusing a new granted consent while the guard is off closes that path without redeploying
+-- the function. Fires after scribe_consents_attribution (alphabetical), which stamps the clinician. S21g (live, PR pending) also
+-- requires scribe_may_start for a granted row, which this migration wires to the same guard, so the two agree. No consent row exists
+-- live (0 rows), so nothing running is affected; a consent recorded before a switch-off stays valid until it is revoked.
+-- ---------------------------------------------------------------------------
+create or replace function private.scribe_consents_go_live_guard() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  -- only a GRANTED consent is refused: a recorded decline needs no precondition and starts nothing
+  if new.granted and not private.go_live_open('scribe_enabled', new.patient_id, new.clinician_profile_id) then
+    raise exception 'the AI scribe is not open yet' using errcode = 'P0001', hint = 'go_live_guard:scribe_enabled';
+  end if;
+  return new;
+end $$;
+revoke all on function private.scribe_consents_go_live_guard() from public;
+create trigger scribe_consents_go_live_guard before insert on public.scribe_consents
+  for each row execute function private.scribe_consents_go_live_guard();
+
+-- ---------------------------------------------------------------------------
 -- 9b. The older video-visit request path (second slot system, OQ-132). A request is created by the patient directly in the
 -- table, and a clinician (accept) or the patient (pick an offered time) turns it into a consultation. All three points are
 -- guarded; the insert is the one that matters (nothing is requested or paid for while closed), the other two cover a request
 -- made before a switch-off. A request has no clinician yet, so the insert uses the patient-only test rule.
 -- ---------------------------------------------------------------------------
-create or replace function private.go_live_open_patient(p_key text, p_patient uuid) returns boolean
-language sql stable security definer set search_path = '' as $$
-  select coalesce((select g.is_on from public.go_live_guards g where g.key = p_key), false)
-      or exists (select 1 from public.profiles where id = p_patient and is_test)
-$$;
-revoke all on function private.go_live_open_patient(text, uuid) from public;
-
 create or replace function private.video_visit_requests_go_live_guard() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
@@ -927,9 +964,18 @@ begin
   if has_table_privilege('anon', 'public.go_live_guards', 'SELECT') then raise exception 'FAIL: anon can read go_live_guards'; end if;
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname in ('set_go_live_guard', 'attest_go_live_condition', 'go_live_guard_status', 'go_live_guard_is_open', 'record_proposed_config_signoff', 'proposed_config_signoffs_current')
+     and p.proname <> 'record_proposed_config_signoff'
      and (has_function_privilege('anon', p.oid, 'EXECUTE') or not has_function_privilege('authenticated', p.oid, 'EXECUTE'));
   if v_n > 0 then raise exception 'FAIL: % new function(s) with the wrong anon or authenticated execute', v_n; end if;
   if has_function_privilege('anon', 'private.go_live_open(text,uuid,uuid)', 'EXECUTE') then raise exception 'FAIL: anon can execute go_live_open'; end if;
+  if has_function_privilege('anon', 'public.record_proposed_config_signoff(uuid,text,integer,text,text,text,text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.record_proposed_config_signoff(uuid,text,integer,text,text,text,text)', 'EXECUTE')
+     or not has_function_privilege('service_role', 'public.record_proposed_config_signoff(uuid,text,integer,text,text,text,text)', 'EXECUTE') then
+    raise exception 'FAIL: record_proposed_config_signoff must be callable by the service role only';
+  end if;
+  if not exists (select 1 from pg_trigger where tgrelid = 'public.scribe_consents'::regclass and tgname = 'scribe_consents_go_live_guard') then
+    raise exception 'FAIL: the scribe consent trigger is missing';
+  end if;
   if has_table_privilege('service_role', 'public.go_live_guards', 'UPDATE') or has_table_privilege('service_role', 'public.go_live_guard_log', 'INSERT') then
     raise exception 'FAIL: service_role can write the guard tables';
   end if;

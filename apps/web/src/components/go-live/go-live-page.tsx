@@ -143,9 +143,11 @@ function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer; loca
                     {t("golive.cond.attest.note", locale)}
                     <input name="note" required minLength={10} maxLength={1000} className={field} />
                   </label>
+                  {/* The withdrawing button comes first in the page: pressing Enter in the note field submits the FIRST button, and an
+                      accidental Enter must never assert that something was checked. */}
                   <div className="flex flex-wrap gap-2">
-                    <button type="submit" name="met" value="1" className={`${button} bg-brand-green text-white`}>{t("golive.cond.attest.confirm", locale)}</button>
                     {c.met && <button type="submit" name="met" value="0" className={`${button} border border-charcoal-ink/20 text-charcoal-ink`}>{t("golive.cond.attest.withdraw", locale)}</button>}
+                    <button type="submit" name="met" value="1" className={`${button} bg-brand-green text-white`}>{t("golive.cond.attest.confirm", locale)}</button>
                   </div>
                 </form>
               )}
@@ -238,9 +240,11 @@ function ConfigCard({ r, viewer, locale }: { r: ConfigRow; viewer: Viewer; local
               {t("golive.config.note", locale)}
               <input name="note" maxLength={1000} className={field} />
             </label>
+            {/* Asking for a change comes first in the page: Enter in the note field submits the FIRST button, and an accidental Enter must
+                never record a confirmation (a change request with no note is refused). */}
             <div className="flex flex-wrap gap-2">
-              <button type="submit" name="decision" value="confirmed" className={`${button} bg-brand-green text-white`}>{t("golive.config.confirm", locale)}</button>
               <button type="submit" name="decision" value="changes_requested" className={`${button} border border-charcoal-ink/20 text-charcoal-ink`}>{t("golive.config.ask_change", locale)}</button>
+              <button type="submit" name="decision" value="confirmed" className={`${button} bg-brand-green text-white`}>{t("golive.config.confirm", locale)}</button>
             </div>
           </form>
         ) : (
