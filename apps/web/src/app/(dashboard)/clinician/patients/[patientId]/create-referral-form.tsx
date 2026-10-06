@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useCreateReferral } from "@/lib/queries/specialist-referrals";
 import { checkReferralAppropriateness } from "@/lib/referrals/appropriateness-check";
+import { REFERRAL_CONSENT_LABEL, referralConsentTimestamp } from "@/lib/validation/create-referral";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -80,6 +81,9 @@ export function CreateReferralForm({
   const [urgency, setUrgency] = useState<ReferralUrgency | "">("");
   const [referralReason, setReferralReason] = useState("");
   const [requestedService, setRequestedService] = useState("");
+  // S24: never pre-ticked. Needed to submit; a draft can be saved without it.
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
 
   const { data: recentInvestigationCount } = useRecentInvestigationCount(patientId);
   const createReferral = useCreateReferral();
@@ -101,6 +105,14 @@ export function CreateReferralForm({
 
   function submit(asDraft: boolean) {
     if (specialistType === "") return;
+    let patientConsentAt: string | null;
+    try {
+      patientConsentAt = referralConsentTimestamp({ asDraft, consentConfirmed }, new Date());
+    } catch (error) {
+      setConsentError(error instanceof Error ? error.message : "Confirm the patient's agreement first.");
+      return;
+    }
+    setConsentError(null);
     createReferral.mutate(
       {
         patientId,
@@ -112,9 +124,11 @@ export function CreateReferralForm({
         requestedService,
         appropriatenessFlags: flags,
         asDraft,
+        patientConsentAt,
       },
       {
         onSuccess: () => {
+          setConsentConfirmed(false);
           setSpecialistType("");
           setReferralSource("clinician_initiated");
           setUrgency("");
@@ -208,6 +222,24 @@ export function CreateReferralForm({
             <p className="text-xs text-amber-800/70">Advisory only: you decide whether to proceed.</p>
           </div>
         )}
+
+        <div className="space-y-1.5">
+          <label className="flex items-start gap-2 text-sm text-charcoal-ink">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4"
+              checked={consentConfirmed}
+              onChange={(e) => setConsentConfirmed(e.target.checked)}
+            />
+            {REFERRAL_CONSENT_LABEL}
+          </label>
+          <p className="text-xs text-charcoal-ink/50">Needed to submit. You can save a draft without it.</p>
+          {consentError && (
+            <p role="alert" className="text-sm text-red-600">
+              {consentError}
+            </p>
+          )}
+        </div>
 
         {createReferral.isError && (
           <p className="text-sm text-red-600">

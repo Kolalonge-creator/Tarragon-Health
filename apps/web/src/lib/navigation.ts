@@ -575,7 +575,7 @@ export function getNavSections(
                 // triage protocols); the other 7 plus this checklist were
                 // reachable only via /admin, which a real CMO account
                 // (always `profiles.role = "clinician"`) cannot open.
-                { label: "Clinical sign-off", href: "/clinician/clinical-signoff", icon: "review" },
+                { label: "Sign-off hub", href: "/clinician/clinical-signoff", icon: "review" },
                 // New clinician applications, licence and cover expiry, and the training and test content (S15).
                 // Chief Medical Officer only; the pages redirect anyone below that tier.
                 { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },

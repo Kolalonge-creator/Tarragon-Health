@@ -241,6 +241,7 @@ export function SignoffChecklist({
   protocols,
   totalConfigCount,
   basePath = "/admin/settings",
+  mode = "full",
 }: {
   unsignedRules: UnsignedRule[];
   signedRules: SignedRule[];
@@ -258,14 +259,28 @@ export function SignoffChecklist({
    * for a plain `clinician` login — the one dead end left in the page this
    * PR built specifically so a CMO never has to touch /admin. */
   basePath?: string;
+  /**
+   * `full` is the standalone page (admin). The CMO's signing hub lists every
+   * outstanding sign-off itself, so it renders this component twice in pieces
+   * instead: `pending-rules` is only the guided sign forms (shown inside the
+   * hub's "Clinical rules" line), `signed` is only the already-signed history
+   * (rule corrections and signed configuration), so nothing is listed or
+   * counted twice.
+   */
+  mode?: "full" | "pending-rules" | "signed";
 }) {
   const signedRuleCount = signedRules.length;
   const totalRules = unsignedRules.length + signedRuleCount;
   const outstanding = unsignedRules.length + unsignedConfigs.length;
   const allGreen = outstanding === 0;
 
+  const showOverview = mode === "full";
+  const showPending = mode === "full" || mode === "pending-rules";
+  const showSigned = mode === "full" || mode === "signed";
+
   return (
     <div className="space-y-6">
+      {showOverview && (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -292,8 +307,9 @@ export function SignoffChecklist({
           )}
         </CardContent>
       </Card>
+      )}
 
-      {unsignedConfigs.length > 0 && (
+      {showOverview && unsignedConfigs.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Configuration that needs signing elsewhere</CardTitle>
@@ -318,7 +334,7 @@ export function SignoffChecklist({
         </Card>
       )}
 
-      {protocols.length === 0 && unsignedRules.length > 0 && (
+      {showPending && protocols.length === 0 && unsignedRules.length > 0 && (
         <Card>
           <CardContent className="py-4 text-sm text-amber-800">
             No signed protocol exists to link a rule to yet, so none of these can be signed.{" "}
@@ -330,11 +346,12 @@ export function SignoffChecklist({
         </Card>
       )}
 
-      {unsignedRules.map((rule) => (
-        <SignRuleForm key={rule.id} rule={rule} staff={staff} protocols={protocols} />
-      ))}
+      {showPending &&
+        unsignedRules.map((rule) => (
+          <SignRuleForm key={rule.id} rule={rule} staff={staff} protocols={protocols} />
+        ))}
 
-      {signedRules.length > 0 && (
+      {showSigned && signedRules.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Signed clinical rules</CardTitle>
@@ -354,7 +371,7 @@ export function SignoffChecklist({
         </Card>
       )}
 
-      {settled.length > 0 && (
+      {showSigned && settled.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Platform configuration — signed</CardTitle>

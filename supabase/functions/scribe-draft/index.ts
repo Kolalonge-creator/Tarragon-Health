@@ -22,6 +22,8 @@ interface RequestBody {
   readonly encounterNoteId: string;
   readonly segments: readonly TranscriptSegment[];
   readonly language: "en-NG" | "pcm";
+  // "typed": the clinician pasted or typed notes of the consultation (no recording, so no timestamps).
+  readonly source?: "stt" | "typed";
   readonly patientContext?: {
     readonly age?: number;
     readonly sex?: string;
@@ -130,9 +132,10 @@ function validContext(ctx: RequestBody["patientContext"]): boolean {
   return true;
 }
 
-function formatTranscript(segments: readonly TranscriptSegment[]): string {
+function formatTranscript(segments: readonly TranscriptSegment[], typed: boolean): string {
   return segments
     .map((s) => {
+      if (typed) return `${s.speaker.toUpperCase()}: ${s.text}`;
       const mins = Math.floor(s.startMs / 60000);
       const secs = Math.floor((s.startMs % 60000) / 1000);
       const ts = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
@@ -162,6 +165,11 @@ Deno.serve(async (req) => {
   if (!["en-NG", "pcm"].includes(body.language)) {
     return Response.json({ error: "unsupported_language" }, { status: 400 });
   }
+
+  if (body.source !== undefined && !["stt", "typed"].includes(body.source)) {
+    return Response.json({ error: "invalid_input" }, { status: 400 });
+  }
+  const typed = body.source === "typed";
 
   if (!validSegments(body.segments) || !validContext(body.patientContext)) {
     return Response.json({ error: "invalid_input" }, { status: 400 });
@@ -204,7 +212,7 @@ Deno.serve(async (req) => {
   }
 
   // Build the Claude prompt.
-  const transcript = formatTranscript(body.segments);
+  const transcript = formatTranscript(body.segments, typed);
   const contextParts: string[] = [];
   if (body.patientContext?.age) contextParts.push(`Age: ${body.patientContext.age}`);
   if (body.patientContext?.sex) contextParts.push(`Sex: ${body.patientContext.sex}`);
@@ -214,6 +222,7 @@ Deno.serve(async (req) => {
 
   const userMessage = [
     `Language variant: ${body.language}`,
+    typed ? "Input type: notes the clinician typed or pasted about the consultation (not a recording)." : null,
     contextParts.length ? `Patient context:\n${contextParts.join("\n")}` : null,
     `Transcript:\n${transcript}`,
   ]
@@ -276,8 +285,8 @@ Deno.serve(async (req) => {
       model_identifier: response.model,
       subject_profile_id: consent.patient_id,
       actor_profile_id: actorId,
-      input_category: "scribe_transcript",
-      output_summary: `Draft: ${Object.keys(parsed.draft).length} sections + patient summary (${body.language})`,
+      input_category: typed ? "scribe_typed_notes" : "scribe_transcript",
+      output_summary: `Draft: ${Object.keys(parsed.draft).length} sections + patient summary (${body.language}${typed ? ", typed notes" : ""})`,
       status: "completed",
       resulting_action: "draft_generated",
       resulting_entity_type: "clinical_encounter_note",
