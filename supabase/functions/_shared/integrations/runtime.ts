@@ -1,5 +1,7 @@
 import type { FetchLike } from "./http.ts";
-import { videoFromEnv, type Env } from "./from-env.ts";
+import { paymentFromEnv, videoFromEnv, type Env } from "./from-env.ts";
+import { createMockPayment } from "./payment-mock.ts";
+import type { PaymentProvider } from "./payment.ts";
 import type { ProviderResult } from "./result.ts";
 import { environmentFrom, selectProvider } from "./select.ts";
 import { createMockVideo } from "./video-mock.ts";
@@ -15,4 +17,11 @@ let mockVideo: VideoProvider | undefined;
 
 export function selectVideo(env: Env, fetch: FetchLike): ProviderResult<VideoProvider> {
   return selectProvider({ environment: environmentFrom(env["APP_ENV"]), real: videoFromEnv(env, fetch), mock: () => (mockVideo ??= createMockVideo()) });
+}
+
+/** Which payment vendor runs in this process (S31 payouts and bank checks). Same rule as video: real if configured, a mock only outside production. */
+let mockPayment: PaymentProvider | undefined;
+
+export function selectPayment(env: Env, fetch: FetchLike): ProviderResult<PaymentProvider> {
+  return selectProvider({ environment: environmentFrom(env["APP_ENV"]), real: paymentFromEnv(env, fetch), mock: () => (mockPayment ??= createMockPayment()) });
 }

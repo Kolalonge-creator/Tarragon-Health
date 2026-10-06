@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { refuseSupersededDraft } from "@/lib/clinical/refuse-superseded-draft";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import type { Json } from "@tarragon/shared";
@@ -118,6 +119,7 @@ export async function createEscalationSlaDraftAction(
 
   revalidatePath("/admin/settings/escalation-slas");
   revalidatePath("/clinician/escalation-slas");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
 
@@ -132,11 +134,14 @@ export async function signEscalationSlasAction(
   versionId: string
 ): Promise<SignEscalationSlasState> {
   const supabase = await createClient();
+  const refused = await refuseSupersededDraft(supabase, "escalation_slas", versionId);
+  if (refused) return { error: refused };
   const { error } = await supabase.rpc("sign_escalation_slas", {
     p_id: versionId,
   });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/escalation-slas");
   revalidatePath("/clinician/escalation-slas");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }

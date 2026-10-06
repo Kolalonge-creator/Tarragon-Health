@@ -6,7 +6,19 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { CLINICAL_RULES_ITEM_KEY, readCmoSigningHub } from "@/lib/queries/cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
+import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
+import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
+import { AiGovernancePanel } from "../_signoff-panels/ai-governance-panel";
+import { AlertRulesPanel } from "../_signoff-panels/alert-rules-panel";
+import { EscalationSlasPanel } from "../_signoff-panels/escalation-slas-panel";
+import { TriageProtocolsPanel } from "../_signoff-panels/triage-protocols-panel";
+import { MentalHealthScreeningPanel } from "../_signoff-panels/mental-health-screening-panel";
+import { ProviderQualityPolicyPanel } from "../_signoff-panels/provider-quality-policy-panel";
+import { CvRiskConfigPanel } from "../_signoff-panels/cv-risk-config-panel";
+import { RiskQuestionnaireConfigPanel } from "../_signoff-panels/risk-questionnaire-config-panel";
+import { VaccinationSchedulePanel } from "../_signoff-panels/vaccination-schedule-panel";
 import { SignoffChecklist } from "@/app/(dashboard)/admin/settings/clinical-signoff/signoff-checklist";
 import { SignoffQueueList } from "@/app/(dashboard)/admin/settings/clinical-protocols/signoff-queue-list";
 import {
@@ -21,6 +33,22 @@ import {
 export const metadata = { title: "Sign-off hub" };
 
 /**
+ * The real manager for each governed configuration, keyed by table. Opening a
+ * line renders the same component the config's own page does, values and Sign
+ * button together, so nothing is ever signed unseen.
+ */
+const CONFIG_PANELS: Record<string, () => ReactNode> = {
+  alert_rules: () => <AlertRulesPanel />,
+  escalation_slas: () => <EscalationSlasPanel />,
+  triage_protocols: () => <TriageProtocolsPanel />,
+  mental_health_screening_cadences: () => <MentalHealthScreeningPanel />,
+  provider_quality_policy: () => <ProviderQualityPolicyPanel />,
+  cv_risk_config: () => <CvRiskConfigPanel />,
+  risk_questionnaire_configs: () => <RiskQuestionnaireConfigPanel />,
+  vaccination_schedule_signoffs: () => <VaccinationSchedulePanel />,
+};
+
+/**
  * The Chief Medical Officer's one place for everything that needs their
  * signature: what it is, how urgent, and the control to sign it.
  *
@@ -31,11 +59,12 @@ export const metadata = { title: "Sign-off hub" };
  * by readCmoSigningHub; the same list drives the banner every page shows the
  * CMO, so the two cannot disagree.
  *
- * Where a signature can honestly be given from here it is: clinical rules
- * (guided form), coaching content and the result release policy open inline.
- * The rest link to one page each, because a signature on configuration whose
- * actual values you have not looked at means nothing, and the item's own page
- * is where those values are shown.
+ * Every line opens inline and signs there: clinical rules (guided form),
+ * coaching content, the result release policy, each governed configuration
+ * (the same manager its own page renders, values and Sign button together, so a
+ * signature is never given unseen), protocol drafts and AI governance. Only the
+ * "known protocols not yet drafted" lines link away, because there is nothing
+ * to sign until a draft exists.
  *
  * `admin/settings/clinical-signoff` and the other admin pages redirect anyone
  * whose `profiles.role !== "admin"`, and a real CMO account is always
@@ -51,7 +80,7 @@ export default async function ClinicianClinicalSignoffPage() {
   const supabase = await createClient();
   const [checklist, hub] = await Promise.all([
     readClinicalSignoffChecklist(supabase, "/clinician"),
-    readCmoSigningHub(supabase),
+    getCmoSigningHubForRequest(),
   ]);
 
   // A failed checklist read costs only the guided rule forms and the signed history, not the whole
@@ -112,6 +141,27 @@ export default async function ClinicianClinicalSignoffPage() {
     );
   }
 
+  for (const item of hub.items) {
+    const table = item.key.startsWith("versioned:")
+      ? item.key.slice("versioned:".length)
+      : item.key.startsWith("versioned_draft:")
+        ? item.key.slice("versioned_draft:".length)
+        : null;
+    const panel = table ? CONFIG_PANELS[table] : undefined;
+    if (panel) inlinePanels[item.key] = panel();
+  }
+
+  if (keys.has("ai_governance")) inlinePanels.ai_governance = <AiGovernancePanel />;
+
+  if (keys.has(PROTOCOL_DRAFTS_ITEM_KEY)) {
+    inlinePanels[PROTOCOL_DRAFTS_ITEM_KEY] = (
+      <>
+        <RefreshOnMutationSuccess />
+        <ProtocolDraftsManager />
+      </>
+    );
+  }
+
   const hasSigned = !checklistFailed && (checklist.signedRules.length > 0 || checklist.settled.length > 0);
 
   return (
@@ -128,8 +178,8 @@ export default async function ClinicianClinicalSignoffPage() {
       {/* Never an all-clear when a read failed: say so, and keep whatever did load. */}
       {hub.failed && (
         <LoadFailure>
-          Some sign-off counts could not be loaded, so the list below may be short. This is not an
-          all-clear. Reload, and check the individual pages if it persists.
+          Could not load: {hub.failedSources.join(", ")}. The list below is missing anything from those,
+          so this is not an all-clear. Reload, and check those pages directly if it persists.
         </LoadFailure>
       )}
 

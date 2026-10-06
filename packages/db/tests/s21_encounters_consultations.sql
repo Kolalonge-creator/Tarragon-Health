@@ -2,7 +2,7 @@
 -- no-show handling (migration *_s21_encounters_consultations.sql).
 --
 -- Proves in one rolled-back transaction:
---   1. Seed: policy v1 active (2 hour window, 18 and over), the consultation price is NGN 10,000, five S21 event types.
+--   1. Seed: the active policy (v2: v1 plus the chart access cap; 2 hour window, 18 and over), the consultation price is NGN 10,000, five S21 event types.
 --   2. Adults only (OQ-129): a 15 year old and a patient with no date of birth are refused a remote booking
 --      (fail closed); an adult books, confirms with a credit, and gets an encounter and a room stub.
 --   3. The room: recording cannot be turned on; no join URL column exists; events are append only.
@@ -140,7 +140,7 @@ begin
   update public.consultation_policy_config set config = config || '{"bookingLeadMinutes":5,"bookingHorizonDays":21}'::jsonb where is_active;
 
   -- 1. Seed ---------------------------------------------------------------------------------------------------
-  perform pg_temp.rec('policy v1 is the one active policy', '1', (select count(*)::text from public.consultation_policy_config where is_active and version = 1));
+  perform pg_temp.rec('exactly one consultation policy is active (v2 since S21g, which adds the chart access cap)', '1/2', (select count(*)::text || '/' || max(version)::text from public.consultation_policy_config where is_active));
   perform pg_temp.rec('the policy has a 2 hour window and a minimum age of 18', '2/18',
     (select (config ->> 'cancelWindowHours') || '/' || (config ->> 'minAgeYears') from public.consultation_policy_config where is_active));
   perform pg_temp.rec('a consultation costs NGN 10,000 (1,000,000 kobo, OQ-130)', '1000000', (select price_kobo::text from public.service_products where code = 'video_visit_credit'));
@@ -164,7 +164,7 @@ begin
     (select status::text || '/' || payment_status::text from public.appointments where id = v_a1));
   select id into v_e1 from public.encounters where appointment_id = v_a1;
   perform pg_temp.rec('confirming created exactly one encounter', '1', (select count(*)::text from public.encounters where appointment_id = v_a1));
-  perform pg_temp.rec('the encounter is a video consultation for the clinician, on policy v1, marked test', 'video/true/1/true',
+  perform pg_temp.rec('the encounter is a video consultation for the clinician, on the active policy (v2), marked test', 'video/true/2/true',
     (select type || '/' || (clinician_id = v_docA)::text || '/' || policy_version::text || '/' || is_test::text from public.encounters where id = v_e1));
   perform pg_temp.rec('the encounter points at the credit that paid for it', 'true', (select (service_purchase_id = v_cr1)::text from public.encounters where id = v_e1));
   perform pg_temp.rec('a room stub exists and recording is off', '1/false', (select count(*)::text || '/' || bool_or(recording_enabled)::text from public.encounter_rooms where encounter_id = v_e1));
@@ -529,7 +529,7 @@ begin
   perform pg_temp.act_service();
   perform pg_temp.rec('...nor a join recorded', 'P0001', pg_temp.try(format('select public.service_record_join(%L, ''patient'')', v_e15)));
   perform pg_temp.back();
-  update public.consultation_policy_config set is_active = true where version = 1;
+  update public.consultation_policy_config set is_active = true where version = (select max(version) from public.consultation_policy_config);
 
   -- the adults-only rule covers the older video-visit booking path too, however the row is made
   perform pg_temp.rec('the older video-visit path refuses a minor', 'P0001',
