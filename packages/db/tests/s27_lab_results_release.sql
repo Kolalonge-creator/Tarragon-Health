@@ -200,7 +200,7 @@ begin
   perform pg_temp.ck('...the patient got no notice', '1', (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'lab_result_ready'));
   perform pg_temp.ck('...the order is processing, not resulted', 'processing', pg_temp.order_status(o));
   perform pg_temp.ck('another patient cannot see it either', '0', pg_temp.visible_to(pg_temp.f('pat2'), rid));
-  perform pg_temp.ck('a clinician with no tie cannot open it, and the refusal is audited', 'true',
+  perform pg_temp.ck('a clinician with no tie cannot open it', 'true',
     (pg_temp.q_as(pg_temp.f('stranger'), format($q$select public.lab_result_for_review(%L, 'checking')::text$q$, rid)) like 'ERR:Not permitted')::text);
   perform pg_temp.ck('...a reason is required', 'true',
     (pg_temp.q_as(pg_temp.f('doc'), format($q$select public.lab_result_for_review(%L, '')::text$q$, rid)) like 'ERR:A reason is required')::text);
@@ -304,19 +304,21 @@ end $$;
 
 -- 6. Patient upload, team upload, withhold ------------------------------------------------------------------------------------------
 do $$
-declare v_pat uuid := pg_temp.f('pat'); r text; rid uuid; v_file text := '{"file_path":"p/x.pdf","original_filename":"x.pdf","mime_type":"application/pdf","file_size_bytes":1000}';
+declare v_pat uuid := pg_temp.f('pat'); r text; rid uuid; v_file text := format('{"file_path":"%s/x.pdf","original_filename":"x.pdf","mime_type":"application/pdf","file_size_bytes":1000}', v_pat);
 begin
   r := pg_temp.q_as(v_pat, format($q$select public.patient_add_lab_result(%L::jsonb)::text$q$, v_file));
   rid := pg_temp.rid(r);
-  perform pg_temp.ck('a patient upload is held and has a review task', 'awaiting_review|routine_result_review', pg_temp.state_of(rid) || '|' || pg_temp.task_of(rid));
+  perform pg_temp.ck('a Free patient upload is held and creates no doctor task', 'awaiting_review|none', pg_temp.state_of(rid) || '|' || coalesce(pg_temp.task_of(rid), 'none'));
+  perform pg_temp.ck('a file path in another patient folder is refused', 'true',
+    (pg_temp.q_as(v_pat, $q$select public.patient_add_lab_result('{"file_path":"someone-else/x.pdf","mime_type":"application/pdf","file_size_bytes":10}'::jsonb)::text$q$) like 'ERR:lab_file_path_invalid')::text);
   perform pg_temp.ck('...the patient sees their own upload in the list, but explanation is off and no values are shown', 'under_review|false',
     (pg_temp.mine(v_pat, rid) ->> 'status') || '|' || (pg_temp.mine(v_pat, rid) ->> 'explain_allowed'));
-  perform pg_temp.ck('...and can get their own file back', 'p/x.pdf', pg_temp.q_as(v_pat, format('select public.lab_result_file_path(%L)', rid)));
+  perform pg_temp.ck('...and can get their own file back', v_pat::text || '/x.pdf', pg_temp.q_as(v_pat, format('select public.lab_result_file_path(%L)', rid)));
   perform pg_temp.ck('...another patient cannot', 'null', coalesce(pg_temp.q_as(pg_temp.f('pat2'), format('select public.lab_result_file_path(%L)', rid)), 'null'));
   perform pg_temp.ck('a partner cannot add a patient upload', 'true',
     (pg_temp.q_as(pg_temp.f('labA'), format($q$select public.patient_add_lab_result(%L::jsonb)::text$q$, v_file)) like 'ERR:This action is for patients')::text);
   perform pg_temp.ck('an upload with a file type not allowed is refused', 'true',
-    (pg_temp.q_as(v_pat, $q$select public.patient_add_lab_result('{"file_path":"p/y.exe","mime_type":"application/x-msdownload","file_size_bytes":10}'::jsonb)::text$q$) like 'ERR:%check%')::text);
+    (pg_temp.q_as(v_pat, format($q$select public.patient_add_lab_result(jsonb_build_object('file_path', %L, 'mime_type', 'application/x-msdownload', 'file_size_bytes', 10))::text$q$, v_pat::text || '/y.exe')) like 'ERR:%check%')::text);
   -- team upload
   r := pg_temp.q_as(pg_temp.f('senior'), format($q$select public.team_submit_lab_result(%L, null, null, null, %L::jsonb)::text$q$, v_pat, v_file));
   perform pg_temp.ck('a tied clinician can add a PDF for the patient; it is held', 'awaiting_review', pg_temp.state_of(pg_temp.rid(r)));
@@ -328,6 +330,10 @@ begin
   perform pg_temp.q_as(pg_temp.f('senior'), format($q$select public.withhold_lab_result(%L, 'Entered against the wrong patient')::text$q$, pg_temp.rid(r)));
   perform pg_temp.ck('a withheld result is gone from the patient list', '0',
     (select count(*)::text from jsonb_array_elements(pg_temp.my_as(v_pat)) x where x ->> 'lab_result_id' = pg_temp.rid(r)::text));
+  r := pg_temp.q_as(v_pat, format($q$select public.patient_add_lab_result(%L::jsonb)::text$q$, v_file));
+  perform pg_temp.ck('a patient can read the row of their own held upload', '1', pg_temp.visible_to(v_pat, pg_temp.rid(r)));
+  perform pg_temp.q_as(pg_temp.f('senior'), format($q$select public.withhold_lab_result(%L, 'Not a lab report')::text$q$, pg_temp.rid(r)));
+  perform pg_temp.ck('a withheld own upload is not readable by the patient through the table either', '0', pg_temp.visible_to(v_pat, pg_temp.rid(r)));
   perform pg_temp.ck('a withhold needs a reason', 'true',
     (pg_temp.q_as(pg_temp.f('senior'), format($q$select public.withhold_lab_result(%L, ' ')$q$, rid)) like 'ERR:A reason is required')::text);
 end $$;
