@@ -594,6 +594,29 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Action for ops: upload and record the licence for both, then the indemnity for any freelance clinician.
 - Decision (founder, 2026-10-06): ops action, no code. Record both licences and any freelance clinician's indemnity through a renewal.
 
+### OQ-110 Two triage task keys have no spec task type (raised by S16)
+- The S11 rule set emits `adherence_review` and `silence_check`; spec 7.3 lists nine task types and neither is among them. The live keys `urgent_bp_review`, `bp_review` and `low_bp_review` map to `amber_bp_review` (the due time comes from the rule), `referral_review` to `admin_clinical`.
+- S16 added one type, `adherence_follow_up` (class 8, 48 hours, logistics only, minimum tier `care_coordinator`), so the work is not dropped. A key that no type answers raises and dead-letters visibly.
+- Options: (a) keep the extra type and have the CMO confirm the class and tier (recommended); (b) fold both into `symptom_review` (would send a check-in to a doctor's queue).
+- Decision (founder, 2026-10-06): option (a), keep `adherence_follow_up`. The CMO confirms its class and tier when signing the rule set.
+
+### OQ-111 Who is "the lead" until S18 (raised by S16)
+- Spec 7.4 offers a task to the patient's lead clinician first. S18 builds lead assignment. Until then S16 uses `care_team_assignment.clinician_id` as the named clinician, only if they are eligible (S15), not on leave and at or above the type's tier. An employed doctor with no named clinician is chosen by least open load (reusing the leave and hours checks of escalation auto-assignment). The same `offered_to_lead` state and window serve both a lead and a pushed employed doctor.
+- Options: (a) accept as a stand-in and replace the lookup in S18 (recommended); (b) hold all tasks in the pool until S18.
+- Decision (founder, 2026-10-06): option (a), use `care_team_assignment` as the stand-in and replace the lookup in S18.
+
+### OQ-112 A task pushed to one doctor is hidden from the pool only while the window lasts (raised by S16)
+- A pushed or offered task returns to the pool when its window ends, and escalates when past due. Nothing yet tells the pushed doctor that a window is about to lapse, and S17's next-task query must not show an offered task to anyone else. Working hours and post-call rest for freelancers are also not applied (S17 and S18).
+- Options: (a) S17 excludes offered tasks from other clinicians and S18 adds the hours rule (recommended); (b) show offered tasks to all, with a marker.
+- Decision (founder, 2026-10-06): option (a). S17's next-task query hides offered tasks from other clinicians; S18 adds the working-hours and post-call rest rule.
+
+### OQ-113 Paging fallback is email, not SMS (raised by S16, founder 2026-10-06)
+- INV-08 limits SMS to verification codes and D-12 allows clinician paging. For S19 the founder chose email as the fallback after push and in-app. S16 only emits `clinical_task.escalated` (urgent); nothing pages from it yet.
+- Decision (founder, 2026-10-06): email fallback. S19 builds the ladder; SMS stays off for paging until D-12 is exercised.
+
+### OQ-114 Old alerts and escalations are read through a view, not merged (raised by S16)
+- `legacy_clinical_work_v` unions open `escalations` and `clinician_alerts` for the queue screens. The old tables keep their own flows, so a red reading can both raise a live alert and, once the CMO signs a rule set (OQ-88), create a task. Retiring the live bands is a later, separate decision.
+- Decision (founder, 2026-10-06): adapter view, not a backfill.
 ### OQ-95 Zoom adapter details to confirm on a live account (raised by S14)
 - The Zoom adapter follows Zoom's published REST and Meeting SDK docs but has only run against a fake. Things S21 must check live: (1) a Meeting SDK token lifetime under 30 minutes may be refused, while the adapter never lets a token outlive the room (so a short room could trip it); (2) ending a scheduled meeting does not stop a rejoin, so the adapter ends then deletes it, and a second end reports success because the meeting is already gone, including for a number that never existed; (3) Zoom takes the participant label from the client SDK, so the app must join with the role word ("patient", "clinician", "observer") as the label or webhook presence events are dropped; (4) Zoom webhooks carry presence and meeting end but not connection quality, so quality samples must come from the device SDK; (5) the `endpoint.url_validation` challenge stays in the existing `zoom-webhook` function.
 - Options: (a) verify each point in the first S21 live test and fix the adapter (recommended); (b) pick Daily, 100ms or Agora now, which have first-class quality events and audio-only toggles.
