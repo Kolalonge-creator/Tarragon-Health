@@ -1118,20 +1118,20 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) leave until `profile_access` has real rows and the family flow is next reviewed; (b) tighten each to the matching category or permission now (a change to the RLS surface of several tables, to be proved with a simulated session and a control).
 - Recommendation: (b) in its own small session, before any real caregiver grant is created.
 
-### OQ-193 Supporters abroad: organisation, signup and the join link (raised by S29)
+### OQ-220 Supporters abroad: organisation, signup and the join link (raised by S29)
 - The Care Circle, like the older care-access guard, requires the supporter and the patient to share an `organisation_id`. A supporter signing up from the diaspora lands in the default organisation today, so it works, but only because there is one. Signing up from an invite link loses the link across the email-verification redirect (the user reopens it).
 - Not changed. If a second organisation or a distinct diaspora organisation is ever created, `accept_care_circle_invite` and `create_order` need an explicit cross-organisation rule.
 - Native app deep links for the join link are not built (the link opens the web page).
 
-### OQ-194 What a red alert tells a supporter, and who chose it (raised by S29, extends OQ-132)
+### OQ-221 What a red alert tells a supporter, and who chose it (raised by S29, extends OQ-132)
 - A member holding `red_alerts` gets "Someone in your Care Circle may need you. Please call them." in the app and as push, for every ROOT page (red event), once. No condition, reading or grade is shown, but the message itself says something is wrong. The patient ticks it knowingly (the wording says "when my care team sees something urgent"), and can untick it any time.
 - To confirm with the founder and counsel: the NDPA basis (the patient's explicit consent, per tick), whether amber events should ever alert a supporter (built: red only), and whether a supporter abroad needs a second channel (built: push, in-app only; SMS is barred by INV-08).
 
-### OQ-195 Care Circle PROPOSED values and permission wording to confirm (raised by S29)
+### OQ-222 Care Circle PROPOSED values and permission wording to confirm (raised by S29)
 - `care_circle.rules` v1 (PROPOSED, Founder): invite link lasts 72 hours, default access 365 days (choices of 30, 90, 365 offered), 5 invites a day per patient, 8 members, 5 wrong-account tries, 8 weekly averages. The five permission labels (`circle.perm.*`) are plain-language drafts; the Pidgin lines have not been reviewed by a native speaker.
 - Not signed off by anyone: confirm by publishing a v2 entry as `confirmed`.
 
-### OQ-196 The Care Circle contact hash has no secret pepper, and a payer can learn some state of the person they pay for (found by the S29 review)
+### OQ-223 The Care Circle contact hash has no secret pepper, and a payer can learn some state of the person they pay for (found by the S29 review)
 - `invitee_hash` is plain SHA-256 of the normalised phone or email. Nigerian mobile numbers are about 10^10 possibilities, so the hash is reversible by anyone who can read the table. A keyed hash (HMAC) needs a server secret outside the database (a Vault secret added by hand, like `order_reconcile_secret`), so it was not done in this build without the founder adding that secret. Until then the invitee contact is hashed, not protected.
 - `create_order` for a beneficiary raises `already_member` and `no_capacity`, which tells a payer holding only `pay_for_care` whether the patient already has a membership. Kept on purpose (the payer needs to know why a payment was refused); a single generic refusal for beneficiary orders is the stricter alternative.
 - Recommendation: add the Vault pepper and move to HMAC before real invites are made; keep the payer messages.
@@ -1287,16 +1287,16 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Voice input in Pidgin is out of scope until recognition meets a clinical accuracy bar (the best published Pidgin result was 29.6 percent word error rate).
 - Decision: open.
 
-> Note (merge of S29): S29's OQ-193 to OQ-198 below are the Care Circle questions. The same numbers are used above by S31 for payout questions (parallel sessions picked the same range, as OQ-170 to OQ-185 already were). Read the title, not the number, until these are renumbered.
+> Note: S29's Care Circle questions were renumbered from OQ-193 to OQ-198 to OQ-220 to OQ-225 (2026-10-07, founder choice, then moved again because S32 and S35 took OQ-201 onwards): S31's payout questions keep OQ-193 to OQ-200.
 
-### OQ-197 When the patient pauses sharing, do check-in requests (red alerts) pause too? (raised by S29c)
+### OQ-224 When the patient pauses sharing, do check-in requests (red alerts) pause too? (raised by S29c)
 - "Pause all sharing" (7 days, silent to supporters, no reason) stops the supporter's page and lists. Whether it also holds back the neutral check-in request is a safety trade-off: a patient who feels watched wants everything off; a patient who pauses and then has a red event would have a family that is not asked to call. The patient's own care team's escalation is a different path and is never paused.
 - Built (after the review): the patient chooses, with a plain warning beside the tick, and the tick is OFF by default, so a plain pause hides the summary and leaves the check-in request on. Holding back check-in requests is an explicit opt-in. A request sent while they were held back is never shown after the pause ends. A pause always ends by itself after `pause_days` (7) and the patient is told once.
 - Options: (a) as built; (b) tick ON by default ("pause all" means all, less safe); (c) never pause check-in requests.
 - Recommendation: (a) with the CMO reading the warning wording; revisit if a real incident happens during a pause.
 - **Decided 2026-10-07 (founder): keep check-in requests on by default** (option a, as built). The CMO should still read the warning wording beside the tick.
 
-### OQ-198 Only the full yearly Membership can be paid for someone else (decided by the founder 2026-10-06, built by S29c)
+### OQ-225 Only the full yearly Membership can be paid for someone else (decided by the founder 2026-10-06, built by S29c)
 - Founder: "the gift should be someone paying for a full yearly membership". `create_order` now refuses any beneficiary order that is not a Membership of 365 days or more (`gift_item_not_allowed`), on both the Care Circle path and the older `profile_access` path (OQ-192). Single consultations, short memberships and care packs sold on their own cannot be gifted; a patient still buys those for themselves.
 - Checkout asks the payer to confirm the person's name, says the person is asked to accept it and that a no is a refund, and says the payer sees no health information.
 - Still open from OQ-191: the unanswered-gift window (`gift_decide_days`, 30 today; the plan suggests 14) is a founder number.
