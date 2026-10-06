@@ -213,6 +213,15 @@ describe("join", () => {
     c.stop();
   });
 
+  it("refuses to open anything that is not an https address", async () => {
+    const p = ports({ join: jest.fn().mockResolvedValue({ ok: true, data: { ok: true, url: "tel:+2348001234567", mediaMode: "video", audioOnlyEnforced: false, recorded: true } }) });
+    const c = await started(p);
+    await c.join("video");
+    expect(p.openUrl).not.toHaveBeenCalled();
+    expect(c.getState().note).toEqual({ kind: "link_error" });
+    c.stop();
+  });
+
   it("reports a link error, without the link, if the Zoom app cannot be opened", async () => {
     const p = ports({ openUrl: jest.fn().mockRejectedValue(new Error(`cannot open ${SECRET_URL}`)) });
     const c = await started(p);

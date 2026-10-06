@@ -141,6 +141,11 @@ export function parseRoomView(raw: unknown): RoomView | null {
   if (typeof v.encounter_id !== "string" || typeof v.status !== "string" || typeof v.scheduled_at !== "string") return null;
   if (v.role !== "patient" && v.role !== "clinician") return null;
   if (!v.scribe || typeof v.scribe !== "object") return null;
+  // The consent answer must be exactly yes, no or not yet. Anything else (a renamed field, a missing one) must read as an error,
+  // never as "answered", or the patient would be told a consent they never gave is saved.
+  const granted = (v.scribe as { granted?: unknown }).granted;
+  if (granted !== null && typeof granted !== "boolean") return null;
+  if (typeof v.joinable !== "boolean" || typeof v.join_opens_at !== "string") return null;
   return raw as RoomView;
 }
 
@@ -154,4 +159,13 @@ export function parseUpcoming(raw: unknown): UpcomingConsultation[] | null {
     out.push(item as UpcomingConsultation);
   }
   return out;
+}
+
+/** A join link is only ever opened if it is an ordinary https address. Defence in depth against a malformed server answer. */
+export function isOpenableJoinUrl(url: string): boolean {
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
 }

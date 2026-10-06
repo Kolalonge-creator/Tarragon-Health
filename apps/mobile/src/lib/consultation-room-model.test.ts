@@ -4,6 +4,7 @@ import {
   canWithdrawScribe,
   formatWhen,
   isLive,
+  isOpenableJoinUrl,
   joinAvailability,
   parseRoomView,
   parseUpcoming,
@@ -122,6 +123,11 @@ describe("parsing what the server returns", () => {
     expect(parseRoomView({})).toBeNull();
     expect(parseRoomView({ ...view(), role: "stranger" })).toBeNull();
     expect(parseRoomView({ ...view(), scribe: undefined })).toBeNull();
+    // The consent answer is exactly yes, no or not yet: a renamed or missing field must not read as "answered".
+    expect(parseRoomView({ ...view(), scribe: { asked: true } })).toBeNull();
+    expect(parseRoomView({ ...view(), scribe: { asked: true, granted: "yes" } })).toBeNull();
+    expect(parseRoomView({ ...view(), scribe: { asked: true, granted: false } })).not.toBeNull();
+    expect(parseRoomView({ ...view(), joinable: undefined })).toBeNull();
   });
 
   it("accepts a list of upcoming consultations and rejects a changed shape", () => {
@@ -130,5 +136,15 @@ describe("parsing what the server returns", () => {
     expect(parseUpcoming([])).toEqual([]);
     expect(parseUpcoming({})).toBeNull();
     expect(parseUpcoming([{ ...row, encounter_id: 1 }])).toBeNull();
+  });
+});
+
+describe("join link check", () => {
+  it("opens only ordinary https addresses", () => {
+    expect(isOpenableJoinUrl("https://zoom.example/j/1?pwd=x")).toBe(true);
+    expect(isOpenableJoinUrl("http://zoom.example/j/1")).toBe(false);
+    expect(isOpenableJoinUrl("tel:+2348001234567")).toBe(false);
+    expect(isOpenableJoinUrl("intent://scan#Intent;end")).toBe(false);
+    expect(isOpenableJoinUrl("not a url")).toBe(false);
   });
 });

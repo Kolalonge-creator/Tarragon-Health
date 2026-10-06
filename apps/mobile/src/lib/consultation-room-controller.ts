@@ -1,6 +1,7 @@
 import type { MessageKey } from "@tarragon/i18n";
 import {
   ROOM_POLL_MS,
+  isOpenableJoinUrl,
   pollDelayMs,
   isLive,
   type DialInInfo,
@@ -227,6 +228,10 @@ export class RoomController {
         else this.set({ note: { kind: "link_error" } });
         // "closed" or "not_found" means the room has moved on: show the true state.
         if (out.reason === "closed" || out.reason === "not_found") await this.refreshFresh();
+        return;
+      }
+      if (!isOpenableJoinUrl(out.url)) {
+        this.set({ note: { kind: "link_error" } });
         return;
       }
       try {
