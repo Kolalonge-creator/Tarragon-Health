@@ -872,3 +872,5 @@ s29_care_circle.sql
 # S29b: a gifted Membership or care pack waits for the patient's yes. Paid but pending: order.paid carries care_pack false and gift_pending true, no Membership starts, no lead is asked for, the patient is asked once and the payer sees nothing; only the patient can answer; accept starts the Membership from the yes and asks for a lead exactly once under its own key; decline closes it, starts nothing and opens a finance incident to refund the payer (payer not told); an unanswered gift is swept as declined after the configured days; buying for yourself is unchanged. Sabotage: the patient check and the gift detection each removed; both must flip.
 s29b_gifted_care_pack.sql
 s29c_care_circle_followup.sql
+# CMO sign-off hub: a governed configuration version cannot be activated while older than one already signed, on all nine versioned tables, so a stale draft can never roll the platform back (real sign_alert_rules; partition columns for cv_risk_config and risk_questionnaire_configs). Sabotage: the trigger dropped; the older draft must then sign.
+governed_config_supersede_guard.sql
