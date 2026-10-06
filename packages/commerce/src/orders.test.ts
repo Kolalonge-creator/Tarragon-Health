@@ -170,6 +170,31 @@ describe("handleOrderWebhook", () => {
 });
 
 describe("reconcileOpenOrders", () => {
+  it("handles many orders a few at a time and still pays each exactly once", async () => {
+    const payments = createMockPayment();
+    const store = new MemoryStore();
+    for (let i = 0; i < 23; i++) {
+      const ref = `tho_bulk${String(i).padStart(24, "0")}`;
+      store.add({ reference: ref, amountKobo: 500_000 });
+      await payments.initializeTransaction({ reference: ref, email: "a@example.com", amountKobo: 500_000, metadata: { kind: "order" } });
+      payments.settle(ref, "success");
+    }
+    let running = 0;
+    let peak = 0;
+    const verify = payments.verifyTransaction.bind(payments);
+    payments.verifyTransaction = async (r: string) => {
+      running++;
+      peak = Math.max(peak, running);
+      await new Promise((res) => setTimeout(res, 1));
+      running--;
+      return verify(r);
+    };
+    const out = await reconcileOpenOrders({ payments, store }, 50);
+    expect(out.ok && out.data).toMatchObject({ checked: 23, paid: 23, errors: 0 });
+    expect(peak).toBeLessThanOrEqual(5);
+    expect(peak).toBeGreaterThan(1);
+    expect(store.entitlements).toHaveLength(23);
+  });
   it("pays a late settlement, closes an abandoned one, closes an expired unknown one and keeps the rest", async () => {
     const payments = createMockPayment();
     const store = new MemoryStore();

@@ -31,9 +31,7 @@ create table public.catalog_items (
 );
 alter table public.catalog_items enable row level security;
 revoke all on public.catalog_items from public, anon, authenticated;
-grant select on public.catalog_items to authenticated;
-create policy catalog_items_read on public.catalog_items for select to authenticated
-  using (organisation_id = (select organisation_id from public.profiles where id = (select auth.uid())) and (active or private.is_admin()));
+-- No table grant: notes, price reasons and staff ids are internal. Patients read the catalogue() function, staff admin_catalogue().
 
 create table public.prices (
   id               uuid primary key default gen_random_uuid(),
@@ -51,9 +49,6 @@ create table public.prices (
 );
 alter table public.prices enable row level security;
 revoke all on public.prices from public, anon, authenticated;
-grant select on public.prices to authenticated;
-create policy prices_read on public.prices for select to authenticated
-  using (organisation_id = (select organisation_id from public.profiles where id = (select auth.uid())));
 
 -- A price is a fact about a time range: only its end can be set, once. Nothing deletes one.
 create function private.prices_immutable() returns trigger language plpgsql set search_path = '' as $$
@@ -160,6 +155,7 @@ create table public.payments (
 );
 -- one success per reference: a replay can never become a second payment
 create unique index payments_one_success on public.payments (provider, provider_reference) where status = 'success';
+create unique index payments_one_mismatch on public.payments (provider, provider_reference, mismatch_reason, amount_kobo, total_kobo) where status = 'mismatch';
 create index payments_order_idx on public.payments (order_id);
 alter table public.payments enable row level security;
 revoke all on public.payments from public, anon, authenticated;
@@ -256,7 +252,13 @@ begin
                              paystack_reference, client_key, is_test)
   values (pr.organisation_id, v_uid, v_uid, it.id, px.id, px.amount_kobo, px.components,
           'tho_' || replace(gen_random_uuid()::text, '-', ''), p_client_key, coalesce(pr.is_test, false))
+  on conflict (buyer_profile_id, client_key) where client_key is not null do nothing
   returning * into o;
+  if o.id is null then
+    -- a second tap of the same key raced the first: return the first order
+    select * into o from public.orders where buyer_profile_id = v_uid and client_key = p_client_key;
+    return jsonb_build_object('order_id', o.id, 'reference', o.paystack_reference, 'amount_kobo', o.amount_kobo, 'state', o.state, 'checkout_url', o.checkout_url, 'replay', true);
+  end if;
   return jsonb_build_object('order_id', o.id, 'reference', o.paystack_reference, 'amount_kobo', o.amount_kobo, 'state', o.state, 'checkout_url', null, 'replay', false);
 end $$;
 
@@ -291,7 +293,8 @@ as $$
 begin
   insert into public.payments (organisation_id, order_id, provider_reference, amount_kobo, fee_kobo, total_kobo, status, mismatch_reason, source, event_key, raw, is_test)
   values (o.organisation_id, o.id, o.paystack_reference, greatest(coalesce(p_amount, 0), 0), greatest(coalesce(p_fee, 0), 0),
-          greatest(coalesce(p_total, 0), 0), 'mismatch', p_reason, p_source, p_event_key, coalesce(p_raw, '{}'), o.is_test);
+          greatest(coalesce(p_total, 0), 0), 'mismatch', p_reason, p_source, p_event_key, coalesce(p_raw, '{}'), o.is_test)
+  on conflict (provider, provider_reference, mismatch_reason, amount_kobo, total_kobo) where status = 'mismatch' do nothing;
   perform private.order_incident(o.organisation_id, 'order-mismatch:' || o.id, 'Payment did not match its order',
     'Paystack reported a payment whose ' || p_reason || ' differs from order ' || o.id || '. The order was NOT marked paid. A person must check the Paystack dashboard.');
   return jsonb_build_object('result', 'mismatch', 'reason', p_reason, 'order_id', o.id);
@@ -355,8 +358,24 @@ begin
   if v_ent is not null and it.kind = 'membership' then
     update public.patient_memberships set state = 'ended', ended_at = now(), end_reason = 'Lapsed on its end date, closed automatically'
      where patient_id = o.beneficiary_patient_id and state = 'active' and ends_at is not null and ends_at <= now();
-    insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test)
-    values (o.organisation_id, o.beneficiary_patient_id, 'purchase', v_start, v_start + make_interval(days => it.duration_days), o.is_test);
+    if exists (select 1 from public.patient_memberships where patient_id = o.beneficiary_patient_id and state = 'active') then
+      -- Already a Member (two orders paid, or a grant landed after this order was made): the payment is honoured, never rolled back.
+      -- A dated membership is extended by the paid period; an undated one is left alone. A person is told either way.
+      update public.patient_memberships
+         set ends_at = greatest(ends_at, v_start) + make_interval(days => it.duration_days)
+       where patient_id = o.beneficiary_patient_id and state = 'active' and ends_at is not null;
+      perform private.order_incident(o.organisation_id, 'order-membership-overlap:' || o.id, 'A membership was paid for by someone who already had one',
+        'Order ' || o.id || ' was paid while the patient already had an active membership. A dated one was extended by the paid period; check whether a refund is due.');
+    else
+      insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test)
+      values (o.organisation_id, o.beneficiary_patient_id, 'purchase', v_start, v_start + make_interval(days => it.duration_days), o.is_test);
+    end if;
+  end if;
+
+  -- Capacity is checked when the order is made, not reserved, so a rush can sell more than the free slots. Say so to a person.
+  if v_ent is not null and it.grants_lead and not exists (select 1 from private.lead_candidates(o.beneficiary_patient_id, '{}', true)) then
+    perform private.order_incident(o.organisation_id, 'order-no-lead-slot:' || o.id, 'A paid order has no lead clinician slot',
+      'Order ' || o.id || ' was paid but no lead clinician has a free slot. Arrange a lead for this patient.');
   end if;
 
   perform private.emit_domain_event('order.paid', o.organisation_id,
@@ -620,6 +639,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['catalog_items', 'prices', 'orders', 'payments', 'entitlements'] loop
+    if t in ('catalog_items', 'prices') and has_table_privilege('authenticated', 'public.' || t, 'SELECT') then raise exception 'S25: authenticated can read % directly', t; end if;
     if not (select relrowsecurity from pg_class where oid = ('public.' || t)::regclass) then raise exception 'S25: % has no RLS', t; end if;
     if has_table_privilege('anon', 'public.' || t, 'SELECT') then raise exception 'S25: anon can read %', t; end if;
     if has_table_privilege('authenticated', 'public.' || t, 'INSERT,UPDATE,DELETE') then raise exception 'S25: authenticated can write %', t; end if;

@@ -191,6 +191,10 @@ begin
   perform pg_temp.ck('a mismatch makes no entitlement', '0', (select count(*)::text from public.entitlements where order_id = pg_temp.f('ord1')));
   perform pg_temp.ck('a mismatch opens one incident', '1',
     (select count(*)::text from public.ops_incidents where external_reference = 'order-mismatch:' || pg_temp.f('ord1') and status not in ('resolved', 'closed')));
+  perform pg_temp.pay(ref, 400000, 150, 400150);
+  perform pg_temp.pay(ref, 400000, 150, 400150);
+  perform pg_temp.ck('the same mismatch seen again (a sweep, a retry) adds no new row', '4',
+    (select count(*)::text from public.payments where order_id = pg_temp.f('ord1') and status = 'mismatch'));
   perform pg_temp.ck('a mismatch keeps a record of what was seen', '4', (select count(*)::text from public.payments where order_id = pg_temp.f('ord1') and status = 'mismatch'));
   perform pg_temp.ck('a payment for a status that is not success changes nothing', 'not_paid',
     pg_temp.res(pg_temp.svc(format($q$select public.record_order_payment(%L, 500000, 150, 500150, 'NGN', 'failed', 'webhook')::text$q$, ref))));
@@ -275,6 +279,23 @@ begin
     (pg_temp.q_as(v_p3, $q$select public.create_order('membership_annual', gen_random_uuid())::text$q$) like '%already_member%')::text);
 end $$;
 
+-- 5b. A second payment for a membership, and a paid order with no lead slot --------------------------------------------------
+do $$
+declare v_p3 uuid := pg_temp.f('pat3'); v_pat uuid := pg_temp.f('pat'); ref text; o uuid; v_end0 timestamptz; v_end1 timestamptz;
+begin
+  -- pat3 is already a Member. A second order made before the first was paid (simulated by inserting it directly) is paid later.
+  insert into public.orders (organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, paystack_reference, is_test)
+  select o2.organisation_id, v_p3, v_p3, o2.catalog_item_id, o2.price_id, o2.amount_kobo, 'tho_overlap0000000000000000000000', true
+    from public.orders o2 where o2.buyer_profile_id = v_p3 and o2.amount_kobo = 10000000 limit 1 returning id into o;
+  select ends_at into v_end0 from public.patient_memberships where patient_id = v_p3 and state = 'active';
+  perform pg_temp.ck('a second membership payment is honoured, not rolled back', 'paid', pg_temp.res(pg_temp.pay('tho_overlap0000000000000000000000', 10000000, 15000, 10015000)));
+  select ends_at into v_end1 from public.patient_memberships where patient_id = v_p3 and state = 'active';
+  perform pg_temp.ck('the dated membership is extended by the paid year', '365', extract(day from (v_end1 - v_end0))::int::text);
+  perform pg_temp.ck('there is still exactly one active membership row', '1', (select count(*)::text from public.patient_memberships where patient_id = v_p3 and state = 'active'));
+  perform pg_temp.ck('the overlap is told to a person', '1', (select count(*)::text from public.ops_incidents where external_reference = 'order-membership-overlap:' || o));
+  perform pg_temp.ck('the second payment still has its own entitlement', '1', (select count(*)::text from public.entitlements where order_id = o));
+end $$;
+
 -- 6. Prices are versioned and immutable ----------------------------------------------------------------------------------
 do $$
 declare v_admin uuid := pg_temp.f('admin'); v_pat uuid := pg_temp.f('pat'); v_item uuid := (select id from public.catalog_items where code = 'proof_consult' and organisation_id = pg_temp.f('org'));
@@ -322,6 +343,10 @@ begin
     (pg_temp.q_as(v_p2, 'select jsonb_array_length(public.my_orders())::text')::int = (select count(*) from public.orders where buyer_profile_id = v_p2))::text);
   perform pg_temp.ck('staff in the same organisation can read orders', 'true', (pg_temp.q_as(v_admin, 'select count(*)::text from public.orders')::int > 0)::text);
   perform pg_temp.ck('anon reads nothing', '42501', pg_temp.try_anon('select count(*) from public.orders'));
+  perform pg_temp.ck('a patient cannot read the catalogue table directly (internal notes)', 'true',
+    (pg_temp.q_as(v_pat, 'select count(*)::text from public.catalog_items') like '%permission denied%')::text);
+  perform pg_temp.ck('a patient cannot read the price table directly (reasons, staff ids)', 'true',
+    (pg_temp.q_as(v_pat, 'select count(*)::text from public.prices') like '%permission denied%')::text);
   perform pg_temp.ck('a patient cannot write the catalogue directly', 'true',
     (pg_temp.try_as(v_pat, $q$update public.catalog_items set active = true$q$) like '%permission denied%')::text);
   perform pg_temp.ck('a patient cannot write entitlements directly', 'true',
@@ -403,7 +428,7 @@ begin
   o := (select id from public.orders where paystack_reference = ref);
   perform pg_temp.pay(ref, 1, 0, 1);
   insert into results values ('sabotaged', 'a payment short of the price is a mismatch and the order stays created', 'created', (select state from public.orders where id = o));
-  ref3 := (select paystack_reference from public.orders where buyer_profile_id = pg_temp.f('pat3') and state = 'paid' and amount_kobo = 10000000);
+  ref3 := (select paystack_reference from public.orders where buyer_profile_id = pg_temp.f('pat3') and state = 'paid' and amount_kobo = 10000000 and paystack_reference <> 'tho_overlap0000000000000000000000' limit 1);
   perform pg_temp.pay(ref3, 10000000, 15000, 10015000);
   perform pg_temp.pay(ref3, 10000000, 15000, 10015000);
   select count(*) into n from public.entitlements where order_id = (select id from public.orders where paystack_reference = ref3);

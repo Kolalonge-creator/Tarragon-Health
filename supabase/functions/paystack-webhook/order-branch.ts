@@ -43,6 +43,12 @@ export async function handleOrderCharge(rawBody: string, signature: string | nul
     console.error("paystack-webhook: order payment not settled yet, asking Paystack to retry", c.outcome);
     return Response.json({ ok: false, error: c.outcome }, { status: 500 });
   }
+  if (c.outcome === "not_found") {
+    // Paystack says this charge succeeded but no order of ours has that reference: money with no order. Never ack it quietly:
+    // 500 makes Paystack retry (and shows in the function logs and Sentry) until a person has looked.
+    console.error("paystack-webhook: a verified order payment has no matching order, asking Paystack to retry");
+    return Response.json({ ok: false, error: "order_not_found" }, { status: 500 });
+  }
   if (c.outcome === "mismatch") console.error("paystack-webhook: order payment mismatch recorded, an incident is open", c.reason);
   return Response.json({ ok: true, order: c.outcome });
 }

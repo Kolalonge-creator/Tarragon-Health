@@ -131,3 +131,13 @@ Deno.test("a legacy kind is not claimed by the order branch", async () => {
   assertEquals(db.state.calls.length, 0);
   assert(fake.rows("payment_transactions").length === 1);
 });
+
+Deno.test("a verified payment for a reference we have no order for is never acknowledged quietly", async () => {
+  const { payments, factory } = await fixture();
+  payments.settle(REF, "success");
+  const { rawBody, signature } = await payments.signedChargeWebhook(REF);
+  const notFound: DepsFactory = (db) => ({ ...factory(db)!, store: supabaseOrderStore({ rpc: () => Promise.resolve({ data: { result: "not_found" }, error: null }) }) });
+  const { res } = await post(rawBody, signature, notFound);
+  assertEquals(res.status, 500);
+  assertEquals((await res.json()).error, "order_not_found");
+});

@@ -135,6 +135,8 @@ export async function handleOrderWebhook(deps: CommerceDeps, rawBody: string, si
   return { handled: true, confirm: await confirmPayment(deps, { reference: e.reference, source: "webhook", eventKey: e.key }) };
 }
 
+const SWEEP_CONCURRENCY = 5;
+
 export interface ReconcileSummary {
   readonly checked: number;
   readonly paid: number;
@@ -153,7 +155,7 @@ export async function reconcileOpenOrders(deps: CommerceDeps, limit = 50): Promi
   const open = await deps.store.listOpen(limit);
   if (!open.ok) return fail("vendor_error", "Could not list open orders");
   let paid = 0, closed = 0, mismatches = 0, stillPending = 0, errors = 0;
-  for (const o of open.data) {
+  const one = async (o: OpenOrder) => {
     const c = await confirmPayment(deps, { reference: o.reference, source: "sweep" });
     switch (c.outcome) {
       case "paid":
@@ -184,6 +186,10 @@ export async function reconcileOpenOrders(deps: CommerceDeps, limit = 50): Promi
         errors++;
         break;
     }
+  };
+  // A few at a time: one slow Paystack call must not hold up the rest, and a pass must finish inside the cron call's timeout.
+  for (let i = 0; i < open.data.length; i += SWEEP_CONCURRENCY) {
+    await Promise.all(open.data.slice(i, i + SWEEP_CONCURRENCY).map(one));
   }
   return ok({ checked: open.data.length, paid, closed, mismatches, stillPending, errors });
 }
