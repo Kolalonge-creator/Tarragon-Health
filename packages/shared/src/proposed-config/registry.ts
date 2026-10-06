@@ -1079,6 +1079,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     //  flagWindowDays: how long after a consultation the patient can flag a problem for human review.
     //  joinOpensMinutesBefore, joinClosesMinutesAfter: the window around the start time in which a room can be joined.
     //  bookingLeadMinutes: the soonest a slot can be booked from now. bookingHorizonDays: how far ahead slots are listed.
+    //  chartAccessAfterFinishMaxHours: after a clinician finishes a consultation they keep that patient's chart until a signed note exists,
+    //  for at most this long (OQ-159, founder 2026-10-06). Added in policy v2.
     value: {
       minAgeYears: 18,
       requireDateOfBirth: true,
@@ -1094,6 +1096,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       joinClosesMinutesAfter: 60,
       bookingLeadMinutes: 30,
       bookingHorizonDays: 14,
+      chartAccessAfterFinishMaxHours: 72,
     },
     owner: "Founder",
     status: "proposed",

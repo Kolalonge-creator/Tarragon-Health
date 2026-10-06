@@ -112,7 +112,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
       );
 
     case "declined":
-      return <Badge variant="grey">{t("scribe.consent.declined_label", "en")}</Badge>;
+      return <Badge variant="grey">{t("scribe.consent.not_used_label", "en")}</Badge>;
 
     case "input": {
       const tooShort = text.trim().length < MIN_TYPED_NOTES_CHARS;
