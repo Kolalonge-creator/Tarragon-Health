@@ -88,7 +88,7 @@ insert into public.credentialing_config (version, is_active, effective_from, rul
   "notice_windows_days": [90, 30, 0],
   "grace_max_days": 14,
   "separate_verifier_and_approver": true,
-  "document_max_bytes": 10485760,
+  "document_max_bytes": 8388608,
   "document_retention_years_after_offboarding": 7
 }
 $json$::jsonb);
@@ -198,7 +198,7 @@ begin
     union
     select cs.profile_id from public.clinical_staff cs where cs.profile_id is not null and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer'
   loop
-    perform private.credential_notify(r.id, p_org, p_subject, p_message, p_payload, false);
+    perform private.credential_notify(r.id, p_org, p_subject, p_message, coalesce(p_payload, '{}'::jsonb) || jsonb_build_object('audience', 'reviewer'), false);
   end loop;
 end;
 $$;
@@ -563,7 +563,7 @@ end $$;
 --    No SELECT policy for authenticated, so no direct download or bearer link exists.
 -- ---------------------------------------------------------------------------
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('clinician-documents', 'clinician-documents', false, 10485760,
+values ('clinician-documents', 'clinician-documents', false, 8388608,
         array['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
 
@@ -628,7 +628,7 @@ begin
         when 'approved_tier1' then 'Your application has been approved. Your care team lead will switch you on shortly.'
         when 'active' then 'You are now active on Tarragon Health.'
         else 'Your application was not approved. Your care team lead can tell you more.'
-      end, jsonb_build_object('application_id', a.id), true);
+      end, jsonb_build_object('application_id', a.id, 'audience', 'applicant'), true);
   end if;
 end;
 $$;
@@ -789,7 +789,7 @@ declare
   a public.clinician_applications%rowtype;
   s public.clinical_staff%rowtype;
   v_id uuid;
-  v_max bigint := coalesce((private.credential_rule('document_max_bytes'))::bigint, 10485760);
+  v_max bigint := coalesce((private.credential_rule('document_max_bytes'))::bigint, 8388608);
 begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
   select * into p from public.profiles where id = v_uid;
@@ -1308,7 +1308,7 @@ begin
   if s.profile_id is not null then
     perform private.credential_notify(s.profile_id, s.organisation_id, 'Your access is paused',
       'Your clinician access is paused: ' || p_reason || ' Upload your renewed documents under Join as a clinician and your care team lead will reinstate you once they are checked.',
-      jsonb_build_object('clinical_staff_id', s.id), true);
+      jsonb_build_object('clinical_staff_id', s.id, 'audience', 'applicant'), true);
   end if;
   perform private.credential_notify_reviewers(s.organisation_id, 'Clinician suspended', s.full_name || ' was suspended: ' || p_reason,
     jsonb_build_object('clinical_staff_id', s.id));
@@ -1733,7 +1733,11 @@ begin
       'grace', (select coalesce(jsonb_agg(jsonb_build_object('id', g.id, 'kind', g.kind, 'ends_at', g.ends_at, 'reason', g.reason) order by g.ends_at), '[]'::jsonb)
                 from public.credential_grace_periods g where g.clinical_staff_id = cs.id and g.revoked_at is null and g.ends_at > now()),
       'competencies', (select coalesce(jsonb_agg(cc.competency_code order by cc.competency_code), '[]'::jsonb) from public.clinician_competencies cc where cc.clinical_staff_id = cs.id and cc.revoked_at is null),
-      'audited_task_count', cs.audited_task_count) as x
+      'audited_task_count', cs.audited_task_count,
+      'renewal_documents', (select coalesce(jsonb_agg(jsonb_build_object('id', d.id, 'kind', d.kind, 'created_at', d.created_at, 'expires_at', d.expires_at,
+                'verified', d.verified_at is not null) order by d.created_at), '[]'::jsonb)
+              from public.clinician_documents d where d.clinical_staff_id = cs.id and d.application_id is null and d.superseded_at is null
+                and d.kind in ('mdcn_practising_licence', 'indemnity_certificate'))) as x
     from public.clinical_staff cs where cs.status <> 'offboarded' and cs.profile_id is not null
   ) q);
 end;

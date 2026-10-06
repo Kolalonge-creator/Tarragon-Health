@@ -547,6 +547,17 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // "no branching to reproduce" shape as clinician_alert_ack_timeout_*.
     return { text: String(payload.message ?? "A clinician's credentials need review"), href: "/admin" };
   }
+  if (n.template === "credential_notice") {
+    // From 20261006013217_s15_clinician_credentialing.sql (private.credential_notify). payload.message is the fully
+    // resolved sentence. audience says who is reading: an applicant or a paused clinician (their role is back to
+    // patient, so they go to the join page), a reviewer (the role-aware /credentialing redirect), or a working
+    // clinician (their own credentials page).
+    const audience = payload.audience;
+    return {
+      text: String(payload.message ?? "There is an update about your clinician account"),
+      href: audience === "applicant" ? "/account/clinician" : audience === "reviewer" ? "/credentialing" : "/clinician/credentials",
+    };
+  }
   if (n.template === "clinician_alert_sla_breach") {
     // From clinician_alert_sla_breach_escalation.sql. Same pre-resolved
     // payload.message shape. The breached row is a clinician_alerts row, so

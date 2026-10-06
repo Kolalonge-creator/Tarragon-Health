@@ -537,11 +537,16 @@ export function getNavSections(
                   countKey: "therapyApprovalsWaiting",
                 },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
+                // Documents, licence and cover dates, level and renewal uploads (S15).
+                { label: "Training and profile", href: "/clinician/credentials", icon: "review" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier
                 // per this file's own gating philosophy above; the page
                 // itself redirects/shows a friendly message for anyone else.
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
+                // Chief Medical Officer only: new clinician applications, licence and cover expiry, and the
+                // training and test content (S15). Same gating as Team caseload above.
+                { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
               ],
             },
             // Chief Medical Officer / Clinical Director governance surfaces

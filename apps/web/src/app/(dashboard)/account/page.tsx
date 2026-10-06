@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
@@ -143,6 +144,22 @@ export default async function AccountPage() {
       )}
 
       {isPatient && profile.organisation_id === DEFAULT_CONSUMER_ORG_ID && <JoinEmployerCodeForm />}
+
+      {profile.role === "patient" && !profile.is_dependent_account && (
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Are you a doctor?</CardTitle>
+            <CardDescription>
+              Apply to join the Tarragon Health care team, or renew your documents if you already work with us.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/account/clinician" className="text-sm font-medium text-brand-green underline">
+              Join as a clinician
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <ChangePasswordForm />
       <ChangePhoneCard />

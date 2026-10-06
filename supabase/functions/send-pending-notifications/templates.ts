@@ -1336,6 +1336,28 @@ export const TEMPLATE_MAP: Record<
       pushUrl: "/clinician/escalations",
     };
   },
+  // S15: licence and indemnity reminders (3 months, 1 month, the day), grace and suspension notices, and application
+  // decisions, from private.credential_notify. payload.subject and payload.message arrive fully resolved; this only
+  // frames them. Only in_app and email rows are written for it (SMS is for codes and paging only).
+  credential_notice: (payload) => {
+    const subject = String(payload.subject ?? "An update about your Tarragon Health clinician account");
+    const message = String(payload.message ?? "Open Tarragon Health to see the details.");
+    return {
+      smsText: message,
+      pushUrl: payload.audience === "applicant" ? "/account/clinician" : "/clinician/credentials",
+      email: {
+        subject,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hello,</p>` +
+          `<p>${escapeHtmlForBroadcast(message)}</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `Hello,\n\n${message}\n\nTarragon Health`,
+      },
+    };
+  },
   // Same gap as the three ack-timeout keys above, found in the same pass:
   // no TEMPLATE_MAP entry existed anywhere for this key even though
   // lab_result_documents.sql (see enqueue_lab_result_document_notifications,

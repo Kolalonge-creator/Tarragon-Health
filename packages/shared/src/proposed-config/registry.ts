@@ -405,7 +405,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       notice_windows_days: [90, 30, 0],
       grace_max_days: 14,
       separate_verifier_and_approver: true,
-      document_max_bytes: 10485760,
+      document_max_bytes: 8388608,
       document_retention_years_after_offboarding: 7,
     },
     owner: "Founder and counsel",

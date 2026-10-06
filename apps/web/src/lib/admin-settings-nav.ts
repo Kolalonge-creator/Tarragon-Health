@@ -82,6 +82,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
+        href: "/admin/credentialing",
+        label: "Clinician credentialing",
+        blurb: "Check new clinicians' licences, documents and referees, and track licence and indemnity expiry.",
+        icon: SEMANTIC_ICON.clinicianFollowUp,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/provider-restrictions",
         label: "Provider restrictions",
         blurb: "A staged, reason-coded suspension workflow for clinical staff.",
