@@ -87,7 +87,6 @@ export class RoomController {
   private started = false;
   private foreground = true;
   private refreshing: Promise<void> | null = null;
-  private generation = 0;
   /** Identifies the load that currently owns `refreshing`. */
   private token: object | null = null;
 
@@ -139,10 +138,11 @@ export class RoomController {
   private schedule(): void {
     this.cancelTimer();
     const view = this.state.view;
-    // Nothing to poll for once the consultation has ended, or once the server has said it is not this patient's.
-    if (!this.started || !this.foreground || (this.state.notFound && !this.state.offline) || (view && !isLive(view.status))) return;
-    // Slower while we cannot reach the server: each failed try costs data and battery for nothing.
-    const delay = this.state.offline ? ROOM_POLL_MS * 2 : ROOM_POLL_MS;
+    // Nothing to poll for once the consultation has ended.
+    if (!this.started || !this.foreground || (view && !isLive(view.status))) return;
+    // Slower while we cannot reach the server, or while the answer is "not found" (which can be a session that has lapsed, or a
+    // consultation not visible yet): each try costs data and battery, but it must keep trying so it recovers on its own.
+    const delay = this.state.offline || this.state.notFound ? ROOM_POLL_MS * 2 : ROOM_POLL_MS;
     this.timer = (this.ports.setTimer ?? setTimeout)(() => {
       void this.refresh();
     }, delay);
@@ -154,7 +154,6 @@ export class RoomController {
    * then fails) and one new load is started straight away, without waiting for the old one.
    */
   private refreshFresh(): Promise<void> {
-    this.generation += 1;
     this.refreshing = null;
     this.token = null;
     return this.refresh();
@@ -163,7 +162,6 @@ export class RoomController {
   /** One load of the room. Never overlaps another. */
   refresh(): Promise<void> {
     if (this.refreshing) return this.refreshing;
-    const generation = this.generation;
     const token = {};
     const run: Promise<void> = (async () => {
       try {
@@ -176,7 +174,7 @@ export class RoomController {
           res = { ok: false };
         }
         // A change was saved while this load was out: what it brought back may pre-date that change.
-        if (generation !== this.generation) return;
+        if (this.token !== token) return;
         if (!res.ok) {
           this.set({ loading: false, offline: true });
         } else if (res.data === null) {

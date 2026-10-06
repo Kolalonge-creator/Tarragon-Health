@@ -121,11 +121,15 @@ describe("polling", () => {
     c.stop();
   });
 
-  it("stops polling a consultation the server says is not this patient's", async () => {
+  it("keeps polling a not-found consultation, at half the pace, so it recovers when it appears or the session is renewed", async () => {
     const p = ports({ loadRoom: jest.fn().mockResolvedValue({ ok: true, data: null }) });
     const c = await started(p);
-    await jest.advanceTimersByTimeAsync(ROOM_POLL_MS * 5);
-    expect(p.loadRoom).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(ROOM_POLL_MS * 2);
+    expect(p.loadRoom).toHaveBeenCalledTimes(2);
+    p.loadRoom.mockResolvedValue({ ok: true, data: view() });
+    await jest.advanceTimersByTimeAsync(ROOM_POLL_MS * 2);
+    expect(c.getState()).toMatchObject({ notFound: false });
+    expect(c.getState().view).not.toBeNull();
     c.stop();
   });
 

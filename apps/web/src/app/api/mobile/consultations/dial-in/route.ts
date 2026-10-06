@@ -18,7 +18,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
   const patient = await isPatientOnConsultation(deps, parsed.data.encounterId);
-  if (patient === "error") return NextResponse.json({ ok: false, reason: "not_allowed" }, { status: 500 });
+  if (patient === "error") return NextResponse.json({ ok: false, reason: "provider" }, { status: 500, headers: { "Cache-Control": "no-store" } });
   if (patient === "no") return NextResponse.json({ ok: false, reason: "not_allowed" }, { headers: { "Cache-Control": "no-store" } });
 
   const outcome = await requestDialIn(deps, parsed.data.encounterId);
