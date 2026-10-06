@@ -21,6 +21,7 @@ const KEYS = [
   "note_release_declined",
   "note_correction_answered",
   "note_unsigned_reminder",
+  "lab_result_ready",
 ] as const;
 
 const ctx = { notificationId: "n", recipientId: "r" };

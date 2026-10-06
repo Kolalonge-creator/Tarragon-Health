@@ -158,6 +158,30 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["\\b1[_,]?200[_,]?000\\b"],
   },
   {
+    key: "commerce.processing_fee_estimate",
+    // The estimate shown BEFORE payment for Paystack's processing fee on a local card or bank payment (S25, OQ-97): 1.5 percent
+    // plus 100 naira, the 100 waived under 2,500 naira, capped at 2,000 naira. Paystack has no fee-preview call, so this is only an
+    // estimate and is labelled as one; the exact fee comes from the verified payment and is recorded on the order and receipt.
+    // v1 was unverified; v2 below confirms it against paystack.com/pricing.
+    value: { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S25.md section 2 item 7; docs/research/S25.md (Paystack pricing, unverified)",
+  },
+  {
+    key: "commerce.processing_fee_estimate",
+    // Confirmed against Paystack's published pricing on 2026-10-06 (v2). Still only an ESTIMATE on screen: Paystack has no fee-preview call,
+    // international cards cost more (3.9% + NGN 100, uncapped), and the exact fee is read from the verified payment.
+    value: { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 2,
+    effectiveFrom: "2026-10-06",
+    source: "paystack.com/pricing read 2026-10-06: local card and USSD 1.5% + NGN 100 (NGN 100 waived under NGN 2,500), capped at NGN 2,000; international 3.9% + NGN 100",
+  },
+  {
     key: "privacy.transcript_retention",
     // Spec: "To confirm with counsel". null means no value exists yet; callers must treat it as unset.
     value: null,
@@ -415,6 +439,267 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S15.md; docs/research/S15.md; spec 7.1 and 17",
   },
   {
+    key: "lab.panels",
+    // Lab panels and release thresholds (S27). Live values are the active row of `lab_panel_versions`; a test fails if the
+    // migration seed and this value drift. Adult reference and critical limits only, NOT signed: the CMO sets them (OQ-176).
+    // Any value outside the range holds the result for a clinician, so a wrong range makes more reviews, never an early release.
+    value: {
+      "panels": {
+        "essential": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 40,
+              "criticalHigh": 400
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4.0,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4.0
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 2.5,
+              "criticalHigh": 6.5
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 120,
+              "criticalHigh": 160
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 56
+            }
+          ]
+        },
+        "annual_health_check": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 40,
+              "criticalHigh": 400
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4.0,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4.0
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 2.5,
+              "criticalHigh": 6.5
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 120,
+              "criticalHigh": 160
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 56
+            },
+            {
+              "code": "ast",
+              "label": "AST",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 10,
+              "refHigh": 40
+            },
+            {
+              "code": "haemoglobin",
+              "label": "Haemoglobin",
+              "kind": "numeric",
+              "unit": "g/dL",
+              "refLow": 12.0,
+              "refHigh": 17.5,
+              "criticalLow": 7.0,
+              "criticalHigh": 20.0
+            },
+            {
+              "code": "wbc",
+              "label": "White cell count",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 4.0,
+              "refHigh": 11.0,
+              "criticalLow": 1.0,
+              "criticalHigh": 30.0
+            },
+            {
+              "code": "platelets",
+              "label": "Platelets",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 150,
+              "refHigh": 450,
+              "criticalLow": 20,
+              "criticalHigh": 1000
+            },
+            {
+              "code": "tsh",
+              "label": "TSH",
+              "kind": "numeric",
+              "unit": "mIU/L",
+              "refLow": 0.4,
+              "refHigh": 4.0
+            },
+            {
+              "code": "hiv_screen",
+              "label": "HIV screen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true,
+              "optional": true
+            },
+            {
+              "code": "hbsag",
+              "label": "Hepatitis B surface antigen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true,
+              "optional": true
+            },
+            {
+              "code": "hcv_ab",
+              "label": "Hepatitis C antibody",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true,
+              "optional": true
+            }
+          ]
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S27.md; docs/research/S27.md; spec 4.4",
+  },
+  {
     key: "written_care.behaviour",
     // Written questions and clinical notes (S22). Live values are the active row of `written_care_config`; this entry mirrors
     // it and a test fails if the migration seed and this value drift. monthlyAllowance 4 was chosen by the build at the
@@ -619,6 +904,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S30.md; spec 7.7 and 17",
   },
   {
+    key: "payouts.rules",
+    // The rules of the weekly payout run (S31, spec 7.7). Live value is the active row of `payouts_config`; a test fails if the
+    // migration seed and this value drift. The minimum is a floor below which earnings carry over to the next week.
+    value: {
+      cadence: { weekday: 1, hour_lagos: 6 },
+      minimum_payout_kobo: 100000,
+      carry_over_below_minimum: true,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S31.md; spec 7.7",
+  },
+  {
     key: "queue.task_types",
     // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
     // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default
@@ -725,6 +1025,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S14.md; docs/research/S14.md",
   },
   {
+    key: "video.audio_fallback",
+    // Version 2 (S21 follow-up, in-app Zoom Meeting SDK, OQ-136): the same three values plus what the SDK actually reports.
+    // The SDK gives a network level (0 to 5, which the code reads on the vendor's own scale) while the camera is on, and audio
+    // statistics (packet loss, round trip time) all the time. Audio statistics are what lets the ladder see a link recover
+    // while the camera is off.
+    //  poorAudioLossPercent: average audio packet loss at or above this counts as a poor sample (unit unconfirmed against a live
+    //  call; see OQ-136).
+    //  poorAudioRttMs: audio round trip time at or above this, in milliseconds, counts as a poor sample.
+    //  sampleIntervalSeconds: statistics arrive about every second; they are thinned to one sample per this many seconds, so
+    //  "3 poor samples in a row" means a few seconds of bad link, not a few packets.
+    value: { poorSamplesToDowngrade: 3, goodSamplesToOfferVideo: 6, poorBelowKbps: 100, poorAudioLossPercent: 10, poorAudioRttMs: 600, sampleIntervalSeconds: 3 },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S21.md; docs/research/S21.md",
+  },
+  {
     key: "consultations.policy",
     // Remote consultations (S21, founder decisions OQ-124 to OQ-131). Mirrored by consultation_policy_config v1 (a drift
     // test compares the two).
@@ -798,5 +1116,48 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S23.md",
+  },
+  // S26: entitlements lifecycle, care pack expiry, refunds
+  {
+    key: "entitlements.expiry_reminder_days",
+    // Days before an entitlement expires to send the CON-010 renewal reminder.
+    value: 7,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S26.md; docs/research/S26.md",
+  },
+  {
+    key: "refunds.cooling_off_days",
+    // FCCPA consumer-protection cooling-off period: a patient may request a full refund within this window.
+    value: 14,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S26.md; docs/research/S26.md",
+  },
+  {
+    key: "refunds.consultation_cancel_grace_hours",
+    // Full refund if consultation cancelled at least this many hours before start. Inside this window, the
+    // cancellation retention applies. Clinician cancel or no-show is always a full refund regardless.
+    value: 2,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S26.md; OQ-127",
+  },
+  {
+    key: "refunds.late_cancel_retention_kobo",
+    // Fixed amount retained when a patient cancels a consultation inside the grace window. 0 = full refund
+    // regardless. Clinician cancel is always full refund.
+    value: 0,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S26.md; OQ-127",
   },
 ];

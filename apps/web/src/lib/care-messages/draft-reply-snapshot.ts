@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import { z } from "zod";
 
 /**
  * The minimised, structured data a reply draft is grounded in -- the recent
@@ -20,6 +21,14 @@ export interface DraftReplySnapshot {
 
 const MESSAGE_HISTORY_LIMIT = 10;
 
+const rpcMessagesSchema = z.array(
+  z.object({
+    author_role: z.enum(["patient", "care_team", "sponsor"]),
+    body: z.string(),
+    created_at: z.string(),
+  })
+);
+
 /**
  * Best-effort snapshot -- never throws. A failed query just returns null;
  * the draft generator degrades further from there (see generate-draft-
@@ -38,19 +47,20 @@ export async function buildDraftReplySnapshot(
 
   if (!thread) return null;
 
-  const { data: messages } = await supabase
-    .from("care_messages")
-    .select("author_role, body, created_at")
-    .eq("thread_id", threadId)
-    .order("created_at", { ascending: false })
-    .limit(MESSAGE_HISTORY_LIMIT);
+  // Staff cannot select care_messages rows directly; the audited open returns them (oldest first) and writes
+  // the audit row. Best-effort: any failure leaves the draft ungrounded rather than throwing.
+  const { data: opened, error } = await supabase.rpc("open_care_thread_audited", { p_thread: threadId });
+  if (error) return null;
+  const parsed = rpcMessagesSchema.safeParse(opened ?? []);
+  if (!parsed.success) return null;
 
   return {
     threadSubject: thread.subject,
-    messages: (messages ?? [])
-      .slice()
-      .reverse()
-      .map((m) => ({ authorRole: m.author_role, body: m.body, createdAt: m.created_at })),
+    messages: parsed.data.slice(-MESSAGE_HISTORY_LIMIT).map((m) => ({
+      authorRole: m.author_role,
+      body: m.body,
+      createdAt: m.created_at,
+    })),
   };
 }
 

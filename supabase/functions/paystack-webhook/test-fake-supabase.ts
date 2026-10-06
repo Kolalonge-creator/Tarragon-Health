@@ -71,12 +71,20 @@ export class FakeSupabaseClient {
   from(table: string): any {
     return new FakeQueryBuilder(this.ensure(table), this.config(table));
   }
+
+  /** Every rpc call made, in order (S31 asserts the transfer webhook hands the event to the database). */
+  readonly rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
+  rpcResult: { data: unknown; error: { message: string } | null } = { data: { result: "applied" }, error: null };
+  rpc(fn: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }> {
+    this.rpcCalls.push({ fn, args });
+    return Promise.resolve(this.rpcResult);
+  }
 }
 
 type QueryResult = { data: unknown; error: { code: string; message: string } | null };
 
 class FakeQueryBuilder implements PromiseLike<QueryResult> {
-  private op: "select" | "insert" | "update" | null = null;
+  private op: "select" | "insert" | "update" | "delete" | null = null;
   private payload: Row | null = null;
   private filters: Filter[] = [];
 
@@ -91,6 +99,11 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
   update(payload: Row) {
     this.op = "update";
     this.payload = payload;
+    return this;
+  }
+
+  delete() {
+    this.op = "delete";
     return this;
   }
 
@@ -198,7 +211,14 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     return { data: rows, error: null };
   }
 
+  private doDelete(): QueryResult {
+    const rows = this.selected();
+    for (const row of rows) this.store.splice(this.store.indexOf(row), 1);
+    return { data: rows, error: null };
+  }
+
   private execute(): QueryResult {
+    if (this.op === "delete") return this.doDelete();
     if (this.op === "insert") return this.doInsert();
     if (this.op === "update") return this.doUpdate();
     return { data: this.selected(), error: null };

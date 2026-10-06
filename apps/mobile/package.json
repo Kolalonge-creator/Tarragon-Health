@@ -29,6 +29,7 @@
     "@supabase/supabase-js": "^2.110.0",
     "@tarragon/auth": "workspace:*",
     "@tarragon/clinical": "workspace:*",
+    "@tarragon/commerce": "workspace:*",
     "@tarragon/i18n": "workspace:*",
     "@tarragon/medicines": "workspace:*",
     "@tarragon/shared": "workspace:*",
