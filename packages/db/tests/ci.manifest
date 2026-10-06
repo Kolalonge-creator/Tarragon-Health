@@ -890,3 +890,5 @@ governed_config_supersede_guard.sql
 remove_pidgin_english_only.sql
 # The platform switch mechanism on a throwaway key: an admin turns it off in one call (no note) and it reads false for a signed-in patient and a signed-out (anon) caller, back on restores it; a patient and anon cannot change it; each change is audited once; an unknown key reads false and cannot be written; sabotage clears the anon opt-in and the anon read must flip false.
 platform_switch_acl_and_audit.sql
+# S36j: the CMO may approve payouts. An active CMO approves a draft that is not theirs (audit row says approver_role cmo) while an admin still can; a CMO cannot approve their own payout; guard off refuses both; doctor, finance, analyst, care coordinator, suspended CMO, patient and anon are refused; the CMO still cannot build, discard, prepare a send, retry or list; the queue lists drafts only, never a test clinician, and no bank data. Sabotage: approver check put back to admin only; both CMO checks must flip.
+s36j_cmo_may_approve_payouts.sql
