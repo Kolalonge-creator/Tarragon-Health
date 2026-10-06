@@ -42729,6 +42729,38 @@ export type Database = {
       }
     }
     Functions: {
+      // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
+      lab_partner_mark_collected: { Args: { p_order: string }; Returns: undefined };
+      lab_partner_portal_orders: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          order_id: string;
+          order_number: string | null;
+          partner_reference: string | null;
+          status: string;
+          panel_code: string | null;
+          patient_name: string | null;
+          patient_number: string | null;
+          ordered_at: string;
+          sample_collected_at: string | null;
+          result_received: boolean;
+        }[];
+      };
+      lab_partner_submit_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string }; Returns: Json };
+      lab_result_explain_allowed: { Args: { p_result: string }; Returns: boolean };
+      lab_result_file_path: { Args: { p_result: string }; Returns: string };
+      lab_result_for_review: { Args: { p_reason: string; p_result: string }; Returns: Json };
+      lab_results_review_queue: {
+        Args: Record<PropertyKey, never>;
+        Returns: { lab_result_id: string; patient_id: string; release_state: string; release_reason: string | null; received_at: string }[];
+      };
+      my_lab_results: { Args: Record<PropertyKey, never>; Returns: Json };
+      patient_add_lab_result: { Args: { p_file: Json }; Returns: Json };
+      record_lab_disclosure: { Args: { p_attested: boolean; p_method: string; p_note?: string; p_result: string }; Returns: Json };
+      release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };
+      team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
+      withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
       apply_payout_transfer_event: {
         Args: {
           p_event: string

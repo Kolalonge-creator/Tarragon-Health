@@ -1059,6 +1059,35 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Before the module can be tried against Paystack test mode: set `ORDER_RETURN_URL` and `ORDER_RECONCILE_SECRET` as function secrets, add the Vault secret `order_reconcile_secret` with the same value (the 5-minute cron fails closed with a 401 until both exist), deploy `order-checkout`, `order-verify`, `order-reconcile` and the updated `paystack-webhook`, then run one test-mode payment end to end and one replay from the Paystack dashboard. Nothing in S25 was deployed or applied to production by the build session.
 - Secrets and deploy done 2026-10-06. **Go-live order decided (founder):** merge PR 945, run one Paystack TEST-mode payment and one dashboard replay (the founder runs it with test keys in a local copy of the function secrets, with a published Paystack test card; the live key is never used), then a superadmin runs `set_platform_module('v5_checkout', true, '<why>')` and switches `membership_annual` on at `/admin/catalogue`. Nothing is switched on before that.
 
+### OQ-176 Lab panel ranges and critical limits are unsigned (raised by S27)
+- `lab.panels` (registry, mirrored by `lab_panel_versions` v1) holds adult reference ranges and critical limits for the Essential and Annual Health Check panels, PROPOSED by the build, owner CMO. They are not adjusted for age, sex or pregnancy, and the lipid limits are desirable targets, not lab-printed ranges, so many results will wait for review.
+- Safe by design: a wrong range only adds reviews. An all-normal result is the only thing that auto-releases, and a result missing a required analyte is held too.
+- Needed from the CMO: sign the ranges and critical limits (a new `lab_panel_versions` row, never an edit); whether HIV, HBsAg and HCV Ab belong in the Annual Health Check at all (they are optional and entered only if ordered); how an indeterminate screening value is handled (the portal refuses it today and asks for a new sample).
+
+### OQ-177 The older partner PDF path conflicts with INV-03 (raised by S27)
+- `lab_partner_upload_result` and the `lab_result_documents` triggers (live since 2026-07-27) let a patient read a partner's PDF at once and send them a "result document available" notice, with no hold for abnormal values and no sensitive-positive rule. Left unchanged, as the session rules require; the new partner portal does not use it.
+- Recommended: point the old worklist upload at the new submit function (PDF only, held for review) and retire `lab_partner_upload_result` after counting live rows. Founder decision needed on timing.
+
+### OQ-178 Releasing a result does not complete its queue task (raised by S27)
+- `release_lab_result`, `record_lab_disclosure` and `withhold_lab_result` change the result, not the S16 task (`routine_result_review`, `critical_result_review`, `sensitive_result_disclosure`). The clinician still completes the task in the queue. Linking the two is a small follow-up once the Next-task console (S35) shows the task beside the result.
+
+### OQ-179 Audio and AI explanation layers must read `explain_allowed` (raised by S27)
+- `my_lab_results()` returns `explain_allowed = false` for a result with a sensitive positive and for a patient's own upload. The old AI summary on `lab_result_documents` and any future audio bundle (S32) do not read it yet. Before either is shown for a structured result, it must check this flag (INV-04).
+
+### OQ-180 Who may release a critical value (raised by S27)
+- A critical result creates a `critical_result_review` task for a senior doctor (class 2), but `release_lab_result` lets any eligible clinician tied to the patient release it. A positive HBsAg, HCV Ab or HIV needs a senior clinician by the database. Confirm with the CMO whether a critical result should need the same.
+
+### OQ-181 Free patients' own outside uploads wait without a reviewer (raised by S27 review)
+- Doctor time is a paid feature, so a Free patient's own upload creates no task (S27b). It stays held, and the patient is told it is waiting. A Member's upload makes a `routine_result_review` task. Decide whether Free patients should be told plainly that it will be looked at once they join, or whether the upload should be refused for them.
+- Also found: a clinician refused by the tie check raises, which rolls back the "denied" audit row (`lab_review_actor`). The refusal is still enforced, but not recorded. Fixing it means returning a result instead of raising; left for a follow-up that changes the shared pattern, not just this module.
+
+### S27c decisions (founder, 2026-10-06)
+- **OQ-176 (part):** HIV, HBsAg and HCV Ab BELONG in the Annual Health Check. They stay optional per order (entered only when the test was actually done with the patient's consent), and any positive follows INV-04. Ranges and critical limits are still unsigned by the CMO.
+- **OQ-177 CLOSED for the partner path:** `lab_partner_upload_result` and the old worklist upload now create a HELD result (S27c). Related, found while fixing it and not changed: the staff upload path for emailed results (`uploadResultDocumentForPatient`, Lab Liaison, clinician, admin) still writes a visible `lab_result_documents` row and notifies the patient at once. Same INV-03 class; needs its own decision.
+- **OQ-178 CLOSED:** release, disclosure and withhold close the linked task (completed when the acting clinician holds the claim, cancelled with a reason when unclaimed, left alone when claimed by someone else).
+- **OQ-179 PARTLY CLOSED:** one definition of "may be explained" in the database (`lab_result_explain_allowed`, also used by `my_lab_results`). No AI or audio path reads structured results today, so there is nothing yet to gate; S32 (audio) and any future AI summary must call it.
+- **OQ-180 CLOSED:** a critical value can be released only by a Senior Medical Officer or the CMO.
+- **Audit findings CLOSED:** a refused clinician now gets a returned refusal (the denied audit row commits); the review page opens a result only on click.
 
 ### OQ-180 Guards live in `go_live_guards`, not `platform_modules` (raised by S37; conflicts with OQ-18)
 - OQ-18 said go-live guards reuse `platform_modules`. `set_platform_module()` needs only a superadmin and a note, never evaluates a condition against data, and its row is updatable by the table owner. S37's requirement is a switch only a condition-evaluating function can flip, with who, when and why in an append-only log, provable even against the migration role. So S37 added `go_live_guards`, `go_live_guard_log` and `go_live_attestations` and left `platform_modules` untouched (it still serves the payer, provider-org, NGO and `v5_checkout` modules).
