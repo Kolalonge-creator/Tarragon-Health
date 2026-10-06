@@ -1,13 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
-import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
-import { LoadFailure } from "@/components/ui/load-failure";
-import {
-  ProviderQualityPolicyManager,
-  type ProviderQualityPolicyVersionRow,
-} from "@/app/(dashboard)/admin/settings/provider-quality-policy/provider-quality-policy-manager";
+import { ProviderQualityPolicyPanel } from "../_signoff-panels/provider-quality-policy-panel";
 
 /**
  * The Chief Medical Officer / Clinical Director's own reachable path to
@@ -29,31 +24,13 @@ export default async function ClinicianProviderQualityPolicyPage() {
     redirect("/clinician");
   }
 
-  const supabase = await createClient();
-  const { data: versions, error: versionsError } = await supabase
-    .from("provider_quality_policy")
-    .select("id, version, config, notes, is_active, approved_at, approved_by, created_at")
-    .order("version", { ascending: false });
-
-  const versionRows = (versions as unknown as ProviderQualityPolicyVersionRow[] | null) ?? [];
-  const activeVersion = versionRows.find((v) => v.is_active) ?? null;
-  const nextVersion = (versionRows[0]?.version ?? 0) + 1;
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Provider Quality Policy"
         description="Operating targets behind the provider quality dashboards: appointment/documentation/patient-experience metrics, the credential expiry ladder, and the intervention triggers a persistent shortfall or complaint leads to. Content changes only through a reviewed, tested migration; this page is where a Clinical Director puts a signed record on file."
       />
-      {versionsError ? (
-        <LoadFailure>
-          The provider_quality_policy versions could not be loaded. This page cannot say which
-          version is active, whether it is signed, or what the next version number should be. Do not
-          draft a new version from here until it loads.
-        </LoadFailure>
-      ) : (
-        <ProviderQualityPolicyManager versions={versionRows} activeVersion={activeVersion} nextVersion={nextVersion} />
-      )}
+      <ProviderQualityPolicyPanel />
     </div>
   );
 }

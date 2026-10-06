@@ -13,7 +13,7 @@ const config = {
   transform: {
     "^.+\\.tsx?$": [
       "ts-jest",
-      { tsconfig: { module: "commonjs", moduleResolution: "node", jsx: "react-jsx" } },
+      { tsconfig: { module: "commonjs", moduleResolution: "node", jsx: "react-jsx" }, diagnostics: { ignoreCodes: [5097] } },
     ],
   },
   moduleNameMapper: {

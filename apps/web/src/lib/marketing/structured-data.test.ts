@@ -2,6 +2,7 @@ import {
   breadcrumbJsonLd,
   breadcrumbTrail,
   humaniseSegment,
+  medicalWebPageJsonLd,
   paidServicesJsonLd,
   parseNairaAmount,
 } from "./structured-data";
@@ -109,5 +110,30 @@ describe("paidServicesJsonLd", () => {
 
   it("drops an entry whose price is not a parseable amount", () => {
     expect(build("Ask us").hasOfferCatalog.itemListElement).toHaveLength(0);
+  });
+});
+
+describe("medicalWebPageJsonLd", () => {
+  const base = {
+    name: "Hypertension Monitoring",
+    description: "Log blood pressure and get doctor review when readings drift.",
+    path: "/hypertension",
+    providerName: "TarragonHealth",
+    providerUrl: "https://tarragonhealth.ng",
+  };
+
+  it("emits a MedicalWebPage with an absolute url and no outcome claims", () => {
+    const result = medicalWebPageJsonLd(base);
+    expect(result).toMatchObject({
+      "@type": "MedicalWebPage",
+      name: "Hypertension Monitoring",
+      url: expect.stringMatching(/^https?:\/\/.+\/hypertension$/),
+    });
+    expect(Object.keys(result ?? {})).not.toContain("medicalAudience");
+  });
+
+  it("returns null rather than an empty block when title or description is missing", () => {
+    expect(medicalWebPageJsonLd({ ...base, name: undefined })).toBeNull();
+    expect(medicalWebPageJsonLd({ ...base, description: "   " })).toBeNull();
   });
 });

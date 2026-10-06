@@ -16,6 +16,12 @@
 #     same acknowledgement must produce at least one half-acknowledged family. If it never does, the harness is not producing
 #     real contention and check 1 would prove nothing, so the script fails as VACUOUS.
 #
+# THE BACKGROUND SWEEP IS PAUSED. The migration schedules the real sweep in pg_cron every 15 seconds ('sweep-pages'). Left running it
+# would sweep these fixture pages too: in the control it pages the backup first and the naive sweep's own insert then dies on
+# pages_one_child_per_role (a flaky 1-in-3 failure before this was fixed), and in check 1 it adds an uncontrolled third racer. The
+# script deactivates that job for its own run and puts it back in the EXIT trap. The naive insert also uses ON CONFLICT DO NOTHING,
+# so a stray duplicate-key from the sabotage path can never fail the harness; what the control measures is the half-acknowledged family.
+#
 # SAFETY. It commits fixtures and drops a test-only function, so it refuses to run unless $DATABASE_URL looks local
 # (same guard and override phrase as s17_queue_concurrent_claim.sh). Fixtures are removed by an EXIT trap.
 # ============================================================================
@@ -36,7 +42,12 @@ WORK="$(mktemp -d)"
 TAG="s19rc_$$_$(date +%s)"
 psql_q() { psql "$DB_URL" -X -q -t -A -v ON_ERROR_STOP=1 "$@"; }
 
+CRON_WAS_ACTIVE="$(psql_q -c "select active from cron.job where jobname = 'sweep-pages'" 2>/dev/null || true)"
+
 cleanup() {
+  if [[ "$CRON_WAS_ACTIVE" == "t" ]]; then
+    psql_q -c "select cron.alter_job((select jobid from cron.job where jobname = 'sweep-pages'), active := true)" >/dev/null 2>&1
+  fi
   psql_q <<SQL >/dev/null 2>&1
 set session_replication_role = replica;   -- local, disposable database: several of these logs are append only
 drop function if exists public.s19_sweep_naive(uuid);
@@ -57,6 +68,15 @@ SQL
   rm -rf "$WORK"
 }
 trap cleanup EXIT
+
+# pause the background sweep for this run (restored by the trap above), then wait out any run already in flight
+if [[ "$CRON_WAS_ACTIVE" == "t" ]]; then
+  psql_q -c "select cron.alter_job((select jobid from cron.job where jobname = 'sweep-pages'), active := false)" >/dev/null || { echo "could not pause the sweep-pages cron job" >&2; exit 1; }
+  for _ in $(seq 1 40); do
+    [[ "$(psql_q -c "select count(*) from pg_stat_activity where pid <> pg_backend_pid() and query ilike '%private.sweep_pages%' and state <> 'idle'")" == "0" ]] && break
+    sleep 0.25
+  done
+fi
 
 fail() { echo "FAIL | $1" >&2; exit 1; }
 PASS_LINES=()
@@ -179,7 +199,8 @@ begin
   select backup_id into v_backup from private.on_call_now(r.organisation_id, r.is_test);
   perform set_config('tarragon.paging_write', 'on', true);
   insert into public.pages (organisation_id, patient_id, triage_event_id, parent_page_id, role, to_clinician_id, escalation_level, config_version, is_test)
-    values (r.organisation_id, r.patient_id, r.triage_event_id, r.id, 'backup', v_backup, 1, r.config_version, r.is_test);
+    values (r.organisation_id, r.patient_id, r.triage_event_id, r.id, 'backup', v_backup, 1, r.config_version, r.is_test)
+    on conflict do nothing;
   perform set_config('tarragon.paging_write', 'off', true);
 end $$;
 SQL
@@ -188,10 +209,9 @@ for ((i = 1; i <= 3; i++)); do
   new_page >/dev/null 2>&1 || fail "control round $i: could not create a page"
   ROOT=$(root_of_last)
   race "$ROOT" "public.s19_sweep_naive('$ROOT')"
-  # the lock-free sweep may also trip the one-backup-per-page constraint when it loses the race: that is the race showing itself
-  grep -q '^exit 0$' "$WORK/ack.out" && ! grep -q 'ERROR:' "$WORK/ack.out" || fail "control round $i: the acknowledging session failed: $(cat "$WORK/ack.out" | tr '\n' ' ')"
+  sessions_ran_clean || fail "control round $i: a racing session failed: $(cat "$WORK/ack.out" "$WORK/sweep.out" | tr '\n' ' ')"
   read -r unacked backups tasks < <(family_state "$ROOT")
-  if [[ "$unacked" -gt 0 ]] || grep -q 'pages_one_child_per_role' "$WORK/sweep.out"; then violations=$((violations + 1)); fi
+  [[ "$unacked" -gt 0 ]] && violations=$((violations + 1))
 done
 [[ "$violations" -gt 0 ]] || fail "VACUOUS: the lock-free sweep never left a half-acknowledged family, so this harness does not create real contention"
 pass "control: a lock-free sweep left a half-acknowledged family in $violations of 3 rounds, so the race is real"

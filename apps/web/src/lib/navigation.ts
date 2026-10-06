@@ -243,6 +243,8 @@ export function getNavSections(
             // sign this points at the old recurring-plan page — it renders
             // the current one-off service catalogue.
             { label: "My services", href: "/patient/subscription", icon: "billing" },
+            // Buy the Membership or a care pack, see what is included and the price, and see your payments (S25).
+            { label: "Membership", href: "/patient/membership", icon: "billing" },
             { label: "Family", href: "/patient/family", icon: "family" },
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
@@ -511,6 +513,8 @@ export function getNavSections(
               label: "My work",
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
+                // S27: lab results held before the patient can see them (INV-03, INV-04).
+                { label: "Lab results to review", href: "/clinician/lab-results", icon: "labs" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 // S21: today's and tomorrow's consultation rooms (spec 9.1, "Consultations").
                 { label: "Consultations", href: "/clinician/consultations", icon: "booking" },
@@ -558,6 +562,7 @@ export function getNavSections(
                 { label: "Earnings", href: "/clinician/earnings", icon: "analytics" },
                 // The concerns this clinician raised and the replies to them (S36i). Their own only.
                 { label: "My concerns", href: "/clinician/my-concerns", icon: "review" },
+                { label: "Payouts", href: "/clinician/payouts", icon: "analytics" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier
                 // per this file's own gating philosophy above; the page
@@ -691,8 +696,11 @@ export function getNavSections(
             { label: "Go-live guards", href: "/admin/go-live", icon: "governance" },
             // Grant or end a Membership by hand until checkout exists (S22b).
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
+            // What can be bought, its price and its history; switch an item on or off (S25).
+            { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
+            { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
@@ -738,6 +746,8 @@ export function getNavSections(
         {
           items: [
             { label: "Dashboard", href: "/lab-partner", icon: "dashboard", exact: true },
+            // S27: structured result entry (spec 9.6).
+            { label: "Enter results", href: "/lab-partner/results", icon: "labs" },
           ],
         },
       ];

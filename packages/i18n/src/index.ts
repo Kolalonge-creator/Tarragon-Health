@@ -44,3 +44,4 @@ export function availableLocales(pidginEnabled: boolean): readonly Locale[] {
 }
 
 export * from "./care-change";
+export * from "./audio-scripts";

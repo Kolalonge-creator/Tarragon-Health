@@ -1,5 +1,11 @@
 import { describe, expect, it } from "@jest/globals";
-import { formatDraftReplySnapshotForPrompt, type DraftReplySnapshot } from "./draft-reply-snapshot";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@tarragon/shared";
+import {
+  buildDraftReplySnapshot,
+  formatDraftReplySnapshotForPrompt,
+  type DraftReplySnapshot,
+} from "./draft-reply-snapshot";
 
 function snapshot(overrides: Partial<DraftReplySnapshot> = {}): DraftReplySnapshot {
   return {
@@ -38,5 +44,56 @@ describe("formatDraftReplySnapshotForPrompt", () => {
     expect(firstIndex).toBeGreaterThan(-1);
     expect(secondIndex).toBeGreaterThan(firstIndex);
     expect(thirdIndex).toBeGreaterThan(secondIndex);
+  });
+});
+
+function clientWith(rpcResult: { data: unknown; error: { code: string; message: string } | null }) {
+  const rpcCalls: string[] = [];
+  const tables: string[] = [];
+  const client = {
+    rpc: async (fn: string) => {
+      rpcCalls.push(fn);
+      return rpcResult;
+    },
+    from: (table: string) => {
+      tables.push(table);
+      return {
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { subject: "Checking in" }, error: null }) }) }),
+      };
+    },
+  } as unknown as SupabaseClient<Database>;
+  return { client, rpcCalls, tables };
+}
+
+describe("buildDraftReplySnapshot", () => {
+  const row = (n: number) => ({
+    id: `m${n}`,
+    author_role: n % 2 ? "patient" : "care_team",
+    body: `msg ${n}`,
+    created_at: `2026-09-01T00:00:${String(n).padStart(2, "0")}Z`,
+  });
+
+  it("reads messages through the audited RPC, never the table, keeping the most recent 10 oldest first", async () => {
+    const rows = Array.from({ length: 12 }, (_, i) => row(i + 1));
+    const { client, rpcCalls, tables } = clientWith({ data: rows, error: null });
+
+    const snap = await buildDraftReplySnapshot(client, "t1");
+
+    expect(rpcCalls).toEqual(["open_care_thread_audited"]);
+    expect(tables).toEqual(["care_message_threads"]);
+    expect(snap?.threadSubject).toBe("Checking in");
+    expect(snap?.messages).toHaveLength(10);
+    expect(snap?.messages[0].body).toBe("msg 3");
+    expect(snap?.messages[9].body).toBe("msg 12");
+  });
+
+  it("returns null, without throwing, when the RPC fails", async () => {
+    const { client } = clientWith({ data: null, error: { code: "42501", message: "no" } });
+    await expect(buildDraftReplySnapshot(client, "t1")).resolves.toBeNull();
+  });
+
+  it("returns null when the RPC output is malformed", async () => {
+    const { client } = clientWith({ data: [{ nope: true }], error: null });
+    await expect(buildDraftReplySnapshot(client, "t1")).resolves.toBeNull();
   });
 });

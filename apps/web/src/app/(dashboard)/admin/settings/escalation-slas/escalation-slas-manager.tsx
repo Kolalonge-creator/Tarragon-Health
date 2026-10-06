@@ -13,6 +13,7 @@ import {
   type CreateEscalationSlaDraftState,
   type SignEscalationSlasState,
 } from "./actions";
+import { isSupersededVersion } from "@/lib/clinical/refuse-superseded-draft";
 
 type EscalationSlaEntry = {
   pathway: string;
@@ -256,6 +257,9 @@ export function EscalationSlasManager({
                 : "This version is live and driving every clinician_alert's sla_due_at today. That isn't gated on a signature. A Director's signature is a formal record of review, not a switch."}{" "}
               {activeVersion.notes}
             </p>
+            {/* v1 went live unsigned by design, and the version history below only offers Sign on
+                non-active versions, so without this the live version could not be signed at all. */}
+            {!activeVersion.approved_at && <SignButton versionId={activeVersion.id} />}
           </CardContent>
         </Card>
       ) : (
@@ -293,7 +297,13 @@ export function EscalationSlasManager({
                     Drafted {new Date(v.created_at).toLocaleString("en-GB")} ·{" "}
                     {Array.isArray(v.config) ? v.config.length : 0} entries
                   </p>
-                  {!v.is_active && (
+                  {isSupersededVersion(v, activeVersion?.version) && (
+                    <p className="text-xs text-charcoal-ink/50">
+                      Superseded: a newer version is live, so this draft can no longer be signed. To change
+                      anything, draft a new version.
+                    </p>
+                  )}
+                  {!v.is_active && !isSupersededVersion(v, activeVersion?.version) && (
                     <>
                       <p className="text-xs text-charcoal-ink/60">
                         Signing requires an active Clinical Director account and brings this version
