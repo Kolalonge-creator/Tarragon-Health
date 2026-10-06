@@ -699,6 +699,15 @@ begin
 
   perform private.log_encounter_event(e.id, p_kind, v_uid, v_role, v_clean);
 
+  -- the care team opened the room before the patient: one neutral notice, never twice (INV-07, INV-08: no SMS)
+  if p_kind = 'joined' and v_role = 'clinician'
+     and not exists (select 1 from public.encounter_events where encounter_id = e.id and kind = 'joined' and actor_role = 'patient')
+     and not exists (select 1 from public.notifications where recipient_id = e.patient_id and template = 'consult_join_ready' and payload ->> 'encounter_id' = e.id::text) then
+    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
+    values (e.organisation_id, e.patient_id, private.patient_reminder_channel(e.patient_id), 'pending', 'consult_join_ready',
+            jsonb_build_object('encounter_id', e.id), 'non_clinical');
+  end if;
+
   if p_kind = 'joined' then
     select bool_or(actor_role = 'patient'), bool_or(actor_role = 'clinician') into v_patient_in, v_clinician_in
       from public.encounter_events where encounter_id = e.id and kind = 'joined';
@@ -789,6 +798,9 @@ begin
     perform private.return_consultation_credit(e.appointment_id, e.id, 'clinician_no_show');
   end if;
 
+  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
+  values (e.organisation_id, e.patient_id, private.patient_reminder_channel(e.patient_id), 'pending', 'consult_missed',
+          jsonb_build_object('encounter_id', e.id, 'credit_returned', v_role = 'patient'), 'non_clinical');
   perform private.log_encounter_event(e.id, 'no_show_marked', v_uid, v_role, jsonb_build_object('reason_code', case when v_role = 'clinician' then 'patient_absent' else 'clinician_absent' end));
   perform private.emit_domain_event('encounter.no_show', e.organisation_id, jsonb_build_object('encounter_id', e.id),
                                     'encounter.no_show:' || e.id::text, e.patient_id, 'encounter', e.id);

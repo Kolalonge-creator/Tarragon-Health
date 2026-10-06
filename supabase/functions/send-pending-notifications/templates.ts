@@ -1391,14 +1391,27 @@ export const TEMPLATE_MAP: Record<
   appointment_cancelled: (payload) => {
     const when = formatLagosDateTime(payload.scheduled_for);
     const byPatient = payload.cancelled_by_patient === true;
+    const credit = payload.credit_returned === true ? " Your consultation credit is back in the app." : "";
     const smsText = byPatient
-      ? `Your Tarragon Health appointment for ${when} has been cancelled, as requested. Book another any time in the app. Tarragon Health`
-      : `Your Tarragon Health appointment for ${when} has been cancelled. Open the app to rebook. Tarragon Health`;
+      ? `Your Tarragon Health appointment for ${when} has been cancelled, as requested.${credit} Book another any time in the app. Tarragon Health`
+      : `Your Tarragon Health appointment for ${when} has been cancelled.${credit} Open the app to rebook. Tarragon Health`;
     return {
       smsText,
       pushUrl: "/patient/care",
     };
   },
+  // S21: neutral by design (INV-07). Nothing here names a reason, a condition or a clinician; the details live in the app.
+  consult_join_ready: (payload) => ({
+    smsText: "Your consultation room is open. Open the app to join. Tarragon Health",
+    pushUrl: `/patient/consultation/${String(payload.encounter_id ?? "")}`,
+  }),
+  consult_missed: (payload) => ({
+    smsText:
+      payload.credit_returned === true
+        ? "Your consultation did not go ahead. Your credit is back in the app and you can rebook for free. Tarragon Health"
+        : "Your consultation did not go ahead. Open the app to rebook. Tarragon Health",
+    pushUrl: "/patient/care",
+  }),
   appointment_provider_cancelled: (payload) => {
     const when = formatLagosDateTime(payload.scheduled_for);
     const type = APPOINTMENT_TYPE_LABEL[String(payload.appointment_type ?? "")] ?? "appointment";

@@ -274,6 +274,8 @@ begin
   perform pg_temp.rec('...the credit is returned', '0', pg_temp.credits_on(v_a5));
   perform pg_temp.rec('...the appointment is cancelled by the provider side', 'provider_cancelled', (select status::text from public.appointments where id = v_a5));
   perform pg_temp.rec('encounter.no_show was emitted', '1', (select count(*)::text from public.domain_events where event_type = 'encounter.no_show' and aggregate_id = v_e5));
+  perform pg_temp.rec('a clinician no-show tells the patient, with the credit back, and nothing else', '1/true',
+    (select count(*)::text || '/' || bool_and((payload ->> 'credit_returned') = 'true' and (select count(*) from jsonb_object_keys(payload)) = 2)::text from public.notifications where recipient_id = v_adult2 and template = 'consult_missed' and payload ->> 'encounter_id' = v_e5::text));
 
   v_cr6 := pg_temp.mkcredit(v_adult4);
   v_a6 := pg_temp.book(v_adult4, v_docA, v_start + interval '2 days' + interval '2 hours');
@@ -284,6 +286,8 @@ begin
   perform pg_temp.back();
   perform pg_temp.rec('...the credit stays spent', '1', pg_temp.credits_on(v_a6));
   perform pg_temp.rec('...the appointment is a no-show', 'no_show', (select status::text from public.appointments where id = v_a6));
+  perform pg_temp.rec('a patient no-show tells the patient, credit not returned', '1/true',
+    (select count(*)::text || '/' || bool_and((payload ->> 'credit_returned') = 'false')::text from public.notifications where recipient_id = v_adult4 and template = 'consult_missed' and payload ->> 'encounter_id' = v_e6::text));
 
   -- 8b. Service functions (part 2): the join window, open the room once, record events -------------------------
   perform pg_temp.mkcredit(v_adult);
@@ -292,6 +296,16 @@ begin
   perform pg_temp.mkcredit(v_adult3);
   v_a8 := pg_temp.book(v_adult3, v_docA, v_start + interval '7 days');
   select id into v_e8 from public.encounters where appointment_id = v_a8;
+
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('the clinician opens the room first: waiting', 'waiting', (select status from public.report_encounter_event(v_e7, 'joined')));
+  perform pg_temp.rec('...and joining again does not repeat the notice', 'waiting', (select status from public.report_encounter_event(v_e7, 'joined')));
+  perform pg_temp.back();
+  perform pg_temp.rec('the patient got one neutral room-open notice, in app, no SMS', '1/true',
+    (select count(*)::text || '/' || bool_and(channel::text <> 'sms' and content_class = 'non_clinical')::text from public.notifications where recipient_id = v_adult and template = 'consult_join_ready' and payload ->> 'encounter_id' = v_e7::text));
+  perform pg_temp.rec('the notice carries only the encounter id', 'encounter_id', (select string_agg(k, ',') from public.notifications n, jsonb_object_keys(n.payload) k where n.recipient_id = v_adult and n.template = 'consult_join_ready' and n.payload ->> 'encounter_id' = v_e7::text));
+  perform pg_temp.rec('a patient who joined first got no room-open notice for that visit', '0',
+    (select count(*)::text from public.notifications where template = 'consult_join_ready' and payload ->> 'encounter_id' = v_e1::text));
 
   perform pg_temp.act(v_adult);
   perform pg_temp.rec('a signed-in patient cannot call the room lookup', '42501', pg_temp.try(format('select public.service_get_encounter_room(%L)', v_e7)));
