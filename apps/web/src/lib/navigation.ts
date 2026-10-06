@@ -432,6 +432,8 @@ export function getNavSections(
                 // found them. See the countKey doc comment above.
                 { label: "Second opinions", href: "/clinician/second-opinions", icon: "inbox", countKey: "secondOpinionRequests" },
                 { label: "Prescription renewals", href: "/clinician/prescription-renewals", icon: "medication", countKey: "prescriptionRenewalRequests" },
+                // Problems a partner pharmacy raised on a prescription (S36h).
+                { label: "Pharmacy messages", href: "/clinician/pharmacy-flags", icon: "medication" },
                 { label: "Verified documents", href: "/clinician/verified-documents", icon: "inbox", countKey: "verifiedDocumentRequests" },
                 { label: "Senior case reviews", href: "/clinician/senior-case-reviews", icon: "escalation", countKey: "seniorCaseReviews" },
                 {
@@ -724,6 +726,7 @@ export function getNavSections(
           items: [
             { label: "Overview", href: "/pharmacist", icon: "dashboard", exact: true },
             { label: "Orders", href: "/pharmacist/orders", icon: "pharmacy" },
+            { label: "Prescriptions sent to you", href: "/pharmacist/prescriptions", icon: "medication" },
             { label: "Verify a prescription", href: "/pharmacist/verify", icon: "approvals" },
             { label: "Dispensing history", href: "/pharmacist/history", icon: "audit" },
             { label: "Pharmacy profile", href: "/pharmacist/profile", icon: "settings" },

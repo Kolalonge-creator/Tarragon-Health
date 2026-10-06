@@ -1151,3 +1151,23 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-239 Scope of the six listing kinds, and `is_test` (S36g)
 - Blocks: nothing. Covered: laboratories, pharmacies, specialists, facilities, home visit providers, delivery partners (every table that has a partner licence or directory row). Not covered: pharmacy and specialist branch rows (`pharmacy_partner_locations`, `specialist_provider_locations`), `network_partner_organisations`, `cgm_partners`. None of the six has an `is_test` column, so there is nothing to exclude; if test rows are ever added to them the list needs the filter.
 - Decision: open. Confirm whether branches should carry their own verification date.
+### OQ-240 Structured lab result entry: already built by S27, not rebuilt in S36h (spec 9.6)
+- Blocks: nothing. The S36h brief asked for structured partner result entry on `/lab-partner`. On `origin/main-dev` S27 (migrations `20261006173205` to `20261006222900`, PRs through #969) already ships it: `lab_panel_versions` (units, reference ranges, critical limits), `lab_results` with the `release_state` machine, `lab_result_items` with `sensitive_positive`, `lab_partner_portal_orders`, `lab_partner_submit_result` (own lab only, refuses `pending_payment` and `cancelled`, refuses a second result, corrections are a new entry), the `/lab-partner/results` page, and `packages/db/tests/s27_lab_results_release.sql` (anon, other lab, unpaid, double submit, INV-03/04 routing). The `s36/console-ops-lead-admin` stack does not contain S27 yet, so a second copy would have collided with it.
+- Options: (a) rely on S27 and re-verify on the merged tree (recommended); (b) build a parallel path (rejected: two writers of `release_state`).
+- Decision: open for the founder to confirm (a). When S36 and S27 meet on `main-dev`, check that the "Enter results" nav entry and `/lab-partner/results` appear and that S27's proof still passes.
+
+### OQ-241 Pharmacy flag task: class, due time and tier (S36h)
+- Blocks: nothing. The task type `pharmacy_flag_review` (version 1) was added with class 5, due in 1440 minutes, tier `medical_officer`, no competency. These are PROPOSED values held in the versioned `task_types` row. It is deliberately not `needs_confirmation` (a row awaiting confirmation blocks `approve_triage_rule_set`).
+- Options: (a) keep the proposal until the CMO reviews it on the task types page; (b) the CMO raises "out of stock" above "query".
+
+### OQ-242 Pharmacy flag: rate limit, repeat notices and resolving a flag (S36h)
+- Blocks: nothing. A pharmacist can flag the same prescription again; repeats merge into one live task but each one still creates a flag row and a notice. There is no cap and no "resolved" state; a flag is append only and the task is closed by the prescriber side.
+- Options: (a) cap flags per prescription per day and notify only on the first (recommended); (b) add a prescriber "reply to pharmacy" action (needs a notice that stays neutral).
+
+### OQ-243 Pharmacy flag text can name a medicine (S36h)
+- Blocks: nothing. The written reason is free text from the pharmacy and may name a medicine. It is stored in the flag row, never copied to a notification or the audit row, shown only on `/clinician/pharmacy-flags` (an audited read), and readable by the flagging pharmacy. The notice itself names nothing (INV-07, linted).
+- Decision: open; confirm this is acceptable PHI handling for a partner pharmacy.
+
+### OQ-244 Flag and the older pharmacy orders path (S36h)
+- Blocks: nothing. The existing `/pharmacist/orders` page works on `pharmacy_orders` (patient-placed orders; it already has "unavailable" and "flag dispense"). S36h flags the signed `prescriptions` sent to a pharmacy (spec 9.6). The two models are not merged here.
+- Decision: open; decide whether the two pharmacy flows should converge once S24 prescribing is in use.
