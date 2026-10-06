@@ -43,18 +43,22 @@ revoke all on function private.notify_backup_readers(uuid, boolean, text, text, 
 -- 3. S15 functions: add i18n_key to each credential_notify payload
 -- ======================================================================
 
--- 3a. credential_notify_reviewers: pass i18n_key through from p_payload
-create or replace function private.credential_notify_reviewers(p_org uuid, p_subject text, p_message text, p_payload jsonb)
+-- 3a. credential_notify_reviewers: S18 (20261006024602) already replaced the four argument function with this five argument one
+--     (audience defaulted to 'reviewer', organisation-scoped, payload passed through, so i18n_key in p_payload reaches the notice).
+--     This migration used to re-create the old four argument signature, which on a fresh replay (version order: S18 runs first)
+--     made a second overload and every bare-literal call ambiguous (42725). Re-stated here with the identical signature and body so
+--     the replay ends with exactly one function; live already has this definition.
+create or replace function private.credential_notify_reviewers(p_org uuid, p_subject text, p_message text, p_payload jsonb, p_audience text default 'reviewer')
 returns void language plpgsql security definer set search_path = ''
 as $$
 declare r record;
 begin
   for r in
-    select p.id from public.profiles p where p.is_active and p.role = 'admin'
+    select p.id from public.profiles p where p.organisation_id = p_org and p.is_active and p.role = 'admin'
     union
-    select cs.profile_id from public.clinical_staff cs where cs.profile_id is not null and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer'
+    select cs.profile_id from public.clinical_staff cs where cs.organisation_id = p_org and cs.profile_id is not null and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer'
   loop
-    perform private.credential_notify(r.id, p_org, p_subject, p_message, coalesce(p_payload, '{}'::jsonb) || jsonb_build_object('audience', 'reviewer'), false);
+    perform private.credential_notify(r.id, p_org, p_subject, p_message, coalesce(p_payload, '{}'::jsonb) || jsonb_build_object('audience', p_audience), false);
   end loop;
 end;
 $$;
