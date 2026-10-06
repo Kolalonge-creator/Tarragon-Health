@@ -530,6 +530,72 @@ begin
     pg_temp.q_as(v_pat, format('select count(*)::text from public.lab_result_documents where id = %L', doc_id)));
 end $$;
 
+
+-- 10. S27f: replacement while held, the liaison's neutral list, and the released-results list for withdrawal ---------------------------
+do $$
+declare v_pat uuid := pg_temp.f('pat'); v_org uuid := pg_temp.f('org'); o uuid; c text; held uuid; repl uuid; n_corr integer; n_ready integer;
+        v_file text := format('{"file_path":"%s/liaison.pdf","original_filename":"liaison.pdf","mime_type":"application/pdf","file_size_bytes":1000}', v_pat);
+        l text; rows_json jsonb;
+begin
+  -- replace while held
+  o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
+  c := pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', pg_temp.items(1.9));
+  held := pg_temp.rid(c);
+  perform pg_temp.ck('a high creatinine is held', 'awaiting_review', pg_temp.state_of(held));
+  select count(*) into n_corr from public.notifications where recipient_id = v_pat and template = 'lab_result_corrected';
+  select count(*) into n_ready from public.notifications where recipient_id = v_pat and template = 'lab_result_ready';
+  c := pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'corrected', 'Creatinine was keyed wrongly', 'essential', %L::jsonb)::text$q$, o, held, pg_temp.items(0.9)));
+  repl := pg_temp.rid(c);
+  perform pg_temp.ck('the lab can replace a result that is still held', 'true', (c ~ '^\{')::text);
+  perform pg_temp.ck('...the held one is marked replaced at once', 'true', (select (superseded_by = repl)::text from public.lab_results where id = held));
+  perform pg_temp.ck('...its review task was cancelled', 'cancelled', (select state::text from public.clinical_tasks where dedup_key = 'lab_result:' || held));
+  perform pg_temp.ck('...it no longer appears in the review queue, the replacement does or has auto-released', '0',
+    pg_temp.q_as(pg_temp.f('doc'), format('select count(*)::text from public.lab_results_review_queue() where lab_result_id = %L', held)));
+  perform pg_temp.ck('...a clinician cannot release the replaced one', 'true',
+    (pg_temp.q_as(pg_temp.f('doc'), format($q$select public.release_lab_result(%L)::text$q$, held)) like 'ERR:lab_result_replaced')::text);
+  perform pg_temp.ck('...nor withhold it', 'true',
+    (pg_temp.q_as(pg_temp.f('senior'), format($q$select public.withhold_lab_result(%L, 'Replaced by the lab')::text$q$, held)) like 'ERR:lab_result_replaced')::text);
+  perform pg_temp.ck('...the replacement went through the gate (all normal, ranges signed, so it released)', 'released', pg_temp.state_of(repl));
+  perform pg_temp.ck('...the patient got the normal release notice, not a "corrected" notice (they never saw the first)', (n_ready + 1)::text || '|' || n_corr::text,
+    (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'lab_result_ready') || '|' ||
+    (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'lab_result_corrected'));
+  perform pg_temp.ck('...the patient sees only the replacement', '0|1', pg_temp.visible_to(v_pat, held) || '|' || pg_temp.visible_to(v_pat, repl));
+  perform pg_temp.ck('a reviewer opening a correction sees its kind and reason', 'corrected|Creatinine was keyed wrongly',
+    (select (x ->> 'correction_kind') || '|' || (x ->> 'correction_reason') from (select pg_temp.q_as(pg_temp.f('senior'), format($q$select public.lab_result_for_review(%L, 'Checking a correction')::text$q$, repl))::jsonb x) q));
+  perform pg_temp.ck('a result can still be replaced only once', 'true',
+    (pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'amended', 'Again', 'essential', %L::jsonb)::text$q$, o, held, pg_temp.items(0.9))) like 'ERR:lab_correction_target_invalid')::text);
+
+  -- the liaison's neutral list
+  l := pg_temp.q_as(pg_temp.f('liaison'), format($q$select public.team_submit_lab_result(%L, null, null, null, %L::jsonb)::text$q$, v_pat, v_file));
+  perform pg_temp.ck('the liaison records an emailed file', 'true', (l ~ '^\{')::text);
+  perform pg_temp.ck('the liaison sees it as waiting for review, and nothing else about it', 'waiting_for_review',
+    pg_temp.q_as(pg_temp.f('liaison'), format($q$select status from public.liaison_recent_uploads() where lab_result_id = %L$q$, pg_temp.rid(l))));
+  perform pg_temp.ck('another liaison sees none of it', '0', pg_temp.q_as(pg_temp.mkuser(v_org, 'liaison2', 'lab_liaison'), 'select count(*)::text from public.liaison_recent_uploads()'));
+  perform pg_temp.ck('a patient cannot call the liaison list successfully', '0', pg_temp.q_as(v_pat, 'select count(*)::text from public.liaison_recent_uploads()'));
+  perform pg_temp.ck('anon cannot call it', '42501', pg_temp.try_anon('select * from public.liaison_recent_uploads()'));
+  perform pg_temp.q_as(pg_temp.f('senior'), format($q$select public.withhold_lab_result(%L, 'Not a lab report at all')::text$q$, pg_temp.rid(l)));
+  perform pg_temp.ck('after a clinician acts the liaison sees only "reviewed" (not that it was withheld)', 'reviewed',
+    pg_temp.q_as(pg_temp.f('liaison'), format($q$select status from public.liaison_recent_uploads() where lab_result_id = %L$q$, pg_temp.rid(l))));
+
+  -- the released-results list for withdrawal
+  perform pg_temp.ck('a medical officer gets the senior-only answer', 'senior_only',
+    pg_temp.q_as(pg_temp.f('doc'), format($q$select public.patient_released_lab_results(%L, 'Looking for a result to withdraw')::jsonb ->> 'error'$q$, v_pat)));
+  perform pg_temp.ck('a stranger clinician is refused and the refusal is audited', 'not_permitted|true',
+    pg_temp.q_as(pg_temp.f('stranger'), format($q$select public.patient_released_lab_results(%L, 'Looking')::jsonb ->> 'error'$q$, v_pat)) || '|' ||
+    (exists (select 1 from public.audit_log where subject_patient_id = v_pat and result = 'denied' and actor_id = pg_temp.f('stranger') and action = 'staff.chart_read'))::text);
+  perform pg_temp.ck('a reason is required', 'true',
+    (pg_temp.q_as(pg_temp.f('senior'), format($q$select public.patient_released_lab_results(%L, ' ')::text$q$, v_pat)) like 'ERR:A reason is required')::text);
+  rows_json := pg_temp.q_as(pg_temp.f('senior'), format($q$select public.patient_released_lab_results(%L, 'Looking for a result to withdraw')::text$q$, v_pat))::jsonb;
+  perform pg_temp.ck('a senior tied clinician lists the patient''s released results', 'true',
+    (jsonb_array_length(rows_json -> 'results') >= 1 and not exists (select 1 from jsonb_array_elements(rows_json -> 'results') e where e ->> 'lab_result_id' = held::text))::text);
+  perform pg_temp.ck('...the read is audited', 'true',
+    (exists (select 1 from public.audit_log where subject_patient_id = v_pat and result = 'success' and actor_id = pg_temp.f('senior') and event ->> 'reason' = 'Looking for a result to withdraw'))::text);
+  perform pg_temp.ck('...and held results are never listed', 'true',
+    (not exists (select 1 from jsonb_array_elements(rows_json -> 'results') e where e ->> 'lab_result_id' = pg_temp.rid(l)::text))::text);
+  perform pg_temp.ck('...a patient cannot call it', 'true',
+    (pg_temp.q_as(v_pat, format($q$select public.patient_released_lab_results(%L, 'x y z')::text$q$, v_pat)) like 'ERR:This action is for clinicians')::text);
+end $$;
+
 -- the unsigned-ranges rule opened: an all-normal result must then NOT be held, which flips the check below
 create or replace function private.lab_panels_signed() returns boolean language sql stable security definer set search_path = '' as $$ select true $$;
 do $$

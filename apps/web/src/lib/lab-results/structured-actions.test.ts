@@ -14,7 +14,7 @@ jest.mock("@/lib/supabase/service-role", () => ({
   }),
 }));
 
-import { addOwnLabResult, getOwnResultFileUrl, openLabResult, recordDisclosure, recordDisclosureAttempt, releaseResult, submitPartnerCorrection, submitPartnerResult, submitTeamResult, withdrawResult, withholdResult } from "./structured-actions";
+import { addOwnLabResult, getOwnResultFileUrl, openLabResult, recordDisclosure, listReleasedLabResults, recordDisclosureAttempt, releaseResult, submitPartnerCorrection, submitPartnerResult, submitTeamResult, withdrawResult, withholdResult } from "./structured-actions";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const items = JSON.stringify([{ analyte_code: "creatinine", value_numeric: 1.9, unit: "mg/dL" }]);
@@ -175,5 +175,31 @@ describe("S27d: disclosure attempts, withdrawal, corrections and the staff path"
     rpc.mockResolvedValue({ data: null, error: { message: "Not permitted" } });
     expect((await submitTeamResult("99999999-9999-4999-8999-999999999999", undefined, pdf()))?.error).toMatch(/access/);
     expect(remove).toHaveBeenCalled();
+  });
+});
+
+describe("S27f: the released-results list for withdrawal", () => {
+  const row = { lab_result_id: id, received_at: "2026-10-06T10:00:00Z", released_at: "2026-10-06T11:00:00Z", panel_code: "essential", order_number: "LO-1", submitted_by_kind: "partner", withdrawn: false, replaced: false, abnormal_count: 1, item_count: 10 };
+  it("returns the parsed rows for a senior tied clinician", async () => {
+    rpc.mockResolvedValue({ data: { results: [row] }, error: null });
+    const r = await listReleasedLabResults("99999999-9999-4999-8999-999999999999");
+    expect(r.results?.[0]?.abnormal_count).toBe(1);
+    expect(rpc).toHaveBeenCalledWith("patient_released_lab_results", expect.objectContaining({ p_patient: "99999999-9999-4999-8999-999999999999" }));
+  });
+  it("turns the senior-only and not-permitted answers into plain messages and shows nothing", async () => {
+    rpc.mockResolvedValue({ data: { error: "senior_only" }, error: null });
+    expect((await listReleasedLabResults("99999999-9999-4999-8999-999999999999")).error).toMatch(/senior/);
+    rpc.mockResolvedValue({ data: { error: "not_permitted" }, error: null });
+    const r = await listReleasedLabResults("99999999-9999-4999-8999-999999999999");
+    expect(r.results).toBeUndefined();
+    expect(r.error).toMatch(/access/);
+  });
+  it("never calls the database for a malformed patient id", async () => {
+    expect((await listReleasedLabResults("nope")).error).toBeDefined();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("a replaced result gives the plain reason when someone tries to release it", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "lab_result_replaced" } });
+    expect((await releaseResult(undefined, form({ result_id: id })))?.error).toMatch(/replaced by a corrected/);
   });
 });

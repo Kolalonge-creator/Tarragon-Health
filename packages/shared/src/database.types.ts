@@ -42764,6 +42764,11 @@ export type Database = {
     Functions: {
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
+      liaison_recent_uploads: {
+        Args: Record<PropertyKey, never>;
+        Returns: { lab_result_id: string; received_at: string; order_number: string | null; patient_number: string | null; file_name: string | null; status: string }[];
+      };
+      patient_released_lab_results: { Args: { p_patient: string; p_reason: string }; Returns: Json };
       lab_partner_mark_collected: { Args: { p_order: string }; Returns: undefined };
       lab_partner_portal_orders: {
         Args: Record<PropertyKey, never>;
