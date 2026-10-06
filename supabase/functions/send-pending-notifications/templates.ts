@@ -1385,9 +1385,81 @@ export const TEMPLATE_MAP: Record<
     const message = String(payload.message ?? "Open Tarragon Health to see the details.");
     return {
       smsText: message,
-      pushUrl: payload.audience === "applicant" ? "/account/clinician" : "/clinician/credentials",
+      pushUrl: payload.audience === "applicant" ? "/account/clinician" : payload.audience === "rota_review" ? "/rota" : payload.audience === "rota" ? "/clinician/rota" : payload.audience === "lead" ? "/clinician/patients" : "/clinician/credentials",
       email: {
         subject,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hello,</p>` +
+          `<p>${escapeHtmlForBroadcast(message)}</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `Hello,\n\n${message}\n\nTarragon Health`,
+      },
+    };
+  },
+  // S19: a red event page to the clinician on call (on_call_page) and the alert to the clinical lead and ops when nobody
+  // has acknowledged it (on_call_escalation). Sent as push, in-app and email together at critical priority. The wording
+  // is fixed and neutral (INV-07): no condition, reading, name or result, and nothing from the payload is echoed.
+  on_call_page: () => ({
+    smsText: "New priority case. Open your Tarragon Health worklist. Tarragon Health",
+    pushUrl: "/clinician/on-call",
+    email: {
+      subject: "Priority case waiting",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A priority case needs you now.</p>` +
+        `<p>Open Tarragon Health and acknowledge it on the On call page.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A priority case needs you now.\n\nOpen Tarragon Health and acknowledge it on the On call page.\n\nTarragon Health",
+    },
+  }),
+  on_call_escalation: () => ({
+    smsText: "A priority case has not been picked up. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/rota",
+    email: {
+      subject: "A priority case has not been picked up",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A priority case has not been acknowledged by the clinicians on call.</p>` +
+        `<p>Open Tarragon Health to see where it stands.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A priority case has not been acknowledged by the clinicians on call.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
+    },
+  }),
+  on_call_unfinished: () => ({
+    smsText: "A priority case was acknowledged but is not closed yet. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/rota",
+    email: {
+      subject: "A priority case is still open",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A priority case was acknowledged but has not been closed yet.</p>` +
+        `<p>Open Tarragon Health to see where it stands.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A priority case was acknowledged but has not been closed yet.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
+    },
+  }),
+  // S18: the patient is told when their care team lead is set, changes, or is still being arranged. Fixed wording by
+  // kind, no names and nothing clinical (INV-07). No name is promised or shown: the care team card names nobody ahead
+  // of a real review (OQ-129). "Your care team", never "your doctor". Only in_app and email rows are written for it.
+  care_team_notice: (payload) => {
+    const kind = String(payload.kind ?? "");
+    const message =
+      kind === "changed"
+        ? "Your care team lead has changed. Your care team is still looking after you."
+        : kind === "arranging"
+          ? "We are arranging your care team lead. We will tell you here as soon as they are in place."
+          : "Your care team now has a lead clinician for you. Your care team is looking after you.";
+    return {
+      smsText: message,
+      pushUrl: "/patient",
+      email: {
+        subject: "An update about your care team",
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Hello,</p>` +

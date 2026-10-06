@@ -595,6 +595,29 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // "no branching to reproduce" shape as clinician_alert_ack_timeout_*.
     return { text: String(payload.message ?? "A clinician's credentials need review"), href: "/admin" };
   }
+  if (n.template === "on_call_page") {
+    // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
+    return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
+  }
+  if (n.template === "on_call_unfinished") {
+    return { text: "A priority case is acknowledged but still open", href: "/rota" };
+  }
+  if (n.template === "on_call_escalation") {
+    return { text: "A priority case has not been picked up", href: "/rota" };
+  }
+  if (n.template === "care_team_notice") {
+    // From private.lead_notify_patient (S18): fixed wording by kind, no names, nothing clinical (INV-07).
+    const kind = payload.kind;
+    return {
+      text:
+        kind === "changed"
+          ? "Your care team lead has changed"
+          : kind === "arranging"
+            ? "We are arranging your care team lead"
+            : "Your care team now has a lead clinician for you",
+      href: "/patient",
+    };
+  }
   if (n.template === "credential_notice") {
     // From 20261006013217_s15_clinician_credentialing.sql (private.credential_notify). payload.message is the fully
     // resolved sentence. audience says who is reading: an applicant or a paused clinician (their role is back to
@@ -603,7 +626,13 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     const audience = payload.audience;
     return {
       text: String(payload.message ?? "There is an update about your clinician account"),
-      href: audience === "applicant" ? "/account/clinician" : audience === "reviewer" ? "/credentialing" : "/clinician/credentials",
+      href:
+        audience === "applicant" ? "/account/clinician"
+        : audience === "reviewer" ? "/credentialing"
+        : audience === "rota_review" ? "/rota"
+        : audience === "rota" ? "/clinician/rota"
+        : audience === "lead" ? "/clinician/patients"
+        : "/clinician/credentials",
     };
   }
   if (n.template === "clinician_alert_sla_breach") {
