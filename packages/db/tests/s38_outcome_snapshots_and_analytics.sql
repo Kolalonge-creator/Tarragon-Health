@@ -146,7 +146,7 @@ begin
   perform pg_temp.ck('the default target is used and says so', '140/90/default', pg_temp.snap(a1, 90, 'target_sys') || '/' || pg_temp.snap(a1, 90, 'target_dia') || '/' || pg_temp.snap(a1, 90, 'target_source'));
   perform pg_temp.ck('a person with their own target is held to it: 135/85 is not under 130/80', 'uncontrolled/130/80/patient',
     pg_temp.snap(pg_temp.f('own'), 90, 'bp_status') || '/' || pg_temp.snap(pg_temp.f('own'), 90, 'target_sys') || '/' || pg_temp.snap(pg_temp.f('own'), 90, 'target_dia') || '/' || pg_temp.snap(pg_temp.f('own'), 90, 'target_source'));
-  perform pg_temp.ck('a snapshot records the config version it used (INV-16)', '1', pg_temp.snap(a1, 90, 'config_version'));
+  perform pg_temp.ck('a snapshot records the config version it used (INV-16)', (select version::text from public.outcome_config where is_active), pg_temp.snap(a1, 90, 'config_version'));
   perform pg_temp.ck('day 90 is not computed 50 days in', 'null', coalesce(pg_temp.snap(pg_temp.f('t50'), 90, 'id'), 'null'));
   perform pg_temp.ck('day 30 is not computed while the grace for late readings is running', 'null', coalesce(pg_temp.snap(pg_temp.f('t31'), 30, 'id'), 'null'));
   perform pg_temp.ck('day 30 is computed once the grace is over', 'true', (pg_temp.snap(pg_temp.f('t34'), 30, 'id') is not null)::text);
@@ -188,6 +188,17 @@ begin
   perform pg_temp.ck('only a month is shown, not a join date', 'true', (select coalesce(bool_and(enrolment_month = date_trunc('month', enrolment_month)::date), true)::text from analytics.v_outcome_snapshots));
 end $$;
 
+-- 4a. The smallest group is 20 (OQ-233): with the live rules a cohort of 38 split 12/13/13 is withheld, then the fixtures run at 11 ----------
+do $$
+declare r jsonb := private.bp_control_aggregate(current_date - 100, current_date - 100);
+begin
+  perform pg_temp.ck('the rules in force show nothing smaller than 20', '20', (private.outcome_rule('min_cell') #>> '{}'));
+  perform pg_temp.ck('so a cohort whose categories are 12, 13 and 13 is withheld as a small cell', 'true/small_cell',
+    (r #>> '{cohort_all_due,suppressed}') || '/' || (r #>> '{cohort_all_due,reason}'));
+  -- the fixtures were built for groups of 11; run the rest at 11 (rolled back with everything else)
+  update public.outcome_config set config = jsonb_set(config, '{min_cell}', '11') where is_active;
+end $$;
+
 -- 4. The report ---------------------------------------------------------------------------------------------------------
 do $$
 declare
@@ -210,7 +221,7 @@ begin
   perform pg_temp.ck('the definition and limitations are printed with it', 'true', ((r ->> 'definition') like '%under their own target%' and (r ->> 'limitations') like '%small numbers are withheld%')::text);
   perform pg_temp.ck('data quality: the default target share and the missing baseline are reported', 'true',
     ((r #>> '{data_quality,default_target_used_pct}')::numeric > 90 and (r #>> '{data_quality,baseline_missing_pct}') = '0.0')::text);
-  perform pg_temp.ck('the report names the config version it used', '1', r ->> 'config_version');
+  perform pg_temp.ck('the report names the config version it used', (select version::text from public.outcome_config where is_active), r ->> 'config_version');
   perform pg_temp.ck('the access is written to the audit log', '1', (select count(*)::text from public.audit_log where action = 'outcomes.bp_control_report' and actor_id = v_admin));
 
   r := private.bp_control_aggregate(a2, a2);

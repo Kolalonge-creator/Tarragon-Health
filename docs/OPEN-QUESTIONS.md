@@ -1179,28 +1179,36 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The July 2026 `bp_control` measure (for insurers and employers) is the most recent reading in a period under 140/90 for people covered the whole period. S38's `bp_control_90d` is the 7-day average 90 days after a person joined, against their own target, counting people who stopped logging as not controlled. They answer different questions and both stay, named apart; `bp_control_90d` is a new row in `outcome_measure_specs`. Nothing converts one into the other.
 - Options: (a) keep both, named apart (recommended); (b) retire the payer one in favour of the 90-day measure once a payer asks for it.
 - Decision: open (CMO).
+- **Decided 2026-10-07 (founder): keep both, named apart.**
 
 ### OQ-231 Release 4 items not built (raised by S38)
 - Risk stratification (22.3, `risk_scores`, `risk-model`), the personal monthly progress report (22.5), the symptom-checker accuracy dashboard (22.4), sponsor dashboards and exportable pilot reports (22.6, 22.9) and clinician worklists ordered by risk are Release 4 in the spec. S38 builds the data they need (snapshots, the de-identified layer, the suppression rules) and the 90-day report only. The research is clear that a risk score must be deterministic, explained, used only to order outreach and never to deny care; that rule is recorded here for the session that builds it.
 - Decision: open (founder, when Release 4 is scheduled).
+- **Decided 2026-10-07 (founder): after 90 days of real snapshots.** Build the risk scores, the personal monthly report, the accuracy dashboard and sponsor exports once the first cohort reaches day 90, so they can be tested against real data.
 
 ### OQ-232 Which readings count (raised by S38)
 - Readings flagged only for a missing arm or position are counted; readings flagged as a duplicate or a sudden change are not, until a clinician clears them. Counting every flagged reading would let duplicates and typing errors move the rate; counting none would make most home readings invisible. The share of readings held back is not yet reported.
 - Options: (a) as built (recommended); (b) count only fully valid readings; (c) count all and report the flagged share.
 - Decision: open (CMO).
+- **Decided 2026-10-07 (founder): as built.** Readings flagged only for a missing arm or position count; duplicates and sudden changes wait for a clinician. Reporting the share of readings held back is still a follow-up.
 
 ### OQ-233 Smallest group shown (raised by S38)
 - Eleven is the usual rule in health reporting (and 20 when a cut uses two attributes). The Nigeria Data Protection Act and the NDPC's 2025 guidance require privacy by design but name no number that was found. Set in `outcome_config` v1 as PROPOSED, owner CMO, with counsel's view still needed before any figure leaves the company.
 - Decision: open (CMO and counsel).
+- **Decided 2026-10-07 (founder): raised to 20 now.** `outcome_config` v2 (applied to production as `20261006230528_s38b_min_cell_20.sql`): the smallest group shown is 20 and 30 for a cut by two attributes; the published measure `bp_control_90d` is spec v2 (minimum 20), v1 retired. Counsel should still confirm a figure before anything leaves the company.
 
 ### OQ-234 Adherence at a past date uses today's medicine list (raised by S38)
 - S08's weekly adherence is computed from the person's current active medicines. A snapshot is taken within days of its window so the difference is small, but a medicine stopped or changed inside the window is not reconstructed. Adherence is stored beside BP and never used in the control figure.
 - Decision: open (CMO); fix by reading the medicine history once S24 records changes.
+- **Decided 2026-10-07 (founder): accept the approximation until S24 records medicine history.** Adherence stays beside BP, never inside the control figure.
 
 ### OQ-235 Who joined, and from when (raised by S38)
 - Day 0 is the earliest start of a Membership (purchased, voucher, employer or granted) or a care pack entitlement. A free user has no snapshots. Care pack and Membership are treated alike. If a person lets a membership lapse and joins again, day 0 stays the first start.
 - Decision: open (CMO).
+- **Decided 2026-10-07 (founder): the first Membership or care pack start, any source (purchased, voucher, employer, granted), is day 0.** A lapse and rejoin keeps the first start; free users have no snapshots.
 
 ### OQ-236 Not applied, console home (raised by S38)
 - The migration is not applied to production (apply before merging). The page is in `apps/web` (`/admin/outcomes`); S36 and S37 decide where the console version lives. The report is open to admins and the active CMO only; a clinical lead who is neither cannot see it yet.
 - Decision: open.
+- **Decided 2026-10-07 (founder): admins and the CMO, in `apps/web`, for now.** Clinical leads who are neither cannot open it yet; S36 and S37 decide the console version.
+
