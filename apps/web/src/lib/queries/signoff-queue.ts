@@ -63,8 +63,12 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
 ];
 
+export type SettledConfig = { table: string; title: string; href: string; version: number };
+
 export type SignoffQueueResult = {
   items: SignoffQueueItem[];
+  /** The governed configurations whose live version is signed, read in the same pass, so a page needn't read each table again. Incomplete if a source failed. */
+  settledConfigs: SettledConfig[];
   /** Names of the sources that could not be read. While this is non-empty `items` is incomplete and must never be shown as an all-clear. */
   failedSources: string[];
 };
@@ -123,6 +127,7 @@ export async function readSignoffQueue(
   };
 
   const sources: Source[] = [];
+  const settledConfigs: SettledConfig[] = [];
 
   for (const def of VERSIONED_TABLES) {
     sources.push({
@@ -137,6 +142,7 @@ export async function readSignoffQueue(
         const rows = (data ?? []) as unknown as VersionRow[];
         const live = rows.find((r) => r.is_active);
         const href = `${basePath}/${def.slug}`;
+        if (live && isSigned(live)) settledConfigs.push({ table: def.table, title: def.title, href, version: live.version });
         if (live && !isSigned(live)) {
           return [
             {
@@ -155,7 +161,7 @@ export async function readSignoffQueue(
             {
               key: `versioned_draft:${def.table}`,
               title: def.title,
-              detail: `Version ${draft.version} is drafted${live ? `, newer than the live version ${live.version},` : " with nothing live yet,"} and waiting for your signature to come into force.${what ? ` ${what}` : ""}`,
+              detail: `Version ${draft.version} is drafted${live ? `, newer than the live version ${live.version},` : " with nothing live yet,"} and waiting for a Clinical Director's signature to come into force.${what ? ` ${what}` : ""}`,
               href,
               severity: "draft_pending",
             },
@@ -252,7 +258,7 @@ export async function readSignoffQueue(
             {
               key: "result_release_policies",
               title: "Result release policies",
-              detail: `Version ${draft.version} is drafted and waiting for your signature to come into force.`,
+              detail: `Version ${draft.version} is drafted and waiting for a Clinical Director's signature to come into force.`,
               href,
               severity: "draft_pending" as const,
             },
@@ -321,7 +327,11 @@ export async function readSignoffQueue(
     else failedSources.push(sources[i].name);
   });
 
-  return { items: items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]), failedSources };
+  return {
+    items: items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]),
+    settledConfigs: settledConfigs.sort((a, b) => a.title.localeCompare(b.title)),
+    failedSources,
+  };
 }
 
 /**

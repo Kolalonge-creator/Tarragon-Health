@@ -13,6 +13,17 @@ export type VersionedGovernedTable =
   | "result_release_policies";
 
 /**
+ * Tables whose versions are numbered per partition, not globally: one live row per
+ * organisation (and per code for the questionnaire). The database guard partitions
+ * the same way (see its migration); comparing across partitions here would refuse a
+ * legitimate version in one organisation because another organisation is further on.
+ */
+const PARTITION_COLUMNS: Partial<Record<VersionedGovernedTable, readonly string[]>> = {
+  cv_risk_config: ["organisation_id"],
+  risk_questionnaire_configs: ["organisation_id", "code"],
+};
+
+/**
  * True for an unsigned-or-not draft that is OLDER than the live version: the one
  * kind of version that must never be offered for signing. The managers use it to
  * hide Sign; refuseSupersededDraft uses it to refuse server-side. One definition,
@@ -45,20 +56,19 @@ export async function refuseSupersededDraft(
   table: VersionedGovernedTable,
   id: string
 ): Promise<string | null> {
+  const partition = PARTITION_COLUMNS[table] ?? [];
   const { data: target, error: targetError } = await supabase
     .from(table)
-    .select("version, is_active")
+    .select(["version", "is_active", ...partition].join(", "))
     .eq("id", id)
     .maybeSingle();
   if (targetError || !target) return COULD_NOT_CHECK;
-  const row = target as { version: number; is_active: boolean };
+  const row = target as unknown as { version: number; is_active: boolean } & Record<string, string>;
   if (row.is_active) return null;
 
-  const { data: active, error: activeError } = await supabase
-    .from(table)
-    .select("version")
-    .eq("is_active", true)
-    .maybeSingle();
+  let liveQuery = supabase.from(table).select("version").eq("is_active", true);
+  for (const column of partition) liveQuery = liveQuery.eq(column, row[column]);
+  const { data: active, error: activeError } = await liveQuery.maybeSingle();
   if (activeError) return COULD_NOT_CHECK;
   const live = active as { version: number } | null;
 

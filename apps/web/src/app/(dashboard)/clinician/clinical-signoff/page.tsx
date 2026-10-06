@@ -79,7 +79,7 @@ export default async function ClinicianClinicalSignoffPage() {
 
   const supabase = await createClient();
   const [checklist, hub] = await Promise.all([
-    readClinicalSignoffChecklist(supabase, "/clinician"),
+    readClinicalSignoffChecklist(supabase, "/clinician", { withConfigs: false }),
     getCmoSigningHubForRequest(),
   ]);
 
@@ -162,7 +162,15 @@ export default async function ClinicianClinicalSignoffPage() {
     );
   }
 
-  const hasSigned = !checklistFailed && (checklist.signedRules.length > 0 || checklist.settled.length > 0);
+  // Signed configurations come from the queue's own pass over those tables (the checklist is told
+  // not to read them again), so this list and the lines above can never be from different reads.
+  const settledConfigs = hub.settledConfigs.map((c) => ({
+    key: c.table,
+    title: c.title,
+    detail: `version ${c.version}`,
+    href: c.href,
+  }));
+  const hasSigned = checklist.signedRules.length > 0 || settledConfigs.length > 0;
 
   return (
     <div className="space-y-6 p-6">
@@ -204,7 +212,7 @@ export default async function ClinicianClinicalSignoffPage() {
       {hasSigned && (
         <details className="rounded-md border border-mist-grey/40 p-4">
           <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
-            Already signed ({checklist.signedRules.length} clinical rules, {checklist.settled.length} of{" "}
+            Already signed ({checklist.signedRules.length} clinical rules, {settledConfigs.length} of{" "}
             {checklist.totalConfigCount} configurations)
           </summary>
           <div className="mt-4">
@@ -212,7 +220,7 @@ export default async function ClinicianClinicalSignoffPage() {
               unsignedRules={[]}
               signedRules={checklist.signedRules}
               unsignedConfigs={[]}
-              settled={checklist.settled}
+              settled={settledConfigs}
               staff={checklist.staff}
               protocols={checklist.protocols}
               totalConfigCount={checklist.totalConfigCount}
