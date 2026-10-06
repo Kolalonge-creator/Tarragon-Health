@@ -822,3 +822,6 @@ s17_queue_next.sql
 s17_queue_concurrent_claim.sh
 # S20: quality and safety. Safety case 16 (expired licence removed from queue and rota), audit sampling and scoring (shared cases with Jest), tier 1 counts, hand-back review, the protected speak-up route (admin accounts see nothing), retaliation review. Sabotage: removal turned off must flip the case 16 check.
 s20_quality_and_safety.sql
+# S23 AI Scribe: consent immutability, transcript patient-invisible (safety case 15),
+# patient cannot insert consent, no deletes, revocation works, staff can read transcripts.
+scribe_consent_and_transcript_rls.sql
