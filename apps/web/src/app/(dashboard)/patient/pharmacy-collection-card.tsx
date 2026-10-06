@@ -22,11 +22,13 @@ function Chooser({
   prescription,
   locale,
   mode,
+  beneficiaryId,
   onDone,
 }: {
   prescription: CollectionPrescription;
   locale: Locale;
   mode: "send" | "reroute";
+  beneficiaryId?: string;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -40,22 +42,26 @@ function Chooser({
 
   useEffect(() => {
     let alive = true;
-    void loadPharmacyOptions(prescription.id).then((r) => {
+    void loadPharmacyOptions(prescription.id, beneficiaryId).then((r) => {
       if (!alive) return;
       setLoading(false);
-      if (r.ok) setOptions(r.options);
-      else setMessage(r.key);
+      if (r.ok) {
+        setOptions(r.options);
+        // The last pharmacy used is listed first and already ticked, so a repeat is one tap and one consent tick.
+        const usual = r.options.find((o) => o.is_preferred);
+        if (usual) setChosen(usual.pharmacy_partner_id);
+      } else setMessage(r.key);
     });
     return () => {
       alive = false;
     };
-  }, [prescription.id]);
+  }, [prescription.id, beneficiaryId]);
 
   function send() {
     if (!chosen) return;
     setMessage(null);
     startTransition(async () => {
-      const input = { prescriptionId: prescription.id, partnerId: chosen, consent };
+      const input = { prescriptionId: prescription.id, partnerId: chosen, consent, ...(beneficiaryId ? { beneficiaryId } : {}) };
       const result = mode === "send" ? await sendToPharmacy(input) : await reroutePharmacy(input);
       if (!result.ok) {
         setMessage(result.key);
@@ -127,7 +133,7 @@ function Chooser({
   );
 }
 
-function Row({ prescription, locale }: { prescription: CollectionPrescription; locale: Locale }) {
+function Row({ prescription, locale, beneficiaryId }: { prescription: CollectionPrescription; locale: Locale; beneficiaryId?: string }) {
   const tr = (key: MessageKey, params?: MessageParams) => t(key, locale, params);
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -138,7 +144,7 @@ function Row({ prescription, locale }: { prescription: CollectionPrescription; l
   function takeBack() {
     setNote(null);
     startTransition(async () => {
-      const r = await withdrawFromPharmacy(prescription.id);
+      const r = await withdrawFromPharmacy(prescription.id, beneficiaryId);
       setNote(r.key);
       router.refresh();
     });
@@ -157,7 +163,7 @@ function Row({ prescription, locale }: { prescription: CollectionPrescription; l
         </Button>
       )}
       {prescription.state === "signed" && open && (
-        <Chooser prescription={prescription} locale={locale} mode="send" onDone={() => setOpen(false)} />
+        <Chooser prescription={prescription} locale={locale} mode="send" beneficiaryId={beneficiaryId} onDone={() => setOpen(false)} />
       )}
 
       {waiting && mine.sent && (
@@ -180,7 +186,7 @@ function Row({ prescription, locale }: { prescription: CollectionPrescription; l
               {tr("pharmacy.change")}
             </Button>
           )}
-          {open && <Chooser prescription={prescription} locale={locale} mode="reroute" onDone={() => setOpen(false)} />}
+          {open && <Chooser prescription={prescription} locale={locale} mode="reroute" beneficiaryId={beneficiaryId} onDone={() => setOpen(false)} />}
           <Button type="button" variant="outline" className="min-h-11" disabled={pending} onClick={takeBack}>
             {tr("pharmacy.withdraw")}
           </Button>
@@ -195,11 +201,24 @@ function Row({ prescription, locale }: { prescription: CollectionPrescription; l
   );
 }
 
-export function PharmacyCollectionCard({ prescriptions, locale }: { prescriptions: CollectionPrescription[]; locale: Locale }) {
+/**
+ * `beneficiaryId` is set while someone acts for another person with the pharmacy permission. The database checks that permission on every
+ * call, tells the person, and records who acted; this prop only passes who it is for. `#pharmacy-collection` is where the refill
+ * reminder opens, so a repeat starts at the last pharmacy with its box already ticked.
+ */
+export function PharmacyCollectionCard({
+  prescriptions,
+  locale,
+  beneficiaryId,
+}: {
+  prescriptions: CollectionPrescription[];
+  locale: Locale;
+  beneficiaryId?: string;
+}) {
   const tr = (key: MessageKey) => t(key, locale);
   if (prescriptions.length === 0) return null;
   return (
-    <Card>
+    <Card id="pharmacy-collection" className="scroll-mt-20">
       <CardHeader>
         <CardTitle>{tr("pharmacy.title")}</CardTitle>
       </CardHeader>
@@ -208,7 +227,7 @@ export function PharmacyCollectionCard({ prescriptions, locale }: { prescription
         <p className={`text-xs ${MUTED}`}>{tr("pharmacy.no_delivery")}</p>
         <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {prescriptions.map((p) => (
-            <Row key={p.id} prescription={p} locale={locale} />
+            <Row key={p.id} prescription={p} locale={locale} beneficiaryId={beneficiaryId} />
           ))}
         </ul>
         <p className={`text-xs ${MUTED}`}>{tr("pharmacy.any_pharmacy")}</p>

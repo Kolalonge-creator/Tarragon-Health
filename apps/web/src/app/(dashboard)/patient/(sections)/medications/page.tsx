@@ -20,8 +20,9 @@ export default async function PatientMedicationsPage() {
   const { subjectId, acting, uiLanguage } = await getPatientDashboardContext();
   // A change can only be answered by the patient themselves (it is their yes), so it is not offered while acting for someone.
   const careChanges = acting ? null : await loadMyCareChanges();
-  // Sending a prescription to a pharmacy is the patient's own act (it shares her record with that pharmacy), so not while acting for someone.
-  const collection = acting ? null : await loadMyCollection();
+  // Sending a prescription to a pharmacy shares the record with that pharmacy. The patient does it, or someone acting for them who holds
+  // the pharmacy permission (the database checks it, tells the patient and records who acted). Without the permission the card is not offered.
+  const collection = await loadMyCollection(acting ? subjectId : undefined);
 
   return (
     <DashboardSection
@@ -35,7 +36,7 @@ export default async function PatientMedicationsPage() {
           {careChanges?.ok === true && <CareChangeCard changes={careChanges.changes} locale={uiLanguage} />}
           {careChanges?.ok === false && <LoadErrorCard title={t("careChange.title", uiLanguage)} what="your care team's changes" />}
           {collection?.ok === true && (
-            <PharmacyCollectionCard prescriptions={collection.prescriptions} locale={uiLanguage} />
+            <PharmacyCollectionCard prescriptions={collection.prescriptions} locale={uiLanguage} beneficiaryId={acting ? subjectId : undefined} />
           )}
           {collection?.ok === false && <LoadErrorCard title={t("pharmacy.title", uiLanguage)} what="your pharmacy collection" />}
           <MedicationsList

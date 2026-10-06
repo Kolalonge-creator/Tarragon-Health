@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { dispensePrescription, flagPrescription, openPharmacyPrescription } from "@/lib/pharmacy-collection/actions";
-import type { InboxRow, PharmacyPrescriptionDetail } from "@/lib/pharmacy-collection/collection";
+import { answerText, QUESTION_REASONS, questionText, type InboxRow, type PharmacyPrescriptionDetail } from "@/lib/pharmacy-collection/collection";
 
 export type { InboxRow } from "@/lib/pharmacy-collection/collection";
 
@@ -63,16 +63,16 @@ function Detail({ row, onClose }: { row: InboxRow; onClose: () => void }) {
     });
   }
 
-  function flag(kind: "out_of_stock" | "query_to_prescriber", note?: string) {
+  function flag(input: { kind: "out_of_stock" } | { kind: "query_to_prescriber"; reason: string }) {
     setError(null);
     setNotice(null);
     startTransition(async () => {
-      const r = await flagPrescription({ prescriptionId: row.prescription_id, kind, note });
+      const r = await flagPrescription({ prescriptionId: row.prescription_id, ...input });
       if (!r.ok) {
         setError(r.error);
         return;
       }
-      setNotice(kind === "out_of_stock" ? "The patient has been asked to choose another pharmacy." : "Your question has been sent to the prescriber.");
+      setNotice(input.kind === "out_of_stock" ? "The patient has been asked to choose another pharmacy." : "Your question has been sent to the prescriber.");
       setAsking(false);
       router.refresh();
     });
@@ -144,6 +144,21 @@ function Detail({ row, onClose }: { row: InboxRow; onClose: () => void }) {
         ))}
       </ul>
 
+      {detail.questions.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/60">Your questions to the prescriber</p>
+          <ul className="text-sm">
+            {detail.questions.map((q, i) => (
+              <li key={i}>
+                {questionText(q.reason_code)}, asked {when(q.asked_at)}.{" "}
+                {q.answered_at ? `Answer: ${answerText(q.answer_code)}.` : "Not answered yet."}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-charcoal-ink/70">An answer never changes the signed prescription. If it is changed, a new prescription is sent.</p>
+        </div>
+      )}
+
       {waiting && (
         <>
           <form
@@ -174,14 +189,17 @@ function Detail({ row, onClose }: { row: InboxRow; onClose: () => void }) {
                 <Input id="quantity" name="quantity" maxLength={100} />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="batchNumber">Batch number (optional)</Label>
-                <Input id="batchNumber" name="batchNumber" maxLength={60} />
+                <Label htmlFor="batchNumber">Batch number</Label>
+                <Input id="batchNumber" name="batchNumber" maxLength={60} required />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="batchExpiry">Batch expiry (optional)</Label>
-                <Input id="batchExpiry" name="batchExpiry" type="date" />
+                <Label htmlFor="batchExpiry">Batch expiry</Label>
+                <Input id="batchExpiry" name="batchExpiry" type="date" required />
               </div>
             </div>
+            <p className="text-xs text-charcoal-ink/70">
+              The batch and expiry are your record of what you handed over. Tarragon Health does not check that a batch is genuine.
+            </p>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" className="h-4 w-4" checked={partial} onChange={(e) => setPartial(e.target.checked)} />
               Partial supply (some items are outstanding)
@@ -200,7 +218,7 @@ function Detail({ row, onClose }: { row: InboxRow; onClose: () => void }) {
           <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
             <p className="text-sm font-medium">Something wrong?</p>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" disabled={pending} onClick={() => flag("out_of_stock")}>
+              <Button type="button" variant="outline" disabled={pending} onClick={() => flag({ kind: "out_of_stock" })}>
                 We cannot supply this (out of stock)
               </Button>
               <Button type="button" variant="outline" disabled={pending} onClick={() => setAsking((a) => !a)}>
@@ -212,12 +230,22 @@ function Detail({ row, onClose }: { row: InboxRow; onClose: () => void }) {
                 className="space-y-2"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  const note = new FormData(e.currentTarget).get("question");
-                  flag("query_to_prescriber", typeof note === "string" ? note : undefined);
+                  const reason = new FormData(e.currentTarget).get("question");
+                  if (typeof reason === "string" && reason !== "") flag({ kind: "query_to_prescriber", reason });
                 }}
               >
-                <Label htmlFor="question">Your question for the prescriber</Label>
-                <Textarea id="question" name="question" maxLength={500} required />
+                <Label htmlFor="question">What do you need to ask the prescriber?</Label>
+                <select id="question" name="question" required defaultValue="" className="min-h-11 w-full rounded-md border border-charcoal-ink/20 bg-transparent px-3 text-sm">
+                  <option value="" disabled>
+                    Choose one
+                  </option>
+                  {Object.entries(QUESTION_REASONS).map(([code, label]) => (
+                    <option key={code} value={code}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-charcoal-ink/70">Questions are a fixed list so nothing about the patient is typed into a message. The prescriber answers from a fixed list too.</p>
                 <Button type="submit" disabled={pending}>
                   Send question
                 </Button>

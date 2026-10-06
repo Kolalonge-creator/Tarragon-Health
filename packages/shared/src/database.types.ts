@@ -43013,7 +43013,7 @@ export type Database = {
       my_lab_results: { Args: Record<PropertyKey, never>; Returns: Json };
       // S28 (pharmacy collection): spliced by hand, see CLAUDE.md on why the generator is not used
       pharmacies_for_prescription: {
-        Args: { p_prescription: string };
+        Args: { p_beneficiary?: string; p_prescription: string };
         Returns: {
           pharmacy_partner_id: string; name: string; address: string | null; city: string | null; state: string | null; area: string | null;
           latitude: number | null; longitude: number | null; items_total: number; items_priced: number; total_kobo: number; stock: string; is_preferred: boolean;
@@ -43021,11 +43021,13 @@ export type Database = {
       };
       pharmacy_collection_available: { Args: Record<PropertyKey, never>; Returns: boolean };
       my_collection_prescriptions: {
-        Args: Record<PropertyKey, never>;
+        Args: { p_beneficiary?: string };
         Returns: { prescription_id: string; state: string; items: Json; signed_at: string | null; is_current: boolean }[];
       };
-      withdraw_prescription_from_pharmacy: { Args: { p_prescription: string }; Returns: Json };
-      pharmacy_flag_prescription: { Args: { p_kind: string; p_note?: string; p_prescription: string }; Returns: Json };
+      withdraw_prescription_from_pharmacy: { Args: { p_beneficiary?: string; p_prescription: string }; Returns: Json };
+      pharmacy_flag_prescription: { Args: { p_kind: string; p_reason?: string; p_prescription: string }; Returns: Json };
+      prescriber_pharmacy_overview: { Args: Record<PropertyKey, never>; Returns: Json };
+      answer_pharmacy_question: { Args: { p_answer: string; p_question: string }; Returns: Json };
       pharmacy_inbox: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -43041,13 +43043,9 @@ export type Database = {
         Returns: Json;
       };
       pharmacy_prescription_detail: { Args: { p_prescription: string }; Returns: Json };
-      prescription_pharmacy_questions: {
-        Args: { p_prescription: string };
-        Returns: { asked_at: string; pharmacy_name: string; note: string | null }[];
-      };
-      my_prescription_pharmacy: { Args: { p_prescription: string }; Returns: Json };
-      reroute_prescription_pharmacy: { Args: { p_consent: boolean; p_partner: string; p_prescription: string }; Returns: Json };
-      send_prescription_to_pharmacy: { Args: { p_consent: boolean; p_partner: string; p_prescription: string }; Returns: Json };
+      my_prescription_pharmacy: { Args: { p_beneficiary?: string; p_prescription: string }; Returns: Json };
+      reroute_prescription_pharmacy: { Args: { p_beneficiary?: string; p_consent: boolean; p_partner: string; p_prescription: string }; Returns: Json };
+      send_prescription_to_pharmacy: { Args: { p_beneficiary?: string; p_consent: boolean; p_partner: string; p_prescription: string }; Returns: Json };
       patient_add_lab_result: { Args: { p_file: Json }; Returns: Json };
       record_lab_disclosure: { Args: { p_attested: boolean; p_method: string; p_note?: string; p_result: string }; Returns: Json };
       release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };

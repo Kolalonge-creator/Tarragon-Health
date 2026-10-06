@@ -98,6 +98,16 @@ begin
   select prescription_id into v_rx from public.medications where id = v_med;
   return v_rx;
 end $f$;
+-- Switch the S37 prescribing guard the way the guard's own trigger allows: a log row in this transaction, then the update.
+create function pg_temp.guard(p_on boolean) returns void language plpgsql as $f$
+begin
+  insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions)
+  values ('prescribing_enabled', case when p_on then 'switched_on' else 'switched_off' end, pg_temp.f('admin'), 'admin', 'S28 proof', '[]'::jsonb);
+  update public.go_live_guards
+     set is_on = p_on, changed_at = case when p_on then now() end, changed_by = case when p_on then pg_temp.f('admin') end,
+         change_note = case when p_on then 'S28 proof' end
+   where key = 'prescribing_enabled';
+end $f$;
 create function pg_temp.state_of(p_id uuid) returns text language sql as $$ select state::text from public.prescriptions where id = p_id $$;
 create function pg_temp.mine(p_uid uuid, p_rx uuid) returns jsonb language sql as
 $$ select pg_temp.q_as(p_uid, format('select public.my_prescription_pharmacy(%L)::text', p_rx))::jsonb $$;
@@ -116,8 +126,18 @@ begin
   perform pg_temp.setf('admin', v_admin);
   v_doc := pg_temp.mkdoc(v_org, 'doc', v_admin);
   perform pg_temp.setf('doc', v_doc);
+  perform pg_temp.setf('doc2', pg_temp.mkdoc(v_org, 'doc2', v_admin));
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient');
   perform pg_temp.setf('pat', v_pat);
+  -- caregivers: one with the pharmacy permission, one with a different permission, one expired, one with no access at all
+  perform pg_temp.setf('cg_ok', pg_temp.mkuser(v_org, 'cg_ok', 'patient'));
+  perform pg_temp.setf('cg_no', pg_temp.mkuser(v_org, 'cg_no', 'patient'));
+  perform pg_temp.setf('cg_exp', pg_temp.mkuser(v_org, 'cg_exp', 'patient'));
+  perform pg_temp.setf('stranger', pg_temp.mkuser(v_org, 'stranger', 'patient'));
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions, expires_at) values
+    (v_pat, pg_temp.f('cg_ok'), 'manage', v_pat, array['manage_pharmacy']::public.caregiver_permission[], null),
+    (v_pat, pg_temp.f('cg_no'), 'manage', v_pat, array['view_medication']::public.caregiver_permission[], null),
+    (v_pat, pg_temp.f('cg_exp'), 'manage', v_pat, array['manage_pharmacy']::public.caregiver_permission[], now() + interval '1 hour');
   perform pg_temp.setf('pat2', pg_temp.mkuser(v_org, 'pat2', 'patient'));
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values (v_org, v_pat, v_doc, now());
   pa := pg_temp.mkpharmacy('S28 Pharmacy A', 365);
@@ -151,7 +171,12 @@ begin
     (pg_temp.q_as(pg_temp.f('ph_a'), 'select count(*) from public.pharmacy_inbox()') like 'ERR:pharmacy_collection_off')::text);
 
   perform pg_temp.ck('while off, the patient screen is told not to offer it', 'false', pg_temp.q_as(v_pat, 'select public.pharmacy_collection_available()::text'));
+  perform pg_temp.ck('the prescribing guard starts off', 'false', (select is_on::text from public.go_live_guards where key = 'prescribing_enabled'));
   update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = pg_temp.f('admin'), activation_note = 'S28 proof' where key = 'pharmacy_collection';
+  perform pg_temp.ck('module on but the go-live guard off: still not offered', 'false', pg_temp.q_as(v_pat, 'select public.pharmacy_collection_available()::text'));
+  perform pg_temp.ck('...and sending still refuses', 'true',
+    (pg_temp.q_as(v_pat, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', rx, pg_temp.f('pa'))) like 'ERR:pharmacy_collection_off')::text);
+  perform pg_temp.guard(true);
   perform pg_temp.ck('once on with approved pharmacies, the screen is told to offer it', 'true', pg_temp.q_as(v_pat, 'select public.pharmacy_collection_available()::text'));
   perform pg_temp.ck('anon is not told anything', '42501', pg_temp.try_anon('select public.pharmacy_collection_available()'));
 
@@ -240,21 +265,26 @@ begin
     (pg_temp.q_as(v_pat, 'select count(*) from public.pharmacy_inbox()') like 'ERR:This action is for partner pharmacies')::text);
 
   -- 5. Flags and re-route (rx1 at A)
-  perform pg_temp.ck('a query without a note is refused', 'true',
-    (pg_temp.q_as(ph_a, format($q$select public.pharmacy_flag_prescription(%L, 'query_to_prescriber', null)::text$q$, rx1)) like 'ERR:note_required')::text);
+  perform pg_temp.ck('a query without a reason is refused', 'true',
+    (pg_temp.q_as(ph_a, format($q$select public.pharmacy_flag_prescription(%L, 'query_to_prescriber', null)::text$q$, rx1)) like 'ERR:reason_required')::text);
+  perform pg_temp.ck('free text is not accepted as a question (no chat)', 'true',
+    (pg_temp.q_as(ph_a, format($q$select public.pharmacy_flag_prescription(%L, 'query_to_prescriber', 'Please confirm the strength.')::text$q$, rx1)) like 'ERR:reason_required')::text);
+  perform pg_temp.ck('a reason on an out-of-stock flag is refused', 'true',
+    (pg_temp.q_as(ph_a, format($q$select public.pharmacy_flag_prescription(%L, 'out_of_stock', 'dose_unclear')::text$q$, rx1)) like 'ERR:invalid_flag')::text);
   perform pg_temp.ck('B cannot flag A''s prescription', 'true',
     (pg_temp.q_as(ph_b, format($q$select public.pharmacy_flag_prescription(%L, 'out_of_stock', null)::text$q$, rx1)) like 'ERR:prescription_not_found')::text);
   perform pg_temp.ck('an unknown flag kind is refused', 'true',
     (pg_temp.q_as(ph_a, format($q$select public.pharmacy_flag_prescription(%L, 'other', 'x')::text$q$, rx1)) like 'ERR:invalid_flag')::text);
-  perform pg_temp.q_as(ph_a, format($q$select public.pharmacy_flag_prescription(%L, 'query_to_prescriber', 'Please confirm the strength.')::text$q$, rx1));
+  perform pg_temp.q_as(ph_a, format($q$select public.pharmacy_flag_prescription(%L, 'query_to_prescriber', 'dose_unclear')::text$q$, rx1));
   perform pg_temp.ck('the signer got one neutral notice about the question', '1',
     (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'pharmacy_collection_question'));
-  perform pg_temp.ck('the signer can read the question', 'Please confirm the strength.',
-    pg_temp.q_as(v_doc, format('select note from public.prescription_pharmacy_questions(%L)', rx1)));
-  perform pg_temp.ck('the patient cannot read the pharmacist''s note', 'true',
-    (pg_temp.q_as(v_pat, format('select note from public.prescription_pharmacy_questions(%L)', rx1)) like 'ERR:prescription_not_found')::text);
-  perform pg_temp.ck('reading the question was audited', '1',
-    (select count(*)::text from public.audit_log where action = 'prescription.pharmacy_questions_read' and entity_id = rx1));
+  perform pg_temp.ck('the signer sees the question as a fixed reason', 'dose_unclear|false',
+    (pg_temp.q_as(v_doc, 'select public.prescriber_pharmacy_overview()::text')::jsonb -> 'questions' -> 0 ->> 'reason_code') || '|' ||
+    ((pg_temp.q_as(v_doc, 'select public.prescriber_pharmacy_overview()::text')::jsonb -> 'questions' -> 0) ? 'phone')::text);
+  perform pg_temp.ck('the patient cannot read the prescriber overview', 'true',
+    (pg_temp.q_as(v_pat, 'select public.prescriber_pharmacy_overview()::text') like 'ERR:This is for clinicians')::text);
+  perform pg_temp.ck('reading the overview was audited', 'true',
+    ((select count(*) from public.audit_log where action = 'prescription.pharmacy_overview_read' and actor_id = v_doc) >= 1)::text);
   perform pg_temp.q_as(ph_a, format($q$select public.pharmacy_flag_prescription(%L, 'out_of_stock', null)::text$q$, rx1));
   perform pg_temp.ck('out of stock tells the patient to choose again', 'true', (pg_temp.mine(v_pat, rx1) ->> 'needs_other_pharmacy'));
   perform pg_temp.ck('the patient got a neutral update', '1',
@@ -305,7 +335,7 @@ begin
 
   -- partial supply keeps it waiting
   perform pg_temp.ck('a partial supply is recorded and the prescription stays waiting', 'true|sent',
-    (pg_temp.dispense(pg_temp.f('ph_a2'), rx3, v_code2b, $q$, '10 tablets', null, null, true, 'Remainder on Friday'$q$) ->> 'ok') || '|' || pg_temp.state_of(rx3));
+    (pg_temp.dispense(pg_temp.f('ph_a2'), rx3, v_code2b, $q$, '10 tablets', 'B-1', '2027-06-30', true, 'Remainder on Friday'$q$) ->> 'ok') || '|' || pg_temp.state_of(rx3));
 
   -- 7. Notices and immutability
   perform pg_temp.ck('no pharmacy notice carries a name, medicine or code', '0',
@@ -383,11 +413,11 @@ begin
   perform pg_temp.q_as(v_pat, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', rx_p, pa));
   v_code2 := pg_temp.mine(v_pat, rx_p) ->> 'collection_code';
   perform pg_temp.ck('a partial supply is accepted', 'true',
-    (pg_temp.dispense(ph_a2, rx_p, v_code2, $q$, '10 tablets', null, null, true, 'Remainder on Friday'$q$) ->> 'ok'));
+    (pg_temp.dispense(ph_a2, rx_p, v_code2, $q$, '10 tablets', 'B-1', '2027-06-30', true, 'Remainder on Friday'$q$) ->> 'ok'));
   perform pg_temp.ck('...it does not use up the only permitted supply', '0|1',
     (pg_temp.q_as(ph_a2, format('select (public.pharmacy_prescription_detail(%L) ->> ''supplies_recorded'') || ''|'' || (public.pharmacy_prescription_detail(%L) ->> ''supplies_permitted'')', rx_p, rx_p))));
   perform pg_temp.ck('...so the rest can be supplied when she comes back', 'true|dispensed',
-    (pg_temp.dispense(ph_a2, rx_p, v_code2, $q$, '20 tablets'$q$) ->> 'ok') || '|' || pg_temp.state_of(rx_p));
+    (pg_temp.dispense(ph_a2, rx_p, v_code2, $q$, '20 tablets', 'B-2', '2027-06-30'$q$) ->> 'ok') || '|' || pg_temp.state_of(rx_p));
 
   -- a pharmacy that is switched off, or whose licence has run out, sees nothing
   perform pg_temp.q_as(v_pat, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', pg_temp.mkrx(v_doc, v_pat, 'Loratadine', 0), pa));
@@ -403,10 +433,126 @@ begin
   perform pg_temp.ck('once the licence is back it works again', 'true', (pg_temp.q_as(ph_a2, 'select count(*) from public.pharmacy_inbox()') not like 'ERR:%')::text);
 end $$;
 
--- 8. SABOTAGE: the licence rule opened and a direct partner policy restored; both checks must flip ----------------------------------------
+-- 7c. Structured questions, batch and expiry, a caregiver sending, the go-live conditions ----------------------------------------------------
+do $$
+declare
+  v_pat uuid := pg_temp.f('pat'); v_doc uuid := pg_temp.f('doc'); v_doc2 uuid := pg_temp.f('doc2'); pa uuid := pg_temp.f('pa');
+  ph_a uuid := pg_temp.f('ph_a'); ph_b uuid := pg_temp.f('ph_b'); v_org uuid := pg_temp.f('org');
+  cg_ok uuid := pg_temp.f('cg_ok'); cg_no uuid := pg_temp.f('cg_no'); cg_exp uuid := pg_temp.f('cg_exp'); stranger uuid := pg_temp.f('stranger');
+  rx_q uuid; rx_b uuid; rx_c uuid; v_code text; v_q uuid; v_before integer; v_cond text; v_det jsonb;
+begin
+  -- A. Structured question and a fixed answer (no chat, no change to the signed prescription)
+  rx_q := pg_temp.mkrx(v_doc, v_pat, 'Ibuprofen', 0);
+  perform pg_temp.q_as(v_pat, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', rx_q, pa));
+  perform pg_temp.q_as(ph_a, format($q$select public.pharmacy_flag_prescription(%L, 'query_to_prescriber', 'substitute_needed')::text$q$, rx_q));
+  select id into v_q from public.prescription_pharmacy_events where prescription_id = rx_q and event_type = 'flagged_query';
+  perform pg_temp.ck('the question is stored as a fixed code, with no free text', 'substitute_needed|',
+    (select reason_code || '|' || coalesce(note, '') from public.prescription_pharmacy_events where id = v_q));
+  perform pg_temp.ck('a clinician who did not sign it cannot answer', 'true',
+    (pg_temp.q_as(v_doc2, format($q$select public.answer_pharmacy_question(%L, 'keep_as_written')::text$q$, v_q)) like 'ERR:question_not_found')::text);
+  perform pg_temp.ck('...and sees none of it in their overview', '0',
+    (pg_temp.q_as(v_doc2, 'select jsonb_array_length(public.prescriber_pharmacy_overview() -> ''questions'')::text')));
+  perform pg_temp.ck('the patient cannot answer a pharmacy question', 'true',
+    (pg_temp.q_as(v_pat, format($q$select public.answer_pharmacy_question(%L, 'keep_as_written')::text$q$, v_q)) like 'ERR:question_not_found')::text);
+  perform pg_temp.ck('the pharmacy cannot answer its own question', 'true',
+    (pg_temp.q_as(ph_a, format($q$select public.answer_pharmacy_question(%L, 'keep_as_written')::text$q$, v_q)) like 'ERR:question_not_found')::text);
+  perform pg_temp.ck('free text is not accepted as an answer', 'true',
+    (pg_temp.q_as(v_doc, format($q$select public.answer_pharmacy_question(%L, 'Yes that is fine')::text$q$, v_q)) like 'ERR:invalid_answer')::text);
+  perform pg_temp.ck('the signer answers', 'true', (pg_temp.q_as(v_doc, format($q$select public.answer_pharmacy_question(%L, 'new_prescription_coming')::text$q$, v_q))::jsonb ->> 'ok'));
+  perform pg_temp.ck('a second answer is refused', 'already_answered',
+    (pg_temp.q_as(v_doc, format($q$select public.answer_pharmacy_question(%L, 'keep_as_written')::text$q$, v_q))::jsonb ->> 'reason'));
+  perform pg_temp.ck('the pharmacy sees the answer on the prescription', 'substitute_needed|new_prescription_coming',
+    (pg_temp.q_as(ph_a, format('select public.pharmacy_prescription_detail(%L)::text', rx_q))::jsonb -> 'questions' -> 0 ->> 'reason_code') || '|' ||
+    (pg_temp.q_as(ph_a, format('select public.pharmacy_prescription_detail(%L)::text', rx_q))::jsonb -> 'questions' -> 0 ->> 'answer_code'));
+  perform pg_temp.ck('the answer was audited', '1',
+    (select count(*)::text from public.audit_log where action = 'prescription.pharmacy_question_answered' and entity_id = rx_q));
+  perform pg_temp.ck('an answer changes nothing on the signed prescription (INV-02)', 'sent|Ibuprofen',
+    (select state::text || '|' || (items -> 0 ->> 'drug_name') from public.prescriptions where id = rx_q));
+  perform pg_temp.ck('the other pharmacy sees none of the questions', 'true',
+    (pg_temp.q_as(ph_b, format('select public.pharmacy_prescription_detail(%L)::text', rx_q)) like 'ERR:prescription_not_found')::text);
+  perform pg_temp.ck('the signer sees where it has got to', 'sent',
+    (select e ->> 'state' from jsonb_array_elements(pg_temp.q_as(v_doc, 'select public.prescriber_pharmacy_overview()::text')::jsonb -> 'collection') e where e ->> 'prescription_id' = rx_q::text));
+
+  -- B. Batch and expiry are recorded, never "verified"
+  rx_b := pg_temp.mkrx(v_doc, v_pat, 'Salbutamol', 0);
+  perform pg_temp.q_as(v_pat, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', rx_b, pa));
+  select collection_code into v_code from public.prescriptions where id = rx_b;
+  perform pg_temp.ck('a supply without batch and expiry is refused', 'batch_required', (pg_temp.dispense(pg_temp.f('ph_a2'), rx_b, v_code) ->> 'reason'));
+  perform pg_temp.ck('a batch with no expiry is refused', 'batch_required', (pg_temp.dispense(pg_temp.f('ph_a2'), rx_b, v_code, $q$, '1 box', 'X1', null$q$) ->> 'reason'));
+  perform pg_temp.ck('an expired batch is refused', 'batch_expired', (pg_temp.dispense(pg_temp.f('ph_a2'), rx_b, v_code, $q$, '1 box', 'X1', '2020-01-01'$q$) ->> 'reason'));
+  perform pg_temp.ck('...and nothing was recorded', 'sent|0',
+    pg_temp.state_of(rx_b) || '|' || (select count(*)::text from public.pharmacy_order_dispenses d join public.medications m on m.id = d.medication_id where m.prescription_id = rx_b));
+  perform pg_temp.ck('with batch and expiry it is recorded', 'true', (pg_temp.dispense(pg_temp.f('ph_a2'), rx_b, v_code, $q$, '1 box', 'X1', '2027-12-31'$q$) ->> 'ok'));
+  -- The downloadable form is the medicine record (medications), which collection never touches: after a supply it is still active, unreplaced,
+  -- carries the same public token for the QR check, and the patient can still read it, so the form still works at any pharmacy.
+  perform pg_temp.ck('after a supply at a partner the medicine is still active and unreplaced (the PDF still downloads)', 'true|true|true',
+    (select (is_active and superseded_at is null)::text || '|' || (public_token is not null)::text || '|' || (rx_number is not null)::text from public.medications where prescription_id = rx_b));
+  perform pg_temp.ck('...and the patient still reads it through their own access', '1',
+    pg_temp.q_as(v_pat, format('select count(*)::text from public.medications where prescription_id = %L', rx_b)));
+  perform pg_temp.ck('the supply record carries the batch and expiry', 'X1|2027-12-31',
+    (select d.batch_number || '|' || d.expiry_date::text from public.pharmacy_order_dispenses d join public.medications m on m.id = d.medication_id where m.prescription_id = rx_b));
+
+  -- C. A caregiver with the pharmacy permission can send for the patient; nobody else can
+  rx_c := pg_temp.mkrx(v_doc, v_pat, 'Metoprolol', 0);
+  select count(*) into v_before from public.notifications where recipient_id = v_pat and template = 'pharmacy_collection_update';
+  perform pg_temp.ck('a caregiver without the permission cannot list pharmacies', 'true',
+    (pg_temp.q_as(cg_no, format('select count(*) from public.pharmacies_for_prescription(%L, %L)', rx_c, v_pat)) like 'ERR:not_permitted_for_this_person')::text);
+  perform pg_temp.ck('a stranger cannot send', 'true',
+    (pg_temp.q_as(stranger, format('select public.send_prescription_to_pharmacy(%L, %L, true, %L)::text', rx_c, pa, v_pat)) like 'ERR:not_permitted_for_this_person')::text);
+  perform pg_temp.ck('a caregiver without the permission cannot send', 'true',
+    (pg_temp.q_as(cg_no, format('select public.send_prescription_to_pharmacy(%L, %L, true, %L)::text', rx_c, pa, v_pat)) like 'ERR:not_permitted_for_this_person')::text);
+  perform pg_temp.ck('a caregiver acting as themselves cannot touch the patient''s prescription', 'true',
+    (pg_temp.q_as(cg_ok, format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', rx_c, pa)) like 'ERR:prescription_not_found')::text);
+  perform pg_temp.ck('...but still needs the consent tick', 'true',
+    (pg_temp.q_as(cg_ok, format('select public.send_prescription_to_pharmacy(%L, %L, false, %L)::text', rx_c, pa, v_pat)) like 'ERR:consent_required')::text);
+  perform pg_temp.ck('the caregiver with the permission sees the patient''s prescriptions', 'true',
+    ((pg_temp.q_as(cg_ok, format('select count(*) from public.my_collection_prescriptions(%L)', v_pat)))::integer >= 3)::text);
+  perform pg_temp.ck('the caregiver with the permission sends', 'true',
+    (pg_temp.q_as(cg_ok, format('select public.send_prescription_to_pharmacy(%L, %L, true, %L)::text', rx_c, pa, v_pat)) not like 'ERR:%')::text);
+  perform pg_temp.ck('the event names the caregiver, not the patient, as the actor', 'true',
+    ((select actor_id from public.prescription_pharmacy_events where prescription_id = rx_c and event_type = 'sent') = cg_ok)::text);
+  perform pg_temp.ck('the patient is told, neutrally', '1',
+    ((select count(*) from public.notifications where recipient_id = v_pat and template = 'pharmacy_collection_update') - v_before)::text);
+  perform pg_temp.ck('the patient''s access log records the caregiver', '1',
+    (select count(*)::text from public.care_access_events where patient_id = v_pat and actor_profile_id = cg_ok and kind = 'acted_for' and scope = 'data_shared_pharmacy'));
+  perform pg_temp.ck('the pharmacy sees it as any other prescription', 'true',
+    (pg_temp.inbox_codes(ph_a) like '%' || (select collection_code from public.prescriptions where id = rx_c) || '%')::text);
+  perform pg_temp.ck('the caregiver can take it back', 'true',
+    (pg_temp.q_as(cg_ok, format('select public.withdraw_prescription_from_pharmacy(%L, %L)::text', rx_c, v_pat))::jsonb ->> 'ok'));
+  perform pg_temp.ck('sending and taking back leave the medicine record and its QR token exactly as they were', 'true|true',
+    (select (is_active and superseded_at is null)::text || '|' || (public_token is not null)::text from public.medications where prescription_id = rx_c));
+  perform pg_temp.ck('...and the stranger cannot', 'true',
+    (pg_temp.q_as(stranger, format('select public.withdraw_prescription_from_pharmacy(%L, %L)::text', rx_c, v_pat)) like 'ERR:not_permitted_for_this_person')::text);
+  update public.profile_access set created_at = now() - interval '1 day', expires_at = now() - interval '1 minute' where grantee_user_id = cg_exp;
+  perform pg_temp.ck('an expired caregiver grant stops working', 'true',
+    (pg_temp.q_as(cg_exp, format('select public.send_prescription_to_pharmacy(%L, %L, true, %L)::text', rx_c, pa, v_pat)) like 'ERR:not_permitted_for_this_person')::text);
+
+  -- D. The S37 guard: the switch needs it, and its conditions are read from the data
+  perform pg_temp.guard(false);
+  perform pg_temp.ck('with the guard off, a pharmacy sees nothing', 'true',
+    (pg_temp.q_as(ph_a, 'select count(*) from public.pharmacy_inbox()') like 'ERR:pharmacy_collection_off')::text);
+  perform pg_temp.ck('...and the patient can still take a prescription back', 'true',
+    (pg_temp.q_as(v_pat, format('select public.withdraw_prescription_from_pharmacy(%L)::text', rx_q))::jsonb ->> 'ok'));
+  v_det := private.go_live_conditions('prescribing_enabled', v_org);
+  perform pg_temp.ck('the guard lists the pharmacy conditions', 'clinical_lead_signoff,notification_sender_deployed,pharmacy_licence_current,pharmacy_partner_active,pharmacy_quality_confirmed',
+    (select string_agg(c ->> 'code', ',' order by c ->> 'code') from jsonb_array_elements(v_det) c));
+  perform pg_temp.ck('a current licence is met, the unconfirmed quality rules and the unattested sender are not', 'true|false|false',
+    (select max((c ->> 'met')) filter (where c ->> 'code' = 'pharmacy_licence_current') || '|' ||
+            max((c ->> 'met')) filter (where c ->> 'code' = 'pharmacy_quality_confirmed') || '|' ||
+            max((c ->> 'met')) filter (where c ->> 'code' = 'notification_sender_deployed') from jsonb_array_elements(v_det) c));
+  update public.pharmacy_partners set license_expires_at = current_date + 5 where is_active;
+  perform pg_temp.ck('with every licence about to lapse, the licence condition is unmet', 'false',
+    (select (c ->> 'met') from jsonb_array_elements(private.go_live_conditions('prescribing_enabled', v_org)) c where c ->> 'code' = 'pharmacy_licence_current'));
+  update public.pharmacy_partners set license_expires_at = current_date + 365 where is_active;
+  perform pg_temp.guard(true);
+end $$;
+
+-- 8. SABOTAGE: the licence rule opened, a direct partner policy restored, the caregiver gate opened, the go-live guard ignored; every check must flip ----------------------------------------
 create or replace function private.pharmacy_choosable(p_partner uuid) returns boolean language sql stable security definer set search_path = '' as $$ select true $$;
 create policy prescriptions_select_partner on public.prescriptions for select to authenticated
   using (state in ('sent', 'dispensed') and pharmacy_partner_id = (select p.pharmacy_partner_id from public.profiles p where p.id = (select auth.uid())));
+create or replace function private.rx_patient(p_beneficiary uuid) returns uuid language sql stable security definer set search_path = '' as $$
+  select coalesce(p_beneficiary, (select auth.uid())) $$;
 do $$
 declare v_rx uuid;
 begin
@@ -415,6 +561,13 @@ begin
     pg_temp.q_as(pg_temp.f('pat'), format('select public.send_prescription_to_pharmacy(%L, %L, true)::text', v_rx, pg_temp.f('pc'))));
   insert into results values ('sabotaged', 'a pharmacist still cannot read prescriptions directly', '0',
     pg_temp.q_as(pg_temp.f('ph_b'), 'select count(*)::text from public.prescriptions'));
+  insert into results values ('sabotaged', 'a stranger still cannot send for the patient', 'ERR:not_permitted_for_this_person',
+    pg_temp.q_as(pg_temp.f('stranger'), format('select public.send_prescription_to_pharmacy(%L, %L, true, %L)::text', v_rx, pg_temp.f('pa'), pg_temp.f('pat'))));
+  perform pg_temp.guard(false);
+  create or replace function private.pharmacy_collection_on() returns boolean language sql stable security definer set search_path = '' as $f$
+    select coalesce((select is_enabled from public.platform_modules where key = 'pharmacy_collection'), false) $f$;
+  insert into results values ('sabotaged', 'with the go-live guard off a pharmacy still sees nothing', 'ERR:pharmacy_collection_off',
+    pg_temp.q_as(pg_temp.f('ph_a2'), 'select count(*)::text from public.pharmacy_inbox()'));
 end $$;
 
 do $$
@@ -427,7 +580,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

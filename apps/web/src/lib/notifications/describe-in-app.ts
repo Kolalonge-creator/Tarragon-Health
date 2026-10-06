@@ -186,7 +186,8 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "medication_refill_reminder") {
     return {
       text: "A reminder is coming up. Open the app to see when.",
-      href: "/patient/medications",
+      // S28: opens the Medicines screen at the pharmacy card, where the last pharmacy is already chosen.
+      href: "/patient/medications#pharmacy-collection",
     };
   }
   if (n.template === "medication_dose_reminder") {
@@ -376,7 +377,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "Your pharmacy has an update. Open the app to see it", href: "/patient/medications" };
   }
   if (n.template === "pharmacy_collection_question") {
-    return { text: "A pharmacy has a question for you", href: "/clinician" };
+    return { text: "A pharmacy has a question for you", href: "/clinician/pharmacy" };
   }
   if (n.template === "written_question_answered") {
     return { text: "Your care team has replied. Open the app to read it", href: "/patient/care" };

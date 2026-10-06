@@ -64,6 +64,43 @@ describe("PharmacyCollectionCard", () => {
     await waitFor(() => expect(refresh).toHaveBeenCalled(), { timeout: 5000 });
   });
 
+  it("ticks the last pharmacy already, so a repeat needs only the consent tick", async () => {
+    render(<PharmacyCollectionCard prescriptions={[signed]} locale="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "Choose a pharmacy" }));
+    await screen.findByText("Yaba Pharmacy", undefined, { timeout: 5000 });
+    expect((screen.getByRole("radio") as HTMLInputElement).checked).toBe(true);
+    const send = screen.getByRole("button", { name: "Send to this pharmacy" }) as HTMLButtonElement;
+    expect(send.disabled).toBe(true); // still never without her tick
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(send.disabled).toBe(false);
+  });
+
+  it("opens at #pharmacy-collection, where the refill reminder lands", () => {
+    const { container } = render(<PharmacyCollectionCard prescriptions={[signed]} locale="en" />);
+    expect(container.querySelector("#pharmacy-collection")).toBeTruthy();
+  });
+
+  it("acting for someone: who it is for goes with the options, the send and the take-back", async () => {
+    const WHO = "9d8c7b6a-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
+    render(<PharmacyCollectionCard prescriptions={[signed, waiting]} locale="en" beneficiaryId={WHO} />);
+    fireEvent.click(screen.getByRole("button", { name: "Choose a pharmacy" }));
+    await screen.findByText("Yaba Pharmacy", undefined, { timeout: 5000 });
+    expect(loadPharmacyOptions).toHaveBeenCalledWith("rx1", WHO);
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Send to this pharmacy" }));
+    await waitFor(() => expect(sendToPharmacy).toHaveBeenCalledWith({ prescriptionId: "rx1", partnerId: OPTION.pharmacy_partner_id, consent: true, beneficiaryId: WHO }), { timeout: 5000 });
+    fireEvent.click(screen.getByRole("button", { name: "Take it back from this pharmacy" }));
+    await waitFor(() => expect(withdrawFromPharmacy).toHaveBeenCalledWith("rx2", WHO), { timeout: 5000 });
+  });
+
+  it("always says the downloaded form can go to any pharmacy, in every state", () => {
+    for (const p of [signed, waiting]) {
+      const { unmount } = render(<PharmacyCollectionCard prescriptions={[p]} locale="en" />);
+      expect(screen.getByText("Take the downloaded form to any pharmacy")).toBeTruthy();
+      unmount();
+    }
+  });
+
   it("shows the price for the items it could price, honestly, and the stock", async () => {
     render(<PharmacyCollectionCard prescriptions={[signed]} locale="en" />);
     fireEvent.click(screen.getByRole("button", { name: "Choose a pharmacy" }));
@@ -91,7 +128,7 @@ describe("PharmacyCollectionCard", () => {
     render(<PharmacyCollectionCard prescriptions={[waiting]} locale="en" />);
     fireEvent.click(screen.getByRole("button", { name: "Take it back from this pharmacy" }));
     await screen.findByText(/can no longer see your prescription/, undefined, { timeout: 5000 });
-    expect(withdrawFromPharmacy).toHaveBeenCalledWith("rx2");
+    expect(withdrawFromPharmacy).toHaveBeenCalledWith("rx2", undefined);
     expect(refresh).toHaveBeenCalled();
   });
 

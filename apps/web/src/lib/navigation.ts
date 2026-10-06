@@ -429,6 +429,7 @@ export function getNavSections(
                 // found them. See the countKey doc comment above.
                 { label: "Second opinions", href: "/clinician/second-opinions", icon: "inbox", countKey: "secondOpinionRequests" },
                 { label: "Prescription renewals", href: "/clinician/prescription-renewals", icon: "medication", countKey: "prescriptionRenewalRequests" },
+                { label: "Pharmacy questions", href: "/clinician/pharmacy", icon: "medication" },
                 { label: "Verified documents", href: "/clinician/verified-documents", icon: "inbox", countKey: "verifiedDocumentRequests" },
                 { label: "Senior case reviews", href: "/clinician/senior-case-reviews", icon: "escalation", countKey: "seniorCaseReviews" },
                 {

@@ -13,6 +13,8 @@ import {
   staffErrorText,
   type PharmacyOption,
   type PharmacyPrescriptionDetail,
+  type PrescriberOverview,
+  parseOverview,
 } from "@/lib/pharmacy-collection/collection";
 
 /**
@@ -22,16 +24,21 @@ import {
  */
 
 const Id = z.string().uuid();
-const SendInput = z.object({ prescriptionId: Id, partnerId: Id, consent: z.boolean() });
+/** `beneficiaryId` is set only while acting for someone: the database checks the manage_pharmacy permission, this only passes it on. */
+const SendInput = z.object({ prescriptionId: Id, partnerId: Id, consent: z.boolean(), beneficiaryId: Id.optional() });
 
 export type OptionsResult = { ok: true; options: PharmacyOption[] } | { ok: false; key: MessageKey };
 export type SendResult = { ok: true; code: string; pharmacyName: string } | { ok: false; key: MessageKey };
 
-export async function loadPharmacyOptions(prescriptionId: unknown): Promise<OptionsResult> {
+export async function loadPharmacyOptions(prescriptionId: unknown, beneficiaryId?: unknown): Promise<OptionsResult> {
   const id = Id.safeParse(prescriptionId);
-  if (!id.success) return { ok: false, key: "pharmacy.error" };
+  const who = beneficiaryId == null ? null : Id.safeParse(beneficiaryId);
+  if (!id.success || (who && !who.success)) return { ok: false, key: "pharmacy.error" };
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("pharmacies_for_prescription", { p_prescription: id.data });
+  const { data, error } = await supabase.rpc("pharmacies_for_prescription", {
+    p_prescription: id.data,
+    ...(who?.success ? { p_beneficiary: who.data } : {}),
+  });
   if (error) return { ok: false, key: collectionErrorKey(error.message) };
   const options = parsePharmacyOptions(data);
   if (!options) return { ok: false, key: "pharmacy.error" };
@@ -44,7 +51,12 @@ async function route(kind: "send" | "reroute", input: unknown): Promise<SendResu
   // The tick-box is the consent: refuse here too so a missing tick never reaches the database as true.
   if (parsed.data.consent !== true) return { ok: false, key: "pharmacy.error.consent" };
   const supabase = await createClient();
-  const args = { p_prescription: parsed.data.prescriptionId, p_partner: parsed.data.partnerId, p_consent: true };
+  const args = {
+    p_prescription: parsed.data.prescriptionId,
+    p_partner: parsed.data.partnerId,
+    p_consent: true,
+    ...(parsed.data.beneficiaryId ? { p_beneficiary: parsed.data.beneficiaryId } : {}),
+  };
   const { data, error } =
     kind === "send"
       ? await supabase.rpc("send_prescription_to_pharmacy", args)
@@ -67,11 +79,15 @@ export async function reroutePharmacy(input: unknown): Promise<SendResult> {
 export type WithdrawResult = { ok: true; key: MessageKey } | { ok: false; key: MessageKey };
 
 /** "Take it back": consent to share is revocable. The pharmacy stops seeing the prescription at once. */
-export async function withdrawFromPharmacy(prescriptionId: unknown): Promise<WithdrawResult> {
+export async function withdrawFromPharmacy(prescriptionId: unknown, beneficiaryId?: unknown): Promise<WithdrawResult> {
   const id = Id.safeParse(prescriptionId);
-  if (!id.success) return { ok: false, key: "pharmacy.error" };
+  const who = beneficiaryId == null ? null : Id.safeParse(beneficiaryId);
+  if (!id.success || (who && !who.success)) return { ok: false, key: "pharmacy.error" };
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("withdraw_prescription_from_pharmacy", { p_prescription: id.data });
+  const { data, error } = await supabase.rpc("withdraw_prescription_from_pharmacy", {
+    p_prescription: id.data,
+    ...(who?.success ? { p_beneficiary: who.data } : {}),
+  });
   if (error) return { ok: false, key: collectionErrorKey(error.message) };
   if (!z.object({ ok: z.literal(true) }).safeParse(data).success) return { ok: false, key: "pharmacy.error" };
   revalidatePath("/patient/medications");
@@ -100,8 +116,8 @@ const DispenseInput = z.object({
   pharmacistName: z.string().trim().min(2).max(120),
   registration: z.string().trim().max(40).optional(),
   quantity: z.string().trim().max(100).optional(),
-  batchNumber: z.string().trim().max(60).optional(),
-  batchExpiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  batchNumber: z.string().trim().min(1).max(60),
+  batchExpiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   partial: z.boolean().optional(),
   note: z.string().trim().max(500).optional(),
 });
@@ -110,7 +126,10 @@ export type StaffResult = { ok: true; partial?: boolean } | { ok: false; error: 
 
 export async function dispensePrescription(input: unknown): Promise<StaffResult> {
   const parsed = DispenseInput.safeParse(input);
-  if (!parsed.success) return { ok: false, error: dispenseReasonText("invalid") };
+  if (!parsed.success) {
+    const missingBatch = parsed.error.issues.some((i) => i.path[0] === "batchNumber" || i.path[0] === "batchExpiry");
+    return { ok: false, error: dispenseReasonText(missingBatch ? "batch_required" : "invalid") };
+  }
   const d = parsed.data;
   if (d.partial && !d.note) return { ok: false, error: "Please say what is still outstanding." };
   const supabase = await createClient();
@@ -120,8 +139,8 @@ export async function dispensePrescription(input: unknown): Promise<StaffResult>
     p_pharmacist_name: d.pharmacistName,
     ...(d.registration ? { p_pharmacist_registration: d.registration } : {}),
     ...(d.quantity ? { p_quantity_supplied: d.quantity } : {}),
-    ...(d.batchNumber ? { p_batch_number: d.batchNumber } : {}),
-    ...(d.batchExpiry ? { p_batch_expiry: d.batchExpiry } : {}),
+    p_batch_number: d.batchNumber,
+    p_batch_expiry: d.batchExpiry,
     p_is_partial: d.partial === true,
     ...(d.note ? { p_note: d.note } : {}),
   });
@@ -134,19 +153,52 @@ export async function dispensePrescription(input: unknown): Promise<StaffResult>
   return { ok: true, partial: result.data.partial === true };
 }
 
-const FlagInput = z.object({ prescriptionId: Id, kind: z.enum(["out_of_stock", "query_to_prescriber"]), note: z.string().trim().max(500).optional() });
+const FlagInput = z.discriminatedUnion("kind", [
+  z.object({ prescriptionId: Id, kind: z.literal("out_of_stock") }),
+  z.object({ prescriptionId: Id, kind: z.literal("query_to_prescriber"), reason: z.enum(["dose_unclear", "strength_unavailable", "substitute_needed", "allergy_or_interaction", "details_do_not_match", "call_me"]) }),
+]);
 
+/** A question to the prescriber is one of a fixed list (no free text). Out of stock needs no reason. */
 export async function flagPrescription(input: unknown): Promise<StaffResult> {
   const parsed = FlagInput.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Please check what you entered." };
-  if (parsed.data.kind === "query_to_prescriber" && !parsed.data.note) return { ok: false, error: staffErrorText("note_required") };
+  if (!parsed.success) return { ok: false, error: staffErrorText("reason_required") };
   const supabase = await createClient();
   const { error } = await supabase.rpc("pharmacy_flag_prescription", {
     p_prescription: parsed.data.prescriptionId,
     p_kind: parsed.data.kind,
-    ...(parsed.data.note ? { p_note: parsed.data.note } : {}),
+    ...(parsed.data.kind === "query_to_prescriber" ? { p_reason: parsed.data.reason } : {}),
   });
   if (error) return { ok: false, error: staffErrorText(error.message) };
   revalidatePath("/pharmacist/prescriptions");
+  return { ok: true };
+}
+
+// ---- The prescriber ---------------------------------------------------------------------------------------------------------------------------
+
+export type OverviewResult = { ok: true; overview: PrescriberOverview } | { ok: false; error: string };
+
+/** One audited read (INV-10): the pharmacy questions and where each prescription this clinician signed has got to. */
+export async function loadPrescriberOverview(): Promise<OverviewResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("prescriber_pharmacy_overview");
+  if (error) return { ok: false, error: staffErrorText(error.message) };
+  const overview = parseOverview(data);
+  if (!overview) return { ok: false, error: "That could not be read. Please try again." };
+  return { ok: true, overview };
+}
+
+const AnswerInput = z.object({ questionId: Id, answer: z.enum(["keep_as_written", "new_prescription_coming", "patient_to_contact_us"]) });
+
+export async function answerPharmacyQuestion(input: unknown): Promise<StaffResult> {
+  const parsed = AnswerInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: staffErrorText("invalid_answer") };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("answer_pharmacy_question", { p_question: parsed.data.questionId, p_answer: parsed.data.answer });
+  if (error) return { ok: false, error: staffErrorText(error.message) };
+  const result = z.object({ ok: z.boolean(), reason: z.string().optional() }).safeParse(data);
+  // An unreadable answer is never treated as "answered".
+  if (!result.success) return { ok: false, error: "That could not be recorded. Please try again." };
+  if (!result.data.ok) return { ok: false, error: result.data.reason === "already_answered" ? "That question has already been answered." : "That could not be recorded. Please try again." };
+  revalidatePath("/clinician/pharmacy");
   return { ok: true };
 }

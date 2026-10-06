@@ -74,4 +74,24 @@ describe("loadMyCollection", () => {
     wire(yes, list(row(B, "sent")), { data: { weird: 1 }, error: null });
     await expect(loadMyCollection()).resolves.toEqual({ ok: false });
   });
+
+  it("acting for someone: asks the database for their list and their pharmacy, not the caller's", async () => {
+    wire(yes, list(row(A, "sent")));
+    const WHO = "9d8c7b6a-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
+    await loadMyCollection(WHO);
+    expect(rpc).toHaveBeenCalledWith("my_collection_prescriptions", { p_beneficiary: WHO });
+    expect(rpc).toHaveBeenCalledWith("my_prescription_pharmacy", { p_prescription: A, p_beneficiary: WHO });
+  });
+
+  it("acting for someone without the pharmacy permission: the card is simply not offered, no error card", async () => {
+    wire(yes, { data: null, error: { message: "not_permitted_for_this_person" } });
+    await expect(loadMyCollection("9d8c7b6a-1e2f-4a3b-8c4d-5e6f7a8b9c0d")).resolves.toEqual({ ok: true, available: false, prescriptions: [] });
+  });
+
+  it("but any other failure is still a failure, and the patient's own list never hides a permission error", async () => {
+    wire(yes, { data: null, error: { message: "boom" } });
+    await expect(loadMyCollection("9d8c7b6a-1e2f-4a3b-8c4d-5e6f7a8b9c0d")).resolves.toEqual({ ok: false });
+    wire(yes, { data: null, error: { message: "not_permitted_for_this_person" } });
+    await expect(loadMyCollection()).resolves.toEqual({ ok: false });
+  });
 });

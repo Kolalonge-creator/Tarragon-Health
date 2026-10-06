@@ -59,6 +59,7 @@ export function collectionErrorKey(message: string | null | undefined): MessageK
   if (m.includes("consent_required")) return "pharmacy.error.consent";
   if (m.includes("pharmacy_not_available") || m.includes("same_pharmacy")) return "pharmacy.error.unavailable";
   if (m.includes("prescription_not_current")) return "pharmacy.error.not_current";
+  if (m.includes("not_permitted_for_this_person")) return "pharmacy.error.not_permitted";
   if (m.includes("prescription_not_waiting") || m.includes("prescription_not_sendable")) return "pharmacy.error.not_waiting";
   return "pharmacy.error";
 }
@@ -96,6 +97,16 @@ const DetailSchema = z.object({
       })
       .passthrough(),
   ),
+  questions: z
+    .array(
+      z.object({
+        asked_at: z.string(),
+        reason_code: z.string(),
+        answered_at: z.string().nullable(),
+        answer_code: z.string().nullable(),
+      }),
+    )
+    .default([]),
   supplies_recorded: z.number(),
   supplies_permitted: z.number(),
   is_test: z.boolean(),
@@ -126,6 +137,64 @@ export function parseInbox(data: unknown): InboxRow[] | null {
   return parsed.success ? parsed.data : null;
 }
 
+/**
+ * The only questions a pharmacy can put to a prescriber, and the only answers back. A fixed list, no free text: the pharmacy and the
+ * clinician do not chat (decision, S28). An answer never changes a signed prescription; a different medicine is a new signed one.
+ */
+export const QUESTION_REASONS: Record<string, string> = {
+  dose_unclear: "The dose or directions are unclear",
+  strength_unavailable: "The strength is not available",
+  substitute_needed: "A substitute may be needed",
+  allergy_or_interaction: "A possible allergy or interaction",
+  details_do_not_match: "The details do not match the patient",
+  call_me: "Please call the pharmacy",
+};
+export const ANSWER_TEXT: Record<string, string> = {
+  keep_as_written: "Supply it as written",
+  new_prescription_coming: "A new prescription is coming",
+  patient_to_contact_us: "The patient will be asked to contact the care team",
+};
+export function questionText(code: string | null | undefined): string {
+  return (code && QUESTION_REASONS[code]) || "A question from the pharmacy";
+}
+export function answerText(code: string | null | undefined): string {
+  return (code && ANSWER_TEXT[code]) || "Answered";
+}
+
+const OverviewSchema = z.object({
+  questions: z.array(
+    z.object({
+      question_id: z.string().uuid(),
+      prescription_id: z.string().uuid(),
+      asked_at: z.string(),
+      pharmacy_name: z.string(),
+      reason_code: z.string(),
+      patient_name: z.string().nullable(),
+      medicines: z.array(z.string()),
+      answered_at: z.string().nullable(),
+      answer_code: z.string().nullable(),
+    }),
+  ),
+  collection: z.array(
+    z.object({
+      prescription_id: z.string().uuid(),
+      state: z.enum(["sent", "dispensed"]),
+      patient_name: z.string().nullable(),
+      sent_at: z.string().nullable(),
+      dispensed_at: z.string().nullable(),
+      pharmacy_name: z.string(),
+      medicines: z.array(z.string()),
+    }),
+  ),
+});
+export type PrescriberOverview = z.infer<typeof OverviewSchema>;
+
+/** An unreadable overview is a failed read: an empty list would read as "no pharmacy has asked anything". */
+export function parseOverview(data: unknown): PrescriberOverview | null {
+  const parsed = OverviewSchema.safeParse(data);
+  return parsed.success ? parsed.data : null;
+}
+
 export const DISPENSE_REASONS: Record<string, string> = {
   code_mismatch: "That code does not match. Check it with the patient and try again.",
   too_many_attempts: "Too many wrong codes. Please wait ten minutes, then try again.",
@@ -134,6 +203,8 @@ export const DISPENSE_REASONS: Record<string, string> = {
   not_active: "This prescription is no longer active.",
   not_linked: "This prescription could not be matched to a medicine record. Please contact Tarragon Health.",
   invalid: "Please check the pharmacist name, registration, quantity and batch fields.",
+  batch_required: "Please enter the batch number and its expiry date. They are your record of what was handed over.",
+  batch_expired: "That batch has already expired, so it cannot be recorded as supplied.",
 };
 
 export function dispenseReasonText(reason: unknown): string {
@@ -145,7 +216,9 @@ export function staffErrorText(message: string | null | undefined): string {
   if (m.includes("pharmacy_collection_off")) return "Pharmacy collection is not switched on yet.";
   if (m.includes("pharmacy_not_active")) return "Your pharmacy is not active for collection right now. Please contact Tarragon Health.";
   if (m.includes("prescription_not_found")) return "That prescription could not be found at your pharmacy.";
-  if (m.includes("note_required")) return "Please write what you need to ask the prescriber.";
-  if (m.includes("note_too_long")) return "Please keep the note under 500 characters.";
+  if (m.includes("reason_required")) return "Please choose what you need to ask the prescriber.";
+  if (m.includes("invalid_answer")) return "Please choose one of the answers.";
+  if (m.includes("question_not_found")) return "That question could not be found.";
+  if (m.includes("This is for clinicians")) return "This page is for clinicians.";
   return "That could not be done. Please try again.";
 }

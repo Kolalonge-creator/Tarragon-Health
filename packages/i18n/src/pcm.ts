@@ -1477,4 +1477,5 @@ export const pcm: Record<MessageKey, string> = {
   "pharmacy.withdraw": "Carry am comot from this pharmacy",
   "pharmacy.withdraw.done": "E don do. This pharmacy no fit see your prescription again.",
   "pharmacy.error.not_current": "Your care team don change or stop this medicine, so we no fit send am. Look the new prescription.",
+  "pharmacy.error.not_permitted": "You no get permission to do this one for this person.",
 };

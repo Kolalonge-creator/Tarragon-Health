@@ -1476,6 +1476,7 @@ export const en = {
   "pharmacy.withdraw": "Take it back from this pharmacy",
   "pharmacy.withdraw.done": "Done. This pharmacy can no longer see your prescription.",
   "pharmacy.error.not_current": "Your care team has changed or stopped this medicine, so it cannot be sent. Look for the newer prescription.",
+  "pharmacy.error.not_permitted": "You do not have permission to do this for this person.",
 } as const;
 
 export type MessageKey = keyof typeof en;

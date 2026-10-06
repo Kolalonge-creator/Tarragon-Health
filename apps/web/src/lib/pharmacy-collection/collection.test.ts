@@ -32,7 +32,8 @@ describe("pharmacy collection parsers", () => {
     expect(collectionErrorKey("prescription_not_current")).toBe("pharmacy.error.not_current");
     expect(staffErrorText("pharmacy_not_active")).toMatch(/not active/);
     expect(staffErrorText("pharmacy_collection_off")).toBe("Pharmacy collection is not switched on yet.");
-    expect(staffErrorText("note_too_long")).toBe("Please keep the note under 500 characters.");
+    expect(staffErrorText("reason_required")).toBe("Please choose what you need to ask the prescriber.");
+    expect(collectionErrorKey("not_permitted_for_this_person")).toBe("pharmacy.error.not_permitted");
     expect(staffErrorText(undefined)).toBe("That could not be done. Please try again.");
     expect(dispenseReasonText(undefined)).toBe("That could not be recorded. Please try again.");
     expect(dispenseReasonText("not_active")).toMatch(/no longer active/);

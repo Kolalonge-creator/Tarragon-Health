@@ -25,12 +25,15 @@ const RowSchema = z.object({
  *    stopped medicine leaves its old prescription signed; offering it would send a stale dose).
  * A failed or unreadable read is reported, never turned into an empty list: an empty list would read as "nothing waiting".
  */
-export async function loadMyCollection(): Promise<CollectionLoad> {
+export async function loadMyCollection(beneficiaryId?: string): Promise<CollectionLoad> {
   const supabase = await createClient();
   const { data: available, error: availableError } = await supabase.rpc("pharmacy_collection_available");
   if (availableError) return { ok: false };
 
-  const { data, error } = await supabase.rpc("my_collection_prescriptions");
+  const who = beneficiaryId ? { p_beneficiary: beneficiaryId } : {};
+  const { data, error } = await supabase.rpc("my_collection_prescriptions", who);
+  // Acting for someone without the pharmacy permission is not an error to show: the card is simply not offered.
+  if (error && beneficiaryId && error.message.includes("not_permitted_for_this_person")) return { ok: true, available: false, prescriptions: [] };
   if (error) return { ok: false };
   const parsed = z.array(RowSchema).safeParse(data);
   if (!parsed.success) return { ok: false };
@@ -40,7 +43,7 @@ export async function loadMyCollection(): Promise<CollectionLoad> {
     if (row.state === "signed" && !(available === true && row.is_current)) continue;
     let pharmacy: MyPharmacy | null = null;
     if (row.state !== "signed") {
-      const { data: mine, error: mineError } = await supabase.rpc("my_prescription_pharmacy", { p_prescription: row.prescription_id });
+      const { data: mine, error: mineError } = await supabase.rpc("my_prescription_pharmacy", { p_prescription: row.prescription_id, ...who });
       if (mineError) return { ok: false };
       pharmacy = parseMyPharmacy(mine);
       if (!pharmacy) return { ok: false };

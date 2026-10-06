@@ -29,4 +29,13 @@ describe("S28 notification templates", () => {
       expect(text).not.toMatch(/amlodipine|K7M2QX9P|Ada|Obi|secret/i);
     });
   }
+
+  it("the in-app lines open the right place: the question opens the prescriber's page, the refill reminder opens the pharmacy card", () => {
+    expect(describeInApp({ template: "pharmacy_collection_question", payload }).href).toBe("/clinician/pharmacy");
+    expect(describeInApp({ template: "pharmacy_collection_update", payload }).href).toBe("/patient/medications");
+    const refill = describeInApp({ template: "medication_refill_reminder", payload });
+    expect(refill.href).toBe("/patient/medications#pharmacy-collection");
+    expect(refill.text).not.toMatch(/amlodipine/i); // still neutral (INV-07)
+    expect(describeViolations(lintText(refill.text))).toEqual([]);
+  });
 });

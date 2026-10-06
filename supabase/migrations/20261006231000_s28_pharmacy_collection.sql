@@ -45,13 +45,21 @@ create table public.prescription_pharmacy_events (
   organisation_id      uuid not null references public.organisations (id),
   prescription_id      uuid not null references public.prescriptions (id) on delete cascade,
   event_type           text not null check (event_type in
-                         ('sent', 'rerouted', 'withdrawn', 'flagged_out_of_stock', 'flagged_query', 'dispensed', 'dispensed_partial')),
+                         ('sent', 'rerouted', 'withdrawn', 'flagged_out_of_stock', 'flagged_query', 'answered_query', 'dispensed', 'dispensed_partial')),
   pharmacy_partner_id  uuid not null references public.pharmacy_partners (id),
   actor_id             uuid references public.profiles (id) on delete set null,
   note                 text check (note is null or char_length(note) <= 500),
+  -- A question or an answer is a fixed choice, never free text (decision: structured questions only, no chat).
+  reason_code          text check (reason_code is null or reason_code in
+                         ('dose_unclear', 'strength_unavailable', 'substitute_needed', 'allergy_or_interaction', 'details_do_not_match', 'call_me',
+                          'keep_as_written', 'new_prescription_coming', 'patient_to_contact_us')),
+  answers_event_id     uuid references public.prescription_pharmacy_events (id),
   is_test              boolean not null default false,
-  created_at           timestamptz not null default clock_timestamp()
+  created_at           timestamptz not null default clock_timestamp(),
+  check ((event_type = 'flagged_query') = coalesce(reason_code in ('dose_unclear', 'strength_unavailable', 'substitute_needed', 'allergy_or_interaction', 'details_do_not_match', 'call_me'), false)),
+  check ((event_type = 'answered_query') = coalesce(answers_event_id is not null and reason_code in ('keep_as_written', 'new_prescription_coming', 'patient_to_contact_us'), false))
 );
+create unique index prescription_pharmacy_events_one_answer on public.prescription_pharmacy_events (answers_event_id) where answers_event_id is not null;
 create index prescription_pharmacy_events_rx_idx on public.prescription_pharmacy_events (prescription_id, created_at);
 alter table public.prescription_pharmacy_events enable row level security;
 revoke all on public.prescription_pharmacy_events from public, anon, authenticated;
@@ -162,7 +170,10 @@ drop policy if exists prescriptions_update_partner_dispense on public.prescripti
 -- 4. Helpers (not callable by API roles)
 -- ---------------------------------------------------------------------------
 create function private.pharmacy_collection_on() returns boolean language sql stable security definer set search_path = '' as $$
+  -- Two switches, both needed: the module (the founder's go-ahead, INV-14) and the S37 prescribing guard, whose conditions need an
+  -- approved pharmacy with a current licence, the pharmacy quality rules confirmed, and the notification sender deployed.
   select coalesce((select is_enabled from public.platform_modules where key = 'pharmacy_collection'), false)
+     and private.go_live_guard_on('prescribing_enabled')
 $$;
 revoke all on function private.pharmacy_collection_on() from public, anon, authenticated;
 
@@ -220,6 +231,21 @@ begin
 end $$;
 revoke all on function private.rx_notify_pharmacy(uuid, text, jsonb) from public, anon, authenticated;
 
+-- Whose prescription is this call about? The caller, or someone the caller acts for with the pharmacy permission (the existing
+-- caregiver model: profile_access 'manage' plus manage_pharmacy, unexpired). Anyone else is refused. The explicit enum cast keeps
+-- the call unambiguous next to the one-argument can_act_for overload.
+create function private.rx_patient(p_beneficiary uuid) returns uuid language plpgsql stable security definer set search_path = '' as $$
+declare v_uid uuid := (select auth.uid());
+begin
+  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
+  if p_beneficiary is null or p_beneficiary = v_uid then return v_uid; end if;
+  if not private.can_act_for(p_beneficiary, 'manage_pharmacy'::public.caregiver_permission) then
+    raise exception 'not_permitted_for_this_person' using errcode = '42501';
+  end if;
+  return p_beneficiary;
+end $$;
+revoke all on function private.rx_patient(uuid) from public, anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 5. Notification templates (neutral, in-app only; the INV-07 trigger lints these rows)
 -- ---------------------------------------------------------------------------
@@ -252,7 +278,7 @@ on conflict do nothing;
 -- ---------------------------------------------------------------------------
 -- 7. Patient: which pharmacies, at what price for THESE signed items (8.9). No delivery field is read or returned.
 -- ---------------------------------------------------------------------------
-create function public.pharmacies_for_prescription(p_prescription uuid)
+create function public.pharmacies_for_prescription(p_prescription uuid, p_beneficiary uuid default null)
 returns table (
   pharmacy_partner_id uuid, name text, address text, city text, state text, area text,
   latitude double precision, longitude double precision,
@@ -260,16 +286,15 @@ returns table (
 language plpgsql stable security definer set search_path = '' as $$
 #variable_conflict use_column
 declare
-  v_uid uuid := (select auth.uid());
+  v_pat uuid := private.rx_patient(p_beneficiary);
   v_rx public.prescriptions%rowtype;
   v_pref uuid;
 begin
-  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
   if not private.pharmacy_collection_on() then raise exception 'pharmacy_collection_off' using errcode = '55000'; end if;
-  select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_uid and state in ('signed', 'sent');
+  select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_pat and state in ('signed', 'sent');
   if not found then raise exception 'prescription_not_found' using errcode = '42501'; end if;
   if not private.prescription_is_current(p_prescription) then raise exception 'prescription_not_current' using errcode = '22023'; end if;
-  select pharmacy_partner_id into v_pref from public.patient_pharmacy_preference where patient_id = v_uid;
+  select pharmacy_partner_id into v_pref from public.patient_pharmacy_preference where patient_id = v_pat;
 
   return query
   with items as (
@@ -308,20 +333,20 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 8. Patient: send, and re-send to a different pharmacy while it is still waiting
 -- ---------------------------------------------------------------------------
-create function private.route_prescription(p_prescription uuid, p_partner uuid, p_consent boolean, p_event text)
+create function private.route_prescription(p_prescription uuid, p_partner uuid, p_consent boolean, p_event text, p_beneficiary uuid default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_uid uuid := (select auth.uid());
+  v_pat uuid := private.rx_patient(p_beneficiary);
   v_rx public.prescriptions%rowtype;
   v_name text;
   v_code text;
   v_try integer := 0;
 begin
-  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
   if not private.pharmacy_collection_on() then raise exception 'pharmacy_collection_off' using errcode = '55000'; end if;
   if p_consent is not true then raise exception 'consent_required' using errcode = '22023'; end if;
 
-  select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_uid for update;
+  select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_pat for update;
   if not found then raise exception 'prescription_not_found' using errcode = '42501'; end if;
   if p_event = 'sent' and v_rx.state <> 'signed' then raise exception 'prescription_not_sendable' using errcode = '22023'; end if;
   if p_event = 'rerouted' and v_rx.state <> 'sent' then raise exception 'prescription_not_waiting' using errcode = '22023'; end if;
@@ -349,37 +374,41 @@ begin
 
   insert into public.prescription_pharmacy_events (organisation_id, prescription_id, event_type, pharmacy_partner_id, actor_id, is_test)
   values (v_rx.organisation_id, p_prescription, p_event, p_partner, v_uid, v_rx.is_test);
-  insert into public.patient_pharmacy_preference (patient_id, organisation_id, pharmacy_partner_id) values (v_uid, v_rx.organisation_id, p_partner)
+  insert into public.patient_pharmacy_preference (patient_id, organisation_id, pharmacy_partner_id) values (v_pat, v_rx.organisation_id, p_partner)
   on conflict (patient_id) do update set pharmacy_partner_id = excluded.pharmacy_partner_id, updated_at = now();
   perform private.log_audit('prescription.' || p_event, 'prescriptions', p_prescription,
-    jsonb_build_object('pharmacy_partner_id', p_partner, 'consent', true));
+    jsonb_build_object('pharmacy_partner_id', p_partner, 'consent', true, 'acted_for', v_pat <> v_uid));
+  -- A caregiver acting for the patient is recorded in the patient's access log and the patient is told (neutral, in-app).
+  if v_pat <> v_uid then
+    perform private.log_care_access(v_pat, 'acted_for', 'data_shared_pharmacy', jsonb_build_object('prescription_id', p_prescription));
+    perform private.rx_notify(v_pat, v_rx.organisation_id, 'pharmacy_collection_update');
+  end if;
   perform private.emit_domain_event('prescription.sent', v_rx.organisation_id, jsonb_build_object('prescription_id', p_prescription),
     'prescription.sent:' || p_prescription || ':' || v_code, v_rx.patient_id, 'prescription', p_prescription);
   perform private.rx_notify_pharmacy(p_partner, 'pharmacy_collection_waiting');
   return jsonb_build_object('collection_code', v_code, 'pharmacy_name', v_name);
 end $$;
-revoke all on function private.route_prescription(uuid, uuid, boolean, text) from public, anon, authenticated;
+revoke all on function private.route_prescription(uuid, uuid, boolean, text, uuid) from public, anon, authenticated;
 
-create function public.send_prescription_to_pharmacy(p_prescription uuid, p_partner uuid, p_consent boolean)
+create function public.send_prescription_to_pharmacy(p_prescription uuid, p_partner uuid, p_consent boolean, p_beneficiary uuid default null)
 returns jsonb language sql security definer set search_path = '' as $$
-  select private.route_prescription(p_prescription, p_partner, p_consent, 'sent')
+  select private.route_prescription(p_prescription, p_partner, p_consent, 'sent', p_beneficiary)
 $$;
-create function public.reroute_prescription_pharmacy(p_prescription uuid, p_partner uuid, p_consent boolean)
+create function public.reroute_prescription_pharmacy(p_prescription uuid, p_partner uuid, p_consent boolean, p_beneficiary uuid default null)
 returns jsonb language sql security definer set search_path = '' as $$
-  select private.route_prescription(p_prescription, p_partner, p_consent, 'rerouted')
+  select private.route_prescription(p_prescription, p_partner, p_consent, 'rerouted', p_beneficiary)
 $$;
 
 -- The patient's own view: where it went, the code to show, and whether the pharmacy said it cannot supply.
-create function public.my_prescription_pharmacy(p_prescription uuid)
+create function public.my_prescription_pharmacy(p_prescription uuid, p_beneficiary uuid default null)
 returns jsonb language plpgsql stable security definer set search_path = '' as $$
 declare
-  v_uid uuid := (select auth.uid());
+  v_pat uuid := private.rx_patient(p_beneficiary);
   v_rx public.prescriptions%rowtype;
   v_name text; v_area text;
   v_last text;
 begin
-  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
-  select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_uid and state <> 'draft';
+  select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_pat and state <> 'draft';
   if not found then raise exception 'prescription_not_found' using errcode = '42501'; end if;
   if v_rx.pharmacy_partner_id is null then
     return jsonb_build_object('state', v_rx.state, 'sent', false);
@@ -396,14 +425,14 @@ end $$;
 
 -- The patient takes it back. Consent to share is revocable: the pharmacy stops seeing it at once and the prescription goes back to
 -- 'signed'. Works whether or not collection is switched on, because it only removes sharing.
-create function public.withdraw_prescription_from_pharmacy(p_prescription uuid)
+create function public.withdraw_prescription_from_pharmacy(p_prescription uuid, p_beneficiary uuid default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_uid uuid := (select auth.uid());
+  v_pat uuid := private.rx_patient(p_beneficiary);
   v_rx public.prescriptions%rowtype;
 begin
-  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
-  select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_uid for update;
+  select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_pat for update;
   if not found then raise exception 'prescription_not_found' using errcode = '42501'; end if;
   if v_rx.state <> 'sent' then raise exception 'prescription_not_waiting' using errcode = '22023'; end if;
   perform set_config('tarragon.rx_routing', 'on', true);
@@ -411,23 +440,26 @@ begin
   perform set_config('tarragon.rx_routing', 'off', true);
   insert into public.prescription_pharmacy_events (organisation_id, prescription_id, event_type, pharmacy_partner_id, actor_id, is_test)
   values (v_rx.organisation_id, p_prescription, 'withdrawn', v_rx.pharmacy_partner_id, v_uid, v_rx.is_test);
-  perform private.log_audit('prescription.withdrawn', 'prescriptions', p_prescription, jsonb_build_object('pharmacy_partner_id', v_rx.pharmacy_partner_id));
+  perform private.log_audit('prescription.withdrawn', 'prescriptions', p_prescription, jsonb_build_object('pharmacy_partner_id', v_rx.pharmacy_partner_id, 'acted_for', v_pat <> v_uid));
+  if v_pat <> v_uid then
+    perform private.log_care_access(v_pat, 'acted_for', 'data_shared_pharmacy', jsonb_build_object('prescription_id', p_prescription, 'withdrawn', true));
+    perform private.rx_notify(v_pat, v_rx.organisation_id, 'pharmacy_collection_update');
+  end if;
   return jsonb_build_object('ok', true);
 end $$;
 
 -- The patient's list for the Medicines screen. Reads only her own rows, whether or not collection is on (a code she holds must stay
 -- visible), and says whether each is still current so a replaced or stopped medicine is never offered for sending.
-create function public.my_collection_prescriptions()
+create function public.my_collection_prescriptions(p_beneficiary uuid default null)
 returns table (prescription_id uuid, state text, items jsonb, signed_at timestamptz, is_current boolean)
 language plpgsql stable security definer set search_path = '' as $$
 #variable_conflict use_column
-declare v_uid uuid := (select auth.uid());
+declare v_pat uuid := private.rx_patient(p_beneficiary);
 begin
-  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
   return query
   select rx.id, rx.state::text, rx.items, rx.signed_at, private.prescription_is_current(rx.id)
     from public.prescriptions rx
-   where rx.patient_id = v_uid and rx.state in ('signed', 'sent', 'dispensed') and rx.signed_at >= now() - interval '90 days'
+   where rx.patient_id = v_pat and rx.state in ('signed', 'sent', 'dispensed') and rx.signed_at >= now() - interval '90 days'
    order by rx.signed_at desc limit 10;
 end $$;
 
@@ -500,6 +532,11 @@ begin
     'allergies', coalesce((select jsonb_agg(jsonb_build_object('allergen', a.allergen, 'reaction', a.reaction, 'severity', a.severity) order by a.allergen)
                              from public.patient_allergies a where a.patient_id = v_rx.patient_id), '[]'::jsonb),
     'items', v_rx.items,
+    'questions', coalesce((select jsonb_agg(jsonb_build_object('asked_at', q.created_at, 'reason_code', q.reason_code,
+                     'answered_at', a.created_at, 'answer_code', a.reason_code) order by q.created_at)
+                  from public.prescription_pharmacy_events q
+                  left join public.prescription_pharmacy_events a on a.answers_event_id = q.id
+                 where q.prescription_id = p_prescription and q.pharmacy_partner_id = v_partner and q.event_type = 'flagged_query'), '[]'::jsonb),
     'supplies_recorded', v_dispensed, 'supplies_permitted', v_permitted,
     'is_test', v_rx.is_test);
 end $$;
@@ -560,6 +597,14 @@ begin
   if v_dispensed >= v_permitted then
     return jsonb_build_object('ok', false, 'reason', 'no_supply_available');
   end if;
+  -- The pharmacist records what was handed over: batch and expiry are required, and an out-of-date batch is never recorded as supplied.
+  -- This is the pharmacy's own record. Tarragon does not check that a batch is genuine and says so (OQ-211).
+  if v_batch is null or p_batch_expiry is null then
+    return jsonb_build_object('ok', false, 'reason', 'batch_required');
+  end if;
+  if p_batch_expiry < (now() at time zone 'Africa/Lagos')::date then
+    return jsonb_build_object('ok', false, 'reason', 'batch_expired');
+  end if;
   select name into v_pharmacy from public.pharmacy_partners where id = v_partner;
 
   insert into public.pharmacy_order_dispenses (
@@ -584,24 +629,28 @@ begin
   return jsonb_build_object('ok', true, 'partial', coalesce(p_is_partial, false));
 end $$;
 
-create function public.pharmacy_flag_prescription(p_prescription uuid, p_kind text, p_note text default null)
+create function public.pharmacy_flag_prescription(p_prescription uuid, p_kind text, p_reason text default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_partner uuid := private.require_pharmacist();
   v_uid uuid := (select auth.uid());
   v_rx public.prescriptions%rowtype;
-  v_note text := nullif(btrim(coalesce(p_note, '')), '');
+  v_reason text := nullif(btrim(coalesce(p_reason, '')), '');
 begin
   if p_kind not in ('out_of_stock', 'query_to_prescriber') then raise exception 'invalid_flag' using errcode = '22023'; end if;
-  if char_length(coalesce(v_note, '')) > 500 then raise exception 'note_too_long' using errcode = '22023'; end if;
-  if p_kind = 'query_to_prescriber' and v_note is null then raise exception 'note_required' using errcode = '22023'; end if;
+  -- A question to the prescriber is one of a fixed list. There is no free text: the pharmacy and the clinician do not chat.
+  if p_kind = 'query_to_prescriber' and (v_reason is null or v_reason not in
+       ('dose_unclear', 'strength_unavailable', 'substitute_needed', 'allergy_or_interaction', 'details_do_not_match', 'call_me')) then
+    raise exception 'reason_required' using errcode = '22023';
+  end if;
+  if p_kind = 'out_of_stock' and v_reason is not null then raise exception 'invalid_flag' using errcode = '22023'; end if;
   select * into v_rx from public.prescriptions where id = p_prescription and pharmacy_partner_id = v_partner and state = 'sent' for update;
   if not found then raise exception 'prescription_not_found' using errcode = '42501'; end if;
 
-  insert into public.prescription_pharmacy_events (organisation_id, prescription_id, event_type, pharmacy_partner_id, actor_id, note, is_test)
+  insert into public.prescription_pharmacy_events (organisation_id, prescription_id, event_type, pharmacy_partner_id, actor_id, reason_code, is_test)
   values (v_rx.organisation_id, p_prescription, case p_kind when 'out_of_stock' then 'flagged_out_of_stock' else 'flagged_query' end,
-          v_partner, v_uid, v_note, v_rx.is_test);
-  perform private.log_audit('prescription.pharmacy_flag', 'prescriptions', p_prescription, jsonb_build_object('kind', p_kind));
+          v_partner, v_uid, v_reason, v_rx.is_test);
+  perform private.log_audit('prescription.pharmacy_flag', 'prescriptions', p_prescription, jsonb_build_object('kind', p_kind, 'reason', v_reason));
   if p_kind = 'out_of_stock' then
     perform private.rx_notify(v_rx.patient_id, v_rx.organisation_id, 'pharmacy_collection_update');
   else
@@ -610,23 +659,176 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- The prescriber sees the question (the note is staff-only). Tie-checked (INV-12) and audited (INV-10).
-create function public.prescription_pharmacy_questions(p_prescription uuid)
-returns table (asked_at timestamptz, pharmacy_name text, note text)
-language plpgsql security definer set search_path = '' as $$
-#variable_conflict use_column
-declare v_rx public.prescriptions%rowtype;
+-- The prescriber's one view (OQ-217): the pharmacy's open questions with the fixed answers, and where each prescription they signed
+-- has got to (waiting at a pharmacy, supplied). Only prescriptions this clinician signed AND is still tied to the patient of (INV-12),
+-- and one audited read (INV-10) however many rows come back. The pharmacy's name is shown; no patient contact detail is.
+create function public.prescriber_pharmacy_overview()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := (select auth.uid());
+  v_questions jsonb;
+  v_collection jsonb;
 begin
-  select * into v_rx from public.prescriptions where id = p_prescription;
-  if not found or not private.clinician_has_patient_access(v_rx.patient_id) then
-    raise exception 'prescription_not_found' using errcode = '42501';
+  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
+  if not exists (select 1 from public.profiles where id = v_uid and role = 'clinician' and is_active) then
+    raise exception 'This is for clinicians' using errcode = '42501';
   end if;
-  perform private.log_audit('prescription.pharmacy_questions_read', 'prescriptions', p_prescription, '{}'::jsonb);
-  return query
-    select e.created_at, pp.name, e.note from public.prescription_pharmacy_events e
-      join public.pharmacy_partners pp on pp.id = e.pharmacy_partner_id
-     where e.prescription_id = p_prescription and e.event_type = 'flagged_query' order by e.created_at desc;
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'question_id', q.id, 'prescription_id', q.prescription_id, 'asked_at', q.created_at, 'pharmacy_name', pp.name,
+           'reason_code', q.reason_code, 'patient_name', p.full_name,
+           'medicines', (select coalesce(jsonb_agg(it ->> 'drug_name' order by it ->> 'drug_name'), '[]'::jsonb) from jsonb_array_elements(rx.items) it),
+           'answered_at', a.created_at, 'answer_code', a.reason_code) order by (a.id is null) desc, q.created_at desc), '[]'::jsonb)
+    into v_questions
+    from public.prescription_pharmacy_events q
+    join public.prescriptions rx on rx.id = q.prescription_id
+    join public.profiles p on p.id = rx.patient_id
+    join public.pharmacy_partners pp on pp.id = q.pharmacy_partner_id
+    left join public.prescription_pharmacy_events a on a.answers_event_id = q.id
+   where q.event_type = 'flagged_query' and rx.signed_by = v_uid and private.clinician_has_patient_access(rx.patient_id)
+     and q.created_at > now() - interval '30 days';
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'prescription_id', rx.id, 'state', rx.state, 'patient_name', p.full_name, 'sent_at', rx.sent_at, 'dispensed_at', rx.dispensed_at,
+           'pharmacy_name', pp.name, 'medicines', (select coalesce(jsonb_agg(it ->> 'drug_name' order by it ->> 'drug_name'), '[]'::jsonb) from jsonb_array_elements(rx.items) it))
+           order by coalesce(rx.dispensed_at, rx.sent_at) desc), '[]'::jsonb)
+    into v_collection
+    from public.prescriptions rx
+    join public.profiles p on p.id = rx.patient_id
+    join public.pharmacy_partners pp on pp.id = rx.pharmacy_partner_id
+   where rx.signed_by = v_uid and rx.state in ('sent', 'dispensed') and private.clinician_has_patient_access(rx.patient_id)
+     and coalesce(rx.dispensed_at, rx.sent_at) > now() - interval '30 days';
+  perform private.log_audit('prescription.pharmacy_overview_read', 'prescriptions', null,
+    jsonb_build_object('questions', jsonb_array_length(v_questions), 'collection', jsonb_array_length(v_collection)));
+  return jsonb_build_object('questions', v_questions, 'collection', v_collection);
 end $$;
+
+-- The prescriber answers a question with a fixed reply. An answer never changes a prescription: a different medicine or dose is a new
+-- signed prescription (INV-02), which the clinician writes the normal way. Tie-checked and audited.
+create function public.answer_pharmacy_question(p_question uuid, p_answer text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := (select auth.uid());
+  v_q public.prescription_pharmacy_events%rowtype;
+  v_rx public.prescriptions%rowtype;
+begin
+  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
+  if p_answer is null or p_answer not in ('keep_as_written', 'new_prescription_coming', 'patient_to_contact_us') then
+    raise exception 'invalid_answer' using errcode = '22023';
+  end if;
+  select * into v_q from public.prescription_pharmacy_events where id = p_question and event_type = 'flagged_query';
+  if not found then raise exception 'question_not_found' using errcode = '42501'; end if;
+  select * into v_rx from public.prescriptions where id = v_q.prescription_id for update;
+  if v_rx.signed_by is distinct from v_uid or not private.clinician_has_patient_access(v_rx.patient_id) then
+    raise exception 'question_not_found' using errcode = '42501';
+  end if;
+  if exists (select 1 from public.prescription_pharmacy_events where answers_event_id = p_question) then
+    return jsonb_build_object('ok', false, 'reason', 'already_answered');
+  end if;
+  insert into public.prescription_pharmacy_events (organisation_id, prescription_id, event_type, pharmacy_partner_id, actor_id, reason_code, answers_event_id, is_test)
+  values (v_rx.organisation_id, v_q.prescription_id, 'answered_query', v_q.pharmacy_partner_id, v_uid, p_answer, p_question, v_rx.is_test);
+  perform private.log_audit('prescription.pharmacy_question_answered', 'prescriptions', v_q.prescription_id, jsonb_build_object('answer', p_answer));
+  perform private.rx_notify_pharmacy(v_q.pharmacy_partner_id, 'pharmacy_collection_waiting');
+  perform private.rx_notify(v_rx.patient_id, v_rx.organisation_id, 'pharmacy_collection_update');
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 9b. S37 go-live guard (OQ-216). The prescribing guard gains the pharmacy conditions; the rest of the function is S37's, unchanged.
+--     (create or replace of the whole function; the other six guards read exactly as before.)
+-- ---------------------------------------------------------------------------
+create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_n integer;
+  v_gaps integer;
+begin
+  if p_key = 'clinical_operations_enabled' then
+    -- the approved hypertension protocol is a public.protocols row (S24) whose code starts htn or hypertension (the S24 placeholder is htn_hearts_ng)
+    select count(*) into v_n from public.protocols where status = 'approved' and code ~ '^(htn|hypertension)';
+    return jsonb_build_array(
+      private.go_live_cond('hypertension_protocol_approved', 'An approved hypertension protocol', v_n > 0, 'data', v_n || ' approved'),
+      private.go_live_cond('triage_rule_set_approved', 'An approved blood pressure triage rule set',
+        exists (select 1 from public.triage_rule_sets where status = 'approved' and code = 'bp_care_triage'), 'data',
+        (select count(*) from public.triage_rule_sets where status = 'approved' and code = 'bp_care_triage') || ' approved'),
+      private.go_live_cond('tier2_clinician_active', 'At least one active tier 2 clinician',
+        (select count(*) from public.clinical_staff where active and status = 'active' and credentialing_level >= 2 and is_test is not true) > 0, 'data',
+        (select count(*) from public.clinical_staff where active and status = 'active' and credentialing_level >= 2 and is_test is not true) || ' active'),
+      private.go_live_cond('admin_confirmation', 'Admin confirmation', true, 'switch', 'Given by an admin pressing the switch'));
+  elsif p_key = 'on_call_cover_ok' then
+    select count(*) into v_gaps from private.rota_gaps(p_org, now(), now() + interval '7 days');
+    return jsonb_build_array(
+      private.go_live_cond('rota_covers_next_7_days', 'The rota covers the next 7 days with a primary and an eligible backup', v_gaps = 0, 'data', v_gaps || ' gaps'));
+  elsif p_key = 'lab_booking_enabled' then
+    return jsonb_build_array(
+      private.go_live_cond('synlab_active', 'SYNLAB is an active laboratory partner',
+        exists (select 1 from public.lab_providers where is_active and name ilike 'synlab%'), 'data', null),
+      private.go_live_cond('collection_sites', 'SYNLAB has at least one active collection site',
+        exists (select 1 from public.lab_provider_locations l join public.lab_providers p on p.id = l.lab_provider_id where l.is_active and p.is_active and p.name ilike 'synlab%'), 'data', null),
+      private.go_live_cond('results_flow_tested', 'The results flow has been tested end to end', private.go_live_attested(p_key, 'results_flow_tested'), 'attestation', null));
+  elsif p_key = 'prescribing_enabled' then
+    select count(*) into v_n from public.pharmacy_partners where is_active and onboarding_status = 'activated';
+    -- S28: sending a prescription to a pharmacy also needs a pharmacy that can be chosen today (approved, licence verified and
+    -- not about to lapse), the pharmacy quality rules confirmed by their owner, and the notification sender deployed.
+    return jsonb_build_array(
+      private.go_live_cond('pharmacy_partner_active', 'At least one active pharmacy partner', v_n > 0, 'data', v_n || ' active'),
+      private.go_live_cond('pharmacy_licence_current', 'At least one approved pharmacy with a current, verified licence',
+        exists (select 1 from public.pharmacy_partners pp where private.pharmacy_choosable(pp.id)), 'data',
+        (select count(*) from public.pharmacy_partners pp where private.pharmacy_choosable(pp.id)) || ' can be chosen'),
+      private.go_live_cond('pharmacy_quality_confirmed', 'The pharmacy quality rules are confirmed',
+        coalesce((select s.decision = 'confirmed' from public.proposed_config_signoffs s
+                   where s.config_key = 'pharmacy.quality'
+                     and s.config_version = (select q.version from public.pharmacy_quality_config q where q.is_active)
+                   order by s.id desc limit 1), false), 'data', null),
+      private.go_live_cond('notification_sender_deployed', 'The notification sender with the pharmacy messages is deployed',
+        private.go_live_attested(p_key, 'notification_sender_deployed'), 'attestation', null),
+      private.go_live_cond('clinical_lead_signoff', 'Clinical lead sign-off', true, 'switch', 'Given by the Chief Medical Officer pressing the switch'));
+  elsif p_key = 'scribe_enabled' then
+    return jsonb_build_array(
+      private.go_live_cond('con001_legal_review_recorded', 'Legal review of consent text CON-001 recorded', private.go_live_attested(p_key, 'con001_legal_review_recorded'), 'attestation', null),
+      private.go_live_cond('speech_provider_configured', 'A speech-to-text provider is configured', private.go_live_attested(p_key, 'speech_provider_configured'), 'attestation', null));
+  elsif p_key = 'payouts_enabled' then
+    return jsonb_build_array(
+      private.go_live_cond('fee_schedule_approved', 'A fee schedule is approved', private.go_live_attested(p_key, 'fee_schedule_approved'), 'attestation', null),
+      private.go_live_cond('paystack_transfers_configured', 'Paystack transfers are configured', private.go_live_attested(p_key, 'paystack_transfers_configured'), 'attestation', null));
+  elsif p_key = 'public_signup_enabled' then
+    return jsonb_build_array(
+      private.go_live_cond('stage2_exit_criteria_met', 'The Stage 2 exit criteria are met', private.go_live_attested(p_key, 'stage2_exit_criteria_met'), 'attestation', null));
+  end if;
+  -- An unknown key has no conditions, and a guard with no conditions is never satisfied (fail closed).
+  return jsonb_build_array(private.go_live_cond('unknown_guard', 'This guard has no defined condition', false, 'data', null));
+end $$;
+
+-- The one condition a person records here (the sender is deployed from outside the database), so the fixed attestable list gains it.
+create or replace function public.attest_go_live_condition(p_key text, p_code text, p_met boolean, p_note text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := (select auth.uid());
+begin
+  if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
+  if private.go_live_actor_role() is null then raise exception 'only an admin or the Chief Medical Officer can record this' using errcode = '42501'; end if;
+  if not exists (select 1 from public.go_live_guards where key = p_key) then raise exception 'no such go-live guard: %', p_key using errcode = '22023'; end if;
+  -- the conditions a person records (the rest are read from the data). A fixed list, so a broken data query cannot block recording one.
+  if (p_key, p_code) not in (
+       ('lab_booking_enabled', 'results_flow_tested'), ('prescribing_enabled', 'notification_sender_deployed'),
+       ('scribe_enabled', 'con001_legal_review_recorded'), ('scribe_enabled', 'speech_provider_configured'),
+       ('payouts_enabled', 'fee_schedule_approved'), ('payouts_enabled', 'paystack_transfers_configured'),
+       ('public_signup_enabled', 'stage2_exit_criteria_met')) then
+    raise exception 'that condition is read from the data (or does not exist), it cannot be attested' using errcode = '22023';
+  end if;
+  if p_met is null or length(btrim(coalesce(p_note, ''))) < 10 then
+    raise exception 'say what was checked and by whom, in a sentence' using errcode = '22023';
+  end if;
+  insert into public.go_live_attestations (guard_key, condition_code, met, note, attested_by)
+  values (p_key, p_code, p_met, btrim(p_note), v_uid);
+  perform private.log_audit('go_live_guard.condition_attested', 'go_live_guard', null, jsonb_build_object('key', p_key, 'code', p_code, 'met', p_met));
+  return jsonb_build_object('ok', true);
+end $$;
+
+update public.go_live_guards
+   set blocks = 'Prescriptions; sending a prescription to a partner pharmacy',
+       condition_text = 'At least one active pharmacy partner with a current licence; pharmacy quality rules confirmed; notification sender deployed; clinical lead sign-off',
+       enforced_in = array['private.pharmacy_collection_on (every patient and pharmacy collection function)'],
+       not_enforced_in = 'Prescribing itself (S24, signed prescriptions) is not behind this guard yet. The downloadable prescription form is never behind it.'
+ where key = 'prescribing_enabled';
 
 -- ---------------------------------------------------------------------------
 -- 10. Grants. API roles get the public functions only; anon gets none (revoke from PUBLIC, not from anon).
@@ -635,12 +837,12 @@ do $$
 declare f text;
 begin
   foreach f in array array[
-    'public.pharmacies_for_prescription(uuid)', 'public.send_prescription_to_pharmacy(uuid,uuid,boolean)',
-    'public.reroute_prescription_pharmacy(uuid,uuid,boolean)', 'public.my_prescription_pharmacy(uuid)',
+    'public.pharmacies_for_prescription(uuid,uuid)', 'public.send_prescription_to_pharmacy(uuid,uuid,boolean,uuid)',
+    'public.reroute_prescription_pharmacy(uuid,uuid,boolean,uuid)', 'public.my_prescription_pharmacy(uuid,uuid)',
     'public.pharmacy_inbox()', 'public.pharmacy_prescription_detail(uuid)',
     'public.pharmacy_mark_dispensed(uuid,text,text,text,text,text,date,boolean,text)',
-    'public.pharmacy_flag_prescription(uuid,text,text)', 'public.prescription_pharmacy_questions(uuid)',
-    'public.pharmacy_collection_available()', 'public.withdraw_prescription_from_pharmacy(uuid)', 'public.my_collection_prescriptions()']
+    'public.pharmacy_flag_prescription(uuid,text,text)', 'public.prescriber_pharmacy_overview()', 'public.answer_pharmacy_question(uuid,text)',
+    'public.pharmacy_collection_available()', 'public.withdraw_prescription_from_pharmacy(uuid,uuid)', 'public.my_collection_prescriptions(uuid)']
   loop
     execute format('revoke all on function %s from public', f);
     execute format('grant execute on function %s to authenticated', f);
@@ -654,13 +856,13 @@ do $$
 declare f text;
 begin
   foreach f in array array[
-    'public.pharmacies_for_prescription(uuid)', 'public.send_prescription_to_pharmacy(uuid,uuid,boolean)',
-    'public.reroute_prescription_pharmacy(uuid,uuid,boolean)', 'public.my_prescription_pharmacy(uuid)',
+    'public.pharmacies_for_prescription(uuid,uuid)', 'public.send_prescription_to_pharmacy(uuid,uuid,boolean,uuid)',
+    'public.reroute_prescription_pharmacy(uuid,uuid,boolean,uuid)', 'public.my_prescription_pharmacy(uuid,uuid)',
     'public.pharmacy_inbox()', 'public.pharmacy_prescription_detail(uuid)',
     'public.pharmacy_mark_dispensed(uuid,text,text,text,text,text,date,boolean,text)',
-    'public.pharmacy_flag_prescription(uuid,text,text)', 'public.prescription_pharmacy_questions(uuid)',
-    'public.pharmacy_collection_available()', 'public.withdraw_prescription_from_pharmacy(uuid)', 'public.my_collection_prescriptions()',
-    'private.route_prescription(uuid,uuid,boolean,text)', 'private.rx_notify(uuid,uuid,text,jsonb)']
+    'public.pharmacy_flag_prescription(uuid,text,text)', 'public.prescriber_pharmacy_overview()', 'public.answer_pharmacy_question(uuid,text)',
+    'public.pharmacy_collection_available()', 'public.withdraw_prescription_from_pharmacy(uuid,uuid)', 'public.my_collection_prescriptions(uuid)',
+    'private.route_prescription(uuid,uuid,boolean,text,uuid)', 'private.rx_notify(uuid,uuid,text,jsonb)', 'private.rx_patient(uuid)']
   loop
     if has_function_privilege('anon', f, 'EXECUTE') then raise exception 'anon can execute %', f; end if;
   end loop;

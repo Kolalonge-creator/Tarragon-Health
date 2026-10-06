@@ -140,4 +140,12 @@ describe("the bell line", () => {
     expect(line.section).toBe("medications");
     expect(line.text).not.toMatch(/amlodipine|K7M2|Yaba/i);
   });
+
+  it("the refill reminder opens the Medicines tab, where the pharmacy card is, and stays neutral", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { describeNotification } = require("./notifications") as typeof import("./notifications");
+    const line = describeNotification({ id: "n", template: "medication_refill_reminder", payload: { drug_name: "Amlodipine" }, created_at: "2026-10-06T00:00:00Z", read_at: null } as never);
+    expect(line.section).toBe("medications");
+    expect(line.text).not.toMatch(/amlodipine/i);
+  });
 });
