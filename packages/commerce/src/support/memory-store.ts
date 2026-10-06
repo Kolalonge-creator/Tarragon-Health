@@ -35,7 +35,7 @@ export class MemoryStore implements OrderStore {
     if (!o) return ok({ result: "not_found", orderId: null, reason: null });
     if (o.state === "paid") return ok({ result: "replay", orderId: o.id, reason: null });
     if (i.amountKobo !== o.amountKobo || i.currency !== "NGN" || i.totalKobo !== i.amountKobo + i.feeKobo) {
-      this.mismatches.push({ reference: i.reference, reason: "amount", amountKobo: i.amountKobo, totalKobo: i.totalKobo, source: i.source, eventKey: i.eventKey });
+      this.mismatches.push({ reference: i.reference, reason: "amount", amountKobo: i.amountKobo, feeKobo: i.feeKobo, totalKobo: i.totalKobo, source: i.source, eventKey: i.eventKey, raw: i.raw });
       return ok({ result: "mismatch", orderId: o.id, reason: "amount" });
     }
     o.state = "paid";

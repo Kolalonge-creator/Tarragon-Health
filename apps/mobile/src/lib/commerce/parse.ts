@@ -52,7 +52,7 @@ export function parseOrders(data: unknown): OrderRow[] {
   for (const r of data) {
     if (!isObj(r)) continue;
     const state = STATES.find((s) => s === r["state"]);
-    if (!state || !str(r["order_id"]) || !isKobo(r["amount_kobo"]) || !str(r["name_key"]) || !str(r["created_at"])) continue;
+    if (!state || !str(r["order_id"]) || !isKobo(r["amount_kobo"]) || r["amount_kobo"] === 0 || !str(r["name_key"]) || !str(r["created_at"])) continue;
     out.push({
       orderId: r["order_id"], state, amountKobo: r["amount_kobo"], totalKobo: isKobo(r["total_kobo"]) ? r["total_kobo"] : null,
       nameKey: r["name_key"], createdAt: r["created_at"], paidAt: str(r["paid_at"]) ? r["paid_at"] : null,

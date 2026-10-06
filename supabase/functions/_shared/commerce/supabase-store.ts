@@ -32,14 +32,15 @@ export function supabaseOrderStore(client: RpcClient): OrderStore {
   return {
     async record(i: RecordPaymentInput) {
       const r = await call("record_order_payment", {
-        p_reference: i.reference, p_amount_kobo: i.amountKobo, p_fee_kobo: i.feeKobo, p_total_kobo: i.totalKobo, p_currency: i.currency,
-        p_status: "success", p_source: i.source, p_event_key: i.eventKey, p_paid_at: i.paidAt, p_raw: i.raw,
+        p_reference: i.reference, p_amount_kobo: i.amountKobo, p_fee_kobo: i.feeKobo, p_processor_fee_kobo: i.processorFeeKobo,
+        p_total_kobo: i.totalKobo, p_currency: i.currency, p_status: "success", p_source: i.source, p_event_key: i.eventKey, p_paid_at: i.paidAt, p_raw: i.raw,
       });
       return r.ok ? toOutcome(r.data) : r;
     },
     async flagMismatch(i: MismatchInput) {
       const r = await call("flag_order_payment_mismatch", {
-        p_reference: i.reference, p_reason: i.reason, p_amount_kobo: i.amountKobo, p_total_kobo: i.totalKobo, p_source: i.source, p_event_key: i.eventKey,
+        p_reference: i.reference, p_reason: i.reason, p_amount_kobo: i.amountKobo, p_fee_kobo: i.feeKobo,
+        p_total_kobo: i.totalKobo, p_source: i.source, p_event_key: i.eventKey, p_raw: i.raw,
       });
       return r.ok ? toOutcome(r.data) : r;
     },

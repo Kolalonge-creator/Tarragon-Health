@@ -39,6 +39,7 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { handleOrderCharge, isOrderCharge, type DepsFactory } from "./order-branch.ts";
+import { constantTimeEqual } from "../_shared/integrations/crypto.ts";
 
 // Mirrors apps/web/src/lib/billing/checkout-metadata.ts's CheckoutKind
 // (the canonical definition — checkout always writes metadata via that
@@ -209,14 +210,7 @@ export async function verifySignature(
  * HMAC-SHA512 hex digest is a public constant, not a secret. Everything after
  * that runs over the full string with no early exit.
  */
-export function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return diff === 0;
-}
+export const timingSafeEqual = constantTimeEqual;
 
 export function intervalToMs(interval: string | null): number {
   return interval === "yearly" ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;

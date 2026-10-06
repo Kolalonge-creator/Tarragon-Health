@@ -2,14 +2,9 @@
 // every unpaid order older than two minutes (a bank transfer or USSD payment can settle long after the customer left) and pays,
 // closes or leaves each one through the same verify-then-record path as the webhook. Fails closed without its secret. Never throws.
 import { reconcileOpenOrders, type CommerceDeps } from "../_shared/commerce/index.ts";
+import { constantTimeEqual } from "../_shared/integrations/crypto.ts";
 
-export function sameSecret(a: string, b: string): boolean {
-  const x = new TextEncoder().encode(a);
-  const y = new TextEncoder().encode(b);
-  let diff = x.length ^ y.length;
-  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
-  return diff === 0;
-}
+export const sameSecret = constantTimeEqual;
 
 export async function handleReconcile(req: Request, deps: { readonly secret: string | null; readonly commerce: CommerceDeps | null }): Promise<Response> {
   if (!deps.secret) return Response.json({ error: "not configured" }, { status: 503 });

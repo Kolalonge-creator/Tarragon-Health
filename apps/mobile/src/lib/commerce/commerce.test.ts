@@ -17,7 +17,7 @@ describe("parsing", () => {
   });
   it("parses orders and memberships and falls back safely", () => {
     const o = { order_id: "o1", state: "paid", amount_kobo: 500_000, total_kobo: 500_150, name_key: "k", created_at: "2026-10-06T10:00:00Z", paid_at: null };
-    expect(parseOrders([o, { ...o, state: "teleported" }, { ...o, amount_kobo: -1 }, 3])).toHaveLength(1);
+    expect(parseOrders([o, { ...o, state: "teleported" }, { ...o, amount_kobo: -1 }, { ...o, amount_kobo: 0 }, 3])).toHaveLength(1);
     expect(parseOrders([{ ...o, total_kobo: null, paid_at: "x" }])[0]).toMatchObject({ totalKobo: null, paidAt: "x" });
     expect(parseOrders(null)).toEqual([]);
     expect(parseMembership({ is_member: true, ends_at: "2027-01-01T00:00:00Z" })).toEqual({ isMember: true, endsAt: "2027-01-01T00:00:00Z" });
