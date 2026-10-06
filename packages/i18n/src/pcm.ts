@@ -891,4 +891,8 @@ export const pcm: Record<MessageKey, string> = {
   "wq.queued.discard": "Delete the saved message",
   "wq.queued.returned": "We no fit send your saved message: {reason}. E don go back for your draft.",
   "admin.members.title": "Members",
+  "notes.withdrawn": "Dem don withdraw this note",
+  "notes.withdrawn.reason": "Why: {reason}",
+  "notes.withdrawn.explain": "Dem don hide the text. Ask your care team if you get question.",
+  "notes.withdrawn.on": "Dem withdraw am {date}",
 };

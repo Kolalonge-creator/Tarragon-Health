@@ -892,6 +892,10 @@ export const en = {
   "wq.queued.discard": "Delete saved message",
   "wq.queued.returned": "Your saved message could not be sent: {reason}. It is back in your draft.",
   "admin.members.title": "Members",
+  "notes.withdrawn": "This note was withdrawn",
+  "notes.withdrawn.reason": "Why: {reason}",
+  "notes.withdrawn.explain": "The text is hidden. Ask your care team if you have questions.",
+  "notes.withdrawn.on": "Withdrawn {date}",
 } as const;
 
 export type MessageKey = keyof typeof en;
