@@ -816,11 +816,14 @@ begin
   values (v_org, v_p, v_emp, 'video', 'scheduled', now(), 1, true) returning id into e4;
   insert into public.encounters (organisation_id, patient_id, clinician_id, type, status, scheduled_at, policy_version, is_test)
   values (v_org, v_p, v_doc, 'audio', 'scheduled', now(), 1, true) returning id into e5;
+  -- the purchase is a price for e1 only because e1 used it up; e2 points at a purchase it did not redeem (like a Membership)
+  update public.service_purchases set redeemed_at = now(), redeemed_entity_type = 'appointment', redeemed_entity_id = e1 where id = v_pur;
+  update public.encounters set service_purchase_id = v_pur where id = e2;
   update public.encounters set status = 'completed', ended_at = now() where id in (e1, e2, e3, e4);
   update public.encounters set status = 'cancelled' where id = e5;
   perform pg_temp.ck('video consultation with a paid purchase: 60 percent of the price paid', '720000|purchase',
     (select amount_kobo || '|' || (calculation ->> 'basis') from public.earnings_ledger where reference_id = e1));
-  perform pg_temp.ck('video with no purchase: 60 percent of the schedule reference price', '600000|reference_price',
+  perform pg_temp.ck('video pointing at a purchase it did not use up (a Membership): the reference price, not the purchase', '600000|reference_price',
     (select amount_kobo || '|' || (calculation ->> 'basis') from public.earnings_ledger where reference_id = e2));
   perform pg_temp.ck('phone with no purchase and no reference price: a flagged zero line', 'no_price_basis|0',
     (select (calculation ->> 'needs_review') || '|' || amount_kobo from public.earnings_ledger where reference_id = e3));
@@ -829,6 +832,19 @@ begin
   update public.encounters set updated_at = now() where id = e1;
   perform private.earnings_sweep();
   perform pg_temp.ck('completing or sweeping again never pays twice', '3', pg_temp.lines_of(v_doc, 'consultation')::text);
+end $$;
+
+-- a task that produced a paid live consultation is paid once, by the share
+do $$
+declare v_org uuid := pg_temp.f('org'); v_doc uuid := pg_temp.f('doc'); t uuid; e uuid;
+begin
+  t := pg_temp.mktask(pg_temp.f('p3'), 'symptom_review');
+  insert into public.encounters (organisation_id, patient_id, clinician_id, type, status, scheduled_at, policy_version, task_id, is_test)
+  values (v_org, pg_temp.f('p3'), v_doc, 'video', 'scheduled', now(), 1, t, true) returning id into e;
+  perform pg_temp.work(v_doc);
+  perform pg_temp.ck('a task linked to a paid video consultation earns no task line (the share pays it once)', '0', (select count(*) from public.earnings_ledger where reference_id = t)::text);
+  update public.encounters set status = 'completed', ended_at = now() where id = e;
+  perform pg_temp.ck('...and the consultation earns its share', '1', (select count(*) from public.earnings_ledger where reference_id = e)::text);
 end $$;
 
 -- 4b. On-call shifts --------------------------------------------------------------------------------------------------------
