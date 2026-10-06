@@ -23,6 +23,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/credentialing", "doctor clinician onboarding application applicant apply verify verification mdcn folio credentials referees nysc approve"],
   ["/admin/credentialing/expiry", "licence license mdcn indemnity expiry expires renewal renew grace suspended reinstate"],
   ["/admin/credentialing", "doctor clinician onboarding application applicant apply verify verification mdcn folio credentials referees nysc"],
+  ["/clinician/triage-rules", "sign approve signature sign-off signoff bp blood pressure red amber green grade grading shadow rule set draft triage engine thresholds confirm adherence_follow_up"],
   ["/admin/task-types", "priority queue work tasks due urgent class adherence_follow_up adherence follow up silence check missed doses amber bp blood pressure review symptom titration dose sign-off async question result review referral letters repeat prescription red event critical"],
   ["/clinician/task-types", "priority queue work tasks due urgent class adherence_follow_up adherence follow up silence check missed doses amber bp blood pressure review symptom titration dose sign-off async question result review referral letters repeat prescription red event critical"],
   ["/admin/settings/clinical-staff", "doctor clinician staff mdcn roster verify"],
