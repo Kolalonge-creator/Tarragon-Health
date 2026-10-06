@@ -1302,7 +1302,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ### OQ-243 Pidgin for the lessons and the screens (raised by S33)
 - Pidgin drafts exist in the source for seven lessons (BPC-01, 07, 08, 09, 10, 11, 14). Nothing is seeded: a Pidgin row is inserted only for a clip id listed in `audio/source/pcm-released.json` after the CMO and a native speaker have signed it, and the database serves a row only when it is `native_reviewed`. The other seven lessons (numbers, medicines, side effects, herbal products, warning signs) are held in English plus audio (OQ-19, OQ-87).
-- The screen strings for the course and the breathing exercise have a Pidgin draft, except the safety card, which is held in English. Both need a native reviewer (OQ-74 pattern). A new ledger test (`held-in-english.ts`) lists every key whose Pidgin equals English with a reason: 327 short common words, 61 staff-only, 24 held safety wording and 5 sentences still waiting. It fails on any new untranslated key.
+- The screen strings for the course and the breathing exercise have a Pidgin draft, except the safety card, which is held in English. Both need a native reviewer (OQ-74 pattern). A new ledger test (`held-in-english.ts`) lists every key whose Pidgin equals English with a reason: 327 short common words, 61 staff-only, 23 held safety wording and 4 sentences still waiting. It fails on any new untranslated key.
 - Options: (a) one native reviewer pass over the seven drafts and the new strings, then release (recommended); (b) ship English only for Stage 1.
 - Decision: open.
 
