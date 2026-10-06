@@ -5,13 +5,29 @@ import { isSupersededVersion, refuseSupersededDraft } from "./refuse-superseded-
 
 type Answer = { data: unknown; error: unknown };
 
-/** First `.eq("id", …)` lookup answers `target`; the `.eq("is_active", true)` lookup answers `active`. */
-function client(target: Answer, active: Answer): SupabaseClient<Database> {
+/**
+ * First `.eq("id", …)` lookup answers `target`; the live lookup (`.eq("is_active", true)`, then any
+ * partition filters) answers `active`. Every `.eq` on the live lookup is recorded in `liveFilters`.
+ */
+function client(target: Answer, active: Answer, liveFilters: Array<[string, unknown]> = []): SupabaseClient<Database> {
   return {
     from: () => ({
-      select: () => ({
-        eq: (column: string) => ({ maybeSingle: async () => (column === "id" ? target : active) }),
-      }),
+      select: () => {
+        const isTargetLookup = { value: false };
+        const chain = {
+          eq: (column: string, value: unknown) => {
+            if (column === "id") isTargetLookup.value = true;
+            else liveFilters.push([column, value]);
+            return chain;
+          },
+          is: (column: string, value: unknown) => {
+            liveFilters.push([`${column} is`, value]);
+            return chain;
+          },
+          maybeSingle: async () => (isTargetLookup.value ? target : active),
+        };
+        return chain;
+      },
     }),
   } as unknown as SupabaseClient<Database>;
 }
@@ -71,5 +87,45 @@ describe("isSupersededVersion (what the managers use to hide Sign)", () => {
   it("is false when nothing is live, so a first version can still be signed", () => {
     expect(isSupersededVersion({ version: 1, is_active: false }, null)).toBe(false);
     expect(isSupersededVersion({ version: 1, is_active: false }, undefined)).toBe(false);
+  });
+});
+
+describe("refuseSupersededDraft partitions", () => {
+  it("compares a cv_risk_config draft only with the live version of its own organisation", async () => {
+    const filters: Array<[string, unknown]> = [];
+    await refuseSupersededDraft(
+      client(ok({ version: 2, is_active: false, organisation_id: "org-b" }), ok({ version: 1 }), filters),
+      "cv_risk_config",
+      "x"
+    );
+    expect(filters).toContainEqual(["organisation_id", "org-b"]);
+  });
+
+  it("partitions the risk questionnaire by organisation and code", async () => {
+    const filters: Array<[string, unknown]> = [];
+    await refuseSupersededDraft(
+      client(ok({ version: 2, is_active: false, organisation_id: "org-a", code: "prevention_intake" }), ok({ version: 1 }), filters),
+      "risk_questionnaire_configs",
+      "x"
+    );
+    expect(filters).toContainEqual(["organisation_id", "org-a"]);
+    expect(filters).toContainEqual(["code", "prevention_intake"]);
+  });
+
+  it("does not partition a global table", async () => {
+    const filters: Array<[string, unknown]> = [];
+    await refuseSupersededDraft(client(ok({ version: 2, is_active: false }), ok({ version: 1 }), filters), "alert_rules", "x");
+    expect(filters.map(([c]) => c)).toEqual(["is_active"]);
+  });
+
+  it("matches a null partition value with is-null, as the database trigger does", async () => {
+    const filters: Array<[string, unknown]> = [];
+    await refuseSupersededDraft(
+      client(ok({ version: 2, is_active: false, organisation_id: null }), ok({ version: 1 }), filters),
+      "cv_risk_config",
+      "x"
+    );
+    expect(filters).toContainEqual(["organisation_id is", null]);
+    expect(filters.find(([c]) => c === "organisation_id")).toBeUndefined();
   });
 });
