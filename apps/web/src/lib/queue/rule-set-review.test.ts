@@ -9,6 +9,7 @@ describe("summariseRules", () => {
         { id: "R2", description: "Raised", result: "grade", grade: "amber", actions: [{ kind: "create_task", task: "bp_review", dueMinutes: 1440 }] },
         { id: "R3", description: "Check again", result: "recheck", actions: [] },
         { id: "R4", description: "No grade given", result: "grade", actions: [{ kind: "create_task", task: "silence_check" }, { kind: "create_task" }] },
+        { id: "R5", description: "Ask about symptoms first", result: "ask", actions: [{ kind: "ask_symptoms", code: "TRI-008" }] },
       ],
     });
     expect(out).toEqual([
@@ -16,6 +17,7 @@ describe("summariseRules", () => {
       { id: "R2", description: "Raised", outcome: "amber", pagesOnCall: false, tasks: [{ task: "bp_review", dueMinutes: 1440 }] },
       { id: "R3", description: "Check again", outcome: "repeat reading", pagesOnCall: false, tasks: [] },
       { id: "R4", description: "No grade given", outcome: "green", pagesOnCall: false, tasks: [{ task: "silence_check", dueMinutes: null }] },
+      { id: "R5", description: "Ask about symptoms first", outcome: "asks about symptoms", pagesOnCall: false, tasks: [] },
     ]);
   });
 
