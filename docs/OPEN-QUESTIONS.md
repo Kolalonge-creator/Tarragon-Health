@@ -1057,3 +1057,13 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The `payouts_enabled` row in `go_live_guards` carries the S37 note "Payout sending is not built yet. Nothing is blocked by this guard today." Approve, send and retry now refuse while it is off, but the note is a guard row the trigger will not let a migration edit.
 - Options: (a) add a sanctioned way to update a guard's description text in a later S37 follow-up (recommended); (b) leave the note and rely on this entry.
 - Decision: open.
+
+### OQ-199 Optional early cash-out for clinicians (raised by S31 competitor research)
+- Bolt and Uber Nigeria let drivers cash out early for a small fee once they have a clean record. Weekly stays the default. An early cash-out would pay out already-earned ledger lines on request, still after the verified-name check, with a small fee and an eligibility rule (for example a number of completed tasks).
+- Options: (a) not now; revisit after the first month of weekly payouts (recommended); (b) build it before launch.
+- Decision: open.
+
+### OQ-200 Downloadable payout statement, tax credit note and refund holdback (raised by S31 competitor research)
+- Deel-style platforms give a downloadable statement per payment; in Nigeria a withholding tax credit note is also needed once OQ-193 is decided. Stripe recommends holding back a balance against later reversals; a refund of a consultation share is a manual adjustment until S26.
+- Options: (a) a PDF statement per payout now and the credit note after OQ-193; no holdback until S26 (recommended); (b) all three together later.
+- Decision: open.
