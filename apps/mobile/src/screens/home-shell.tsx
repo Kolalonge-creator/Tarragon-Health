@@ -38,6 +38,7 @@ import { BpHistoryScreen } from "@/screens/sections/bp-history-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
+import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
@@ -166,6 +167,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   const [actingChecked, setActingChecked] = useState(false);
   const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
   const [openVideoVisitId, setOpenVideoVisitId] = useState<string | null>(null);
+  // S21 follow-up (OQ-158): the consultation room opened from the Care area's "Your consultations" card.
+  const [openConsultationId, setOpenConsultationId] = useState<string | null>(null);
 
   const refreshActing = useCallback(() => {
     // Best-effort: a failed read (e.g. SecureStore hiccup) falls back to the
@@ -251,13 +254,16 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     appointments: () => <AppointmentsScreen patientId={userId} organisationId={organisationId} />,
     prevention: () => <PreventionScreen patientId={subjectId} organisationId={organisationId} />,
     care: () =>
-      openVideoVisitId ? (
+      openConsultationId ? (
+        <ConsultationRoomScreen encounterId={openConsultationId} onBack={() => setOpenConsultationId(null)} />
+      ) : openVideoVisitId ? (
         <VideoVisitScreen consultationId={openVideoVisitId} onBack={() => setOpenVideoVisitId(null)} />
       ) : (
         <CareSupportScreen
           patientId={userId}
           organisationId={organisationId}
           onOpenVideoVisit={setOpenVideoVisitId}
+          onOpenConsultation={setOpenConsultationId}
         />
       ),
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,

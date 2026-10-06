@@ -14,6 +14,8 @@ import {
   postDeviceReading,
   postVitalReading,
   postSelectVideoVisitAlternateSlot,
+  postConsultationJoin,
+  postConsultationDialIn,
 } from "./api";
 import { supabase } from "./supabase";
 
@@ -250,5 +252,48 @@ describe("postSelectVideoVisitAlternateSlot", () => {
     await expect(postSelectVideoVisitAlternateSlot("req-1", "slot-b")).resolves.toEqual({
       error: "that time is no longer available",
     });
+  });
+});
+
+describe("consultation room calls (OQ-158)", () => {
+  it("posts the encounter and media to the join route with the bearer token", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { ok: true, url: "https://zoom.example/j/1", mediaMode: "audio_only", audioOnlyEnforced: false, recorded: true }));
+    const res = await postConsultationJoin("enc-1", "audio_only");
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe(`${API_BASE_URL}/api/mobile/consultations/join`);
+    expect(init.headers.Authorization).toBe("Bearer jwt-abc");
+    expect(JSON.parse(init.body)).toEqual({ encounterId: "enc-1", media: "audio_only" });
+    expect(res.ok && res.data.ok).toBe(true);
+  });
+
+  it("posts only the encounter to the dial-in route", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { ok: false, reason: "not_open" }));
+    const res = await postConsultationDialIn("enc-1");
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe(`${API_BASE_URL}/api/mobile/consultations/dial-in`);
+    expect(JSON.parse(init.body)).toEqual({ encounterId: "enc-1" });
+    expect(res).toEqual({ ok: true, data: { ok: false, reason: "not_open" } });
+  });
+
+  it("does not retry a join or a dial-in blind after a timeout (a second link, a second 'asked' event)", async () => {
+    mockFetch.mockRejectedValue(new TypeError("Network request failed"));
+    await postConsultationJoin("enc-1", "video");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    mockFetch.mockClear();
+    await postConsultationDialIn("enc-1");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells an unreachable server (offline) from a server that answered with a failure", async () => {
+    mockFetch.mockRejectedValue(new TypeError("Network request failed"));
+    await expect(postConsultationJoin("enc-1", "video")).resolves.toEqual({ ok: false, offline: true });
+    mockFetch.mockReset();
+    // Even a 503 is just "failed, not offline": the app never reads it as "the vendor is not set up".
+    mockFetch.mockResolvedValue(jsonResponse(503, { ok: false, reason: "provider" }));
+    await expect(postConsultationJoin("enc-1", "video")).resolves.toEqual({ ok: false, offline: false });
+    // Any other failure (a server hiccup) is neither offline nor anything else: worth trying again.
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue(jsonResponse(500, {}));
+    await expect(postConsultationDialIn("enc-1")).resolves.toEqual({ ok: false, offline: false });
   });
 });

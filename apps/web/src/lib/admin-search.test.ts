@@ -67,10 +67,14 @@ describe("the real admin menus", () => {
   it("finds the hand-granted Membership page (every console page needs a search entry)", () => {
     expect(top("membership")).toContain("/admin/memberships");
     expect(top("grant")).toContain("/admin/memberships");
-    expect(top("membership")).toContain("/admin/members");
     expect(top("catalogue")).toContain("/admin/catalogue");
     expect(top("price list")).toContain("/admin/catalogue");
-    expect(top("grant")).toContain("/admin/members");
+  });
+
+  it("finds the fees and earnings page (every console page needs a search entry)", () => {
+    expect(top("fee schedule")).toContain("/admin/earnings");
+    expect(top("payout")).toContain("/admin/earnings");
+    expect(top("adjustment")).toContain("/admin/earnings");
   });
 
   it("indexes a useful number of pages with no path twice", () => {
@@ -148,6 +152,15 @@ describe("task types are searchable (S16)", () => {
   });
 });
 
+describe("titration protocols are searchable (S24b)", () => {
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  it("finds the page by its words", () => {
+    for (const q of ["titration", "step table", "approve protocol", "hypertension", "blood pressure protocol", "protocol"]) {
+      expect(searchAdminEntries(cmoIndex, q, 10).map((e) => e.href)).toContain("/clinician/titration-protocols");
+    }
+  });
+});
+
 describe("the rota and lead clinicians are searchable (S18)", () => {
   const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
   const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
@@ -163,6 +176,7 @@ describe("the rota and lead clinicians are searchable (S18)", () => {
   it("a clinician finds their own hours page", () => {
     const clinicianIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], []);
     expect(hit(clinicianIndex, "declare hours")).toContain("/clinician/rota");
+    expect(hit(clinicianIndex, "my earnings")).toContain("/clinician/earnings");
   });
 });
 
