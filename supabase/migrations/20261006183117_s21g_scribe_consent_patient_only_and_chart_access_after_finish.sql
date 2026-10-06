@@ -21,31 +21,17 @@ update public.consultation_policy_config set is_active = false where version = 1
 insert into public.consultation_policy_config (version, is_active, config, note)
 select 2, true, config || $json${"chartAccessAfterFinishMaxHours":72}$json$::jsonb,
        'S21 PROPOSED v2: v1 plus chartAccessAfterFinishMaxHours (OQ-159, founder 2026-10-06: until a signed note exists, capped at 72 hours).'
-  from public.consultation_policy_config where version = 1
-on conflict (version) do nothing;
+  from public.consultation_policy_config where version = 1;
 -- policy-v2-additions-end
 
 -- ---------------------------------------------------------------------------
 -- 2. OQ-161: a granted scribe consent needs the patient's own in-app answer
 -- ---------------------------------------------------------------------------
--- S23's tables are live on production but their migration files are on PR 936's branch, not yet on main-dev. A fresh replay of main-dev
--- therefore has no scribe tables when this file runs, and applies nothing here (a notice says so). Once S23 merges, its files (versions
--- 20261006112016 and later, all before this one) run first and this block applies in full.
-do $s21g$
-begin
-  if to_regclass('public.scribe_consents') is null or to_regclass('public.scribe_transcripts') is null then
-    raise notice 'S21g: the S23 scribe tables are not present; the patient-answer rule for scribe consent is not applied in this database';
-    return;
-  end if;
-
-  execute $ddl$
 alter table public.scribe_consents add column encounter_id uuid references public.encounters (id) on delete restrict;
 create index scribe_consents_encounter_idx on public.scribe_consents (encounter_id) where encounter_id is not null;
 comment on column public.scribe_consents.encounter_id is
   'S21 (OQ-161): the consultation the patient allowed the AI note-taker for. Stamped by trigger from the patient''s own in-app answer; a granted row cannot exist without it.';
-  $ddl$;
 
-  execute $ddl$
 create function private.require_patient_scribe_answer() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
@@ -61,7 +47,8 @@ begin
        and (
          new.encounter_note_id is null
          or exists (select 1 from public.clinical_encounter_notes n
-                     where n.id = new.encounter_note_id and n.video_consultation_id is not distinct from e.video_consultation_id)
+                     where n.id = new.encounter_note_id and n.patient_id = new.patient_id
+                       and n.video_consultation_id is not null and n.video_consultation_id = e.video_consultation_id)
        )
      order by e.scheduled_at desc nulls last
      limit 1;
@@ -74,15 +61,11 @@ begin
 end;
 $$;
 revoke all on function private.require_patient_scribe_answer() from public, anon, authenticated;
-  $ddl$;
 
-  execute $ddl$
 -- named to sort after scribe_consents_attribution, which stamps the clinician first
 create trigger scribe_consents_require_patient_answer before insert on public.scribe_consents
   for each row execute function private.require_patient_scribe_answer();
-  $ddl$;
 
-  execute $ddl$
 -- the patient's withdrawal revokes the audit rows and removes the transcript, whoever is on the screen
 create function private.revoke_scribe_on_patient_withdrawal() returns trigger
 language plpgsql security definer set search_path = ''
@@ -97,15 +80,10 @@ begin
   return new;
 end;
 $$;
-  $ddl$;
 
-  execute $ddl$
 revoke all on function private.revoke_scribe_on_patient_withdrawal() from public, anon, authenticated;
 create trigger consultation_scribe_consents_revoke_on_withdrawal after update of granted on public.consultation_scribe_consents
   for each row execute function private.revoke_scribe_on_patient_withdrawal();
-  $ddl$;
-
-end $s21g$;
 
 -- ---------------------------------------------------------------------------
 -- 3. OQ-159: chart access after Finish, until a signed note exists, capped
@@ -159,11 +137,14 @@ as $function$
            and en.clinician_id = (select auth.uid())
            and en.status = 'completed'
            and en.ended_at >= now() - make_interval(hours => coalesce((private.consult_policy() ->> 'chartAccessAfterFinishMaxHours')::integer, 0))
+           -- an encounter with no link to a note (neither a video consultation nor an async consult) gets no access here: nothing could end it
+           and (en.video_consultation_id is not null or en.async_consult_id is not null)
            and not exists (
                  select 1 from public.clinical_encounter_notes n
                   where n.patient_id = en.patient_id
-                    and n.video_consultation_id = en.video_consultation_id
                     and n.status = 'finalized'
+                    and ((n.video_consultation_id is not null and n.video_consultation_id = en.video_consultation_id)
+                      or (n.async_consult_id is not null and n.async_consult_id = en.async_consult_id))
                )
       )
       -- a video consultation I started or am due to host that has not ended
@@ -207,16 +188,15 @@ begin
      or not exists (select 1 from public.consultation_policy_config where is_active and version = 2 and config ? 'chartAccessAfterFinishMaxHours') then
     raise exception 'S21g: policy v2 must be the one active policy and carry the chart access cap';
   end if;
-  if to_regclass('public.scribe_consents') is not null and to_regclass('public.scribe_transcripts') is not null then
-    if has_function_privilege('anon', 'private.require_patient_scribe_answer()', 'EXECUTE')
-       or has_function_privilege('authenticated', 'private.require_patient_scribe_answer()', 'EXECUTE')
-       or has_function_privilege('anon', 'private.revoke_scribe_on_patient_withdrawal()', 'EXECUTE')
-       or has_function_privilege('authenticated', 'private.revoke_scribe_on_patient_withdrawal()', 'EXECUTE') then
-      raise exception 'S21g: a trigger function is executable by a signed-in or anonymous user';
-    end if;
-    if not exists (select 1 from pg_trigger where tgrelid = 'public.scribe_consents'::regclass and tgname = 'scribe_consents_require_patient_answer') then
-      raise exception 'S21g: the patient-answer trigger is missing';
-    end if;
+  if has_function_privilege('anon', 'private.require_patient_scribe_answer()', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.require_patient_scribe_answer()', 'EXECUTE')
+     or has_function_privilege('anon', 'private.revoke_scribe_on_patient_withdrawal()', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.revoke_scribe_on_patient_withdrawal()', 'EXECUTE') then
+    raise exception 'S21g: a trigger function is executable by a signed-in or anonymous user';
+  end if;
+  if not exists (select 1 from pg_trigger where tgrelid = 'public.scribe_consents'::regclass and tgname = 'scribe_consents_require_patient_answer')
+     or not exists (select 1 from pg_trigger where tgrelid = 'public.consultation_scribe_consents'::regclass and tgname = 'consultation_scribe_consents_revoke_on_withdrawal') then
+    raise exception 'S21g: the scribe consent triggers are missing';
   end if;
   if has_function_privilege('anon', 'private.clinician_has_patient_access(uuid)', 'EXECUTE') then
     raise exception 'S21g: anon can execute clinician_has_patient_access';

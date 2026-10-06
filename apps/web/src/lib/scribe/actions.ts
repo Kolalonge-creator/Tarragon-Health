@@ -30,8 +30,10 @@ export async function recordScribeConsent(input: z.input<typeof RecordConsentSch
     .select("id")
     .single();
 
-  if (error) throw new Error(error.message);
-  return data;
+  // A result, not a thrown error: Next redacts the message of anything a Server Action throws in production, so the screen could not
+  // tell "the patient has not allowed it in the app" (S21g, OQ-161: the database refuses, SQLSTATE 42501) from any other failure.
+  if (error) return { ok: false as const, reason: error.code === "42501" ? ("not_allowed" as const) : ("failed" as const) };
+  return { ok: true as const, id: data.id };
 }
 
 export async function revokeScribeConsent(consentId: string) {

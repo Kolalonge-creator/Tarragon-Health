@@ -106,7 +106,7 @@ declare
   v_admin uuid; v_docA uuid; v_docB uuid; v_adult uuid; v_adult2 uuid;
   v_cr1 uuid; v_a1 uuid; v_e1 uuid; v_vc uuid; v_consent uuid; v_note uuid;
   v_start timestamptz := date_trunc('hour', now()) + interval '3 days' + interval '9 hours';
-  v_res text; v_has_scribe boolean := to_regclass('public.scribe_consents') is not null and to_regclass('public.scribe_transcripts') is not null;
+  v_res text;
   v_caught integer;
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
@@ -135,7 +135,7 @@ begin
   perform pg_temp.join_as(v_e1, 'clinician');
 
   -- 2. Scribe consent -----------------------------------------------------------------------------------------
-  if v_has_scribe then
+  begin
     perform pg_temp.act(v_docA);
     perform pg_temp.rec('a clinician cannot create a granted consent when the patient has not answered', '42501',
       pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language) values (%L, true, ''en-NG'')', v_adult)));
@@ -165,9 +165,7 @@ begin
     perform pg_temp.rec('the patient''s withdrawal revokes the consent row', 'true',
       (select (revoked_at is not null)::text from public.scribe_consents where id = v_consent));
     perform pg_temp.rec('...and deletes its transcript', '0', (select count(*)::text from public.scribe_transcripts where scribe_consent_id = v_consent));
-  else
-    perform pg_temp.rec('the S23 scribe tables are not in this database, so the scribe checks are skipped', 'skipped', 'skipped');
-  end if;
+  end;
 
   -- 3. Chart access after Finish ------------------------------------------------------------------------------
   perform pg_temp.act(v_docA);
@@ -189,6 +187,12 @@ begin
   perform pg_temp.act(v_docA);
   perform pg_temp.rec('inside the cap it is back', 'true', private.clinician_has_patient_access(v_adult)::text);
   perform pg_temp.back();
+  -- an encounter that links to no consultation and no async consult cannot be ended by a note, so it grants no access at all
+  update public.encounters set video_consultation_id = null where id = v_e1;
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('an encounter with no link to a note grants no after-Finish access', 'false', private.clinician_has_patient_access(v_adult)::text);
+  perform pg_temp.back();
+  update public.encounters set video_consultation_id = v_vc where id = v_e1;
   -- the note is written by the server (the table has no direct insert policy) and signed by the clinician
   perform set_config('app.trusted_clinical_staff_author', (select id::text from public.clinical_staff where profile_id = v_docA), true);
   insert into public.clinical_encounter_notes (organisation_id, patient_id, video_consultation_id, encounter_type, reason_for_encounter, status, is_test)
@@ -201,13 +205,13 @@ begin
   perform pg_temp.back();
 
   -- 4. SABOTAGE -----------------------------------------------------------------------------------------------
-  if v_has_scribe then
+  begin
     drop trigger scribe_consents_require_patient_answer on public.scribe_consents;
     perform pg_temp.act(v_docA);
     insert into results values ('sabotaged', 'a clinician cannot create a granted consent when the patient has not answered', '42501',
       pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language) values (%L, true, ''en-NG'')', v_adult2)));
     perform pg_temp.back();
-  end if;
+  end;
   update public.encounters set started_at = now() - interval '3 hours', ended_at = now() - interval '2 hours' where id = v_e1;
   delete from public.clinical_encounter_notes where id = v_note;
   execute $old$
@@ -293,7 +297,7 @@ $function$
   perform pg_temp.back();
 
   select count(*) into v_caught from results s where s.phase = 'sabotaged' and s.expected <> s.actual;
-  if v_caught < (case when v_has_scribe then 2 else 1 end) then
+  if v_caught < 2 then
     raise exception 'VACUOUS TEST: expected every sabotage run to change a check, only % did (unchanged: %)', v_caught,
       (select string_agg(check_name || ' => ' || coalesce(actual, 'null'), '; ') from results where phase = 'sabotaged' and expected = actual);
   end if;

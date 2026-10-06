@@ -852,7 +852,7 @@ export const pcm: Record<MessageKey, string> = {
   "consult.room.waiting_patient": "We dey wait make di patient join.",
   "consult.room.connected_patient": "Di patient don join.",
   "consult.room.call_both_hint": "If network bad, you or di patient fit join di same call with normal phone call. E no need data. Di patient fit show for your waiting room as phone number: let am enter.",
-  "consult.room.finish_hint": "Write your note and prescribe before you finish. After you finish, you go still get dis record until your note sign, for up to 72 hours, unless di patient dey your care list.",
+  "consult.room.finish_hint": "Write your note and prescribe before you finish. After you finish, you go still get dis record until your note sign, for up to {hours} hours, unless di patient dey your care list.",
   "consult.room.title": "Your consultation",
   "consult.room.when": "E go start {when}",
   "consult.room.not_open": "Di room go open {when}. Abeg come back dat time.",

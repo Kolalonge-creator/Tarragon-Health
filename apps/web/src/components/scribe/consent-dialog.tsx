@@ -37,10 +37,10 @@ export function ScribeConsentDialog({
     startTransition(async () => {
       try {
         const result = await recordScribeConsent({ patientId, encounterNoteId, granted: true, language });
-        onConsented(result.id);
-      } catch (err) {
-        const refused = err instanceof Error && /has not allowed/i.test(err.message);
-        setError(refused ? t("scribe.consent.not_allowed", locale) : t("scribe.consent.start_failed", locale));
+        if (result.ok) onConsented(result.id);
+        else setError(result.reason === "not_allowed" ? t("scribe.consent.not_allowed", locale) : t("scribe.consent.start_failed", locale));
+      } catch {
+        setError(t("scribe.consent.start_failed", locale));
       }
     });
   }
