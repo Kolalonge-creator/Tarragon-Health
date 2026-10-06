@@ -11,7 +11,6 @@ import { planBpLog, type BpLogInput } from "./bp-checklist";
 import { logBpWithExtras, type TriageEvaluator } from "./bp-log";
 import { discardRejectedRow, flushOutbox, listOutbox } from "./outbox";
 import {
-  AUDIO_PLACEHOLDER_PREFIX,
   CONTEXT_BUDGET_MS,
   clearPendingRecheck,
   gradeOnDevice,
@@ -113,11 +112,11 @@ describe("safety case 1: offline red reading shows guidance on the device within
     expect(triage.severity).toBe("emergency");
   });
 
-  it("a crisis reading with no symptoms is red too (BP-R2), with the emergency text and a placeholder clip", async () => {
+  it("a crisis reading with no symptoms is red too (BP-R2), with the emergency text and its audio clip", async () => {
     const triage = await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], nowMs: NOW });
     expect(triage.result).toMatchObject({ grade: "red", ruleId: "BP-R2" });
     expect(triage.message).toEqual({ title: "triage.emg_001.title", body: "triage.emg_001.body" });
-    expect(triage.audioId).toBe(`${AUDIO_PLACEHOLDER_PREFIX}EMG-001`);
+    expect(triage.audioId).toBe("EMG-001");
   });
 
   it("a low reading with fainting uses the low pressure variant", async () => {
@@ -268,8 +267,9 @@ describe("history and the rule set on the phone", () => {
     expect(await loadDeviceRuleSet()).toMatchObject({ status: "draft" });
   });
 
-  it("placeholder audio ids carry the clip code, and null stays null", () => {
-    expect(triageAudioId("TRI-001")).toBe("audio-pending:TRI-001");
+  it("audio ids are manifest clip ids; a code with no recording and null both give none", () => {
+    expect(triageAudioId("TRI-001")).toBe("TRI-001");
+    expect(triageAudioId("EMG-001L")).toBeNull(); // the Audio Production List has no low-pressure clip (OQ-202)
     expect(triageAudioId(null)).toBeNull();
   });
 });
