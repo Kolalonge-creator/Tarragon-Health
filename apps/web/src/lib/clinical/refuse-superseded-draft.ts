@@ -12,6 +12,16 @@ export type VersionedGovernedTable =
   | "vaccination_schedule_signoffs"
   | "result_release_policies";
 
+/**
+ * True for an unsigned-or-not draft that is OLDER than the live version: the one
+ * kind of version that must never be offered for signing. The managers use it to
+ * hide Sign; refuseSupersededDraft uses it to refuse server-side. One definition,
+ * so what the page offers and what the action accepts cannot disagree.
+ */
+export function isSupersededVersion(row: { version: number; is_active: boolean }, liveVersion: number | null | undefined): boolean {
+  return !row.is_active && liveVersion != null && row.version < liveVersion;
+}
+
 const COULD_NOT_CHECK =
   "This version could not be checked against the live one, so it was not signed. Reload and try again.";
 
@@ -52,7 +62,7 @@ export async function refuseSupersededDraft(
   if (activeError) return COULD_NOT_CHECK;
   const live = active as { version: number } | null;
 
-  if (live && row.version < live.version) {
+  if (live && isSupersededVersion(row, live.version)) {
     return `Version ${row.version} is older than the live version ${live.version}. Signing it would put the platform back on an older configuration, so it was not signed. Draft a new version instead.`;
   }
   return null;

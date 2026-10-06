@@ -13,6 +13,7 @@ import {
   type CreateEscalationSlaDraftState,
   type SignEscalationSlasState,
 } from "./actions";
+import { isSupersededVersion } from "@/lib/clinical/refuse-superseded-draft";
 
 type EscalationSlaEntry = {
   pathway: string;
@@ -296,7 +297,13 @@ export function EscalationSlasManager({
                     Drafted {new Date(v.created_at).toLocaleString("en-GB")} ·{" "}
                     {Array.isArray(v.config) ? v.config.length : 0} entries
                   </p>
-                  {!v.is_active && (
+                  {isSupersededVersion(v, activeVersion?.version) && (
+                    <p className="text-xs text-charcoal-ink/50">
+                      Superseded: a newer version is live, so this draft can no longer be signed. To change
+                      anything, draft a new version.
+                    </p>
+                  )}
+                  {!v.is_active && !isSupersededVersion(v, activeVersion?.version) && (
                     <>
                       <p className="text-xs text-charcoal-ink/60">
                         Signing requires an active Clinical Director account and brings this version

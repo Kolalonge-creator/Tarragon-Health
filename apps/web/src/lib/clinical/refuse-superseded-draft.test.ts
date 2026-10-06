@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import { refuseSupersededDraft } from "./refuse-superseded-draft";
+import { isSupersededVersion, refuseSupersededDraft } from "./refuse-superseded-draft";
 
 type Answer = { data: unknown; error: unknown };
 
@@ -58,5 +58,18 @@ describe("refuseSupersededDraft", () => {
     expect(
       await refuseSupersededDraft(client(ok({ version: 9, is_active: false }), { data: null, error: { message: "boom" } }), "alert_rules", "x")
     ).toContain("could not be checked");
+  });
+});
+
+describe("isSupersededVersion (what the managers use to hide Sign)", () => {
+  it("is true only for a non-live version older than the live one", () => {
+    expect(isSupersededVersion({ version: 3, is_active: false }, 8)).toBe(true);
+    expect(isSupersededVersion({ version: 8, is_active: true }, 8)).toBe(false);
+    expect(isSupersededVersion({ version: 9, is_active: false }, 8)).toBe(false);
+  });
+
+  it("is false when nothing is live, so a first version can still be signed", () => {
+    expect(isSupersededVersion({ version: 1, is_active: false }, null)).toBe(false);
+    expect(isSupersededVersion({ version: 1, is_active: false }, undefined)).toBe(false);
   });
 });
