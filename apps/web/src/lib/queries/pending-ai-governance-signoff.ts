@@ -17,8 +17,9 @@ export type PendingAiGovernanceSignoff = {
  * Officer can close — an `ai_system_versions` row awaiting
  * `approve_ai_system_version`, or an `ai_evaluation_cases` clinical-accuracy
  * scenario awaiting `label_ai_evaluation_case_tier` — shared by the admin
- * welcome banner and the clinician-reachable equivalent so the two counts
- * can never drift apart.
+ * welcome banner and the Chief Medical Officer's sign-off hub (readCmoSigningHub,
+ * which also drives the banner every page shows them) so the counts can never
+ * drift apart.
  *
  * Extracted from admin/page.tsx's pre-existing inline queries (no behaviour
  * change there). Before this, the only place either count was ever surfaced
