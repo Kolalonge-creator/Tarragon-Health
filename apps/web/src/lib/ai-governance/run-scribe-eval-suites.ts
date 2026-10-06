@@ -16,6 +16,7 @@
 import { generateScribeNote, type ScribeNoteResult } from "../scribe/note-draft";
 import { createServiceRoleClient } from "../supabase/service-role";
 import { SCRIBE_FIXTURES } from "./scribe-eval-fixtures";
+import { runScribeFactsSuite } from "./run-scribe-facts-eval";
 import type { EvalSuite, EvalSuiteCase, EvalSuiteResult, EvalCaseOutcome } from "./run-coach-eval-suites";
 
 const SUITE_NAME = "AI-017 scribe draft golden transcripts";
@@ -269,6 +270,13 @@ export async function runAiScribeEvalSuites(options?: {
     const baselineResult = scoreScribeBaselineSuite(baseline, rawByCase);
     await options?.onSuiteComplete?.(baselineResult, { aiSystemId });
     suites.push(baselineResult);
+  }
+
+  // The facts-to-confirm stages (S35c). Absent until its migration is applied, which is not an error.
+  const facts = await runScribeFactsSuite();
+  if (facts) {
+    await options?.onSuiteComplete?.(facts.result, { aiSystemId: facts.aiSystemId });
+    suites.push(facts.result);
   }
   return { aiSystemId, suites };
 }

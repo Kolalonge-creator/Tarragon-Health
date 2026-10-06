@@ -11,7 +11,7 @@ export interface ScribeFixture {
   readonly source?: "stt" | "typed";
 }
 
-const HYPERTENSION_VISIT = [
+export const HYPERTENSION_VISIT = [
   "[00:00] CLINICIAN: Good morning. What brings you in today?",
   "[00:05] PATIENT: I have had headaches for two weeks, mostly in the evening. My BP at the pharmacy was 168 over 100.",
   "[00:20] CLINICIAN: Any chest pain, blurred vision or weakness?",
