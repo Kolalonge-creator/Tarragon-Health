@@ -148,11 +148,14 @@ end;
 $$;
 revoke all on function private.guard_lead_write() from public, anon, authenticated;
 
--- S15's credential_notify_reviewers forces payload.audience to 'reviewer', which links to the credentialing pages. S18 notices to
--- reviewers must land on the rota, so this sends the same notice to the same people (active admins and the chief medical officer)
--- with its own audience (rota_review, which the app routes through the /rota doorway).
-create function private.rota_notify_reviewers(p_org uuid, p_subject text, p_message text) returns void
-language plpgsql security definer set search_path = ''
+-- S15's credential_notify_reviewers forced payload.audience to 'reviewer' (which links to the credentialing pages) and sent to the
+-- admins and chief medical officer of every organisation. It now takes the audience as a defaulted fifth argument (existing four
+-- argument calls are unchanged and still get 'reviewer') and only reaches the given organisation. S18 notices pass 'rota_review',
+-- which the app routes through the /rota doorway. The old four argument signature is dropped so a four argument call cannot be
+-- ambiguous between two overloads.
+drop function private.credential_notify_reviewers(uuid, text, text, jsonb);
+create function private.credential_notify_reviewers(p_org uuid, p_subject text, p_message text, p_payload jsonb, p_audience text default 'reviewer')
+returns void language plpgsql security definer set search_path = ''
 as $$
 declare r record;
 begin
@@ -161,11 +164,11 @@ begin
     union
     select cs.profile_id from public.clinical_staff cs where cs.organisation_id = p_org and cs.profile_id is not null and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer'
   loop
-    perform private.credential_notify(r.id, p_org, p_subject, p_message, jsonb_build_object('audience', 'rota_review'), false);
+    perform private.credential_notify(r.id, p_org, p_subject, p_message, coalesce(p_payload, '{}'::jsonb) || jsonb_build_object('audience', p_audience), false);
   end loop;
 end;
 $$;
-revoke all on function private.rota_notify_reviewers(uuid, text, text) from public, anon, authenticated;
+revoke all on function private.credential_notify_reviewers(uuid, text, text, jsonb, text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 4. Tables
@@ -661,7 +664,7 @@ begin
     insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
     values (p_org, 'clinical', (case when v_now > 0 then 'sev1' else 'sev2' end)::public.ops_incident_severity, 'On-call rota has uncovered or thin hours',
             'On-call cover problem in the next ' || v_hours || ' hours: ' || v_summary, v_ref, now(), now());
-    perform private.rota_notify_reviewers(p_org, 'On-call cover gap', 'Some upcoming hours have no on-call cover or no working backup. Open the rota to fix it.');
+    perform private.credential_notify_reviewers(p_org, 'On-call cover gap', 'Some upcoming hours have no on-call cover or no working backup. Open the rota to fix it.', '{}'::jsonb, 'rota_review');
   end if;
   perform private.emit_domain_event('rota.gap_detected', p_org, jsonb_build_object('gap_count', v_n),
     'rota.gap_detected:' || p_org || ':' || to_char(date_trunc('hour', now()), 'YYYYMMDDHH24'), null, null, null, 'urgent');
@@ -784,11 +787,11 @@ begin
     perform private.credential_audit(r.organisation_id, s.to_clinician, 'rota.swap_urgent', 'rota_swap', s.id,
       jsonb_build_object('rota_id', r.id, 'role', s.role, 'from', s.from_clinician, 'to', s.to_clinician, 'warnings', '[]'::jsonb));
     perform private.emit_domain_event('rota.changed', r.organisation_id, jsonb_build_object('change', 'swap', 'rota_id', r.id), 'rota.changed:' || s.id || ':swap');
-    perform private.rota_notify_reviewers(r.organisation_id, 'Urgent rota cover taken', 'An on-call shift starting soon was covered by a colleague without waiting for approval. Please check it.');
+    perform private.credential_notify_reviewers(r.organisation_id, 'Urgent rota cover taken', 'An on-call shift starting soon was covered by a colleague without waiting for approval. Please check it.', '{}'::jsonb, 'rota_review');
     perform private.credential_notify(s.from_clinician, r.organisation_id, 'Your shift is covered', 'A colleague has taken your on-call shift. You are no longer on call for it.', jsonb_build_object('audience', 'rota'), true);
     perform private.rota_gap_alert(r.organisation_id);
   else
-    perform private.rota_notify_reviewers(s.organisation_id, 'Rota swap to approve', 'A rota swap was accepted and needs approval.');
+    perform private.credential_notify_reviewers(s.organisation_id, 'Rota swap to approve', 'A rota swap was accepted and needs approval.', '{}'::jsonb, 'rota_review');
   end if;
 end;
 $$;
@@ -971,7 +974,7 @@ begin
     insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
     values (p_org, 'clinical', 'sev2', 'Patients without a lead clinician',
             format('%s patient(s) have no eligible lead clinician. Add lead-capable clinicians or free capacity.', v_n), v_ref, now(), now());
-    perform private.rota_notify_reviewers(p_org, 'Patients without a lead clinician', 'Some care pack patients have no lead clinician. Open the lead overview.');
+    perform private.credential_notify_reviewers(p_org, 'Patients without a lead clinician', 'Some care pack patients have no lead clinician. Open the lead overview.', '{}'::jsonb, 'rota_review');
   end if;
   perform private.emit_domain_event('lead.unassigned', p_org, jsonb_build_object('patient_id', null, 'count', v_n),
     'lead.unassigned:' || p_org || ':' || to_char(date_trunc('hour', now()), 'YYYYMMDDHH24'), null, null, null, 'urgent');

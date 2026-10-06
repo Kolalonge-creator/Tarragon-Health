@@ -250,6 +250,11 @@ begin
   perform pg_temp.rec('urgent cover applies on acceptance without waiting for a reviewer', v_e::text || ',approved', (select r.primary_clinician_id::text || ',' || s.state::text from public.on_call_rota r join public.rota_swaps s on s.rota_id = r.id where s.id = v_swap));
   perform pg_temp.rec('an urgent swap is audited', '1', (select count(*)::text from public.audit_log where action = 'rota.swap_urgent' and entity_id = v_swap));
   perform pg_temp.rec('the reviewers are told straight away', 'true', (select (count(*) >= 1)::text from public.notifications where recipient_id = v_cmo and template = 'credential_notice' and payload ->> 'audience' = 'rota_review' and payload ->> 'subject' = 'Urgent rota cover taken'));
+  -- S15's four argument calls keep the credentialing audience, and a notice only reaches the organisation it names
+  perform private.credential_notify_reviewers(v_org, 'Default audience probe', 'probe', '{}'::jsonb);
+  perform pg_temp.rec('a four argument reviewer call still carries the reviewer audience', 'true', (select (count(*) >= 1)::text from public.notifications where recipient_id = v_cmo and payload ->> 'subject' = 'Default audience probe' and payload ->> 'audience' = 'reviewer'));
+  perform private.credential_notify_reviewers(gen_random_uuid(), 'Other org probe', 'probe', '{}'::jsonb, 'rota_review');
+  perform pg_temp.rec('a reviewer notice for another organisation does not reach this one', '0', (select count(*)::text from public.notifications where payload ->> 'subject' = 'Other org probe'));
   perform pg_temp.rec('the clinician who handed it over is told', '1', (select count(*)::text from public.notifications where recipient_id = v_a and payload ->> 'subject' = 'Your shift is covered' and channel = 'in_app'));
   -- an urgent swap that would break a fatigue limit (v_d is primary on a shift within 11 hours) is not waved through
   perform set_config('tarragon.lead_write', 'on', true);
