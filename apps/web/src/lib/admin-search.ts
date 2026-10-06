@@ -35,6 +35,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/rota", "on call oncall rota roster shift schedule cover gap backup primary swap availability hours lead clinician leads capacity patients waiting assign reassign conflict of interest page paged priority case red event unacknowledged escalation"],
   ["/clinician/team-rota", "on call oncall rota roster shift schedule cover gap backup primary swap availability hours lead clinician leads capacity patients waiting assign reassign conflict of interest page paged priority case red event unacknowledged escalation"],
   ["/clinician/rota", "my hours on call rota shift cover swap availability declare"],
+  ["/admin/go-live", "go live golive guard guards switch on off launch enable disable clinical operations consultations scribe prescribing payouts lab booking signup sign-up sign up cover proposed values config configuration confirm confirmation owner sign-off signoff founder cmo"],
+  ["/clinician/go-live", "go live golive guard guards switch on off launch enable disable clinical operations consultations scribe prescribing payouts lab booking signup sign-up sign up cover proposed values config configuration confirm confirmation owner sign-off signoff founder cmo"],
   ["/admin/earnings", "fee fees schedule earnings earned pay paid payout ledger contracted clinician per task consultation share on call shift lead month minimum guarantee adjustment correction statement salary kobo naira"],
   ["/clinician/earnings", "my earnings earned pay paid statement ledger fee schedule per task consultation on call shift lead month minimum top up correction"],
   ["/clinician/on-call", "on call page paged priority case red event acknowledge alarm escalation"],
