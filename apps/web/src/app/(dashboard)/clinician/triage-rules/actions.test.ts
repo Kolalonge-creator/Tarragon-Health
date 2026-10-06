@@ -40,7 +40,7 @@ async function run(fields: Record<string, string | null>): Promise<string> {
 }
 
 describe("approveRuleSetAction", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); });
 
   it("signs when the box is ticked and the word is SIGN", async () => {
     const url = await run({ id: "5b2f3c52-6f29-4d1a-8f3e-1a2b3c4d5e6f", understood: "on", typed: "SIGN" });
