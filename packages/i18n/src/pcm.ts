@@ -798,4 +798,11 @@ export const pcm: Record<MessageKey, string> = {
   "notif.diag.open_settings": "Open phone settings",
   "notif.diag.check_again": "Check again",
   "notif.diag.not_sure_maker": "You no sure which phone be this, or you dey use Tecno, Infinix or Itel? Try this one too:",
+
+  // S14: checkout fee lines. Pidgin needs a native reviewer (OQ-74 pattern).
+  "pay.fee.price": "Price",
+  "pay.fee.line": "Payment fee",
+  "pay.fee.total": "Total wey you go pay",
+  "pay.fee.explain": "Na our payment partner, Paystack, dey collect this small fee for handling your card or bank payment. Tarragon Health no dey keep am. We add am for checkout so di price of your care no go change.",
+  "pay.fee.international": "Card wey dem issue outside Nigeria dey cost small more to handle, so di fee fit high pass.",
 };
