@@ -126,3 +126,15 @@ describe("searchAdminEntries", () => {
     expect(searchAdminEntries(tie, "page").map((e) => e.href)).toEqual(["/a", "/b"]);
   });
 });
+
+describe("task types are searchable (S16)", () => {
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("finds the task types page by the code, its words or its name, for the admin and for the CMO", () => {
+    for (const q of ["adherence_follow_up", "adherence follow up", "task types", "priority queue", "silence check"]) {
+      expect(hit(index, q)).toContain("/admin/task-types");
+      expect(hit(cmoIndex, q)).toContain("/clinician/task-types");
+    }
+  });
+});

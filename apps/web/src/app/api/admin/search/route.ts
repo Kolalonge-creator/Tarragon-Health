@@ -7,6 +7,7 @@ import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { rpcParsed } from "@/lib/credentialing/rpc";
 import { queueSchema } from "@/lib/credentialing/schemas";
 import { APPLICATION_STATE_LABEL } from "@/lib/credentialing/labels";
+import { TASK_TYPE_LABEL, taskTypeSearchWords } from "@/lib/queue/task-types";
 
 /**
  * The people half of the search box (the pages half runs in the browser). For the admin and the Chief Medical
@@ -70,6 +71,12 @@ export async function GET(request: Request): Promise<Response> {
       group: "Clinician applications",
       hint: [APPLICATION_STATE_LABEL[a.state] ?? a.state, a.mdcn_folio ? `MDCN ${a.mdcn_folio}` : null].filter(Boolean).join(" · "),
     });
+  }
+
+  // Task types are a short, fixed list (S16), matched by code or plain name so "adherence_follow_up" or "adherence" finds it.
+  const taskBase = isAdmin ? "/admin/task-types" : "/clinician/task-types";
+  for (const code of Object.keys(TASK_TYPE_LABEL).filter((c) => taskTypeSearchWords(c).toLowerCase().includes(needle)).slice(0, 4)) {
+    results.push({ label: TASK_TYPE_LABEL[code] ?? code, href: `${taskBase}#${code}`, group: "Task types", hint: code });
   }
 
   if (isAdmin) {
