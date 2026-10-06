@@ -38,6 +38,7 @@
 //     the subscription.create enrichment above).
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { handleOrderCharge, isOrderCharge, type DepsFactory } from "./order-branch.ts";
 
 // Mirrors apps/web/src/lib/billing/checkout-metadata.ts's CheckoutKind
 // (the canonical definition — checkout always writes metadata via that
@@ -416,6 +417,7 @@ export async function sha256Hex(input: string): Promise<string> {
 export async function handleWebhookRequest(
   req: Request,
   supabase: SupabaseClient,
+  orderDeps?: DepsFactory,
 ): Promise<Response> {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -438,6 +440,10 @@ export async function handleWebhookRequest(
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 200 });
   }
+
+  // S25: a v5 catalogue order is handled entirely in order-branch.ts, before anything is written to payment_transactions, so no
+  // legacy activation or finance trigger can see it. See that file for why this branch answers 500 where the rest answer 200.
+  if (isOrderCharge(event)) return await handleOrderCharge(rawBody, req.headers.get("x-paystack-signature"), supabase, orderDeps);
 
   const isRefundEvent = typeof event.event === "string" && event.event.startsWith("refund.");
 

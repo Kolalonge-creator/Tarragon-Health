@@ -39,6 +39,7 @@ import {
 } from "@/lib/care";
 import { PatientNotesSection } from "./patient-notes-section";
 import { WrittenQuestionsSection } from "./written-questions-section";
+import { MembershipSection } from "./membership-section";
 import { SecondOpinionSection } from "./second-opinion-section";
 import { SeniorCaseReviewSection } from "./senior-case-review-section";
 import { VerifiedDocumentsSection } from "./verified-documents-section";
@@ -136,6 +137,7 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit 
         organisationId={organisationId}
         onOpenVideoVisit={onOpenVideoVisit}
       />
+      <MembershipSection />
       <WrittenQuestionsSection />
       <PatientNotesSection />
       <SecondOpinionSection patientId={patientId} organisationId={organisationId} />

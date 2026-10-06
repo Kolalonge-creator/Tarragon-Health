@@ -41916,6 +41916,7 @@ export type Database = {
         Args: { p_broadcast_id: string }
         Returns: undefined
       }
+      admin_catalogue: { Args: never; Returns: Json };
       admin_create_institution_org: {
         Args: { p_name: string; p_type: string }
         Returns: string
@@ -41993,6 +41994,8 @@ export type Database = {
         Args: { p_bytes: number; p_consult: string; p_mime: string; p_path: string };
         Returns: string;
       };
+      cancel_order: { Args: { p_order: string }; Returns: boolean };
+      catalogue: { Args: never; Returns: Json };
       close_referral: {
         Args: { p_care_plan_update_note: string; p_referral: string }
         Returns: undefined
@@ -42016,6 +42019,10 @@ export type Database = {
       create_note_amendment: {
         Args: { p_kind: string; p_original: string; p_reason: string };
         Returns: string;
+      };
+      create_order: {
+        Args: { p_beneficiary?: string; p_client_key?: string; p_code: string };
+        Returns: Json;
       };
       create_specialist_referral: {
         Args: {
@@ -42131,6 +42138,8 @@ export type Database = {
       my_held_call_tasks: { Args: Record<PropertyKey, never>; Returns: Json };
       my_note_index: { Args: Record<PropertyKey, never>; Returns: Json };
       my_note_requests: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_membership: { Args: never; Returns: Json };
+      my_orders: { Args: never; Returns: Json };
       my_pending_auto_drafted_notes: {
         Args: never
         Returns: {
@@ -42173,6 +42182,7 @@ export type Database = {
           state: string
         }[]
       }
+      order_for_checkout: { Args: { p_reference: string }; Returns: Json };
       patient_record_counts_for_merge: {
         Args: { p_patient: string }
         Returns: Json
@@ -44518,6 +44528,20 @@ export type Database = {
           phone_masked: string
         }[]
       }
+      set_catalog_item_active: {
+        Args: { p_active: boolean; p_code: string; p_reason: string };
+        Returns: undefined;
+      };
+      set_item_price: {
+        Args: {
+          p_amount_kobo: number;
+          p_code: string;
+          p_components: Json;
+          p_reason: string;
+          p_valid_from?: string;
+        };
+        Returns: string;
+      };
       set_lab_order_location: {
         Args: { p_location_id: string | null; p_order_id: string }
         Returns: undefined
