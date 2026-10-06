@@ -361,6 +361,7 @@ export function getNavSections(
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+                { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
                 { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
               ],
@@ -588,6 +589,8 @@ export function getNavSections(
                 { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
                 // The go-live guards and the proposed values the CMO owns (S37). CMO only; the page redirects anyone below that tier.
                 { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
+                // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
+                { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
                 // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
                 { label: "Memberships", href: "/clinician/memberships", icon: "members" },
                 // The AI governance console's two CMO-only actions (approving
@@ -636,6 +639,7 @@ export function getNavSections(
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+                { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
               ],
             },
           ];
@@ -674,6 +678,7 @@ export function getNavSections(
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
@@ -757,6 +762,7 @@ export function getNavSections(
           items: [
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
         },
@@ -799,6 +805,7 @@ export function getNavSections(
           items: [
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
           ],
         },
         {
