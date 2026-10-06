@@ -59,6 +59,7 @@ const PIDGIN: Record<string, string> = {
   // ── Navigation: everyday band ──
   "Overview": "Home",
   "My actions": "Wetin you suppose do",
+  "Your month": "Your month",
   "Vitals & symptoms": "Your body readings",
   "Medications": "Your medicine",
   "Labs & results": "Test results",

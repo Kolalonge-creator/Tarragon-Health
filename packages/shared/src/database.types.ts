@@ -42764,6 +42764,11 @@ export type Database = {
     Functions: {
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
+      my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
+      override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };
+      risk_distribution_report: { Args: Record<PropertyKey, never>; Returns: Json };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       lab_partner_mark_collected: { Args: { p_order: string }; Returns: undefined };
       lab_partner_portal_orders: {

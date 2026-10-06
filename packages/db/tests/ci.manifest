@@ -867,3 +867,5 @@ s31_weekly_payouts.sql
 s38_outcome_snapshots_and_analytics.sql
 # S38 independent review: a second, separately written proof of the same migration with different fixtures (grace period, late sync, strict headline counting a person with too few readings, small-category withholding, late-arriving readings, safety case 22). Check 3b accepts only the append-only trigger's own error. Sabotage: the de-identified view rebuilt without the test filter, and the append-only trigger dropped; both checks must flip.
 s38_independent_review.sql
+# S38c: risk stratification (deterministic points with reasons, append-only, never readable by the patient, no spend/order/payment input) and the clinician worklist (INV-12 tie, INV-10 audit, override with reason and expiry, computed score untouched), the fairness report (small and complementary suppression, test account never counted), and the personal monthly report (grace days, written once, exact numbers, "not enough readings", own reports only, nothing about risk). Sabotage: the tie function forced open, and the monthly append-only trigger dropped; both checks must flip.
+s38c_monthly_report_and_risk_stratification.sql
