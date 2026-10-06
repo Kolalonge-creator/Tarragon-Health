@@ -20,7 +20,8 @@ create table public.on_call_readiness (
 );
 alter table public.on_call_readiness enable row level security;
 create policy on_call_readiness_read on public.on_call_readiness for select to authenticated
-  using (clinician_id = (select auth.uid()) or private.can_credential_review());
+  using (clinician_id = (select auth.uid())
+         or (private.can_credential_review() and organisation_id = (select pr.organisation_id from public.profiles pr where pr.id = (select auth.uid()))));
 revoke all on public.on_call_readiness from public, anon, authenticated;
 grant select on public.on_call_readiness to authenticated;
 
