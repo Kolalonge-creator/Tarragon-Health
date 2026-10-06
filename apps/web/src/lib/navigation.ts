@@ -420,7 +420,7 @@ export function getNavSections(
                   icon: "messages",
                   countKey: "careThreadsAwaitingReply",
                 },
-                { label: "Async consults", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
+                { label: "Written questions", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
                 // Real pages with no prior sidebar entry at all — previously
                 // reachable only via the dashboard's "All worklists" strip,
                 // so a doctor who didn't happen to scroll that far never

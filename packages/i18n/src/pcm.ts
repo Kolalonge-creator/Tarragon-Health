@@ -881,4 +881,6 @@ export const pcm: Record<MessageKey, string> = {
   "notes.correction.declined": "Dem no change am. Your care team explain why.",
   "notes.correction.reply": "Reply: {text}",
   "notes.empty": "No note yet.",
+  "wq.error.photo_rejected": "Dis photo too big or e no be type wey we fit use. Try another one.",
+  "wq.error.photo_later": "Your message don go, but one photo no upload. You fit talk am for reply.",
 };

@@ -882,6 +882,8 @@ export const en = {
   "notes.correction.declined": "Not changed. Your care team explained why.",
   "notes.correction.reply": "Reply: {text}",
   "notes.empty": "No notes yet.",
+  "wq.error.photo_rejected": "That photo is too large or not a supported type. Try another one.",
+  "wq.error.photo_later": "Your message was sent, but a photo did not upload. You can say so in a reply.",
 } as const;
 
 export type MessageKey = keyof typeof en;
