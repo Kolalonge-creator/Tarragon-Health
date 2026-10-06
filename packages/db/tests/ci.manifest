@@ -855,3 +855,5 @@ lpe_content_blocks_cmo_read.sql
 s24b_protocol_signoff_and_confirm_hardening.sql
 # S37: go-live guards and PROPOSED-config sign-off. Seven guards ship off; no role, including the table owner, can change one except through set_go_live_guard (conditions evaluated, who/when/why logged); consultations and the scribe are wired. Sabotage: the reader forced open, and the guard trigger dropped; both checks must flip.
 s37_go_live_guards.sql
+# S31: weekly payouts. Drafts exclude test accounts and carry over below the minimum; approval needs payouts_enabled, a different approver, a verified bank and an unchanged ledger, then links lines once; Paystack transfer webhooks are idempotent and order tolerant (success then reversed is applied); bank names must match the credentialed name; only the service role writes bank rows and send results; tax data is stored only. Sabotage: name matching forced true, and the payout write guard dropped; both checks must flip.
+s31_weekly_payouts.sql
