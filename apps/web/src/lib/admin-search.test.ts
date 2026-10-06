@@ -146,6 +146,15 @@ describe("task types are searchable (S16)", () => {
   });
 });
 
+describe("titration protocols are searchable (S24b)", () => {
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  it("finds the page by its words", () => {
+    for (const q of ["titration", "step table", "approve protocol", "hypertension", "blood pressure protocol", "protocol"]) {
+      expect(searchAdminEntries(cmoIndex, q, 10).map((e) => e.href)).toContain("/clinician/titration-protocols");
+    }
+  });
+});
+
 describe("the rota and lead clinicians are searchable (S18)", () => {
   const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
   const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);

@@ -851,3 +851,5 @@ s23c_attach_scribe_draft_to_note.sql
 s24_prescriptions_and_care_plan_changes.sql
 # CMO sign-off hub: the active Chief Medical Officer can read unreviewed lpe_content_blocks (so the sign-off count and page are not silently empty); a non-CMO clinician, a patient and anon cannot; the CMO still cannot write a block directly. Sabotage: the new policy dropped; the CMO check must flip.
 lpe_content_blocks_cmo_read.sql
+# S24b: the CMO's protocol functions (CMO only, versioned drafts, approve retires the previous version, approved is immutable, audited) and the hardening of confirm_care_plan_change (expired licence, deactivated signer, stale stop, mid-apply failure leaves the session as the patient, audit actors, replay). Sabotage: the identity restore plus assertion removed, and the CMO check removed; both checks must flip.
+s24b_protocol_signoff_and_confirm_hardening.sql
