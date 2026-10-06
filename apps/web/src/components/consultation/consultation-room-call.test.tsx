@@ -336,6 +336,58 @@ describe("ConsultationRoom with the in-app call", () => {
       expect(join).not.toHaveBeenCalled();
     });
 
+    it("Leave then Join again during a hung join: the old attempt's late failure cannot destroy the new one or open a link", async () => {
+      const hung: ((e: unknown) => void)[] = [];
+      const first = fakeSdk({ join: jest.fn(() => new Promise<unknown>((_, reject) => hung.push(reject))) });
+      const second = fakeSdk();
+      loadSdk.mockResolvedValueOnce(first.sdk).mockResolvedValueOnce(second.sdk);
+      prepare.mockResolvedValue({ ok: true, join: joinInfo });
+      render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
+      click("Join with video");
+      await waitFor(() => expect(first.client.join).toHaveBeenCalled());
+      click("Leave the call");
+      await waitFor(() => expect(first.client.leaveMeeting).toHaveBeenCalled());
+      await waitFor(() => expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false));
+      click("Join with video");
+      await screen.findByText(/camera button/i);
+      expect(second.client.join).toHaveBeenCalled();
+      // the first attempt now fails late: it must not touch the second one, and must not open the link
+      hung.forEach((reject) => reject({ errorCode: 3000 }));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(second.sdk.destroyClient).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Leave the call" })).toBeTruthy();
+      expect(join).not.toHaveBeenCalled();
+    });
+
+    it("does not touch Zoom at all when Leave is pressed while the script is still loading", async () => {
+      let loaded: (g: ZoomEmbeddedGlobal) => void = () => undefined;
+      const f = fakeSdk();
+      loadSdk.mockReturnValue(new Promise<ZoomEmbeddedGlobal>((resolve) => (loaded = resolve)));
+      prepare.mockResolvedValue({ ok: true, join: joinInfo });
+      render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
+      click("Join with video");
+      await screen.findByRole("button", { name: "Leave the call" });
+      click("Leave the call");
+      loaded(f.sdk);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(f.client.init).not.toHaveBeenCalled();
+      expect(f.client.join).not.toHaveBeenCalled();
+      expect(join).not.toHaveBeenCalled();
+    });
+
+    it("Leave does not wait for a leave that never settles", async () => {
+      const f = fakeSdk({ join: jest.fn(() => new Promise<unknown>(() => undefined)), leaveMeeting: jest.fn(() => new Promise<unknown>(() => undefined)) });
+      loadSdk.mockResolvedValue(f.sdk);
+      prepare.mockResolvedValue({ ok: true, join: joinInfo });
+      render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
+      click("Join with video");
+      await waitFor(() => expect(f.client.join).toHaveBeenCalled());
+      click("Leave the call");
+      // the page is usable again at once; the stuck leave is abandoned after its patience runs out
+      await waitFor(() => expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false));
+      await waitFor(() => expect(f.sdk.destroyClient).toHaveBeenCalled(), { timeout: 5000 });
+    }, 10_000);
+
     it("leaves again at once if the page went away while Zoom was still joining, instead of staying in a call nobody can see", async () => {
       let release: () => void = () => undefined;
       const f = fakeSdk({ join: jest.fn(() => new Promise<unknown>((resolve) => (release = () => resolve(undefined)))) });

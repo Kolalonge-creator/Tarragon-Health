@@ -219,6 +219,15 @@ describe("a lost connection", () => {
     expect(f.phone).toHaveBeenCalledTimes(1);
   });
 
+  it("the SDK giving up on the connection goes straight to the phone, even with no drop seen first", () => {
+    const f = setup();
+    f.emit("connection-change", { state: "Fail" });
+    expect(f.notices).toEqual(["phone"]);
+    expect(f.phone).toHaveBeenCalledTimes(1);
+    expect(f.closed).toHaveBeenCalledTimes(1);
+    expect(f.c.mode).toBe("phone");
+  });
+
   it("closing is the call ending, not a lost connection", () => {
     const f = setup();
     f.emit("connection-change", { state: "Closed" });
@@ -227,9 +236,7 @@ describe("a lost connection", () => {
     f.emit("connection-change", undefined);
     f.emit("connection-change", { state: "Connecting" });
     expect(f.closed).toHaveBeenCalledTimes(1);
-    // the SDK giving up on the connection is the call closing under the person
-    f.emit("connection-change", { state: "Fail" });
-    expect(f.closed).toHaveBeenCalledTimes(2);
+    expect(f.phone).not.toHaveBeenCalled();
   });
 });
 

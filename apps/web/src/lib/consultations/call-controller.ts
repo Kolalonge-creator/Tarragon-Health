@@ -81,6 +81,7 @@ export class CallController {
     this.listen("connection-change", (p) => {
       const input = ladderInputFromConnection(typeof p === "object" && p !== null ? (p as { state?: unknown }).state : undefined, this.o.now());
       if (input === "closed") this.closed();
+      else if (input === "failed") this.failed();
       else if (input) this.apply(input);
     });
     this.listen("network-quality-change", (p) => {
@@ -120,6 +121,12 @@ export class CallController {
    */
   private closed(): void {
     if (this.inGrace) this.apply({ kind: "patient_requests_phone", atMs: this.o.now() });
+    this.o.onClosed();
+  }
+
+  /** The SDK gave up on the connection (no "back online" is coming, whether or not a drop was seen first): straight to the phone. */
+  private failed(): void {
+    this.apply({ kind: "patient_requests_phone", atMs: this.o.now() });
     this.o.onClosed();
   }
 

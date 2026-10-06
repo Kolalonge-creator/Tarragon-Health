@@ -11,14 +11,16 @@ import type { ConnectionQuality } from "./video.ts";
 
 /**
  * The SDK's connection-change state. `reconnecting` is a drop, `connected` after a drop is the return, `closed` is the call
- * ending (a person leaving or the host ending it), which is not a lost connection and starts no grace window.
+ * ending (a person leaving or the host ending it), which is not a lost connection and starts no grace window, and `fail` is the
+ * connection giving up for good.
  */
-export function ladderInputFromConnection(state: unknown, atMs: number): LadderInput | "closed" | null {
+export function ladderInputFromConnection(state: unknown, atMs: number): LadderInput | "closed" | "failed" | null {
   const s = typeof state === "string" ? state.toLowerCase() : "";
   if (s === "reconnecting") return { kind: "lost", atMs };
   if (s === "connected") return { kind: "restored", atMs };
-  // `fail` is the SDK giving up on the connection: for the person that is the call closing under them, with no "back online" coming.
-  if (s === "closed" || s === "fail") return "closed";
+  if (s === "closed") return "closed";
+  // `fail` is the SDK giving up on the connection: not the call ending, and no "back online" is coming, so the person goes to the phone.
+  if (s === "fail") return "failed";
   return null;
 }
 
