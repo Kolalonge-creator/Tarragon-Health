@@ -242,9 +242,9 @@ begin
   insert into results values ('sabotaged', 'a stranger cannot answer for the patient', 'not_found', res);
 
   -- the gift detection removed: a gift would assign a lead at once
-  select pg_get_functiondef('public.record_order_payment(text, bigint, bigint, bigint, text, text, text, text, timestamptz, jsonb)'::regprocedure) into d;
+  select pg_get_functiondef('public.record_order_payment(text, bigint, bigint, bigint, text, text, text, text, timestamptz, jsonb, bigint)'::regprocedure) into d;
   d := replace(d, 'o.buyer_profile_id <> o.beneficiary_patient_id', 'false');
-  if d = pg_get_functiondef('public.record_order_payment(text, bigint, bigint, bigint, text, text, text, text, timestamptz, jsonb)'::regprocedure) then raise exception 'sabotage (b) did not change the function'; end if;
+  if d = pg_get_functiondef('public.record_order_payment(text, bigint, bigint, bigint, text, text, text, text, timestamptz, jsonb, bigint)'::regprocedure) then raise exception 'sabotage (b) did not change the function'; end if;
   execute d;
   v_pat3 := pg_temp.mkuser(v_org, 'pat4', 'patient');
   perform pg_temp.addmember(v_org, v_pat3, v_sup, array['pay_for_care']);

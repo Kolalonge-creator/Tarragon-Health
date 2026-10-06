@@ -30,6 +30,9 @@ jest.mock("@/lib/queries/commerce", () => {
   };
 });
 
+// S26's picker of people the patient may pay for (older family grants); none here, so the shop looks as it always did
+jest.mock("@/lib/queries/care-access", () => ({ useSponsorableProfiles: () => ({ data: [] }) }));
+
 const assign = jest.fn();
 beforeEach(() => {
   catalogue = { data: [ITEM], isSuccess: true };
@@ -58,7 +61,8 @@ describe("MembershipShop", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
     expect(mutateAsync).toHaveBeenCalledTimes(1);
     const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
-    expect(Object.keys(arg).sort()).toEqual(["clientKey", "code"]);
+    // S26 passes `beneficiary: undefined` for a purchase for oneself; only defined fields are sent over the wire.
+    expect(Object.keys(arg).filter((k) => arg[k] !== undefined).sort()).toEqual(["clientKey", "code"]);
     expect(arg.code).toBe("membership_annual");
     expect(assign).toHaveBeenCalledWith("https://checkout.paystack.com/abc");
   });

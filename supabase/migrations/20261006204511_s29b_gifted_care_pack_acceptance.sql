@@ -20,8 +20,8 @@ alter table public.entitlements
   add column decided_at timestamptz;
 create index entitlements_gift_pending_idx on public.entitlements (patient_id) where acceptance = 'pending';
 
--- the whole of record_order_payment, with the three changes marked S29b
-create or replace function public.record_order_payment(p_reference text, p_amount_kobo bigint, p_fee_kobo bigint, p_total_kobo bigint, p_currency text, p_status text, p_source text, p_event_key text DEFAULT NULL::text, p_paid_at timestamp with time zone DEFAULT NULL::timestamp with time zone, p_raw jsonb DEFAULT '{}'::jsonb)
+-- the whole of record_order_payment (the live 11-argument version from s25_payment_function_fixes), with the changes marked S29b
+create or replace function public.record_order_payment(p_reference text, p_amount_kobo bigint, p_fee_kobo bigint, p_total_kobo bigint, p_currency text, p_status text, p_source text, p_event_key text DEFAULT NULL::text, p_paid_at timestamp with time zone DEFAULT NULL::timestamp with time zone, p_raw jsonb DEFAULT '{}'::jsonb, p_processor_fee_kobo bigint DEFAULT NULL::bigint)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -47,6 +47,7 @@ begin
     when p_currency is distinct from 'NGN' then 'currency'
     when p_amount_kobo is distinct from o.amount_kobo then 'amount'
     when p_fee_kobo is null or p_fee_kobo < 0 or p_total_kobo is distinct from p_amount_kobo + p_fee_kobo then 'fee'
+    when p_processor_fee_kobo is not null and p_fee_kobo > p_processor_fee_kobo then 'fee'
     else null end;
   if v_reason is not null then
     return private.record_order_mismatch(o, v_reason, p_amount_kobo, p_fee_kobo, p_total_kobo, p_source, p_event_key, p_raw);
@@ -79,8 +80,6 @@ begin
     update public.patient_memberships set state = 'ended', ended_at = now(), end_reason = 'Lapsed on its end date, closed automatically'
      where patient_id = o.beneficiary_patient_id and state = 'active' and ends_at is not null and ends_at <= now();
     if exists (select 1 from public.patient_memberships where patient_id = o.beneficiary_patient_id and state = 'active') then
-      -- Already a Member (two orders paid, or a grant landed after this order was made): the payment is honoured, never rolled back.
-      -- A dated membership is extended by the paid period; an undated one is left alone. A person is told either way.
       update public.patient_memberships
          set ends_at = greatest(ends_at, v_start) + make_interval(days => it.duration_days)
        where patient_id = o.beneficiary_patient_id and state = 'active' and ends_at is not null;
@@ -92,7 +91,6 @@ begin
     end if;
   end if;
 
-  -- Capacity is checked when the order is made, not reserved, so a rush can sell more than the free slots. Say so to a person.
   if v_ent is not null and it.grants_lead and not (o.buyer_profile_id <> o.beneficiary_patient_id and it.grants_lead) and not exists (select 1 from private.lead_candidates(o.beneficiary_patient_id, '{}', true)) then
     perform private.order_incident(o.organisation_id, 'order-no-lead-slot:' || o.id, 'A paid order has no lead clinician slot',
       'Order ' || o.id || ' was paid but no lead clinician has a free slot. Arrange a lead for this patient.');
@@ -211,7 +209,7 @@ begin
     raise exception 'anon can execute a gift function';
   end if;
   -- create or replace keeps the old grants, but say so: record_order_payment is for the service role only
-  if has_function_privilege('authenticated', 'public.record_order_payment(text, bigint, bigint, bigint, text, text, text, text, timestamptz, jsonb)', 'EXECUTE') then
+  if has_function_privilege('authenticated', 'public.record_order_payment(text, bigint, bigint, bigint, text, text, text, text, timestamptz, jsonb, bigint)', 'EXECUTE') then
     raise exception 'authenticated can record a payment';
   end if;
 end $$;

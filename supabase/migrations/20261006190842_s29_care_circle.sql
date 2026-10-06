@@ -663,7 +663,9 @@ begin
   if v_ben <> v_uid then
     select * into bp from public.profiles where id = v_ben and role = 'patient' and is_active;
     if not found or bp.organisation_id is distinct from pr.organisation_id or bp.is_test is distinct from pr.is_test
-       or not private.circle_can_pay_for(v_ben) then
+       -- either a Care Circle member holding pay_for_care (S29), or an older family grant (profile_access, S26's rule, kept as it was live)
+       or not (private.circle_can_pay_for(v_ben)
+               or exists (select 1 from public.profile_access pa where pa.grantee_user_id = v_uid and pa.profile_id = v_ben)) then
       raise exception 'order_beneficiary_not_allowed' using errcode = '42501';
     end if;
   end if;

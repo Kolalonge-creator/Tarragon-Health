@@ -14,6 +14,165 @@ export type Database = {
   }
   public: {
     Tables: {
+      refunds: {
+        Row: {
+          amount_kobo: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          is_test: boolean
+          order_id: string
+          organisation_id: string
+          provider: string
+          provider_reference: string | null
+          provider_response: Json
+          reason: string
+          requested_by: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          amount_kobo: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          is_test?: boolean
+          order_id: string
+          organisation_id: string
+          provider?: string
+          provider_reference?: string | null
+          provider_response?: Json
+          reason: string
+          requested_by?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_kobo?: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          is_test?: boolean
+          order_id?: string
+          organisation_id?: string
+          provider?: string
+          provider_reference?: string | null
+          provider_response?: Json
+          reason?: string
+          requested_by?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refunds_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entitlements: {
+        Row: {
+          acceptance: string
+          created_at: string
+          decided_at: string | null
+          ends_at: string | null
+          id: string
+          is_test: boolean
+          kind: string
+          order_id: string
+          organisation_id: string
+          patient_id: string
+          remaining_uses: number | null
+          reminded_at: string | null
+          starts_at: string
+          state: string
+        }
+        Insert: {
+          acceptance?: string
+          created_at?: string
+          decided_at?: string | null
+          ends_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind: string
+          order_id: string
+          organisation_id: string
+          patient_id: string
+          remaining_uses?: number | null
+          reminded_at?: string | null
+          starts_at?: string
+          state?: string
+        }
+        Update: {
+          acceptance?: string
+          created_at?: string
+          decided_at?: string | null
+          ends_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          order_id?: string
+          organisation_id?: string
+          patient_id?: string
+          remaining_uses?: number | null
+          reminded_at?: string | null
+          starts_at?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entitlements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_types: {
         Row: {
           claim_timeout_minutes: number
@@ -42089,6 +42248,28 @@ export type Database = {
       }
     }
     Functions: {
+      record_refund_provider_result: {
+        Args: {
+          p_reference?: string
+          p_refund: string
+          p_response?: Json
+          p_success: boolean
+        }
+        Returns: Json
+      }
+      decide_order_refund: {
+        Args: { p_approved: boolean; p_note?: string; p_refund: string }
+        Returns: Json
+      }
+      request_order_refund: {
+        Args: { p_order: string; p_reason: string }
+        Returns: Json
+      }
+      revoke_entitlement: {
+        Args: { p_entitlement: string; p_reason?: string }
+        Returns: boolean
+      }
+      consume_entitlement: { Args: { p_entitlement: string }; Returns: Json }
       approve_fee_schedule: { Args: { p_id: string; p_note?: string }; Returns: Json }
       create_fee_schedule_draft: { Args: { p_items?: Json; p_note?: string }; Returns: string }
       discard_fee_schedule_draft: { Args: { p_id: string }; Returns: undefined }
