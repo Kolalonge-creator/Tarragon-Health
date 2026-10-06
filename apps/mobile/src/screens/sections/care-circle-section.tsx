@@ -57,6 +57,15 @@ function MemberCard({ member, onChanged }: { member: CircleMember; onChanged: ()
       onChanged();
     } else setFailed(true);
   }
+  async function renew() {
+    setBusy(true);
+    setFailed(false);
+    const until = new Date(Date.now() + GRANT_DAY_CHOICES[GRANT_DAY_CHOICES.length - 1] * 24 * 60 * 60 * 1000).toISOString();
+    const ok = await updateMember(member.memberId, member.permissions, until);
+    setBusy(false);
+    if (ok) onChanged();
+    else setFailed(true);
+  }
   function remove() {
     Alert.alert(t("circle.member.remove", locale), t("circle.member.remove_confirm", locale, { name: member.name }), [
       { text: t("circle.invite.done", locale), style: "cancel" },
@@ -76,6 +85,7 @@ function MemberCard({ member, onChanged }: { member: CircleMember; onChanged: ()
       <MutedText>{t("circle.member.until", locale, { date: lagosDate(member.expiresAt) })}</MutedText>
       <PermissionSwitches value={draft} onChange={(n) => { setDraft(n); setSaved(false); }} />
       <PrimaryButton title={t("circle.member.save", locale)} onPress={() => void save()} disabled={!changed || draft.length === 0 || busy} />
+      <SecondaryButton title={t("circle.member.renew", locale)} onPress={() => void renew()} disabled={busy} />
       <SecondaryButton title={t("circle.member.remove", locale)} onPress={remove} disabled={busy} />
       {saved ? <MutedText>{t("circle.member.saved", locale)}</MutedText> : null}
       {failed ? <ErrorText>{t("circle.error.unknown", locale)}</ErrorText> : null}

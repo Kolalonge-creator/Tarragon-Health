@@ -55,7 +55,8 @@ as $$
 declare k text;
 begin
   -- every key must be a positive whole number; a missing or odd one would make a comparison null and quietly lift a limit
-  foreach k in array array['invite_ttl_hours', 'default_grant_days', 'max_invites_per_day', 'max_members', 'max_attempts', 'view_weeks'] loop
+  foreach k in array array['invite_ttl_hours', 'default_grant_days', 'max_invites_per_day', 'max_members', 'max_attempts', 'view_weeks',
+                           'alert_visible_hours', 'expiry_notice_days'] loop
     if (r ->> k) is null or (r ->> k) !~ '^[0-9]{1,5}$' or (r ->> k)::integer < 1 then return false; end if;
   end loop;
   return (r ->> 'default_grant_days')::integer <= 1095 and (r ->> 'invite_ttl_hours')::integer <= 720;
@@ -74,7 +75,9 @@ insert into public.care_circle_config (version, is_active, effective_from, rules
   "max_invites_per_day": 5,
   "max_members": 8,
   "max_attempts": 5,
-  "view_weeks": 8
+  "view_weeks": 8,
+  "alert_visible_hours": 3,
+  "expiry_notice_days": 7
 }
 $json$::jsonb);
 -- care-circle-rules-end
@@ -300,8 +303,10 @@ begin
     raise exception 'invite_rate_limited' using errcode = 'P0001';
   end if;
   if (select count(*) from public.care_circle_members where patient_id = v_uid and state = 'active' and expires_at > now())
-     + (select count(*) from public.care_circle_invites where patient_id = v_uid and state = 'pending' and expires_at > now())
-       >= (cfg ->> 'max_members')::integer then
+     + (select count(*) from public.care_circle_invites where patient_id = v_uid and state = 'pending' and expires_at > now() and invitee_hash <> v_hash)
+       >= (cfg ->> 'max_members')::integer
+     -- re-sending to someone already waiting replaces their invite, so it never adds a place
+     and not exists (select 1 from public.care_circle_invites where patient_id = v_uid and state = 'pending' and expires_at > now() and invitee_hash = v_hash) then
     raise exception 'circle_full' using errcode = 'P0001';
   end if;
 
@@ -371,22 +376,20 @@ declare
 begin
   i := private.circle_invite_for_caller(p_token, true);
   if i.id is null then return jsonb_build_object('ok', false); end if;
-  if (select count(*) from public.care_circle_members where patient_id = i.patient_id and state = 'active' and expires_at > now())
+  -- the cap limits NEW members; someone already in the circle may take a changed invite even when it is full
+  if not exists (select 1 from public.care_circle_members where patient_id = i.patient_id and supporter_id = v_uid and state = 'active')
+     and (select count(*) from public.care_circle_members where patient_id = i.patient_id and state = 'active' and expires_at > now())
        >= (cfg ->> 'max_members')::integer then
     return jsonb_build_object('ok', false);
   end if;
   v_until := now() + make_interval(days => i.grant_days);
 
-  -- someone already in the circle is updated, never doubled
-  update public.care_circle_members
-     set relationship = i.relationship, permissions = i.permissions, expires_at = v_until, invite_id = i.id
-   where patient_id = i.patient_id and supporter_id = v_uid and state = 'active'
-   returning * into m;
-  if m.id is null then
-    insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at, invite_id, is_test)
-    values (i.organisation_id, i.patient_id, v_uid, i.relationship, i.permissions, v_until, i.id, i.is_test)
-    returning * into m;
-  end if;
+  -- one atomic statement: someone already in the circle is updated, never doubled, and two invites accepted at once cannot collide
+  insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at, invite_id, is_test)
+  values (i.organisation_id, i.patient_id, v_uid, i.relationship, i.permissions, v_until, i.id, i.is_test)
+  on conflict (patient_id, supporter_id) where state = 'active'
+  do update set relationship = excluded.relationship, permissions = excluded.permissions, expires_at = excluded.expires_at, invite_id = excluded.invite_id
+  returning * into m;
 
   update public.care_circle_invites set state = 'accepted', accepted_by = v_uid, accepted_at = now() where id = i.id;
   perform private.log_care_access(i.patient_id, 'granted', 'care_circle', jsonb_build_object('permissions', to_jsonb(i.permissions)), v_uid);
@@ -422,7 +425,7 @@ begin
    where id = p_member and patient_id = v_uid and state = 'active' and expires_at > now()
    returning * into m;
   if m.id is null then return false; end if;
-  perform private.log_care_access(m.patient_id, 'permission_changed', 'care_circle', jsonb_build_object('permissions', to_jsonb(p_permissions)), m.supporter_id);
+  perform private.log_care_access(m.patient_id, 'permission_changed', 'care_circle', jsonb_build_object('permissions', to_jsonb(p_permissions), 'by_patient', true), m.supporter_id);
   return true;
 end $$;
 
@@ -555,7 +558,7 @@ as $$
     from public.care_circle_members m
     join public.profiles p on p.id = m.patient_id
     join public.pages pg on pg.patient_id = m.patient_id and pg.parent_page_id is null and pg.closed_at is null
-                        and pg.sent_at > now() - interval '24 hours'
+                        and pg.sent_at > now() - make_interval(hours => (private.circle_rules() ->> 'alert_visible_hours')::integer)
    where m.supporter_id = (select auth.uid()) and m.state = 'active' and m.expires_at > now() and 'red_alerts' = any (m.permissions)
 $$;
 
@@ -574,7 +577,17 @@ begin
        where m.patient_id = new.patient_id and m.state = 'active' and m.expires_at > now() and 'red_alerts' = any (m.permissions)
          and s.is_test = new.is_test
     loop
-      perform private.circle_notify(r.supporter_id, new.organisation_id, 'circle_check_in', 'pages', new.id, array['in_app', 'push'], 'critical', new.is_test);
+      -- each family member in their own sub-block: one bad recipient must not take everyone else's alert down with it
+      begin
+        perform private.circle_notify(r.supporter_id, new.organisation_id, 'circle_check_in', 'pages', new.id, array['in_app', 'push'], 'critical', new.is_test);
+      exception when others then
+        begin
+          perform private.page_incident(new.organisation_id, 'circle_alert_failed:' || new.id || ':' || r.supporter_id, 'A Care Circle alert could not be sent',
+            'The red event page ' || new.id || ' was created, but telling one member of the patient''s Care Circle failed: ' || sqlerrm);
+        exception when others then
+          raise warning 'circle alert and its incident both failed for page %: %', new.id, sqlerrm;
+        end;
+      end;
     end loop;
   exception when others then
     -- never let a family notice stop the page, and never fail quietly either
@@ -692,6 +705,12 @@ as $$
 declare r record; n integer := 0;
 begin
   update public.care_circle_invites set state = 'expired' where state = 'pending' and expires_at <= now();
+  -- a member whose access ends soon: tell the PATIENT once (the supporter is told nothing), so a safety alert does not stop in silence
+  for r in select m.id, m.patient_id, m.organisation_id, m.is_test from public.care_circle_members m
+            where m.state = 'active' and m.expires_at > now()
+              and m.expires_at <= now() + make_interval(days => (private.circle_rules() ->> 'expiry_notice_days')::integer) loop
+    perform private.circle_notify(r.patient_id, r.organisation_id, 'circle_expiring', 'care_circle_members', r.id, array['in_app'], 'routine', r.is_test);
+  end loop;
   for r in update public.care_circle_members set state = 'expired' where state = 'active' and expires_at <= now()
            returning patient_id, supporter_id loop
     perform private.log_care_access(r.patient_id, 'expired', 'care_circle', '{}'::jsonb, r.supporter_id);

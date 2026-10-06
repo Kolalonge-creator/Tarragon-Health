@@ -123,8 +123,12 @@ export function useCancelInvite() {
 export function useUpdateMember() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { memberId: string; permissions: CirclePermission[] }) => {
-      const { data, error } = await createClient().rpc("update_care_circle_member", { p_member: input.memberId, p_permissions: input.permissions });
+    mutationFn: async (input: { memberId: string; permissions: CirclePermission[]; expiresAt?: string }) => {
+      const { data, error } = await createClient().rpc("update_care_circle_member", {
+        p_member: input.memberId,
+        p_permissions: input.permissions,
+        ...(input.expiresAt ? { p_expires_at: input.expiresAt } : {}),
+      });
       if (error) throw new CircleError(error.message);
       if (data !== true) throw new CircleError("unknown");
     },

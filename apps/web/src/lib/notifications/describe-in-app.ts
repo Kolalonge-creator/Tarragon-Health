@@ -605,6 +605,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "circle_left") {
     return { text: "Someone has left your Care Circle", href: "/patient/care-circle" };
   }
+  if (n.template === "circle_expiring") {
+    return { text: "Someone's access to your Care Circle ends soon", href: "/patient/care-circle" };
+  }
   if (n.template === "circle_paid_for_you") {
     return { text: "Someone in your Care Circle has paid for your care", href: "/patient" };
   }

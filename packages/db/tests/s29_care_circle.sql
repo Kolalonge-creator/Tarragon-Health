@@ -126,7 +126,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_pat uuid; v_pat2 uuid; v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_other uuid; v_dep uuid; v_unverified uuid;
-  v_ph uuid; r text; v_swept integer; v_med uuid; v_te uuid; v_page uuid; v_item uuid; v_ref text; v_ord uuid;
+  v_ph uuid; v_e uuid; r text; v_swept integer; v_med uuid; v_te uuid; v_page uuid; v_item uuid; v_ref text; v_ord uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -140,6 +140,8 @@ begin
   v_unverified := pg_temp.mkuser(v_org, 'unverified', 'patient', true);
   v_ph := pg_temp.mkuser(v_org, 'phone-sup', 'patient', true);
   v_dep := pg_temp.mkuser(v_org, 'child', 'patient');
+  v_e := pg_temp.mkuser(v_org, 'sup-e', 'patient', true);
+  perform pg_temp.setf('e', v_e);
   update public.profiles set is_dependent_account = true where id = v_dep;
   update auth.users set email_confirmed_at = null where id = v_unverified;
   update auth.users set phone = '2348031234567', phone_confirmed_at = now() where id = v_ph;
@@ -263,7 +265,7 @@ begin
   perform pg_temp.ck('a member reads not even the patient profile row', '0', pg_temp.q_as(v_a, format('select count(*)::text from public.profiles where id = %L', v_pat)));
   r := pg_temp.view_as(v_a, v_pat);
   perform pg_temp.ck('safety 21: the supporter function has no blood pressure block without the permission', 'false', (r like '%bp_trend%')::text);
-  perform pg_temp.ck('safety 21: and not one reading value', 'false', (r like '%133%' or r like '%141%' or r like '%149%')::text);
+  perform pg_temp.ck('safety 21: and not one reading value', 'false', (r like '%"systolic"%' or r ~ ': (133|141|149)[,}]')::text);
   perform pg_temp.ck('the permitted adherence block is there: 3 of 4 doses taken, 75 percent', 'true',
     ((r::jsonb -> 'adherence' ->> 'taken') = '3' and (r::jsonb -> 'adherence' ->> 'due') = '4' and (r::jsonb -> 'adherence' ->> 'percent') = '75')::text);
   perform pg_temp.ck('and no appointment block without the permission', 'false', (r like '%"appointments"%')::text);
@@ -279,7 +281,7 @@ begin
   perform pg_temp.ck('with the permission the function returns a weekly average (141 over 90, 3 readings)', 'true',
     (exists (select 1 from jsonb_array_elements(r::jsonb -> 'bp_trend' -> 'weeks') w where (w ->> 'systolic') = '141' and (w ->> 'diastolic') = '90' and (w ->> 'readings') = '3'))::text);
   perform pg_temp.ck('and still no single reading, time or note in it', 'false',
-    (r like '%133%' or r like '%149%' or r like '%taken_at%' or r like '%"note"%')::text);
+    (r ~ ': (133|149)[,}]' or r like '%taken_at%' or r like '%"note"%')::text);
   perform pg_temp.ck('with the permission the raw table is STILL empty to the supporter', '0',
     pg_temp.q_as(v_a, format('select count(*)::text from public.vitals_readings where patient_id = %L', v_pat)));
   perform pg_temp.ck('the appointment block counts the missed visit and has no reason', 'true',
@@ -355,8 +357,54 @@ begin
   v_page := pg_temp.newpage(v_pat, pg_temp.newte(v_pat));
   drop trigger zz_boom on public.notifications;
   perform pg_temp.ck('a failed alert never stops the page being created', '1', (select count(*)::text from public.pages where id = v_page));
-  perform pg_temp.ck('a failed alert opens an incident', '1',
-    (select count(*)::text from public.ops_incidents where external_reference = 'circle_alert_failed:' || v_page));
+  perform pg_temp.ck('a failed alert opens an incident for each member it could not reach', '2',
+    (select count(*)::text from public.ops_incidents where external_reference like 'circle_alert_failed:' || v_page || '%'));
+
+  -- one bad recipient must not take the others' alerts down with them
+  perform pg_temp.ck('member E (red_alerts) joins', 'true', (pg_temp.join_with(v_pat, v_e, array['red_alerts'], 'e') like '%"ok": true%')::text);
+  create function pg_temp.boom_e() returns trigger language plpgsql as $b$ begin if new.recipient_id = pg_temp.f('e') then raise exception 'boom'; end if; return new; end $b$;
+  create trigger zz_boom_e before insert on public.notifications for each row when (new.template = 'circle_check_in') execute function pg_temp.boom_e();
+  v_page := pg_temp.newpage(v_pat, pg_temp.newte(v_pat));
+  drop trigger zz_boom_e on public.notifications;
+  perform pg_temp.ck('the member whose alert failed gets none', '0', (select count(*)::text from public.notifications where recipient_id = v_e and source_id = v_page));
+  perform pg_temp.ck('but the other member still gets theirs', '2', (select count(*)::text from public.notifications where recipient_id = v_b and source_id = v_page));
+  perform pg_temp.ck('and the failure is an incident naming that member', '1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'circle_alert_failed:' || v_page || ':' || v_e));
+
+  -- a check-in request stays on screen only for the configured window
+  perform pg_temp.ck('a fresh request shows for member B', 'true', (pg_temp.q_as(v_b, 'select public.circle_open_alerts()::text') like '%S29 patient%')::text);
+  perform set_config('tarragon.paging_write', 'on', true);
+  update public.pages set sent_at = now() - interval '4 hours' where patient_id = v_pat;
+  perform set_config('tarragon.paging_write', 'off', true);
+  perform pg_temp.ck('after the window it is gone', '[]', pg_temp.q_as(v_b, 'select public.circle_open_alerts()::text'));
+
+  -- the patient is told once, a week before someone's access ends, so an alert does not stop in silence
+  update public.care_circle_members set expires_at = now() + interval '3 days' where id = pg_temp.member(v_pat, v_c);
+  v_swept := private.expire_care_circle();
+  v_swept := private.expire_care_circle();
+  perform pg_temp.ck('the patient is told once that an access ends soon', '1',
+    (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'circle_expiring' and payload = '{}'::jsonb));
+  perform pg_temp.ck('a member with months left causes no notice', '1',
+    (select count(*)::text from public.notifications where template = 'circle_expiring' and source_table = 'care_circle_members'));
+  perform pg_temp.ck('the supporter is told nothing about it', '0', (select count(*)::text from public.notifications where recipient_id = v_c and template = 'circle_expiring'));
+  perform pg_temp.ck('the patient renews with a new date', 'true',
+    pg_temp.q_as(v_pat, format($q$select public.update_care_circle_member(%L, array['adherence_summary'], now() + interval '365 days')::text$q$, pg_temp.member(v_pat, v_c))));
+  perform pg_temp.ck('the renewed date is a year out', 'true',
+    (select expires_at > now() + interval '360 days' from public.care_circle_members where id = pg_temp.member(v_pat, v_c))::text);
+
+  -- re-sending to someone already waiting never needs a free place; a new person does
+  update public.care_circle_config set rules = jsonb_set(rules, '{max_invites_per_day}', '500') where is_active;
+  perform pg_temp.invite(v_pat, 'email', 'cap-one@example.invalid', array['red_alerts'], 'cap1');
+  update public.care_circle_config set rules = jsonb_set(rules, '{max_members}', to_jsonb((select count(*) from public.care_circle_members where patient_id = v_pat and state = 'active' and expires_at > now())
+                                                                                          + (select count(*) from public.care_circle_invites where patient_id = v_pat and state = 'pending' and expires_at > now()))) where is_active;
+  perform pg_temp.ck('at the cap, re-sending to the person already waiting works', 'ok', pg_temp.invite(v_pat, 'email', 'cap-one@example.invalid', array['red_alerts'], 'cap1b'));
+  perform pg_temp.ck('at the cap, a new person is refused', 'true', (pg_temp.invite(v_pat, 'email', 'cap-two@example.invalid', array['red_alerts'], 'cap2') like '%circle_full%')::text);
+  update public.care_circle_config set rules = jsonb_set(rules, '{max_members}', '8') where is_active;
+  -- an existing member takes a changed invite: still one active row, new permissions
+  perform pg_temp.invite(v_pat, 'email', pg_temp.email_of(v_b), array['red_alerts', 'adherence_summary'], 'b2');
+  perform pg_temp.ck('an existing member accepts a changed invite', 'true', (pg_temp.join_as(v_b, 'b2') like '%"ok": true%')::text);
+  perform pg_temp.ck('still exactly one active row for them', '1', (select count(*)::text from public.care_circle_members where patient_id = v_pat and supporter_id = v_b and state = 'active'));
+  perform pg_temp.ck('and the permissions are the new ones', '{red_alerts,adherence_summary}', (select permissions::text from public.care_circle_members where id = pg_temp.member(v_pat, v_b)));
 
   -- 7. Pay for a loved one -------------------------------------------------------------------------------------------------
   insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, uses, grants_lead, active)

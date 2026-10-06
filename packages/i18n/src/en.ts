@@ -1076,6 +1076,7 @@ export const en = {
   "circle.pay.who": "Paying for {name}",
   "shop.error.order_beneficiary_not_allowed": "You cannot pay for this person right now. Their Care Circle access may have ended.",
   "circle.pay.already_member": "They are already a member.",
+  "circle.member.renew": "Renew for a year",
 } as const;
 
 export type MessageKey = keyof typeof en;

@@ -21,6 +21,8 @@ import {
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
+/** "Renew" gives a member another year (the longest choice offered when inviting). */
+const RENEW_DAYS = GRANT_DAY_CHOICES[GRANT_DAY_CHOICES.length - 1];
 
 function PermissionBoxes({ id, value, onChange, locale }: { id: string; value: readonly CirclePermission[]; onChange: (next: CirclePermission[]) => void; locale: Locale }) {
   return (
@@ -65,6 +67,18 @@ function MemberRow({ member, locale }: { member: CircleMember; locale: Locale })
     }
   }
 
+  async function renew() {
+    setErrorKey(null);
+    setSaved(false);
+    try {
+      const until = new Date(Date.now() + RENEW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+      await update.mutateAsync({ memberId: member.member_id, permissions: member.permissions, expiresAt: until });
+      setSaved(true);
+    } catch (e) {
+      setErrorKey(circleErrorKey(e instanceof CircleError ? e.message : null));
+    }
+  }
+
   return (
     <li className="space-y-3 py-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -75,6 +89,9 @@ function MemberRow({ member, locale }: { member: CircleMember; locale: Locale })
       <div className="flex flex-wrap gap-3">
         <Button type="button" className={TOUCH} onClick={save} disabled={!changed || draft.length === 0 || update.isPending}>
           {t("circle.member.save", locale)}
+        </Button>
+        <Button type="button" variant="outline" className={TOUCH} disabled={update.isPending} onClick={renew}>
+          {t("circle.member.renew", locale)}
         </Button>
         <Button
           type="button"

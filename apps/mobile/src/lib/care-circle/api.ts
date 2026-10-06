@@ -42,8 +42,8 @@ export async function cancelInvite(inviteId: string): Promise<boolean> {
   const { error } = await supabase.rpc("cancel_care_circle_invite", { p_invite: inviteId });
   return !error;
 }
-export async function updateMember(memberId: string, permissions: CirclePermission[]): Promise<boolean> {
-  const { data, error } = await supabase.rpc("update_care_circle_member", { p_member: memberId, p_permissions: permissions });
+export async function updateMember(memberId: string, permissions: CirclePermission[], expiresAt?: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("update_care_circle_member", { p_member: memberId, p_permissions: permissions, ...(expiresAt ? { p_expires_at: expiresAt } : {}) });
   return !error && data === true;
 }
 /** The patient removes a member, or a supporter leaves: the database allows exactly those two people. */

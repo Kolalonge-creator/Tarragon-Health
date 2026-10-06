@@ -762,8 +762,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // if the migration seed and this value drift. invite_ttl_hours: how long an invite link works. default_grant_days: how long a
     // supporter's access lasts unless the patient chooses otherwise (the patient can renew or end it any time). max_invites_per_day:
     // per patient, counting cancelled ones. max_members: active supporters per patient. max_attempts: wrong-contact tries before an
-    // invite is dead. view_weeks: how many weekly blood pressure averages a supporter sees.
-    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8 },
+    // invite is dead. view_weeks: how many weekly blood pressure averages a supporter sees. alert_visible_hours: how long a check-in request stays on a supporter's screen. expiry_notice_days: how long before a member's access ends the patient is told, once.
+    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 7 },
     owner: "Founder",
     status: "proposed",
     version: 1,

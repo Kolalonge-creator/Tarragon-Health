@@ -115,4 +115,16 @@ describe("CareCircleManager", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel invite" }));
     expect(cancel).toHaveBeenCalledWith("i1");
   });
+
+  it("renews a member for a year with their permissions unchanged", async () => {
+    update.mockResolvedValue(undefined);
+    const before = Date.now();
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Renew for a year" })));
+    const arg = update.mock.calls[0]![0] as { memberId: string; permissions: string[]; expiresAt: string };
+    expect([arg.memberId, arg.permissions]).toEqual(["m1", ["red_alerts"]]);
+    const days = (new Date(arg.expiresAt).getTime() - before) / 86_400_000;
+    expect(days).toBeGreaterThan(364);
+    expect(days).toBeLessThan(366);
+  });
 });

@@ -116,6 +116,10 @@ describe("api", () => {
     expect(await cancelInvite("i")).toBe(false);
     mockRpc.mockResolvedValueOnce({ data: true, error: null });
     expect(await updateMember("m", ["red_alerts"])).toBe(true);
+    expect(mockRpc).toHaveBeenLastCalledWith("update_care_circle_member", { p_member: "m", p_permissions: ["red_alerts"] });
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    expect(await updateMember("m", ["red_alerts"], "2027-10-06T00:00:00Z")).toBe(true);
+    expect(mockRpc).toHaveBeenLastCalledWith("update_care_circle_member", { p_member: "m", p_permissions: ["red_alerts"], p_expires_at: "2027-10-06T00:00:00Z" });
     mockRpc.mockResolvedValueOnce({ data: false, error: null });
     expect(await updateMember("m", ["red_alerts"])).toBe(false);
     mockRpc.mockResolvedValueOnce({ data: true, error: null });

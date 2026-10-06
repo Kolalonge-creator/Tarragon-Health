@@ -1077,4 +1077,5 @@ export const pcm: Record<MessageKey, string> = {
   "circle.pay.who": "You dey pay for {name}",
   "shop.error.order_beneficiary_not_allowed": "You no fit pay for this person now. Their Care Circle access fit don end.",
   "circle.pay.already_member": "Dem don already be member.",
+  "circle.member.renew": "Renew am for one year",
 };
