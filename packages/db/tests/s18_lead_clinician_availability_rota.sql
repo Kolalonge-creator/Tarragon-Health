@@ -67,6 +67,7 @@ begin
   foreach c in array p_comps loop
     insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (p_org, v_staff, c, p_admin, true);
   end loop;
+  insert into public.on_call_readiness (clinician_id, checklist_version, organisation_id, items, is_test) values (v, private.readiness_version(), p_org, private.readiness_items(), true);
   return v;
 end $f$;
 

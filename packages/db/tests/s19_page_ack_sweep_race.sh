@@ -87,6 +87,7 @@ begin
               r.tier = 'chief_medical_officer', case when r.tier = 'chief_medical_officer' then v_admin end, true)
       returning id into v_staff;
     insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (v_org, v_staff, 'on_call', v_admin, true);
+    insert into public.on_call_readiness (clinician_id, checklist_version, organisation_id, items, is_test) values (r.id, private.readiness_version(), v_org, private.readiness_items(), true);
   end loop;
   insert into public.triage_rule_sets (code, version, status, rules, approved_by, approved_at, note)
     values ('$TAG', 1, 'approved', jsonb_build_object('code', '$TAG', 'version', 1), v_cmo, now(), 'S19 race proof fixture');

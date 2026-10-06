@@ -6,6 +6,8 @@ import { BLOCK_KIND_LABEL } from "@/lib/rota/schemas";
 import { defaultStartInput, formatLagosRange } from "@/lib/rota/time";
 import { declaredHoursNext7Days } from "@/lib/rota/hours";
 import { getProposedConfig } from "@tarragon/shared";
+import Link from "next/link";
+import { getMyReadiness } from "@/lib/paging/queries";
 import { firstParam, type SearchParams } from "@/lib/credentialing/params";
 
 const RETURN_TO = "/clinician/rota";
@@ -15,7 +17,7 @@ const MIN_WEEKLY_HOURS = (getProposedConfig("lead.rules").value as { contracted_
 /** A working clinician's own page: hours they declare, the on-call rota, cover requests, their lead list. */
 export async function ClinicianRotaPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const [blocks, rota, swaps, colleagues, lead] = await Promise.all([getMyBlocks(), getMyRota(), getMySwaps(), getColleagues(), getMyLeadSummary()]);
+  const [blocks, rota, swaps, colleagues, lead, readiness] = await Promise.all([getMyBlocks(), getMyRota(), getMySwaps(), getColleagues(), getMyLeadSummary(), getMyReadiness()]);
   const start = defaultStartInput(new Date());
   const incoming = swaps.filter((s) => s.direction === "incoming");
   const outgoing = swaps.filter((s) => s.direction === "outgoing");
@@ -27,6 +29,13 @@ export async function ClinicianRotaPage({ searchParams }: { searchParams: Search
         description="Tell us when you will work. A contracted clinician is offered work only inside the hours declared here, in Lagos time."
       />
       <Flash ok={firstParam(sp.ok)} error={firstParam(sp.error)} />
+      {readiness.on_call_clinician && !readiness.confirmed_at ? (
+        <Section title="One step before you can be put on call" hint="Confirm the on-call phone checklist so alerts reach you.">
+          <Link href="/clinician/on-call" className="text-sm font-medium text-brand-green underline">
+            Open the checklist
+          </Link>
+        </Section>
+      ) : null}
 
       {lead.lead_capable ? (
         <Section title="Your lead list" hint="Patients for whom you are the lead clinician.">
