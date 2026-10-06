@@ -5,7 +5,6 @@ import { t } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ScribeConsentDialog } from "./consent-dialog";
 import { DraftReviewPanel, type DraftSection } from "./draft-review-panel";
@@ -13,7 +12,7 @@ import { draftScribeFromText, revokeScribeConsent } from "@/lib/scribe/actions";
 import { scribeErrorMessage } from "@/lib/scribe/error-messages";
 import { MAX_TYPED_NOTES_CHARS, MIN_TYPED_NOTES_CHARS } from "@/lib/scribe/parse-typed-notes";
 
-type Language = "en-NG" | "pcm";
+type Language = "en-NG";
 
 type ScribeState =
   | { step: "idle" }
@@ -47,7 +46,7 @@ interface ScribePanelProps {
 
 export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseDraft }: ScribePanelProps) {
   const [state, setState] = useState<ScribeState>({ step: "idle" });
-  const [language, setLanguage] = useState<Language>("en-NG");
+  const language: Language = "en-NG";
   const [text, setText] = useState("");
   const [, startTransition] = useTransition();
 
@@ -87,13 +86,6 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
     case "idle":
       return (
         <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <Label>{t("scribe.language.label", "en")}</Label>
-            <Select value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
-              <option value="en-NG">{t("scribe.language.en", "en")}</option>
-              <option value="pcm">{t("scribe.language.pcm", "en")}</option>
-            </Select>
-          </div>
           <Button size="sm" variant="outline" onClick={() => setState({ step: "consent" })}>
             {t("scribe.start", "en")}
           </Button>

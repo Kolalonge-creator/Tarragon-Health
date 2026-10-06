@@ -18,10 +18,9 @@ const explanationSchema = z.object({ explanation: z.string() });
 
 const MODEL_ID = "claude-haiku-4-5";
 
-/** Matches profiles.language's CHECK constraint exactly (20260723201654). */
+/** Reminder/explanation languages other than English stay accepted by the explanation cache's CHECK; the UI is English-only. */
 export const EXPLAINER_LANGUAGE_NAME: Record<string, string> = {
   en: "English",
-  pcm: "Nigerian Pidgin",
   yo: "Yoruba",
   ha: "Hausa",
   ig: "Igbo",

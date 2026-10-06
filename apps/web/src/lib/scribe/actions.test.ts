@@ -33,13 +33,13 @@ describe("attachScribeDraftToNote", () => {
       encounterNoteId: NOTE,
       scribeConsentId: CONSENT,
       patientSummary: "Rest.",
-      patientSummaryLanguage: "pcm",
+      patientSummaryLanguage: "en-NG",
     });
     expect(rpcMock).toHaveBeenCalledWith("attach_scribe_draft_to_note", {
       p_note: NOTE,
       p_consent: CONSENT,
       p_patient_summary: "Rest.",
-      p_summary_language: "pcm",
+      p_summary_language: "en-NG",
     });
     expect(fromMock).not.toHaveBeenCalled();
   });

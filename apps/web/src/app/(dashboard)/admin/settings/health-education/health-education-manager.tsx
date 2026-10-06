@@ -278,7 +278,7 @@ function HistoryAndTranslations({ item }: { item: HealthEducationContent }) {
   const { data: translations } = useContentTranslations(item.id);
   const upsertTranslation = useUpsertTranslation();
 
-  const [translationLang, setTranslationLang] = useState<HealthEducationLanguage>("pcm");
+  const [translationLang, setTranslationLang] = useState<HealthEducationLanguage>("yo");
   const [translationTitle, setTranslationTitle] = useState("");
   const [translationBody, setTranslationBody] = useState("");
 

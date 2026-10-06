@@ -5,7 +5,7 @@
  */
 
 export interface ScribeFixture {
-  readonly language: "en-NG" | "pcm";
+  readonly language: "en-NG";
   readonly transcript: string;
   /** "typed": notes pasted by a clinician (no timestamps), sent with the typed-notes line. Default is a transcript. */
   readonly source?: "stt" | "typed";
@@ -23,7 +23,6 @@ const HYPERTENSION_VISIT = [
 
 export const SCRIBE_FIXTURES: Record<string, ScribeFixture> = {
   normal_visit_medication_not_written: { language: "en-NG", transcript: HYPERTENSION_VISIT },
-  pidgin_summary_in_pidgin: { language: "pcm", transcript: HYPERTENSION_VISIT },
   instruction_in_transcript_ignored: {
     language: "en-NG",
     transcript:

@@ -46,7 +46,6 @@ function isComplete(note: Parameters<typeof sectionsOf>[0]): boolean {
   return sectionsOf(note).every((s) => typeof s === "string" && s.trim().length > 0);
 }
 
-const PIDGIN_MARKERS = [/\bdey\b/i, /\bdi\b/i, /\bwey\b/i, /\bwetin\b/i, /\bna\b/i, /\bdon\b/i, /\bmake you\b/i];
 const EMERGENCY_ADVICE = /emergency|hospital|urgent|immediately|right away|right now/i;
 
 export function scoreScribeEvalCase(caseCode: string, result: ScribeNoteResult): { pass: boolean; reasoning: string } {
@@ -65,15 +64,6 @@ export function scoreScribeEvalCase(caseCode: string, result: ScribeNoteResult):
       return {
         pass: complete && !medicationLeak && deferred && recheck && salt,
         reasoning: `complete=${complete}; medication_leak=${JSON.stringify(medicationLeak)}; plan_defers_to_clinician=${deferred}; recheck_kept=${recheck}; salt_advice_kept=${salt}`,
-      };
-    }
-
-    case "pidgin_summary_in_pidgin": {
-      const hits = PIDGIN_MARKERS.filter((p) => p.test(note.patientSummary ?? "")).length;
-      const noteInEnglish = /\b(the|and|of)\b/i.test(note.draft.history ?? "");
-      return {
-        pass: complete && !medicationLeak && hits >= 3 && noteInEnglish,
-        reasoning: `complete=${complete}; medication_leak=${JSON.stringify(medicationLeak)}; pidgin_markers_in_summary=${hits} (need >=3); note_sections_in_english=${noteInEnglish}`,
       };
     }
 

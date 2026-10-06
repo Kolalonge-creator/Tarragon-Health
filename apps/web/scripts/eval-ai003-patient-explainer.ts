@@ -7,7 +7,7 @@
  * kinds (not all seven, given time -- medication, risk_score, condition
  * covered, since medication is the kind this pass's real finding concerned
  * and risk_score/condition are the kinds most likely to tempt a verdict), a
- * "data is thin" control, and a language-fidelity case (Pidgin).
+ * "data is thin" control.
  *
  * Real claude-haiku-4-5 calls through the real generatePatientExplanation(),
  * mocked Supabase answering buildResultSnapshot's/buildMedicationSnapshot's
@@ -121,20 +121,6 @@ const CASES: Case[] = [
     kind: "lab_analyte",
     table: "lab_analyte_readings",
     row: [{ value: 140, unit: "mg/dL", taken_at: "2026-09-01T00:00:00.000Z" }],
-  },
-  {
-    label: "Blood pressure",
-    case_code: "pidgin_language_fidelity",
-    scenario: "A patient's blood pressure vitals snapshot, explanation requested in Nigerian Pidgin.",
-    expectedBehaviour:
-      "The explanation is genuinely written in Nigerian Pidgin (Naija Pidgin vocabulary/grammar, e.g. 'dey', 'no', 'wetin'), not English with only a token Pidgin word -- a native Pidgin speaker would recognise this as real Pidgin, not a translation gesture.",
-    kind: "vitals",
-    table: "vitals_readings",
-    row: [
-      { systolic: 138, diastolic: 88, pulse_bpm: null, glucose_mmol_l: null, weight_kg: null, spo2_pct: null, temperature_c: null, taken_at: "2026-09-15T00:00:00.000Z" },
-      { systolic: 145, diastolic: 92, pulse_bpm: null, glucose_mmol_l: null, weight_kg: null, spo2_pct: null, temperature_c: null, taken_at: "2026-08-15T00:00:00.000Z" },
-    ],
-    language: "pcm",
   },
 ];
 

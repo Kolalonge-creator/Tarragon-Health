@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { t, type Locale } from "@tarragon/i18n";
+import { t } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { recordScribeConsent } from "@/lib/scribe/actions";
@@ -9,13 +9,9 @@ import { recordScribeConsent } from "@/lib/scribe/actions";
 interface ScribeConsentDialogProps {
   patientId: string;
   encounterNoteId?: string;
-  language: "en-NG" | "pcm";
+  language: "en-NG";
   onConsented: (consentId: string) => void;
   onDeclined: () => void;
-}
-
-function toLocale(lang: "en-NG" | "pcm"): Locale {
-  return lang === "pcm" ? "pcm" : "en";
 }
 
 export function ScribeConsentDialog({
@@ -25,7 +21,7 @@ export function ScribeConsentDialog({
   onConsented,
   onDeclined,
 }: ScribeConsentDialogProps) {
-  const locale = toLocale(language);
+  const locale = "en" as const;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 

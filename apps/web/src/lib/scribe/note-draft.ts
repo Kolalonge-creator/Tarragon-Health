@@ -30,7 +30,7 @@ CRITICAL RULES:
 - Use the speaker tags to distinguish clinician statements from patient statements.
 - If the transcript quality is poor or unintelligible, say so in the relevant section rather than guessing.
 - Write in professional but accessible clinical English for the note sections.
-- Write the patient summary in the language variant indicated (en-NG for Nigerian English, pcm for Pidgin).
+- Write the patient summary in the language variant indicated (en-NG for Nigerian English).
 
 Respond with the JSON object only.`;
 
@@ -71,7 +71,7 @@ export type ScribeNoteResult =
   | { readonly ok: false; readonly reason: string };
 
 export function buildScribeUserMessage(
-  language: "en-NG" | "pcm",
+  language: "en-NG",
   transcript: string,
   source: "stt" | "typed" = "stt"
 ): string {
@@ -86,7 +86,7 @@ export function buildScribeUserMessage(
 
 /** Never throws: a failed call is a result the evaluation records as a failure, not a crash. */
 export async function generateScribeNote(
-  language: "en-NG" | "pcm",
+  language: "en-NG",
   transcript: string,
   source: "stt" | "typed" = "stt"
 ): Promise<ScribeNoteResult> {

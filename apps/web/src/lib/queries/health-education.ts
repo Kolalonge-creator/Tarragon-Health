@@ -554,10 +554,9 @@ export function useSetTriggerMappingActive() {
 // why this is a human/clinical-team task, not something generated here.
 // ---------------------------------------------------------------------------
 export type HealthEducationTranslation = Tables<"health_education_translations">;
-export type HealthEducationLanguage = "pcm" | "yo" | "ha" | "ig";
+export type HealthEducationLanguage = "yo" | "ha" | "ig";
 
 export const HEALTH_EDUCATION_LANGUAGE_LABELS: Record<HealthEducationLanguage, string> = {
-  pcm: "Nigerian Pidgin",
   yo: "Yoruba",
   ha: "Hausa",
   ig: "Igbo",

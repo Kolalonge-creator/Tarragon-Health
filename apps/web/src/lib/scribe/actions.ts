@@ -18,7 +18,7 @@ const RecordConsentSchema = z.object({
   patientId: z.string().uuid(),
   encounterNoteId: z.string().uuid().optional(),
   granted: z.boolean(),
-  language: z.enum(["en-NG", "pcm"]),
+  language: z.literal("en-NG"),
 });
 
 export async function recordScribeConsent(input: z.input<typeof RecordConsentSchema>) {
@@ -66,7 +66,7 @@ const AttachDraftSchema = z.object({
   encounterNoteId: z.string().uuid(),
   scribeConsentId: z.string().uuid(),
   patientSummary: z.string().max(4000),
-  patientSummaryLanguage: z.enum(["en-NG", "pcm"]),
+  patientSummaryLanguage: z.literal("en-NG"),
 });
 
 /**
@@ -104,7 +104,7 @@ const CallDraftSchema = z.object({
     )
     .min(1)
     .max(2000),
-  language: z.enum(["en-NG", "pcm"]),
+  language: z.literal("en-NG"),
   source: z.enum(["stt", "typed"]).default("stt"),
   patientContext: PatientContextSchema,
 });
@@ -138,7 +138,7 @@ export async function callScribeDraft(rawInput: z.input<typeof CallDraftSchema>)
 const DraftFromTextSchema = z.object({
   scribeConsentId: z.string().uuid(),
   encounterNoteId: z.string().uuid(),
-  language: z.enum(["en-NG", "pcm"]),
+  language: z.literal("en-NG"),
   text: z.string().min(MIN_TYPED_NOTES_CHARS).max(MAX_TYPED_NOTES_CHARS),
   patientContext: PatientContextSchema,
 });
