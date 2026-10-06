@@ -220,6 +220,37 @@ describe("zoom adapter", () => {
     expect(await reply("{}").joinLink({ roomId: "123456789", role: "patient", mediaMode: "video" })).toMatchObject({ ok: false, error: { code: "bad_response" } });
   });
 
+  it("asks Zoom for audio by computer or phone with Nigerian numbers, and returns only Nigerian numbers with the phone passcode", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = zoomFor(fake);
+    const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+    if (!room.ok) throw new Error("room");
+    const created = fake.calls.find((c) => c.method === "POST" && c.path === "/v2/users/me/meetings");
+    expect(created?.body?.["settings"]).toMatchObject({ audio: "both", global_dial_in_countries: ["NG"] });
+    const d = await z.dialIn({ roomId: room.data.roomId, country: "NG" });
+    expect(d).toMatchObject({ ok: true, data: { meetingId: room.data.roomId, passcode: "482913", numbers: [{ country: "NG", city: "Lagos", kind: "toll" }] } });
+    expect(d.ok && d.data.numbers).toHaveLength(1);
+    expect(d.ok && JSON.stringify(d.data)).not.toContain("zak=");
+  });
+
+  it("dial-in: no number for the country is not_found; a bad room, country or expired meeting is refused; an unusable passcode becomes none", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = zoomFor(fake);
+    expect(await z.dialIn({ roomId: "abc", country: "NG" })).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(await z.dialIn({ roomId: "123456789", country: "ng" })).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 60_000 });
+    if (!room.ok) throw new Error("room");
+    expect(await z.dialIn({ roomId: room.data.roomId, country: "GH" })).toMatchObject({ ok: false, error: { code: "not_found" } });
+    fake.clock.now += 3_600_000;
+    expect(await z.dialIn({ roomId: room.data.roomId, country: "NG" })).toMatchObject({ ok: false, error: { code: "conflict" } });
+    const reply = (body: string) => zoomWith(body);
+    const base = '"start_time":"2027-01-15T08:00:00Z","duration":30';
+    expect(await reply(`{${base}}`).dialIn({ roomId: "123456789", country: "NG" })).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(await reply("{}").dialIn({ roomId: "123456789", country: "NG" })).toMatchObject({ ok: false, error: { code: "bad_response" } });
+    const noPass = `{${base},"pstn_password":"abc","settings":{"global_dial_in_numbers":[{"country":"NG","number":"+234 1 888 0000","type":"tollfree"},{"country":"NG","number":"","type":"toll"},{"country":"NG","number":"+234 9","type":"weird"}]}}`;
+    expect(await reply(noPass).dialIn({ roomId: "123456789", country: "NG" })).toMatchObject({ ok: true, data: { passcode: null, numbers: [{ kind: "toll_free", city: null }] } });
+  });
+
   it("reuses the OAuth token until it nears expiry, then fetches a new one", async () => {
     const fake = createFakeZoom({ now: 1_800_000_000_000 });
     const z = zoomFor(fake);

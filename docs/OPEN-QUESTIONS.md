@@ -767,6 +767,62 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-130 Consultation price (raised by S21)
 - Decision (founder, 2026-10-06): NGN 10,000 (1,000,000 kobo) for a consultation, replacing the 5,000 placeholder on `video_visit_credit`. One price for video, audio and phone, so a fallback never changes what the patient paid. Result interpretation (10,000) and written question (2,500) are unchanged.
 
+### OQ-131 Zoom dial-in in Nigeria and the phone fallback (raised by S21; revised 2026-10-06)
+- Confirmed 2026-10-06 from Zoom's rates page: Nigeria has toll dial-in (needs the Audio Conferencing add-on, Zoom-provided numbers only) and call-out at about GBP 1.08 to 1.68 a minute, which is too dear for a NGN 10,000 consultation.
+- First decision (founder delegated the vendor, 2026-10-06): a Tarragon-owned number bridge on Africa's Talking Voice. Built, then **withdrawn the same day** by the founder: "instead of Africa's Talking, can we just turn off the Zoom video if the network is bad and people can still make the voice call."
+- **Decision (founder, 2026-10-06): the phone fallback is Zoom's own dial-in.** The person rings a Nigerian number Zoom publishes for the room and types the meeting id and passcode; they land in the same call as the clinician. No second vendor, no number of ours, no callback route, no table holding anyone's phone number, nothing rung from our side. The older "turn the camera off" half already exists: audio only is offered in the room and an audio-only rejoin comes in audio first. The Africa's Talking adapter, bridge store, callback route and `phone_bridges` table were removed (migration `20261006164657_s21f_drop_phone_bridges_use_vendor_dial_in.sql`; the table had 0 rows).
+- Built: `VideoProvider.dialIn` (Zoom reads the meeting's Nigerian numbers and phone passcode from the meeting each time and never stores them; rooms are created with `audio: both` and `global_dial_in_countries: [NG]`), a mock, `requestDialIn` in the room logic, and a "Join by phone call instead" card showing the number, meeting id and passcode with a tap-to-call link.
+- **To confirm on the live Zoom account before real use:** (1) the account has the Audio Conferencing add-on, otherwise Zoom lists no toll numbers and the room says "we could not find a phone number" (a safe failure, not a broken call); (2) the Nigerian numbers actually appear in `settings.global_dial_in_numbers` for a meeting created by the Server-to-Server app; (3) `pstn_password` is returned and a phone caller can get past the passcode prompt; (4) a phone caller waits in the waiting room and the host can admit them (they show as a call-in user or a masked number, which is why the clinician is told to expect that); (5) a call costs the patient only their normal carrier charge.
+- Consequences to accept: the patient pays the carrier for the call, the call is not private from the clinician's side in the way a bridge was (the clinician may see a masked number in the Zoom participant list), and we cannot see that someone dialled, so a consultation is never marked "on the phone" automatically (the in-app SDK, OQ-136, can). Open until the live checks above are done.
+
+### OQ-132 What a red page should say to Care Circle supporters and the clinical lead's review (raised by S19)
+- The spec's red event table also notifies Care Circle members with `red_alerts` and creates an incident review task for the clinical lead. S19 builds the page and the escalation only.
+- Options: (a) Care Circle notices in S29 and the review task in S20 (recommended); (b) pull them into S19 now.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-133 Acknowledgement targets and how long the lead is re-alerted (raised by S19)
+- 5 and 10 minutes (spec) and a 5 minute repeat of the lead alert are PROPOSED numbers with no Nigerian benchmark. No re-alert ever reaches a person after the clinical lead and ops if all of them are away.
+- Options: (a) ship the numbers, CMO to set them in `paging_config` (recommended); (b) add a third rung (a named deputy or the founder) with its own phone.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-134 Contractor status and declared hours (raised by S18, second pass)
+- Declared availability blocks, a displayed weekly floor and a lead cap can look like control over a contractor (Hims lists contractor classification as a risk in its annual report; Wheel and Amwell Associates are 1099 contractors). Nigerian labour-law treatment of the freelance clinicians is not established here.
+- Options: (a) take Nigerian employment-law advice before contracted clinicians are onboarded, and keep the weekly floor a display only (recommended, built); (b) enforce a minimum now.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-135 Strikes and a doctor's other job (raised by S18 and S19, second pass)
+- NARD issued an ultimatum effective 1 October 2026 and has struck or threatened in each recent quarter; public hospitals are moving towards biometric work-hour logging; dual jobs are common. A freelance resident could be unreachable inside their own shifts, and the rota assumes people are available when they declared it.
+- Options: (a) for now, rely on declared blocks and the backup, with the employed tier and the CMO as the last rung, and record the doctor's main-employer hours later using the existing availability rules (recommended); (b) add a strike-window switch that widens escalation, and a voice-call rung for the CMO tier only (D-12 currently allows push, in-console alarm and email only, so this needs a decision).
+- Decision (founder, 2026-10-06): (a), as recommended. S18 and S19 built it.
+
+### OQ-136 Acknowledgement targets are not clinically validated (raised by S19, second pass)
+- 5 and 10 minutes match vendor example defaults (PagerDuty, Opsgenie) and the Manchester Triage targets measure first clinical contact, not acknowledgement; the Joint Commission requires a written, measured time but sets none. No Nigerian benchmark was found.
+- Options: (a) ship the PROPOSED numbers, record them as policy and review the measured acknowledgement times from `paging_overview` after the pilot (recommended); (b) have the CMO set stricter numbers now.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-124 S18 and S19 must merge before the S21 slot RPC (raised by S21)
+- S21 books from confirmed `bookable_consultations` blocks. `availability_blocks` is on main-dev (S17) but confirmation, rota and `clinician_offerable` are only on PR 931 (S18 and S19), which is open with merge conflicts.
+- Decision (founder, 2026-10-06): merge S18 first. S21 builds everything that does not read the rota first, and the slot RPC lands after PR 931.
+- Update (2026-10-06, later): S18 and S19's migrations are now applied to production (ledger rows exist) while PR 931 is not merged, so the database enforces S18's block rules (minimum 2 hours, no declaring over leave). S21's slot function reads confirmed `bookable_consultations` blocks and works with or without S18's code; the S21 proof makes its blocks 2 hours long so it holds either way. PR 931 is merge-blocked on CI, not on conflicts.
+
+### OQ-125 Authoritative encounters table (raised by S21, closes OQ-38)
+- Decision (founder, 2026-10-06): new authoritative `encounters` table. `clinical_encounters` stays as a synced projection so current readers keep working. `consultation_scribe_consents` (renamed 2026-10-06, see OQ-161), rooms and events hang off `encounters`.
+
+### OQ-126 How real the call is in S21 (raised by S21)
+- Decision (founder, 2026-10-06): link-based Zoom now (audio-first join, server-owned fallback ladder, in-app waiting room and consent), masked phone callback as the last step. An in-app SDK is a later session.
+
+### OQ-127 Cancellation and refund rule (raised by S21)
+- Decision (founder, 2026-10-06): full refund when the patient cancels 2 hours or more before. Inside 2 hours a small fixed retention (PROPOSED value in config). A clinician cancel or no-show is always a full refund or a free rebook. The rule is shown before the pay button.
+
+### OQ-128 Consent, transfer mechanism and MDCN text (raised by S21)
+- Decision (founder, 2026-10-06): per-consultation in-app consent is accepted for NDPA and GAID purposes, the transfer mechanism covering Supabase, Zoom and Claude is accepted, and the MDCN position on recording and AI is accepted. Recording stays off by default. Counsel has not reviewed these separately.
+
+### OQ-129 Consultations are for adults only (raised by S21)
+- Decision (founder, 2026-10-06): no video, audio or phone consultation for anyone under 18. Booking checks the patient's age server-side. A dependant under 18 cannot book. Written questions for minors are not decided and stay as they are today until the founder says otherwise.
+
+### OQ-130 Consultation price (raised by S21)
+- Decision (founder, 2026-10-06): NGN 10,000 (1,000,000 kobo) for a consultation, replacing the 5,000 placeholder on `video_visit_credit`. One price for video, audio and phone, so a fallback never changes what the patient paid. Result interpretation (10,000) and written question (2,500) are unchanged.
+
 ### OQ-131 Zoom dial-in in Nigeria and the phone bridge vendor (raised by S21)
 - Confirmed 2026-10-06 from Zoom's rates page: Nigeria has toll dial-in (needs the Audio Conferencing add-on, Zoom-provided numbers only) and call-out at about GBP 1.08 to 1.68 a minute, which is too dear for a NGN 10,000 consultation.
 - Options: (a) Tarragon-owned number bridge on Twilio Voice; (b) LiveKit SIP or a Nigerian carrier trunk; (c) Zoom toll dial-in only, patient pays carrier rate.
@@ -791,7 +847,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ### OQ-135 Consultations are not behind a go-live guard yet (raised by S21)
 - INV-14 and spec 14 say the `clinical_operations_enabled` guard blocks consultations. The guard mechanism (`app_config.go_live`) is S37. Until then a consultation can be booked as soon as a clinician has bookable slots and the patient holds a credit.
-- Recommend: S37 wires the guard into `hold_appointment_slot` and `service_get_encounter_room`. Do not switch consultations on for real patients before then, or before the phone bridge vendor (OQ-131), the slot RPC (OQ-124) and the CMO's sign-off exist.
+- Recommend: S37 wires the guard into `hold_appointment_slot` and `service_get_encounter_room`. Do not switch consultations on for real patients before then, or before the Zoom dial-in is confirmed on the live account (OQ-131), the slot RPC (OQ-124) and the CMO's sign-off exist.
 - Decision: open.
 
 ### OQ-136 Automatic fallback needs the in-app call SDK (raised by S21)
@@ -837,7 +893,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Context: S15 warns at 90, 30 and 0 days. Research suggests 60, 30, 14 and 7 days plus a reminder from November, because MDCN annual licences cluster at the end of December (MDCN lists 31 December for renewal; verify the current rule, fee and CPD requirement before relying on it).
 - Not built here: this is S15's `credential_rule('notice_windows_days')` configuration, not S20's.
 - Recommendation: add a November reminder and a capacity check before 1 January once the roster is large enough for a cluster to matter.
-- Decision: open.
+- Decision (2026-10-06): keep [90, 30, 0] for now. The mechanism already reads from `credentialing_config` via `credential_rule('notice_windows_days')`, so changing to [90, 60, 30, 14, 7, 0] is a one-row config update, not code. The November cluster reminder and a capacity-planning dashboard are worth adding once the roster is large enough for a 31 December cluster to create operational risk. Closed as configurable; reopen when the roster exceeds approximately 20 clinicians.
 
 ### OQ-150 What makes a patient a Member (raised by S22, built in S22b)
 - The 2026-10-05 Membership has no checkout yet (S25). Until then a patient is a Member when `patient_memberships` has an active, in-date row, or still has the old `async_doctor_visit` plan feature. Only an admin (`/admin/members`) or the CMO (`/clinician/members`) can grant or end one, with a reason, audited; a dated membership lapses by itself. S25's checkout, a sponsor's Care Voucher and an employer's cohort should write the same table with source `purchase`, `voucher` or `employer`. The seam stays `private.patient_is_member(uuid)`. A grandfathered paid `async_consult_credit` still works for a non-Member. This reverses OQ-130 (the 2,500 per-question price): the per-question credit is no longer sold.
@@ -897,6 +953,36 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-175 Secrets and deploy steps for S25 (raised by S25)
 - Before the module can be tried against Paystack test mode: set `ORDER_RETURN_URL` and `ORDER_RECONCILE_SECRET` as function secrets, add the Vault secret `order_reconcile_secret` with the same value (the 5-minute cron fails closed with a 401 until both exist), deploy `order-checkout`, `order-verify`, `order-reconcile` and the updated `paystack-webhook`, then run one test-mode payment end to end and one replay from the Paystack dashboard. Nothing in S25 was deployed or applied to production by the build session.
 - Secrets and deploy done 2026-10-06. **Go-live order decided (founder):** merge PR 945, run one Paystack TEST-mode payment and one dashboard replay (the founder runs it with test keys in a local copy of the function secrets, with a published Paystack test card; the live key is never used), then a superadmin runs `set_platform_module('v5_checkout', true, '<why>')` and switches `membership_annual` on at `/admin/catalogue`. Nothing is switched on before that.
+### OQ-170 Medicine safety checks beyond allergy, duplicate and controlled (raised by S24)
+- Blocks: none. S24 enforces three checks at signing: a controlled medicine is a hard stop (no override), an allergy match or an empty allergy list or a duplicate active medicine needs the signer's stated reason. Drug-drug interaction, renal dosing, dose-range and drug-in-pregnancy checks need reference data this platform does not hold (a licensed interaction source and a CMO-approved dose table). The BP-class combination and pregnancy rules in `private.enforce_bp_prescribing_safety` still apply.
+- Options: (a) the CMO and a pharmacist choose the reference source and S24b loads it as versioned data (recommended); (b) licence a commercial interaction service; (c) leave as is.
+- Recommend (a). Until then the sign screen must not imply that an interaction check ran.
+
+### OQ-171 Titration step table and the first approved protocol (raised by S24)
+- Blocks: the "Suggest next step" button producing a proposal for a real patient. `public.protocols` has no row; the evaluator is built and tested on a placeholder marked draft with fictional drug names. The CMO writes the `htn_hearts_ng` definition (steps, thresholds, review window, adherence floor) and approves it. Until then the button answers "no approved step table yet" and a clinician proposes changes by hand.
+- Decision needed from the CMO: the step table content, and the proposed stop thresholds (minimum readings, adherence floor, review window, stale-readings limit) which are PROPOSED values inside the protocol, not code.
+
+### OQ-172 Who reviews an engine proposal, and when (raised by S24)
+- A proposal is a draft `care_plan_changes` row that the lead clinician sees in the patient's chart panel. There is no queue task for it because a new task type needs CMO sign-off (the S16b pattern). Options: (a) add a `titration_review` task type, class 3, created when an engine proposal is saved (recommended once the step table exists); (b) weekly digest to the lead; (c) leave it chart-only.
+
+### OQ-173 Caregivers, guardians and dependants confirming a change (raised by S24, extends OQ-70)
+- Only the patient can confirm or decline a signed change. A parent of a dependant, or a caregiver holding the medications permission, cannot, so a change for a dependant simply expires after the window. Decide whether a guardian may confirm for a child and whether a caregiver may confirm for an adult who cannot (and with what proof).
+
+### OQ-174 The confirm function acts as the signer for the length of the apply (raised by S24)
+- `confirm_care_plan_change` runs for the patient but, so that every existing medication trigger sees the signer's own act (attribution, the clinician allow-list, confirm-only, prescribing safety), it sets the transaction-local session claims to the signer and puts them back before returning. It runs only after the patient, signed state, expiry, re-check and signer authority checks, and fails closed if the signer has lost authority. The alternative is to teach each trigger a signed-change exception, which spreads the exception across eight triggers. Security review wanted before go-live.
+
+### OQ-175 Two copies of the controlled-medicine list (raised by S24)
+- `apps/web/src/lib/rules/controlled-substances.ts` (PDF guard, advisory text) and `private.prescription_safety_findings` (the new hard stop) hold the same illustrative list. It is not an NDLEA or NAFDAC schedule lookup. A pharmacist or the CMO should own one list; until then add a name in both places.
+
+### OQ-176 Service-role writes bypass the signed-medicine trigger (raised by S24)
+- The medicine signature trigger applies to API sessions (role `authenticated`). A server route using the service role, or a migration, is trusted code and is not stopped. No current route writes a clinician-source medicine that way (checked 2026-10-06); a code scan test is the follow-up that would keep it so.
+
+### OQ-171 update (S24b, 2026-10-06): the CMO's screen for the step table now exists
+- `/clinician/titration-protocols` lets the Chief Medical Officer paste a definition, check it, save it as a draft and approve it (functions `save_protocol_draft` and `approve_protocol`, CMO only, audited). The build wrote no clinical content and approved nothing: the page starts empty. Until the CMO approves a definition for `htn_hearts_ng`, "Suggest next step" still says no approved step table.
+
+### OQ-174 update (S24b, 2026-10-06): reviewed and hardened; independent review still advisable
+- Review: `docs/security/S24-confirm-care-plan-change-review.md`. Changes: the signer must hold a currently verified, unexpired licence when the change is applied; a signed stop that matches no active medicine is sent back; the session identity is asserted to be the patient's again before any later write. Residual: the signer's tie is not re-checked at confirm time (CMO to confirm that reading), and the review was written by the build session, so an outside reviewer is still advisable.
+
 
 ### OQ-176 Lab panel ranges and critical limits are unsigned (raised by S27)
 - `lab.panels` (registry, mirrored by `lab_panel_versions` v1) holds adult reference ranges and critical limits for the Essential and Annual Health Check panels, PROPOSED by the build, owner CMO. They are not adjusted for age, sex or pregnancy, and the lipid limits are desirable targets, not lab-printed ranges, so many results will wait for review.

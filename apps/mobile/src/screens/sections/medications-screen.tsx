@@ -21,6 +21,7 @@ import { space, useTheme } from "@/ui/design";
 import { AppText, Badge, Button, Card, EmptyState, InlineAlert, LegacySheet, ListItem, Screen, Skeleton, SkeletonGroup, useToast } from "@/ui/kit";
 import { SyncBanner } from "@/screens/sync-banner";
 import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-screen";
+import { CareChangeCard } from "@/screens/sections/care-change-card";
 
 interface MedicationsScreenProps {
   patientId: string;
@@ -285,6 +286,9 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
       </View>
 
       <SyncBanner />
+
+      {/* A change is the patient's own yes, so it is not shown while acting for someone else. */}
+      {ownsReminders ? <CareChangeCard /> : null}
 
       {ownsReminders && issues.length > 0 ? (
         <Card style={{ gap: space.sm }}>

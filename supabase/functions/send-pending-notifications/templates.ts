@@ -1,6 +1,7 @@
 // Tarragon Health: notification template renderers, split out of index.ts in S13 so a test can render every
 // template and prove none puts a condition, reading, drug or result in the text (INV-07). Behaviour is unchanged.
 import { createHmac } from "node:crypto";
+import { resolveI18n } from "../_shared/i18n/resolve.ts";
 
 // Patient-experience review 2026-07-31: several reminder templates only ever
 // said "open the app" with no actual link — real friction for a patient
@@ -609,6 +610,19 @@ export const TEMPLATE_MAP: Record<
   }),
   note_unsigned_reminder: () => ({
     smsText: "A note is waiting for your signature.",
+    pushUrl: "/clinician/patients",
+  }),
+  // S24 care plan changes. Push and in-app only (INV-08), neutral (INV-07): the payload is ids only and is never echoed.
+  care_change_ready_patient: () => ({
+    smsText: "Your care team has a change for you. Open the Tarragon Health app to read it.",
+    pushUrl: "/patient/medications",
+  }),
+  care_change_declined_staff: () => ({
+    smsText: "A patient answered a change. Nothing was changed. Open your patient list.",
+    pushUrl: "/clinician/patients",
+  }),
+  care_change_expired_staff: () => ({
+    smsText: "A signed change lapsed. Nothing was changed. Open your patient list.",
     pushUrl: "/clinician/patients",
   }),
   // Sent after a patient self-books a video check-in slot (bookVideoVisit).
@@ -1385,8 +1399,15 @@ export const TEMPLATE_MAP: Record<
   // decisions, from private.credential_notify. payload.subject and payload.message arrive fully resolved; this only
   // frames them. Only in_app and email rows are written for it (SMS is for codes and paging only).
   credential_notice: (payload) => {
-    const subject = String(payload.subject ?? "An update about your Tarragon Health clinician account");
-    const message = String(payload.message ?? "Open Tarragon Health to see the details.");
+    let subject = String(payload.subject ?? "An update about your Tarragon Health clinician account");
+    let message = String(payload.message ?? "Open Tarragon Health to see the details.");
+    if (typeof payload.i18n_key === "string") {
+      const params = typeof payload.i18n_params === "object" && payload.i18n_params !== null
+        ? Object.fromEntries(Object.entries(payload.i18n_params as Record<string, unknown>).map(([k, v]) => [k, String(v)]))
+        : undefined;
+      const resolved = resolveI18n(payload.i18n_key, params);
+      if (resolved) { subject = resolved.subject; message = resolved.body; }
+    }
     return {
       smsText: message,
       pushUrl: payload.audience === "applicant" ? "/account/clinician" : payload.audience === "rota_review" ? "/rota" : payload.audience === "rota" ? "/clinician/rota" : payload.audience === "lead" ? "/clinician/patients" : "/clinician/credentials",

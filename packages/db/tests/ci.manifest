@@ -832,13 +832,26 @@ s19_page_ack_sweep_race.sh
 s18_lead_capacity_race.sh
 # S20: quality and safety. Safety case 16 (expired licence removed from queue and rota), audit sampling and scoring (shared cases with Jest), tier 1 counts, hand-back review, the protected speak-up route (admin accounts see nothing), retaliation review. Sabotage: removal turned off must flip the case 16 check.
 s20_quality_and_safety.sql
+# S23 AI Scribe: consent immutability, transcript patient-invisible (safety case 15),
+# patient cannot insert consent, no deletes, revocation works, staff can read transcripts.
+scribe_consent_and_transcript_rls.sql
+s23b_ai017_governance_scaffolding.sql
 # S22: written questions and clinical notes. Intake gate (member, adult, allowance), safety screen, task per question, claim-only audited reads, answer rules (attestation, no diagnosis, call task), follow-up, the response window (reminder, release, allowance returned, CMO told), notes (draft never visible, patient asks and a clinician releases, protected notes need the CMO, amendments, correction requests, unsigned reminders). Sabotage: the visibility rule opened and the allowance removed; both checks must flip.
 s22_written_questions_and_notes.sql
 # S22b: membership (admin or CMO grants and ends, audited, dated memberships lapse), the queue_next type filter (claims only the types asked for; no argument keeps strict class order), and idempotent submit (a retry returns the first question and uses one allowance). Sabotage: membership always true and the retry check removed; both checks must flip.
 s22b_membership_claim_filter_idempotent_submit.sql
+# S22c: a paid credit returned on a missed window, grant_membership with a nullable end date, and notes withdrawn as entered in error (author or CMO only, permanent flag, the patient sees the withdrawal and none of the text, no amendment or dispute). Sabotage: credit return off and the author-or-CMO rule removed; both checks must flip.
+s22c_credit_return_nullable_end_withdrawn_notes.sql
 # S19b: on-call readiness. Unconfirmed phone checklist refuses a clinician on the rota (primary, backup, swap), confirming needs every item and a clinician account, reviewers see who has not confirmed, a new checklist version clears confirmations. Sabotage: the rota check removed must flip the refusal.
 s19b_on_call_readiness.sql
 # S25: catalogue, prices, orders, payments, entitlements. Dormant gate (module and item), price snapshot, idempotent order creation, service-role-only payment recording, mismatch (amount, currency, fee) never marks paid and opens an incident, safety case 24 (a replayed payment leaves one payment, one entitlement, one order.paid), membership purchase makes a Member, late payment on a closed order honoured and flagged, versioned immutable prices, RLS and no direct writes. Sabotage: amount check and replay guards removed; both checks must flip.
 s25_catalogue_orders_payments.sql
+s23c_attach_scribe_draft_to_note.sql
+# S24: signed prescribing (prescribe and amend write a signed prescription; controlled medicine hard stop; allergy and duplicate checks), care_plan_changes (unsigned cannot be saved as signed; draft invisible to the patient; applies only on her confirmation; decline, expiry, re-check), protocols (immutable once approved), plan targets only through a signed change, referral consent and chase. Sabotage: the medicine signature trigger and the signature CHECK removed; both checks must flip.
+s24_prescriptions_and_care_plan_changes.sql
+# CMO sign-off hub: the active Chief Medical Officer can read unreviewed lpe_content_blocks (so the sign-off count and page are not silently empty); a non-CMO clinician, a patient and anon cannot; the CMO still cannot write a block directly. Sabotage: the new policy dropped; the CMO check must flip.
+lpe_content_blocks_cmo_read.sql
+# S24b: the CMO's protocol functions (CMO only, versioned drafts, approve retires the previous version, approved is immutable, audited) and the hardening of confirm_care_plan_change (expired licence, deactivated signer, stale stop, mid-apply failure leaves the session as the patient, audit actors, replay). Sabotage: the identity restore plus assertion removed, and the CMO check removed; both checks must flip.
+s24b_protocol_signoff_and_confirm_hardening.sql
 # S27: lab results and release rules. Held abnormal results (case 11) and a positive HBsAg (case 12) are invisible to the patient, an all-normal one auto-releases (case 13), only the database classifies, partner/patient/team writers, tied and audited clinician reads, release needs a clinician, disclosure needs a senior clinician plus attestation, items append only. Sabotage: the state guard and the patient policy opened; both checks must flip.
 s27_lab_results_release.sql

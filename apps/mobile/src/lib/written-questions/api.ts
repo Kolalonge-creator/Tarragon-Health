@@ -1,7 +1,8 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import { mapWrittenQuestionError } from "./errors";
-import { stripJpegMetadata } from "./limits";
+import { preparePhoto } from "./photo-prepare";
+import { resizeToJpeg } from "./photo-resize";
 import { parseAllowance, parseWrittenQuestions } from "./parse";
 import type { WrittenQuestion, WrittenQuestionAllowance } from "./types";
 import type { MessageKey } from "@tarragon/i18n";
@@ -43,14 +44,13 @@ export async function postWrittenQuestionMessage(consultId: string, body: string
  * stripped, or null when the file is unreadable, not a JPEG, empty or over the size limit. The
  * queue stores these cleaned bytes, so what is sent is exactly what was checked.
  */
-export async function readCleanPhoto(uri: string, maxBytes: number): Promise<Uint8Array | null> {
-  try {
-    const response = await fetch(uri);
-    const raw = new Uint8Array(await response.arrayBuffer());
-    const clean = stripJpegMetadata(raw);
-    if (!clean || clean.length === 0 || clean.length > maxBytes) return null;
-    return clean;
-  } catch {
-    return null;
-  }
+export async function readCleanPhoto(
+  uri: string,
+  maxBytes: number,
+  size: { width: number | null; height: number | null } = { width: null, height: null },
+): Promise<Uint8Array | null> {
+  return preparePhoto(uri, size.width, size.height, maxBytes, {
+    resize: resizeToJpeg,
+    read: async (u) => new Uint8Array(await (await fetch(u)).arrayBuffer()),
+  });
 }

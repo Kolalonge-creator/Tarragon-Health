@@ -329,7 +329,7 @@ function MarkVersionDeployedForm({ versionId }: { versionId: string }) {
  * extraction) via the `systemCode` prop -- runAiEvalSuitesAction dispatches
  * to the right harness module server-side.
  */
-function RunEvalSuitesForm({ systemCode }: { systemCode: "AI-001" | "AI-016" }) {
+function RunEvalSuitesForm({ systemCode }: { systemCode: "AI-001" | "AI-016" | "AI-017" }) {
   const [state, action, pending] = useActionState<RunEvalSuitesState, FormData>(
     runAiEvalSuitesAction,
     undefined
@@ -957,7 +957,7 @@ export function AiGovernanceConsole({
 
                   <div className="flex flex-wrap items-start gap-4">
                     {row && <KillSwitchForm system={row} enabled={entry.is_enabled} />}
-                    {(entry.system_code === "AI-001" || entry.system_code === "AI-016") && (
+                    {(entry.system_code === "AI-001" || entry.system_code === "AI-016" || entry.system_code === "AI-017") && (
                       <RunEvalSuitesForm systemCode={entry.system_code} />
                     )}
                     {draftPrompt && !activePrompt && (

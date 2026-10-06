@@ -188,4 +188,26 @@ describe("draft client id", () => {
     clearDraft("p", s);
     expect(loadDraft("p", s)).toBeNull();
   });
+
+  it("parses a withdrawn note as withdrawn, with no clinical text", () => {
+    const [n] = parseReleasedNotes([
+      { id: "n9", entered_in_error: true, withdrawn_at: "2026-10-06T10:00:00Z", withdrawn_reason: "Wrong patient", signed_at: "2026-10-01T00:00:00Z", encounter_type: "phone", amends_note_id: null },
+    ]);
+    expect(n.entered_in_error).toBe(true);
+    expect(n.withdrawn_reason).toBe("Wrong patient");
+    expect(noteSections(n)).toEqual([]);
+  });
+
+  it("treats the old shape, without the field, as not withdrawn", () => {
+    const [n] = parseReleasedNotes([{ id: "n1", reason: "Cough", signed_at: "2026-10-01T00:00:00Z" }]);
+    expect(n.entered_in_error).toBe(false);
+    const [e] = parseNoteIndex([{ id: "n1", release_state: "released" }]);
+    expect(e.entered_in_error).toBe(false);
+  });
+
+  it("shows a withdrawn note beside its index entry even when it was never released", () => {
+    const index = parseNoteIndex([{ id: "n9", release_state: "not_requested", entered_in_error: true }]);
+    const released = parseReleasedNotes([{ id: "n9", entered_in_error: true, withdrawn_reason: "Wrong patient" }]);
+    expect(groupNotes(index, released)[0].note?.entered_in_error).toBe(true);
+  });
 });

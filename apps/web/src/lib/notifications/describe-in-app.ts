@@ -395,6 +395,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "note_unsigned_reminder") {
     return { text: "A note is waiting for your signature", href: "/clinician/patients" };
   }
+  // S24 care plan changes. Neutral by design (INV-07): ids only in the payload, never a medicine, reading or condition.
+  if (n.template === "care_change_ready_patient") {
+    return { text: "Your care team has a change for you", href: "/patient/medications" };
+  }
+  if (n.template === "care_change_declined_staff") {
+    return { text: "A patient answered a change. Nothing was changed", href: "/clinician/patients" };
+  }
+  if (n.template === "care_change_expired_staff") {
+    return { text: "A signed change lapsed. Nothing was changed", href: "/clinician/patients" };
+  }
   if (n.template === "second_opinion_answered") {
     return {
       text: "A doctor answered your second opinion request",
