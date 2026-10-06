@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
+import { OpenAdminSearchBar } from "@/components/shell/open-admin-search-bar";
 import { DOCTOR_TIER_LABEL, DOCTOR_TIER_AUTHORITY_BLURB } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -241,6 +243,8 @@ export default async function ClinicianPage() {
 
   return (
     <div className="space-y-6">
+      {/* The Chief Medical Officer has the same search as the admin console (the layout only builds the index for them). */}
+      {canAssignCases(staff) && <OpenAdminSearchBar />}
       <div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">
           {greetingWord(new Date())}
