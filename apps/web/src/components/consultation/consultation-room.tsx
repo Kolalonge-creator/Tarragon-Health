@@ -46,6 +46,9 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
   const [audioHint, setAudioHint] = useState(false);
+  // The person's own link, held in memory only for this page view (never stored). Browsers block a popup opened after an awaited
+  // call, so the link is also offered as a plain link the person can tap.
+  const [callUrl, setCallUrl] = useState<string | null>(null);
   const live = LIVE.has(view.status);
   const isPatient = view.role === "patient";
 
@@ -62,6 +65,7 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
       const res = await joinConsultationAction(view.encounter_id, media);
       if (res.ok && "url" in res) {
         setAudioHint(res.mediaMode === "audio_only");
+        setCallUrl(res.url);
         window.open(res.url, "_blank", "noopener,noreferrer");
         refresh();
       } else if (!res.ok && res.reason === "not_open") {
@@ -87,21 +91,24 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
     setNote(null);
     startTransition(async () => {
       const res = await reportNoShowAction(view.encounter_id);
-      if (!res.ok && res.reason === "wait_longer") setNote(t("consult.room.wait_longer", locale));
+      if (!res.ok) setNote(res.reason === "wait_longer" ? t("consult.room.wait_longer", locale) : t("consult.room.save_error", locale));
       refresh();
     });
   }
 
   function scribe(granted: boolean) {
     startTransition(async () => {
-      await answerScribeConsentAction(view.encounter_id, granted);
+      const res = await answerScribeConsentAction(view.encounter_id, granted);
+      // A failed save must never look like a saved answer: say so, and keep the question on screen.
+      if (!res.ok) setNote(t("consult.room.save_error", locale));
       refresh();
     });
   }
 
   function finish() {
     startTransition(async () => {
-      await completeConsultationAction(view.encounter_id);
+      const res = await completeConsultationAction(view.encounter_id);
+      if (!res.ok) setNote(t("consult.room.save_error", locale));
       refresh();
     });
   }
@@ -131,7 +138,13 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p role="status" aria-live="polite">
-            {otherJoined ? t("consult.room.connected", locale) : t("consult.room.waiting", locale)}
+            {isPatient
+              ? otherJoined
+                ? t("consult.room.connected", locale)
+                : t("consult.room.waiting", locale)
+              : otherJoined
+                ? t("consult.room.connected_patient", locale)
+                : t("consult.room.waiting_patient", locale)}
           </p>
           {view.final_media_mode === "audio_only" && <p>{t("consult.room.mode_audio", locale)}</p>}
           {!view.joinable && <p>{t("consult.room.not_open", locale, { when: when(view.join_opens_at) })}</p>}
@@ -144,6 +157,14 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
               {t("consult.room.join_audio", locale)}
             </Button>
           </div>
+          {callUrl && (
+            <p>
+              {t("consult.room.open_call_hint", locale)}{" "}
+              <a href={callUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-green underline">
+                {t("consult.room.open_call", locale)}
+              </a>
+            </p>
+          )}
           {note && (
             <p role="alert" className="text-charcoal-ink dark:text-night-ink">
               {note}
@@ -185,7 +206,7 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
 
       <Card>
         <CardContent className="space-y-2 pt-4 text-sm">
-          <p>{t("consult.room.call_me_hint", locale)}</p>
+          <p>{isPatient ? t("consult.room.call_me_hint", locale) : t("consult.room.call_both_hint", locale)}</p>
           <Button variant="outline" onClick={phone} disabled={pending}>
             {t("consult.room.call_me", locale)}
           </Button>
@@ -207,9 +228,12 @@ export function ConsultationRoom({ view, locale }: { view: RoomView; locale: Loc
       )}
 
       {!isPatient && view.status === "in_progress" && (
-        <Button onClick={finish} disabled={pending}>
-          {t("consult.room.finish", locale)}
-        </Button>
+        <div className="space-y-2 text-sm">
+          <p>{t("consult.room.finish_hint", locale)}</p>
+          <Button onClick={finish} disabled={pending}>
+            {t("consult.room.finish", locale)}
+          </Button>
+        </div>
       )}
     </div>
   );

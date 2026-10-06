@@ -45,7 +45,7 @@ begin
     'fallback_steps', e.fallback_steps,
     'join_opens_at', v_opens,
     'join_closes_at', v_closes,
-    'joinable', e.status in ('scheduled', 'waiting', 'in_progress') and now() >= v_opens and now() <= v_closes,
+    'joinable', e.status in ('scheduled', 'waiting', 'in_progress') and private.encounter_is_on(e) and now() >= v_opens and now() <= v_closes,
     'patient_joined', v_pat_in,
     'clinician_joined', v_doc_in,
     'scribe', jsonb_build_object('asked', s.id is not null, 'granted', s.granted),

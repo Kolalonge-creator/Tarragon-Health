@@ -272,6 +272,32 @@ end;
 $$;
 revoke all on function private.log_encounter_event(uuid, text, uuid, text, jsonb) from public, anon, authenticated;
 
+
+-- the only keys an encounter event may keep: ids and small numbers, never a name or a reading (INV-07). One copy, used by every writer.
+create function private.clean_encounter_payload(p_payload jsonb) returns jsonb
+language plpgsql immutable set search_path = ''
+as $$
+declare v jsonb := '{}'::jsonb;
+begin
+  if jsonb_typeof(coalesce(p_payload, '{}'::jsonb)) <> 'object' then return v; end if;
+  if p_payload ? 'mode' then v := v || jsonb_build_object('mode', p_payload ->> 'mode'); end if;
+  if p_payload ? 'quality' then v := v || jsonb_build_object('quality', p_payload ->> 'quality'); end if;
+  if p_payload ? 'reason_code' then v := v || jsonb_build_object('reason_code', left(p_payload ->> 'reason_code', 40)); end if;
+  if p_payload ? 'bitrate_kbps' then v := v || jsonb_build_object('bitrate_kbps', (p_payload ->> 'bitrate_kbps')::integer); end if;
+  return v;
+end;
+$$;
+revoke all on function private.clean_encounter_payload(jsonb) from public, anon, authenticated;
+
+-- a consultation is only on while its appointment is: a rescheduled, cancelled or finished booking leaves no live room behind
+create function private.encounter_is_on(e public.encounters) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select e.appointment_id is null
+      or exists (select 1 from public.appointments a where a.id = e.appointment_id and a.status in ('booked', 'confirmed', 'checked_in', 'in_progress'));
+$$;
+revoke all on function private.encounter_is_on(public.encounters) from public, anon, authenticated;
+
 -- gives the credit back: the redeemed service_purchases row is un-redeemed in the caller's transaction
 create function private.return_consultation_credit(p_appointment uuid, p_encounter uuid, p_reason text)
 returns boolean
@@ -655,10 +681,8 @@ declare
   v_uid uuid := (select auth.uid());
   e public.encounters;
   v_role text;
-  v_clean jsonb := '{}'::jsonb;
+  v_clean jsonb;
   v_mode text;
-  v_patient_in boolean;
-  v_clinician_in boolean;
 begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
   select * into e from public.encounters where id = p_encounter for update;
@@ -666,25 +690,26 @@ begin
   if v_uid = e.patient_id then v_role := 'patient';
   elsif v_uid = e.clinician_id then v_role := 'clinician';
   else raise exception 'not authorized' using errcode = '42501'; end if;
-  if p_kind not in ('joined', 'left', 'quality', 'mode_changed', 'phone_requested', 'reconnect_grace_started', 'fallback_offered') then
+  -- 'joined' is recorded by the server only (service_record_join): a person cannot vouch for their own presence, because
+  -- that would let a clinician who never came block the patient's no-show report.
+  if p_kind not in ('left', 'quality', 'mode_changed', 'phone_requested', 'reconnect_grace_started', 'fallback_offered') then
     raise exception 'that event cannot be reported from the app' using errcode = '22023';
   end if;
   if e.status not in ('scheduled', 'waiting', 'in_progress') then
     raise exception 'this consultation is %', e.status;
   end if;
-
-  -- only these keys are kept: ids and small numbers, never a name or a reading (INV-07)
-  if jsonb_typeof(coalesce(p_payload, '{}'::jsonb)) = 'object' then
-    if p_payload ? 'mode' then v_clean := v_clean || jsonb_build_object('mode', p_payload ->> 'mode'); end if;
-    if p_payload ? 'quality' then v_clean := v_clean || jsonb_build_object('quality', p_payload ->> 'quality'); end if;
-    if p_payload ? 'reason_code' then v_clean := v_clean || jsonb_build_object('reason_code', left(p_payload ->> 'reason_code', 40)); end if;
-    if p_payload ? 'bitrate_kbps' then v_clean := v_clean || jsonb_build_object('bitrate_kbps', (p_payload ->> 'bitrate_kbps')::integer); end if;
+  if not private.encounter_is_on(e) then
+    raise exception 'this consultation is no longer on';
   end if;
+
+  v_clean := private.clean_encounter_payload(p_payload);
 
   if p_kind = 'mode_changed' then
     v_mode := v_clean ->> 'mode';
-    if v_mode is null or private.media_rank(v_mode) = 0 then
-      raise exception 'mode must be video, audio_only or phone' using errcode = '22023';
+    -- phone is set only by the server once a bridge has really started (service_set_phone_mode), so the app cannot
+    -- strand a consultation on a call that is not happening
+    if coalesce(v_mode, '') not in ('video', 'audio_only') then
+      raise exception 'mode must be video or audio_only' using errcode = '22023';
     end if;
     update public.encounters
        set final_media_mode = v_mode,
@@ -698,31 +723,6 @@ begin
   end if;
 
   perform private.log_encounter_event(e.id, p_kind, v_uid, v_role, v_clean);
-
-  -- the care team opened the room before the patient: one neutral notice, never twice (INV-07, INV-08: no SMS)
-  if p_kind = 'joined' and v_role = 'clinician'
-     and not exists (select 1 from public.encounter_events where encounter_id = e.id and kind = 'joined' and actor_role = 'patient')
-     and not exists (select 1 from public.notifications where recipient_id = e.patient_id and template = 'consult_join_ready' and payload ->> 'encounter_id' = e.id::text) then
-    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
-    values (e.organisation_id, e.patient_id, private.patient_reminder_channel(e.patient_id), 'pending', 'consult_join_ready',
-            jsonb_build_object('encounter_id', e.id), 'non_clinical');
-  end if;
-
-  if p_kind = 'joined' then
-    select bool_or(actor_role = 'patient'), bool_or(actor_role = 'clinician') into v_patient_in, v_clinician_in
-      from public.encounter_events where encounter_id = e.id and kind = 'joined';
-    if coalesce(v_patient_in, false) and coalesce(v_clinician_in, false) and e.status <> 'in_progress' then
-      update public.encounters set status = 'in_progress', started_at = coalesce(started_at, now()) where id = e.id returning * into e;
-      update public.appointments set status = 'in_progress' where id = e.appointment_id and status in ('confirmed', 'checked_in', 'booked');
-      update public.video_consultations set status = 'started', started_at = coalesce(started_at, now())
-       where id = e.video_consultation_id and status = 'scheduled';
-      perform private.emit_domain_event('encounter.started', e.organisation_id, jsonb_build_object('encounter_id', e.id),
-                                        'encounter.started:' || e.id::text, e.patient_id, 'encounter', e.id);
-    elsif e.status = 'scheduled' then
-      update public.encounters set status = 'waiting' where id = e.id returning * into e;
-    end if;
-  end if;
-
   return e;
 end;
 $$;
@@ -773,6 +773,11 @@ begin
   elsif v_uid = e.clinician_id then v_role := 'clinician';
   else raise exception 'not authorized' using errcode = '42501'; end if;
   if e.status not in ('scheduled', 'waiting') then raise exception 'this consultation is %', e.status; end if;
+  if not private.encounter_is_on(e) then raise exception 'this consultation is no longer on'; end if;
+  -- fail closed: with no active policy the wait is unknown, and an unknown wait must never mean no wait
+  if v_cfg is null or (v_cfg ->> 'patientNoShowWaitMinutes') is null or (v_cfg ->> 'clinicianNoShowWaitMinutes') is null then
+    raise exception 'consultation policy is not configured' using errcode = 'P0001';
+  end if;
   select coalesce(bool_or(actor_role = 'patient'), false), coalesce(bool_or(actor_role = 'clinician'), false)
     into v_patient_in, v_clinician_in
     from public.encounter_events where encounter_id = e.id and kind = 'joined';
@@ -877,6 +882,253 @@ as $$
 $$;
 revoke all on function public.scribe_may_start(uuid) from public, anon;
 grant execute on function public.scribe_may_start(uuid) to authenticated;
+
+
+-- ---------------------------------------------------------------------------
+-- 13. The adults-only rule also covers the older video-visit booking path (video_visit_requests), however a row is made
+-- ---------------------------------------------------------------------------
+create function private.video_visit_requests_adult_gate() returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform private.assert_adult_for_consultation(new.patient_id);
+  return new;
+end;
+$$;
+revoke all on function private.video_visit_requests_adult_gate() from public, anon, authenticated;
+create trigger video_visit_requests_adult_gate before insert on public.video_visit_requests
+  for each row execute function private.video_visit_requests_adult_gate();
+
+-- ---------------------------------------------------------------------------
+-- 14. Keep the encounter, the credit and the legacy consultation row in step when an appointment is rescheduled, cancelled by
+-- a provider's leave, or moved by staff. Each body repeats the live definition read with pg_get_functiondef on 2026-10-06
+-- plus the changes marked S21. Without this a rescheduled booking kept its old live room and its credit stayed tied to the old
+-- appointment, so reporting the old room as a no-show handed the credit back while the new booking still stood.
+-- ---------------------------------------------------------------------------
+create or replace function public.reschedule_appointment(p_appointment_id uuid, p_new_scheduled_for timestamptz, p_new_ends_at timestamptz)
+returns public.appointments
+language plpgsql security definer set search_path = ''
+as $function$
+declare
+  v_uid uuid := (select auth.uid());
+  v_old public.appointments;
+  v_new public.appointments;
+  v_consult boolean;
+  v_settled boolean;
+  v_old_encounter uuid;
+begin
+  select * into v_old from public.appointments where id = p_appointment_id for update;
+  if v_old.id is null then
+    raise exception 'appointment not found';
+  end if;
+  if v_old.patient_id <> v_uid
+     and not private.is_org_staff(v_old.organisation_id)
+     and not private.can_act_for(v_old.patient_id, 'book_appointments'::public.caregiver_permission) then
+    raise exception 'not authorized';
+  end if;
+  if v_old.status not in ('held', 'booked', 'confirmed') then
+    raise exception 'cannot reschedule an appointment that is %', v_old.status;
+  end if;
+  if p_new_ends_at <= p_new_scheduled_for or p_new_scheduled_for <= now() then
+    raise exception 'invalid new time';
+  end if;
+
+  -- S21: a paid remote consultation stays paid and confirmed when it moves (it used to come back as 'booked', which offers
+  -- "Pay to confirm" for a visit that is already paid for); it carries its consultation row and its credit to the new time.
+  v_consult := v_old.consultation_method = 'telemedicine';
+  v_settled := v_consult and v_old.status = 'confirmed' and v_old.payment_status in ('paid', 'not_required', 'waived');
+  if v_consult and v_old.video_consultation_id is not null then
+    update public.appointments set video_consultation_id = null where id = v_old.id;
+  end if;
+
+  begin
+    insert into public.appointments (
+      organisation_id, patient_id, clinician_id, appointment_type, consultation_method,
+      scheduled_for, ends_at, status, reason, service, location, payment_status,
+      specialist_referral_id, care_plan_id, booked_by, is_high_priority, rescheduled_from_id,
+      confirmed_at, video_consultation_id
+    ) values (
+      v_old.organisation_id, v_old.patient_id, v_old.clinician_id, v_old.appointment_type, v_old.consultation_method,
+      p_new_scheduled_for, p_new_ends_at, case when v_settled then 'confirmed'::public.appointment_status else 'booked'::public.appointment_status end,
+      v_old.reason, v_old.service, v_old.location, v_old.payment_status,
+      v_old.specialist_referral_id, v_old.care_plan_id, v_uid, v_old.is_high_priority, v_old.id,
+      case when v_settled then now() else null end, case when v_consult then v_old.video_consultation_id else null end
+    )
+    returning * into v_new;
+  exception
+    when exclusion_violation then
+      raise exception 'that new time was just taken — pick another slot';
+  end;
+
+  update public.appointments set status = 'rescheduled' where id = p_appointment_id;
+
+  if v_consult then
+    update public.video_consultations set scheduled_at = p_new_scheduled_for where id = v_new.video_consultation_id and status = 'scheduled';
+    update public.service_purchases set redeemed_entity_id = v_new.id
+     where redeemed_entity_type = 'appointment' and redeemed_entity_id = v_old.id;
+    select id into v_old_encounter from public.encounters where appointment_id = v_old.id;
+    if v_old_encounter is not null then
+      update public.encounters set status = 'cancelled', video_consultation_id = null where id = v_old_encounter and status in ('scheduled', 'waiting');
+      perform private.log_encounter_event(v_old_encounter, 'cancelled', v_uid, case when v_uid = v_old.patient_id then 'patient' else 'clinician' end,
+                                          jsonb_build_object('reason_code', 'rescheduled'));
+    end if;
+    if v_new.status = 'confirmed' then
+      perform private.ensure_encounter_for_appointment(v_new.id);
+    end if;
+  end if;
+
+  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
+  values (
+    v_new.organisation_id, v_new.patient_id, private.patient_reminder_channel(v_new.patient_id), 'pending', 'appointment_rescheduled',
+    jsonb_build_object('old_appointment_id', v_old.id, 'new_appointment_id', v_new.id, 'scheduled_for', v_new.scheduled_for),
+    'non_clinical'
+  );
+
+  if v_new.patient_id <> v_uid then
+    perform private.log_care_access(v_new.patient_id, 'acted_for', 'booking', jsonb_build_object('appointment_id', v_new.id, 'stage', 'rescheduled'));
+  end if;
+
+  return v_new;
+end;
+$function$;
+
+create or replace function private.cascade_provider_time_off()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $function$
+declare
+  v_appt record;
+  v_default_reason text;
+  v_encounter uuid;
+begin
+  v_default_reason := case when new.kind = 'leave'
+    then 'Your provider is on leave for this time'
+    else 'Your provider is unavailable at this time'
+  end;
+
+  for v_appt in
+    select *
+    from public.appointments
+    where clinician_id = new.clinician_id
+      and status in ('held', 'booked', 'confirmed')
+      and tstzrange(scheduled_for, ends_at, '[)') && tstzrange(new.starts_at, new.ends_at, '[)')
+    for update
+  loop
+    update public.appointments
+      set status = 'provider_cancelled',
+          cancelled_at = now(),
+          cancellation_reason = coalesce(new.reason, v_default_reason),
+          hold_expires_at = null,
+          -- S21: a clinician's absence always gives the consultation credit back (OQ-127)
+          payment_status = case when v_appt.consultation_method = 'telemedicine' and v_appt.payment_status = 'paid' then 'refunded'::public.appointment_payment_status else v_appt.payment_status end
+      where id = v_appt.id;
+
+    if v_appt.consultation_method = 'telemedicine' then
+      select id into v_encounter from public.encounters where appointment_id = v_appt.id;
+      if v_appt.payment_status = 'paid' then
+        perform private.return_consultation_credit(v_appt.id, v_encounter, 'clinician_unavailable');
+      end if;
+      if v_encounter is not null then
+        update public.encounters set status = 'cancelled' where id = v_encounter and status in ('scheduled', 'waiting');
+        perform private.log_encounter_event(v_encounter, 'cancelled', null, 'system', jsonb_build_object('reason_code', 'clinician_unavailable'));
+      end if;
+      update public.video_consultations set status = 'cancelled' where id = v_appt.video_consultation_id and status = 'scheduled';
+    end if;
+
+    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
+    values (
+      v_appt.organisation_id, v_appt.patient_id, private.patient_reminder_channel(v_appt.patient_id), 'pending', 'appointment_provider_cancelled',
+      jsonb_build_object(
+        'appointment_id', v_appt.id,
+        'scheduled_for', v_appt.scheduled_for,
+        'appointment_type', v_appt.appointment_type,
+        'reason', coalesce(new.reason, v_default_reason)
+      ),
+      'non_clinical'
+    );
+
+    insert into public.appointment_waiting_list (
+      organisation_id, patient_id, clinician_id, appointment_type, consultation_method,
+      preferred_from, preferred_until, source_appointment_id
+    ) values (
+      v_appt.organisation_id, v_appt.patient_id, v_appt.clinician_id, v_appt.appointment_type, v_appt.consultation_method,
+      now(), v_appt.scheduled_for + interval '30 days', v_appt.id
+    );
+  end loop;
+
+  return new;
+end;
+$function$;
+
+create or replace function public.advance_appointment_status(p_appointment_id uuid, p_to public.appointment_status, p_no_show_reason text default null)
+returns public.appointments
+language plpgsql security definer set search_path = ''
+as $function$
+declare
+  v_uid uuid := (select auth.uid());
+  v_appt public.appointments;
+  v_valid boolean := false;
+  v_encounter uuid;
+begin
+  select * into v_appt from public.appointments where id = p_appointment_id for update;
+  if v_appt.id is null then
+    raise exception 'appointment not found';
+  end if;
+
+  if p_to = 'checked_in' then
+    v_valid := v_appt.status in ('booked', 'confirmed')
+      and (v_appt.patient_id = v_uid or private.is_org_staff(v_appt.organisation_id));
+  elsif p_to = 'in_progress' then
+    v_valid := v_appt.status in ('checked_in', 'confirmed') and private.is_org_staff(v_appt.organisation_id);
+  elsif p_to = 'completed' then
+    v_valid := v_appt.status in ('in_progress', 'checked_in', 'confirmed', 'booked') and private.is_org_staff(v_appt.organisation_id);
+  elsif p_to = 'no_show' then
+    v_valid := v_appt.status in ('booked', 'confirmed', 'checked_in') and private.is_org_staff(v_appt.organisation_id);
+    if v_valid and p_no_show_reason is not null and p_no_show_reason not in ('patient_no_show', 'clinician_no_show') then
+      raise exception 'no_show_reason must be patient_no_show or clinician_no_show';
+    end if;
+  else
+    raise exception 'unsupported target status: %', p_to;
+  end if;
+
+  if not v_valid then
+    raise exception 'cannot move appointment from % to %', v_appt.status, p_to;
+  end if;
+
+  update public.appointments set
+    status = p_to,
+    checked_in_at = case when p_to = 'checked_in' then now() else checked_in_at end,
+    started_at = case when p_to = 'in_progress' then now() else started_at end,
+    completed_at = case when p_to = 'completed' then now() else completed_at end,
+    no_show_marked_at = case when p_to = 'no_show' then now() else no_show_marked_at end,
+    no_show_reason = case when p_to = 'no_show' then p_no_show_reason else no_show_reason end,
+    -- S21: a clinician no-show gives the consultation credit back (OQ-127)
+    payment_status = case when p_to = 'no_show' and p_no_show_reason = 'clinician_no_show' and v_appt.consultation_method = 'telemedicine' and v_appt.payment_status = 'paid'
+                          then 'refunded'::public.appointment_payment_status else v_appt.payment_status end
+  where id = p_appointment_id
+  returning * into v_appt;
+
+  -- S21: the consultation follows (a staff change through the older screens must not leave a live room behind)
+  if v_appt.consultation_method = 'telemedicine' then
+    select id into v_encounter from public.encounters where appointment_id = v_appt.id;
+    if v_encounter is not null then
+      if p_to = 'in_progress' then
+        update public.encounters set status = 'in_progress', started_at = coalesce(started_at, now()) where id = v_encounter and status in ('scheduled', 'waiting');
+      elsif p_to = 'completed' then
+        update public.encounters set status = 'completed', ended_at = now() where id = v_encounter and status in ('scheduled', 'waiting', 'in_progress');
+      elsif p_to = 'no_show' then
+        update public.encounters set status = case when p_no_show_reason = 'clinician_no_show' then 'no_show_clinician' else 'no_show_patient' end, ended_at = now()
+         where id = v_encounter and status in ('scheduled', 'waiting');
+        if p_no_show_reason = 'clinician_no_show' then
+          perform private.return_consultation_credit(v_appt.id, v_encounter, 'clinician_no_show');
+        end if;
+      end if;
+    end if;
+  end if;
+
+  return v_appt;
+end;
+$function$;
 
 -- ---------------------------------------------------------------------------
 -- 11. Price (OQ-130)

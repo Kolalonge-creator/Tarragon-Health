@@ -90,13 +90,14 @@ export async function joinConsultation(deps: RoomDeps, encounterId: string, requ
   const link = await deps.video.joinLink({ roomId, role, mediaMode });
   if (!link.ok) return { ok: false, reason: "provider" };
 
-  const recorded = !(await deps.userRpc.rpc("report_encounter_event", { p_encounter: encounterId, p_kind: "joined", p_payload: { mode: mediaMode } })).error;
+  // The server records the join (a person cannot vouch for their own presence), after the window and the person were checked.
+  const recorded = !(await deps.serviceRpc.rpc("service_record_join", { p_encounter: encounterId, p_role: role, p_mode: mediaMode })).error;
   return { ok: true, url: link.data.url, mediaMode, audioOnlyEnforced: link.data.audioOnlyEnforced, recorded };
 }
 
 export type PhoneOutcome =
   | { ok: true }
-  | { ok: false; reason: "not_allowed" | "no_number" | "phone_unavailable" };
+  | { ok: false; reason: "not_allowed" | "not_open" | "no_number" | "phone_unavailable" };
 
 /**
  * The last step of the ladder: ring both people from a Tarragon number and join the calls. Either person can ask at any time.
@@ -107,7 +108,11 @@ export async function requestPhoneFallback(deps: RoomDeps, encounterId: string):
   const found = await lookup(deps, encounterId);
   if (!found) return { ok: false, reason: "not_allowed" };
   const { view } = found;
-  if (!view.clinician_id) return { ok: false, reason: "not_allowed" };
+  if (!view.clinician_id || DONE.has(view.status)) return { ok: false, reason: "not_allowed" };
+  // Only inside the join window: a call rings a real person's phone, so it is never started days early or after the visit.
+  if (!view.joinable) return { ok: false, reason: "not_open" };
+  // Already on the phone: do not ring anyone a second time.
+  if (view.final_media_mode === "phone") return { ok: true };
 
   const asked = await deps.userRpc.rpc("report_encounter_event", { p_encounter: encounterId, p_kind: "phone_requested", p_payload: {} });
   if (asked.error) return { ok: false, reason: "not_allowed" };
@@ -121,7 +126,8 @@ export async function requestPhoneFallback(deps: RoomDeps, encounterId: string):
     await deps.serviceRpc.rpc("service_record_encounter_event", { p_encounter: encounterId, p_kind: "phone_requested", p_actor_role: "system", p_payload: { reason_code: "bridge_failed" } });
     return { ok: false, reason: "phone_unavailable" };
   }
-  await deps.userRpc.rpc("report_encounter_event", { p_encounter: encounterId, p_kind: "mode_changed", p_payload: { mode: "phone" } });
+  // Only the server can put a consultation on the phone, and only now that the bridge has really started.
+  await deps.serviceRpc.rpc("service_set_phone_mode", { p_encounter: encounterId });
   await deps.serviceRpc.rpc("service_record_encounter_event", { p_encounter: encounterId, p_kind: "phone_connected", p_actor_role: "system", p_payload: { reason_code: "ringing" } });
   return { ok: true };
 }

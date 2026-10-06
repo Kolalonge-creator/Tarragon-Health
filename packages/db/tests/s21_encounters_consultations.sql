@@ -16,7 +16,7 @@
 --   8. No-shows: too early is refused, a clinician no-show returns the credit, a patient no-show keeps it.
 --   8b. Service functions: only service_role can call them; the join window; the room opens once; events keep only whitelisted keys.
 --   9. SABOTAGE: with the adult gate trigger dropped, with the adult check emptied, a minor gets through; with the room lookup
---      granted to signed-in users, a patient can call it.
+--      granted to signed-in users, a patient can call it; with the older booking path's adult gate dropped, a minor gets through.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -76,6 +76,15 @@ begin
   perform pg_temp.back();
   return v_id;
 end $f$;
+-- the server records a join (as the service role); returns the consultation's status afterwards
+create function pg_temp.join_as(p_enc uuid, p_role text) returns text language plpgsql as
+$f$ declare v text;
+begin
+  perform pg_temp.act_service();
+  select status into v from public.service_record_join(p_enc, p_role);
+  perform pg_temp.back();
+  return v;
+end $f$;
 create function pg_temp.credit_redeemed(p_purchase uuid) returns text language sql as
 $$ select (redeemed_at is not null)::text from public.service_purchases where id = p_purchase $$;
 -- how many credits are currently spent on this appointment (a credit freed earlier can be picked again, so check by target)
@@ -88,6 +97,7 @@ declare
   v_admin uuid; v_docA uuid; v_docB uuid;
   v_adult uuid; v_minor uuid; v_nodob uuid; v_stranger uuid; v_adult2 uuid; v_adult3 uuid; v_adult4 uuid;
   v_cr1 uuid; v_cr2 uuid; v_cr3 uuid; v_cr4 uuid; v_cr5 uuid; v_cr6 uuid;
+  v_a10 uuid; v_a11 uuid; v_a12 uuid; v_a13 uuid; v_a14 uuid; v_a15 uuid; v_e10 uuid; v_e12 uuid; v_e13 uuid; v_e14 uuid; v_e15 uuid;
   v_a7 uuid; v_a8 uuid; v_e7 uuid; v_e8 uuid; v_room jsonb; v_a9 uuid; v_e9 uuid; v_view jsonb;
   v_a1 uuid; v_a2 uuid; v_a3 uuid; v_a4 uuid; v_a5 uuid; v_a6 uuid;
   v_e1 uuid; v_e2 uuid; v_e3 uuid; v_e4 uuid; v_e5 uuid; v_e6 uuid;
@@ -198,11 +208,23 @@ begin
   -- 6. The live path ------------------------------------------------------------------------------------------
   perform pg_temp.act(v_adult);
   perform pg_temp.rec('an unknown event kind cannot be reported', '22023', pg_temp.try(format('select public.report_encounter_event(%L, ''completed'')', v_e1)));
-  perform pg_temp.rec('the patient joins: waiting', 'waiting', (select status from public.report_encounter_event(v_e1, 'joined')));
+  perform pg_temp.rec('a person cannot report their own join (only the server records it)', '22023', pg_temp.try(format('select public.report_encounter_event(%L, ''joined'')', v_e1)));
+  perform pg_temp.rec('...nor put the consultation on the phone from the app', '22023', pg_temp.try(format('select public.report_encounter_event(%L, ''mode_changed'', ''{"mode":"phone"}'')', v_e1)));
   perform pg_temp.back();
   perform pg_temp.act(v_docA);
-  perform pg_temp.rec('the clinician joins: in progress, start stamped', 'in_progress/true', (select status || '/' || (started_at is not null)::text from public.report_encounter_event(v_e1, 'joined')));
+  perform pg_temp.rec('a clinician cannot report their own join either', '22023', pg_temp.try(format('select public.report_encounter_event(%L, ''joined'')', v_e1)));
+  perform pg_temp.back();
+  perform pg_temp.act_service();
+  perform pg_temp.rec('the server refuses a join outside the window (this one is 3 days away)', 'P0001', pg_temp.try(format('select public.service_record_join(%L, ''patient'')', v_e1)));
+  perform pg_temp.rec('...and an unknown role', '22023', pg_temp.try(format('select public.service_record_join(%L, ''admin'')', v_e1)));
+  perform pg_temp.back();
+  update public.encounters set scheduled_at = now() + interval '5 minutes' where id = v_e1;  -- fixture: bring it inside the window
+  perform pg_temp.rec('the patient joins: waiting', 'waiting', pg_temp.join_as(v_e1, 'patient'));
+  v_res := pg_temp.join_as(v_e1, 'clinician');
+  perform pg_temp.rec('the clinician joins: in progress, start stamped', 'in_progress/true',
+    v_res || '/' || (select (started_at is not null)::text from public.encounters where id = v_e1));
   perform pg_temp.rec('the appointment follows', 'in_progress', (select status::text from public.appointments where id = v_a1));
+  perform pg_temp.act(v_docA);
   perform pg_temp.rec('scribe may now start for the assigned clinician', 'true', public.scribe_may_start(v_e1)::text);
   perform pg_temp.back();
   perform pg_temp.rec('encounter.started was emitted once', '1', (select count(*)::text from public.domain_events where event_type = 'encounter.started' and aggregate_id = v_e1));
@@ -297,10 +319,8 @@ begin
   v_a8 := pg_temp.book(v_adult3, v_docA, v_start + interval '7 days');
   select id into v_e8 from public.encounters where appointment_id = v_a8;
 
-  perform pg_temp.act(v_docA);
-  perform pg_temp.rec('the clinician opens the room first: waiting', 'waiting', (select status from public.report_encounter_event(v_e7, 'joined')));
-  perform pg_temp.rec('...and joining again does not repeat the notice', 'waiting', (select status from public.report_encounter_event(v_e7, 'joined')));
-  perform pg_temp.back();
+  perform pg_temp.rec('the clinician opens the room first: waiting', 'waiting', pg_temp.join_as(v_e7, 'clinician'));
+  perform pg_temp.rec('...and joining again does not repeat the notice', 'waiting', pg_temp.join_as(v_e7, 'clinician'));
   perform pg_temp.rec('the patient got one neutral room-open notice, in app, no SMS', '1/true',
     (select count(*)::text || '/' || bool_and(channel::text <> 'sms' and content_class = 'non_clinical')::text from public.notifications where recipient_id = v_adult and template = 'consult_join_ready' and payload ->> 'encounter_id' = v_e7::text));
   perform pg_temp.rec('the notice carries only the encounter id', 'encounter_id', (select string_agg(k, ',') from public.notifications n, jsonb_object_keys(n.payload) k where n.recipient_id = v_adult and n.template = 'consult_join_ready' and n.payload ->> 'encounter_id' = v_e7::text));
@@ -337,9 +357,10 @@ begin
   perform public.service_record_encounter_event(v_e7, 'phone_connected', 'system', '{"mode":"phone","full_name":"Nope","bitrate_kbps":0}'::jsonb);
   perform pg_temp.rec('a service event is logged with only the whitelisted keys', 'phone/false',
     (select (payload ->> 'mode') || '/' || (payload ? 'full_name')::text from public.encounter_events where encounter_id = v_e7 and kind = 'phone_connected'));
+  perform pg_temp.rec('a join cannot be written as a plain service event', '22023', pg_temp.try(format('select public.service_record_encounter_event(%L, ''joined'', ''system'')', v_e7)));
   perform pg_temp.rec('a service event cannot be a completion', '22023', pg_temp.try(format('select public.service_record_encounter_event(%L, ''completed'', ''system'')', v_e7)));
-  perform pg_temp.rec('...nor have an unknown actor', '22023', pg_temp.try(format('select public.service_record_encounter_event(%L, ''joined'', ''admin'')', v_e7)));
-  perform pg_temp.rec('...nor target an unknown encounter', 'P0002', pg_temp.try(format('select public.service_record_encounter_event(%L, ''joined'', ''system'')', gen_random_uuid())));
+  perform pg_temp.rec('...nor have an unknown actor', '22023', pg_temp.try(format('select public.service_record_encounter_event(%L, ''left'', ''admin'')', v_e7)));
+  perform pg_temp.rec('...nor target an unknown encounter', 'P0002', pg_temp.try(format('select public.service_record_encounter_event(%L, ''left'', ''system'')', gen_random_uuid())));
   perform pg_temp.back();
 
   -- 8c. Read functions (part 3): the room view and the two lists ---------------------------------------------------
@@ -385,8 +406,8 @@ begin
   perform pg_temp.act(v_docB);
   perform pg_temp.rec('...and the clinician can mark the patient absent, not the reverse', 'true/false',
     (public.consultation_room_view(v_e9) ->> 'can_report_patient_absent') || '/' || (public.consultation_room_view(v_e9) ->> 'can_report_clinician_absent'));
-  perform public.report_encounter_event(v_e9, 'joined');
   perform pg_temp.back();
+  perform pg_temp.join_as(v_e9, 'clinician');
   perform pg_temp.act(v_adult2);
   perform pg_temp.rec('once the clinician has joined, "nobody came" is no longer offered', 'false', public.consultation_room_view(v_e9) ->> 'can_report_clinician_absent');
   perform pg_temp.back();
@@ -405,6 +426,94 @@ begin
   perform pg_temp.act_anon();
   perform pg_temp.rec('anon cannot call the read functions', '42501', pg_temp.try('select public.my_upcoming_encounters()'));
   perform pg_temp.back();
+
+  -- 8d. Encounter, credit and legacy row stay in step; server-only phone mode; the older booking path -----------------
+  -- a paid consultation that is rescheduled keeps its credit and gets a fresh room; the old room stops
+  perform pg_temp.mkcredit(v_adult4);
+  v_a10 := pg_temp.book(v_adult4, v_docB, v_start + interval '9 days');
+  select id into v_e10 from public.encounters where appointment_id = v_a10;
+  perform pg_temp.act(v_adult4);
+  select id into v_a11 from public.reschedule_appointment(v_a10, v_start + interval '10 days', v_start + interval '10 days' + interval '30 minutes');
+  perform pg_temp.back();
+  perform pg_temp.rec('a paid consultation stays confirmed and paid when it is moved', 'confirmed/paid', (select status::text || '/' || payment_status::text from public.appointments where id = v_a11));
+  perform pg_temp.rec('the old booking is rescheduled', 'rescheduled', (select status::text from public.appointments where id = v_a10));
+  perform pg_temp.rec('the credit moved with it', '0/1', pg_temp.credits_on(v_a10) || '/' || pg_temp.credits_on(v_a11));
+  perform pg_temp.rec('the old encounter is cancelled and the new booking has exactly one', 'cancelled/1',
+    (select status from public.encounters where id = v_e10) || '/' || (select count(*)::text from public.encounters where appointment_id = v_a11));
+  perform pg_temp.rec('the new encounter has a room stub and the consultation row travelled with it', '1/true',
+    (select count(*)::text from public.encounter_rooms r join public.encounters en on en.id = r.encounter_id where en.appointment_id = v_a11) || '/' ||
+    (select (a.video_consultation_id is not null and a.video_consultation_id = en.video_consultation_id)::text from public.appointments a join public.encounters en on en.appointment_id = a.id where a.id = v_a11));
+  update public.encounters set scheduled_at = now() - interval '30 minutes' where id = v_e10;  -- fixture: the old time has passed
+  perform pg_temp.act(v_adult4);
+  perform pg_temp.rec('reporting the old room as a no-show is refused (the free-credit trick)', 'P0001', pg_temp.try(format('select public.mark_encounter_no_show(%L)', v_e10)));
+  perform pg_temp.back();
+  perform pg_temp.rec('...and the credit is still spent on the booking that stands', '1', pg_temp.credits_on(v_a11));
+  perform pg_temp.act_service();
+  perform pg_temp.rec('the old room cannot be joined', 'P0001', pg_temp.try(format('select public.service_record_join(%L, ''patient'')', v_e10)));
+  perform pg_temp.back();
+
+  -- a provider's leave gives the credit back, cancels the encounter and leaves no live room
+  perform pg_temp.mkcredit(v_adult3);
+  v_a12 := pg_temp.book(v_adult3, v_docB, v_start + interval '12 days');
+  select id into v_e12 from public.encounters where appointment_id = v_a12;
+  insert into public.provider_time_off (organisation_id, clinician_id, kind, starts_at, ends_at, reason)
+  values (v_org, v_docB, 'leave', v_start + interval '12 days' - interval '1 hour', v_start + interval '12 days' + interval '2 hours', 'proof');
+  perform pg_temp.rec('a provider leave cancels the booking and gives the credit back', 'provider_cancelled/refunded/0',
+    (select status::text || '/' || payment_status::text from public.appointments where id = v_a12) || '/' || pg_temp.credits_on(v_a12));
+  perform pg_temp.rec('...and cancels the encounter', 'cancelled', (select status from public.encounters where id = v_e12));
+  perform pg_temp.act_service();
+  perform pg_temp.rec('...so nobody can join it', 'false', public.service_get_encounter_room(v_e12) ->> 'joinable');
+  perform pg_temp.back();
+
+  -- staff moving the appointment through the older screens moves the consultation with it
+  perform pg_temp.mkcredit(v_adult);
+  v_a13 := pg_temp.book(v_adult, v_docB, now() + interval '4 hours');
+  select id into v_e13 from public.encounters where appointment_id = v_a13;
+  perform pg_temp.act(v_admin);
+  perform public.advance_appointment_status(v_a13, 'no_show', 'clinician_no_show');
+  perform pg_temp.back();
+  perform pg_temp.rec('staff marking a clinician no-show moves the encounter and returns the credit', 'no_show_clinician/refunded/0',
+    (select status from public.encounters where id = v_e13) || '/' || (select payment_status::text from public.appointments where id = v_a13) || '/' || pg_temp.credits_on(v_a13));
+  perform pg_temp.mkcredit(v_adult);
+  v_a14 := pg_temp.book(v_adult, v_docB, now() + interval '5 hours');
+  select id into v_e14 from public.encounters where appointment_id = v_a14;
+  perform pg_temp.act(v_admin);
+  perform public.advance_appointment_status(v_a14, 'completed');
+  perform pg_temp.back();
+  perform pg_temp.rec('staff completing the appointment completes the encounter', 'completed', (select status from public.encounters where id = v_e14));
+
+  -- only the server puts a consultation on the phone, and only once
+  perform pg_temp.act_service();
+  perform public.service_set_phone_mode(v_e7);
+  perform public.service_set_phone_mode(v_e7);
+  perform pg_temp.back();
+  perform pg_temp.rec('the server puts a consultation on the phone, counted once', 'phone/1', (select final_media_mode || '/' || fallback_steps::text from public.encounters where id = v_e7));
+  perform pg_temp.rec('encounter.fallback was emitted for it', 'true', ((select count(*) from public.domain_events where event_type = 'encounter.fallback' and aggregate_id = v_e7) >= 1)::text);
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('a clinician cannot call it', '42501', pg_temp.try(format('select public.service_set_phone_mode(%L)', v_e7)));
+  perform pg_temp.back();
+
+  -- the no-show wait fails closed when no policy is active
+  perform pg_temp.mkcredit(v_adult2);
+  v_a15 := pg_temp.book(v_adult2, v_docB, now() + interval '7 hours');
+  select id into v_e15 from public.encounters where appointment_id = v_a15;
+  update public.encounters set scheduled_at = now() - interval '30 minutes' where id = v_e15;
+  update public.consultation_policy_config set is_active = false;
+  perform pg_temp.act(v_adult2);
+  perform pg_temp.rec('with no active policy a no-show cannot be marked', 'P0001', pg_temp.try(format('select public.mark_encounter_no_show(%L)', v_e15)));
+  perform pg_temp.back();
+  perform pg_temp.act_service();
+  perform pg_temp.rec('...nor a join recorded', 'P0001', pg_temp.try(format('select public.service_record_join(%L, ''patient'')', v_e15)));
+  perform pg_temp.back();
+  update public.consultation_policy_config set is_active = true where version = 1;
+
+  -- the adults-only rule covers the older video-visit booking path too, however the row is made
+  perform pg_temp.rec('the older video-visit path refuses a minor', 'P0001',
+    pg_temp.try(format('insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)', v_org, v_minor, gen_random_uuid())));
+  perform pg_temp.rec('...and a patient with no date of birth', 'P0001',
+    pg_temp.try(format('insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)', v_org, v_nodob, gen_random_uuid())));
+  perform pg_temp.rec('...but an adult gets past the age check (and stops at the missing slot)', '23503',
+    pg_temp.try(format('insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)', v_org, v_adult, gen_random_uuid())));
 
   -- 9. Grants -------------------------------------------------------------------------------------------------
   perform pg_temp.rec('anon cannot run any consultation function', '0',
@@ -440,6 +549,10 @@ begin
   insert into results values ('sabotaged', 'a signed-in patient cannot call the room lookup', '42501',
     pg_temp.try(format('select public.service_get_encounter_room(%L)', v_e7)));
   perform pg_temp.back();
+  -- (d) the older booking path loses its adult gate: a minor now reaches the slot check instead of being refused
+  drop trigger video_visit_requests_adult_gate on public.video_visit_requests;
+  insert into results values ('sabotaged', 'the older video-visit path refuses a minor', 'P0001',
+    pg_temp.try(format('insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)', v_org, v_minor, gen_random_uuid())));
 end $$;
 
 do $$
@@ -452,8 +565,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then
-    raise exception 'VACUOUS TEST: expected all three sabotage runs to change a check, only % did', v_caught;
+  if v_caught < 4 then
+    raise exception 'VACUOUS TEST: expected all four sabotage runs to change a check, only % did', v_caught;
   end if;
 end $$;
 

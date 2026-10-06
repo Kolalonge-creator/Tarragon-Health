@@ -56,6 +56,18 @@ function fakeDb(opts: { now: () => number; scheduledAt?: number; status?: string
         }
         return ok({ provider: "mock", provider_room_id: s.roomId, state: "open", expires_at: null, created: false });
       }
+      if (fn === "service_record_join") {
+        const role = String(args.p_role);
+        s.events.push({ kind: "joined", role, payload: { mode: args.p_mode } });
+        const both = ["patient", "clinician"].every((r) => s.events.some((e) => e.kind === "joined" && e.role === r));
+        s.status = both ? "in_progress" : "waiting";
+        return ok(null);
+      }
+      if (fn === "service_set_phone_mode") {
+        s.mode = "phone";
+        s.events.push({ kind: "mode_changed", role: "system", payload: { mode: "phone" } });
+        return ok(null);
+      }
       if (fn === "service_record_encounter_event") {
         s.events.push({ kind: String(args.p_kind), role: String(args.p_actor_role), payload: (args.p_payload ?? {}) as Record<string, unknown> });
         return ok(null);
@@ -70,12 +82,11 @@ function fakeDb(opts: { now: () => number; scheduledAt?: number; status?: string
       if (!["scheduled", "waiting", "in_progress"].includes(s.status)) return bad(`this consultation is ${s.status}`);
       const role = userId === PATIENT ? "patient" : "clinician";
       const payload = (args.p_payload ?? {}) as Record<string, unknown>;
+      // what the database now enforces: an app session can report neither a join nor the phone mode
+      if (args.p_kind === "joined") return bad("that event cannot be reported from the app");
+      if (args.p_kind === "mode_changed" && payload.mode !== "video" && payload.mode !== "audio_only") return bad("mode must be video or audio_only");
       s.events.push({ kind: String(args.p_kind), role, payload });
-      if (args.p_kind === "mode_changed") s.mode = payload.mode as "video" | "audio_only" | "phone";
-      if (args.p_kind === "joined") {
-        const both = ["patient", "clinician"].every((r) => s.events.some((e) => e.kind === "joined" && e.role === r));
-        s.status = both ? "in_progress" : "waiting";
-      }
+      if (args.p_kind === "mode_changed") s.mode = payload.mode as "video" | "audio_only";
       return ok(null);
     },
   });
@@ -176,8 +187,8 @@ describe("joining a consultation", () => {
 
   it("still hands over the link when the join could not be recorded, and says so", async () => {
     const { db, deps } = setup();
-    const noRecord: RpcClient = { rpc: () => Promise.resolve({ data: null, error: { message: "down" } }) };
-    const r = await joinConsultation({ ...deps(PATIENT), userRpc: noRecord }, ENC, "video");
+    const noRecord: RpcClient = { rpc: (fn, args) => (fn === "service_record_join" ? Promise.resolve({ data: null, error: { message: "down" } }) : db.service.rpc(fn, args)) };
+    const r = await joinConsultation({ ...deps(PATIENT), serviceRpc: noRecord }, ENC, "video");
     expect(r).toMatchObject({ ok: true, recorded: false });
     expect(db.s.events).toHaveLength(0);
   });
@@ -186,6 +197,41 @@ describe("joining a consultation", () => {
     const { deps } = setup();
     const broken: RpcClient = { rpc: () => Promise.resolve({ data: null, error: { message: "down" } }) };
     expect(await joinConsultation({ ...deps(PATIENT), serviceRpc: broken }, ENC, "video")).toEqual({ ok: false, reason: "not_found" });
+  });
+});
+
+describe("who may record a join, and when the phone may ring", () => {
+  it("never asks the app session to record a join: the server does", async () => {
+    const { db, deps } = setup();
+    const userCalls: string[] = [];
+    const watched = { ...deps(PATIENT), userRpc: { rpc: (fn: string, args?: Record<string, unknown>) => (userCalls.push(`${fn}:${String(args?.p_kind)}`), db.user(PATIENT).rpc(fn, args)) } as RpcClient };
+    expect((await joinConsultation(watched, ENC, "video")).ok).toBe(true);
+    expect(userCalls).toEqual([]);
+    expect(db.s.events.some((e) => e.kind === "joined" && e.role === "patient")).toBe(true);
+  });
+
+  it("will not ring anyone before the join window, and records nothing", async () => {
+    const { db, deps, phoneMock } = setup({ now: () => T0, scheduledAt: T0 + 3 * 3_600_000 });
+    const connect = jest.spyOn(phoneMock, "connect");
+    expect(await requestPhoneFallback(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "not_open" });
+    expect(connect).not.toHaveBeenCalled();
+    expect(db.s.events).toHaveLength(0);
+  });
+
+  it("will not ring anyone once the consultation is over", async () => {
+    const { db, deps, phoneMock } = setup({ now: () => T0, status: "completed" });
+    const connect = jest.spyOn(phoneMock, "connect");
+    expect(await requestPhoneFallback(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "not_allowed" });
+    expect(connect).not.toHaveBeenCalled();
+    expect(db.s.events).toHaveLength(0);
+  });
+
+  it("does not ring a second time when the consultation is already on the phone", async () => {
+    const { db, deps, phoneMock } = setup({ now: () => T0, mode: "phone", status: "in_progress" });
+    const connect = jest.spyOn(phoneMock, "connect");
+    expect(await requestPhoneFallback(deps(DOCTOR), ENC)).toEqual({ ok: true });
+    expect(connect).not.toHaveBeenCalled();
+    expect(db.s.events).toHaveLength(0);
   });
 });
 

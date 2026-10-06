@@ -737,3 +737,12 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-137 Mobile Care flow (raised by S21)
 - The consultation room and Care tab changes are on the web (responsive). The Expo app keeps its own older video-visit screens, which hand off to the Zoom app by link. A mobile consultation room needs an EAS dev-client build to check on a device, which this session could not do.
 - Recommend: a short mobile session after S21 merges: the waiting room, consent prompt and "call me" over the same RPCs, then device-tested. Decision: open.
+
+### OQ-138 Clinician access after "Finish consultation" (raised by S21 review)
+- `complete_encounter` marks the appointment completed, as the older `set_video_consultation_call_state` already does. `private.clinician_has_patient_access` only ties a clinician to a patient through a live appointment (and the other clauses), so after Finish a clinician who is not on that patient's care list can no longer open the chart to write the note or prescribe (INV-12 is doing its job; the timing is the problem).
+- Options: (a) add one clause to `clinician_has_patient_access`: "my encounter with this patient ended in the last N hours" (recommended; the function is also being changed on the S19 branch, so this must be applied on top of whichever lands last, re-reading the live definition first); (b) keep the appointment `in_progress` until a signed note exists; (c) tell clinicians to finish last (done: the room says so).
+- Decision: open.
+
+### OQ-139 "Joined" is recorded when the link is issued, not when someone enters the call (raised by S21 review)
+- A person can no longer report their own join from the app; the server records it after checking the person and the join window. With link-based Zoom the server still cannot see anyone enter the call, so a clinician who requests the link and never enters still counts as joined and can defeat a no-show report.
+- This closes when the in-app SDK (OQ-136) gives us real presence. Until then the CMO reviews repeat reports, and the no-show report is per consultation, not automatic. Decision: open.
