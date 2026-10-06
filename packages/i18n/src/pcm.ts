@@ -826,6 +826,7 @@ export const pcm: Record<MessageKey, string> = {
   "scribe.draft.use_help": "E go fill di note fields below. Nothing go save until you save or sign di note. Wetin dey inside field before go stay, dem go add di draft after am.",
   "scribe.draft.used": "Dem don add di draft to di note below. Review and edit am, then save or sign di note.",
   "scribe.draft.summary_note": "Dem go save di patient summary with di note when you save or sign am.",
+  "scribe.error.consent": "Di patient consent no dey active for this consultation, so you no fit use di AI scribe. Write di note by hand.",
   "scribe.draft.heading": "AI draft",
   "scribe.draft.disclaimer": "Na AI generate this draft. E never save to patient record.",
   "scribe.draft.history": "History",

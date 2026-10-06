@@ -2,8 +2,17 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@tarragon/shared";
-import { MAX_TYPED_NOTES_CHARS, MIN_TYPED_NOTES_CHARS, parseTypedNotes } from "./parse-typed-notes";
+import { MAX_SEGMENT_CHARS, MAX_TYPED_NOTES_CHARS, MIN_TYPED_NOTES_CHARS, parseTypedNotes } from "./parse-typed-notes";
 import { z } from "zod";
+
+// One definition of the context the model may see, used by both the recorded and the typed path.
+const PatientContextSchema = z
+  .object({
+    age: z.number().int().min(0).max(130).optional(),
+    sex: z.string().max(20).optional(),
+    conditions: z.array(z.string().max(100)).max(20).optional(),
+  })
+  .optional();
 
 const RecordConsentSchema = z.object({
   patientId: z.string().uuid(),
@@ -87,7 +96,7 @@ const CallDraftSchema = z.object({
         index: z.number().int().nonnegative(),
         startMs: z.number().nonnegative(),
         endMs: z.number().nonnegative(),
-        text: z.string().max(2000),
+        text: z.string().max(MAX_SEGMENT_CHARS),
         speaker: z.enum(["clinician", "patient", "unknown"]),
       }),
     )
@@ -95,13 +104,7 @@ const CallDraftSchema = z.object({
     .max(2000),
   language: z.enum(["en-NG", "pcm"]),
   source: z.enum(["stt", "typed"]).default("stt"),
-  patientContext: z
-    .object({
-      age: z.number().int().min(0).max(130).optional(),
-      sex: z.string().max(20).optional(),
-      conditions: z.array(z.string().max(100)).max(20).optional(),
-    })
-    .optional(),
+  patientContext: PatientContextSchema,
 });
 
 export async function callScribeDraft(rawInput: z.input<typeof CallDraftSchema>) {
@@ -135,13 +138,7 @@ const DraftFromTextSchema = z.object({
   encounterNoteId: z.string().uuid(),
   language: z.enum(["en-NG", "pcm"]),
   text: z.string().min(MIN_TYPED_NOTES_CHARS).max(MAX_TYPED_NOTES_CHARS),
-  patientContext: z
-    .object({
-      age: z.number().int().min(0).max(130).optional(),
-      sex: z.string().max(20).optional(),
-      conditions: z.array(z.string().max(100)).max(20).optional(),
-    })
-    .optional(),
+  patientContext: PatientContextSchema,
 });
 
 /** Drafts a note from consultation notes the clinician pasted or typed. The text is sent to the model and not stored. */

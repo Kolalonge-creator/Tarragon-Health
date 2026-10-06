@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScribeConsentDialog } from "./consent-dialog";
 import { DraftReviewPanel, type DraftSection } from "./draft-review-panel";
 import { draftScribeFromText, revokeScribeConsent } from "@/lib/scribe/actions";
+import { scribeErrorMessage } from "@/lib/scribe/error-messages";
 import { MAX_TYPED_NOTES_CHARS, MIN_TYPED_NOTES_CHARS } from "@/lib/scribe/parse-typed-notes";
 
 type Language = "en-NG" | "pcm";
@@ -67,11 +68,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
         }
         setState({ step: "review", consentId, draft: result.draft, patientSummary: result.patientSummary });
       } catch (err) {
-        setState({
-          step: "error",
-          message: err instanceof Error ? err.message : t("scribe.draft.failed", "en"),
-          consentId,
-        });
+        setState({ step: "error", message: scribeErrorMessage(err), consentId });
       }
     });
   }
@@ -82,7 +79,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
       setText("");
       setState({ step: "revoked" });
     } catch (err) {
-      setState({ step: "error", message: err instanceof Error ? err.message : "Could not record the withdrawal.", consentId });
+      setState({ step: "error", message: scribeErrorMessage(err), consentId });
     }
   }
 
@@ -180,7 +177,6 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
       return (
         <div className="space-y-2">
           <p className="text-sm text-red-600">{state.message}</p>
-          <p className="text-xs text-charcoal-ink/50">{t("scribe.draft.failed", "en")}</p>
           <div className="flex gap-2">
             {state.consentId && (
               <Button size="sm" variant="outline" onClick={() => setState({ step: "input", consentId: state.consentId as string })}>

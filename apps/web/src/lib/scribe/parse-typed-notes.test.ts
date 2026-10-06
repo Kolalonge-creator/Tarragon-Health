@@ -32,4 +32,12 @@ describe("parseTypedNotes", () => {
   it("returns nothing for blank input", () => {
     expect(parseTypedNotes("  \n \n")).toEqual([]);
   });
+
+  it("does not read a hyphenated word as a speaker label", () => {
+    const segs = parseTypedNotes("Doctor: Patient-reported BP 150/90 at home\nDr-led review planned\nPatient - agrees");
+    expect(segs.map((s) => [s.speaker, s.text])).toEqual([
+      ["clinician", "Patient-reported BP 150/90 at home Dr-led review planned"],
+      ["patient", "agrees"],
+    ]);
+  });
 });

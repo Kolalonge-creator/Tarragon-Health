@@ -827,6 +827,7 @@ export const en = {
   "scribe.draft.use_help": "Fills the note fields below. Nothing is saved until you save or sign the note. Text already in a field is kept and the draft is added after it.",
   "scribe.draft.used": "Draft added to the note below. Review and edit it, then save or sign the note.",
   "scribe.draft.summary_note": "The patient summary is saved with the note when you save or sign it.",
+  "scribe.error.consent": "The patient's consent is not active for this consultation, so the AI scribe cannot be used. Write the note manually.",
   "scribe.draft.heading": "AI draft",
   "scribe.draft.disclaimer": "This is an AI-generated draft. It has not been saved to the patient record.",
   "scribe.draft.history": "History",

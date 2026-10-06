@@ -15,9 +15,10 @@ export interface TypedSegment {
 
 export const MAX_TYPED_NOTES_CHARS = 20_000;
 export const MIN_TYPED_NOTES_CHARS = 20;
-const MAX_SEGMENT_CHARS = 2000;
+export const MAX_SEGMENT_CHARS = 2000;
 
-const PREFIX = /^\s*(doctor|dr\.?|clinician|physician|nurse|patient|pt\.?)\s*[:\-–]\s*(.*)$/i;
+// A label ends in a colon, or in a dash with spaces around it: "Patient-reported BP" is a sentence, not a speaker tag.
+const PREFIX = /^\s*(doctor|dr\.?|clinician|physician|nurse|patient|pt\.?)\s*(?::|\s[-–]\s)\s*(.*)$/i;
 
 function speakerOf(label: string): TypedSegment["speaker"] {
   const l = label.toLowerCase();
