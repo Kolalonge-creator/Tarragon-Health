@@ -35,13 +35,15 @@ interface RoomView {
   join_opens_at: string;
   join_closes_at: string;
   joinable: boolean;
+  /** S37 (INV-14): true only while the clinical_operations_enabled guard is on for this pair, or a consultation is already under way. */
+  go_live_open: boolean;
   session_minutes: number;
   room: { provider: "zoom" | "mock"; provider_room_id: string | null; state: string; expires_at: string | null } | null;
 }
 
 export type JoinOutcome =
   | { ok: true; url: string; mediaMode: RequestedMedia; audioOnlyEnforced: boolean; recorded: boolean }
-  | { ok: false; reason: "not_found" | "closed" | "provider" }
+  | { ok: false; reason: "not_found" | "closed" | "provider" | "not_live" }
   | { ok: false; reason: "not_open"; opensAt: string };
 
 const DONE = new Set(["completed", "no_show_patient", "no_show_clinician", "cancelled", "failed"]);
@@ -81,6 +83,9 @@ export async function joinConsultation(deps: RoomDeps, encounterId: string, requ
   if (!found) return { ok: false, reason: "not_found" };
   const { view, role } = found;
   if (DONE.has(view.status)) return { ok: false, reason: "closed" };
+  // S37 (INV-14): with the guard off nothing is opened, no link is made and nothing is recorded. Fails closed: a view that does not
+  // say the room is open (an older database, a changed shape) is treated as not open.
+  if (view.go_live_open !== true) return { ok: false, reason: "not_live" };
   if (!view.joinable) return { ok: false, reason: "not_open", opensAt: view.join_opens_at };
 
   const roomId = await ensureRoom(deps, view, encounterId);
@@ -99,7 +104,7 @@ export async function joinConsultation(deps: RoomDeps, encounterId: string, requ
 /** What a person needs to ring into the same room. Held in memory for the page view only; never stored or logged. */
 export type DialInOutcome =
   | { ok: true; dialIn: Pick<DialIn, "numbers" | "meetingId" | "passcode"> }
-  | { ok: false; reason: "not_allowed" | "not_open" | "phone_unavailable" };
+  | { ok: false; reason: "not_allowed" | "not_open" | "phone_unavailable" | "not_live" };
 
 /** The country the patient dials in from. This platform serves Nigeria only. */
 const DIAL_IN_COUNTRY = "NG";
@@ -115,6 +120,8 @@ export async function requestDialIn(deps: RoomDeps, encounterId: string): Promis
   if (!found) return { ok: false, reason: "not_allowed" };
   const { view } = found;
   if (!view.clinician_id || DONE.has(view.status)) return { ok: false, reason: "not_allowed" };
+  // S37 (INV-14): paused consultations say so (not "opens at ..."), and nothing is recorded
+  if (view.go_live_open !== true) return { ok: false, reason: "not_live" };
   // Only inside the join window: the room is not opened days early or after the visit.
   if (!view.joinable) return { ok: false, reason: "not_open" };
 

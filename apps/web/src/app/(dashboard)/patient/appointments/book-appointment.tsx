@@ -8,6 +8,7 @@ import {
   useConfirmAppointmentBooking,
   useJoinWaitingList,
   useEnsureAppointmentVideoConsultation,
+  useGoLiveGuardOpen,
   type AppointmentType,
 } from "@/lib/queries/appointments";
 import {
@@ -15,10 +16,11 @@ import {
   PATIENT_BOOKABLE_APPOINTMENT_TYPES,
   PAID_APPOINTMENT_PRODUCT_CODE,
 } from "./appointment-labels";
+import { CONSULTATIONS_GUARD } from "@/lib/go-live/constants";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 import { ConsultationRuleCard } from "@/components/consultation/consultation-rule";
-import type { Locale } from "@tarragon/i18n";
+import { t, type Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -76,11 +78,17 @@ export function BookAppointment({
   } | null>(null);
   const [isBuying, setIsBuying] = useState(false);
 
+  // S37 (INV-14): consultations stay closed until the clinical_operations_enabled guard is on. The database refuses a hold either
+  // way; this keeps a patient from filling in a form that cannot work, and says so calmly.
+  // Every type offered here is booked as a remote consultation (consultationMethod is always telemedicine), and the database refuses all of them.
+  const guard = useGoLiveGuardOpen(CONSULTATIONS_GUARD, patientId);
+  const closed = !guard.isLoading && guard.data !== true;
   const { data: slots, isLoading } = useAvailableAppointmentSlots({
     organisationId,
     appointmentType,
     patientId,
     consultationMethod: consultationMethod || undefined,
+    enabled: guard.data === true,
   });
   const hold = useHoldAppointmentSlot();
   const confirm = useConfirmAppointmentBooking();
@@ -284,7 +292,19 @@ export function BookAppointment({
           </p>
         </div>
 
-        {consultationMethod === "telemedicine" && <ConsultationRuleCard locale={locale} />}
+        {closed && guard.isError && (
+          <div role="status" className="space-y-1 rounded-md border border-charcoal-ink/15 bg-charcoal-ink/5 p-3">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("golive.consultations.check_failed", locale)}</p>
+          </div>
+        )}
+        {closed && !guard.isError && (
+          <div role="status" className="space-y-1 rounded-md border border-charcoal-ink/15 bg-charcoal-ink/5 p-3">
+            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{t("golive.consultations.closed.title", locale)}</p>
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("golive.consultations.closed.body", locale)}</p>
+          </div>
+        )}
+
+        {!closed && consultationMethod === "telemedicine" && <ConsultationRuleCard locale={locale} />}
 
         {message && (
           <p
@@ -315,13 +335,13 @@ export function BookAppointment({
           </div>
         )}
 
-        {isLoading && (
+        {!closed && isLoading && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             Looking for open times…
           </p>
         )}
 
-        {!isLoading && slots && slots.length === 0 && (
+        {!closed && !isLoading && slots && slots.length === 0 && (
           <div className="space-y-2">
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               No open times in the next two weeks for this appointment type.
@@ -337,7 +357,7 @@ export function BookAppointment({
           </div>
         )}
 
-        {!isLoading && slots && slots.length > 0 && (
+        {!closed && !isLoading && slots && slots.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {slots.slice(0, 20).map((slot) => (
               <li

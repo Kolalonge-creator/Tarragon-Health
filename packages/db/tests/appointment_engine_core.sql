@@ -42,6 +42,9 @@ begin
   select id into v_patient2 from public.profiles where organisation_id = v_org and role = 'patient' and id <> v_patient1 order by id limit 1;
   select id into v_patient3 from public.profiles where organisation_id = v_org and role = 'patient' and id not in (v_patient1, v_patient2) order by id limit 1;
 
+  -- S37: a remote consultation is refused for real people while the clinical_operations_enabled guard is off; the fixtures are treated as test accounts (rolled back)
+  update public.profiles set is_test = true where id in (v_clinician, v_patient1, v_patient2, v_patient3);
+
   -- S21: a remote consultation is adults only and fails closed with no date of birth, so give the fixtures one (rolled back).
   update public.profiles set date_of_birth = (current_date - interval '40 years')::date where id in (v_patient1, v_patient2, v_patient3) and date_of_birth is null;
 
