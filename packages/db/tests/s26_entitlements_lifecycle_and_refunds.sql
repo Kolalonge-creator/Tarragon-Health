@@ -77,7 +77,7 @@ begin
 
   insert into public.entitlements (id, organisation_id, patient_id, order_id, kind, starts_at, ends_at, remaining_uses, state, is_test)
   values
-    (v_ent,  v_org, v_patient, v_order,  'care_pack', now(), now() - interval '1 hour', 3, 'active', true),
+    (v_ent,  v_org, v_patient, v_order,  'care_pack', now() - interval '2 hours', now() - interval '1 hour', 3, 'active', true),
     (v_ent2, v_org, v_patient, v_order2, 'care_pack', now(), now() + interval '5 days', 2, 'active', true);
 
   insert into s26_fixture values
