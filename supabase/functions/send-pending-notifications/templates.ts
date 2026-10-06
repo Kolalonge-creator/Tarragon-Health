@@ -1399,6 +1399,64 @@ export const TEMPLATE_MAP: Record<
       },
     };
   },
+  // S29 Care Circle (INV-07): fixed wording, nothing from the payload is echoed, nothing names a condition, reading or result.
+  // circle_check_in is the red alert to a supporter who holds red_alerts; the others are notices about the circle itself.
+  circle_check_in: () => ({
+    smsText: "Someone in your Care Circle may need you. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "Please check in with someone you support",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle may need you now.</p>` +
+        `<p>Please call them, then open Tarragon Health to see what you can do.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle may need you now.\n\nPlease call them, then open Tarragon Health to see what you can do.\n\nTarragon Health",
+    },
+  }),
+  circle_joined: () => ({
+    smsText: "Someone has joined your Care Circle. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "Someone joined your Care Circle",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone has joined your Care Circle.</p>` +
+        `<p>You can change what they see, or remove them, at any time in Tarragon Health.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone has joined your Care Circle.\n\nYou can change what they see, or remove them, at any time in Tarragon Health.\n\nTarragon Health",
+    },
+  }),
+  circle_left: () => ({
+    smsText: "Someone has left your Care Circle. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "Someone has left your Care Circle",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone has left your Care Circle.</p>` +
+        `<p>Open Tarragon Health to see your Care Circle.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone has left your Care Circle.\n\nOpen Tarragon Health to see your Care Circle.\n\nTarragon Health",
+    },
+  }),
+  circle_paid_for_you: () => ({
+    smsText: "Someone has paid for your care. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "Someone has paid for your care",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle has paid for your care.</p>` +
+        `<p>Open Tarragon Health to see what it includes.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle has paid for your care.\n\nOpen Tarragon Health to see what it includes.\n\nTarragon Health",
+    },
+  }),
   // S19: a red event page to the clinician on call (on_call_page) and the alert to the clinical lead and ops when nobody
   // has acknowledged it (on_call_escalation). Sent as push, in-app and email together at critical priority. The wording
   // is fixed and neutral (INV-07): no condition, reading, name or result, and nothing from the payload is echoed.

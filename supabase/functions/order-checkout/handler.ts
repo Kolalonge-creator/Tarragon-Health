@@ -43,10 +43,18 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
   if (typeof b["code"] !== "string" || !CODE.test(b["code"]) || typeof b["client_key"] !== "string" || !UUID.test(b["client_key"])) {
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
+  // S29 pay for a loved one: an optional beneficiary. The database decides whether the caller may pay for them (an unexpired
+  // Care Circle membership holding pay_for_care); this only checks the shape. The payer pays with their own card and email.
+  const beneficiary = b["beneficiary"];
+  if (beneficiary !== undefined && beneficiary !== null && (typeof beneficiary !== "string" || !UUID.test(beneficiary))) {
+    return Response.json({ error: "invalid_input" }, { status: 400 });
+  }
 
   const orders: OrderCreator = {
-    async create(code, clientKey) {
-      const { data, error } = await deps.rpcAsUser(auth, "create_order", { p_code: code, p_client_key: clientKey });
+    async create(code, clientKey, ben) {
+      const args: Record<string, unknown> = { p_code: code, p_client_key: clientKey };
+      if (ben) args["p_beneficiary"] = ben;
+      const { data, error } = await deps.rpcAsUser(auth, "create_order", args);
       if (error) return { ok: false, code: mapOrderError(error.message) };
       const d = data as Record<string, unknown> | null;
       if (!d || typeof d["order_id"] !== "string" || typeof d["reference"] !== "string" || typeof d["amount_kobo"] !== "number") return { ok: false, code: "unknown" };
@@ -59,7 +67,7 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
     },
   };
 
-  const r = await startCheckout({ payments: deps.payments, store: deps.store, orders }, { code: b["code"], clientKey: b["client_key"], email: me.email, callbackUrl: deps.returnUrl });
+  const r = await startCheckout({ payments: deps.payments, store: deps.store, orders }, { code: b["code"], clientKey: b["client_key"], email: me.email, callbackUrl: deps.returnUrl, ...(typeof beneficiary === "string" ? { beneficiary } : {}) });
   if (!r.ok) return Response.json({ error: r.code }, { status: STATUS[r.code] ?? 500 });
   return Response.json({ order_id: r.orderId, reference: r.reference, amount_kobo: r.amountKobo, checkout_url: r.checkoutUrl });
 }
