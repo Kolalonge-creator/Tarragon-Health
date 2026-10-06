@@ -325,6 +325,27 @@ begin
     (pg_temp.try_as(v_pat, $q$update public.entitlements set remaining_uses = 99$q$) like '%permission denied%')::text);
 end $$;
 
+-- 7b. Checkout link and the adapter-side mismatch flag --------------------------------------------------------------------
+do $$
+declare v_p2 uuid := pg_temp.f('pat2'); ref text; r2 jsonb;
+begin
+  ref := pg_temp.order_ref(v_p2, 'proof_consult', gen_random_uuid());
+  perform pg_temp.ck('a user cannot set a checkout link', 'true',
+    (pg_temp.q_as(v_p2, format($q$select public.set_order_checkout_url(%L, 'https://checkout.example/abc')::text$q$, ref)) like '%permission denied%')::text);
+  perform pg_temp.ck('the service role sets the checkout link', 'true', pg_temp.svc(format($q$select public.set_order_checkout_url(%L, 'https://checkout.example/abc')::text$q$, ref)));
+  perform pg_temp.ck('a link must be https', 'true',
+    (pg_temp.svc(format($q$select public.set_order_checkout_url(%L, 'http://insecure.example')::text$q$, ref)) like 'ERR:%')::text);
+  perform pg_temp.ck('a retry of the order gets the same link back', 'https://checkout.example/abc',
+    pg_temp.q_as(v_p2, format($q$select public.create_order('proof_consult', %L)->>'checkout_url'$q$, (select client_key from public.orders where paystack_reference = ref))));
+  perform pg_temp.ck('the adapter-side mismatch is recorded', 'mismatch',
+    pg_temp.res(pg_temp.svc(format($q$select public.flag_order_payment_mismatch(%L, 'fee', 500000, 900000, 'webhook')::text$q$, ref))));
+  perform pg_temp.ck('and the order stays unpaid', 'created', (select state from public.orders where paystack_reference = ref));
+  perform pg_temp.ck('a user cannot flag a mismatch', 'true',
+    (pg_temp.q_as(v_p2, format($q$select public.flag_order_payment_mismatch(%L, 'fee', 1, 1, 'webhook')::text$q$, ref)) like '%permission denied%')::text);
+  perform pg_temp.ck('flagging a paid order is a replay, not a mismatch', 'replay',
+    pg_temp.res(pg_temp.svc(format($q$select public.flag_order_payment_mismatch(%L, 'fee', 1, 1, 'webhook')::text$q$, (select paystack_reference from public.orders where id = pg_temp.f('ord1'))))));
+end $$;
+
 -- 8. SABOTAGE: the amount check and the replay guards removed; both checks must flip ---------------------------------------
 create or replace function public.record_order_payment(
   p_reference text, p_amount_kobo bigint, p_fee_kobo bigint, p_total_kobo bigint, p_currency text, p_status text,

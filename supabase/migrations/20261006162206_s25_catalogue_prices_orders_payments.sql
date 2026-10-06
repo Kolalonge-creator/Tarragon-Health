@@ -97,6 +97,7 @@ create table public.orders (
   total_kobo             bigint check (total_kobo is null or total_kobo >= amount_kobo),
   state                  text not null default 'created' check (state in ('created', 'paid', 'failed', 'refunded', 'cancelled')),
   paystack_reference     text not null unique check (paystack_reference ~ '^[A-Za-z0-9._=-]{8,100}$'),
+  checkout_url           text check (checkout_url is null or checkout_url ~ '^https://'),
   client_key             uuid,
   expires_at             timestamptz not null default now() + interval '24 hours',
   paid_at                timestamptz,
@@ -228,7 +229,7 @@ begin
   if p_client_key is not null then
     select * into o from public.orders where buyer_profile_id = v_uid and client_key = p_client_key;
     if found then
-      return jsonb_build_object('order_id', o.id, 'reference', o.paystack_reference, 'amount_kobo', o.amount_kobo, 'state', o.state, 'replay', true);
+      return jsonb_build_object('order_id', o.id, 'reference', o.paystack_reference, 'amount_kobo', o.amount_kobo, 'state', o.state, 'checkout_url', o.checkout_url, 'replay', true);
     end if;
   end if;
 
@@ -256,7 +257,7 @@ begin
   values (pr.organisation_id, v_uid, v_uid, it.id, px.id, px.amount_kobo, px.components,
           'tho_' || replace(gen_random_uuid()::text, '-', ''), p_client_key, coalesce(pr.is_test, false))
   returning * into o;
-  return jsonb_build_object('order_id', o.id, 'reference', o.paystack_reference, 'amount_kobo', o.amount_kobo, 'state', o.state, 'replay', false);
+  return jsonb_build_object('order_id', o.id, 'reference', o.paystack_reference, 'amount_kobo', o.amount_kobo, 'state', o.state, 'checkout_url', null, 'replay', false);
 end $$;
 
 create function public.cancel_order(p_order uuid) returns boolean
@@ -282,6 +283,20 @@ begin
   end if;
 end $$;
 revoke all on function private.order_incident(uuid, text, text, text) from public, anon, authenticated;
+
+-- A payment Paystack confirmed that does not match its order: kept as evidence, never fulfilled, always a person's problem.
+create function private.record_order_mismatch(o public.orders, p_reason text, p_amount bigint, p_fee bigint, p_total bigint, p_source text, p_event_key text, p_raw jsonb)
+returns jsonb language plpgsql security definer set search_path = ''
+as $$
+begin
+  insert into public.payments (organisation_id, order_id, provider_reference, amount_kobo, fee_kobo, total_kobo, status, mismatch_reason, source, event_key, raw, is_test)
+  values (o.organisation_id, o.id, o.paystack_reference, greatest(coalesce(p_amount, 0), 0), greatest(coalesce(p_fee, 0), 0),
+          greatest(coalesce(p_total, 0), 0), 'mismatch', p_reason, p_source, p_event_key, coalesce(p_raw, '{}'), o.is_test);
+  perform private.order_incident(o.organisation_id, 'order-mismatch:' || o.id, 'Payment did not match its order',
+    'Paystack reported a payment whose ' || p_reason || ' differs from order ' || o.id || '. The order was NOT marked paid. A person must check the Paystack dashboard.');
+  return jsonb_build_object('result', 'mismatch', 'reason', p_reason, 'order_id', o.id);
+end $$;
+revoke all on function private.record_order_mismatch(public.orders, text, bigint, bigint, bigint, text, text, jsonb) from public, anon, authenticated;
 
 -- The one place an order becomes paid. Idempotent: the order row lock serialises racing callers and every effect below is
 -- keyed on the order, so the second caller finds the work done. Returns 'paid', 'replay', 'mismatch' or 'not_found'.
@@ -313,12 +328,7 @@ begin
     when p_fee_kobo is null or p_fee_kobo < 0 or p_total_kobo is distinct from p_amount_kobo + p_fee_kobo then 'fee'
     else null end;
   if v_reason is not null then
-    insert into public.payments (organisation_id, order_id, provider_reference, amount_kobo, fee_kobo, total_kobo, status, mismatch_reason, source, event_key, raw, is_test)
-    values (o.organisation_id, o.id, p_reference, greatest(coalesce(p_amount_kobo, 0), 0), greatest(coalesce(p_fee_kobo, 0), 0),
-            greatest(coalesce(p_total_kobo, 0), 0), 'mismatch', v_reason, p_source, p_event_key, coalesce(p_raw, '{}'), o.is_test);
-    perform private.order_incident(o.organisation_id, 'order-mismatch:' || o.id, 'Payment did not match its order',
-      'Paystack reported a payment whose ' || v_reason || ' differs from order ' || o.id || '. The order was NOT marked paid. A person must check the Paystack dashboard.');
-    return jsonb_build_object('result', 'mismatch', 'reason', v_reason, 'order_id', o.id);
+    return private.record_order_mismatch(o, v_reason, p_amount_kobo, p_fee_kobo, p_total_kobo, p_source, p_event_key, p_raw);
   end if;
 
   insert into public.payments (organisation_id, order_id, provider_reference, amount_kobo, fee_kobo, total_kobo, status, source, event_key, raw, verified_at, is_test)
@@ -354,6 +364,31 @@ begin
     'order:' || o.id, o.beneficiary_patient_id, 'order', o.id);
 
   return jsonb_build_object('result', case when v_ent is null then 'replay' else 'paid' end, 'order_id', o.id, 'entitlement_id', v_ent);
+end $$;
+
+-- The adapter's own check (price, reference, currency, and a fee that does not exceed what Paystack took) failed.
+create function public.flag_order_payment_mismatch(p_reference text, p_reason text, p_amount_kobo bigint, p_total_kobo bigint, p_source text, p_event_key text default null)
+returns jsonb language plpgsql security definer set search_path = ''
+as $$
+declare o public.orders%rowtype;
+begin
+  if (select auth.role()) is distinct from 'service_role' then raise exception 'order_not_authorised' using errcode = '42501'; end if;
+  select * into o from public.orders where paystack_reference = p_reference for update;
+  if not found then return jsonb_build_object('result', 'not_found'); end if;
+  if o.state in ('paid', 'refunded') then return jsonb_build_object('result', 'replay', 'order_id', o.id); end if;
+  return private.record_order_mismatch(o, left(coalesce(p_reason, 'unknown'), 40), p_amount_kobo, 0, p_total_kobo, p_source, p_event_key, '{}'::jsonb);
+end $$;
+
+-- The hosted checkout link, kept so a retry of the same order reopens the same page (Paystack refuses a reused reference).
+create function public.set_order_checkout_url(p_reference text, p_url text) returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+declare n integer;
+begin
+  if (select auth.role()) is distinct from 'service_role' then raise exception 'order_not_authorised' using errcode = '42501'; end if;
+  update public.orders set checkout_url = p_url where paystack_reference = p_reference and state = 'created';
+  get diagnostics n = row_count;
+  return n = 1;
 end $$;
 
 -- A failure Paystack tells us about for sure (abandoned, failed): close the order. Never closes a paid one.
@@ -474,9 +509,12 @@ grant execute on function public.create_order(text, uuid, uuid), public.cancel_o
 -- service role only
 revoke all on function public.record_order_payment(text, bigint, bigint, bigint, text, text, text, text, timestamptz, jsonb) from public, anon, authenticated;
 revoke all on function public.close_unpaid_order(text, text) from public, anon, authenticated;
+revoke all on function public.flag_order_payment_mismatch(text, text, bigint, bigint, text, text) from public, anon, authenticated;
+revoke all on function public.set_order_checkout_url(text, text) from public, anon, authenticated;
 revoke all on function public.orders_needing_reconcile(integer) from public, anon, authenticated;
 grant execute on function public.record_order_payment(text, bigint, bigint, bigint, text, text, text, text, timestamptz, jsonb),
-  public.close_unpaid_order(text, text), public.orders_needing_reconcile(integer) to service_role;
+  public.close_unpaid_order(text, text), public.orders_needing_reconcile(integer),
+  public.flag_order_payment_mismatch(text, text, bigint, bigint, text, text), public.set_order_checkout_url(text, text) to service_role;
 revoke all on function private.prices_immutable(), private.orders_state_machine() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
