@@ -22,9 +22,9 @@ alter table public.clinical_encounter_notes
   add column is_test               boolean not null default false,
   add column is_protected          boolean not null default false,
   add column amendment_kind        text check (amendment_kind in ('addendum', 'late_entry', 'correction')),
-  add column amendment_reason      text,
-  add constraint clinical_encounter_notes_amendment_has_reason
-    check (amends_note_id is null or (amendment_kind is not null and char_length(btrim(coalesce(amendment_reason, ''))) >= 10)) not valid;
+  add column amendment_reason      text;
+-- The kind and reason are required by create_note_amendment(), the only function that creates an amendment (no patient or
+-- staff policy inserts into the table directly; S05 proofs insert amendments as the owner without them).
 
 comment on column public.clinical_encounter_notes.is_protected is
   'Set by the author for reproductive health and similar protected content. A protected note is released to the patient only by the CMO (S22).';
