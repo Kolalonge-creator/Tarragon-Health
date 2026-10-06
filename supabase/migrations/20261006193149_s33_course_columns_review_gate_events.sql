@@ -245,7 +245,8 @@ begin
     return new;
   end if;
 
-  select c.code into v_lesson_code from public.health_education_content c where c.id = new.content_id;
+  -- The clip id (BPC-04), not the content code: a code such as bpc_04_feeling_fine_with_high_pressure names a topic, and no event may.
+  select coalesce(c.audio_clip_id, 'lesson') into v_lesson_code from public.health_education_content c where c.id = new.content_id;
   for v_course in
     select g.id, g.code
     from public.health_education_programme_modules m
