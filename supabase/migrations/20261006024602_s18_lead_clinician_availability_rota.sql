@@ -157,9 +157,9 @@ as $$
 declare r record;
 begin
   for r in
-    select p.id from public.profiles p where p.is_active and p.role = 'admin'
+    select p.id from public.profiles p where p.organisation_id = p_org and p.is_active and p.role = 'admin'
     union
-    select cs.profile_id from public.clinical_staff cs where cs.profile_id is not null and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer'
+    select cs.profile_id from public.clinical_staff cs where cs.organisation_id = p_org and cs.profile_id is not null and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer'
   loop
     perform private.credential_notify(r.id, p_org, p_subject, p_message, jsonb_build_object('audience', 'rota_review'), false);
   end loop;
@@ -482,15 +482,16 @@ begin
     into n;
   if n + 1 > v_maxshifts then w := w || format('%s would have %s shifts inside 7 days (limit %s)', v_name, n + 1, v_maxshifts); end if;
 
-  -- hours worked: the NHS contract caps 72 hours in any 168 (documented, 2016 doctors in training FAQ). Checked over the 7 days
+  -- hours worked (as primary: a backup is only paged if the primary does not answer, as for post-call rest): the NHS contract
+  -- caps 72 hours in any 168 (documented, 2016 doctors in training FAQ). Checked over the 7 days
   -- ending with this shift and the 7 days starting with it, counting this shift in full.
   select greatest(
     coalesce((select sum(extract(epoch from (least(r.ends_at, p_end) - greatest(r.starts_at, p_end - interval '7 days'))) / 3600.0)
                 from public.on_call_rota r where r.organisation_id = p_org and r.cancelled_at is null and r.id is distinct from p_exclude
-                 and (r.primary_clinician_id = p_profile or r.backup_clinician_id = p_profile) and r.starts_at < p_end and r.ends_at > p_end - interval '7 days'), 0),
+                 and r.primary_clinician_id = p_profile and r.starts_at < p_end and r.ends_at > p_end - interval '7 days'), 0),
     coalesce((select sum(extract(epoch from (least(r.ends_at, p_start + interval '7 days') - greatest(r.starts_at, p_start))) / 3600.0)
                 from public.on_call_rota r where r.organisation_id = p_org and r.cancelled_at is null and r.id is distinct from p_exclude
-                 and (r.primary_clinician_id = p_profile or r.backup_clinician_id = p_profile) and r.starts_at < p_start + interval '7 days' and r.ends_at > p_start), 0))
+                 and r.primary_clinician_id = p_profile and r.starts_at < p_start + interval '7 days' and r.ends_at > p_start), 0))
     + extract(epoch from (p_end - p_start)) / 3600.0
     into v_hours;
   if v_hours > v_maxhours then w := w || format('%s would work %s hours inside 7 days (limit %s)', v_name, round(v_hours), v_maxhours); end if;
@@ -500,7 +501,7 @@ begin
   if extract(epoch from (p_end - p_start)) / 3600.0 > v_longh then
     select count(*) into n from public.on_call_rota r
      where r.organisation_id = p_org and r.cancelled_at is null and r.id is distinct from p_exclude
-       and (r.primary_clinician_id = p_profile or r.backup_clinician_id = p_profile)
+       and r.primary_clinician_id = p_profile
        and extract(epoch from (r.ends_at - r.starts_at)) / 3600.0 > v_longh
        and r.starts_at < p_start + interval '7 days' and r.ends_at > p_start - interval '7 days';
     if n + 1 > v_maxlong then w := w || format('%s would work %s long shifts (over %s hours) inside 7 days (limit %s)', v_name, n + 1, v_longh, v_maxlong); end if;
@@ -745,6 +746,7 @@ declare
   s public.rota_swaps%rowtype;
   r public.on_call_rota%rowtype;
   w text[];
+  v_urgent boolean;
 begin
   select * into s from public.rota_swaps where id = p_swap for update;
   if not found then raise exception 'unknown swap' using errcode = '22023'; end if;
@@ -756,19 +758,31 @@ begin
   if not p_accept then return; end if;
 
   select * into r from public.on_call_rota where id = s.rota_id and cancelled_at is null for update;
-  if found and r.ends_at > now() and r.starts_at <= now() + make_interval(hours => (private.lead_rule('swap_urgent_hours') #>> '{}')::integer) then
-    -- URGENT COVER: the shift starts within a few hours or has started. Waiting for a reviewer could leave the shift
-    -- uncovered, so the colleague's acceptance applies it at once. It is audited, the fatigue warnings are recorded, and the
-    -- reviewers are told straight away so they can check it. (Other platforms leave this open; a rota must not stall on approval.)
-    perform private.rota_validate_clinician(s.to_clinician, r.organisation_id, greatest(r.starts_at, now()), r.ends_at);
-    w := private.rota_fatigue_warnings(s.to_clinician, r.organisation_id, greatest(r.starts_at, now()), r.ends_at, r.id);
+  v_urgent := found and r.ends_at > now() and r.starts_at <= now() + make_interval(hours => (private.lead_rule('swap_urgent_hours') #>> '{}')::integer);
+  if v_urgent then
+    -- the slot must still be the requester's and the colleague must not already be on the shift (a suspension or another swap may
+    -- have changed it since the request); otherwise the normal reviewer path decides
+    if (s.role = 'primary' and r.primary_clinician_id <> s.from_clinician) or (s.role = 'backup' and r.backup_clinician_id is distinct from s.from_clinician)
+       or s.to_clinician in (r.primary_clinician_id, r.backup_clinician_id) then
+      v_urgent := false;
+    else
+      perform private.rota_validate_clinician(s.to_clinician, r.organisation_id, greatest(r.starts_at, now()), r.ends_at);
+      w := private.rota_fatigue_warnings(s.to_clinician, r.organisation_id, greatest(r.starts_at, now()), r.ends_at, r.id);
+      -- a fatigue warning needs a written override from a reviewer: it is never waved through by two colleagues agreeing
+      v_urgent := coalesce(array_length(w, 1), 0) = 0;
+    end if;
+  end if;
+  if v_urgent then
+    -- URGENT COVER: the shift starts within a few hours or has started and the swap is clean. Waiting for a reviewer could leave
+    -- the shift uncovered, so the colleague's acceptance applies it at once. It is audited and the reviewers are told straight away
+    -- so they can check it. (Other platforms leave this open; a rota must not stall on approval.)
     perform set_config('tarragon.lead_write', 'on', true);
     if s.role = 'primary' then update public.on_call_rota set primary_clinician_id = s.to_clinician where id = r.id;
     else update public.on_call_rota set backup_clinician_id = s.to_clinician where id = r.id; end if;
     update public.rota_swaps set state = 'approved', decided_by = s.to_clinician, decided_at = now() where id = p_swap;
     perform set_config('tarragon.lead_write', 'off', true);
     perform private.credential_audit(r.organisation_id, s.to_clinician, 'rota.swap_urgent', 'rota_swap', s.id,
-      jsonb_build_object('rota_id', r.id, 'role', s.role, 'from', s.from_clinician, 'to', s.to_clinician, 'warnings', to_jsonb(w)));
+      jsonb_build_object('rota_id', r.id, 'role', s.role, 'from', s.from_clinician, 'to', s.to_clinician, 'warnings', '[]'::jsonb));
     perform private.emit_domain_event('rota.changed', r.organisation_id, jsonb_build_object('change', 'swap', 'rota_id', r.id), 'rota.changed:' || s.id || ':swap');
     perform private.rota_notify_reviewers(r.organisation_id, 'Urgent rota cover taken', 'An on-call shift starting soon was covered by a colleague without waiting for approval. Please check it.');
     perform private.credential_notify(s.from_clinician, r.organisation_id, 'Your shift is covered', 'A colleague has taken your on-call shift. You are no longer on call for it.', jsonb_build_object('audience', 'rota'), true);

@@ -37,6 +37,7 @@ CAP=4
 CALLERS=20
 ROTA_CALLERS=8
 WORK="$(mktemp -d)"
+START_TS="$(psql "$DB_URL" -X -q -t -A -c 'select now()' 2>/dev/null || echo 1970-01-01)"
 TAG="s18rc-$$-$(date +%s)"
 psql_q() { psql "$DB_URL" -X -q -t -A -v ON_ERROR_STOP=1 "$@"; }
 
@@ -51,7 +52,7 @@ delete from public.rota_swaps where rota_id in (select id from public.on_call_ro
 delete from public.on_call_rota where primary_clinician_id in (select id from public.profiles where full_name like '$TAG%');
 delete from public.domain_events where patient_id in (select id from public.profiles where full_name like '$TAG%');
 delete from public.audit_log where actor_id in (select id from public.profiles where full_name like '$TAG%');
-delete from public.ops_incidents where external_reference like 'lead_unassigned:%' or external_reference like 'rota_gap:%';
+delete from public.ops_incidents where (external_reference like 'lead_unassigned:%' or external_reference like 'rota_gap:%') and created_at >= '$START_TS';
 delete from public.clinician_competencies where clinical_staff_id in (select id from public.clinical_staff where full_name like '$TAG%');
 delete from public.clinical_staff where full_name like '$TAG%';
 delete from auth.users where id in (select id from public.profiles where full_name like '$TAG%');

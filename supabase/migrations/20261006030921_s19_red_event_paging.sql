@@ -123,6 +123,7 @@ create table public.pages (
 create unique index pages_one_root_per_event on public.pages (triage_event_id) where parent_page_id is null;
 create unique index pages_one_child_per_role on public.pages (parent_page_id, role) where parent_page_id is not null;
 create index pages_open_idx on public.pages (to_clinician_id) where closed_at is null;
+create index pages_open_roots_idx on public.pages (sent_at) where parent_page_id is null and closed_at is null;
 create index pages_ack_idx on public.pages (acknowledged_by) where closed_at is null and acknowledged_by is not null;
 create index pages_patient_open_idx on public.pages (patient_id) where closed_at is null;
 create index pages_sweep_idx on public.pages (sent_at) where parent_page_id is null and role = 'primary' and acknowledged_at is null and closed_at is null;

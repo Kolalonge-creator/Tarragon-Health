@@ -96,6 +96,7 @@ begin
   v_d  := pg_temp.mkdoc(v_org, v_admin, 'oncall-d', 'senior_medical_officer', 'employed', '{en}',     60, '{hypertension,on_call}');
   v_mo := pg_temp.mkdoc(v_org, v_admin, 'mo', 'medical_officer', 'employed', '{en}',                   99, '{lead_clinician,hypertension}');
   v_nc := pg_temp.mkdoc(v_org, v_admin, 'no-comp', 'senior_medical_officer', 'employed', '{en}',       99, '{hypertension}');
+  v_e := pg_temp.mkdoc(v_org, v_admin, 'oncall-e', 'senior_medical_officer', 'employed', '{en}', 50, '{on_call}');
   -- real (not test) clinicians for the real patients: test and real never mix (INV-13)
   r1 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-1', 'senior_medical_officer', 'employed', '{en}',    90, '{lead_clinician,hypertension,on_call}', false);
   r2 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-2', 'senior_medical_officer', 'employed', '{pcm,en}', 80, '{lead_clinician,hypertension,on_call}', false);
@@ -239,17 +240,31 @@ begin
   perform public.approve_rota_swap(v_swap);
   perform pg_temp.back();
   perform pg_temp.rec('an approved swap changes the primary', v_d::text, (select primary_clinician_id::text from public.on_call_rota where id = v_r1_id));
-  -- urgent cover: a swap on a shift that starts within the urgent window applies on acceptance, audited, reviewers told
+  -- urgent cover: a swap on a shift that starts within the urgent window applies on acceptance when it is clean
   perform set_config('tarragon.lead_write', 'on', true);
   insert into public.on_call_rota (organisation_id, starts_at, ends_at, primary_clinician_id, backup_clinician_id, is_test)
     values (v_org, now() - interval '10 minutes', now() + interval '3 hours', v_a, v_c, true) returning id into v_r2_id;
   perform set_config('tarragon.lead_write', 'off', true);
-  perform pg_temp.act(v_a); v_swap := public.request_rota_swap(v_r2_id, 'primary', v_d, 'urgent: called away'); perform pg_temp.back();
-  perform pg_temp.act(v_d); perform public.respond_rota_swap(v_swap, true); perform pg_temp.back();
-  perform pg_temp.rec('urgent cover applies on acceptance without waiting for a reviewer', v_d::text || ',approved', (select r.primary_clinician_id::text || ',' || s.state::text from public.on_call_rota r join public.rota_swaps s on s.rota_id = r.id where s.id = v_swap));
-  perform pg_temp.rec('an urgent swap is audited with its warnings', '1', (select count(*)::text from public.audit_log where action = 'rota.swap_urgent' and entity_id = v_swap));
+  perform pg_temp.act(v_a); v_swap := public.request_rota_swap(v_r2_id, 'primary', v_e, 'urgent: called away'); perform pg_temp.back();
+  perform pg_temp.act(v_e); perform public.respond_rota_swap(v_swap, true); perform pg_temp.back();
+  perform pg_temp.rec('urgent cover applies on acceptance without waiting for a reviewer', v_e::text || ',approved', (select r.primary_clinician_id::text || ',' || s.state::text from public.on_call_rota r join public.rota_swaps s on s.rota_id = r.id where s.id = v_swap));
+  perform pg_temp.rec('an urgent swap is audited', '1', (select count(*)::text from public.audit_log where action = 'rota.swap_urgent' and entity_id = v_swap));
   perform pg_temp.rec('the reviewers are told straight away', 'true', (select (count(*) >= 1)::text from public.notifications where recipient_id = v_cmo and template = 'credential_notice' and payload ->> 'audience' = 'rota_review' and payload ->> 'subject' = 'Urgent rota cover taken'));
   perform pg_temp.rec('the clinician who handed it over is told', '1', (select count(*)::text from public.notifications where recipient_id = v_a and payload ->> 'subject' = 'Your shift is covered' and channel = 'in_app'));
+  -- an urgent swap that would break a fatigue limit (v_d is primary on a shift within 11 hours) is not waved through
+  perform set_config('tarragon.lead_write', 'on', true);
+  update public.on_call_rota set primary_clinician_id = v_c, backup_clinician_id = v_a where id = v_r2_id;
+  perform set_config('tarragon.lead_write', 'off', true);
+  perform pg_temp.act(v_c); v_swap := public.request_rota_swap(v_r2_id, 'primary', v_d, 'urgent: second case'); perform pg_temp.back();
+  perform pg_temp.act(v_d); perform public.respond_rota_swap(v_swap, true); perform pg_temp.back();
+  perform pg_temp.rec('an urgent swap with a fatigue warning waits for a reviewer', v_c::text || ',accepted', (select r.primary_clinician_id::text || ',' || s.state::text from public.on_call_rota r join public.rota_swaps s on s.rota_id = r.id where s.id = v_swap));
+  -- the slot changes hands under a pending urgent request: the acceptance must not overwrite the new holder
+  perform pg_temp.act(v_a); v_swap := public.request_rota_swap(v_r2_id, 'backup', v_e, 'urgent: third case'); perform pg_temp.back();
+  perform set_config('tarragon.lead_write', 'on', true);
+  update public.on_call_rota set backup_clinician_id = v_nc where id = v_r2_id;
+  perform set_config('tarragon.lead_write', 'off', true);
+  perform pg_temp.act(v_e); perform public.respond_rota_swap(v_swap, true); perform pg_temp.back();
+  perform pg_temp.rec('an urgent acceptance does not overwrite a slot that changed hands since the request', v_nc::text || ',accepted', (select r.backup_clinician_id::text || ',' || s.state::text from public.on_call_rota r join public.rota_swaps s on s.rota_id = r.id where s.id = v_swap));
   perform set_config('tarragon.lead_write', 'on', true);
   delete from public.rota_swaps where rota_id = v_r2_id;
   delete from public.on_call_rota where id = v_r2_id;
@@ -420,8 +435,10 @@ begin
       where n.nspname = 'private' and p.proname in ('lead_candidates', 'choose_lead', 'assign_lead_internal', 'replace_lead_internal', 'lead_reconcile', 'retry_unassigned_leads', 'rota_gap_alert', 'has_conflict')
         and has_function_privilege('authenticated', p.oid, 'EXECUTE')));
   -- weekly hours and long shifts (NHS 2016 contract limits as configurable warnings)
-  perform pg_temp.rec('a 60 hour stretch on top of 24 hours already rostered breaks the 72 hours in 7 days warning', 'true',
-    (select (array_to_string(private.rota_fatigue_warnings(v_c, v_org, t1 + interval '24 hours', t1 + interval '84 hours'), '; ') like '%hours inside 7 days%')::text));
+  perform pg_temp.rec('a 60 hour stretch on top of the primary hours already rostered breaks the 72 hours in 7 days warning', 'true',
+    (select (array_to_string(private.rota_fatigue_warnings(v_d, v_org, t1 + interval '24 hours', t1 + interval '94 hours'), '; ') like '%hours inside 7 days%')::text));
+  perform pg_temp.rec('backup-only shifts do not count as hours worked', 'true',
+    (select (array_to_string(private.rota_fatigue_warnings(v_c, v_org, t1 + interval '24 hours', t1 + interval '94 hours'), '; ') not like '%hours inside 7 days%')::text));
   perform pg_temp.rec('a short shift well clear of other shifts raises no hours warning', 'true',
     (select (array_to_string(private.rota_fatigue_warnings(v_c, v_org, t1 + interval '30 days', t1 + interval '30 days 8 hours'), '; ') not like '%hours inside 7 days%')::text));
   perform set_config('tarragon.lead_write', 'on', true);

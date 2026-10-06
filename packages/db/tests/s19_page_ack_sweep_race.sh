@@ -127,12 +127,20 @@ race() {
   local root=$1 sweep=$2 t0
   t0=$(python3 -c 'import time; print(time.time() + 3)')
   (
-    printf "begin;\nselect set_config('request.jwt.claims', '{\"sub\":\"%s\",\"role\":\"authenticated\"}', true);\nset local role authenticated;\nselect pg_sleep(greatest(0, %s - extract(epoch from clock_timestamp())));\nselect public.acknowledge_page('%s');\ncommit;\n" "$PRIMARY" "$t0" "$root" | psql "$DB_URL" -X -q -t -A >/dev/null 2>&1
+    printf "begin;\nselect set_config('request.jwt.claims', '{\"sub\":\"%s\",\"role\":\"authenticated\"}', true);\nset local role authenticated;\nselect pg_sleep(greatest(0, %s - extract(epoch from clock_timestamp())));\nselect public.acknowledge_page('%s');\ncommit;\n" "$PRIMARY" "$t0" "$root" | psql "$DB_URL" -X -q -t -A > "$WORK/ack.out" 2>&1
+    echo "exit $?" >> "$WORK/ack.out"
   ) &
   (
-    printf "begin;\nselect pg_sleep(greatest(0, %s - extract(epoch from clock_timestamp())));\nselect %s;\ncommit;\n" "$t0" "$sweep" | psql "$DB_URL" -X -q -t -A >/dev/null 2>&1
+    printf "begin;\nselect pg_sleep(greatest(0, %s - extract(epoch from clock_timestamp())));\nselect %s;\ncommit;\n" "$t0" "$sweep" | psql "$DB_URL" -X -q -t -A > "$WORK/sweep.out" 2>&1
+    echo "exit $?" >> "$WORK/sweep.out"
   ) &
   wait
+}
+
+# both racing sessions must actually have run: a session that errored would make every check below pass without proving anything
+sessions_ran_clean() {
+  grep -q '^exit 0$' "$WORK/ack.out" && ! grep -qi 'error' "$WORK/ack.out" || return 1
+  grep -q '^exit 0$' "$WORK/sweep.out" && ! grep -qi 'error' "$WORK/sweep.out" || return 1
 }
 
 # prints: half_acknowledged backup_children tasks
@@ -149,6 +157,8 @@ for ((i = 1; i <= ROUNDS; i++)); do
   new_page >/dev/null 2>&1 || fail "round $i: could not create a page"
   ROOT=$(root_of_last)
   race "$ROOT" "private.sweep_pages()"
+  sessions_ran_clean || fail "round $i: a racing session failed: $(cat "$WORK/ack.out" "$WORK/sweep.out" | tr '\n' ' ')"
+  grep -q '"errors": *0' "$WORK/sweep.out" || fail "round $i: the sweep reported errors: $(cat "$WORK/sweep.out" | tr '\n' ' ')"
   read -r unacked backups tasks < <(family_state "$ROOT")
   [[ "$unacked" -eq 0 ]] || { echo "round $i: $unacked page(s) of the family not acknowledged" >&2; bad=$((bad + 1)); }
   [[ "$backups" -le 1 ]] || { echo "round $i: $backups backup pages" >&2; bad=$((bad + 1)); }
@@ -177,6 +187,7 @@ for ((i = 1; i <= 3; i++)); do
   new_page >/dev/null 2>&1 || fail "control round $i: could not create a page"
   ROOT=$(root_of_last)
   race "$ROOT" "public.s19_sweep_naive('$ROOT')"
+  sessions_ran_clean || fail "control round $i: a racing session failed: $(cat "$WORK/ack.out" "$WORK/sweep.out" | tr '\n' ' ')"
   read -r unacked backups tasks < <(family_state "$ROOT")
   [[ "$unacked" -gt 0 ]] && violations=$((violations + 1))
 done
