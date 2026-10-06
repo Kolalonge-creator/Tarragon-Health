@@ -723,3 +723,17 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - CON-001 is consent text. The i18n rules keep consent and legal text in one language until a clinician has signed off a translation, and `scribe_enabled` already needs legal review of CON-001 (spec 14). So the `consult.scribe.*` keys have English text in the Pidgin catalogue on purpose.
 - Options: (a) English only until legal review and a clinician-signed Pidgin translation exist (recommended); (b) ship a Pidgin draft now.
 - Decision: open.
+
+### OQ-135 Consultations are not behind a go-live guard yet (raised by S21)
+- INV-14 and spec 14 say the `clinical_operations_enabled` guard blocks consultations. The guard mechanism (`app_config.go_live`) is S37. Until then a consultation can be booked as soon as a clinician has bookable slots and the patient holds a credit.
+- Recommend: S37 wires the guard into `hold_appointment_slot` and `service_get_encounter_room`. Do not switch consultations on for real patients before then, or before the phone bridge vendor (OQ-131), the slot RPC (OQ-124) and the CMO's sign-off exist.
+- Decision: open.
+
+### OQ-136 Automatic fallback needs the in-app call SDK (raised by S21)
+- With link-based Zoom the page cannot see call quality and Zoom's presence webhook cannot tell patient from clinician, so automatic downgrade to audio only and automatic phone callback on a dropped call cannot be built honestly in S21. The ladder and its clock are proved in code (`stepLadder`) and the manual steps work (audio-only join, "call me", no-show reporting).
+- Options: (a) a later session adds an in-app SDK (LiveKit or Zoom Video SDK, labels we control, client quality stats) and wires `stepLadder` to it; (b) accept manual fallback only.
+- Recommend (a). Decision: open.
+
+### OQ-137 Mobile Care flow (raised by S21)
+- The consultation room and Care tab changes are on the web (responsive). The Expo app keeps its own older video-visit screens, which hand off to the Zoom app by link. A mobile consultation room needs an EAS dev-client build to check on a device, which this session could not do.
+- Recommend: a short mobile session after S21 merges: the waiting room, consent prompt and "call me" over the same RPCs, then device-tested. Decision: open.
