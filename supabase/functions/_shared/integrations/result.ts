@@ -18,7 +18,9 @@ export type ProviderErrorCode =
   | "blocked_content"
   | "suppressed"
   | "unsupported"
-  | "invalid_signature";
+  | "invalid_signature"
+  /** A genuine, correctly signed event that arrived outside the replay window. Its signature held, so it is not an attack: callers acknowledge it. */
+  | "stale_event";
 
 export interface ProviderError {
   readonly code: ProviderErrorCode;

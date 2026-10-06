@@ -8,7 +8,7 @@ export interface MockVideoControl {
   emit(event: VideoEvent): void;
   failNextCall(): void;
   /** A webhook body and headers the mock accepts, in the mock's own simple shape. */
-  signedEvent(body: { type: "participant_joined" | "participant_left" | "room_ended" | "other"; roomId: string; label?: string }): Promise<{ rawBody: string; headers: Record<string, string> }>;
+  signedEvent(body: { type: "participant_joined" | "participant_left" | "room_ended" | "other"; roomId: string; label?: string; customerKey?: string }): Promise<{ rawBody: string; headers: Record<string, string> }>;
 }
 
 const MOCK_SECRET = "mock-video-webhook-secret";
@@ -66,7 +66,7 @@ export function createMockVideo(now: () => number = () => Date.now()): VideoProv
       }
       // A token never outlives the room.
       const expiresAtMs = Math.min(now() + input.ttlSeconds * 1000, room.expiresAtMs);
-      return ok({ token: `mocktoken.${input.roomId}.${input.role}.${expiresAtMs}`, expiresAtMs });
+      return ok({ token: `mocktoken.${input.roomId}.${input.role}.${expiresAtMs}`, expiresAtMs, password: "mockpass", ...(input.role === "clinician" ? { zak: "mockzak" } : {}) });
     },
 
     async joinLink(input) {
@@ -112,17 +112,18 @@ export function createMockVideo(now: () => number = () => Date.now()): VideoProv
     async parseWebhook(rawBody, headers, nowMs) {
       const sig = headers["x-mock-signature"];
       if (!sig || !constantTimeEqual(sig, await hmacHex("SHA-256", MOCK_SECRET, rawBody))) return fail("invalid_signature", "Signature does not match", false);
-      let body: { type?: string; roomId?: string; label?: string };
+      let body: { type?: string; roomId?: string; label?: string; customerKey?: string };
       try {
-        body = JSON.parse(rawBody) as { type?: string; roomId?: string; label?: string };
+        body = JSON.parse(rawBody) as { type?: string; roomId?: string; label?: string; customerKey?: string };
       } catch {
         return fail("bad_response", "Webhook body is not JSON", false);
       }
       const roomId = body.roomId;
       if (typeof roomId !== "string") return ok(null);
       if (body.type === "room_ended") return ok({ kind: "room_ended", roomId, atMs: nowMs });
-      const role = asVideoRole(body.label);
-      if ((body.type === "participant_joined" || body.type === "participant_left") && role) return ok({ kind: body.type, roomId, role, atMs: nowMs });
+      const customerKey = typeof body.customerKey === "string" && body.customerKey.length > 0 ? body.customerKey : undefined;
+      const role = asVideoRole(body.label) ?? (customerKey ? "observer" : null);
+      if ((body.type === "participant_joined" || body.type === "participant_left") && role) return ok({ kind: body.type, roomId, role, atMs: nowMs, ...(customerKey ? { customerKey } : {}) });
       return ok(null);
     },
 

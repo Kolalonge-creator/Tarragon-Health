@@ -311,17 +311,105 @@ describe("zoom adapter", () => {
   it("will not verify webhooks without a secret, and reads a non-JSON or shapeless signed body safely", async () => {
     const fake = createFakeZoom();
     const none = zoomFor(fake, {});
-    expect((await none.parseWebhook("{}", {}, 1))).toMatchObject({ ok: false, error: { code: "not_configured" } });
+    expect((await none.parseWebhook("{}", {}, 1_800_000_000_000))).toMatchObject({ ok: false, error: { code: "not_configured" } });
     const z = zoomFor(fake);
     const sign = async (raw: string) => {
-      const ts = "1";
+      const ts = "1800000000";
       const { hmacHex } = await import("../../../supabase/functions/_shared/integrations/crypto.ts");
       return { "x-zm-request-timestamp": ts, "x-zm-signature": `v0=${await hmacHex("SHA-256", fake.webhookSecret, `v0:${ts}:${raw}`)}` };
     };
-    expect(await z.parseWebhook("nope", await sign("nope"), 1)).toMatchObject({ ok: false, error: { code: "bad_response" } });
-    expect(await z.parseWebhook("[]", await sign("[]"), 1)).toEqual({ ok: true, data: null });
+    expect(await z.parseWebhook("nope", await sign("nope"), 1_800_000_000_000)).toMatchObject({ ok: false, error: { code: "bad_response" } });
+    expect(await z.parseWebhook("[]", await sign("[]"), 1_800_000_000_000)).toEqual({ ok: true, data: null });
     const noTs = JSON.stringify({ event: "meeting.ended", payload: { object: { id: 123456789 } } });
-    expect(await z.parseWebhook(noTs, await sign(noTs), 77)).toEqual({ ok: true, data: { kind: "room_ended", roomId: "123456789", atMs: 77 } });
+    expect(await z.parseWebhook(noTs, await sign(noTs), 1_800_000_000_077)).toEqual({ ok: true, data: { kind: "room_ended", roomId: "123456789", atMs: 1_800_000_000_077 } });
+  });
+
+  describe("in-app SDK join", () => {
+    const meeting = '"start_time":"2027-01-15T08:00:00Z","duration":30';
+
+    it("returns the room passcode to a patient and no host key, and the host key to a clinician only", async () => {
+      const fake = createFakeZoom({ now: 1_800_000_000_000 });
+      const z = zoomFor(fake);
+      const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      if (!room.ok) throw new Error("room");
+      const pat = await z.joinToken({ roomId: room.data.roomId, role: "patient", identity: ID, ttlSeconds: 600 });
+      const doc = await z.joinToken({ roomId: room.data.roomId, role: "clinician", identity: ID, ttlSeconds: 600 });
+      expect(pat).toMatchObject({ ok: true, data: { password: "pw123" } });
+      expect(pat.ok && pat.data.zak).toBeUndefined();
+      expect(doc).toMatchObject({ ok: true, data: { password: "pw123", zak: "zak_ttl600" } });
+      // the host key is asked for with the token's own lifetime, never longer
+      expect(fake.calls.filter((c) => c.path === "/v2/users/me/token")).toHaveLength(1);
+      // neither credential is inside the signed token
+      if (!doc.ok) throw new Error("token");
+      expect(JSON.stringify(decode(doc.data.token))).not.toMatch(/pw123|zak_/);
+    });
+
+    it("backdates the token's issue time by 30 seconds for a slow device clock", async () => {
+      const fake = createFakeZoom({ now: 1_800_000_000_000 });
+      const z = zoomFor(fake);
+      const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      if (!room.ok) throw new Error("room");
+      const pat = await z.joinToken({ roomId: room.data.roomId, role: "patient", identity: ID, ttlSeconds: 600 });
+      if (!pat.ok) throw new Error("token");
+      expect(decode(pat.data.token)["iat"]).toBe(1_800_000_000 - 30);
+    });
+
+    it("gives a token with no passcode when the meeting has none, and refuses a clinician token when the host key cannot be had", async () => {
+      const now = () => Date.parse("2027-01-15T08:10:00Z");
+      const base = { accountId: "a", clientId: "c", clientSecret: "s", sdkKey: "k", sdkSecret: "s", now };
+      const okMeeting = async (u: string) => ({ status: 200, ok: true, text: async () => (u.includes("oauth") ? '{"access_token":"t","expires_in":3600}' : `{${meeting}}`) });
+      const noPass = createZoomVideo({ ...base, fetch: okMeeting });
+      const pat = await noPass.joinToken({ roomId: "123456789", role: "patient", identity: ID, ttlSeconds: 60 });
+      expect(pat.ok && "password" in pat.data).toBe(false);
+      // a host key reply with no token is a bad reply, not an empty key
+      expect(await noPass.joinToken({ roomId: "123456789", role: "clinician", identity: ID, ttlSeconds: 60 })).toMatchObject({ ok: false, error: { code: "bad_response" } });
+      // a clinician with no passcode still gets the host key
+      const hostOnly = createZoomVideo({ ...base, fetch: async (u) => (u.includes("/users/me/token") ? { status: 200, ok: true, text: async () => '{"token":"zakx"}' } : okMeeting(u)) });
+      const doc = await hostOnly.joinToken({ roomId: "123456789", role: "clinician", identity: ID, ttlSeconds: 60 });
+      expect(doc).toMatchObject({ ok: true, data: { zak: "zakx" } });
+      expect(doc.ok && "password" in doc.data).toBe(false);
+      // Zoom refusing the host key (for example the app lacks the scope) is a failure the caller falls back from
+      const refused = createZoomVideo({ ...base, fetch: async (u) => (u.includes("/users/me/token") ? { status: 400, ok: false, text: async () => "{}" } : okMeeting(u)) });
+      expect(await refused.joinToken({ roomId: "123456789", role: "clinician", identity: ID, ttlSeconds: 60 })).toMatchObject({ ok: false });
+    });
+
+    it("webhook: carries the customer key we issued, and a keyed event with an unknown label is kept as a hint, not dropped", async () => {
+      const fake = createFakeZoom();
+      const z = zoomFor(fake);
+      const key = "p0123456789abcdef0123456789abcdef012";
+      const named = await fake.signedEvent("meeting.participant_joined", "123456789", "clinician", key);
+      expect(await z.parseWebhook(named.rawBody, named.headers, fake.clock.now)).toEqual({ ok: true, data: { kind: "participant_joined", roomId: "123456789", role: "clinician", atMs: fake.clock.now, customerKey: key } });
+      const renamed = await fake.signedEvent("meeting.participant_left", "123456789", "Ada Obi", key);
+      expect(await z.parseWebhook(renamed.rawBody, renamed.headers, fake.clock.now)).toEqual({ ok: true, data: { kind: "participant_left", roomId: "123456789", role: "observer", atMs: fake.clock.now, customerKey: key } });
+      // arriving in the waiting room is arriving: the patient waits there until the clinician admits them
+      const waiting = await fake.signedEvent("meeting.participant_joined_waiting_room", "123456789", "patient", key);
+      expect(await z.parseWebhook(waiting.rawBody, waiting.headers, fake.clock.now)).toEqual({ ok: true, data: { kind: "participant_joined", roomId: "123456789", role: "patient", atMs: fake.clock.now, customerKey: key } });
+      // no key and no known label (a plain link joiner who typed a name) is still ignored
+      const link = await fake.signedEvent("meeting.participant_joined", "123456789", "Ada Obi");
+      expect(await z.parseWebhook(link.rawBody, link.headers, fake.clock.now)).toEqual({ ok: true, data: null });
+    });
+  });
+
+  it("refuses a validly signed webhook that is stale, from the future or has no usable timestamp, so a captured one cannot be replayed", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = zoomFor(fake);
+    const evt = await fake.signedEvent("meeting.ended", "123456789");
+    expect((await z.parseWebhook(evt.rawBody, evt.headers, fake.clock.now)).ok).toBe(true);
+    // four minutes later still fine, six minutes later refused, and so is the same distance into the past
+    expect((await z.parseWebhook(evt.rawBody, evt.headers, fake.clock.now + 4 * 60_000)).ok).toBe(true);
+    for (const at of [fake.clock.now + 6 * 60_000, fake.clock.now - 6 * 60_000]) {
+      // validly signed but late: its own code, so the caller can acknowledge it rather than treat it as a forgery
+      expect(await z.parseWebhook(evt.rawBody, evt.headers, at)).toMatchObject({ ok: false, error: { code: "stale_event" } });
+    }
+    // a bad signature is still a bad signature, however fresh
+    expect(await z.parseWebhook(evt.rawBody, { ...evt.headers, "x-zm-signature": "v0=00" }, fake.clock.now)).toMatchObject({ ok: false, error: { code: "invalid_signature" } });
+    // a timestamp that is not a plain number of seconds is refused even when it is correctly signed
+    const { hmacHex } = await import("../../../supabase/functions/_shared/integrations/crypto.ts");
+    for (const ts of ["abc", "", "-5", "1.5e9"]) {
+      const sig = `v0=${await hmacHex("SHA-256", fake.webhookSecret, `v0:${ts}:${evt.rawBody}`)}`;
+      const r = await z.parseWebhook(evt.rawBody, { "x-zm-request-timestamp": ts, "x-zm-signature": sig }, fake.clock.now);
+      expect(r.ok).toBe(false);
+    }
   });
 
   it("delivers in-process events (connection quality from the device SDK) to subscribers", async () => {
