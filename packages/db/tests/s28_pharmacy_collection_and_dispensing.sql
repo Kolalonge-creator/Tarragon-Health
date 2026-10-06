@@ -233,6 +233,23 @@ select pg_temp.ck('real', 'F4 INV-02: the signed items are untouched by routing'
   (select items -> 0 ->> 'drug' from public.prescriptions where id = pg_temp.f('rx3')));
 select pg_temp.ck('real', 'F5 no test row is counted as real: every fixture is is_test', 'true', (select bool_and(is_test)::text from public.prescription_collection_codes where prescription_id in (pg_temp.f('rx1'), pg_temp.f('rx2'), pg_temp.f('rx3'))));
 
+-- G. review regressions: a superseded medicine cannot be routed; a missing config never unlocks the guess limit
+do $$ declare v_rx uuid; begin
+  insert into public.prescriptions (organisation_id, patient_id, items, state, signed_by, signed_at, is_test)
+  values (pg_temp.f('org'), pg_temp.f('pat'), '[{"drug":"Proofdrug Old"}]', 'signed', pg_temp.f('doc'), now(), true) returning id into v_rx;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, quantity, repeats_allowed, source, is_active, prescription_id, superseded_at)
+  values (pg_temp.f('org'), pg_temp.f('pat'), 'Proofdrug Old', '5 mg', '30 tablets', 0, 'clinician', false, v_rx, now());
+  perform pg_temp.setf('rxOld', v_rx);
+end $$;
+select pg_temp.ck('real', 'G1 REGRESSION a superseded medicine cannot be sent to a pharmacy', 'ERR:22023', pg_temp.q_as(pg_temp.f('pat'), format($q$select public.patient_choose_pharmacy(%L, %L, %L)$q$, pg_temp.f('rxOld'), pg_temp.f('pA'), pg_temp.f('lA'))));
+do $$ declare v_rx uuid := pg_temp.mkrx(pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('doc'), 'Proofdrug Cfg', 'signed'); v_last text; i integer; begin
+  perform pg_temp.sett('codeCfg', pg_temp.q_as(pg_temp.f('pat'), format($q$select public.patient_choose_pharmacy(%L, %L, %L)$q$, v_rx, pg_temp.f('pA'), pg_temp.f('lA'))));
+  update public.pharmacy_config set is_active = false;
+  for i in 1 .. 5 loop v_last := pg_temp.verify_as(pg_temp.f('phA'), v_rx, 'BADCODE' || i); end loop;
+  perform pg_temp.ck('real', 'G2 REGRESSION with no active config the fifth wrong try still locks', 'locked', v_last);
+  update public.pharmacy_config set is_active = true where version = 1;
+end $$;
+
 -- Sabotage -------------------------------------------------------------------------------------------------------------------------------------
 do $$
 declare v_def text; v_out text; v_i integer; v_last text;

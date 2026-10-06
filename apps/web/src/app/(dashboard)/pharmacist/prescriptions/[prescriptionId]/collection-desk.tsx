@@ -16,6 +16,11 @@ const VERIFY_TEXT: Record<string, string> = {
   expired: "The code has expired. The patient must get a new code in the app.",
   already_collected: "This was already collected.",
 };
+const PROBLEM_TEXT = {
+  registration: "Check the PCN registration number: 3 to 40 letters, numbers, spaces, slashes, dots or hyphens.",
+  pharmacist: "Enter the pharmacist name (2 to 120 characters).",
+  note: `For a partial supply, write what is owed and when (${NOTE_MIN} to ${NOTE_MAX} characters).`,
+} as const;
 const DISPENSE_TEXT: Record<string, string> = {
   recorded: "Recorded as supplied. The patient was told.",
   partial_recorded: "Recorded as a partial supply. It stays waiting for the rest.",
@@ -29,6 +34,7 @@ const DISPENSE_TEXT: Record<string, string> = {
   no_supply_available: "All the permitted supplies of this prescription have been recorded already. Do not supply it again.",
   no_medication: "This prescription cannot be supplied from here. Ask the prescriber.",
 };
+VERIFY_TEXT.no_medication = DISPENSE_TEXT.no_medication;
 
 /**
  * S28 counter desk (spec 9.6): the pharmacist checks the patient's collection code, sees what was prescribed and the allergies on file,
@@ -41,7 +47,7 @@ export function CollectionDesk({ prescriptionId }: { prescriptionId: string }) {
   const [code, setCode] = useState("");
   const [seen, setSeen] = useState<DeskVerification | null>(null);
   const [done, setDone] = useState<DispenseResult | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [problem, setProblem] = useState<"registration" | "pharmacist" | "note" | null>(null);
   const [partial, setPartial] = useState(false);
   const [f, setF] = useState({ quantity: "", note: "", batch: "", expiry: "", registration: "", pharmacist: "" });
 
@@ -102,7 +108,7 @@ export function CollectionDesk({ prescriptionId }: { prescriptionId: string }) {
                   <Input id="note" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} maxLength={NOTE_MAX} />
                 </div>
               )}
-              {problem && <p role="alert" className="text-sm text-red-600">{DISPENSE_TEXT.invalid}</p>}
+              {problem && <p role="alert" className="text-sm text-red-600">{PROBLEM_TEXT[problem]}</p>}
               {dispense.isError && <p role="alert" className="text-sm text-red-600">{(dispense.error as Error).message || "Could not record the supply."}</p>}
               <Button type="submit" disabled={dispense.isPending}>{dispense.isPending ? "Recording…" : partial ? "Record partial supply" : "Record supply"}</Button>
             </form>

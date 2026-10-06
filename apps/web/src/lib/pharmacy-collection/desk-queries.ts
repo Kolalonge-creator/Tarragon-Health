@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { loose } from "@/lib/clinician/loose-client";
 import { deskVerifySchema, dispenseResultSchema, type DeskVerification, type DispenseResult } from "./model";
 
 /**
@@ -10,7 +11,7 @@ import { deskVerifySchema, dispenseResultSchema, type DeskVerification, type Dis
 export function useVerifyCollection() {
   return useMutation({
     mutationFn: async ({ prescription, code }: { prescription: string; code: string }): Promise<DeskVerification> => {
-      const { data, error } = await createClient().rpc("pharmacist_verify_collection" as never, { p_prescription: prescription, p_code: code } as never);
+      const { data, error } = await loose(createClient()).rpc("pharmacist_verify_collection", { p_prescription: prescription, p_code: code });
       if (error) throw error;
       const parsed = deskVerifySchema.safeParse((data as unknown[] | null)?.[0]);
       if (!parsed.success) throw new Error("Unexpected answer from the server.");
@@ -24,7 +25,7 @@ export function useDispensePrescription() {
     mutationFn: async (input: {
       prescription: string; code: string; quantity: string; partial: boolean; note: string; batch: string; expiry: string; registration: string; pharmacist: string;
     }): Promise<DispenseResult> => {
-      const { data, error } = await createClient().rpc("pharmacist_dispense_prescription" as never, {
+      const { data, error } = await loose(createClient()).rpc("pharmacist_dispense_prescription", {
         p_prescription: input.prescription,
         p_code: input.code,
         p_quantity: input.quantity.trim() || null,
@@ -34,7 +35,7 @@ export function useDispensePrescription() {
         p_expiry: input.expiry || null,
         p_registration: input.registration.trim(),
         p_pharmacist_name: input.pharmacist.trim(),
-      } as never);
+      });
       if (error) throw error;
       const parsed = dispenseResultSchema.safeParse((data as unknown[] | null)?.[0]);
       if (!parsed.success) throw new Error("Unexpected answer from the server.");

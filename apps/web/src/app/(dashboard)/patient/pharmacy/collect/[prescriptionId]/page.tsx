@@ -48,6 +48,7 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
   const locale = resolveUiLanguage(profile?.language, await getPidginEnabled());
   const notice = asNotice((await searchParams).n);
   const collection = await loadCollection(prescriptionId);
+  if (collection.ok && !collection.data) notFound();
   const view = collection.ok && collection.data ? viewFor(collection.data) : null;
   const pharmacies = view === "choose" || view === "code" ? await loadPharmacies(prescriptionId) : null;
 

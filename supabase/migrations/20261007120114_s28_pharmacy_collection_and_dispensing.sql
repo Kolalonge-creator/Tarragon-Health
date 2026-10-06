@@ -171,7 +171,7 @@ end $$;
 -- Tests a code for one prescription at one pharmacy. A wrong try is counted and locks the code at the limit; the caller must RETURN (not raise)
 -- so the count is kept. Outcomes: ok, not_found, expired, locked, wrong_code, already_collected.
 create function private.check_collection_code(p_rx uuid, p_code text, p_partner uuid) returns text language plpgsql security definer set search_path = '' as $$
-declare c public.prescription_collection_codes%rowtype; v_max integer := (private.pharmacy_cfg() ->> 'max_wrong_attempts')::integer; v_in text := upper(regexp_replace(coalesce(p_code, ''), '[\s-]', '', 'g')); v_n integer;
+declare c public.prescription_collection_codes%rowtype; v_max integer := coalesce((private.pharmacy_cfg() ->> 'max_wrong_attempts')::integer, 5); v_in text := upper(regexp_replace(coalesce(p_code, ''), '[\s-]', '', 'g')); v_n integer;
 begin
   select * into c from public.prescription_collection_codes where prescription_id = p_rx and pharmacy_partner_id = p_partner for update;
   if not found then return 'not_found'; end if;
@@ -211,11 +211,15 @@ create function public.patient_choose_pharmacy(p_prescription uuid, p_partner uu
 returns text language plpgsql security definer set search_path = '' as $$
 declare
   rx public.prescriptions%rowtype; v_cfg jsonb := private.pharmacy_cfg(); v_code text; v_med uuid;
+  v_len integer := coalesce((private.pharmacy_cfg() ->> 'code_length')::integer, 8); v_days integer := coalesce((private.pharmacy_cfg() ->> 'code_valid_days')::integer, 14);
 begin
   select * into rx from public.prescriptions where id = p_prescription and patient_id = (select auth.uid()) for update;
   if not found then raise exception 'Prescription not found' using errcode = '42501'; end if;
   if rx.state not in ('signed', 'sent') then raise exception 'collection_not_open' using errcode = '22023'; end if;
   select m.id into v_med from public.medications m where m.prescription_id = rx.id and m.source = 'clinician' for update;
+  if v_med is not null and exists (select 1 from public.medications m where m.id = v_med and (m.superseded_at is not null or not m.is_active or (m.expires_at is not null and m.expires_at < now()))) then
+    raise exception 'collection_not_open' using errcode = '22023';
+  end if;
   if v_med is not null and exists (select 1 from public.pharmacy_order_dispenses d where d.medication_id = v_med and d.source = 'pharmacy' and d.disputed_at is null) then
     raise exception 'collection_already_started' using errcode = '22023';
   end if;
@@ -225,13 +229,13 @@ begin
        and (pp.license_expires_at is null or pp.license_expires_at > now()) and l.is_active and l.verified_at is not null) then
     raise exception 'pharmacy_not_available' using errcode = '22023';
   end if;
-  v_code := private.new_collection_code((v_cfg ->> 'code_length')::integer);
+  v_code := private.new_collection_code(v_len);
   perform set_config('tarragon.rx_route', 'on', true);
   update public.prescriptions set pharmacy_partner_id = p_partner, pharmacy_location_id = p_location, chosen_by_patient_at = now(),
          state = 'sent', collection_code = null where id = rx.id;
   perform set_config('tarragon.rx_route', 'off', true);
   insert into public.prescription_collection_codes (prescription_id, organisation_id, patient_id, pharmacy_partner_id, pharmacy_location_id, code, code_expires_at, is_test)
-  values (rx.id, rx.organisation_id, rx.patient_id, p_partner, p_location, v_code, now() + make_interval(days => (v_cfg ->> 'code_valid_days')::integer), rx.is_test)
+  values (rx.id, rx.organisation_id, rx.patient_id, p_partner, p_location, v_code, now() + make_interval(days => v_days), rx.is_test)
   on conflict (prescription_id) do update set pharmacy_partner_id = excluded.pharmacy_partner_id, pharmacy_location_id = excluded.pharmacy_location_id,
     code = excluded.code, code_expires_at = excluded.code_expires_at, wrong_attempts = 0, locked_at = null, used_at = null, created_at = now();
   insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
@@ -262,12 +266,13 @@ end $$;
 create function public.patient_new_collection_code(p_prescription uuid)
 returns text language plpgsql security definer set search_path = '' as $$
 declare c public.prescription_collection_codes%rowtype; v_cfg jsonb := private.pharmacy_cfg(); v_code text;
+  v_len integer := coalesce((private.pharmacy_cfg() ->> 'code_length')::integer, 8); v_days integer := coalesce((private.pharmacy_cfg() ->> 'code_valid_days')::integer, 14);
 begin
   select cc.* into c from public.prescription_collection_codes cc join public.prescriptions rx on rx.id = cc.prescription_id
    where cc.prescription_id = p_prescription and cc.patient_id = (select auth.uid()) and rx.state = 'sent' and cc.used_at is null for update of cc;
   if not found then raise exception 'collection_not_open' using errcode = '22023'; end if;
-  v_code := private.new_collection_code((v_cfg ->> 'code_length')::integer);
-  update public.prescription_collection_codes set code = v_code, code_expires_at = now() + make_interval(days => (v_cfg ->> 'code_valid_days')::integer),
+  v_code := private.new_collection_code(v_len);
+  update public.prescription_collection_codes set code = v_code, code_expires_at = now() + make_interval(days => v_days),
          wrong_attempts = 0, locked_at = null where prescription_id = p_prescription;
   perform private.log_audit('prescription.collection_code_renewed', 'prescriptions', p_prescription, '{}'::jsonb);
   return v_code;
@@ -312,6 +317,7 @@ begin
   v_out := private.check_collection_code(rx.id, p_code, v_partner);
   if v_out <> 'ok' then return query select v_out, null::text, null::text, null::jsonb, null::jsonb, 0, 0, null::text; return; end if;
   select * into v_med from public.medications m where m.prescription_id = rx.id and m.source = 'clinician';
+  if v_med.id is null then return query select 'no_medication'::text, null::text, null::text, null::jsonb, null::jsonb, 0, 0, null::text; return; end if;
   select count(*) into v_appr from public.medication_repeat_requests r where r.medication_id = v_med.id and r.status = 'approved';
   select count(*) into v_disp from public.pharmacy_order_dispenses d where d.medication_id = v_med.id and d.source = 'pharmacy' and d.disputed_at is null and not coalesce(d.is_partial, false);
   v_perm := 1 + least(coalesce(v_appr, 0), coalesce(v_med.repeats_allowed, 0));
