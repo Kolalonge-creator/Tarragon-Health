@@ -718,3 +718,8 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) credit returned, cash refund on request through S26; (b) cash refund automatically.
 - Recommend (a) now, (b) when S26 lands.
 - Decision: open.
+
+### OQ-134 Pidgin for the scribe consent prompt (raised by S21)
+- CON-001 is consent text. The i18n rules keep consent and legal text in one language until a clinician has signed off a translation, and `scribe_enabled` already needs legal review of CON-001 (spec 14). So the `consult.scribe.*` keys have English text in the Pidgin catalogue on purpose.
+- Options: (a) English only until legal review and a clinician-signed Pidgin translation exist (recommended); (b) ship a Pidgin draft now.
+- Decision: open.

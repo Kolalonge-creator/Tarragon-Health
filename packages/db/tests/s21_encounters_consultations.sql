@@ -353,6 +353,11 @@ begin
     (v_view ->> 'role') || '/' || (v_view ->> 'joinable') || '/' || (v_view -> 'scribe' ->> 'asked'));
   perform pg_temp.rec('...and that the clinician is already in', 'true/false', (v_view ->> 'clinician_joined') || '/' || (v_view ->> 'patient_joined'));
   perform pg_temp.rec('...but cannot report the clinician absent yet', 'false', v_view ->> 'can_report_clinician_absent');
+  perform pg_temp.rec('the patient is not told the older consultation id', 'true', ((v_view -> 'video_consultation_id') = 'null'::jsonb)::text);
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('the clinician is, so the notes screen stays reachable', 'true', ((public.consultation_room_view(v_e7) ->> 'video_consultation_id')::uuid = (select video_consultation_id from public.encounters where id = v_e7))::text);
+  perform pg_temp.back();
+  perform pg_temp.act(v_adult);
   perform pg_temp.rec('a stranger-owned consultation answers null', 'true', (public.consultation_room_view(v_e9) is null)::text);
   perform pg_temp.rec('an unknown id answers null, the same as a stranger', 'true', (public.consultation_room_view(gen_random_uuid()) is null)::text);
   perform pg_temp.rec('the view carries no join or host URL', 'false', (v_view::text ~ 'https?://')::text);

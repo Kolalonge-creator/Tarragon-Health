@@ -49,6 +49,8 @@ begin
     'patient_joined', v_pat_in,
     'clinician_joined', v_doc_in,
     'scribe', jsonb_build_object('asked', s.id is not null, 'granted', s.granted),
+    -- the clinician's notes and prescribing screen is keyed on the older consultation row; only the clinician is told its id
+    'video_consultation_id', case when v_role = 'clinician' then e.video_consultation_id else null end,
     'can_report_clinician_absent', v_role = 'patient' and e.status in ('scheduled', 'waiting') and not v_doc_in
         and now() >= e.scheduled_at + ((c ->> 'clinicianNoShowWaitMinutes')::integer * interval '1 minute'),
     'can_report_patient_absent', v_role = 'clinician' and e.status in ('scheduled', 'waiting') and not v_pat_in
