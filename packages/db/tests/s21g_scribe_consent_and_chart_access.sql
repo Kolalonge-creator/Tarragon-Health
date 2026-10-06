@@ -150,6 +150,16 @@ begin
     perform pg_temp.back();
     perform pg_temp.rec('...and tied to that encounter, ignoring what the client sent', 'true',
       (select (encounter_id = v_e1)::text from public.scribe_consents where patient_id = v_adult and granted order by recorded_at desc limit 1));
+    -- the note a consent points at must be this patient's own and linked to this consultation: another patient's note is refused
+    perform set_config('app.trusted_clinical_staff_author', (select id::text from public.clinical_staff where profile_id = v_docA), true);
+    insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter, status, is_test)
+    values (v_org, v_adult2, 'other', 'S21 proof', 'draft', true) returning id into v_note;
+    perform set_config('app.trusted_clinical_staff_author', '', true);
+    perform pg_temp.act(v_docA);
+    perform pg_temp.rec('a consent cannot point at another patient''s note', '42501',
+      pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language, encounter_note_id) values (%L, true, ''en-NG'', %L)', v_adult, v_note)));
+    perform pg_temp.back();
+    delete from public.clinical_encounter_notes where id = v_note;
     perform pg_temp.act(v_docA);
     perform pg_temp.rec('a granted consent for a patient who never answered is refused', '42501',
       pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language) values (%L, true, ''en-NG'')', v_adult2)));
