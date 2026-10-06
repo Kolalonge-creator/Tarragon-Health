@@ -14,7 +14,8 @@
 --                                  still reach a consultation around the booking functions. 0 rows ever in video_visit_requests.
 --                                  NOT wired: lab_result_consult_requests (1 real cancelled request exists: a live flow,
 --                                  left running; see OQ-184).
---   scribe_enabled              -> scribe_may_start (the consultation room, and S21g's consent check) and a trigger on scribe_consents
+--   scribe_enabled              -> scribe_may_start (the consultation room, and S21g's consent check), record_scribe_consent (a grant), and a
+--                                  trigger on scribe_consents (the scribe-draft path); switching it off ends every open scribe_consents row
 -- Every other guard is a recorded row whose conditions are evaluated for the dashboard but which blocks nothing yet.
 -- Clinical tasks (S16), credentialing (S15) and the rota and paging (S18, S19) are live today and are deliberately NOT
 -- put behind a guard here: that would switch off running behaviour. See docs/design/S37.md.
@@ -500,7 +501,7 @@ insert into public.go_live_guards (key, label, blocks, condition_text, switch_ro
   ('prescribing_enabled', 'Prescribing', 'Prescriptions', 'At least one active pharmacy partner; clinical lead sign-off', 'cmo', '{}',
    'Prescribing (S24, signed prescriptions) is not behind this guard yet. Nothing is blocked by it today.'),
   ('scribe_enabled', 'AI scribe', 'AI scribe', 'Legal review of CON-001 recorded; speech provider configured', 'admin',
-   array['scribe_consents insert (the scribe-draft path)', 'scribe_may_start (the consultation room)'], 'The scribe-draft edge function itself does not read the guard: it is closed by refusing new granted consents, and switching the guard off revokes every consent still open (the rows stay as the audit record).'),
+   array['scribe_consents insert (the scribe-draft path)', 'scribe_may_start (the consultation room)', 'record_scribe_consent (allowing the scribe)'], 'The scribe-draft edge function itself does not read the guard: it is closed by refusing new granted consents, and switching the guard off revokes every consent still open (the rows stay as the audit record).'),
   ('payouts_enabled', 'Payouts', 'Payout sending', 'Fee schedule approved; Paystack transfers configured', 'admin', '{}',
    'Payout sending is not built yet (S30). Nothing is blocked by this guard today.'),
   ('public_signup_enabled', 'Public sign-up', 'Sign-ups outside the pilot allow-list', 'Stage 2 exit criteria met', 'admin', '{}',
@@ -793,6 +794,42 @@ end $$;
 revoke all on function private.scribe_consents_go_live_guard() from public;
 create trigger scribe_consents_go_live_guard before insert on public.scribe_consents
   for each row execute function private.scribe_consents_go_live_guard();
+
+-- The patient's own in-app answer (S21): while the scribe is off a patient cannot ALLOW it (the screen would say a note-taker is on when
+-- it is not, and the answer would still be standing if the guard were switched on mid-consultation). A DECLINE or withdrawal is always
+-- recordable. Live body read with pg_get_functiondef on 2026-10-06 plus the one marked change.
+create or replace function public.record_scribe_consent(p_encounter uuid, p_granted boolean)
+ returns consultation_scribe_consents
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_uid uuid := (select auth.uid());
+  e public.encounters;
+  c public.consultation_scribe_consents;
+  v_prev boolean;
+begin
+  if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
+  if p_granted is null then raise exception 'an answer is required' using errcode = '22023'; end if;
+  select * into e from public.encounters where id = p_encounter;
+  if e.id is null or e.patient_id <> v_uid then raise exception 'not authorized' using errcode = '42501'; end if;
+  if e.status not in ('scheduled', 'waiting', 'in_progress') then raise exception 'this consultation is %', e.status; end if;
+  -- S37 (INV-14): the scribe cannot be allowed while the scribe_enabled guard is off (a test pair passes); declining always works
+  if p_granted and not private.go_live_open('scribe_enabled', e.patient_id, e.clinician_id) then
+    raise exception 'the AI scribe is not open yet' using errcode = 'P0001', hint = 'go_live_guard:scribe_enabled';
+  end if;
+  select granted into v_prev from public.consultation_scribe_consents where encounter_id = e.id;
+  insert into public.consultation_scribe_consents (organisation_id, encounter_id, patient_id, granted, answered_at, is_test)
+  values (e.organisation_id, e.id, e.patient_id, p_granted, now(), e.is_test)
+  on conflict (encounter_id) do update set granted = excluded.granted, answered_at = now()
+  returning * into c;
+  if v_prev is not null and v_prev <> p_granted then
+    perform private.log_encounter_event(e.id, 'scribe_consent_changed', v_uid, 'patient', jsonb_build_object('reason_code', case when p_granted then 'granted_later' else 'withdrawn' end));
+  end if;
+  return c;
+end;
+$function$;
 
 -- ---------------------------------------------------------------------------
 -- 9b. The older video-visit request path (second slot system, OQ-132). A request is created by the patient directly in the

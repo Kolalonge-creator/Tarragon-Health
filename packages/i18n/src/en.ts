@@ -1145,6 +1145,7 @@ export const en = {
   "golive.action.switched_off": "switched off",
   "golive.done.switched_on": "Switched on. It is recorded with your name and the time.",
   "golive.done.switched_off": "Switched off. It is recorded with your name and the time.",
+  "golive.done.unchanged": "It was already in that state, so nothing was changed and nothing new was recorded.",
   "golive.done.attested": "Recorded with your name and the time.",
   "golive.done.signoff": "Your decision is recorded with your name and the time.",
   "golive.error.generic": "Something went wrong. Nothing was changed. Please try again.",

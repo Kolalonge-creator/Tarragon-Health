@@ -33,8 +33,10 @@ async function back(viewer: Viewer, r: Back): Promise<never> {
 
 const fail = (viewer: Viewer, notice = "golive.error.generic", detail?: string): Promise<never> => back(viewer, { notice, detail, failed: true });
 
+/** A message the database function wrote for a person (22023, or 42501 from our own functions) is shown as written; a bare permission error never is. */
 function readable(error: { message: string; code?: string }): { notice: string; detail?: string } {
-  return error.code === "22023" || error.code === "42501" ? { notice: "golive.error.generic", detail: error.message } : { notice: "golive.error.generic" };
+  const written = error.code === "22023" || (error.code === "42501" && !/^permission denied|row-level security/i.test(error.message));
+  return written ? { notice: "golive.error.generic", detail: error.message } : { notice: "golive.error.generic" };
 }
 
 async function who(raw: FormDataEntryValue | null): Promise<Viewer | null> {
@@ -56,13 +58,15 @@ export async function switchGuardAction(formData: FormData): Promise<void> {
   const note = noteSchema.safeParse(formData.get("note") ?? undefined);
   // Switching ON needs the tick-box as well (a stray Enter in the note field must never make a clinical feature live)
   if (!key.success || !note.success || (on && formData.get("confirm") !== "on")) return fail(viewer, "golive.error.input");
-  const { error } = await (await client()).rpc("set_go_live_guard", { p_key: key.data, p_on: on, p_note: note.data || null });
+  const { data, error } = await (await client()).rpc("set_go_live_guard", { p_key: key.data, p_on: on, p_note: note.data || null });
   if (error) {
     const r = readable(error);
     return fail(viewer, r.notice, r.detail);
   }
   revalidatePath(PATHS[viewer]);
-  return back(viewer, { notice: on ? "golive.done.switched_on" : "golive.done.switched_off", failed: false });
+  // A repeat press (two people, a stale tab) changes and records nothing: say so instead of claiming a recorded switch.
+  const changed = (data as { changed?: boolean } | null)?.changed !== false;
+  return back(viewer, { notice: !changed ? "golive.done.unchanged" : on ? "golive.done.switched_on" : "golive.done.switched_off", failed: false });
 }
 
 export async function attestConditionAction(formData: FormData): Promise<void> {

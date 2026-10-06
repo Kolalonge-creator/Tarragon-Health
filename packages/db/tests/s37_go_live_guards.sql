@@ -355,8 +355,10 @@ begin
     (v_view ->> 'go_live_open') || '/' || (v_view ->> 'joinable' is null)::text);
   perform pg_temp.act(v_tp);
   perform public.open_scribe_prompt(v_enc);
-  perform public.record_scribe_consent(v_enc, true);
+  perform pg_temp.rec('scribe off: a patient cannot allow the scribe', 'P0001', pg_temp.try(format('select public.record_scribe_consent(%L, true)', v_enc)));
+  perform pg_temp.rec('scribe off: ...but can always decline', 'ok', pg_temp.try(format('select public.record_scribe_consent(%L, false)', v_enc)));
   perform pg_temp.back();
+  update public.consultation_scribe_consents set granted = true where encounter_id = v_enc;   -- fixture: an answer given while the scribe was on
   perform pg_temp.act(v_td);
   perform pg_temp.rec('scribe off: consent granted and the consultation live, but the scribe may not start', 'false', public.scribe_may_start(v_enc)::text);
   perform pg_temp.back();
@@ -371,6 +373,11 @@ begin
   perform pg_temp.back();
   perform pg_temp.act(v_td);
   perform pg_temp.rec('scribe on: the same consultation may now start the scribe', 'true', public.scribe_may_start(v_enc)::text);
+  perform pg_temp.back();
+  perform pg_temp.act(v_tp);
+  perform pg_temp.rec('scribe on: a patient can now allow it', 'ok', pg_temp.try(format('select public.record_scribe_consent(%L, true)', v_enc)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_td);
   perform pg_temp.rec('scribe on: a new consent gets past the guard (any other answer is fine)', 'true',
     (pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language) values (%L, true, ''en-NG'')', v_tp)) <> 'P0001')::text);
   perform pg_temp.back();

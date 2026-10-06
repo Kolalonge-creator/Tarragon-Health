@@ -82,6 +82,21 @@ describe("switchGuardAction", () => {
     expect(flash).toHaveBeenCalledWith(expect.objectContaining({ notice: "golive.error.input", ok: false }));
   });
 
+  it("does not claim a recorded switch when the guard was already in that state", async () => {
+    rpc.mockResolvedValue({ data: { ok: true, changed: false }, error: null });
+    await run(switchGuardAction(form({ viewer: "admin", key: "payouts_enabled", on: "1", confirm: "on", note: "again" })));
+    expect(flash).toHaveBeenCalledWith({ notice: "golive.done.unchanged", detail: undefined, ok: true });
+  });
+
+  it("never shows a bare permission error, only a message the database wrote for a person", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "permission denied for table go_live_guards" } });
+    await run(switchGuardAction(form({ viewer: "admin", key: "payouts_enabled", on: "0" })));
+    expect(flash).toHaveBeenCalledWith({ notice: "golive.error.generic", detail: undefined, ok: false });
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "only an admin can switch on Payouts" } });
+    await run(switchGuardAction(form({ viewer: "admin", key: "payouts_enabled", on: "0" })));
+    expect(flash).toHaveBeenLastCalledWith({ notice: "golive.error.generic", detail: "only an admin can switch on Payouts", ok: false });
+  });
+
   it("treats anything other than on=1 as switching off", async () => {
     await run(switchGuardAction(form({ viewer: "admin", key: "payouts_enabled", on: "0" })));
     expect(rpc).toHaveBeenCalledWith("set_go_live_guard", { p_key: "payouts_enabled", p_on: false, p_note: null });

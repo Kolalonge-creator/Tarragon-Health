@@ -147,9 +147,10 @@ export function useMyConsultationRule() {
  * patient with a test clinician through); a test patient with a real clinician, or someone booking for another person, can still be
  * refused by the database, which says so in plain words.
  */
-export function useGoLiveGuardOpen(guardKey: string) {
+export function useGoLiveGuardOpen(guardKey: string, subjectId?: string) {
   return useQuery({
-    queryKey: ["go-live", "guard-open", guardKey] as const,
+    // the person is part of the key: an answer for one signed-in person is never reused for another
+    queryKey: ["go-live", "guard-open", guardKey, subjectId ?? "me"] as const,
     staleTime: 60_000,
     retry: 1,
     queryFn: async () => {

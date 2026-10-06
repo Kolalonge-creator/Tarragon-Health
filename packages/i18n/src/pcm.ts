@@ -1146,6 +1146,7 @@ export const pcm: Record<MessageKey, string> = {
   "golive.action.switched_off": "switch off",
   "golive.done.switched_on": "Dem don switch am on. Dem write your name and the time.",
   "golive.done.switched_off": "Dem don switch am off. Dem write your name and the time.",
+  "golive.done.unchanged": "E don dey that state before, so nothing change and dem no write anything new.",
   "golive.done.attested": "Dem write am with your name and the time.",
   "golive.done.signoff": "Dem write your decision with your name and the time.",
   "golive.error.generic": "Something go wrong. Nothing change. Abeg try again.",
