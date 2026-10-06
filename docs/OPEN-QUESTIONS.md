@@ -1110,3 +1110,23 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-229 A new function instead of widening the S17/S18/S19 reads (S36e)
 - Blocks: nothing. `queue_health()` is administrator-only and not organisation-scoped; `rota_coverage_gaps()`, `on_call_cover_status()` and `paging_overview()` admit only the credential reviewer (admin or CMO), so none serves an ops holder. Widening four functions would have changed four gates; one new read function (`reliability_dashboard`, a new name so no overload risk) reads the same tables and the same gap rule (`private.rota_gaps`) for both doors. Consequence: the dashboard re-implements the "waiting" count; if S16 changes what counts as waiting, update both.
 - Decision: open. Reconcile when `queue_health()` is next touched.
+### OQ-230 Which ledger employment value counts as "freelance" for payouts (S36f)
+- Blocks: nothing now. Spec 7.7 and the brief say freelance; the S30 ledger and `clinical_staff.employment_type` use `contracted` (and `employed`). S36f treats `contracted` as freelance and never drafts a payout for `employed` (salary, F-03).
+- Decision: assumed equal. Confirm no third arrangement (for example a retainer) needs its own payout path.
+
+### OQ-231 Admin who is also the only preparer (S36f)
+- Blocks: a one-person pilot. The database refuses an approval by the person who prepared the draft, and only `admin` may approve. If the founder is the only admin and nobody else holds `payouts.prepare`, the founder prepares and then cannot approve.
+- Options: (a) grant `payouts.prepare` to one trusted ops person and let the founder approve (recommended, the control as written); (b) a second admin account; (c) a documented temporary waiver, which would be a code change to the rule and is not offered.
+- Decision: open. Not defaulted: the rule is the control.
+
+### OQ-232 Draft period shape and a minimum payout (S36f)
+- Blocks: nothing now. The ops form suggests the last full Monday to Sunday week in Lagos (spec 7.7 says weekly) but any ended period works, and everything earned up to the period end that is not yet in a payout is included. No minimum payout amount exists, and a draft whose net total is zero or negative is simply not made (the earnings wait and are reported as skipped).
+- Decision: open. Needed from the founder if a minimum payout or a fixed weekday should be enforced (it would be PROPOSED config, not hard-coded).
+
+### OQ-233 What a clinician sees while a payout is only a draft (S36f)
+- Blocks: the clinician statement. Earnings lines in a draft still count as unpaid on `/clinician/earnings` (the ledger `payout_id` is set only when a payout is recorded as sent), and a clinician cannot read a draft or cancelled payout. Approved and later states are readable by the clinician (RLS), but no screen shows them yet.
+- Decision: open. Confirm with S31 whether to show "approved, awaiting payment" on the statement.
+
+### OQ-234 Recording "sent" before S31 exists (S36f)
+- Blocks: nothing. `mark_payout_sent` exists in the database (admin only, needs a transfer code, refused while `payouts_enabled` is off, links the ledger lines as paid) but has no screen and no Paystack call. S31 should either call it from its transfer webhook handler or replace it.
+- Decision: open. If S31 prefers a different state machine, drop the function in S31's migration; nothing else depends on it.
