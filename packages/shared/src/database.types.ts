@@ -41507,6 +41507,7 @@ export type Database = {
         Args: { p_bytes: number; p_consult: string; p_mime: string; p_path: string };
         Returns: string;
       };
+      care_message_scope: { Args: { p_message: string }; Returns: Json };
       close_referral: {
         Args: { p_care_plan_update_note: string; p_referral: string }
         Returns: undefined
@@ -41666,6 +41667,8 @@ export type Database = {
       my_written_question_allowance: { Args: Record<PropertyKey, never>; Returns: Json };
       my_written_question_claims: { Args: Record<PropertyKey, never>; Returns: Json };
       my_written_questions: { Args: Record<PropertyKey, never>; Returns: Json };
+      open_care_attachment_audited: { Args: { p_attachment: string }; Returns: string };
+      open_care_thread_audited: { Args: { p_thread: string }; Returns: Json };
       open_patient_document_audited: {
         Args: { p_document: string; p_reason: string }
         Returns: string
