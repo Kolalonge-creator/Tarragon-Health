@@ -4,11 +4,15 @@
  */
 export const ROTA_PAGES = ["/clinician/rota", "/admin/rota", "/clinician/team-rota", "/clinician/on-call"] as const;
 
+const PATIENT_PAGE = /^\/clinician\/patients\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function safeRotaReturnTo(raw: FormDataEntryValue | null, fallback: (typeof ROTA_PAGES)[number]): string {
   if (typeof raw !== "string") return fallback;
   if (raw.includes("\\") || raw.includes("://") || raw.includes("..") || raw.includes("%") || raw.startsWith("//")) return fallback;
   const path = raw.split("?")[0] ?? "";
-  return (ROTA_PAGES as readonly string[]).includes(path) ? path : fallback;
+  if ((ROTA_PAGES as readonly string[]).includes(path)) return path;
+  // a clinician declaring a conflict from a patient's page goes back to that page (a uuid, nothing else)
+  return PATIENT_PAGE.test(path) ? path : fallback;
 }
 
 export function withOutcome(path: string, outcome: { ok: string } | { error: string }): string {

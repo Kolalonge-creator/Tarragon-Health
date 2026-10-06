@@ -12,6 +12,9 @@ describe("return path guard", () => {
     expect(safeRotaReturnTo("/clinician/team-rota?ok=1", "/admin/rota")).toBe("/clinician/team-rota");
     expect(safeRotaReturnTo("/clinician/rota", "/admin/rota")).toBe("/clinician/rota");
     expect(safeRotaReturnTo("/clinician/on-call", "/admin/rota")).toBe("/clinician/on-call");
+    expect(safeRotaReturnTo("/clinician/patients/11111111-1111-4111-8111-111111111111", "/admin/rota")).toBe("/clinician/patients/11111111-1111-4111-8111-111111111111");
+    expect(safeRotaReturnTo("/clinician/patients/not-a-uuid", "/admin/rota")).toBe("/admin/rota");
+    expect(safeRotaReturnTo("/clinician/patients/11111111-1111-4111-8111-111111111111/extra", "/admin/rota")).toBe("/admin/rota");
   });
   it("is not an open redirect", () => {
     for (const bad of ["https://evil.example/admin/rota", "//evil.example", "/admin/rota/../../login", "/admin/rota%2f..", "/admin\\rota", "/other", null]) {
