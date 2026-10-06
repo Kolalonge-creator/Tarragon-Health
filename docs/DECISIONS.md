@@ -147,3 +147,9 @@ D-02 to D-04 are not defined in the spec.
 - OQ-86: the engine keeps BP-P1 (pregnancy), BP-P2 (under 18) and BP-A6 (red-flag symptom below the severe line) in the draft rule set. The CMO edits or removes them before signing. Pregnancy severe-range lines, a low reading with no symptoms, symptom-only reports (S12) and per-session averaging stay CMO or S12 items.
 - OQ-87: systolic maximum 299 so safety case 5 holds; codes TRI-002, TRI-003, TRI-005 and EMG-001L as drafted; the emergency wording is for CMO review, Pidgin held as English until signed. Note OQ-66 (S07) kept the live plausibility limits 60-260 / 30-160 for typed entry; the engine's 60-299 limit is wider and is the one the spec states, so a typed 270/150 reaches the engine and grades red, never silently rejected.
 - S11 research follow-up (2026-10-05, `docs/research/S11-guidelines.md`): pregnancy lines built as BP-P3 (red at 160/110) and BP-P4 (red at 140/90 with a pre-eclampsia symptom) from NICE NG133, ACOG and the Nigerian guideline; `difficulty_speaking`, `back_pain`, `epigastric_pain` symptom codes added; averaging (all readings counted) and the 299 limit need no change; BP-R2 (200/130 red with no symptoms) is more cautious than any guideline and is flagged to the CMO; low reading with no symptoms and the postpartum state remain CMO or later items.
+
+### S16, 2026-10-06
+- Existing alert, escalation and small task tables stay as they are and are read through the adapter view `legacy_clinical_work_v` (OQ-114).
+- The minimum-tier gate on a task is `doctor_tier` only; `credentialing_level` is not used.
+- `fee_kobo_at_completion` and `fee_schedule_version_id` stay empty until S30.
+- Paging fallback is email, not SMS (OQ-113).
