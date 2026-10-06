@@ -60,25 +60,19 @@ function harness(opts: { enabled: boolean }): Harness {
     if (fn === "record_ai_interaction") {
       return { data: "11111111-1111-1111-1111-111111111111", error: null };
     }
+    if (fn === "open_care_thread_audited") {
+      return { data: MESSAGES, error: null };
+    }
     return { data: null, error: null };
   });
 
-  // buildDraftReplySnapshot reads care_message_threads then care_messages;
-  // only the two query shapes it actually issues are faked here.
+  // buildDraftReplySnapshot reads the thread header from care_message_threads and the messages through the
+  // audited open_care_thread_audited RPC (above); only the one table query it issues is faked here.
   const from = jest.fn((table: string) => {
     if (table === "care_message_threads") {
       return {
         select: () => ({
           eq: () => ({ maybeSingle: async () => ({ data: { subject: "Checking in" }, error: null }) }),
-        }),
-      };
-    }
-    if (table === "care_messages") {
-      return {
-        select: () => ({
-          eq: () => ({
-            order: () => ({ limit: async () => ({ data: MESSAGES, error: null }) }),
-          }),
         }),
       };
     }

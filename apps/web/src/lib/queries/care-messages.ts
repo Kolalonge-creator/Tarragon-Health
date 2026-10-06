@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import { generateDraftReplyAction } from "@/lib/care-messages/actions";
 import { compareThreads } from "@/lib/worklist/message-triage";
@@ -118,18 +119,59 @@ export function useOrgCareThreads() {
   });
 }
 
-export async function loadThreadMessages(
+/** SQLSTATE the audited care-inbox functions raise for someone who is neither the thread's patient nor org staff
+ * (a supporter or a break-glass reader). Those readers still use the table's own select policy, so callers fall back. */
+const NOT_AUTHORISED_CODE = "42501";
+
+export function isNotAuthorisedForAuditedOpen(error: { code?: string } | null | undefined): boolean {
+  return error?.code === NOT_AUTHORISED_CODE;
+}
+
+const rpcMessageSchema = z
+  .object({
+    id: z.string(),
+    thread_id: z.string(),
+    actor_clinical_staff_id: z.string().nullable().optional(),
+    created_at: z.string(),
+    attachments: z.array(z.object({ id: z.string() }).passthrough()).nullable().optional(),
+  })
+  .passthrough();
+
+const rpcMessagesSchema = z.array(rpcMessageSchema);
+
+type MessageRow = Tables<"care_messages"> & { attachments: CareMessageAttachment[] };
+
+/** Parse the open_care_thread_audited jsonb array. Malformed output is an error, never a half-shown thread. */
+function parseThreadRpcRows(raw: unknown): MessageRow[] {
+  const parsed = rpcMessagesSchema.parse(raw ?? []);
+  return parsed.map((row) => ({ ...row, attachments: row.attachments ?? [] }) as unknown as MessageRow);
+}
+
+async function fetchThreadRows(
   supabase: ReturnType<typeof createClient>,
   threadId: string
-): Promise<CareMessage[]> {
+): Promise<MessageRow[]> {
+  const { data: audited, error: auditedError } = await supabase.rpc("open_care_thread_audited", {
+    p_thread: threadId,
+  });
+  if (!auditedError) return parseThreadRpcRows(audited);
+  if (!isNotAuthorisedForAuditedOpen(auditedError)) throw auditedError;
+
+  // A supporter or break-glass reader: not the patient, not org staff. They read the table under its own policy.
   const { data, error } = await supabase
     .from("care_messages")
     .select(MESSAGE_SELECT)
     .eq("thread_id", threadId)
     .order("created_at", { ascending: true });
   if (error) throw error;
+  return data as unknown as MessageRow[];
+}
 
-  const rows = data as unknown as (CareMessage & { actor_clinical_staff_id: string | null })[];
+export async function loadThreadMessages(
+  supabase: ReturnType<typeof createClient>,
+  threadId: string
+): Promise<CareMessage[]> {
+  const rows = await fetchThreadRows(supabase, threadId);
   const actorIds = Array.from(
     new Set(rows.map((row) => row.actor_clinical_staff_id).filter((id): id is string => !!id))
   );
@@ -139,6 +181,33 @@ export async function loadThreadMessages(
     ...row,
     actor: row.actor_clinical_staff_id ? (actorById.get(row.actor_clinical_staff_id) ?? null) : null,
   }));
+}
+
+const messageScopeSchema = z.object({
+  organisation_id: z.string(),
+  patient_id: z.string(),
+  thread_id: z.string(),
+});
+
+export type CareMessageScope = z.infer<typeof messageScopeSchema>;
+
+/** The org/patient/thread ids of a message. Staff cannot select message rows, so they use care_message_scope;
+ * a supporter (42501) falls back to the direct read. */
+export async function loadCareMessageScope(
+  supabase: ReturnType<typeof createClient>,
+  messageId: string
+): Promise<CareMessageScope> {
+  const { data: scope, error: scopeError } = await supabase.rpc("care_message_scope", { p_message: messageId });
+  if (!scopeError) return messageScopeSchema.parse(scope);
+  if (!isNotAuthorisedForAuditedOpen(scopeError)) throw scopeError;
+
+  const { data, error } = await supabase
+    .from("care_messages")
+    .select("organisation_id, patient_id, thread_id")
+    .eq("id", messageId)
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 /** Messages in a thread, oldest first (reading order). */
@@ -203,7 +272,11 @@ export function usePostMessage() {
   });
 }
 
-export type CareMessageDraftReply = Tables<"care_message_draft_replies">;
+/** The row staff can read: the model's input snapshot (the last messages, verbatim) is not readable by staff, so it is not here. */
+export type CareMessageDraftReply = Omit<Tables<"care_message_draft_replies">, "input_snapshot">;
+
+const DRAFT_REPLY_COLUMNS =
+  "id, organisation_id, patient_id, thread_id, status, model_id, draft_text, needs_clinical_review, review_reason, error_message, generated_at";
 
 /** The current AI-drafted reply suggestion for a thread, staff-only (RLS).
  * Null when none has been generated yet. */
@@ -214,11 +287,11 @@ export function useDraftReply(threadId: string | null) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("care_message_draft_replies")
-        .select("*")
+        .select(DRAFT_REPLY_COLUMNS)
         .eq("thread_id", threadId as string)
         .maybeSingle();
       if (error) throw error;
-      return data as CareMessageDraftReply | null;
+      return data as unknown as CareMessageDraftReply | null;
     },
     enabled: !!threadId,
   });
@@ -334,12 +407,7 @@ export function useUploadCareMessageAttachment() {
       // message row regardless of what's sent — reading them here first is
       // just to satisfy the Insert type's NOT NULL columns with the same
       // real values the trigger would derive anyway.
-      const { data: message, error: messageError } = await supabase
-        .from("care_messages")
-        .select("organisation_id, patient_id, thread_id")
-        .eq("id", input.messageId)
-        .single();
-      if (messageError) throw messageError;
+      const message = await loadCareMessageScope(supabase, input.messageId);
 
       const ext = input.file.name.includes(".") ? input.file.name.split(".").pop() : "bin";
       const path = `${input.patientId}/${crypto.randomUUID()}.${ext}`;
