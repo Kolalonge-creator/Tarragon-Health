@@ -863,3 +863,7 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 
 ### S29d: gift window 14 days (2026-10-07)
 - Founder decisions: check-in requests stay on during a pause by default (no change); an unanswered gift waits 14 days with one reminder on day 7. Migration `20261007101733_s29d_gift_window_14_days.sql` (config v3; v1 and v2 stay as history, the validity check applies from v3), `expire_pending_gifts` reminds once via the existing `circle_gift_waiting` notice. Proofs: `s29b` 46 checks (reminder once at day 10, declined at day 15), full suite 147 of 147. Not applied to production yet.
+### Remove Nigerian Pidgin (2026-10-06), on `remove-pidgin`
+- **Built:** English-only product (D-14 in `docs/DECISIONS.md`, reverses D-13). Deleted `packages/i18n/src/pcm.ts`, the language chooser/switch UI on web and mobile, the admin Languages page and the mobile/web Pidgin kill-switch readers; scribe language is `en-NG` only; migration `20261006222924_remove_nigerian_pidgin_english_only.sql` (NOT applied to production yet) narrows the language CHECKs and deletes the `pidgin_language` switch and the unused Pidgin scribe eval case.
+- **Tests:** DB proof `remove_pidgin_english_only.sql` (registered in `ci.manifest`, includes a sabotage control); typecheck clean across 18 packages; jest passes for web, mobile, i18n, shared, integrations, clinical, medicines, notifications, auth.
+
