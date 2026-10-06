@@ -316,6 +316,24 @@ begin
   if p_to = 'claimed' and (p_claimed_by is null or p_claim_expires_at is null) then
     raise exception 'a claim needs a clinician and an expiry' using errcode = '22023';
   end if;
+  if p_to = 'claimed' then
+    -- clinical authority is enforced here, not only by the caller: eligible (S15), at or above the task's tier,
+    -- the claimer is the one acting, and inside an offer window only the named clinician may claim
+    if p_actor is distinct from p_claimed_by then
+      raise exception 'a claim is made by the clinician claiming' using errcode = '42501';
+    end if;
+    if not private.clinician_is_eligible(p_claimed_by)
+       or not exists (select 1 from public.clinical_staff cs where cs.profile_id = p_claimed_by and cs.active and cs.doctor_tier is not null
+                       and private.doctor_tier_rank(cs.doctor_tier) >= private.doctor_tier_rank(t.min_tier)) then
+      raise exception 'this clinician may not take this task' using errcode = '42501';
+    end if;
+    if t.state = 'offered_to_lead' and p_claimed_by is distinct from t.pushed_to and p_claimed_by is distinct from t.lead_clinician_id then
+      raise exception 'this task is offered to another clinician' using errcode = '42501';
+    end if;
+  end if;
+  if p_actor_kind = 'clinician' and t.state = 'claimed' and p_actor is distinct from t.claimed_by then
+    raise exception 'only the clinician who claimed a task can complete or hand it back' using errcode = '42501';
+  end if;
   if p_to = 'completed' and p_outcome is null then
     raise exception 'completing a task needs an outcome' using errcode = '22023';
   end if;
@@ -324,8 +342,9 @@ begin
   if p_to = 'claimed' then
     update public.clinical_tasks set state = 'claimed', claimed_by = p_claimed_by, claimed_at = now(), claim_expires_at = p_claim_expires_at where id = p_task;
   elsif p_to = 'open' and t.state = 'claimed' then
+    -- a clinician hand-back counts; a timeout (system) does not (spec 7.4: a timeout is an expired claim, S17 logs it)
     update public.clinical_tasks set state = 'open', claimed_by = null, claimed_at = null, claim_expires_at = null,
-           handback_count = handback_count + 1 where id = p_task;
+           handback_count = handback_count + case when p_actor_kind = 'clinician' then 1 else 0 end where id = p_task;
   elsif p_to = 'completed' then
     update public.clinical_tasks set state = 'completed', completed_at = now(), outcome = p_outcome,
            claim_expires_at = null where id = p_task;
@@ -402,8 +421,14 @@ begin
 
   -- A repeat trigger merges into the live task; the merge is counted and a tighter due time wins. Never dropped silently.
   if p_dedup_key is not null then
-    select * into v_existing from public.clinical_tasks
-     where dedup_key = p_dedup_key and state not in ('completed', 'cancelled') for update;
+    -- A task already claimed is being worked on without the new information, so a repeat must not vanish into it:
+    -- it becomes a follow-up task under its own key (a further repeat merges into that one, or into the next).
+    loop
+      select * into v_existing from public.clinical_tasks
+       where dedup_key = p_dedup_key and state not in ('completed', 'cancelled') for update;
+      exit when not found or v_existing.state <> 'claimed';
+      p_dedup_key := p_dedup_key || '+';
+    end loop;
     if found then
       perform set_config('tarragon.task_transition', 'on', true);
       update public.clinical_tasks set merged_count = merged_count + 1,
@@ -552,30 +577,62 @@ declare
   v_released integer := 0;
   v_promoted integer := 0;
   v_escalated integer := 0;
+  v_errors integer := 0;
   v_window integer := coalesce((private.queue_setting('class3_promotion_window_minutes'))::integer, 240);
+  v_grace integer := coalesce((private.queue_setting('escalate_after_due_minutes'))::integer, 0);
 begin
+  -- Each task is handled in its own block: one that fails is recorded and skipped, never allowed to stop the rest
+  -- (an escalation sweep that aborts on one bad row would silently stop paging for everyone behind it).
   -- overdue first: a task past due is escalated whether it is offered or open
-  for r in select id from public.clinical_tasks where state in ('offered_to_lead', 'open') and due_at <= now() loop
-    perform private.apply_task_transition(r.id, 'escalated', 'system', null, 'past due');
-    v_escalated := v_escalated + 1;
+  for r in select id, organisation_id from public.clinical_tasks
+            where state in ('offered_to_lead', 'open') and due_at + make_interval(mins => v_grace) <= now() loop
+    begin
+      perform private.apply_task_transition(r.id, 'escalated', 'system', null, 'past due');
+      v_escalated := v_escalated + 1;
+    exception when others then
+      v_errors := v_errors + 1;
+      raise warning 'sweep_clinical_tasks: escalating % failed: %', r.id, sqlerrm;
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values (r.organisation_id, 'clinical_task_sweep.error', 'clinical_task', r.id, jsonb_build_object('step', 'escalate', 'error', sqlerrm));
+    end;
   end loop;
-  for r in select id from public.clinical_tasks where state = 'offered_to_lead' and lead_window_ends_at <= now() loop
-    perform private.apply_task_transition(r.id, 'open', 'system', null, 'offer window ended');
-    v_released := v_released + 1;
+  for r in select id, organisation_id from public.clinical_tasks where state = 'offered_to_lead' and lead_window_ends_at <= now() loop
+    begin
+      perform private.apply_task_transition(r.id, 'open', 'system', null, 'offer window ended');
+      v_released := v_released + 1;
+    exception when others then
+      v_errors := v_errors + 1;
+      raise warning 'sweep_clinical_tasks: releasing % failed: %', r.id, sqlerrm;
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values (r.organisation_id, 'clinical_task_sweep.error', 'clinical_task', r.id, jsonb_build_object('step', 'release', 'error', sqlerrm));
+    end;
   end loop;
   -- amber reviews within the window of their due time move up to class 3, once
-  for r in select id from public.clinical_tasks
+  for r in select id, organisation_id from public.clinical_tasks
             where type = 'amber_bp_review' and priority_class = 4 and priority_class_original = 4
               and state in ('offered_to_lead', 'open', 'claimed')
               and due_at <= now() + make_interval(mins => v_window) loop
-    perform set_config('tarragon.task_transition', 'on', true);
-    update public.clinical_tasks set priority_class = 3 where id = r.id;
-    perform set_config('tarragon.task_transition', 'off', true);
-    insert into public.clinical_task_transitions (organisation_id, task_id, from_state, to_state, actor_kind, reason, is_test)
-      select organisation_id, id, state, state, 'system', 'moved to priority class 3 (due soon)', is_test from public.clinical_tasks where id = r.id;
-    v_promoted := v_promoted + 1;
+    begin
+      perform set_config('tarragon.task_transition', 'on', true);
+      update public.clinical_tasks set priority_class = 3 where id = r.id;
+      perform set_config('tarragon.task_transition', 'off', true);
+      insert into public.clinical_task_transitions (organisation_id, task_id, from_state, to_state, actor_kind, reason, is_test)
+        select organisation_id, id, state, state, 'system', 'moved to priority class 3 (due soon)', is_test from public.clinical_tasks where id = r.id;
+      v_promoted := v_promoted + 1;
+    exception when others then
+      v_errors := v_errors + 1;
+      raise warning 'sweep_clinical_tasks: promoting % failed: %', r.id, sqlerrm;
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values (r.organisation_id, 'clinical_task_sweep.error', 'clinical_task', r.id, jsonb_build_object('step', 'promote', 'error', sqlerrm));
+    end;
   end loop;
-  return jsonb_build_object('released', v_released, 'promoted', v_promoted, 'escalated', v_escalated);
+  if v_errors > 0 and not exists (select 1 from public.ops_incidents where external_reference = 'clinical_task_sweep' and status not in ('resolved', 'closed')) then
+    insert into public.ops_incidents (category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+    values ('technical', 'sev1', 'Clinical task sweep failed for some tasks',
+            format('%s task(s) could not be escalated, released or promoted by private.sweep_clinical_tasks(); see audit_log action clinical_task_sweep.error. An overdue task may not have been escalated.', v_errors),
+            'clinical_task_sweep', now(), now());
+  end if;
+  return jsonb_build_object('released', v_released, 'promoted', v_promoted, 'escalated', v_escalated, 'errors', v_errors);
 end;
 $$;
 revoke all on function private.sweep_clinical_tasks() from public, anon, authenticated;
@@ -611,11 +668,15 @@ alter table public.task_claims enable row level security;
 alter table public.task_handbacks enable row level security;
 
 -- a clinician's own tasks: pushed to them, claimed by them, or where they are the named lead
-create function private.task_is_mine(p_pushed uuid, p_claimed uuid, p_lead uuid) returns boolean
+-- Only while it is active for them (INV-12): offered to them, or claimed by them. Once an offer lapses or the task
+-- is finished the row is no longer theirs to read; their history comes through audited functions (S30).
+create function private.task_is_mine(p_pushed uuid, p_claimed uuid, p_lead uuid, p_state public.clinical_task_state) returns boolean
 language sql stable security definer set search_path = ''
-as $$ select (select auth.uid()) is not null and (select auth.uid()) in (p_pushed, p_claimed, p_lead); $$;
-revoke all on function private.task_is_mine(uuid, uuid, uuid) from public, anon;
-grant execute on function private.task_is_mine(uuid, uuid, uuid) to authenticated;
+as $$ select (select auth.uid()) is not null and (
+       (p_state = 'offered_to_lead' and (select auth.uid()) in (p_pushed, p_lead))
+    or (p_state in ('claimed', 'escalated') and p_claimed = (select auth.uid()))); $$;
+revoke all on function private.task_is_mine(uuid, uuid, uuid, public.clinical_task_state) from public, anon;
+grant execute on function private.task_is_mine(uuid, uuid, uuid, public.clinical_task_state) to authenticated;
 
 -- staff who may read every task: an admin account or the active chief medical officer (a policy runs as the caller,
 -- so the helper is granted to authenticated and exposes nothing but a boolean)
@@ -629,10 +690,10 @@ create policy task_types_select on public.task_types for select to authenticated
 create policy queue_config_select on public.queue_config for select to authenticated using (private.task_staff_reader());
 create policy clinical_task_transition_rules_select on public.clinical_task_transition_rules for select to authenticated using (true);
 create policy clinical_tasks_select on public.clinical_tasks for select to authenticated
-  using (private.task_staff_reader() or private.task_is_mine(pushed_to, claimed_by, lead_clinician_id));
+  using (private.task_staff_reader() or private.task_is_mine(pushed_to, claimed_by, lead_clinician_id, state));
 create policy clinical_task_transitions_select on public.clinical_task_transitions for select to authenticated
   using (private.task_staff_reader()
-         or exists (select 1 from public.clinical_tasks ct where ct.id = task_id and private.task_is_mine(ct.pushed_to, ct.claimed_by, ct.lead_clinician_id)));
+         or exists (select 1 from public.clinical_tasks ct where ct.id = task_id and private.task_is_mine(ct.pushed_to, ct.claimed_by, ct.lead_clinician_id, ct.state)));
 create policy task_claims_select on public.task_claims for select to authenticated
   using (private.task_staff_reader() or clinician_id = (select auth.uid()));
 create policy task_handbacks_select on public.task_handbacks for select to authenticated

@@ -69,7 +69,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_emp uuid; v_other uuid; v_p1 uuid; v_p2 uuid; v_p3 uuid; v_rs_draft uuid; v_rs_ok uuid;
-  v_te uuid; v_te2 uuid; v_t1 uuid; v_t2 uuid; v_t3 uuid; v_red uuid; v_cls uuid; v_n integer; v_sweep jsonb;
+  v_coord uuid; v_p4 uuid; v_p5 uuid; v_p6 uuid; v_dd1 uuid; v_dd2 uuid; v_dd3 uuid; v_red2 uuid; v_poison uuid; v_ok uuid; v_te uuid; v_te2 uuid; v_t1 uuid; v_t2 uuid; v_t3 uuid; v_red uuid; v_cls uuid; v_n integer; v_sweep jsonb;
   v_acts jsonb := '[{"kind":"create_task","task":"bp_review","dueMinutes":1440}]'::jsonb;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
@@ -80,6 +80,10 @@ begin
   v_p1 := pg_temp.mkuser(v_org, 'patient-1', 'patient');
   v_p2 := pg_temp.mkuser(v_org, 'patient-2', 'patient');
   v_p3 := pg_temp.mkuser(v_org, 'patient-3', 'patient');
+  v_p4 := pg_temp.mkuser(v_org, 'patient-4', 'patient');
+  v_p5 := pg_temp.mkuser(v_org, 'patient-5', 'patient');
+  v_p6 := pg_temp.mkuser(v_org, 'patient-6', 'patient');
+  v_coord := pg_temp.mkuser(v_org, 'coordinator', 'clinician');
 
   -- only the fixture clinicians may be picked (live rows would make "least loaded" depend on production data)
   update public.clinical_staff set active = false where is_test is not true;
@@ -92,6 +96,10 @@ begin
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
     values (v_org, v_other, 'S16 Other', 'MDCN', 'S16-OTH-1', true, 'active', now(), v_admin, 'senior_medical_officer', 'contracted', 2, true, v_admin, true);
+
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
+      license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, is_test)
+    values (v_org, v_coord, 'S16 Coordinator', 'MDCN', 'S16-COO-1', true, 'active', now(), v_admin, 'care_coordinator', 'employed', 1, true);
 
   -- rule sets: one draft (shadow) and one approved
   select id into v_rs_draft from public.triage_rule_sets where status = 'draft' order by version desc limit 1;
@@ -181,8 +189,10 @@ begin
   perform pg_temp.rec('...and each emitted an event, plus the created event', 'true',
     (select (count(*) >= 7)::text from public.domain_events where aggregate_type = 'clinical_task' and aggregate_id = v_t1));
   perform pg_temp.rec('the log is append only', '23514', pg_temp.try(format('delete from public.clinical_task_transitions where task_id = %L', v_t1)));
-  perform pg_temp.rec('events carry ids and neutral facts only (INV-07)', 'true',
-    (select (bool_and(not (payload::text ~* '(blood|pressure|glucose|hiv|diabet|hyperten|result|reading)'))) ::text from public.domain_events where aggregate_type = 'clinical_task' and aggregate_id = v_t1));
+  perform pg_temp.rec('events carry only ids, states and the task type and class (INV-07, S10)', '0',
+    (select count(*)::text from public.domain_events e, jsonb_object_keys(e.payload) k
+      where e.aggregate_type = 'clinical_task' and e.aggregate_id = v_t1
+        and k not in ('task_id', 'type', 'priority_class', 'from_state', 'to_state')));
 
   -- 5. Sweeps ---------------------------------------------------------------------------------------------
   perform private.create_clinical_task(v_p2, 'amber_bp_review', 100, 'proof:p2:amber');
@@ -199,6 +209,47 @@ begin
     (select count(*)::text from public.domain_events where event_type = 'clinical_task.escalated' and aggregate_id = v_t2 and priority = 'urgent'));
   perform private.apply_task_transition(v_t2, 'claimed', 'clinician', v_other, null, v_other, now() + interval '30 minutes');
   perform pg_temp.rec('an escalated task can still be claimed', 'claimed', (select state::text from public.clinical_tasks where id = v_t2));
+
+  -- 5b. A repeat never vanishes into a claimed task ------------------------------------------------------
+  v_dd1 := private.create_clinical_task(v_p4, 'admin_clinical', null, 'proof:dd');
+  perform private.apply_task_transition(v_dd1, 'claimed', 'clinician', v_emp, null, v_emp, now() + interval '30 minutes');
+  v_dd2 := private.create_clinical_task(v_p4, 'admin_clinical', null, 'proof:dd');
+  perform pg_temp.rec('a repeat after a claim makes a follow-up task, not a merge', 'true,0',
+    ((v_dd2 <> v_dd1)::text || ',' || (select merged_count from public.clinical_tasks where id = v_dd1)));
+  v_dd3 := private.create_clinical_task(v_p4, 'admin_clinical', null, 'proof:dd');
+  perform pg_temp.rec('a further repeat merges into the follow-up', 'true,1', ((v_dd3 = v_dd2)::text || ',' || (select merged_count from public.clinical_tasks where id = v_dd2)));
+
+  -- 5c. Claims are checked in the database ----------------------------------------------------------------
+  v_red2 := private.create_clinical_task(v_p5, 'red_event_unacknowledged');
+  perform pg_temp.rec('a coordinator cannot claim a senior-tier task', '42501',
+    pg_temp.try(format($q$select private.apply_task_transition(%L, 'claimed', 'clinician', %L, null, %L, now() + interval '30 minutes')$q$, v_red2, v_coord, v_coord)));
+  perform pg_temp.rec('a claim made on someone else''s behalf is refused', '42501',
+    pg_temp.try(format($q$select private.apply_task_transition(%L, 'claimed', 'clinician', %L, null, %L, now() + interval '30 minutes')$q$, v_red2, v_emp, v_other)));
+  perform private.apply_task_transition(v_red2, 'claimed', 'clinician', v_other, null, v_other, now() + interval '30 minutes');
+  perform pg_temp.rec('only the claimer can complete', '42501',
+    pg_temp.try(format($q$select private.apply_task_transition(%L, 'completed', 'clinician', %L, null, null, null, '{}'::jsonb)$q$, v_red2, v_emp)));
+  perform pg_temp.rec('only the claimer can hand back', '42501',
+    pg_temp.try(format($q$select private.apply_task_transition(%L, 'open', 'clinician', %L, 'not mine')$q$, v_red2, v_emp)));
+  perform private.apply_task_transition(v_red2, 'open', 'clinician', v_other, 'need more information');
+  perform pg_temp.rec('a hand-back counts', '1', (select handback_count::text from public.clinical_tasks where id = v_red2));
+  perform private.apply_task_transition(v_red2, 'claimed', 'clinician', v_other, null, v_other, now() + interval '30 minutes');
+  perform private.apply_task_transition(v_red2, 'open', 'system', null, 'claim timed out');
+  perform pg_temp.rec('a timeout does not count as a hand-back', '1', (select handback_count::text from public.clinical_tasks where id = v_red2));
+
+  -- 5d. One failing task never stops the sweep ------------------------------------------------------------
+  v_poison := private.create_clinical_task(v_p6, 'async_question', 0, 'proof:poison');
+  v_ok := private.create_clinical_task(v_p1, 'async_question', 0, 'proof:ok');
+  execute format($q$create function public.s16_proof_poison() returns trigger language plpgsql as
+    $f$ begin if new.task_id = %L::uuid and new.to_state = 'escalated' then raise exception 'poisoned'; end if; return new; end $f$ $q$, v_poison);
+  execute 'create trigger s16_proof_poison before insert on public.clinical_task_transitions for each row execute function public.s16_proof_poison()';
+  v_sweep := private.sweep_clinical_tasks();
+  perform pg_temp.rec('the sweep reports one error and still escalates the other overdue task', '1,escalated',
+    ((v_sweep ->> 'errors') || ',' || (select state::text from public.clinical_tasks where id = v_ok)));
+  perform pg_temp.rec('the failure is in the audit log', '1',
+    (select count(*)::text from public.audit_log where action = 'clinical_task_sweep.error' and entity_id = v_poison));
+  perform pg_temp.rec('and an ops incident is open', '1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'clinical_task_sweep' and status not in ('resolved', 'closed')));
+  drop trigger s16_proof_poison on public.clinical_task_transitions;
 
   -- 6. Clinical-lead actions ------------------------------------------------------------------------------
   perform pg_temp.act(v_other);
@@ -243,11 +294,14 @@ begin
   perform pg_temp.act_anon();
   perform pg_temp.rec('anon cannot read tasks', '42501', pg_temp.try('select count(*) from public.clinical_tasks'));
   perform pg_temp.back();
-  -- the offer lapses, then the task is cancelled: the tie ends
+  perform pg_temp.rec('inside an offer window only the named clinician may claim', '42501',
+    pg_temp.try(format($q$select private.apply_task_transition(%L, 'claimed', 'clinician', %L, null, %L, now() + interval '30 minutes')$q$, v_t3, v_other, v_other)));
+  -- the offer lapses: the tie and the read both end
   perform pg_temp.backdate(v_t3, 'lead_window_ends_at = now() - interval ''1 minute''');
   perform private.sweep_clinical_tasks();
   perform pg_temp.act(v_emp);
   perform pg_temp.rec('once it returns to the pool the doctor is no longer tied', 'false', private.clinician_has_patient_access(v_p3)::text);
+  perform pg_temp.rec('...and can no longer read the task row (INV-12)', '0', (select count(*)::text from public.clinical_tasks where id = v_t3));
   perform pg_temp.back();
 
   perform pg_temp.rec('anon and authenticated cannot run the subscriber or the transition function', '0',
