@@ -153,6 +153,17 @@ D-02 to D-04 are not defined in the spec.
 - The minimum-tier gate on a task is `doctor_tier` only; `credentialing_level` is not used.
 - `fee_kobo_at_completion` and `fee_schedule_version_id` stay empty until S30.
 - Paging fallback is email, not SMS (OQ-113).
+- OQ-110: keep `adherence_follow_up`. OQ-111: `care_team_assignment` stands in for the lead until S18. OQ-112: S17 hides offered tasks from others; S18 adds working hours and rest.
+### S14, 2026-10-06
+- Adapters live in `supabase/functions/_shared/integrations` (an edge function cannot import a workspace package) and `@tarragon/integrations` re-exports them, the same layout as S10 and S13.
+- Every adapter call returns `ProviderResult` and never throws. Money is integer kobo, NGN only. There is no balance, wallet or top-up method on `PaymentProvider` (INV-09), and a contract test fails if one appears.
+- `selectProvider` never hands out a mock in production, and an unrecognised `APP_ENV` counts as production.
+- Video: a Zoom adapter and a mock, per OQ-22 (founder, 2026-09-30). Speech to text: interface and mock only (D-08); no vendor chosen. Paystack and Resend adapters are real HTTP adapters for vendors already chosen in the spec; live code was not migrated onto them (S25 and S31 do that).
+- Audio-only fallback is a pure function over a PROPOSED policy (`video.audio_fallback`): one bad sample never drops the call, and the app only offers video again, it does not switch back by itself.
+- Patient email is checked against the INV-07 word list at the adapter boundary, in addition to the S13 template lint.
+- OQ-95 to OQ-98 (2026-10-06): stay on Zoom pending the S21 live test; speech-to-text vendor chosen at S23 from a scoring set; Paystack naira only with foreign cards or sponsors for the diaspora, transfer OTP off with compensating limits; email from `mail.tarragonhealth.ng` with a monitored Reply-To and no patient detail in staff mail.
+- Fees (2026-10-06): the payment processor fee is passed to the patient, shown and explained before payment (`pay.fee.*`); orders match on price, the fee is recorded separately.
+
 
 ### S17, 2026-10-06
 - Founder accepted every S17 recommendation (OQ-115 to OQ-121 and OQ-123): minimal availability now, clinician-declared and automatic conflicts, the spec's five hand-back codes, idempotent retry, one extension and no heartbeat, employed doctors push and pull, strict class order, test isolation.

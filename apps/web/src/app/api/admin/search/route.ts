@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { rpcParsed } from "@/lib/credentialing/rpc";
 import { queueSchema } from "@/lib/credentialing/schemas";
 import { APPLICATION_STATE_LABEL } from "@/lib/credentialing/labels";
 
 /**
- * The people half of the admin search box (the pages half runs in the browser). Admin only. It searches clinicians
- * and clinician applicants by name, staff number or MDCN folio, through the caller's own session so the database
- * still decides what they may see. Patients are deliberately not searched here: the platform's shipped I9 decision
- * keeps patient lookup on the Patients page, behind its own gate.
+ * The people half of the search box (the pages half runs in the browser). For the admin and the Chief Medical
+ * Officer. Clinicians and clinician applicants are searched by name, staff number or MDCN folio through the caller's
+ * own session, so the database still decides what they may see. The admin alone can also look up patients (name,
+ * phone or patient number) for support and investigations; the result is only an identity line that opens the
+ * admin Patients page with the search filled in, and the Patients page keeps its own admin-only gate.
  */
 const querySchema = z.string().trim().min(2).max(80);
 
@@ -24,7 +27,10 @@ function safeTerm(q: string): string {
 export async function GET(request: Request): Promise<Response> {
   const profile = await getCurrentProfile();
   if (!profile) return new NextResponse("Not signed in", { status: 401 });
-  if (profile.role !== "admin") return new NextResponse("Not allowed", { status: 403 });
+  const isAdmin = profile.role === "admin";
+  const isCmo = !isAdmin && profile.role === "clinician" && canAssignCases(await getCurrentClinicalStaff());
+  if (!isAdmin && !isCmo) return new NextResponse("Not allowed", { status: 403 });
+  const base = isAdmin ? "/admin/credentialing" : "/clinician/credentialing";
 
   const parsed = querySchema.safeParse(new URL(request.url).searchParams.get("q") ?? "");
   if (!parsed.success) return NextResponse.json({ results: [] satisfies PersonResult[] });
@@ -49,7 +55,7 @@ export async function GET(request: Request): Promise<Response> {
   for (const s of staff.data ?? []) {
     results.push({
       label: s.full_name,
-      href: "/admin/credentialing/expiry",
+      href: `${base}/expiry`,
       group: "Clinicians",
       hint: [s.credential_number ? `MDCN ${s.credential_number}` : null, s.staff_number, s.active ? "active" : "not active"].filter(Boolean).join(" · "),
     });
@@ -60,10 +66,28 @@ export async function GET(request: Request): Promise<Response> {
     .slice(0, 6)) {
     results.push({
       label: a.applicant_name ?? "Unnamed applicant",
-      href: `/admin/credentialing/${a.id}`,
+      href: `${base}/${a.id}`,
       group: "Clinician applications",
       hint: [APPLICATION_STATE_LABEL[a.state] ?? a.state, a.mdcn_folio ? `MDCN ${a.mdcn_folio}` : null].filter(Boolean).join(" · "),
     });
+  }
+
+  if (isAdmin) {
+    const patients = await createServiceRoleClient()
+      .from("profiles")
+      .select("full_name, patient_number, phone, city")
+      .eq("role", "patient")
+      .or(`full_name.ilike.%${term}%,patient_number.ilike.%${term}%,phone.ilike.%${term}%`)
+      .limit(6);
+    if (patients.error) failed = true;
+    for (const p of patients.data ?? []) {
+      results.push({
+        label: p.full_name?.trim() || "Unnamed patient",
+        href: `/admin/patients?q=${encodeURIComponent(p.patient_number ?? p.full_name ?? term)}`,
+        group: "Patients",
+        hint: [p.patient_number, p.city].filter(Boolean).join(" · "),
+      });
+    }
   }
 
   // `failed` tells the box a source was unavailable, so it can say so instead of showing a shorter list as if complete.

@@ -547,4 +547,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S13.md; docs/research/S13.md",
   },
+  {
+    key: "video.audio_fallback",
+    // Video consultations (S14 interface, wired in S21). Connection quality arrives as a sample every few seconds.
+    //  poorSamplesToDowngrade: that many poor samples in a row drop the call to audio only (one bad sample never does).
+    //  goodSamplesToOfferVideo: that many good samples in a row, while audio only, let the app OFFER video again; the
+    //  patient taps, it never switches back by itself because that spends their data.
+    //  poorBelowKbps: a bitrate under this counts as poor even if the vendor labels it fair.
+    value: { poorSamplesToDowngrade: 3, goodSamplesToOfferVideo: 6, poorBelowKbps: 100 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S14.md; docs/research/S14.md",
+  },
 ];

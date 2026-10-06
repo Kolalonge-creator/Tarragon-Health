@@ -63,7 +63,7 @@ const PURCHASE_STATUS_VARIANT: Record<string, "green" | "grey" | "red" | "amber"
   pending_payment: "blue",
 };
 
-export function PatientsDirectory({ rows }: { rows: PatientRow[] }) {
+export function PatientsDirectory({ rows, initialQuery = "" }: { rows: PatientRow[]; initialQuery?: string }) {
   const totalPatients = rows.length;
   const purchasers = rows.filter((r) => r.purchaseCount > 0).length;
   const totalRevenueKobo = rows.reduce((sum, r) => sum + r.totalSpentKobo, 0);
@@ -124,6 +124,7 @@ export function PatientsDirectory({ rows }: { rows: PatientRow[] }) {
 
       <SearchableList
         items={rows}
+        initialQuery={initialQuery}
         pageSize={25}
         filterFn={(r, q) =>
           [r.fullName, r.email, r.phone, r.patientNumber, r.organisationName, r.city, r.state]
