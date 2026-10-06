@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 /**
- * S28 (OQ-217): the prescriber's page. A pharmacy's question is answered from a fixed list only, an answer says it changes nothing,
+ * S28 (OQ-239): the prescriber's page. A pharmacy's question is answered from a fixed list only, an answer says it changes nothing,
  * an already-answered question shows its answer, and where each prescription has got to is listed.
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";

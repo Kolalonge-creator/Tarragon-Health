@@ -598,7 +598,7 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'no_supply_available');
   end if;
   -- The pharmacist records what was handed over: batch and expiry are required, and an out-of-date batch is never recorded as supplied.
-  -- This is the pharmacy's own record. Tarragon does not check that a batch is genuine and says so (OQ-211).
+  -- This is the pharmacy's own record. Tarragon does not check that a batch is genuine and says so (OQ-233).
   if v_batch is null or p_batch_expiry is null then
     return jsonb_build_object('ok', false, 'reason', 'batch_required');
   end if;
@@ -659,7 +659,7 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- The prescriber's one view (OQ-217): the pharmacy's open questions with the fixed answers, and where each prescription they signed
+-- The prescriber's one view (OQ-239): the pharmacy's open questions with the fixed answers, and where each prescription they signed
 -- has got to (waiting at a pharmacy, supplied). Only prescriptions this clinician signed AND is still tied to the patient of (INV-12),
 -- and one audited read (INV-10) however many rows come back. The pharmacy's name is shown; no patient contact detail is.
 create function public.prescriber_pharmacy_overview()
@@ -732,7 +732,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 9b. S37 go-live guard (OQ-216). The prescribing guard gains the pharmacy conditions; the rest of the function is S37's, unchanged.
+-- 9b. S37 go-live guard (OQ-238). The prescribing guard gains the pharmacy conditions; the rest of the function is S37's, unchanged.
 --     (create or replace of the whole function; the other six guards read exactly as before.)
 -- ---------------------------------------------------------------------------
 create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb

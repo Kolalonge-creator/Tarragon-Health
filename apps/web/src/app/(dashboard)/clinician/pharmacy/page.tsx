@@ -3,7 +3,7 @@ import { loadPrescriberOverview } from "@/lib/pharmacy-collection/actions";
 import { PharmacyQuestions } from "./pharmacy-questions";
 
 /**
- * Pharmacy questions and where each prescription has got to (S28, OQ-217). Only prescriptions this clinician signed, and only for
+ * Pharmacy questions and where each prescription has got to (S28, OQ-239). Only prescriptions this clinician signed, and only for
  * patients they are still tied to. Opening the page is one audited read (INV-10). The questions are a fixed list and the answers
  * are too: nothing here changes a signed prescription.
  */

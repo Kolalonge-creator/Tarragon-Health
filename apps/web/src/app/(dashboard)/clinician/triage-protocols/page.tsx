@@ -1,12 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
-import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
-import {
-  TriageProtocolsManager,
-  type TriageProtocolVersionRow,
-} from "@/app/(dashboard)/admin/settings/triage-protocols/triage-protocols-manager";
+import { TriageProtocolsPanel } from "../_signoff-panels/triage-protocols-panel";
 
 /**
  * The Chief Medical Officer / Clinical Director's own reachable path to the
@@ -30,28 +26,13 @@ export default async function ClinicianTriageProtocolsPage() {
     redirect("/clinician");
   }
 
-  const supabase = await createClient();
-  const { data: versions, error: versionsError } = await supabase
-    .from("triage_protocols")
-    .select("id, version, config, notes, is_active, approved_at, approved_by, created_at")
-    .order("version", { ascending: false });
-
-  const versionRows = (versions as unknown as TriageProtocolVersionRow[] | null) ?? [];
-  const activeVersion = versionRows.find((v) => v.is_active) ?? null;
-  const nextVersion = (versionRows[0]?.version ?? 0) + 1;
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Symptom Triage Protocols"
         description="The red-flag screening rules and dynamic question trees behind the patient-facing symptom checker (platform brief §37): what counts as an emergency, what needs a prompt clinical look, and what's safe to self-manage, for each presenting complaint. Content changes only through a reviewed, tested migration; this page is where a Clinical Director puts a signed record on file and turns the patient-facing checker on."
       />
-      <TriageProtocolsManager
-        versions={versionRows}
-        activeVersion={activeVersion}
-        nextVersion={nextVersion}
-        loadFailed={versionsError !== null}
-      />
+      <TriageProtocolsPanel />
     </div>
   );
 }

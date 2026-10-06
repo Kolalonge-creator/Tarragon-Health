@@ -7,13 +7,14 @@ import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
 import { ConsentNudgeBanner } from "@/components/shell/consent-nudge-banner";
 import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
 import { OnCallAlarm } from "@/components/paging/on-call-alarm";
+import { SafetyConcernButton } from "@/components/clinician/safety-concern";
 import { OfflineBanner } from "@/components/shell/offline-banner";
 import { SigningHubBanner } from "@/components/shell/signing-hub-banner";
 import { getNavSections } from "@/lib/navigation";
 import { buildAdminSearchIndex, CMO_EXTRA_PAGES } from "@/lib/admin-search";
 import { getVisibleAdminSettingsTabs } from "@/lib/admin-settings-nav";
 import { isActiveChiefMedicalOfficer } from "@/lib/clinical/doctor-tier";
-import { readCmoSigningHub } from "@/lib/queries/cmo-signing-hub";
+import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { isEmbeddedInApp } from "@/lib/embedded-webview";
 import { cookies } from "next/headers";
@@ -73,7 +74,7 @@ export default async function DashboardLayout({
   // configs, protocols, AI governance, coaching content, result release
   // policy), read once for the banner that points at the sign-off hub. Only
   // read for someone who can act on it, same gating as pendingJobItems below.
-  const signingHub = isChiefMedicalOfficer ? await readCmoSigningHub(supabase) : null;
+  const signingHub = isChiefMedicalOfficer ? await getCmoSigningHubForRequest() : null;
 
   // "Notes to complete" (pending-jobs banner, doctor only) — the exact
   // {label, href, countKey} list navigation.ts's clinician nav already
@@ -183,6 +184,8 @@ export default async function DashboardLayout({
         )}
         {/* The in-console alarm for a red event page (S19): clinicians only; it only ever reads the caller's own pages. */}
         {profile?.role === "clinician" && <OnCallAlarm />}
+        {/* Always visible to a clinician (S35, spec 9.1): the safety concern report. */}
+        {profile?.role === "clinician" && <SafetyConcernButton />}
         {profile?.role === "clinician" && (
           <PendingJobsBanner jobs={pendingJobItems} staffId={clinicalStaffId} />
         )}

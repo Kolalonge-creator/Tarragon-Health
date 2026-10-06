@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { refuseSupersededDraft } from "@/lib/clinical/refuse-superseded-draft";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 
@@ -59,6 +60,8 @@ export async function createTriageProtocolDraftAction(
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings/triage-protocols");
+  revalidatePath("/clinician/triage-protocols");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
 
@@ -72,11 +75,15 @@ export async function createTriageProtocolDraftAction(
  */
 export async function signTriageProtocolsAction(versionId: string): Promise<SignTriageProtocolsState> {
   const supabase = await createClient();
+  const refused = await refuseSupersededDraft(supabase, "triage_protocols", versionId);
+  if (refused) return { error: refused };
   const { error } = await supabase.rpc("sign_triage_protocols", {
     p_id: versionId,
   });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/triage-protocols");
+  revalidatePath("/clinician/triage-protocols");
+  revalidatePath("/clinician/clinical-signoff");
   revalidatePath("/patient");
   return { success: true };
 }
