@@ -796,4 +796,25 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S23.md",
   },
+  {
+    key: "reliability.dashboard",
+    // The reliability and SLA dashboard (S36e, spec 9.5 and 9.4). Display settings only: how far ahead the rota gap view looks, how many
+    // clinicians a group must hold before the operations view may show a score distribution (a group of one or two is someone's own
+    // score), and the three neutral score bands used to group clinicians. Reliability stays advisory (S17): bands are for reading
+    // the spread, not for ranking anyone, and nothing here suspends or changes pay. OQ-225 asks the CMO to confirm these.
+    value: {
+      gap_days: 7,
+      min_group: 5,
+      bands: [
+        { key: "a", min: 85 },
+        { key: "b", min: 70 },
+        { key: "c", min: 0 },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
+  },
 ];
