@@ -307,7 +307,8 @@ describe("ConsultationRoom with the in-app call", () => {
       expect(join).not.toHaveBeenCalled();
       expect(window.open).not.toHaveBeenCalled();
       // and the person can try again afterwards
-      expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false);
+      // (waits for the state to settle: read straight after the Leave button goes, it races the busy flag under CI load)
+      await waitFor(() => expect((screen.getByRole("button", { name: "Join with video" }) as HTMLButtonElement).disabled).toBe(false));
     });
 
     it("leaves the call when the consultation stops being live under it (cancelled, completed, no-show)", async () => {
