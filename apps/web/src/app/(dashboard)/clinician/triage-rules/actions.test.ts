@@ -29,7 +29,9 @@ async function outcome(fd: FormData): Promise<string> {
 }
 
 describe("approveRuleSetAction signing gate", () => {
-  beforeEach(() => rpc.mockReset().mockResolvedValue({ error: null }));
+  beforeEach(() => {
+    rpc.mockReset().mockResolvedValue({ error: null });
+  });
 
   it("signs when the box is ticked and SIGN is typed, whatever the case or spacing", async () => {
     expect(await outcome(form({ id, understood: "on", typed: " sign " }))).toContain("done=Signed");
