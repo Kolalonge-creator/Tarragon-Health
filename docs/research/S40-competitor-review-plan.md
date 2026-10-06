@@ -33,11 +33,19 @@ AI lab interpretation without clinician sign-off; session replay or ad pixels on
 ## Built in this branch
 - `medicalWebPageJsonLd` (lib/marketing/structured-data.ts) rendered by `ProductPageTemplate`, so every programme and condition page emits a claim-free MedicalWebPage block. Returns null when title or description is missing. Unit tests added.
 - `EmergencyNotice` on the pricing page.
+- `JsonLdScript` component that escapes `<` so the new block (and future ones) cannot close the script tag early; tests added. The older hand-rolled script blocks in layout, pricing and faq were left as is.
 - Verified: jest for structured-data (14 pass), `tsc --noEmit` clean.
 Not run: Playwright or visual check of the two pages; no migration, so no RLS or DB test applies.
 
-## Founder decisions needed (none are blocked on engineering)
-1. Satisfaction guarantee on the first 12-week programme cycle: yes or no, and terms.
-2. Native-speaker Pidgin hero line for the marketing site: who writes and signs off.
-3. Whether a read-only SMS reminder or USSD status check is worth scoping.
-4. Telco or employer bundle conversation: owner and timing.
+## Founder decisions (settled 2026-10-06)
+1. Satisfaction guarantee: dropped. The paid offer is now the membership model (see memory: membership pivot), so a first-cycle guarantee on the 12-week programme no longer applies. Any risk-reversal idea must be re-scoped against the membership terms, not built from Presibo's refund.
+2. Pidgin on the marketing site: no. Pidgin stays an in-app language option only.
+3. Read-only SMS or USSD status check: not worth scoping now.
+4. Telco or employer bundle: open, recommendation below.
+
+### Recommendation on telco and employer bundles
+Owner: the founder, for the first conversation of each kind; no engineering until a counterparty exists.
+- **Employer first.** The corporate page already exists and an employer buying membership for staff fits individual enrolment and the no-capitation rule (I8). Pilot with one or two Lagos employers through the founder's network or an HMO contact; sell membership seats, not per-visit fees.
+- **Telco later, and only as distribution.** Mobihealth's Airtel bundle shows the channel works, but it needs volume and a revenue-share. Only consider a bundle that lands the subscriber in the free app and sells membership at the normal naira price. Refuse any structure that pays per member regardless of care (capitation) or hides the price.
+- Examples to approach when ready: MTN or Airtel digital-bundle teams, a Lagos bank or fintech staff-benefit scheme, a large employer's HR benefits team.
+- Gate: wait until membership checkout is live and there is real retention data to show a partner.

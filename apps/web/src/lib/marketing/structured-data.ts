@@ -201,7 +201,7 @@ export function paidServicesJsonLd({
 
 /**
  * A programme or condition page as a schema.org MedicalWebPage with a
- * HowTo-free, claim-free shape: name, description, the page URL and the
+ * minimal, claim-free shape: name, description, the page URL and the
  * organisation behind it. Deliberately no `medicalAudience`, outcome or
  * efficacy fields: structured data is read by search engines as fact, and this
  * platform makes no outcome claim it could not defend (docs/BRAND_GUIDE.md).

@@ -12,6 +12,7 @@ import { MARKETING_MEDIA, PRODUCT_VIDEOS } from "../_content/media";
 import type { ProductPageContent } from "../_content/products";
 import { PRICING_HREF } from "../_content/products";
 import { cn } from "@/lib/utils";
+import { JsonLdScript } from "./json-ld-script";
 import { medicalWebPageJsonLd } from "@/lib/marketing/structured-data";
 import { SITE, SITE_URL } from "@/lib/marketing/site";
 
@@ -70,12 +71,7 @@ export function ProductPageTemplate({
 
   return (
     <>
-      {pageJsonLd ? (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(pageJsonLd) }}
-        />
-      ) : null}
+      {pageJsonLd ? <JsonLdScript data={pageJsonLd} /> : null}
       {hasPhoto ? (
         // Rendered outside Section on purpose — full-bleed spans the full
         // viewport width; see marketing-photo-banner-hero.tsx's header comment.
