@@ -10,7 +10,7 @@
  *   - protected terms missed: drug names, doses and numbers the clinician lists for that sample.
  */
 
-const NEGATIONS = new Set(["not", "no", "never", "without", "nothing", "none", "dont", "doesnt", "didnt", "cant", "wont", "isnt", "arent", "nobody", "na"]);
+const NEGATIONS = new Set(["not", "no", "never", "without", "nothing", "none", "dont", "doesnt", "didnt", "cant", "wont", "isnt", "arent", "nobody", "neva"]);
 
 export function normalise(text: string): string[] {
   return text

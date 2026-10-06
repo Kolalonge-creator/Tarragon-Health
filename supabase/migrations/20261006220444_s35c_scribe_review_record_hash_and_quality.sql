@@ -41,7 +41,7 @@ comment on table public.scribe_review_events is
 
 alter table public.scribe_review_events enable row level security;
 create policy scribe_review_events_read on public.scribe_review_events for select to authenticated
-  using (clinician_profile_id = (select auth.uid()) or private.credential_is_cmo());
+  using (clinician_profile_id = (select auth.uid()) or (private.credential_is_cmo() and organisation_id = private.current_org_id()));
 grant select on public.scribe_review_events to authenticated;
 revoke insert, update, delete, truncate on public.scribe_review_events from authenticated, anon;
 
@@ -202,7 +202,7 @@ begin
     raise exception 'only the Chief Medical Officer can read scribe quality' using errcode = '42501';
   end if;
   select jsonb_build_object(
-           'reviews', (select count(*) from public.scribe_review_events r where r.created_at >= p_from and r.created_at <= p_to and not r.is_test),
+           'reviews', (select count(*) from public.scribe_review_events r where r.organisation_id = private.current_org_id() and r.created_at >= p_from and r.created_at <= p_to and not r.is_test),
            'sections', coalesce(jsonb_object_agg(s.section, s.counts), '{}'::jsonb))
     into v_out
     from (
@@ -217,7 +217,7 @@ begin
         from public.scribe_review_events r
         cross join lateral jsonb_each(r.sections) e
         cross join lateral (select e.key as section) k
-       where r.created_at >= p_from and r.created_at <= p_to and not r.is_test
+       where r.organisation_id = private.current_org_id() and r.created_at >= p_from and r.created_at <= p_to and not r.is_test
        group by k.section
     ) s;
   return v_out;
@@ -239,7 +239,7 @@ begin
   return coalesce((select jsonb_agg(to_jsonb(s)) from (
     select n.id as note_id, n.finalized_at, n.authored_by_profile as author_profile_id, n.signed_content_hash is not null as has_hash
       from public.clinical_encounter_notes n
-     where n.ai_drafted and n.status = 'finalized' and not n.is_test
+     where n.organisation_id = private.current_org_id() and n.ai_drafted and n.status = 'finalized' and not n.is_test
        and n.finalized_at >= p_from and n.finalized_at <= p_to
      order by random() limit p_n) s), '[]'::jsonb);
 end $$;

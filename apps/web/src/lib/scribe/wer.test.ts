@@ -48,6 +48,16 @@ describe("scoreSample", () => {
   });
 });
 
+describe("negations in Pidgin", () => {
+  it("does not treat the Pidgin copula 'na' as a negation, and does count 'neva'", () => {
+    const keep = scoreSample({ id: "p1", language: "pcm", reference: "na headache I get", hypothesis: "headache I get" });
+    expect(keep.negationsInReference).toBe(0);
+    const never = scoreSample({ id: "p2", language: "pcm", reference: "I neva see doctor", hypothesis: "I see doctor" });
+    expect(never.negationsInReference).toBe(1);
+    expect(never.negationsDropped).toBe(1);
+  });
+});
+
 describe("reportByLanguage", () => {
   it("pools errors over words per language, not the mean of rates", () => {
     const rows = [

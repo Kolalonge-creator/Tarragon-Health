@@ -294,6 +294,8 @@ export async function draftScribeFromFacts(input: z.input<typeof DraftFromFactsS
     encounterNoteId: parsed.encounterNoteId,
     confirmedFacts: parsed.confirmedFacts,
     language: parsed.language,
+    // the facts came from pasted or typed notes: the audit log records the input category from this
+    source: "typed",
     patientContext: parsed.patientContext,
   });
   return draftFromFactsResponseSchema.parse(out);
