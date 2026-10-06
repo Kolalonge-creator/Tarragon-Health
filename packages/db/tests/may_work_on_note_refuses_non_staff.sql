@@ -171,8 +171,14 @@ begin
   if v_out <> 'ok:' || v_pat then raise exception 'FAIL 3c: a tied non-author clinician was refused (%)', v_out; end if;
   v_out := pg_temp.guard_as(v_c, v_draft);
   if v_out <> v_deny then raise exception 'FAIL 3d: an untied non-author clinician was let through (%)', v_out; end if;
+  -- 3d2 a note with no recorded author (auto-drafted notes): an untied clinician is refused, a tied one is not
+  update public.clinical_encounter_notes set authored_by_staff = null where id = v_draft2;
+  v_out := pg_temp.guard_as(v_c, v_draft2);
+  if v_out <> v_deny then raise exception 'FAIL 3d2: an untied clinician was let through on a note with no author (%)', v_out; end if;
+  v_out := pg_temp.guard_as(v_b, v_draft2);
+  if v_out <> 'ok:' || v_pat then raise exception 'FAIL 3d3: a tied clinician was refused on a note with no author (%)', v_out; end if;
   -- real callers
-  v_out := pg_temp.run_as(v_a, format('select public.update_encounter_note_draft(%L, %L::jsonb)', v_draft2, '{"plan":"author edit"}'));
+  v_out := pg_temp.run_as(v_a, format('select public.update_encounter_note_draft(%L, %L::jsonb)', v_draft, '{"plan":"author edit"}'));
   if v_out <> 'ok' then raise exception 'FAIL 3e: the author could not edit their draft (%)', v_out; end if;
   v_out := pg_temp.run_as(v_b, format('select public.set_note_protected(%L, true)', v_draft));
   if v_out <> 'ok' then raise exception 'FAIL 3f: a tied clinician could not mark a draft protected (%)', v_out; end if;
