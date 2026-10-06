@@ -615,3 +615,39 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-114 Old alerts and escalations are read through a view, not merged (raised by S16)
 - `legacy_clinical_work_v` unions open `escalations` and `clinician_alerts` for the queue screens. The old tables keep their own flows, so a red reading can both raise a live alert and, once the CMO signs a rule set (OQ-88), create a task. Retiring the live bands is a later, separate decision.
 - Decision (founder, 2026-10-06): adapter view, not a backfill.
+
+### OQ-115 availability_blocks arrives in S17, minimal (raised by S17)
+- Spec 7.6 rejects a clinician with no current queue block, but S18 owns availability. S17 creates the table with declare and cancel only; a `declared` block counts. S18 adds the rota, confirmation and the minimum guarantee.
+- Decision (founder, 2026-10-06): accepted as recommended.
+
+### OQ-116 Who writes conflicts (raised by S17)
+- Clinician declares (pending until the CMO confirms or lifts, blocks offers meanwhile, capped at five pending); the CMO records one against a named clinician; a conflict_of_interest hand-back adds one. Only the CMO lifts, with a reason of at least 10 characters. S15's free-text declarations are not parsed.
+- Decision (founder, 2026-10-06): accepted. The CMO converts any S15 declarations by hand.
+
+### OQ-117 Hand-back reason codes (raised by S17)
+- S16 had `need_more_information` and `unavailable`; S17 changed the check to the spec's `needs_information` and `technical_problem` (table was empty).
+- Decision (founder, 2026-10-06): the spec's five.
+
+### OQ-118 Retry returns the existing claim (raised by S17)
+- Spec 7.6 says reject at the cap; S17 returns the held claim with `already_claimed: true` so a retry over a dropped connection is safe. Only protects a clinician whose cap is 1; above 1 a retry takes a second task.
+- Decision (founder, 2026-10-06): accepted. Revisit with a client request id if any clinician is given a cap above 1.
+
+### OQ-119 Lease extension and heartbeat (raised by S17)
+- One extension of the type's timeout, `queue_last_seen_at` on each call, no heartbeat. An expired claimant may reclaim the task. Without a heartbeat a silent expiry cannot be told from a power cut, so an expiry weighs 0.5 in the score and a person reviews patterns.
+- Decision (founder, 2026-10-06): accepted. A heartbeat is a later option.
+
+### OQ-120 Employed doctors and Next task (raised by S17)
+- An employed doctor takes work pushed to them with no queue block and may also pull from the pool once they declare one.
+- Decision (founder, 2026-10-06): both.
+
+### OQ-121 Starvation (raised by S17)
+- Strict class order then due time. Backstops: S16 escalates overdue tasks; `queue_health()` now reports the oldest open task per class. No aging rule.
+- Decision (founder, 2026-10-06): strict order.
+
+### OQ-122 Reliability numbers and queue limits need the CMO (raised by S17)
+- 90 day window, 30 day half-life, prior of 5 events at 0.8, weights (expiry 0.5, other hand-back 0.25, reasoned 0), cooling-off 3 in 10 minutes, hard cap 6 in 60 minutes, review flag above 3 in 7 days, one extension, five pending self-conflicts. All PROPOSED in `queue.claims`. The score only breaks ties (S18) and never gates a claim or changes pay.
+- Decision: open. CMO to confirm or change before S18 uses the score.
+
+### OQ-123 Test isolation (raised by S17)
+- A test clinician only sees test tasks and a real clinician never sees a test task.
+- Decision (founder, 2026-10-06): accepted.

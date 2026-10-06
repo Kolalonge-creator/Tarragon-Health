@@ -153,3 +153,7 @@ D-02 to D-04 are not defined in the spec.
 - The minimum-tier gate on a task is `doctor_tier` only; `credentialing_level` is not used.
 - `fee_kobo_at_completion` and `fee_schedule_version_id` stay empty until S30.
 - Paging fallback is email, not SMS (OQ-113).
+
+### S17, 2026-10-06
+- Founder accepted every S17 recommendation (OQ-115 to OQ-121 and OQ-123): minimal availability now, clinician-declared and automatic conflicts, the spec's five hand-back codes, idempotent retry, one extension and no heartbeat, employed doctors push and pull, strict class order, test isolation.
+- Reliability and queue limits stay PROPOSED until the CMO signs them (OQ-122).
