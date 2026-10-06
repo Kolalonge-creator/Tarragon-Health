@@ -1,0 +1,94 @@
+import type { NavSection } from "@/lib/navigation";
+
+/**
+ * Global search for the admin console. The index is every page the admin can reach (the sidebar plus every
+ * settings page they may open), built on the server from the same lists that draw the menus, so a page added to a
+ * menu is searchable with no second list to keep in step. Matching runs in the browser: no request per keystroke.
+ */
+export interface AdminSearchEntry {
+  label: string;
+  href: string;
+  /** Where it lives in the menus, shown beside the label. */
+  group: string;
+  /** One line on what the page is for (the settings blurb). */
+  hint?: string;
+  /** Extra words people may type that the label does not contain. */
+  keywords?: string;
+}
+
+/** Words an admin may use for a page whose title does not say it. Keyed by the path they match. */
+const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
+  ["/admin/credentialing/expiry", "licence license mdcn indemnity expiry expires renewal renew grace suspended reinstate"],
+  ["/admin/credentialing", "doctor clinician onboarding application applicant apply verify verification mdcn folio credentials referees nysc"],
+  ["/admin/settings/clinical-staff", "doctor clinician staff mdcn roster verify"],
+  ["/admin/settings/members", "users logins accounts roles permissions invite provision"],
+  ["/admin/patients", "patient people customers directory roster purchases"],
+  ["/admin/ops/incidents", "incident outage problem sev"],
+  ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
+  ["/admin/promo-codes", "discount coupon voucher"],
+  ["/admin/leads", "enquiries prospects contact form"],
+];
+
+export interface SettingsPageInput {
+  href: string;
+  label: string;
+  blurb: string;
+  group: string;
+}
+
+/** Sidebar items plus settings pages, de-duplicated by path (the sidebar wins), with extra keywords attached. */
+export function buildAdminSearchIndex(sections: NavSection[], settings: SettingsPageInput[]): AdminSearchEntry[] {
+  const seen = new Set<string>();
+  const entries: AdminSearchEntry[] = [];
+  const add = (entry: AdminSearchEntry) => {
+    if (seen.has(entry.href)) return;
+    seen.add(entry.href);
+    const keywords = EXTRA_KEYWORDS.filter(([prefix]) => entry.href === prefix).map(([, words]) => words).join(" ");
+    entries.push(keywords ? { ...entry, keywords } : entry);
+  };
+  for (const section of sections) {
+    for (const item of section.items) add({ label: item.label, href: item.href, group: section.label ?? "Main" });
+  }
+  for (const page of settings) add({ label: page.label, href: page.href, group: `Settings, ${page.group}`, hint: page.blurb });
+  // Pages inside an area that are not menu items of their own, but people look for them by name.
+  add({ label: "Licences and cover", href: "/admin/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." });
+  return entries;
+}
+
+const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
+
+function isSubsequence(needle: string, haystack: string): boolean {
+  let i = 0;
+  for (const ch of haystack) if (ch === needle[i] && ++i === needle.length) return true;
+  return needle.length === 0;
+}
+
+function tokenScore(token: string, entry: AdminSearchEntry): number {
+  const label = norm(entry.label);
+  const other = norm(`${entry.group} ${entry.hint ?? ""} ${entry.keywords ?? ""}`);
+  if (label === token) return 120;
+  if (label.startsWith(token)) return 100;
+  if (label.split(/[^a-z0-9]+/).some((w) => w.startsWith(token))) return 80;
+  if (label.includes(token)) return 60;
+  if (other.split(/[^a-z0-9]+/).some((w) => w.startsWith(token))) return 40;
+  if (other.includes(token)) return 20;
+  if (token.length >= 3 && isSubsequence(token, label)) return 8;
+  return 0;
+}
+
+/** Every word typed must match something; the order of results follows how strongly each word matched. */
+export function searchAdminEntries(entries: AdminSearchEntry[], query: string, limit = 10): AdminSearchEntry[] {
+  const tokens = norm(query).split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return entries.slice(0, limit);
+  const scored: { entry: AdminSearchEntry; score: number; index: number }[] = [];
+  entries.forEach((entry, index) => {
+    let total = 0;
+    for (const token of tokens) {
+      const s = tokenScore(token, entry);
+      if (s === 0) return;
+      total += s;
+    }
+    scored.push({ entry, score: total, index });
+  });
+  return scored.sort((a, b) => b.score - a.score || a.index - b.index).slice(0, limit).map((s) => s.entry);
+}

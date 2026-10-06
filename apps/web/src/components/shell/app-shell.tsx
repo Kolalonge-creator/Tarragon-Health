@@ -11,6 +11,8 @@ import { NotificationBell } from "./notification-bell";
 import { PushSubscribePrompt } from "./push-subscribe-prompt";
 import { DeviceHeartbeat } from "./device-heartbeat";
 import { ProfileMenu } from "./profile-menu";
+import { AdminSearch } from "./admin-search";
+import type { AdminSearchEntry } from "@/lib/admin-search";
 import { ThemeToggle, type ThemePreference } from "./theme-toggle";
 import { Avatar } from "@/components/avatar";
 import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
@@ -562,8 +564,11 @@ export function AppShell({
   uiLanguage = DEFAULT_UI_LANGUAGE,
   uiLanguageAction,
   signOutAction,
+  adminSearch,
   children,
 }: {
+  /** Pages the admin can reach, for the header search box. Passed for the admin role only; other roles get no box. */
+  adminSearch?: AdminSearchEntry[];
   userName: string;
   avatarUrl?: string | null;
   roleLabel: string;
@@ -825,6 +830,7 @@ export function AppShell({
                 <LanguageToggle language={uiLanguage} action={uiLanguageAction} />
               )}
               {surface === "warm" && <ThemeToggle theme={theme} onChange={setTheme} />}
+              {adminSearch && adminSearch.length > 0 && <AdminSearch entries={adminSearch} />}
               <DeviceHeartbeat />
               <PushSubscribePrompt />
               <NotificationBell />
