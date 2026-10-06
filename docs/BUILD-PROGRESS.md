@@ -721,3 +721,11 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Review and plan**: `docs/COMPETITOR_REVIEW_AND_PLAN_2026-10.md` and two research files.
 - **Tests**: 12 Jest tests (summary, document tree, route auth and own-id read); typecheck and eslint clean; a real render was checked visually. No migration, no database change.
 - **Not done**: i18n strings, caregiver access, mobile button, browser click-through, `/code-review high`.
+
+## Competitor review: Weekly summary and Low-data mode (2026-10-06, same branch)
+
+- **Weekly summary (web)**: `lib/visit-report/weekly.ts` (this 7 days against the 7 before, Africa/Lagos calendar days, descriptive only), `useWeeklySummary` and `WeeklySummaryCard` on `/patient/vitals`. No verdicts, calm empty state, unvalidated readings excluded.
+- **Low-data mode (mobile)**: `LOW_DATA_BUDGET` and `activeBudget()` in `offline-budget.ts`; `lib/low-data.ts` (SecureStore preference, fails off on a bad value); loaded in `App.tsx`; toggle in Settings. Only the pull side shrinks (page 50, 4 pages a run, 30 days first pull, smaller task pulls). The outbox and local retention are unchanged. `offline-store.ts` and `task-source.ts` now read `activeBudget()`.
+- **Tests**: web 427 suites / 3,778 tests, shared 156, mobile 95 suites / 1,356, all passing; typecheck and eslint clean on touched files. New: 7 weekly model, 2 weekly card, 5 low-data.
+- **Not done**: mobile weekly card; optional weekly push; web low-data mode; data actually saved was not measured on a device; Settings text and the new cards are English only (i18n en/pcm still owed); no browser or device click-through; `/code-review high` not run yet.
+- **Note**: turning low-data off does not backfill the 30-day gap on an already-synced phone; a new phone after turning it on gets 30 days, not 90.

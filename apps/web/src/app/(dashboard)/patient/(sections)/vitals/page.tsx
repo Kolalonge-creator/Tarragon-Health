@@ -19,6 +19,7 @@ import { SymptomTriageCheck } from "@/app/(dashboard)/patient/symptom-triage-che
 import { listAvailablePresentingComplaints } from "@/app/(dashboard)/patient/symptom-triage-actions";
 import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
+import { WeeklySummaryCard } from "@/app/(dashboard)/patient/weekly-summary-card";
 import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 
 export default async function PatientVitalsPage() {
@@ -34,6 +35,7 @@ export default async function PatientVitalsPage() {
       icon={SEMANTIC_ICON.bp}
     >
       <VitalsTrendChart patientId={subjectId} />
+      <WeeklySummaryCard patientId={subjectId} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Directly above the form someone logs a reading into, which is the

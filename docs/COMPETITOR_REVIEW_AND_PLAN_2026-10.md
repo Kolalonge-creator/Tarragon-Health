@@ -24,9 +24,9 @@ low-data mode, no voice entry, mobile dark mode has no System option (legacy scr
 | # | Item | Source of idea | Status | Notes |
 |---|------|----------------|--------|-------|
 | 1 | Report for your visit (PDF of own readings) | global #8, Medisafe/mySugr style reports | **Built (this branch)** | Plain statistics, no classification, wearable estimates labelled |
-| 2 | Weekly summary (in-app card, optional push) | inventory gap | Next | Reuse `summariseReadings`; needs reminder-channel rule and quiet hours |
+| 2 | Weekly summary | inventory gap | **Built (web card on /patient/vitals)** | Descriptive only, Lagos days. Mobile card and an optional push digest are not built (push needs the reminder-channel and quiet-hours rules) |
 | 3 | Escalating missed-dose reminder with a family contact told in-app | global #2 (Medisafe) | Needs decision | Consent and proxy rules; never depends on a send succeeding |
-| 4 | Low-data mode (skip images, defer sync, smaller lists) | Vula, Helium | Next | Extend `offline-budget.ts`, add a setting |
+| 4 | Low-data mode | Vula, Helium | **Built (mobile Settings toggle)** | Smaller pulls only; outbox never throttled. Web has no equivalent yet; no device measurement of data saved |
 | 5 | Outcome report for the 12-week programme, payer shareable | Platos, Reliance | Needs founder | Aggregate only (I9); vendor figures are not a model for claims |
 | 6 | Outcome-linked pricing on the programme | Virta | Founder only | Pricing churns; do not build unprompted |
 | 7 | "Buy for a parent abroad" sponsor flow | Reliance Alafia | Founder only | Overlaps Care Voucher counsel item |

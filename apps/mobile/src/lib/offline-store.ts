@@ -2,7 +2,7 @@ import * as SQLite from "expo-sqlite";
 import { supabase } from "./supabase";
 import { recordSyncError } from "./sync-diagnostics";
 import { loadOfflineSyncConfig } from "./offline-sync-config";
-import { OFFLINE_BUDGET } from "./offline-budget";
+import { activeBudget } from "./offline-budget";
 import { classifyFailure, pullFloor, type OfflineSyncConfig } from "./outbox-rules";
 import { fetchPatientTasks } from "./task-source";
 
@@ -109,7 +109,7 @@ async function pullKind(
 ): Promise<void> {
   const cursorKey = `pull:${owner}:${subjectId}:${kind}`;
   const stored = await readCursor(db, cursorKey);
-  const initialFloor = new Date(Date.now() - OFFLINE_BUDGET.initialPullDays * 86_400_000).toISOString();
+  const initialFloor = new Date(Date.now() - activeBudget().initialPullDays * 86_400_000).toISOString();
   const floor = pullFloor(stored, config) ?? initialFloor;
   let lastCreated: string | null = null;
   let lastId: string | null = null;
@@ -122,7 +122,7 @@ async function pullKind(
       .gte("created_at", floor)
       .order("created_at", { ascending: true })
       .order("id", { ascending: true })
-      .limit(OFFLINE_BUDGET.pullPageSize);
+      .limit(activeBudget().pullPageSize);
     if (lastCreated && lastId) {
       query = query.or(`created_at.gt.${lastCreated},and(created_at.eq.${lastCreated},id.gt.${lastId})`);
     }
@@ -150,7 +150,7 @@ async function pullKind(
       // Never move the cursor past rows that were not yet stored.
       await writeCursor(db, cursorKey, last.created_at);
     }
-    if (rows.length < OFFLINE_BUDGET.pullPageSize) return;
+    if (rows.length < activeBudget().pullPageSize) return;
   }
 }
 
@@ -233,7 +233,7 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
     for (const kind of ["vital", "symptom", "dose"] as const) {
       if (result.stoppedOffline) break;
       // Each table gets its own page budget so a big vitals backlog cannot starve the others.
-      await pullKind(db, kind, owner, subjectId, config, { pagesLeft: OFFLINE_BUDGET.maxPagesPerPull }, result);
+      await pullKind(db, kind, owner, subjectId, config, { pagesLeft: activeBudget().maxPagesPerPull }, result);
     }
     if (!result.stoppedOffline) await pullMedications(db, owner, subjectId, result);
     if (!result.stoppedOffline) await pullTasks(db, owner, subjectId, result);
@@ -262,7 +262,7 @@ export async function purgeMirror(owner: string): Promise<number> {
   );
   let purged = 0;
   for (const group of groups) {
-    const cutoff = new Date(new Date(group.newest).getTime() - OFFLINE_BUDGET.mirrorRetentionDays * 86_400_000).toISOString();
+    const cutoff = new Date(new Date(group.newest).getTime() - activeBudget().mirrorRetentionDays * 86_400_000).toISOString();
     const before = await db.getFirstAsync<{ n: number }>(
       "select count(*) as n from local_records where kind = ? and owner_user_id = ? and subject_id = ? and created_at < ?",
       [group.kind, owner, group.subject_id, cutoff]
