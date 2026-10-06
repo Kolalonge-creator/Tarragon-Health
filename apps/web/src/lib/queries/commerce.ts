@@ -6,6 +6,7 @@ export const commerceKeys = {
   catalogue: ["commerce", "catalogue"] as const,
   orders: ["commerce", "orders"] as const,
   membership: ["commerce", "membership"] as const,
+  entitlements: ["commerce", "entitlements"] as const,
 };
 
 /** The shop window. Empty while checkout is closed; the database decides, the screen only shows what it is given. */
@@ -42,6 +43,30 @@ export function useMyMembership() {
   });
 }
 
+export type EntitlementRow = {
+  id: string;
+  kind: string;
+  state: string;
+  starts_at: string;
+  ends_at: string | null;
+  remaining_uses: number | null;
+  order: { catalog_item: { name: string } | null } | null;
+};
+
+export function useMyEntitlements() {
+  return useQuery({
+    queryKey: commerceKeys.entitlements,
+    queryFn: async () => {
+      const { data, error } = await createClient()
+        .from("entitlements")
+        .select("id, kind, state, starts_at, ends_at, remaining_uses, order:orders!entitlements_order_id_fkey(catalog_item:catalog_items(name))")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as EntitlementRow[];
+    },
+  });
+}
+
 /** A failed call to an edge function carries the stable error code in its JSON body. */
 async function errorCodeOf(error: unknown): Promise<string> {
   const ctx = (error as { context?: unknown } | null)?.context;
@@ -71,9 +96,7 @@ export class CheckoutError extends Error {
 export function useStartCheckout() {
   return useMutation({
     mutationFn: async (input: { code: string; clientKey: string; beneficiary?: string }) => {
-      // `beneficiary` is only set when paying for someone in the caller's Care Circle (S29); the database decides if that is allowed.
-      const body = { code: input.code, client_key: input.clientKey, ...(input.beneficiary ? { beneficiary: input.beneficiary } : {}) };
-      const { data, error } = await createClient().functions.invoke("order-checkout", { body });
+      const { data, error } = await createClient().functions.invoke("order-checkout", { body: { code: input.code, client_key: input.clientKey, beneficiary: input.beneficiary } });
       if (error) throw new CheckoutError(await errorCodeOf(error));
       const parsed = checkoutReplySchema.safeParse(data);
       if (!parsed.success) throw new CheckoutError("unknown");

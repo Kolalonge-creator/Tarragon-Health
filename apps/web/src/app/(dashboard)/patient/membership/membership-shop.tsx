@@ -9,6 +9,8 @@ import { FormError } from "@/components/ui/form-error";
 import { formatPatientDate } from "@/lib/format-date";
 import { checkoutErrorKey, isMessageKey, orderStateKey, type CatalogueItem, type OrderRow } from "@/lib/commerce/model";
 import { CheckoutError, useCatalogue, useMyMembership, useMyOrders, useStartCheckout } from "@/lib/queries/commerce";
+import { useSponsorableProfiles } from "@/lib/queries/care-access";
+import { RefundRequestDialog } from "./refund-request-dialog";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
@@ -28,7 +30,7 @@ const goTo: Go = (url) => window.location.assign(url);
 /** Set when a supporter pays for someone in their Care Circle (S29): the order is for them, the card is the payer's own. */
 export interface Beneficiary { readonly id: string; readonly name: string }
 
-function ItemCard({ item, locale, fee, memberUntil, go, beneficiary }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go; beneficiary?: Beneficiary }) {
+function ItemCard({ item, locale, fee, memberUntil, go, beneficiary }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go; beneficiary: string | undefined }) {
   const start = useStartCheckout();
   // One key per card, made on first use and kept, so a double tap or a retry after a dropped connection is the SAME order.
   const clientKey = useRef<string | null>(null);
@@ -40,14 +42,14 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary }: { item: C
     setErrorKey(null);
     clientKey.current ??= crypto.randomUUID();
     try {
-      const r = await start.mutateAsync({ code: item.code, clientKey: clientKey.current, ...(beneficiary ? { beneficiary: beneficiary.id } : {}) });
+      const r = await start.mutateAsync({ code: item.code, clientKey: clientKey.current, beneficiary });
       go(r.checkout_url);
     } catch (e) {
       // A refusal is final for this tap; a fresh key is made next time. A network failure keeps the key so a retry is the same order.
       if (e instanceof CheckoutError && e.code !== "unknown" && e.code !== "payment_unavailable") clientKey.current = null;
       setErrorKey(checkoutErrorKey(e instanceof CheckoutError ? e.code : "unknown"));
       // "You are already a member" would be wrong when the order was for somebody else.
-      if (beneficiary && e instanceof CheckoutError && e.code === "already_member") setErrorKey("circle.pay.already_member");
+      if (beneficiary !== undefined && e instanceof CheckoutError && e.code === "already_member") setErrorKey("circle.pay.already_member");
     }
   }
 
@@ -88,6 +90,8 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary }: { item: C
 }
 
 function History({ rows, locale }: { rows: OrderRow[]; locale: Locale }) {
+  const [refundTarget, setRefundTarget] = useState<OrderRow | null>(null);
+
   return (
     <Card>
       <CardHeader>
@@ -104,15 +108,32 @@ function History({ rows, locale }: { rows: OrderRow[]; locale: Locale }) {
                   <p className="font-medium">{copy(o.name_key, locale)}</p>
                   <p className={`text-sm ${MUTED}`}>{formatPatientDate(o.paid_at ?? o.created_at)}</p>
                 </div>
-                <div className="text-right">
-                  <p><Naira kobo={o.total_kobo ?? o.amount_kobo} /></p>
-                  <p className={`text-sm ${MUTED}`}>{t(orderStateKey(o.state), locale)}</p>
+                <div className="flex items-center gap-3">
+                  {o.state === "paid" && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setRefundTarget(o)}>
+                      {t("refund.request.button", locale)}
+                    </Button>
+                  )}
+                  <div className="text-right">
+                    <p><Naira kobo={o.total_kobo ?? o.amount_kobo} /></p>
+                    <p className={`text-sm ${MUTED}`}>{t(orderStateKey(o.state), locale)}</p>
+                  </div>
                 </div>
               </li>
             ))}
           </ul>
         )}
       </CardContent>
+      {refundTarget && (
+        <RefundRequestDialog
+          orderId={refundTarget.order_id}
+          itemName={copy(refundTarget.name_key, locale)}
+          amountKobo={refundTarget.total_kobo ?? refundTarget.amount_kobo}
+          open={refundTarget !== null}
+          onOpenChange={(open) => { if (!open) setRefundTarget(null); }}
+          locale={locale}
+        />
+      )}
     </Card>
   );
 }
@@ -122,9 +143,14 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
   const catalogue = useCatalogue();
   const orders = useMyOrders();
   const membership = useMyMembership();
+  const lovedOnes = useSponsorableProfiles();
+  const [beneficiaryId, setBeneficiaryId] = useState<string | undefined>(undefined);
+  // A fixed beneficiary (a Care Circle member paying, S29) wins over the picker (older family grants, S26).
+  const chosenId = beneficiary?.id ?? beneficiaryId;
   // The payer's own membership says nothing about the person they are paying for.
-  const memberUntil = !beneficiary && membership.data?.is_member ? (membership.data.ends_at ?? "") || null : null;
+  const memberUntil = !chosenId && membership.data?.is_member ? (membership.data.ends_at ?? "") || null : null;
   const items = catalogue.data ?? [];
+  const profiles = lovedOnes.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -135,9 +161,25 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
         </section>
       ) : null}
       {memberUntil ? <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p> : null}
+      {!beneficiary && profiles.length > 0 ? (
+        <fieldset>
+          <label htmlFor="beneficiary-select" className="block font-medium mb-1">{t("shop.buy_for.label", locale)}</label>
+          <select
+            id="beneficiary-select"
+            className={`${TOUCH} w-full rounded-md border border-input bg-background px-3 py-2`}
+            value={beneficiaryId ?? ""}
+            onChange={(e) => setBeneficiaryId(e.target.value || undefined)}
+          >
+            <option value="">{t("shop.buy_for.self", locale)}</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>{p.full_name ?? p.id}</option>
+            ))}
+          </select>
+        </fieldset>
+      ) : null}
       {catalogue.isSuccess && items.length === 0 ? <p>{t("shop.not_open", locale)}</p> : null}
       {items.map((item) => (
-        <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} {...(beneficiary ? { beneficiary } : {})} />
+        <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} />
       ))}
       <History rows={orders.data ?? []} locale={locale} />
     </div>

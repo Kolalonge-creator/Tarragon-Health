@@ -1045,3 +1045,5 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - `create_order` for a beneficiary raises `already_member` and `no_capacity`, which tells a payer holding only `pay_for_care` whether the patient already has a membership. Kept on purpose (the payer needs to know why a payment was refused); a single generic refusal for beneficiary orders is the stricter alternative.
 - Recommendation: add the Vault pepper and move to HMAC before real invites are made; keep the payer messages.
 - **Decided 2026-10-06 (founder): add the Vault secret.** Built: the S29 migration creates the Vault secret `care_circle_contact_pepper` (random per environment, if absent) and hashes invitee contacts with HMAC-SHA256 under it (`private.circle_contact_hash`); with no secret an invite fails closed (`circle_not_configured`). Rotating the secret makes every pending invite unusable. The payer-sees-membership-state message stays as it is.
+
+

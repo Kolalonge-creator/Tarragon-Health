@@ -818,4 +818,47 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S29.md; docs/research/S29.md; spec 4.7, 8.6",
   },
+  // S26: entitlements lifecycle, care pack expiry, refunds
+  {
+    key: "entitlements.expiry_reminder_days",
+    // Days before an entitlement expires to send the CON-010 renewal reminder.
+    value: 7,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S26.md; docs/research/S26.md",
+  },
+  {
+    key: "refunds.cooling_off_days",
+    // FCCPA consumer-protection cooling-off period: a patient may request a full refund within this window.
+    value: 14,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S26.md; docs/research/S26.md",
+  },
+  {
+    key: "refunds.consultation_cancel_grace_hours",
+    // Full refund if consultation cancelled at least this many hours before start. Inside this window, the
+    // cancellation retention applies. Clinician cancel or no-show is always a full refund regardless.
+    value: 2,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S26.md; OQ-127",
+  },
+  {
+    key: "refunds.late_cancel_retention_kobo",
+    // Fixed amount retained when a patient cancels a consultation inside the grace window. 0 = full refund
+    // regardless. Clinician cancel is always full refund.
+    value: 0,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S26.md; OQ-127",
+  },
 ];
