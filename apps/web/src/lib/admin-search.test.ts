@@ -180,6 +180,19 @@ describe("the rota and lead clinicians are searchable (S18)", () => {
   });
 });
 
+describe("the go-live guards are searchable (S37)", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("finds the guards page by its words, for the admin and for the CMO", () => {
+    for (const q of ["go live", "go-live guards", "guard", "switch on", "clinical operations", "proposed values", "sign-off"]) {
+      expect(hit(adminIndex, q)).toContain("/admin/go-live");
+      expect(hit(cmoIndex, q)).toContain("/clinician/go-live");
+    }
+  });
+});
+
 describe("the real Chief Medical Officer menu", () => {
   const real = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
 

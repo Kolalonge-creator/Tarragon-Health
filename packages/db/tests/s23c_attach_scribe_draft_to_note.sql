@@ -32,11 +32,12 @@ begin
     (v_pat,    's23c-pat@example.invalid',    'x', now(), '{}', '{}'),
     (v_tied,   's23c-tied@example.invalid',   'x', now(), '{}', '{}'),
     (v_untied, 's23c-untied@example.invalid', 'x', now(), '{}', '{}');
-  insert into public.profiles (id, organisation_id, role, full_name, phone) values
-    (v_pat,    v_org, 'patient',   'S23c Patient',        '+2348055550001'),
-    (v_tied,   v_org, 'clinician', 'S23c Tied Doctor',    '+2348055550002'),
-    (v_untied, v_org, 'clinician', 'S23c Untied Doctor',  '+2348055550003')
-  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+  -- S37: a granted scribe consent is refused for real people while scribe_enabled is off; these fixtures are test accounts (rolled back)
+  insert into public.profiles (id, organisation_id, role, full_name, phone, is_test) values
+    (v_pat,    v_org, 'patient',   'S23c Patient',        '+2348055550001', true),
+    (v_tied,   v_org, 'clinician', 'S23c Tied Doctor',    '+2348055550002', true),
+    (v_untied, v_org, 'clinician', 'S23c Untied Doctor',  '+2348055550003', true)
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name, is_test = true;
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier) values
     (v_org, v_tied,   'S23c Tied Doctor',   true, now(), 'senior_medical_officer'),
     (v_org, v_untied, 'S23c Untied Doctor', true, now(), 'medical_officer');

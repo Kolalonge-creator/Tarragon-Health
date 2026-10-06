@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { ConsultationRoom, type RoomView } from "@/components/consultation/consultation-room";
+import { callPolicyFor } from "@/lib/consultations/call-config";
 
 /**
  * S21: the clinician's consultation room. Only the clinician the consultation is assigned to is answered (INV-12);
@@ -18,6 +19,8 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
   const { data } = await supabase.rpc("consultation_room_view" as never, { p_encounter: encounterId } as never);
   const view = data as unknown as (RoomView & { video_consultation_id: string | null }) | null;
   if (!view || view.role !== "clinician") notFound();
+  // null unless the Meeting SDK is configured; then the room joins inside the page and falls back to the link on any failure.
+  const callPolicy = callPolicyFor(view.reconnect_grace_seconds);
 
   return (
     <DashboardPlaceholder greeting="Consultation" roleLabel="Clinician" comingUp={[]}>
@@ -31,7 +34,7 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
           </Link>
         )}
       </div>
-      <ConsultationRoom view={view} locale="en" />
+      <ConsultationRoom view={view} locale="en" call={callPolicy ? { policy: callPolicy } : null} />
     </DashboardPlaceholder>
   );
 }
