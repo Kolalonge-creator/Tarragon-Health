@@ -679,3 +679,31 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-123 Test isolation (raised by S17)
 - A test clinician only sees test tasks and a real clinician never sees a test task.
 - Decision (founder, 2026-10-06): accepted.
+
+### OQ-137 Who are the backup readers for safety concerns (raised by S20)
+- Context: spec 7.8 says a concern goes to the clinical lead and cannot be seen by ops. "Ops" here is an admin account (OQ-24), and there is no superadmin role, so nobody can be a backup by role. If the lead is away, conflicted or is the subject, nothing else can read it.
+- Built: a named list (`safety_concern_readers`) that only the lead can add to. A concern nobody acknowledges within 48 hours (4 hours if the person marked it immediate) also becomes readable by them. A concern raised by the lead itself goes to them at once. With no one named, a neutral incident is opened so operations see that something is overdue, never what.
+- Recommendation: name the founder (as a person, not as an admin account) as the first backup reader, and a second senior reviewer when one is hired.
+- Decision (founder, 2026-10-06): the founder is the first backup reader, named as a person by the clinical lead (`add_safety_concern_backup_reader`), not by admin role. Add a second senior reviewer when hired. **Follow-up: the CMO calls the function once the migration is live.**
+
+### OQ-138 Who audits the chief medical officer's own tasks (raised by S20)
+- Context: the reviewer must be an eligible chief medical officer who is not the clinician. With one CMO, the CMO's own audits have no reviewer and stay unassigned (shown at the top of the lead's queue, and the nightly sweep retries).
+- Recommendation: a second senior reviewer once hired; until then accept unassigned, or the founder reviews them in the lead area.
+- Decision (founder, 2026-10-06): leave the CMO's own audits unassigned until a second senior reviewer exists. They show at the top of the lead's queue and the nightly sweep assigns them when a reviewer is added.
+
+### OQ-139 May a safety concern be anonymous (raised by S20)
+- Context: research (NHS Freedom to Speak Up) favours protected-but-named reporting because follow-up, feedback and the 12 month retaliation review all need an identity. A fully anonymous route cannot do those.
+- Built: named but protected (readable only by the raiser, the lead and named backup readers).
+- Recommendation: keep named but protected. Revisit only if clinicians say they will not use it.
+- Decision (founder, 2026-10-06): named but protected. No anonymous route.
+
+### OQ-140 The audit and speak-up numbers need the CMO (raised by S20)
+- Context: 10 percent random sample plus every red event and titration, one audit per clinician per month once they complete 3 tasks, reviewer cap 40 a month, 14 days to complete, 20 audited tasks for level 1, pass mark 85 with no critical miss, score bands 85 and 70, reliability weight 2, acknowledge within 48 hours (4 for immediate), respond within 14 days, 12 month retaliation window. All PROPOSED in `quality_config` (mirrored as `quality.audit`).
+- Recommendation: the CMO reviews the form items and the bands before the first real audit; changing any number is a new config version, never an edit.
+- Decision (founder, 2026-10-06): accepted as proposed for a start, pending the CMO's sign-off (`quality.audit` stays `proposed`; changing any number is a new config version).
+
+### OQ-141 Credential warning windows and the 31 December cluster (raised by S20)
+- Context: S15 warns at 90, 30 and 0 days. Research suggests 60, 30, 14 and 7 days plus a reminder from November, because MDCN annual licences cluster at the end of December (MDCN lists 31 December for renewal; verify the current rule, fee and CPD requirement before relying on it).
+- Not built here: this is S15's `credential_rule('notice_windows_days')` configuration, not S20's.
+- Recommendation: add a November reminder and a capacity check before 1 January once the roster is large enough for a cluster to matter.
+- Decision: open.

@@ -819,3 +819,5 @@ s16_clinical_tasks.sql
 s17_queue_next.sql
 # S17 safety case 18, real contention: 50 concurrent sessions calling queue_next() (30 tasks, then one task) never hand a task out twice; a lock-free control picker must fail in the same harness or the script reports VACUOUS. A .sh proof for the same reason as the finance reversal lock proof (one session cannot race itself); local database only.
 s17_queue_concurrent_claim.sh
+# S20: quality and safety. Safety case 16 (expired licence removed from queue and rota), audit sampling and scoring (shared cases with Jest), tier 1 counts, hand-back review, the protected speak-up route (admin accounts see nothing), retaliation review. Sabotage: removal turned off must flip the case 16 check.
+s20_quality_and_safety.sql
