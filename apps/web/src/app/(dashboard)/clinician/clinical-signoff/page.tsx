@@ -19,6 +19,7 @@ import { ProviderQualityPolicyPanel } from "../_signoff-panels/provider-quality-
 import { CvRiskConfigPanel } from "../_signoff-panels/cv-risk-config-panel";
 import { RiskQuestionnaireConfigPanel } from "../_signoff-panels/risk-questionnaire-config-panel";
 import { VaccinationSchedulePanel } from "../_signoff-panels/vaccination-schedule-panel";
+import { LabPanelsPanel } from "../_signoff-panels/lab-panels-panel";
 import { SignoffChecklist } from "@/app/(dashboard)/admin/settings/clinical-signoff/signoff-checklist";
 import { SignoffQueueList } from "@/app/(dashboard)/admin/settings/clinical-protocols/signoff-queue-list";
 import {
@@ -46,6 +47,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   cv_risk_config: () => <CvRiskConfigPanel />,
   risk_questionnaire_configs: () => <RiskQuestionnaireConfigPanel />,
   vaccination_schedule_signoffs: () => <VaccinationSchedulePanel />,
+  lab_panel_signoffs: () => <LabPanelsPanel />,
 };
 
 /**

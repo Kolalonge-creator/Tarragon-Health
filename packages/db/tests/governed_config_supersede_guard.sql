@@ -1,7 +1,7 @@
 -- Proof: a governed configuration version cannot be activated while older than one
 -- already signed (migration *_governed_config_never_activate_older_than_signed.sql).
 --
---   1. All nine tables carry the guard; the partitioned ones name their partition columns.
+--   1. All ten tables carry the guard; the partitioned ones name their partition columns.
 --   2. Signing a newer version through the real sign_alert_rules works.
 --   3. Signing an older unsigned draft through the real RPC is refused (23514) and the live
 --      version and the draft's unsigned state are unchanged. A direct activation is refused too.
@@ -66,7 +66,7 @@ begin
   v_cmo := pg_temp.mkdoc(v_org, v_admin, 'cmo', 'chief_medical_officer');
 
   -- 1. Shape
-  perform pg_temp.rec('nine tables carry the guard', '9', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal));
+  perform pg_temp.rec('ten tables carry the guard', '10', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal));
   perform pg_temp.rec('cv_risk_config is partitioned by organisation', 'true',
     (select (pg_get_triggerdef(oid) like '%organisation_id%')::text from pg_trigger where tgname = 'refuse_superseded_activation' and tgrelid = 'public.cv_risk_config'::regclass));
   perform pg_temp.rec('risk questionnaires are partitioned by organisation and code', 'true',
