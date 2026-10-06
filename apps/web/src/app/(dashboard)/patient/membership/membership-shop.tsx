@@ -39,7 +39,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary }: { item: C
     setErrorKey(null);
     clientKey.current ??= crypto.randomUUID();
     try {
-      const r = await start.mutateAsync({ code: item.code, clientKey: clientKey.current, beneficiary });
+      const r = await start.mutateAsync({ code: item.code, clientKey: clientKey.current, ...(beneficiary ? { beneficiary } : {}) });
       go(r.checkout_url);
     } catch (e) {
       // A refusal is final for this tap; a fresh key is made next time. A network failure keeps the key so a retry is the same order.
