@@ -863,3 +863,5 @@ s35_clinician_patient_summary.sql
 s36a_admin_patient_search.sql
 # S36b: go_live_guard_status is readable by a holder of ops.console.view (read-only dashboard for ops, spec 9.4); ops still cannot switch a guard on or off or attest a condition (42501), a plain clinician and a patient cannot read, revoking the permission closes the read. Sabotage: the permission clause removed; the ops read must flip.
 s36b_go_live_status_ops_read.sql
+# S36h: pharmacy "Flag a problem". A pharmacist lists only prescriptions sent to their own pharmacy; a flag keeps kind, reason, pharmacy and flagger, makes one prescriber task (repeats merge), sends one neutral notice (INV-07 lint, ids only) and one audit row; the prescription row is byte for byte unchanged (INV-02); another pharmacy, a clinician, a patient and anon are refused; dispensed or draft prescriptions and short, long, null or unknown inputs are refused and write nothing; the flag table is append only and not writable directly; the prescriber read is audited, an untied clinician sees nothing. Sabotage: the own-pharmacy check removed, and the state check removed; each must flip a check.
+s36h_pharmacy_flag_a_problem.sql
