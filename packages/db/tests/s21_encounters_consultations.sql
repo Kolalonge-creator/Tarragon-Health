@@ -51,7 +51,7 @@ begin
   values (v, 's21-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'S21 ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), p_dob, true)
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone, date_of_birth = excluded.date_of_birth;
+  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone, date_of_birth = excluded.date_of_birth, full_name = excluded.full_name;
   return v;
 end $f$;
 -- one unredeemed consultation credit for a patient (a fixture: what a paid checkout leaves behind)
@@ -88,7 +88,7 @@ declare
   v_admin uuid; v_docA uuid; v_docB uuid;
   v_adult uuid; v_minor uuid; v_nodob uuid; v_stranger uuid; v_adult2 uuid; v_adult3 uuid; v_adult4 uuid;
   v_cr1 uuid; v_cr2 uuid; v_cr3 uuid; v_cr4 uuid; v_cr5 uuid; v_cr6 uuid;
-  v_a7 uuid; v_a8 uuid; v_e7 uuid; v_e8 uuid; v_room jsonb;
+  v_a7 uuid; v_a8 uuid; v_e7 uuid; v_e8 uuid; v_room jsonb; v_a9 uuid; v_e9 uuid; v_view jsonb;
   v_a1 uuid; v_a2 uuid; v_a3 uuid; v_a4 uuid; v_a5 uuid; v_a6 uuid;
   v_e1 uuid; v_e2 uuid; v_e3 uuid; v_e4 uuid; v_e5 uuid; v_e6 uuid;
   v_start timestamptz := date_trunc('hour', now()) + interval '3 days' + interval '9 hours';
@@ -342,10 +342,69 @@ begin
   perform pg_temp.rec('...nor target an unknown encounter', 'P0002', pg_temp.try(format('select public.service_record_encounter_event(%L, ''joined'', ''system'')', gen_random_uuid())));
   perform pg_temp.back();
 
+  -- 8c. Read functions (part 3): the room view and the two lists ---------------------------------------------------
+  perform pg_temp.mkcredit(v_adult2);
+  v_a9 := pg_temp.book(v_adult2, v_docB, now() + interval '3 hours');
+  select id into v_e9 from public.encounters where appointment_id = v_a9;
+
+  perform pg_temp.act(v_adult);
+  v_view := public.consultation_room_view(v_e7);
+  perform pg_temp.rec('the patient sees their role, the join window open, and the scribe not yet asked', 'patient/true/false',
+    (v_view ->> 'role') || '/' || (v_view ->> 'joinable') || '/' || (v_view -> 'scribe' ->> 'asked'));
+  perform pg_temp.rec('...and that the clinician is already in', 'true/false', (v_view ->> 'clinician_joined') || '/' || (v_view ->> 'patient_joined'));
+  perform pg_temp.rec('...but cannot report the clinician absent yet', 'false', v_view ->> 'can_report_clinician_absent');
+  perform pg_temp.rec('a stranger-owned consultation answers null', 'true', (public.consultation_room_view(v_e9) is null)::text);
+  perform pg_temp.rec('an unknown id answers null, the same as a stranger', 'true', (public.consultation_room_view(gen_random_uuid()) is null)::text);
+  perform pg_temp.rec('the view carries no join or host URL', 'false', (v_view::text ~ 'https?://')::text);
+  perform pg_temp.rec('upcoming lists the patient''s one coming consultation and not the finished or cancelled ones', '1',
+    (select count(*)::text from jsonb_array_elements(public.my_upcoming_encounters()) x
+      where (x ->> 'encounter_id')::uuid in (v_e1, v_e7, v_e8, (select id from public.encounters where appointment_id = v_a2))));
+  perform pg_temp.back();
+  perform pg_temp.act(v_stranger);
+  perform pg_temp.rec('a stranger''s upcoming list is empty', '0', jsonb_array_length(public.my_upcoming_encounters())::text);
+  perform pg_temp.rec('a stranger cannot view the room', 'true', (public.consultation_room_view(v_e7) is null)::text);
+  perform pg_temp.back();
+  perform pg_temp.act(v_docB);
+  perform pg_temp.rec('another clinician cannot view the room', 'true', (public.consultation_room_view(v_e7) is null)::text);
+  perform pg_temp.back();
+  perform pg_temp.act(v_adult2);
+  perform pg_temp.rec('a patient cannot view someone else''s room', 'true', (public.consultation_room_view(v_e7) is null)::text);
+  perform pg_temp.back();
+
+  -- nobody has joined e9, so move its start time 30 minutes into the past (a fixture, as the no-show checks above do)
+  update public.encounters set scheduled_at = now() - interval '30 minutes' where id = v_e9;
+  perform pg_temp.act(v_adult2);
+  perform pg_temp.rec('after the wait the patient can report the clinician absent', 'true/false',
+    (public.consultation_room_view(v_e9) ->> 'can_report_clinician_absent') || '/' || (public.consultation_room_view(v_e9) ->> 'can_report_patient_absent'));
+  perform pg_temp.back();
+  perform pg_temp.act(v_docB);
+  perform pg_temp.rec('...and the clinician can mark the patient absent, not the reverse', 'true/false',
+    (public.consultation_room_view(v_e9) ->> 'can_report_patient_absent') || '/' || (public.consultation_room_view(v_e9) ->> 'can_report_clinician_absent'));
+  perform public.report_encounter_event(v_e9, 'joined');
+  perform pg_temp.back();
+  perform pg_temp.act(v_adult2);
+  perform pg_temp.rec('once the clinician has joined, "nobody came" is no longer offered', 'false', public.consultation_room_view(v_e9) ->> 'can_report_clinician_absent');
+  perform pg_temp.back();
+
+  perform pg_temp.act(v_docA);
+  perform pg_temp.rec('the clinician''s list holds their own consultation today, with a first name only', 'true/S21/false',
+    (select (count(*) = 1)::text || '/' || max(x ->> 'patient_first_name') || '/' || bool_or((x ? 'full_name') or (x ? 'phone'))::text
+       from jsonb_array_elements(public.my_clinician_encounters()) x where (x ->> 'encounter_id')::uuid = v_e7));
+  perform pg_temp.rec('...and not a consultation 7 days out', '0',
+    (select count(*)::text from jsonb_array_elements(public.my_clinician_encounters()) x where (x ->> 'encounter_id')::uuid = v_e8));
+  perform pg_temp.rec('...and none of another clinician''s', '0',
+    (select count(*)::text from jsonb_array_elements(public.my_clinician_encounters()) x where (x ->> 'encounter_id')::uuid = v_e9));
+  perform pg_temp.rec('a wider range reaches the later one', '1',
+    (select count(*)::text from jsonb_array_elements(public.my_clinician_encounters(now(), now() + interval '12 days')) x where (x ->> 'encounter_id')::uuid = v_e8));
+  perform pg_temp.back();
+  perform pg_temp.act_anon();
+  perform pg_temp.rec('anon cannot call the read functions', '42501', pg_temp.try('select public.my_upcoming_encounters()'));
+  perform pg_temp.back();
+
   -- 9. Grants -------------------------------------------------------------------------------------------------
   perform pg_temp.rec('anon cannot run any consultation function', '0',
     (select count(*)::text from pg_proc p where p.pronamespace = 'public'::regnamespace
-       and p.proname in ('report_encounter_event', 'complete_encounter', 'mark_encounter_no_show', 'open_scribe_prompt', 'record_scribe_consent', 'scribe_may_start', 'my_consultation_rule', 'service_get_encounter_room', 'service_open_encounter_room', 'service_record_encounter_event')
+       and p.proname in ('report_encounter_event', 'complete_encounter', 'mark_encounter_no_show', 'open_scribe_prompt', 'record_scribe_consent', 'scribe_may_start', 'my_consultation_rule', 'service_get_encounter_room', 'service_open_encounter_room', 'service_record_encounter_event', 'consultation_room_view', 'my_upcoming_encounters', 'my_clinician_encounters')
        and has_function_privilege('anon', p.oid, 'EXECUTE')));
   perform pg_temp.rec('authenticated cannot run the private helpers', '0',
     (select count(*)::text from pg_proc p where p.pronamespace = 'private'::regnamespace
