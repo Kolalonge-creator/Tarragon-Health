@@ -849,3 +849,5 @@ s25_catalogue_orders_payments.sql
 s23c_attach_scribe_draft_to_note.sql
 # S24: signed prescribing (prescribe and amend write a signed prescription; controlled medicine hard stop; allergy and duplicate checks), care_plan_changes (unsigned cannot be saved as signed; draft invisible to the patient; applies only on her confirmation; decline, expiry, re-check), protocols (immutable once approved), plan targets only through a signed change, referral consent and chase. Sabotage: the medicine signature trigger and the signature CHECK removed; both checks must flip.
 s24_prescriptions_and_care_plan_changes.sql
+# CMO sign-off hub: the active Chief Medical Officer can read unreviewed lpe_content_blocks (so the sign-off count and page are not silently empty); a non-CMO clinician, a patient and anon cannot; the CMO still cannot write a block directly. Sabotage: the new policy dropped; the CMO check must flip.
+lpe_content_blocks_cmo_read.sql

@@ -8,12 +8,12 @@ import { ConsentNudgeBanner } from "@/components/shell/consent-nudge-banner";
 import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
 import { OnCallAlarm } from "@/components/paging/on-call-alarm";
 import { OfflineBanner } from "@/components/shell/offline-banner";
-import { AiGovernanceSignoffBanner } from "@/components/shell/ai-governance-signoff-banner";
+import { SigningHubBanner } from "@/components/shell/signing-hub-banner";
 import { getNavSections } from "@/lib/navigation";
 import { buildAdminSearchIndex, CMO_EXTRA_PAGES } from "@/lib/admin-search";
 import { getVisibleAdminSettingsTabs } from "@/lib/admin-settings-nav";
 import { isActiveChiefMedicalOfficer } from "@/lib/clinical/doctor-tier";
-import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
+import { readCmoSigningHub } from "@/lib/queries/cmo-signing-hub";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { isEmbeddedInApp } from "@/lib/embedded-webview";
 import { cookies } from "next/headers";
@@ -69,13 +69,11 @@ export default async function DashboardLayout({
     isChiefMedicalOfficer = isActiveChiefMedicalOfficer(staff ?? null);
   }
 
-  // The two AI governance actions only an active Chief Medical Officer can
-  // close (see readPendingAiGovernanceSignoff's own comment for the full
-  // reachability history) — only read for someone who can actually act on
-  // them, same gating this file already applies to pendingJobItems below.
-  const aiGovernanceSignoff = isChiefMedicalOfficer
-    ? await readPendingAiGovernanceSignoff(supabase)
-    : null;
+  // Everything only an active Chief Medical Officer can sign (rules, governed
+  // configs, protocols, AI governance, coaching content, result release
+  // policy), read once for the banner that points at the sign-off hub. Only
+  // read for someone who can act on it, same gating as pendingJobItems below.
+  const signingHub = isChiefMedicalOfficer ? await readCmoSigningHub(supabase) : null;
 
   // "Notes to complete" (pending-jobs banner, doctor only) — the exact
   // {label, href, countKey} list navigation.ts's clinician nav already
@@ -188,11 +186,11 @@ export default async function DashboardLayout({
         {profile?.role === "clinician" && (
           <PendingJobsBanner jobs={pendingJobItems} staffId={clinicalStaffId} />
         )}
-        {aiGovernanceSignoff && (
-          <AiGovernanceSignoffBanner
-            pendingVersionApprovalCount={aiGovernanceSignoff.pendingVersionApprovalCount}
-            pendingClinicalAccuracyLabelCount={aiGovernanceSignoff.pendingClinicalAccuracyLabelCount}
-            failed={aiGovernanceSignoff.failed}
+        {signingHub && (
+          <SigningHubBanner
+            outstandingCount={signingHub.items.length}
+            liveUnsignedCount={signingHub.items.filter((i) => i.severity === "live_unsigned").length}
+            failed={signingHub.failed}
           />
         )}
         {children}

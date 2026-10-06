@@ -71,5 +71,9 @@ export async function signResultReleasePoliciesAction(
   });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/result-release-policies");
+  // Also signed from the Chief Medical Officer's own pages, whose account cannot open /admin.
+  revalidatePath("/clinician/result-release-policies");
+  revalidatePath("/clinician/clinical-signoff");
+  revalidatePath("/admin/settings/clinical-protocols");
   return { success: true };
 }
