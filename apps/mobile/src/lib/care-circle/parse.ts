@@ -1,4 +1,4 @@
-import type { MessageKey } from "@tarragon/i18n";
+import { parseCircleMonthly, type CircleMonthlyRow, type MessageKey } from "@tarragon/i18n";
 
 /**
  * What the Care Circle sections read (S29). Parsed by hand and never trusted: a row that does not match is dropped, and a reply
@@ -35,6 +35,8 @@ export interface SupporterView {
   adherence?: { taken: number; due: number; percent: number | null };
   bpTrend?: { weeks: { weekStart: string; systolic: number; diastolic: number; readings: number }[]; direction: "higher" | "lower" | "steady" | null };
   appointments?: { nextAt: string | null; missed30d: number };
+  /** S38d: month by month, each part only with the matching tick. */
+  monthly?: CircleMonthlyRow[];
   canPay: boolean;
 }
 
@@ -113,6 +115,7 @@ export function parseSupporterView(data: unknown): SupporterView | null {
     const d = b["direction"];
     v.bpTrend = { weeks, direction: d === "higher" || d === "lower" || d === "steady" ? d : null };
   }
+  if (Array.isArray(data["monthly"])) v.monthly = parseCircleMonthly(data["monthly"]);
   const p = data["appointments"];
   if (isObj(p) && num(p["missed_30d"])) v.appointments = { nextAt: str(p["next_at"]) ? p["next_at"] : null, missed30d: p["missed_30d"] };
   return v;

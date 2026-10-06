@@ -16,8 +16,7 @@
 -- MONTHLY REPORT (22.5). One stored, write-once report per patient and calendar month (Lagos): readings, the person's own target
 -- and where it came from, weekly averages, a direction word against last month, adherence beside it (a separate family), days logged.
 -- "Not enough readings" replaces any average or trend when there are fewer than the minimum. No comparison with anyone else, no
--- ranking, no care-team activity counts (that would disclose task existence; OQ-251). Sharing with the Care Circle waits for S29
--- to merge (OQ-252); no sharing flag is stored here.
+-- ranking, no care-team activity counts (that would disclose task existence; OQ-251). Sharing with the Care Circle is S38d (OQ-252).
 --
 -- All thresholds are PROPOSED, owned by the CMO, versioned in risk_config and monthly_report_config (INV-16), mirrored in the
 -- code registry as risk.stratification and reports.monthly.
@@ -485,7 +484,8 @@ declare
   v_today date := (p_now at time zone 'Africa/Lagos')::date;
   v_grace integer := (private.report_rule('grace_days') #>> '{}')::integer;
   v_ver integer := (select version from public.monthly_report_config where is_active);
-  v_month date; r record; n integer := 0; v_failed integer := 0; v_last text;
+  v_month date; r record; n integer := 0; v_failed integer := 0; v_last text; v_rid uuid;
+  v_latest date := (date_trunc('month', v_today) - interval '1 month')::date;
 begin
   -- the month just ended, once the grace days for late-syncing readings have passed; earlier unreported months are filled too (6 back)
   for v_month in
@@ -504,10 +504,18 @@ begin
        limit 5000
     loop
       begin
+        v_rid := null;
         insert into public.monthly_reports (organisation_id, patient_id, month, payload, config_version, is_test)
         values (r.organisation_id, r.patient_id, v_month, private.monthly_report_payload(r.patient_id, v_month), v_ver, r.is_test)
-        on conflict (patient_id, month) do nothing;
+        on conflict (patient_id, month) do nothing
+        returning id into v_rid;
         n := n + 1;
+        -- One neutral notice, only for the month that has just closed (never for a back-filled older month): in-app and push, routine
+        -- priority so quiet hours and the daily cap apply. Empty payload, so it can name no condition, reading or number (INV-07).
+        -- Nothing depends on it being delivered: the report is on the page either way.
+        if v_rid is not null and v_month = v_latest then
+          perform private.circle_notify(r.patient_id, r.organisation_id, 'monthly_report_ready', 'monthly_reports', v_rid, array['in_app', 'push'], 'routine', r.is_test);
+        end if;
       exception when others then
         v_failed := v_failed + 1; v_last := sqlerrm;
       end;

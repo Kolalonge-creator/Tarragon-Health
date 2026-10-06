@@ -1463,6 +1463,16 @@ export const en = {
   "progress.footer": "These numbers describe your own readings only. They are not a diagnosis. Talk to your care team about anything that worries you.",
   "progress.earlier": "Earlier months",
   "progress.load_error": "This could not be loaded just now. Try again in a moment.",
+  "circle.view.monthly.title": "Month by month",
+  "circle.view.monthly.row_bp": "{month}: average {systolic} over {diastolic}, {versus}.",
+  "circle.view.monthly.under": "under their target",
+  "circle.view.monthly.above": "above their target",
+  "circle.view.monthly.not_enough": "{month}: not enough readings to show an average.",
+  "circle.view.monthly.lower": "Lower than the month before.",
+  "circle.view.monthly.higher": "Higher than the month before.",
+  "circle.view.monthly.similar": "About the same as the month before.",
+  "circle.view.monthly.adherence": "{month}: medicines taken as planned, {percent} percent.",
+  "circle.view.monthly.adherence_none": "{month}: nothing to show about medicines.",
 } as const;
 
 export type MessageKey = keyof typeof en;

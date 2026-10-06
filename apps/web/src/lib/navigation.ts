@@ -681,6 +681,7 @@ export function getNavSections(
             // Blood pressure control 90 days after joining: aggregate only, small numbers withheld (S38).
             { label: "Outcomes", href: "/admin/outcomes", icon: "analytics" },
             { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics" },
+            { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },

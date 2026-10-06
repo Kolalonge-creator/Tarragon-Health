@@ -1316,9 +1316,9 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) leave it out (as built); (b) add a count of released notes and answered messages only, after the CMO approves the list.
 - Decision: open (CMO).
 
-### OQ-252 Sharing the monthly report with the Care Circle (raised by S38c)
-- Needs S29 (PR 957) merged. Proposal: no new permission; a supporter with `weekly_bp_trend` sees only the week-by-week block and one with `adherence_summary` only the adherence sentence, and only for a report the patient has chosen to share. No sharing flag is stored until then.
-- Decision: open (founder, when S29 merges).
+### OQ-252 Sharing the monthly report with the Care Circle (raised by S38c, closed by S38d)
+- Built once S29 merged (2026-10-06). No new permission and no sharing flag: a member with `weekly_bp_trend` sees, for up to three months, whether there were enough readings, the average (whole numbers), under or above target and the direction; a member with `adherence_summary` sees the share of medicines taken. With neither tick the block is absent (not shared, never zero). No target numbers, week split or reading counts are shared. The patient's own "see what they see" preview shows the same block. A paused circle, an expired or removed member sees none of it.
+- Decision: built as proposed; the founder can narrow it (for example monthly adherence only) by removing a part from `private.circle_monthly_block`.
 
 ### OQ-253 Two risk tables with different jobs, worklist cost, who may read it (raised by S38c)
 - `risk_scores` (this build, a daily ordering aid) is separate from `risk_predictions` and `patient_risk_scores` (condition models). The worklist reads each patient's latest score and tests the clinician tie row by row; fine at pilot size, needs a tie-first query before thousands of patients. Only role `clinician` can open it; care coordinators cannot yet (their work is logistics, not ordering by risk).
@@ -1328,3 +1328,13 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - **Liaison view CLOSED:** the Lab Liaison sees a neutral list of the files they recorded (last 30 days): date, patient number, order, file name and one of two words, "waiting for review" or "reviewed". Never values, reasons, or whether a result was withheld.
 - **Held corrections CLOSED:** a lab can replace a result that is still held. The held one is marked replaced at once, its review task is cancelled, and it can no longer be released or withheld (`lab_result_replaced`). The replacement goes through the same gate, the reviewer sees the kind and reason, and if the patient never saw the first result they get the normal release notice, not a "corrected" one. A claimed task held by another clinician is left to that clinician, who will find the release refused.
 - **Withdraw screen CLOSED (patient-scoped):** on a tied senior clinician's patient chart, "Released lab results" opens on a click (one audited read) and offers Withdraw with a required reason. There is deliberately no org-wide list.
+
+### OQ-254 Sponsor dashboards and sponsor exports are blocked on missing pieces (raised by S38d)
+- Module 22.6 and 22.9 need a sponsor, the people who joined through that sponsor, and each person's `sponsor_reporting` consent. None exist yet: cohort codes and `profile_cohorts` (spec 1.8) and sponsor programmes (Module 25) are not built, and there is no consent type row wired to a report. The company-level export (`/admin/outcomes/export`) is built and audited; a per-sponsor version would be the same aggregate with a cohort filter, a minimum group size, and only for people who gave `sponsor_reporting` consent.
+- Options: (a) build cohort codes and the sponsor consent first, then the sponsor report on top (recommended); (b) hand the company-level file to a sponsor by hand with counsel's agreement.
+- Decision: open (founder).
+
+### OQ-255 The symptom-checker accuracy dashboard has no ground truth to measure against (raised by S38d)
+- Module 22.4 compares the checker's grade with a clinician's final judgement. Nothing records that judgement: `clinical_tasks.outcome` is free-form per task type and holds no "agree or change the grade" field. A dashboard built now would show volume by grade, not accuracy, and calling it accuracy would be wrong.
+- Options: (a) add one required, small field when a clinician completes a triage-graded task ("grade was right", "should have been higher", "should have been lower", with a reason) so accuracy can be measured by age, sex and state; this changes the clinician's workflow, so the CMO should decide (recommended); (b) leave 22.4 until the CMO decides.
+- Decision: open (CMO).

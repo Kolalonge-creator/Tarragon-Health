@@ -42976,6 +42976,7 @@ export type Database = {
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
+      log_outcome_export: { Args: { p_from?: string; p_to?: string }; Returns: undefined };
       my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
       override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };
       risk_distribution_report: { Args: Record<PropertyKey, never>; Returns: Json };

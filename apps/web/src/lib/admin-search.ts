@@ -26,6 +26,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/memberships", "membership member grant end subscription free tier written questions entitlement"],
   ["/clinician/memberships", "membership member grant end subscription free tier written questions entitlement"],
   ["/clinician/risk-worklist", "risk worklist who to call first outreach deterioration dropout priority tier override patients ordered"],
+  ["/admin/outcomes/export", "export outcomes csv download pilot report renewal sponsor file blood pressure control aggregate"],
   ["/admin/risk-fairness", "risk fairness bias distribution tiers sex age state groups worklist ordering check"],
   ["/admin/outcomes", "outcomes blood pressure control 90 day report bp snapshot day 30 180 hypertension programme results adherence cohort"],
   ["/admin/catalogue", "catalogue prices price list items membership care pack consultation checkout paystack switch on off sell buy"],
