@@ -3,6 +3,7 @@
 import { t, type Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPatientDate } from "@/lib/format-date";
+import { itemLabel } from "@/lib/commerce/item-label";
 import { useMyEntitlements, type EntitlementRow } from "@/lib/queries/commerce";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
@@ -18,12 +19,20 @@ function stateBadge(state: string) {
   }
 }
 
-function stateKey(state: string): `entitlement.state.${string}` {
-  return `entitlement.state.${state}` as `entitlement.state.${string}`;
+const STATE_KEYS = {
+  active: "entitlement.state.active",
+  expired: "entitlement.state.expired",
+  used: "entitlement.state.used",
+  revoked: "entitlement.state.revoked",
+} as const;
+
+/** The states the database allows; anything else shows the active label's neighbour, never a raw key. */
+function stateKey(state: string): (typeof STATE_KEYS)[keyof typeof STATE_KEYS] {
+  return state === "expired" || state === "used" || state === "revoked" ? STATE_KEYS[state] : STATE_KEYS.active;
 }
 
 function EntitlementItem({ row, locale }: { row: EntitlementRow; locale: Locale }) {
-  const name = row.order?.catalog_item?.name ?? row.kind;
+  const name = itemLabel(row.order?.catalog_item?.name_key, row.kind, locale);
 
   return (
     <li className="flex items-center justify-between gap-3 py-3">

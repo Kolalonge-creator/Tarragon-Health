@@ -50,7 +50,7 @@ export type EntitlementRow = {
   starts_at: string;
   ends_at: string | null;
   remaining_uses: number | null;
-  order: { catalog_item: { name: string } | null } | null;
+  order: { catalog_item: { name_key: string } | null } | null;
 };
 
 export function useMyEntitlements() {
@@ -59,10 +59,11 @@ export function useMyEntitlements() {
     queryFn: async () => {
       const { data, error } = await createClient()
         .from("entitlements")
-        .select("id, kind, state, starts_at, ends_at, remaining_uses, order:orders!entitlements_order_id_fkey(catalog_item:catalog_items(name))")
+        .select("id, kind, state, starts_at, ends_at, remaining_uses, order:orders!entitlements_order_id_fkey(catalog_item:catalog_items(name_key))")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as EntitlementRow[];
+      // the select above is exactly EntitlementRow; the embedded relation is typed as a union by the client, so it is narrowed here
+      return data as unknown as EntitlementRow[];
     },
   });
 }

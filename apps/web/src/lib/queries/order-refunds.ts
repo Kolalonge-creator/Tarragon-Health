@@ -29,11 +29,14 @@ export type AdminOrderRefund = {
     amount_kobo: number;
     state: string;
     paid_at: string | null;
-    catalog_item: { code: string; name: string } | null;
+    catalog_item: { code: string; name_key: string } | null;
     beneficiary: { full_name: string | null; phone: string | null } | null;
   } | null;
   requester: { full_name: string | null } | null;
 };
+
+/** What request_order_refund and decide_order_refund return (jsonb): a stable `result` word, and the order `state` when it refuses. */
+export type RefundRpcResult = { result?: string; state?: string } | null;
 
 export type MyOrderRefund = {
   id: string;
@@ -52,7 +55,7 @@ export type MyOrderRefund = {
   updated_at: string;
   order: {
     amount_kobo: number;
-    catalog_item: { code: string; name: string } | null;
+    catalog_item: { code: string; name_key: string } | null;
   } | null;
 };
 
@@ -82,12 +85,12 @@ export function useAdminOrderRefunds() {
       const { data, error } = await supabase
         .from("refunds")
         .select(
-          "*, order:orders!refunds_order_id_fkey(amount_kobo, state, paid_at, catalog_item:catalog_items(code, name), beneficiary:profiles!orders_beneficiary_patient_id_fkey(full_name, phone)), requester:profiles!refunds_requested_by_fkey(full_name)",
+          "*, order:orders!refunds_order_id_fkey(amount_kobo, state, paid_at, catalog_item:catalog_items(code, name_key), beneficiary:profiles!orders_beneficiary_patient_id_fkey(full_name, phone)), requester:profiles!refunds_requested_by_fkey(full_name)",
         )
         .eq("state", "pending")
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data as AdminOrderRefund[];
+      return data as unknown as AdminOrderRefund[];
     },
   });
 }
@@ -109,7 +112,7 @@ export function useDecideOrderRefund() {
         p_note: input.note,
       });
       if (error) throw error;
-      return data;
+      return data as RefundRpcResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_REFUNDS_KEY });
@@ -130,11 +133,11 @@ export function useMyOrderRefunds() {
       const { data, error } = await supabase
         .from("refunds")
         .select(
-          "*, order:orders!refunds_order_id_fkey(amount_kobo, catalog_item:catalog_items(code, name))",
+          "*, order:orders!refunds_order_id_fkey(amount_kobo, catalog_item:catalog_items(code, name_key))",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as MyOrderRefund[];
+      return data as unknown as MyOrderRefund[];
     },
   });
 }
@@ -155,7 +158,7 @@ export function useRequestOrderRefund() {
         p_reason: input.reason,
       });
       if (error) throw error;
-      return data;
+      return data as RefundRpcResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MY_REFUNDS_KEY });
