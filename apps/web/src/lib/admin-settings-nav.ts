@@ -75,6 +75,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: anyOf("users.provision", "users.roles.assign", "users.permissions.grant", "roles.manage"),
       },
       {
+        href: "/admin/settings/access/history",
+        label: "Access history",
+        blurb: "Read only: who holds which capability now, and every grant and removal.",
+        icon: NAV_ICON.members,
+        visible: anyOf("users.permissions.grant"),
+      },
+      {
         href: "/admin/settings/clinical-staff",
         label: "Clinical staff",
         blurb: "Add and verify every MDCN/NMCN-credentialed doctor.",

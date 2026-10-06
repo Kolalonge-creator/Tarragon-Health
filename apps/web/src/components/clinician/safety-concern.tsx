@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { t } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,10 @@ export function SafetyConcernButton() {
     <details className="fixed bottom-20 right-4 z-40 max-h-[70vh] max-w-sm overflow-y-auto rounded-md border sm:bottom-4 border-charcoal-ink/20 bg-white p-2 shadow-lg dark:bg-night-surface">
       <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">{t("concern.button", "en")}</summary>
       {state?.sent ? (
-        <p role="status" className="p-2 text-sm text-brand-green">{t("concern.thanks", "en")}</p>
+        <div className="space-y-1 p-2 text-sm">
+          <p role="status" className="text-brand-green">{t("concern.thanks", "en")}</p>
+          <Link href="/clinician/my-concerns" className="underline">{t("speakup.mine.link", "en")}</Link>
+        </div>
       ) : (
         <form action={action} className="space-y-2 p-2">
           <input type="hidden" name="screen" value={pathname} />
@@ -49,6 +53,7 @@ export function SafetyConcernButton() {
           </div>
           {state?.error && <p role="alert" className="text-sm text-red-600">{state.error}</p>}
           <Button type="submit" size="sm" disabled={pending}>{t("concern.submit", "en")}</Button>
+          <Link href="/clinician/my-concerns" className="ml-3 text-sm underline">{t("speakup.mine.link", "en")}</Link>
         </form>
       )}
     </details>
