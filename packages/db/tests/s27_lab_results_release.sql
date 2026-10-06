@@ -400,6 +400,8 @@ begin
   r := pg_temp.q_as(v_pat, format($q$select public.patient_add_lab_result(%L::jsonb)::text$q$, v_file));
   perform pg_temp.ck('a patient can read the row of their own held upload', '1', pg_temp.visible_to(v_pat, pg_temp.rid(r)));
   perform pg_temp.q_as(pg_temp.f('senior'), format($q$select public.withhold_lab_result(%L, 'Not a lab report')::text$q$, pg_temp.rid(r)));
+  perform pg_temp.ck('a patient''s own held upload promises no review time', 'null',
+    coalesce(pg_temp.mine(v_pat, (select id from public.lab_results where patient_id = v_pat and submitted_by_kind = 'patient' and release_state = 'awaiting_review' limit 1)) ->> 'expected_by', 'null'));
   perform pg_temp.ck('a withheld own upload is not readable by the patient through the table either', '0', pg_temp.visible_to(v_pat, pg_temp.rid(r)));
   perform pg_temp.ck('a withhold needs a reason', 'true',
     (pg_temp.q_as(pg_temp.f('senior'), format($q$select public.withhold_lab_result(%L, ' ')$q$, rid)) like 'ERR:A reason is required')::text);

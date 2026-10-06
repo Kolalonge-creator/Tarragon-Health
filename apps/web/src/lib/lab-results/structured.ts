@@ -156,7 +156,7 @@ const MESSAGES: Record<string, string> = {
   lab_critical_needs_senior_clinician: "A critical value can be released only by a senior clinician.",
   lab_file_path_invalid: "That file could not be attached.",
   lab_correction_needs_kind_and_reason: "Say what kind of change this is and why.",
-  lab_correction_target_invalid: "That result can no longer be corrected.",
+  lab_correction_target_invalid: "A correction cannot be sent for this result right now.",
   lab_result_not_withdrawable: "This result cannot be withdrawn.",
   lab_result_final: "This result is final and cannot be changed.",
 };

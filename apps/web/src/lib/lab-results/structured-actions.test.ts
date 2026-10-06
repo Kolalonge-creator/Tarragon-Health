@@ -156,7 +156,7 @@ describe("S27d: disclosure attempts, withdrawal, corrections and the staff path"
       name === "lab_partner_order_patient" ? { data: "88888888-8888-4888-8888-888888888888", error: null } : { data: null, error: { message: "lab_correction_target_invalid" } },
     );
     const r = await submitPartnerCorrection(undefined, form({ order_id: id, panel: "essential", items, corrects_result_id: id, kind: "corrected", reason: "Keyed wrongly", file: pdf() }));
-    expect(r?.error).toMatch(/no longer be corrected/);
+    expect(r?.error).toMatch(/cannot be sent/);
     expect(remove).toHaveBeenCalledTimes(1);
     const call = rpc.mock.calls.find((c) => c[0] === "lab_partner_submit_correction");
     expect(call?.[1]).toMatchObject({ p_corrects: id, p_kind: "corrected", p_reason: "Keyed wrongly" });
