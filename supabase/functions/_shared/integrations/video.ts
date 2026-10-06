@@ -38,6 +38,32 @@ export interface JoinLink {
   /** True only when the vendor itself keeps the camera off. A plain meeting link cannot, so the app also tells the person. */
   readonly audioOnlyEnforced: boolean;
 }
+/**
+ * The phone fallback (S21, OQ-131 revised): the same room, joined by an ordinary phone call to a number the vendor publishes, so it
+ * needs no data and no app. The person dials, enters the meeting id and passcode, and is in the same call as the clinician. Fetched
+ * from the vendor each time and never stored: the passcode is a credential for the room.
+ */
+export interface DialInNumber {
+  /** Two-letter country code. Only numbers for the country the patient is in are returned. */
+  readonly country: string;
+  /** E.164 where the vendor gives one, otherwise as published. Shown to the person; never logged. */
+  readonly number: string;
+  readonly city: string | null;
+  readonly kind: "toll" | "toll_free";
+}
+export interface DialIn {
+  readonly numbers: readonly DialInNumber[];
+  /** The id to type after dialling, digits only. */
+  readonly meetingId: string;
+  /** Keypad passcode for a phone caller, or null when the room needs none. */
+  readonly passcode: string | null;
+  readonly expiresAtMs: number;
+}
+export interface DialInInput {
+  readonly roomId: string;
+  /** Two-letter country code to list numbers for (Nigeria for this platform). */
+  readonly country: string;
+}
 export interface JoinTokenInput {
   readonly roomId: string;
   readonly role: VideoRole;
@@ -77,6 +103,8 @@ export interface VideoProvider {
    * from the vendor each time and never stored. The clinician's link is the host link; a patient's is not.
    */
   joinLink(input: JoinLinkInput): Promise<ProviderResult<JoinLink>>;
+  /** Numbers to ring into the same room by phone. `not_found` when the vendor offers none for the country (the app then says so). */
+  dialIn(input: DialInInput): Promise<ProviderResult<DialIn>>;
   endRoom(roomId: string, actingRole: VideoRole): Promise<ProviderResult<{ endedAtMs: number }>>;
   /**
    * In-process events for a room, for example connection quality reported by the vendor's client SDK on the device.
