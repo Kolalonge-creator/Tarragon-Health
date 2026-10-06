@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      task_types: {
+        Row: {
+          claim_timeout_minutes: number
+          code: string
+          creatable: boolean
+          created_at: string
+          default_due_minutes: number
+          effective_from: string
+          id: string
+          is_active: boolean
+          lead_window_minutes: number
+          min_doctor_tier: string
+          note: string | null
+          priority_class: number
+          pushable: boolean
+          required_competencies: string[]
+          source_task_keys: string[]
+          version: number
+        }
+        Insert: {
+          claim_timeout_minutes?: number
+          code: string
+          creatable?: boolean
+          created_at?: string
+          default_due_minutes: number
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          lead_window_minutes?: number
+          min_doctor_tier: string
+          note?: string | null
+          priority_class: number
+          pushable?: boolean
+          required_competencies?: string[]
+          source_task_keys?: string[]
+          version: number
+        }
+        Update: {
+          claim_timeout_minutes?: number
+          code?: string
+          creatable?: boolean
+          created_at?: string
+          default_due_minutes?: number
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          lead_window_minutes?: number
+          min_doctor_tier?: string
+          note?: string | null
+          priority_class?: number
+          pushable?: boolean
+          required_competencies?: string[]
+          source_task_keys?: string[]
+          version?: number
+        }
+        Relationships: []
+      }
       earnings_config: {
         Row: {
           created_at: string

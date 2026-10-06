@@ -48,22 +48,22 @@ export function describeEarningsError(
 // ---------------------------------------------------------------------------
 // The schedule: kobo items, built from a form that takes naira and whole-number percentages
 // ---------------------------------------------------------------------------
-export interface WaitStep {
+export type WaitStep = {
   at_pct: number;
   add_pct: number;
-}
-export interface TaskTypeFee {
+};
+export type TaskTypeFee = {
   base_fee_kobo: number;
   wait_multiplier_steps: WaitStep[];
-}
-export interface FeeItems {
+};
+export type FeeItems = {
   task_types: Record<string, TaskTypeFee>;
   on_call_shift_fee_kobo: number;
   lead_fee_per_patient_month_kobo: number;
   consultation_share_pct: Record<ConsultationType, number>;
   consultation_reference_price_kobo?: Partial<Record<ConsultationType, number>>;
   pilot_minimum_per_declared_hour_kobo: number;
-}
+};
 
 const wholePct = (max: number) => z.coerce.number().int().min(0).max(max);
 const wholeKobo = z.number().int().min(0).max(1_000_000_000);
