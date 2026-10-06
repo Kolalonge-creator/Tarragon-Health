@@ -171,3 +171,10 @@ D-02 to D-04 are not defined in the spec.
 
 ### S21, 2026-10-06
 - Plan accepted (OQ-124 to OQ-131): merge S18 first, new authoritative `encounters` table, link-based Zoom with a server-owned video to audio to phone ladder (the phone step is Zoom's own dial-in, decided 2026-10-06, replacing a bridge through a second vendor), full refund 2 hours or more before, per-consultation in-app consent, adults only, NGN 10,000 a consultation.
+
+### English only, 2026-10-06 (D-14, reverses D-13)
+- **D-14: the product is English only.** Nigerian Pidgin (`pcm`) was removed first, then the founder removed every other non-English language too (Yoruba `yo`, Hausa `ha`, Igbo `ig`). Both apps, the AI scribe, the patient explainer, the admin console, the notification-template locales and the database language constraints are English only. D-13 ("English and Pidgin") no longer holds.
+- **Why:** every non-English string was written by a build session and never reviewed by a native speaker or a clinician, which is an unreviewed clinical-translation risk. Live counts at the time: 0 non-English rows in every language column (12 profiles, all `en`), so no data was converted.
+- **What stays:** the `Locale`/`UiLanguage` types and `t()` helpers (one language, so call sites compile unchanged), the `platform_switches` table and its functions (a general mechanism; only the `pidgin_language` row is deleted), `en-NG` as the language stored by the scribe, and free-text `languages` fields describing what a clinician speaks (not an app language). The empty `health_education_translations` table stays because four SQL functions still join it; its admin UI and queries are removed.
+- **If another language ever returns:** it needs a native reviewer and a clinician-signed translation process before any string ships.
+- OQ-19 (Pidgin part), 61, 63, 74, 82 (Pidgin part), 93, 96 (Pidgin part), 134 and 156 are marked moot in `docs/OPEN-QUESTIONS.md`. No open question concerned Yoruba, Hausa or Igbo review.

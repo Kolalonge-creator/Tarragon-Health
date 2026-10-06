@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { RosterPage } from "@/components/clinician-roster/roster-page";
 
 export const metadata = { title: "Clinician roster" };
@@ -13,6 +12,6 @@ export default async function OpsClinicians({ searchParams }: { searchParams: Pr
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (!(await hasPermission("clinical_staff.manage"))) redirect("/admin");
-  const locale = resolveUiLanguage(profile.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   return <RosterPage door="ops" locale={locale} noticeParam={(await searchParams).n} />;
 }

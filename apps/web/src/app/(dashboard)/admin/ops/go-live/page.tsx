@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { GoLivePage } from "@/components/go-live/go-live-page";
 
 export const metadata = { title: "Go-live guards (view)" };
@@ -18,6 +17,6 @@ export default async function OpsGoLive() {
   if (!profile) redirect("/login");
   if (profile.role === "admin") redirect("/admin/go-live");
   if (!(await hasPermission("ops.console.view"))) redirect("/admin");
-  const locale = resolveUiLanguage(profile.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   return <GoLivePage viewer="ops" locale={locale} />;
 }

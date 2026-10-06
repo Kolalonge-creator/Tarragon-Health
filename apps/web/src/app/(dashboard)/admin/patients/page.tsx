@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { t } from "@tarragon/i18n";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { lookupLabels } from "@/lib/admin-patients/labels";
 import { PatientLookup } from "./patient-lookup";
 
@@ -20,7 +19,7 @@ export default async function AdminPatientsPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (profile.role !== "admin") redirect("/admin");
-  const locale = resolveUiLanguage(profile.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
 
   return (
     <div className="space-y-6">

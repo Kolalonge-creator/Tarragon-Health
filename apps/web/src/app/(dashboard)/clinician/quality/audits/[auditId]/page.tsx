@@ -2,10 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { t } from "@tarragon/i18n";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { loadCaseFile } from "@/lib/quality/load";
 import { asNotice, itemLabel } from "@/lib/quality/model";
 import { submitAuditAction } from "@/lib/quality/actions";
@@ -27,7 +26,7 @@ export default async function AuditPage({ params, searchParams }: { params: Prom
   const { auditId } = await params;
   if (!z.string().uuid().safeParse(auditId).success) notFound();
   const profile = await getCurrentProfile();
-  const locale = resolveUiLanguage(profile?.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   const notice = asNotice((await searchParams).n);
   const file = await loadCaseFile(auditId);
 

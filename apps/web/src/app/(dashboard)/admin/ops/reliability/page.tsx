@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { ReliabilityPage } from "@/components/reliability/reliability-page";
 
 export const metadata = { title: "Reliability and SLA (view)" };
@@ -16,6 +15,6 @@ export default async function OpsReliability() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (!(await hasPermission("ops.console.view"))) redirect("/admin");
-  const locale = resolveUiLanguage(profile.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   return <ReliabilityPage viewer="ops" locale={locale} />;
 }

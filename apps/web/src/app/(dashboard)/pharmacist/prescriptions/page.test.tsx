@@ -1,7 +1,6 @@
 const profile = jest.fn();
 const rpc = jest.fn();
 jest.mock("@/lib/auth/current-profile", () => ({ getCurrentProfile: () => profile() }));
-jest.mock("@/lib/language/pidgin-switch", () => ({ getPidginEnabled: async () => false }));
 jest.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc }) }));
 jest.mock("next/navigation", () => ({ redirect: jest.fn() }));
 jest.mock("@/components/go-live/flash-clean", () => ({ FlashClean: () => null }));

@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { t } from "@tarragon/i18n";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE, type UiLanguage } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { FlashClean } from "@/components/go-live/flash-clean";
 import { loadDirectoryFreshness } from "@/lib/directory-freshness/load";
 import { asNotice, groupFreshness, KIND_LABEL, type FreshnessRow } from "@/lib/directory-freshness/model";
@@ -23,7 +22,7 @@ const field = "mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-
 export default async function DirectoryFreshnessPage({ searchParams }: { searchParams: Promise<{ n?: string }> }) {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
-  const locale = resolveUiLanguage(profile.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   const notice = asNotice((await searchParams).n);
   const loaded = await loadDirectoryFreshness();
   if (!loaded.ok && loaded.denied) redirect("/admin");
@@ -61,7 +60,7 @@ export default async function DirectoryFreshnessPage({ searchParams }: { searchP
 
 const TONE = { overdue: "bg-red-100 text-red-900", soon: "bg-amber-100 text-amber-900", never: "bg-sky-100 text-sky-900" } as const;
 
-function Section({ id, title, empty, rows, tone, locale }: { id: string; title: string; empty: string; rows: FreshnessRow[]; tone: keyof typeof TONE; locale: ReturnType<typeof resolveUiLanguage> }) {
+function Section({ id, title, empty, rows, tone, locale }: { id: string; title: string; empty: string; rows: FreshnessRow[]; tone: keyof typeof TONE; locale: UiLanguage }) {
   return (
     <section aria-labelledby={id} className="space-y-3">
       <h2 id={id} className="font-heading text-xl font-semibold text-charcoal-ink">

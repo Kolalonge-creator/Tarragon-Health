@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { t } from "@tarragon/i18n";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE, type UiLanguage } from "@tarragon/shared";
 import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { loadInbox, loadReaders, loadRetaliationReviews, loadStaffNames } from "@/lib/concerns/load";
 import {
   asConcernNotice,
@@ -33,7 +32,7 @@ export const metadata = { title: "Safety concerns", robots: { index: false, foll
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-type Locale = ReturnType<typeof resolveUiLanguage>;
+type Locale = UiLanguage;
 const lagos = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "-");
 const btn = "rounded-lg px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green";
 const field = "mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink dark:border-night-ink/25";
@@ -152,7 +151,7 @@ export default async function ConcernsInboxPage({ searchParams }: { searchParams
   const staff = await getCurrentClinicalStaff();
   if (!canAssignCases(staff)) redirect("/clinician");
   const profile = await getCurrentProfile();
-  const locale = resolveUiLanguage(profile?.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   const notice = asConcernNotice((await searchParams).n);
   const [inbox, readers, reviews, names] = await Promise.all([loadInbox(), loadReaders(), loadRetaliationReviews(), loadStaffNames()]);
   const now = new Date().getTime();
