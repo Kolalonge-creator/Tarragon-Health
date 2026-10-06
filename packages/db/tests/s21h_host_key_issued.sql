@@ -1,12 +1,11 @@
 -- S21h proof: the record of a clinician's Zoom host key being issued (migration *_s21h_host_key_issued_audit_event.sql).
 --
 -- Proves in one rolled-back transaction:
---   1. The server-only recorder accepts 'host_key_issued' and the event is stored for the clinician with an EMPTY payload, even when a key
---      or a name is passed in (the payload whitelist drops everything but ids and small numbers).
---   2. Nobody signed in can write it: not the clinician, not the patient, not anon (the recorder is service_role only), and the app-session
---      recorder (report_encounter_event) refuses the kind; the table has no direct insert for a signed-in user.
---   3. An unknown consultation is refused.
---   4. SABOTAGE: with the recorder reverted to its old list of kinds, issuing a host key can no longer be recorded.
+--   1. The server-only recorder stores 'host_key_issued' for the consultation's clinician with an EMPTY payload, naming that clinician, and a later
+--      reassignment does not change who the record says.
+--   2. Only the consultation's own clinician is ever recorded: not the patient, not another clinician, not nobody; an unknown consultation is refused.
+--   3. Nobody signed in can write it (clinician, patient, anon), the general recorders refuse the kind, and the table has no direct insert.
+--   4. SABOTAGE: with the recorder's check that the person is the consultation's clinician removed, a key can be recorded as issued to the patient.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -117,53 +116,57 @@ begin
   v_a1 := pg_temp.book(v_adult, v_docA, v_start);
   select id into v_e1 from public.encounters where appointment_id = v_a1;
 
-  -- 1. The server records it ----------------------------------------------------------------------------------
+  -- 1. The server records it, naming the clinician ----------------------------------------------------------------
   perform pg_temp.act_service();
-  perform pg_temp.rec('the server can record that a host key was issued', 'ok', pg_temp.try(format('select public.service_record_encounter_event(%L, ''host_key_issued'', ''clinician'', ''{}'')', v_e1)));
+  perform pg_temp.rec('the server can record that a host key was issued to the encounter''s clinician', 'ok', pg_temp.try(format('select public.service_record_host_key_issued(%L, %L)', v_e1, v_docA)));
   perform pg_temp.back();
-  perform pg_temp.rec('...stored as a clinician event with an empty payload', 'clinician/{}/1',
-    (select actor_role || '/' || payload::text || '/' || count(*)::text from public.encounter_events where encounter_id = v_e1 and kind = 'host_key_issued' group by actor_role, payload));
-  perform pg_temp.act_service();
-  perform public.service_record_encounter_event(v_e1, 'host_key_issued', 'clinician', '{"zak":"SECRET-KEY","full_name":"Dr Nobody","reason_code":"join"}'::jsonb);
-  perform pg_temp.back();
-  perform pg_temp.rec('a key or a name passed in by mistake is never stored (only ids and small numbers survive the whitelist)', 'false/false',
-    (select (payload::text like '%SECRET%')::text || '/' || (payload::text like '%Nobody%')::text from public.encounter_events where encounter_id = v_e1 and kind = 'host_key_issued' order by created_at desc, id limit 1));
+  perform pg_temp.rec('...stored as a clinician event naming that clinician, with an empty payload', 'clinician/true/{}/1',
+    (select actor_role || '/' || (actor_id = v_docA)::text || '/' || payload::text || '/' || count(*)::text from public.encounter_events where encounter_id = v_e1 and kind = 'host_key_issued' group by actor_role, actor_id, payload));
+  update public.encounters set clinician_id = v_admin where id = v_e1;  -- fixture: the consultation is reassigned later
+  perform pg_temp.rec('a later reassignment does not change who the record says', 'true',
+    (select (actor_id = v_docA)::text from public.encounter_events where encounter_id = v_e1 and kind = 'host_key_issued'));
+  update public.encounters set clinician_id = v_docA where id = v_e1;
 
-  -- 2. Nobody signed in can write it --------------------------------------------------------------------------
+  -- 2. Only the consultation's own clinician is ever issued one ------------------------------------------------
+  perform pg_temp.act_service();
+  perform pg_temp.rec('a key cannot be recorded as issued to the patient', '42501', pg_temp.try(format('select public.service_record_host_key_issued(%L, %L)', v_e1, v_adult)));
+  perform pg_temp.rec('...nor to another clinician', '42501', pg_temp.try(format('select public.service_record_host_key_issued(%L, %L)', v_e1, v_admin)));
+  perform pg_temp.rec('...nor to nobody', '42501', pg_temp.try(format('select public.service_record_host_key_issued(%L, null)', v_e1)));
+  perform pg_temp.rec('an unknown consultation is refused', 'P0002', pg_temp.try(format('select public.service_record_host_key_issued(%L, %L)', gen_random_uuid(), v_docA)));
+  perform pg_temp.back();
+  perform pg_temp.rec('only the one real issue was recorded', '1', (select count(*)::text from public.encounter_events where encounter_id = v_e1 and kind = 'host_key_issued'));
+
+  -- 3. Nobody signed in can write it, and the general recorders refuse the kind ---------------------------------
   perform pg_temp.act(v_docA);
-  perform pg_temp.rec('the clinician cannot record it through the server function', '42501', pg_temp.try(format('select public.service_record_encounter_event(%L, ''host_key_issued'', ''clinician'', ''{}'')', v_e1)));
+  perform pg_temp.rec('the clinician cannot record it through the server function', '42501', pg_temp.try(format('select public.service_record_host_key_issued(%L, %L)', v_e1, v_docA)));
   perform pg_temp.rec('...nor through the app-session recorder', '22023', pg_temp.try(format('select public.report_encounter_event(%L, ''host_key_issued'')', v_e1)));
   perform pg_temp.rec('...nor by writing the table directly', '42501',
     pg_temp.try(format('insert into public.encounter_events (organisation_id, encounter_id, kind, actor_role) values (%L, %L, ''host_key_issued'', ''clinician'')', v_org, v_e1)));
   perform pg_temp.back();
   perform pg_temp.act(v_adult);
-  perform pg_temp.rec('the patient cannot record it', '42501', pg_temp.try(format('select public.service_record_encounter_event(%L, ''host_key_issued'', ''clinician'', ''{}'')', v_e1)));
-  perform pg_temp.rec('...nor through the app-session recorder', '22023', pg_temp.try(format('select public.report_encounter_event(%L, ''host_key_issued'')', v_e1)));
+  perform pg_temp.rec('the patient cannot record it', '42501', pg_temp.try(format('select public.service_record_host_key_issued(%L, %L)', v_e1, v_docA)));
   perform pg_temp.back();
   perform pg_temp.act_anon();
-  perform pg_temp.rec('anon cannot record it', '42501', pg_temp.try(format('select public.service_record_encounter_event(%L, ''host_key_issued'', ''clinician'', ''{}'')', v_e1)));
+  perform pg_temp.rec('anon cannot record it', '42501', pg_temp.try(format('select public.service_record_host_key_issued(%L, %L)', v_e1, v_docA)));
   perform pg_temp.back();
-
-  -- 3. An unknown consultation --------------------------------------------------------------------------------
   perform pg_temp.act_service();
-  perform pg_temp.rec('an unknown consultation is refused', 'P0002', pg_temp.try(format('select public.service_record_encounter_event(%L, ''host_key_issued'', ''clinician'', ''{}'')', gen_random_uuid())));
+  perform pg_temp.rec('the general server recorder does not accept the kind', '22023', pg_temp.try(format('select public.service_record_encounter_event(%L, ''host_key_issued'', ''clinician'', ''{}'')', v_e1)));
   perform pg_temp.back();
 
-  -- 4. SABOTAGE: the recorder goes back to its old list of kinds ----------------------------------------------
-  create or replace function public.service_record_encounter_event(p_encounter uuid, p_kind text, p_actor_role text, p_payload jsonb default '{}'::jsonb)
-  returns void language plpgsql security definer set search_path to '' as $f$
+  -- 4. SABOTAGE: the recorder loses its check that the person is the consultation's clinician ----------------------
+  create or replace function public.service_record_host_key_issued(p_encounter uuid, p_clinician uuid) returns void
+  language plpgsql security definer set search_path = '' as $f$
+  declare e public.encounters;
   begin
-    if p_actor_role not in ('patient', 'clinician', 'system') then raise exception 'unknown actor role' using errcode = '22023'; end if;
-    if p_kind not in ('left', 'quality', 'mode_changed', 'fallback_offered', 'phone_requested', 'phone_connected', 'reconnect_grace_started', 'room_created') then
-      raise exception 'that event cannot be recorded here' using errcode = '22023';
-    end if;
-    perform private.log_encounter_event(p_encounter, p_kind, null, p_actor_role, private.clean_encounter_payload(p_payload));
+    select * into e from public.encounters where id = p_encounter;
+    if e.id is null then raise exception 'consultation not found' using errcode = 'P0002'; end if;
+    perform private.log_encounter_event(e.id, 'host_key_issued', p_clinician, 'clinician', '{}'::jsonb);
   end; $f$;
   perform pg_temp.act_service();
-  insert into results values ('sabotaged', 'the server can record that a host key was issued', 'ok', pg_temp.try(format('select public.service_record_encounter_event(%L, ''host_key_issued'', ''clinician'', ''{}'')', v_e1)));
+  insert into results values ('sabotaged', 'a key cannot be recorded as issued to the patient', '42501', pg_temp.try(format('select public.service_record_host_key_issued(%L, %L)', v_e1, v_adult)));
   perform pg_temp.back();
   if (select count(*) from results where phase = 'sabotaged' and expected <> actual) < 1 then
-    raise exception 'VACUOUS TEST: the sabotaged recorder still accepted the event';
+    raise exception 'VACUOUS TEST: the sabotaged recorder still refused a key for the patient';
   end if;
 end $$;
 

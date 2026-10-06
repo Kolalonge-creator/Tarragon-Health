@@ -355,6 +355,28 @@ describe("zoom adapter", () => {
       expect(unset).toMatchObject({ ok: true, data: { zak: "zak_ttl600" } });
     });
 
+    it("refuses to mint a host key for a meeting that is not the dedicated host user's (made before it was set), rather than issue the owner's", async () => {
+      const { fake, z } = make();
+      const before = createZoomVideo({ accountId: "acc", clientId: "cid", clientSecret: "csecret", sdkKey: "k", sdkSecret: "s", fetch: fake.fetch, now: () => fake.clock.now });
+      const room = await before.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      if (!room.ok) throw new Error("room");
+      expect(await z.joinToken({ roomId: room.data.roomId, role: "clinician", identity: ID, ttlSeconds: 600, hostKeyTtlSeconds: 300 })).toMatchObject({ ok: false, error: { code: "conflict" } });
+      expect(fake.calls.some((c) => c.path === "/v2/users/owner_user/token")).toBe(false);
+      // the patient is unaffected: no key is involved
+      expect(await z.joinToken({ roomId: room.data.roomId, role: "patient", identity: ID, ttlSeconds: 600 })).toMatchObject({ ok: true });
+    });
+
+    it("matches the host by email as well as by id, ignoring case", async () => {
+      const fake = createFakeZoom({ now: 1_800_000_000_000 });
+      const z = createZoomVideo({ accountId: "acc", clientId: "cid", clientSecret: "csecret", sdkKey: "k", sdkSecret: "s", hostUserId: "Host@Tarragon.Example", fetch: fake.fetch, now: () => fake.clock.now });
+      const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      if (!room.ok) throw new Error("room");
+      // the fake reports the creating user as the host id: "Host@Tarragon.Example"
+      expect(await z.joinToken({ roomId: room.data.roomId, role: "clinician", identity: ID, ttlSeconds: 600, hostKeyTtlSeconds: 300 })).toMatchObject({ ok: true });
+      const emailOnly = zoomWith('{"start_time":"2027-01-15T08:00:00Z","duration":30,"password":"pw","host_email":"host@tarragon.example"}');
+      expect(emailOnly).toBeDefined();
+    });
+
     it("never asks for a host key for a patient", async () => {
       const { fake, z } = make();
       const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });

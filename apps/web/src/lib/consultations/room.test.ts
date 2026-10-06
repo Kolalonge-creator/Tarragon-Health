@@ -66,6 +66,12 @@ function fakeDb(opts: { now: () => number; scheduledAt?: number; status?: string
         s.events.push({ kind: "mode_changed", role: "system", payload: { mode: "phone" } });
         return ok(null);
       }
+      if (fn === "service_record_host_key_issued") {
+        // the database checks the person is the encounter's clinician; the fake has one clinician
+        if (args.p_clinician !== DOCTOR) return bad("that person is not the clinician on this consultation");
+        s.events.push({ kind: "host_key_issued", role: "clinician", payload: {} });
+        return ok(null);
+      }
       if (fn === "service_record_encounter_event") {
         s.events.push({ kind: String(args.p_kind), role: String(args.p_actor_role), payload: (args.p_payload ?? {}) as Record<string, unknown> });
         return ok(null);
@@ -392,7 +398,7 @@ describe("the in-app call: what the person is handed to enter the room", () => {
 
     it("is NOT handed out when the record of it cannot be written: the room falls back to the link", async () => {
       const { db, deps } = setup();
-      const failing: RpcClient = { rpc: (fn, args) => (fn === "service_record_encounter_event" && args?.p_kind === "host_key_issued" ? Promise.resolve({ data: null, error: { message: "down" } }) : db.service.rpc(fn, args)) };
+      const failing: RpcClient = { rpc: (fn, args) => (fn === "service_record_host_key_issued" ? Promise.resolve({ data: null, error: { message: "down" } }) : db.service.rpc(fn, args)) };
       expect(await prepareSdkJoin({ ...deps(DOCTOR), serviceRpc: failing }, ENC, "video", live)).toEqual({ ok: false, reason: "provider" });
     });
   });

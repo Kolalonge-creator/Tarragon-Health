@@ -145,6 +145,14 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       // configured host. It is only needed at the moment of joining, so it lives only as long as the caller asked, never longer than the
       // token, and is only ever returned for the clinician role.
       const owner = d?.["host_id"];
+      // With a dedicated host user configured, a key is only ever minted for THAT user. A meeting made before it was set (or by another
+      // path) belongs to someone else, usually the account owner, and a key for the owner is exactly what the dedicated user exists to
+      // avoid, so it is refused (the room then falls back to the link) rather than quietly issued.
+      if (config.hostUserId && config.hostUserId.length > 0) {
+        const wanted = config.hostUserId.toLowerCase();
+        const owners = [owner, d?.["host_email"]].filter((v): v is string => typeof v === "string").map((v) => v.toLowerCase());
+        if (!owners.includes(wanted)) return fail("conflict", "Meeting is not hosted by the consultation host user", false);
+      }
       const keyUser = typeof owner === "string" && owner.length > 0 ? hostPath(owner) : configuredHost;
       const untilEndSeconds = Math.max(1, Math.ceil((expiresAtMs - now()) / 1000));
       const keyTtl = input.hostKeyTtlSeconds === undefined ? untilEndSeconds : Math.min(untilEndSeconds, input.hostKeyTtlSeconds);

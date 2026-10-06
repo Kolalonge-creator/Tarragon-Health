@@ -201,10 +201,10 @@ export async function prepareSdkJoin(deps: RoomDeps, encounterId: string, reques
   const token = await deps.video.joinToken({ roomId, role, identity: deps.userId, ttlSeconds: SDK_TOKEN_SECONDS, hostKeyTtlSeconds: options.hostKeyTtlSeconds });
   if (!token.ok) return { ok: false, reason: token.error.code === "not_configured" ? "not_configured" : "provider" };
   // A host key lets its holder start meetings as the consultation host user, so every issue is on the record BEFORE it leaves the server
-  // (who: the encounter's clinician; when: the event time; never the key). If it cannot be recorded it is not handed out, and the room
+  // (who: the clinician it was issued to, checked by the database against the encounter's clinician; when: the event time; never the key). If it cannot be recorded it is not handed out, and the room
   // falls back to the link, so the audit trail cannot be skipped by a failing write.
   if (role === "clinician" && token.data.zak) {
-    const audited = await deps.serviceRpc.rpc("service_record_encounter_event", { p_encounter: encounterId, p_kind: "host_key_issued", p_actor_role: "clinician", p_payload: {} });
+    const audited = await deps.serviceRpc.rpc("service_record_host_key_issued", { p_encounter: encounterId, p_clinician: deps.userId });
     if (audited.error) return { ok: false, reason: "provider" };
   }
 
