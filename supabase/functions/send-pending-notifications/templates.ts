@@ -557,15 +557,56 @@ export const TEMPLATE_MAP: Record<
       smsText: `${message} Open the Tarragon Health app, or reply here. Tarragon Health`,
     };
   },
-  // Sent when a doctor answers the patient's ask-a-doctor consult (see
-  // answerAsyncConsult). Notification only — the answer itself lives in-app.
-  async_consult_answered: () => {
-    return {
-      smsText:
-        "A doctor has answered your question. Open the Tarragon Health app to read it. " +
-        "Tarragon Health",
-    };
-  },
+  // S22 written questions and clinical notes. Push and in-app text only (INV-08: never SMS), neutral (INV-07):
+  // no question text, condition, reading, result or medicine. The retired async_consult_answered SMS template is gone.
+  written_question_received: () => ({
+    smsText: "Your care team has your message. Open the Tarragon Health app for the time to expect a reply.",
+    pushUrl: "/patient/care",
+  }),
+  written_question_answered: () => ({
+    smsText: "Your care team has replied. Open the Tarragon Health app to read it.",
+    pushUrl: "/patient/care",
+  }),
+  written_question_info_needed: () => ({
+    smsText: "Your care team has a question for you. Open the Tarragon Health app to answer it.",
+    pushUrl: "/patient/care",
+  }),
+  written_question_window_missed: () => ({
+    smsText: "Sorry for the wait. Your message is still with the team. Open the Tarragon Health app.",
+    pushUrl: "/patient/care",
+  }),
+  written_question_call_planned: () => ({
+    smsText: "Your care team will call you. Keep your phone close.",
+    pushUrl: "/patient/care",
+  }),
+  written_question_staff_notice: () => ({
+    smsText: "A written message needs attention. Open your queue.",
+    pushUrl: "/clinician/async-consults",
+  }),
+  note_correction_requested: () => ({
+    smsText: "A patient asked for a correction to a signed note. Open your messages to answer.",
+    pushUrl: "/clinician/messages",
+  }),
+  note_release_requested: () => ({
+    smsText: "A patient asked about a signed note. Open your messages to answer.",
+    pushUrl: "/clinician/messages",
+  }),
+  note_released: () => ({
+    smsText: "Your care team has made a note available. Open the Tarragon Health app to read it.",
+    pushUrl: "/patient/care",
+  }),
+  note_release_declined: () => ({
+    smsText: "Your care team has replied to your request. Open the Tarragon Health app to see the reply.",
+    pushUrl: "/patient/care",
+  }),
+  note_correction_answered: () => ({
+    smsText: "Your care team has replied to your request. Open the Tarragon Health app to see the reply.",
+    pushUrl: "/patient/care",
+  }),
+  note_unsigned_reminder: () => ({
+    smsText: "A note is waiting for your signature.",
+    pushUrl: "/clinician/patients",
+  }),
   // Sent after a patient self-books a video check-in slot (bookVideoVisit).
   // Confirmation only — the join link lives in the app.
   video_consult_booked: (payload) => {

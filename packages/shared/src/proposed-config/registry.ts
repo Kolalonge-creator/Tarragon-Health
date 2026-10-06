@@ -415,6 +415,34 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S15.md; docs/research/S15.md; spec 7.1 and 17",
   },
   {
+    key: "written_care.behaviour",
+    // Written questions and clinical notes (S22). Live values are the active row of `written_care_config`; this entry mirrors
+    // it and a test fails if the migration seed and this value drift. monthlyAllowance 4 was chosen by the build at the
+    // founder's request (about one a week beside 12 monthly calls; review after the first month of real use).
+    // windowMinutes 1440 is the spec's 24 hour async_question window. Photos: 3 of at most 8 MB, compressed on the phone.
+    value: {
+      monthlyAllowance: 4,
+      windowMinutes: 1440,
+      reminderPercent: 75,
+      followUpDays: 7,
+      maxPhotos: 3,
+      maxPhotoBytes: 8388608,
+      questionMinChars: 10,
+      questionMaxChars: 2000,
+      messageMaxChars: 2000,
+      callDueMinutes: 1440,
+      timezone: "Africa/Lagos",
+      unsignedNoteReminderHours: 24,
+      unsignedNoteLeadHours: 72,
+      correctionResponseDays: 30,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S22.md; OQ-151; spec 7.3 async_question and 23.16",
+  },
+  {
     key: "queue.rules",
     // Task queue rules (S16). Live values are the active row of `queue_config`; this entry mirrors it and a test fails
     // if the migration seed and this value drift. class3_promotion_window_minutes is spec 7.3 ("within 4 hours of its

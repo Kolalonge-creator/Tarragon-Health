@@ -420,7 +420,7 @@ export function getNavSections(
                   icon: "messages",
                   countKey: "careThreadsAwaitingReply",
                 },
-                { label: "Async consults", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
+                { label: "Written questions", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
                 // Real pages with no prior sidebar entry at all — previously
                 // reachable only via the dashboard's "All worklists" strip,
                 // so a doctor who didn't happen to scroll that far never
@@ -573,6 +573,8 @@ export function getNavSections(
                 // New clinician applications, licence and cover expiry, and the training and test content (S15).
                 // Chief Medical Officer only; the pages redirect anyone below that tier.
                 { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
+                // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
+                { label: "Memberships", href: "/clinician/members", icon: "members" },
                 // The AI governance console's two CMO-only actions (approving
                 // an ai_system_versions row, labelling an ai_evaluation_cases
                 // clinical-accuracy scenario) — same reachability gap as
@@ -647,6 +649,8 @@ export function getNavSections(
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             // New clinician applications, document and licence checks, licence and indemnity expiry (S15).
             { label: "Clinician credentialing", href: "/admin/credentialing", icon: "review" },
+            // Grant or end a Membership by hand until checkout exists (S22b).
+            { label: "Memberships", href: "/admin/members", icon: "members" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },

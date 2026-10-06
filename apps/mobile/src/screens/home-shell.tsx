@@ -23,6 +23,7 @@ import { AiCoachScreen } from "@/screens/sections/ai-coach-screen";
 import { ActionsScreen } from "@/screens/sections/actions-screen";
 import { DevicesScreen } from "@/screens/devices-screen";
 import { SyncScreen } from "@/screens/sync-screen";
+import { startWrittenQuestionFlushing } from "@/lib/written-questions/queue-flush";
 import { MessagesScreen } from "@/screens/sections/messages-screen";
 import { HealthPassportScreen } from "@/screens/sections/health-passport-screen";
 import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
@@ -201,6 +202,12 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       if (state === "active") void replanDoseReminders(userId);
     });
     return () => sub.remove();
+  }, [userId]);
+
+  useEffect(() => {
+    // Written questions saved on this phone (S22) are sent whenever this patient is signed in,
+    // not only while that screen is open. Only this account's own items are ever touched.
+    return startWrittenQuestionFlushing(userId);
   }, [userId]);
 
   function handleSelect(id: SectionId) {
