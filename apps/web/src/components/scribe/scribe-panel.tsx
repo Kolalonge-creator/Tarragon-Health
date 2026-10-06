@@ -116,7 +116,7 @@ export function ScribePanel({
     case "declined":
       return (
         <Badge variant="grey">
-          {t("scribe.consent.declined_label", "en")}
+          {t("scribe.consent.not_used_label", "en")}
         </Badge>
       );
 

@@ -54,7 +54,7 @@ begin
      (current_date - interval '45 years')::date, true),
     (v_patient, v_org, 'patient', 'S23 patient', '+23480' || lpad((random() * 99999999)::int::text, 8, '0'),
      (current_date - interval '40 years')::date, true)
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true;
+  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, date_of_birth = excluded.date_of_birth;
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
       license_verified_at, doctor_tier, employment_type, credentialing_level, is_test)
@@ -63,6 +63,17 @@ begin
   returning id into v_staff_id;
 
   insert into sc_fixture values ('org', v_org), ('clinician', v_clinician), ('patient', v_patient), ('staff', v_staff_id);
+
+  -- S21g (OQ-161): a granted consent exists only while the patient has allowed the AI note-taker in the app for a live consultation
+  -- with this clinician. The fixture is that consultation and the patient's own answer, written the way the S21 functions write them.
+  declare v_enc uuid := gen_random_uuid();
+  begin
+    insert into public.encounters (id, organisation_id, patient_id, clinician_id, type, status, scheduled_at, started_at, policy_version, is_test)
+    values (v_enc, v_org, v_patient, v_clinician, 'video', 'in_progress', now(), now(), 1, true);
+    insert into public.consultation_scribe_consents (organisation_id, encounter_id, patient_id, granted, answered_at, is_test)
+    values (v_org, v_enc, v_patient, true, now(), true);
+    insert into sc_fixture values ('encounter', v_enc);
+  end;
 end $$;
 
 -- --------------------------------------------------------------------------
