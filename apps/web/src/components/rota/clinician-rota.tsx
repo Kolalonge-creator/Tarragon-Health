@@ -11,7 +11,7 @@ const RETURN_TO = "/clinician/rota";
 /** A working clinician's own page: hours they declare, the on-call rota, cover requests, their lead list. */
 export async function ClinicianRotaPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const [blocks, rota, swaps, colleagues, lead] = await Promise.all([getMyBlocks(), getMyRota(), getMySwaps(), getColleagues(), getMyLeadSummary().catch(() => null)]);
+  const [blocks, rota, swaps, colleagues, lead] = await Promise.all([getMyBlocks(), getMyRota(), getMySwaps(), getColleagues(), getMyLeadSummary()]);
   const start = defaultStartInput(new Date());
   const incoming = swaps.filter((s) => s.direction === "incoming");
   const outgoing = swaps.filter((s) => s.direction === "outgoing");
@@ -24,7 +24,7 @@ export async function ClinicianRotaPage({ searchParams }: { searchParams: Search
       />
       <Flash ok={firstParam(sp.ok)} error={firstParam(sp.error)} />
 
-      {lead?.lead_capable ? (
+      {lead.lead_capable ? (
         <Section title="Your lead list" hint="Patients for whom you are the lead clinician.">
           <p className="text-sm">
             {lead.lead_patients} of {lead.cap} patients.

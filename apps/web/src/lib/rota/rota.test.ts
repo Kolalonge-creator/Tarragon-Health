@@ -44,6 +44,9 @@ describe("rpc wrapper", () => {
   it("lets a message written for people through and hides everything else", () => {
     expect(toRotaError({ message: "this overlaps hours you already declared", code: "23P01" }).message).toBe("this overlaps hours you already declared");
     expect(toRotaError({ message: "relation x does not exist", code: "42P01" }).message).toMatch(/Something went wrong/);
+    expect(toRotaError({ message: "availability_too_short", code: "22023" }).message).toBe("Hours must be at least two hours long.");
+    expect(toRotaError({ message: "availability_on_the_rota: ask for a swap instead", code: "22023" }).message).toMatch(/Ask a colleague/);
+    expect(toRotaError({ message: "queue_not_eligible", code: "42501" }).message).toMatch(/credentials need attention/);
     expect(toRotaError({ message: "boom" }).code).toBeUndefined();
     expect(rotaErrorMessage(new RotaError("a", undefined))).toBe("a");
     expect(rotaErrorMessage(new Error("raw"))).toMatch(/Something went wrong/);

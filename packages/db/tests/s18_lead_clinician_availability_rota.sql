@@ -53,7 +53,7 @@ begin
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone, language = excluded.language;
   return v;
 end $f$;
-create function pg_temp.mkdoc(p_org uuid, p_admin uuid, p_label text, p_tier text, p_emp text, p_langs text[], p_rel numeric, p_comps text[]) returns uuid
+create function pg_temp.mkdoc(p_org uuid, p_admin uuid, p_label text, p_tier text, p_emp text, p_langs text[], p_rel numeric, p_comps text[], p_test boolean default true) returns uuid
 language plpgsql as $f$
 declare v uuid := pg_temp.mkuser(p_org, p_label, 'clinician'); v_staff uuid; c text;
 begin
@@ -62,7 +62,7 @@ begin
       indemnity_exempt, indemnity_exempt_by, is_test)
   values (p_org, v, 'S18 ' || p_label, 'MDCN', 'S18-' || p_label || '-' || substr(v::text, 1, 8), true, 'active', now(), p_admin,
       p_tier::public.doctor_tier, p_emp::public.staff_employment_type, 2, p_langs, p_rel,
-      (p_emp = 'contracted' or p_tier = 'chief_medical_officer'), case when p_emp = 'contracted' or p_tier = 'chief_medical_officer' then p_admin end, true)
+      (p_emp = 'contracted' or p_tier = 'chief_medical_officer'), case when p_emp = 'contracted' or p_tier = 'chief_medical_officer' then p_admin end, p_test)
   returning id into v_staff;
   foreach c in array p_comps loop
     insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (p_org, v_staff, c, p_admin, true);
@@ -73,14 +73,15 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid;
-  v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_mo uuid; v_nc uuid; v_e uuid;
+  v_a uuid; v_b uuid; v_c uuid; v_d uuid; v_mo uuid; v_nc uuid; v_e uuid; r1 uuid; r2 uuid; r3 uuid; v_staff_r3 uuid; p7 uuid;
+  v_txt text;
   v_staff_a uuid; v_staff_b uuid; v_staff_c uuid; v_staff_e uuid;
   p1 uuid; p2 uuid; p3 uuid; p4 uuid; p5 uuid; p6 uuid; p9 uuid;
   pn1 uuid; pn2 uuid; pn3 uuid; pn4 uuid;
   t0 timestamptz := date_trunc('hour', now()) + interval '3 hours';
   t1 timestamptz := date_trunc('hour', now()) + interval '6 hours';
   v_blk uuid; v_blk_b_oncall uuid; v_r1 jsonb; v_r2 jsonb; v_r1_id uuid; v_r2_id uuid; v_swap uuid;
-  v_cf uuid; v_x uuid; v_task uuid; v_task2 uuid; v_task3 uuid; v_n integer; v_txt text;
+  v_cf uuid; v_x uuid; v_task uuid; v_task2 uuid; v_task3 uuid; v_n integer;
   v_forbidden text := 'blood|pressure|hypertens|diabet|result|reading|glucose|medicine|dose|symptom';
 begin
   select id into v_org from public.organisations order by created_at limit 1;
@@ -95,9 +96,14 @@ begin
   v_d  := pg_temp.mkdoc(v_org, v_admin, 'oncall-d', 'senior_medical_officer', 'employed', '{en}',     60, '{hypertension,on_call}');
   v_mo := pg_temp.mkdoc(v_org, v_admin, 'mo', 'medical_officer', 'employed', '{en}',                   99, '{lead_clinician,hypertension}');
   v_nc := pg_temp.mkdoc(v_org, v_admin, 'no-comp', 'senior_medical_officer', 'employed', '{en}',       99, '{hypertension}');
+  -- real (not test) clinicians for the real patients: test and real never mix (INV-13)
+  r1 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-1', 'senior_medical_officer', 'employed', '{en}',    90, '{lead_clinician,hypertension,on_call}', false);
+  r2 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-2', 'senior_medical_officer', 'employed', '{pcm,en}', 80, '{lead_clinician,hypertension,on_call}', false);
+  r3 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-3', 'senior_medical_officer', 'employed', '{en}',    70, '{lead_clinician,hypertension,on_call}', false);
   select id into v_staff_a from public.clinical_staff where profile_id = v_a;
   select id into v_staff_b from public.clinical_staff where profile_id = v_b;
   select id into v_staff_c from public.clinical_staff where profile_id = v_c;
+  select id into v_staff_r3 from public.clinical_staff where profile_id = r3;
 
   p1 := pg_temp.mkuser(v_org, 'patient-1', 'patient', 'en');
   p2 := pg_temp.mkuser(v_org, 'patient-2', 'patient', 'pcm');
@@ -106,12 +112,14 @@ begin
   p5 := pg_temp.mkuser(v_org, 'patient-5', 'patient', 'en');
   p6 := pg_temp.mkuser(v_org, 'patient-6', 'patient', 'en');
   p9 := pg_temp.mkuser(v_org, 'patient-9', 'patient', 'en');
+  p7 := pg_temp.mkuser(v_org, 'patient-7', 'patient', 'en');
   pn1 := pg_temp.mkuser(v_org, 'real-1', 'patient', 'en');
   pn2 := pg_temp.mkuser(v_org, 'real-2', 'patient', 'pcm');
   pn3 := pg_temp.mkuser(v_org, 'real-3', 'patient', 'en');
   pn4 := pg_temp.mkuser(v_org, 'real-4', 'patient', 'en');
   insert into fx values ('admin', v_admin), ('cmo', v_cmo), ('lead-a', v_a), ('lead-b', v_b), ('lead-c', v_c), ('oncall-d', v_d),
-    ('patient-1', p1), ('patient-2', p2), ('patient-4', p4), ('real-1', pn1), ('real-2', pn2), ('real-3', pn3), ('real-4', pn4);
+    ('patient-1', p1), ('patient-2', p2), ('patient-4', p4), ('real-1', pn1), ('real-2', pn2), ('real-3', pn3), ('real-4', pn4),
+    ('real-lead-1', r1), ('real-lead-2', r2), ('real-lead-3', r3), ('patient-5', p5), ('patient-6', p6), ('patient-7', p7);
   -- "real" patients count against capacity; fixture patients (is_test) never do (INV-13)
   update public.profiles set is_test = false where id in (pn1, pn2, pn3, pn4);
 
@@ -210,6 +218,15 @@ begin
   perform pg_temp.act(v_a);
   v_swap := public.request_rota_swap(v_r1_id, 'primary', v_d, 'family event');
   perform pg_temp.back();
+  perform pg_temp.act(v_a);
+  perform pg_temp.rec('the requester sees the swap as outgoing', '1', (select count(*)::text from public.my_rota_swaps() where direction = 'outgoing'));
+  perform pg_temp.back();
+  perform pg_temp.act(v_d);
+  perform pg_temp.rec('the colleague sees it as incoming', '1', (select count(*)::text from public.my_rota_swaps() where direction = 'incoming'));
+  perform pg_temp.back();
+  perform pg_temp.act(v_nc);
+  perform pg_temp.rec('an uninvolved clinician sees no swaps', '0', (select count(*)::text from public.my_rota_swaps()));
+  perform pg_temp.back();
   perform pg_temp.rec('a requested swap changes nothing', v_a::text, (select primary_clinician_id::text from public.on_call_rota where id = v_r1_id));
   perform pg_temp.act(v_cmo);
   perform pg_temp.rec('an unaccepted swap cannot be approved', '22023', pg_temp.try(format('select public.approve_rota_swap(%L)', v_swap)));
@@ -281,10 +298,12 @@ begin
   perform pg_temp.rec('the patient is told the lead changed', '1', (select count(*)::text from public.notifications where recipient_id = p1 and template = 'care_team_notice' and channel = 'in_app' and payload ->> 'kind' = 'changed'));
 
   -- capacity: real patients count, fixture patients never do; every lead capped at one
-  update public.clinical_staff set max_lead_patients = 1 where profile_id in (v_a, v_b, v_c);
+  update public.clinical_staff set max_lead_patients = 1 where profile_id in (r1, r2, r3);
   perform pg_temp.act(v_cmo);
   perform public.assign_lead_clinician(pn1); perform public.assign_lead_clinician(pn2); perform public.assign_lead_clinician(pn3);
   perform pg_temp.back();
+  perform pg_temp.rec('real patients only ever get real clinicians', '0', (select count(*)::text from public.lead_assignments la join public.clinical_staff cs on cs.profile_id = la.clinician_id where la.patient_id in (pn1, pn2, pn3) and cs.is_test));
+  perform pg_temp.rec('test patients only ever get test clinicians', '0', (select count(*)::text from public.lead_assignments la join public.clinical_staff cs on cs.profile_id = la.clinician_id where la.patient_id in (p1, p2, p3, p4) and not cs.is_test));
   perform pg_temp.rec('three real patients go to three different leads at cap one', '3', (select count(distinct clinician_id)::text from public.lead_assignments where patient_id in (pn1, pn2, pn3) and state = 'active'));
   perform pg_temp.act(v_cmo);
   perform pg_temp.rec('fixture patients do not use up capacity: only the three real patients count', '3', (public.lead_capacity_status(v_org) ->> 'in_use'));
@@ -294,18 +313,39 @@ begin
   perform pg_temp.rec('an incident is open for patients without a lead', '1', (select count(*)::text from public.ops_incidents where external_reference = 'lead_unassigned:' || v_org and status not in ('resolved', 'closed')));
   perform pg_temp.rec('the patient is told their team is being arranged', '1', (select count(*)::text from public.notifications where recipient_id = pn4 and template = 'care_team_notice' and payload ->> 'kind' = 'arranging' and channel = 'in_app'));
   perform pg_temp.rec('unassigned leaves no lead in care_team_assignment', 'true', (select (count(*) = 0 or bool_and(clinician_id is null))::text from public.care_team_assignment where patient_id = pn4));
-  update public.clinical_staff set max_lead_patients = 10 where profile_id in (v_a, v_b, v_c);
+  update public.clinical_staff set max_lead_patients = 10 where profile_id in (r1, r2, r3);
   perform private.retry_unassigned_leads();
   perform pg_temp.rec('the retry raised no error', 'none', coalesce((select event ->> 'error' from public.audit_log where action = 'lead_retry.error' order by created_at desc limit 1), 'none'));
   perform pg_temp.rec('capacity freed: the retry assigns the waiting patient', 'active', (select state::text from public.lead_assignments where patient_id = pn4 and state in ('active', 'unassigned')));
 
-  -- 6a. Reconcile catches a missed event: lead-c loses the lead competency by a direct change
-  update public.clinician_competencies set revoked_at = now(), revoked_by = v_admin
-   where competency_code = 'lead_clinician' and revoked_at is null and clinical_staff_id = v_staff_c;
+  -- 6a. A lead on leave keeps their patients (only offers pause); a lead who loses the competency does not
+  perform pg_temp.act(v_cmo); perform public.assign_lead_clinician(p5); perform pg_temp.back();
+  perform pg_temp.rec('p5 is led by lead-a (highest reliability)', v_a::text, (select clinician_id::text from public.lead_assignments where patient_id = p5 and state = 'active'));
+  insert into public.provider_time_off (organisation_id, clinician_id, kind, starts_at, ends_at, reason) values (v_org, v_a, 'leave', now() - interval '1 hour', now() + interval '2 days', 's18 leave test');
   perform private.lead_reconcile();
-  perform pg_temp.rec('reconcile moves every patient off a lead without the competency', '0', (select count(*)::text from public.lead_assignments where clinician_id = v_c and state = 'active'));
+  perform pg_temp.rec('a lead on leave keeps their patients (the nightly check does not move them)', v_a::text, (select clinician_id::text from public.lead_assignments where patient_id = p5 and state = 'active'));
+  perform pg_temp.rec('a lead on leave is not offered a new patient', 'true', (select (not exists (select 1 from private.lead_candidates(p7, '{}', true) where cand = v_a))::text));
+  delete from public.provider_time_off where clinician_id = v_a and reason = 's18 leave test';
+  -- manual edits of care_team_assignment cannot split chart access from the lead record
+  perform pg_temp.rec('a hand edit of the clinician is refused while a lead record is live', '23514', pg_temp.try(format('update public.care_team_assignment set clinician_id = %L where patient_id = %L', v_nc, p5)));
+  begin
+    update public.care_team_assignment set clinician_id = null where patient_id = p5;
+    v_txt := 'ok';
+    raise exception 'undo';
+  exception when others then if sqlerrm <> 'undo' then v_txt := sqlstate; end if;
+  end;
+  perform pg_temp.rec('clearing the clinician is always allowed (it only removes access)', 'ok', v_txt);
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, p7, v_d);
+  perform pg_temp.rec('a patient with no lead record can still be edited by hand', 'ok', pg_temp.try(format('update public.care_team_assignment set clinician_id = %L where patient_id = %L', v_c, p7)));
+  delete from public.care_team_assignment where patient_id = p7;
+  -- reconcile catches a missed event: lead-c and real-lead-3 lose the lead competency by a direct change
+  update public.clinician_competencies set revoked_at = now(), revoked_by = v_admin
+   where competency_code = 'lead_clinician' and revoked_at is null and clinical_staff_id in (v_staff_c, v_staff_r3);
+  perform private.lead_reconcile();
+  perform pg_temp.rec('reconcile moves every patient off a lead without the competency', '0', (select count(*)::text from public.lead_assignments where clinician_id in (v_c, r3) and state = 'active'));
   perform pg_temp.rec('the history says why', 'competency_revoked', (select end_reason::text from public.lead_assignments where patient_id = p3 and clinician_id = v_c));
   insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (v_org, v_staff_c, 'lead_clinician', v_admin, true);
+  insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (v_org, v_staff_r3, 'lead_clinician', v_admin, false);
 
   -- a staff change of lead needs a written reason
   perform pg_temp.act(v_cmo);
@@ -338,7 +378,7 @@ begin
   perform pg_temp.rec('rota overview lists the on-call capable clinicians', 'true', (select (jsonb_array_length(public.rota_overview() -> 'clinicians') >= 4)::text from (select 1) x));
   perform pg_temp.back();
   perform pg_temp.act(v_a);
-  perform pg_temp.rec('a lead sees their own count against the cap', 'true', (select ((public.my_lead_summary() ->> 'cap')::int = 10 and (public.my_lead_summary() ->> 'lead_capable')::boolean)::text from (select 1) x));
+  perform pg_temp.rec('a lead sees their own count against the cap', 'true', (select ((public.my_lead_summary() ->> 'cap')::int = 60 and (public.my_lead_summary() ->> 'lead_capable')::boolean)::text from (select 1) x));
   perform pg_temp.back();
   perform pg_temp.act(v_nc);
   perform pg_temp.rec('a clinician cannot read the reviewer overview', '42501', pg_temp.try('select public.rota_overview()'));
@@ -376,9 +416,12 @@ declare
   v_a uuid; v_b uuid; v_c uuid; v_d uuid;
   v_staff_a uuid; v_staff_b uuid; v_staff_c uuid;
   pn1 uuid; pn2 uuid; pn3 uuid; p2 uuid; p4 uuid;
-  v_task uuid; v_task2 uuid; v_rest_task uuid; v_n integer; v_new_lead uuid;
+  v_task uuid; v_task2 uuid; v_rest_task uuid; v_n integer; v_new_lead uuid; v_k uuid; p6 uuid; p8 uuid; r1 uuid; r2 uuid; r3 uuid; v_staff_r1 uuid; v_staff_r2 uuid; v_staff_r3 uuid; v_t_a uuid; v_t_b uuid;
   t1 timestamptz;
 begin
+  -- earlier phases switched roles and left a user claim behind; the test-flag guard needs it gone to create fixtures
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
   select id into v_org from public.organisations order by created_at limit 1;
   select id into v_admin from fx where label = 'admin';
   select id into v_cmo from fx where label = 'cmo';
@@ -394,23 +437,32 @@ begin
   select id into pn3 from fx where label = 'real-3';
   select id into p2 from fx where label = 'patient-2';
   select id into p4 from fx where label = 'patient-4';
+  select id into p6 from fx where label = 'patient-6';
+  select id into r1 from fx where label = 'real-lead-1';
+  select id into r2 from fx where label = 'real-lead-2';
+  select id into r3 from fx where label = 'real-lead-3';
+  select id into v_staff_r1 from public.clinical_staff where profile_id = r1;
+  select id into v_staff_r2 from public.clinical_staff where profile_id = r2;
+  select id into v_staff_r3 from public.clinical_staff where profile_id = r3;
+  p8 := pg_temp.mkuser(v_org, 'patient-8', 'patient', 'en');
+  v_k := pg_temp.mkdoc(v_org, v_admin, 'lead-k', 'senior_medical_officer', 'contracted', '{en}', 10, '{lead_clinician,hypertension}');
 
   -- force lead-b (contracted) as lead of pn2 for the routing test (fixture-only write behind the guard flag)
   perform set_config('tarragon.lead_write', 'on', true);
-  update public.lead_assignments set state = 'ended', ended_at = now(), end_reason = 'superseded' where patient_id = pn2 and state = 'active';
-  insert into public.lead_assignments (organisation_id, patient_id, clinician_id, state, source, config_version, is_test) values (v_org, pn2, v_b, 'active', 'admin', 1, false);
-  update public.care_team_assignment set clinician_id = v_b where patient_id = pn2;
+  update public.lead_assignments set state = 'ended', ended_at = now(), end_reason = 'superseded' where patient_id = p2 and state = 'active';
+  insert into public.lead_assignments (organisation_id, patient_id, clinician_id, state, source, config_version, is_test) values (v_org, p2, v_b, 'active', 'admin', 1, true);
+  update public.care_team_assignment set clinician_id = v_b where patient_id = p2;
   perform set_config('tarragon.lead_write', 'off', true);
 
   -- lead-b has confirmed queue hours today: the task is offered to them
-  v_task := private.create_clinical_task(pn2, 'amber_bp_review', null, 's18-offer-1');
+  v_task := private.create_clinical_task(p2, 'amber_bp_review', null, 's18-offer-1');
   perform pg_temp.rec('a contracted lead with declared hours is offered the task', 'offered_to_lead,' || v_b::text,
     (select state::text || ',' || lead_clinician_id::text from public.clinical_tasks where id = v_task));
   -- lead-b cancels the hours: the next task goes to the pool, not into a window nobody is working
   perform pg_temp.act(v_b);
   perform public.cancel_availability((select id from public.availability_blocks where clinician_id = v_b and kind = 'queue' and state <> 'cancelled' limit 1));
   perform pg_temp.back();
-  v_task2 := private.create_clinical_task(pn2, 'amber_bp_review', null, 's18-offer-2');
+  v_task2 := private.create_clinical_task(p2, 'amber_bp_review', null, 's18-offer-2');
   perform pg_temp.rec('a contracted lead with no declared hours: the task goes to the pool', 'true',
     (select (state in ('open') or (state = 'offered_to_lead' and lead_clinician_id is distinct from v_b))::text from public.clinical_tasks where id = v_task2));
 
@@ -421,7 +473,10 @@ begin
   perform set_config('tarragon.lead_write', 'off', true);
   perform pg_temp.rec('post-call rest is recognised', 'true', private.clinician_in_post_call_rest(v_a)::text);
   perform pg_temp.rec('a clinician who has not worked a long shift is not resting', 'false', private.clinician_in_post_call_rest(v_d)::text);
-  v_rest_task := private.create_clinical_task(pn1, 'amber_bp_review', null, 's18-rest-1');
+  perform pg_temp.rec('the backup is not resting: only the primary was on duty', 'false', private.clinician_in_post_call_rest(v_c)::text);
+  perform pg_temp.act(v_cmo); perform public.assign_lead_clinician(p6); perform pg_temp.back();
+  perform pg_temp.rec('p6 is led by lead-a', v_a::text, (select clinician_id::text from public.lead_assignments where patient_id = p6 and state = 'active'));
+  v_rest_task := private.create_clinical_task(p6, 'amber_bp_review', null, 's18-rest-1');
   perform pg_temp.rec('a lead in post-call rest is not offered the task', 'true',
     (select (lead_clinician_id is distinct from v_a and pushed_to is distinct from v_a)::text from public.clinical_tasks where id = v_rest_task));
   perform set_config('tarragon.lead_write', 'on', true);
@@ -440,25 +495,41 @@ begin
   perform pg_temp.rec('the suspension emitted its event', 'true', (select (count(*) > 0)::text from public.domain_events where event_type = 'clinician.suspended' and payload ->> 'clinical_staff_id' = v_staff_b::text));
   perform public.lead_on_clinician_event(v_staff_b, 'clinician.suspended');
   perform pg_temp.rec('SAFETY CASE 16: no patient keeps the expired clinician as lead', '0', (select count(*)::text from public.lead_assignments where clinician_id = v_b and state = 'active'));
-  perform pg_temp.rec('every patient of the expired lead has a live lead row again', '0', (select count(*)::text from public.lead_assignments where state = 'unassigned' and patient_id in (p2, p4, pn2)));
-  perform pg_temp.rec('the history says the licence expired', 'true', (select (count(*) > 0)::text from public.lead_assignments where patient_id = pn2 and clinician_id = v_b and end_reason = 'licence_expired'));
+  perform pg_temp.rec('every patient of the expired lead has a live lead row again', '0', (select count(*)::text from public.lead_assignments where state = 'unassigned' and patient_id in (p2, p4)));
+  perform pg_temp.rec('the history says the licence expired', 'true', (select (count(*) > 0)::text from public.lead_assignments where patient_id = p2 and clinician_id = v_b and end_reason = 'licence_expired'));
   perform pg_temp.rec('care_team_assignment no longer names the expired lead', '0', (select count(*)::text from public.care_team_assignment where clinician_id = v_b));
-  perform pg_temp.rec('the patient is told the lead changed', 'true', (select (count(*) > 0)::text from public.notifications where recipient_id = pn2 and template = 'care_team_notice' and payload ->> 'kind' = 'changed'));
-  select clinician_id into v_new_lead from public.lead_assignments where patient_id = pn2 and state = 'active';
+  perform pg_temp.rec('the patient is told the lead changed', 'true', (select (count(*) > 0)::text from public.notifications where recipient_id = p2 and template = 'care_team_notice' and payload ->> 'kind' = 'changed'));
+  select clinician_id into v_new_lead from public.lead_assignments where patient_id = p2 and state = 'active';
   perform pg_temp.rec('the offered task followed the patient to the new lead', v_new_lead::text, (select lead_clinician_id::text from public.clinical_tasks where id = v_task));
   perform pg_temp.rec('the removed clinician''s declared hours are cancelled', '0', (select count(*)::text from public.availability_blocks where clinician_id = v_b and state <> 'cancelled' and ends_at > now()));
   perform pg_temp.rec('the removed clinician is out of the rota (primary replaced by the backup)', '0', (select count(*)::text from public.on_call_rota where cancelled_at is null and ends_at > now() and (primary_clinician_id = v_b or backup_clinician_id = v_b)));
   perform pg_temp.rec('running the handler twice changes nothing', '0', coalesce((public.lead_on_clinician_event(v_staff_b, 'clinician.suspended') ->> 'leads_moved')::int, 0)::text);
 
-  -- nobody left to lead: suspend lead-a and lead-c too; every patient is unassigned, tasks open, an incident stands
-  update public.clinical_staff set license_expires_at = now() - interval '1 day' where id in (v_staff_a, v_staff_c);
+  -- an offered task follows a lead change only to someone who can actually be working inside the window
+  perform pg_temp.act(v_cmo); perform public.assign_lead_clinician(p8); perform pg_temp.back();
+  v_t_a := private.create_clinical_task(p8, 'amber_bp_review', null, 's18-reroute-1');
+  perform pg_temp.rec('the task is offered to the patient''s lead', 'offered_to_lead', (select state::text from public.clinical_tasks where id = v_t_a));
+  perform private.reroute_offered_tasks(p8, v_a, v_k);
+  perform pg_temp.rec('a new lead with no declared hours is not given an exclusive offer: the task goes to the pool', 'open,none',
+    (select state::text || ',' || coalesce(lead_clinician_id::text, 'none') from public.clinical_tasks where id = v_t_a));
+  v_t_b := private.create_clinical_task(p8, 'amber_bp_review', null, 's18-reroute-2');
+  perform private.reroute_offered_tasks(p8, v_a, v_c);
+  perform pg_temp.rec('a new lead who is working keeps the offer', 'offered_to_lead,' || v_c::text,
+    (select state::text || ',' || coalesce(lead_clinician_id::text, 'none') from public.clinical_tasks where id = v_t_b));
+  update public.clinical_staff set active = false where profile_id = v_k;
+
+  -- nobody left to lead: suspend every lead-capable clinician; every patient is unassigned, tasks open, an incident stands
+  update public.clinical_staff set license_expires_at = now() - interval '1 day' where id in (v_staff_a, v_staff_c, v_staff_r1, v_staff_r2, v_staff_r3);
   perform private.credential_expiry_sweep();
   perform public.lead_on_clinician_event(v_staff_a, 'clinician.suspended');
   perform public.lead_on_clinician_event(v_staff_c, 'clinician.suspended');
+  perform public.lead_on_clinician_event(v_staff_r1, 'clinician.suspended');
+  perform public.lead_on_clinician_event(v_staff_r2, 'clinician.suspended');
+  perform public.lead_on_clinician_event(v_staff_r3, 'clinician.suspended');
   perform pg_temp.rec('with no lead-capable clinician left, patients are unassigned, never silently dropped', 'true',
-    (select (count(*) > 0 and bool_and(clinician_id is null))::text from public.lead_assignments where state in ('active', 'unassigned') and patient_id in (pn1, pn2, pn3)));
+    (select (count(*) > 0 and bool_and(clinician_id is null))::text from public.lead_assignments where state in ('active', 'unassigned') and patient_id in (p2, p4, p6, p8, pn1, pn2, pn3)));
   perform pg_temp.rec('an open incident stands for patients without a lead', '1', (select count(*)::text from public.ops_incidents where external_reference = 'lead_unassigned:' || v_org and status not in ('resolved', 'closed')));
-  perform pg_temp.rec('offered tasks of removed leads moved to the pool', '0', (select count(*)::text from public.clinical_tasks where patient_id in (pn1, pn2, pn3) and state = 'offered_to_lead' and lead_clinician_id in (v_a, v_b, v_c)));
+  perform pg_temp.rec('offered tasks of removed leads moved to the pool', '0', (select count(*)::text from public.clinical_tasks where patient_id in (p2, p4, p6, p8, pn1, pn2, pn3) and state = 'offered_to_lead' and lead_clinician_id in (v_a, v_b, v_c, r1, r2, r3)));
   perform pg_temp.act(v_cmo);
   perform pg_temp.rec('capacity status reports no room', 'false', (public.lead_capacity_status(v_org) ->> 'accepting_new_patients'));
   perform pg_temp.back();

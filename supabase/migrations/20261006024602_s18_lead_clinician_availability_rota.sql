@@ -60,8 +60,6 @@ insert into public.lead_config (version, is_active, effective_from, rules) value
   "lead_min_doctor_tier": "senior_medical_officer",
   "required_competencies": ["lead_clinician", "hypertension"],
   "block_min_hours": 2,
-  "block_max_hours": 16,
-  "auto_confirm_kinds": ["queue", "bookable_consultations"],
   "minimum_guarantee_kinds": ["queue", "on_call"],
   "rota_max_shift_hours": 24,
   "rota_horizon_days": 14,
@@ -73,8 +71,6 @@ insert into public.lead_config (version, is_active, effective_from, rules) value
   "post_call_rest_hours": 8,
   "post_call_rest_min_shift_hours": 8,
   "contracted_needs_declared_hours": true,
-  "swap_requires_acceptance": true,
-  "unassigned_retry_minutes": 15,
   "override_reason_min_chars": 10
 }
 $json$::jsonb);
@@ -288,7 +284,20 @@ as $$
 begin
   if new.status <> 'lifted' and exists (select 1 from public.lead_assignments la
       where la.patient_id = new.patient_id and la.clinician_id = new.clinician_id and la.state = 'active') then
-    perform private.replace_lead_internal(new.patient_id, new.clinician_id, 'conflict', new.declared_by, 'conflict of interest on record');
+    -- The conflict row is the safety record and must survive: if moving the lead fails, keep the conflict, raise an
+    -- incident and leave it to the nightly reconcile (which also sees the conflict) to retry. Never lose the declaration.
+    begin
+      perform private.replace_lead_internal(new.patient_id, new.clinician_id, 'conflict', new.declared_by, 'conflict of interest on record');
+    exception when others then
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values (new.organisation_id, 'lead_conflict_replace.error', 'clinician_conflict', new.id, jsonb_build_object('error', sqlerrm));
+      if not exists (select 1 from public.ops_incidents where external_reference = 'lead_conflict_replace_failed' and status not in ('resolved', 'closed')) then
+        insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+        values (new.organisation_id, 'clinical', 'sev2', 'A conflicted lead clinician could not be replaced',
+                'A conflict of interest was recorded against a patient''s lead clinician but the patient could not be moved to another lead; see audit_log action lead_conflict_replace.error. The nightly check will retry.',
+                'lead_conflict_replace_failed', now(), now());
+      end if;
+    end;
   end if;
   return null;
 end;
@@ -361,7 +370,7 @@ create function private.clinician_in_post_call_rest(p_profile uuid, p_at timesta
 language sql stable security definer set search_path = ''
 as $$
   select exists (select 1 from public.on_call_rota r
-   where r.cancelled_at is null and (r.primary_clinician_id = p_profile or r.backup_clinician_id = p_profile)
+   where r.cancelled_at is null and r.primary_clinician_id = p_profile   -- the backup is only paged if the primary does not answer
      and r.ends_at <= p_at
      and r.ends_at > p_at - make_interval(hours => (private.lead_rule('post_call_rest_hours') #>> '{}')::integer)
      and extract(epoch from (r.ends_at - r.starts_at)) / 3600.0 >= (private.lead_rule('post_call_rest_min_shift_hours') #>> '{}')::numeric);
@@ -587,11 +596,11 @@ declare
   v_hours integer := (private.lead_rule('gap_alert_hours') #>> '{}')::integer;
   v_summary text;
 begin
-  select count(*), count(*) filter (where gap_start <= now()) into v_n, v_now
-    from private.rota_gaps(p_org, now(), now() + make_interval(hours => v_hours));
+  with g as (select * from private.rota_gaps(p_org, now(), now() + make_interval(hours => v_hours)))
+  select count(*), count(*) filter (where gap_start <= now()),
+         string_agg(format('%s from %s to %s', kind, to_char(gap_start at time zone 'Africa/Lagos', 'DD Mon HH24:MI'), to_char(gap_end at time zone 'Africa/Lagos', 'DD Mon HH24:MI')), '; ' order by gap_start)
+    into v_n, v_now, v_summary from g;
   if v_n = 0 then return 0; end if;
-  select string_agg(format('%s from %s to %s', g.kind, to_char(g.gap_start at time zone 'Africa/Lagos', 'DD Mon HH24:MI'), to_char(g.gap_end at time zone 'Africa/Lagos', 'DD Mon HH24:MI')), '; ' order by g.gap_start)
-    into v_summary from private.rota_gaps(p_org, now(), now() + make_interval(hours => v_hours)) g;
   if exists (select 1 from public.ops_incidents where external_reference = v_ref and status not in ('resolved', 'closed')) then
     update public.ops_incidents set summary = 'On-call cover problem in the next ' || v_hours || ' hours: ' || v_summary
      where external_reference = v_ref and status not in ('resolved', 'closed');
@@ -775,6 +784,8 @@ begin
            (select count(*)::integer from public.lead_assignments la where la.clinician_id = cs.profile_id and la.state = 'active' and not la.is_test) as n
       from public.clinical_staff cs
      where cs.profile_id is not null and cs.organisation_id = pr.organisation_id and cs.active and cs.status = 'active'
+       -- test and real never mix (INV-13, as S17 does for the queue)
+       and cs.is_test = pr.is_test
        and cs.doctor_tier is not null and private.doctor_tier_rank(cs.doctor_tier) >= private.doctor_tier_rank(v_min)
        and cs.profile_id <> p_patient and not (cs.profile_id = any(p_exclude))
        and private.clinician_is_eligible(cs.profile_id)
@@ -793,6 +804,23 @@ begin
 end;
 $$;
 revoke all on function private.lead_candidates(uuid, uuid[], boolean) from public, anon, authenticated;
+
+-- Is this clinician STILL allowed to lead this patient? Same rules as lead_candidates minus the two that must not end a
+-- lead: leave (they will be back; only offers pause) and capacity (they already hold the patient).
+create function private.lead_valid(p_clinician uuid, p_patient uuid) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.clinical_staff cs join public.profiles pr on pr.id = p_patient
+     where cs.profile_id = p_clinician and cs.organisation_id = pr.organisation_id and cs.active and cs.status = 'active'
+       and cs.doctor_tier is not null
+       and private.doctor_tier_rank(cs.doctor_tier) >= private.doctor_tier_rank((private.lead_rule('lead_min_doctor_tier') #>> '{}')::public.doctor_tier)
+       and cs.profile_id <> p_patient
+       and private.clinician_is_eligible(cs.profile_id)
+       and not private.has_conflict(cs.profile_id, p_patient)
+       and not exists (select 1 from jsonb_array_elements_text(private.lead_rule('required_competencies')) k where not private.has_competency(cs.profile_id, k)));
+$$;
+revoke all on function private.lead_valid(uuid, uuid) from public, anon, authenticated;
 
 -- Spec 7.5 step 2: prefer the clinician who already treated the patient, then language where possible, then the fewest
 -- active leads, ties by reliability, then a stable id so the choice is repeatable.
@@ -868,9 +896,12 @@ language plpgsql security definer set search_path = ''
 as $$
 declare t record; n integer := 0;
 begin
-  for t in select id, min_tier from public.clinical_tasks
+  for t in select id, min_tier, lead_window_ends_at from public.clinical_tasks
             where patient_id = p_patient and state = 'offered_to_lead' and (lead_clinician_id = p_old or pushed_to = p_old) for update loop
-    if p_new is not null and exists (select 1 from public.clinical_staff cs where cs.profile_id = p_new and private.doctor_tier_rank(cs.doctor_tier) >= private.doctor_tier_rank(t.min_tier)) then
+    -- the new lead gets an exclusive offer only if they can actually be working inside the window (declared hours, not in rest)
+    if p_new is not null
+       and exists (select 1 from public.clinical_staff cs where cs.profile_id = p_new and private.doctor_tier_rank(cs.doctor_tier) >= private.doctor_tier_rank(t.min_tier))
+       and private.clinician_offerable(p_new, now(), coalesce(t.lead_window_ends_at, now() + interval '4 hours')) then
       perform set_config('tarragon.task_transition', 'on', true);
       update public.clinical_tasks set lead_clinician_id = p_new, delivery_path = 'pull', pushed_to = null where id = t.id;
       perform set_config('tarragon.task_transition', 'off', true);
@@ -903,7 +934,7 @@ begin
   select * into cur from public.lead_assignments where patient_id = p_patient and state in ('active', 'unassigned') for update;
   v_have := found;
   if v_have and cur.state = 'active' then
-    if exists (select 1 from private.lead_candidates(p_patient, '{}', false) where cand = cur.clinician_id) then return cur.clinician_id; end if;
+    if private.lead_valid(cur.clinician_id, p_patient) then return cur.clinician_id; end if;
     return private.replace_lead_internal(p_patient, cur.clinician_id, private.lead_ineligibility_reason(cur.clinician_id, p_patient), p_actor, 'no longer eligible to lead');
   end if;
   v_new := private.choose_lead(p_patient, '{}');
@@ -1144,7 +1175,7 @@ declare
   v_over integer;
 begin
   for la in select l.patient_id, l.clinician_id, l.organisation_id from public.lead_assignments l where l.state = 'active' loop
-    if not exists (select 1 from private.lead_candidates(la.patient_id, '{}', false) where cand = la.clinician_id) then
+    if not private.lead_valid(la.clinician_id, la.patient_id) then
       begin
         perform private.replace_lead_internal(la.patient_id, la.clinician_id, private.lead_ineligibility_reason(la.clinician_id, la.patient_id), null, 'nightly eligibility check');
         v_fixed := v_fixed + 1;
@@ -1277,6 +1308,26 @@ begin
     'conflicts_open', (select count(*) from public.clinician_conflicts where organisation_id = v_org and status <> 'lifted'));
 end;
 $$;
+
+-- A patient with a live lead record is led through the lead functions, which apply the tier, competency, conflict and
+-- capacity rules and keep chart access (care_team_assignment, INV-12) and task routing (lead_assignments) in step. A
+-- hand edit of care_team_assignment.clinician_id would split the two, so it is refused while a lead record is live.
+-- Clearing it (null) is always allowed: that only removes access, and a profile delete does it through the foreign key.
+create function private.guard_care_team_lead() returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.clinician_id is not null and new.clinician_id is distinct from old.clinician_id
+     and coalesce(current_setting('tarragon.lead_write', true), '') <> 'on'
+     and exists (select 1 from public.lead_assignments la where la.patient_id = new.patient_id and la.state in ('active', 'unassigned')) then
+    raise exception 'this patient''s lead clinician is managed on the rota and lead page: use Change lead there' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function private.guard_care_team_lead() from public, anon, authenticated;
+create trigger care_team_assignment_guard_lead before update of clinician_id on public.care_team_assignment
+  for each row execute function private.guard_care_team_lead();
 
 -- ---------------------------------------------------------------------------
 -- 10. Subscribers
