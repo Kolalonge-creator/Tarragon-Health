@@ -607,6 +607,19 @@ export const TEMPLATE_MAP: Record<
     smsText: "A note is waiting for your signature.",
     pushUrl: "/clinician/patients",
   }),
+  // S24 care plan changes. Push and in-app only (INV-08), neutral (INV-07): the payload is ids only and is never echoed.
+  care_change_ready_patient: () => ({
+    smsText: "Your care team has a change for you. Open the Tarragon Health app to read it.",
+    pushUrl: "/patient/medications",
+  }),
+  care_change_declined_staff: () => ({
+    smsText: "A patient answered a change. Nothing was changed. Open your patient list.",
+    pushUrl: "/clinician/patients",
+  }),
+  care_change_expired_staff: () => ({
+    smsText: "A signed change lapsed. Nothing was changed. Open your patient list.",
+    pushUrl: "/clinician/patients",
+  }),
   // Sent after a patient self-books a video check-in slot (bookVideoVisit).
   // Confirmation only — the join link lives in the app.
   video_consult_booked: (payload) => {
