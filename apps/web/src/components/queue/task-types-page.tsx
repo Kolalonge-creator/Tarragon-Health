@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { formatMinutes, taskTypeSchema, TASK_TYPE_LABEL, TIER_LABEL, UNCONFIRMED_TASK_TYPES, type TaskTypeRow } from "@/lib/queue/task-types";
+import { formatMinutes, taskTypeSchema, TASK_TYPE_LABEL, TIER_LABEL, type TaskTypeRow } from "@/lib/queue/task-types";
+import { confirmTaskTypeAction } from "@/app/(dashboard)/clinician/triage-rules/actions";
 
 type TableReader = { from(table: string): { select(columns: string): { eq(column: string, value: boolean): PromiseLike<{ data: unknown; error: { message: string } | null }> } } };
 
-const COLUMNS = "code, priority_class, default_due_minutes, min_doctor_tier, required_competencies, lead_window_minutes, claim_timeout_minutes, pushable, creatable, source_task_keys, note";
+const COLUMNS = "code, priority_class, default_due_minutes, min_doctor_tier, required_competencies, lead_window_minutes, claim_timeout_minutes, pushable, creatable, source_task_keys, note, needs_confirmation, confirmed_at, confirmation_note";
 
 async function loadTaskTypes(): Promise<{ rows: TaskTypeRow[]; failed: boolean }> {
   // task_types is not in the generated types yet (S16 added it); the rows are checked with Zod instead.
@@ -17,7 +18,7 @@ async function loadTaskTypes(): Promise<{ rows: TaskTypeRow[]; failed: boolean }
 }
 
 /** Read-only list of the kinds of clinician work, shared by the admin and the Chief Medical Officer pages. */
-export async function TaskTypesPage() {
+export async function TaskTypesPage({ canConfirm = false, done, error }: { canConfirm?: boolean; done?: string; error?: string }) {
   const { rows, failed } = await loadTaskTypes();
   return (
     <div className="space-y-5">
@@ -28,6 +29,8 @@ export async function TaskTypesPage() {
           These are proposed values, held as versioned data. Changing one is a new version, not an edit.
         </p>
       </div>
+      {done && <p role="status" className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">{done}</p>}
+      {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-900">{error}</p>}
       {failed ? (
         <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
           The task types could not be loaded just now. Try again in a moment; nothing has been changed.
@@ -52,9 +55,29 @@ export async function TaskTypesPage() {
                 {!t.creatable && <Row label="Created directly" value="No, reached by promotion only" />}
               </dl>
               {t.note && <p className="mt-2 text-xs text-charcoal-ink/60">{t.note}</p>}
-              {UNCONFIRMED_TASK_TYPES.includes(t.code) && (
-                <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  Not in the original specification. The Chief Medical Officer confirms its class and tier when signing the triage rule set.
+              {t.needs_confirmation && !t.confirmed_at && (
+                <div className="mt-3 space-y-2 rounded-lg bg-amber-50 px-3 py-3 text-sm text-amber-900">
+                  <p>Not in the original specification. It must be confirmed by the Chief Medical Officer before the triage rule set can be signed.</p>
+                  {canConfirm ? (
+                    <form action={confirmTaskTypeAction} className="space-y-2">
+                      <input type="hidden" name="code" value={t.code} />
+                      <label className="block text-xs">
+                        Note (optional)
+                        <input name="note" maxLength={500} className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-charcoal-ink" />
+                      </label>
+                      <button type="submit" className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green">
+                        Confirm this task type
+                      </button>
+                    </form>
+                  ) : (
+                    <p className="text-xs">Only the Chief Medical Officer can confirm it.</p>
+                  )}
+                </div>
+              )}
+              {t.needs_confirmation && t.confirmed_at && (
+                <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+                  Confirmed by the Chief Medical Officer on {new Date(t.confirmed_at).toLocaleString("en-GB", { timeZone: "Africa/Lagos" })}.
+                  {t.confirmation_note ? ` Note: ${t.confirmation_note}` : ""}
                 </p>
               )}
             </li>

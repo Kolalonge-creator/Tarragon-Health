@@ -583,6 +583,8 @@ export function getNavSections(
                 { label: "AI governance sign-off", href: "/clinician/ai-governance", icon: "review" },
                 { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
+                { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
+                { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
                 { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
                 { label: "Alert rules", href: "/clinician/alert-rules", icon: "siren" },
                 { label: "Escalation SLAs", href: "/clinician/escalation-slas", icon: "escalation" },
