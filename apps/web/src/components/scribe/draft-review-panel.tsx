@@ -31,7 +31,7 @@ interface DraftReviewPanelProps {
 export function DraftReviewPanel({ draft, patientSummary, onUse, onDiscard }: DraftReviewPanelProps) {
   const [fields, setFields] = useState({ ...draft, patientSummary });
   const [confirmed, setConfirmedState] = useState<Confirmations>({});
-  const [edited, setEdited] = useState<Partial<Record<DraftSectionKey, true>>>({});
+  const [edited, setEdited] = useState<Partial<Record<DraftSectionKey, boolean>>>({});
   const remaining = unconfirmed(confirmed).length;
 
   const sections: Array<{ key: keyof typeof fields; label: string }> = [
@@ -67,7 +67,7 @@ export function DraftReviewPanel({ draft, patientSummary, onUse, onDiscard }: Dr
               rows={key === "patientSummary" ? 4 : 3}
             />
             {isEmptySection(fields[key]) && (
-              <p role="status" className="mt-1 text-xs text-amber-700">{t("scribe.review.empty_flag", "en")}</p>
+              <p className="mt-1 text-xs text-amber-700">{t(key === "patientSummary" ? "scribe.review.empty_summary" : "scribe.review.empty_flag", "en")}</p>
             )}
             {edited[key] && !confirmed[key] && (
               <p className="mt-1 text-xs text-amber-700">{t("scribe.review.edited", "en")}</p>
@@ -78,7 +78,7 @@ export function DraftReviewPanel({ draft, patientSummary, onUse, onDiscard }: Dr
                 checked={Boolean(confirmed[key])}
                 onChange={(e) => {
                   setConfirmedState((prev) => setConfirmed(prev, key, e.target.checked));
-                  if (e.target.checked) setEdited((prev) => ({ ...prev, [key]: undefined }));
+                  if (e.target.checked) setEdited((prev) => ({ ...prev, [key]: false }));
                 }}
               />
               {isEmptySection(fields[key]) ? t("scribe.review.confirm_empty", "en") : t("scribe.review.confirm_read", "en")}

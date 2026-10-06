@@ -1285,4 +1285,5 @@ export const pcm: Record<MessageKey, string> = {
   "queue.due_in": "Go due in {minutes} minutes",
   "scribe.review.look_for": "Before you confirm, check wetin no dey, no be only wetin wrong: allergies, medicine and dose, wetin patient talk say e no get, and di follow-up plan. Wetin miss na di common mistake for AI notes.",
   "queue.updated": "We update am {time}",
+  "scribe.review.empty_summary": "Dem no draft patient summary. Write one, or confirm say e no dey.",
 };

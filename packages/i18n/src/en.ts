@@ -1284,6 +1284,7 @@ export const en = {
   "queue.due_in": "Due in {minutes} minutes",
   "scribe.review.look_for": "Before you confirm, look for what is missing, not only what is wrong: allergies, medicines and doses, things the patient said they do NOT have, and the follow-up plan. Missing items are the most common error in AI notes.",
   "queue.updated": "Updated {time}",
+  "scribe.review.empty_summary": "No patient summary was drafted. Write one, or confirm there is none.",
 } as const;
 
 export type MessageKey = keyof typeof en;

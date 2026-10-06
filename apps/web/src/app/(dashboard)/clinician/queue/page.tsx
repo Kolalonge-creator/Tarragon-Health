@@ -6,8 +6,9 @@ import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SlaBadge } from "@/components/clinician/sla-badge";
 import { formatKobo } from "@/lib/format-money";
-import { classCounts, heldTaskSchema, minutesLeft, queueSummarySchema, slaState } from "@/lib/clinician/queue-console";
+import { classCounts, heldTaskSchema, minutesLeft, queueSummarySchema } from "@/lib/clinician/queue-console";
 import { ExtendForm, NextTaskForm } from "./forms";
 
 export const metadata = { title: "Queue" };
@@ -111,12 +112,7 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
                     </Badge>
                     <span className="text-sm font-medium text-charcoal-ink">{task.type.replace(/_/g, " ")}</span>
                     {task.due_at && <span className="text-xs text-charcoal-ink/60">{t("task.due", "en")} {dateTime(task.due_at)}</span>}
-                    {(() => {
-                      const sla = slaState(task.due_at, now);
-                      if (sla.kind === "overdue") return <Badge variant="red">{t("queue.overdue", "en")}</Badge>;
-                      if (sla.kind === "due") return <Badge variant="blue">{t("queue.due_in", "en", { minutes: sla.minutes })}</Badge>;
-                      return null;
-                    })()}
+                    <SlaBadge dueAt={task.due_at} now={now} />
                     {left !== null && (
                       <span className="text-xs text-charcoal-ink/60">
                         {left === 0 ? t("queue.expired", "en") : t("queue.time_left", "en", { minutes: left })}
