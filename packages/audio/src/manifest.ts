@@ -26,7 +26,7 @@ const ID = /^[A-Z]{3}-[A-Z0-9]+$/;
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
-/** `TH-EMG-004-EN.mp3`, or `TH-NUM-148.mp3` for a recording shared by both languages (list section 3.3). */
+/** `TH-EMG-004-EN.mp3`, or `TH-NUM-148.mp3` for a recording that does not depend on the language (list section 3.3). */
 export function fileNameFor(clipId: string, key: FileKey): string {
   return key === "shared" ? `TH-${clipId}.mp3` : `TH-${clipId}-${key.toUpperCase()}.mp3`;
 }
@@ -36,7 +36,6 @@ export function requiredReviews(clip: Pick<ManifestClip, "clinical" | "legal">, 
   const r: ReviewKind[] = ["brand"];
   if (clip.clinical) r.push("clinical");
   if (clip.legal) r.push("legal");
-  if (key === "pcm") r.push("native_pidgin");
   return r;
 }
 
@@ -96,10 +95,6 @@ function checkFile(clip: ManifestClip, key: FileKey, file: ClipFile, problems: s
   }
   // A sign-off is for a recording. No approval can exist for a file that does not.
   if (!recorded && file.approvals.length > 0) problems.push(`${at}: approvals on a clip that has no recording`);
-  // Held Pidgin is English words; recording and approving it as Pidgin would put unreviewed words in the patient's ears.
-  if (key === "pcm" && clip.pcm_text === "held_as_english" && file.approvals.length > 0) {
-    problems.push(`${at}: Pidgin is held as English (OQ-19); release it in audio/source/pcm-released.json before approving a recording`);
-  }
 }
 
 function checkSignoff(so: PhraseSignoff, problems: string[]): void {

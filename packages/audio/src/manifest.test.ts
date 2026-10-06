@@ -51,10 +51,10 @@ describe("audio/manifest.json (the real one)", () => {
 
   it("names every file the way the list says (TH-EMG-004-EN.mp3, TH-NUM-148.mp3)", () => {
     expect(clip("EMG-004").files.en?.file).toBe("TH-EMG-004-EN.mp3");
-    expect(clip("EMG-004").files.pcm?.file).toBe("TH-EMG-004-PCM.mp3");
+    expect(clip("EMG-004").files.shared).toBeUndefined();
     expect(clip("NUM-148").files.shared?.file).toBe("TH-NUM-148.mp3");
     expect(clip("NUM-148").files.en).toBeUndefined();
-    expect(clip("NUM-P01").files.pcm?.file).toBe("TH-NUM-P01-PCM.mp3");
+    expect(clip("NUM-P01").files.en?.file).toBe("TH-NUM-P01-EN.mp3");
   });
 
   it("has no recording and no approval anywhere: only a person adds those", () => {
@@ -65,29 +65,21 @@ describe("audio/manifest.json (the real one)", () => {
     }
   });
 
-  it("marks clinical groups, and holds their Pidgin as English until a clinician signs it (OQ-19, OQ-87)", () => {
+  it("marks clinical groups", () => {
     for (const id of ["EMG-001", "TRI-002", "SYM-004", "RES-001", "CON-001", "NUM-P01", "HLP-003", "HLP-018"]) {
       expect([id, clip(id).clinical]).toEqual([id, true]);
     }
-    for (const id of ["EMG-001", "TRI-006", "NUM-P03", "SYM-009"]) expect(clip(id).pcm_text).toBe("held_as_english");
     expect(clip("ONB-002").clinical).toBe(false);
-    expect(clip("ONB-002").pcm_text).toBe("needs_native_review");
     expect(clip("HLP-001").clinical).toBe(false);
     expect(clip("ONB-010").legal).toBe(true);
     expect(clip("CON-001").legal).toBe(true);
   });
 
-  it("has a script in both languages for every scripted clip, and for nothing else", () => {
+  it("has a script for every scripted clip, and for nothing else", () => {
     const scripted = m.clips.filter((c) => !/^NUM-(\d{3}|S\d+)$/.test(c.id)).map((c) => c.id).sort();
     expect(Object.keys(AUDIO_SCRIPTS).sort()).toEqual(scripted);
     for (const [id, s] of Object.entries(AUDIO_SCRIPTS)) {
-      expect([id, s.en.trim().length > 0, s.pcm.trim().length > 0]).toEqual([id, true, true]);
-    }
-  });
-
-  it("makes held Pidgin text identical to the English text, so the screen and the voice say the same thing", () => {
-    for (const c of m.clips.filter((x) => x.pcm_text === "held_as_english")) {
-      expect([c.id, AUDIO_SCRIPTS[c.id].pcm]).toEqual([c.id, AUDIO_SCRIPTS[c.id].en]);
+      expect([id, s.en.trim().length > 0]).toEqual([id, true]);
     }
   });
 
@@ -143,7 +135,7 @@ describe("parseManifest rejects what would let a wrong clip play", () => {
     expect(() => parseManifest(null)).toThrow(ManifestError);
     expect(() => parseManifest({ schema_version: 2, clips: [] })).toThrow(/schema_version/);
     expect(() => parseManifest({ schema_version: 1 })).toThrow(/clips must be an array/);
-    expect(() => parseManifest(mutate((m) => { m.languages = ["en"]; }))).toThrow(/languages/);
+    expect(() => parseManifest(mutate((m) => { m.languages = ["en", "xx"]; }))).toThrow(/languages/);
     expect(() => parseManifest(mutate((m) => { m.groups = null; }))).toThrow(/groups/);
   });
 
@@ -199,15 +191,8 @@ describe("parseManifest rejects what would let a wrong clip play", () => {
 
   it("does not count a sign-off given to an earlier recording (fail closed)", () => {
     const base = finished(clip("EMG-001"));
-    const stale = { ...base, files: { en: { ...base.files.en!, sha256: "e".repeat(64) }, pcm: base.files.pcm } };
+    const stale = { ...base, files: { en: { ...base.files.en!, sha256: "e".repeat(64) } } };
     expect(playable(stale, "en")).toEqual({ ok: false, reason: "awaiting_review" });
-  });
-
-  it("rejects approving a Pidgin recording whose words are still held as English", () => {
-    const rec = { sha256: SHA, bytes: 10, approvals: [{ review: "native_pidgin", sha256: SHA, by: "A", on: "2026-10-06" }] };
-    expect(() => parseManifest(edit("EMG-001", "pcm", rec))).toThrow(/held as English/);
-    // A non-clinical clip's Pidgin can be approved: it is only a draft needing review.
-    expect(() => parseManifest(edit("ONB-002", "pcm", rec))).not.toThrow();
   });
 
   it("summarises long problem lists", () => {
@@ -217,9 +202,9 @@ describe("parseManifest rejects what would let a wrong clip play", () => {
 });
 
 describe("who must sign a recording, and when it may play", () => {
-  it("needs brand always, clinical for clinical clips, legal for legal clips and a native speaker for Pidgin", () => {
+  it("needs brand always, clinical for clinical clips, and legal for legal clips", () => {
     expect(requiredReviews({ clinical: false, legal: false }, "en")).toEqual(["brand"]);
-    expect(requiredReviews({ clinical: true, legal: false }, "pcm")).toEqual(["brand", "clinical", "native_pidgin"]);
+    expect(requiredReviews({ clinical: true, legal: false }, "en")).toEqual(["brand", "clinical"]);
     expect(requiredReviews({ clinical: true, legal: true }, "en")).toEqual(["brand", "clinical", "legal"]);
     expect(fileNameFor("NUM-148", "shared")).toBe("TH-NUM-148.mp3");
   });
@@ -235,9 +220,8 @@ describe("who must sign a recording, and when it may play", () => {
     expect(playable(base, "en").ok).toBe(true);
   });
 
-  it("plays a number clip from the one shared recording in either language", () => {
+  it("plays a number clip from the one shared recording", () => {
     const n = finished(clip("NUM-148"));
-    expect(playable(n, "pcm")).toMatchObject({ ok: true, key: "shared" });
     expect(playable(n, "en")).toMatchObject({ ok: true, key: "shared" });
   });
 

@@ -26,7 +26,7 @@ function workspace() {
     for (const c of m.clips)
       for (const [key, f] of Object.entries(c.files))
         if (names.includes(f.file)) {
-          const reviews = ["brand", ...(c.clinical ? ["clinical"] : []), ...(c.legal ? ["legal"] : []), ...(key === "pcm" ? ["native_pidgin"] : [])];
+          const reviews = ["brand", ...(c.clinical ? ["clinical"] : []), ...(c.legal ? ["legal"] : [])];
           f.approvals = reviews.map((review) => ({ review, sha256: f.sha256, by: "Test Reviewer", on: "2026-10-06" }));
         }
     writeFileSync(manifest, JSON.stringify(m));
