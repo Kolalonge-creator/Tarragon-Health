@@ -6,7 +6,7 @@ import { z } from "zod";
  * INV-09: nothing here carries a price or an amount; a membership is a dated entitlement.
  */
 
-export const MEMBERS_BASE_PATHS = ["/admin/members", "/clinician/members"] as const;
+export const MEMBERS_BASE_PATHS = ["/admin/memberships", "/clinician/memberships"] as const;
 export type MembersBasePath = (typeof MEMBERS_BASE_PATHS)[number];
 
 export const REASON_MIN = 10;

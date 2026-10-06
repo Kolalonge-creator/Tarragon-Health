@@ -12,6 +12,8 @@ export interface NoteIndexItem {
   signedAt: string;
   releaseState: ReleaseState;
   withholdReason: string | null;
+  /** Withdrawn "entered in error": the text is hidden for good. */
+  enteredInError: boolean;
 }
 
 export interface NoteCorrection {
@@ -37,6 +39,10 @@ export interface ReleasedNote {
   followUp: string | null;
   signedAt: string;
   corrections: NoteCorrection[];
+  /** True for a withdrawn note: no clinical text is present, only the facts below. */
+  enteredInError: boolean;
+  withdrawnAt: string | null;
+  withdrawnReason: string | null;
 }
 
 const RELEASE_STATES: readonly ReleaseState[] = ["not_requested", "requested", "released", "declined"];
@@ -57,6 +63,7 @@ export function parseNoteIndex(raw: Json | null): NoteIndexItem[] {
       signedAt,
       releaseState: RELEASE_STATES.find((s) => s === item.release_state) ?? "not_requested",
       withholdReason: str(item.withhold_reason),
+      enteredInError: item.entered_in_error === true,
     });
   }
   return out;
@@ -105,6 +112,9 @@ export function parseReleasedNotes(raw: Json | null): ReleasedNote[] {
       followUp: str(item.follow_up),
       signedAt,
       corrections: parseCorrections(item.corrections),
+      enteredInError: item.entered_in_error === true,
+      withdrawnAt: str(item.withdrawn_at),
+      withdrawnReason: str(item.withdrawn_reason),
     });
   }
   return out;
@@ -123,6 +133,7 @@ export const NOTE_SECTION_KEYS: readonly { field: "reason" | "history" | "examin
 /** Only sections that have text are shown, in a fixed order. */
 export function visibleSections(note: ReleasedNote): { key: MessageKey; text: string }[] {
   const out: { key: MessageKey; text: string }[] = [];
+  if (note.enteredInError) return out;
   for (const s of NOTE_SECTION_KEYS) {
     const text = note[s.field];
     if (text && text.trim().length > 0) out.push({ key: s.key, text });
@@ -155,8 +166,14 @@ export function correctionStateKey(state: CorrectionState): MessageKey {
 }
 
 /** The request button shows only before a request, and again never while one is open or granted. */
-export function canRequestRelease(state: ReleaseState): boolean {
+export function canRequestRelease(state: ReleaseState, enteredInError = false): boolean {
+  if (enteredInError) return false;
   return state === "not_requested" || state === "declined";
+}
+
+/** What a withdrawn note shows: the facts only, never sections, a correction form or a request button. */
+export function isWithdrawn(item: { enteredInError: boolean }, note: { enteredInError: boolean } | null): boolean {
+  return item.enteredInError || note?.enteredInError === true;
 }
 
 export const CORRECTION_MIN_CHARS = 10;

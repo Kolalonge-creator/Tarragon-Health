@@ -12,9 +12,11 @@ export type SignoffQueueItem = {
    * before it can even be signed. draft_pending: a reviewed draft waiting to be
    * promoted and signed. */
   severity: "live_unsigned" | "setup_needed" | "draft_pending";
+  /** How many underlying things this one line stands for (rules, content blocks), when more than one. */
+  count?: number;
 };
 
-const SEVERITY_RANK: Record<SignoffQueueItem["severity"], number> = {
+export const SEVERITY_RANK: Record<SignoffQueueItem["severity"], number> = {
   live_unsigned: 0,
   draft_pending: 1,
   setup_needed: 2,
@@ -40,26 +42,38 @@ type VersionedTableName =
   | "risk_questionnaire_configs"
   | "vaccination_schedule_signoffs";
 
-const VERSIONED_TABLES: { table: VersionedTableName; title: string; href: string }[] = [
-  { table: "alert_rules", title: "Alert rules", href: "/admin/settings/alert-rules" },
-  { table: "escalation_slas", title: "Escalation SLAs", href: "/admin/settings/escalation-slas" },
-  { table: "triage_protocols", title: "Symptom triage protocols", href: "/admin/settings/triage-protocols" },
+const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string }[] = [
+  { table: "alert_rules", title: "Alert rules", slug: "alert-rules" },
+  { table: "escalation_slas", title: "Escalation SLAs", slug: "escalation-slas" },
+  { table: "triage_protocols", title: "Symptom triage protocols", slug: "triage-protocols" },
   {
     table: "mental_health_screening_cadences",
     title: "Mental health screening cadences",
-    href: "/admin/settings/mental-health-screening",
+    slug: "mental-health-screening",
   },
-  { table: "provider_quality_policy", title: "Provider quality policy", href: "/admin/settings/provider-quality-policy" },
-  { table: "cv_risk_config", title: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config" },
+  { table: "provider_quality_policy", title: "Provider quality policy", slug: "provider-quality-policy" },
+  { table: "cv_risk_config", title: "CV-risk (cholesterol) config", slug: "cv-risk-config" },
   {
     table: "risk_questionnaire_configs",
     title: "Risk questionnaire configuration",
-    href: "/admin/settings/risk-questionnaire-config",
+    slug: "risk-questionnaire-config",
   },
-  { table: "vaccination_schedule_signoffs", title: "Vaccination schedule", href: "/admin/settings/vaccination-schedule" },
+  { table: "vaccination_schedule_signoffs", title: "Vaccination schedule", slug: "vaccination-schedule" },
 ];
 
-export async function getSignoffQueue(supabase: SupabaseClient<Database>): Promise<SignoffQueueItem[]> {
+/**
+ * `basePath` picks which console the item links point into: `/admin/settings`
+ * (the default, the admin hub) or `/clinician` (the Chief Medical Officer's own
+ * signing hub). A real CMO account is always `profiles.role = 'clinician'`, so
+ * proxy.ts refuses every `/admin/*` link before the page loads; a queue that
+ * names what to sign and then hands over a link that cannot be opened is the
+ * exact failure the hub exists to remove. Every slug used below has a matching
+ * page under both bases.
+ */
+export async function getSignoffQueue(
+  supabase: SupabaseClient<Database>,
+  basePath: string = "/admin/settings"
+): Promise<SignoffQueueItem[]> {
   const items: SignoffQueueItem[] = [];
 
   const versionedResults = await Promise.all(
@@ -82,7 +96,7 @@ export async function getSignoffQueue(supabase: SupabaseClient<Database>): Promi
         key: `versioned:${def.table}`,
         title: def.title,
         detail: `Version ${row.version} is live and driving real behaviour with no Clinical Director signature on file since ${new Date(row.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.`,
-        href: def.href,
+        href: `${basePath}/${def.slug}`,
         severity: "live_unsigned",
       });
     }
@@ -98,7 +112,7 @@ export async function getSignoffQueue(supabase: SupabaseClient<Database>): Promi
       key: `protocol_draft:${d.id}`,
       title: d.title,
       detail: `Protocol draft (${d.protocol_id}) — ${d.status === "in_review" ? "in review" : "drafted"}, ready to promote and sign.`,
-      href: "/admin/settings/protocols",
+      href: `${basePath}/protocols`,
       severity: "draft_pending",
     });
   }
@@ -117,7 +131,7 @@ export async function getSignoffQueue(supabase: SupabaseClient<Database>): Promi
         key: `unpromoted_protocol:${known.protocolId}`,
         title: known.title,
         detail: known.sourceHint,
-        href: "/admin/settings/protocols",
+        href: `${basePath}/protocols`,
         severity: "draft_pending",
       });
     }
@@ -133,20 +147,65 @@ export async function getSignoffQueue(supabase: SupabaseClient<Database>): Promi
       key: "lpe_content_blocks",
       title: "Lifestyle coaching content",
       detail: `${unreviewedLpeCount} content block${unreviewedLpeCount === 1 ? "" : "s"} the AI Coach can reference, never reviewed by a clinician.`,
-      href: "/admin/settings/lpe-content-library",
+      href: `${basePath}/lpe-content-library`,
       severity: "live_unsigned",
+      count: unreviewedLpeCount,
     });
   }
 
+  // Result release policies: the governed switch deciding whether an abnormal
+  // result waits for a doctor or reaches the patient the instant it is
+  // recorded. v1 went live unsigned by design (a transcription of an older
+  // rule is not a fresh attestation), so "active but never signed" is the
+  // normal outstanding state here, and a drafted re-attestation is the other.
+  const { data: releasePolicies, error: releaseError } = await supabase
+    .from("result_release_policies")
+    .select("id, version, is_active, approved_at");
+  if (releaseError) {
+    throw new Error(`signoff-queue: failed reading result_release_policies: ${releaseError.message}`);
+  }
+  const activeRelease = (releasePolicies ?? []).find((r) => r.is_active);
+  const pendingReleaseDraft = (releasePolicies ?? []).find((r) => !r.is_active && !r.approved_at);
+  if (activeRelease && !activeRelease.approved_at) {
+    items.push({
+      key: "result_release_policies",
+      title: "Result release policies",
+      detail: `Version ${activeRelease.version} decides which abnormal results wait for a doctor before the patient sees them. It is live with no Clinical Director signature on file.`,
+      href: `${basePath}/result-release-policies`,
+      severity: "live_unsigned",
+    });
+  } else if (pendingReleaseDraft) {
+    items.push({
+      key: "result_release_policies",
+      title: "Result release policies",
+      detail: `Version ${pendingReleaseDraft.version} is drafted and waiting for your signature to come into force.`,
+      href: `${basePath}/result-release-policies`,
+      severity: "draft_pending",
+    });
+  }
+
+  // One row per rule_key, newest version: the same definition of "a rule's
+  // current state" the guided sign forms on the CMO hub use
+  // (readClinicalSignoffChecklist), so the count here can never disagree with
+  // the forms. An old unsigned draft that a later signed version superseded is
+  // not outstanding, and an unsigned rule whose newest version is already
+  // active still is.
   const { data: rules, error: rulesError } = await supabase
     .from("clinical_rules")
-    .select("id, status, owner_clinical_staff_id, protocol_version_id, approved_by")
-    .in("status", ["draft", "shadow"]);
+    .select("id, rule_key, version, status, owner_clinical_staff_id, protocol_version_id, approved_by")
+    .in("status", ["draft", "shadow", "active"])
+    .order("rule_key", { ascending: true })
+    .order("version", { ascending: false });
   if (rulesError) throw new Error(`signoff-queue: failed reading clinical_rules: ${rulesError.message}`);
-  const needsSetup = (rules ?? []).filter(
+  const newestRuleByKey = new Map<string, NonNullable<typeof rules>[number]>();
+  for (const r of rules ?? []) {
+    if (!newestRuleByKey.has(r.rule_key)) newestRuleByKey.set(r.rule_key, r);
+  }
+  const newestRules = [...newestRuleByKey.values()];
+  const needsSetup = newestRules.filter(
     (r) => !r.approved_by && (!r.owner_clinical_staff_id || !r.protocol_version_id)
   );
-  const readyToSign = (rules ?? []).filter(
+  const readyToSign = newestRules.filter(
     (r) => !r.approved_by && r.owner_clinical_staff_id && r.protocol_version_id
   );
   if (needsSetup.length > 0) {
@@ -154,8 +213,9 @@ export async function getSignoffQueue(supabase: SupabaseClient<Database>): Promi
       key: "clinical_rules_needs_setup",
       title: "Clinical rules engine",
       detail: `${needsSetup.length} rule${needsSetup.length === 1 ? "" : "s"} need an owner and a linked signed protocol assigned (via a new draft version) before they can be signed.`,
-      href: "/admin/settings/clinical-rules",
+      href: `${basePath}/clinical-rules`,
       severity: "setup_needed",
+      count: needsSetup.length,
     });
   }
   if (readyToSign.length > 0) {
@@ -163,8 +223,9 @@ export async function getSignoffQueue(supabase: SupabaseClient<Database>): Promi
       key: "clinical_rules_ready",
       title: "Clinical rules engine",
       detail: `${readyToSign.length} rule${readyToSign.length === 1 ? "" : "s"} have an owner and protocol assigned and are ready to sign.`,
-      href: "/admin/settings/clinical-rules",
+      href: `${basePath}/clinical-rules`,
       severity: "draft_pending",
+      count: readyToSign.length,
     });
   }
 

@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { REFERRAL_STATUS_BADGE } from "@/lib/worklist/referral-status-badge";
+import { REFERRAL_CONSENT_LABEL, submitConsentTimestamp } from "@/lib/validation/create-referral";
+import { chaseLabel } from "@/lib/referrals/chase";
 import { SPECIALIST_TYPE_OPTIONS, type SpecialistType } from "@tarragon/shared";
 
 const TERMINAL_STATUSES: SpecialistReferralWithDetails["status"][] = ["closed", "declined"];
@@ -24,12 +26,34 @@ const STATUS_FILTER_OPTIONS = Object.keys(REFERRAL_STATUS_BADGE) as SpecialistRe
 
 function DraftActions({ referral }: { referral: SpecialistReferralWithDetails }) {
   const submit = useSubmitDraftReferral();
+  // S24: never pre-ticked. Submitting shares the record with the specialist, so the patient's agreement is confirmed first.
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
   return (
-    <div className="flex items-center gap-2">
-      <Button size="sm" disabled={submit.isPending} onClick={() => submit.mutate(referral.id)}>
-        {submit.isPending ? "Submitting…" : "Submit referral"}
-      </Button>
-      {submit.isError && <p className="text-xs text-red-600">Could not submit. Try again.</p>}
+    <div className="space-y-2">
+      <label className="flex items-start gap-2 text-xs text-charcoal-ink">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4"
+          checked={consentConfirmed}
+          onChange={(e) => setConsentConfirmed(e.target.checked)}
+        />
+        {REFERRAL_CONSENT_LABEL}
+      </label>
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          disabled={submit.isPending || !consentConfirmed}
+          onClick={() =>
+            submit.mutate({
+              referralId: referral.id,
+              patientConsentAt: submitConsentTimestamp(consentConfirmed, new Date()),
+            })
+          }
+        >
+          {submit.isPending ? "Submitting…" : "Submit referral"}
+        </Button>
+        {submit.isError && <p className="text-xs text-red-600">Could not submit. Try again.</p>}
+      </div>
     </div>
   );
 }
@@ -167,6 +191,9 @@ export default function ClinicianReferralsPage() {
                   </p>
                   {referral.referral_reason && (
                     <p className="text-xs text-charcoal-ink/60">{referral.referral_reason}</p>
+                  )}
+                  {chaseLabel(referral, new Date()) && (
+                    <p className="text-xs text-charcoal-ink/60">{chaseLabel(referral, new Date())}</p>
                   )}
                   {referral.status === "waitlisted" && referral.interim_management_plan && (
                     <p className="text-xs text-charcoal-ink/60">

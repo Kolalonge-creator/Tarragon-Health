@@ -88,7 +88,7 @@ export interface QueueDeps {
 
 export function createWrittenQuestionQueue(deps: QueueDeps) {
   const now = deps.now ?? Date.now;
-  let inFlight: Promise<FlushSummary> | null = null;
+  const inFlight = new Map<string, Promise<FlushSummary>>();
 
   async function enqueue(userId: string, input: EnqueueInput): Promise<QueuedItem> {
     const photoBytes = input.photos.map((p) => ({ id: deps.newId(), bytes: p.bytes }));
@@ -237,16 +237,17 @@ export function createWrittenQuestionQueue(deps: QueueDeps) {
   }
 
   /**
-   * Sends what is due for this patient. Two callers at once share one run, so the same item is
-   * never in flight twice. `force` ignores the back-off (foreground, sign-in, a manual pull).
+   * Sends what is due for this patient. Two callers for the same patient at once share one run, so the
+   * same item is never in flight twice; different patients run independently. `force` ignores the back-off (foreground, sign-in, a manual pull).
    */
   function flush(userId: string, opts: { force?: boolean } = {}): Promise<FlushSummary> {
-    if (!inFlight) {
-      inFlight = run(userId, opts.force === true).finally(() => {
-        inFlight = null;
-      });
-    }
-    return inFlight;
+    const running = inFlight.get(userId);
+    if (running) return running;
+    const next = run(userId, opts.force === true).finally(() => {
+      inFlight.delete(userId);
+    });
+    inFlight.set(userId, next);
+    return next;
   }
 
   function photoBytes(clientId: string, photoId: string): Promise<Uint8Array | null> {

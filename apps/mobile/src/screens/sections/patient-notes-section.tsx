@@ -10,6 +10,7 @@ import {
   CORRECTION_MAX_CHARS,
   CORRECTION_MIN_CHARS,
   correctionStateKey,
+  isWithdrawn,
   visibleSections,
   type NoteIndexItem,
   type ReleasedNote,
@@ -96,7 +97,8 @@ function NoteRow({
     await onChanged();
   }
 
-  const showRequested = (item.releaseState === "requested" || asked) && item.releaseState !== "released";
+  const withdrawn = isWithdrawn(item, note);
+  const showRequested = !withdrawn && (item.releaseState === "requested" || asked) && item.releaseState !== "released";
 
   return (
     <Card style={{ gap: 8 }}>
@@ -104,20 +106,34 @@ function NoteRow({
         <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: colors.ink }}>
           {tr("notes.signed_on", { date: lagosDate(item.signedAt) })}
         </Text>
-        {item.releaseState === "released" ? <Badge tone="brand">{tr("notes.released_badge")}</Badge> : null}
+        {!withdrawn && item.releaseState === "released" ? <Badge tone="brand">{tr("notes.released_badge")}</Badge> : null}
       </View>
 
-      {item.releaseState === "declined" && item.withholdReason && !asked ? (
+      {withdrawn ? <WithdrawnNote note={note} tr={tr} /> : null}
+      {!withdrawn && item.releaseState === "declined" && item.withholdReason && !asked ? (
         <MutedText>{tr("notes.declined", { reason: item.withholdReason })}</MutedText>
       ) : null}
       {showRequested ? <MutedText>{tr("notes.requested")}</MutedText> : null}
-      {canRequestRelease(item.releaseState) && !asked ? (
+      {!withdrawn && canRequestRelease(item.releaseState, item.enteredInError) && !asked ? (
         <SecondaryButton title={tr("notes.request")} onPress={() => void request()} loading={busy} />
       ) : null}
       {errorKey ? <ErrorText>{tr(errorKey)}</ErrorText> : null}
 
-      {item.releaseState === "released" && note ? <ReleasedNoteBody note={note} tr={tr} onChanged={onChanged} /> : null}
+      {!withdrawn && item.releaseState === "released" && note ? <ReleasedNoteBody note={note} tr={tr} onChanged={onChanged} /> : null}
     </Card>
+  );
+}
+
+/** A note withdrawn "entered in error": facts only, no clinical text, nothing to correct or request. */
+function WithdrawnNote({ note, tr }: { note: ReleasedNote | null; tr: Translate }) {
+  const colors = useLegacyColors();
+  return (
+    <View style={{ gap: 4 }}>
+      <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>{tr("notes.withdrawn")}</Text>
+      {note?.withdrawnAt ? <MutedText>{tr("notes.withdrawn.on", { date: lagosDate(note.withdrawnAt) })}</MutedText> : null}
+      {note?.withdrawnReason ? <MutedText>{tr("notes.withdrawn.reason", { reason: note.withdrawnReason })}</MutedText> : null}
+      <MutedText>{tr("notes.withdrawn.explain")}</MutedText>
+    </View>
   );
 }
 

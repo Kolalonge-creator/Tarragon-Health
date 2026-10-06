@@ -244,7 +244,7 @@ export function WrittenQuestionsSection() {
         : await ImagePicker.launchImageLibraryAsync({ ...options, allowsMultipleSelection: false });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
-    const bytes = await readCleanPhoto(asset.uri, maxBytes);
+    const bytes = await readCleanPhoto(asset.uri, maxBytes, { width: asset.width ?? null, height: asset.height ?? null });
     if (!bytes) {
       setErrorKey("wq.error.photo_rejected");
       return;
