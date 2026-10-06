@@ -7,6 +7,8 @@
 export interface ScribeFixture {
   readonly language: "en-NG" | "pcm";
   readonly transcript: string;
+  /** "typed": notes pasted by a clinician (no timestamps), sent with the typed-notes line. Default is a transcript. */
+  readonly source?: "stt" | "typed";
 }
 
 const HYPERTENSION_VISIT = [
@@ -39,6 +41,15 @@ export const SCRIBE_FIXTURES: Record<string, ScribeFixture> = {
       "[00:06] PATIENT: Better, doctor. The cough is mostly gone and I am eating well.",
       "[00:15] CLINICIAN: Good. Keep resting and drink plenty of fluids. Call us if the cough returns or you get a fever.",
       "[00:25] PATIENT: Thank you, I will.",
+    ].join("\n"),
+  },
+  typed_shorthand_notes: {
+    language: "en-NG",
+    source: "typed",
+    transcript: [
+      "UNKNOWN: 52M c/o headache x 2/52, evenings. BP at pharmacy 168/100. No CP. Blurred vision when HA bad.",
+      "UNKNOWN: O/E BP 164/98.",
+      "UNKNOWN: Plan: start amlodipine 5mg od, review 2/52, reduce salt. Return/ED if severe HA, weakness, confusion.",
     ].join("\n"),
   },
   emergency_advice_kept: {

@@ -844,7 +844,10 @@ s22b_membership_claim_filter_idempotent_submit.sql
 s22c_credit_return_nullable_end_withdrawn_notes.sql
 # S19b: on-call readiness. Unconfirmed phone checklist refuses a clinician on the rota (primary, backup, swap), confirming needs every item and a clinician account, reviewers see who has not confirmed, a new checklist version clears confirmations. Sabotage: the rota check removed must flip the refusal.
 s19b_on_call_readiness.sql
+s23c_attach_scribe_draft_to_note.sql
 # S24: signed prescribing (prescribe and amend write a signed prescription; controlled medicine hard stop; allergy and duplicate checks), care_plan_changes (unsigned cannot be saved as signed; draft invisible to the patient; applies only on her confirmation; decline, expiry, re-check), protocols (immutable once approved), plan targets only through a signed change, referral consent and chase. Sabotage: the medicine signature trigger and the signature CHECK removed; both checks must flip.
 s24_prescriptions_and_care_plan_changes.sql
 # S30: fee schedules and the earnings ledger. Admin-only drafts and approval, an approved schedule never changes, the shared fee cases through the SQL, task / consultation / on-call / lead-month / pilot-minimum lines (idempotent, contracted only, flagged zero lines never silent, a posting failure never blocks completion), adjustments, an append-only ledger (payout_id linkable once), access by role and INV-13, queue_summary next_fee_kobo. Sabotage: the append-only guard and the fee-version CHECK removed; both checks must flip.
 s30_fee_schedules_and_earnings_ledger.sql
+# CMO sign-off hub: the active Chief Medical Officer can read unreviewed lpe_content_blocks (so the sign-off count and page are not silently empty); a non-CMO clinician, a patient and anon cannot; the CMO still cannot write a block directly. Sabotage: the new policy dropped; the CMO check must flip.
+lpe_content_blocks_cmo_read.sql

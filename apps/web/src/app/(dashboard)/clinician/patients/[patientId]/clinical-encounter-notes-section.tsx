@@ -18,6 +18,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
 import { ConsultationFollowUpsPanel } from "./consultation-follow-ups-panel";
+import { ScribePanel, type ScribeDraftResult } from "@/components/scribe";
+import { attachScribeDraftToNote } from "@/lib/scribe/actions";
+import { useScribeAvailable } from "@/lib/scribe/use-scribe-available";
+import { scribeErrorMessage } from "@/lib/scribe/error-messages";
 import { createNoteAmendment, setNoteProtected, withdrawNoteAsEnteredInError } from "./note-actions";
 import { AMENDMENT_KINDS, AMENDMENT_KIND_LABEL, type AmendmentKind, type NoteActionState } from "@/lib/clinician/note-requests";
 
@@ -426,6 +430,67 @@ function DraftNoteCard({
   const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const update = useUpdateEncounterNoteDraft();
   const finalize = useFinalizeEncounterNote();
+  const scribeAvailable = useScribeAvailable().data === true;
+  // Set when the clinician uses an AI scribe draft; recorded on the note (consent, summary, ai_drafted) at the next save or sign.
+  const [scribe, setScribe] = useState<(ScribeDraftResult & { persisted: boolean }) | null>(null);
+  const [scribeError, setScribeError] = useState<string | null>(null);
+
+  function applyScribeDraft(result: ScribeDraftResult) {
+    // Applying a second draft replaces the first one's text rather than stacking a duplicate after it.
+    const without = (existing: string, previous: string | undefined) =>
+      previous?.trim() ? existing.replace(previous.trim(), "").replace(/\n{3,}/g, "\n\n").trim() : existing;
+    const add = (existing: string, previous: string | undefined, incoming: string) => {
+      const base = without(existing, previous);
+      return incoming.trim() ? (base.trim() ? `${base.trim()}\n\n${incoming.trim()}` : incoming.trim()) : base;
+    };
+    const prev = scribe?.draft;
+    setFields((f) => ({
+      ...f,
+      history: add(f.history, prev?.history, result.draft.history),
+      examinationFindings: add(f.examinationFindings, prev?.examination, result.draft.examination),
+      assessment: add(f.assessment, prev?.assessment, result.draft.assessment),
+      plan: add(f.plan, prev?.plan, result.draft.plan),
+      followUpInstructions: add(f.followUpInstructions, prev?.followUp, result.draft.followUp),
+    }));
+    setScribe({ ...result, persisted: false });
+    setScribeError(null);
+  }
+
+  /** Records the scribe's consent and summary on the note before a save or sign. Returns false (and says why) if refused. */
+  async function persistScribe(): Promise<boolean> {
+    setScribeError(null);
+    if (!scribe || scribe.persisted) return true;
+    try {
+      await attachScribeDraftToNote({
+        encounterNoteId: note.id,
+        scribeConsentId: scribe.consentId,
+        patientSummary: scribe.patientSummary,
+        patientSummaryLanguage: scribe.language,
+      });
+      setScribe({ ...scribe, persisted: true });
+      return true;
+    } catch (err) {
+      setScribeError(scribeErrorMessage(err));
+      return false;
+    }
+  }
+
+  const noteFieldsPayload = () => ({
+    reason_for_encounter: fields.reasonForEncounter.trim(),
+    history: fields.history.trim() || null,
+    examination_findings: fields.examinationFindings.trim() || null,
+    assessment: fields.assessment.trim() || null,
+    diagnosis: fields.diagnosis.trim() || null,
+    plan: fields.plan.trim() || null,
+    follow_up_instructions: fields.followUpInstructions.trim() || null,
+  });
+
+  // Computed once on mount (the lint rule forbids Date.now() during render); age only needs to be right to the year.
+  const [ageYears] = useState(() =>
+    patientDateOfBirth
+      ? Math.floor((Date.now() - new Date(patientDateOfBirth).getTime()) / (365.25 * 24 * 3600 * 1000))
+      : undefined
+  );
 
   return (
     <Card>
@@ -446,6 +511,34 @@ function DraftNoteCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <NoteFields values={fields} onChange={(field, value) => setFields((f) => ({ ...f, [field]: value }))} />
+        {scribeAvailable && (
+          <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
+            <ScribePanel
+              patientId={patientId}
+              encounterNoteId={note.id}
+              patientContext={ageYears !== undefined && ageYears >= 0 && ageYears <= 130 ? { age: ageYears } : undefined}
+              onUseDraft={applyScribeDraft}
+            />
+            {scribe && <p className="text-xs text-charcoal-ink/50">AI-drafted text is in the fields above. It is yours to edit; nothing is saved until you save or sign.</p>}
+          </div>
+        )}
+        {scribeError && (
+          <div className="space-y-1">
+            <p className="text-sm text-red-600">{scribeError}</p>
+            {scribe && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setScribe(null);
+                  setScribeError(null);
+                }}
+              >
+                Remove the AI draft marker (the text in the fields stays yours to edit or delete)
+              </Button>
+            )}
+          </div>
+        )}
         {update.isError && <p className="text-sm text-red-600">{(update.error as Error).message}</p>}
         {finalize.isError && <p className="text-sm text-red-600">{(finalize.error as Error).message}</p>}
         <div className="flex gap-2">
@@ -453,21 +546,10 @@ function DraftNoteCard({
             size="sm"
             variant="outline"
             disabled={update.isPending}
-            onClick={() =>
-              update.mutate({
-                noteId: note.id,
-                patientId,
-                fields: {
-                  reason_for_encounter: fields.reasonForEncounter.trim(),
-                  history: fields.history.trim() || null,
-                  examination_findings: fields.examinationFindings.trim() || null,
-                  assessment: fields.assessment.trim() || null,
-                  diagnosis: fields.diagnosis.trim() || null,
-                  plan: fields.plan.trim() || null,
-                  follow_up_instructions: fields.followUpInstructions.trim() || null,
-                },
-              })
-            }
+            onClick={async () => {
+              if (!(await persistScribe())) return;
+              update.mutate({ noteId: note.id, patientId, fields: noteFieldsPayload() });
+            }}
           >
             {update.isPending ? "Saving…" : "Save changes"}
           </Button>
@@ -501,14 +583,24 @@ function DraftNoteCard({
                 finalize.isPending
               }
               title="Locks this note permanently, no further edits after signing"
-              onClick={() =>
+              onClick={async () => {
+                if (!(await persistScribe())) return;
+                // The AI text lives only in these fields until saved, and signing locks the note: save it first, so a note
+                // is never locked blank while its patient summary is attached.
+                if (scribe) {
+                  try {
+                    await update.mutateAsync({ noteId: note.id, patientId, fields: noteFieldsPayload() });
+                  } catch {
+                    return;
+                  }
+                }
                 finalize.mutate({
                   noteId: note.id,
                   patientId,
                   outcome: outcome as NonNullable<ClinicalEncounterNote["outcome"]>,
                   identityConfirmed,
-                })
-              }
+                });
+              }}
             >
               {finalize.isPending ? "Signing…" : "Sign & finalise"}
             </Button>
