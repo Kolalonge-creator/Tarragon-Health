@@ -1031,39 +1031,39 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Findings (public sources, not legal advice): the Deduction of Tax at Source (Withholding) Regulations 2024, effective 1 July 2024, replaced the 1997 rules; payments to a Nigerian company for professional, management, technical or consultancy services dropped from 10 percent to 5 percent, 10 percent to a non-resident, and the payer deducts, remits and issues a credit note. Treatment of an individual freelancer is different and depends on whether they are treated as self-employed or as an employee, and the Nigeria Tax Act 2025 (in force 2026) changed personal income tax bands and filing duties. Whether Tarragon's freelance clinicians are independent contractors or workers for tax and labour purposes is a legal question, and the answer decides whether PAYE or withholding applies.
 - What S31 does: stores TIN, contractor status (unknown, individual, company), registered business name and VAT registration per clinician; every statement and payout is gross. Nothing is deducted or calculated, as D-09 says.
 - Options: (a) ask Nigerian tax counsel for the status and rate per contractor type, then add a versioned, PROPOSED withholding rule and a deduction line on the statement (recommended; needs counsel); (b) keep paying gross and have each clinician self-assess (simple, but Tarragon may still owe the deduction as payer).
-- Decision: open. Until decided, payouts go out gross; this is a compliance risk if payouts are switched on first.
+- Decision: Decided 2026-10-06: ask Nigerian tax counsel first; payouts_enabled stays off until counsel confirms contractor status and rate, then a versioned withholding rule and credit note are added. Until decided, payouts go out gross; this is a compliance risk if payouts are switched on first.
 
 ### OQ-194 Payouts are not posted to the general ledger (raised by S31)
 - The finance ledger posts patient payments and refunds from `payment_transactions`; nothing posts a clinician payout (expense and cash out) or the accrual when an earnings line is written. A transfer event is recorded in `payment_transactions` as an audit row and deliberately not processed into the journal.
 - Options: (a) post a journal entry when a payout is approved (Dr clinician fees, Cr payables) and another when `transfer.success` arrives (Dr payables, Cr cash), using the existing posting functions (recommended, a small follow-up with the finance owner); (b) leave payouts as a sub-ledger until accounts are set up for contractors.
-- Decision: open.
+- Decision: Decided 2026-10-06: follow-up session with the finance owner (accrue on approval, clear cash on transfer.success).
 
 ### OQ-195 Bank lookups keep the other person's name on a mismatch (raised by S31)
 - When the bank returns a different name, the row keeps `resolved_name` (a stranger's name) and the last four digits as evidence of why the account was refused. Rows are readable only by the clinician and admins.
 - Options: (a) keep for 12 months then null the name (recommended); (b) null it immediately and keep only "mismatch".
-- Decision: open.
+- Decision: Decided 2026-10-06: keep 12 months, then clear the name (retention job is a follow-up; not yet built).
 
 ### OQ-196 Paystack transfer settings that must be right before payouts go live (raised by S31)
 - Transfers need a funded Paystack balance and Paystack's "confirm transfers with OTP" switched off for API transfers, otherwise every payout waits for a person to type a code and shows as needs attention. The webhook URL must receive `transfer.success`, `transfer.failed` and `transfer.reversed`. None of this has been run against Paystack, test mode or live.
 - Options: (a) founder confirms the three settings and attests `paystack_transfers_configured` on the go-live page, then runs one real small payout to a test recipient (recommended); (b) skip the test payout (not recommended).
-- Decision: open.
+- Decision: Decided 2026-10-06: the founder confirms the three Paystack settings and runs one small real payout, then attests paystack_transfers_configured.
 
 ### OQ-197 A sent payout that never gets a webhook (raised by S31)
 - If Paystack's webhook is lost, a payout stays `sent`. There is no scheduled check yet that asks Paystack for the status of payouts that have been `sent` for more than an hour (the adapter has `verifyTransfer`); an admin cannot trigger one from the page either.
 - Options: (a) a small scheduled edge function that verifies old `sent` payouts and feeds the same `apply_payout_transfer_event` door (recommended; next session); (b) rely on Paystack retries.
-- Decision: open.
+- Decision: Decided 2026-10-06: build the scheduled status check next session, before go-live.
 
 ### OQ-198 The go-live dashboard still says payout sending is not built (raised by S31)
 - The `payouts_enabled` row in `go_live_guards` carries the S37 note "Payout sending is not built yet. Nothing is blocked by this guard today." Approve, send and retry now refuse while it is off, but the note is a guard row the trigger will not let a migration edit.
 - Options: (a) add a sanctioned way to update a guard's description text in a later S37 follow-up (recommended); (b) leave the note and rely on this entry.
-- Decision: open.
+- Decision: Decided 2026-10-06: S37 follow-up adds a sanctioned way to update a guard's description.
 
 ### OQ-199 Optional early cash-out for clinicians (raised by S31 competitor research)
 - Bolt and Uber Nigeria let drivers cash out early for a small fee once they have a clean record. Weekly stays the default. An early cash-out would pay out already-earned ledger lines on request, still after the verified-name check, with a small fee and an eligibility rule (for example a number of completed tasks).
 - Options: (a) not now; revisit after the first month of weekly payouts (recommended); (b) build it before launch.
-- Decision: open.
+- Decision: Decided 2026-10-06: not now; weekly only, revisit after the first month of real payouts.
 
 ### OQ-200 Downloadable payout statement, tax credit note and refund holdback (raised by S31 competitor research)
 - Deel-style platforms give a downloadable statement per payment; in Nigeria a withholding tax credit note is also needed once OQ-193 is decided. Stripe recommends holding back a balance against later reversals; a refund of a consultation share is a manual adjustment until S26.
 - Options: (a) a PDF statement per payout now and the credit note after OQ-193; no holdback until S26 (recommended); (b) all three together later.
-- Decision: open.
+- Decision: Decided 2026-10-06: PDF statement per payout now, credit note after OQ-193, no holdback until S26.
