@@ -97,6 +97,7 @@ begin
       returning id into v_s;
     insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test)
       select v_org, v_s, k, v_admin, false from unnest(array['lead_clinician', 'hypertension', 'on_call']) k;
+    insert into public.on_call_readiness (clinician_id, checklist_version, organisation_id, items, is_test) values (v_u, private.readiness_version(), v_org, private.readiness_items(), false);
   end loop;
   for i in 1..$CALLERS loop
     v_u := gen_random_uuid();

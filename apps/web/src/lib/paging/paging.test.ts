@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { formatWaiting, nextPollMs, pageHeadline, pagesNeedingAction, POLL_QUIET_MS, POLL_RINGING_MS } from "./alarm";
-import { activePagesSchema, pagingOverviewSchema, type ActivePage } from "./schemas";
+import { activePagesSchema, pagingOverviewSchema, READINESS_ITEMS, readinessOverviewSchema, myReadinessSchema, type ActivePage } from "./schemas";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const page = (over: Partial<ActivePage> = {}): ActivePage => ({
@@ -45,5 +45,22 @@ describe("answers from the database are parsed, not trusted", () => {
   it("parses the overview", () => {
     expect(pagingOverviewSchema.parse([{ root_id: id, sent_at: "2026-10-06T10:00:00Z", no_cover: false, max_level: 2, acknowledged_at: null, acknowledged_by_name: null, closed_at: null, backup_paged_at: "2026-10-06T10:05:00Z", lead_alerted_at: "2026-10-06T10:10:00Z", seconds_waiting: 700 }])).toHaveLength(1);
     expect(pagingOverviewSchema.safeParse([{ root_id: "x" }]).success).toBe(false);
+  });
+});
+
+describe("on-call readiness checklist (S19b)", () => {
+  it("lists exactly the five items the database requires, each with wording", () => {
+    expect(Object.keys(READINESS_ITEMS).sort()).toEqual(["battery_saving_off", "cover_plan", "data_and_power", "email_opens", "notifications_on"]);
+    for (const text of Object.values(READINESS_ITEMS)) expect(text.length).toBeGreaterThan(20);
+  });
+  it("uses no clinical wording and no em dash (INV-07, copy rule)", () => {
+    for (const text of Object.values(READINESS_ITEMS)) {
+      expect(text).not.toMatch(/blood|pressure|reading|result|glucose|symptom|hypertens|diabet|\u2014/i);
+    }
+  });
+  it("parses what the database returns", () => {
+    expect(myReadinessSchema.parse({ version: 1, items: ["a"], confirmed_at: null, on_call_clinician: true }).confirmed_at).toBeNull();
+    expect(readinessOverviewSchema.parse([{ clinician_id: id, name: "A", ready: false, confirmed_at: null }])).toHaveLength(1);
+    expect(() => readinessOverviewSchema.parse([{ clinician_id: "x", name: "A", ready: false, confirmed_at: null }])).toThrow();
   });
 });

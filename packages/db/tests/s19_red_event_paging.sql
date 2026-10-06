@@ -59,6 +59,7 @@ begin
       p_tier = 'chief_medical_officer', case when p_tier = 'chief_medical_officer' then p_admin end, true)
   returning id into v_staff;
   insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (p_org, v_staff, 'on_call', p_admin, true);
+  insert into public.on_call_readiness (clinician_id, checklist_version, organisation_id, items, is_test) values (v, private.readiness_version(), p_org, private.readiness_items(), true);
   return v;
 end $f$;
 create function pg_temp.red(p_patient uuid, p_set uuid, p_grade text, p_shadow boolean) returns uuid language plpgsql as
