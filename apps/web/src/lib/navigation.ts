@@ -544,9 +544,6 @@ export function getNavSections(
                 // per this file's own gating philosophy above; the page
                 // itself redirects/shows a friendly message for anyone else.
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
-                // Chief Medical Officer only: new clinician applications, licence and cover expiry, and the
-                // training and test content (S15). Same gating as Team caseload above.
-                { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
               ],
             },
             // Chief Medical Officer / Clinical Director governance surfaces
@@ -573,6 +570,9 @@ export function getNavSections(
                 // reachable only via /admin, which a real CMO account
                 // (always `profiles.role = "clinician"`) cannot open.
                 { label: "Clinical sign-off", href: "/clinician/clinical-signoff", icon: "review" },
+                // New clinician applications, licence and cover expiry, and the training and test content (S15).
+                // Chief Medical Officer only; the pages redirect anyone below that tier.
+                { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
                 // The AI governance console's two CMO-only actions (approving
                 // an ai_system_versions row, labelling an ai_evaluation_cases
                 // clinical-accuracy scenario) — same reachability gap as

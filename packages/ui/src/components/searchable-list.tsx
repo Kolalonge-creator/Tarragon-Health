@@ -30,6 +30,7 @@ export function SearchableList<T>({
   emptyMessage = "Nothing here yet.",
   noMatchMessage,
   className,
+  initialQuery = "",
 }: {
   items: T[];
   /** Return true if `item` matches the lowercased, trimmed `query`. */
@@ -44,8 +45,10 @@ export function SearchableList<T>({
   /** Shown when a search query matches nothing. Defaults to a generic message quoting the query. */
   noMatchMessage?: (query: string) => string;
   className?: string;
+  /** Pre-fills the search box, for a link that arrives with a search already typed (for example from the admin search). */
+  initialQuery?: string;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
