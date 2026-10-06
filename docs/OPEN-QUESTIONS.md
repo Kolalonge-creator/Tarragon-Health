@@ -542,55 +542,57 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-99 Credentialing screens are in `apps/web`, not `apps/console` (raised by S15)
 - The session plan put the reviewer screens in a new console area. The console only serves roles whose area has been extracted, and CLAUDE.md forbids widening it to the `clinician` role (the CMO's account role); the CMO could not open it. The screens are therefore mounted under `/admin/credentialing` and `/clinician/credentialing` over shared components.
 - Options: (a) keep in `apps/web` until S35 extracts the clinician area, then move the shared components (recommended); (b) extract a minimal credentialing area now and teach `console-areas` a role exception.
-- Decision:
+- Decision (founder, 2026-10-06): option (a). Keep in `apps/web` until S35 extracts the clinician area, then move the shared components.
 
 ### OQ-100 Two credential ladders now exist (raised by S15)
 - The older §29.7 ladder (`provider_restrictions`, warning, grace, service restriction, suspension on a CMO-signed policy) restricts new appointment bookings only. The S15 sweep suspends at expiry after an audited grace period, as decided. They act on the same dates. Eligibility now consults both, so the older one can only tighten.
 - Options: (a) fold the older ladder into S15 so there is one expiry process and one grace concept (recommended, a later pass, needs the CMO because the policy is signed); (b) keep both and document it.
-- Decision:
+- Decision (founder, 2026-10-06): option (a), as a later pass with the CMO, because the older policy is CMO-signed. Until then eligibility consults both and the older ladder can only tighten.
 
 ### OQ-101 A patient account becomes a clinician account (raised by S15)
 - An applicant is a normal person account until activation, when `profiles.role` flips to `clinician`; a suspended or offboarded clinician flips back to `patient`. A doctor who is also a patient of Tarragon would lose the patient dashboard while active.
 - Options: (a) advise a separate work account for the clinician login (recommended; the application page says nothing yet); (b) keep one account and allow both views, which needs a dual-role design the account-role rule forbids.
-- Decision:
+- Decision (founder, 2026-10-06): option (a). The application page now advises a separate work account for the clinician login (done in S15 follow-up).
 
 ### OQ-102 Staff and applicant screens are English only (raised by S15)
 - The spec asks for every user-facing string in `packages/i18n` (en, pcm). The existing admin and clinician pages are plain English and the people using these screens are clinicians and reviewers, so S15 follows that convention. Applicant copy avoids clinical jargon and em dashes.
 - Options: (a) leave English, revisit if a Pidgin-speaking reviewer needs it (recommended); (b) move the copy into the i18n package.
-- Decision:
+- Decision (founder, 2026-10-06): option (a). Leave English; revisit if a Pidgin-speaking reviewer needs it.
 
 ### OQ-103 A CMO-approved test applicant gets a real-flag clinician row (raised by S15)
 - `private.guard_is_test_flag()` only lets an admin or a service context set `is_test`; approval runs as the CMO, so `clinical_staff.is_test` is set only when the approver is also an admin. A QA applicant approved by a CMO needs an admin to flip the flag afterwards.
 - Options: (a) accept and document (recommended); (b) let the approval function carry the flag by running as a service context.
-- Decision:
+- Decision (founder, 2026-10-06): option (b), changed from the first recommendation after the live test run left an active, routable fake doctor with the real flag. Approval now carries the application's own test flag (set from the applicant's profile, which only an admin can mark as a test account) through a transaction-local setting the guard honours for that one clinician row. Proved in `s15_clinician_credentialing.sql`.
 
 ### OQ-104 Applicant phone is required but not proved verified (raised by S15)
 - `start_clinician_application` checks the email is confirmed and a phone number is present. Where S03 records a verified phone was not confirmed against auth, so a verified phone is not yet required.
 - Options: (a) require the S03 phone-verified marker once confirmed (recommended); (b) leave as is.
-- Decision:
+- Decision (founder, 2026-10-06): option (a), built as the config rule `require_verified_phone` (credentialing config version 2), OFF for now because no real account has a confirmed phone and SMS is not live, so switching it on today would stop every applicant. Turn it on once SMS verification is live. QA accounts are exempt.
 
 ### OQ-105 Training and test content must be written and approved before anyone can pass (raised by S15)
 - Five draft training modules are seeded with placeholder text and no test scenarios exist. Nothing is approved by the agent. Until the CMO writes and approves at least one safety-critical scenario, `start_credential_test` refuses with a clear message and no application can pass the test.
 - Blocks: the first real applicant. Decision: the CMO authors at `/clinician/credentialing/content`.
+- Resolved 2026-10-06: the CMO approved all 8 training modules and all 14 test scenarios, and a live end-to-end run passed the test.
 
 ### OQ-106 MDCN verification route, turnaround and annual grace (raised by S15)
 - There is no register to query; the founder set the evidence (current-year licence, portal screenshot, graduation certificate, NYSC). Written confirmation from MDCN is accepted as an optional document. The exact MDCN verification route and turnaround, and each year's renewal grace announcements, are not confirmed.
 - Options: ops asks MDCN for written verification where it matters and records the reply (recommended); the audited grace period in S15 is the lever for an announced MDCN grace.
-- Decision:
+- Decision (founder, 2026-10-06): ops asks MDCN for written verification where it matters and records the reply; the audited grace period is the lever for an announced MDCN grace.
 
 ### OQ-107 One person verifying and approving (raised by S15)
 - The person who verifies a check cannot approve the application (`separate_verifier_and_approver`, on). A sole founder who is both admin and CMO needs two accounts to credential anyone.
 - Options: (a) keep on and use two accounts (recommended); (b) switch the config value off with a recorded reason, which weakens the control.
-- Decision:
+- Decision (founder, 2026-10-06): option (a). Keep the control on and use two accounts. The live test run proved it works (applicant, admin verifier, CMO approver).
 
 ### OQ-108 Document retention has a date but no purge (raised by S15)
 - `retain_until` is set at offboarding (7 years, PROPOSED, `document_retention_years_after_offboarding`). Nothing deletes a document after that date, and a rejected applicant's documents have no date at all.
 - Options: (a) add a nightly purge with an audit row, and a retention for rejected applications (recommended, counsel sets the periods); (b) manual review.
-- Decision:
+- Decision (founder, 2026-10-06): option (a), built. A nightly job (`/api/cron/credential-document-purge`, 03:40 UTC) removes the stored file, then the row with one audit entry, for documents past `retain_until` and for rejected applications past `rejected_application_document_retention_months` (24, PROPOSED). It does nothing while `document_purge_enabled` is false, which is the live setting until counsel confirms the periods.
 
 ### OQ-109 The two existing clinicians have no licence or indemnity dates (raised by S15)
 - The sweep never suspends on a missing date (it would remove the only clinicians), so they are reported as "No date on file" on the licences and cover page until ops records them through a renewal. The founder-CMO is covered by an existing indemnity exemption.
 - Action for ops: upload and record the licence for both, then the indemnity for any freelance clinician.
+- Decision (founder, 2026-10-06): ops action, no code. Record both licences and any freelance clinician's indemnity through a renewal.
 
 ### OQ-95 Zoom adapter details to confirm on a live account (raised by S14)
 - The Zoom adapter follows Zoom's published REST and Meeting SDK docs but has only run against a fake. Things S21 must check live: (1) a Meeting SDK token lifetime under 30 minutes may be refused, while the adapter never lets a token outlive the room (so a short room could trip it); (2) ending a scheduled meeting does not stop a rejoin, so the adapter ends then deletes it, and a second end reports success because the meeting is already gone, including for a number that never existed; (3) Zoom takes the participant label from the client SDK, so the app must join with the role word ("patient", "clinician", "observer") as the label or webhook presence events are dropped; (4) Zoom webhooks carry presence and meeting end but not connection quality, so quality samples must come from the device SDK; (5) the `endpoint.url_validation` challenge stays in the existing `zoom-webhook` function.

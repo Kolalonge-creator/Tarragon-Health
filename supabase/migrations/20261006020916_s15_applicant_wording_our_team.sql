@@ -13,11 +13,14 @@ declare
   v_count int := 0;
 begin
   for f in
-    select p.oid, p.proname
-      from pg_proc p
-      join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname in ('public', 'private')
-       and pg_get_functiondef(p.oid) ilike '%care team lead%'
+    -- ordinary functions only (pg_get_functiondef fails on aggregates); the offset stops the planner reordering the filters
+    select q.oid, q.proname
+      from (select p.oid, p.proname
+              from pg_proc p
+              join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname in ('public', 'private') and p.prokind = 'f'
+            offset 0) q
+     where pg_get_functiondef(q.oid) ilike '%care team lead%'
   loop
     v_def := pg_get_functiondef(f.oid);
     v_new := v_def;
@@ -39,8 +42,12 @@ begin
     raise exception 'expected at least one function to carry the old wording';
   end if;
   if exists (
-    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname in ('public', 'private') and pg_get_functiondef(p.oid) ilike '%care team lead%'
+    select 1
+      from (select p.oid
+              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname in ('public', 'private') and p.prokind = 'f'
+            offset 0) q
+     where pg_get_functiondef(q.oid) ilike '%care team lead%'
   ) then
     raise exception 'old wording is still present in a function';
   end if;

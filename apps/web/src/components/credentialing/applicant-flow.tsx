@@ -26,6 +26,10 @@ export function StartApplication({ canApply }: { canApply: boolean }) {
         <li>Your own professional indemnity certificate if you will work as a freelance clinician</li>
         <li>Two referees we can reach through their institution</li>
       </ul>
+      <Muted>
+        Once you are switched on, this login becomes your clinician login and no longer shows the patient dashboard. If you also use
+        Tarragon as a patient, apply from a separate work account so your own health records stay where they are.
+      </Muted>
       {canApply ? (
         <form action={startApplication}>
           <Hidden name="returnTo" value={HOME} />
