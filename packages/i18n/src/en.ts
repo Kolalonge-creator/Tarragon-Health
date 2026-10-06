@@ -991,6 +991,27 @@ export const en = {
   "shop.history.state.failed": "Did not go through",
   "shop.history.state.refunded": "Refunded",
   "shop.history.state.cancelled": "Cancelled",
+  // S27: lab results. Pidgin written by the build session, needs a native reviewer (OQ-156).
+  "labres.title": "Your lab results",
+  "labres.empty": "Nothing here yet. When your care team adds a result, you will see it here.",
+  "labres.status.released": "Ready to read",
+  "labres.status.under_review": "Your care team is looking at this",
+  "labres.status.care_team_will_contact": "Your care team will be in touch with you",
+  "labres.own.note": "Added by you. Your care team has not looked at it yet.",
+  "labres.item.flag.normal": "In the usual range",
+  "labres.item.flag.low": "Below the usual range",
+  "labres.item.flag.high": "Above the usual range",
+  "labres.item.flag.critical": "Your care team will explain this",
+  "labres.item.flag.positive": "Positive",
+  "labres.item.flag.negative": "Negative",
+  "labres.explain.off": "Your care team will go through this with you. There is no automatic explanation for it.",
+  "labres.file.open": "Open the lab report",
+  "labres.add.title": "Add a result you already have",
+  "labres.add.help": "Upload a PDF or a clear photo from another lab. Your care team will look at it before it joins your record.",
+  "labres.add.button": "Upload result",
+  "labres.add.done": "Added. Your care team will look at it.",
+  "labres.add.error.file": "Please choose a PDF, JPG or PNG under 10 MB.",
+  "labres.add.error.unknown": "That did not work. Please try again.",
 } as const;
 
 export type MessageKey = keyof typeof en;

@@ -507,6 +507,8 @@ export function getNavSections(
               label: "My work",
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
+                // S27: lab results held before the patient can see them (INV-03, INV-04).
+                { label: "Lab results to review", href: "/clinician/lab-results", icon: "labs" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 // S21: today's and tomorrow's consultation rooms (spec 9.1, "Consultations").
                 { label: "Consultations", href: "/clinician/consultations", icon: "booking" },
@@ -705,6 +707,8 @@ export function getNavSections(
         {
           items: [
             { label: "Dashboard", href: "/lab-partner", icon: "dashboard", exact: true },
+            // S27: structured result entry (spec 9.6).
+            { label: "Enter results", href: "/lab-partner/results", icon: "labs" },
           ],
         },
       ];

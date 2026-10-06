@@ -693,6 +693,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         }
       }
     },
+    owner: "CMO",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-06",
