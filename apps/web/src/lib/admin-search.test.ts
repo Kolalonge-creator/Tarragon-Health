@@ -71,6 +71,12 @@ describe("the real admin menus", () => {
     expect(top("price list")).toContain("/admin/catalogue");
   });
 
+  it("finds the fees and earnings page (every console page needs a search entry)", () => {
+    expect(top("fee schedule")).toContain("/admin/earnings");
+    expect(top("payout")).toContain("/admin/earnings");
+    expect(top("adjustment")).toContain("/admin/earnings");
+  });
+
   it("indexes a useful number of pages with no path twice", () => {
     expect(real.length).toBeGreaterThan(60);
     expect(new Set(real.map((e) => e.href)).size).toBe(real.length);
@@ -170,6 +176,7 @@ describe("the rota and lead clinicians are searchable (S18)", () => {
   it("a clinician finds their own hours page", () => {
     const clinicianIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], []);
     expect(hit(clinicianIndex, "declare hours")).toContain("/clinician/rota");
+    expect(hit(clinicianIndex, "my earnings")).toContain("/clinician/earnings");
   });
 });
 
