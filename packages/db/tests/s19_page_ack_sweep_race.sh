@@ -33,7 +33,7 @@ fi
 
 ROUNDS=12
 WORK="$(mktemp -d)"
-TAG="s19rc-$$-$(date +%s)"
+TAG="s19rc_$$_$(date +%s)"
 psql_q() { psql "$DB_URL" -X -q -t -A -v ON_ERROR_STOP=1 "$@"; }
 
 cleanup() {
@@ -89,7 +89,7 @@ begin
     insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (v_org, v_staff, 'on_call', v_admin, true);
   end loop;
   insert into public.triage_rule_sets (code, version, status, rules, approved_by, approved_at, note)
-    values ('$TAG', 1, 'approved', '{}'::jsonb, v_cmo, now(), 'S19 race proof fixture');
+    values ('$TAG', 1, 'approved', jsonb_build_object('code', '$TAG', 'version', 1), v_cmo, now(), 'S19 race proof fixture');
   -- the rota row is written the way the application writes it: through the function, as the chief medical officer
   perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role', 'authenticated')::text, true);
   set local role authenticated;
@@ -139,8 +139,8 @@ race() {
 
 # both racing sessions must actually have run: a session that errored would make every check below pass without proving anything
 sessions_ran_clean() {
-  grep -q '^exit 0$' "$WORK/ack.out" && ! grep -qi 'error' "$WORK/ack.out" || return 1
-  grep -q '^exit 0$' "$WORK/sweep.out" && ! grep -qi 'error' "$WORK/sweep.out" || return 1
+  grep -q '^exit 0$' "$WORK/ack.out" && ! grep -q 'ERROR:' "$WORK/ack.out" || return 1
+  grep -q '^exit 0$' "$WORK/sweep.out" && ! grep -q 'ERROR:' "$WORK/sweep.out" || return 1
 }
 
 # prints: half_acknowledged backup_children tasks

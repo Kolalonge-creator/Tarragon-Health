@@ -38,7 +38,7 @@ CALLERS=20
 ROTA_CALLERS=8
 WORK="$(mktemp -d)"
 START_TS="$(psql "$DB_URL" -X -q -t -A -c 'select now()' 2>/dev/null || echo 1970-01-01)"
-TAG="s18rc-$$-$(date +%s)"
+TAG="s18rc_$$_$(date +%s)"
 psql_q() { psql "$DB_URL" -X -q -t -A -v ON_ERROR_STOP=1 "$@"; }
 
 cleanup() {
@@ -108,7 +108,7 @@ begin
 end \$\$;
 SQL
 
-mapfile -t PATS < <(psql_q -c "select id from public.profiles where full_name like '$TAG pat %' order by full_name")
+PATS=(); while IFS= read -r _l; do [ -n "$_l" ] && PATS+=("$_l"); done < <(psql_q -c "select id from public.profiles where full_name like '$TAG pat %' order by full_name")
 [[ ${#PATS[@]} -eq $CALLERS ]] || fail "fixture patient count wrong (${#PATS[@]})"
 CMO=$(psql_q -c "select id from public.profiles where full_name = '$TAG cmo'")
 [[ -n "$CMO" ]] || fail "fixture cmo missing"
@@ -159,7 +159,7 @@ pass "$CALLERS concurrent assignments, 3 clinicians capped at $CAP: $assigned as
 # --- 2. the same rota window from several sessions ----------------------------------------------------------------------
 SHIFT_FROM="now() + interval '40 hours'"
 SHIFT_TO="now() + interval '52 hours'"
-mapfile -t DOCS < <(psql_q -c "select id from public.profiles where full_name like '$TAG doc %' order by full_name")
+DOCS=(); while IFS= read -r _l; do [ -n "$_l" ] && DOCS+=("$_l"); done < <(psql_q -c "select id from public.profiles where full_name like '$TAG doc %' order by full_name")
 rm -f "$WORK"/rota.*
 t0=$(python3 -c 'import time; print(time.time() + 4)')
 for ((i = 0; i < ROTA_CALLERS; i++)); do

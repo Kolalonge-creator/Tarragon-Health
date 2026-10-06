@@ -98,8 +98,8 @@ begin
 end \$\$;
 SQL
 
-mapfile -t DOCS < <(psql_q -c "select id from public.profiles where full_name like '$TAG doc %' order by full_name")
-mapfile -t PATS < <(psql_q -c "select id from public.profiles where full_name like '$TAG pat %' order by full_name")
+DOCS=(); while IFS= read -r _l; do [ -n "$_l" ] && DOCS+=("$_l"); done < <(psql_q -c "select id from public.profiles where full_name like '$TAG doc %' order by full_name")
+PATS=(); while IFS= read -r _l; do [ -n "$_l" ] && PATS+=("$_l"); done < <(psql_q -c "select id from public.profiles where full_name like '$TAG pat %' order by full_name")
 [[ ${#DOCS[@]} -eq $N_CALLERS && ${#PATS[@]} -eq $N_TASKS ]] || fail "fixture counts wrong (${#DOCS[@]} clinicians, ${#PATS[@]} patients)"
 
 make_tasks() { # $1 = how many
