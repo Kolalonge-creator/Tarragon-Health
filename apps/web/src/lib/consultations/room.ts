@@ -35,13 +35,15 @@ interface RoomView {
   join_opens_at: string;
   join_closes_at: string;
   joinable: boolean;
+  /** S37 (INV-14): false while the clinical_operations_enabled guard is off for this pair. Absent on an older database, read as open. */
+  go_live_open?: boolean;
   session_minutes: number;
   room: { provider: "zoom" | "mock"; provider_room_id: string | null; state: string; expires_at: string | null } | null;
 }
 
 export type JoinOutcome =
   | { ok: true; url: string; mediaMode: RequestedMedia; audioOnlyEnforced: boolean; recorded: boolean }
-  | { ok: false; reason: "not_found" | "closed" | "provider" }
+  | { ok: false; reason: "not_found" | "closed" | "provider" | "not_live" }
   | { ok: false; reason: "not_open"; opensAt: string };
 
 const DONE = new Set(["completed", "no_show_patient", "no_show_clinician", "cancelled", "failed"]);
@@ -80,6 +82,8 @@ export async function joinConsultation(deps: RoomDeps, encounterId: string, requ
   const found = await lookup(deps, encounterId);
   if (!found) return { ok: false, reason: "not_found" };
   const { view, role } = found;
+  // S37 (INV-14): with the guard off nothing is opened, no link is made and nothing is recorded
+  if (view.go_live_open === false) return { ok: false, reason: "not_live" };
   if (DONE.has(view.status)) return { ok: false, reason: "closed" };
   if (!view.joinable) return { ok: false, reason: "not_open", opensAt: view.join_opens_at };
 

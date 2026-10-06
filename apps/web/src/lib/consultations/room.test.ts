@@ -23,7 +23,7 @@ const STRANGER = "33333333-3333-4333-8333-333333333333";
 type Evt = { kind: string; role: string; payload: Record<string, unknown> };
 const T0 = 1_800_000_000_000;
 
-function fakeDb(opts: { now: () => number; scheduledAt?: number; status?: string; mode?: "video" | "audio_only" | "phone" | null; raceLoser?: boolean }) {
+function fakeDb(opts: { now: () => number; scheduledAt?: number; status?: string; mode?: "video" | "audio_only" | "phone" | null; raceLoser?: boolean; guardOff?: boolean }) {
   const scheduledAt = opts.scheduledAt ?? T0 + 5 * 60_000;
   const s = { status: opts.status ?? "scheduled", mode: opts.mode ?? null, roomId: null as string | null, events: [] as Evt[], opened: 0 };
   const view = () => ({
@@ -34,7 +34,8 @@ function fakeDb(opts: { now: () => number; scheduledAt?: number; status?: string
     final_media_mode: s.mode,
     join_opens_at: new Date(scheduledAt - 15 * 60_000).toISOString(),
     join_closes_at: new Date(scheduledAt + 60 * 60_000).toISOString(),
-    joinable: ["scheduled", "waiting", "in_progress"].includes(s.status) && opts.now() >= scheduledAt - 15 * 60_000 && opts.now() <= scheduledAt + 60 * 60_000,
+    go_live_open: !opts.guardOff,
+    joinable: !opts.guardOff && ["scheduled", "waiting", "in_progress"].includes(s.status) && opts.now() >= scheduledAt - 15 * 60_000 && opts.now() <= scheduledAt + 60 * 60_000,
     session_minutes: 30,
     room: { provider: "mock", provider_room_id: s.roomId, state: s.roomId ? "open" : "pending", expires_at: null },
   });
@@ -136,6 +137,21 @@ describe("joining a consultation", () => {
     expect(db.s.roomId).toBeNull();
     clock.now = T0 + 3 * 3_600_000 - 10 * 60_000;
     expect((await joinConsultation(deps(PATIENT), ENC, "video")).ok).toBe(true);
+  });
+
+  it("with the go-live guard off, opens nothing, makes no link and records nothing for either person (S37, INV-14)", async () => {
+    const { db, deps } = setup({ now: () => T0, guardOff: true });
+    expect(await joinConsultation(deps(DOCTOR), ENC, "video")).toEqual({ ok: false, reason: "not_live" });
+    expect(await joinConsultation(deps(PATIENT), ENC, "audio_only")).toEqual({ ok: false, reason: "not_live" });
+    expect(db.s.roomId).toBeNull();
+    expect(db.s.opened).toBe(0);
+    expect(db.s.events).toHaveLength(0);
+  });
+
+  it("with the guard off, a request for the phone fallback is refused too", async () => {
+    const { db, deps } = setup({ now: () => T0, guardOff: true });
+    expect(await requestPhoneFallback(deps(PATIENT), ENC)).toEqual({ ok: false, reason: "not_open" });
+    expect(db.s.events).toHaveLength(0);
   });
 
   it("refuses a finished or cancelled consultation", async () => {

@@ -140,6 +140,24 @@ export function useMyConsultationRule() {
   });
 }
 
+/**
+ * S37 (INV-14, client side): whether consultations are open for the signed-in person. This only decides what the screen shows;
+ * hold_appointment_slot and confirm_appointment_booking refuse in the database whatever this says. Fails closed: an error is
+ * "not open", so a failed check never shows a booking form that the database would refuse anyway.
+ */
+export function useGoLiveGuardOpen(guardKey: string) {
+  return useQuery({
+    queryKey: ["go-live", "guard-open", guardKey] as const,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("go_live_guard_is_open" as never, { p_key: guardKey } as never);
+      if (error) return false;
+      return data === true;
+    },
+  });
+}
+
 /** A clinician's own upcoming appointments — the calendar list. */
 export function useClinicianUpcomingAppointments(clinicianId: string) {
   return useQuery({
