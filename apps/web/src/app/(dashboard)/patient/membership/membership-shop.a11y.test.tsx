@@ -103,4 +103,31 @@ describe("MembershipShop", () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     expect(screen.queryByText(/catalog\.future/)).toBeNull();
   });
+
+  // S29: pay for a loved one
+  it("when paying for someone, names them, sends their id with the code and key, and ignores the payer's own membership", async () => {
+    membership = { data: { is_member: true, ends_at: "2027-01-01T00:00:00Z", source: "purchase" } };
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} beneficiary={{ id: "p-9", name: "Mama Eze" }} />);
+    expect(screen.getByText("Paying for Mama Eze")).toBeTruthy();
+    expect(screen.getByText(/You will not see any health information/)).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
+    expect(Object.keys(arg).sort()).toEqual(["beneficiary", "clientKey", "code"]);
+    expect(arg.beneficiary).toBe("p-9");
+  });
+
+  it("when paying for someone, an already-a-member refusal talks about them, not the payer", async () => {
+    mutateAsync.mockRejectedValue(new CheckoutError("already_member"));
+    render(<MembershipShop locale="en" fee={FEE} go={assign} beneficiary={{ id: "p-9", name: "Mama Eze" }} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    expect(screen.getByRole("alert").textContent).toBe("They are already a member.");
+  });
+
+  it("a refusal because their Care Circle access ended is shown in plain words", async () => {
+    mutateAsync.mockRejectedValue(new CheckoutError("order_beneficiary_not_allowed"));
+    render(<MembershipShop locale="en" fee={FEE} go={assign} beneficiary={{ id: "p-9", name: "Mama Eze" }} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    expect(screen.getByRole("alert").textContent).toMatch(/cannot pay for this person right now/);
+  });
 });

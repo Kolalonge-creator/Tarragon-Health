@@ -25,7 +25,10 @@ function Naira({ kobo }: { kobo: number }) {
 type Go = (url: string) => void;
 const goTo: Go = (url) => window.location.assign(url);
 
-function ItemCard({ item, locale, fee, memberUntil, go }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go }) {
+/** Set when a supporter pays for someone in their Care Circle (S29): the order is for them, the card is the payer's own. */
+export interface Beneficiary { readonly id: string; readonly name: string }
+
+function ItemCard({ item, locale, fee, memberUntil, go, beneficiary }: { item: CatalogueItem; locale: Locale; fee: FeeEstimateSchedule; memberUntil: string | null; go: Go; beneficiary?: Beneficiary }) {
   const start = useStartCheckout();
   // One key per card, made on first use and kept, so a double tap or a retry after a dropped connection is the SAME order.
   const clientKey = useRef<string | null>(null);
@@ -37,12 +40,14 @@ function ItemCard({ item, locale, fee, memberUntil, go }: { item: CatalogueItem;
     setErrorKey(null);
     clientKey.current ??= crypto.randomUUID();
     try {
-      const r = await start.mutateAsync({ code: item.code, clientKey: clientKey.current });
+      const r = await start.mutateAsync({ code: item.code, clientKey: clientKey.current, ...(beneficiary ? { beneficiary: beneficiary.id } : {}) });
       go(r.checkout_url);
     } catch (e) {
       // A refusal is final for this tap; a fresh key is made next time. A network failure keeps the key so a retry is the same order.
       if (e instanceof CheckoutError && e.code !== "unknown" && e.code !== "payment_unavailable") clientKey.current = null;
       setErrorKey(checkoutErrorKey(e instanceof CheckoutError ? e.code : "unknown"));
+      // "You are already a member" would be wrong when the order was for somebody else.
+      if (beneficiary && e instanceof CheckoutError && e.code === "already_member") setErrorKey("circle.pay.already_member");
     }
   }
 
@@ -113,19 +118,26 @@ function History({ rows, locale }: { rows: OrderRow[]; locale: Locale }) {
 }
 
 /** `go` is where the patient is sent to pay; a test passes its own, the app uses the browser's navigation. */
-export function MembershipShop({ locale, fee, go = goTo }: { locale: Locale; fee: FeeEstimateSchedule; go?: Go }) {
+export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale: Locale; fee: FeeEstimateSchedule; go?: Go; beneficiary?: Beneficiary }) {
   const catalogue = useCatalogue();
   const orders = useMyOrders();
   const membership = useMyMembership();
-  const memberUntil = membership.data?.is_member ? (membership.data.ends_at ?? "") || null : null;
+  // The payer's own membership says nothing about the person they are paying for.
+  const memberUntil = !beneficiary && membership.data?.is_member ? (membership.data.ends_at ?? "") || null : null;
   const items = catalogue.data ?? [];
 
   return (
     <div className="space-y-6">
+      {beneficiary ? (
+        <section aria-labelledby="pay-for" className="space-y-1">
+          <h2 id="pay-for" className="font-heading text-lg font-semibold">{t("circle.pay.who", locale, { name: beneficiary.name })}</h2>
+          <p className={MUTED}>{t("circle.pay.note", locale, { name: beneficiary.name })}</p>
+        </section>
+      ) : null}
       {memberUntil ? <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p> : null}
       {catalogue.isSuccess && items.length === 0 ? <p>{t("shop.not_open", locale)}</p> : null}
       {items.map((item) => (
-        <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} />
+        <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} {...(beneficiary ? { beneficiary } : {})} />
       ))}
       <History rows={orders.data ?? []} locale={locale} />
     </div>

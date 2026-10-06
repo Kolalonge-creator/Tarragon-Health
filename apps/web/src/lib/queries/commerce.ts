@@ -70,8 +70,10 @@ export class CheckoutError extends Error {
  */
 export function useStartCheckout() {
   return useMutation({
-    mutationFn: async (input: { code: string; clientKey: string }) => {
-      const { data, error } = await createClient().functions.invoke("order-checkout", { body: { code: input.code, client_key: input.clientKey } });
+    mutationFn: async (input: { code: string; clientKey: string; beneficiary?: string }) => {
+      // `beneficiary` is only set when paying for someone in the caller's Care Circle (S29); the database decides if that is allowed.
+      const body = { code: input.code, client_key: input.clientKey, ...(input.beneficiary ? { beneficiary: input.beneficiary } : {}) };
+      const { data, error } = await createClient().functions.invoke("order-checkout", { body });
       if (error) throw new CheckoutError(await errorCodeOf(error));
       const parsed = checkoutReplySchema.safeParse(data);
       if (!parsed.success) throw new CheckoutError("unknown");

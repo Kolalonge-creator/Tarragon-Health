@@ -80,6 +80,7 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   checkout_link_lost: "shop.error.checkout_link_lost",
   already_paid: "shop.error.already_paid",
   order_closed: "shop.error.order_closed",
+  order_beneficiary_not_allowed: "shop.error.order_beneficiary_not_allowed",
 };
 /** The i18n key for a checkout error code from order-checkout. Anything unrecognised is the generic message. */
 export function checkoutErrorKey(code: unknown): MessageKey {
