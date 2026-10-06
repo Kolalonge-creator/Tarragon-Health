@@ -24,7 +24,10 @@ function lagos(iso: string): string {
  * server. When the browser closes the app asks the server (which asks Paystack) whether the order is paid: coming back from
  * the browser is never proof of payment. Nothing here stores or shows a balance (INV-09).
  */
-export function MembershipSection() {
+/** Set when a supporter pays for someone in their Care Circle (S29): the order is for them, the card is the payer's own. */
+export interface Beneficiary { id: string; name: string }
+
+export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }) {
   const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const tr = useCallback((key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params), [locale]);
@@ -62,10 +65,11 @@ export function MembershipSection() {
       key = Crypto.randomUUID();
       keys.current.set(item.code, key);
     }
-    const r = await startCheckout(item.code, key);
+    const r = await startCheckout(item.code, key, beneficiary?.id);
     if (!r.ok) {
       if (!keepsRetryKey(r.code)) keys.current.delete(item.code);
-      setErrorKey(checkoutErrorKey(r.code));
+      // "You are already a member" would be wrong when the order was for somebody else.
+      setErrorKey(beneficiary && r.code === "already_member" ? "circle.pay.already_member" : checkoutErrorKey(r.code));
       setBusy(null);
       return;
     }
@@ -88,12 +92,13 @@ export function MembershipSection() {
   if (!loaded) return <ActivityIndicator />;
   return (
     <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{tr("shop.title")}</Text>
-      {membership.isMember && membership.endsAt ? <MutedText>{tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText> : null}
+      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{beneficiary ? tr("circle.pay.who", { name: beneficiary.name }) : tr("shop.title")}</Text>
+      {beneficiary ? <MutedText>{tr("circle.pay.note", { name: beneficiary.name })}</MutedText> : null}
+      {!beneficiary && membership.isMember && membership.endsAt ? <MutedText>{tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText> : null}
       {items.length === 0 ? <MutedText>{tr("shop.not_open")}</MutedText> : null}
       {items.map((item) => {
         const b = estimatedBreakdown(item.amountKobo, fee);
-        const blocked = item.kind === "membership" && membership.isMember;
+        const blocked = !beneficiary && item.kind === "membership" && membership.isMember;
         return (
           <Card key={item.code}>
             <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{copy(item.nameKey)}</Text>
