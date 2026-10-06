@@ -840,3 +840,5 @@ s22b_membership_claim_filter_idempotent_submit.sql
 s22c_credit_return_nullable_end_withdrawn_notes.sql
 # S19b: on-call readiness. Unconfirmed phone checklist refuses a clinician on the rota (primary, backup, swap), confirming needs every item and a clinician account, reviewers see who has not confirmed, a new checklist version clears confirmations. Sabotage: the rota check removed must flip the refusal.
 s19b_on_call_readiness.sql
+# S22e: the care-team inbox stays shared by every org staff account; message bodies and attachments are opened only through audited functions (OQ-157). Staff cannot read the rows directly (headers still work); one audit row per person per 10 minutes; patient unaudited; strangers refused; confidential threads still open for staff; staff can still reply; the communication log has no body. Sabotage: the staff select policy restored and the open function without its audit insert; both checks must flip.
+s22e_audited_care_inbox.sql
