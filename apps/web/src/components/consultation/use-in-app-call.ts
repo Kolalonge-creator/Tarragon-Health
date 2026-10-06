@@ -48,6 +48,8 @@ interface Attempt {
   sdk: ZoomEmbeddedGlobal | null;
   client: ZoomEmbeddedClient | null;
   controller: CallController | null;
+  /** Set once cleanup has started, so ending an attempt twice (a close after a phone handover, a failure after Leave) is one cleanup. */
+  cleaned: Promise<void> | null;
 }
 
 function newAttempt(): Attempt {
@@ -57,11 +59,17 @@ function newAttempt(): Attempt {
   });
   // Rejecting with nobody racing it is normal (an attempt that finished), so it must not surface as an unhandled rejection.
   aborted.catch(() => undefined);
-  return { cancelled: false, aborted, abort, sdk: null, client: null, controller: null };
+  return { cancelled: false, aborted, abort, sdk: null, client: null, controller: null, cleaned: null };
 }
 
 /** Leaves the call and destroys the SDK's client for ONE attempt. Never throws and never waits longer than LEAVE_PATIENCE_MS. */
-async function cleanup(a: Attempt): Promise<void> {
+function cleanup(a: Attempt): Promise<void> {
+  // Once per attempt: destroyClient is global to the SDK, so a second, later cleanup of an old attempt could destroy a NEW attempt's client.
+  a.cleaned ??= doCleanup(a);
+  return a.cleaned;
+}
+
+async function doCleanup(a: Attempt): Promise<void> {
   a.cancelled = true;
   a.abort();
   a.controller?.stop();
