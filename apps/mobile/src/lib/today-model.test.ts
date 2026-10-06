@@ -263,3 +263,22 @@ describe("every translation key the model can return exists in English and Pidgi
     expect((pcm as Record<string, string>)[key]).toBeTruthy();
   });
 });
+
+describe("the repeat-reading prompt from triage (S12)", () => {
+  it("shows its own translated line, not the daily log line, when the task has no title", () => {
+    const out = build({ tasks: [task({ id: "r", title: "", source: "triage_recheck", dueAt: at(TODAY, "10:05") })] });
+    expect(out.open[0]?.title).toEqual({ line: { key: "today.recheck_bp" } });
+    expect(en["today.recheck_bp"]).toBe("Measure your blood pressure again");
+    expect(pcm["today.recheck_bp"].length).toBeGreaterThan(0);
+  });
+
+  it("an untitled task from anywhere else keeps the kind line, and a titled triage task keeps its title", () => {
+    expect(build({ tasks: [task({ title: "", source: "clinician" })] }).open[0]?.title).toEqual({ line: { key: "today.kind.log_bp" } });
+    expect(build({ tasks: [task({ title: "Care team note", source: "triage_recheck" })] }).open[0]?.title).toEqual({ text: "Care team note" });
+  });
+
+  it("carries source through from the view rows", () => {
+    expect(toTodayTasks([{ id: "x", state: "open", source: "triage_recheck" }])[0]?.source).toBe("triage_recheck");
+    expect(toTodayTasks([{ id: "x", state: "open" }])[0]?.source).toBeNull();
+  });
+});

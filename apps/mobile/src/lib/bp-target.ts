@@ -68,6 +68,11 @@ function functionMissing(error: { code?: string; message?: string }): boolean {
   return error.code === "PGRST202" || error.code === "42883" || (/my_home_bp_target/.test(error.message ?? "") && /could not find|does not exist/i.test(error.message ?? ""));
 }
 
+/** The last target this phone saw for the account, with no network call (used by on-device triage, which must not wait). */
+export async function readCachedBpTarget(userId: string, patientId: string): Promise<PersonalBpTarget | null> {
+  return readCache(userId, patientId);
+}
+
 async function readCache(userId: string, patientId: string): Promise<PersonalBpTarget | null> {
   try {
     const raw = await AsyncStorage.getItem(cacheKey(userId, patientId));

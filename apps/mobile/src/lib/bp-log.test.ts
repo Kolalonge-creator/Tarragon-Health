@@ -67,6 +67,16 @@ beforeEach(async () => {
   mockInsertError = null;
 });
 
+describe("logBpWithExtras cuff type", () => {
+  it("sends the cuff type with the reading, and nothing when it was skipped", async () => {
+    await logBpWithExtras(plan({ cuffType: "wrist" }));
+    expect(posted[0]).toMatchObject({ vital_type: "blood_pressure", cuff_type: "wrist" });
+    posted.length = 0;
+    await logBpWithExtras(plan());
+    expect(posted[0]).not.toHaveProperty("cuff_type");
+  });
+});
+
 describe("logBpWithExtras", () => {
   it("saves and sends just the reading when nothing optional is given", async () => {
     const res = await logBpWithExtras(plan());

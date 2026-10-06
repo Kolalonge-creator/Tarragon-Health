@@ -49,6 +49,10 @@ begin
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_clin := pg_temp.mkuser(v_org, 'clinician', 'clinician');
 
+  -- Later sections register their own subscribers (S12 adds triage.grade_observation). This proof counts only its own, so the others are
+  -- switched off for the rest of this rolled-back transaction.
+  update public.event_subscribers set is_active = false where subscriber_key not like 's10.%';
+
   -- Subscribers: two on observation.recorded (v1 only, v1 and later), one inactive, one on another type.
   insert into public.event_subscribers (subscriber_key, event_type, handler_key, min_version, max_version) values
     ('s10.a', 'observation.recorded', 'bus.noop', 1, 1),

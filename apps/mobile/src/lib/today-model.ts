@@ -31,6 +31,8 @@ export interface TodayTask {
   id: string;
   kind: string | null;
   title: string;
+  /** Where the task came from (care_tasks.source); a repeat-reading prompt from triage says triage_recheck. */
+  source?: string | null;
   priority: number | null;
   dueAt: string | null;
   recurrence: string | null;
@@ -112,7 +114,11 @@ export function buildTodayList(input: TodayInput): TodayList {
   for (const t of input.tasks) {
     const kind = asKind(t.kind);
     if (kind === "take_medicine") continue; // dose slots are the one source for medicines
-    const title = t.title.trim() ? { text: t.title.trim() } : { line: { key: `today.kind.${kind}` as Line["key"] } };
+    const title = t.title.trim()
+      ? { text: t.title.trim() }
+      : t.source === "triage_recheck"
+        ? { line: { key: "today.recheck_bp" as Line["key"] } }
+        : { line: { key: `today.kind.${kind}` as Line["key"] } };
     const dueAtMs = parseMs(t.dueAt);
     const base = { id: `task:${t.id}`, source: "task" as const, kind, title, target: TARGET_FOR_KIND[kind], dueAtMs };
 
@@ -183,6 +189,7 @@ export function toTodayTasks(
     id?: string | null;
     kind?: string | null;
     title?: string | null;
+    source?: string | null;
     priority?: number | null;
     due_at?: string | null;
     recurrence?: string | null;
@@ -197,6 +204,7 @@ export function toTodayTasks(
       id: r.id,
       kind: r.kind ?? null,
       title: r.title ?? "",
+      source: r.source ?? null,
       priority: r.priority ?? null,
       dueAt: r.due_at ?? null,
       recurrence: r.recurrence ?? null,
