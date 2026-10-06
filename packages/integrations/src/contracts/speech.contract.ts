@@ -18,24 +18,21 @@ export function runSpeechContract(name: string, make: () => SpeechFixture): void
     it("will not start without a recorded scribe consent (INV-11)", async () => {
       const f = make();
       for (const scribeConsentId of ["", "yes", "not-a-uuid"]) {
-        const r = await f.provider.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId });
+        const r = await f.provider.startStream({ encounterRef: ENC, scribeConsentId });
         expect(r.ok).toBe(false);
         if (!r.ok) expect(r.error.code).toBe("consent_required");
       }
     });
 
-    it("refuses a non-opaque encounter reference and an unsupported language", async () => {
+    it("refuses a non-opaque encounter reference", async () => {
       const f = make();
-      const named = await f.provider.startStream({ encounterRef: "Ada Okafor", language: "en-NG", scribeConsentId: CONSENT });
-      const lang = await f.provider.startStream({ encounterRef: ENC, language: "xx" as never, scribeConsentId: CONSENT });
+      const named = await f.provider.startStream({ encounterRef: "Ada Okafor", scribeConsentId: CONSENT });
       expect(named.ok).toBe(false);
-      expect(lang.ok).toBe(false);
-      if (!lang.ok) expect(lang.error.code).toBe("unsupported");
     });
 
     it("streams ordered, timestamped segments and returns them all on stop", async () => {
       const f = make();
-      const s = await f.provider.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT });
+      const s = await f.provider.startStream({ encounterRef: ENC, scribeConsentId: CONSENT });
       if (!s.ok) throw new Error("stream");
       const live: TranscriptSegment[] = [];
       s.data.onSegment((seg) => live.push(seg));
@@ -43,7 +40,6 @@ export function runSpeechContract(name: string, make: () => SpeechFixture): void
       const t = await s.data.stop();
       expect(t.ok).toBe(true);
       if (!t.ok) return;
-      expect(t.data.language).toBe("en-NG");
       expect(t.data.segments.length).toBeGreaterThan(0);
       expect(t.data.segments).toEqual(live);
       t.data.segments.forEach((seg, i) => {
@@ -59,7 +55,7 @@ export function runSpeechContract(name: string, make: () => SpeechFixture): void
 
     it("stops cleanly twice with the same transcript, and refuses audio after stop", async () => {
       const f = make();
-      const s = await f.provider.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT });
+      const s = await f.provider.startStream({ encounterRef: ENC, scribeConsentId: CONSENT });
       if (!s.ok) throw new Error("stream");
       await s.data.push(chunk());
       const a = await s.data.stop();
@@ -72,7 +68,7 @@ export function runSpeechContract(name: string, make: () => SpeechFixture): void
 
     it("continues the same timeline when restarted after a dropped connection", async () => {
       const f = make();
-      const s = await f.provider.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT, resumeFrom: { offsetMs: 90_000, nextIndex: 12 } });
+      const s = await f.provider.startStream({ encounterRef: ENC, scribeConsentId: CONSENT, resumeFrom: { offsetMs: 90_000, nextIndex: 12 } });
       if (!s.ok) throw new Error("stream");
       for (let i = 0; i < f.chunksForText; i++) await s.data.push(chunk());
       const t = await s.data.stop();
@@ -82,21 +78,21 @@ export function runSpeechContract(name: string, make: () => SpeechFixture): void
       expect(t.data.segments[0]!.startMs).toBeGreaterThanOrEqual(90_000);
       t.data.segments.forEach((seg, i) => expect(seg.index).toBe(12 + i));
       for (const resumeFrom of [{ offsetMs: -1, nextIndex: 0 }, { offsetMs: 0, nextIndex: 1.5 }]) {
-        const bad = await f.provider.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT, resumeFrom });
+        const bad = await f.provider.startStream({ encounterRef: ENC, scribeConsentId: CONSENT, resumeFrom });
         expect(bad.ok).toBe(false);
       }
     });
 
     it("refuses an empty audio chunk", async () => {
       const f = make();
-      const s = await f.provider.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT });
+      const s = await f.provider.startStream({ encounterRef: ENC, scribeConsentId: CONSENT });
       if (!s.ok) throw new Error("stream");
       expect((await s.data.push(new Uint8Array(0))).ok).toBe(false);
     });
 
     it("stops delivering segments to a handler that unsubscribed", async () => {
       const f = make();
-      const s = await f.provider.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT });
+      const s = await f.provider.startStream({ encounterRef: ENC, scribeConsentId: CONSENT });
       if (!s.ok) throw new Error("stream");
       let n = 0;
       const off = s.data.onSegment(() => (n += 1));
@@ -107,7 +103,7 @@ export function runSpeechContract(name: string, make: () => SpeechFixture): void
 
     it("never puts transcript text in an error", async () => {
       const f = make();
-      const s = await f.provider.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT });
+      const s = await f.provider.startStream({ encounterRef: ENC, scribeConsentId: CONSENT });
       if (!s.ok) throw new Error("stream");
       await s.data.push(chunk());
       await s.data.stop();

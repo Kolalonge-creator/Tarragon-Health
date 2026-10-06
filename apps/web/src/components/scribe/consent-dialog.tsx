@@ -9,7 +9,6 @@ import { recordScribeConsent } from "@/lib/scribe/actions";
 interface ScribeConsentDialogProps {
   patientId: string;
   encounterNoteId?: string;
-  language: "en-NG";
   onConsented: (consentId: string) => void;
   onDeclined: () => void;
 }
@@ -17,7 +16,6 @@ interface ScribeConsentDialogProps {
 export function ScribeConsentDialog({
   patientId,
   encounterNoteId,
-  language,
   onConsented,
   onDeclined,
 }: ScribeConsentDialogProps) {
@@ -32,7 +30,7 @@ export function ScribeConsentDialog({
     setError(null);
     startTransition(async () => {
       try {
-        const result = await recordScribeConsent({ patientId, encounterNoteId, granted: true, language });
+        const result = await recordScribeConsent({ patientId, encounterNoteId, granted: true });
         if (result.ok) onConsented(result.id);
         else setError(result.reason === "not_allowed" ? t("scribe.consent.not_allowed", locale) : t("scribe.consent.start_failed", locale));
       } catch {

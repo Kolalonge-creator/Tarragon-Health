@@ -213,7 +213,7 @@ async function runScribeSuite(suite: EvalSuite): Promise<{ result: EvalSuiteResu
   for (const c of suite.cases) {
     const fixture = SCRIBE_FIXTURES[c.case_code];
     if (!fixture) throw new Error(`No SCRIBE_FIXTURES entry for case_code "${c.case_code}" -- add one before running.`);
-    const result = await generateScribeNote(fixture.language, fixture.transcript, fixture.source ?? "stt");
+    const result = await generateScribeNote(fixture.transcript, fixture.source ?? "stt");
     rawByCase[c.case_code] = result;
     const { pass, reasoning } = scoreScribeEvalCase(c.case_code, result);
     console.log(`  ${pass ? "PASS" : "FAIL"} ${c.case_code}: ${reasoning}`);

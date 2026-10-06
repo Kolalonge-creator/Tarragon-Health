@@ -45,7 +45,7 @@ describe("i18n catalogues", () => {
   });
 
   it("falls back to English for an unknown locale and normalises junk", () => {
-    expect(t("common.continue", "yo" as never)).toBe("Continue");
+    expect(t("common.continue", "xx" as never)).toBe("Continue");
     expect(asLocale(null)).toBe("en");
     expect(asLocale("fr")).toBe("en");
   });

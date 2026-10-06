@@ -12,7 +12,6 @@ import { draftScribeFromText, revokeScribeConsent } from "@/lib/scribe/actions";
 import { scribeErrorMessage } from "@/lib/scribe/error-messages";
 import { MAX_TYPED_NOTES_CHARS, MIN_TYPED_NOTES_CHARS } from "@/lib/scribe/parse-typed-notes";
 
-type Language = "en-NG";
 
 type ScribeState =
   | { step: "idle" }
@@ -30,7 +29,6 @@ export interface ScribeDraftResult {
   draft: DraftSection;
   patientSummary: string;
   consentId: string;
-  language: Language;
 }
 
 interface ScribePanelProps {
@@ -46,7 +44,6 @@ interface ScribePanelProps {
 
 export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseDraft }: ScribePanelProps) {
   const [state, setState] = useState<ScribeState>({ step: "idle" });
-  const language: Language = "en-NG";
   const [text, setText] = useState("");
   const [, startTransition] = useTransition();
 
@@ -57,7 +54,6 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
         const result = await draftScribeFromText({
           scribeConsentId: consentId,
           encounterNoteId,
-          language,
           text,
           patientContext,
         });
@@ -97,7 +93,6 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
         <ScribeConsentDialog
           patientId={patientId}
           encounterNoteId={encounterNoteId}
-          language={language}
           onConsented={(consentId) => setState({ step: "input", consentId })}
           onDeclined={() => setState({ step: "declined" })}
         />
@@ -147,7 +142,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           draft={state.draft}
           patientSummary={state.patientSummary}
           onUse={(draft, patientSummary) => {
-            onUseDraft({ draft, patientSummary, consentId, language });
+            onUseDraft({ draft, patientSummary, consentId });
             setText("");
             setState({ step: "used" });
           }}

@@ -8,13 +8,11 @@ import type { ProviderResult } from "./result.ts";
  * - A transcript is health data. It is returned to the caller and nowhere else: never logged, never put in an error.
  * - Nothing here calls a language model (INV-01) or writes to the patient record (INV-11); a draft is the clinician's to sign.
  */
-export type SpeechLanguage = "en-NG";
 export type Speaker = "clinician" | "patient" | "unknown";
 
 export interface StartStreamInput {
   /** Opaque encounter reference (a uuid). */
   readonly encounterRef: string;
-  readonly language: SpeechLanguage;
   /** Id of the recorded `scribe_consent` row (INV-11). */
   readonly scribeConsentId: string;
   /**
@@ -38,7 +36,6 @@ export interface TranscriptSegment {
 export interface Transcript {
   readonly segments: readonly TranscriptSegment[];
   readonly durationMs: number;
-  readonly language: SpeechLanguage;
 }
 
 export interface SpeechStream {
@@ -56,5 +53,3 @@ export interface SpeechToText {
   readonly isMock: boolean;
   startStream(input: StartStreamInput): Promise<ProviderResult<SpeechStream>>;
 }
-
-export const SUPPORTED_LANGUAGES: readonly SpeechLanguage[] = ["en-NG"];

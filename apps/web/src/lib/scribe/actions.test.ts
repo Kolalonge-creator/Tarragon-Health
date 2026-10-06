@@ -33,7 +33,6 @@ describe("attachScribeDraftToNote", () => {
       encounterNoteId: NOTE,
       scribeConsentId: CONSENT,
       patientSummary: "Rest.",
-      patientSummaryLanguage: "en-NG",
     });
     expect(rpcMock).toHaveBeenCalledWith("attach_scribe_draft_to_note", {
       p_note: NOTE,
@@ -51,7 +50,6 @@ describe("attachScribeDraftToNote", () => {
         encounterNoteId: NOTE,
         scribeConsentId: CONSENT,
         patientSummary: "",
-        patientSummaryLanguage: "en-NG",
       })
     ).rejects.toThrow("not active");
   });
@@ -62,7 +60,6 @@ describe("attachScribeDraftToNote", () => {
         encounterNoteId: "nope",
         scribeConsentId: CONSENT,
         patientSummary: "",
-        patientSummaryLanguage: "en-NG",
       })
     ).rejects.toThrow();
     expect(rpcMock).not.toHaveBeenCalled();
@@ -82,7 +79,6 @@ describe("draftScribeFromText", () => {
     await draftScribeFromText({
       scribeConsentId: CONSENT,
       encounterNoteId: NOTE,
-      language: "en-NG",
       text: "Patient: headache for two weeks\nDoctor: BP 164/98, review in two weeks",
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
@@ -93,7 +89,7 @@ describe("draftScribeFromText", () => {
 
   it("refuses text that is too short to draft from, without calling the function", async () => {
     await expect(
-      draftScribeFromText({ scribeConsentId: CONSENT, encounterNoteId: NOTE, language: "en-NG", text: "short" })
+      draftScribeFromText({ scribeConsentId: CONSENT, encounterNoteId: NOTE, text: "short" })
     ).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
   });

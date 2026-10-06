@@ -1,10 +1,10 @@
 -- ===========================================================================
--- Proof: Nigerian Pidgin removal (migration 20261006222924_remove_nigerian_pidgin_english_only).
---   1. profiles.language accepts 'en' and rejects 'pcm' (and any other value).
---   2. scribe_consents / scribe_transcripts / clinical_encounter_notes no longer accept 'pcm'; 'en-NG' still accepted
---      (checked against the constraint definitions, so no row fixtures are needed).
+-- Proof: English-only languages (migration 20261006222924_remove_nigerian_pidgin_english_only).
+--   1. profiles.language accepts 'en' and rejects 'pcm', 'yo', 'ha', 'ig' and any other value.
+--   2. No language/locale CHECK on patient_result_explanations, notification_template_locales,
+--      health_education_translations or the scribe tables allows a non-English code, and the scribe CHECKs still accept 'en-NG'.
 --   3. The 'pidgin_language' platform switch is gone and an unknown key still reads false.
---   4. SABOTAGE: a scratch table carrying the OLD expression ('en','pcm') accepts 'pcm', proving the probe can fail.
+--   4. SABOTAGE: a scratch table carrying the OLD expression ('en','pcm') accepts 'pcm' and 'yo', proving the probe can fail.
 -- BEGIN/ROLLBACK; no fixtures survive.
 -- ===========================================================================
 begin;
@@ -40,6 +40,25 @@ begin
   exception when check_violation then v_rejected := true; end;
   if not v_rejected then raise exception 'FAIL 1c: profiles.language accepted fr'; end if;
 
+  -- 1d. the other language codes are rejected too
+  foreach v_def in array array['yo', 'ha', 'ig'] loop
+    v_rejected := false;
+    begin execute format('update public.profiles set language = %L where id = %L', v_def, v_id);
+    exception when check_violation then v_rejected := true; end;
+    if not v_rejected then raise exception 'FAIL 1d: profiles.language accepted %', v_def; end if;
+  end loop;
+
+  -- 2. every other language CHECK is English only
+  for v_def in
+    select c.conrelid::regclass::text || ': ' || pg_get_constraintdef(c.oid) from pg_constraint c
+    where c.contype = 'c'
+      and c.conrelid in ('public.patient_result_explanations'::regclass, 'public.notification_template_locales'::regclass,
+                         'public.health_education_translations'::regclass)
+      and pg_get_constraintdef(c.oid) ~ '''en'''
+  loop
+    if v_def ~ '''(pcm|yo|ha|ig)''' then raise exception 'FAIL 2c: a CHECK still allows a non-English code: %', v_def; end if;
+  end loop;
+
   -- 2. scribe language columns
   for v_def in
     select pg_get_constraintdef(c.oid) from pg_constraint c
@@ -59,9 +78,9 @@ begin
   if public.platform_switch_is_on('pidgin_language') then raise exception 'FAIL 3b: removed switch reads true'; end if;
 
   -- 4. sabotage: the old expression accepts pcm, so the probe above is capable of failing
-  create temp table _old_language (language text check (language in ('en', 'pcm'))) on commit drop;
-  insert into _old_language values ('pcm');
-  if (select count(*) from _old_language) <> 1 then raise exception 'FAIL 4: sabotage control did not accept pcm'; end if;
+  create temp table _old_language (language text check (language in ('en', 'pcm', 'yo', 'ha', 'ig'))) on commit drop;
+  insert into _old_language values ('pcm'), ('yo');
+  if (select count(*) from _old_language) <> 2 then raise exception 'FAIL 4: sabotage control did not accept the old codes'; end if;
 
   raise notice 'PASS: remove_pidgin_english_only';
 end $$;

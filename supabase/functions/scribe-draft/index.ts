@@ -21,7 +21,6 @@ interface RequestBody {
   readonly scribeConsentId: string;
   readonly encounterNoteId: string;
   readonly segments: readonly TranscriptSegment[];
-  readonly language: "en-NG";
   // "typed": the clinician pasted or typed notes of the consultation (no recording, so no timestamps).
   readonly source?: "stt" | "typed";
   readonly patientContext?: {
@@ -162,10 +161,6 @@ Deno.serve(async (req) => {
     return Response.json({ error: "missing_fields" }, { status: 400 });
   }
 
-  if (body.language !== "en-NG") {
-    return Response.json({ error: "unsupported_language" }, { status: 400 });
-  }
-
   if (body.source !== undefined && !["stt", "typed"].includes(body.source)) {
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
@@ -221,7 +216,7 @@ Deno.serve(async (req) => {
   }
 
   const userMessage = [
-    `Language variant: ${body.language}`,
+    "Language variant: en-NG",
     typed ? "Input type: notes the clinician typed or pasted about the consultation (not a recording)." : null,
     contextParts.length ? `Patient context:\n${contextParts.join("\n")}` : null,
     `Transcript:\n${transcript}`,
@@ -286,7 +281,7 @@ Deno.serve(async (req) => {
       subject_profile_id: consent.patient_id,
       actor_profile_id: actorId,
       input_category: typed ? "scribe_typed_notes" : "scribe_transcript",
-      output_summary: `Draft: ${Object.keys(parsed.draft).length} sections + patient summary (${body.language}${typed ? ", typed notes" : ""})`,
+      output_summary: `Draft: ${Object.keys(parsed.draft).length} sections + patient summary (en-NG${typed ? ", typed notes" : ""})`,
       status: "completed",
       resulting_action: "draft_generated",
       resulting_entity_type: "clinical_encounter_note",

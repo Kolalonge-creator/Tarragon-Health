@@ -92,7 +92,7 @@ begin
 
   v_cmo := pg_temp.mkdoc(v_org, v_admin, 'cmo', 'chief_medical_officer', 'contracted', '{en}', null, '{}');
   v_a  := pg_temp.mkdoc(v_org, v_admin, 'lead-a', 'senior_medical_officer', 'employed',   '{en}',     90, '{lead_clinician,hypertension,on_call}');
-  v_b  := pg_temp.mkdoc(v_org, v_admin, 'lead-b', 'senior_medical_officer', 'contracted', '{ig,en}',  80, '{lead_clinician,hypertension,on_call}');
+  v_b  := pg_temp.mkdoc(v_org, v_admin, 'lead-b', 'senior_medical_officer', 'contracted', '{fr,en}',  80, '{lead_clinician,hypertension,on_call}');
   v_c  := pg_temp.mkdoc(v_org, v_admin, 'lead-c', 'senior_medical_officer', 'employed',   '{en}',     70, '{lead_clinician,hypertension,on_call}');
   v_d  := pg_temp.mkdoc(v_org, v_admin, 'oncall-d', 'senior_medical_officer', 'employed', '{en}',     60, '{hypertension,on_call}');
   v_mo := pg_temp.mkdoc(v_org, v_admin, 'mo', 'medical_officer', 'employed', '{en}',                   99, '{lead_clinician,hypertension}');
@@ -100,7 +100,7 @@ begin
   v_e := pg_temp.mkdoc(v_org, v_admin, 'oncall-e', 'senior_medical_officer', 'employed', '{en}', 50, '{on_call}');
   -- real (not test) clinicians for the real patients: test and real never mix (INV-13)
   r1 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-1', 'senior_medical_officer', 'employed', '{en}',    90, '{lead_clinician,hypertension,on_call}', false);
-  r2 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-2', 'senior_medical_officer', 'employed', '{ig,en}', 80, '{lead_clinician,hypertension,on_call}', false);
+  r2 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-2', 'senior_medical_officer', 'employed', '{fr,en}', 80, '{lead_clinician,hypertension,on_call}', false);
   r3 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-3', 'senior_medical_officer', 'employed', '{en}',    70, '{lead_clinician,hypertension,on_call}', false);
   select id into v_staff_a from public.clinical_staff where profile_id = v_a;
   select id into v_staff_b from public.clinical_staff where profile_id = v_b;
