@@ -427,6 +427,35 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
   {
+    key: "queue.claims",
+    // Claim, hand-back and reliability rules (S17, spec 7.6 and 7.8). Live values are the active row of
+    // `queue_claim_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // handback_cooldown: this many hand-backs (reasons in exempt_reasons do not count) inside the window closes the queue
+    // for the rest of it; hard_count of any reason inside hard_window_minutes does too, so hand-back cannot be used to re-roll.
+    // handback_excludes_task_for: only these reasons bar the clinician from being offered that task again. reliability: PROPOSED numbers, CMO to confirm (OQ-H).
+    value: {
+      max_extensions: 1,
+      handback_review: { more_than: 3, window_days: 7 },
+      handback_cooldown: { count: 3, window_minutes: 10, exempt_reasons: ["conflict_of_interest", "technical_problem"], hard_count: 6, hard_window_minutes: 60 },
+      handback_excludes_task_for: ["conflict_of_interest", "outside_competence", "other"],
+      max_pending_self_conflicts: 5,
+      escalated_requires_on_call: true,
+      reliability: {
+        window_days: 90,
+        half_life_days: 30,
+        prior_events: 5,
+        prior_good: 0.8,
+        weights: { completed_on_time: 1, completed_late: 1, claim_expired: 0.5, handed_back_other: 0.25, handed_back_reasoned: 0 },
+        good: { completed_on_time: 1, completed_late: 0.4, claim_expired: 0, handed_back_other: 0, handed_back_reasoned: 1 },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S17.md; spec 7.6 and 7.8",
+  },
+  {
     key: "queue.task_types",
     // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
     // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default

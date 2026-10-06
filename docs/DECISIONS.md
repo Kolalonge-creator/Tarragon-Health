@@ -164,3 +164,7 @@ D-02 to D-04 are not defined in the spec.
 - OQ-95 to OQ-98 (2026-10-06): stay on Zoom pending the S21 live test; speech-to-text vendor chosen at S23 from a scoring set; Paystack naira only with foreign cards or sponsors for the diaspora, transfer OTP off with compensating limits; email from `mail.tarragonhealth.ng` with a monitored Reply-To and no patient detail in staff mail.
 - Fees (2026-10-06): the payment processor fee is passed to the patient, shown and explained before payment (`pay.fee.*`); orders match on price, the fee is recorded separately.
 
+
+### S17, 2026-10-06
+- Founder accepted every S17 recommendation (OQ-115 to OQ-121 and OQ-123): minimal availability now, clinician-declared and automatic conflicts, the spec's five hand-back codes, idempotent retry, one extension and no heartbeat, employed doctors push and pull, strict class order, test isolation.
+- Reliability and queue limits stay PROPOSED until the CMO signs them (OQ-122).
