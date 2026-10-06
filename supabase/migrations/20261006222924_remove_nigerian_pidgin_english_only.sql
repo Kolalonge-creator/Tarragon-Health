@@ -62,6 +62,8 @@ begin
   loop
     execute format('alter table %s drop constraint %I', p_table, r.conname);
   end loop;
+  -- idempotent: a named constraint left by an earlier partial removal (chore_remove_pidgin, applied live first) is replaced, not duplicated
+  execute format('alter table %s drop constraint if exists %I', p_table, p_new_name);
   execute format('alter table %s add constraint %I check (%s)', p_table, p_new_name, p_expr);
 end $f$;
 
