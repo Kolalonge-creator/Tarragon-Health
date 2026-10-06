@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ensureAppointmentVideoConsultation } from "@/app/(dashboard)/patient/appointments/video-actions";
 import { confirmAppointmentAndSetupVideo } from "@/lib/appointments/confirm-with-video-setup";
 import type { Tables, Enums } from "@tarragon/shared";
+import { toConsultSlots, type BookableConsultSlotRow } from "@/lib/consultations/slots";
 
 export type Appointment = Tables<"appointments">;
 export type AppointmentWaitingListEntry = Tables<"appointment_waiting_list">;
@@ -50,6 +51,12 @@ export function useAvailableAppointmentSlots(params: {
     enabled,
     queryFn: async () => {
       const supabase = createClient();
+      // S21 (OQ-124): a consultation is booked only from time a clinician has declared and the rota has confirmed.
+      if (params.appointmentType === "telemedicine") {
+        const { data: open, error: openError } = await supabase.rpc("list_bookable_consult_slots" as never, { p_from: params.from, p_to: params.to } as never);
+        if (openError) throw openError;
+        return toConsultSlots(open as unknown as BookableConsultSlotRow[]) as AvailableAppointmentSlot[];
+      }
       const { data, error } = await supabase.rpc("get_available_appointment_slots", {
         p_organisation_id: params.organisationId,
         p_appointment_type: params.appointmentType,

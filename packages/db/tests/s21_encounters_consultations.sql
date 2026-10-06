@@ -65,11 +65,23 @@ begin
   returning id into v;
   return v;
 end $f$;
+-- the clinician's confirmed bookable time (OQ-124): booking is only possible from it
+create function pg_temp.open_time(p_clin uuid, p_start timestamptz) returns void language plpgsql as
+$f$ declare v_org uuid;
+begin
+  select organisation_id into v_org from public.profiles where id = p_clin;
+  if not exists (select 1 from public.availability_blocks where clinician_id = p_clin and kind = 'bookable_consultations' and state = 'confirmed' and is_test
+                  and starts_at <= p_start and ends_at >= p_start + interval '30 minutes') then
+    insert into public.availability_blocks (organisation_id, clinician_id, starts_at, ends_at, kind, state, is_test)
+    values (v_org, p_clin, p_start, p_start + interval '2 hours', 'bookable_consultations', 'confirmed', true);  -- 2 hours: S18's minimum block
+  end if;
+end $f$;
 -- hold and confirm as the patient; returns the appointment id
 create function pg_temp.book(p_patient uuid, p_clinician uuid, p_start timestamptz) returns uuid language plpgsql as
 $f$ declare v_org uuid; v_id uuid;
 begin
   select organisation_id into v_org from public.profiles where id = p_patient;
+  perform pg_temp.open_time(p_clinician, p_start);
   perform pg_temp.act(p_patient);
   select id into v_id from public.hold_appointment_slot(v_org, p_clinician, 'telemedicine', 'telemedicine', p_start, p_start + interval '30 minutes');
   perform public.confirm_appointment_booking(v_id);
@@ -432,7 +444,10 @@ begin
   perform pg_temp.mkcredit(v_adult4);
   v_a10 := pg_temp.book(v_adult4, v_docB, v_start + interval '9 days');
   select id into v_e10 from public.encounters where appointment_id = v_a10;
+  perform pg_temp.open_time(v_docB, v_start + interval '10 days');
   perform pg_temp.act(v_adult4);
+  perform pg_temp.rec('a consultation cannot be moved to time that is not open', 'P0001',
+    pg_temp.try(format('select public.reschedule_appointment(%L, %L, %L)', v_a10, v_start + interval '11 days', v_start + interval '11 days' + interval '30 minutes')));
   select id into v_a11 from public.reschedule_appointment(v_a10, v_start + interval '10 days', v_start + interval '10 days' + interval '30 minutes');
   perform pg_temp.back();
   perform pg_temp.rec('a paid consultation stays confirmed and paid when it is moved', 'confirmed/paid', (select status::text || '/' || payment_status::text from public.appointments where id = v_a11));
@@ -515,6 +530,73 @@ begin
   perform pg_temp.rec('...but an adult gets past the age check (and stops at the missing slot)', '23503',
     pg_temp.try(format('insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)', v_org, v_adult, gen_random_uuid())));
 
+  -- 8e. Booking comes from confirmed bookable time, and the listing shows exactly that ---------------------------------
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, is_test, active, languages, license_verified_at, license_expires_at, specialty, indemnity_exempt, indemnity_exempt_by)
+  values (v_org, v_docA, 'S21 doctor-a', true, true, array['en', 'pcm'], now() - interval '10 days', now() + interval '1 year', 'General practice', true, v_admin),
+         (v_org, v_docB, 'S21 doctor-b', true, true, array['en'], now() - interval '3 days', now() + interval '1 year', 'General practice', true, v_admin);
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('a consultation cannot be held at a time no block opens', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '20 days', v_start + interval '20 days' + interval '30 minutes')));
+  perform pg_temp.back();
+  insert into public.availability_blocks (organisation_id, clinician_id, starts_at, ends_at, kind, state, is_test)
+  values (v_org, v_docA, v_start + interval '20 days', v_start + interval '20 days' + interval '2 hours', 'bookable_consultations', 'declared', true);
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('...nor from a block that is only declared, not confirmed', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '20 days', v_start + interval '20 days' + interval '30 minutes')));
+  perform pg_temp.back();
+  update public.availability_blocks set state = 'cancelled' where clinician_id = v_docA and state = 'declared' and starts_at = v_start + interval '20 days';
+
+  -- a confirmed 2 hour block 5 days out gives four 30 minute slots
+  insert into public.availability_blocks (organisation_id, clinician_id, starts_at, ends_at, kind, state, is_test)
+  values (v_org, v_docA, v_start + interval '5 days', v_start + interval '5 days' + interval '2 hours', 'bookable_consultations', 'confirmed', true);
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('the listing shows the four open slots with the clinician and a current licence', '4/General practice/true',
+    (select count(*)::text || '/' || max(x ->> 'specialty') || '/' || bool_and((x ->> 'licence_current')::boolean)::text
+       from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days')) x where (x ->> 'clinician_id')::uuid = v_docA));
+  perform pg_temp.rec('a language filter keeps only clinicians who speak it', '4/0',
+    (select count(*)::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days', 'pcm')) x where (x ->> 'clinician_id')::uuid = v_docA)
+    || '/' || (select count(*)::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days', 'yo')) x where (x ->> 'clinician_id')::uuid = v_docA));
+  perform pg_temp.rec('the listing carries no phone number, link or email', 'false',
+    (public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days')::text ~ '(https?://|@|\+234)')::text);
+  perform pg_temp.back();
+  -- one slot is taken: it leaves the list, the others stay
+  perform pg_temp.mkcredit(v_adult);
+  perform pg_temp.book(v_adult, v_docA, v_start + interval '5 days' + interval '30 minutes');
+  perform pg_temp.act(v_adult2);
+  perform pg_temp.rec('a booked slot leaves the list and the others stay', '3/false',
+    (select count(*)::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days')) x where (x ->> 'clinician_id')::uuid = v_docA)
+    || '/' || (select bool_or((x ->> 'slot_start')::timestamptz = v_start + interval '5 days' + interval '30 minutes')::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days')) x where (x ->> 'clinician_id')::uuid = v_docA));
+  perform pg_temp.back();
+  -- leave removes the slots it covers; a patient the clinician has a conflict with sees none of that clinician's time
+  insert into public.provider_time_off (organisation_id, clinician_id, kind, starts_at, ends_at, reason)
+  values (v_org, v_docA, 'blocked', v_start + interval '5 days' + interval '60 minutes', v_start + interval '5 days' + interval '90 minutes', 'proof');
+  perform pg_temp.act(v_adult2);
+  perform pg_temp.rec('time off removes the slot it covers', '2',
+    (select count(*)::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days')) x where (x ->> 'clinician_id')::uuid = v_docA));
+  perform pg_temp.back();
+  insert into public.clinician_conflicts (organisation_id, clinician_id, patient_id, reason, source, status, declared_by)
+  select v_org, v_docA, v_adult2, 'proof conflict', 'self_declared', 'pending_review', v_docA;
+  perform pg_temp.act(v_adult2);
+  perform pg_temp.rec('a declared conflict hides that clinician from that patient only', '0',
+    (select count(*)::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days')) x where (x ->> 'clinician_id')::uuid = v_docA));
+  perform pg_temp.back();
+  perform pg_temp.act(v_adult3);
+  perform pg_temp.rec('...while another patient still sees the rest', '2',
+    (select count(*)::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days')) x where (x ->> 'clinician_id')::uuid = v_docA));
+  perform pg_temp.back();
+  perform pg_temp.act_anon();
+  perform pg_temp.rec('anon cannot list slots', '42501', pg_temp.try('select public.list_bookable_consult_slots()'));
+  perform pg_temp.back();
+  -- test and real time are kept apart (INV-13): a real (non-test) block is invisible to a test patient, and cannot be booked by one
+  insert into public.availability_blocks (organisation_id, clinician_id, starts_at, ends_at, kind, state, is_test)
+  values (v_org, v_docB, v_start + interval '6 days', v_start + interval '6 days' + interval '2 hours', 'bookable_consultations', 'confirmed', false);
+  perform pg_temp.act(v_adult3);
+  perform pg_temp.rec('a test patient sees no real clinician time', '0',
+    (select count(*)::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '6 days' - interval '1 hour', v_start + interval '7 days')) x where (x ->> 'clinician_id')::uuid = v_docB));
+  perform pg_temp.rec('...and cannot hold it either', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docB, v_start + interval '6 days', v_start + interval '6 days' + interval '30 minutes')));
+  perform pg_temp.back();
+
   -- 9. Grants -------------------------------------------------------------------------------------------------
   perform pg_temp.rec('anon cannot run any consultation function', '0',
     (select count(*)::text from pg_proc p where p.pronamespace = 'public'::regnamespace
@@ -541,7 +623,7 @@ begin
   create or replace function private.assert_adult_for_consultation(p_patient uuid) returns void language plpgsql as $s$ begin null; end $s$;
   perform pg_temp.act(v_minor);
   insert into results values ('sabotaged', 'a minor cannot hold a remote consultation', 'P0001',
-    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '6 days', v_start + interval '6 days' + interval '30 minutes')));
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '5 days' + interval '90 minutes', v_start + interval '5 days' + interval '2 hours')));  -- an open, confirmed slot, so only the age rule can refuse it
   perform pg_temp.back();
   -- (c) the room lookup is granted to signed-in users: a patient can now call it
   grant execute on function public.service_get_encounter_room(uuid) to authenticated;

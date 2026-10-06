@@ -656,6 +656,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     //  sessionMinutes: planned length; the clock pauses during reconnect grace.
     //  flagWindowDays: how long after a consultation the patient can flag a problem for human review.
     //  joinOpensMinutesBefore, joinClosesMinutesAfter: the window around the start time in which a room can be joined.
+    //  bookingLeadMinutes: the soonest a slot can be booked from now. bookingHorizonDays: how far ahead slots are listed.
     value: {
       minAgeYears: 18,
       requireDateOfBirth: true,
@@ -669,6 +670,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       flagWindowDays: 3,
       joinOpensMinutesBefore: 15,
       joinClosesMinutesAfter: 60,
+      bookingLeadMinutes: 30,
+      bookingHorizonDays: 14,
     },
     owner: "Founder",
     status: "proposed",

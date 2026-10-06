@@ -35,7 +35,7 @@ create table public.consultation_policy_config (
 );
 create unique index consultation_policy_config_one_active on public.consultation_policy_config ((true)) where is_active;
 comment on table public.consultation_policy_config is
-  'PROPOSED consultation rules: minAgeYears, requireDateOfBirth, cancelWindowHours, lateCancelCreditReturned, holdMinutes, reconnectGraceSeconds, clinicianNoShowWaitMinutes, patientNoShowWaitMinutes, sessionMinutes, flagWindowDays, joinOpensMinutesBefore, joinClosesMinutesAfter. Mirrored in packages/shared proposed-config as consultations.policy. A change is a new row (INV-16).';
+  'PROPOSED consultation rules: minAgeYears, requireDateOfBirth, cancelWindowHours, lateCancelCreditReturned, holdMinutes, reconnectGraceSeconds, clinicianNoShowWaitMinutes, patientNoShowWaitMinutes, sessionMinutes, flagWindowDays, joinOpensMinutesBefore, joinClosesMinutesAfter, bookingLeadMinutes, bookingHorizonDays. Mirrored in packages/shared proposed-config as consultations.policy. A change is a new row (INV-16).';
 alter table public.consultation_policy_config enable row level security;
 create policy consultation_policy_config_read on public.consultation_policy_config
   for select to authenticated using (true);
@@ -44,7 +44,7 @@ grant select on public.consultation_policy_config to authenticated;
 -- policy-v1-begin
 insert into public.consultation_policy_config (version, is_active, config, note) values
   (1, true,
-   $json${"minAgeYears":18,"requireDateOfBirth":true,"cancelWindowHours":2,"lateCancelCreditReturned":false,"holdMinutes":10,"reconnectGraceSeconds":120,"clinicianNoShowWaitMinutes":15,"patientNoShowWaitMinutes":10,"sessionMinutes":30,"flagWindowDays":3,"joinOpensMinutesBefore":15,"joinClosesMinutesAfter":60}$json$::jsonb,
+   $json${"minAgeYears":18,"requireDateOfBirth":true,"cancelWindowHours":2,"lateCancelCreditReturned":false,"holdMinutes":10,"reconnectGraceSeconds":120,"clinicianNoShowWaitMinutes":15,"patientNoShowWaitMinutes":10,"sessionMinutes":30,"flagWindowDays":3,"joinOpensMinutesBefore":15,"joinClosesMinutesAfter":60,"bookingLeadMinutes":30,"bookingHorizonDays":14}$json$::jsonb,
    'S21 PROPOSED: adults only, full credit back when the patient cancels 2 hours or more before, clinician cancel or no-show always returns it.');
 -- policy-v1-end
 
@@ -354,6 +354,24 @@ $$;
 revoke all on function private.ensure_encounter_for_appointment(uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
+-- 6b. A consultation is booked from time the clinician has declared and the rota has confirmed (OQ-124): availability_blocks of kind
+-- bookable_consultations in state confirmed. One source of truth for what is bookable; the older rules engine still serves the other
+-- appointment types. A test patient only ever sees test blocks and a real patient never does (INV-13).
+-- ---------------------------------------------------------------------------
+create function private.slot_is_bookable(p_clinician uuid, p_patient uuid, p_start timestamptz, p_end timestamptz) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.availability_blocks b
+     where b.clinician_id = p_clinician
+       and b.kind = 'bookable_consultations'
+       and b.state = 'confirmed'
+       and b.starts_at <= p_start and b.ends_at >= p_end
+       and b.is_test = coalesce((select pr.is_test from public.profiles pr where pr.id = p_patient), false));
+$$;
+revoke all on function private.slot_is_bookable(uuid, uuid, timestamptz, timestamptz) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
 -- 7. hold_appointment_slot: S21 adds the adult-only rule for a remote consultation (live definition otherwise unchanged)
 -- ---------------------------------------------------------------------------
 create or replace function public.hold_appointment_slot(
@@ -391,6 +409,10 @@ begin
   -- S21 (OQ-129): a remote consultation is for adults only; fail closed when the age is unknown
   if p_consultation_method = 'telemedicine' then
     perform private.assert_adult_for_consultation(v_patient);
+  end if;
+  -- S21 (OQ-124): a consultation is booked only from time the clinician has declared and the rota has confirmed
+  if p_appointment_type = 'telemedicine' and not private.slot_is_bookable(p_clinician_id, v_patient, p_scheduled_for, p_ends_at) then
+    raise exception 'that time is not open for consultations: pick another slot' using errcode = 'P0001';
   end if;
 
   if p_scheduled_for <= now() then
@@ -931,6 +953,11 @@ begin
   end if;
   if p_new_ends_at <= p_new_scheduled_for or p_new_scheduled_for <= now() then
     raise exception 'invalid new time';
+  end if;
+
+  -- S21 (OQ-124): a consultation can only move to time the clinician has declared and the rota has confirmed
+  if v_old.appointment_type = 'telemedicine' and not private.slot_is_bookable(v_old.clinician_id, v_old.patient_id, p_new_scheduled_for, p_new_ends_at) then
+    raise exception 'that time is not open for consultations: pick another slot' using errcode = 'P0001';
   end if;
 
   -- S21: a paid remote consultation stays paid and confirmed when it moves (it used to come back as 'booked', which offers
