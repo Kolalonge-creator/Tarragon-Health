@@ -41,6 +41,8 @@ export function useAvailableAppointmentSlots(params: {
   appointmentType: AppointmentType;
   consultationMethod?: ConsultationMethod;
   clinicianId?: string;
+  /** Who is being booked (a caregiver books for someone else); the slots, conflicts and test/real separation are for this person. */
+  patientId?: string;
   from?: string;
   to?: string;
   enabled?: boolean;
@@ -53,7 +55,7 @@ export function useAvailableAppointmentSlots(params: {
       const supabase = createClient();
       // S21 (OQ-124): a consultation is booked only from time a clinician has declared and the rota has confirmed.
       if (params.appointmentType === "telemedicine") {
-        const { data: open, error: openError } = await supabase.rpc("list_bookable_consult_slots" as never, { p_from: params.from, p_to: params.to } as never);
+        const { data: open, error: openError } = await supabase.rpc("list_bookable_consult_slots" as never, { p_from: params.from, p_to: params.to, p_patient: params.patientId } as never);
         if (openError) throw openError;
         return toConsultSlots(open as unknown as BookableConsultSlotRow[]) as AvailableAppointmentSlot[];
       }

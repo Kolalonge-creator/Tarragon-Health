@@ -22,8 +22,14 @@ export interface BridgeRecord {
 
 export type BridgePatch = Partial<Pick<BridgeRecord, "providerSessionId" | "state" | "patientAnswered" | "clinicianDialled">>;
 
+/** A bridge that never got a vendor session within this long failed to start: it is closed so it cannot block a new one. */
+export const STALE_UNSTARTED_MS = 30_000;
+
 export interface BridgeStore {
-  create(record: BridgeRecord): Promise<void>;
+  /** Saves a new bridge. Returns false, saving nothing, when this encounter already has a live one (two people tapping at once). */
+  create(record: BridgeRecord): Promise<boolean>;
+  /** Closes this encounter's live bridges that are past their limit or never reached the vendor, so they cannot block a new one. */
+  expireStale(encounterRef: string, nowMs: number): Promise<void>;
   get(bridgeId: string): Promise<BridgeRecord | null>;
   findBySession(providerSessionId: string): Promise<BridgeRecord | null>;
   /** The bridge for this encounter that is still ringing or connected and not past its limit, if any. */
@@ -44,7 +50,16 @@ export function createMemoryBridgeStore(): BridgeStore {
   const forget = (r: BridgeRecord): BridgeRecord => (r.state === "ended" || r.state === "failed" ? { ...r, clinicianPhone: null } : r);
   return {
     async create(record) {
+      // like the database's one-live-bridge-per-encounter rule: any ringing or connected row counts, expired or not, until closed
+      for (const r of rows.values()) if (r.encounterRef === record.encounterRef && (r.state === "ringing" || r.state === "connected")) return false;
       rows.set(record.bridgeId, forget(record));
+      return true;
+    },
+    async expireStale(encounterRef, nowMs) {
+      for (const r of rows.values()) {
+        const unstarted = r.providerSessionId === null && r.startedAtMs < nowMs - STALE_UNSTARTED_MS;
+        if (r.encounterRef === encounterRef && (r.state === "ringing" || r.state === "connected") && (r.expiresAtMs <= nowMs || unstarted)) rows.set(r.bridgeId, forget({ ...r, state: "ended" }));
+      }
     },
     async get(bridgeId) {
       return rows.get(bridgeId) ?? null;

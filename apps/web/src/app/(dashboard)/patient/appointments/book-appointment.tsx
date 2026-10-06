@@ -79,6 +79,7 @@ export function BookAppointment({
   const { data: slots, isLoading } = useAvailableAppointmentSlots({
     organisationId,
     appointmentType,
+    patientId,
     consultationMethod: consultationMethod || undefined,
   });
   const hold = useHoldAppointmentSlot();

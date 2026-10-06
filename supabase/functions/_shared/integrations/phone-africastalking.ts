@@ -22,8 +22,9 @@ import type { BridgeRecord, BridgeStore } from "./phone-store.ts";
  *   live bridge we created (by clientRequestId, else by session id), so a guessed URL alone does nothing.
  * - It does not report the second leg being answered separately. `clinicianAnswered` therefore means "the second call was dialled",
  *   and a bridge is `connected` once the patient has answered and the clinician has been dialled.
- * - There is no API to hang up a live call. `hangup` closes our record (so no further callback dials anyone) and the call itself
- *   ends when either person hangs up or the vendor's own limit is reached.
+ * - There is no API to hang up a live call. `hangup` closes our record (so no further callback dials anyone), and the Dial carries
+ *   `maxDuration` (the seconds left on the bridge) so the call stops at the limit even if nobody hangs up. The first sandbox test must
+ *   confirm Africa's Talking honours that attribute; if it does not, set a duration cap on the number in their dashboard instead.
  */
 export interface AfricasTalkingConfig {
   readonly username: string;
@@ -72,6 +73,9 @@ export function createAfricasTalkingPhone(config: AfricasTalkingConfig): PhoneBr
       if (!Number.isInteger(input.maxMinutes) || input.maxMinutes <= 0 || input.maxMinutes > MAX_BRIDGE_MINUTES) return fail("invalid_input", "Call length is out of range");
       if (!isE164(config.callerNumber) || !config.username || !config.apiKey) return fail("not_configured", "The calling number or credentials are not set", false);
 
+      // A bridge past its limit, or one that never reached the vendor, is closed first so it cannot block (or be mistaken for) a live one.
+      const swept = await store(() => config.store.expireStale(input.encounterRef, now()));
+      if (!swept.ok) return swept;
       const existing = await store(() => config.store.findLiveByEncounter(input.encounterRef, now()));
       if (!existing.ok) return existing;
       if (existing.data) return ok({ bridgeId: existing.data.bridgeId, startedAtMs: existing.data.startedAtMs, expiresAtMs: existing.data.expiresAtMs });
@@ -90,6 +94,12 @@ export function createAfricasTalkingPhone(config: AfricasTalkingConfig): PhoneBr
       };
       const saved = await store(() => config.store.create(record));
       if (!saved.ok) return saved;
+      if (!saved.data) {
+        // someone else set up a bridge for this consultation in the same instant: use theirs, ring nobody twice
+        const raced = await store(() => config.store.findLiveByEncounter(input.encounterRef, now()));
+        if (raced.ok && raced.data) return ok({ bridgeId: raced.data.bridgeId, startedAtMs: raced.data.startedAtMs, expiresAtMs: raced.data.expiresAtMs });
+        return fail("conflict", "A call is already being set up for this consultation", true);
+      }
 
       const res = await httpJson(deps, {
         url: `${base}/call`,
@@ -173,7 +183,9 @@ export async function handleAfricasTalkingCallback(form: Readonly<Record<string,
     }
     const clinician = await deps.store.claimDial(rec.bridgeId, now);
     if (!clinician || !isE164(clinician)) return { xml: REJECT };
-    return { xml: `<?xml version="1.0" encoding="UTF-8"?><Response><Dial phoneNumbers="${clinician}" callerId="${deps.callerNumber}" record="false" sequential="false"/></Response>` };
+    // The vendor has no hang-up call, so the limit is also set on the Dial itself: a bridged call nobody ends stops billing at the limit.
+    const seconds = Math.max(60, Math.ceil((rec.expiresAtMs - now) / 1000));
+    return { xml: `<?xml version="1.0" encoding="UTF-8"?><Response><Dial phoneNumbers="${clinician}" callerId="${deps.callerNumber}" record="false" sequential="false" maxDuration="${seconds}"/></Response>` };
   } catch {
     // Never leave the vendor without an action (an empty reply aborts the call), and never explain what went wrong to it.
     return { xml: REJECT };

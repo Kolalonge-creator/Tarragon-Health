@@ -6,7 +6,7 @@
 --   1. consultation_policy_config: versioned PROPOSED values (mirrored in packages/shared as consultations.policy).
 --      Every encounter records the version it used (INV-16).
 --   2. encounters (authoritative, OQ-125), encounter_rooms (no join or host URL is ever stored; recording is
---      asserted off), encounter_events (append only), scribe_consents (OQ-38). Written only through the
+--      asserted off), encounter_events (append only), consultation_scribe_consents (OQ-38). Written only through the
 --      functions below; authenticated can only read, through RLS.
 --   3. Consultations are for adults only (OQ-129): hold_appointment_slot refuses a telemedicine booking for
 --      anyone under the policy age, and for a patient with no date of birth (fail closed).
@@ -186,7 +186,7 @@ create trigger encounter_events_append_only before update or delete on public.en
 comment on table public.encounter_events is
   'S21: append-only log that drives the fallback ladder and the proof. Payload holds ids and small numbers only (mode, bitrate_kbps, quality, reason_code), never a name or a reading.';
 
-create table public.scribe_consents (
+create table public.consultation_scribe_consents (
   id              uuid primary key default gen_random_uuid(),
   organisation_id uuid not null references public.organisations (id) on delete restrict,
   encounter_id    uuid not null unique references public.encounters (id) on delete cascade,
@@ -200,9 +200,9 @@ create table public.scribe_consents (
   updated_at      timestamptz not null default now(),
   check ((granted is null) = (answered_at is null))
 );
-create trigger scribe_consents_set_updated_at before update on public.scribe_consents
+create trigger consultation_scribe_consents_set_updated_at before update on public.consultation_scribe_consents
   for each row execute function private.set_updated_at();
-comment on table public.scribe_consents is
+comment on table public.consultation_scribe_consents is
   'S21 (OQ-38, INV-11): the patient''s own answer to CON-001 for one consultation. granted null means asked, not yet answered. Written only by open_scribe_prompt and record_scribe_consent, which require the signed-in patient. Nothing here is ever defaulted or written for the patient.';
 
 -- ---------------------------------------------------------------------------
@@ -211,7 +211,7 @@ comment on table public.scribe_consents is
 alter table public.encounters enable row level security;
 alter table public.encounter_rooms enable row level security;
 alter table public.encounter_events enable row level security;
-alter table public.scribe_consents enable row level security;
+alter table public.consultation_scribe_consents enable row level security;
 
 create function private.encounter_visible(p_patient uuid, p_clinician uuid) returns boolean
 language sql stable security definer set search_path = ''
@@ -230,16 +230,16 @@ create policy encounters_select on public.encounters for select to authenticated
   using (private.encounter_visible(patient_id, clinician_id));
 create policy encounter_events_select on public.encounter_events for select to authenticated
   using (exists (select 1 from public.encounters e where e.id = encounter_id and private.encounter_visible(e.patient_id, e.clinician_id)));
-create policy scribe_consents_select on public.scribe_consents for select to authenticated
+create policy consultation_scribe_consents_select on public.consultation_scribe_consents for select to authenticated
   using (exists (select 1 from public.encounters e where e.id = encounter_id and private.encounter_visible(e.patient_id, e.clinician_id)));
 -- a patient never reads the provider room reference; the assigned clinician and admin do
 create policy encounter_rooms_select on public.encounter_rooms for select to authenticated
   using (exists (select 1 from public.encounters e where e.id = encounter_id
                  and (e.clinician_id = (select auth.uid()) or private.is_admin() or private.credential_is_cmo())));
 
-revoke all on public.encounters, public.encounter_rooms, public.encounter_events, public.scribe_consents
+revoke all on public.encounters, public.encounter_rooms, public.encounter_events, public.consultation_scribe_consents
   from anon, public, authenticated;  -- the schema's default privileges also hand authenticated every right
-grant select on public.encounters, public.encounter_rooms, public.encounter_events, public.scribe_consents to authenticated;
+grant select on public.encounters, public.encounter_rooms, public.encounter_events, public.consultation_scribe_consents to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 5. Event types (owner S21)
@@ -327,7 +327,9 @@ declare
   v_purchase uuid;
 begin
   select * into a from public.appointments where id = p_appointment;
-  if a.id is null or a.consultation_method <> 'telemedicine' then
+  -- only the consultation types that always had a video consultation row get a room: a free booking of another type (for example
+  -- 'gp') never did, and must not gain one just because it was made with the telemedicine method
+  if a.id is null or a.consultation_method <> 'telemedicine' or a.appointment_type not in ('telemedicine', 'result_interpretation') then
     return null;
   end if;
   select id into v_id from public.encounters where appointment_id = a.id;
@@ -358,18 +360,46 @@ revoke all on function private.ensure_encounter_for_appointment(uuid) from publi
 -- bookable_consultations in state confirmed. One source of truth for what is bookable; the older rules engine still serves the other
 -- appointment types. A test patient only ever sees test blocks and a real patient never does (INV-13).
 -- ---------------------------------------------------------------------------
-create function private.slot_is_bookable(p_clinician uuid, p_patient uuid, p_start timestamptz, p_end timestamptz) returns boolean
-language sql stable security definer set search_path = ''
+-- One rule for "is this slot open", used by the listing, hold, reschedule and confirm so they cannot disagree. A slot is open when it lies
+-- on the session grid inside a confirmed block of the right kind (test or real), the clinician is active with a licence that outlasts
+-- it, is not on leave or blocked time, has no declared conflict with this patient, and (unless p_settling, for a hold already made) is
+-- inside the booking lead time and horizon. It does not look at other appointments: the no-overlap constraint does that.
+create function private.slot_is_open(p_clinician uuid, p_patient uuid, p_start timestamptz, p_end timestamptz, p_settling boolean default false)
+returns boolean
+language plpgsql stable security definer set search_path = ''
 as $$
-  select exists (
-    select 1 from public.availability_blocks b
-     where b.clinician_id = p_clinician
-       and b.kind = 'bookable_consultations'
-       and b.state = 'confirmed'
-       and b.starts_at <= p_start and b.ends_at >= p_end
-       and b.is_test = coalesce((select pr.is_test from public.profiles pr where pr.id = p_patient), false));
+declare
+  c jsonb := private.consult_policy();
+  v_len integer;
+  v_test boolean := coalesce((select pr.is_test from public.profiles pr where pr.id = p_patient), false);
+begin
+  if c is null then return false; end if;
+  v_len := (c ->> 'sessionMinutes')::integer;
+  if v_len is null or v_len <= 0 or p_end <> p_start + (v_len * interval '1 minute') then return false; end if;
+  if not p_settling and (p_start < now() + ((c ->> 'bookingLeadMinutes')::integer * interval '1 minute')
+                         or p_start >= now() + ((c ->> 'bookingHorizonDays')::integer * interval '1 day')) then
+    return false;
+  end if;
+  return exists (
+           select 1 from public.availability_blocks b
+             join public.clinical_staff cs on cs.profile_id = b.clinician_id and cs.organisation_id = b.organisation_id
+            where b.clinician_id = p_clinician
+              and b.kind = 'bookable_consultations'
+              and b.state = 'confirmed'
+              and b.starts_at <= p_start and b.ends_at >= p_end
+              and b.is_test = v_test
+              and mod((extract(epoch from (p_start - b.starts_at)) / 60)::numeric, v_len) = 0
+              and cs.active
+              and (cs.license_expires_at is null or cs.license_expires_at > p_end))
+     and not exists (
+           select 1 from public.provider_time_off t
+            where t.clinician_id = p_clinician and tstzrange(t.starts_at, t.ends_at, '[)') && tstzrange(p_start, p_end, '[)'))
+     and not exists (
+           select 1 from public.clinician_conflicts cf
+            where cf.clinician_id = p_clinician and cf.patient_id = p_patient and cf.status <> 'lifted');
+end;
 $$;
-revoke all on function private.slot_is_bookable(uuid, uuid, timestamptz, timestamptz) from public, anon, authenticated;
+revoke all on function private.slot_is_open(uuid, uuid, timestamptz, timestamptz, boolean) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 7. hold_appointment_slot: S21 adds the adult-only rule for a remote consultation (live definition otherwise unchanged)
@@ -411,7 +441,7 @@ begin
     perform private.assert_adult_for_consultation(v_patient);
   end if;
   -- S21 (OQ-124): a consultation is booked only from time the clinician has declared and the rota has confirmed
-  if p_appointment_type = 'telemedicine' and not private.slot_is_bookable(p_clinician_id, v_patient, p_scheduled_for, p_ends_at) then
+  if p_appointment_type = 'telemedicine' and not private.slot_is_open(p_clinician_id, v_patient, p_scheduled_for, p_ends_at) then
     raise exception 'that time is not open for consultations: pick another slot' using errcode = 'P0001';
   end if;
 
@@ -490,6 +520,12 @@ begin
   if v_appt.status = 'held' and v_appt.hold_expires_at < now() then
     update public.appointments set status = 'expired', hold_expires_at = null where id = p_appointment_id;
     raise exception 'hold has expired — pick another slot';
+  end if;
+
+  -- S21: the time must still be open at the moment the credit is spent (the clinician may have cancelled the block, or gone on leave,
+  -- since the hold was made). The hold itself is kept, so nothing is spent and the patient can choose again.
+  if v_appt.appointment_type = 'telemedicine' and not private.slot_is_open(v_appt.clinician_id, v_appt.patient_id, v_appt.scheduled_for, v_appt.ends_at, true) then
+    raise exception 'that time is no longer open for consultations: pick another slot' using errcode = 'P0001';
   end if;
 
   if v_appt.payment_status = 'pending' then
@@ -838,22 +874,22 @@ revoke all on function public.mark_encounter_no_show(uuid) from public, anon;
 grant execute on function public.mark_encounter_no_show(uuid) to authenticated;
 
 -- CON-001: asked at the start of every consultation, answered only by the patient (INV-11, OQ-38)
-create function public.open_scribe_prompt(p_encounter uuid) returns public.scribe_consents
+create function public.open_scribe_prompt(p_encounter uuid) returns public.consultation_scribe_consents
 language plpgsql security definer set search_path = ''
 as $$
 declare
   v_uid uuid := (select auth.uid());
   e public.encounters;
-  c public.scribe_consents;
+  c public.consultation_scribe_consents;
 begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
   select * into e from public.encounters where id = p_encounter;
   if e.id is null or e.patient_id <> v_uid then raise exception 'not authorized' using errcode = '42501'; end if;
   if e.status not in ('scheduled', 'waiting', 'in_progress') then raise exception 'this consultation is %', e.status; end if;
-  insert into public.scribe_consents (organisation_id, encounter_id, patient_id, is_test)
+  insert into public.consultation_scribe_consents (organisation_id, encounter_id, patient_id, is_test)
   values (e.organisation_id, e.id, e.patient_id, e.is_test)
   on conflict (encounter_id) do nothing;
-  select * into c from public.scribe_consents where encounter_id = e.id;
+  select * into c from public.consultation_scribe_consents where encounter_id = e.id;
   perform private.log_encounter_event(e.id, 'scribe_consent_asked', v_uid, 'patient', '{}'::jsonb);
   return c;
 end;
@@ -861,13 +897,13 @@ $$;
 revoke all on function public.open_scribe_prompt(uuid) from public, anon;
 grant execute on function public.open_scribe_prompt(uuid) to authenticated;
 
-create function public.record_scribe_consent(p_encounter uuid, p_granted boolean) returns public.scribe_consents
+create function public.record_scribe_consent(p_encounter uuid, p_granted boolean) returns public.consultation_scribe_consents
 language plpgsql security definer set search_path = ''
 as $$
 declare
   v_uid uuid := (select auth.uid());
   e public.encounters;
-  c public.scribe_consents;
+  c public.consultation_scribe_consents;
   v_prev boolean;
 begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
@@ -875,8 +911,8 @@ begin
   select * into e from public.encounters where id = p_encounter;
   if e.id is null or e.patient_id <> v_uid then raise exception 'not authorized' using errcode = '42501'; end if;
   if e.status not in ('scheduled', 'waiting', 'in_progress') then raise exception 'this consultation is %', e.status; end if;
-  select granted into v_prev from public.scribe_consents where encounter_id = e.id;
-  insert into public.scribe_consents (organisation_id, encounter_id, patient_id, granted, answered_at, is_test)
+  select granted into v_prev from public.consultation_scribe_consents where encounter_id = e.id;
+  insert into public.consultation_scribe_consents (organisation_id, encounter_id, patient_id, granted, answered_at, is_test)
   values (e.organisation_id, e.id, e.patient_id, p_granted, now(), e.is_test)
   on conflict (encounter_id) do update set granted = excluded.granted, answered_at = now()
   returning * into c;
@@ -896,7 +932,7 @@ as $$
   select (select auth.uid()) is not null
      and exists (
        select 1 from public.encounters e
-         join public.scribe_consents c on c.encounter_id = e.id
+         join public.consultation_scribe_consents c on c.encounter_id = e.id
         where e.id = p_encounter
           and e.clinician_id = (select auth.uid())
           and e.status = 'in_progress'
@@ -956,7 +992,7 @@ begin
   end if;
 
   -- S21 (OQ-124): a consultation can only move to time the clinician has declared and the rota has confirmed
-  if v_old.appointment_type = 'telemedicine' and not private.slot_is_bookable(v_old.clinician_id, v_old.patient_id, p_new_scheduled_for, p_new_ends_at) then
+  if v_old.appointment_type = 'telemedicine' and not private.slot_is_open(v_old.clinician_id, v_old.patient_id, p_new_scheduled_for, p_new_ends_at) then
     raise exception 'that time is not open for consultations: pick another slot' using errcode = 'P0001';
   end if;
 
@@ -1180,7 +1216,7 @@ begin
     raise exception 'S21: anon can execute a consultation function';
   end if;
   if has_table_privilege('authenticated', 'public.encounters', 'INSERT')
-     or has_table_privilege('authenticated', 'public.scribe_consents', 'UPDATE')
+     or has_table_privilege('authenticated', 'public.consultation_scribe_consents', 'UPDATE')
      or has_table_privilege('authenticated', 'public.encounter_events', 'DELETE') then
     raise exception 'S21: authenticated can write a consultation table directly';
   end if;

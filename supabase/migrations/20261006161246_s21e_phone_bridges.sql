@@ -27,6 +27,10 @@ create table public.phone_bridges (
   check (expires_at > started_at)
 );
 create index phone_bridges_encounter_idx on public.phone_bridges (encounter_id, state);
+-- one live bridge per encounter: two people tapping "call me" at once cannot start two bridges and ring everyone twice. An ended or failed
+-- bridge does not count, and the adapter closes a stale live one (past its limit, or with no vendor session after 30 seconds) before it
+-- makes a new one.
+create unique index phone_bridges_one_live_per_encounter on public.phone_bridges (encounter_id) where state in ('ringing', 'connected');
 comment on table public.phone_bridges is
   'S21: live phone bridges. clinician_phone exists only while a bridge is live and is nulled when it ends, fails or expires (trigger and sweep). Service role only.';
 

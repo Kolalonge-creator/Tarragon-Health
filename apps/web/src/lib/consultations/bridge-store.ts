@@ -18,8 +18,12 @@ interface Row {
   started_at: string;
   expires_at: string;
 }
-type Outcome<T> = PromiseLike<{ data: T | null; error: { message: string } | null }>;
-interface Builder extends PromiseLike<{ data: Row[] | null; error: { message: string } | null }> {
+interface DbError {
+  message: string;
+  code?: string;
+}
+type Outcome<T> = PromiseLike<{ data: T | null; error: DbError | null }>;
+interface Builder extends PromiseLike<{ data: Row[] | null; error: DbError | null }> {
   select(columns?: string): Builder;
   insert(values: Record<string, unknown>): Builder;
   update(values: Record<string, unknown>): Builder;
@@ -27,6 +31,7 @@ interface Builder extends PromiseLike<{ data: Row[] | null; error: { message: st
   in(column: string, values: readonly unknown[]): Builder;
   gt(column: string, value: unknown): Builder;
   not(column: string, operator: string, value: unknown): Builder;
+  or(filters: string): Builder;
   limit(count: number): Builder;
   maybeSingle(): Outcome<Row>;
 }
@@ -46,19 +51,23 @@ const toRecord = (r: Row): BridgeRecord => ({
   expiresAtMs: Date.parse(r.expires_at),
 });
 
-const must = <T>(res: { data: T | null; error: { message: string } | null }): T | null => {
+const must = <T>(res: { data: T | null; error: DbError | null }): T | null => {
   if (res.error) throw new Error("bridge store failed");
   return res.data;
 };
 
-export function createBridgeStore(client: LooseClient = createServiceRoleClient() as unknown as LooseClient): BridgeStore {
-  const table = () => client.from("phone_bridges");
+const STALE_UNSTARTED_MS = 30_000;
+
+/** The client is made on first use, so asking for a store (every consultation action does) costs nothing when no bridge is touched. */
+export function createBridgeStore(supplied?: LooseClient): BridgeStore {
+  let made: LooseClient | undefined = supplied;
+  const db = (): LooseClient => (made ??= createServiceRoleClient() as unknown as LooseClient);
+  const table = () => db().from("phone_bridges");
   return {
     async create(record) {
-      const enc = must(await client.from("encounters").select("organisation_id, is_test").eq("id", record.encounterRef).maybeSingle()) as { organisation_id: string; is_test: boolean } | null;
+      const enc = must(await db().from("encounters").select("organisation_id, is_test").eq("id", record.encounterRef).maybeSingle()) as { organisation_id: string; is_test: boolean } | null;
       if (!enc) throw new Error("bridge store failed");
-      must(
-        await table().insert({
+      const inserted = await table().insert({
           bridge_id: record.bridgeId,
           organisation_id: enc.organisation_id,
           encounter_id: record.encounterRef,
@@ -71,7 +80,21 @@ export function createBridgeStore(client: LooseClient = createServiceRoleClient(
           started_at: new Date(record.startedAtMs).toISOString(),
           expires_at: new Date(record.expiresAtMs).toISOString(),
           is_test: enc.is_test,
-        }),
+      });
+      // the one-live-bridge-per-encounter index refused it: someone set up a bridge for this consultation in the same instant
+      if (inserted.error?.code === "23505") return false;
+      must(inserted);
+      return true;
+    },
+    async expireStale(encounterRef, nowMs) {
+      const now = new Date(nowMs).toISOString();
+      const unstartedBefore = new Date(nowMs - STALE_UNSTARTED_MS).toISOString();
+      must(
+        await table()
+          .update({ state: "ended" })
+          .eq("encounter_id", encounterRef)
+          .in("state", ["ringing", "connected"])
+          .or(`expires_at.lte.${now},and(provider_session_id.is.null,started_at.lt.${unstartedBefore})`),
       );
     },
     async get(bridgeId) {

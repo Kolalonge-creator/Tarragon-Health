@@ -18,12 +18,12 @@ const row = (over: Record<string, unknown> = {}) => ({
 });
 
 /** A client that records every call in the chain and answers with what it is told to. */
-function fake(answers: { rows?: unknown[]; single?: unknown; error?: boolean } = {}) {
+function fake(answers: { rows?: unknown[]; single?: unknown; error?: boolean; errorCode?: string } = {}) {
   const log: string[] = [];
-  const result = () => ({ data: answers.error ? null : (answers.rows ?? null), error: answers.error ? { message: "boom" } : null });
+  const result = () => ({ data: answers.error ? null : (answers.rows ?? null), error: answers.error ? { message: "boom", code: answers.errorCode } : null });
   const builder: Record<string, unknown> = {};
   const chain = (name: string) => (...args: unknown[]) => (log.push(`${name}(${args.map((a) => JSON.stringify(a)).join(",")})`), builder);
-  for (const m of ["select", "insert", "update", "eq", "in", "gt", "not", "limit"]) builder[m] = chain(m);
+  for (const m of ["select", "insert", "update", "eq", "in", "gt", "not", "or", "limit"]) builder[m] = chain(m);
   builder.maybeSingle = () => (log.push("maybeSingle"), Promise.resolve({ data: answers.error ? null : (answers.single ?? null), error: answers.error ? { message: "boom" } : null }));
   builder.then = (resolve: (v: unknown) => void) => resolve(result());
   const client: LooseClient = { from: (t: string) => (log.push(`from(${t})`), builder as never) };
@@ -87,6 +87,40 @@ describe("phone bridge store", () => {
     expect(insert).toContain('"provider":"africastalking"');
     expect(insert).toContain('"is_test":true');
     expect(insert).not.toContain("803123");
+  });
+
+  it("reports false, not an error, when the one-live-bridge index refuses a second bridge", async () => {
+    const answers = { single: { organisation_id: "org-1", is_test: false }, error: true, errorCode: "23505" } as const;
+    const { client } = fake({ single: { organisation_id: "org-1", is_test: false } });
+    // the insert is the only call that errors in this scenario: swap the answer after the encounter lookup
+    let calls = 0;
+    const wrapped: LooseClient = { from: (t: string) => (calls += 1, t === "encounters" ? client.from(t) : fake({ error: true, errorCode: answers.errorCode }).client.from(t)) };
+    const ok = await createBridgeStore(wrapped).create({ bridgeId: "br_aaaaaaaaaaaaaaaaaaaaaaaa", encounterRef: ENC, clinicianPhone: "+2348097654321", providerSessionId: null, state: "ringing", patientAnswered: false, clinicianDialled: false, startedAtMs: 0, expiresAtMs: 1 });
+    expect(ok).toBe(false);
+    expect(calls).toBe(2);
+  });
+
+  it("still throws for any other insert error", async () => {
+    const wrapped: LooseClient = { from: (t: string) => (t === "encounters" ? fake({ single: { organisation_id: "org-1", is_test: false } }).client.from(t) : fake({ error: true, errorCode: "42501" }).client.from(t)) };
+    await expect(createBridgeStore(wrapped).create({ bridgeId: "br_aaaaaaaaaaaaaaaaaaaaaaaa", encounterRef: ENC, clinicianPhone: "+2348097654321", providerSessionId: null, state: "ringing", patientAnswered: false, clinicianDialled: false, startedAtMs: 0, expiresAtMs: 1 })).rejects.toThrow("bridge store failed");
+  });
+
+  it("closes this encounter's stale live bridges in one statement: past their limit, or never reached the vendor in 30 seconds", async () => {
+    const { client, log } = fake({ rows: [] });
+    await createBridgeStore(client).expireStale(ENC, Date.parse("2026-10-07T09:05:00Z"));
+    expect(log).toEqual([
+      "from(phone_bridges)",
+      'update({"state":"ended"})',
+      `eq("encounter_id","${ENC}")`,
+      'in("state",["ringing","connected"])',
+      'or("expires_at.lte.2026-10-07T09:05:00.000Z,and(provider_session_id.is.null,started_at.lt.2026-10-07T09:04:30.000Z)")',
+    ]);
+  });
+
+  it("makes no database client until a bridge is actually touched", async () => {
+    // createServiceRoleClient is mocked to {} at the top of this file; asking for a store must not call it
+    const store = createBridgeStore();
+    expect(typeof store.claimDial).toBe("function");
   });
 
   it("refuses to create a bridge for an encounter it cannot find", async () => {

@@ -26,6 +26,8 @@ create function pg_temp.rec(p_name text, p_expected text, p_actual text) returns
 $$ insert into results values ('real', p_name, p_expected, p_actual) $$;
 create function pg_temp.try(p_sql text) returns text language plpgsql as
 $f$ begin execute p_sql; return 'ok'; exception when others then return sqlstate; end $f$;
+create function pg_temp.try_msg(p_sql text) returns text language plpgsql as
+$f$ begin execute p_sql; return 'ok'; exception when others then return sqlstate || ':' || sqlerrm; end $f$;
 create function pg_temp.act(p_uid uuid) returns void language plpgsql as
 $f$ begin
   perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
@@ -130,6 +132,13 @@ begin
   v_nodob := pg_temp.mkuser(v_org, 'no-dob', 'patient', null);
   v_stranger := pg_temp.mkuser(v_org, 'stranger', 'patient', (current_date - interval '33 years')::date);
 
+  -- fixture: the two doctors need a clinical_staff row (booking checks the licence); the booking lead time is 5 minutes and the horizon 21 days in this
+  -- transaction only, so a consultation 10 minutes away can be booked
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, is_test, active, languages, license_verified_at, license_expires_at, specialty, indemnity_exempt, indemnity_exempt_by)
+  values (v_org, v_docA, 'S21 doctor-a', true, true, array['en', 'pcm'], now() - interval '10 days', now() + interval '1 year', 'General practice', true, v_admin),
+         (v_org, v_docB, 'S21 doctor-b', true, true, array['en'], now() - interval '3 days', now() + interval '1 year', 'General practice', true, v_admin);
+  update public.consultation_policy_config set config = config || '{"bookingLeadMinutes":5,"bookingHorizonDays":21}'::jsonb where is_active;
+
   -- 1. Seed ---------------------------------------------------------------------------------------------------
   perform pg_temp.rec('policy v1 is the one active policy', '1', (select count(*)::text from public.consultation_policy_config where is_active and version = 1));
   perform pg_temp.rec('the policy has a 2 hour window and a minimum age of 18', '2/18',
@@ -164,7 +173,7 @@ begin
   -- 3. The room -----------------------------------------------------------------------------------------------
   perform pg_temp.rec('recording cannot be switched on', '23514', pg_temp.try(format('update public.encounter_rooms set recording_enabled = true where encounter_id = %L', v_e1)));
   perform pg_temp.rec('no encounter column holds a join or host URL', '0',
-    (select count(*)::text from information_schema.columns where table_schema = 'public' and table_name in ('encounters', 'encounter_rooms', 'encounter_events', 'scribe_consents') and column_name ~ 'url'));
+    (select count(*)::text from information_schema.columns where table_schema = 'public' and table_name in ('encounters', 'encounter_rooms', 'encounter_events', 'consultation_scribe_consents') and column_name ~ 'url'));
   perform pg_temp.rec('an event cannot be edited', '23514', pg_temp.try(format('update public.encounter_events set kind = ''left'' where encounter_id = %L', v_e1)));
   perform pg_temp.rec('an event cannot be deleted', '23514', pg_temp.try(format('delete from public.encounter_events where encounter_id = %L', v_e1)));
   perform pg_temp.rec('one encounter per appointment', '23505',
@@ -177,7 +186,7 @@ begin
   perform pg_temp.rec('...but never the provider room reference', '0', (select count(*)::text from public.encounter_rooms where encounter_id = v_e1));
   perform pg_temp.rec('a patient cannot insert an encounter directly', '42501',
     pg_temp.try(format('insert into public.encounters (organisation_id, patient_id, type, scheduled_at, policy_version) values (%L, %L, ''video'', now(), 1)', v_org, v_adult)));
-  perform pg_temp.rec('a patient cannot edit a scribe consent row directly', '42501', pg_temp.try(format('update public.scribe_consents set granted = true where encounter_id = %L', v_e1)));
+  perform pg_temp.rec('a patient cannot edit a scribe consent row directly', '42501', pg_temp.try(format('update public.consultation_scribe_consents set granted = true where encounter_id = %L', v_e1)));
   perform pg_temp.rec('a patient cannot delete an event', '42501', pg_temp.try(format('delete from public.encounter_events where encounter_id = %L', v_e1)));
   perform pg_temp.back();
   perform pg_temp.act(v_stranger);
@@ -531,9 +540,6 @@ begin
     pg_temp.try(format('insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)', v_org, v_adult, gen_random_uuid())));
 
   -- 8e. Booking comes from confirmed bookable time, and the listing shows exactly that ---------------------------------
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, is_test, active, languages, license_verified_at, license_expires_at, specialty, indemnity_exempt, indemnity_exempt_by)
-  values (v_org, v_docA, 'S21 doctor-a', true, true, array['en', 'pcm'], now() - interval '10 days', now() + interval '1 year', 'General practice', true, v_admin),
-         (v_org, v_docB, 'S21 doctor-b', true, true, array['en'], now() - interval '3 days', now() + interval '1 year', 'General practice', true, v_admin);
   perform pg_temp.act(v_adult);
   perform pg_temp.rec('a consultation cannot be held at a time no block opens', 'P0001',
     pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '20 days', v_start + interval '20 days' + interval '30 minutes')));
@@ -597,6 +603,62 @@ begin
     pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docB, v_start + interval '6 days', v_start + interval '6 days' + interval '30 minutes')));
   perform pg_temp.back();
 
+  -- 8e (more). Hold and confirm apply the same rule the listing does -----------------------------------------------------
+  perform pg_temp.act(v_adult3);
+  perform pg_temp.rec('a time off the session grid is refused, so one booking cannot spoil two slots', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '5 days' + interval '15 minutes', v_start + interval '5 days' + interval '45 minutes')));
+  perform pg_temp.rec('a time during blocked time is refused', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '5 days' + interval '60 minutes', v_start + interval '5 days' + interval '90 minutes')));
+  perform pg_temp.back();
+  perform pg_temp.act(v_adult2);
+  perform pg_temp.rec('a patient the clinician has a declared conflict with cannot hold that clinician even by calling the function directly', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '5 days' + interval '90 minutes', v_start + interval '5 days' + interval '2 hours')));
+  perform pg_temp.back();
+  update public.clinical_staff set license_expires_at = v_start + interval '5 days' + interval '100 minutes' where profile_id = v_docA;
+  perform pg_temp.act(v_adult3);
+  perform pg_temp.rec('a licence that ends during the slot makes it unbookable', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '5 days' + interval '90 minutes', v_start + interval '5 days' + interval '2 hours')));
+  perform pg_temp.back();
+  update public.clinical_staff set license_expires_at = now() + interval '1 year' where profile_id = v_docA;
+  insert into public.availability_blocks (organisation_id, clinician_id, starts_at, ends_at, kind, state, is_test)
+  values (v_org, v_docA, v_start + interval '25 days', v_start + interval '25 days' + interval '2 hours', 'bookable_consultations', 'confirmed', true);
+  perform pg_temp.act(v_adult3);
+  perform pg_temp.rec('a slot beyond the booking horizon is refused even inside a confirmed block', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '25 days', v_start + interval '25 days' + interval '30 minutes')));
+  perform pg_temp.back();
+  update public.availability_blocks set state = 'cancelled' where clinician_id = v_docA and starts_at = v_start + interval '25 days';
+
+  -- a free booking of another type gets no consultation room (it never had a consultation row either)
+  perform pg_temp.act(v_adult4);
+  perform pg_temp.rec('a free gp booking made with the telemedicine method is confirmed but has no encounter and no room', 'confirmed/0',
+    (select (public.confirm_appointment_booking((public.hold_appointment_slot(v_org, v_docB, 'gp', 'telemedicine', v_start + interval '13 days', v_start + interval '13 days' + interval '30 minutes')).id)).status::text
+       || '/' || (select count(*)::text from public.encounters e join public.appointments a on a.id = e.appointment_id where a.clinician_id = v_docB and a.scheduled_for = v_start + interval '13 days')));
+  perform pg_temp.back();
+
+  -- the slot must still be open when the credit is spent
+  perform pg_temp.mkcredit(v_adult3);
+  insert into public.availability_blocks (organisation_id, clinician_id, starts_at, ends_at, kind, state, is_test)
+  values (v_org, v_docA, v_start + interval '8 days', v_start + interval '8 days' + interval '2 hours', 'bookable_consultations', 'confirmed', true);
+  perform pg_temp.act(v_adult3);
+  select id into v_a15 from public.hold_appointment_slot(v_org, v_docA, 'telemedicine', 'telemedicine', v_start + interval '8 days', v_start + interval '8 days' + interval '30 minutes');
+  perform pg_temp.back();
+  update public.availability_blocks set state = 'cancelled' where clinician_id = v_docA and starts_at = v_start + interval '8 days';
+  perform pg_temp.act(v_adult3);
+  perform pg_temp.rec('confirming a hold whose block was cancelled is refused', 'P0001', pg_temp.try(format('select public.confirm_appointment_booking(%L)', v_a15)));
+  perform pg_temp.back();
+  perform pg_temp.rec('...so no credit was spent and the hold is untouched', '0/held', pg_temp.credits_on(v_a15) || '/' || (select status::text from public.appointments where id = v_a15));
+
+  -- who the slots are for
+  perform pg_temp.act(v_adult);
+  perform pg_temp.rec('a patient cannot list slots for someone else', '0',
+    jsonb_array_length(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days', null, null, v_adult2))::text);
+  perform pg_temp.back();
+  perform pg_temp.act(v_admin);
+  perform pg_temp.rec('staff listing for a patient with a conflict gets none of that clinician, and the same listing for another patient gets them', '0/true',
+    (select count(*)::text from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days', null, null, v_adult2)) x where (x ->> 'clinician_id')::uuid = v_docA)
+    || '/' || ((select count(*) from jsonb_array_elements(public.list_bookable_consult_slots(v_start + interval '5 days' - interval '1 hour', v_start + interval '6 days', null, null, v_adult3)) x where (x ->> 'clinician_id')::uuid = v_docA) > 0)::text);
+  perform pg_temp.back();
+
   -- 8f. The phone bridge store: service role only, and the clinician's number is forgotten when the bridge is over ------------
   perform pg_temp.act(v_adult);
   perform pg_temp.rec('a signed-in patient cannot read the bridge table', '42501', pg_temp.try('select count(*) from public.phone_bridges'));
@@ -624,6 +686,15 @@ begin
   insert into public.phone_bridges (bridge_id, organisation_id, encounter_id, provider, clinician_phone, state, started_at, expires_at, is_test)
   values ('br_aabbccddeeff001122334455', v_org, v_e7, 'mock', '+2348097654321', 'ringing', now() - interval '1 hour', now() - interval '30 minutes', true);
   perform pg_temp.back();
+  perform pg_temp.act_service();
+  insert into public.phone_bridges (bridge_id, organisation_id, encounter_id, provider, clinician_phone, state, expires_at, is_test)
+  values ('br_1111aaaa2222bbbb3333cccc', v_org, v_e8, 'mock', '+2348097654321', 'ringing', now() + interval '20 minutes', true);
+  perform pg_temp.rec('only one live bridge per encounter: a second is refused', '23505',
+    pg_temp.try(format('insert into public.phone_bridges (bridge_id, organisation_id, encounter_id, provider, clinician_phone, state, expires_at) values (''br_4444dddd5555eeee6666ffff'', %L, %L, ''mock'', ''+2348097654321'', ''connected'', now() + interval ''20 minutes'')', v_org, v_e8)));
+  update public.phone_bridges set state = 'ended' where bridge_id = 'br_1111aaaa2222bbbb3333cccc';
+  perform pg_temp.rec('...but an ended one does not count, so a new bridge can follow', 'ok',
+    pg_temp.try(format('insert into public.phone_bridges (bridge_id, organisation_id, encounter_id, provider, clinician_phone, state, expires_at) values (''br_4444dddd5555eeee6666ffff'', %L, %L, ''mock'', ''+2348097654321'', ''ringing'', now() + interval ''20 minutes'')', v_org, v_e8)));
+  perform pg_temp.back();
   perform pg_temp.act(v_adult);
   perform pg_temp.rec('a signed-in user cannot run the sweep', '42501', pg_temp.try('select private.sweep_phone_bridges()'));
   perform pg_temp.back();
@@ -643,7 +714,7 @@ begin
        and has_function_privilege('authenticated', p.oid, 'EXECUTE')));
   perform pg_temp.rec('every S21 table has row level security', '0',
     (select count(*)::text from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
-       and c.relname in ('encounters', 'encounter_rooms', 'encounter_events', 'scribe_consents', 'consultation_policy_config') and not c.relrowsecurity));
+       and c.relname in ('encounters', 'encounter_rooms', 'encounter_events', 'consultation_scribe_consents', 'consultation_policy_config') and not c.relrowsecurity));
   perform pg_temp.act(v_adult);
   perform pg_temp.rec('a patient sees the rule and the price before paying', '1000000/2/18',
     (select (r ->> 'price_kobo') || '/' || (r ->> 'cancel_window_hours') || '/' || (r ->> 'min_age_years') from (select public.my_consultation_rule() as r) x));
@@ -675,6 +746,13 @@ begin
   insert into public.phone_bridges (bridge_id, organisation_id, encounter_id, provider, clinician_phone, state, expires_at, is_test)
   values ('br_112233445566778899aabbcc', v_org, v_e7, 'mock', '+2348097654321', 'ended', now() + interval '5 minutes', true);
   insert into results values ('sabotaged', 'the number is gone when the bridge has ended', 'true', (select (clinician_phone is null)::text from public.phone_bridges where bridge_id = 'br_112233445566778899aabbcc'));
+  -- (f) the shared slot rule is weakened to "always open": a patient with a declared conflict can now hold the clinician directly
+  --     (the first slot of the block, which no earlier check or sabotage has taken)
+  create or replace function private.slot_is_open(p_clinician uuid, p_patient uuid, p_start timestamptz, p_end timestamptz, p_settling boolean default false) returns boolean language sql as $s$ select true $s$;
+  perform pg_temp.act(v_adult2);
+  insert into results values ('sabotaged', 'a patient with a conflict cannot hold that clinician', 'P0001',
+    pg_temp.try(format('select public.hold_appointment_slot(%L, %L, ''telemedicine'', ''telemedicine'', %L, %L)', v_org, v_docA, v_start + interval '5 days', v_start + interval '5 days' + interval '30 minutes')));
+  perform pg_temp.back();
 end $$;
 
 do $$
@@ -687,8 +765,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 5 then
-    raise exception 'VACUOUS TEST: expected all five sabotage runs to change a check, only % did', v_caught;
+  if v_caught < 6 then
+    raise exception 'VACUOUS TEST: expected all six sabotage runs to change a check, only % did (unchanged: %)', v_caught, (select string_agg(check_name || ' => ' || coalesce(actual, 'null'), '; ') from results where phase = 'sabotaged' and expected = actual);
   end if;
 end $$;
 

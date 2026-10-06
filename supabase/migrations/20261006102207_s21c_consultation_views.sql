@@ -20,7 +20,7 @@ declare
   v_role text;
   v_pat_in boolean;
   v_doc_in boolean;
-  s public.scribe_consents;
+  s public.consultation_scribe_consents;
   v_opens timestamptz;
   v_closes timestamptz;
 begin
@@ -32,7 +32,7 @@ begin
   else return null; end if;
   select coalesce(bool_or(actor_role = 'patient'), false), coalesce(bool_or(actor_role = 'clinician'), false)
     into v_pat_in, v_doc_in from public.encounter_events where encounter_id = e.id and kind = 'joined';
-  select * into s from public.scribe_consents where encounter_id = e.id;
+  select * into s from public.consultation_scribe_consents where encounter_id = e.id;
   v_opens := e.scheduled_at - ((c ->> 'joinOpensMinutesBefore')::integer * interval '1 minute');
   v_closes := e.scheduled_at + ((c ->> 'joinClosesMinutesAfter')::integer * interval '1 minute');
   return jsonb_build_object(

@@ -172,7 +172,7 @@ describe("africa's talking adapter", () => {
     expect(await provider.status(id)).toEqual({ ok: true, data: { state: "ringing", patientAnswered: false, clinicianAnswered: false } });
     const cb = { store, callerNumber: OURS, now: () => at.clock.now };
     const answered = await handleAfricasTalkingCallback({ isActive: "1", clientRequestId: id, sessionId: "ATVId_1" }, cb);
-    expect(answered.xml).toBe(`<?xml version="1.0" encoding="UTF-8"?><Response><Dial phoneNumbers="${DOCTOR}" callerId="${OURS}" record="false" sequential="false"/></Response>`);
+    expect(answered.xml).toBe(`<?xml version="1.0" encoding="UTF-8"?><Response><Dial phoneNumbers="${DOCTOR}" callerId="${OURS}" record="false" sequential="false" maxDuration="1800"/></Response>`);
     expect(await provider.status(id)).toEqual({ ok: true, data: { state: "connected", patientAnswered: true, clinicianAnswered: true } });
     expect((await store.get(id))?.clinicianPhone).toBe(DOCTOR);
     await handleAfricasTalkingCallback({ isActive: "0", clientRequestId: id }, cb);
@@ -235,6 +235,59 @@ describe("africa's talking adapter", () => {
   });
 });
 
+describe("one live bridge per consultation", () => {
+  const input = { encounterRef: ENC, patientPhone: PATIENT, clinicianPhone: DOCTOR, maxMinutes: 30 };
+  const rec = (over = {}) => ({ bridgeId: "br_aaaaaaaaaaaaaaaaaaaaaaaa", encounterRef: ENC, clinicianPhone: DOCTOR, providerSessionId: "S1", state: "ringing" as const, patientAnswered: false, clinicianDialled: false, startedAtMs: 1_800_000_000_000, expiresAtMs: 1_800_000_000_000 + 30 * 60_000, ...over });
+
+  it("uses the bridge another caller created in the same instant instead of ringing anyone twice", async () => {
+    const real = createMemoryBridgeStore();
+    const { at, provider } = make({ store: { ...real, create: async (r) => { await real.create({ ...r, bridgeId: "br_bbbbbbbbbbbbbbbbbbbbbbbb", providerSessionId: "S9" }); return false; } } });
+    const r = await provider.connect(input);
+    expect(r.ok && r.data.bridgeId).toBe("br_bbbbbbbbbbbbbbbbbbbbbbbb");
+    expect(at.calls).toHaveLength(0);
+  });
+
+  it("reports a retryable conflict when the create was refused and no live bridge can be found", async () => {
+    const { at, provider } = make({ store: { ...createMemoryBridgeStore(), create: async () => false } });
+    expect(await provider.connect(input)).toMatchObject({ ok: false, error: { code: "conflict", retryable: true } });
+    expect(at.calls).toHaveLength(0);
+  });
+
+  it("closes a bridge that is past its limit before making a new one, and forgets its number", async () => {
+    const store = createMemoryBridgeStore();
+    await store.create(rec({ expiresAtMs: 1_800_000_000_000 - 1 }));
+    const { provider } = make({ store });
+    const r = await provider.connect(input);
+    expect(r.ok && r.data.bridgeId).not.toBe("br_aaaaaaaaaaaaaaaaaaaaaaaa");
+    const old = await store.get("br_aaaaaaaaaaaaaaaaaaaaaaaa");
+    expect(old).toMatchObject({ state: "ended", clinicianPhone: null });
+  });
+
+  it("closes a bridge that never reached the vendor after 30 seconds, but keeps a young one", async () => {
+    const stale = createMemoryBridgeStore();
+    await stale.create(rec({ providerSessionId: null, startedAtMs: 1_800_000_000_000 - 31_000 }));
+    expect((await make({ store: stale }).provider.connect(input)).ok).toBe(true);
+    expect((await stale.get("br_aaaaaaaaaaaaaaaaaaaaaaaa"))?.state).toBe("ended");
+    const young = createMemoryBridgeStore();
+    await young.create(rec({ providerSessionId: null, startedAtMs: 1_800_000_000_000 - 5_000 }));
+    const r = await make({ store: young }).provider.connect(input);
+    expect(r.ok && r.data.bridgeId).toBe("br_aaaaaaaaaaaaaaaaaaaaaaaa");
+  });
+
+  it("answers a failure to sweep as a retryable result, with no vendor call", async () => {
+    const { at, provider } = make({ store: { ...createMemoryBridgeStore(), expireStale: async () => { throw new Error("db down"); } } });
+    expect(await provider.connect(input)).toMatchObject({ ok: false, error: { retryable: true } });
+    expect(at.calls).toHaveLength(0);
+  });
+
+  it("sets the dial's own time limit to what is left on the bridge, never less than a minute", async () => {
+    const store = createMemoryBridgeStore();
+    await store.create(rec({ expiresAtMs: 1_800_000_000_000 + 10_000 }));
+    const r = await handleAfricasTalkingCallback({ isActive: "1", clientRequestId: "br_aaaaaaaaaaaaaaaaaaaaaaaa" }, { store, callerNumber: OURS, now: () => 1_800_000_000_000 });
+    expect(r.xml).toContain('maxDuration="60"');
+  });
+});
+
 describe("the in-memory bridge store", () => {
   const rec = (over = {}) => ({ bridgeId: "br_aaaaaaaaaaaaaaaaaaaaaaaa", encounterRef: ENC, clinicianPhone: DOCTOR, providerSessionId: null, state: "ringing" as const, patientAnswered: false, clinicianDialled: false, startedAtMs: 1000, expiresAtMs: 2000, ...over });
 
@@ -257,15 +310,32 @@ describe("the in-memory bridge store", () => {
     expect(await s.findBySession("nope")).toBeNull();
   });
 
+  it("refuses a second live bridge for the same encounter, expired or not, until the first is closed", async () => {
+    const s = createMemoryBridgeStore();
+    expect(await s.create(rec())).toBe(true);
+    expect(await s.create(rec({ bridgeId: "br_bbbbbbbbbbbbbbbbbbbbbbbb" }))).toBe(false);
+    await s.update("br_aaaaaaaaaaaaaaaaaaaaaaaa", { state: "ended" });
+    expect(await s.create(rec({ bridgeId: "br_bbbbbbbbbbbbbbbbbbbbbbbb" }))).toBe(true);
+  });
+
+  it("closes only this encounter's stale live bridges", async () => {
+    const s = createMemoryBridgeStore();
+    await s.create(rec({ expiresAtMs: 1500 }));
+    await s.create(rec({ bridgeId: "br_cccccccccccccccccccccccc", encounterRef: "2f4b8c1d-9e07-4a63-b5d2-6c8e0a1f3d97", expiresAtMs: 1500 }));
+    await s.expireStale(ENC, 2000);
+    expect((await s.get("br_aaaaaaaaaaaaaaaaaaaaaaaa"))?.state).toBe("ended");
+    expect((await s.get("br_cccccccccccccccccccccccc"))?.state).toBe("ringing");
+  });
+
   it("lets only one caller claim the dial, and nobody once it is over, expired or has no number", async () => {
     const s = createMemoryBridgeStore();
     await s.create(rec());
     expect(await s.claimDial("br_aaaaaaaaaaaaaaaaaaaaaaaa", 1500)).toBe(DOCTOR);
     expect(await s.claimDial("br_aaaaaaaaaaaaaaaaaaaaaaaa", 1500)).toBeNull();
     expect(await s.claimDial("br_dddddddddddddddddddddddd", 1500)).toBeNull();
-    await s.create(rec({ bridgeId: "br_eeeeeeeeeeeeeeeeeeeeeeee" }));
+    await s.create(rec({ bridgeId: "br_eeeeeeeeeeeeeeeeeeeeeeee", encounterRef: "11111111-1111-4111-8111-111111111111" }));
     expect(await s.claimDial("br_eeeeeeeeeeeeeeeeeeeeeeee", 5000)).toBeNull();
-    await s.create(rec({ bridgeId: "br_ffffffffffffffffffffffff", clinicianPhone: null }));
+    await s.create(rec({ bridgeId: "br_ffffffffffffffffffffffff", encounterRef: "22222222-2222-4222-8222-222222222222", clinicianPhone: null }));
     expect(await s.claimDial("br_ffffffffffffffffffffffff", 1500)).toBeNull();
   });
 });
