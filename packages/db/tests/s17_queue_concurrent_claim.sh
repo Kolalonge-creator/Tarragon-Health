@@ -70,13 +70,17 @@ begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
     values (v_admin, '$TAG-admin@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
-    values (v_admin, v_org, 'admin', '$TAG admin', '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), date '1980-01-01', true);
+    values (v_admin, v_org, 'admin', '$TAG admin', '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), date '1980-01-01', true)
+    on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name,
+      phone = excluded.phone, is_test = true, is_active = true;
   for i in 1..$N_CALLERS loop
     v_u := gen_random_uuid();
     insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
       values (v_u, '$TAG-doc-' || i || '@example.invalid', 'x', now(), '{}', '{}');
     insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
-      values (v_u, v_org, 'clinician', '$TAG doc ' || i, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), date '1980-01-01', true);
+      values (v_u, v_org, 'clinician', '$TAG doc ' || i, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), date '1980-01-01', true)
+    on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name,
+      phone = excluded.phone, is_test = true, is_active = true;
     insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status, license_verified_at,
         verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
       values (v_org, v_u, '$TAG doc ' || i, 'MDCN', '$TAG-' || i, true, 'active', now(), v_admin, 'senior_medical_officer', 'contracted', 2, true, v_admin, true)
@@ -90,7 +94,9 @@ begin
     insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
       values (v_u, '$TAG-pat-' || i || '@example.invalid', 'x', now(), '{}', '{}');
     insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
-      values (v_u, v_org, 'patient', '$TAG pat ' || i, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), date '1980-01-01', true);
+      values (v_u, v_org, 'patient', '$TAG pat ' || i, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), date '1980-01-01', true)
+    on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name,
+      phone = excluded.phone, is_test = true, is_active = true;
   end loop;
 end \$\$;
 SQL
@@ -132,10 +138,10 @@ race() {
 
 summarise() { # prints: claimed distinct duplicated none errors
   cat "$WORK"/out.* | awk '
-    /^[0-9a-f]{8}-/ { c++; seen[$0]++; if (seen[$0] > 1) d++; next }
+    /^[0-9a-f]{8}-/ { c++; seen[$0]++; if (seen[$0] == 1) dc++; else d++; next }
     /^none$/ { n++; next }
     { e++ }
-    END { printf "%d %d %d %d %d\n", c, length(seen), d, n, e }'
+    END { printf "%d %d %d %d %d\n", c, dc, d, n, e }'
 }
 
 # --- 1. 50 callers, 30 tasks --------------------------------------------------------------------------------------
