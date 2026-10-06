@@ -557,6 +557,8 @@ export function getNavSections(
                 { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
                 // What a contracted clinician has earned, line by line, and the fee schedule that applies (S30).
                 { label: "Earnings", href: "/clinician/earnings", icon: "analytics" },
+                // The concerns this clinician raised and the replies to them (S36i). Their own only.
+                { label: "My concerns", href: "/clinician/my-concerns", icon: "review" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier
                 // per this file's own gating philosophy above; the page
@@ -601,6 +603,8 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
                 // Queue and page times against their limits, on-call cover and reliability bands (S36e). CMO only; the page redirects others.
                 { label: "Reliability and SLA", href: "/clinician/reliability", icon: "caseload" },
+                // Private safety concerns raised by clinicians, backup readers and retaliation reviews (S36i). CMO only; the page redirects others.
+                { label: "Safety concerns", href: "/clinician/quality/concerns", icon: "governance" },
                 // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
                 { label: "Memberships", href: "/clinician/memberships", icon: "members" },
                 // The AI governance console's two CMO-only actions (approving
