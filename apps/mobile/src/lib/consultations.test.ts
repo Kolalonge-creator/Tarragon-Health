@@ -43,6 +43,20 @@ describe("loadUpcomingConsultations", () => {
   });
 });
 
+describe("a stalled connection", () => {
+  afterEach(() => jest.useRealTimers());
+
+  it("turns a read that never answers into a failure instead of waiting for ever", async () => {
+    jest.useFakeTimers();
+    rpc.mockReturnValue(new Promise(() => {}));
+    const room = loadRoomView("e1");
+    const list = loadUpcomingConsultations();
+    await jest.advanceTimersByTimeAsync(15_000);
+    expect(await room).toEqual({ ok: false });
+    expect(await list).toEqual({ ok: false });
+  });
+});
+
 describe("loadRoomView", () => {
   it("returns the view for the patient", async () => {
     rpc.mockResolvedValue({ data: room, error: null });

@@ -26,9 +26,27 @@ export function resetOpenedScribePrompts(): void {
 
 export type LoadResult<T> = { ok: true; data: T } | { ok: false };
 
+/** React Native's fetch has no timeout of its own: a stalled connection would leave a read pending for ever. */
+const READ_TIMEOUT_MS = 15_000;
+function withTimeout<T>(work: PromiseLike<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), READ_TIMEOUT_MS);
+    Promise.resolve(work).then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e: unknown) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
 export async function loadUpcomingConsultations(): Promise<LoadResult<UpcomingConsultation[]>> {
   try {
-    const { data, error } = await db().rpc("my_upcoming_encounters", { p_limit: 20 });
+    const { data, error } = await withTimeout(db().rpc("my_upcoming_encounters", { p_limit: 20 }));
     const rows = error ? null : parseUpcoming(data);
     return rows ? { ok: true, data: rows } : { ok: false };
   } catch {
@@ -39,7 +57,7 @@ export async function loadUpcomingConsultations(): Promise<LoadResult<UpcomingCo
 /** Null data is "no such consultation for you" (the function answers the same for a stranger and an unknown id). */
 export async function loadRoomView(encounterId: string): Promise<LoadResult<RoomView | null>> {
   try {
-    const { data, error } = await db().rpc("consultation_room_view", { p_encounter: encounterId });
+    const { data, error } = await withTimeout(db().rpc("consultation_room_view", { p_encounter: encounterId }));
     if (error) return { ok: false };
     if (data === null) return { ok: true, data: null };
     const view = parseRoomView(data);

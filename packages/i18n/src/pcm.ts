@@ -894,8 +894,6 @@ export const pcm: Record<MessageKey, string> = {
   "consult.mobile.back": "Go back to your consultations",
   "consult.mobile.not_found": "We no fit find dis consultation.",
   "consult.mobile.call_number": "Call {number}",
-  "consult.mobile.meeting_id": "Meeting ID: {id}",
-  "consult.mobile.passcode": "Passcode: {code}",
   "consult.rule.adult": "Consultation na for people wey be {age} years and above.",
   "consult.book.dob_needed": "Add your date of birth to your profile before you book consultation.",
   "consult.book.too_young": "Consultation na for people wey be {age} years and above.",

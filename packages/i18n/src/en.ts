@@ -893,8 +893,6 @@ export const en = {
   "consult.mobile.back": "Back to your consultations",
   "consult.mobile.not_found": "We could not find this consultation.",
   "consult.mobile.call_number": "Call {number}",
-  "consult.mobile.meeting_id": "Meeting ID: {id}",
-  "consult.mobile.passcode": "Passcode: {code}",
   "consult.rule.adult": "Consultations are for people aged {age} and over.",
   "consult.book.dob_needed": "Add your date of birth to your profile before booking a consultation.",
   "consult.book.too_young": "Consultations are for people aged {age} and over.",

@@ -187,7 +187,7 @@ export function ConsultationRoomScreen({ encounterId, onBack }: ConsultationRoom
 
       <Card style={{ gap: space.md }}>
         <AppText variant="body">{tr("consult.room.call_me_hint")}</AppText>
-        <Button title={tr("consult.room.call_me")} variant="secondary" onPress={() => void controller.phoneFallback()} disabled={state.busy} />
+        <Button title={tr("consult.room.call_me")} variant="secondary" onPress={() => void controller.phoneFallback()} disabled={state.busy || !view.joinable} />
         {dial && firstNumber ? (
           <View style={{ gap: space.sm }} accessibilityLiveRegion="polite">
             <AppText variant="body">
@@ -203,8 +203,6 @@ export function ConsultationRoomScreen({ encounterId, onBack }: ConsultationRoom
                 onPress={() => void Linking.openURL(firstTel).catch(() => {})}
               />
             ) : null}
-            <AppText variant="label">{tr("consult.mobile.meeting_id", { id: dial.meetingId })}</AppText>
-            {dial.passcode ? <AppText variant="label">{tr("consult.mobile.passcode", { code: dial.passcode })}</AppText> : null}
             {otherNumbers.length > 0 ? (
               <AppText variant="caption" tone="textMuted">
                 {tr("consult.room.phone_more_numbers")} {otherNumbers.join(", ")}
