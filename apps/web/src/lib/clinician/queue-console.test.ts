@@ -1,4 +1,4 @@
-import { classCounts, completeTaskSchema, leadPatientsSchema, minutesLeft, patientSummarySchema, queueSummarySchema, safetyConcernSchema } from "./queue-console";
+import { rankLeadPatients, classCounts, completeTaskSchema, leadPatientsSchema, minutesLeft, patientSummarySchema, queueSummarySchema, safetyConcernSchema } from "./queue-console";
 
 describe("minutesLeft", () => {
   const now = new Date("2026-10-06T10:00:00Z");
@@ -52,5 +52,20 @@ describe("schemas", () => {
     expect(safetyConcernSchema.safeParse({ category: "patient_safety", severity: "high", description: "too short" }).success).toBe(false);
     expect(safetyConcernSchema.safeParse({ category: "nope", severity: "high", description: "x".repeat(25) }).success).toBe(false);
     expect(safetyConcernSchema.safeParse({ category: "patient_safety", severity: "high", description: "x".repeat(25) }).success).toBe(true);
+  });
+});
+
+describe("rankLeadPatients", () => {
+  const lead = (name: string, due: number, prop: number, adh: number | null) => ({
+    patient_id: name, first_name: name, last_bp: null, adherence_percent: adh, pending_proposals: prop, due_tasks: due,
+  });
+  it("puts tasks due first, then proposals, then poor adherence, then name", () => {
+    const out = rankLeadPatients([lead("D", 0, 0, 90), lead("C", 0, 1, 90), lead("B", 1, 0, 90), lead("A", 0, 0, 40), lead("E", 0, 0, null)]);
+    expect(out.map((l) => l.first_name)).toEqual(["B", "C", "A", "D", "E"]);
+  });
+  it("does not change the input", () => {
+    const input = [lead("B", 0, 0, 90), lead("A", 1, 0, 90)];
+    rankLeadPatients(input);
+    expect(input[0].first_name).toBe("B");
   });
 });

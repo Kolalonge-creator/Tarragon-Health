@@ -38,26 +38,20 @@ export function PatientSummaryView({ summary, locale = "en" }: { summary: Patien
         {s.status === "partial" && <p className="text-xs text-amber-700">{t("summary.partial", locale)}</p>}
       </div>
 
-      {s.readings && (
+      {(s.allergies || s.conditions) && (
         <Card>
-          <CardHeader><CardTitle>{t("summary.readings", locale)}</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            {s.readings.targets.map((tg) => (
-              <p key={tg.condition} className="text-xs text-charcoal-ink/60">
-                {tg.condition.replace(/_/g, " ")}: {t("summary.target", locale, { target: targetText(tg.target_ranges) || "-" })}
-              </p>
-            ))}
-            {s.readings.rows.length === 0 ? (
-              <p className="text-sm text-charcoal-ink/60">{t("summary.no_readings", locale)}</p>
-            ) : (
-              <ul className="divide-y divide-charcoal-ink/10 text-sm">
-                {s.readings.rows.slice(0, 30).map((r, i) => (
-                  <li key={`${r.measured_at}-${i}`} className="flex justify-between py-1">
-                    <span>{r.type.replace(/_/g, " ")} {readingText(r)}</span>
-                    <span className="text-xs text-charcoal-ink/60">{dateTime(r.measured_at)}</span>
-                  </li>
-                ))}
-              </ul>
+          <CardContent className="grid gap-4 pt-4 text-sm sm:grid-cols-2">
+            {s.allergies && (
+              <div>
+                <p className="font-medium">{t("summary.allergies", locale)}</p>
+                <ul>{s.allergies.map((a, i) => <li key={i}>{a.allergen}{a.reaction ? `: ${a.reaction}` : ""}{a.severity ? ` (${a.severity})` : ""}</li>)}</ul>
+              </div>
+            )}
+            {s.conditions && (
+              <div>
+                <p className="font-medium">{t("summary.conditions", locale)}</p>
+                <ul>{s.conditions.map((c, i) => <li key={i}>{c.condition_name} ({c.status})</li>)}</ul>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -76,6 +70,31 @@ export function PatientSummaryView({ summary, locale = "en" }: { summary: Patien
                     <Badge variant={e.grade === "red" ? "red" : e.grade === "amber" ? "amber" : "green"}>{e.grade}</Badge>
                     <span>{e.trigger_type.replace(/_/g, " ")}</span>
                     <span className="ml-auto text-xs text-charcoal-ink/60">{dateTime(e.created_at)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {s.readings && (
+        <Card>
+          <CardHeader><CardTitle>{t("summary.readings", locale)}</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {s.readings.targets.map((tg) => (
+              <p key={tg.condition} className="text-xs text-charcoal-ink/60">
+                {tg.condition.replace(/_/g, " ")}: {t("summary.target", locale, { target: targetText(tg.target_ranges) || "-" })}
+              </p>
+            ))}
+            {s.readings.rows.length === 0 ? (
+              <p className="text-sm text-charcoal-ink/60">{t("summary.no_readings", locale)}</p>
+            ) : (
+              <ul className="divide-y divide-charcoal-ink/10 text-sm">
+                {s.readings.rows.slice(0, 30).map((r, i) => (
+                  <li key={`${r.measured_at}-${i}`} className="flex justify-between py-1">
+                    <span>{r.type.replace(/_/g, " ")} {readingText(r)}</span>
+                    <span className="text-xs text-charcoal-ink/60">{dateTime(r.measured_at)}</span>
                   </li>
                 ))}
               </ul>
@@ -144,25 +163,6 @@ export function PatientSummaryView({ summary, locale = "en" }: { summary: Patien
                 <li key={r.id}>{t("summary.result_line", locale, { panel: r.panel_code ?? "-", state: r.release_state.replace(/_/g, " ") })} ({day(r.received_at)})</li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
-      )}
-
-      {(s.allergies || s.conditions) && (
-        <Card>
-          <CardContent className="grid gap-4 pt-4 text-sm sm:grid-cols-2">
-            {s.allergies && (
-              <div>
-                <p className="font-medium">{t("summary.allergies", locale)}</p>
-                <ul>{s.allergies.map((a, i) => <li key={i}>{a.allergen}{a.reaction ? `: ${a.reaction}` : ""}{a.severity ? ` (${a.severity})` : ""}</li>)}</ul>
-              </div>
-            )}
-            {s.conditions && (
-              <div>
-                <p className="font-medium">{t("summary.conditions", locale)}</p>
-                <ul>{s.conditions.map((c, i) => <li key={i}>{c.condition_name} ({c.status})</li>)}</ul>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}

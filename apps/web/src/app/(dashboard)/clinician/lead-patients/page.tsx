@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { leadPatientsSchema } from "@/lib/clinician/queue-console";
+import { leadPatientsSchema, rankLeadPatients } from "@/lib/clinician/queue-console";
 
 export const metadata = { title: "My lead patients" };
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default async function LeadPatientsPage() {
       {parsed?.success && parsed.data.length === 0 && <p className="text-sm text-charcoal-ink/60">{t("lead.empty", "en")}</p>}
       {parsed?.success && parsed.data.length > 0 && (
         <ul className="space-y-3">
-          {parsed.data.map((p) => (
+          {rankLeadPatients(parsed.data).map((p) => (
             <li key={p.patient_id}>
               <Card>
                 <CardContent className="flex flex-wrap items-center gap-4 pt-4 text-sm">

@@ -142,3 +142,17 @@ export const safetyConcernSchema = z.object({
   screen: z.string().max(100).optional(),
   taskId: uuidSchema.optional(),
 });
+
+/**
+ * Leads who need a doctor soonest come first: tasks due, then proposals waiting, then the lowest adherence (a patient
+ * with no adherence figure sorts after one with a poor figure, and name breaks ties so the order is stable).
+ */
+export function rankLeadPatients(leads: LeadPatient[]): LeadPatient[] {
+  return [...leads].sort(
+    (a, b) =>
+      b.due_tasks - a.due_tasks ||
+      b.pending_proposals - a.pending_proposals ||
+      (a.adherence_percent ?? 101) - (b.adherence_percent ?? 101) ||
+      (a.first_name ?? "").localeCompare(b.first_name ?? ""),
+  );
+}
