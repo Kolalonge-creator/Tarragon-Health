@@ -25,7 +25,7 @@ export default async function PatientAppointmentsPage({
 }: {
   searchParams: Promise<{ type?: string }>;
 }) {
-  const { profile, subjectId } = await getPatientDashboardContext();
+  const { profile, subjectId, uiLanguage } = await getPatientDashboardContext();
   if (!profile.organisation_id) {
     redirect("/login");
   }
@@ -43,11 +43,12 @@ export default async function PatientAppointmentsPage({
         icon={SEMANTIC_ICON.booking}
         description="Book a video or audio visit, or a result consultation, with a Tarragon doctor, request a second opinion, and manage your upcoming appointments."
       />
-      <MyAppointmentsList patientId={subjectId} />
+      <MyAppointmentsList patientId={subjectId} locale={uiLanguage} />
       <BookAppointment
         organisationId={profile.organisation_id}
         patientId={subjectId}
         initialAppointmentType={initialAppointmentType}
+        locale={uiLanguage}
       />
       <SecondOpinionRequestCard patientId={subjectId} organisationId={profile.organisation_id} />
     </div>

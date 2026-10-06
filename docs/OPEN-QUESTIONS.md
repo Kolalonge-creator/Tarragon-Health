@@ -744,6 +744,73 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) ship the PROPOSED numbers, record them as policy and review the measured acknowledgement times from `paging_overview` after the pilot (recommended); (b) have the CMO set stricter numbers now.
 - Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
 
+### OQ-124 S18 and S19 must merge before the S21 slot RPC (raised by S21)
+- S21 books from confirmed `bookable_consultations` blocks. `availability_blocks` is on main-dev (S17) but confirmation, rota and `clinician_offerable` are only on PR 931 (S18 and S19), which is open with merge conflicts.
+- Decision (founder, 2026-10-06): merge S18 first. S21 builds everything that does not read the rota first, and the slot RPC lands after PR 931.
+- Update (2026-10-06, later): S18 and S19's migrations are now applied to production (ledger rows exist) while PR 931 is not merged, so the database enforces S18's block rules (minimum 2 hours, no declaring over leave). S21's slot function reads confirmed `bookable_consultations` blocks and works with or without S18's code; the S21 proof makes its blocks 2 hours long so it holds either way. PR 931 is merge-blocked on CI, not on conflicts.
+
+### OQ-125 Authoritative encounters table (raised by S21, closes OQ-38)
+- Decision (founder, 2026-10-06): new authoritative `encounters` table. `clinical_encounters` stays as a synced projection so current readers keep working. `consultation_scribe_consents` (renamed 2026-10-06, see OQ-161), rooms and events hang off `encounters`.
+
+### OQ-126 How real the call is in S21 (raised by S21)
+- Decision (founder, 2026-10-06): link-based Zoom now (audio-first join, server-owned fallback ladder, in-app waiting room and consent), masked phone callback as the last step. An in-app SDK is a later session.
+
+### OQ-127 Cancellation and refund rule (raised by S21)
+- Decision (founder, 2026-10-06): full refund when the patient cancels 2 hours or more before. Inside 2 hours a small fixed retention (PROPOSED value in config). A clinician cancel or no-show is always a full refund or a free rebook. The rule is shown before the pay button.
+
+### OQ-128 Consent, transfer mechanism and MDCN text (raised by S21)
+- Decision (founder, 2026-10-06): per-consultation in-app consent is accepted for NDPA and GAID purposes, the transfer mechanism covering Supabase, Zoom and Claude is accepted, and the MDCN position on recording and AI is accepted. Recording stays off by default. Counsel has not reviewed these separately.
+
+### OQ-129 Consultations are for adults only (raised by S21)
+- Decision (founder, 2026-10-06): no video, audio or phone consultation for anyone under 18. Booking checks the patient's age server-side. A dependant under 18 cannot book. Written questions for minors are not decided and stay as they are today until the founder says otherwise.
+
+### OQ-130 Consultation price (raised by S21)
+- Decision (founder, 2026-10-06): NGN 10,000 (1,000,000 kobo) for a consultation, replacing the 5,000 placeholder on `video_visit_credit`. One price for video, audio and phone, so a fallback never changes what the patient paid. Result interpretation (10,000) and written question (2,500) are unchanged.
+
+### OQ-131 Zoom dial-in in Nigeria and the phone bridge vendor (raised by S21)
+- Confirmed 2026-10-06 from Zoom's rates page: Nigeria has toll dial-in (needs the Audio Conferencing add-on, Zoom-provided numbers only) and call-out at about GBP 1.08 to 1.68 a minute, which is too dear for a NGN 10,000 consultation.
+- Options: (a) Tarragon-owned number bridge on Twilio Voice; (b) LiveKit SIP or a Nigerian carrier trunk; (c) Zoom toll dial-in only, patient pays carrier rate.
+- Recommend (a) behind an adapter with a mock, after checking NCC caller-ID rules with the carrier. Vendor choice is the founder's.
+- Decision (founder delegated the choice, 2026-10-06, "which one will work in Nigeria, easy to connect, cheap"): **Africa's Talking Voice**. Their published Nigerian rates are about NGN 15 to 20 a minute a leg; Twilio is about USD 0.23 a minute (roughly NGN 350), which makes a bridged half hour dearer than the NGN 10,000 consultation. The adapter, bridge store, protected callback route and a database table are built (`phone-africastalking.ts`, `phone_bridges`, `/api/voice/africastalking/[secret]`). **Not yet run against a live account.** Before real use: create the Africa's Talking account, buy a Nigerian Voice number, set AT_VOICE_* and the callback URL, run the sandbox, and confirm with them (1) the callback fields and that `clientRequestId` is echoed, (2) that a bridged call shows our number to both people, (3) the Nigerian caller-ID rule with the carrier, (4) that the Dial's `maxDuration` is honoured (else cap call length on the number in their dashboard), (5) whether they can sign callbacks or restrict them to their IP addresses (today the only credential is a secret in the callback URL, which Vercel logs), and (6) what they do when a callback reply is lost or retried (today a retry is rejected, so the clinician would not be dialled and the app would show the bridge as connected). Open until then.
+
+### OQ-132 Legacy video paths left alone in S21 (raised by S21)
+- `consult_availability_slots` with `video_visit_requests` (a second slot system, used by mobile) and the org-wide `video_consultations` read policy that exposes `host_start_url` to any org staff member each have about 8 call sites. Narrowing either now would blank live screens (the PR 789 failure).
+- Recommend: S21 leaves both, routes the new flow through `encounters` and issued join tokens, and a follow-up session inventories and migrates the call sites, then closes the policy.
+- Decision: open.
+
+### OQ-133 Cash refund of a cancelled consultation (raised by S21)
+- S21 returns the consultation credit when the patient cancels 2 hours or more before, or when a clinician cancels or does not attend. Returning money already paid to Paystack is refund work that belongs to S26 and is not built here (INV-09: no balance, no stored value).
+- Options: (a) credit returned, cash refund on request through S26; (b) cash refund automatically.
+- Recommend (a) now, (b) when S26 lands.
+- Decision: open.
+
+### OQ-134 Pidgin for the scribe consent prompt (raised by S21)
+- CON-001 is consent text. The i18n rules keep consent and legal text in one language until a clinician has signed off a translation, and `scribe_enabled` already needs legal review of CON-001 (spec 14). So the `consult.scribe.*` keys have English text in the Pidgin catalogue on purpose.
+- Options: (a) English only until legal review and a clinician-signed Pidgin translation exist (recommended); (b) ship a Pidgin draft now.
+- Decision: open.
+
+### OQ-135 Consultations are not behind a go-live guard yet (raised by S21)
+- INV-14 and spec 14 say the `clinical_operations_enabled` guard blocks consultations. The guard mechanism (`app_config.go_live`) is S37. Until then a consultation can be booked as soon as a clinician has bookable slots and the patient holds a credit.
+- Recommend: S37 wires the guard into `hold_appointment_slot` and `service_get_encounter_room`. Do not switch consultations on for real patients before then, or before the phone bridge vendor (OQ-131), the slot RPC (OQ-124) and the CMO's sign-off exist.
+- Decision: open.
+
+### OQ-136 Automatic fallback needs the in-app call SDK (raised by S21)
+- With link-based Zoom the page cannot see call quality and Zoom's presence webhook cannot tell patient from clinician, so automatic downgrade to audio only and automatic phone callback on a dropped call cannot be built honestly in S21. The ladder and its clock are proved in code (`stepLadder`) and the manual steps work (audio-only join, "call me", no-show reporting).
+- Options: (a) a later session adds an in-app SDK (LiveKit or Zoom Video SDK, labels we control, client quality stats) and wires `stepLadder` to it; (b) accept manual fallback only.
+- Recommend (a). Decision: open.
+
+### OQ-158 Mobile Care flow (raised by S21)
+- The consultation room and Care tab changes are on the web (responsive). The Expo app keeps its own older video-visit screens, which hand off to the Zoom app by link. A mobile consultation room needs an EAS dev-client build to check on a device, which this session could not do.
+- Recommend: a short mobile session after S21 merges: the waiting room, consent prompt and "call me" over the same RPCs, then device-tested. Decision: open.
+
+### OQ-159 Clinician access after "Finish consultation" (raised by S21 review)
+- `complete_encounter` marks the appointment completed, as the older `set_video_consultation_call_state` already does. `private.clinician_has_patient_access` only ties a clinician to a patient through a live appointment (and the other clauses), so after Finish a clinician who is not on that patient's care list can no longer open the chart to write the note or prescribe (INV-12 is doing its job; the timing is the problem).
+- Options: (a) add one clause to `clinician_has_patient_access`: "my encounter with this patient ended in the last N hours" (recommended; the function is also being changed on the S19 branch, so this must be applied on top of whichever lands last, re-reading the live definition first); (b) keep the appointment `in_progress` until a signed note exists; (c) tell clinicians to finish last (done: the room says so).
+- Decision: open.
+
+### OQ-160 "Joined" is recorded when the link is issued, not when someone enters the call (raised by S21 review)
+- A person can no longer report their own join from the app; the server records it after checking the person and the join window. With link-based Zoom the server still cannot see anyone enter the call, so a clinician who requests the link and never enters still counts as joined and can defeat a no-show report.
+- This closes when the in-app SDK (OQ-136) gives us real presence. Until then the CMO reviews repeat reports, and the no-show report is per consultation, not automatic. Decision: open.
 ### OQ-137 Who are the backup readers for safety concerns (raised by S20)
 - Context: spec 7.8 says a concern goes to the clinical lead and cannot be seen by ops. "Ops" here is an admin account (OQ-24), and there is no superadmin role, so nobody can be a backup by role. If the lead is away, conflicted or is the subject, nothing else can read it.
 - Built: a named list (`safety_concern_readers`) that only the lead can add to. A concern nobody acknowledges within 48 hours (4 hours if the person marked it immediate) also becomes readable by them. A concern raised by the lead itself goes to them at once. With no one named, a neutral incident is opened so operations see that something is overdue, never what.
@@ -795,3 +862,9 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ### OQ-157 Direct staff reads of `async_consults`, `care_messages` and summaries stay org-wide (raised by S22)
 - S22 closes the staff read path for written questions only. `care_messages`, `care_message_attachments` and `consultation_patient_summaries` are still readable by any org staff and are not audited (INV-10, INV-12; RECONCILIATION). One surface per session (OQ-54).
+
+### OQ-161 Two scribe consent records: patient answers in the app (S21) or the clinician records it (S23) (raised by S21)
+- S23 (AI scribe) was built in parallel and its migration `20261006112016_s23_scribe_consents.sql` is live. Its `public.scribe_consents` is keyed by `encounter_note_id`, is **written by the clinician** (an insert policy needs an active clinician and a trigger stamps them), and records `language`. S21's consent is **answered by the patient in the app** at the start of every consultation (`open_scribe_prompt`, `record_scribe_consent`, `scribe_may_start`), stored per encounter. INV-11 and spec 9.3 describe the patient's own answer (CON-001 shown in the patient app); the clinician-recorded model is what the Abridge suits allege is the weak point (consent typed by someone other than the patient).
+- To avoid a name collision S21's table is now `public.consultation_scribe_consents`. Two records of the same consent must not both exist: they can disagree.
+- Options: (a) the patient's in-app answer is the only consent. S23 starts transcription only when `scribe_may_start(encounter)` is true and writes its `scribe_consents` row from that answer (server-side, never from a clinician's click), keeping the table as the audit and retention record (recommended); (b) keep the clinician-recorded model and drop S21's prompt (not recommended: against INV-11 and the research); (c) both, with transcription needing both.
+- S23's branch (`s23/ai-scribe-consent-draft`) needs a small follow-up to read S21's precondition once S21 is merged and applied. Decision: open.

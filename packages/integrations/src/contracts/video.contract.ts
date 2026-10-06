@@ -49,6 +49,47 @@ export function runVideoContract(name: string, make: () => VideoFixture, nowMs: 
       expect(past.ok).toBe(false);
     });
 
+    it("asserts that recording is off (OQ-128)", async () => {
+      const f = make();
+      const r = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 3_600_000 });
+      expect(r.ok && r.data.recording).toBe("off");
+    });
+
+    it("issues a join link that never carries the encounter or a person, and gives the clinician a different link from the patient", async () => {
+      const f = make();
+      const room = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 600_000 });
+      if (!room.ok) throw new Error("room");
+      const pat = await f.provider.joinLink({ roomId: room.data.roomId, role: "patient", mediaMode: "video" });
+      const doc = await f.provider.joinLink({ roomId: room.data.roomId, role: "clinician", mediaMode: "audio_only" });
+      expect(pat.ok && doc.ok).toBe(true);
+      if (!pat.ok || !doc.ok) return;
+      expect(pat.data.url).toMatch(/^https:\/\//);
+      expect(pat.data.url).not.toContain(ENC);
+      expect(pat.data.url).not.toBe(doc.data.url);
+      expect(pat.data.expiresAtMs).toBeLessThanOrEqual(room.data.expiresAtMs);
+      expect(pat.data.mediaMode).toBe("video");
+      expect(pat.data.audioOnlyEnforced).toBe(false);
+      expect(doc.data.mediaMode).toBe("audio_only");
+      expect(typeof doc.data.audioOnlyEnforced).toBe("boolean");
+    });
+
+    it("refuses a join link for an unknown room or a closed one", async () => {
+      const f = make();
+      expect((await f.provider.joinLink({ roomId: "room_missing", role: "patient", mediaMode: "video" })).ok).toBe(false);
+      const room = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 600_000 });
+      if (!room.ok) throw new Error("room");
+      await f.provider.endRoom(room.data.roomId, "clinician");
+      expect((await f.provider.joinLink({ roomId: room.data.roomId, role: "patient", mediaMode: "video" })).ok).toBe(false);
+    });
+
+    timed("refuses a join link once the room has expired", async () => {
+      const f = make();
+      const room = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 1000 });
+      if (!room.ok) throw new Error("room");
+      f.advanceMs!(7_200_000);
+      expect((await f.provider.joinLink({ roomId: room.data.roomId, role: "patient", mediaMode: "video" })).ok).toBe(false);
+    });
+
     it("issues a short-lived token that never outlives the room", async () => {
       const f = make();
       const room = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 600_000 });
