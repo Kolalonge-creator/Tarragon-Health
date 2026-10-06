@@ -362,6 +362,7 @@ export function getNavSections(
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
                 { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Prepare payouts", href: "/admin/ops/payouts", icon: "analytics" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
                 { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
               ],
@@ -640,6 +641,7 @@ export function getNavSections(
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
                 { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Prepare payouts", href: "/admin/ops/payouts", icon: "analytics" },
               ],
             },
           ];
@@ -677,6 +679,8 @@ export function getNavSections(
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
+            // Approve or cancel payout drafts; a draft you prepared yourself needs a second person (S36f).
+            { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
@@ -763,6 +767,7 @@ export function getNavSections(
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+            { label: "Prepare payouts", href: "/admin/ops/payouts", icon: "analytics" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
         },
@@ -806,6 +811,7 @@ export function getNavSections(
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+            { label: "Prepare payouts", href: "/admin/ops/payouts", icon: "analytics" },
           ],
         },
         {

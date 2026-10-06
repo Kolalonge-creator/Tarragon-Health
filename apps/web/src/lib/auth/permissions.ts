@@ -68,6 +68,8 @@ export const PERMISSION_KEYS = [
   "feature_flags.manage",
   "ops.console.view",
   "support.manage",
+  // Seeded by 20261006220506_s36f_payout_drafts_and_approval.sql: prepares payout drafts and reads unpaid totals. Never approves.
+  "payouts.prepare",
   // Seeded by 20260922175144_support_view_as.sql — a time-boxed, read-only,
   // audited shadow view of a specific patient's or clinician's account
   // summary, to debug a reported issue. Distinct from support.manage (which
