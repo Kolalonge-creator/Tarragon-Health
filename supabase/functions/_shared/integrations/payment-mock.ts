@@ -91,7 +91,7 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
       if (!c) throw new Error("unknown reference");
       return sign({
         event: "charge.success",
-        data: { reference, amount: c.amountKobo + c.feeKobo, currency: "NGN", paid_at: c.paidAt, customer: { email: c.email }, metadata: c.metadata },
+        data: { reference, amount: c.amountKobo + c.feeKobo, requested_amount: c.amountKobo, fees: c.feeKobo, currency: "NGN", paid_at: c.paidAt, customer: { email: c.email }, metadata: c.metadata },
       });
     },
     signedWebhook: sign,

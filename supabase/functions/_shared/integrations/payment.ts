@@ -91,7 +91,10 @@ export type PaymentEvent =
       readonly kind: "charge_success";
       readonly key: string;
       readonly reference: string;
+      /** Total charged. With fee pass-through on this is the price plus the fee, so match orders on `requestedAmountKobo`. */
       readonly amountKobo: Kobo;
+      readonly requestedAmountKobo: Kobo;
+      readonly feesKobo: Kobo;
       readonly currency: string;
       readonly paidAt: string | null;
       readonly customerEmail: string | null;

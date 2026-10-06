@@ -160,6 +160,17 @@ export function runPaymentContract(name: string, make: () => PaymentFixture): vo
       expect(first.data.key).toBe(second.data.key);
     });
 
+    it("reports the price and the fee on a charge webhook so a handler can match the order on the price", async () => {
+      const f = make();
+      const reference = chargeRef();
+      const hook = await f.signedWebhook({ event: "charge.success", data: { reference, amount: 261_250, requested_amount: 250_000, fees: 11_250, currency: "NGN" } });
+      const r = await f.provider.parseWebhook(hook.rawBody, hook.signature);
+      expect(r.ok && r.data).toMatchObject({ kind: "charge_success", amountKobo: 261_250, requestedAmountKobo: 250_000, feesKobo: 11_250 });
+      const bare = await f.signedWebhook({ event: "charge.success", data: { reference, amount: 250_000, currency: "NGN" } });
+      const b = await f.provider.parseWebhook(bare.rawBody, bare.signature);
+      expect(b.ok && b.data).toMatchObject({ requestedAmountKobo: 250_000, feesKobo: 0 });
+    });
+
     it("rejects a webhook with a missing, wrong or tampered signature, without reading the body", async () => {
       const f = make();
       const hook = await f.signedWebhook({ event: "charge.success", data: { reference: chargeRef(), amount: 100_000, currency: "NGN" } });

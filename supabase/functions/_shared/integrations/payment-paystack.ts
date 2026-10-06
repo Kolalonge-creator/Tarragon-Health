@@ -271,6 +271,8 @@ function normaliseEvent(eventType: string, data: Record<string, unknown>): Payme
         key,
         reference,
         amountKobo,
+        requestedAmountKobo: int(data["requested_amount"]) ?? amountKobo,
+        feesKobo: int(data["fees"]) ?? 0,
         currency,
         paidAt: str(data["paid_at"]),
         customerEmail: str(asObject(data["customer"])?.["email"]),
