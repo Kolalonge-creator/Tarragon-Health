@@ -6,10 +6,7 @@ import {
   useLabPartnerRejectSample,
   useLabPartnerUploadResult,
 } from "@/lib/queries/lab-partner";
-import {
-  RESULT_DOC_ACCEPT,
-  validateResultDocFile,
-} from "@/lib/validation/lab-result-documents";
+import { LAB_RESULT_FILE_ACCEPT, validateLabResultFile } from "@/lib/lab-results/structured";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,7 +72,7 @@ function OrderCard({ order }: { order: OrderRow }) {
       setValidationError("Attach the result file.");
       return;
     }
-    const fileError = validateResultDocFile(file);
+    const fileError = validateLabResultFile(file);
     if (fileError) {
       setValidationError(fileError);
       return;
@@ -184,7 +181,7 @@ function OrderCard({ order }: { order: OrderRow }) {
                   id={`file_${order.order_id}`}
                   ref={fileInputRef}
                   type="file"
-                  accept={RESULT_DOC_ACCEPT}
+                  accept={LAB_RESULT_FILE_ACCEPT}
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                   className="h-8 text-xs"
                 />

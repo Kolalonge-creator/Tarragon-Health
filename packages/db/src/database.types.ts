@@ -38899,6 +38899,7 @@ export type Database = {
         Returns: undefined
       }
       care_management_kpis: { Args: { p_org: string }; Returns: Json }
+      care_message_scope: { Args: { p_message: string }; Returns: Json };
       care_receipt: {
         Args: { p_beneficiary: string; p_from?: string; p_to?: string }
         Returns: Json
@@ -40533,6 +40534,8 @@ export type Database = {
           template: string
         }[]
       }
+      open_care_attachment_audited: { Args: { p_attachment: string }; Returns: string };
+      open_care_thread_audited: { Args: { p_thread: string }; Returns: Json };
       open_health_check: { Args: never; Returns: string }
       open_patient_document_audited: {
         Args: { p_document: string; p_reason: string }

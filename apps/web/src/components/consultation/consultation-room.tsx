@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPatientDateTime } from "@/lib/format-date";
 import type { DialIn } from "@tarragon/integrations";
+import { getProposedConfig } from "@tarragon/shared";
 import type { CallNotice, CallPolicy } from "@/lib/consultations/call-controller";
 import { useInAppCall } from "./use-in-app-call";
 import {
@@ -35,6 +36,8 @@ export interface RoomView {
   reconnect_grace_seconds: number;
 }
 
+// The cap on chart access after Finish (OQ-159) comes from the consultation policy, never from the copy.
+const CHART_ACCESS_HOURS = getProposedConfig<{ chartAccessAfterFinishMaxHours: number }>("consultations.policy").value.chartAccessAfterFinishMaxHours;
 const LIVE = new Set(["scheduled", "waiting", "in_progress"]);
 const POLL_MS = 10_000;
 const when = (iso: string) => formatPatientDateTime(iso, { weekday: "long", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -319,7 +322,7 @@ export function ConsultationRoom({ view, locale, call = null }: { view: RoomView
 
       {!isPatient && view.status === "in_progress" && (
         <div className="space-y-2 text-sm">
-          <p>{t("consult.room.finish_hint", locale)}</p>
+          <p>{t("consult.room.finish_hint", locale, { hours: CHART_ACCESS_HOURS })}</p>
           <Button onClick={finish} disabled={pending}>
             {t("consult.room.finish", locale)}
           </Button>
