@@ -36,7 +36,7 @@ describe("audio/manifest.json (the real one)", () => {
     expect(count("RES")).toBe(29);
     const nums = m.clips.filter((c) => /^NUM-(\d{3}|S\d+)$/.test(c.id));
     expect(nums).toHaveLength(640);
-    expect(m.clips.filter((c) => /^NUM-(D|P)\d\d$/.test(c.id))).toHaveLength(23); // D01 and P01 to P23 except P22
+    expect(m.clips.filter((c) => /^NUM-(D|P)\d\d$/.test(c.id))).toHaveLength(24); // D01, P01 to P23 except P22, and P24 (blood pressure unit)
   });
 
   it("puts ONB, EMG, TRI, NUM and SYM in the app, the other release 1 groups after sign-up, and results on demand", () => {
@@ -186,14 +186,14 @@ describe("parseManifest rejects what would let a wrong clip play", () => {
   });
 
   it("rejects bad whole-phrase sign-offs", () => {
-    const good = { pattern: "bp", lang: "en", by: "Dr A", on: "2026-10-06", clips: [{ id: "NUM-P01", sha256: SHA }, { id: "NUM-P02", sha256: SHA }] };
+    const good = { pattern: "bp", lang: "en", by: "Dr A", on: "2026-10-06", clips: [{ id: "NUM-P01", sha256: SHA }, { id: "NUM-P02", sha256: SHA }, { id: "NUM-P24", sha256: SHA }] };
     const withSo = (so: unknown) => mutate((m) => { m.phrase_signoffs = [so]; });
     expect(() => parseManifest(withSo(good))).not.toThrow();
     expect(() => parseManifest(withSo({ ...good, pattern: "nope" }))).toThrow(/unknown pattern/);
     expect(() => parseManifest(withSo(null))).toThrow(/unknown pattern/);
     expect(() => parseManifest(withSo({ ...good, lang: "fr", by: " ", on: "x" }))).toThrow(/unknown language/);
     expect(() => parseManifest(withSo({ ...good, clips: [good.clips[0]] }))).toThrow(/exactly the pattern's clips/);
-    expect(() => parseManifest(withSo({ ...good, clips: [{ id: "NUM-P01", sha256: "x" }, good.clips[1]] }))).toThrow(/checksum/);
+    expect(() => parseManifest(withSo({ ...good, clips: [{ id: "NUM-P01", sha256: "x" }, good.clips[1], good.clips[2]] }))).toThrow(/checksum/);
     expect(() => parseManifest(mutate((m) => { m.phrase_signoffs = null; }))).toThrow(/phrase_signoffs/);
   });
 

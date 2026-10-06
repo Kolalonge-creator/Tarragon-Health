@@ -25,6 +25,7 @@ W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 MANIFEST = ROOT / "audio" / "manifest.json"
 NUM_CSV = ROOT / "audio" / "source" / "TH-NUM-number-list.csv"
 # Clip ids whose Pidgin wording the CMO has signed and a native speaker has reviewed. Empty until a human does that.
+EXTRAS = ROOT / "audio" / "source" / "extra-clips.json"
 RELEASED = ROOT / "audio" / "source" / "pcm-released.json"
 TS_OUT = ROOT / "packages" / "i18n" / "src" / "audio-scripts.ts"
 
@@ -151,6 +152,9 @@ def main():
                 "clinical": True, "legal": False, "language_neutral": True, "pcm_text": "not_applicable",
                 "files": {"shared": empty_file(cid, None)},
             })
+    # Clips the list does not have yet (audio/source/extra-clips.json), shaped like its rows: [id, where, en, pcm, notes].
+    for extra in json.loads(EXTRAS.read_text()) if EXTRAS.exists() else []:
+        num_rows[extra["id"]] = [extra["id"], "Added by S32", extra["en"], extra["pcm"], extra.get("note", "")]
     for cid, r in num_rows.items():
         if not re.match(r"^NUM-(D|P)\d\d$", cid) or cid == "NUM-P22":
             continue

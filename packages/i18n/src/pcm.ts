@@ -1442,4 +1442,7 @@ export const pcm: Record<MessageKey, string> = {
   "labres.replaced": "Dem don replace am with newer result",
   "labres.correction": "Na corrected result. E replace one wey dey before.",
   "labres.screening": "Na screening result. E no be diagnosis, and your care team go tell you wetin go happen next.",
+  "audio.listen": "Listen",
+  "audio.stop": "Stop",
+  "audio.listen_hint": "Plays this message aloud. The words stay on the screen.",
 };

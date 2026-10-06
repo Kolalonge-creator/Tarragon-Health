@@ -10,3 +10,5 @@ Do not hand-edit the generated parts.
 4. Releasing clinical Pidgin: after the CMO signs the wording and two native speakers review it, add the clip id to `source/pcm-released.json` and re-run step 1. Until then its Pidgin text is the English text.
 
 Masters (`TH-*.mp3`) are not committed here; they go to the company folder named in the Production List. Only the signed bundled files are copied into the app.
+
+`source/extra-clips.json` holds clips the Production List does not have yet (today: NUM-P24, the blood pressure unit). The import script adds them; move them into the list at its next version.

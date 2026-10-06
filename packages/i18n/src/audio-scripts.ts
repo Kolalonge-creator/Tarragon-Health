@@ -109,6 +109,7 @@ export const AUDIO_SCRIPTS: Readonly<Record<string, AudioScript>> = {
   "NUM-P20": { en: "days in a row.", pcm: "days in a row." },
   "NUM-P21": { en: "Today you have walked", pcm: "Today you have walked" },
   "NUM-P23": { en: "steps.", pcm: "steps." },
+  "NUM-P24": { en: "millimetres of mercury", pcm: "millimetres of mercury" },
   "ONB-001": { en: "Welcome to Tarragon Health. To continue in English, tap English.", pcm: "Make you continue for Pidgin, tap Pidgin." },
   "ONB-002": { en: "Welcome to Tarragon Health. We help you know your health, manage it every day, and get a clinician when you need one. Setting up takes about five minutes.", pcm: "Welcome to Tarragon Health. We dey help you sabi your health, take care of am every day, and get clinician when you need one. To set am up go take about five minutes." },
   "ONB-003": { en: "Enter your phone number or your email address. You will use it to sign in.", pcm: "Put your phone number or your email address. Na wetin you go use take enter the app." },

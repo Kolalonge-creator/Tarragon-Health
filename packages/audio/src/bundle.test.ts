@@ -19,9 +19,9 @@ describe("what ships in the app", () => {
 
   it("counts both languages for most clips and one file for each shared number clip", () => {
     const r = bundleReport(m, off);
-    // ONB 18, EMG 13, TRI 8 in two languages; NUM-P and D clips (23) in two; 640 shared number clips.
-    expect(r.files).toBe((18 + 13 + 8 + 23) * 2 + 640);
-    expect(r.clips).toBe(18 + 13 + 8 + 23 + 640);
+    // ONB 18, EMG 13, TRI 8 in two languages; NUM-P and D clips (24) in two; 640 shared number clips.
+    expect(r.files).toBe((18 + 13 + 8 + 24) * 2 + 640);
+    expect(r.clips).toBe(18 + 13 + 8 + 24 + 640);
     expect(bundleReport(m, on).files).toBe(r.files + 11 * 2);
   });
 

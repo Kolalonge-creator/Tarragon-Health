@@ -1,6 +1,6 @@
 import { parseManifest, stitchBloodPressure, withSeverity, PATTERN_CLIPS, type PhrasePattern, type Approval, type ClipFile, type Manifest, type ManifestClip } from "@tarragon/audio";
 import manifestJson from "../../../../../audio/manifest.json";
-import { createAudioService, type AudioEngine, type AudioServiceDeps, type AudioSource } from "./service";
+import { AudioStopped, createAudioService, type AudioEngine, type AudioServiceDeps, type AudioSource } from "./service";
 import { audioCatalogue, clipIdFor, resetAudioCatalogue } from "./manifest";
 import { clearAudioIssues, recentAudioIssues, reportAudioIssue } from "./issues";
 import { createCatalogue } from "@tarragon/audio";
@@ -44,7 +44,7 @@ function setup(over: Partial<AudioServiceDeps> & { ids?: readonly string[] } = {
   const issues: string[] = [];
   const bundled = Object.fromEntries(parseManifest(manifestJson).clips.flatMap((c) => Object.values(c.files).map((f, i) => [f!.file, i + 1])));
   const service = createAudioService({
-    catalogue: createCatalogue(manifestWith(over.ids ?? ["EMG-001", "TRI-003", "NUM-P01", "NUM-P02", "NUM-148", "NUM-094"])),
+    catalogue: createCatalogue(manifestWith(over.ids ?? ["EMG-001", "TRI-003", "NUM-P01", "NUM-P02", "NUM-148", "NUM-094", "NUM-P24"])),
     engine,
     downloaded: { uriFor: () => null },
     bundled,
@@ -61,7 +61,7 @@ describe("the audio service", () => {
     expect(r).toMatchObject({ played: true, lang: "en" });
     expect(r.text).toMatch(/needs attention now/);
     expect(played).toHaveLength(1);
-    expect(played[0]).toEqual([{ kind: "bundled", module: expect.any(Number) }]);
+    expect(played[0]).toEqual([{ kind: "bundled", module: expect.any(Number), durationMs: 3000 }]);
     expect(stops()).toBe(1); // stops whatever was playing before starting
     expect(issues).toEqual([]);
   });
@@ -71,11 +71,11 @@ describe("the audio service", () => {
     const r = await service.playPhrase(withSeverity(stitchBloodPressure(148, 94), "TRI-003")!, "en");
     expect(r.played).toBe(true);
     expect(r.text).toMatch(/^Your blood pressure reading is 148 over 94 /);
-    expect(played[0]).toHaveLength(5);
+    expect(played[0]).toHaveLength(6);
   });
 
   it("shows the text, plays nothing and reports a non-fatal issue when a number clip is missing", async () => {
-    const { service, played, issues } = setup({ ids: ["NUM-P01", "NUM-P02", "NUM-148"] });
+    const { service, played, issues } = setup({ ids: ["NUM-P01", "NUM-P02", "NUM-P24", "NUM-148", "TRI-003"] });
     const r = await service.playPhrase(withSeverity(stitchBloodPressure(148, 94), "TRI-003")!, "en");
     expect(r.played).toBe(false);
     expect(r.text).toMatch(/^Your blood pressure reading is 148 over 94 /);
@@ -106,13 +106,28 @@ describe("the audio service", () => {
     });
     const r = await service.playClips(["EMG-001"], "en");
     expect(r.played).toBe(false);
-    expect(issues).toEqual(["clip_file_missing"]);
+    expect(issues).toEqual(["playback_failed"]);
+  });
+
+  it("does not call a stop on purpose a failure or a success", async () => {
+    const { service, issues } = setup({ engine: { play: () => Promise.reject(new AudioStopped()), stop: () => undefined } });
+    const r = await service.playClips(["EMG-001"], "en");
+    expect(r.played).toBe(false);
+    expect(issues).toEqual([]);
+  });
+
+  it("tells the engine an emergency clip is an emergency, and nothing else is", async () => {
+    const seen: boolean[] = [];
+    const { service } = setup({ ids: ["EMG-001", "TRI-001"], engine: { play: async (_s, o) => void seen.push(o.emergency), stop: () => undefined } });
+    await service.playClips(["EMG-001"], "en");
+    await service.playClips(["TRI-001"], "en");
+    expect(seen).toEqual([true, false]);
   });
 
   it("works with no manifest at all (it failed to parse): text only", async () => {
     const { service, played } = setup({ catalogue: null });
     expect((await service.playClips(["EMG-001"], "en")).played).toBe(false);
-    expect((await service.playPhrase(stitchBloodPressure(120, 80)!, "en")).text).toBe("Your blood pressure reading is 120 over 80");
+    expect((await service.playPhrase(stitchBloodPressure(120, 80)!, "en")).text).toMatch(/^Your blood pressure reading is 120 over 80 millimetres of mercury/);
     expect(played).toEqual([]);
   });
 
@@ -120,7 +135,7 @@ describe("the audio service", () => {
     const { service, played } = setup({ ids: ["NAV-001"], bundled: {}, downloaded: { uriFor: (f) => `file:///audio/${f.file}` } });
     const r = await service.playClips(["NAV-001"], "en");
     expect(r.played).toBe(true);
-    expect(played[0]).toEqual([{ kind: "file", uri: "file:///audio/TH-NAV-001-EN.mp3" }]);
+    expect(played[0]).toEqual([{ kind: "file", uri: "file:///audio/TH-NAV-001-EN.mp3", durationMs: 3000 }]);
   });
 
   it("does not play a file that is neither bundled nor downloaded", async () => {

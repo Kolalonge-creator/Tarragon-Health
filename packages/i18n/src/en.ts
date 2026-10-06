@@ -1441,6 +1441,9 @@ export const en = {
   "labres.replaced": "Replaced by a newer result",
   "labres.correction": "This is a corrected result. It replaces an earlier one.",
   "labres.screening": "This is a screening result. It is not a diagnosis, and your care team will tell you what happens next.",
+  "audio.listen": "Listen",
+  "audio.stop": "Stop",
+  "audio.listen_hint": "Plays this message aloud. The words stay on the screen.",
 } as const;
 
 export type MessageKey = keyof typeof en;
