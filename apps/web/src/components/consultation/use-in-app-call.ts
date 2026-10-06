@@ -64,6 +64,8 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
   // A start that is still loading or joining when the page goes away must not leave the person in a call nothing is showing.
   const mounted = useRef(true);
   const cancelled = useRef(false);
+  // The client while it is still joining, so Leave can act on it at once instead of waiting for a join that may never settle.
+  const opening = useRef<{ sdk: ZoomEmbeddedGlobal; client: ZoomEmbeddedClient } | null>(null);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -95,7 +97,8 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
       const root = rootRef.current;
       if (!root) return "fallback";
       // Pressing Leave while the call is opening means "do not join": a failure after that must not open the link instead.
-      const fallbackOrCancelled = (): StartResult => (cancelled.current ? "cancelled" : "fallback");
+      // (Leaving the page counts the same: nobody is there to be shown a link.)
+      const fallbackOrCancelled = (): StartResult => (cancelled.current || !mounted.current ? "cancelled" : "fallback");
 
       // Zoom measures the box it draws into, so the box must be visible in the page before init runs.
       flushSync(() => setState("joining"));
@@ -107,6 +110,7 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
       let client: ZoomEmbeddedClient | null = null;
       try {
         client = sdk.createClient();
+        opening.current = { sdk, client };
         // A browser that cannot do voice over the web cannot use the in-app call; the link (or the phone) still can.
         if (!client.checkSystemRequirements().audio) throw new Error("unsupported browser");
         await client.init({ zoomAppRoot: root, language: LANGUAGE, patchJsMedia: true, leaveOnPageUnload: true });
@@ -152,8 +156,9 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
           }
           sdk.destroyClient();
           setState("idle");
-          return mounted.current ? "cancelled" : "fallback";
+          return "cancelled";
         }
+        opening.current = null;
         controller.start();
         live.current = { sdk, client, controller };
         setNotice(null);
@@ -193,6 +198,23 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
   const leave = useCallback(async () => {
     // Pressed while Zoom is still opening: the start in flight sees this and leaves again as soon as it can.
     cancelled.current = true;
+    const pending = opening.current;
+    opening.current = null;
+    if (pending) {
+      // Zoom's client is a singleton and may never settle (a hung join, or one waiting for the host): leave it now, which also makes the
+      // join in flight fail, and free the start guard so the person can try again.
+      try {
+        await pending.client.leaveMeeting();
+      } catch {
+        // not in the meeting yet
+      }
+      try {
+        pending.sdk.destroyClient();
+      } catch {
+        // nothing to destroy
+      }
+      starting.current = false;
+    }
     await teardown();
     setState("idle");
     setNotice(null);

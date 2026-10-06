@@ -224,9 +224,12 @@ describe("a lost connection", () => {
     f.emit("connection-change", { state: "Closed" });
     expect(f.closed).toHaveBeenCalledTimes(1);
     expect(f.notices).toEqual([]);
-    f.emit("connection-change", { state: "Fail" });
     f.emit("connection-change", undefined);
+    f.emit("connection-change", { state: "Connecting" });
     expect(f.closed).toHaveBeenCalledTimes(1);
+    // the SDK giving up on the connection is the call closing under the person
+    f.emit("connection-change", { state: "Fail" });
+    expect(f.closed).toHaveBeenCalledTimes(2);
   });
 });
 

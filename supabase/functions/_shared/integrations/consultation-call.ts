@@ -17,7 +17,8 @@ export function ladderInputFromConnection(state: unknown, atMs: number): LadderI
   const s = typeof state === "string" ? state.toLowerCase() : "";
   if (s === "reconnecting") return { kind: "lost", atMs };
   if (s === "connected") return { kind: "restored", atMs };
-  if (s === "closed") return "closed";
+  // `fail` is the SDK giving up on the connection: for the person that is the call closing under them, with no "back online" coming.
+  if (s === "closed" || s === "fail") return "closed";
   return null;
 }
 

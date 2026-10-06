@@ -53,7 +53,8 @@ describe("SDK signals to ladder inputs", () => {
     expect(ladderInputFromConnection("Reconnecting", 5)).toEqual({ kind: "lost", atMs: 5 });
     expect(ladderInputFromConnection("Connected", 6)).toEqual({ kind: "restored", atMs: 6 });
     expect(ladderInputFromConnection("Closed", 7)).toBe("closed");
-    expect(ladderInputFromConnection("Fail", 8)).toBeNull();
+    expect(ladderInputFromConnection("Fail", 8)).toBe("closed");
+    expect(ladderInputFromConnection("Connecting", 8)).toBeNull();
     expect(ladderInputFromConnection(undefined, 8)).toBeNull();
   });
 
