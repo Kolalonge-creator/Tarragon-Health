@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applyRecording } from "./bundle";
@@ -48,7 +48,7 @@ describe("scripts/audio/ingest-recordings.mjs", () => {
     expect(emg).toMatchObject({ bytes: 15 });
     expect(emg.sha256).toMatch(/^[0-9a-f]{64}$/);
     expect(emg.approvals).toEqual([]);
-    expect(existsSync(w.assets)).toBe(false);
+    expect(readdirSync(w.assets)).toEqual([]);
     expect(readFileSync(w.map, "utf8")).toContain("= {\n};");
   });
 
