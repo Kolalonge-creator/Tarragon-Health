@@ -318,6 +318,9 @@ importers:
       '@tarragon/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@tarragon/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@tarragon/lifestyle-engine':
         specifier: workspace:*
         version: link:../../packages/lifestyle-engine

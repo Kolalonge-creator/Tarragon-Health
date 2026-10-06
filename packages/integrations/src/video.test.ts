@@ -145,6 +145,15 @@ describe("zoom adapter", () => {
   const ID = "2f4b8c1d-9e07-4a63-b5d2-6c8e0a1f3d97";
   const decode = (jwt: string) => JSON.parse(Buffer.from(jwt.split(".")[1]!, "base64url").toString()) as Record<string, unknown>;
 
+  it("without Meeting SDK keys it still creates rooms and join links, and only refuses an SDK token", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = createZoomVideo({ accountId: "acc", clientId: "cid", clientSecret: "csecret", fetch: fake.fetch, now: () => fake.clock.now });
+    const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+    if (!room.ok) throw new Error("room");
+    expect((await z.joinLink({ roomId: room.data.roomId, role: "patient", mediaMode: "video" })).ok).toBe(true);
+    expect(await z.joinToken({ roomId: room.data.roomId, role: "patient", identity: ID, ttlSeconds: 60 })).toMatchObject({ ok: false, error: { code: "not_configured" } });
+  });
+
   it("refuses an encounter reference or identity that only looks like a uuid", async () => {
     const z = zoomFor(createFakeZoom());
     const dashes = "-".repeat(36);

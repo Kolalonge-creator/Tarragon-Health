@@ -21,8 +21,9 @@ export interface ZoomConfig {
   readonly accountId: string;
   readonly clientId: string;
   readonly clientSecret: string;
-  readonly sdkKey: string;
-  readonly sdkSecret: string;
+  /** Meeting SDK keys. Only `joinToken` needs them; the link-based flow (S21) does not, so they are optional. */
+  readonly sdkKey?: string;
+  readonly sdkSecret?: string;
   /** The "Secret Token" from the Zoom app's Feature page, used to verify webhooks. */
   readonly webhookSecretToken?: string;
   readonly fetch: FetchLike;
@@ -95,6 +96,7 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
     },
 
     async joinToken(input) {
+      if (!config.sdkKey || !config.sdkSecret) return fail("not_configured", "Meeting SDK keys are not set", false);
       if (!isUuid(input.identity)) return fail("invalid_input", "Identity must be an opaque uuid");
       if (!Number.isInteger(input.ttlSeconds) || input.ttlSeconds <= 0 || input.ttlSeconds > MAX_TOKEN_TTL_SECONDS) {
         return fail("invalid_input", "Token lifetime is out of range");
@@ -109,9 +111,10 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       const iat = Math.floor(now() / 1000);
       const expiresAtMs = Math.min(now() + input.ttlSeconds * 1000, endsAtMs);
       const exp = Math.floor(expiresAtMs / 1000);
+      const sdkKey = config.sdkKey;
       const token = await signJwtHs256(config.sdkSecret, {
-        appKey: config.sdkKey,
-        sdkKey: config.sdkKey,
+        appKey: sdkKey,
+        sdkKey,
         mn: input.roomId,
         role: input.role === "clinician" ? 1 : 0,
         iat,
