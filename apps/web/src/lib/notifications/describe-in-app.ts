@@ -123,6 +123,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     };
   }
   // S21: neutral previews (INV-07).
+  if (n.template === "video_call_requested") {
+    return { text: "Your care team would like a quick call. Open the app to join.", href: `/patient/video-visit/${String(payload.consultation_id ?? "")}` };
+  }
   if (n.template === "consult_join_ready") {
     return { text: "Your consultation room is open. Open the app to join.", href: `/patient/consultation/${String(payload.encounter_id ?? "")}` };
   }

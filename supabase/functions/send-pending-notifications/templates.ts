@@ -1401,6 +1401,10 @@ export const TEMPLATE_MAP: Record<
     };
   },
   // S21: neutral by design (INV-07). Nothing here names a reason, a condition or a clinician; the details live in the app.
+  video_call_requested: (payload) => ({
+    smsText: "Your care team would like a quick call. Open the app to join. Tarragon Health",
+    pushUrl: `/patient/video-visit/${String(payload.consultation_id ?? "")}`,
+  }),
   consult_join_ready: (payload) => ({
     smsText: "Your consultation room is open. Open the app to join. Tarragon Health",
     pushUrl: `/patient/consultation/${String(payload.encounter_id ?? "")}`,
