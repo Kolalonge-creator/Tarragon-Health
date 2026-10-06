@@ -1,0 +1,29 @@
+{
+  "defaults": {
+    "clinician": { "tier": "medical_officer", "competencies": ["hypertension"], "employed": false, "hasBlock": true, "isTest": true, "conflicted": false, "handedBack": false, "ownPatient": false },
+    "task": { "state": "open", "minTier": "medical_officer", "requiredCompetencies": ["hypertension"], "offeredTo": "none", "isTest": true }
+  },
+  "cases": [
+    { "name": "base: an open pool task for a matching clinician", "expect": true },
+    { "name": "freelancer with no queue block cannot pull", "clinician": { "hasBlock": false }, "expect": false },
+    { "name": "employed doctor with no block cannot pull from the pool", "clinician": { "hasBlock": false, "employed": true }, "expect": false },
+    { "name": "employed doctor with no block still takes work pushed to them", "clinician": { "hasBlock": false, "employed": true }, "task": { "state": "offered_to_lead", "offeredTo": "me" }, "expect": true },
+    { "name": "freelancer with no block cannot take an offered task either", "clinician": { "hasBlock": false }, "task": { "state": "offered_to_lead", "offeredTo": "me" }, "expect": false },
+    { "name": "tier below the task minimum", "clinician": { "tier": "care_coordinator" }, "expect": false },
+    { "name": "tier above the task minimum", "clinician": { "tier": "senior_medical_officer" }, "expect": true },
+    { "name": "a missing competency", "clinician": { "competencies": ["adult_general"] }, "expect": false },
+    { "name": "extra competencies are fine", "clinician": { "competencies": ["hypertension", "adult_general"] }, "expect": true },
+    { "name": "task needing no competency", "task": { "requiredCompetencies": [] }, "clinician": { "competencies": [] }, "expect": true },
+    { "name": "safety case 17: a conflicted clinician is never offered the patient", "clinician": { "conflicted": true }, "expect": false },
+    { "name": "a task the clinician handed back is never offered again", "clinician": { "handedBack": true }, "expect": false },
+    { "name": "a clinician is never offered their own record", "clinician": { "ownPatient": true }, "expect": false },
+    { "name": "a test clinician never takes a real patient's task", "task": { "isTest": false }, "expect": false },
+    { "name": "a real clinician never takes a test patient's task", "clinician": { "isTest": false }, "expect": false },
+    { "name": "a task offered to another clinician stays hidden", "task": { "state": "offered_to_lead", "offeredTo": "other" }, "expect": false },
+    { "name": "a task offered to me, with a block", "task": { "state": "offered_to_lead", "offeredTo": "me" }, "expect": true },
+    { "name": "an offered task still needs the competency", "task": { "state": "offered_to_lead", "offeredTo": "me" }, "clinician": { "competencies": [] }, "expect": false },
+    { "name": "an escalated task needs the on_call competency", "task": { "state": "escalated" }, "expect": false },
+    { "name": "an escalated task for an on-call clinician", "task": { "state": "escalated" }, "clinician": { "competencies": ["hypertension", "on_call"] }, "expect": true },
+    { "name": "an escalated task still needs the tier", "task": { "state": "escalated", "minTier": "senior_medical_officer" }, "clinician": { "competencies": ["hypertension", "on_call"] }, "expect": false }
+  ]
+}

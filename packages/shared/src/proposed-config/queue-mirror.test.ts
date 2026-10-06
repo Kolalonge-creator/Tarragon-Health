@@ -51,4 +51,17 @@ describe("queue.* mirrors the migration seed", () => {
     expect(by("admin_clinical")?.default_due_minutes).toBe(4320);
     expect((getProposedConfig("queue.rules").value as { class3_promotion_window_minutes: number }).class3_promotion_window_minutes).toBe(240);
   });
+
+  it("queue.claims is identical to the queue_claim_config seed (S17)", () => {
+    const file = readdirSync(MIGRATIONS).find((f) => f.endsWith("_s17_queue_next.sql"));
+    if (!file) throw new Error("S17 migration not found");
+    const match = /queue-claims-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(readFileSync(join(MIGRATIONS, file), "utf8"));
+    if (!match?.[1]) throw new Error("queue claims seed not found in the migration");
+    const seed = JSON.parse(match[1]) as Record<string, unknown>;
+    const mirror = getProposedConfig("queue.claims").value as Record<string, unknown>;
+    expect(seed).toEqual(mirror);
+    // the older registry key for the same threshold must agree with the one the database reads
+    const t = getProposedConfig("queue.handback_review_threshold").value as { moreThan: number; windowDays: number };
+    expect((seed.handback_review as { more_than: number; window_days: number })).toEqual({ more_than: t.moreThan, window_days: t.windowDays });
+  });
 });

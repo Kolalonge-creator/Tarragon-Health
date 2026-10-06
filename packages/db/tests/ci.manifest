@@ -816,3 +816,7 @@ platform_switch_pidgin_kill_switch.sql
 s15_clinician_credentialing.sql
 s16_clinical_tasks.sql
 s16b_cmo_signoff.sql
+# S17 Next task: the 186-check proof (eligibility cases shared with the TypeScript model, grants, availability gate, order, one claim at a time and an idempotent retry, tier and competency, hand-back reasons and the review flag and cooling-off, safety case 17 conflicts and who may lift them, safety case 19 timeouts and escalation and release without penalty and one extension, offers to an employed doctor and on_call for escalated tasks, reliability arithmetic and an append-only log, RLS, INV-12 ties) with a sabotage that removes the conflict clause from the candidate function and must flip the case 17 check.
+s17_queue_next.sql
+# S17 safety case 18, real contention: 50 concurrent sessions calling queue_next() (30 tasks, then one task) never hand a task out twice; a lock-free control picker must fail in the same harness or the script reports VACUOUS. A .sh proof for the same reason as the finance reversal lock proof (one session cannot race itself); local database only.
+s17_queue_concurrent_claim.sh
