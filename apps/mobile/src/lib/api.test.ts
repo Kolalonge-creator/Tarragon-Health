@@ -14,6 +14,8 @@ import {
   postDeviceReading,
   postVitalReading,
   postSelectVideoVisitAlternateSlot,
+  postConsultationJoin,
+  postConsultationDialIn,
 } from "./api";
 import { supabase } from "./supabase";
 
@@ -250,5 +252,34 @@ describe("postSelectVideoVisitAlternateSlot", () => {
     await expect(postSelectVideoVisitAlternateSlot("req-1", "slot-b")).resolves.toEqual({
       error: "that time is no longer available",
     });
+  });
+});
+
+describe("consultation room calls (OQ-158)", () => {
+  it("posts the encounter and media to the join route with the bearer token", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { ok: true, url: "https://zoom.example/j/1", mediaMode: "audio_only", audioOnlyEnforced: false, recorded: true }));
+    const res = await postConsultationJoin("enc-1", "audio_only");
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe(`${API_BASE_URL}/api/mobile/consultations/join`);
+    expect(init.headers.Authorization).toBe("Bearer jwt-abc");
+    expect(JSON.parse(init.body)).toEqual({ encounterId: "enc-1", media: "audio_only" });
+    expect(res.ok && res.data.ok).toBe(true);
+  });
+
+  it("posts only the encounter to the dial-in route", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { ok: false, reason: "not_open" }));
+    const res = await postConsultationDialIn("enc-1");
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe(`${API_BASE_URL}/api/mobile/consultations/dial-in`);
+    expect(JSON.parse(init.body)).toEqual({ encounterId: "enc-1" });
+    expect(res).toEqual({ ok: true, data: { ok: false, reason: "not_open" } });
+  });
+
+  it("tells an unreachable server (offline) from a server that answered with a failure", async () => {
+    mockFetch.mockRejectedValue(new TypeError("Network request failed"));
+    await expect(postConsultationJoin("enc-1", "video")).resolves.toEqual({ ok: false, offline: true });
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue(jsonResponse(503, { ok: false, reason: "provider" }));
+    await expect(postConsultationJoin("enc-1", "video")).resolves.toEqual({ ok: false, offline: false });
   });
 });

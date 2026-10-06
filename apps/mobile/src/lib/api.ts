@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import { PLATFORM_URL } from "./platform-url";
 import type { HealthReadingType, HealthSample } from "./healthkit";
 import type { HealthProvider } from "./health-sync";
+import type { DialInResponse, JoinResponse } from "./consultation-room-model";
 
 /**
  * The mobile app is a separate deployment from the web app, so it hits the
@@ -93,6 +94,28 @@ export interface MobileThresholds {
 export async function fetchVitalsThresholds(): Promise<MobileThresholds | null> {
   const result = await request<MobileThresholds>("/api/mobile/vitals-thresholds", "GET");
   return result.ok ? result.data : null;
+}
+
+/** What the consultation routes return when the call itself failed, as opposed to the server answering with a reason. "offline"
+ * means the request never got an answer, so the screen can say the place is safe and keep trying. */
+export type ConsultationCallResult<T> = { ok: true; data: T } | { ok: false; offline: boolean };
+
+async function consultationCall<T>(path: string, body: unknown): Promise<ConsultationCallResult<T>> {
+  const result = await request<T>(path, "POST", body);
+  if (result.ok) return { ok: true, data: result.data };
+  // The routes answer 503 with a reason code when the vendor is not configured: not offline, but not usable either.
+  return { ok: false, offline: result.error === NETWORK_ERROR_MESSAGE };
+}
+
+/** S21 / OQ-158: asks the server for the patient's own join link (apps/web/.../api/mobile/consultations/join). The caller opens the
+ * link and drops it; it is never stored or logged. */
+export function postConsultationJoin(encounterId: string, media: "video" | "audio_only"): Promise<ConsultationCallResult<JoinResponse>> {
+  return consultationCall<JoinResponse>("/api/mobile/consultations/join", { encounterId, media });
+}
+
+/** S21 / OQ-158: the Zoom dial-in number, meeting id and passcode for the same room. Held in memory for the screen only. */
+export function postConsultationDialIn(encounterId: string): Promise<ConsultationCallResult<DialInResponse>> {
+  return consultationCall<DialInResponse>("/api/mobile/consultations/dial-in", { encounterId });
 }
 
 export interface HealthSyncCursor {
