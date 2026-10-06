@@ -613,7 +613,7 @@ revoke all on function private.prices_immutable(), private.orders_state_machine(
 -- ---------------------------------------------------------------------------
 -- Seed: two inactive items for the first organisation. Prices are data, versioned in prices; an item stays off until staff switch it on
 -- AND the v5_checkout module is enabled. Membership 100,000 naira is the founder-confirmed 2026-10-05 value; the 12,000 naira care pack is
--- PROPOSED (spec line 696, registry key commerce.care_pack_price_kobo) and is not on sale until the founder confirms it (OQ-160).
+-- PROPOSED (spec line 696, registry key commerce.care_pack_price_kobo) and is not on sale until the founder confirms it (OQ-172).
 -- ---------------------------------------------------------------------------
 with org as (select id from public.organisations order by created_at limit 1),
   ins as (
@@ -623,7 +623,7 @@ with org as (select id from public.organisations order by created_at limit 1),
            v.days, true, false, v.note
       from org, (values
         ('membership_annual', 'membership', 'catalog.membership_annual', 365, 'Founder confirmed 2026-10-05 (docs/MEMBERSHIP_MODEL_PLAN.md).'),
-        ('bp_care_pack_3m',   'care_pack',  'catalog.bp_care_pack_3m',    90,  'PROPOSED price, see OQ-160.')
+        ('bp_care_pack_3m',   'care_pack',  'catalog.bp_care_pack_3m',    90,  'PROPOSED price, see OQ-172.')
       ) as v(code, kind, code_key, days, note)
     on conflict (organisation_id, code) do nothing
     returning id, organisation_id, code
