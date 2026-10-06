@@ -184,15 +184,28 @@ export async function getSignoffQueue(
     });
   }
 
+  // One row per rule_key, newest version: the same definition of "a rule's
+  // current state" the guided sign forms on the CMO hub use
+  // (readClinicalSignoffChecklist), so the count here can never disagree with
+  // the forms. An old unsigned draft that a later signed version superseded is
+  // not outstanding, and an unsigned rule whose newest version is already
+  // active still is.
   const { data: rules, error: rulesError } = await supabase
     .from("clinical_rules")
-    .select("id, status, owner_clinical_staff_id, protocol_version_id, approved_by")
-    .in("status", ["draft", "shadow"]);
+    .select("id, rule_key, version, status, owner_clinical_staff_id, protocol_version_id, approved_by")
+    .in("status", ["draft", "shadow", "active"])
+    .order("rule_key", { ascending: true })
+    .order("version", { ascending: false });
   if (rulesError) throw new Error(`signoff-queue: failed reading clinical_rules: ${rulesError.message}`);
-  const needsSetup = (rules ?? []).filter(
+  const newestRuleByKey = new Map<string, NonNullable<typeof rules>[number]>();
+  for (const r of rules ?? []) {
+    if (!newestRuleByKey.has(r.rule_key)) newestRuleByKey.set(r.rule_key, r);
+  }
+  const newestRules = [...newestRuleByKey.values()];
+  const needsSetup = newestRules.filter(
     (r) => !r.approved_by && (!r.owner_clinical_staff_id || !r.protocol_version_id)
   );
-  const readyToSign = (rules ?? []).filter(
+  const readyToSign = newestRules.filter(
     (r) => !r.approved_by && r.owner_clinical_staff_id && r.protocol_version_id
   );
   if (needsSetup.length > 0) {

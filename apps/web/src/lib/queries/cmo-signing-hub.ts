@@ -44,23 +44,21 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   const items: SignoffQueueItem[] = [];
   let ruleCount = 0;
-  let ruleSeverity: SignoffQueueItem["severity"] | null = null;
   for (const item of queueResult.items) {
     if (item.key === "clinical_rules_needs_setup" || item.key === "clinical_rules_ready") {
-      ruleCount += item.count ?? 1;
-      ruleSeverity = "draft_pending";
+      ruleCount += item.count ?? 0;
       continue;
     }
     items.push(item);
   }
 
-  if (ruleSeverity) {
+  if (ruleCount > 0) {
     items.push({
       key: CLINICAL_RULES_ITEM_KEY,
       title: "Clinical rules",
       detail: `${ruleCount} rule${ruleCount === 1 ? "" : "s"} waiting. For each, pick the doctor accountable and the signed protocol it comes from, then sign.`,
       href: "/clinician/clinical-rules",
-      severity: ruleSeverity,
+      severity: "draft_pending",
       count: ruleCount,
     });
   }

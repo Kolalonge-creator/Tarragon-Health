@@ -10,6 +10,7 @@ type Chain = {
   in: () => Chain;
   not: () => Chain;
   is: () => Chain;
+  order: () => Chain;
   maybeSingle: () => Promise<Settled>;
   then: Promise<Settled>["then"];
 };
@@ -26,6 +27,7 @@ function client(tables: Record<string, { data?: unknown; error?: unknown; count?
         in: () => chain,
         not: () => chain,
         is: () => chain,
+        order: () => chain,
         maybeSingle: async () => settled,
         then: (resolve, reject) => Promise.resolve(settled).then(resolve, reject),
       };
@@ -46,7 +48,7 @@ describe("getSignoffQueue links", () => {
         protocol_drafts: { data: [{ id: "d1", protocol_id: "htn", title: "Hypertension", status: "draft" }] },
         lpe_content_blocks: { count: 3 },
         result_release_policies: { data: [{ id: "r1", version: 1, is_active: true, approved_at: null }] },
-        clinical_rules: { data: [{ id: "c1", status: "shadow", owner_clinical_staff_id: "s", protocol_version_id: "p", approved_by: null }] },
+        clinical_rules: { data: [{ id: "c1", rule_key: "k1", version: 1, status: "shadow", owner_clinical_staff_id: "s", protocol_version_id: "p", approved_by: null }] },
       }),
       "/clinician"
     );
@@ -99,5 +101,47 @@ describe("getSignoffQueue result release policy", () => {
     await expect(getSignoffQueue(client({ result_release_policies: { error: { message: "boom" } } }))).rejects.toThrow(
       /result_release_policies/
     );
+  });
+});
+
+describe("getSignoffQueue clinical rules", () => {
+  const rule = (over: Record<string, unknown>) => ({
+    id: "r",
+    rule_key: "k",
+    version: 1,
+    status: "shadow",
+    owner_clinical_staff_id: "s",
+    protocol_version_id: "p",
+    approved_by: null,
+    ...over,
+  });
+
+  it("does not count an old unsigned version that a newer signed version superseded", async () => {
+    // Rows arrive newest version first, as the query orders them.
+    const items = await getSignoffQueue(
+      client({ clinical_rules: { data: [rule({ id: "v2", version: 2, status: "active", approved_by: "staff" }), rule({ id: "v1", version: 1 })] } })
+    );
+    expect(items.find((i) => i.key.startsWith("clinical_rules"))).toBeUndefined();
+  });
+
+  it("counts a rule whose newest version is active but was never signed", async () => {
+    const items = await getSignoffQueue(client({ clinical_rules: { data: [rule({ status: "active" })] } }));
+    expect(items.find((i) => i.key === "clinical_rules_ready")?.count).toBe(1);
+  });
+
+  it("counts one line per rule_key, split by whether an owner and protocol are set", async () => {
+    const items = await getSignoffQueue(
+      client({
+        clinical_rules: {
+          data: [
+            rule({ id: "a", rule_key: "a" }),
+            rule({ id: "b", rule_key: "b", owner_clinical_staff_id: null }),
+            rule({ id: "c", rule_key: "c", protocol_version_id: null }),
+          ],
+        },
+      })
+    );
+    expect(items.find((i) => i.key === "clinical_rules_ready")?.count).toBe(1);
+    expect(items.find((i) => i.key === "clinical_rules_needs_setup")?.count).toBe(2);
   });
 });

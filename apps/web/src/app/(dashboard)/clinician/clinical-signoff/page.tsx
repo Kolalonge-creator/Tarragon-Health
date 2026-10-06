@@ -54,9 +54,9 @@ export default async function ClinicianClinicalSignoffPage() {
     readCmoSigningHub(supabase),
   ]);
 
-  if (checklist.loadFailed) {
-    return <LoadFailure>The sign-off checklist could not be loaded.</LoadFailure>;
-  }
+  // A failed checklist read costs only the guided rule forms and the signed history, not the whole
+  // hub: every other line comes from readCmoSigningHub and its links do not depend on it.
+  const checklistFailed = checklist.loadFailed;
 
   // Only fetch what an inline panel needs, and only when its line is on the list.
   const keys = new Set(hub.items.map((i) => i.key));
@@ -80,7 +80,7 @@ export default async function ClinicianClinicalSignoffPage() {
   // to the item's own page. That is a safe degradation, never a missing line.
   const inlinePanels: Partial<Record<string, ReactNode>> = {};
 
-  if (keys.has(CLINICAL_RULES_ITEM_KEY) && checklist.unsignedRules.length > 0) {
+  if (!checklistFailed && keys.has(CLINICAL_RULES_ITEM_KEY) && checklist.unsignedRules.length > 0) {
     inlinePanels[CLINICAL_RULES_ITEM_KEY] = (
       <SignoffChecklist
         unsignedRules={checklist.unsignedRules}
@@ -112,7 +112,7 @@ export default async function ClinicianClinicalSignoffPage() {
     );
   }
 
-  const hasSigned = checklist.signedRules.length > 0 || checklist.settled.length > 0;
+  const hasSigned = !checklistFailed && (checklist.signedRules.length > 0 || checklist.settled.length > 0);
 
   return (
     <div className="space-y-6 p-6">
@@ -133,7 +133,14 @@ export default async function ClinicianClinicalSignoffPage() {
         </LoadFailure>
       )}
 
-      {hub.items.length === 0 && hub.failed ? null : hub.items.length === 0 ? (
+      {checklistFailed && (
+        <LoadFailure>
+          The clinical rules could not be loaded here, so rules cannot be signed from this page right now.
+          This is not an all-clear. Reload, or open Clinical rules directly.
+        </LoadFailure>
+      )}
+
+      {hub.items.length === 0 && (hub.failed || checklistFailed) ? null : hub.items.length === 0 ? (
         <Card className="border-brand-green/30 bg-brand-green/5">
           <CardContent className="pt-6 text-sm text-charcoal-ink/70">
             Nothing is waiting on your signature. Every clinical rule, governed configuration, protocol,

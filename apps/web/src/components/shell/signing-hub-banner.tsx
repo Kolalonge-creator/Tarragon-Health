@@ -20,6 +20,7 @@ export function SigningHubBanner({
   liveUnsignedCount,
   failed,
 }: {
+  /** Lines on the hub (one per area: a line can stand for several rules or blocks), not individual items. */
   outstandingCount: number;
   /** How many of those are already driving behaviour with no signature on file. */
   liveUnsignedCount: number;
@@ -40,7 +41,7 @@ export function SigningHubBanner({
           ) : (
             <>
               <strong>
-                {formatNumber(outstandingCount)} thing{outstandingCount === 1 ? "" : "s"} need your signature.
+                {formatNumber(outstandingCount)} {outstandingCount === 1 ? "area needs" : "areas need"} your signature.
               </strong>{" "}
               {liveUnsignedCount > 0
                 ? `${formatNumber(liveUnsignedCount)} ${liveUnsignedCount === 1 ? "is" : "are"} already live with no signature on file.`
