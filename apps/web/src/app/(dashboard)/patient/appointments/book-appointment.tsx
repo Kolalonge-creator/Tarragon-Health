@@ -17,6 +17,8 @@ import {
 } from "./appointment-labels";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
+import { ConsultationRuleCard } from "@/components/consultation/consultation-rule";
+import type { Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -46,9 +48,11 @@ export function BookAppointment({
   organisationId,
   patientId,
   initialAppointmentType,
+  locale = "en",
 }: {
   organisationId: string;
   patientId: string;
+  locale?: Locale;
   /** Preselects the type picker — e.g. the Wellbeing page linking straight
    * into "Therapy session" rather than defaulting to GP. */
   initialAppointmentType?: AppointmentType;
@@ -278,6 +282,8 @@ export function BookAppointment({
             Telemedicine, with a Tarragon doctor.
           </p>
         </div>
+
+        {consultationMethod === "telemedicine" && <ConsultationRuleCard locale={locale} />}
 
         {message && (
           <p

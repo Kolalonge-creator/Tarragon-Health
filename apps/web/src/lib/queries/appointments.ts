@@ -85,6 +85,52 @@ export function useMyUpcomingAppointments(patientId: string) {
   });
 }
 
+/** S21: a coming consultation (my_upcoming_encounters). Joins an appointment to its consultation room. */
+export type UpcomingEncounter = {
+  encounter_id: string;
+  type: string;
+  status: string;
+  scheduled_at: string;
+  appointment_id: string | null;
+  final_media_mode: "video" | "audio_only" | "phone" | null;
+};
+
+/** The patient's coming consultations, so an appointment can open its room. The function answers for the signed-in person only. */
+export function useMyUpcomingEncounters(patientId: string) {
+  return useQuery({
+    queryKey: ["encounters", "my-upcoming", patientId] as const,
+    enabled: !!patientId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("my_upcoming_encounters" as never, {} as never);
+      if (error) throw error;
+      return (data ?? []) as unknown as UpcomingEncounter[];
+    },
+  });
+}
+
+/** S21: what a patient is told before paying (my_consultation_rule): the price, the cancel window and the age rule, all from live config. */
+export type ConsultationRule = {
+  price_kobo: number | null;
+  cancel_window_hours: number;
+  late_cancel_credit_returned: boolean;
+  min_age_years: number;
+  policy_version: number;
+};
+
+export function useMyConsultationRule() {
+  return useQuery({
+    queryKey: ["consultations", "rule"] as const,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("my_consultation_rule" as never, {} as never);
+      if (error) throw error;
+      return data as unknown as ConsultationRule;
+    },
+  });
+}
+
 /** A clinician's own upcoming appointments — the calendar list. */
 export function useClinicianUpcomingAppointments(clinicianId: string) {
   return useQuery({
