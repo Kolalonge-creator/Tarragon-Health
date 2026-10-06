@@ -209,10 +209,9 @@ for ((i = 1; i <= 3; i++)); do
   new_page >/dev/null 2>&1 || fail "control round $i: could not create a page"
   ROOT=$(root_of_last)
   race "$ROOT" "public.s19_sweep_naive('$ROOT')"
-  # the lock-free sweep may also trip the one-backup-per-page constraint when it loses the race: that is the race showing itself
-  grep -q '^exit 0$' "$WORK/ack.out" && ! grep -q 'ERROR:' "$WORK/ack.out" || fail "control round $i: the acknowledging session failed: $(cat "$WORK/ack.out" | tr '\n' ' ')"
+  sessions_ran_clean || fail "control round $i: a racing session failed: $(cat "$WORK/ack.out" "$WORK/sweep.out" | tr '\n' ' ')"
   read -r unacked backups tasks < <(family_state "$ROOT")
-  if [[ "$unacked" -gt 0 ]] || grep -q 'pages_one_child_per_role' "$WORK/sweep.out"; then violations=$((violations + 1)); fi
+  [[ "$unacked" -gt 0 ]] && violations=$((violations + 1))
 done
 [[ "$violations" -gt 0 ]] || fail "VACUOUS: the lock-free sweep never left a half-acknowledged family, so this harness does not create real contention"
 pass "control: a lock-free sweep left a half-acknowledged family in $violations of 3 rounds, so the race is real"
