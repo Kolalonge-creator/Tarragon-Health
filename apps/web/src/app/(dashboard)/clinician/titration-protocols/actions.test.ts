@@ -51,7 +51,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   isCmo.mockReturnValue(true);
   rpc.mockResolvedValue({ data: null, error: null });
-  stored = { data: { code: "x_code", status: "draft", definition: { ...FIXTURE, code: "x_code", status: "draft" } }, error: null };
+  // Stored as a real (non-placeholder) draft: the guard refuses a definition flagged placeholder.
+  const { placeholder: _placeholder, ...REAL_SHAPED } = FIXTURE;
+  void _placeholder;
+  stored = { data: { code: "x_code", status: "draft", definition: { ...REAL_SHAPED, code: "x_code", status: "draft" } }, error: null };
 });
 
 describe("checkProtocolAction", () => {
@@ -118,6 +121,13 @@ describe("approveProtocolAction", () => {
     expect(url).toContain("done=");
     expect(rpc).toHaveBeenCalledWith("approve_protocol", { p_id: ID, p_note: "ok" });
   });
+  it("never approves a draft flagged as the test placeholder", async () => {
+    stored = { data: { code: "x_code", status: "draft", definition: { ...FIXTURE, code: "x_code", status: "draft", placeholder: true } }, error: null };
+    const msg = await approve({ id: ID, confirmed: "yes" });
+    expect(msg).toContain("test placeholder");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("never calls the RPC when the stored draft fails validation", async () => {
     stored = { data: { code: "x_code", status: "draft", definition: { code: "x_code", version: 1, status: "draft", params: {}, steps: [] } }, error: null };
     const url = await approve({ id: ID, confirmed: "yes" });

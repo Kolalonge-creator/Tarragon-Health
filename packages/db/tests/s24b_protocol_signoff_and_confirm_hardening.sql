@@ -175,6 +175,10 @@ begin
   d2 := (select id from public.protocols limit 0);
   insert into public.protocols (code, version, status, definition) values ('proof_empty', 1, 'draft', '{"code":"proof_empty","version":1,"params":{},"steps":[]}') returning id into d2;
   perform pg_temp.ck('a protocol with no steps cannot be approved', 'true', (pg_temp.try_as(v_cmo, format($q$select public.approve_protocol(%L)$q$, d2)) like 'a protocol with no steps%')::text);
+  -- the test-only placeholder can never be approved
+  insert into public.protocols (code, version, status, definition) values ('proof_placeholder', 1, 'draft', '{"code":"proof_placeholder","version":1,"placeholder":true,"params":{},"steps":[{"id":"a"}]}') returning id into d2;
+  perform pg_temp.ck('a placeholder step table cannot be approved', 'true', (pg_temp.try_as(v_cmo, format($q$select public.approve_protocol(%L)$q$, d2)) like 'a placeholder step table%')::text);
+  perform pg_temp.ck('...and stays a draft', 'draft', (select status from public.protocols where id = d2));
   perform pg_temp.ck('the CMO approves a draft', 'ok', pg_temp.try_as(v_cmo, format($q$select public.approve_protocol(%L, 'reviewed')$q$, d1)));
   perform pg_temp.ck('...approved, stamped as the CMO, definition marked approved', 'approved|' || v_cmo::text || '|approved',
     (select status || '|' || approved_by::text || '|' || (definition ->> 'status') from public.protocols where id = d1));

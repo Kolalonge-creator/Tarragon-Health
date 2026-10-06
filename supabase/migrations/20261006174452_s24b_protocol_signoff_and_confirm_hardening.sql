@@ -61,6 +61,10 @@ begin
   if jsonb_typeof(p.definition -> 'steps') is distinct from 'array' or coalesce(jsonb_array_length(p.definition -> 'steps'), 0) = 0 then
     raise exception 'a protocol with no steps cannot be approved' using errcode = '22023';
   end if;
+  -- The test-only placeholder (fictional drug names, flagged placeholder) must never become the table real patients are judged against.
+  if p.definition -> 'placeholder' = 'true'::jsonb then
+    raise exception 'a placeholder step table is for tests only and cannot be approved' using errcode = '22023';
+  end if;
   update public.protocols set status = 'retired' where code = p.code and status = 'approved';
   update public.protocols
      set status = 'approved', approved_by = (select auth.uid()), approved_at = now(),

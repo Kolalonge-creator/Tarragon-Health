@@ -97,6 +97,10 @@ export async function approveProtocolAction(formData: FormData): Promise<void> {
   if (row.data.status !== "draft") back("error", "Only a draft can be approved. Nothing was changed.");
   const result = validateProtocolDefinition(row.data.definition);
   if (!result.ok) back("error", `This draft is not valid and was not approved: ${result.errors.join("; ")}`);
+  // The fictional test step table (marked placeholder) can never be approved for real patients; the database refuses it too.
+  if (typeof row.data.definition === "object" && row.data.definition !== null && (row.data.definition as Record<string, unknown>).placeholder === true) {
+    back("error", "This is a test placeholder, not a real step table, and cannot be approved.");
+  }
 
   const { error } = await (supabase as unknown as Rpc).rpc("approve_protocol", { p_id: id.data, p_note: note.data && note.data.length > 0 ? note.data : null });
   if (error) back("error", readable(error));
