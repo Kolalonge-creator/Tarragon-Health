@@ -31,7 +31,10 @@ export async function forwardPresenceEvent(
   timeoutMs = 8_000,
 ): Promise<ForwardOutcome> {
   if (!appBaseUrl || !/^https?:\/\/[^\s/]+/.test(appBaseUrl)) return "not_configured";
-  const url = `${appBaseUrl.replace(/\/+$/, "")}/api/zoom/webhook`;
+  // Trailing slashes are stripped with a loop, not a regular expression (a backtracking pattern on an address is what code scanning flags).
+  let base = appBaseUrl;
+  while (base.endsWith("/")) base = base.slice(0, -1);
+  const url = `${base}/api/zoom/webhook`;
   const sent: Record<string, string> = { "content-type": "application/json" };
   if (headers.timestamp) sent["x-zm-request-timestamp"] = headers.timestamp;
   if (headers.signature) sent["x-zm-signature"] = headers.signature;
