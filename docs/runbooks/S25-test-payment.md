@@ -10,7 +10,8 @@ Test card data is from paystack.com/docs/payments/test-payments (read 2026-10-06
 3. Settings, Preferences: make sure "Pass transaction fees to customers" is ON for test mode too (the live account has it on; this decides whether `requested_amount` differs from `amount`).
 4. Other sessions run their own local stacks (`docker ps` shows `supabase_db_tarragon-s22c` and others). Do not run `supabase stop` or `db reset` on a stack you did not start.
 
-## 1. Local stack (terminal 1, from the S25 worktree)
+## 1. Local stack (already set up for you on 2026-10-06; this section is how it was made)
+The worktree's `supabase/config.toml` was edited locally (and marked `git update-index --skip-worktree`, never committed) to use project id `tarragon-s25`, API port 56321, DB port 56322, email confirmations off. That keeps it away from the other sessions' stacks. The stack was started with `npx supabase start`, which replayed every migration (the three S25 ones included) and the seed.
 ```bash
 cd /Users/kolalonge/Documents/Tarragonhealth/.claude/worktrees/s25-commerce
 npx supabase start
@@ -35,7 +36,7 @@ chmod 600 ~/s25test/env
 cd /Users/kolalonge/Documents/Tarragonhealth/.claude/worktrees/s25-commerce
 npx supabase functions serve --env-file ~/s25test/env
 ```
-Functions answer at `http://127.0.0.1:54321/functions/v1/<name>`.
+Functions answer at `http://127.0.0.1:56321/functions/v1/<name>`. `eval "$(npx supabase status -o env | sed 's/^/export /')"` sets `API_URL`, `ANON_KEY` for the later commands.
 
 ## 4. A test patient, with checkout open (terminal 1)
 ```bash
@@ -44,7 +45,7 @@ curl -s -X POST "$API_URL/auth/v1/signup" -H "apikey: $ANON_KEY" -H 'Content-Typ
   -d '{"email":"s25-patient@example.com","password":"Test-pass-12345"}' > ~/s25test/signup.json
 export JWT=$(python3 -c "import json;print(json.load(open('$HOME/s25test/signup.json'))['access_token'])")
 ```
-Then in psql (`psql postgresql://postgres:postgres@127.0.0.1:54322/postgres`):
+Then in psql (`docker exec -i supabase_db_tarragon-s25 psql -U postgres`):
 ```sql
 -- the patient (works whether or not a profile row already exists)
 insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth)
