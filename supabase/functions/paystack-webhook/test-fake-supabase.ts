@@ -71,6 +71,14 @@ export class FakeSupabaseClient {
   from(table: string): any {
     return new FakeQueryBuilder(this.ensure(table), this.config(table));
   }
+
+  /** Every rpc call made, in order (S31 asserts the transfer webhook hands the event to the database). */
+  readonly rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
+  rpcResult: { data: unknown; error: { message: string } | null } = { data: { result: "applied" }, error: null };
+  rpc(fn: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }> {
+    this.rpcCalls.push({ fn, args });
+    return Promise.resolve(this.rpcResult);
+  }
 }
 
 type QueryResult = { data: unknown; error: { code: string; message: string } | null };

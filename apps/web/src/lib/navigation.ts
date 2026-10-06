@@ -547,6 +547,7 @@ export function getNavSections(
                 { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
                 // What a contracted clinician has earned, line by line, and the fee schedule that applies (S30).
                 { label: "Earnings", href: "/clinician/earnings", icon: "analytics" },
+                { label: "Payouts", href: "/clinician/payouts", icon: "analytics" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier
                 // per this file's own gating philosophy above; the page
@@ -670,6 +671,7 @@ export function getNavSections(
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
+            { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
