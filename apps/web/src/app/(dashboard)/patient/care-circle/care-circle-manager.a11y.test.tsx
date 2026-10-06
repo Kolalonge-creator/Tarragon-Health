@@ -27,6 +27,8 @@ jest.mock("@/lib/queries/care-circle", () => {
     useUpdateMember: () => ({ mutateAsync: update, isPending: false }),
     useRevokeMember: () => ({ mutate: revoke, isPending: false }),
     useCancelInvite: () => ({ mutate: cancel, isPending: false }),
+    usePendingGifts: () => ({ data: [] }),
+    useRespondToGift: () => ({ mutateAsync: jest.fn(), isPending: false }),
   };
 });
 

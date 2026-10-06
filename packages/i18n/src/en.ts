@@ -1077,6 +1077,15 @@ export const en = {
   "shop.error.order_beneficiary_not_allowed": "You cannot pay for this person right now. Their Care Circle access may have ended.",
   "circle.pay.already_member": "They are already a member.",
   "circle.member.renew": "Renew for a year",
+  "circle.gift.title": "Someone has paid for care for you",
+  "circle.gift.body": "{item}. Nothing starts until you say yes.",
+  "circle.gift.decide_by": "Please answer by {date}.",
+  "circle.gift.accept": "Accept",
+  "circle.gift.decline": "No thank you",
+  "circle.gift.decline_confirm": "Say no to this? It will be refunded to the person who paid, and nothing will start.",
+  "circle.gift.accepted": "Accepted. It starts today.",
+  "circle.gift.declined": "Declined. Nothing was started.",
+  "circle.gift.error": "We could not save your answer. Please try again.",
 } as const;
 
 export type MessageKey = keyof typeof en;

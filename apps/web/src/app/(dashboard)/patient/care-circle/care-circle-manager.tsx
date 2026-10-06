@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { FormError } from "@/components/ui/form-error";
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 import { CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, circleErrorKey, inviteLinkPath, permissionKey, type CircleMember, type CirclePermission } from "@/lib/care-circle/model";
+import { PendingGifts } from "./pending-gifts";
 import {
   CircleError,
   useCancelInvite,
@@ -245,6 +246,7 @@ export function CareCircleManager({ locale, origin }: { locale: Locale; origin?:
 
   return (
     <div className="space-y-6">
+      <PendingGifts locale={locale} />
       <p className={MUTED}>{t("circle.intro", locale)}</p>
 
       <Card>

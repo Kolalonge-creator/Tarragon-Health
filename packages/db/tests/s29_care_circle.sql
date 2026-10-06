@@ -192,6 +192,12 @@ begin
     (select (token_hash = encode(extensions.digest(pg_temp.tok('a'), 'sha256'), 'hex') and token_hash <> pg_temp.tok('a')) from public.care_circle_invites where id = pg_temp.f('inv-a'))::text);
   perform pg_temp.ck('the contact is never stored in clear', 'false',
     (select (to_jsonb(i)::text like '%' || split_part(pg_temp.email_of(v_a), '@', 1) || '%') from public.care_circle_invites i where id = pg_temp.f('inv-a'))::text);
+  perform pg_temp.ck('the contact hash is keyed: it is not the plain SHA-256 of the email', 'true',
+    (select (invitee_hash <> encode(extensions.digest(lower(pg_temp.email_of(v_a)), 'sha256'), 'hex')) from public.care_circle_invites where id = pg_temp.f('inv-a'))::text);
+  perform pg_temp.ck('and it is the HMAC under the Vault secret', 'true',
+    (select (invitee_hash = encode(extensions.hmac(lower(pg_temp.email_of(v_a)), (select decrypted_secret from vault.decrypted_secrets where name = 'care_circle_contact_pepper'), 'sha256'), 'hex'))
+       from public.care_circle_invites where id = pg_temp.f('inv-a'))::text);
+  perform pg_temp.ck('the secret is not readable by the app roles', 'false', has_table_privilege('authenticated', 'vault.decrypted_secrets', 'SELECT')::text);
   perform pg_temp.ck('the patient cannot read the token hash', 'true',
     (pg_temp.q_as(v_pat, 'select token_hash from public.care_circle_invites limit 1') like '%permission denied%')::text);
   perform pg_temp.ck('the patient sees a pending invite with a masked hint only', 'true',
@@ -446,6 +452,10 @@ begin
     (pg_temp.q_as(v_ph, $q$select public.create_order('s29_consult', gen_random_uuid())::text$q$) like '%order_not_authorised%')::text);
   perform pg_temp.ck('a patient still orders for themselves as before', 'true',
     (pg_temp.q_as(v_pat, $q$select public.create_order('s29_consult', gen_random_uuid())::text$q$) like '%"reference"%')::text);
+  -- without the Vault secret nothing can be hashed, so no invite is made (fail closed); this is last because it removes the secret
+  delete from vault.secrets where name = 'care_circle_contact_pepper';
+  perform pg_temp.ck('with the secret missing no invite can be made', 'true',
+    (pg_temp.invite(v_pat, 'email', 'nokey@example.invalid', array['red_alerts'], 'nokey') like '%circle_not_configured%')::text);
 end $$;
 
 -- ===========================================================================================================================

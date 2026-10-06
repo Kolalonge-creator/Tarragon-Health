@@ -1,7 +1,7 @@
 import { en, pcm } from "@tarragon/i18n";
 import {
   CIRCLE_PERMISSIONS, circleErrorKey, inviteLinkPath, parseAccept, parseMyCircle, parseOpenAlerts, parsePreview, parseSupported,
-  parseSupporterView, parseViewLog, permissionKey,
+  parseSupporterView, parseViewLog, permissionKey, parsePendingGifts, parseGiftResult,
 } from "./model";
 
 describe("care circle model", () => {
@@ -67,5 +67,14 @@ describe("care circle model", () => {
     expect(link).toBe("/patient/supporting/join/abc-DEF_123");
     expect(link).not.toContain("?");
     expect(inviteLinkPath("a/b")).toBe("/patient/supporting/join/a%2Fb");
+  });
+
+  it("parses pending gifts and the answer defensively", () => {
+    expect(parsePendingGifts([{ entitlement_id: "e", name_key: "k", paid_at: null, decide_by: "t" }, { x: 1 }])).toHaveLength(1);
+    expect(parsePendingGifts(null)).toEqual([]);
+    expect(parseGiftResult({ result: "accepted" })).toBe("accepted");
+    expect(parseGiftResult({ result: "declined" })).toBe("declined");
+    expect(parseGiftResult({ result: "not_found" })).toBe("other");
+    expect(parseGiftResult("x")).toBe("other");
   });
 });

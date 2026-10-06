@@ -133,3 +133,13 @@ export function circleErrorKey(message: unknown): MessageKey {
 
 /** The link the patient shares: the token is in the path (so it survives a sign-in redirect) and nowhere else. */
 export const inviteLinkPath = (token: string): string => `/patient/supporting/join/${encodeURIComponent(token)}`;
+
+export interface PendingGift { entitlementId: string; nameKey: string; decideBy: string }
+export function parsePendingGifts(data: unknown): PendingGift[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((r) => (isObj(r) && str(r["entitlement_id"]) && str(r["name_key"]) && str(r["decide_by"]) ? [{ entitlementId: r["entitlement_id"], nameKey: r["name_key"], decideBy: r["decide_by"] }] : []));
+}
+/** Only a clean accepted or declined counts as saved; anything else (not found, pending, garbage) is "could not save". */
+export function parseGiftAnswer(data: unknown): "accepted" | "declined" | null {
+  return isObj(data) && (data["result"] === "accepted" || data["result"] === "declined") ? data["result"] : null;
+}

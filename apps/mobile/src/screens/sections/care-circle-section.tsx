@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Share, Switch, Text, TextInput, View } from "react-native";
-import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { cancelInvite, createInvite, loadMyCircle, loadViewLog, revokeMember, updateMember } from "@/lib/care-circle/api";
+import { answerGift, cancelInvite, createInvite, loadMyCircle, loadPendingGifts, loadViewLog, revokeMember, updateMember } from "@/lib/care-circle/api";
 import {
   CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, inviteLinkPath, permissionKey,
-  type CircleMember, type CirclePermission, type MyCircle, type ViewLogRow,
+  type CircleMember, type CirclePermission, type MyCircle, type PendingGift, type ViewLogRow,
 } from "@/lib/care-circle/parse";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
@@ -16,6 +16,50 @@ function lagosDate(iso: string): string {
 }
 function lagosDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/** A care pack or Membership someone else paid for waits here for the patient's yes (S29b). Nothing starts until they accept. */
+function GiftCards({ gifts, onAnswered }: { gifts: PendingGift[]; onAnswered: () => void }) {
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [notice, setNotice] = useState<MessageKey | null>(null);
+  async function answer(id: string, accept: boolean) {
+    setBusy(true);
+    setFailed(false);
+    setNotice(null);
+    const r = await answerGift(id, accept);
+    setBusy(false);
+    if (r === null) {
+      setFailed(true);
+      return;
+    }
+    setNotice(r === "accepted" ? "circle.gift.accepted" : "circle.gift.declined");
+    onAnswered();
+  }
+  function decline(id: string) {
+    Alert.alert(t("circle.gift.decline", locale), t("circle.gift.decline_confirm", locale), [
+      { text: t("circle.invite.done", locale), style: "cancel" },
+      { text: t("circle.gift.decline", locale), style: "destructive", onPress: () => void answer(id, false) },
+    ]);
+  }
+  if (gifts.length === 0 && !notice) return null;
+  return (
+    <View style={{ gap: 8 }}>
+      {gifts.map((g) => (
+        <Card key={g.entitlementId} style={{ gap: 6 }}>
+          <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.gift.title", locale)}</Text>
+          <Text style={{ color: colors.ink }}>{t("circle.gift.body", locale, { item: Object.hasOwn(en, g.nameKey) ? t(g.nameKey as MessageKey, locale) : "" })}</Text>
+          <MutedText>{t("circle.gift.decide_by", locale, { date: lagosDate(g.decideBy) })}</MutedText>
+          <PrimaryButton title={t("circle.gift.accept", locale)} onPress={() => void answer(g.entitlementId, true)} disabled={busy} />
+          <SecondaryButton title={t("circle.gift.decline", locale)} onPress={() => decline(g.entitlementId)} disabled={busy} />
+        </Card>
+      ))}
+      {notice ? <MutedText>{t(notice, locale)}</MutedText> : null}
+      {failed ? <ErrorText>{t("circle.gift.error", locale)}</ErrorText> : null}
+    </View>
+  );
 }
 
 function PermissionSwitches({ value, onChange }: { value: readonly CirclePermission[]; onChange: (next: CirclePermission[]) => void }) {
@@ -184,13 +228,15 @@ export function CareCircleSection() {
   const locale = asLocale(useUiLanguage());
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [log, setLog] = useState<ViewLogRow[]>([]);
+  const [gifts, setGifts] = useState<PendingGift[]>([]);
   const [loadFailed, setLoadFailed] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [c, l] = await Promise.all([loadMyCircle(), loadViewLog()]);
+    const [c, l, g] = await Promise.all([loadMyCircle(), loadViewLog(), loadPendingGifts()]);
     if (c.ok) setCircle(c.data);
     else setLoadFailed(true);
     if (l.ok) setLog(l.data);
+    if (g.ok) setGifts(g.data);
   }, []);
 
   useEffect(() => {
@@ -200,6 +246,7 @@ export function CareCircleSection() {
   if (!circle) return loadFailed ? <ErrorText>{t("circle.error.unknown", locale)}</ErrorText> : <ActivityIndicator />;
   return (
     <View style={{ gap: 12 }}>
+      <GiftCards gifts={gifts} onAnswered={() => void refresh()} />
       <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{t("circle.title", locale)}</Text>
       <MutedText>{t("circle.intro", locale)}</MutedText>
       {circle.members.length === 0 ? <MutedText>{t("circle.members.empty", locale)}</MutedText> : null}

@@ -4,7 +4,9 @@ import {
   inviteMadeSchema,
   parseAccept,
   parseMyCircle,
+  parseGiftResult,
   parseOpenAlerts,
+  parsePendingGifts,
   parsePreview,
   parseSupported,
   parseSupporterView,
@@ -17,6 +19,7 @@ export const circleKeys = {
   log: ["care-circle", "log"] as const,
   supported: ["care-circle", "supported"] as const,
   alerts: ["care-circle", "alerts"] as const,
+  gifts: ["care-circle", "gifts"] as const,
   view: (patientId: string) => ["care-circle", "view", patientId] as const,
 };
 
@@ -169,5 +172,34 @@ export function useAcceptInvite() {
       return parseAccept(data);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["care-circle"] }),
+  });
+}
+
+/** Care packs or Memberships someone else paid for, waiting for this patient's yes (S29b). */
+export function usePendingGifts() {
+  return useQuery({
+    queryKey: circleKeys.gifts,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_pending_gifts");
+      if (error) throw new CircleError(error.message);
+      return parsePendingGifts(data);
+    },
+  });
+}
+
+export function useRespondToGift() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { entitlementId: string; accept: boolean }) => {
+      const { data, error } = await createClient().rpc("respond_to_gifted_pack", { p_entitlement: input.entitlementId, p_accept: input.accept });
+      if (error) throw new CircleError(error.message);
+      const result = parseGiftResult(data);
+      if (result === "other") throw new CircleError("unknown");
+      return result;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: circleKeys.gifts });
+      void qc.invalidateQueries({ queryKey: ["commerce"] });
+    },
   });
 }

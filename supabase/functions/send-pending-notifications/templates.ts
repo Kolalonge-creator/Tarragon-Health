@@ -1457,6 +1457,20 @@ export const TEMPLATE_MAP: Record<
       text: "Someone's access to your Care Circle ends soon.\n\nOpen Tarragon Health if you want to renew it.\n\nTarragon Health",
     },
   }),
+  circle_gift_waiting: () => ({
+    smsText: "Someone has paid for care for you. Open Tarragon Health to accept it. Tarragon Health",
+    pushUrl: "/patient/care-circle",
+    email: {
+      subject: "Someone has paid for care for you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle has paid for care for you.</p>` +
+        `<p>Open Tarragon Health to accept it. Nothing starts until you say yes.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle has paid for care for you.\n\nOpen Tarragon Health to accept it. Nothing starts until you say yes.\n\nTarragon Health",
+    },
+  }),
   circle_paid_for_you: () => ({
     smsText: "Someone has paid for your care. Open Tarragon Health. Tarragon Health",
     pushUrl: "/patient",

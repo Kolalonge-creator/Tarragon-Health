@@ -1,8 +1,8 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import {
-  circleErrorKey, parseAlerts, parseInviteMade, parseMyCircle, parseSupported, parseSupporterView, parseViewLog,
-  type CirclePermission, type InviteMade, type MyCircle, type OpenAlert, type SupportedPerson, type SupporterView, type ViewLogRow,
+  circleErrorKey, parseAlerts, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseSupported, parseSupporterView, parseViewLog,
+  type CirclePermission, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type SupportedPerson, type SupporterView, type ViewLogRow,
 } from "./parse";
 
 export async function loadMyCircle(): Promise<QueryResult<MyCircle>> {
@@ -50,4 +50,14 @@ export async function updateMember(memberId: string, permissions: CirclePermissi
 export async function revokeMember(memberId: string): Promise<boolean> {
   const { data, error } = await supabase.rpc("revoke_care_circle_member", { p_member: memberId });
   return !error && data === true;
+}
+
+export async function loadPendingGifts(): Promise<QueryResult<PendingGift[]>> {
+  const { data, error } = await supabase.rpc("my_pending_gifts");
+  return error ? { ok: false, error: error.message } : { ok: true, data: parsePendingGifts(data) };
+}
+/** The patient's yes or no to a care pack or Membership someone else paid for. Null means the answer was not saved. */
+export async function answerGift(entitlementId: string, accept: boolean): Promise<"accepted" | "declined" | null> {
+  const { data, error } = await supabase.rpc("respond_to_gifted_pack", { p_entitlement: entitlementId, p_accept: accept });
+  return error ? null : parseGiftAnswer(data);
 }

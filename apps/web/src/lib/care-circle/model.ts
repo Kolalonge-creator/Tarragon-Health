@@ -156,3 +156,18 @@ export function circleErrorKey(message: unknown): MessageKey {
 export function inviteLinkPath(token: string): string {
   return `/patient/supporting/join/${encodeURIComponent(token)}`;
 }
+
+export const pendingGiftSchema = z.object({ entitlement_id: z.string(), name_key: z.string(), paid_at: z.string().nullable(), decide_by: z.string() });
+export type PendingGift = z.infer<typeof pendingGiftSchema>;
+export function parsePendingGifts(data: unknown): PendingGift[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = pendingGiftSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+export const giftResultSchema = z.object({ result: z.enum(["accepted", "declined", "pending", "not_needed", "not_found"]) });
+export function parseGiftResult(data: unknown): "accepted" | "declined" | "other" {
+  const r = giftResultSchema.safeParse(data);
+  return r.success && (r.data.result === "accepted" || r.data.result === "declined") ? r.data.result : "other";
+}

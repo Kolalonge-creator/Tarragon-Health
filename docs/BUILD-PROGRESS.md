@@ -659,3 +659,9 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Open questions**: OQ-190 to OQ-196.
 - **Not done, and why**: (1) migration not applied and branch not pushed (founder go-ahead; apply before merging, check `list_migrations` first, pin the version to the filename, redeploy `send-pending-notifications` and `order-checkout`). (2) Platform-sent invite email (OQ-190). (3) Patient acceptance of a gifted care pack (OQ-191). (4) S26 refunds to the payer. (5) Native deep links for the join link. (6) Not run in a browser or on a phone, no live Paystack test payment. (7) S69 group features.
 - **Follow-ups**: add the Vault pepper and move the contact hash to HMAC (OQ-196); decide OQ-192 before any real caregiver grant; merge #945 first (S29 sits on it) and rebase onto `main-dev` (5 commits behind).
+
+### S29 follow-up (2026-10-06): founder decisions OQ-190, OQ-191, OQ-196 built
+- **OQ-190**: patient-shared links only (no change).
+- **OQ-191**: gifted care pack or Membership waits for the patient's yes. Migration `20261006204511_s29b_gifted_care_pack_acceptance.sql` (replaces `record_order_payment`, adds `entitlements.acceptance`, `my_pending_gifts`, `respond_to_gifted_pack`, an hourly sweep, template `circle_gift_waiting`); web and mobile cards; proof `s29b_gifted_care_pack.sql` (44 checks, 2 sabotages that flip).
+- **OQ-196**: invitee contacts are now HMAC-SHA256 under a Vault secret created by the S29 migration (fails closed without it); proof extended to 143 checks.
+- Full proof suite 130 of 130 on a fresh database. Both migrations still need applying to production before merge (the Vault secret is created by the first one).

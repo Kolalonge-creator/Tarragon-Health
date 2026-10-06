@@ -56,7 +56,7 @@ declare k text;
 begin
   -- every key must be a positive whole number; a missing or odd one would make a comparison null and quietly lift a limit
   foreach k in array array['invite_ttl_hours', 'default_grant_days', 'max_invites_per_day', 'max_members', 'max_attempts', 'view_weeks',
-                           'alert_visible_hours', 'expiry_notice_days'] loop
+                           'alert_visible_hours', 'expiry_notice_days', 'gift_decide_days'] loop
     if (r ->> k) is null or (r ->> k) !~ '^[0-9]{1,5}$' or (r ->> k)::integer < 1 then return false; end if;
   end loop;
   return (r ->> 'default_grant_days')::integer <= 1095 and (r ->> 'invite_ttl_hours')::integer <= 720;
@@ -77,7 +77,8 @@ insert into public.care_circle_config (version, is_active, effective_from, rules
   "max_attempts": 5,
   "view_weeks": 8,
   "alert_visible_hours": 3,
-  "expiry_notice_days": 7
+  "expiry_notice_days": 7,
+  "gift_decide_days": 30
 }
 $json$::jsonb);
 -- care-circle-rules-end
@@ -197,10 +198,36 @@ end;
 $$;
 revoke all on function private.circle_normalise_contact(text, text) from public, anon, authenticated;
 
+-- A random token needs no secret: it has 256 bits of entropy, so a plain SHA-256 of it cannot be reversed.
 create function private.circle_hash(p_value text) returns text
 language sql immutable set search_path = ''
 as $$ select encode(extensions.digest(p_value, 'sha256'), 'hex') $$;
 revoke all on function private.circle_hash(text) from public, anon, authenticated;
+
+-- A phone number or an email has little entropy (about 10^10 Nigerian mobiles), so a plain hash is reversible by anyone who can
+-- read the table. The contact is therefore hashed with HMAC-SHA256 under a secret kept in Supabase Vault (encrypted with a key
+-- held outside the database, so a dump of the tables alone cannot reverse it). The secret is created here, random per
+-- environment, if it does not exist yet; nothing in app code ever reads it. (OQ-196, founder decision 2026-10-06.)
+do $$
+begin
+  if not exists (select 1 from vault.secrets where name = 'care_circle_contact_pepper') then
+    perform vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'care_circle_contact_pepper',
+                                'HMAC key for Care Circle invitee contact hashes (S29). Rotating it makes every pending invite unusable.');
+  end if;
+end $$;
+
+create function private.circle_contact_hash(p_value text) returns text
+language plpgsql stable security definer set search_path = ''
+as $$
+declare k text;
+begin
+  select decrypted_secret into k from vault.decrypted_secrets where name = 'care_circle_contact_pepper';
+  -- fail closed: without the secret there is no safe way to hash a contact, so no invite is made or matched
+  if k is null or k = '' then raise exception 'circle_not_configured' using errcode = 'P0001'; end if;
+  return encode(extensions.hmac(p_value, k, 'sha256'), 'hex');
+end;
+$$;
+revoke all on function private.circle_contact_hash(text) from public, anon, authenticated;
 
 -- "+234•••••1234": enough for the patient to recognise who they invited, never the number.
 create function private.circle_hint(p_kind text, p_norm text) returns text
@@ -226,7 +253,7 @@ begin
     if u.phone is null or u.phone_confirmed_at is null then return false; end if;
     n := private.circle_normalise_contact('phone', case when left(u.phone, 1) = '+' then u.phone else '+' || u.phone end);
   end if;
-  return n is not null and private.circle_hash(n) = p_hash;
+  return n is not null and private.circle_contact_hash(n) = p_hash;
 end;
 $$;
 revoke all on function private.circle_caller_owns_contact(text, text) from public, anon, authenticated;
@@ -292,7 +319,7 @@ begin
   if p_relationship is null or char_length(btrim(p_relationship)) not between 1 and 40 then raise exception 'invite_relationship_invalid' using errcode = '22023'; end if;
   v_days := coalesce(p_grant_days, (cfg ->> 'default_grant_days')::integer);
   if v_days < 1 or v_days > 1095 then raise exception 'invite_days_invalid' using errcode = '22023'; end if;
-  v_hash := private.circle_hash(v_norm);
+  v_hash := private.circle_contact_hash(v_norm);
 
   -- an invite to yourself is never meaningful
   if private.circle_caller_owns_contact(p_kind, v_hash) then raise exception 'invite_self' using errcode = 'P0001'; end if;

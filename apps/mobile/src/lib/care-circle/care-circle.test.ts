@@ -1,12 +1,12 @@
 import { en, pcm } from "@tarragon/i18n";
 import {
   CIRCLE_PERMISSIONS, circleErrorKey, inviteLinkPath, parseAlerts, parseInviteMade, parseMyCircle, parseSupported, parseSupporterView,
-  parseViewLog, permissionKey,
+  parseViewLog, permissionKey, parsePendingGifts, parseGiftAnswer,
 } from "./parse";
 
 const mockRpc = jest.fn();
 jest.mock("../supabase", () => ({ supabase: { rpc: (...a: unknown[]) => mockRpc(...a) } }));
-import { cancelInvite, createInvite, loadMyCircle, loadOpenAlerts, loadSupported, loadSupporterView, loadViewLog, revokeMember, updateMember } from "./api";
+import { answerGift, loadPendingGifts, cancelInvite, createInvite, loadMyCircle, loadOpenAlerts, loadSupported, loadSupporterView, loadViewLog, revokeMember, updateMember } from "./api";
 
 beforeEach(() => mockRpc.mockReset());
 
@@ -126,5 +126,28 @@ describe("api", () => {
     expect(await revokeMember("m")).toBe(true);
     mockRpc.mockResolvedValueOnce({ data: false, error: null });
     expect(await revokeMember("m")).toBe(false);
+  });
+});
+
+describe("S29b gifts", () => {
+  it("parses pending gifts and only a clean answer counts", () => {
+    expect(parsePendingGifts([{ entitlement_id: "e", name_key: "k", decide_by: "t" }, { x: 1 }])).toEqual([{ entitlementId: "e", nameKey: "k", decideBy: "t" }]);
+    expect(parsePendingGifts(5)).toEqual([]);
+    expect(parseGiftAnswer({ result: "accepted" })).toBe("accepted");
+    expect(parseGiftAnswer({ result: "declined" })).toBe("declined");
+    expect(parseGiftAnswer({ result: "not_found" })).toBeNull();
+    expect(parseGiftAnswer(null)).toBeNull();
+  });
+  it("loads gifts and sends the answer with the right arguments", async () => {
+    mockRpc.mockReset();
+    mockRpc.mockResolvedValueOnce({ data: [], error: null });
+    expect(await loadPendingGifts()).toEqual({ ok: true, data: [] });
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
+    expect(await loadPendingGifts()).toEqual({ ok: false, error: "x" });
+    mockRpc.mockResolvedValueOnce({ data: { result: "accepted" }, error: null });
+    expect(await answerGift("e1", true)).toBe("accepted");
+    expect(mockRpc).toHaveBeenLastCalledWith("respond_to_gifted_pack", { p_entitlement: "e1", p_accept: true });
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
+    expect(await answerGift("e1", false)).toBeNull();
   });
 });

@@ -1078,4 +1078,13 @@ export const pcm: Record<MessageKey, string> = {
   "shop.error.order_beneficiary_not_allowed": "You no fit pay for this person now. Their Care Circle access fit don end.",
   "circle.pay.already_member": "Dem don already be member.",
   "circle.member.renew": "Renew am for one year",
+  "circle.gift.title": "Person don pay for care for you",
+  "circle.gift.body": "{item}. Nothing go start until you talk say yes.",
+  "circle.gift.decide_by": "Abeg answer before {date}.",
+  "circle.gift.accept": "Accept",
+  "circle.gift.decline": "No thank you",
+  "circle.gift.decline_confirm": "You wan talk no to this one? Dem go refund the person wey pay, and nothing go start.",
+  "circle.gift.accepted": "You don accept. E go start today.",
+  "circle.gift.declined": "You don decline. Nothing start.",
+  "circle.gift.error": "We no fit save your answer. Abeg try again.",
 };
