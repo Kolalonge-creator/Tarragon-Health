@@ -1453,6 +1453,7 @@ export const en = {
   "course.done": "Done",
   "course.completed_title": "You finished the course",
   "course.completed_body": "Well done. You can open any lesson again whenever you want a reminder.",
+  "course.not_open": "The course is not open yet. Please check again soon.",
   "course.error.save": "That could not be saved just now. Try again when you have a connection.",
   "course.error.load": "The course could not be loaded just now. Try again in a moment.",
   "lesson.listen": "Listen",

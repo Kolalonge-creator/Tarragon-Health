@@ -1454,6 +1454,7 @@ export const pcm: Record<MessageKey, string> = {
   "course.done": "Done",
   "course.completed_title": "You don finish the course",
   "course.completed_body": "Well done. You fit open any lesson again any time wey you want reminder.",
+  "course.not_open": "The course never open yet. Abeg check again soon.",
   "course.error.save": "E no save now. Try again when you get connection.",
   "course.error.load": "We no fit load the course now. Try again small time.",
   "lesson.listen": "Listen",
