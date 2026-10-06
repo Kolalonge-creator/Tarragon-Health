@@ -679,3 +679,31 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-123 Test isolation (raised by S17)
 - A test clinician only sees test tasks and a real clinician never sees a test task.
 - Decision (founder, 2026-10-06): accepted.
+
+### OQ-124 S18 and S19 must merge before the S21 slot RPC (raised by S21)
+- S21 books from confirmed `bookable_consultations` blocks. `availability_blocks` is on main-dev (S17) but confirmation, rota and `clinician_offerable` are only on PR 931 (S18 and S19), which is open with merge conflicts.
+- Decision (founder, 2026-10-06): merge S18 first. S21 builds everything that does not read the rota first, and the slot RPC lands after PR 931.
+
+### OQ-125 Authoritative encounters table (raised by S21, closes OQ-38)
+- Decision (founder, 2026-10-06): new authoritative `encounters` table. `clinical_encounters` stays as a synced projection so current readers keep working. `scribe_consents`, rooms and events hang off `encounters`.
+
+### OQ-126 How real the call is in S21 (raised by S21)
+- Decision (founder, 2026-10-06): link-based Zoom now (audio-first join, server-owned fallback ladder, in-app waiting room and consent), masked phone callback as the last step. An in-app SDK is a later session.
+
+### OQ-127 Cancellation and refund rule (raised by S21)
+- Decision (founder, 2026-10-06): full refund when the patient cancels 2 hours or more before. Inside 2 hours a small fixed retention (PROPOSED value in config). A clinician cancel or no-show is always a full refund or a free rebook. The rule is shown before the pay button.
+
+### OQ-128 Consent, transfer mechanism and MDCN text (raised by S21)
+- Decision (founder, 2026-10-06): per-consultation in-app consent is accepted for NDPA and GAID purposes, the transfer mechanism covering Supabase, Zoom and Claude is accepted, and the MDCN position on recording and AI is accepted. Recording stays off by default. Counsel has not reviewed these separately.
+
+### OQ-129 Consultations are for adults only (raised by S21)
+- Decision (founder, 2026-10-06): no video, audio or phone consultation for anyone under 18. Booking checks the patient's age server-side. A dependant under 18 cannot book. Written questions for minors are not decided and stay as they are today until the founder says otherwise.
+
+### OQ-130 Consultation price (raised by S21)
+- Decision (founder, 2026-10-06): NGN 10,000 (1,000,000 kobo) for a consultation, replacing the 5,000 placeholder on `video_visit_credit`. One price for video, audio and phone, so a fallback never changes what the patient paid. Result interpretation (10,000) and written question (2,500) are unchanged.
+
+### OQ-131 Zoom dial-in in Nigeria and the phone bridge vendor (raised by S21)
+- Confirmed 2026-10-06 from Zoom's rates page: Nigeria has toll dial-in (needs the Audio Conferencing add-on, Zoom-provided numbers only) and call-out at about GBP 1.08 to 1.68 a minute, which is too dear for a NGN 10,000 consultation.
+- Options: (a) Tarragon-owned number bridge on Twilio Voice; (b) LiveKit SIP or a Nigerian carrier trunk; (c) Zoom toll dial-in only, patient pays carrier rate.
+- Recommend (a) behind an adapter with a mock, after checking NCC caller-ID rules with the carrier. Vendor choice is the founder's.
+- Decision: open.
