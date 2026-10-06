@@ -427,6 +427,43 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
   {
+    key: "lead.rules",
+    // Lead clinician, declared availability and on-call rota rules (S18, spec 7.2 and 7.5). Live values are the active row
+    // of `lead_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // max_lead_patients repeats clinician.max_lead_patients. lead_min_doctor_tier and required_competencies: who may lead
+    // (founder decision F-05: doctor tier is the gate; OQ-125). block_*: declared availability granularity. rota_*, gap_alert_hours,
+    // min_eligible_on_call: the rota and when uncovered hours raise an incident. fatigue_* and post_call_*: NHS-derived warnings
+    // and rest, PROPOSED and not Nigerian norms, CMO to set (OQ-128); a rota override needs a written reason of
+    // override_reason_min_chars. contracted_needs_declared_hours: a contracted clinician is offered work only inside declared hours.
+    value: {
+      max_lead_patients: 60,
+      lead_min_doctor_tier: "senior_medical_officer",
+      required_competencies: ["lead_clinician", "hypertension"],
+      block_min_hours: 2,
+      block_max_hours: 16,
+      auto_confirm_kinds: ["queue", "bookable_consultations"],
+      minimum_guarantee_kinds: ["queue", "on_call"],
+      rota_max_shift_hours: 24,
+      rota_horizon_days: 14,
+      gap_alert_hours: 48,
+      min_eligible_on_call: 2,
+      fatigue_min_rest_hours: 11,
+      fatigue_max_consecutive_days: 7,
+      fatigue_max_shifts_per_7_days: 3,
+      post_call_rest_hours: 8,
+      post_call_rest_min_shift_hours: 8,
+      contracted_needs_declared_hours: true,
+      swap_requires_acceptance: true,
+      unassigned_retry_minutes: 15,
+      override_reason_min_chars: 10,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S18.md; docs/research/S18.md; spec 7.2, 7.5, 7.9",
+  },
+  {
     key: "queue.claims",
     // Claim, hand-back and reliability rules (S17, spec 7.6 and 7.8). Live values are the active row of
     // `queue_claim_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
