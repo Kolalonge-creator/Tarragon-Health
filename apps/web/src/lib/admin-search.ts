@@ -50,6 +50,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
+  ["/admin/refund-requests", "refund refunds money back guarantee claim order payment paystack reverse"],
 ];
 
 /** Pages inside an area that are not menu items of their own, but people look for them by name. */

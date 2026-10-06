@@ -30,8 +30,12 @@ jest.mock("@/lib/queries/commerce", () => {
   };
 });
 
+let lovedOnes: { data: { id: string; full_name: string | null }[] };
+jest.mock("@/lib/queries/care-access", () => ({ useSponsorableProfiles: () => lovedOnes }));
+
 const assign = jest.fn();
 beforeEach(() => {
+  lovedOnes = { data: [] };
   catalogue = { data: [ITEM], isSuccess: true };
   membership = { data: { is_member: false, ends_at: null, source: null } };
   orders = { data: [] };
@@ -58,9 +62,19 @@ describe("MembershipShop", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
     expect(mutateAsync).toHaveBeenCalledTimes(1);
     const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
-    expect(Object.keys(arg).sort()).toEqual(["clientKey", "code"]);
+    // a purchase for oneself passes `beneficiary: undefined`; only defined fields are sent over the wire
+    expect(Object.keys(arg).filter((k) => arg[k] !== undefined).sort()).toEqual(["clientKey", "code"]);
     expect(arg.code).toBe("membership_annual");
     expect(assign).toHaveBeenCalledWith("https://checkout.paystack.com/abc");
+  });
+
+  it("lets the patient pay for someone they care for and sends who it is for, only when chosen", async () => {
+    lovedOnes = { data: [{ id: "p-mum", full_name: "Mum" }] };
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "p-mum" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    expect(mutateAsync.mock.calls[0]![0]).toMatchObject({ code: "membership_annual", beneficiary: "p-mum" });
   });
 
   it("keeps the same retry key after a network failure so a retry is the same order, and makes a new one after a refusal", async () => {

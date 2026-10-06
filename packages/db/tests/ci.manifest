@@ -5,7 +5,6 @@
 # BEGIN/ROLLBACK, and depend on nothing but what the migrations and
 # supabase/seed/seed.sql create. It must fail loudly (raise exception) rather
 # than only recording a FAIL row, though the runner catches both.
-#
 # Everything else lives in ci.excluded with a reason. Nothing may be in
 # neither: the runner fails if a .sql file is unlisted, because a proof that
 # runs nowhere is the exact problem this manifest was added to fix.
@@ -343,7 +342,6 @@ cmo_clinical_rules_insert_dual_gate.sql
 # bidirectional in_app notification. See the migration's own header.
 curbside_consults.sql
 
-# --- Added 2026-09-23 -------------------------------------------------------
 # public.resolve_patient_service_access(): a founder-commissioned launch-scope
 # audit's read model aggregating service_purchases into one patient-facing
 # service status (monitoring_active/service_active/self_tracking), backing
@@ -371,7 +369,6 @@ resolve_patient_service_access.sql
 # live including a wrong-actor-table-join sabotage run.
 doctor_income_attribution_and_analyst_gate.sql
 
-# --- Added 2026-09-23 -------------------------------------------------------
 # public.get_funding_programme_stats(): the ngo_funded_cohort module's own
 # platform_modules.description names "aggregate small-cell-suppressed
 # programme reporting" as an intended capability that was never built (PR
@@ -395,7 +392,6 @@ funding_programme_stats.sql
 # `postgres`, for both patient-facing RPCs.
 sponsored_service_reservations.sql
 
-# --- Added 2026-09-23 -------------------------------------------------------
 # region_service_available's normalized-state fallback
 # (20260923212037_region_service_available_normalized_state_fallback.sql, plus its
 # same-day 20260923213439_fix_region_service_available_review_findings.sql
@@ -454,7 +450,6 @@ diabetes_self_monitoring_acting_supporter.sql
 # repeat-decide idempotency guard against a double refund.
 first_purchase_guarantee_refund.sql
 
-# --- Added 2026-09-24 -------------------------------------------------------
 # doctor_testimonials (20260924210347_doctor_testimonials.sql), the doctor-
 # side counterpart to patient_testimonials — admin-entered/off-platform
 # consent instead of patient self-submit, per an explicit 2026-09-24 founder
@@ -493,7 +488,6 @@ testimonials_condition_check_and_doctor_org_match.sql
 # (a SELECT policy, an UPDATE policy, and the review trigger's own admin
 # check) found live while trying to sabotage it.
 
-# --- Added 2026-09-24 -------------------------------------------------------
 # Reputation & Review-Generation Engine: proves the feature-flag gate, the
 # cross-trigger 90-day cooldown (with a sabotage pass removing it), the
 # claim_pending_reputation_review_prompt()/record_reputation_review_prompt_outcome()
@@ -851,6 +845,8 @@ s22d_summaries_tie_and_no_release_of_withdrawn.sql
 s23c_attach_scribe_draft_to_note.sql
 # S24: signed prescribing (prescribe and amend write a signed prescription; controlled medicine hard stop; allergy and duplicate checks), care_plan_changes (unsigned cannot be saved as signed; draft invisible to the patient; applies only on her confirmation; decline, expiry, re-check), protocols (immutable once approved), plan targets only through a signed change, referral consent and chase. Sabotage: the medicine signature trigger and the signature CHECK removed; both checks must flip.
 s24_prescriptions_and_care_plan_changes.sql
+# S26: entitlements lifecycle and refunds. Safety case 25 (care packs never auto-renew; 7-day reminder via reminded_at), entitlement expiry sweep (past ends_at → expired, future → unchanged), refund state machine (invalid transition rejected, valid pending→approved works), one live refund per order (unique partial index), RLS (cross-patient invisible, own visible), anon cannot EXECUTE request_order_refund or record_refund_provider_result. Sabotage: the state-machine trigger and the unique index.
+s26_entitlements_lifecycle_and_refunds.sql
 # S30: fee schedules and the earnings ledger. Admin-only drafts and approval, an approved schedule never changes, the shared fee cases through the SQL, task / consultation / on-call / lead-month / pilot-minimum lines (idempotent, contracted only, flagged zero lines never silent, a posting failure never blocks completion), adjustments, an append-only ledger (payout_id linkable once), access by role and INV-13, queue_summary next_fee_kobo. Sabotage: the append-only guard and the fee-version CHECK removed; both checks must flip.
 s30_fee_schedules_and_earnings_ledger.sql
 # CMO sign-off hub: the active Chief Medical Officer can read unreviewed lpe_content_blocks (so the sign-off count and page are not silently empty); a non-CMO clinician, a patient and anon cannot; the CMO still cannot write a block directly. Sabotage: the new policy dropped; the CMO check must flip.
