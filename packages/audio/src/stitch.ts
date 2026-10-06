@@ -14,8 +14,39 @@ export interface PhraseStep {
   readonly tight?: boolean;
 }
 
+export type PhrasePattern = "bp" | "bp_weekly_average" | "glucose_mgdl" | "glucose_mmol" | "weight" | "pulse" | "hba1c" | "adherence" | "streak" | "steps";
+
 export interface Phrase {
+  readonly pattern: PhrasePattern;
   readonly steps: readonly PhraseStep[];
+  /** The triage sentence (a TRI or EMG clip id) spoken after a reading, when there is one. */
+  readonly severity?: string;
+}
+
+/**
+ * The fixed words of each pattern (lead-ins, units, joining words): the recordings a clinician hears and signs
+ * together as one phrase. `needsSeverity`: a clinical reading is never spoken alone; it is followed by its triage
+ * sentence, so a number cannot be heard without the "what to do" that goes with it.
+ */
+export const PATTERN_CLIPS: Readonly<Record<PhrasePattern, { readonly clips: readonly string[]; readonly needsSeverity: boolean }>> = {
+  bp: { clips: ["NUM-P01", "NUM-P02"], needsSeverity: true },
+  bp_weekly_average: { clips: ["NUM-P02", "NUM-P12", "NUM-P13", "NUM-P14", "NUM-P15"], needsSeverity: true },
+  glucose_mgdl: { clips: ["NUM-P03", "NUM-P04"], needsSeverity: true },
+  glucose_mmol: { clips: ["NUM-D01", "NUM-P03", "NUM-P05"], needsSeverity: true },
+  weight: { clips: ["NUM-D01", "NUM-P06", "NUM-P07"], needsSeverity: false },
+  pulse: { clips: ["NUM-P08", "NUM-P09"], needsSeverity: true },
+  hba1c: { clips: ["NUM-D01", "NUM-P10", "NUM-P11"], needsSeverity: true },
+  adherence: { clips: ["NUM-P16", "NUM-P17", "NUM-P18"], needsSeverity: false },
+  streak: { clips: ["NUM-P19", "NUM-P20"], needsSeverity: false },
+  steps: { clips: ["NUM-P21", "NUM-P23"], needsSeverity: false },
+};
+
+const SEVERITY_CLIP = /^(TRI|EMG)-\d{3}L?$/;
+
+/** Attach the triage sentence to a reading. Null for an id that is not a TRI or EMG clip. */
+export function withSeverity(phrase: Phrase | null, clipId: string): Phrase | null {
+  if (phrase === null || !SEVERITY_CLIP.test(clipId)) return null;
+  return { ...phrase, severity: clipId, steps: [...phrase.steps, { id: clipId }] };
 }
 
 export const MAX_WHOLE = 600;
@@ -42,30 +73,31 @@ function decimalSteps(value: number): PhraseStep[] | null {
   return [...wholeSteps(whole), { id: "NUM-D01", literal: ".", tight: true }, { id: numClipId(digit), literal: String(digit), tight: true }];
 }
 
-const build = (...groups: (readonly PhraseStep[] | null)[]): Phrase | null => (groups.some((g) => g === null) ? null : { steps: groups.flat() as PhraseStep[] });
+const build = (pattern: PhrasePattern, ...groups: (readonly PhraseStep[] | null)[]): Phrase | null =>
+  groups.some((g) => g === null) ? null : { pattern, steps: groups.flat() as PhraseStep[] };
 
 export function stitchBloodPressure(systolic: number, diastolic: number): Phrase | null {
   if (!isWhole(systolic) || !isWhole(diastolic)) return null;
-  return build([phrasePart("NUM-P01")], wholeSteps(systolic), [phrasePart("NUM-P02")], wholeSteps(diastolic));
+  return build("bp", [phrasePart("NUM-P01")], wholeSteps(systolic), [phrasePart("NUM-P02")], wholeSteps(diastolic));
 }
 
 export type GlucoseUnit = "mg/dl" | "mmol/l";
 
 export function stitchGlucose(value: number, unit: GlucoseUnit): Phrase | null {
   const number = unit === "mg/dl" ? (isWhole(value) ? wholeSteps(value) : null) : decimalSteps(value);
-  return build([phrasePart("NUM-P03")], number, [phrasePart(unit === "mg/dl" ? "NUM-P04" : "NUM-P05")]);
+  return build(unit === "mg/dl" ? "glucose_mgdl" : "glucose_mmol", [phrasePart("NUM-P03")], number, [phrasePart(unit === "mg/dl" ? "NUM-P04" : "NUM-P05")]);
 }
 
 export function stitchWeight(kg: number): Phrase | null {
-  return build([phrasePart("NUM-P06")], decimalSteps(kg), [phrasePart("NUM-P07")]);
+  return build("weight", [phrasePart("NUM-P06")], decimalSteps(kg), [phrasePart("NUM-P07")]);
 }
 
 export function stitchPulse(bpm: number): Phrase | null {
-  return isWhole(bpm) ? build([phrasePart("NUM-P08")], wholeSteps(bpm), [phrasePart("NUM-P09")]) : null;
+  return isWhole(bpm) ? build("pulse", [phrasePart("NUM-P08")], wholeSteps(bpm), [phrasePart("NUM-P09")]) : null;
 }
 
 export function stitchHbA1c(percent: number): Phrase | null {
-  return build([phrasePart("NUM-P10")], decimalSteps(percent), [phrasePart("NUM-P11")]);
+  return build("hba1c", [phrasePart("NUM-P10")], decimalSteps(percent), [phrasePart("NUM-P11")]);
 }
 
 export type Comparison = "higher" | "lower" | "same";
@@ -75,6 +107,7 @@ const COMPARISON_CLIP: Record<Comparison, string> = { higher: "NUM-P13", lower: 
 export function stitchWeeklyBloodPressureAverage(systolic: number, diastolic: number, comparison?: Comparison): Phrase | null {
   if (!isWhole(systolic) || !isWhole(diastolic)) return null;
   return build(
+    "bp_weekly_average",
     [phrasePart("NUM-P12")],
     wholeSteps(systolic),
     [phrasePart("NUM-P02")],
@@ -86,12 +119,12 @@ export function stitchWeeklyBloodPressureAverage(systolic: number, diastolic: nu
 /** "This week you have taken 5 out of 7 doses." */
 export function stitchAdherence(taken: number, total: number): Phrase | null {
   if (!isWhole(taken) || !isWhole(total) || taken > total) return null;
-  return build([phrasePart("NUM-P16")], wholeSteps(taken), [phrasePart("NUM-P17")], wholeSteps(total), [phrasePart("NUM-P18")]);
+  return build("adherence", [phrasePart("NUM-P16")], wholeSteps(taken), [phrasePart("NUM-P17")], wholeSteps(total), [phrasePart("NUM-P18")]);
 }
 
 /** "You have logged for 12 days in a row." */
 export function stitchStreak(days: number): Phrase | null {
-  return isWhole(days) ? build([phrasePart("NUM-P19")], wholeSteps(days), [phrasePart("NUM-P20")]) : null;
+  return isWhole(days) ? build("streak", [phrasePart("NUM-P19")], wholeSteps(days), [phrasePart("NUM-P20")]) : null;
 }
 
 /**
@@ -109,5 +142,5 @@ export function stitchSteps(steps: number): Phrase | null {
     const rounded = Math.round(n / 500) * 500;
     number = rounded >= MIN_ROUNDED_STEPS && rounded <= MAX_ROUNDED_STEPS ? [{ id: `NUM-S${rounded}`, literal: String(rounded) }] : null;
   }
-  return build([phrasePart("NUM-P21")], number, [phrasePart("NUM-P23")]);
+  return build("steps", [phrasePart("NUM-P21")], number, [phrasePart("NUM-P23")]);
 }

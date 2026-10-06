@@ -101,8 +101,9 @@ export interface RecordedFacts {
 }
 
 /**
- * Record that a master now exists for a file name. Returns a new manifest and drops any approvals on that file,
- * because a different recording is a different thing to sign. Unknown file names are returned as `null`.
+ * Record that a master now exists for a file name. A different recording replaces the current one: the old one,
+ * with its sign-offs, moves to `history` (so it can be restored), and the new one starts with no sign-offs because
+ * a different recording is a different thing to sign. Unknown file names return `null`.
  */
 export function applyRecording(manifest: Manifest, fileName: string, facts: RecordedFacts): Manifest | null {
   let found = false;
@@ -111,8 +112,35 @@ export function applyRecording(manifest: Manifest, fileName: string, facts: Reco
       const f = clip.files[key];
       if (f?.file !== fileName) continue;
       found = true;
-      const unchanged = f.sha256 === facts.sha256;
-      const next: ClipFile = { ...f, sha256: facts.sha256, bytes: facts.bytes, duration_ms: facts.durationMs ?? f.duration_ms, approvals: unchanged ? f.approvals : [] };
+      const changed = f.sha256 !== facts.sha256;
+      const history = changed && f.sha256 !== null && f.bytes !== null ? [{ sha256: f.sha256, bytes: f.bytes, duration_ms: f.duration_ms, approvals: f.approvals }, ...f.history] : f.history;
+      const next: ClipFile = {
+        ...f,
+        sha256: facts.sha256,
+        bytes: facts.bytes,
+        duration_ms: facts.durationMs ?? (changed ? null : f.duration_ms),
+        approvals: changed ? [] : f.approvals,
+        history,
+      };
+      return { ...clip, files: { ...clip.files, [key]: next } };
+    }
+    return clip;
+  });
+  return found ? parseManifest({ ...manifest, clips }) : null;
+}
+
+/** Make an earlier recording current again, with the sign-offs it had. The one it replaces goes to history. */
+export function rollbackRecording(manifest: Manifest, fileName: string, sha256: string): Manifest | null {
+  let found = false;
+  const clips = manifest.clips.map((clip) => {
+    for (const key of Object.keys(clip.files) as FileKey[]) {
+      const f = clip.files[key];
+      if (f?.file !== fileName) continue;
+      const target = f.history.find((h) => h.sha256 === sha256);
+      if (!target || f.sha256 === null || f.bytes === null) return clip;
+      found = true;
+      const current = { sha256: f.sha256, bytes: f.bytes, duration_ms: f.duration_ms, approvals: f.approvals };
+      const next: ClipFile = { ...f, sha256: target.sha256, bytes: target.bytes, duration_ms: target.duration_ms, approvals: target.approvals, history: [current, ...f.history.filter((h) => h !== target)] };
       return { ...clip, files: { ...clip.files, [key]: next } };
     }
     return clip;

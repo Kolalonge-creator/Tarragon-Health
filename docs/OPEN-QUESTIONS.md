@@ -1204,3 +1204,12 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - SYM ships only with `--with-sym` on the ingest script (spec 8.8). Which build turns it on is a founder call once the symptom checker is in the mobile app.
 - Options: (a) accept all four as built (recommended); (b) change any of them.
 - Decision: open.
+
+
+### OQ-203 Items from the competitor review that are not built yet (raised by S32)
+- Blood pressure has no unit clip in the Audio Production List (no "millimetres of mercury"), so a spoken reading is "148 over 94" with no unit. Every other reading has one. Options: (a) add a unit clip to the list and the NUM group (recommended); (b) accept no unit for blood pressure.
+- Screen readers (VoiceOver, TalkBack) will read Pidgin text in an English voice. Options: (a) test on real devices and decide per screen whether the label points to the bundled clip (recommended); (b) leave to the OS.
+- Playback in silent mode, with headphones, during a call, or from the lock screen needs the native module (OQ-197).
+- Whether spoken triage makes the app regulated software in Nigeria is unconfirmed (NAFDAC, D.6). Ask counsel before the symptom clips (SYM) ship.
+- Voice input in Pidgin is out of scope until recognition meets a clinical accuracy bar (the best published Pidgin result was 29.6 percent word error rate).
+- Decision: open.

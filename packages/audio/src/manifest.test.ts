@@ -165,7 +165,7 @@ describe("parseManifest rejects what would let a wrong clip play", () => {
   });
 
   it("rejects an approval on a clip with no recording, a nameless approval, an unknown review and a bad date", () => {
-    const ok = { review: "brand", by: "A. Reviewer", on: "2026-10-06" };
+    const ok = { review: "brand", sha256: SHA, by: "A. Reviewer", on: "2026-10-06" };
     expect(() => parseManifest(edit("EMG-001", "en", { approvals: [ok] }))).toThrow(/no recording/);
     const rec = { sha256: SHA, bytes: 10 };
     expect(() => parseManifest(edit("EMG-001", "en", { ...rec, approvals: [{ ...ok, by: " " }] }))).toThrow(/names who/);
@@ -174,8 +174,37 @@ describe("parseManifest rejects what would let a wrong clip play", () => {
     expect(() => parseManifest(edit("EMG-001", "en", { ...rec, approvals: [ok] }))).not.toThrow();
   });
 
+  it("rejects a sign-off that belongs to a different recording, and a malformed history", () => {
+    const rec = { sha256: SHA, bytes: 10 };
+    const other = { review: "brand", sha256: "d".repeat(64), by: "A", on: "2026-10-06" };
+    expect(() => parseManifest(edit("EMG-001", "en", { ...rec, approvals: [other] }))).toThrow(/different recording/);
+    expect(() => parseManifest(edit("EMG-001", "en", { ...rec, approvals: null }))).toThrow(/must be arrays/);
+    expect(() => parseManifest(edit("EMG-001", "en", { ...rec, approvals: ["x"] }))).toThrow(/not an object/);
+    expect(() => parseManifest(edit("EMG-001", "en", { ...rec, history: [{ sha256: "bad" }] }))).toThrow(/history entry is malformed/);
+    expect(() => parseManifest(edit("EMG-001", "en", { ...rec, history: [{ ...rec, sha256: SHA, approvals: [] }] }))).toThrow(/repeats the current/);
+    expect(() => parseManifest(edit("EMG-001", "en", { ...rec, history: [{ ...rec, sha256: "d".repeat(64), approvals: [other] }] }))).not.toThrow();
+  });
+
+  it("rejects bad whole-phrase sign-offs", () => {
+    const good = { pattern: "bp", lang: "en", by: "Dr A", on: "2026-10-06", clips: [{ id: "NUM-P01", sha256: SHA }, { id: "NUM-P02", sha256: SHA }] };
+    const withSo = (so: unknown) => mutate((m) => { m.phrase_signoffs = [so]; });
+    expect(() => parseManifest(withSo(good))).not.toThrow();
+    expect(() => parseManifest(withSo({ ...good, pattern: "nope" }))).toThrow(/unknown pattern/);
+    expect(() => parseManifest(withSo(null))).toThrow(/unknown pattern/);
+    expect(() => parseManifest(withSo({ ...good, lang: "fr", by: " ", on: "x" }))).toThrow(/unknown language/);
+    expect(() => parseManifest(withSo({ ...good, clips: [good.clips[0]] }))).toThrow(/exactly the pattern's clips/);
+    expect(() => parseManifest(withSo({ ...good, clips: [{ id: "NUM-P01", sha256: "x" }, good.clips[1]] }))).toThrow(/checksum/);
+    expect(() => parseManifest(mutate((m) => { m.phrase_signoffs = null; }))).toThrow(/phrase_signoffs/);
+  });
+
+  it("does not count a sign-off given to an earlier recording (fail closed)", () => {
+    const base = finished(clip("EMG-001"));
+    const stale = { ...base, files: { en: { ...base.files.en!, sha256: "e".repeat(64) }, pcm: base.files.pcm } };
+    expect(playable(stale, "en")).toEqual({ ok: false, reason: "awaiting_review" });
+  });
+
   it("rejects approving a Pidgin recording whose words are still held as English", () => {
-    const rec = { sha256: SHA, bytes: 10, approvals: [{ review: "native_pidgin", by: "A", on: "2026-10-06" }] };
+    const rec = { sha256: SHA, bytes: 10, approvals: [{ review: "native_pidgin", sha256: SHA, by: "A", on: "2026-10-06" }] };
     expect(() => parseManifest(edit("EMG-001", "pcm", rec))).toThrow(/held as English/);
     // A non-clinical clip's Pidgin can be approved: it is only a draft needing review.
     expect(() => parseManifest(edit("ONB-002", "pcm", rec))).not.toThrow();

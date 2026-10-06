@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { getProposedConfig } from "@tarragon/shared";
-import { applyRecording, bundleReport, fileUrl, filesInGroup, haveKey, planDownloads, projectedBundleBytes, type ProjectionParams } from "./bundle";
+import { applyRecording, rollbackRecording, bundleReport, fileUrl, filesInGroup, haveKey, planDownloads, projectedBundleBytes, type ProjectionParams } from "./bundle";
 import { audioLang, scriptText } from "./language";
 import { realManifest, SHA, withFinished } from "./test-helpers";
 import type { Lang, Manifest } from "./types";
@@ -81,6 +81,24 @@ describe("file locations and recordings", () => {
     expect(next.clips.find((c) => c.id === "EMG-001")!.files.en).toMatchObject({ sha256: SHA, bytes: 9000, duration_ms: 21_000, approvals: [] });
     expect(next.clips.find((c) => c.id === "EMG-001")!.files.pcm!.sha256).toBeNull();
     expect(applyRecording(realManifest(), "TH-NOPE-001-EN.mp3", { sha256: SHA, bytes: 1, durationMs: null })).toBeNull();
+  });
+
+  it("keeps the replaced recording and its sign-offs in history, and can roll back to it", () => {
+    const signed = withFinished(["EMG-001"]);
+    const other = "b".repeat(64);
+    const re = applyRecording(signed, "TH-EMG-001-EN.mp3", { sha256: other, bytes: 77, durationMs: null }) as Manifest;
+    const f = re.clips.find((c) => c.id === "EMG-001")!.files.en!;
+    expect(f).toMatchObject({ sha256: other, approvals: [], duration_ms: null });
+    expect(f.history).toHaveLength(1);
+    expect(f.history[0]).toMatchObject({ sha256: SHA, bytes: 12_345 });
+    const back = rollbackRecording(re, "TH-EMG-001-EN.mp3", SHA) as Manifest;
+    const g = back.clips.find((c) => c.id === "EMG-001")!.files.en!;
+    expect(g.sha256).toBe(SHA);
+    expect(g.approvals.length).toBeGreaterThan(0);
+    expect(g.history.map((h) => h.sha256)).toEqual([other]);
+    expect(rollbackRecording(re, "TH-EMG-001-EN.mp3", "c".repeat(64))).toBeNull();
+    expect(rollbackRecording(re, "TH-NOPE.mp3", SHA)).toBeNull();
+    expect(rollbackRecording(realManifest(), "TH-EMG-001-EN.mp3", SHA)).toBeNull();
   });
 
   it("drops sign-offs when a clip is re-recorded, but keeps them for the identical file", () => {

@@ -90,14 +90,16 @@ def file_name(clip_id, lang):
     return f"TH-{clip_id}-{lang.upper()}.mp3" if lang else f"TH-{clip_id}.mp3"
 
 
+def old_manifest():
+    return json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {"clips": [], "phrase_signoffs": []}
+
+
 def old_state():
-    if not MANIFEST.exists():
-        return {}
-    return {c["id"]: c for c in json.loads(MANIFEST.read_text())["clips"]}
+    return {c["id"]: c for c in old_manifest()["clips"]}
 
 
 def empty_file(clip_id, lang):
-    return {"file": file_name(clip_id, lang), "sha256": None, "bytes": None, "duration_ms": None, "approvals": []}
+    return {"file": file_name(clip_id, lang), "sha256": None, "bytes": None, "duration_ms": None, "approvals": [], "history": []}
 
 
 def main():
@@ -172,7 +174,7 @@ def main():
                 h = hashes["pcm"] if key == "pcm" else hashes["en"]
                 old = p.get("pcm_script_hash") if key == "pcm" else p.get("script_hash")
                 if old == h and key in p["files"]:
-                    c["files"][key] = p["files"][key]
+                    c["files"][key] = {**{"history": []}, **p["files"][key]}
         c["script_hash"] = hashes["en"]
         if sc:
             c["pcm_script_hash"] = hashes["pcm"]
@@ -184,6 +186,8 @@ def main():
                    "number_list": "audio/source/TH-NUM-number-list.csv"},
         "languages": ["en", "pcm"],
         "groups": group_meta,
+        # Whole-phrase clinical sign-offs are added by a person; the import keeps whatever is there.
+        "phrase_signoffs": old_manifest().get("phrase_signoffs", []),
         "clips": clips,
     }
     MANIFEST.write_text(dump(manifest))

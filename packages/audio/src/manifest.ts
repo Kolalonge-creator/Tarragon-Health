@@ -1,4 +1,6 @@
+import { PATTERN_CLIPS, type PhrasePattern } from "./stitch";
 import {
+  type Approval,
   BUNDLE_GROUPS,
   LANGS,
   REVIEW_KINDS,
@@ -6,6 +8,7 @@ import {
   type FileKey,
   type Lang,
   type Manifest,
+  type PhraseSignoff,
   type ManifestClip,
   type ReviewKind,
 } from "./types";
@@ -52,7 +55,8 @@ export function playable(clip: ManifestClip, lang: Lang): PlayableResult {
   const key = fileKeyFor(clip, lang);
   const file = clip.files[key];
   if (!file || file.sha256 === null || file.bytes === null) return { ok: false, reason: "no_recording" };
-  const have = new Set(file.approvals.map((a) => a.review));
+  // Fail closed: a sign-off counts only for the exact recording it was given on.
+  const have = new Set(file.approvals.filter((a) => a.sha256 === file.sha256).map((a) => a.review));
   if (!requiredReviews(clip, key).every((r) => have.has(r))) return { ok: false, reason: "awaiting_review" };
   return { ok: true, key, file };
 }
@@ -65,10 +69,30 @@ function checkFile(clip: ManifestClip, key: FileKey, file: ClipFile, problems: s
   if (file.duration_ms !== null && !(Number.isInteger(file.duration_ms) && file.duration_ms > 0)) problems.push(`${at}: duration_ms must be a positive integer`);
   if ((file.sha256 === null) !== (file.bytes === null)) problems.push(`${at}: sha256 and bytes are recorded together`);
   const recorded = file.sha256 !== null;
-  for (const a of file.approvals) {
-    if (!REVIEW_KINDS.includes(a.review)) problems.push(`${at}: unknown review ${String(a.review)}`);
-    if (typeof a.by !== "string" || a.by.trim() === "") problems.push(`${at}: an approval names who gave it`);
-    if (!ISO_DATE.test(a.on)) problems.push(`${at}: approval date must be YYYY-MM-DD`);
+  if (!Array.isArray(file.approvals) || !Array.isArray(file.history)) {
+    problems.push(`${at}: approvals and history must be arrays`);
+    return;
+  }
+  const checkApprovals = (list: readonly Approval[], forSha: string | null, where: string) => {
+    for (const a of list) {
+      if (!isRecord(a)) {
+        problems.push(`${where}: an approval is not an object`);
+        continue;
+      }
+      if (!REVIEW_KINDS.includes(a.review)) problems.push(`${where}: unknown review ${String(a.review)}`);
+      if (typeof a.by !== "string" || a.by.trim() === "") problems.push(`${where}: an approval names who gave it`);
+      if (typeof a.on !== "string" || !ISO_DATE.test(a.on)) problems.push(`${where}: approval date must be YYYY-MM-DD`);
+      if (a.sha256 !== forSha) problems.push(`${where}: an approval is for a different recording than the one it sits on`);
+    }
+  };
+  checkApprovals(file.approvals, file.sha256, at);
+  for (const h of file.history) {
+    if (!isRecord(h) || typeof h.sha256 !== "string" || !SHA256.test(h.sha256) || !Number.isInteger(h.bytes) || !Array.isArray(h.approvals)) {
+      problems.push(`${at}: a history entry is malformed`);
+      continue;
+    }
+    if (h.sha256 === file.sha256) problems.push(`${at}: history repeats the current recording`);
+    checkApprovals(h.approvals, h.sha256, `${at} history`);
   }
   // A sign-off is for a recording. No approval can exist for a file that does not.
   if (!recorded && file.approvals.length > 0) problems.push(`${at}: approvals on a clip that has no recording`);
@@ -76,6 +100,35 @@ function checkFile(clip: ManifestClip, key: FileKey, file: ClipFile, problems: s
   if (key === "pcm" && clip.pcm_text === "held_as_english" && file.approvals.length > 0) {
     problems.push(`${at}: Pidgin is held as English (OQ-19); release it in audio/source/pcm-released.json before approving a recording`);
   }
+}
+
+function checkSignoff(so: PhraseSignoff, problems: string[]): void {
+  const at = `phrase sign-off ${isRecord(so) ? String(so.pattern) : "?"}`;
+  const fixed = isRecord(so) ? PATTERN_CLIPS[so.pattern as PhrasePattern] : undefined;
+  if (!fixed) return void problems.push(`${at}: unknown pattern`);
+  if (!LANGS.includes(so.lang)) problems.push(`${at}: unknown language`);
+  if (typeof so.by !== "string" || so.by.trim() === "") problems.push(`${at}: names who gave it`);
+  if (typeof so.on !== "string" || !ISO_DATE.test(so.on)) problems.push(`${at}: date must be YYYY-MM-DD`);
+  const ids = Array.isArray(so.clips) ? so.clips.map((c) => c?.id) : [];
+  if ([...ids].sort().join() !== [...fixed.clips].sort().join()) problems.push(`${at}: must list exactly the pattern's clips`);
+  if (Array.isArray(so.clips) && so.clips.some((c) => !SHA256.test(String(c?.sha256)))) problems.push(`${at}: every clip needs its checksum`);
+}
+
+/**
+ * Has a clinician signed this stitched pattern, in this language, over the recordings that are in the manifest now?
+ * If any of its fixed clips was re-recorded since, the sign-off no longer holds (fail closed).
+ */
+export function phraseSignedOff(manifest: Manifest, pattern: PhrasePattern, lang: Lang): boolean {
+  const byId = new Map(manifest.clips.map((c) => [c.id, c]));
+  return manifest.phrase_signoffs.some(
+    (so) =>
+      so.pattern === pattern &&
+      so.lang === lang &&
+      so.clips.every((c) => {
+        const clip = byId.get(c.id);
+        return clip !== undefined && clip.files[fileKeyFor(clip, lang)]?.sha256 === c.sha256;
+      }),
+  );
 }
 
 /**
@@ -90,6 +143,8 @@ export function parseManifest(raw: unknown): Manifest {
   if (!isRecord(raw.groups)) problems.push("groups must be an object");
   const languages = raw.languages;
   if (!Array.isArray(languages) || languages.join() !== LANGS.join()) problems.push(`languages must be ${LANGS.join(", ")}`);
+  if (!Array.isArray(raw.phrase_signoffs)) problems.push("phrase_signoffs must be an array");
+  else for (const so of raw.phrase_signoffs as PhraseSignoff[]) checkSignoff(so, problems);
 
   const seen = new Set<string>();
   for (const c of raw.clips as ManifestClip[]) {

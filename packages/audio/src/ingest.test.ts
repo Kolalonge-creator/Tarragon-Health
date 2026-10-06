@@ -22,12 +22,12 @@ function workspace() {
     execFileSync("node", [SCRIPT, masters, "--manifest", manifest, "--assets-dir", assets, "--map", map, ...extra], { encoding: "utf8" });
   const read = () => parseManifest(JSON.parse(readFileSync(manifest, "utf8")));
   const sign = (names: string[]) => {
-    const m = JSON.parse(readFileSync(manifest, "utf8")) as { clips: { clinical: boolean; legal: boolean; files: Record<string, { file: string; approvals: unknown[] }> }[] };
+    const m = JSON.parse(readFileSync(manifest, "utf8")) as { clips: { clinical: boolean; legal: boolean; files: Record<string, { file: string; sha256: string; approvals: unknown[] }> }[] };
     for (const c of m.clips)
       for (const [key, f] of Object.entries(c.files))
         if (names.includes(f.file)) {
           const reviews = ["brand", ...(c.clinical ? ["clinical"] : []), ...(c.legal ? ["legal"] : []), ...(key === "pcm" ? ["native_pidgin"] : [])];
-          f.approvals = reviews.map((review) => ({ review, by: "Test Reviewer", on: "2026-10-06" }));
+          f.approvals = reviews.map((review) => ({ review, sha256: f.sha256, by: "Test Reviewer", on: "2026-10-06" }));
         }
     writeFileSync(manifest, JSON.stringify(m));
   };
@@ -88,7 +88,11 @@ describe("scripts/audio/ingest-recordings.mjs", () => {
     writeFileSync(join(w.masters, "TH-EMG-001-EN.mp3"), "a different take");
     const out = w.run();
     expect(out).toMatch(/0 bundled/);
-    expect(w.read().clips.find((c) => c.id === "EMG-001")!.files.en!.approvals).toEqual([]);
+    const f = w.read().clips.find((c) => c.id === "EMG-001")!.files.en!;
+    expect(f.approvals).toEqual([]);
+    // The replaced take and its sign-offs are kept, so a rollback is possible.
+    expect(f.history).toHaveLength(1);
+    expect(f.history[0].approvals.length).toBeGreaterThan(0);
     expect(existsSync(join(w.assets, "TH-EMG-001-EN.mp3"))).toBe(false);
   });
 

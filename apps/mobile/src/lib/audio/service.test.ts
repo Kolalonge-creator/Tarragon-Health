@@ -1,4 +1,4 @@
-import { parseManifest, stitchBloodPressure, type Approval, type ClipFile, type Manifest, type ManifestClip } from "@tarragon/audio";
+import { parseManifest, stitchBloodPressure, withSeverity, PATTERN_CLIPS, type PhrasePattern, type Approval, type ClipFile, type Manifest, type ManifestClip } from "@tarragon/audio";
 import manifestJson from "../../../../../audio/manifest.json";
 import { createAudioService, type AudioEngine, type AudioServiceDeps, type AudioSource } from "./service";
 import { audioCatalogue, clipIdFor, resetAudioCatalogue } from "./manifest";
@@ -9,14 +9,18 @@ const SHA = "c".repeat(64);
 const sign = (clip: ManifestClip, key: string): Approval[] =>
   [["brand"], clip.clinical ? ["clinical"] : [], clip.legal ? ["legal"] : [], key === "pcm" ? ["native_pidgin"] : []]
     .flat()
-    .map((review) => ({ review: review as Approval["review"], by: "Test Reviewer", on: "2026-10-06" }));
+    .map((review) => ({ review: review as Approval["review"], sha256: SHA, by: "Test Reviewer", on: "2026-10-06" }));
 
 /** The real manifest with the named clips recorded and signed (and held Pidgin released), as a finished clip looks. */
 function manifestWith(ids: readonly string[]): Manifest {
   const m = parseManifest(manifestJson);
   const set = new Set(ids);
+  const signoffs = (Object.keys(PATTERN_CLIPS) as PhrasePattern[]).flatMap((pattern) =>
+    (["en", "pcm"] as const).map((lang) => ({ pattern, lang, by: "Test Clinician", on: "2026-10-06", clips: PATTERN_CLIPS[pattern].clips.map((id) => ({ id, sha256: SHA })) })),
+  );
   return {
     ...m,
+    phrase_signoffs: signoffs,
     clips: m.clips.map((c) => {
       if (!set.has(c.id)) return c;
       const files: Record<string, ClipFile> = {};
@@ -40,7 +44,7 @@ function setup(over: Partial<AudioServiceDeps> & { ids?: readonly string[] } = {
   const issues: string[] = [];
   const bundled = Object.fromEntries(parseManifest(manifestJson).clips.flatMap((c) => Object.values(c.files).map((f, i) => [f!.file, i + 1])));
   const service = createAudioService({
-    catalogue: createCatalogue(manifestWith(over.ids ?? ["EMG-001", "NUM-P01", "NUM-P02", "NUM-148", "NUM-094"])),
+    catalogue: createCatalogue(manifestWith(over.ids ?? ["EMG-001", "TRI-003", "NUM-P01", "NUM-P02", "NUM-148", "NUM-094"])),
     engine,
     downloaded: { uriFor: () => null },
     bundled,
@@ -64,16 +68,17 @@ describe("the audio service", () => {
 
   it("stitches a blood pressure reading in order: lead-in, 148, over, 94", async () => {
     const { service, played } = setup();
-    const r = await service.playPhrase(stitchBloodPressure(148, 94)!, "en");
+    const r = await service.playPhrase(withSeverity(stitchBloodPressure(148, 94), "TRI-003")!, "en");
     expect(r.played).toBe(true);
-    expect(r.text).toBe("Your blood pressure reading is 148 over 94");
-    expect(played[0]).toHaveLength(4);
+    expect(r.text).toMatch(/^Your blood pressure reading is 148 over 94 /);
+    expect(played[0]).toHaveLength(5);
   });
 
   it("shows the text, plays nothing and reports a non-fatal issue when a number clip is missing", async () => {
     const { service, played, issues } = setup({ ids: ["NUM-P01", "NUM-P02", "NUM-148"] });
-    const r = await service.playPhrase(stitchBloodPressure(148, 94)!, "en");
-    expect(r).toMatchObject({ played: false, text: "Your blood pressure reading is 148 over 94" });
+    const r = await service.playPhrase(withSeverity(stitchBloodPressure(148, 94), "TRI-003")!, "en");
+    expect(r.played).toBe(false);
+    expect(r.text).toMatch(/^Your blood pressure reading is 148 over 94 /);
     expect(played).toEqual([]);
     expect(issues).toEqual(["clip_not_recorded"]);
   });

@@ -2,8 +2,8 @@ import { describe, expect, it } from "@jest/globals";
 import { createCatalogue } from "./manifest";
 import { phraseText, resolveClips, resolvePhrase, type ClipLocator, type ResolveDeps } from "./resolve";
 import { scriptText } from "./language";
-import { stitchBloodPressure } from "./stitch";
-import { withFinished } from "./test-helpers";
+import { stitchBloodPressure, stitchWeight, withSeverity } from "./stitch";
+import { finished, realManifest, withFinished, withPhraseSignoffs } from "./test-helpers";
 import type { AudioIssue, Manifest } from "./types";
 
 function deps(manifest: Manifest, present: ((id: string) => boolean) | "all" = "all") {
@@ -71,24 +71,76 @@ describe("a missing clip shows the text and logs a non-fatal issue (spec 8.8)", 
   });
 });
 
+const reading = (sys = 148, dia = 94) => withSeverity(stitchBloodPressure(sys, dia), "TRI-003")!;
+
 describe("a stitched phrase is all or nothing", () => {
   it("never plays half a reading when one number clip is absent", async () => {
-    const m = withFinished("all");
-    const { d, issues } = deps(m, (id) => id !== "NUM-094");
-    const phrase = stitchBloodPressure(148, 94)!;
-    const r = await resolvePhrase(phrase, "en", d);
+    const { d, issues } = deps(withFinished("all"), (id) => id !== "NUM-094");
+    const r = await resolvePhrase(reading(), "en", d);
     expect(r.complete).toBe(false);
     expect(r.steps).toEqual([]);
-    expect(r.text).toBe("Your blood pressure reading is 148 over 94");
+    expect(r.text).toMatch(/^Your blood pressure reading is 148 over 94 /);
     expect(issues).toEqual([{ code: "clip_file_missing", clipId: "NUM-094", lang: "en", detail: "TH-NUM-094.mp3" }]);
   });
 
-  it("plays the whole phrase in order when every clip is present", async () => {
+  it("plays the whole phrase in order, ending with its triage sentence, when every clip is present", async () => {
     const { d } = deps(withFinished("all"));
-    const r = await resolvePhrase(stitchBloodPressure(148, 94)!, "en", d);
+    const r = await resolvePhrase(reading(), "en", d);
     expect(r.complete).toBe(true);
-    expect(r.steps.map((s) => s.clipId)).toEqual(["NUM-P01", "NUM-148", "NUM-P02", "NUM-094"]);
-    expect(r.steps.map((s) => s.key)).toEqual(["en", "shared", "en", "shared"]);
+    expect(r.steps.map((s) => s.clipId)).toEqual(["NUM-P01", "NUM-148", "NUM-P02", "NUM-094", "TRI-003"]);
+    expect(r.steps.map((s) => s.key)).toEqual(["en", "shared", "en", "shared", "en"]);
+  });
+});
+
+describe("a clinical reading is never spoken alone (design change from the competitor review)", () => {
+  it("refuses a blood pressure, glucose, pulse or HbA1c phrase with no triage sentence", async () => {
+    const { d, issues } = deps(withFinished("all"));
+    const r = await resolvePhrase(stitchBloodPressure(148, 94)!, "en", d);
+    expect(r).toMatchObject({ complete: false, steps: [], text: "Your blood pressure reading is 148 over 94" });
+    expect(issues).toEqual([{ code: "phrase_missing_severity", clipId: null, lang: "en", detail: "bp" }]);
+  });
+
+  it("allows a weight, which is not a graded reading, with none", async () => {
+    const { d } = deps(withFinished("all"));
+    expect((await resolvePhrase(stitchWeight(72.5)!, "en", d)).complete).toBe(true);
+  });
+
+  it("only attaches a TRI or EMG clip as the triage sentence", () => {
+    expect(withSeverity(stitchBloodPressure(1, 1), "NUM-148")).toBeNull();
+    expect(withSeverity(null, "TRI-001")).toBeNull();
+    expect(withSeverity(stitchBloodPressure(1, 1), "EMG-001L")).not.toBeNull();
+  });
+});
+
+describe("a stitched pattern plays only when a clinician signed the whole phrase", () => {
+  it("is held back, with a reason, when no sign-off exists, even if every clip is signed", async () => {
+    const m = { ...withFinished("all"), phrase_signoffs: [] };
+    const { d, issues } = deps(m);
+    const r = await resolvePhrase(reading(), "en", d);
+    expect(r.complete).toBe(false);
+    expect(issues).toEqual([{ code: "phrase_not_signed", clipId: null, lang: "en", detail: "bp" }]);
+  });
+
+  it("stops holding once a lead-in is re-recorded after the sign-off (fail closed)", async () => {
+    const m = withFinished("all");
+    const re = { ...m, clips: m.clips.map((c) => (c.id === "NUM-P02" ? finished(c, "f".repeat(64)) : c)) };
+    const { d, issues } = deps(re);
+    expect((await resolvePhrase(reading(), "en", d)).complete).toBe(false);
+    expect(issues[0].code).toBe("phrase_not_signed");
+    expect((await resolvePhrase(reading(), "en", deps(withPhraseSignoffs(re)).d)).complete).toBe(true);
+  });
+
+  it("checks the sign-off for the language it would actually play (English fallback needs the English sign-off)", async () => {
+    const m = withFinished("all");
+    const onlyPcm = { ...m, phrase_signoffs: m.phrase_signoffs.filter((s) => s.lang === "pcm") };
+    const held = { ...onlyPcm, clips: onlyPcm.clips.map((c) => (c.id.startsWith("NUM-P") || c.id === "TRI-003" ? { ...c, pcm_text: "held_as_english" as const, files: { ...c.files, pcm: { ...c.files.pcm!, approvals: [] } } } : c)) };
+    const { d } = deps(held);
+    const r = await resolvePhrase(reading(), "pcm", d);
+    expect(r.complete).toBe(false);
+  });
+
+  it("starts with nothing signed in the real manifest", () => {
+    expect(realManifest().phrase_signoffs).toEqual([]);
   });
 });
 
@@ -122,16 +174,16 @@ describe("language", () => {
 
   it("plays number clips for a Pidgin reader from the shared recording", async () => {
     const { d } = deps(withFinished("all"));
-    const r = await resolvePhrase(stitchBloodPressure(120, 80)!, "pcm", d);
+    const r = await resolvePhrase(reading(120, 80), "pcm", d);
     expect(r).toMatchObject({ complete: true, lang: "pcm" });
-    expect(r.steps.map((s) => s.key)).toEqual(["pcm", "shared", "pcm", "shared"]);
+    expect(r.steps.map((s) => s.key)).toEqual(["pcm", "shared", "pcm", "shared", "pcm"]);
   });
 });
 
 describe("phraseText", () => {
   it("joins digits tight around a decimal point and sentence parts with spaces", () => {
     const text = phraseText(
-      { steps: [{ id: "NUM-P06" }, { id: "NUM-072", literal: "72" }, { id: "NUM-D01", literal: ".", tight: true }, { id: "NUM-005", literal: "5", tight: true }, { id: "NUM-P07" }] },
+      { pattern: "weight", steps: [{ id: "NUM-P06" }, { id: "NUM-072", literal: "72" }, { id: "NUM-D01", literal: ".", tight: true }, { id: "NUM-005", literal: "5", tight: true }, { id: "NUM-P07" }] },
       "en",
       scriptText,
     );

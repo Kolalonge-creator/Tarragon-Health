@@ -1,5 +1,5 @@
-import { playable, type Catalogue } from "./manifest";
-import type { Phrase } from "./stitch";
+import { phraseSignedOff, playable, type Catalogue } from "./manifest";
+import { PATTERN_CLIPS, type Phrase } from "./stitch";
 import type { AudioIssue, ClipFile, FileKey, Lang, ReportIssue } from "./types";
 
 /** What the device can say about a recording: is a file with this checksum on the phone, from where? */
@@ -79,25 +79,37 @@ export async function resolveClips(clipIds: readonly string[], lang: Lang, deps:
 }
 
 export async function resolvePhrase(phrase: Phrase, lang: Lang, deps: ResolveDeps): Promise<Playback> {
+  const text = (l: Lang) => phraseText(phrase, l, deps.script);
+  // A clinical reading is never spoken without its triage sentence.
+  if (PATTERN_CLIPS[phrase.pattern].needsSeverity && !phrase.severity) {
+    deps.report({ code: "phrase_missing_severity", clipId: null, lang, detail: phrase.pattern });
+    return { complete: false, lang, steps: [], text: text(lang) };
+  }
+  // ...and a pattern plays only once a clinician has signed the whole phrase over these exact recordings.
+  const gate = (l: Lang): AudioIssue | null =>
+    phraseSignedOff(deps.catalogue.manifest, phrase.pattern, l) ? null : { code: "phrase_not_signed", clipId: null, lang: l, detail: phrase.pattern };
   return resolveWith(
     phrase.steps.map((s) => s.id),
     lang,
     deps,
-    (l) => phraseText(phrase, l, deps.script),
+    text,
+    gate,
   );
 }
 
-async function resolveWith(ids: readonly string[], lang: Lang, deps: ResolveDeps, text: (l: Lang) => string): Promise<Playback> {
+async function resolveWith(ids: readonly string[], lang: Lang, deps: ResolveDeps, text: (l: Lang) => string, gate?: (l: Lang) => AudioIssue | null): Promise<Playback> {
   const issues: AudioIssue[] = [];
   const collect: ReportIssue = (i) => issues.push(i);
   const flush = () => issues.forEach((i) => deps.report(i));
 
-  const first = await tryLang(ids, lang, deps, collect);
+  const blocked = gate?.(lang) ?? null;
+  if (blocked) collect(blocked);
+  const first = blocked ? null : await tryLang(ids, lang, deps, collect);
   if (first) return { complete: true, lang, steps: first, text: text(lang) };
 
   if (lang === "pcm" && ids.every((id) => deps.catalogue.get(id)?.pcm_text !== "reviewed" && deps.catalogue.get(id)?.pcm_text !== "needs_native_review")) {
     // Every clip's Pidgin is held as English (or neutral), so English audio matches the text on screen.
-    const fallback = await tryLang(ids, "en", deps, () => {});
+    const fallback = gate?.("en") ? null : await tryLang(ids, "en", deps, () => {});
     if (fallback) return { complete: true, lang: "en", steps: fallback, text: text("en") };
   }
   flush();

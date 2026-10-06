@@ -20,9 +20,19 @@ export const REVIEW_KINDS: readonly ReviewKind[] = ["brand", "clinical", "legal"
  */
 export interface Approval {
   readonly review: ReviewKind;
+  /** The recording this sign-off is for. A sign-off on one take never carries over to a different take. */
+  readonly sha256: string;
   readonly by: string;
   /** ISO date, YYYY-MM-DD. */
   readonly on: string;
+}
+
+/** A recording that was replaced, kept with its sign-offs so it can be restored (rollback) and traced. */
+export interface RecordingVersion {
+  readonly sha256: string;
+  readonly bytes: number;
+  readonly duration_ms: number | null;
+  readonly approvals: readonly Approval[];
 }
 
 export interface ClipFile {
@@ -32,6 +42,8 @@ export interface ClipFile {
   readonly bytes: number | null;
   readonly duration_ms: number | null;
   readonly approvals: readonly Approval[];
+  /** Earlier recordings of this file, newest first. */
+  readonly history: readonly RecordingVersion[];
 }
 
 /**
@@ -63,11 +75,24 @@ export interface ManifestGroup {
   readonly review: string;
 }
 
+/**
+ * A clinician's sign-off of one stitched-phrase pattern in one language AS A WHOLE (its lead-ins, units and joining
+ * words), over the exact recordings it was heard with. Valid only while every listed clip still has that checksum.
+ */
+export interface PhraseSignoff {
+  readonly pattern: string;
+  readonly lang: Lang;
+  readonly clips: readonly { readonly id: string; readonly sha256: string }[];
+  readonly by: string;
+  readonly on: string;
+}
+
 export interface Manifest {
   readonly schema_version: 1;
   readonly source: { readonly document: string; readonly version: string; readonly date: string; readonly number_list: string };
   readonly languages: readonly Lang[];
   readonly groups: Readonly<Record<string, ManifestGroup>>;
+  readonly phrase_signoffs: readonly PhraseSignoff[];
   readonly clips: readonly ManifestClip[];
 }
 
@@ -79,6 +104,8 @@ export type AudioIssueCode =
   | "clip_file_missing"
   | "clip_checksum_mismatch"
   | "phrase_not_possible"
+  | "phrase_not_signed"
+  | "phrase_missing_severity"
   | "engine_unavailable"
   | "manifest_invalid";
 

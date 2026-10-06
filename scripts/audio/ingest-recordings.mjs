@@ -5,8 +5,8 @@
  *   node scripts/audio/ingest-recordings.mjs <folder of TH-*.mp3> [--with-sym] [--manifest f] [--assets-dir d] [--map f]
  *
  * For every file in the folder whose name is in `audio/manifest.json`: records its sha256, size and (when ffprobe is
- * installed) duration. A re-recorded file (a different checksum) loses its approvals, because a different recording
- * is a different thing to sign; sign-offs are added to the manifest by a person, never by this script.
+ * installed) duration. A re-recorded file (a different checksum) moves its old recording and sign-offs to `history` and starts
+ * unsigned, because a different recording is a different thing to sign; sign-offs are added to the manifest by a person, never by this script.
  *
  * Then copies every PLAYABLE `bundled` recording (all the reviews it needs are signed) into apps/mobile/assets/audio
  * and regenerates the asset map. SYM ships only with --with-sym (spec 8.8: only if the symptom checker is enabled).
@@ -62,7 +62,13 @@ for (const name of readdirSync(dir).filter((n) => n.endsWith(".mp3")).sort()) {
   const path = join(dir, name);
   const sha256 = createHash("sha256").update(readFileSync(path)).digest("hex");
   const { f } = hit;
-  if (f.sha256 !== sha256) f.approvals = [];
+  if (f.sha256 !== sha256) {
+    // The replaced recording keeps its sign-offs in history (so it can be restored); the new one starts unsigned.
+    if (f.sha256 !== null) f.history = [{ sha256: f.sha256, bytes: f.bytes, duration_ms: f.duration_ms, approvals: f.approvals }, ...(f.history ?? [])];
+    f.approvals = [];
+    f.duration_ms = null;
+  }
+  f.history ??= [];
   f.sha256 = sha256;
   f.bytes = statSync(path).size;
   f.duration_ms = duration(path) ?? f.duration_ms;
@@ -71,7 +77,7 @@ for (const name of readdirSync(dir).filter((n) => n.endsWith(".mp3")).sort()) {
 
 // A file is playable only when every review it needs is signed (same rule as `playable` in packages/audio).
 const required = (clip, key) => ["brand", ...(clip.clinical ? ["clinical"] : []), ...(clip.legal ? ["legal"] : []), ...(key === "pcm" ? ["native_pidgin"] : [])];
-const playable = (clip, key, f) => f.sha256 !== null && f.bytes !== null && required(clip, key).every((r) => f.approvals.some((a) => a.review === r));
+const playable = (clip, key, f) => f.sha256 !== null && f.bytes !== null && required(clip, key).every((r) => f.approvals.some((a) => a.review === r && a.sha256 === f.sha256));
 
 // Compact manifest: header pretty-printed, one clip per line (matches import-production-list.py).
 const head = JSON.stringify({ ...manifest, clips: undefined }, null, 2);
