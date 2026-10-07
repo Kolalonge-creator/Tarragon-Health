@@ -9,6 +9,7 @@ import {
   signRiskQuestionnaireConfigAction,
   type SignRiskQuestionnaireConfigState,
 } from "./actions";
+import { isSupersededVersion } from "@/lib/clinical/refuse-superseded-draft";
 
 export type RiskQuestionnaireConfigRow = {
   id: string;
@@ -88,6 +89,10 @@ export function RiskQuestionnaireConfigManager({ configs }: { configs: RiskQuest
                   While this is active, the risk assessment reads its questions and scoring rules
                   from here instead of the built-in fallback logic. To change any value, add a new
                   version below and sign it.
+                </p>
+              ) : isSupersededVersion(c, configs.find((x) => x.is_active)?.version) ? (
+                <p className="text-xs text-charcoal-ink/50">
+                  Superseded: a newer version is live, so this draft can no longer be signed. To change anything, draft a new version.
                 </p>
               ) : (
                 <>

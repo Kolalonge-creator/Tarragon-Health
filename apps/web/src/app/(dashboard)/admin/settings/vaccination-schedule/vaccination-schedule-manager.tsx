@@ -11,6 +11,7 @@ import {
   type CreateSignoffDraftState,
   type SignVaccinationScheduleState,
 } from "./actions";
+import { isSupersededVersion } from "@/lib/clinical/refuse-superseded-draft";
 
 export type VaccinationCatalogRow = {
   id: string;
@@ -213,7 +214,13 @@ export function VaccinationScheduleManager({
                     Drafted {new Date(s.created_at).toLocaleString("en-GB")} · snapshot of{" "}
                     {Array.isArray(s.catalog_snapshot) ? s.catalog_snapshot.length : 0} catalog entries
                   </p>
-                  {!s.is_active && (
+                  {isSupersededVersion(s, activeSignoff?.version) && (
+                    <p className="text-xs text-charcoal-ink/50">
+                      Superseded: a newer version is live, so this draft can no longer be signed. To change
+                      anything, draft a new version.
+                    </p>
+                  )}
+                  {!s.is_active && !isSupersededVersion(s, activeSignoff?.version) && (
                     <>
                       <p className="text-xs text-charcoal-ink/60">
                         Signing requires an active Clinical Director account and brings this snapshot

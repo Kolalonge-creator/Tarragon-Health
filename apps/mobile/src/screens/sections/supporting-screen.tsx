@@ -1,3 +1,4 @@
+import { CircleSupportingSection } from "./circle-supporting-section";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { loadPeopleISupport, startActingFor, type ActingFor, type SupportedPerson } from "@/lib/acting";
@@ -69,6 +70,8 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>People you support</Text>
         <MutedText>Open someone&apos;s account to log a reading or run an errand for them.</MutedText>
       </View>
+
+      <CircleSupportingSection />
 
       <SectionLabel>People you support</SectionLabel>
 

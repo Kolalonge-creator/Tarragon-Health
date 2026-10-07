@@ -4,10 +4,7 @@ import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { uploadResultDocumentForPatient } from "@/lib/lab-results/actions";
-import {
-  RESULT_DOC_ACCEPT,
-  validateResultDocFile,
-} from "@/lib/validation/lab-result-documents";
+import { LAB_RESULT_FILE_ACCEPT, validateLabResultFile } from "@/lib/lab-results/structured";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,7 +130,7 @@ function UploadPanel({ patients }: { patients: LiaisonPatient[] }) {
     setSuccess(null);
     setValidationError(null);
     if (file) {
-      const fileError = validateResultDocFile(file);
+      const fileError = validateLabResultFile(file);
       if (fileError) {
         setValidationError(fileError);
         return;
@@ -227,7 +224,7 @@ function UploadPanel({ patients }: { patients: LiaisonPatient[] }) {
                 id="result-file"
                 ref={fileInputRef}
                 type="file"
-                accept={RESULT_DOC_ACCEPT}
+                accept={LAB_RESULT_FILE_ACCEPT}
                 onChange={(event) => setFile(event.target.files?.[0] ?? null)}
                 className="block w-full cursor-pointer text-sm text-charcoal-ink/80 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-brand-green file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-deep-forest"
               />

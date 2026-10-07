@@ -6,7 +6,6 @@ import {
   outcomeMessageKey,
   parseCareChanges,
   parseConfirmOutcome,
-  pcm,
   signedLine,
   splitCareChanges,
   t,
@@ -106,11 +105,6 @@ describe("buildChangeSentences", () => {
     }
     expect(buildChangeSentences({ ...base, proposal: { action: "start" } }, tr).after).toBe(en["careChange.thisMedicine"]);
   });
-
-  it("works in Pidgin too", () => {
-    const trP = (key: MessageKey, params?: Record<string, string | number>) => t(key, "pcm", params);
-    expect(buildChangeSentences({ ...base, proposal: { action: "stop" } }, trP).heading).toBe(pcm["careChange.heading.stop"]);
-  });
 });
 
 describe("signedLine and historyLine", () => {
@@ -180,8 +174,8 @@ describe("outcomes", () => {
 
 describe("careChange strings", () => {
   const FORBIDDEN = [/—/, /–/, /\bcures?\b/i, /\bcured\b/i, /instant doctor/i, /free healthcare/i, /your doctor/i];
-  it("no em dash or forbidden word in any en or pcm careChange string", () => {
-    for (const [locale, table] of [["en", en], ["pcm", pcm]] as const) {
+  it("no em dash or forbidden word in any careChange string", () => {
+    for (const [locale, table] of [["en", en]] as const) {
       for (const [key, value] of Object.entries(table)) {
         if (!key.startsWith("careChange.")) continue;
         for (const re of FORBIDDEN) expect([locale, key, re.test(value)]).toEqual([locale, key, false]);

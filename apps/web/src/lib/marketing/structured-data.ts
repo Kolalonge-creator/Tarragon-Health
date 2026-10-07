@@ -198,3 +198,43 @@ export function paidServicesJsonLd({
     },
   };
 }
+
+/**
+ * A programme or condition page as a schema.org MedicalWebPage with a
+ * minimal, claim-free shape: name, description, the page URL and the
+ * organisation behind it. Deliberately no `medicalAudience`, outcome or
+ * efficacy fields: structured data is read by search engines as fact, and this
+ * platform makes no outcome claim it could not defend (docs/BRAND_GUIDE.md).
+ * Returns null when there is no usable title or description, so a page never
+ * ships an empty or placeholder block.
+ */
+export function medicalWebPageJsonLd({
+  name,
+  description,
+  path,
+  providerName,
+  providerUrl,
+}: {
+  name: string | null | undefined;
+  description: string | null | undefined;
+  path: string;
+  providerName: string;
+  providerUrl: string;
+}): JsonLd | null {
+  const cleanName = name?.trim();
+  const cleanDescription = description?.trim();
+  if (!cleanName || !cleanDescription) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "MedicalWebPage",
+    name: cleanName,
+    description: cleanDescription,
+    url: absoluteUrl(path),
+    inLanguage: "en-NG",
+    publisher: {
+      "@type": "MedicalOrganization",
+      name: providerName,
+      url: providerUrl,
+    },
+  };
+}

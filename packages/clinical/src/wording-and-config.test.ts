@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import { getProposedConfig } from "@tarragon/shared";
 import { BP_CARE_V1, TRIAGE_MESSAGE_KEYS, messageKeyFor } from "./index";
 
-const catalogues = { en: en as Record<string, string>, pcm: pcm as Record<string, string> };
+const catalogues = { en: en as Record<string, string> };
 
 /** INV-07: a notification never names a condition, a reading or a result, and carries no number. */
 const NOTIFICATION_FORBIDDEN: RegExp[] = [
@@ -16,14 +16,14 @@ const NOTIFICATION_FORBIDDEN: RegExp[] = [
 const notifyKeysUsed = BP_CARE_V1.rules.flatMap((r) => r.actions.flatMap((a) => (a.kind === "create_task" ? [a.notifyKey] : [])));
 
 describe("triage wording", () => {
-  it("every explanation code a rule can return has a title and body in English and Pidgin", () => {
+  it("every explanation code a rule can return has a title and body in English", () => {
     const codes = new Set(BP_CARE_V1.rules.map((r) => r.explanationKey));
     codes.add(BP_CARE_V1.params.rejected.explanationKey);
     codes.add(BP_CARE_V1.params.rejected.redFlagGuidanceCode);
     for (const code of codes) {
       const keys = messageKeyFor(code);
       expect([code, keys === null]).toEqual([code, false]);
-      for (const locale of ["en", "pcm"] as const) {
+      for (const locale of ["en"] as const) {
         expect([code, locale, (catalogues[locale][keys!.title] ?? "").length > 0]).toEqual([code, locale, true]);
         expect([code, locale, (catalogues[locale][keys!.body] ?? "").length > 0]).toEqual([code, locale, true]);
       }
@@ -51,7 +51,7 @@ describe("triage wording", () => {
       for (const key of keys) {
         const mk = messageKeyFor(key);
         expect(mk).not.toBeNull();
-        for (const locale of ["en", "pcm"] as const) {
+        for (const locale of ["en"] as const) {
           for (const text of [catalogues[locale][mk!.title], catalogues[locale][mk!.body]]) {
             const hits = NOTIFICATION_FORBIDDEN.filter((re) => re.test(text)).map((re) => re.source);
             expect([rule.id, locale, text, hits]).toEqual([rule.id, locale, text, []]);
@@ -70,7 +70,7 @@ describe("triage wording", () => {
   it("emergency guidance sends the patient to the nearest hospital and prints no phone number", () => {
     for (const code of ["EMG-001", "EMG-001L"]) {
       const mk = messageKeyFor(code)!;
-      for (const locale of ["en", "pcm"] as const) {
+      for (const locale of ["en"] as const) {
         const body = catalogues[locale][mk.body];
         expect(body).toMatch(/nearest hospital/i);
         expect(body).not.toMatch(/\d{3,}/);

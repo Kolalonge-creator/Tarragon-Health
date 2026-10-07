@@ -53,4 +53,14 @@ describe("lab.panels mirrors the migration seed", () => {
     expect(block).toContain("'sensitive_result_disclosure', 1, 2, 120, 'senior_medical_officer'");
     expect(block).toContain("'{result_review}', 0, 30, false, true");
   });
+
+  it("lab.release_policy is identical to the lab_panel_signoffs seed, and a sensitive result is never released by default", () => {
+    const sql = migration("_s27d_signoff_corrections_disclosure_fallback_staff_path.sql");
+    const match = /lab-config-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
+    if (!match?.[1]) throw new Error("lab release policy seed not found in the migration");
+    const seeded = JSON.parse(match[1]);
+    expect(seeded).toEqual(getProposedConfig("lab.release_policy").value);
+    expect(seeded.disclosure.maxAttempts).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(seeded)).not.toMatch(/auto.?release/i);
+  });
 });

@@ -6,12 +6,16 @@ import type { Json } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
+  attemptSchema,
+  correctionSchema,
   describeLabError,
   disclosureSchema,
   LAB_RESULT_BUCKET,
   LAB_RESULT_EXT,
   refusalOf,
   releaseSchema,
+  releasedResultsSchema,
+  type ReleasedResultRow,
   reviewResultSchema,
   type ReviewResult,
   resultEntrySchema,
@@ -186,4 +190,126 @@ export async function openLabResult(resultId: string): Promise<{ result?: Review
   if (refused) return { error: refused };
   const parsed = reviewResultSchema.safeParse(data);
   return parsed.success ? { result: parsed.data } : { error: "That result could not be read. Please try again." };
+}
+
+/** The senior clinician logs one try at reaching the patient. After the configured number, the CMO is told; nothing is ever released by default. */
+export async function recordDisclosureAttempt(_prev: LabActionState, formData: FormData): Promise<LabActionState> {
+  const parsed = attemptSchema.safeParse({
+    resultId: String(formData.get("result_id") ?? ""),
+    outcome: String(formData.get("outcome") ?? ""),
+    note: String(formData.get("note") ?? "") || undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("record_lab_disclosure_attempt", {
+    p_result: parsed.data.resultId,
+    p_outcome: parsed.data.outcome,
+    p_note: parsed.data.note,
+  });
+  if (error) return { error: describeLabError(error) };
+  const refused = refusalOf(data);
+  if (refused) return { error: refused };
+  revalidatePath("/clinician/lab-results");
+  return { success: true };
+}
+
+/** A senior clinician withdraws a released result (wrong patient, lab error). The patient gets a neutral notice. */
+export async function withdrawResult(_prev: LabActionState, formData: FormData): Promise<LabActionState> {
+  const parsed = withholdSchema.safeParse({ resultId: String(formData.get("result_id") ?? ""), reason: String(formData.get("reason") ?? "") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("withdraw_lab_result", { p_result: parsed.data.resultId, p_reason: parsed.data.reason });
+  if (error) return { error: describeLabError(error) };
+  const refused = refusalOf(data);
+  if (refused) return { error: refused };
+  revalidatePath("/clinician/lab-results");
+  return { success: true };
+}
+
+/** A partner lab sends a correction to a result it already sent. It goes through the same release rules as a new result. */
+export async function submitPartnerCorrection(_prev: LabActionState, formData: FormData): Promise<LabActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Please sign in again." };
+  let itemsRaw: unknown;
+  try {
+    itemsRaw = JSON.parse(String(formData.get("items") ?? "[]"));
+  } catch {
+    return { error: "The values could not be read. Please try again." };
+  }
+  const parsed = correctionSchema.safeParse({
+    orderId: String(formData.get("order_id") ?? ""),
+    panel: String(formData.get("panel") ?? ""),
+    items: itemsRaw,
+    correctsResultId: String(formData.get("corrects_result_id") ?? ""),
+    kind: String(formData.get("kind") ?? ""),
+    reason: String(formData.get("reason") ?? ""),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+
+  const supabase = await createClient();
+  const file = formData.get("file");
+  let stored: StoredFile | null = null;
+  if (file instanceof File && file.size > 0) {
+    const { data: patientId } = await supabase.rpc("lab_partner_order_patient", { p_order_id: parsed.data.orderId });
+    if (!patientId) return { error: "You do not have access to that." };
+    const s = await storeFile(patientId, file);
+    if ("error" in s) return { error: s.error };
+    stored = s;
+  }
+  const { error } = await supabase.rpc("lab_partner_submit_correction", {
+    p_order: parsed.data.orderId,
+    p_corrects: parsed.data.correctsResultId,
+    p_kind: parsed.data.kind,
+    p_reason: parsed.data.reason,
+    p_panel: parsed.data.panel,
+    p_items: parsed.data.items as unknown as Json,
+    p_file: (stored ?? undefined) as unknown as Json,
+  });
+  if (error) {
+    if (stored) await removeFile(stored.file_path);
+    return { error: describeLabError(error) };
+  }
+  revalidatePath("/lab-partner/results");
+  return { success: true };
+}
+
+/**
+ * A Lab Liaison Officer, clinician or admin records a result file for a patient (the emailed-result path). It is stored privately and
+ * recorded as a HELD result: the patient sees nothing and is told nothing until a clinician has reviewed it (INV-03). The older
+ * path wrote a visible document and announced it at once.
+ */
+export async function submitTeamResult(patientId: string, labOrderId: string | undefined, file: File): Promise<LabActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Please sign in again." };
+  if (!/^[0-9a-f-]{36}$/.test(patientId) || (labOrderId !== undefined && !/^[0-9a-f-]{36}$/.test(labOrderId))) return { error: "That patient could not be found." };
+  const stored = await storeFile(patientId, file);
+  if ("error" in stored) return { error: stored.error };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("team_submit_lab_result", {
+    p_patient: patientId,
+    p_order: (labOrderId ?? null) as unknown as string,
+    p_panel: null as unknown as string,
+    p_items: null as unknown as Json,
+    p_file: stored as unknown as Json,
+  });
+  if (error) {
+    await removeFile(stored.file_path);
+    return { error: describeLabError(error) };
+  }
+  return { success: true };
+}
+
+/** A senior clinician lists a tied patient's released results, to withdraw one. A click, one audited read per open. */
+export async function listReleasedLabResults(patientId: string): Promise<{ results?: ReleasedResultRow[]; error?: string }> {
+  if (!/^[0-9a-f-]{36}$/.test(patientId)) return { error: "Not found." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("patient_released_lab_results", { p_patient: patientId, p_reason: "Looking for a released lab result to withdraw" });
+  if (error) return { error: describeLabError(error) };
+  const refused = refusalOf(data);
+  if (refused) return { error: refused };
+  if (data && typeof data === "object" && "error" in data && (data as { error: unknown }).error === "senior_only") {
+    return { error: "Only a senior clinician can withdraw a released result." };
+  }
+  const parsed = releasedResultsSchema.safeParse(data);
+  return parsed.success ? { results: parsed.data.results } : { error: "That list could not be read. Please try again." };
 }

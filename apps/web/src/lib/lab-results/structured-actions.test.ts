@@ -14,7 +14,7 @@ jest.mock("@/lib/supabase/service-role", () => ({
   }),
 }));
 
-import { addOwnLabResult, getOwnResultFileUrl, openLabResult, recordDisclosure, releaseResult, submitPartnerResult, withholdResult } from "./structured-actions";
+import { addOwnLabResult, getOwnResultFileUrl, openLabResult, recordDisclosure, listReleasedLabResults, recordDisclosureAttempt, releaseResult, submitPartnerCorrection, submitPartnerResult, submitTeamResult, withdrawResult, withholdResult } from "./structured-actions";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const items = JSON.stringify([{ analyte_code: "creatinine", value_numeric: 1.9, unit: "mg/dL" }]);
@@ -132,5 +132,74 @@ describe("openLabResult (the audited read happens on a click)", () => {
     const r = await openLabResult(id);
     expect(r.result).toBeUndefined();
     expect(r.error).toMatch(/access/);
+  });
+});
+
+describe("S27d: disclosure attempts, withdrawal, corrections and the staff path", () => {
+  it("logs an attempt with a known outcome and turns a returned refusal into an access message", async () => {
+    rpc.mockResolvedValue({ data: { ok: true, attempts: 1, escalated: false }, error: null });
+    expect(await recordDisclosureAttempt(undefined, form({ result_id: id, outcome: "no_answer" }))).toEqual({ success: true });
+    expect(rpc).toHaveBeenCalledWith("record_lab_disclosure_attempt", { p_result: id, p_outcome: "no_answer", p_note: undefined });
+    rpc.mockResolvedValue({ data: { error: "not_permitted" }, error: null });
+    expect((await recordDisclosureAttempt(undefined, form({ result_id: id, outcome: "no_answer" })))?.error).toMatch(/access/);
+    expect((await recordDisclosureAttempt(undefined, form({ result_id: id, outcome: "made_up" })))?.error).toBeDefined();
+  });
+
+  it("withdraws a released result only with a reason", async () => {
+    expect((await withdrawResult(undefined, form({ result_id: id, reason: " " })))?.error).toBeDefined();
+    rpc.mockResolvedValue({ data: { ok: true }, error: null });
+    expect(await withdrawResult(undefined, form({ result_id: id, reason: "Wrong patient" }))).toEqual({ success: true });
+  });
+
+  it("sends a correction with its kind and reason and cleans up the file if the database refuses", async () => {
+    rpc.mockImplementation(async (name: string) =>
+      name === "lab_partner_order_patient" ? { data: "88888888-8888-4888-8888-888888888888", error: null } : { data: null, error: { message: "lab_correction_target_invalid" } },
+    );
+    const r = await submitPartnerCorrection(undefined, form({ order_id: id, panel: "essential", items, corrects_result_id: id, kind: "corrected", reason: "Keyed wrongly", file: pdf() }));
+    expect(r?.error).toMatch(/cannot be sent/);
+    expect(remove).toHaveBeenCalledTimes(1);
+    const call = rpc.mock.calls.find((c) => c[0] === "lab_partner_submit_correction");
+    expect(call?.[1]).toMatchObject({ p_corrects: id, p_kind: "corrected", p_reason: "Keyed wrongly" });
+  });
+
+  it("refuses a correction without a reason before calling the database", async () => {
+    const r = await submitPartnerCorrection(undefined, form({ order_id: id, panel: "essential", items, corrects_result_id: id, kind: "corrected", reason: "" }));
+    expect(r?.error).toMatch(/what changed/i);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("records a staff-supplied file as a HELD result through the care-team function, and removes the file on refusal", async () => {
+    rpc.mockResolvedValue({ data: {}, error: null });
+    expect(await submitTeamResult("99999999-9999-4999-8999-999999999999", undefined, pdf())).toEqual({ success: true });
+    expect(rpc).toHaveBeenCalledWith("team_submit_lab_result", expect.objectContaining({ p_patient: "99999999-9999-4999-8999-999999999999", p_items: null }));
+    rpc.mockResolvedValue({ data: null, error: { message: "Not permitted" } });
+    expect((await submitTeamResult("99999999-9999-4999-8999-999999999999", undefined, pdf()))?.error).toMatch(/access/);
+    expect(remove).toHaveBeenCalled();
+  });
+});
+
+describe("S27f: the released-results list for withdrawal", () => {
+  const row = { lab_result_id: id, received_at: "2026-10-06T10:00:00Z", released_at: "2026-10-06T11:00:00Z", panel_code: "essential", order_number: "LO-1", submitted_by_kind: "partner", withdrawn: false, replaced: false, abnormal_count: 1, item_count: 10 };
+  it("returns the parsed rows for a senior tied clinician", async () => {
+    rpc.mockResolvedValue({ data: { results: [row] }, error: null });
+    const r = await listReleasedLabResults("99999999-9999-4999-8999-999999999999");
+    expect(r.results?.[0]?.abnormal_count).toBe(1);
+    expect(rpc).toHaveBeenCalledWith("patient_released_lab_results", expect.objectContaining({ p_patient: "99999999-9999-4999-8999-999999999999" }));
+  });
+  it("turns the senior-only and not-permitted answers into plain messages and shows nothing", async () => {
+    rpc.mockResolvedValue({ data: { error: "senior_only" }, error: null });
+    expect((await listReleasedLabResults("99999999-9999-4999-8999-999999999999")).error).toMatch(/senior/);
+    rpc.mockResolvedValue({ data: { error: "not_permitted" }, error: null });
+    const r = await listReleasedLabResults("99999999-9999-4999-8999-999999999999");
+    expect(r.results).toBeUndefined();
+    expect(r.error).toMatch(/access/);
+  });
+  it("never calls the database for a malformed patient id", async () => {
+    expect((await listReleasedLabResults("nope")).error).toBeDefined();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("a replaced result gives the plain reason when someone tries to release it", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "lab_result_replaced" } });
+    expect((await releaseResult(undefined, form({ result_id: id })))?.error).toMatch(/replaced by a corrected/);
   });
 });

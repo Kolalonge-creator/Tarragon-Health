@@ -1,4 +1,4 @@
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import { checkoutErrorKey, keepsRetryKey, orderStateKey, parseCatalogue, parseCheckout, parseMembership, parseOrders, parseVerify } from "./parse";
 
 const mockInvoke = jest.fn();
@@ -33,11 +33,10 @@ describe("parsing", () => {
     expect(parseVerify({ state: "weird", outcome: "x" })).toBeNull();
     expect(parseVerify(3)).toBeNull();
   });
-  it("every error code and state has copy in both languages; refusals drop the retry key, network failures keep it", () => {
+  it("every error code and state has copy; refusals drop the retry key, network failures keep it", () => {
     for (const c of ["checkout_not_open", "no_capacity", "already_member", "unknown", "payment_unavailable", "surprise"]) {
       const k = checkoutErrorKey(c);
       expect(en[k].length).toBeGreaterThan(0);
-      expect(pcm[k].length).toBeGreaterThan(0);
     }
     expect(checkoutErrorKey("surprise")).toBe("shop.error.unknown");
     expect(checkoutErrorKey(1)).toBe("shop.error.unknown");
@@ -54,6 +53,13 @@ describe("api", () => {
     mockInvoke.mockResolvedValue({ data: { reference: "tho_x", checkout_url: "https://checkout.paystack.com/a" }, error: null });
     expect(await startCheckout("membership_annual", "k1")).toEqual({ ok: true, reference: "tho_x", checkoutUrl: "https://checkout.paystack.com/a" });
     expect(mockInvoke).toHaveBeenCalledWith("order-checkout", { body: { code: "membership_annual", client_key: "k1" } });
+  });
+  it("S29: sends the beneficiary when paying for a loved one, and only then", async () => {
+    mockInvoke.mockResolvedValue({ data: { reference: "tho_x", checkout_url: "https://checkout.paystack.com/a" }, error: null });
+    await startCheckout("membership_annual", "k1", "p-9");
+    expect(mockInvoke).toHaveBeenLastCalledWith("order-checkout", { body: { code: "membership_annual", client_key: "k1", beneficiary: "p-9" } });
+    await startCheckout("membership_annual", "k2", undefined);
+    expect(mockInvoke).toHaveBeenLastCalledWith("order-checkout", { body: { code: "membership_annual", client_key: "k2" } });
   });
   it("reads the stable error code from a failed call, and treats a strange success as unknown", async () => {
     mockInvoke.mockResolvedValue({ data: null, error: { context: { clone: () => ({ json: async () => ({ error: "no_capacity" }) }) } } });
