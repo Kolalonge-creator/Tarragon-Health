@@ -92,7 +92,7 @@ export function pharmacyOrderItemsSummary(items: PharmacyOrderItem[]): string {
  * (tone names differ — this app's Pill only has green/amber/grey/red, not
  * web's five-colour Badge — so "blue"-toned web statuses map to the closest
  * native tone rather than growing a sixth Pill colour for one screen). */
-export const PHARMACY_ORDER_STATUS_LABEL: Partial<Record<PharmacyOrderStatus, string>> = {
+export const PHARMACY_ORDER_STATUS_LABEL: Record<PharmacyOrderStatus, string> = {
   pending_payment: "Awaiting payment",
   payment_confirmed: "Booking confirmed",
   requested: "In progress",

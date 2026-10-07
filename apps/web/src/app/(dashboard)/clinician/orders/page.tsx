@@ -26,7 +26,7 @@ const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["vari
   cancelled: { variant: "grey", label: "Cancelled" },
 };
 
-const PHARMACY_ORDER_STATUS_BADGE: Partial<Record<PharmacyOrderStatus, { variant: BadgeProps["variant"]; label: string }>> = {
+const PHARMACY_ORDER_STATUS_BADGE: Record<PharmacyOrderStatus, { variant: BadgeProps["variant"]; label: string }> = {
   pending_payment: { variant: "amber", label: "Awaiting payment" },
   payment_confirmed: { variant: "blue", label: "Booking confirmed" },
   requested: { variant: "blue", label: "In progress" },
@@ -184,7 +184,7 @@ function PharmacyOrdersWorklist() {
         {state === "ready" && data && (
           <ul className="divide-y divide-charcoal-ink/10">
             {data.map((order) => {
-              const badge = PHARMACY_ORDER_STATUS_BADGE[order.status] ?? { variant: "grey" as const, label: "In progress" };
+              const badge = PHARMACY_ORDER_STATUS_BADGE[order.status];
               return (
                 <li key={order.id} className="space-y-2 py-3">
                   <div className="flex items-center gap-2">
