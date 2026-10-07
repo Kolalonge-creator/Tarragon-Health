@@ -320,11 +320,11 @@ async function countTherapyApprovalsWaiting(supabase: Client) {
 
 /**
  * Orders needing a home-visit provider assigned -- exact same predicate as
- * the "Home visits & deliveries" page's LabOrdersWorklist (a lab order with
+ * the "Home visits & pharmacy orders" page's LabOrdersWorklist (a lab order with
  * no home_visit_provider yet, in payment_confirmed or ordered status --
  * apps/web/src/app/(dashboard)/clinician/orders/page.tsx). That page also
- * has a second sub-worklist (pharmacy orders needing a courier assigned, out
- * for delivery, or a failed delivery to retry), left uncounted here for the
+ * has a second sub-worklist (pharmacy orders, read-only and collection only),
+ * left uncounted here for the
  * same reason Medication issues leaves its second sub-worklist uncounted:
  * this file's counters issue exactly one query each,
  * and a home-visit collection blocks a diagnostic sample from ever being

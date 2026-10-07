@@ -80,10 +80,10 @@ begin
   returning id into v_lab_id;
 
   insert into public.pharmacy_partners
-    (name, delivery, regions, is_active, business_registration_number, compliance_owner_profile_id,
+    (name, regions, is_active, business_registration_number, compliance_owner_profile_id,
      onboarding_status, rejection_reason, license_type, license_number)
   values
-    ('Scoping Test Pharmacy', true, array['Lagos'], true, 'SCOPE_TEST_RC_1234567', v_admin,
+    ('Scoping Test Pharmacy', array['Lagos'], true, 'SCOPE_TEST_RC_1234567', v_admin,
      'activated', null, 'PCN', 'SCOPE-PHARM-0001')
   returning id into v_pharmacy_id;
 
@@ -305,8 +305,8 @@ begin
   create or replace view public.pharmacy_partner_directory
     with (security_invoker = false)
     as
-    select id, name, delivery, regions, is_active, address, latitude, longitude, state, city, area,
-           delivery_fee_kobo, license_type, license_number, license_expires_at, license_verified_at
+    select id, name, regions, is_active, address, latitude, longitude, state, city, area,
+           license_type, license_number, license_expires_at, license_verified_at
     from public.pharmacy_partners
     where is_active;
 
@@ -324,8 +324,8 @@ begin
   create or replace view public.pharmacy_partner_directory
     with (security_invoker = false)
     as
-    select id, name, delivery, regions, is_active, address, latitude, longitude, state, city, area,
-           delivery_fee_kobo, license_type, license_number, license_expires_at, license_verified_at
+    select id, name, regions, is_active, address, latitude, longitude, state, city, area,
+           license_type, license_number, license_expires_at, license_verified_at
     from public.pharmacy_partners;
 
   raise notice 'ALL LAB_PROVIDERS / PHARMACY_PARTNERS COLUMN-SCOPING CHECKS PASSED';
