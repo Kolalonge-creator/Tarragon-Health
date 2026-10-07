@@ -24,7 +24,7 @@ async function loadHmoDashboardDataUncached() {
   // patient-scoped table, so the aggregates come through the one verified
   // server-side doorway instead. Roster management still runs on the
   // caller's own session — that table is the HMO's own membership list.
-  const access = await requireInstitutionAggregateAccess(profile.organisation_id);
+  const access = await requireInstitutionAggregateAccess(profile.organisation_id, "hmo_dashboard");
   if (!access) {
     return { state: "no-access" as const, greeting };
   }

@@ -50,7 +50,7 @@ export async function generateOutcomeReport(
   // their own session. Either way the suppression threshold is the same — the
   // report is an institution-facing artifact regardless of who pressed the
   // button, so it must not contain a figure the dashboard would withhold.
-  const access = await requireInstitutionAggregateAccess(organisationId);
+  const access = await requireInstitutionAggregateAccess(organisationId, "outcome_report_generate");
   const reader = access?.client ?? supabase;
 
   let minCohortSize = access?.minCohortSize;

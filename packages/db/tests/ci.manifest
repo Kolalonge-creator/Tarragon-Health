@@ -924,3 +924,5 @@ s28c_pharmacy_extras.sql
 oq261_remove_home_delivery.sql
 # S75 A1 (CMO S-14): new fee-at-risk contract proposals are refused (flat still accepted; patient and anon refused), a pending fee_at_risk request cannot be approved but a flat one can, an existing contract is untouched. Sabotage: the freeze check removed from the propose function; fee_at_risk must then be accepted.
 s75_a1_fee_at_risk_freeze.sql
+# S75 A2: institution aggregate reads are audited (one row per reader, organisation, surface and day, holding only surface, day and role); another organisation's admin, a patient, a clinician and anon are refused and write nothing; a platform admin may log; free-text labels refused. Sabotage: the role check removed; a patient must then write a row.
+s75_a2_institution_aggregate_read_audit.sql

@@ -30,7 +30,7 @@ async function loadCorporateDashboardDataUncached() {
   // patient-scoped table, so the aggregates come through the one verified
   // server-side doorway instead. Roster management still runs on the
   // caller's own session — that table is the employer's own staff list.
-  const access = await requireInstitutionAggregateAccess(profile.organisation_id);
+  const access = await requireInstitutionAggregateAccess(profile.organisation_id, "corporate_dashboard");
   if (!access) {
     return { state: "no-access" as const, greeting };
   }
