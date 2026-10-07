@@ -36,6 +36,7 @@ export default async function HealthReportsPage({ searchParams }: { searchParams
                 {t("report.year", "en", { year: r.year })}, {t("report.version", "en", { version: r.version })}
               </Link>
               {r.is_correction ? <span> (correction)</span> : null}
+              {r.task_state !== "claimed" ? <span className="block text-xs">{t("report.review.waiting_in_queue", "en")}</span> : null}
             </li>
           ))}
         </ul>
@@ -45,6 +46,9 @@ export default async function HealthReportsPage({ searchParams }: { searchParams
 
   const { data: row } = await supabase.rpc("clinician_get_health_report", { p_id: id });
   if (!row) redirect("/clinician/health-reports");
+  // a draft is signed only by the doctor who holds its sign-off task (S16); the queue read tells us whether that is this doctor
+  const { data: mine } = await supabase.rpc("clinician_health_report_queue");
+  const task = (mine ?? []).find((q) => q.id === row.id);
   const { data: cfg } = await supabase.from("health_report_config_versions").select("config, approved_by").eq("id", row.config_version_id).maybeSingle();
   if (!cfg) redirect("/clinician/health-reports");
   const config = parseReportConfig(cfg.config);
@@ -65,6 +69,8 @@ export default async function HealthReportsPage({ searchParams }: { searchParams
         status={row.status as "pending_signature" | "signed" | "superseded"}
         templateSummary={composed.templateSummary ?? ""}
         aiDraft={row.ai_draft}
+        taskId={task?.task_id ?? null}
+        taskClaimed={task?.task_state === "claimed"}
       />
       <HealthReportView model={model} />
     </div>

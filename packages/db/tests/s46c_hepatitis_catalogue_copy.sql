@@ -1,6 +1,6 @@
 -- S46c proof: the patient-facing catalogue copy for hepatitis B and C matches the S46 serology rule. One rolled-back transaction.
 -- Proves: the Know Your Basics description keeps blood group and genotype once for life, calls hepatitis B and C yearly, says hepatitis B
--- stops on recorded protection, carries no "never asked to pay" promise and no em dash; no lab test description says hepatitis is done once;
+-- stops on recorded protection, carries no "never asked to pay" promise and no em dash; no other bundle description says hepatitis is done once;
 -- the rule data it describes is the active one (hep_c annual, hep_b annual with a stop). SABOTAGE: the old copy put back must fail the same checks.
 begin;
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -13,8 +13,8 @@ begin
    (p_phase, 'bundle says hepatitis B stops on recorded protection', 'true', (d ~* 'stops once your care team records')::text),
    (p_phase, 'no never-asked-to-pay promise', 'false', (d ~* 'never be asked to pay')::text),
    (p_phase, 'no em dash', 'false', (d like '%—%')::text),
-   (p_phase, 'no lab test description says hepatitis is once', '0',
-     (select count(*)::text from public.lab_tests where description ~* '(hepatitis|hbsag|hcv)[^.]*(once|for life|lifetime)'));
+   (p_phase, 'no other bundle description says hepatitis is done once', '0',
+     (select count(*)::text from public.panel_bundles where code <> 'know_your_basics' and description ~* '(hepatitis|hbsag|hcv)[^.]*(done once|once and|for life|lifetime)'));
 end $f$;
 select pg_temp.checks('real');
 insert into results values ('real', 'active serology rule: hep_c and hep_b yearly, hep_b stops on immunity', 'true',

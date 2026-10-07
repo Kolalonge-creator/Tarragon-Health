@@ -159,6 +159,8 @@ begin
   perform pg_temp.setf('admin', v_admin);
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', v_admin));
   perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'medical_officer', v_admin));
+  -- S46c: the sign-off task is offered to an employed named doctor first; a contracted one pulls from the pool with an availability block
+  update public.clinical_staff set employment_type = 'employed', indemnity_exempt = false, indemnity_exempt_by = null where profile_id = pg_temp.f('doc');
   perform pg_temp.setf('stranger', pg_temp.mkdoc(v_org, 'stranger', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('cc', pg_temp.mkdoc(v_org, 'cc', 'care_coordinator', v_admin));
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, clinical_director_id, care_coordinator_id)
@@ -377,6 +379,15 @@ begin
 end $$;
 
 -- 4. 3.15 Yearly Health Report -------------------------------------------------------------------------------------------------
+-- S46c: a draft is routed as a clinical task, and signing needs the doctor to hold the live claim. This does what queue_next does after it picks the task
+-- (the real queue_next, hand-back and expiry are proven in s46c_report_signoff_task.sql).
+create function pg_temp.claim_for(p_report uuid, p_doc uuid) returns void language plpgsql as
+$f$ declare t public.clinical_tasks%rowtype;
+begin
+  select ct.* into t from public.clinical_tasks ct join public.health_reports hr on hr.signoff_task_id = ct.id where hr.id = p_report;
+  perform private.apply_task_transition(t.id, 'claimed', 'clinician', p_doc, 'claimed', p_doc, now() + interval '1 hour');
+  insert into public.task_claims (organisation_id, task_id, clinician_id, expires_at, is_test) values (t.organisation_id, t.id, p_doc, now() + interval '1 hour', true);
+end $f$;
 create function pg_temp.draft(p_pat uuid, p_year integer, p_composed text, p_pri text, p_ai text default null) returns text language sql as
 $$ select pg_temp.as_service(format('select public.record_health_report_draft(%L, %s, %L::jsonb, %L::jsonb, %L::jsonb, %L)::text',
       p_pat, p_year, '{"year":0,"risk":{"state":"not_assessed"}}', p_composed, p_pri, p_ai)) $$;
@@ -428,8 +439,9 @@ begin
   v_id := (pg_temp.draft(pat, yr, ok_c, ok_p, 'AI WROTE THIS PARAGRAPH'))::uuid;
   perform pg_temp.setf('report', v_id);
   perform pg_temp.ck('a draft for a test patient is built and waits for signature', 'pending_signature', (select status from public.health_reports where id = v_id));
-  perform pg_temp.ck('...assigned to the care team doctor and tied to a settings version (INV-16)', 'true',
-    (select (assigned_clinician_id = doc and config_version_id is not null)::text from public.health_reports where id = v_id));
+  perform pg_temp.ck('...routed as a sign-off task offered to the care team doctor (S46c) and tied to a settings version (INV-16)', 'true',
+    (select (ct.lead_clinician_id = doc and ct.state = 'offered_to_lead' and hr.assigned_clinician_id is null and hr.config_version_id is not null)::text
+       from public.health_reports hr join public.clinical_tasks ct on ct.id = hr.signoff_task_id where hr.id = v_id));
   perform pg_temp.ck('...and once a draft exists the patient is no longer a candidate', 'false',
     (pg_temp.as_service(format('select (count(*) > 0)::text from public.health_report_candidates(%s, 100) c where c.patient_id = %L', yr, pat))));
   perform pg_temp.ck('the event carries ids only (INV-07)', 'health_report_id',
@@ -450,7 +462,8 @@ begin
   perform pg_temp.ck('the tied doctor reads the draft and sees the AI draft (INV-11 draft state)', 'AI WROTE THIS PARAGRAPH', pg_temp.q_as(doc, format('select (public.clinician_get_health_report(%L)).ai_draft', v_id)));
   perform pg_temp.ck('...and the read is audited (INV-10)', '1', (select count(*)::text from public.audit_log where action = 'health_report.read' and entity_id = pat));
 
-  -- signing
+  -- signing (the tied doctor first takes the sign-off task; the refusals below hold with or without a claim)
+  perform pg_temp.claim_for(v_id, doc);
   perform pg_temp.ck('a stranger doctor cannot sign', '42501', pg_temp.sqlstate_as(stranger, format('select public.sign_health_report(%L, ''Your year.'', ''clinician'')', v_id)));
   perform pg_temp.ck('the care coordinator cannot sign', '42501', pg_temp.sqlstate_as(cc, format('select public.sign_health_report(%L, ''Your year.'', ''clinician'')', v_id)));
   perform pg_temp.ck('the patient cannot sign their own report', '42501', pg_temp.sqlstate_as(pat, format('select public.sign_health_report(%L, ''Your year.'', ''clinician'')', v_id)));
@@ -486,6 +499,7 @@ begin
     pg_temp.as_service(format('select public.refresh_health_report_draft(%L, ''{"year":0}''::jsonb, %L::jsonb, %L::jsonb, null)::text', v_id2, ok_c, ok_p)));
   perform pg_temp.ck('...but never once signed', 'false',
     pg_temp.as_service(format('select public.refresh_health_report_draft(%L, ''{"year":0}''::jsonb, %L::jsonb, %L::jsonb, null)::text', v_id, ok_c, ok_p)));
+  perform pg_temp.claim_for(v_id2, doc);
   perform pg_temp.q_as(doc, format('select public.sign_health_report(%L, ''Your blood pressure held steady this year. One lab value was corrected.'', ''clinician'')::text', v_id2));
   perform pg_temp.ck('after signing the correction the patient sees one report, version 2, with the visible correction note', '1,2,A laboratory corrected an ALT value.',
     pg_temp.q_as(pat, 'select count(*)::text from public.health_reports') || ',' || pg_temp.q_as(pat, 'select max(version)::text from public.health_reports') || ',' ||

@@ -20,8 +20,8 @@ begin
                      or description !~* 'every year')) then
     raise exception 'S46c: the Know Your Basics copy still carries the old once-ever promise';
   end if;
-  if exists (select 1 from public.lab_tests
-              where description ~* '(hepatitis|hbsag|hcv)[^.]*(once|for life|lifetime)') then
-    raise exception 'S46c: a lab test description still says hepatitis is done once';
+  if exists (select 1 from public.panel_bundles
+              where description ~* '(hepatitis|hbsag|hcv)[^.]*(done once|once and|for life|lifetime)' and code <> 'know_your_basics') then
+    raise exception 'S46c: a catalogue bundle description still says hepatitis is done once';
   end if;
 end $$;

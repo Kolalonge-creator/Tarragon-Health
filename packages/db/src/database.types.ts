@@ -39412,9 +39412,17 @@ export type Database = {
         Args: { p_id: string }
         Returns: Database["public"]["Tables"]["health_reports"]["Row"]
       }
+      caregiver_health_report: {
+        Args: { p_patient: string; p_year?: number }
+        Returns: Json
+      }
+      caregiver_report_list: {
+        Args: never
+        Returns: { first_name: string; patient_id: string; signed_at: string; version: number; year: number }[]
+      }
       clinician_health_report_queue: {
         Args: never
-        Returns: { created_at: string; id: string; is_correction: boolean; patient_id: string; version: number; year: number }[]
+        Returns: { created_at: string; due_at: string; id: string; is_correction: boolean; patient_id: string; task_id: string; task_state: string; version: number; year: number }[]
       }
       clinician_list_pathway_overrides: {
         Args: { p_patient: string }

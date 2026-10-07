@@ -3,11 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { t } from "@tarragon/i18n";
-import { correctHealthReportAction, signHealthReportAction } from "@/lib/health-report/actions";
+import { correctHealthReportAction, handBackReportTaskAction, signHealthReportAction } from "@/lib/health-report/actions";
 
 type Source = "template" | "clinician" | "clinician_edited_ai_draft";
 
-export function ReviewForm({ reportId, status, templateSummary, aiDraft }: { reportId: string; status: "pending_signature" | "signed" | "superseded"; templateSummary: string; aiDraft: string | null }) {
+export function ReviewForm({ reportId, status, templateSummary, aiDraft, taskId, taskClaimed }: { reportId: string; status: "pending_signature" | "signed" | "superseded"; templateSummary: string; aiDraft: string | null; taskId: string | null; taskClaimed: boolean }) {
   const router = useRouter();
   const [text, setText] = useState(templateSummary);
   const [source, setSource] = useState<Source>("template");
@@ -36,6 +36,10 @@ export function ReviewForm({ reportId, status, templateSummary, aiDraft }: { rep
         {message ? <p role="status" className="text-sm">{message}</p> : null}
       </form>
     );
+  }
+
+  if (!taskClaimed) {
+    return <p role="note" className="rounded border p-3 text-sm">{t("report.review.waiting_in_queue", "en")}</p>;
   }
 
   return (
@@ -80,6 +84,22 @@ export function ReviewForm({ reportId, status, templateSummary, aiDraft }: { rep
         required
       />
       <button type="submit" disabled={pending || text.trim() === ""} className="min-h-11 rounded border px-3 text-sm">{t("report.review.sign", "en")}</button>
+      {taskId ? (
+        <button
+          type="button"
+          disabled={pending}
+          className="ml-2 min-h-11 rounded border px-3 text-sm"
+          onClick={() =>
+            start(async () => {
+              const r = await handBackReportTaskAction({ taskId, reason: "needs_information" });
+              setMessage(r.ok ? "Handed back to the queue." : "Not handed back.");
+              if (r.ok) router.push("/clinician/health-reports");
+            })
+          }
+        >
+          {t("report.review.handback", "en")}
+        </button>
+      ) : null}
       {message ? <p role="status" className="text-sm">{message}</p> : null}
     </form>
   );

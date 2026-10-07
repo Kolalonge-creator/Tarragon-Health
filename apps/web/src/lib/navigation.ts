@@ -249,6 +249,7 @@ export function getNavSections(
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
+            { label: "Yearly reports for people you support", href: "/patient/family/health-reports", icon: "passport" },
             { label: "Group screening days", href: "/patient/screening-days", icon: "booking" },
           ],
         },

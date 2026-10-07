@@ -102,12 +102,28 @@ function itemBlock(i: ReportItem, c: ComposedReport): Block {
   return { kind: "item", label: i.kind === "bp" ? t("report.section.bp", "en") : pretty(i.code), value, state: i.state, stateWord: t(STATE_KEY[i.state], "en"), symbol: SYMBOL[i.state], notes };
 }
 
-export function buildRenderModel(row: ReportRow, config: HealthReportConfig, variant: "self" | "shared" = "self", include: readonly string[] = []): RenderModel {
+/** What a caregiver's grant did not cover (S46c): the section ids to leave out, and whether the doctor's free-text summary is withheld with them. */
+export interface CaregiverView {
+  readonly withheld: readonly string[];
+  readonly summaryWithheld: boolean;
+}
+
+export function buildRenderModel(
+  row: ReportRow,
+  config: HealthReportConfig,
+  variant: "self" | "shared" = "self",
+  include: readonly string[] = [],
+  caregiver?: CaregiverView,
+): RenderModel {
   const c = variant === "shared" ? shareableView(row.composed, config, include) : row.composed;
   const sections: RenderSection[] = [];
   const p = (text: string): Block => ({ kind: "p", text });
 
-  sections.push({ id: "summary", heading: t("report.section.summary", "en"), blocks: [p(row.summary_text)] });
+  sections.push({
+    id: "summary",
+    heading: t("report.section.summary", "en"),
+    blocks: [p(caregiver?.summaryWithheld ? t("report.caregiver.summary_withheld", "en") : row.summary_text)],
+  });
 
   sections.push({
     id: "priorities",
@@ -175,6 +191,6 @@ export function buildRenderModel(row: ReportRow, config: HealthReportConfig, var
     versionLine: t("report.version", "en", { version: row.version }),
     correctionLine: row.correction_note ? t("report.correction", "en", { note: row.correction_note }) : null,
     variant,
-    sections,
+    sections: caregiver ? [...sections.filter((x) => !caregiver.withheld.includes(x.id)), ...(caregiver.withheld.length > 0 || caregiver.summaryWithheld ? [{ id: "withheld_note", heading: t("report.caregiver.some_withheld", "en"), blocks: [p(t("report.caregiver.intro", "en"))] }] : [])] : sections,
   };
 }
