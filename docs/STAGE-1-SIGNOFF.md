@@ -35,6 +35,12 @@ Also open, outside Stage 1 proper: PR 979 (competitor review, visit report, week
 
 Each merge should wait for the three required checks (`Supabase migration replay`, `Python ML service`, `TypeScript (web + shared)`). Migrations in these PRs are applied to production before merge (CI does not push migrations); the S38, S39 and S28 migrations need the usual live check first. This draft did not merge anything.
 
+### Update, later on 2026-10-07
+- **Merged:** #971 (S37b), #968 (S38), #999 (S27g lab panel, units, NICE blood pressure; migration applied live and signed), #967 (S35b), #975 (S35c; its two migrations applied live first), #988 (S38c to S38f), #994 (S34), #980 (S32b), #973 (S21h), #989 and #990 (by another session; #990 was later reverted by #1001).
+- **Open:** #1012 (S11c to S11h restored onto main-dev plus bp_care_triage v3; see below), #986 (S39: waiting on a decision about the secret scanner: history holds many storage-key and config-key names that the generic key rule flags, and loosening that rule is the founder's call), #982 (S33, re-merged with main-dev, CI running), #995 (this document).
+- **Found while merging, fixed in #1012 and applied live (S11h):** the live `private.handle_symptom_red_flag` had lost the clinician paging loop and the paediatric red flags, because S11e and S11g were written from an older copy of the function. Restored from the 2026-09-05 body plus testicular pain, the S11e answers and the S11g emergency record; the old proof now passes on a database that has S11e and S11g.
+- **Found:** the live triage rule set was rolled back on 2026-10-06 23:24 UTC (v1 approved over the approved v2). The deployed `process-events` still has the pre-S11c engine, so v3 must not be approved before that function is redeployed from the merged code.
+
 ## 2. The matrix (spec section 15)
 
 | Level | Tooling | Status in this draft |
