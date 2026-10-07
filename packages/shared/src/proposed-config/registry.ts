@@ -469,6 +469,39 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S15.md; OQ-104; OQ-108",
   },
   {
+    key: "credentialing.rules",
+    // Version 3 (S-18, S76 B2): the v2 rules plus the MDCN register re-check cadence. reverify_months: a staff check of
+    // the MDCN register at onboarding and every 12 months (no API is claimed). reverify_notice_days: reviewers are told
+    // this many days before a check is due. The database row is inserted INACTIVE; the sweep does nothing until the chief
+    // medical officer signs and activates this version.
+    value: {
+      min_practice_years: 2,
+      pass_percent: 80,
+      all_red_correct: true,
+      audited_task_count: 20,
+      referees_required: 2,
+      referee_independent_contact: true,
+      test_max_attempts: 3,
+      test_retake_cooldown_hours: 24,
+      test_scenarios_per_attempt: 10,
+      notice_windows_days: [90, 30, 0],
+      grace_max_days: 14,
+      separate_verifier_and_approver: true,
+      document_max_bytes: 8388608,
+      document_retention_years_after_offboarding: 7,
+      require_verified_phone: false,
+      document_purge_enabled: false,
+      rejected_application_document_retention_months: 24,
+      reverify_months: 12,
+      reverify_notice_days: 30,
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-18",
+  },
+  {
     key: "lab.release_policy",
     // Lab release policy (S27d). Live value is the active row of `lab_panel_signoffs`.config; a test fails if the migration seed and this
     // value drift. maxAttempts and escalateAfterHours are the founder's competitor-research follow-up: a held sensitive result that

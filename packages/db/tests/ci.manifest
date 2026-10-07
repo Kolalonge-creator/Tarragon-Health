@@ -924,3 +924,5 @@ s28c_pharmacy_extras.sql
 oq261_remove_home_delivery.sql
 # S76 B1: maternal, mental_health and paediatrics competencies as data; a scenario links to a competency; a competency with approved scenarios cannot be granted without a passed competency test (trigger covers every grant door); zero scenarios keeps today's CMO grant; answer key never returned; entry test excludes competency scenarios; RLS. Sabotage drops the trigger and the refused grant must succeed.
 s76_b1_competency_tests.sql
+# S76 B2: MDCN re-verification (S-18). Config v3 proposed and inactive so the sweep is inert; recording a check is reviewer only, never about yourself, append only, needs evidence or notes; not-found pauses access; with the cadence active an overdue clinician is noticed once and suspended, an audited licence grace spares them, due-soon is noticed once, a recorded check moves the due date; RLS. Sabotage removes the grace check and the spared clinician must be suspended.
+s76_b2_mdcn_reverification.sql
