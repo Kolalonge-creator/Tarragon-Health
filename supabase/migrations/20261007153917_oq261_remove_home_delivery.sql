@@ -209,7 +209,8 @@ grant execute on function public.provider_org_pharmacy_order_queue(uuid) to auth
 
 -- Pharmacist profile: no delivery argument (signature changes, so drop and recreate).
 drop function public.pharmacist_update_profile(text, text[], text, text, text, text, boolean, text, timestamp with time zone);
-create function public.pharmacist_update_profile(p_name text, p_regions text[], p_city text, p_state text, p_contact_phone text, p_contact_email text, p_license_number text, p_license_expires_at timestamp with time zone)
+-- (create or replace: the additive migration oq261a already added this eight-argument form, so old and new code both work during the deploy)
+create or replace function public.pharmacist_update_profile(p_name text, p_regions text[], p_city text, p_state text, p_contact_phone text, p_contact_email text, p_license_number text, p_license_expires_at timestamp with time zone)
 returns void language plpgsql security definer set search_path to '' as $function$
 declare
   v_partner_id uuid := private.pharmacist_partner();
