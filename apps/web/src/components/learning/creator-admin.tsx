@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useCreators, useSetCreatorStatus, type CreatorWithStaff } from "@/lib/queries/learning-centre";
+import { useCreatorProgrammeEnabled, useCreators, useSetCreatorStatus, type CreatorWithStaff } from "@/lib/queries/learning-centre";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +63,7 @@ function CreatorRow({ creator }: { creator: CreatorWithStaff }) {
 /** Approve or suspend clinician creators (S55, 9.7). Admin or CMO. Verified clinicians only; no payouts or payment logic. */
 export function CreatorAdmin() {
   const { data, isLoading, isError } = useCreators();
+  const { data: enabled } = useCreatorProgrammeEnabled();
   return (
     <Card>
       <CardHeader>
@@ -73,6 +74,12 @@ export function CreatorAdmin() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {enabled === false && (
+          <p className="mb-3 rounded-md bg-amber-50 p-2 text-xs text-amber-900">
+            The creator programme is switched off. Applications and approvals are refused until a superadmin activates the
+            &quot;Clinician creator programme&quot; module. Suspending still works.
+          </p>
+        )}
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load creators.</p>}
         {data && data.length === 0 && <p className="text-sm text-charcoal-ink/60">No one has applied yet.</p>}

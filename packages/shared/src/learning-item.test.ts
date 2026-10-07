@@ -29,10 +29,13 @@ describe("nextStep", () => {
     expect(nextStep({ next_action: "Read lesson two.", next_step_kind: "lesson", next_step_target_code: "bpc_02", next_step_target_title: "Measure it right" })?.targetCode).toBe("bpc_02");
     expect(nextStep({ next_action: "Read lesson two.", next_step_kind: "lesson", next_step_target_code: "bpc_02", next_step_target_title: null })?.targetCode).toBeNull();
   });
-  it("is null for an older item with no next step, or an unknown kind", () => {
+  it("is null for an older item with no next step sentence", () => {
     expect(nextStep({})).toBeNull();
-    expect(nextStep({ next_action: "Do a thing now.", next_step_kind: "other" })).toBeNull();
     expect(nextStep({ next_action: "", next_step_kind: "booking" })).toBeNull();
+  });
+  it("is a text-only footer when the kind is missing or unknown", () => {
+    expect(nextStep({ next_action: "Do a thing now." })).toEqual({ kind: null, label: "Do a thing now.", targetCode: null, targetTitle: null });
+    expect(nextStep({ next_action: "Do a thing now.", next_step_kind: "other" })?.kind).toBeNull();
   });
 });
 

@@ -56,7 +56,8 @@ export function formatLagosDate(iso: string): string {
 export type NextStepKind = "care_plan_goal" | "booking" | "lesson";
 
 export interface NextStep {
-  kind: NextStepKind;
+  /** Null when the item has the sentence but no link target: the footer is then text only. */
+  kind: NextStepKind | null;
   /** The sentence shown to the patient. */
   label: string;
   /** Content code of the next lesson, when kind is lesson and that lesson is still servable. */
@@ -67,17 +68,18 @@ export interface NextStep {
 const KINDS: readonly string[] = ["care_plan_goal", "booking", "lesson"];
 
 /**
- * The standard "What can I do next?" footer. Null when the item has no next step (older items published before the rule).
+ * The standard "What can I do next?" footer. Null when the item has no next-step sentence (older items published before the rule).
+ * A missing or unknown kind gives a text-only footer.
  * A lesson link is dropped, with the sentence kept, when the target is not currently servable (the database then returns no
  * target title).
  */
 export function nextStep(item: LearningItemFields): NextStep | null {
   const label = item.next_action?.trim();
-  const kind = item.next_step_kind;
-  if (!label || !kind || !KINDS.includes(kind)) return null;
+  if (!label) return null;
+  const kind = item.next_step_kind && KINDS.includes(item.next_step_kind) ? (item.next_step_kind as NextStepKind) : null;
   const linkable = kind === "lesson" && !!item.next_step_target_code && !!item.next_step_target_title;
   return {
-    kind: kind as NextStepKind,
+    kind,
     label,
     targetCode: linkable ? (item.next_step_target_code ?? null) : null,
     targetTitle: linkable ? (item.next_step_target_title ?? null) : null,

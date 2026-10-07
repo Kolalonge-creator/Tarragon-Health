@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import {
   useApplyAsCreator,
+  useCreatorProgrammeEnabled,
   useMyCreator,
   useCreatorMyContent,
   useCreatorSubmitContent,
@@ -121,9 +122,21 @@ function SubmitForm() {
 /** A verified clinician's own creator area (S55, 9.7): apply, then submit pieces into the existing clinical review. */
 export function CreatorWorkspace({ staffId }: { staffId: string }) {
   const { data: me = null } = useMyCreator(staffId);
+  const { data: enabled } = useCreatorProgrammeEnabled();
   const apply = useApplyAsCreator();
   const { data: content } = useCreatorMyContent();
   const [bio, setBio] = useState("");
+
+  if (enabled === false) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Write for the Learning Centre</CardTitle>
+          <CardDescription>The clinician creator programme has not opened yet. We will tell you when it does.</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -277,7 +277,7 @@ function ContentForm({
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="content_next_kind">Next step goes to</Label>
+          <Label htmlFor="content_next_kind">Link the next step to (optional)</Label>
           <Select
             id="content_next_kind"
             value={form.next_step_kind ?? ""}
@@ -427,7 +427,7 @@ function ContentRow({ item, isCourseLesson }: { item: HealthEducationContent; is
       <div className="flex flex-wrap gap-2">
         {nextStatuses.map((n) => {
           const needsNextStep =
-            n.status === "published" && item.content_status !== "review_due" && (!item.next_action || !item.next_step_kind);
+            n.status === "published" && item.content_status !== "review_due" && !item.next_action;
           return (
           <Button
             key={n.status}

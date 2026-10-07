@@ -23,6 +23,7 @@ export type HealthEducationStatus = Enums<"health_education_status">;
 export type HealthEducationFeedbackType = Enums<"health_education_feedback_type">;
 
 export const HEALTH_EDUCATION_CATEGORIES: { value: HealthEducationCategory; label: string }[] = [
+  { value: "when_to_seek_care", label: "When to seek care" },
   { value: "hypertension", label: "Blood pressure" },
   { value: "diabetes", label: "Diabetes" },
   { value: "heart", label: "Heart health" },
@@ -89,6 +90,42 @@ export async function loadHealthEducationLibrary(category: HealthEducationCatego
   const { data, error } = await supabase.rpc("health_education_library", { p_category: category ?? undefined });
   if (error) throw error;
   return data ?? [];
+}
+
+export type SearchResult = Database["public"]["Functions"]["health_education_search"]["Returns"][number];
+export type ThisWeekLesson = Database["public"]["Functions"]["learning_this_week"]["Returns"][number];
+
+/** One search across every category, in everyday words (S55, 9.3). Server-side, no model call. */
+export async function searchHealthEducation(query: string): Promise<SearchResult[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const { data, error } = await supabase.rpc("health_education_search", { p_query: q, p_limit: 20 });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** The one short lesson for Today, or null (S55, 9.2). */
+export async function loadThisWeeksLesson(): Promise<ThisWeekLesson | null> {
+  const { data, error } = await supabase.rpc("learning_this_week");
+  if (error) throw error;
+  return (data ?? [])[0] ?? null;
+}
+
+/** One topic with its full body (the search results carry no body). */
+export async function loadHealthEducationDetail(code: string): Promise<LibraryItem | null> {
+  const { data, error } = await supabase.rpc("health_education_content_detail", { p_code: code });
+  if (error) throw error;
+  return (data ?? [])[0] ?? null;
+}
+
+/**
+ * Which of these saved codes may still be served (S55, 9.6). Returns null when the server cannot be reached, so the caller
+ * applies only the local review-date rule and does not treat "offline" as "withdrawn".
+ */
+export async function loadServableCodes(codes: string[]): Promise<{ code: string; next_review_due: string | null; content_version: number | null }[] | null> {
+  const { data, error } = await supabase.rpc("health_education_servable_codes", { p_codes: codes });
+  if (error) return null;
+  return (data ?? []).map((r) => ({ code: r.code, next_review_due: r.next_review_due ?? null, content_version: r.content_version ?? null }));
 }
 
 /** Upsert on (patient_id, content_id) — mirrors useMarkContentProgress. */

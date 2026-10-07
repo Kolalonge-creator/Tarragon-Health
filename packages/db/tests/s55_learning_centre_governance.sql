@@ -121,6 +121,10 @@ begin
   perform pg_temp.rec('review_due back to published is exempt from the next-step rule', 'ok',
     pg_temp.try(format($q$update public.health_education_content set content_status = 'published' where id = %L$q$, v_a)));
 
+  v_c := pg_temp.mkcontent('s55_sentence_only', 'draft');
+  perform pg_temp.rec('a next-step sentence with no link kind is enough to publish', 'ok',
+    pg_temp.try(format($q$update public.health_education_content set next_action = 'Take your reading at the same time daily.', content_status = 'published' where id = %L$q$, v_c)));
+
   -- 2. Lesson length ----------------------------------------------------------------------------------------------
   v_b := pg_temp.mkcontent('s55_len_long', 'draft', 8);
   v_c := pg_temp.mkcontent('s55_len_ok', 'draft', 5);
@@ -135,6 +139,14 @@ begin
     pg_temp.try(format($q$update public.health_education_content set estimated_minutes = null where id = %L$q$, v_c)));
   perform pg_temp.rec('a lesson outside any programme may be longer (control)', 'ok',
     pg_temp.try(format($q$update public.health_education_content set estimated_minutes = 9 where id = %L$q$, v_b)));
+
+  -- The gates run inside an admin's own save (the authenticated role): they must not need a permission the role lacks.
+  perform pg_temp.act(v_admin);
+  perform pg_temp.rec('an admin can save content through the API role', 'ok',
+    pg_temp.try(format($q$update public.health_education_content set summary = 'edited by an admin' where id = %L$q$, v_b)));
+  perform pg_temp.rec('an admin adding a long lesson to a course is refused by the rule, not by a permission error', '23514',
+    pg_temp.try(format($q$insert into public.health_education_programme_modules (programme_id, content_id, module_number, title) values (%L, %L, 3, 'long2')$q$, v_prog, v_b)));
+  perform pg_temp.back();
 
   -- 3. Reviewer credit, sources, next step --------------------------------------------------------------------------
   v_a := pg_temp.mkcontent('s55_credit', 'published');
@@ -185,6 +197,11 @@ begin
   perform pg_temp.rec('editing a reviewed alias returns it to draft', 'draft', (select review_state from public.health_education_search_aliases where id = v_alias));
 
   -- 5. Creators -----------------------------------------------------------------------------------------------------
+  perform pg_temp.rec('the creator programme ships dormant', 'false', private.module_enabled('learning_creators')::text);
+  perform pg_temp.act(v_clin);
+  perform pg_temp.rec('while dormant, even a verified clinician cannot apply', '23514', pg_temp.try('select public.apply_as_creator(''bio'')'));
+  perform pg_temp.back();
+  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = v_admin where key = 'learning_creators';
   perform pg_temp.act(v_pat);
   perform pg_temp.rec('a patient cannot apply as a creator', '42501', pg_temp.try('select public.apply_as_creator(''bio'')'));
   perform pg_temp.back();
@@ -200,6 +217,13 @@ begin
   perform pg_temp.rec('a pending creator cannot submit', '42501',
     pg_temp.try($q$select public.creator_submit_content('cr_pending_try','A title that is long enough','sum','This is a body that is certainly longer than fifty characters in total.','nutrition','article',3,'WHO 2023','Try this today.','booking',null)$q$));
   perform pg_temp.rec('a creator cannot approve themselves', '42501', pg_temp.try(format($q$select public.set_creator_status(%L, 'approved', 'I approve myself please')$q$, v_creator)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
+  perform pg_temp.rec('the CMO (a verified clinician) can apply', 'ok', pg_temp.try('select public.apply_as_creator(''Chief Medical Officer.'')'));
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
+  perform pg_temp.rec('the CMO cannot approve their own application', '23514',
+    pg_temp.try(format($q$select public.set_creator_status(%L, 'approved', 'Approving myself should not work.')$q$, (select id from public.creators where clinical_staff_id = v_staff_cmo))));
   perform pg_temp.back();
   perform pg_temp.act(v_pat);
   perform pg_temp.rec('a patient cannot approve a creator', '42501', pg_temp.try(format($q$select public.set_creator_status(%L, 'approved', 'Patient approving them')$q$, v_creator)));
@@ -254,6 +278,38 @@ begin
   update public.clinical_staff set active = true where id = v_staff_clin;
   perform pg_temp.act(v_member);
   perform pg_temp.rec('...and returns when verification returns', '1', pg_temp.lib('cr_series_one'));
+  perform pg_temp.back();
+
+  -- 5b. Mirror a marketing myth article into the library as a draft (9.5) ------------------------------------------------
+  insert into public.marketing_resources (slug, title, description, category, read_minutes, sections, is_published)
+  values ('s55-test-myth', 'A test myth article', 'Short description of the myth.', 'Blood pressure', 3,
+          '[{"heading":"The myth","paragraphs":["People say it is true.","It is not."]}]'::jsonb, true);
+  perform pg_temp.act(v_pat);
+  perform pg_temp.rec('a patient cannot mirror a marketing article', '42501', pg_temp.try($q$select public.mirror_marketing_resource_to_learning('s55-test-myth')$q$));
+  perform pg_temp.back();
+  perform pg_temp.act(v_admin);
+  perform pg_temp.rec('an admin can mirror it', 'ok', pg_temp.try($q$select public.mirror_marketing_resource_to_learning('s55-test-myth')$q$));
+  perform pg_temp.rec('mirroring twice returns the same item', 'true',
+    (select (public.mirror_marketing_resource_to_learning('s55-test-myth') = (select id from public.health_education_content where code = 'myth_s55_test_myth'))::text));
+  perform pg_temp.back();
+  perform pg_temp.rec('the mirrored item is a draft, unreviewed, inactive, tagged', 'draft,false,false,myth_busting',
+    (select content_status::text || ',' || clinician_reviewed::text || ',' || is_active::text || ',' || series_tag from public.health_education_content where code = 'myth_s55_test_myth'));
+  perform pg_temp.rec('the mirrored body carries the article text', 'true',
+    (select (body like '%It is not.%')::text from public.health_education_content where code = 'myth_s55_test_myth'));
+  perform pg_temp.act(v_pat);
+  perform pg_temp.rec('a patient is not served the mirrored draft', '0', pg_temp.lib('myth_s55_test_myth'));
+  perform pg_temp.back();
+
+  -- 5c. Suspending a creator ------------------------------------------------------------------------------------------
+  perform pg_temp.act(v_cmo);
+  perform pg_temp.rec('the CMO can suspend a creator', 'ok', pg_temp.try(format($q$select public.set_creator_status(%L, 'suspended', 'Paused while the licence is checked.')$q$, v_creator)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_member);
+  perform pg_temp.rec('a suspended creator''s content is not served', '0', pg_temp.lib('cr_series_one'));
+  perform pg_temp.back();
+  perform pg_temp.act(v_clin);
+  perform pg_temp.rec('a suspended creator cannot submit', '42501',
+    pg_temp.try($q$select public.creator_submit_content('cr_after_suspend','A title that is long enough','sum','This is a body that is certainly longer than fifty characters in total.','nutrition','article',4,'WHO 2023','Do this today.','booking',null)$q$));
   perform pg_temp.back();
 
   -- 6. Share --------------------------------------------------------------------------------------------------------

@@ -76,6 +76,12 @@ describe("NextStepFooter", () => {
     expect(screen.getByText("Read lesson two.")).toBeTruthy();
   });
 
+  it("renders a text-only footer when there is a sentence but no link target", () => {
+    render(<NextStepFooter item={{ next_action: "Take your reading at the same time each day." }} />);
+    expect(screen.getByText("Take your reading at the same time each day.")).toBeTruthy();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
   it("renders nothing for an item with no next step", () => {
     const { container } = render(<NextStepFooter item={{}} />);
     expect(container.firstChild).toBeNull();

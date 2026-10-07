@@ -77,7 +77,8 @@ const STEP_ACTION = {
 export function NextStepFooter({ item }: { item: LearningItemFields }) {
   const step = nextStep(item);
   if (!step) return null;
-  const href = step.kind === "lesson" ? (step.targetCode ? `/patient/learn/${encodeURIComponent(step.targetCode)}` : null) : STEP_HREF[step.kind];
+  const href =
+    step.kind === null ? null : step.kind === "lesson" ? (step.targetCode ? `/patient/learn/${encodeURIComponent(step.targetCode)}` : null) : STEP_HREF[step.kind];
   return (
     <section
       aria-labelledby="next-step-heading"
@@ -88,7 +89,7 @@ export function NextStepFooter({ item }: { item: LearningItemFields }) {
         What can I do next?
       </h3>
       <p className="mt-1 text-sm text-charcoal-ink/80 dark:text-night-ink/80">{step.label}</p>
-      {href && (
+      {href && step.kind && (
         <Link
           href={href}
           className="mt-2 inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright underline"

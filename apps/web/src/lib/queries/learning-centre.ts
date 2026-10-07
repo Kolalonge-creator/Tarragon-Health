@@ -113,6 +113,19 @@ export function useCreators() {
   });
 }
 
+/** Whether the creator programme has been switched on by a superadmin (it ships dormant). Null while loading. */
+export function useCreatorProgrammeEnabled() {
+  return useQuery({
+    queryKey: ["platform-module", "learning_creators"] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("platform_modules").select("is_enabled").eq("key", "learning_creators").maybeSingle();
+      if (error) throw error;
+      return data?.is_enabled === true;
+    },
+  });
+}
+
 /** The signed-in clinician's own creator row (the CMO can read every row, so filter by their staff id). */
 export function useMyCreator(staffId: string) {
   return useQuery({

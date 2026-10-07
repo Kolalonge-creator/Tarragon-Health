@@ -1,4 +1,4 @@
--- S55: Learning Centre read functions, part 2 of 2 (see 20261007003500_s55_learning_governance_aliases_creators.sql).
+-- S55: Learning Centre read functions, part 2 of 2 (see 20261007010525_s55_learning_governance_aliases_creators.sql).
 --
 -- One private function, private.health_education_items(), derives every patient-facing column once (reviewer credit, Members
 -- lock, in-date test, next step, creator byline), and feed / library / detail / programme detail / search / this-week /
@@ -15,7 +15,7 @@ drop function if exists public.health_education_library(public.health_education_
 drop function if exists public.health_education_content_detail(text);
 drop function if exists public.health_education_programme_detail(text);
 
-create or replace function private.health_education_items()
+create or replace function private.health_education_items(p_codes text[] default null)
 returns table (
   content_id uuid,
   code text,
@@ -119,9 +119,10 @@ as $$
   left join public.clinical_staff rs on rs.id = c.clinical_owner_id
   left join public.creators cr on cr.id = c.creator_id
   left join public.clinical_staff crs on crs.id = cr.clinical_staff_id
-  left join public.health_education_content nt on nt.code = c.next_step_target_code;
+  left join public.health_education_content nt on nt.code = c.next_step_target_code
+  where p_codes is null or c.code = any (p_codes);
 $$;
-revoke all on function private.health_education_items() from public, anon, authenticated;
+revoke all on function private.health_education_items(text[]) from public, anon, authenticated;
 
 -- ---- library --------------------------------------------------------------------------------------------------------
 create or replace function public.health_education_library(p_category public.health_education_category default null)
@@ -397,7 +398,7 @@ as $$
     i.locked,
     i.creator_name,
     i.is_public
-  from private.health_education_items() i
+  from private.health_education_items(array[p_code]) i
   where i.code = p_code
     and (i.servable or private.is_admin());
 $$;
@@ -566,7 +567,7 @@ security definer
 set search_path = ''
 as $$
   select i.code, i.next_review_due, c.content_version
-  from private.health_education_items() i
+  from private.health_education_items(p_codes) i
   join public.health_education_content c on c.id = i.content_id
   where i.code = any (coalesce(p_codes, '{}'::text[]))
     and i.servable
@@ -647,8 +648,8 @@ begin
   if not has_function_privilege('anon', 'public.public_health_education_item(text)', 'EXECUTE') then
     raise exception 'the public share function must be callable by anon';
   end if;
-  if has_function_privilege('anon', 'private.health_education_items()', 'EXECUTE')
-     or has_function_privilege('authenticated', 'private.health_education_items()', 'EXECUTE') then
+  if has_function_privilege('anon', 'private.health_education_items(text[])', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.health_education_items(text[])', 'EXECUTE') then
     raise exception 'the items function must not be callable directly';
   end if;
 end $$;

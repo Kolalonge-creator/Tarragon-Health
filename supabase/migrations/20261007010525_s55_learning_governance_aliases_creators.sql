@@ -1,5 +1,5 @@
 -- S55: Learning Centre governance (spec Module 9, functions 9.1 to 9.8), part 1 of 2.
--- Part 2 (the patient read functions) is 20261007004500_s55_learning_read_functions.sql.
+-- Part 2 (the patient read functions) is 20261007010528_s55_learning_read_functions.sql.
 --
 -- D1: mapped onto the LIVE tables. No content_items / course_progress. New tables only where nothing live exists:
 --   health_education_search_aliases (9.3) and creators (9.7).
@@ -9,7 +9,8 @@
 --     replay without S33 still works and S33's own earlier migration is not broken), clinical_owner_id (a link to a verified
 --     clinical_staff row, 9.6), next_step_kind + next_step_target_code (9.4, next_action is the visible label),
 --     series_tag (9.5), is_public (9.8), members_only and creator_id (9.7).
---   * Publish gate (trigger): a row cannot become published without a next step (9.4). A lesson in a programme must be 1..5
+--   * Publish gate (trigger): a row cannot become published without a "what can I do next" line (9.4); its kind (goal, booking,
+--     lesson) is optional and only decides whether the footer carries a link (S33's BP course lessons already carry the line). A lesson in a programme must be 1..5
 --     minutes (9.2), enforced here and on programme modules. A public row must carry a complete review record.
 --     A row that was ALREADY published and only returns from review_due is exempt from the next-step rule, so the 213+6 live
 --     rows are not locked out of the cron's review cycle; they are asked for a next step when next edited by an admin in the UI.
@@ -133,9 +134,12 @@ revoke all on function private.learning_is_cmo() from public, anon, authenticate
 -- ---------------------------------------------------------------------------
 -- 3. Publish gate on content
 -- ---------------------------------------------------------------------------
+-- SECURITY DEFINER on purpose: the trigger runs inside an admin's own save (the authenticated role), and the helpers it calls are
+-- not granted to that role. It only reads and raises; it writes nothing.
 create or replace function private.health_education_content_publish_gate()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 declare
@@ -146,8 +150,8 @@ begin
   if new.content_status = 'published'
      and (tg_op = 'INSERT' or old.content_status is distinct from 'published')
      and not (tg_op = 'UPDATE' and old.content_status = 'review_due') then
-    if new.next_action is null or new.next_step_kind is null then
-      raise exception 'health_education_next_step_required: add a "what can I do next" line and its kind before publishing %', new.code
+    if new.next_action is null or char_length(btrim(new.next_action)) < 5 then
+      raise exception 'health_education_next_step_required: add a "what can I do next" line before publishing %', new.code
         using errcode = '23514';
     end if;
     if new.next_step_kind = 'lesson'
@@ -187,6 +191,7 @@ create trigger health_education_content_publish_gate
 create or replace function private.health_education_module_length_gate()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 declare
@@ -286,6 +291,13 @@ on conflict do nothing;
 -- ---------------------------------------------------------------------------
 -- 5. Creators (9.7)
 -- ---------------------------------------------------------------------------
+-- The creator programme ships built but DORMANT (founder: build everything, switch nothing on; the Stage 1 gate S40 is open).
+-- apply, approve and submit all refuse until a superadmin runs public.set_platform_module('learning_creators', true, '<why>').
+insert into public.platform_modules (key, label, description)
+values ('learning_creators', 'Clinician creator programme',
+        'Verified clinicians write Members-only Learning Centre series, reviewed before publishing. Dormant until a superadmin activates it.')
+on conflict (key) do nothing;
+
 create table public.creators (
   id                uuid primary key default gen_random_uuid(),
   organisation_id   uuid not null references public.organisations (id) on delete restrict,
@@ -377,6 +389,7 @@ declare
   v_id uuid;
 begin
   if v_uid is null then raise exception 'not_authenticated' using errcode = '42501'; end if;
+  perform private.assert_module_enabled('learning_creators');
   select * into v_staff from public.clinical_staff cs where cs.profile_id = v_uid;
   if not found or not private.is_verified_clinician(v_staff.id) then
     raise exception 'creator_not_verified: only a verified clinician can apply' using errcode = '42501';
@@ -412,6 +425,12 @@ begin
   end if;
   select * into v_c from public.creators where id = p_creator for update;
   if not found then raise exception 'unknown creator' using errcode = '22023'; end if;
+  if exists (select 1 from public.clinical_staff cs where cs.id = v_c.clinical_staff_id and cs.profile_id = v_uid) then
+    raise exception 'creator_self_decision: you cannot decide your own application' using errcode = '23514';
+  end if;
+  if p_status = 'approved' then
+    perform private.assert_module_enabled('learning_creators');
+  end if;
   if p_status = 'approved' and not private.is_verified_clinician(v_c.clinical_staff_id) then
     raise exception 'creator_not_verified: the clinician is not currently verified' using errcode = '23514';
   end if;
@@ -440,6 +459,7 @@ declare
   v_id uuid;
 begin
   if v_uid is null then raise exception 'not_authenticated' using errcode = '42501'; end if;
+  perform private.assert_module_enabled('learning_creators');
   select c.* into v_creator from public.creators c join public.clinical_staff cs on cs.id = c.clinical_staff_id
    where cs.profile_id = v_uid;
   if not found or not private.learning_creator_in_good_standing(v_creator.id) then
@@ -554,6 +574,9 @@ begin
   end if;
   if has_table_privilege('authenticated', 'public.creators', 'INSERT') or has_table_privilege('authenticated', 'public.creators', 'UPDATE') then
     raise exception 'authenticated can write creators directly';
+  end if;
+  if private.module_enabled('learning_creators') then
+    raise exception 'the creator programme must ship dormant';
   end if;
   if (select count(*) from public.health_education_search_aliases where review_state = 'clinician_reviewed') <> 0 then
     raise exception 'an alias was seeded as reviewed';

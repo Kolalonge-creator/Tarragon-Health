@@ -21,6 +21,8 @@ import { getPendingPaymentIssue, type PendingPaymentIssue } from "@/lib/services
 import { PaymentIssueCard } from "@/screens/sections/payment-issue-card";
 import { HowYoureDoingCard } from "@/screens/sections/how-youre-doing-card";
 import { TodayCard } from "@/screens/sections/today-card";
+import { ThisWeeksLessonCard } from "@/screens/sections/learn-parts";
+import { requestLesson } from "@/lib/learn-intent";
 import { todayIsoDate } from "@/lib/medications";
 import { agoLine, dueLine, formatVisitTime, heroMetric, nextBestStep, type Line } from "@/lib/home-model";
 import { lightPalette, radii, space, useTheme } from "@/ui/design";
@@ -240,6 +242,14 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
 
       {/* After the video visit card: a visit that starts soon must stay near the top. */}
       <TodayCard patientId={patientId} onNavigate={onNavigate} reloadToken={scoreReloadToken} />
+
+      {/* One short lesson for the week (S55, 9.2); nothing when there is none. */}
+      <ThisWeeksLessonCard
+        onOpen={(code) => {
+          requestLesson(code);
+          onNavigate("learn");
+        }}
+      />
 
       {showGetStarted ? <GetStartedCard progress={progress} onNavigate={onNavigate} /> : null}
 

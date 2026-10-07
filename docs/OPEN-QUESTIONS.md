@@ -1440,3 +1440,32 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The AI-003 eval case `pidgin_language_fidelity` keeps one recorded failed result, so it stays as audit history (its runner no longer runs it).
 - Pidgin audio recordings or text-to-speech voices held outside this repository (a TTS account, a drive) are not touched by code and need deleting by hand.
 - Decision: open (CMO for the version; founder for outside assets).
+
+### S55 (Health Learning Centre): open questions (numbers OQ-290 to OQ-295 chosen clear of the in-flight S51 to S54 and S39 ranges; renumber at merge if they collide)
+
+### OQ-290 Stage 1 gate (S40) is not closed; S55 built anyway at the founder's instruction
+- Founder, 2026-10-07: proceed anyway, build everything, switch nothing on. S55 honours that: the creator programme ships behind the dormant platform module `learning_creators`, search aliases are draft, no content is marked reviewed, and the only live-first item is the D4 safety migration (`20261007002437_s55_d4_never_serve_content_past_review_date.sql`, hides 0 items today).
+- Decision: recorded.
+
+### OQ-291 Content with no review date: served (fail open) or hidden (fail closed)? (D4)
+- Live 2026-10-07: 249 content rows, 219 published, ALL with `next_review_due` NULL (0 overdue). The D4 rule hides an item once its date is on or before today in Africa/Lagos. A NULL date fails OPEN, because failing closed would remove the whole library on apply. Consequence: today no item is protected by expiry.
+- Options: (a) as built, and the CMO assigns review dates to the 6 clinician-reviewed items first, then the rest (recommended); (b) fail closed for every item with no date (library disappears until dated); (c) fail closed only for `clinician_reviewed = false` items (213 rows hidden; the 6 reviewed stay).
+- One-line change: `private.health_education_review_in_date()`.
+- Decision: open (CMO).
+
+### OQ-292 Search aliases need a clinician review before search uses them
+- 9 draft aliases were seeded ("BP", "sugar", "high blood", "pressure", "sugar disease", ...). Search ignores a draft. Until the CMO marks them reviewed (`/clinician/learning-governance`), search finds only what plain words find. Editing a reviewed alias returns it to draft.
+- Decision: open (CMO).
+
+### OQ-293 Creator programme: activation and review ownership
+- `learning_creators` is dormant. Before activation: who reviews a creator's piece (the existing admin-run status workflow is the only path today and the CMO cannot reach `/admin`), the byline and bio wording, and whether creator pieces should also be publishable to non-members later. No payout or payment exists or is planned in this module.
+- Decision: open (founder, CMO).
+
+### OQ-294 Audio player needs a native build
+- No audio module (expo-audio) is installed. S55 adds a port (`apps/mobile/src/lib/content-audio.ts`); until a build registers an engine the app shows the written version and opens the file in the phone's player. Adding `expo-audio` needs a new EAS build and a `runtimeVersion` bump (OQ-201). Not tested on a real device.
+- Decision: open (founder, native build).
+
+### OQ-295 `when_to_seek_care` category and myth series have no content
+- The category exists and the myth-busting programme exists with no modules. Nothing was written: clinical safety wording must come from the CMO. The admin can copy the three existing marketing myth articles in as drafts (`mirror_marketing_resource_to_learning`), each needing review and a next step before it can be published.
+- Also: the 213 published items without a next step are exempt from the new next-step rule until they return from review_due; the CMO may want a sweep.
+- Decision: open (CMO).
