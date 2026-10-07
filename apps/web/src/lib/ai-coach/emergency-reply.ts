@@ -16,7 +16,7 @@ export async function buildEmergencyReply(
   params: { profileId: string; conversationId: string; message: string; fixedReply?: string; page: boolean },
 ): Promise<{ reply: string; selfHarm: boolean }> {
   const selfHarm = isSelfHarmMessage(params.message);
-  const [, addendum] = await Promise.all([
+  const [paged, addendum] = await Promise.all([
     // the page is bounded like the hospital lookup: the fixed copy never waits on a slow database
     selfHarm && params.page
       ? Promise.race([
@@ -27,5 +27,7 @@ export async function buildEmergencyReply(
     emergencyAddendumFor(deps.supabase, params.profileId),
   ]);
   const base = selfHarm ? SELF_HARM_REPLY : (params.fixedReply ?? EMERGENCY_SAFETY_REPLY);
-  return { reply: addendum ? `${base}\n\n${addendum}` : base, selfHarm };
+  // Only say someone has been told when the page really went out (INV-05: never promise what did not happen)
+  const told = paged ? "Someone on your care team has been told, and will try to reach you." : "";
+  return { reply: [base, told, addendum].filter(Boolean).join("\n\n"), selfHarm };
 }

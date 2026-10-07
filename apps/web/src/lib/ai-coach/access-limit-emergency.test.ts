@@ -50,7 +50,8 @@ describe("neither a plan nor the daily limit stands in front of an emergency", (
     countMessagesToday.mockResolvedValue(99);
     pageOnCallForSelfHarm.mockClear();
     const out = await runCoachTurn({ ...base, message: "I want to kill myself" });
-    expect(out.reply).toBe(SELF_HARM_REPLY);
+    expect(out.reply.startsWith(SELF_HARM_REPLY)).toBe(true);
+    expect(out.reply).toContain("has been told");
     expect(pageOnCallForSelfHarm).toHaveBeenCalledTimes(1);
   });
 
