@@ -289,7 +289,7 @@ end $$;
 -- =========================================================================== 3. static scan: nobody compares a count with the minimum by hand
 do $$
 declare v_hand text; v_unrouted text; v_missing text; v_surfaces text[] := array[
-  'private.bp_control_aggregate_day', 'private.sponsor_report_aggregate', 'private.generate_sponsor_snapshots', 'public.risk_distribution_report',
+  'private.bp_control_aggregate_day', 'private.sponsor_report_aggregate', 'private.generate_sponsor_snapshots', 'private.risk_distribution_json',
   'public.triage_agreement_report', 'public.institution_subsidy_summary', 'public.reproductive_health_analytics', 'public.payer_dashboard_analytics',
   'public.generate_payer_board_report', 'private.outcome_cohort_json'];
 begin
