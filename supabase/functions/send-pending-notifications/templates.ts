@@ -2,6 +2,7 @@
 // template and prove none puts a condition, reading, drug or result in the text (INV-07). Behaviour is unchanged.
 import { createHmac } from "node:crypto";
 import { resolveI18n } from "../_shared/i18n/resolve.ts";
+import { emergencyContactName, emergencyContactText } from "../_shared/notifications/emergency-contact.ts";
 
 // Patient-experience review 2026-07-31: several reminder templates only ever
 // said "open the app" with no actual link — real friction for a patient
@@ -1181,17 +1182,17 @@ export const TEMPLATE_MAP: Record<
       email: neutralMail("Your care team has reviewed a document you uploaded", [`Hi ${patientName},`, "Your care team has reviewed a document you uploaded. Open the Tarragon Health app to see it."], [["Reference", serial]]),
     };
   },
+  // S85-D3: the one named SMS exception. The text is signed and content-free; it lives in _shared/notifications/emergency-contact.ts.
   emergency_contact_alert: (payload) => {
-    const contactName = String(payload.contact_name ?? "there");
-    const patientName = String(
-      payload.patient_name ?? "someone who lists you as their emergency contact",
-    );
-    const smsText =
-      `${contactName}, this is an urgent alert from Tarragon Health. ${patientName} reported a ` +
-      `possible medical emergency and may need your help. Please try to reach them now. If you ` +
-      `cannot and it is an emergency, help them get to the nearest hospital. Tarragon Health`;
+    const smsText = emergencyContactText(payload.patient_name);
+    const name = emergencyContactName(payload.patient_name);
     return {
       smsText,
+      email: {
+        subject: `Please call ${name} now`,
+        html: `<p>${escapeHtmlForBroadcast(smsText)}</p>`,
+        text: smsText,
+      },
     };
   },
   // Sent to org clinicians when an abnormal/critical screening result lands

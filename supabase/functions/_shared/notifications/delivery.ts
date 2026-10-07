@@ -32,7 +32,7 @@ export function quietUntil(nowMs: number, q: QuietSettings): number | null {
 export type Decision =
   | { readonly action: "send" }
   | { readonly action: "defer"; readonly until: number; readonly reason: "quiet_hours" }
-  | { readonly action: "suppress"; readonly reason: "daily_cap" | "sms_not_allowed" }
+  | { readonly action: "suppress"; readonly reason: "daily_cap" | "sms_not_allowed" | "sms_exception_off" }
   | { readonly action: "block"; readonly reason: "inv07"; readonly violations: readonly string[] };
 
 export interface DecideInput {
@@ -47,19 +47,45 @@ export interface DecideInput {
    * body. Never the rendered text: a patient called Sugar or a pharmacy called Heartland must not block a send.
    */
   readonly wordingViolations: readonly string[];
-  /** Clinician paging by SMS is the one allowed non-code SMS (D-12); the caller says whether this row is that. */
-  readonly isClinicianPage: boolean;
+  /** Why this row may use SMS at all (see `smsPurpose`). Anything but `clinician_page` or `emergency_contact` is refused. */
+  readonly smsPurpose: SmsPurpose;
+  /** The go-live guard `sms_emergency_contact_enabled`. Closed unless the sender positively read it as on. */
+  readonly emergencyContactSmsOpen: boolean;
+}
+
+/**
+ * SMS is allowed for exactly three things (D-12 plus the S85-D3 named exception): phone verification codes (sent by Supabase
+ * phone auth, never through this queue), clinician paging, and one content-free alert to a patient's own consented emergency contact.
+ * Through this queue only the last two exist.
+ */
+export type SmsPurpose = "clinician_page" | "emergency_contact" | "none";
+export const EMERGENCY_CONTACT_TEMPLATE = "emergency_contact_alert";
+export const EMERGENCY_CONTACT_SMS_GUARD_KEY = "sms_emergency_contact_enabled";
+
+/**
+ * A page is a CRITICAL row for a recipient whose account role is `clinician`. A critical row for a patient (a result notice on the
+ * escalation ladder), a routine row for anyone, and an unknown role are all `none`: the old rule "any critical row may be texted"
+ * let the ladder's last rung text a patient. The emergency-contact template is its own purpose whoever the recipient is.
+ */
+export function smsPurpose(i: { readonly template: string | null; readonly priority: Priority; readonly recipientRole: string | null | undefined }): SmsPurpose {
+  if (i.template === EMERGENCY_CONTACT_TEMPLATE) return "emergency_contact";
+  if (i.priority === "critical" && i.recipientRole === "clinician") return "clinician_page";
+  return "none";
 }
 
 /**
  * Order matters: a clinical word blocks everything, including a critical row (it is a wording bug, and the
  * escalation ladder still moves on a failed row); then critical rows skip quiet hours and the cap; then SMS that
- * is not a clinician page is refused (INV-08); then quiet hours; then the cap. In-app is never deferred or capped.
+ * is not a clinician page or the guarded emergency-contact alert is refused (INV-08, D3); then quiet hours; then the cap. In-app is never deferred or capped.
  */
 export function decide(i: DecideInput): Decision {
   if (i.wordingViolations.length > 0) return { action: "block", reason: "inv07", violations: i.wordingViolations };
-  if (i.channel === "sms" && !i.isClinicianPage) return { action: "suppress", reason: "sms_not_allowed" };
-  if (i.priority === "critical" || i.channel === "in_app" || i.channel === "sms" || i.channel === "voice") return { action: "send" };
+  if (i.channel === "sms") {
+    if (i.smsPurpose === "none") return { action: "suppress", reason: "sms_not_allowed" };
+    if (i.smsPurpose === "emergency_contact" && !i.emergencyContactSmsOpen) return { action: "suppress", reason: "sms_exception_off" };
+  }
+  // An alert the patient raised themselves is never held overnight or counted against the daily cap, same as a critical row.
+  if (i.priority === "critical" || i.smsPurpose === "emergency_contact" || i.channel === "in_app" || i.channel === "sms" || i.channel === "voice") return { action: "send" };
   const until = quietUntil(i.nowMs, i.quiet);
   if (until !== null) return { action: "defer", until, reason: "quiet_hours" };
   if (i.channel === "push" && i.routinePushSentToday >= i.routinePushPerDay) return { action: "suppress", reason: "daily_cap" };
