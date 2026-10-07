@@ -115,6 +115,14 @@ for (const clip of manifest.clips) {
     bytes += f.bytes;
   }
 }
+// Files of a language not named in --languages are never deleted by a run that skips them: refuse instead of dropping signed audio.
+const skipped = new Set();
+for (const clip of manifest.clips) for (const [key, f] of Object.entries(clip.files)) if (!languages.has(key)) skipped.add(f.file);
+const protectedFiles = readdirSync(assetsDir).filter((n) => skipped.has(n));
+if (protectedFiles.length > 0) {
+  console.error(`assets folder holds files for a language not named in --languages (${protectedFiles.slice(0, 3).join(", ")}); pass every bundled language, for example --languages en,xx`);
+  process.exit(2);
+}
 for (const name of readdirSync(assetsDir)) if (!shipped.includes(name)) rmSync(join(assetsDir, name));
 const rel = (file) => join("../../../assets/audio", file);
 const body = shipped.length === 0 ? "" : shipped.map((n) => `  ${JSON.stringify(n)}: require(${JSON.stringify(rel(n))}) as number,`).join("\n") + "\n";

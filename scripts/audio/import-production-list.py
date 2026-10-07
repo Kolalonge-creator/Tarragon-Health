@@ -162,6 +162,11 @@ def main():
         if i + 1 >= len(argv):
             raise SystemExit("--languages needs a value, for example --languages en,xx")
         LANGUAGES = argv[i + 1].split(",")
+        if not all(re.fullmatch(r"[a-z]{2,3}", code) for code in LANGUAGES):
+            raise SystemExit("--languages takes lower case language codes, for example en,xx")
+        dropped = [code for code in old_manifest().get("languages", ["en"]) if code not in LANGUAGES]
+        if dropped:
+            raise SystemExit(f"--languages would drop {dropped}, losing their recordings and sign-offs; list every language the manifest has")
         if LANGUAGES[0] != "en":
             raise SystemExit("--languages must start with the source language en")
         del argv[i:i + 2]

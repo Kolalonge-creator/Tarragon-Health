@@ -109,6 +109,13 @@ describe("audio ingest with a stub language", () => {
     expect(s.bundled()).toEqual(["TH-ONB-900-EN.mp3"]);
   });
 
+  it("refuses to delete bundled files of a language the run did not name", () => {
+    const s = scratch({});
+    s.run(["--languages", "en,xx"]);
+    expect(() => s.run([])).toThrow();
+    expect(s.bundled()).toEqual(["TH-ONB-900-EN.mp3", "TH-ONB-900-XX.mp3"]);
+  });
+
   it("does not ship a stub recording made from an older source script", () => {
     const s = scratch({ sourceScriptHash: "old" });
     expect(s.run(["--languages", "en,xx"])).toContain("1 bundled");

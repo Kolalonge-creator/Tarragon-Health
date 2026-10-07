@@ -91,7 +91,8 @@ const K = [
 function utf8(text: string): number[] {
   const out: number[] = [];
   for (const ch of text) {
-    const c = ch.codePointAt(0) ?? 0;
+    let c = ch.codePointAt(0) ?? 0;
+    if (c >= 0xd800 && c <= 0xdfff) c = 0xfffd; // a lone surrogate is U+FFFD, as TextEncoder encodes it
     if (c < 0x80) out.push(c);
     else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
     else if (c < 0x10000) out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
@@ -102,7 +103,7 @@ function utf8(text: string): number[] {
 
 /**
  * SHA-256 of the UTF-8 text, as 64 hex characters. Pure so this file stays free of Node built-ins (it can be bundled by
- * the apps). The same function the audio manifest relies on for a recording: a sign-off is bound to the exact text.
+ * the apps). Checked against published test vectors and `shasum`; a sign-off is bound to the exact text it covers.
  */
 export function sha256Hex(text: string): string {
   const bytes = utf8(text);
@@ -190,7 +191,9 @@ export function keyParity(source: Catalogue, other: Catalogue): KeyParity {
 
 /** Fingerprint of one feature's string set: the English source and the language's text for every key. */
 export function stringSetHash(feature: string, source: Catalogue, other: Catalogue, features: LanguageRegistry["features"]): string {
-  const rows = keysOfFeature(feature, Object.keys(source), features).map((k) => [k, source[k], other[k] ?? ""]);
+  // Extra keys a translation adds under this feature's prefix are covered too, so they cannot ride in under an old signature.
+  const keys = [...new Set([...keysOfFeature(feature, Object.keys(source), features), ...keysOfFeature(feature, Object.keys(other), features)])].sort();
+  const rows = keys.map((k) => [k, source[k] ?? "", other[k] ?? ""]);
   return sha256Hex(JSON.stringify(rows));
 }
 
@@ -235,10 +238,11 @@ export function audioScriptText(
   scripts: Readonly<Record<string, { readonly en: string; readonly other?: Readonly<Record<string, string>> }>>,
   clipId: string,
   language: string,
+  sourceLanguage = "en",
 ): string | undefined {
   const script = scripts[clipId];
   if (!script) return undefined;
-  const own = language === "en" ? undefined : script.other?.[language];
+  const own = language === sourceLanguage ? undefined : script.other?.[language];
   return own !== undefined && own.trim() !== "" ? own : script.en;
 }
 
@@ -324,6 +328,7 @@ export type GateCode =
   | "status_too_low"
   | "key_missing"
   | "key_empty"
+  | "key_extra"
   | "placeholder_mismatch"
   | "native_review_missing_or_stale"
   | "clinician_signoff_missing_or_stale"
@@ -376,6 +381,8 @@ export function checkLanguageGate(input: ReadinessInput): GateViolation[] {
       const scoped: Catalogue = Object.fromEntries(keys.map((k) => [k, source[k]]));
       const parity = keyParity(scoped, own);
       if (parity.missing.length) out.push({ language, feature, code: "key_missing", detail: sample(parity.missing) });
+      const extra = keysOfFeature(feature, Object.keys(own), registry.features).filter((k) => !(k in source));
+      if (extra.length) out.push({ language, feature, code: "key_extra", detail: sample(extra) });
       if (parity.empty.length) out.push({ language, feature, code: "key_empty", detail: sample(parity.empty) });
       if (parity.placeholder_mismatch.length) out.push({ language, feature, code: "placeholder_mismatch", detail: sample(parity.placeholder_mismatch) });
 
@@ -422,7 +429,11 @@ export interface ResolvedMessage {
   readonly fell_back: boolean;
 }
 
-/** A string in `language` only when that language is enabled for the key's feature and the key is present; else English. */
+/**
+ * A string in `language` only when that language is enabled for the key's feature and the key exists in English and in
+ * that language; else English. It trusts `enabled_for`: the gate (checkLanguageGate, run in CI against the shipped
+ * registry) is what guarantees an enabled entry is complete and signed. Do not call this on a registry the gate has not passed.
+ */
 export function resolveMessage(input: Pick<ReadinessInput, "registry" | "catalogues">, key: string, language: string): ResolvedMessage {
   const { registry, catalogues } = input;
   const sourceText = catalogues[registry.source_language]?.[key] ?? key;
@@ -432,6 +443,7 @@ export function resolveMessage(input: Pick<ReadinessInput, "registry" | "catalog
     language !== registry.source_language &&
     feature !== undefined &&
     registry.languages[language]?.enabled_for.includes(feature) === true &&
+    key in (catalogues[registry.source_language] ?? {}) &&
     own !== undefined &&
     own.trim() !== "";
   return usable ? { text: own, language, fell_back: false } : { text: sourceText, language: registry.source_language, fell_back: language !== registry.source_language };

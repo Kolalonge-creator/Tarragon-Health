@@ -76,6 +76,12 @@ describe("production language registry (dormant, D-14)", () => {
       expect([key, feature && registry.features[feature].clinical]).toEqual([key, true]);
     }
     expect(featureOfKey("app.name", registry.features)).toBe("general_ui");
+    // consent and privacy wording and reminder audio are clinical-grade, never the plain feature
+    for (const key of Object.keys(productionCatalogues.en).filter((k) => k.startsWith("privacy."))) {
+      expect([key, registry.features[featureOfKey(key, registry.features) ?? ""]?.clinical]).toEqual([key, true]);
+    }
+    expect(registry.features.general_ui.audio_groups).not.toContain("REM");
+    expect(registry.features.health_and_care.audio_groups).toContain("REM");
   });
 
   it("does not show a language picker with one language", () => {
@@ -184,6 +190,15 @@ describe("language gate: dry run with a stub language", () => {
     expect(result).toContain("safety:key_missing");
     // The removed key also makes the signed text stale: it can never be enabled by leaving a hole.
     expect(result).toContain("safety:native_review_missing_or_stale");
+  });
+
+  it("fails an extra key a translation adds, and the extra key cannot ride in under an old signature", () => {
+    const { input, text } = readyStub();
+    const result = codes(withInput(input, { catalogues: { en: SOURCE, xx: { ...text, "triage.red.extra": "xx unreviewed" } } }));
+    expect(result).toContain("safety:key_extra");
+    expect(result).toContain("safety:native_review_missing_or_stale");
+    // and it is never served: the key does not exist in English
+    expect(resolveMessage({ registry: input.registry, catalogues: { en: SOURCE, xx: { ...text, "triage.red.extra": "xx unreviewed" } } }, "triage.red.extra", "xx").fell_back).toBe(true);
   });
 
   it("fails a blank string and a string that lost its placeholder", () => {

@@ -971,10 +971,10 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         results_consult: { message_prefixes: ["labres.", "labs.", "consult.", "summary."], audio_groups: ["RES", "CON"], clinical: true },
         // Everything not claimed above (medicines, vitals, titration, scribe, reminders and any key added later) falls to this
         // CLINICAL catch-all on purpose: new wording needs the CMO's signature unless someone names it non-clinical below.
-        health_and_care: { message_prefixes: [""], audio_groups: ["HLP"], clinical: true },
+        health_and_care: { message_prefixes: [""], audio_groups: ["HLP", "REM"], clinical: true },
         general_ui: {
-          message_prefixes: ["app.", "common.", "auth.", "drawer.", "appearance.", "greeting.", "kit.", "privacy.", "audio."],
-          audio_groups: ["ONB", "NAV", "REM", "SYS"],
+          message_prefixes: ["app.", "common.", "auth.", "drawer.", "appearance.", "greeting.", "kit.", "audio."],
+          audio_groups: ["ONB", "NAV", "SYS"],
           clinical: false,
         },
       },
