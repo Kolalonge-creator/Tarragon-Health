@@ -125,7 +125,7 @@ export type PharmacyOrderItem = {
  * Every client read names its columns (every column except the two withheld); the standing scan test keeps `*` out.
  */
 export const PHARMACY_ORDER_SAFE_COLUMNS =
-  "id, organisation_id, patient_id, pharmacy_partner_id, status, total_kobo, items, requested_at, delivered_at, created_at, updated_at, origin, payment_provider, payment_provider_ref, pending_payment_provider_ref, order_number, ordered_by, logistics_partner_id, delivery_address, estimated_delivery_at, courier_reference, delivery_confirmed_at, fulfilment_method, voucher_covered_kobo, applied_voucher_id, payable_kobo, confirmed_quantity, confirmed_price_kobo, estimated_fulfilment_at, accepted_at, accepted_by, cancellation_reason, declined_at, declined_by, refund_status, refund_amount_kobo, refund_ref, partner_cost_provider_id, unavailable_reason, unavailable_at, requires_cold_chain, courier_assigned_at";
+  "id, organisation_id, patient_id, pharmacy_partner_id, status, total_kobo, items, requested_at, created_at, updated_at, origin, payment_provider, payment_provider_ref, pending_payment_provider_ref, order_number, ordered_by, courier_reference, voucher_covered_kobo, applied_voucher_id, payable_kobo, confirmed_quantity, confirmed_price_kobo, estimated_fulfilment_at, accepted_at, accepted_by, cancellation_reason, declined_at, declined_by, refund_status, refund_amount_kobo, refund_ref, partner_cost_provider_id, unavailable_reason, unavailable_at, requires_cold_chain, courier_assigned_at";
 
 export type PharmacyOrder = Omit<Tables<"pharmacy_orders">, "partner_cost_kobo" | "partner_cost_breakdown">;
 
