@@ -111,6 +111,35 @@ begin
   if v_hist < 5 then raise exception 'FAIL: expected status history rows, got %', v_hist; end if;
   raise notice 'PASS: approval needs the CMO; draft/updated cannot skip review; controls open';
 
+  -- BYPASS (code review finding): an admin cannot skip the RPC with a direct table write
+  declare v_c2 uuid; v_dir boolean;
+  begin
+    insert into public.health_education_content (code, title, body, category) values ('s80-proof-2','S80 proof 2','body',v_cat) returning id into v_c2;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
+    set local role authenticated;
+    begin update public.health_education_content set content_status = 'published' where id = v_c2; v_dir := true; exception when others then v_dir := false; end;
+    if v_dir then raise exception 'FAIL: an admin published directly with a table write'; end if;
+    begin update public.health_education_content set content_status = 'approved' where id = v_c2; v_dir := true; exception when others then v_dir := false; end;
+    if v_dir then raise exception 'FAIL: an admin approved directly with a table write'; end if;
+    begin update public.health_education_content set clinician_reviewed = true where id = v_c2; v_dir := true; exception when others then v_dir := false; end;
+    if v_dir then raise exception 'FAIL: an admin set clinician_reviewed directly'; end if;
+    begin insert into public.health_education_content (code, title, body, category, content_status, clinician_reviewed) values ('s80-proof-3','x','b',v_cat,'published',true); v_dir := true; exception when others then v_dir := false; end;
+    if v_dir then raise exception 'FAIL: an admin inserted already-published content'; end if;
+    -- control: ordinary edits and downgrades by an admin still work
+    update public.health_education_content set title = 'S80 proof 2 edited' where id = v_c2;
+    reset role;
+    -- control: a session with no user (migrations, cron sweeps) may still move status
+    update public.health_education_content set content_status = 'review_due' where id = v_c2;
+    raise notice 'PASS: direct writes cannot approve or publish; edits and sweeps still work';
+    -- sabotage 1: drop the guard trigger and show the direct write would have succeeded
+    drop trigger health_education_content_guard_review on public.health_education_content;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
+    set local role authenticated;
+    update public.health_education_content set content_status = 'published', clinician_reviewed = true where id = v_c2;
+    reset role;
+    raise notice 'PASS: sabotage 1 confirmed, without the trigger an admin can publish by a direct write';
+  end;
+
   -- SABOTAGE: restore the pre-fix gate (admin only, approve unrestricted,
   -- draft>published allowed) and prove the same attempts now succeed, i.e.
   -- the checks above discriminate.

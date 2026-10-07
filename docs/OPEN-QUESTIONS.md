@@ -1711,3 +1711,8 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-311 The 213 published health education items that were never clinician-reviewed (raised by S80 fix-first)
 - Live on 2026-10-07: 219 published, 213 with `clinician_reviewed` not true. The new gate does not change them. Options: (a) leave published and re-review in priority order, high-risk categories first (recommended, avoids emptying the app); (b) move all to `review_due` so the CMO re-affirms each; (c) withdraw all not reviewed. Content past its review date is already hidden by the nightly sweep.
 - Decision: open (CMO).
+
+### OQ-312 The AI review queue reads patient-derived text without a patient tie (raised by the S80 code review)
+- INV-12 says a clinician sees a patient only through an active task, lead assignment or page. The monthly AI review sample is a quality-assurance read: the reviewer sees the answer text, never who it was for, only within their own organisation, and each open is audited with the sample ids. It still has no per-patient tie. Same access class as the S20 clinical audits.
+- Options: (a) accept it as a named quality-assurance access class, limited to the CMO and senior doctors (recommended; drop the medical officer tier from `private.ai_reviewer_ok`); (b) the CMO alone reviews; (c) redact the text before it is shown.
+- Decision: open (CMO).

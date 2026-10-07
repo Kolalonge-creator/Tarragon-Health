@@ -9,12 +9,47 @@
 --   3. review_due -> published re-affirmed expired content with no review.
 --   4. The function required is_admin(), so a CMO (a clinician login) could
 --      never call it. Ordinary moves now accept an admin or an active CMO.
+--   5. (Found by code review) The gate lived only in the function: the table's
+--      admin write policy let an admin UPDATE content_status and clinician_reviewed
+--      directly. A guard trigger now refuses, for a signed-in user session, any
+--      direct move to approved or published and any direct clinician_reviewed =
+--      true. Only the function (which sets a transaction-local flag) and
+--      sessions with no user (migrations, cron sweeps, the service role) may.
+--      Downgrades (to review_due, draft, updated) stay open to every writer.
 --
 -- Live counts when written (2026-10-07): 219 published, 30 draft; 213 published
 -- rows have clinician_reviewed not true. Nothing here rewrites those rows: the
 -- gate applies to transitions from now on, so no data conversion step exists.
 -- Whether to withdraw or re-review the 213 is a CMO decision (see
 -- docs/plans/S80-S85-cmo-decision-pack.md), not made here.
+
+create or replace function private.guard_health_education_review_columns()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  -- no signed-in user: migrations, cron sweeps, the service role
+  if (select auth.uid()) is null then return new; end if;
+  if coalesce(current_setting('tarragon.content_status_rpc', true), '') = 'on' then return new; end if;
+  if tg_op = 'INSERT' then
+    if new.content_status in ('approved', 'published') or coalesce(new.clinician_reviewed, false) then
+      raise exception 'not authorised: content starts as a draft and is approved only through the review steps';
+    end if;
+  else
+    if (new.content_status in ('approved', 'published') and new.content_status is distinct from old.content_status)
+       or (coalesce(new.clinician_reviewed, false) and not coalesce(old.clinician_reviewed, false)) then
+      raise exception 'not authorised: approval and publishing go through set_health_education_content_status';
+    end if;
+  end if;
+  return new;
+end $$;
+revoke all on function private.guard_health_education_review_columns() from public, anon, authenticated;
+
+drop trigger if exists health_education_content_guard_review on public.health_education_content;
+create trigger health_education_content_guard_review
+  before insert or update on public.health_education_content
+  for each row execute function private.guard_health_education_review_columns();
 
 create or replace function public.set_health_education_content_status(
   p_content_id uuid,
@@ -62,12 +97,15 @@ begin
     raise exception 'not authorised: only an active Chief Medical Officer can approve patient-facing content';
   end if;
 
+  perform set_config('tarragon.content_status_rpc', 'on', true);
   update public.health_education_content
     set content_status = p_new_status,
         content_version = case when p_new_status = 'updated' then content_version + 1 else content_version end,
         clinician_reviewed = case when p_new_status = 'approved' then true else clinician_reviewed end,
         reviewed_at = case when p_new_status = 'approved' then now() else reviewed_at end
     where id = p_content_id;
+
+  perform set_config('tarragon.content_status_rpc', '', true);
 
   insert into public.health_education_content_status_history (content_id, from_status, to_status, actor_id, note)
   values (p_content_id, v_current, p_new_status, v_actor, p_note);

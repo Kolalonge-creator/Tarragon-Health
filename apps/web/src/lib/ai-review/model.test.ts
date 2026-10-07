@@ -5,6 +5,8 @@ describe("nairaFromKobo", () => {
     expect(nairaFromKobo(600)).toBe("₦6.00");
     expect(nairaFromKobo(123456)).toBe("₦1,234.56");
     expect(nairaFromKobo(5)).toBe("₦0.05");
+    expect(nairaFromKobo(-5)).toBe("-₦0.05");
+    expect(nairaFromKobo(-123456)).toBe("-₦1,234.56");
   });
 });
 

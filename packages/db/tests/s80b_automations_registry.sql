@@ -42,7 +42,13 @@ begin
   select health into v_h from public.automations_overview() where id = v_id;
   if v_h <> 'stale' then raise exception 'FAIL: stale job shown as %', v_h; end if;
   reset role;
-  update public.automations set last_run_at = now() where id = v_id;
+  -- no expected interval: a job that last ran 40 days ago is still stale
+  update public.automations set expected_interval_minutes = null, last_run_at = now() - interval '40 days' where id = v_id;
+  set local role authenticated;
+  select health into v_h from public.automations_overview() where id = v_id;
+  if v_h <> 'stale' then raise exception 'FAIL: a 40 day old job with no interval shown as %', v_h; end if;
+  reset role;
+  update public.automations set expected_interval_minutes = 1440, last_run_at = now() where id = v_id;
   set local role authenticated;
   select health into v_h from public.automations_overview() where id = v_id;
   if v_h <> 'ok' then raise exception 'FAIL: healthy owned job shown as %', v_h; end if;

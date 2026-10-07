@@ -3,7 +3,8 @@
 -- Nothing about any job changes. pg_cron jobs are mirrored from cron.job every 15 minutes by a scheduled sync (never on read), with the
 -- latest run status; the 23 Vercel cron routes in apps/web/vercel.json are seeded here (a Jest test fails if vercel.json and this
 -- list drift). Owner role, owner, runbook and expected interval are set by an admin and are never overwritten by the sync. A job with no
--- owner shows as unowned; a failed latest run shows as failed. Read by admins and operations staff only.
+-- owner shows as unowned; a failed latest run shows as failed. With no expected interval a job is still stale once it has not run for
+-- 35 days (the outer bound that covers a monthly job), or if a pg_cron job has been registered for 2 days and never ran. Read by admins and operations staff only.
 
 create table public.automations (
   id uuid primary key default gen_random_uuid(),
@@ -102,6 +103,10 @@ begin
            when a.last_status = 'failed' then 'failed'
            when a.expected_interval_minutes is not null and a.last_run_at is not null
                 and a.last_run_at < now() - make_interval(mins => a.expected_interval_minutes * 3) then 'stale'
+           when a.expected_interval_minutes is null and a.last_run_at is not null
+                and a.last_run_at < now() - interval '35 days' then 'stale'
+           when a.kind = 'pg_cron' and a.last_run_at is null and a.synced_at is not null
+                and a.synced_at < now() - interval '2 days' then 'stale'
            when a.owner_role is null and a.owner_user is null then 'unowned'
            else 'ok'
          end,

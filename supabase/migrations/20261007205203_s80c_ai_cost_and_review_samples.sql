@@ -6,7 +6,10 @@
 -- ai_review_samples: a stratified monthly sample of interactions for a clinician to score (accurate, minor_issue, harmful, not_reviewable).
 -- Every interaction flagged for review is always included. The sampling rate is a parameter supplied from PROPOSED configuration
 -- (decision 6: 5 percent, awaiting CMO signature); this code holds no rate. A reviewer reads output_summary only, never the subject, and every
--- queue read is written to audit_log (INV-10). A harmful verdict marks needs_incident for the clinical safety officer; it opens nothing by itself.
+-- queue read is written to audit_log with the sample ids shown (INV-10). The queue is limited to the reviewer's own organisation. A harmful
+-- verdict opens an ai_safety_incidents row (severity high, reporter clinician) so the clinical safety officer sees it, and marks needs_incident.
+-- Deleting an interaction log row never deletes the reviewer's verdict (interaction_id is set null). ai_model_prices and ai_review's source
+-- tables are platform config or derived: prices carry no organisation_id by design (global config, like health_education_content).
 
 create table public.ai_model_prices (
   id uuid primary key default gen_random_uuid(),
@@ -27,7 +30,8 @@ grant select on public.ai_model_prices to authenticated;
 
 create table public.ai_review_samples (
   id uuid primary key default gen_random_uuid(),
-  interaction_id uuid not null unique references public.ai_interaction_log(id) on delete cascade,
+  organisation_id uuid not null references public.organisations(id),
+  interaction_id uuid unique references public.ai_interaction_log(id) on delete set null,
   ai_system_id uuid not null references public.ai_systems(id),
   sample_month date not null check (sample_month = date_trunc('month', sample_month)::date),
   sampled_by_rule text not null check (sampled_by_rule in ('stratified', 'flagged')),
@@ -59,6 +63,7 @@ language plpgsql security definer set search_path = '' as $$
 declare v_id uuid;
 begin
   if not private.is_admin() then raise exception 'not authorised: only an admin may set a model price' using errcode = '42501'; end if;
+  if p_effective_from < current_date then raise exception 'a price cannot be backdated: it would rewrite the cost of months already reviewed'; end if;
   insert into public.ai_model_prices (model_identifier, effective_from, input_kobo_per_million, output_kobo_per_million, source_note, created_by)
   values (p_model, p_effective_from, p_input_kobo_per_million, p_output_kobo_per_million, p_source_note, (select auth.uid()))
   returning id into v_id;
@@ -103,17 +108,17 @@ begin
   end if;
   if p_rate is null or p_rate <= 0 or p_rate > 1 then raise exception 'the sampling rate must be above 0 and at most 1 and comes from signed configuration'; end if;
   -- everything flagged for review is always included
-  insert into public.ai_review_samples (interaction_id, ai_system_id, sample_month, sampled_by_rule)
-  select l.id, l.ai_system_id, v_start, 'flagged'
+  insert into public.ai_review_samples (organisation_id, interaction_id, ai_system_id, sample_month, sampled_by_rule)
+  select l.organisation_id, l.id, l.ai_system_id, v_start, 'flagged'
   from public.ai_interaction_log l left join public.profiles sp on sp.id = l.subject_profile_id
   where l.flagged_for_review and coalesce(sp.is_test, false) = false
     and l.created_at >= v_start and l.created_at < v_start + interval '1 month'
   on conflict (interaction_id) do nothing;
   get diagnostics v_m = row_count; v_n := v_n + v_m;
   -- the rest: ceil(rate x count) per system, stratified by safety class, chosen at random
-  insert into public.ai_review_samples (interaction_id, ai_system_id, sample_month, sampled_by_rule)
-  select id, ai_system_id, v_start, 'stratified' from (
-    select l.id, l.ai_system_id,
+  insert into public.ai_review_samples (organisation_id, interaction_id, ai_system_id, sample_month, sampled_by_rule)
+  select organisation_id, id, ai_system_id, v_start, 'stratified' from (
+    select l.id, l.ai_system_id, l.organisation_id,
            row_number() over (partition by l.ai_system_id, l.safety_classification order by random()) rn,
            count(*) over (partition by l.ai_system_id, l.safety_classification) cnt
     from public.ai_interaction_log l left join public.profiles sp on sp.id = l.subject_profile_id
@@ -130,30 +135,51 @@ end $$;
 create or replace function public.ai_review_queue(p_limit integer default 25)
 returns table (sample_id uuid, system_code text, sample_month date, sampled_by_rule text, output_summary text, created_at timestamptz)
 language plpgsql security definer set search_path = '' as $$
-declare v_actor uuid := (select auth.uid());
+declare
+  v_actor uuid := (select auth.uid());
+  v_org uuid;
+  v_n integer := least(greatest(p_limit, 1), 100);
+  v_ids uuid[];
 begin
   if not private.ai_reviewer_ok() then raise exception 'not authorised' using errcode = '42501'; end if;
+  select organisation_id into v_org from public.profiles where id = v_actor;
+  select array_agg(x.id) into v_ids from (
+    select r.id from public.ai_review_samples r join public.ai_interaction_log l on l.id = r.interaction_id
+    where r.verdict is null and r.organisation_id = v_org order by r.sampled_by_rule, l.created_at limit v_n
+  ) x;
   insert into public.audit_log (actor_id, action, entity_type, entity_id, event)
-  values (v_actor, 'ai_review_samples.queue_read', 'ai_review_samples', null, jsonb_build_object('limit', least(greatest(p_limit, 1), 100)));
+  values (v_actor, 'ai_review_samples.queue_read', 'ai_review_samples', null,
+          jsonb_build_object('limit', v_n, 'sample_ids', coalesce(to_jsonb(v_ids), '[]'::jsonb)));
   return query
   select r.id, s.system_code, r.sample_month, r.sampled_by_rule, l.output_summary, l.created_at
   from public.ai_review_samples r join public.ai_interaction_log l on l.id = r.interaction_id join public.ai_systems s on s.id = r.ai_system_id
-  where r.verdict is null order by r.sampled_by_rule, l.created_at limit least(greatest(p_limit, 1), 100);
+  where r.id = any (coalesce(v_ids, '{}'::uuid[])) order by r.sampled_by_rule, l.created_at;
 end $$;
 
 create or replace function public.review_ai_sample(p_id uuid, p_verdict text, p_notes text default null)
 returns void
 language plpgsql security definer set search_path = '' as $$
+declare
+  v_actor uuid := (select auth.uid());
+  v_org uuid;
+  v_row public.ai_review_samples%rowtype;
 begin
   if not private.ai_reviewer_ok() then raise exception 'not authorised' using errcode = '42501'; end if;
   if p_verdict not in ('accurate', 'minor_issue', 'harmful', 'not_reviewable') then raise exception 'unknown verdict'; end if;
   if p_verdict in ('harmful', 'minor_issue') and coalesce(length(trim(p_notes)), 0) < 10 then
     raise exception 'a note of at least 10 characters is required for a minor_issue or harmful verdict';
   end if;
+  select organisation_id into v_org from public.profiles where id = v_actor;
   update public.ai_review_samples set verdict = p_verdict, notes = p_notes, needs_incident = (p_verdict = 'harmful'),
-    reviewed_by = (select auth.uid()), reviewed_at = now()
-  where id = p_id and verdict is null;
-  if not found then raise exception 'sample not found or already reviewed'; end if;
+    reviewed_by = v_actor, reviewed_at = now()
+  where id = p_id and verdict is null and organisation_id = v_org
+  returning * into v_row;
+  if not found then raise exception 'sample not found, not in your organisation, or already reviewed'; end if;
+  if p_verdict = 'harmful' then
+    insert into public.ai_safety_incidents (organisation_id, ai_system_id, interaction_id, reported_by, reporter_kind, category, severity, description)
+    values (v_row.organisation_id, v_row.ai_system_id, v_row.interaction_id, v_actor, 'clinician', 'other', 'high',
+            'Found harmful in the monthly clinician review sample. Reviewer note: ' || p_notes);
+  end if;
 end $$;
 
 revoke execute on function public.set_ai_model_price(text, date, bigint, bigint, text) from public;

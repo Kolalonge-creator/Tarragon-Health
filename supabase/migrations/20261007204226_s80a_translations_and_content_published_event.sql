@@ -4,6 +4,7 @@
 -- source hash puts the row back to draft and clears the reviewer, so a reviewed translation can never silently drift from its source.
 -- Only an active Chief Medical Officer may set clinical_reviewed, and only from native_reviewed. Writes go through the two functions
 -- below; there is no write policy. The product is English only (D-14): this ships the mechanism and enables no language.
+-- Global platform config (like health_education_content): translations carries no organisation_id by design.
 -- translations_release_gate(enabled languages) lists every clinical key not clinical_reviewed in an enabled non-English language, so
 -- a build that turns a language on with unreviewed clinical strings can be refused. English wording stays governed by clinical-wording.json.
 --
@@ -103,17 +104,22 @@ begin
     updated_at = now()
   where id = p_id;
   select organisation_id into v_org from public.profiles where id = v_actor;
-  if v_org is not null then
-    perform private.emit_domain_event('translation.reviewed', v_org,
-      jsonb_build_object('translation_id', p_id, 'language', v_row.language, 'state', p_state),
-      'translation.reviewed:' || p_id || ':' || p_state || ':' || extract(epoch from clock_timestamp())::text);
-  end if;
+  if v_org is null then raise exception 'the acting profile has no organisation, so the review event cannot be recorded'; end if;
+  perform private.emit_domain_event('translation.reviewed', v_org,
+    jsonb_build_object('translation_id', p_id, 'language', v_row.language, 'state', p_state),
+    'translation.reviewed:' || p_id || ':' || p_state || ':' || extract(epoch from clock_timestamp())::text);
   return p_state;
 end $$;
 
 create or replace function public.translations_release_gate(p_enabled_languages text[])
 returns table (key text, language text, state public.translation_state, reason text)
-language sql stable security definer set search_path = '' as $$
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  -- staff and the build (no user session) only; a patient session is refused
+  if (select auth.uid()) is not null and not (private.is_admin() or private.is_active_clinical_director()) then
+    raise exception 'not authorised' using errcode = '42501';
+  end if;
+  return query
   with enabled as (select l from unnest(p_enabled_languages) l where l <> 'en'),
   clinical_keys as (select distinct t.key from public.translations t where t.is_clinical)
   select k.key, e.l, coalesce(t.state, 'draft'::public.translation_state),
@@ -122,7 +128,7 @@ language sql stable security definer set search_path = '' as $$
   left join public.translations t on t.key = k.key and t.language = e.l
   where t.id is null or t.state <> 'clinical_reviewed'
   order by 1, 2;
-$$;
+end $$;
 
 revoke execute on function public.upsert_translation(text, text, text, text, boolean) from public;
 revoke execute on function public.review_translation(uuid, public.translation_state) from public;
@@ -178,6 +184,7 @@ begin
     raise exception 'not authorised: only an active Chief Medical Officer can approve patient-facing content';
   end if;
 
+  perform set_config('tarragon.content_status_rpc', 'on', true);
   update public.health_education_content
     set content_status = p_new_status,
         content_version = case when p_new_status = 'updated' then content_version + 1 else content_version end,
@@ -186,17 +193,18 @@ begin
     where id = p_content_id
     returning content_version into v_version;
 
+  perform set_config('tarragon.content_status_rpc', '', true);
+
   insert into public.health_education_content_status_history (content_id, from_status, to_status, actor_id, note)
   values (p_content_id, v_current, p_new_status, v_actor, p_note);
 
   if p_new_status = 'published' then
     select organisation_id into v_org from public.profiles where id = v_actor;
-    if v_org is not null then
-      perform private.emit_domain_event('content.published', v_org,
-        jsonb_build_object('content_id', p_content_id, 'content_version', v_version),
-        'content.published:' || p_content_id || ':' || extract(epoch from clock_timestamp())::text,
-        null, 'health_education_content', p_content_id);
-    end if;
+    if v_org is null then raise exception 'the acting profile has no organisation, so the publish event cannot be recorded'; end if;
+    perform private.emit_domain_event('content.published', v_org,
+      jsonb_build_object('content_id', p_content_id, 'content_version', v_version),
+      'content.published:' || p_content_id || ':' || extract(epoch from clock_timestamp())::text,
+      null, 'health_education_content', p_content_id);
   end if;
 
   return p_new_status;

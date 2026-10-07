@@ -39,7 +39,9 @@ export const verdictFormSchema = z.object({
 
 /** Integer kobo to a naira string for display only. Money is never held as a float. */
 export function nairaFromKobo(kobo: number): string {
-  const whole = Math.trunc(kobo / 100);
-  const minor = String(Math.abs(kobo % 100)).padStart(2, "0");
-  return `₦${whole.toLocaleString("en-NG")}.${minor}`;
+  const sign = kobo < 0 ? "-" : "";
+  const abs = Math.abs(kobo);
+  const whole = Math.trunc(abs / 100);
+  const minor = String(abs % 100).padStart(2, "0");
+  return `${sign}\u20A6${whole.toLocaleString("en-NG")}.${minor}`;
 }
