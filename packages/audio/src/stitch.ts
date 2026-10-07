@@ -29,8 +29,8 @@ export interface Phrase {
  * sentence, so a number cannot be heard without the "what to do" that goes with it.
  */
 export const PATTERN_CLIPS: Readonly<Record<PhrasePattern, { readonly clips: readonly string[]; readonly needsSeverity: boolean }>> = {
-  bp: { clips: ["NUM-P01", "NUM-P02"], needsSeverity: true },
-  bp_weekly_average: { clips: ["NUM-P02", "NUM-P12", "NUM-P13", "NUM-P14", "NUM-P15"], needsSeverity: true },
+  bp: { clips: ["NUM-P01", "NUM-P02", "NUM-P24"], needsSeverity: true },
+  bp_weekly_average: { clips: ["NUM-P02", "NUM-P12", "NUM-P13", "NUM-P14", "NUM-P15", "NUM-P24"], needsSeverity: true },
   glucose_mgdl: { clips: ["NUM-P03", "NUM-P04"], needsSeverity: true },
   glucose_mmol: { clips: ["NUM-D01", "NUM-P03", "NUM-P05"], needsSeverity: true },
   weight: { clips: ["NUM-D01", "NUM-P06", "NUM-P07"], needsSeverity: false },
@@ -78,7 +78,7 @@ const build = (pattern: PhrasePattern, ...groups: (readonly PhraseStep[] | null)
 
 export function stitchBloodPressure(systolic: number, diastolic: number): Phrase | null {
   if (!isWhole(systolic) || !isWhole(diastolic)) return null;
-  return build("bp", [phrasePart("NUM-P01")], wholeSteps(systolic), [phrasePart("NUM-P02")], wholeSteps(diastolic));
+  return build("bp", [phrasePart("NUM-P01")], wholeSteps(systolic), [phrasePart("NUM-P02")], wholeSteps(diastolic), [phrasePart("NUM-P24")]);
 }
 
 export type GlucoseUnit = "mg/dl" | "mmol/l";
@@ -112,6 +112,7 @@ export function stitchWeeklyBloodPressureAverage(systolic: number, diastolic: nu
     wholeSteps(systolic),
     [phrasePart("NUM-P02")],
     wholeSteps(diastolic),
+    [phrasePart("NUM-P24")],
     comparison ? [phrasePart(COMPARISON_CLIP[comparison])] : [],
   );
 }

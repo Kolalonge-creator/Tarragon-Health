@@ -19,9 +19,9 @@ describe("what ships in the app", () => {
 
   it("counts one file per clip and one for each shared number clip", () => {
     const r = bundleReport(m, off);
-    // ONB 18, EMG 13, TRI 8; NUM-P and D clips (23); 640 shared number clips.
-    expect(r.files).toBe(18 + 14 + 8 + 23 + 640);
-    expect(r.clips).toBe(18 + 14 + 8 + 23 + 640);
+    // ONB 18, EMG 14 (13 plus EMG-001L), TRI 8; NUM-P and D clips (24, with the blood pressure unit clip); 640 shared number clips.
+    expect(r.files).toBe(18 + 14 + 8 + 24 + 640);
+    expect(r.clips).toBe(18 + 14 + 8 + 24 + 640);
     expect(bundleReport(m, on).files).toBe(r.files + 11);
   });
 

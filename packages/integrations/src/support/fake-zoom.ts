@@ -16,7 +16,7 @@ const reply = (status: number, body: unknown) => ({ status, ok: status >= 200 &&
 
 export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
   const calls: FakeZoom["calls"] = [];
-  const meetings = new Map<string, { start_time: string; duration: number }>();
+  const meetings = new Map<string, { start_time: string; duration: number; host_id: string }>();
   let failNext = false;
   let seq = 0;
   const webhookSecret = "zoom-secret-token";
@@ -33,13 +33,17 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
       return init.headers["Authorization"]?.startsWith("Basic ") ? reply(200, { access_token: `tok_${(seq += 1)}`, expires_in: 3600 }) : reply(401, { reason: "Invalid client" });
     }
     if (!init.headers["Authorization"]?.startsWith("Bearer tok_")) return reply(401, { message: "Invalid access token" });
-    if (init.method === "POST" && u.pathname === "/v2/users/me/meetings") {
+    const created = /^\/v2\/users\/([^/]+)\/meetings$/.exec(u.pathname);
+    if (init.method === "POST" && created) {
       seq += 1;
       const id = String(81_000_000_000 + seq);
-      meetings.set(id, { start_time: body?.["start_time"] as string, duration: body?.["duration"] as number });
+      // "me" is the app's own user; any other user in the path owns the meeting (a dedicated consultation host)
+      const hostId = created[1] === "me" ? "owner_user" : decodeURIComponent(created[1]!);
+      meetings.set(id, { start_time: body?.["start_time"] as string, duration: body?.["duration"] as number, host_id: hostId });
       return reply(201, { id: Number(id), join_url: `https://zoom.example/j/${id}`, ...meetings.get(id) });
     }
-    if (init.method === "GET" && u.pathname === "/v2/users/me/token") {
+    const keyed = /^\/v2\/users\/([^/]+)\/token$/.exec(u.pathname);
+    if (init.method === "GET" && keyed) {
       return u.searchParams.get("type") === "zak" ? reply(200, { token: `zak_ttl${u.searchParams.get("ttl")}` }) : reply(400, { message: "bad type" });
     }
     const m = /^\/v2\/meetings\/(\d+)(\/status)?$/.exec(u.pathname);

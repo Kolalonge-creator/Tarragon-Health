@@ -14,7 +14,9 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import logoMarkWhite from "./assets/logo-mark-white.png";
 import { readAppLockEnabled } from "@/lib/app-lock";
+import { loadLowDataPreference } from "@/lib/low-data";
 import { registerBackgroundHealthSync } from "@/lib/background-sync";
+import { registerAudio } from "@/lib/audio/register";
 import { registerPushToken } from "@/lib/push-registration";
 import { flushPendingVitals } from "@/lib/offline-vitals-queue";
 import { syncThresholdsIfOnline } from "@/lib/threshold-sync";
@@ -74,6 +76,11 @@ function AppContent() {
   const offerCheckedFor = useRef<string | null>(null);
   const postSignInFor = useRef<string | null>(null);
 
+  // Hand the phone's speaker and storage to the audio service (S32). A phone without the native module stays text-only.
+  useEffect(() => {
+    registerAudio();
+  }, []);
+
   useEffect(() => {
     const {
       data: { subscription },
@@ -126,6 +133,7 @@ function AppContent() {
   }, [retryToken]);
 
   useEffect(() => {
+    void loadLowDataPreference();
     readAppLockEnabled()
       .then((enabled) => setLockState(enabled ? "locked" : "unlocked"))
       .catch(() => setLockState("unlocked"));

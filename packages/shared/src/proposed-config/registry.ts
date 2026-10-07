@@ -1109,6 +1109,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S21.md; docs/research/S21.md",
   },
   {
+    key: "consultations.host_key",
+    // The clinician's Zoom host key (S21 follow-up, OQ-136, founder decision 2026-10-06). A host key lets its holder start meetings as the
+    // dedicated consultation host user, and it cannot be tied to one meeting, so it is kept short: minted fresh each time a clinician joins,
+    // never stored, never longer than the room.
+    //  ttlSeconds: how long the key lives. It is only needed at the moment of joining; a rejoin asks for a new one. Zoom's own minimum and
+    //  maximum apply (unconfirmed against the live account; see OQ-136).
+    value: { ttlSeconds: 300 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S21.md; docs/OPEN-QUESTIONS.md OQ-136",
+  },
+  {
     key: "consultations.policy",
     // Remote consultations (S21, founder decisions OQ-124 to OQ-131). Mirrored by consultation_policy_config v1 (a drift
     // test compares the two).
