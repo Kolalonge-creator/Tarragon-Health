@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { addDays, type CyclePrediction } from "@/lib/rules/cycle-prediction";
+import { addDays, NOT_CONTRACEPTION_LABEL, type CyclePrediction } from "@/lib/rules/cycle-prediction";
 import type { MenstrualCycle, MenstrualDailyLog } from "@/lib/queries/menstrual-cycle";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -238,9 +238,11 @@ export function CycleCalendar({
       </div>
 
       <p className="mt-3 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-        Solid days are what you logged. The dashed outline is when your next period is expected,
-        and the shaded band is your estimated fertile window. A dot means you added notes or
-        symptoms that day.
+        Solid days are what you logged. The dashed outline is when your next period is expected
+        {prediction.fertileWindowStart
+          ? `, and the shaded band is your estimated fertile window. ${NOT_CONTRACEPTION_LABEL}`
+          : ""}
+        . A dot means you added notes or symptoms that day.
       </p>
     </div>
   );

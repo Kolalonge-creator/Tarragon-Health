@@ -12,7 +12,8 @@
 -- and no S39c "open record" window: reproductive_health is excluded from every one of them. A care coordinator, an admin, a sponsor or employer
 -- account, a pharmacist and another organisation's clinician are all refused, and each refusal is audited.
 --
--- WHAT THE REPORT CARRIES: period start and end dates, and per day the flow level, symptom list and mood list. It does NOT carry notes (the
+-- WHAT THE REPORT CARRIES: period start and end dates, per day the flow level, symptom list and mood list, and the menopause log (symptom
+-- types, severity, the postmenopausal bleeding flag). It does NOT carry notes (the
 -- patient's own words), basal temperature or ovulation test results (conception-planning data, A14), or anything about contraception.
 -- The window is reproductive_privacy_config.report_window_months (PROPOSED 12). The numbers (variability, counts) are computed by the one shared
 -- engine in the app (packages/shared/src/cycle/pattern-report.ts), not here.
@@ -73,6 +74,7 @@ declare
   v_stage text;
   v_cycles jsonb;
   v_logs jsonb;
+  v_meno jsonb;
 begin
   if v_uid is null then raise exception 'not authorised' using errcode = '42501'; end if;
   -- A patient (and a caregiver, who is a patient-role account) reads her own tracker directly; this is the staff path.
@@ -88,11 +90,11 @@ begin
   end if;
   -- An unknown id and a patient the caller may not read look the same to the caller: a refusal.
   if not exists (select 1 from public.profiles where id = p_patient and role = 'patient') then
-    return jsonb_build_object('status', 'denied', 'cycles', '[]'::jsonb, 'logs', '[]'::jsonb);
+    return jsonb_build_object('status', 'denied', 'cycles', '[]'::jsonb, 'logs', '[]'::jsonb, 'menopause_logs', '[]'::jsonb);
   end if;
   if not private.reproductive_staff_tied(p_patient) then
     perform private.audit_chart_read(p_patient, array['reproductive_pattern_report'], p_reason, 'denied');
-    return jsonb_build_object('status', 'denied', 'cycles', '[]'::jsonb, 'logs', '[]'::jsonb);
+    return jsonb_build_object('status', 'denied', 'cycles', '[]'::jsonb, 'logs', '[]'::jsonb, 'menopause_logs', '[]'::jsonb);
   end if;
 
   v_months := private.reproductive_privacy_rule('report_window_months');
@@ -112,9 +114,17 @@ begin
            where patient_id = p_patient and log_date >= v_from
            order by log_date desc limit c_cap) l;
 
+  -- The menopause log rides in the same audited read (16.4): symptom types, severity and the bleeding flag, never the free-text notes.
+  select coalesce(jsonb_agg(jsonb_build_object('logged_at', m.logged_at, 'symptom_types', to_jsonb(m.symptom_types), 'severity', m.severity,
+                                               'postmenopausal_bleeding', m.postmenopausal_bleeding) order by m.logged_at), '[]'::jsonb)
+    into v_meno
+    from (select logged_at, symptom_types, severity, postmenopausal_bleeding from public.menopause_symptom_logs
+           where patient_id = p_patient and logged_at >= v_from
+           order by logged_at desc limit c_cap) m;
+
   perform private.audit_chart_read(p_patient, array['reproductive_pattern_report'], p_reason, 'success');
   return jsonb_build_object('status', 'ok', 'window_months', v_months, 'life_stage', coalesce(v_stage, 'menstruating'),
-                            'cycles', v_cycles, 'logs', v_logs);
+                            'cycles', v_cycles, 'logs', v_logs, 'menopause_logs', v_meno);
 end $$;
 revoke all on function public.read_reproductive_pattern_report_audited(uuid, text) from public, anon;
 grant execute on function public.read_reproductive_pattern_report_audited(uuid, text) to authenticated;

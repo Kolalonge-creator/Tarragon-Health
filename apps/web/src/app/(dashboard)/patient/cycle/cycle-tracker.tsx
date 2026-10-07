@@ -27,6 +27,8 @@ import { CycleInsightsCard } from "./cycle-insights-card";
 import { CycleLengthChart } from "./cycle-length-chart";
 import { CycleDayLog } from "./cycle-day-log";
 import { CycleLegend, CycleRing } from "./cycle-ring";
+import { PlanningModeCard } from "./planning-mode-card";
+import { describeFertileWindow } from "@tarragon/shared";
 
 import { formatPatientDate } from "@/lib/format-date";
 /**
@@ -134,16 +136,24 @@ export function CycleTracker({
   organisationId,
   lifeStage,
   selfReportedCycleLengthDays,
+  conceptionPlanning = false,
+  canChangePlanning = false,
 }: {
   patientId: string;
   organisationId: string;
   lifeStage: ReproductiveLifeStage;
   selfReportedCycleLengthDays: number | null;
+  /** S66 (A14): the saved "planning a pregnancy" switch. Off unless the patient turned it on. */
+  conceptionPlanning?: boolean;
+  /** Only the patient herself can switch it (not somebody acting for her). */
+  canChangePlanning?: boolean;
 }) {
+  const [planning, setPlanning] = useState(conceptionPlanning);
   const { cycles, dailyLogs, prediction, insights, thermalShift, openCycle, today, isLoading, error } = useCycleTracker(
     patientId,
     lifeStage,
-    selfReportedCycleLengthDays
+    selfReportedCycleLengthDays,
+    planning
   );
   const logPeriod = useLogPeriod();
   const endPeriod = useEndPeriod();
@@ -199,7 +209,7 @@ export function CycleTracker({
         </CardHeader>
         <CardContent className="space-y-5">
           <CycleRing prediction={prediction} />
-          <CycleLegend />
+          <CycleLegend planning={planning} />
 
           {prediction.currentPhase !== "unknown" && (
             <p className="rounded-lg bg-soft-sage/50 dark:bg-brand-green/10 p-3 text-center text-sm text-charcoal-ink/80 dark:text-night-ink/80">
@@ -274,6 +284,9 @@ export function CycleTracker({
         </CardContent>
       </Card>
 
+      {/* ---------- Planning a pregnancy (off by default) ---------- */}
+      <PlanningModeCard planning={planning} canChange={canChangePlanning} onChange={setPlanning} />
+
       {/* ---------- What to expect ---------- */}
       {hasHistory && (
         <Card>
@@ -297,17 +310,15 @@ export function CycleTracker({
                     : undefined
                 }
               />
-              <Stat
-                label="Estimated ovulation"
-                value={longDate(prediction.predictedOvulationDate)}
-                hint={
-                  prediction.fertileWindowStart
-                    ? `Fertile window ${shortDate(prediction.fertileWindowStart)} to ${shortDate(prediction.fertileWindowEnd)}`
-                    : undefined
-                }
-              />
+              {planning && (
+                <Stat
+                  label="Estimated ovulation"
+                  value={longDate(prediction.predictedOvulationDate)}
+                  hint={describeFertileWindow(prediction, shortDate) ?? undefined}
+                />
+              )}
             </div>
-            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{FERTILE_WINDOW_DISCLAIMER}</p>
+            {planning && <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{FERTILE_WINDOW_DISCLAIMER}</p>}
           </CardContent>
         </Card>
       )}
@@ -338,6 +349,7 @@ export function CycleTracker({
               organisationId={organisationId}
               date={selectedDate}
               existing={selectedLog}
+              planning={planning}
             />
           </div>
         </CardContent>
@@ -394,6 +406,7 @@ export function CycleTracker({
         insights={insights}
         thermalShift={thermalShift}
         hasAnyLogs={dailyLogs.length > 0}
+        planning={planning}
       />
 
       <CycleLengthChart stats={stats} />

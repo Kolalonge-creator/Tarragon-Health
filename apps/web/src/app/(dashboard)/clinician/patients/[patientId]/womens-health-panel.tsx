@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FertilityRequestStatusForm } from "./fertility-request-status-form";
+import { CyclePatternReportPanel } from "./cycle-pattern-report";
 
 /**
  * Clinician-facing read model for the Women's Health platform (§44) — the
@@ -22,10 +23,8 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
   const [
     { data: pregnancy },
     { data: antenatalVisits },
-    { data: cycleLogs },
     { data: postnatalProfiles },
     { data: breastReports },
-    { data: menopauseLogs },
     { data: fertilityRequests },
   ] = await Promise.all([
     supabase
@@ -39,12 +38,6 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
       .eq("patient_id", patientId)
       .order("gestational_week_at_visit", { ascending: true }),
     supabase
-      .from("menstrual_cycles")
-      .select("id, period_start_date, period_end_date")
-      .eq("patient_id", patientId)
-      .order("period_start_date", { ascending: false })
-      .limit(5),
-    supabase
       .from("postnatal_profiles")
       .select("id, delivery_date, delivery_mode, complications")
       .eq("patient_id", patientId)
@@ -56,12 +49,6 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
       .order("created_at", { ascending: false })
       .limit(5),
     supabase
-      .from("menopause_symptom_logs")
-      .select("id, logged_at, symptom_types, severity, postmenopausal_bleeding")
-      .eq("patient_id", patientId)
-      .order("logged_at", { ascending: false })
-      .limit(5),
-    supabase
       .from("fertility_assessment_requests")
       .select("id, created_at, trying_duration_months, concern_notes, status")
       .eq("patient_id", patientId)
@@ -71,16 +58,13 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
   const hasAnyData =
     pregnancy?.is_pregnant ||
     (antenatalVisits?.length ?? 0) > 0 ||
-    (cycleLogs?.length ?? 0) > 0 ||
     (postnatalProfiles?.length ?? 0) > 0 ||
     (breastReports?.length ?? 0) > 0 ||
-    (menopauseLogs?.length ?? 0) > 0 ||
     (fertilityRequests?.length ?? 0) > 0;
 
-  if (!hasAnyData) {
-    return <p className="text-sm text-charcoal-ink/60">No Women&apos;s Health data recorded yet.</p>;
-  }
-
+  // S66: the cycle and menopause report is always rendered (it says for itself when it is closed, refused, failed or empty), so the
+  // "nothing recorded" shortcut only applies to the other sections.
+  const otherSections = hasAnyData;
   return (
     <div className="space-y-4">
       {pregnancy?.is_pregnant && (
@@ -111,21 +95,9 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
         </Card>
       )}
 
-      {cycleLogs && cycleLogs.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Recent periods logged</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            {cycleLogs.map((log) => (
-              <p key={log.id}>
-                {log.period_start_date}
-                {log.period_end_date ? ` to ${log.period_end_date}` : " (open)"}
-              </p>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      {!otherSections && <p className="text-sm text-charcoal-ink/60">No other Women&apos;s Health data recorded yet.</p>}
+      {/* S66 (INV-10, INV-12): cycle and menopause history is read ONLY through the audited report function, never straight from the tables. */}
+      <CyclePatternReportPanel patientId={patientId} />
 
       {postnatalProfiles && postnatalProfiles.length > 0 && (
         <Card>
@@ -153,23 +125,6 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
               <p key={r.id}>
                 {new Date(r.created_at).toLocaleDateString()}: {r.symptom_types.join(", ")}
                 {r.laterality ? ` (${r.laterality})` : ""}
-              </p>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {menopauseLogs && menopauseLogs.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Menopause symptom logs</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            {menopauseLogs.map((log) => (
-              <p key={log.id}>
-                {log.logged_at}: {log.symptom_types.join(", ") || "no symptoms"}
-                {log.severity != null ? ` (severity ${log.severity}/10)` : ""}
-                {log.postmenopausal_bleeding ? " · bleeding reported" : ""}
               </p>
             ))}
           </CardContent>

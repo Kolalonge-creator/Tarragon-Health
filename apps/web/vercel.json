@@ -73,6 +73,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/reproductive-deletions",
+      "schedule": "30 6 * * *"
+    },
+    {
       "path": "/api/cron/wearable-sync",
       "schedule": "15 4 * * *"
     },

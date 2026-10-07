@@ -181,12 +181,25 @@ export interface CycleTrackerData {
   /** The open period, if the patient is currently bleeding and has not ended it. */
   openCycle: MenstrualCycle | null;
   today: string;
+  conceptionPlanning: boolean;
+}
+
+/**
+ * S66 (A14): switches "planning a pregnancy" mode for the signed-in person. The database refuses anyone but the patient herself, and the
+ * switch only changes what is displayed: with it off no fertile window or ovulation date is computed into the prediction at all.
+ */
+export async function setConceptionPlanningMode(on: boolean): Promise<QueryResult<null>> {
+  const { error } = await supabase.rpc("set_conception_planning_mode", { p_on: on });
+  if (error) return { ok: false, error: "That could not be saved just now. Please try again." };
+  return { ok: true, data: null };
 }
 
 export async function loadCycleTracker(
   patientId: string,
   lifeStage: ReproductiveLifeStage,
-  selfReportedCycleLengthDays: number | null
+  selfReportedCycleLengthDays: number | null,
+  /** S66 (A14): the saved planning mode. Off unless the patient turned it on. */
+  conceptionPlanning = false
 ): Promise<QueryResult<CycleTrackerData>> {
   const [cyclesRes, logsRes] = await Promise.all([
     loadMenstrualCycles(patientId),
@@ -210,6 +223,7 @@ export async function loadCycleTracker(
     lifeStage,
     selfReportedCycleLengthDays,
     heavyFlowDates,
+    conceptionPlanning,
   });
 
   // Same "still plausibly running" rule as web: no end date AND started
@@ -224,5 +238,5 @@ export async function loadCycleTracker(
     openCycle = daysSinceStart >= 0 && daysSinceStart <= 14 ? latest : null;
   }
 
-  return { ok: true, data: { cycles, dailyLogs, prediction, openCycle, today } };
+  return { ok: true, data: { cycles, dailyLogs, prediction, openCycle, today, conceptionPlanning } };
 }

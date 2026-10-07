@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
+import { NOT_CONTRACEPTION_LABEL } from "@/lib/rules/cycle-prediction";
 import { formatPatientDate } from "@/lib/format-date";
 /**
  * The per-day log: flow, symptoms and mood for one date.
@@ -105,11 +106,17 @@ export function CycleDayLog({
   organisationId,
   date,
   existing,
+  planning = false,
 }: {
   patientId: string;
   organisationId: string;
   date: string;
   existing: MenstrualDailyLog | null;
+  /**
+   * S66 (A14): the temperature and ovulation test fields belong to "planning a pregnancy" mode. They are hidden while it is off; a value
+   * already saved is kept as it is (the state below is seeded from the row and re-saved unchanged), never wiped by hiding the field.
+   */
+  planning?: boolean;
 }) {
   const save = useSaveDailyLog();
   // One message for the day as a whole: the mutation fails or it does not,
@@ -206,6 +213,7 @@ export function CycleDayLog({
       {/* Optional, and only meaningful to somebody actively tracking
           ovulation, so it sits after the everyday fields rather than
           greeting everyone who opens the form. */}
+      {planning && (
       <fieldset>
         <legend className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
           Tracking ovulation? (optional)
@@ -247,9 +255,10 @@ export function CycleDayLog({
         </div>
         <p className="mt-1.5 text-[11px] text-charcoal-ink/50 dark:text-night-ink/55">
           Take your temperature before getting out of bed. A sustained rise suggests ovulation
-          has already happened, so it confirms rather than predicts.
+          has already happened, so it confirms rather than predicts. {NOT_CONTRACEPTION_LABEL}
         </p>
       </fieldset>
+      )}
 
       <div className="space-y-1.5">
         <label htmlFor="cycle-notes" className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">

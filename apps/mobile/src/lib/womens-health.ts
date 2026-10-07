@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import { assertNotActingFor } from "./acting";
 import type { QueryResult } from "./medications";
 import type { Enums, Tables } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
 
 /**
  * Women's Health (spec §44) — life-stage cards: reproductive-health profile
@@ -355,17 +356,23 @@ export const MENOPAUSE_SYMPTOM_TYPES = [
   "joint_aches",
   "brain_fog",
   "other",
+  // S66 (A15): the bleeding pattern and vaginal symptoms the CMO pack lists.
+  "irregular_bleeding",
+  "vaginal_discomfort",
 ] as const;
 export type MenopauseSymptomType = (typeof MENOPAUSE_SYMPTOM_TYPES)[number];
+// Words come from the English catalogue (packages/i18n cycle-copy.ts, CMO review pending).
 export const MENOPAUSE_SYMPTOM_LABEL: Record<MenopauseSymptomType, string> = {
-  hot_flashes: "Hot flashes",
-  night_sweats: "Night sweats",
-  sleep_disturbance: "Sleep disturbance",
-  mood_changes: "Mood changes",
-  vaginal_dryness: "Vaginal dryness",
-  joint_aches: "Joint aches",
-  brain_fog: "Brain fog / concentration",
-  other: "Other",
+  hot_flashes: t("menopause.symptom.hot_flashes"),
+  night_sweats: t("menopause.symptom.night_sweats"),
+  sleep_disturbance: t("menopause.symptom.sleep_disturbance"),
+  mood_changes: t("menopause.symptom.mood_changes"),
+  vaginal_dryness: t("menopause.symptom.vaginal_dryness"),
+  joint_aches: t("menopause.symptom.joint_aches"),
+  brain_fog: t("menopause.symptom.brain_fog"),
+  other: t("menopause.symptom.other"),
+  irregular_bleeding: t("menopause.symptom.irregular_bleeding"),
+  vaginal_discomfort: t("menopause.symptom.vaginal_discomfort"),
 };
 
 export async function loadMenopauseSymptomLogs(patientId: string): Promise<MenopauseSymptomLog[]> {
