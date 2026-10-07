@@ -35856,6 +35856,7 @@ export type Database = {
       }
       screening_schedules: {
         Row: {
+          closed_reason_code: string | null
           created_at: string
           declined_at: string | null
           declined_reason: string | null
@@ -35863,16 +35864,20 @@ export type Database = {
           id: string
           is_recall: boolean
           next_due_date: string | null
+          not_applicable_at: string | null
+          not_applicable_reason: string | null
           organisation_id: string
           patient_id: string
           recall_reason: string | null
           reminder_sent_at: string | null
           reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
+          rule_set_id: string | null
           screen_type_id: string
           status: Database["public"]["Enums"]["screening_status"]
           updated_at: string
         }
         Insert: {
+          closed_reason_code?: string | null
           created_at?: string
           declined_at?: string | null
           declined_reason?: string | null
@@ -35880,16 +35885,20 @@ export type Database = {
           id?: string
           is_recall?: boolean
           next_due_date?: string | null
+          not_applicable_at?: string | null
+          not_applicable_reason?: string | null
           organisation_id: string
           patient_id: string
           recall_reason?: string | null
           reminder_sent_at?: string | null
           reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
+          rule_set_id?: string | null
           screen_type_id: string
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
         }
         Update: {
+          closed_reason_code?: string | null
           created_at?: string
           declined_at?: string | null
           declined_reason?: string | null
@@ -35897,11 +35906,14 @@ export type Database = {
           id?: string
           is_recall?: boolean
           next_due_date?: string | null
+          not_applicable_at?: string | null
+          not_applicable_reason?: string | null
           organisation_id?: string
           patient_id?: string
           recall_reason?: string | null
           reminder_sent_at?: string | null
           reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
+          rule_set_id?: string | null
           screen_type_id?: string
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
@@ -35929,6 +35941,186 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      risk_assessments: {
+        Row: {
+          assessed_at: string
+          band_code: string | null
+          band_high_pct: number | null
+          band_low_pct: number | null
+          created_at: string
+          further_assessment: boolean
+          id: string
+          inputs: Json
+          instrument_code: string
+          instrument_version_id: string
+          is_test: boolean
+          model: string | null
+          organisation_id: string
+          patient_id: string
+          reassessment_reasons: string[]
+          recorded_by: string | null
+          source: string
+          status: string
+          tier: string | null
+          trigger: string
+        }
+        Insert: {
+          assessed_at?: string
+          band_code?: string | null
+          band_high_pct?: number | null
+          band_low_pct?: number | null
+          created_at?: string
+          further_assessment?: boolean
+          id?: string
+          inputs?: Json
+          instrument_code: string
+          instrument_version_id: string
+          is_test?: boolean
+          model?: string | null
+          organisation_id: string
+          patient_id: string
+          reassessment_reasons?: string[]
+          recorded_by?: string | null
+          source?: string
+          status: string
+          tier?: string | null
+          trigger?: string
+        }
+        Update: {
+          assessed_at?: string
+          band_code?: string | null
+          band_high_pct?: number | null
+          band_low_pct?: number | null
+          created_at?: string
+          further_assessment?: boolean
+          id?: string
+          inputs?: Json
+          instrument_code?: string
+          instrument_version_id?: string
+          is_test?: boolean
+          model?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reassessment_reasons?: string[]
+          recorded_by?: string | null
+          source?: string
+          status?: string
+          tier?: string | null
+          trigger?: string
+        }
+        Relationships: []
+      }
+      risk_instrument_versions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          code: string
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code: string
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code?: string
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      screening_rule_sets: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          code: string
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code?: string
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code?: string
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      screening_packages: {
+        Row: {
+          code: string
+          created_at: string
+          eligibility: Json
+          extra_test_codes: string[]
+          guard_key: string | null
+          id: string
+          is_active: boolean
+          name_status: string
+          panel_bundle_id: string | null
+          requires_positive_pathway: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          eligibility?: Json
+          extra_test_codes?: string[]
+          guard_key?: string | null
+          id?: string
+          is_active?: boolean
+          name_status?: string
+          panel_bundle_id?: string | null
+          requires_positive_pathway?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          eligibility?: Json
+          extra_test_codes?: string[]
+          guard_key?: string | null
+          id?: string
+          is_active?: boolean
+          name_status?: string
+          panel_bundle_id?: string | null
+          requires_positive_pathway?: boolean
+        }
+        Relationships: []
       }
       screening_upgrades: {
         Row: {
@@ -42972,6 +43164,30 @@ export type Database = {
       }
     }
     Functions: {
+      clinician_read_risk_assessments: { Args: { p_patient: string }; Returns: Database["public"]["Tables"]["risk_assessments"]["Row"][] }
+      list_screening_packages: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          code: string
+          eligible: boolean
+          ineligible_reason: string | null
+          includes_sensitive: boolean
+          name: string
+          name_status: string
+          price_kobo: number
+          rate_card: Json
+          test_codes: string[]
+        }[]
+      }
+      my_risk_reassessment_due: { Args: Record<PropertyKey, never>; Returns: string[] }
+      record_risk_assessment: {
+        Args: { p_band_code: string | null; p_inputs: Json; p_model: string | null; p_patient: string; p_reasons: string[]; p_recorded_by?: string; p_status: string; p_trigger: string; p_version_id: string }
+        Returns: string
+      }
+      reopen_screening: { Args: { p_schedule: string }; Returns: string }
+      set_screening_state: { Args: { p_note: string; p_reason_code: string; p_schedule: string; p_state: string }; Returns: string }
+      sign_risk_instrument: { Args: { p_id: string }; Returns: string }
+      sign_screening_rule_set: { Args: { p_id: string }; Returns: string }
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       liaison_recent_uploads: {
         Args: Record<PropertyKey, never>;
@@ -49710,6 +49926,7 @@ export type Database = {
         | "overdue"
         | "cancelled"
         | "declined"
+        | "not_applicable"
       second_opinion_status: "submitted" | "in_review" | "answered" | "closed"
       senior_case_review_status:
         | "submitted"
@@ -52202,6 +52419,7 @@ export const Constants = {
         "overdue",
         "cancelled",
         "declined",
+        "not_applicable",
       ],
       second_opinion_status: ["submitted", "in_review", "answered", "closed"],
       senior_case_review_status: [
