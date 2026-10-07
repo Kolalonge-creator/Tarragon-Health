@@ -132,11 +132,19 @@ create or replace function private.symptom_review_sla()
 returns table (sla_version integer, minutes integer)
 language sql stable security definer set search_path = ''
 as $$
-  select s.version, (e ->> 'sla_minutes')::integer
-    from public.escalation_slas s, jsonb_array_elements(s.config) e
-   where s.is_active and s.approved_at is not null
-     and e ->> 'pathway' = 'symptom_triage' and e ->> 'tier' = 'clinician_review'
-     and (e ->> 'sla_minutes') ~ '^[0-9]+$' and (e ->> 'sla_minutes')::integer > 0
+  -- A malformed config must never raise here (this runs inside request_symptom_review): a config that is not an array, an element
+  -- that is not an object, a non-numeric, fractional, negative or oversized sla_minutes all read as "no time stated". The cast is
+  -- inside a CASE so the digit check is guaranteed to run first (a WHERE clause gives no such ordering).
+  select s.version, m.minutes
+    from public.escalation_slas s
+   cross join lateral jsonb_array_elements(case when jsonb_typeof(s.config) = 'array' then s.config else '[]'::jsonb end) e
+   cross join lateral (
+     select case when jsonb_typeof(e.value) = 'object'
+                  and e.value ->> 'pathway' = 'symptom_triage' and e.value ->> 'tier' = 'clinician_review'
+                  and jsonb_typeof(e.value -> 'sla_minutes') in ('number', 'string')
+                  and (e.value ->> 'sla_minutes') ~ '^[0-9]{1,6}$'
+                 then (e.value ->> 'sla_minutes')::integer end as minutes) m
+   where s.is_active and s.approved_at is not null and m.minutes > 0
    order by s.version desc
    limit 1
 $$;
@@ -170,7 +178,9 @@ begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
   select * into a from public.symptom_triage_assessments where id = p_assessment;
   -- the same answer for "no such assessment" and "not yours": never confirm another person's assessment exists
-  if not found or (a.patient_id <> v_uid and a.logged_by_profile_id is distinct from v_uid) then
+  -- Same rule as the read policy on symptom_reviews: the patient, or someone who CURRENTLY holds a clinical-read grant for them.
+  -- Having logged the check is not enough (a caregiver whose grant was revoked must not be able to ask for a review).
+  if not found or not (a.patient_id = v_uid or private.can_read_clinical(a.patient_id, 'medical_history'::public.care_access_category)) then
     raise exception 'not found' using errcode = '42501';
   end if;
   -- INV-14: a closed checker starts nothing, whatever the app sent
@@ -314,8 +324,9 @@ begin
     raise exception 'agreement, your category, a final diagnosis code and a message for the patient are all needed' using errcode = '22023';
   end if;
   select * into a from public.symptom_triage_assessments where id = r.assessment_id;
-  -- "agrees" must mean something: it cannot be true while the clinician's own category differs from the checker's
-  if p_agrees and p_clinician_category is distinct from a.category then
+  -- "agrees" must mean something: it cannot be true while the clinician's own category differs from the category the patient was
+  -- actually given, which is the clinician override when one was recorded and the checker's category otherwise.
+  if p_agrees and p_clinician_category is distinct from coalesce(a.override_category, a.category) then
     raise exception 'you cannot agree with the checker and give a different category' using errcode = '22023';
   end if;
 
@@ -381,6 +392,45 @@ create trigger symptom_triage_assessments_zz_event
   for each row execute function private.emit_symptom_check_completed();
 
 -- ---------------------------------------------------------------------------
+-- 6b. An urgent or emergency result that could not be recorded must not be silent (spec 12.8, INV-06)
+-- ---------------------------------------------------------------------------
+-- The patient app shows the result even when the assessment row cannot be written. For an emergency the app also writes the
+-- emergency event directly. For an URGENT result nothing else would tell a human, so the app calls this (service role only):
+-- it opens a sev1 incident (one per patient per day, refreshed not duplicated) and tries to create a clinical task so the
+-- patient is followed up. Both texts are neutral (INV-07): no condition, reading or result is named, only that a check needs prompt
+-- follow-up. No model is involved (INV-01). The incident is the durable record; the task is best effort and its failure is audited.
+create or replace function public.report_unrecorded_symptom_check(p_patient uuid, p_category text) returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  pr public.profiles%rowtype;
+  v_ref text;
+  v_task uuid;
+begin
+  if p_category is null or p_category not in ('urgent', 'emergency') then
+    return jsonb_build_object('ok', false, 'reason', 'not_needed');
+  end if;
+  select * into pr from public.profiles where id = p_patient and role = 'patient';
+  if not found or pr.organisation_id is null then
+    return jsonb_build_object('ok', false, 'reason', 'unknown_patient');
+  end if;
+  v_ref := 'symptom_check_unrecorded:' || pr.id || ':' || to_char((now() at time zone 'Africa/Lagos')::date, 'YYYYMMDD');
+  perform private.page_incident(pr.organisation_id, v_ref, 'A patient check needs prompt follow-up',
+    'A symptom check could not be saved and needs prompt follow-up. Contact the patient (reference ' || coalesce(pr.patient_number, pr.id::text) || ') through the care team.');
+  begin
+    v_task := private.create_clinical_task(pr.id, 'symptom_review', null, 'symptom_unrecorded:' || pr.id || ':' || to_char((now() at time zone 'Africa/Lagos')::date, 'YYYYMMDD'), null, null, null);
+  exception when others then
+    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      values (pr.organisation_id, 'symptom_check.unrecorded_task_error', 'profile', pr.id, jsonb_build_object('error', sqlerrm));
+  end;
+  insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+    values (pr.organisation_id, 'symptom_check.unrecorded_reported', 'profile', pr.id, jsonb_build_object('has_task', v_task is not null));
+  return jsonb_build_object('ok', true, 'has_task', v_task is not null);
+end $$;
+revoke all on function public.report_unrecorded_symptom_check(uuid, text) from public;
+grant execute on function public.report_unrecorded_symptom_check(uuid, text) to service_role;
+
+-- ---------------------------------------------------------------------------
 -- 7. Self-checks
 -- ---------------------------------------------------------------------------
 do $$
@@ -406,6 +456,10 @@ begin
      or has_function_privilege('anon', 'public.list_my_symptom_reviews()', 'EXECUTE')
      or has_function_privilege('anon', 'public.symptom_review_stated_time()', 'EXECUTE') then
     raise exception 'S60 assertion: anon can execute a symptom review function';
+  end if;
+  if has_function_privilege('anon', 'public.report_unrecorded_symptom_check(uuid,text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.report_unrecorded_symptom_check(uuid,text)', 'EXECUTE') then
+    raise exception 'S60 assertion: only the service role may report an unrecorded symptom check';
   end if;
   if not exists (select 1 from public.event_types where event_type = 'symptom_check.completed')
      or not exists (select 1 from public.event_types where event_type = 'symptom_review.completed') then

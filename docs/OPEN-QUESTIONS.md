@@ -1519,9 +1519,8 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - Decision: open (founder).
 
 ### OQ-S60-08 An urgent result that cannot be recorded raises no clinician alert
-- Built: the patient always gets the result. If the check cannot be recorded (a database error, no protocol version), an emergency still raises the emergency event directly, and every failure is reported to Sentry. An urgent result that cannot be recorded is reported but raises no `clinician_alerts` row (that needs the recorded assessment and a signed `symptom_triage` SLA, OQ-F1-02).
-- Options: (a) as built; (b) also create a `symptom_review` task for such a patient. Recommend (b) after the SLA is signed.
-- Decision: open (CMO).
+- RESOLVED in the PR #1003 review fixes. Built: the patient always gets the result. If the check cannot be recorded (a database error, no protocol version), an emergency still raises the emergency event directly, and BOTH an urgent and an emergency result now call `public.report_unrecorded_symptom_check` (service role only), which opens one sev1 incident per patient per day (neutral text, INV-07) and a `symptom_review` follow-up task, and a failure of that call is itself reported to Sentry. No signed SLA is needed for the incident; the task uses the task type's own default due time.
+- Decision: closed. (The SLA question for a recorded review time stays OQ-F1-02.)
 
 ### OQ-S60-09 Smaller follow-ups from S60
 - The bundled red-flag floor is a frozen copy of the signed v1 rules (parity-tested against the database seed fixture). When the CMO signs a later protocol that changes a red flag, the bundled copy and its parity test must be updated in the same change. A lag cuts both ways: a NEW red flag would be missed by the floor (the engine still catches it), and a RELAXED or removed rule would keep firing from the floor in every client and on the server, because the floor can only raise. A protocol that relaxes a rule therefore needs the bundle updated first.
@@ -1582,3 +1581,7 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - No mobile checker screen or voice input was built (the only seam is the on-device red-flag floor from S60, and wording needs CMO sign-off). Recorded as deferred.
 - Decision: open (founder).
 
+### OQ-S60-12 The go-live function patches are string replacements (follow-up from the PR #1003 review)
+- `20261007131744_s60_regulatory_position_and_guard_wiring.sql` patches two live function bodies (`public.attest_go_live_condition`, `private.go_live_conditions`) with `replace()` on a marker, as F1 did, and raises if a marker is missing. That fails loudly rather than silently, but it is brittle: a later edit to either function can break a replay, and each new record-backed condition adds another patch.
+- Proper fix: a small data-driven table (`go_live_condition_evidence`: guard key, condition code, a SQL-free evidence kind such as `exists_row:regulatory_positions:clearing`) read by one generic check inside the two functions, so a new record-backed condition is a row, not a function rewrite. Not done here because it rewrites both functions wholesale and re-proves every S37 and F1 guard proof; that is its own PR.
+- Decision: open (engineering follow-up, no founder input).

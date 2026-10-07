@@ -238,9 +238,10 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
 }
 
 /**
- * The check could not be saved. Report it, and for an emergency write the emergency event the database trigger would have
- * written, so that a failure to record never means that nobody is told. An urgent result that cannot be recorded is reported
- * only: the patient has been told to get care soon and to message their care team (the screen says so).
+ * The check could not be saved. Report it, and make sure a human is told: an emergency writes the emergency event the database
+ * trigger would have written, and BOTH an emergency and an urgent result open a durable incident and a follow-up task through
+ * `report_unrecorded_symptom_check` (neutral text, no model; INV-01, INV-06, INV-07). A failure to tell anyone is itself loud (Sentry),
+ * never swallowed: an unrecorded urgent result must not depend on a log line alone.
  */
 async function escalateUnrecorded(
   person: KnownPerson | null,
@@ -252,28 +253,41 @@ async function escalateUnrecorded(
   Sentry.captureException(new Error(`symptom check could not be recorded (${category}): ${why}`), {
     extra: { complaintKey, category, subject: person?.subjectId ?? null },
   });
-  if (category !== "emergency" || !person) return;
+  if ((category !== "emergency" && category !== "urgent") || !person) return;
+  if (category === "emergency") {
+    await runBestEffort(
+      async () => {
+        const service = createServiceRoleClient();
+        let organisationId = subject?.organisationId ?? null;
+        if (!organisationId) {
+          // the profile could not be read with the person's own session: try once more with the service role, for the one write that matters
+          const { data } = await service.from("profiles").select("organisation_id").eq("id", person.subjectId).maybeSingle();
+          organisationId = data?.organisation_id ?? null;
+        }
+        if (!organisationId) throw new Error("emergency event fallback: no organisation for the person");
+        const { error } = await service.from("emergency_events").insert({
+          organisation_id: organisationId,
+          patient_id: person.subjectId,
+          source: "symptom_triage",
+          trigger_detail: `Symptom triage (${complaintKey}): emergency result that could not be recorded as an assessment (${why})`,
+          status: "active",
+          logged_by_profile_id: person.userId === person.subjectId ? null : person.userId,
+        });
+        if (error) throw new Error(`emergency event fallback failed: ${error.message}`);
+      },
+      { complaintKey, subject: person.subjectId },
+    );
+  }
+  // The durable path for urgent (and a second net for emergency): an incident the on-call team sees, plus a follow-up task.
   await runBestEffort(
     async () => {
       const service = createServiceRoleClient();
-      let organisationId = subject?.organisationId ?? null;
-      if (!organisationId) {
-        // the profile could not be read with the person's own session: try once more with the service role, for the one write that matters
-        const { data } = await service.from("profiles").select("organisation_id").eq("id", person.subjectId).maybeSingle();
-        organisationId = data?.organisation_id ?? null;
-      }
-      if (!organisationId) throw new Error("emergency event fallback: no organisation for the person");
-      const { error } = await service.from("emergency_events").insert({
-        organisation_id: organisationId,
-        patient_id: person.subjectId,
-        source: "symptom_triage",
-        trigger_detail: `Symptom triage (${complaintKey}): emergency result that could not be recorded as an assessment (${why})`,
-        status: "active",
-        logged_by_profile_id: person.userId === person.subjectId ? null : person.userId,
-      });
-      if (error) throw new Error(`emergency event fallback failed: ${error.message}`);
+      const { data, error } = await service.rpc("report_unrecorded_symptom_check", { p_patient: person.subjectId, p_category: category });
+      if (error) throw new Error(`unrecorded symptom check report failed: ${error.message}`);
+      const ok = (data as { ok?: boolean } | null)?.ok === true;
+      if (!ok) throw new Error(`unrecorded symptom check was not reported: ${JSON.stringify(data)}`);
     },
-    { complaintKey, subject: person.subjectId },
+    { complaintKey, subject: person.subjectId, category },
   );
 }
 

@@ -906,3 +906,5 @@ s60_symptom_accuracy_audit.sql
 s60_regulatory_position_and_guard_wiring.sql
 # S59 (spec 12.1 to 12.7): symptom sessions view (no staff path), context that never returns pregnancy for someone acted for, audited staff read, the sent-by-choice summary that appears in the clinician patient summary only once a consultation is booked (acceptance test), skin photos (private bucket, per-patient storage RLS, consent, limits, retention, audited review, no score column). Sabotage: the linked-appointment filter removed, the storage policy widened, the table policy widened.
 s59_symptom_assessment_handoff_and_skin_photos.sql
+# S60 review fixes (PR #1003): an urgent result that could not be recorded raises a neutral incident and task (service role only); a review request follows the current read grant (revoked caregiver refused); a malformed or huge SLA config never raises; "agrees" is judged against the effective (override) category. Sabotage for each: the old rule or unguarded form restored, the test must flip.
+s60_review_fixes.sql

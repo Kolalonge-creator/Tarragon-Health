@@ -93,8 +93,8 @@ begin
   if v_r <> 'ok' then raise exception 'FAIL 2b: a test patient should still be able to try the flow, got %', v_r; end if;
 
   -- S60: two of the four attestations now need a record behind them (a regulatory position, an accuracy baseline report). Fixtures:
-  insert into public.regulatory_positions (organisation_id, topic, position_text, classification, counsel_name, position_date, attached_by, is_test)
-  values (v_org, 'symptom_checker', 'Proof fixture: counsel advises the checker is decision support, labelled as such.', 'decision_support_not_a_device', 'F1 proof counsel', current_date, v_cmo, true);
+  insert into public.regulatory_positions (organisation_id, topic, position_text, classification, counsel_name, position_date, document_ref, attached_by, is_test)
+  values (v_org, 'symptom_checker', 'Proof fixture: counsel advises the checker is decision support, labelled as such.', 'decision_support_not_a_device', 'F1 proof counsel', current_date, 'PROOF-DOC-REF', v_cmo, true);
   insert into public.symptom_accuracy_reports (organisation_id, period_start, period_end, config_version, is_baseline, includes_test_accounts, reviewed_total, cells)
   values (v_org, date '2020-01-01', date '2020-02-01', (select version from public.symptom_accuracy_config where is_active), true, true, 12, '[]');
 

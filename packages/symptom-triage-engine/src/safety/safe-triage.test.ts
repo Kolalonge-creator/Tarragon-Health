@@ -232,3 +232,65 @@ describe("a pending question is only ended by an emergency floor", () => {
   });
 });
 
+
+describe("review fixes (PR #1003)", () => {
+  const screen = { hasFlag: false, fired: [], brokenRules: [], topCategory: null };
+  const asked = [{ key: "q_one", answer: true }] as unknown as ReturnType<EngineFn> extends infer R ? (R extends { questionsAsked: infer Q } ? Q : never) : never;
+
+  it("when the floor overrides the engine, the questions the engine really asked are kept, not wiped", async () => {
+    const lenient: EngineFn = () => ({
+      category: "self_management",
+      clinicianReviewRequired: false,
+      safetyNetMessageKey: "chest_pain.self_msk",
+      rationale: "lenient",
+      redFlagScreen: screen,
+      questionsAsked: asked,
+    });
+    const r = await runTriageFailSafe({
+      pathway: pathway("chest_pain"),
+      capture: capture({ presentingComplaintKey: "chest_pain", severity: 8, associatedSymptoms: ["breathlessness"] }),
+      answers: {},
+      degraded: DEGRADED,
+      engine: lenient,
+    });
+    expect(r.floorRaised).toBe(true);
+    expect(r.category).toBe("emergency");
+    expect(r.questionsAsked).toEqual(asked);
+    expect((r.questionsAsked as unknown[]).length).toBe(1);
+  });
+
+  it("the engine is given an AbortSignal, which is not aborted on a healthy run", async () => {
+    let seen: AbortSignal | undefined;
+    const spy: EngineFn = (p, c, a, q, signal) => {
+      seen = signal;
+      return runTriage(p, c, a, q);
+    };
+    const r = await runTriageFailSafe({ pathway: pathway("headache"), capture: capture({ presentingComplaintKey: "headache" }), answers: {}, degraded: DEGRADED, engine: spy });
+    expect(r.degraded).toBe(false);
+    expect(seen).toBeDefined();
+    expect(seen?.aborted).toBe(false);
+  });
+
+  it("a timed-out async engine is told to stop: its signal is aborted, so it can cancel its own work", async () => {
+    let seen: AbortSignal | undefined;
+    let cancelled = false;
+    const cancellable: EngineFn = (_p, _c, _a, _q, signal) =>
+      new Promise((_resolve, reject) => {
+        seen = signal;
+        signal?.addEventListener("abort", () => {
+          cancelled = true;
+          reject(new Error("aborted"));
+        });
+      });
+    const r = await runTriageFailSafe({ pathway: pathway("headache"), capture: capture({ presentingComplaintKey: "headache" }), answers: {}, degraded: DEGRADED, engine: cancellable });
+    expect(r.degradedReason).toBe("engine_timeout");
+    expect(seen?.aborted).toBe(true);
+    expect(cancelled).toBe(true);
+  });
+
+  it("an engine written with the old four parameters still works (backward compatible)", async () => {
+    const old = ((p, c, a, q) => runTriage(p, c, a, q)) as (p: PresentingComplaintProtocol, c: SymptomCapture, a: never, q: never[]) => ReturnType<typeof runTriage>;
+    const r = await runTriageFailSafe({ pathway: pathway("headache"), capture: capture({ presentingComplaintKey: "headache" }), answers: {}, degraded: DEGRADED, engine: old as unknown as EngineFn });
+    expect(r.degraded).toBe(false);
+  });
+});
