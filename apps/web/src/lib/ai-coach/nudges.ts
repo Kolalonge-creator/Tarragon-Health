@@ -11,7 +11,7 @@ import type { PatientContext } from "./context";
  * Tone rules, same as the rest of the assistant: warm, no shame, no urgency, no verdict on a reading ("good", "normal", "controlled").
  */
 
-export type DailyNudgeKind = "log_reading" | "medicines" | "goal" | "walk";
+export type DailyNudgeKind = "log_reading" | "medicines" | "goal" | "walk" | "rest";
 
 export interface DailyNudge {
   kind: DailyNudgeKind;
@@ -57,11 +57,20 @@ export function chooseDailyNudge(input: {
       target: { section: "medications", path: "/patient/medications" },
     };
   }
+  // A programme the care team has paused, or that has an open red flag, gets NO encouragement to push on (the same rule the chat applies).
+  const held = context.lifestyleProgrammes.some((p) => p.status === "paused" || p.hasOpenRedFlag);
+  if (held) {
+    return {
+      kind: "rest",
+      text: "Take today at your own pace. Your care team is here if you need them.",
+      target: { section: "today", path: "/patient" },
+    };
+  }
   const goal = context.lifestyleProgrammes.flatMap((p) => p.goalTitles)[0];
   if (goal) {
     return {
       kind: "goal",
-      text: `One small step towards "${goal}" today is plenty.`,
+      text: "One small step towards your goal today is plenty.",
       target: { section: "lifestyle", path: "/patient/lifestyle" },
     };
   }
@@ -79,6 +88,9 @@ export interface WeeklyReflection {
   medicinesMissedThisWeek: number;
   text: string;
 }
+
+/** A read that failed is NOT zero. Counts that could not be read leave the reflection out rather than telling the patient something false. */
+type Counted = number | null;
 
 /** Plain counts and gentle wording only. Never a verdict on a value, never a comparison to a target. */
 export function composeWeeklyReflection(c: {
@@ -109,17 +121,19 @@ function weekAgo(now: Date, days: number): string {
   return new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 }
 
-/** Reads the counts the reflection needs. Each read is guarded; a failed read counts as zero, never an error. */
+/** Reads the counts the reflection needs. A read that errors (supabase-js returns { error }, it does not throw) makes the whole reflection
+ *  unavailable (null): the card is simply not shown, never a false "you logged nothing". */
 export async function buildWeeklyReflection(
   supabase: SupabaseClient<Database>,
   patientId: string,
   now: Date = new Date()
-): Promise<WeeklyReflection> {
-  const count = async (run: () => PromiseLike<{ count: number | null }>): Promise<number> => {
+): Promise<WeeklyReflection | null> {
+  const count = async (run: () => PromiseLike<{ count: number | null; error: unknown }>): Promise<Counted> => {
     try {
-      return (await run()).count ?? 0;
+      const { count: n, error } = await run();
+      return error ? null : (n ?? 0);
     } catch {
-      return 0;
+      return null;
     }
   };
   const readings = (from: string, to: string) =>
@@ -146,6 +160,7 @@ export async function buildWeeklyReflection(
     meds("taken"),
     meds("missed"),
   ]);
+  if (readingsThisWeek === null || readingsLastWeek === null || medicinesTakenThisWeek === null || medicinesMissedThisWeek === null) return null;
   return composeWeeklyReflection({ readingsThisWeek, readingsLastWeek, medicinesTakenThisWeek, medicinesMissedThisWeek });
 }
 
@@ -160,23 +175,23 @@ export async function buildDailyNudge(
   let readingToday = false;
   let medicinesLoggedToday = false;
   try {
-    const { count } = await supabase
+    const { count, error } = await supabase
       .from("vitals_readings")
       .select("id", { count: "exact", head: true })
       .eq("patient_id", patientId)
       .gte("taken_at", startOfLagosDay);
-    readingToday = (count ?? 0) > 0;
+    readingToday = !error && (count ?? 0) > 0;
   } catch {
     // unknown counts as "not yet", which only means a gentle reminder
   }
   try {
-    const { count } = await supabase
+    const { count, error } = await supabase
       .from("medication_logs")
       .select("id", { count: "exact", head: true })
       .eq("patient_id", patientId)
       .eq("status", "taken")
       .gte("logged_at", startOfLagosDay);
-    medicinesLoggedToday = (count ?? 0) > 0;
+    medicinesLoggedToday = !error && (count ?? 0) > 0;
   } catch {
     // same
   }

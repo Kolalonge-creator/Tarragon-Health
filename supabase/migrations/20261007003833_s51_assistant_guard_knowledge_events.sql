@@ -59,10 +59,10 @@ as $$
              'owner', nullif(btrim(coalesce(h.reviewed_by_name, h.clinical_author_name, h.author_name)), ''),
              'version', coalesce(h.content_version, h.version, 1),
              'review_due_at', coalesce(h.review_due_at, h.next_review_due::timestamptz),
-             'retrievable', coalesce(h.clinician_reviewed and h.is_active
+             'retrievable', coalesce(h.clinician_reviewed and h.is_active and h.content_status = 'published'
                             and nullif(btrim(coalesce(h.reviewed_by_name, h.clinical_author_name, h.author_name)), '') is not null
                             and coalesce(h.review_due_at, h.next_review_due::timestamptz) > now(), false)) as j
-      from public.health_education_content h where h.id = any (p_ids)
+      from public.health_education_content h where h.id = any (p_ids) and h.is_active
     union all
     select jsonb_build_object(
              'id', b.id, 'source_table', 'lpe_content_blocks', 'title', b.title,
@@ -70,7 +70,7 @@ as $$
              'version', b.content_version,
              'review_due_at', b.review_due_at,
              'retrievable', coalesce(b.clinician_reviewed and nullif(btrim(p.full_name), '') is not null and b.review_due_at > now(), false)) as j
-      from public.lpe_content_blocks b left join public.profiles p on p.id = b.reviewed_by where b.id = any (p_ids)
+      from public.lpe_content_blocks b left join public.profiles p on p.id = b.reviewed_by where b.id = any (p_ids) and b.clinician_reviewed
   ) x
 $$;
 revoke all on function public.assistant_knowledge_sources(uuid[]) from public, anon;
@@ -78,6 +78,8 @@ grant execute on function public.assistant_knowledge_sources(uuid[]) to authenti
 
 -- ---------------------------------------------------------------------------
 -- 5. Protocol limits only. The step table (the part that proposes a change) is never returned.
+-- protocols is a platform-wide table (it has no organisation_id: a pathway protocol belongs to the platform, not to a tenant), and
+-- `params` holds plausibility ranges and windows, not doses or steps, so any signed-in person may read them. Only the approved row.
 -- ---------------------------------------------------------------------------
 create or replace function public.assistant_protocol_limits()
 returns jsonb
@@ -112,7 +114,7 @@ declare
 begin
   select count(*) into v_kb from (
     select 1 from public.health_education_content h
-     where h.clinician_reviewed and h.is_active
+     where h.clinician_reviewed and h.is_active and h.content_status = 'published'
        and nullif(btrim(coalesce(h.reviewed_by_name, h.clinical_author_name, h.author_name)), '') is not null
        and coalesce(h.review_due_at, h.next_review_due::timestamptz) > now()
     union all
@@ -181,6 +183,38 @@ insert into public.notification_template_locales (template_key, locale, channel,
 on conflict do nothing;
 
 -- ---------------------------------------------------------------------------
+-- 8. Queueing a nudge: once per patient, template and Lagos day (a unique index, so an overlapping run cannot double-send), and not for
+--    a patient who has switched every wellness channel off. Service role only.
+-- ---------------------------------------------------------------------------
+create unique index notifications_assistant_once_per_day on public.notifications (recipient_id, template, (payload ->> 'day'))
+  where template in ('assistant_daily_nudge', 'assistant_weekly_reflection', 'assistant_reengage');
+
+create function public.assistant_queue_nudge(p_patient uuid, p_template text, p_day date) returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_org uuid;
+  v_n integer;
+begin
+  if p_template not in ('assistant_daily_nudge', 'assistant_weekly_reflection', 'assistant_reengage') then
+    raise exception 'not an assistant template: %', p_template using errcode = '22023';
+  end if;
+  select organisation_id into v_org from public.profiles where id = p_patient and role = 'patient' and is_active;
+  if v_org is null then return false; end if;
+  if exists (select 1 from public.patient_notification_preferences pr
+              where pr.patient_id = p_patient and pr.category = 'education_wellness' and not (pr.email_enabled or pr.sms_enabled or pr.push_enabled)) then
+    return false;
+  end if;
+  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+  values (v_org, p_patient, 'in_app', 'pending', p_template, jsonb_build_object('day', p_day::text))
+  on conflict do nothing;
+  get diagnostics v_n = row_count;
+  return v_n > 0;
+end $$;
+revoke all on function public.assistant_queue_nudge(uuid, text, date) from public, anon, authenticated;
+grant execute on function public.assistant_queue_nudge(uuid, text, date) to service_role;
+
+-- ---------------------------------------------------------------------------
 -- Self-check
 -- ---------------------------------------------------------------------------
 do $$
@@ -191,6 +225,7 @@ begin
   if jsonb_array_length(private.go_live_conditions('clinical_operations_enabled', null)) < 4 then raise exception 'the existing guard conditions were damaged'; end if;
   if has_function_privilege('anon', 'public.assistant_knowledge_sources(uuid[])', 'EXECUTE') then raise exception 'anon can read knowledge sources'; end if;
   if has_function_privilege('anon', 'public.assistant_protocol_limits()', 'EXECUTE') then raise exception 'anon can read protocol limits'; end if;
+  if has_function_privilege('authenticated', 'public.assistant_queue_nudge(uuid, text, date)', 'EXECUTE') then raise exception 'authenticated can queue nudges'; end if;
   if has_table_privilege('authenticated', 'public.assistant_config', 'SELECT') then raise exception 'assistant_config is readable by authenticated'; end if;
   if (select count(*) from public.event_types where event_type like 'assistant.%') <> 3 then raise exception 'assistant event types'; end if;
 end $$;

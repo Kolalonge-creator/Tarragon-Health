@@ -21,10 +21,16 @@ const ONSET_WORDS = [
 /** Questions about what a symptom IS, or about the patient's own existing record, are not a request to assess new symptoms. */
 const NOT_NEW = ["what is", "what does", "what are", "explain my", "my results", "my reading", "my last", "my record"];
 
+/** A word or phrase as a whole word with a simple ending ("rash", "rashes"; never "numb" inside "numbers" or "itch" inside "switch"). */
+function hasWord(m: string, w: string): boolean {
+  const body = w.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  return new RegExp(`(?<![a-z])${body}(?:s|es|ing|ed)?(?![a-z])`).test(m);
+}
+
 export function describesNewSymptoms(message: string): boolean {
   const m = message.toLowerCase().replace(/[‘’]/g, "'");
-  if (NOT_NEW.some((p) => m.includes(p)) && !ONSET_WORDS.some((p) => m.includes(p))) return false;
-  const hasSymptom = SYMPTOM_WORDS.some((w) => m.includes(w));
-  const hasOnset = ONSET_WORDS.some((w) => m.includes(w));
+  const hasOnset = ONSET_WORDS.some((w) => hasWord(m, w));
+  if (NOT_NEW.some((p) => hasWord(m, p)) && !hasOnset) return false;
+  const hasSymptom = SYMPTOM_WORDS.some((w) => hasWord(m, w));
   return hasSymptom && hasOnset;
 }

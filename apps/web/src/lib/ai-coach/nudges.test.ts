@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { eligibleForAssistantNudge } from "./nudge-recipients";
-import { chooseDailyNudge, composeWeeklyReflection, lagosDay, lagosWeekday } from "./nudges";
+import { buildWeeklyReflection, chooseDailyNudge, composeWeeklyReflection, lagosDay, lagosWeekday } from "./nudges";
+import { chainable } from "./test-support";
 import { lintNotificationText } from "@tarragon/shared";
 
 const none = { recentVitals: [], activeMedications: [], lifestyleProgrammes: [] };
@@ -17,11 +18,27 @@ describe("one daily nudge (7.5)", () => {
     const ctx = {
       recentVitals: [{ vitalType: "weight", value: "80", unit: "kg", takenAt: "x" }],
       activeMedications: [{ drugName: "Amlodipine", dose: null, frequency: null }],
-      lifestyleProgrammes: [{ conditionLabel: "x", goalTitles: ["Daily walk"] }],
+      lifestyleProgrammes: [{ conditionLabel: "x", goalTitles: ["Daily walk"], status: "active", hasOpenRedFlag: false }],
     } as never;
     expect(chooseDailyNudge({ context: ctx, readingToday: false, medicinesLoggedToday: false }).kind).toBe("log_reading");
     expect(chooseDailyNudge({ context: ctx, readingToday: true, medicinesLoggedToday: false }).kind).toBe("medicines");
     expect(chooseDailyNudge({ context: ctx, readingToday: true, medicinesLoggedToday: true }).kind).toBe("goal");
+  });
+
+  it("a paused or red-flagged programme is never encouraged to push on (the chat rule)", () => {
+    for (const p of [{ status: "paused", hasOpenRedFlag: false }, { status: "active", hasOpenRedFlag: true }]) {
+      const ctx = { recentVitals: [], activeMedications: [], lifestyleProgrammes: [{ conditionLabel: "x", goalTitles: ["Daily walk"], ...p }] } as never;
+      const n = chooseDailyNudge({ context: ctx, readingToday: true, medicinesLoggedToday: true });
+      expect(n.kind).toBe("rest");
+      expect(n.text).not.toMatch(/walk|goal|step/i);
+    }
+  });
+
+  it("never echoes a goal title back (it can name a condition)", () => {
+    const ctx = { recentVitals: [], activeMedications: [], lifestyleProgrammes: [{ conditionLabel: "x", goalTitles: ["Lower my blood pressure"], status: "active", hasOpenRedFlag: false }] } as never;
+    const n = chooseDailyNudge({ context: ctx, readingToday: true, medicinesLoggedToday: true });
+    expect(n.kind).toBe("goal");
+    expect(n.text).not.toMatch(/blood pressure/i);
   });
 
   it("never gives a verdict, a number, a dose or an em dash", () => {
@@ -47,6 +64,18 @@ describe("weekly reflection (7.5)", () => {
     const r = composeWeeklyReflection({ readingsThisWeek: 0, readingsLastWeek: 0, medicinesTakenThisWeek: 0, medicinesMissedThisWeek: 0 });
     expect(r.text).toMatch(/did not log/);
     expect(r.text).not.toMatch(/—/);
+  });
+});
+
+describe("a failed read is not a zero (found in review)", () => {
+  it("leaves the weekly reflection out when any count errors, instead of saying 'you logged nothing'", async () => {
+    const supabase = { from: () => chainable({ data: null, error: { message: "rls" }, count: null }) } as never;
+    expect(await buildWeeklyReflection(supabase, "p1")).toBeNull();
+  });
+  it("builds it when every count reads", async () => {
+    const supabase = { from: () => chainable({ data: null, error: null, count: 3 }) } as never;
+    const r = await buildWeeklyReflection(supabase, "p1");
+    expect(r?.readingsThisWeek).toBe(3);
   });
 });
 

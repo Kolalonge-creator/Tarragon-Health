@@ -170,8 +170,9 @@ export interface AppointmentPrepSummary {
   changesSinceLastReview: {
     lastReviewAt: string | null;
     newMedicines: string[];
-    readingsLogged: number;
-    symptomsLogged: number;
+    /** null when the count could not be read: the line is left out, never shown as zero. */
+    readingsLogged: number | null;
+    symptomsLogged: number | null;
   };
   /** S51 (7.7): questions the patient may want to ask, each built from a fact in their own record. */
   questions: string[];
@@ -208,7 +209,9 @@ export function buildPrepDraft(summary: AppointmentPrepSummary): string {
   const lines: string[] = ["Hello, before my appointment I wanted to share a few things."];
   const ch = summary.changesSinceLastReview;
   if (ch.lastReviewAt) {
-    lines.push(`Since my last review on ${ch.lastReviewAt.slice(0, 10)}: I logged ${ch.readingsLogged} reading(s) and ${ch.symptomsLogged} symptom note(s).`);
+    if (ch.readingsLogged !== null && ch.symptomsLogged !== null) {
+      lines.push(`Since my last review on ${ch.lastReviewAt.slice(0, 10)}: I logged ${ch.readingsLogged} reading(s) and ${ch.symptomsLogged} symptom note(s).`);
+    }
     if (ch.newMedicines.length > 0) lines.push(`New medicines since then: ${ch.newMedicines.join(", ")}.`);
   }
   if (summary.recentSymptoms.length > 0) {
@@ -289,8 +292,8 @@ export async function prepareForAppointment(
   // S51 (7.7): what changed since the last completed appointment. Each read is independently guarded, like the others here.
   let lastReviewAt: string | null = null;
   let newMedicines: string[] = [];
-  let readingsLogged = 0;
-  let symptomsLogged = 0;
+  let readingsLogged: number | null = null;
+  let symptomsLogged: number | null = null;
   try {
     const { data } = await supabase
       .from("appointments")
@@ -317,22 +320,22 @@ export async function prepareForAppointment(
       // best-effort
     }
     try {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from("vitals_readings")
         .select("id", { count: "exact", head: true })
         .eq("patient_id", patientId)
         .gt("taken_at", lastReviewAt);
-      readingsLogged = count ?? 0;
+      readingsLogged = error ? null : (count ?? 0);
     } catch {
       // best-effort
     }
     try {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from("symptoms")
         .select("id", { count: "exact", head: true })
         .eq("patient_id", patientId)
         .gt("reported_at", lastReviewAt);
-      symptomsLogged = count ?? 0;
+      symptomsLogged = error ? null : (count ?? 0);
     } catch {
       // best-effort
     }

@@ -18,6 +18,11 @@ const SENSITIVE_TERM = /\b(?:hiv|aids|hbsag|hbs\s*ag|hcv|hbv|hepatitis\s*[bc]|he
 const RESULT_WORD = /\b(?:result|results|test|tests|tested|positive|reactive|status|screen|screening|came back|report|reading|detected|viral load|cd4)\b/i;
 const POSITIVE_WORD = /\b(?:positive|reactive|detected|infected|have|has|living with)\b/i;
 
+/** True when any text names an HIV, hepatitis B or hepatitis C screening subject at all. Used to keep such text out of the model's hands. */
+export function mentionsSensitiveScreening(text: string): boolean {
+  return SENSITIVE_TERM.test(text);
+}
+
 /** True when the patient's own message asks about a screening result of this kind. Fail safe: a term plus any result word. */
 export function screenSensitiveResultQuestion(message: string): boolean {
   return SENSITIVE_TERM.test(message) && RESULT_WORD.test(message);
@@ -36,16 +41,21 @@ export const DOSE_REFUSAL_REPLY =
   "I can't change or advise on the amount or timing of any medicine, and I can't tell you to stop one. That decision belongs to your care team, who know your full picture. Please send them a message in the app and they will look at it with you. Until then, keep taking your medicines the way they were prescribed.";
 
 const MED_NOUN = String.raw`(?:dose|doses|dosage|tablet|tablets|pill|pills|medicine|medicines|medication|medications|meds|insulin|injection|injections|drug|drugs|capsule|capsules|prescription)`;
-const CHANGE_VERB = String.raw`(?:increase|increasing|decrease|decreasing|reduce|reducing|raise|raising|lower|lowering|double|doubling|halve|halving|cut|cutting|stop|stopping|skip|skipping|change|changing|adjust|adjusting|swap|switch|switching|quit|quitting|come off|coming off)`;
+// Verbs that only ever mean "change a medicine" next to a medicine noun. The vaguer ones (reduce, lower, raise, cut, change, adjust, swap,
+// switch) are used for diet and lifestyle all day ("reduce my blood sugar without medication"), so they count ONLY next to dose/dosage.
+const CHANGE_VERB = String.raw`(?:increase|increasing|decrease|decreasing|double|doubling|halve|halving|stop(?!\s+(?:thinking|worrying|forgetting))|stopping|skip|skipping|quit|quitting|come off|coming off)`;
+const DOSE_NOUN = String.raw`(?:dose|doses|dosage)`;
+const VAGUE_VERB = String.raw`(?:reduce|reducing|lower|lowering|raise|raising|cut|cutting|change|changing|adjust|adjusting|swap|switch|switching)`;
 const MORE_LESS = String.raw`(?:more|less|extra|double|another|half|two)`;
 
 /** A request to CHANGE a medicine. Also opens a clinician flag, because stopping or doubling is an adherence and safety signal. */
 const CHANGE_PATTERNS: RegExp[] = [
   new RegExp(String.raw`\b${CHANGE_VERB}\b.{0,40}\b${MED_NOUN}\b`, "i"),
   new RegExp(String.raw`\b${MED_NOUN}\b.{0,40}\b${CHANGE_VERB}\b`, "i"),
-  new RegExp(String.raw`\btake\s+${MORE_LESS}\s+of\s+(?:my|the|these|this|that)\b`, "i"),
+  new RegExp(String.raw`\b${VAGUE_VERB}\b.{0,40}\b${DOSE_NOUN}\b`, "i"),
+  new RegExp(String.raw`\b${DOSE_NOUN}\b.{0,40}\b${VAGUE_VERB}\b`, "i"),
   new RegExp(String.raw`\btake\s+${MORE_LESS}\s+(?:(?:a|an|the|my|your|of)\s+)*${MED_NOUN}\b`, "i"),
-  new RegExp(String.raw`\b(?:should|can|may|could) i (?:stop|skip|increase|reduce|double|halve|quit)\b`, "i"),
+  new RegExp(String.raw`\b(?:should|can|may|could) i (?:double|halve|skip)\b`, "i"),
 ];
 
 /** A question that asks the assistant to name an amount. Refused the same way, but no clinician flag: it is not a change. */

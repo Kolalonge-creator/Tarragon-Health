@@ -25,6 +25,10 @@ describe("isAiExcludedAnalyte (INV-04)", () => {
     expect(isAiExcludedAnalyte("anti-HCV", "reactive")).toBe(true);
     expect(isAiExcludedAnalyte("hcv_ab", null)).toBe(true);
     expect(isAiExcludedAnalyte("HIV 1/2", "")).toBe(true);
+    expect(isAiExcludedAnalyte("cd4_count", null)).toBe(true);
+    expect(isAiExcludedAnalyte("HBV DNA", null)).toBe(true);
+    expect(isAiExcludedAnalyte("hbeag", "positive")).toBe(true);
+    expect(isAiExcludedAnalyte("viral_load", null)).toBe(true);
   });
   it("lets an explicit negative and ordinary analytes through", () => {
     expect(isAiExcludedAnalyte("hiv_screen", "negative")).toBe(false);

@@ -8,7 +8,7 @@
  * list does not name (everything the assistant's old private regex list caught is folded in here, see the legacy regression test), and
  * `ASSISTANT_DANGER_PAIRS` are two words that together mean an emergency wherever they sit in the message ("my arm is numb").
  *
- * WHOLE WORDS. A phrase or a pair word matches only as a whole word (a trailing `*` makes it a stem), so "arm" never matches
+ * WORDS. A phrase or a pair word must START at a word boundary (a trailing `*` makes it a stem; a pair word is also closed at the end), so "arm" never matches
  * "pharmacy" or "warm", "numb" never matches "numbers" and "fitting" never matches "benefitting". A blood pressure patient who writes
  * "my numbers on my left arm" must not be told to go to hospital.
  *
@@ -43,6 +43,10 @@ export const ASSISTANT_EXTRA_DANGER_PHRASES: readonly string[] = [
   "fainted", "fainting", "blacked out", "black out", "not responding", "seizing", "having a fit", "convuls*", "seizures",
   // overdose
   "too many tablets", "too many pills", "too many of my tablets", "too many of my pills", "took all my",
+  // a dosing mistake already made is an urgent report, never a dose-change request ("can I double my dose" is a different sentence)
+  "took double", "taken double", "took too much", "taken too much", "took extra tablet", "took extra pill", "took extra dose", "took an extra tablet",
+  "took an extra pill", "took an extra dose", "took the wrong", "took twice", "taken twice", "wont stop bleeding",
+  "overdosed", "accidentally took", "swallowed the wrong",
 ];
 
 /** Each side is a list of alternatives; one word from each side anywhere in the message is an emergency. Whole words (`*` is a stem). */
@@ -66,19 +70,23 @@ function normalise(text: string): string {
 
 const escapeRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** Whole-word matcher. A trailing `*` makes the word a stem (suicid* matches suicide and suicidal). */
-function wordRegex(entry: string): RegExp {
+/**
+ * Word matcher. The START is always a word boundary ("arm" never matches "pharmacy"). A trailing `*` makes the entry a stem. A phrase is
+ * also open at the END so an inflection still fires ("chest pains", "strokes", "wont stop bleeding" variants); a pair word is closed at
+ * the end ("numb" never matches "numbers"), because a pair is two common words that only mean something together.
+ */
+function wordRegex(entry: string, closedAtEnd = false): RegExp {
   const stem = entry.endsWith("*");
   const body = escapeRegex(stem ? entry.slice(0, -1) : entry).replace(/\s+/g, "\\s+");
-  return new RegExp(`(?<![a-z0-9])${body}${stem ? "" : "(?![a-z0-9])"}`);
+  return new RegExp(`(?<![a-z0-9])${body}${!stem && closedAtEnd ? "(?![a-z0-9])" : ""}`);
 }
 
 const PHRASE_ENTRIES = [...WRITTEN_QUESTION_DANGER_PHRASES, ...ASSISTANT_EXTRA_DANGER_PHRASES];
 const PHRASE_REGEX: readonly (readonly [string, RegExp])[] = PHRASE_ENTRIES.map((p) => [p, wordRegex(p)]);
 const PAIR_REGEX: readonly (readonly [string, RegExp, RegExp])[] = ASSISTANT_DANGER_PAIRS.map(([a, b]) => [
   `${a[0]} + ${b[0]}`,
-  new RegExp(a.map((x) => wordRegex(x).source).join("|")),
-  new RegExp(b.map((x) => wordRegex(x).source).join("|")),
+  new RegExp(a.map((x) => wordRegex(x, true).source).join("|")),
+  new RegExp(b.map((x) => wordRegex(x, true).source).join("|")),
 ]);
 
 export function screenAssistantMessage(text: string): AssistantDangerScreen {

@@ -693,6 +693,11 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
   }
 
   async function logReview(state: CoachGraphState) {
+    // INV-04: a question about an HIV or hepatitis result is deflected to the care team's private conversation. Its text is NOT copied into
+    // the general alert queue or the audit log, where every clinician on the worklist could read it.
+    const trigger = screenSensitiveResultQuestion(state.incomingMessage)
+      ? "The patient asked about a result that the care team discusses privately. The message is deliberately not copied here."
+      : state.incomingMessage;
     // Previously audit_log only — correct for the record, but nobody's
     // dashboard reads audit_log, so a real concern could sit unseen
     // indefinitely (see logAiCoachReviewFlag's docstring). Now also opens a
@@ -702,8 +707,8 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       organisationId: state.organisationId,
       patientId: state.profileId,
       conversationId: state.conversationId,
-      triggerMessage: state.incomingMessage,
-      recentMessages: state.priorMessages,
+      triggerMessage: trigger,
+      recentMessages: screenSensitiveResultQuestion(state.incomingMessage) ? [] : state.priorMessages,
       aiAction: "Classified as worth a clinician's review, not urgent",
     });
     await deps.supabase.from("audit_log").insert({
@@ -712,7 +717,7 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       action: "ai_coach.clinician_review_flagged",
       entity_type: "ai_conversations",
       entity_id: state.conversationId,
-      event: { message: state.incomingMessage, model: state.modelId, knowledge_source: state.knowledgeSourceUsed },
+      event: { message: trigger, model: state.modelId, knowledge_source: state.knowledgeSourceUsed },
     });
     return { clinicianAlertId };
   }

@@ -20,6 +20,9 @@
 --      RLS of the base tables still applies (security_invoker), so the views never widen access.
 --   A repo scan test (apps/web ai-coach/patient-explainer) fails if the AI path queries the base tables again.
 --
+-- The token list also covers the neighbouring markers a lab reports for the same conditions (hepatitis B DNA and antigen and antibody
+-- markers, CD4, viral load, p24). Syphilis and other STI tests are a CMO decision (OQ-290), not guessed here.
+--
 -- Live counts before this migration: 0 rows in lab_analyte_readings, lab_result_items and lab_results, so there is no
 -- data to backfill.
 
@@ -33,7 +36,7 @@ create table public.ai_excluded_analyte_tokens (
 -- ai-excluded-analytes-begin
 insert into public.ai_excluded_analyte_tokens (token, note, config_version)
 select t.token, 'PROPOSED screening analyte token (CMO confirms the list)', 1
-  from jsonb_array_elements_text($json$["hiv","hbsag","hbs_ag","hcv","hepatitis","hep_b","hep_c","hepb","hepc"]$json$::jsonb) as t(token);
+  from jsonb_array_elements_text($json$["hiv","hbsag","hbs_ag","hcv","hepatitis","hep_b","hep_c","hepb","hepc","hbv","hbeag","hbe_ag","anti_hbc","anti_hbs","cd4","viral_load","p24","aids","retroviral"]$json$::jsonb) as t(token);
 -- ai-excluded-analytes-end
 
 alter table public.ai_excluded_analyte_tokens enable row level security;
@@ -86,6 +89,8 @@ select r.id, r.patient_id, r.organisation_id, r.code, r.value, r.value_text, r.u
        r.reference_range_low, r.reference_range_high, r.abnormal_flag, r.report_status
   from public.lab_analyte_readings r
  where not r.sensitive_positive
+   -- a preliminary report is not yet a result anyone has stood behind; corrected and amended rows are the labs' own later word
+   and r.report_status <> 'preliminary'
    and not private.is_ai_excluded_analyte(r.code, r.value_text);
 
 create view public.ai_readable_lab_result_items with (security_invoker = true) as
@@ -112,5 +117,7 @@ begin
   if private.is_ai_excluded_analyte('hba1c', null) then raise exception 'hba1c wrongly excluded'; end if;
   if has_function_privilege('anon', 'private.is_ai_excluded_analyte(text, text)', 'EXECUTE') then raise exception 'anon can execute'; end if;
   if has_table_privilege('anon', 'public.ai_readable_lab_readings', 'SELECT') then raise exception 'anon can read the AI view'; end if;
-  if (select count(*) from public.ai_excluded_analyte_tokens) <> 9 then raise exception 'token seed count'; end if;
+  if (select count(*) from public.ai_excluded_analyte_tokens) <> 19 then raise exception 'token seed count'; end if;
+  if not private.is_ai_excluded_analyte('cd4_count', null) then raise exception 'cd4 not excluded'; end if;
+  if not private.is_ai_excluded_analyte('HBV DNA', null) then raise exception 'hbv dna not excluded'; end if;
 end $$;

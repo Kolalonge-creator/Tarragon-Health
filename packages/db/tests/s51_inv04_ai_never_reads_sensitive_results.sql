@@ -66,7 +66,10 @@ begin
     (v_org, v_pat, 'HBsAg', null, 'reactive', ''),
     (v_org, v_pat, 'hcv_ab', null, 'negative', ''),
     (v_org, v_pat, 'anti_hcv_numeric', 3.2, null, 'S/CO'),
+    (v_org, v_pat, 'cd4_count', 410, null, 'cells/uL'),
+    (v_org, v_pat, 'HBV DNA', 120, null, 'IU/mL'),
     (v_org, v_other, 'hba1c', 5.4, null, '%');
+  insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, report_status) values (v_org, v_pat, 'potassium', 4.0, 'mmol/L', 'preliminary');
 
   -- results and items are written with triggers off: the S27 guard is not what is under test here
   set local session_replication_role = replica;
@@ -96,6 +99,10 @@ select pg_temp.ck('real', 'reactive HBsAg row is flagged sensitive', 'true',
   (select sensitive_positive::text from public.lab_analyte_readings where patient_id = pg_temp.f('pat') and code = 'HBsAg'));
 select pg_temp.ck('real', 'numeric anti-HCV (not an explicit negative) is flagged sensitive', 'true',
   (select sensitive_positive::text from public.lab_analyte_readings where patient_id = pg_temp.f('pat') and code = 'anti_hcv_numeric'));
+select pg_temp.ck('real', 'a CD4 count is flagged sensitive (HIV marker)', 'true',
+  (select sensitive_positive::text from public.lab_analyte_readings where patient_id = pg_temp.f('pat') and code = 'cd4_count'));
+select pg_temp.ck('real', 'hepatitis B DNA is flagged sensitive', 'true',
+  (select sensitive_positive::text from public.lab_analyte_readings where patient_id = pg_temp.f('pat') and code = 'HBV DNA'));
 select pg_temp.ck('real', 'negative HCV is not flagged', 'false',
   (select sensitive_positive::text from public.lab_analyte_readings where patient_id = pg_temp.f('pat') and code = 'hcv_ab'));
 select pg_temp.ck('real', 'HbA1c is not flagged', 'false',
@@ -108,6 +115,8 @@ select pg_temp.ck('real', 'AI view never returns positive HIV', '0',
   pg_temp.q_as(pg_temp.f('pat'), $q$select count(*)::text from public.ai_readable_lab_readings where code = 'hiv_screen'$q$));
 select pg_temp.ck('real', 'AI view never returns reactive HBsAg', '0',
   pg_temp.q_as(pg_temp.f('pat'), $q$select count(*)::text from public.ai_readable_lab_readings where lower(code) = 'hbsag'$q$));
+select pg_temp.ck('real', 'a preliminary report never reaches the AI path', '0',
+  pg_temp.q_as(pg_temp.f('pat'), $q$select count(*)::text from public.ai_readable_lab_readings where code = 'potassium'$q$));
 select pg_temp.ck('real', 'a negative result still reaches the AI path', '1',
   pg_temp.q_as(pg_temp.f('pat'), $q$select count(*)::text from public.ai_readable_lab_readings where code = 'hcv_ab'$q$));
 

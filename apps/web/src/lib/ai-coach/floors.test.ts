@@ -19,7 +19,22 @@ describe("health-information floor (7.2)", () => {
     "I walked for twenty minutes today",
     "how do I log a reading",
     "good morning",
+    // found in review: the record tools answer a lookup of the patient's own numbers, no reviewed source is needed for it
+    "what is my latest blood pressure",
+    "what medicines am I on",
+    "what is my last HbA1c",
+    "what does my care plan say",
+    "what are my appointments",
+    "that means a lot, thank you",
+    "what do you mean",
+    "what are my goals this week",
+    "why do I need to log my BP",
   ])("does not flag %s", (m) => expect(looksLikeHealthInformationQuestion(m)).toBe(false));
+
+  it.each(["what does my last result mean", "is my latest reading normal", "why is my recent weight going up"])(
+    "still flags a record question that asks what it means: %s",
+    (m) => expect(looksLikeHealthInformationQuestion(m)).toBe(true)
+  );
 });
 
 describe("new-symptom detection (7.6)", () => {
@@ -36,5 +51,8 @@ describe("new-symptom detection (7.6)", () => {
     "I walked today",
     "what is my last reading",
     "can you remind me about my appointment",
+    "I started logging my numbers",
+    "I started to switch my routine",
+    "I just noticed the new app has reached me",
   ])("does not hand %s over", (m) => expect(describesNewSymptoms(m)).toBe(false));
 });

@@ -1223,6 +1223,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S26.md; OQ-127",
   },
   {
+    key: "pharmacy.quality",
+    // Partner pharmacy quality rule (S28, spec 8.11). A pharmacy can be chosen for a collection only while its verified
+    // licence has at least this many days left. Live value: the active row of `pharmacy_quality_config`; a test fails if the
+    // migration seed and this value drift. PROPOSED by the build, never signed: the CMO owns the rule.
+    value: { min_licence_days_left: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S28.md; docs/research/S28.md",
+  },
+  {
     key: "audio.bundled_max_bytes",
     value: 15000000,
     owner: "Founder",
@@ -1302,7 +1314,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // INV-04 (S51 pre-fix). Analyte-code tokens for screening analytes the assistant and the explainer must never read unless the
     // result is an explicit negative. Mirrored by public.ai_excluded_analyte_tokens in migration
     // *_s51_inv04_ai_never_reads_sensitive_results.sql; assistant-safety-mirror.test.ts pins the two together. The CMO confirms the list.
-    value: ["hiv", "hbsag", "hbs_ag", "hcv", "hepatitis", "hep_b", "hep_c", "hepb", "hepc"],
+    value: ["hiv", "hbsag", "hbs_ag", "hcv", "hepatitis", "hep_b", "hep_c", "hepb", "hepc", "hbv", "hbeag", "hbe_ag", "anti_hbc", "anti_hbs", "cd4", "viral_load", "p24", "aids", "retroviral"],
     owner: "CMO",
     status: "proposed",
     version: 1,

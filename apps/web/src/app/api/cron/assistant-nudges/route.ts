@@ -10,11 +10,15 @@ import { readAssistantGuardIsOn } from "@/lib/ai-coach/guard";
  * (nudges.ts). Nothing here is required for any feature to work: if a send fails the patient simply sees the nudge when they open the app.
  *
  * Closed while the assistant_enabled guard is off, except for is_test patients (the same test rule the rest of the guard uses).
- * Idempotent: a patient never gets the same template twice in one Lagos day, so an overlapping or repeated run is safe.
- * Verifies the Vercel-attached CRON_SECRET bearer, like the other cron routes.
+ * Idempotent in the DATABASE, not in this code: public.assistant_queue_nudge inserts under a unique index on (patient, template, Lagos day),
+ * so an overlapping or retried run cannot double-send, and it skips a patient who switched every wellness channel off.
+ * A run that failed for any patient returns 500, so a broken run is seen. Verifies the Vercel-attached CRON_SECRET bearer.
  */
 const MAX_CONVERSATIONS_PER_RUN = 5000;
 const CHUNK = 100;
+const PARALLEL = 20;
+
+type Queue = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
 
 function chunks<T>(items: readonly T[], size: number): T[][] {
   const out: T[][] = [];
@@ -31,7 +35,6 @@ export async function GET(request: Request): Promise<Response> {
   const svc = createServiceRoleClient();
   const now = new Date();
   const today = lagosDay(now);
-  const startOfLagosDay = new Date(`${today}T00:00:00+01:00`).toISOString();
   const isSunday = lagosWeekday(now) === 0;
   const templates = isSunday ? ["assistant_daily_nudge", "assistant_weekly_reflection"] : ["assistant_daily_nudge"];
 
@@ -41,13 +44,11 @@ export async function GET(request: Request): Promise<Response> {
   // Most recently active conversations first, so a cap never starves the patients who are actually using the assistant.
   const { data: convs, error: convError } = await svc
     .from("ai_conversations")
-    .select("profile_id, organisation_id")
+    .select("profile_id")
     .order("updated_at", { ascending: false })
     .limit(MAX_CONVERSATIONS_PER_RUN);
   if (convError) return Response.json({ sent: 0, error: "conversations_unreadable" }, { status: 500 });
-  const orgOf = new Map<string, string>();
-  for (const c of convs ?? []) if (c.profile_id && c.organisation_id && !orgOf.has(c.profile_id)) orgOf.set(c.profile_id, c.organisation_id);
-  const ids = [...orgOf.keys()];
+  const ids = [...new Set((convs ?? []).map((c) => c.profile_id).filter((x): x is string => Boolean(x)))];
   if (ids.length === 0) return Response.json({ sent: 0 });
 
   let sent = 0;
@@ -58,33 +59,23 @@ export async function GET(request: Request): Promise<Response> {
       failed += batch.length;
       continue;
     }
-    const eligible = (profiles ?? []).filter((p) =>
-      eligibleForAssistantNudge({ guardOpen: guardOn, role: p.role, isActive: p.is_active, isTest: p.is_test })
-    );
-    if (eligible.length === 0) continue;
-    const { data: already } = await svc
-      .from("notifications")
-      .select("recipient_id, template")
-      .in("recipient_id", eligible.map((p) => p.id))
-      .in("template", templates)
-      .gte("created_at", startOfLagosDay);
-    const done = new Set((already ?? []).map((n) => `${n.recipient_id}:${n.template}`));
-    const rows = eligible.flatMap((p) =>
-      templates
-        .filter((template) => !done.has(`${p.id}:${template}`))
-        .map((template) => ({
-          organisation_id: orgOf.get(p.id) as string,
-          recipient_id: p.id,
-          channel: "in_app" as const,
-          status: "pending" as const,
-          template,
-          payload: { day: today },
-        }))
-    );
-    if (rows.length === 0) continue;
-    const { error } = await svc.from("notifications").insert(rows);
-    if (error) failed += rows.length;
-    else sent += rows.length;
+    const jobs = (profiles ?? [])
+      .filter((p) => eligibleForAssistantNudge({ guardOpen: guardOn, role: p.role, isActive: p.is_active, isTest: p.is_test }))
+      .flatMap((p) => templates.map((template) => ({ patient: p.id, template })));
+    for (const group of chunks(jobs, PARALLEL)) {
+      const results = await Promise.all(
+        group.map((j) =>
+          (svc as unknown as Queue).rpc("assistant_queue_nudge", { p_patient: j.patient, p_template: j.template, p_day: today }).then(
+            (r) => (r.error ? ("failed" as const) : r.data === true ? ("sent" as const) : ("skipped" as const)),
+            () => "failed" as const
+          )
+        )
+      );
+      for (const r of results) {
+        if (r === "sent") sent += 1;
+        else if (r === "failed") failed += 1;
+      }
+    }
   }
-  return Response.json({ sent, failed });
+  return Response.json({ sent, failed }, { status: failed > 0 ? 500 : 200 });
 }
