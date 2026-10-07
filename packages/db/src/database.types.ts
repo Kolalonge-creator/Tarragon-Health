@@ -14131,6 +14131,8 @@ export type Database = {
           min_age: number | null
           min_risk_level: Database["public"]["Enums"]["risk_level"] | null
           next_review_due: string | null
+          review_flag_reason: string | null
+          review_flagged_at: string | null
           reading_level: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at: string | null
           reviewed_at: string | null
@@ -14176,6 +14178,8 @@ export type Database = {
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
           next_review_due?: string | null
+          review_flag_reason?: string | null
+          review_flagged_at?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
           reviewed_at?: string | null
@@ -14221,6 +14225,8 @@ export type Database = {
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
           next_review_due?: string | null
+          review_flag_reason?: string | null
+          review_flagged_at?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
           reviewed_at?: string | null
