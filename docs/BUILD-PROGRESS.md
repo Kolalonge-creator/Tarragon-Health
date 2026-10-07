@@ -933,11 +933,11 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Follow-up:** `health_education_translations` is empty and unused but kept, because four SQL functions still join it; drop it after rewriting them. The `useT`/`useUiLanguage` no-op wrappers (about 50 hook sites on web and mobile) remain as thin plumbing.
 
 ## S34: low-data mode, accessibility, size report (2026-10-07, branch `s34b/low-data-a11y-build`)
-- **Built**: `media-policy.ts` and `useLowData()`; low-data change notifications; every touchable now has a screen-reader role (16 fixed, 1 undersized rating control padded to 44 points); `a11y-scan.test.ts`; `size-report.mjs` (report only, OQ-227). Carries PR 979's mobile low-data diff unchanged.
+- **Built**: `media-policy.ts` and `useLowData()`; low-data change notifications; every touchable now has a screen-reader role (16 fixed, 1 undersized rating control padded to 44 points); `a11y-scan.test.ts`; `size-report.mjs` (report only, OQ-252). Carries PR 979's mobile low-data diff unchanged.
 - **Reused**: the design kit (labels, roles, 48 point Button, reduce motion, 200 percent text cap), S32 audio bundle planner's low-data rule, `profiles.low_data_mode` (not written yet).
 - **Tests**: mobile jest 1,398 pass (99 suites), `tsc --noEmit` clean, eslint 0 errors. Scan sabotaged once and failed as it should.
 - **Not measured (no device)**: cold start, installed size, memory, logging speed, font scale at 200 percent, TalkBack and VoiceOver reading order.
-- **Open questions**: 0 new. OQ-227 answered (no targets).
+- **Open questions**: 0 new. OQ-252 answered (no targets).
 - **Follow-ups**: S32b audio player must call `mediaDecision`; add netinfo in the DG-6 native build; decide whether to mirror the preference to `profiles.low_data_mode`.
 ## S36j: CMO may approve payouts
 

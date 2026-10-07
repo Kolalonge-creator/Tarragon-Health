@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Size report (S34, decision OQ-227): records how big the app is. It is a report, never a gate:
+ * Size report (S34, decision OQ-252): records how big the app is. It is a report, never a gate:
  * it always exits 0 so no build fails on size. Run after a build:
  *   node scripts/size-report.mjs path/to/app-release.apk [path/to/app-release.aab ...]
  * With no arguments it reports the JS source and bundled asset footprint, which needs no build.
@@ -36,7 +36,7 @@ const artefacts = process.argv.slice(2).map((p) => ({ path: p, exists: existsSyn
 
 const report = {
   generatedAt: new Date().toISOString(),
-  note: "Informational only. Decision OQ-227: size and start time are tracked, never a pass or fail gate.",
+  note: "Informational only. Decision OQ-252: size and start time are tracked, never a pass or fail gate.",
   sourceBytes: sections.source.bytes,
   assetBytes: sections.assets.bytes,
   artefacts,
