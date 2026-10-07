@@ -1463,6 +1463,22 @@ export const TEMPLATE_MAP: Record<
       text: "Your monthly summary is ready.\n\nOpen Tarragon Health to see it.\n\nTarragon Health",
     },
   }),
+  // S38g: a sponsor's monthly programme figures are ready (to the sponsor's own staff). Fixed neutral copy: no programme name, number, condition or
+  // person (INV-07); the payload (which carries only the destination address) is never echoed.
+  sponsor_figures_ready: () => ({
+    smsText: "Your programme figures for last month are ready. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/",
+    email: {
+      subject: "Your programme figures are ready",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your programme figures for last month are ready.</p>` +
+        `<p>Sign in to Tarragon Health, on the web or in the app, to read them: <a href="${appUrl("/")}">${appUrl("/")}</a></p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: `Your programme figures for last month are ready.\n\nSign in to Tarragon Health, on the web or in the app, to read them: ${appUrl("/")}\n\nTarragon Health`,
+    },
+  }),
   circle_paid_for_you: () => ({
     smsText: "Someone has paid for your care. Open Tarragon Health. Tarragon Health",
     pushUrl: "/patient",

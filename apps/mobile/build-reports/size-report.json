@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-10-07T00:16:41.241Z",
+  "note": "Informational only. Decision OQ-227: size and start time are tracked, never a pass or fail gate.",
+  "sourceBytes": 2751863,
+  "assetBytes": 164273,
+  "artefacts": [],
+  "notMeasured": [
+    "cold start on a device",
+    "installed size on a device",
+    "memory",
+    "logging speed on a device"
+  ]
+}
