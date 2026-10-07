@@ -56,6 +56,8 @@ export interface AudioService {
   playClips(clipIds: readonly string[], lang: Lang): Promise<Spoken>;
   /** Say a stitched reading. A null phrase (a value the kit cannot say) is text only by the caller; see `speakReading`. */
   playPhrase(phrase: Phrase, lang: Lang): Promise<Spoken>;
+  /** Whether these clips would play right now: recorded, signed off, and an engine registered. Never reports an issue, so a screen can ask on every render. */
+  canPlayClips(clipIds: readonly string[], lang: Lang): Promise<boolean>;
   /** Stop at once: on a language change, on leaving the screen, on a new request. */
   stop(): void;
 }
@@ -97,6 +99,11 @@ export function createAudioService(deps: AudioServiceDeps): AudioService {
       run((c) => resolveClips(ids, lang, rd(c)), () => ids.map((id) => scriptText(id, lang)).join(" "), lang),
     playPhrase: (phrase, lang) =>
       run((c) => resolvePhrase(phrase, lang, rd(c)), () => phraseText(phrase, lang, scriptText), lang),
+    canPlayClips: async (ids, lang) => {
+      if (!catalogue || !engine) return false;
+      const quiet = { catalogue, locator, script: scriptText, report: () => {} };
+      return (await resolveClips(ids, lang, quiet)).complete;
+    },
     stop: () => engine?.stop(),
   };
 }

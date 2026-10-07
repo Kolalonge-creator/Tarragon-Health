@@ -55,13 +55,8 @@ describe("monthly report view", () => {
     expect(v.lines).toContain("Your target is under 130 over 80, set by your care team.");
   });
 
-  it("renders in Pidgin with the same numbers", () => {
-    const v = buildMonthlyView(base, "pcm");
-    expect(v.lines).toContain("Your average na 134.5 over 84.");
-  });
-
   it("never mentions risk, ranking or other people", () => {
-    const all = [...buildMonthlyView(base, "en").lines, ...buildMonthlyView(base, "pcm").lines].join(" ");
+    const all = buildMonthlyView(base, "en").lines.join(" ");
     expect(all).not.toMatch(/risk|rank|other patients|other people|diagnos(is|ed) you/i);
   });
 

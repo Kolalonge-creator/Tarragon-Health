@@ -20,10 +20,8 @@ import { flushPendingVitals } from "@/lib/offline-vitals-queue";
 import { syncThresholdsIfOnline } from "@/lib/threshold-sync";
 import { checkForPendingReviewPrompt } from "@/lib/review-prompts";
 import { loadPatientIdentity, type PatientIdentity } from "@/lib/identity";
-import { clearChosenAuthLocale } from "@/lib/auth/auth-locale";
 import { checkBiometricOfferEligible } from "@/lib/auth/biometric-offer";
 import { runPostSignIn } from "@/lib/auth/post-sign-in";
-import { clearUiLanguageCache } from "@/lib/ui-language";
 import { BiometricOfferScreen } from "@/screens/biometric-offer-screen";
 import { LoginScreen } from "@/screens/login-screen";
 import { AppLockScreen } from "@/screens/app-lock-screen";
@@ -106,20 +104,7 @@ function AppContent() {
         // Deferred a tick: supabase-js must not be called from inside its own
         // auth callback. Best effort, never blocks sign-in (see post-sign-in.ts).
         setTimeout(() => {
-          void runPostSignIn({
-            userId,
-            rpc: supabase,
-            profiles: {
-              setLanguage: async (id, language) => {
-                const { error } = await supabase.from("profiles").update({ language }).eq("id", id);
-                return { error };
-              },
-            },
-            onLanguageWritten: () => {
-              clearUiLanguageCache();
-              void clearChosenAuthLocale();
-            },
-          }).catch(() => {});
+          void runPostSignIn({ userId, rpc: supabase }).catch(() => {});
         }, 0);
       }
     });

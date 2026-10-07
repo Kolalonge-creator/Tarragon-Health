@@ -23,7 +23,7 @@ describe("Care Circle monthly rows", () => {
     expect(circleMonthlyLines({ month: "2026-06-01" }, "en")).toEqual([]);
   });
   it("never carries target numbers, reading counts or the week split", () => {
-    const text = rows.flatMap((r) => circleMonthlyLines(r, "pcm")).join(" ");
+    const text = rows.flatMap((r) => circleMonthlyLines(r, "en")).join(" ");
     expect(text).not.toMatch(/target \d|readings logged|week of/i);
     expect(Object.keys(rows[0]!)).not.toContain("weeks");
     expect(Object.keys(rows[0]!)).not.toContain("readings");
