@@ -47737,6 +47737,49 @@ export type Database = {
         Returns: Json;
       };
       my_care_circle: { Args: never; Returns: Json };
+      // S65 (spliced by hand from migrations s65a, s65b and s65c; never a wholesale regeneration)
+      circle_help_alert_view: { Args: { p_patient: string }; Returns: Json };
+      clinician_licence_public: { Args: { p_profile: string }; Returns: { checked_on: string; credential_number: string; credential_type: string }[] };
+      complete_facility_booking: { Args: { p_attended: boolean; p_booking: string }; Returns: undefined };
+      confirm_facility_booking: { Args: { p_booking: string; p_source: string }; Returns: undefined };
+      confirm_facility_hmo: { Args: { p_facility: string; p_hmo: string; p_source_note: string }; Returns: undefined };
+      create_facility_booking: { Args: { p_facility: string; p_patient?: string; p_service?: string; p_slot: string }; Returns: Json };
+      directory_reverification_list: {
+        Args: never;
+        Returns: { fields: string[]; listing_id: string; listing_table: string; name: string; opened_at: string; priority: string; queue_id: string; reports: number }[];
+      };
+      directory_search: {
+        Args: { p_hmo?: string; p_kind?: string; p_language?: string; p_lat?: number; p_limit?: number; p_lng?: number; p_nhia?: boolean; p_open_at?: string; p_radius_km?: number; p_service?: string; p_state?: string };
+        Returns: {
+          accepts_hmo: string[]; address: string | null; city: string | null; distance_km: number | null; emergency_capable: boolean; hmo_status: string | null; hours_text: string | null;
+          is_test: boolean; kind: string; languages: string[]; last_verified_at: string | null; latitude: number | null; listing_id: string; listing_table: string; longitude: number | null;
+          name: string; nhia_status: string | null; open_now: boolean | null; phone: string | null; price_basis: string; price_kobo: number | null; rating_average: number | null;
+          rating_count: number; services: string[]; state: string | null; tier: string;
+        }[];
+      };
+      emergency_pack_current: { Args: never; Returns: Json };
+      facility_booking_queue: { Args: never; Returns: { booking_id: string; facility_id: string; facility_name: string; service_name: string | null; slot_at: string; state: string }[] };
+      facility_rating_queue: {
+        Args: never;
+        Returns: { comment: string | null; created_at: string; facility_id: string; facility_name: string; held_reason: string | null; overdue: boolean; rating: number; rating_id: string; respond_by: string }[];
+      };
+      facility_ratings_public: { Args: { p_facility: string; p_limit?: number }; Returns: { month: string; public_comment: string | null; rating: number; reply_at: string | null; reply_body: string | null }[] };
+      my_facility_bookings: {
+        Args: never;
+        Returns: {
+          address: string | null; booking_id: string; facility_id: string; facility_name: string; facility_phone: string | null; latitude: number | null; longitude: number | null;
+          patient_response: string | null; price_shown_kobo: number | null; rating_held: boolean | null; rating_respond_by: string | null; rating_status: string | null;
+          service_name: string | null; slot_at: string; state: string;
+        }[];
+      };
+      moderate_facility_rating: { Args: { p_decision: string; p_rating: string; p_reason?: string }; Returns: undefined };
+      record_directory_check: { Args: { p_listing_id: string; p_listing_table: string; p_note: string; p_tier: string }; Returns: Json };
+      reply_to_facility_rating: { Args: { p_body: string; p_channel: string; p_rating: string }; Returns: undefined };
+      report_directory_listing: { Args: { p_detail?: string; p_field: string; p_listing_id: string; p_listing_table: string }; Returns: Json };
+      respond_facility_booking: { Args: { p_booking: string; p_response: string }; Returns: Json };
+      send_circle_help_alert: { Args: { p_accuracy_m?: number; p_lat?: number; p_lng?: number }; Returns: Json };
+      set_circle_location_consent: { Args: { p_granted: boolean }; Returns: Json };
+      submit_facility_rating: { Args: { p_booking?: string; p_comment?: string; p_facility: string; p_lab_order?: string; p_patient?: string; p_rating: number }; Returns: Json };
       my_supported_people: { Args: never; Returns: Json };
       preview_care_circle_invite: { Args: { p_token: string }; Returns: Json };
       revoke_care_circle_member: { Args: { p_member: string }; Returns: boolean };

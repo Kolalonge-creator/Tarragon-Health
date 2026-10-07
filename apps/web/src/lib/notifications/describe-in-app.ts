@@ -620,6 +620,14 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // From private.notify_circle_red_alert (S29): fixed neutral line for a supporter who holds red_alerts (INV-07).
     return { text: "Someone in your Care Circle may need you. Please call them.", href: "/patient/supporting" };
   }
+  if (n.template === "circle_help_tap") {
+    // From public.send_circle_help_alert (S65): the patient's own tap. Fixed neutral line, no location, no name (INV-07).
+    return { text: "Someone in your Care Circle has asked for you. Please call them.", href: "/patient/supporting" };
+  }
+  if (n.template === "facility_booking_reminder") {
+    // From private.facility_booking_reminder_sweep (S65): names no facility, service or time.
+    return { text: "You have a visit coming up. Tell us if you are coming.", href: "/patient/directory/bookings" };
+  }
   if (n.template === "circle_joined") {
     return { text: "Someone has joined your Care Circle", href: "/patient/care-circle" };
   }

@@ -1768,3 +1768,31 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Fixed in S11g and S11h: (a) the older server alert path now follows the 200/130 decision once the rule set is APPROVED: the old emergency range with no red-flag symptom (and not in pregnancy or after a birth) raises the Priority 1 alert but no patient emergency record; a symptom keeps it an emergency, and a symptom answered after the reading opens the emergency record then (migration `20261006000812`, proof `s11g`, a no-op until approval). The 160/100 and 135/85 bands are unchanged, so a 165/105 reading still pages Priority 1 for a reading the engine would treat as amber: that is the S12 band alignment of OQ-67 and needs the CMO. (f) Tapping the reminder or the server push now opens the blood pressure screen, from closed or running, once per tap (`notification-tap.ts`). (d) The Pidgin for the question's buttons and the reminder is drafted in the catalogue; the emergency guidance, triage messages and symptom names stay in English until a native reviewer and the CMO sign them; the full list is `docs/PIDGIN-REVIEW-S11.md`.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
+
+### OQ-S65-1 Directory: S36g said a listing is never hidden; S65 now hides stale ones from patient search (CMO decision Q21, 2026-10-07)
+- **Changed on purpose**: `directory_search` leaves out a listing whose last verification (or creation date, if never verified) is older than TWICE its cadence: emergency-capable hospitals and 24-hour pharmacies 90 days, clinics and labs 180, everything else 365 (so hidden at 180, 360 and 730). Nothing is deleted, deactivated or suspended; staff still see it in Directory freshness; one verification brings it back. The S36g sweep itself is unchanged.
+- **Still unsigned**: the intervals are [U] and PROPOSED (`directory.access_rules`). Owner to sign: CMO or founder.
+- **Also reverses, behind a guard seeded OFF (`directory_enabled`)**: the 2026-08-03 founder decision that no facility is shown to patients. Nothing patient-facing reads the directory until a person switches the guard on. The existing facility selector used by lab and booking-request flows is not changed.
+- **Side effect to know**: with the guard on, the 9 existing seed facilities (none verified) are shown as "Not yet verified" until they age out. Someone should phone-verify or deactivate them first.
+- Decision: pending (sign the cadence; name the verification owner; decide whether to build a Health Facility Registry importer after asking the registry owners).
+
+### OQ-S65-2 Ratings: encounters are not accepted as proof of a visit
+- Q22 says a rating needs an encounter or order. An `encounters` row has no facility, so there is nothing to tie it to a facility. Accepted proofs are a lab order that reached `resulted` at a branch of the facility's lab provider, or a facility booking a staff member marked `completed`. Confirm this reading, or say how a consultation should map to a facility.
+- Moderation target is 72 hours (PROPOSED, in `directory.access_rules`). Who moderates: any holder of `partners.facilities.manage`. The facility reply is recorded by staff for now; a signed-in facility portal does not exist.
+- A comment containing a hold term (doctor, diagnosis, prescription and similar) is held and can only be published without the comment or rejected. The term list is PROPOSED and over-triggers by design.
+- Decision: pending.
+
+### OQ-S65-3 Care Circle one-tap alert: location is shown after sign-in, not inside the push or email
+- The spec says "push and email, with location". INV-07 forbids naming a reading or condition and nothing allows a location in a notification, so the push and email say only that someone has asked for you. A supporter with `red_alerts` sees the location by signing in; that read is written to the care access log; the location is deleted after 24 hours. Location is stored only on the patient's own tap with consent on; coordinates sent without consent are discarded and the alert still goes.
+- Consent text (`circle.help.consent.text`) needs counsel or founder sign-off before the guard `care_circle_help_alert_enabled` is switched on. Whether a supporter can be reached who has no signed-in account is not built (supporters need an account).
+- Decision: pending.
+
+### OQ-S65-4 Emergency pack: draft, no numbers, no facilities yet (CMO decisions Q17, Q18)
+- The pack is a DRAFT (`signed` null). The app shows only the fixed first line ("Go to the nearest hospital now.") and the facilities list until the CMO signs; the step cards appear only once signed. Lassa and malaria sign lists are [U] drafts (the spec names them without listing signs).
+- No telephone number appears anywhere in the pack (a table check and a test refuse 112, 767, 199, 911 and any digit run that looks like a number); a facility entry carries no phone either.
+- All 37 state entries are an explicit "none listed". No facility was fabricated. Real entries need a person to verify an emergency-capable hospital per state; the Health Facility Registry import is a documented follow-up (no verified public API was found).
+- Decision: pending (CMO signature; who verifies the first hospitals).
+
+### OQ-S65-5 HMO and NHIA acceptance have no authoritative partner list yet
+- `facilities.accepts_hmo` and `nhia` are the facility's claim and are shown as "claimed". A listing shows "confirmed" only after staff record a confirmation from the HMO's own provider list (`confirm_facility_hmo`) or set `nhia_confirmed_at`. No such list exists in the platform today, so every flag starts as claimed.
+- Decision: pending.
