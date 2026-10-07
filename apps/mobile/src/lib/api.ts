@@ -121,6 +121,32 @@ export function postConsultationDialIn(encounterId: string): Promise<Consultatio
   return consultationCall<DialInResponse>("/api/mobile/consultations/dial-in", { encounterId });
 }
 
+/** S59b: what the mobile symptom checker may offer, and one step of a check. Both are the SAME server code the web uses
+ * (apps/web/src/app/api/mobile/symptom-check). `open: false` (or any failure) means the screen shows its calm closed state. */
+export interface SymptomCheckerState {
+  open: boolean;
+  eligibility: "ok" | "under_18" | "dob_required" | "error";
+  complaints: { key: string; label: string; bundledCurrent: boolean }[];
+}
+export async function getSymptomCheckerState(): Promise<SymptomCheckerState | null> {
+  const result = await request<SymptomCheckerState>("/api/mobile/symptom-check", "GET");
+  return result.ok ? result.data : null;
+}
+
+export type SymptomStepResponse =
+  | { status: "unavailable" }
+  | { status: "blocked"; reason: "under_18" | "dob_required" }
+  | { status: "error"; error: string }
+  | { status: "in_progress"; question: { type: "question"; kind: "boolean"; key: string; prompt: string } | { type: "question"; kind: "choice"; key: string; prompt: string; options: { value: string; label: string }[] }; state: { capture: Record<string, unknown>; answers: Record<string, boolean | string>; questionLog: { questionKey: string; prompt: string; answer: boolean | string; answeredAt: string }[] } }
+  | { status: "complete"; category: string; clinicianReviewRequired: boolean; safetyNetMessageKey: string; assessmentId: string | null; degraded: boolean; urgencyLevel: string | null; forDependant: boolean; recorded: boolean };
+
+/** One step. Not retried blind (a repeat after a timeout could record a second check); a failure returns null and the screen uses
+ * its on-device result, which can only be as safe or safer than silence. */
+export async function postSymptomStep(input: unknown): Promise<SymptomStepResponse | null> {
+  const result = await request<SymptomStepResponse>("/api/mobile/symptom-check", "POST", input, false, true);
+  return result.ok ? result.data : null;
+}
+
 export interface HealthSyncCursor {
   cursor: string | null;
   last_synced_at: string | null;

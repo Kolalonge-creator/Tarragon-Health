@@ -908,3 +908,7 @@ s60_regulatory_position_and_guard_wiring.sql
 s59_symptom_assessment_handoff_and_skin_photos.sql
 # S60 review fixes (PR #1003): an urgent result that could not be recorded raises a neutral incident and task (service role only); a review request follows the current read grant (revoked caregiver refused); a malformed or huge SLA config never raises; "agrees" is judged against the effective (override) category. Sabotage for each: the old rule or unguarded form restored, the test must flip.
 s60_review_fixes.sql
+# S59b (children, Members only, staff read): under 18 and no date of birth refused (trigger + eligibility), a signed paediatric pathway opens it for a child only; request_symptom_review needs Membership (TM001); symptom_triage_assessments readable only by the patient and a current grantee (tied/untied clinician, coordinator, admin, outsider, anon refused), audited read keeps its tie, staff UPDATE replaced by a tied override function, monitoring aggregates admin or CMO only. Sabotage for each: the trigger dropped, the gate removed, the old staff policy restored.
+s59b_children_members_and_closed_staff_read.sql
+# S59b (drafts for the CMO): the chest pain no-severity-floor draft differs from the base by exactly that rule; the merged draft carries base + adult v2 + three paediatric pathways; neither is active or signed. Sabotage: a second change must be detected.
+s59b_triage_drafts.sql

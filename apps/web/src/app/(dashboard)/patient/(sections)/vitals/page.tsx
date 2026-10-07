@@ -16,7 +16,7 @@ import { DiabetesDailyLog } from "@/app/(dashboard)/patient/diabetes-daily-log";
 import { DeviceSyncSupportCard } from "@/app/(dashboard)/patient/device-sync-support-card";
 import { GrowthTrackingCard } from "@/app/(dashboard)/patient/growth-tracking-card";
 import { SymptomTriageCheck } from "@/app/(dashboard)/patient/symptom-triage-check";
-import { getSymptomReviewTime, listAvailablePresentingComplaints } from "@/app/(dashboard)/patient/symptom-triage-actions";
+import { getSymptomCheckerEligibility, getSymptomReviewEntitled, getSymptomReviewTime, listAvailablePresentingComplaints } from "@/app/(dashboard)/patient/symptom-triage-actions";
 import { degradedModeConfig } from "@/lib/symptom-triage/safe-run";
 import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
@@ -27,6 +27,9 @@ export default async function PatientVitalsPage() {
   const presentingComplaints = await listAvailablePresentingComplaints();
   // The stated review time is read from the signed SLA only when the checker is open (nothing to promise otherwise).
   const reviewTime = presentingComplaints.length > 0 ? await getSymptomReviewTime() : ({ stated: false } as const);
+  // S59b: who the checker is for must be an adult with a date of birth; a clinician's look at a check is for Members.
+  const eligibility = presentingComplaints.length > 0 ? await getSymptomCheckerEligibility() : ("ok" as const);
+  const reviewEntitled = presentingComplaints.length > 0 ? await getSymptomReviewEntitled() : false;
 
   return (
     <DashboardSection
@@ -66,6 +69,8 @@ export default async function PatientVitalsPage() {
         presentingComplaints={presentingComplaints}
         degradedConfig={degradedModeConfig()}
         reviewTime={reviewTime}
+        eligibility={eligibility}
+        reviewEntitled={reviewEntitled}
       />
 
       <VitalsHistory patientId={subjectId} />

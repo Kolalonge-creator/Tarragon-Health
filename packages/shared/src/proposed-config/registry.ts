@@ -1531,4 +1531,126 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S59.md section 3; spec 12.2; docs/OPEN-QUESTIONS.md OQ-S59-03",
   },
+  {
+    key: "symptom.adult_age_years",
+    // S59b (founder decision 2026-10-07): the symptom checker refuses anyone under this age until a paediatric protocol is in the
+    // signed config, and refuses anyone with no date of birth. A policy age, not a clinical threshold. The database holds the same
+    // number in private.symptom_checker_adult_age(); a Jest test fails if the two differ.
+    value: 18,
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55-S60-build-plan.md section 10; docs/OPEN-QUESTIONS.md OQ-S59b-01",
+  },
+  {
+    key: "symptom.risk_tightening",
+    // S59b REDRAFT for the CMO (hold item C4, 2026-10-07). Still ALL DRAFT, unsigned, inert. Changes from version 1: the typhoid and
+    // sickle cell entries are dropped (no signed pathway asks abdominal_pain or sickle_cell_disease, so they could never match); the
+    // Lassa entry now names states and has sources; the malaria entry has sources. Raise-only, as before. Sources and what could not
+    // be verified: docs/research/S59b.md.
+    value: {
+      entries: [
+        {
+          id: "malaria_season_fever",
+          label: "Fever during the rainy season",
+          provenance: {
+            source: "https://www.doctorswithoutborders.org/latest/nigeria-preventing-long-and-deadly-malaria-season-claiming-more-lives-borno",
+            note: "Nigeria's rainy season runs about April to October and malaria transmission peaks in it (MSF and WHO-recommended seasonal chemoprevention material). The season is shorter in the north, longer in the south: the CMO may split it by state. Minimum category is the CMO's call.",
+          },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [4, 5, 6, 7, 8, 9, 10], any_associated_symptom: ["fever"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "lassa_season_fever",
+          label: "Fever in the dry season in a high-burden state",
+          provenance: {
+            source: "https://www.who.int/emergencies/disease-outbreak-news/item/Lassa-fever---Nigeria",
+            note: "NCDC situation reports (as relayed in the press, see docs/research/S59b.md) name Edo, Ondo, Bauchi and Taraba as the main burden states and a dry season peak from December to April. Other states report cases (for example Ebonyi and Nasarawa in 2026): the CMO decides whether to widen the list. A person whose state is unknown still matches (the safe direction).",
+          },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [12, 1, 2, 3, 4], states: ["Edo", "Ondo", "Bauchi", "Taraba"], any_associated_symptom: ["fever"] },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/research/S59b.md section C4; docs/OPEN-QUESTIONS.md OQ-S59b-05",
+  },
+  {
+    key: "symptom.context_tightening",
+    // S59b REDRAFT for the CMO (hold item C5, 2026-10-07). Still ALL DRAFT, unsigned, inert, raise-only. Dropped: the young-child
+    // entry (children are refused by the checker until a paediatric protocol is signed) and abdominal_pain (not in any signed
+    // pathway). Thresholds are checked against the sources named in each provenance; see docs/research/S59b.md for what could not be
+    // verified. Reading thresholds live HERE, never in code.
+    value: {
+      entries: [
+        {
+          id: "pregnancy_severe_symptom",
+          label: "Pregnant and a severe symptom",
+          provenance: { source: "UNVERIFIED THRESHOLD", note: "No source found for severity 6 as a pregnancy cut-off; it is the CMO's number. The complaints are those of the signed pathways only." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, min_severity: 6, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "pregnancy_headache_with_vision_change",
+          label: "Pregnant with a headache and a change in vision",
+          provenance: { source: "NICE NG133 (hypertension in pregnancy), via secondary summaries", note: "Severe headache with visual disturbance is a listed feature of pre-eclampsia. The guideline text itself was not opened; confirm against it. Emergency is the CMO's call (it is a possible severe pre-eclampsia pattern)." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, complaint_keys: ["headache"], any_associated_symptom: ["visual_disturbance", "vision_loss"] },
+          minimum_category: "emergency",
+        },
+        {
+          id: "blood_thinner_with_headache",
+          label: "Taking a blood thinner and a headache",
+          provenance: { source: "UNVERIFIED", note: "The bleeding-risk logic is general; no guideline cut-off found for a non-injury headache on an anticoagulant. Drug names and severity are the CMO's call." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_medicine: ["warfarin", "rivaroxaban", "apixaban", "dabigatran"], complaint_keys: ["headache"], min_severity: 4 },
+          minimum_category: "urgent",
+        },
+        {
+          id: "high_systolic_reading_with_symptom",
+          label: "A recent very high top blood pressure number and a symptom",
+          provenance: { source: "ESC/ESH and ACC/AHA definitions of hypertensive emergency (180 over 120 or higher with symptoms), via secondary summaries", note: "Threshold 180 matches the commonly cited line. The guideline documents were not opened. A home reading is not proof of organ damage, so this only raises the minimum." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "systolic", value: 180 }, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "high_diastolic_reading_with_symptom",
+          label: "A recent very high bottom blood pressure number and a symptom",
+          provenance: { source: "Same as the systolic entry", note: "Diastolic 120 is the other half of the same commonly cited line." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "diastolic", value: 120 }, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "low_oxygen_reading",
+          label: "A recent low oxygen reading",
+          provenance: { source: "NEWS2 SpO2 scale 1 (Royal College of Physicians), via secondary summaries", note: "NEWS2 scores 91 or below the highest (3 points) on scale 1. Version 1 used 92. Home pulse oximeters are less reliable, so this only raises the minimum. The CMO confirms the number and the look-back window." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_most: { key: "spo2_pct", value: 91 } },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/research/S59b.md section C5; docs/OPEN-QUESTIONS.md OQ-S59b-06",
+  },
 ];

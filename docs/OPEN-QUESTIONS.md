@@ -1585,3 +1585,40 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - `20261007131744_s60_regulatory_position_and_guard_wiring.sql` patches two live function bodies (`public.attest_go_live_condition`, `private.go_live_conditions`) with `replace()` on a marker, as F1 did, and raises if a marker is missing. That fails loudly rather than silently, but it is brittle: a later edit to either function can break a replay, and each new record-backed condition adds another patch.
 - Proper fix: a small data-driven table (`go_live_condition_evidence`: guard key, condition code, a SQL-free evidence kind such as `exists_row:regulatory_positions:clearing`) read by one generic check inside the two functions, so a new record-backed condition is a row, not a function rewrite. Not done here because it rewrites both functions wholesale and re-proves every S37 and F1 guard proof; that is its own PR.
 - Decision: open (engineering follow-up, no founder input).
+
+### OQ-S59b-01 Children are refused until a paediatric protocol is signed; a date of birth is required
+- Founder and CMO decision 2026-10-07, built: the database (trigger `symptom_triage_assessments_01_age_gate`) and the app refuse anyone under 18, and anyone with no date of birth. "Signed" means the ACTIVE protocol contains a pathway whose key starts `paediatric_`. A carer sees a calm state, can message the care team, and can book an ADULT consultation under their own account with the child's concern as free text (kept in the browser tab's session storage, never in a URL, and sent as the booking `reason`). The `symptom.dependant_policy` layer stays for when a paediatric protocol is signed.
+- Seam recorded: consultations are adults only (OQ-129), so the booking is the carer's, not the child's. The booking page does not yet show the note back to the carer before booking. Confirm this wording and that a carer-as-adult booking is acceptable clinically.
+- Decision: open (founder, CMO).
+
+### OQ-S59b-02 The bundled red-flag floor must change in the same commit as a signed chest pain change
+- Draft protocol `S59b draft: chest pain...` (inactive, unsigned) removes the severity floor (signed v1: 6) from `chest_pain.cardiac_pattern`. The bundled on-device floor and `db-seed-fixture.json` are kept equal to the SIGNED protocol, so they still say 6. When the CMO signs the draft (or the merged one) those two must be updated together. Guards: `floor-drift.test.ts`, and the server raises a Sentry error on every check where the active pathway's red flags differ from the bundled ones. Offline, the phone is looser than the signed rules in that window, which is the reason to update them straight away.
+- Decision: open (CMO to sign; engineering to update the bundled copy at that moment).
+
+### OQ-S59b-03 Reviews are for Members; skin photos are not yet
+- `request_symptom_review` now needs Membership (`private.patient_is_member`, SQLSTATE TM001); Free people see the result, self-care steps and the message route. A request already on file is still returned after a membership ends. Skin photos for a doctor to review are also a doctor-time item but were NOT gated (not asked). Decide whether `register_skin_photo` should require Membership too.
+- Decision: open (founder).
+
+### OQ-S59b-04 Staff read of symptom assessments closed; override and monitoring moved
+- The org-wide staff SELECT and UPDATE on `symptom_triage_assessments` are gone. Staff read through `read_symptom_session_audited` (tie, audit). The clinician override is now `override_symptom_assessment` (tied, audited, reviewing tier). `triage_safety_monitoring` was granted to every signed-in person (it runs as its owner); it is now served by `symptom_safety_monitoring()` to an admin or the CMO for their own organisation. No application code read these directly (a scan test enforces it), so no screen changed. Confirm no external consumer (BI, support tools) relied on the old view grant.
+- Decision: open (founder).
+
+### OQ-S59b-05 C4 prevalence redraft is for the CMO
+- `symptom.risk_tightening` version 2 (draft, unsigned, inert): malaria (months 4 to 10) and Lassa (months 12 to 4, states Edo, Ondo, Bauchi, Taraba), with sources. Typhoid and sickle cell dropped (no signed pathway asks them). Sources, and what I could not verify, are in `docs/research/S59b.md`.
+- Decision: open (CMO).
+
+### OQ-S59b-06 C5 context redraft is for the CMO
+- `symptom.context_tightening` version 2 (draft, unsigned, inert, raise-only): thresholds checked against NICE NG133, the 180 over 120 hypertensive line and NEWS2 (secondary summaries only; primary texts not opened). See `docs/research/S59b.md`.
+- Decision: open (CMO).
+
+### OQ-S59b-07 C8 merged draft protocol for the CMO
+- One draft version now carries: signed adult pathways (chest pain without the severity floor), the adult v2 pathways (fever, abdominal pain) and the three paediatric pathways (young infant is under 2 months, IMCI group). Signing it replaces the whole active config. The older v2 row remains as a superseded draft. Paediatric content is NOT independently clinically reviewed. Until signed, nothing about children changes (the checker refuses them).
+- Decision: open (CMO).
+
+### OQ-S59b-08 Mobile checker was not run on a device
+- The mobile screen (`symptom-checker-card.tsx`) type-checks and its pure model is tested, but it has not been run on a phone or simulator in this build, and it answers for the signed-in person only (a carer uses the web). It calls `/api/mobile/symptom-check`, which reuses `runSymptomStep`.
+- Decision: open (needs a device test).
+
+### OQ-S59b-09 Photo purge job needs its cron secret in production
+- `/api/cron/skin-photo-purge` (daily 03:35) uses the existing `CRON_SECRET`. It answers 500 and reports to Sentry per failed photo; a failed removal never marks the record purged. Nothing is due while the checker is OFF.
+- Decision: none (verify `CRON_SECRET` is set).

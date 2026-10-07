@@ -87,6 +87,10 @@
     {
       "path": "/api/cron/order-refunds",
       "schedule": "25 5 * * *"
+    },
+    {
+      "path": "/api/cron/skin-photo-purge",
+      "schedule": "35 3 * * *"
     }
   ]
 }

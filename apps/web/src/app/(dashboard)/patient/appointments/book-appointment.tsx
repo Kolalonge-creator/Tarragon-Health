@@ -77,6 +77,17 @@ export function BookAppointment({
     slotStart: string;
   } | null>(null);
   const [isBuying, setIsBuying] = useState(false);
+  // S59b: a carer who was told the symptom checker is for adults can leave a note about a child's concern. It is kept in this tab's
+  // session storage (never in a URL) and goes on the booking as free text, under the carer's own account. Cleared once used.
+  const [carerConcern, setCarerConcern] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const v = window.sessionStorage.getItem("tarragon.booking_reason");
+      if (v) setCarerConcern(v.slice(0, 500));
+    } catch {
+      // storage blocked: the booking works without the note
+    }
+  }, []);
 
   // S37 (INV-14): consultations stay closed until the clinical_operations_enabled guard is on. The database refuses a hold either
   // way; this keeps a patient from filling in a form that cannot work, and says so calmly.
@@ -152,7 +163,16 @@ export function BookAppointment({
         endsAt: slot.slot_end,
         location: slot.location ?? undefined,
         patientId,
+        reason: carerConcern ?? undefined,
       });
+      if (carerConcern) {
+        try {
+          window.sessionStorage.removeItem("tarragon.booking_reason");
+        } catch {
+          // nothing to clear
+        }
+        setCarerConcern(null);
+      }
       const confirmed = await confirm.mutateAsync(held.id);
 
       if (confirmed.status === "confirmed") {

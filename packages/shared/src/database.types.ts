@@ -48165,6 +48165,10 @@ export type Database = {
         Returns: string
       }
       symptom_review_stated_time: { Args: Record<PropertyKey, never>; Returns: Json }
+      symptom_checker_eligibility: { Args: { p_subject?: string }; Returns: Json }
+      symptom_review_entitled: { Args: { p_subject?: string }; Returns: boolean }
+      symptom_safety_monitoring: { Args: Record<PropertyKey, never>; Returns: Json }
+      override_symptom_assessment: { Args: { p_assessment: string; p_category: Database["public"]["Enums"]["triage_category"]; p_reason: string }; Returns: Json }
     }
     Enums: {
       lab_integration_status: "api" | "hl7_fhir" | "file_exchange" | "structured_upload" | "manual"

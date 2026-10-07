@@ -1,4 +1,6 @@
--- S59 part 4 of 4: DRAFT paediatric pathways (spec 12.6): fever, dehydration (with diarrhoea) and breathing in a child.
+-- S59 part 4 of 4 (reworked in S59b, hold item C8): ONE merged DRAFT version: the signed adult pathways (with the chest pain severity floor
+-- removed, see 20261007190204), the adult v2 draft pathways (fever, abdominal pain) and the three DRAFT paediatric pathways (fever,
+-- dehydration with diarrhoea, breathing in a child). A young infant is under 2 months (the IMCI young infant group), not 3.
 --
 -- THIS ADDS ONE UNSIGNED, INACTIVE `triage_protocols` ROW and nothing else. No agent signs or activates anything: only the Chief Medical
 -- Officer, through public.sign_triage_protocols(), can make it active, and nothing in the patient screen offers a pathway that is not in
@@ -21,6 +23,8 @@ declare
   v_version integer;
   v_base jsonb;
   v_paed jsonb;
+  v_adult jsonb;
+  v_v2_extra jsonb;
   v_config jsonb;
 begin
   if exists (select 1 from public.triage_protocols where notes like 'S59 draft:%') then
@@ -49,7 +53,7 @@ begin
   ],
   "knownTriggers": [],
   "knownHistory": [
-   "infant_under_3_months",
+   "infant_under_2_months",
    "sickle_cell_disease",
    "hiv_or_immunocompromised"
   ],
@@ -84,7 +88,7 @@ begin
     "category": "emergency",
     "rule": {
      "anyHistory": [
-      "infant_under_3_months"
+      "infant_under_2_months"
      ]
     }
    },
@@ -180,7 +184,7 @@ begin
   ],
   "knownTriggers": [],
   "knownHistory": [
-   "infant_under_3_months",
+   "infant_under_2_months",
    "sickle_cell_disease"
   ],
   "redFlagScreen": [
@@ -203,7 +207,7 @@ begin
     "category": "emergency",
     "rule": {
      "anyHistory": [
-      "infant_under_3_months"
+      "infant_under_2_months"
      ]
     }
    },
@@ -303,7 +307,7 @@ begin
    "choking_or_swallowed_object"
   ],
   "knownHistory": [
-   "infant_under_3_months",
+   "infant_under_2_months",
    "asthma",
    "sickle_cell_disease"
   ],
@@ -350,7 +354,7 @@ begin
     "category": "emergency",
     "rule": {
      "anyHistory": [
-      "infant_under_3_months"
+      "infant_under_2_months"
      ]
     }
    },
@@ -404,10 +408,26 @@ begin
  }
 ]$json$::jsonb;
 -- paediatric-draft-end
-  v_config := jsonb_build_object('version', v_version, 'pathways', (v_base -> 'pathways') || v_paed);
+  -- S59b: (1) the cardiac chest pain pattern loses its severity floor, exactly as in the S59b chest pain draft;
+  --       (2) the adult v2 draft's extra pathways (fever, abdominal pain) are carried over so ONE signature covers everything. The v2 row
+  --           (version 2, migration 20260911202322) stays as it is, now superseded by this draft; a key already in the base is never duplicated.
+  select jsonb_agg(
+           case when p ->> 'key' = 'chest_pain' then
+             jsonb_set(p, '{redFlagScreen}', (
+               select jsonb_agg(case when f ->> 'key' = 'chest_pain.cardiac_pattern' then jsonb_set(f, '{rule}', (f -> 'rule') - 'minSeverity') else f end order by fo)
+                 from jsonb_array_elements(p -> 'redFlagScreen') with ordinality as ft(f, fo)))
+           else p end
+           order by po)
+    into v_adult
+    from jsonb_array_elements(v_base -> 'pathways') with ordinality as pt(p, po);
+  select coalesce(jsonb_agg(p order by po), '[]'::jsonb)
+    into v_v2_extra
+    from jsonb_array_elements(coalesce((select config -> 'pathways' from public.triage_protocols where version = 2), '[]'::jsonb)) with ordinality as vt(p, po)
+   where not exists (select 1 from jsonb_array_elements(v_adult) a where a ->> 'key' = p ->> 'key');
+  v_config := jsonb_build_object('version', v_version, 'pathways', v_adult || v_v2_extra || v_paed);
   insert into public.triage_protocols (version, config, notes, is_active)
   values (v_version, v_config,
-    'S59 draft: UNSIGNED and INACTIVE. Adds three paediatric pathways (fever, dehydration with diarrhoea, breathing) to the pathways that were active when this row was made. IMCI-style danger signs transcribed from widely taught criteria, not independently clinically reviewed. Needs the Chief Medical Officer to review, edit and sign through sign_triage_protocols. Signing replaces the whole active config.',
+    'S59 draft: UNSIGNED and INACTIVE. ONE merged draft: the active signed adult pathways (chest pain cardiac pattern with no severity floor), the adult v2 draft pathways (fever, abdominal pain) and three paediatric pathways (fever, dehydration with diarrhoea, breathing). IMCI general danger signs cross-checked against WHO IMCI material, other criteria not independently clinically reviewed (see docs/research/S59b.md). Needs the Chief Medical Officer to review, edit and sign through sign_triage_protocols. Signing replaces the whole active config.',
     false);
 end $$;
 
@@ -419,7 +439,7 @@ begin
   if (select count(*) from public.triage_protocols where notes like 'S59 draft:%') <> 1 then
     raise exception 'S59 assertion: expected exactly one S59 draft row';
   end if;
-  if (select jsonb_array_length(config -> 'pathways') from public.triage_protocols where notes like 'S59 draft:%') < 4 then
+  if (select jsonb_array_length(config -> 'pathways') from public.triage_protocols where notes like 'S59 draft:%') < 6 then
     raise exception 'S59 assertion: the draft does not carry the adult pathways plus three paediatric ones';
   end if;
   if (select (config ->> 'version')::integer from public.triage_protocols where notes like 'S59 draft:%') <> (select version from public.triage_protocols where notes like 'S59 draft:%') then
