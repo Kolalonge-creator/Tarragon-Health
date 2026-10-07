@@ -72,12 +72,16 @@ begin
   end if;
   return coalesce((
     select jsonb_agg(jsonb_build_object('code', c.code, 'readings', c.n, 'first_at', c.first_at, 'last_at', c.last_at,
-             'latest_value', c.latest_value, 'latest_unit', c.latest_unit, 'latest_flag', c.latest_flag) order by c.last_at desc)
+             'latest_value', c.latest_value, 'latest_unit', c.latest_unit, 'latest_flag', c.latest_flag,
+             'latest_ref_low', c.latest_ref_low, 'latest_ref_high', c.latest_ref_high, 'latest_ref_text', c.latest_ref_text) order by c.last_at desc)
       from (
         select codes.code, count(*) n, min(p.taken_at) first_at, max(p.taken_at) last_at,
                (array_agg(p.value order by p.taken_at desc))[1] latest_value,
                (array_agg(p.unit order by p.taken_at desc))[1] latest_unit,
-               (array_agg(p.flag order by p.taken_at desc))[1] latest_flag
+               (array_agg(p.flag order by p.taken_at desc))[1] latest_flag,
+               (array_agg(p.ref_low order by p.taken_at desc))[1] latest_ref_low,
+               (array_agg(p.ref_high order by p.taken_at desc))[1] latest_ref_high,
+               (array_agg(p.ref_text order by p.taken_at desc))[1] latest_ref_text
           from (select i.analyte_code code from public.lab_result_items i where i.patient_id = v_patient
                 union select l.code from public.lab_analyte_readings l where l.patient_id = v_patient) codes
           cross join lateral private.biomarker_points(v_patient, codes.code) p

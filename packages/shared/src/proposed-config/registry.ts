@@ -1309,4 +1309,149 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
   },
+  {
+    key: "immunisation.schedule",
+    // The national immunisation schedule as versioned data (S43, spec 2.6). Registry version 1 mirrors sign-off row version 2 (the UNSIGNED draft): HPV is two doses
+    // six months apart and typhoid is not in the schedule (founder, 2026-10-07). It mirrors the draft row in
+    // `vaccination_schedule_signoffs` (version 2) and a test fails if they differ. Until the CMO signs it in the database
+    // (public.sign_vaccination_schedule) no due-date reminder is sent: private.queue_vaccination_reminders() does nothing
+    // without a signed schedule that carries this config. Items marked NV are not verified against a dated NPHCDA table.
+    value: {
+      status: "draft_unsigned",
+      country: "NG",
+      doses: [
+        {
+          vaccine: "BCG",
+          catalog_code: "child_bcg",
+          at_weeks: [0],
+          evidence: "V",
+        },
+        {
+          vaccine: "OPV",
+          catalog_code: "child_opv",
+          at_weeks: [0, 6, 10, 14],
+          evidence: "V",
+        },
+        {
+          vaccine: "Hepatitis B birth dose",
+          catalog_code: "child_hep_b_birth",
+          at_weeks: [0],
+          evidence: "V",
+          note: "birth-dose time limit not verified",
+        },
+        {
+          vaccine: "Pentavalent",
+          catalog_code: "child_penta",
+          at_weeks: [6, 10, 14],
+          evidence: "V",
+        },
+        {
+          vaccine: "Pneumococcal conjugate",
+          catalog_code: "child_pcv",
+          at_weeks: [6, 10, 14],
+          evidence: "V",
+        },
+        {
+          vaccine: "Rotavirus",
+          catalog_code: "child_rota",
+          at_weeks: [6, 10, 14],
+          evidence: "V",
+          note: "three doses in the pack; the live catalogue lists two",
+        },
+        {
+          vaccine: "IPV",
+          catalog_code: "child_ipv",
+          at_weeks: [6, 14],
+          evidence: "V",
+          note: "two doses in the pack; the live catalogue lists one",
+        },
+        {
+          vaccine: "Vitamin A",
+          catalog_code: null,
+          at_weeks: [26, 52],
+          evidence: "V",
+          note: "100,000 IU at 6 months, 200,000 IU at 12 months; no catalogue entry yet",
+        },
+        {
+          vaccine: "Measles 1",
+          catalog_code: "child_measles",
+          at_weeks: [39],
+          evidence: "V",
+        },
+        {
+          vaccine: "Yellow fever",
+          catalog_code: "child_yellow_fever",
+          at_weeks: [39],
+          evidence: "V",
+        },
+        {
+          vaccine: "Meningitis vaccine",
+          catalog_code: "child_men_a",
+          at_weeks: [39],
+          evidence: "NV",
+          note: "product (MenAfriVac or MenFive) and routine age not verified",
+        },
+        {
+          vaccine: "Measles 2",
+          catalog_code: "child_measles",
+          at_weeks: [65],
+          evidence: "V",
+          note: "whether this is now MR is not verified",
+        },
+        {
+          vaccine: "R21 malaria",
+          catalog_code: null,
+          at_months: [5, 6, 7, 15],
+          evidence: "SEC",
+          per_state_rollout: true,
+          note: "phased by state since 2 Dec 2024; availability is a per-state flag, never a national rule",
+        },
+        {
+          vaccine: "HPV",
+          catalog_code: "child_hpv_girls",
+          age_years: {
+            min: 9,
+            max: 13,
+          },
+          dose_count: 2,
+          dose_interval_weeks: 26,
+          evidence: "V",
+          note: "founder decision: two doses; secondary sources report single-dose policy since Oct 2023, the CMO confirms before signing",
+        },
+        {
+          vaccine: "Td in pregnancy",
+          catalog_code: null,
+          in_pregnancy: true,
+          min_doses: 2,
+          never_vaccinated_course_doses: 5,
+          evidence: "SEC",
+          note: "from papers, not an NPHCDA table",
+        },
+      ],
+      excluded: [
+        {
+          code: "typhoid",
+          reason: "founder decision 2026-10-07: not in the schedule",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-cmo-signoff-pack.md section B; founder decisions 2026-10-07",
+  },
+  {
+    key: "record_share.defaults",
+    // Share link defaults (S43, spec 2.8; X7). Live values are the active row of `record_share_config`; this entry mirrors it
+    // and a test fails if they differ. 72 hours is the spec's default; 720 is the ceiling built in S09. The founder and the
+    // CMO confirm (the sensitive-data exclusion is structural, not configurable: mental health and reproductive health are
+    // not in the closed set of sections).
+    value: { default_hours: 72, max_hours: 720, max_pin_attempts: 5, min_pin_length: 4 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-build-plan.md X7; spec section 2.8",
+  },
 ];

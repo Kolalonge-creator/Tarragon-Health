@@ -68,6 +68,9 @@ alter table public.record_shares
   add column if not exists max_views integer check (max_views is null or max_views between 1 and 1000),
   add column if not exists config_version integer;
 
+-- lets the owner's screen say "PIN needed" without ever selecting the hash itself
+alter table public.record_shares add column if not exists has_pin boolean generated always as (pin_hash is not null) stored;
+
 -- hash any plaintext token that exists, then stop holding it
 update public.record_shares
    set token_hash = encode(extensions.digest(token, 'sha256'), 'hex')

@@ -89,28 +89,35 @@ export async function runDocumentCapture(
   }
 
   const documentType = asDocumentType(doc.document_type);
-  const governed = await runGovernedAi<DocumentCaptureResult | null>({
-    supabase: service,
-    systemCode: AI_SYSTEMS.documentCapture.code,
-    inputCategory: "patient_document_photo",
-    subjectProfileId: doc.patient_id,
-    run: async () => {
-      const result = await extract({ fileBase64, mediaType, documentType });
-      return {
-        value: result,
-        modelIdentifier: DOCUMENT_CAPTURE_MODEL_ID,
-        // Counts only: the transcribed values stay on the patient's own row.
-        outputSummary: result.ok ? `${result.suggestions.fields.length} suggested field(s)` : `failed: ${result.reason}`,
-        resultingAction: result.ok ? "suggestions_awaiting_patient_confirmation" : "manual_entry_required",
-        resultingEntityType: "patient_documents",
-        resultingEntityId: documentId,
-        degradedReason: result.ok ? null : `reading failed: ${result.reason}`,
-      };
-    },
-    fallback: () => null,
-  });
+  let governedValue: DocumentCaptureResult | null = null;
+  try {
+    const governed = await runGovernedAi<DocumentCaptureResult | null>({
+      supabase: service,
+      systemCode: AI_SYSTEMS.documentCapture.code,
+      inputCategory: "patient_document_photo",
+      subjectProfileId: doc.patient_id,
+      run: async () => {
+        const result = await extract({ fileBase64, mediaType, documentType });
+        return {
+          value: result,
+          modelIdentifier: DOCUMENT_CAPTURE_MODEL_ID,
+          // Counts only: the transcribed values stay on the patient's own row.
+          outputSummary: result.ok ? `${result.suggestions.fields.length} suggested field(s)` : `failed: ${result.reason}`,
+          resultingAction: result.ok ? "suggestions_awaiting_patient_confirmation" : "manual_entry_required",
+          resultingEntityType: "patient_documents",
+          resultingEntityId: documentId,
+          degradedReason: result.ok ? null : `reading failed: ${result.reason}`,
+        };
+      },
+      fallback: () => null,
+    });
+    governedValue = governed.value;
+  } catch (error) {
+    // runGovernedAi runs its own fallback; reaching here means even that threw. The photo is still kept.
+    console.error("document-capture: governed call failed", error);
+  }
 
-  const result = governed.value;
+  const result = governedValue;
   if (!result || !result.ok) {
     return await recordFailure(
       result && !result.ok && result.reason === "unsupported_type"

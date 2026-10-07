@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
 import { DoctorNameLink } from "@/components/doctor-name-link";
+import { TimelineTrustTier } from "@/components/timeline-trust-tier";
 
 /**
  * The shared unified activity timeline. Rendered on both the patient dashboard
@@ -49,6 +50,8 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   dependent_account_transitioned: { dot: "bg-clinical-navy dark:bg-blue-400", label: "Account access" },
   vitals_recorded: { dot: "bg-green-600", label: "Vitals" },
   prescription_signed: { dot: "bg-clinical-navy dark:bg-blue-400", label: "Prescription" },
+  symptom_logged: { dot: "bg-amber-500", label: "Symptom" },
+  procedure_recorded: { dot: "bg-clinical-navy dark:bg-blue-400", label: "Procedure" },
 };
 
 // Where each event type's "open it" destination lives, relative to
@@ -79,6 +82,8 @@ const EVENT_LINK_SUBPATH: Partial<Record<TimelineEventType, string>> = {
   document_uploaded: "/health-summary",
   vitals_recorded: "/vitals",
   prescription_signed: "/medications",
+  symptom_logged: "/symptom-journal",
+  procedure_recorded: "/health-history",
 };
 
 // Belt-and-braces only — private.record_timeline_event() now strips
@@ -139,6 +144,7 @@ function TimelineEventRow({ event, linkBasePath }: { event: TimelineEvent; linkB
       </div>
       {event.summary && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{humaniseSummary(event.summary)}</p>}
       <ActorAttribution actor={event.actor} />
+      <TimelineTrustTier tier={event.trust_tier} />
     </>
   );
 

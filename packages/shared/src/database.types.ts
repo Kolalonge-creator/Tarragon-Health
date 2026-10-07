@@ -34378,6 +34378,7 @@ export type Database = {
         Row: {
           config_version: number | null
           consented_at: string
+          has_pin: boolean | null
           id: string
           locked_at: string | null
           max_views: number | null
