@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LAB_UNIT_CONVERSIONS, LabEntryError, toCanonicalUnit } from "@tarragon/clinical";
 
 /**
  * Shared pieces for structured lab results (S27): the file rule, the input schemas, the plain-words error mapping and
@@ -19,9 +20,10 @@ export function validateLabResultFile(file: { type: string; size: number }): str
   return null;
 }
 
-export const PANEL_CODES = ["essential", "annual_health_check"] as const;
+/** One panel: the Membership annual blood test (there are no packages to choose between). */
+export const PANEL_CODES = ["membership_annual"] as const;
 export type PanelCode = (typeof PANEL_CODES)[number];
-export const PANEL_LABEL: Record<PanelCode, string> = { essential: "Essential panel", annual_health_check: "Annual health check" };
+export const PANEL_LABEL: Record<PanelCode, string> = { membership_annual: "Annual blood test" };
 
 const itemSchema = z
   .object({
@@ -38,6 +40,30 @@ export const resultEntrySchema = z.object({
   items: z.array(itemSchema).max(60),
 });
 export type ResultEntryItem = z.infer<typeof itemSchema>;
+
+/**
+ * A lab may print a value in another unit (glucose in mmol/L, creatinine in µmol/L, haemoglobin in g/L). The database judges
+ * every value in the panel's own unit and refuses any other, so a value in a known alternate unit is converted here first, and
+ * a unit nobody knows is refused with the plain message rather than guessed. An analyte this table does not know is passed
+ * through untouched, so the database gives its own unknown-analyte answer.
+ */
+export function toPanelUnits(items: ResultEntryItem[]): { items: ResultEntryItem[] } | { error: string } {
+  const out: ResultEntryItem[] = [];
+  for (const item of items) {
+    if (item.value_numeric === undefined || !(item.analyte_code in LAB_UNIT_CONVERSIONS)) {
+      out.push(item);
+      continue;
+    }
+    try {
+      const n = toCanonicalUnit(item.analyte_code, item.value_numeric, item.unit);
+      out.push({ analyte_code: item.analyte_code, value_numeric: n.value, unit: n.unit });
+    } catch (e) {
+      if (e instanceof LabEntryError) return { error: MESSAGES[e.code] ?? "That unit is not one we can read. Enter the value in the unit shown." };
+      throw e;
+    }
+  }
+  return { items: out };
+}
 
 export const disclosureSchema = z.object({
   resultId: z.string().uuid(),

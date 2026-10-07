@@ -10,6 +10,7 @@
 --   6. Patient upload and team upload: held, patient sees own file, not an explanation; withhold hides from the patient.
 --   7. Immutability: items append only, a released result is final, a direct state write is refused.
 --   8. SABOTAGE: the release rule and the patient policy opened; both checks must flip.
+--  10. S27g: one Membership panel, sex-specific ranges, standards-checked critical limits, with its own sabotage.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -90,6 +91,7 @@ end $f$;
 create function pg_temp.items(p_creatinine numeric, p_extra text default '') returns text language sql as
 $$ select '[{"analyte_code":"fasting_glucose","value_numeric":88},{"analyte_code":"hba1c","value_numeric":5.2},{"analyte_code":"creatinine","value_numeric":'
   || p_creatinine || '},{"analyte_code":"potassium","value_numeric":4.1},{"analyte_code":"sodium","value_numeric":140},{"analyte_code":"total_cholesterol","value_numeric":170},{"analyte_code":"ldl_cholesterol","value_numeric":100},{"analyte_code":"hdl_cholesterol","value_numeric":55},{"analyte_code":"triglycerides","value_numeric":110},{"analyte_code":"alt","value_numeric":24}'
+  || ',{"analyte_code":"ast","value_numeric":20},{"analyte_code":"haemoglobin","value_numeric":14},{"analyte_code":"wbc","value_numeric":6},{"analyte_code":"platelets","value_numeric":250},{"analyte_code":"tsh","value_numeric":2}'
   || p_extra || ']' $$;
 create function pg_temp.partner_submit(p_uid uuid, p_order uuid, p_panel text, p_items text) returns text language sql as
 $$ select pg_temp.q_as(p_uid, format('select public.lab_partner_submit_result(%L, %L, %L::jsonb)::text', p_order, p_panel, p_items)) $$;
@@ -155,7 +157,7 @@ declare v_pat2 uuid := pg_temp.f('pat2'); v_org uuid := pg_temp.f('org'); o uuid
 begin
   perform pg_temp.ck('the ranges start unsigned', 'false', (select private.lab_panels_signed()::text));
   o := pg_temp.mkorder(v_org, v_pat2, pg_temp.f('labA_provider'), 'sample_collected');
-  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', pg_temp.items(0.9));
+  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', pg_temp.items(0.9));
   rid := pg_temp.rid(r);
   perform pg_temp.ck('an all-normal result is HELD while the ranges are unsigned', 'awaiting_review|ranges_not_signed',
     pg_temp.state_of(rid) || '|' || (select release_reason from public.lab_results where id = rid));
@@ -183,15 +185,15 @@ begin
   perform pg_temp.ck('partner marks collected: the order is sample_collected', 'sample_collected', pg_temp.order_status(o));
   perform pg_temp.ck('another lab cannot mark it collected', 'true',
     (pg_temp.q_as(pg_temp.f('labB'), format('select public.lab_partner_mark_collected(%L)::text', o)) like 'ERR:Order not found for this lab')::text);
-  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', pg_temp.items(0.9));
-  perform pg_temp.ck('case 13: an all-normal essential panel is released', 'released', case when r like 'ERR:%' then r else r::jsonb ->> 'release_state' end);
+  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', pg_temp.items(0.9));
+  perform pg_temp.ck('case 13: an all-normal annual panel is released', 'released', case when r like 'ERR:%' then r else r::jsonb ->> 'release_state' end);
   rid := pg_temp.rid(r);
   perform pg_temp.setf('res_normal', rid);
   perform pg_temp.ck('...with reason RES-001', 'RES-001', (select release_reason from public.lab_results where id = rid));
   perform pg_temp.ck('...no clinician reviewed it', 'null', (select coalesce(reviewed_by::text, 'null') from public.lab_results where id = rid));
   perform pg_temp.ck('...no task was created', '0', (select count(*)::text from public.clinical_tasks where dedup_key = 'lab_result:' || rid));
   perform pg_temp.ck('...the patient can see it', '1', pg_temp.visible_to(v_pat, rid));
-  perform pg_temp.ck('...and its ten items', '10', pg_temp.items_visible_to(v_pat, rid));
+  perform pg_temp.ck('...and its fifteen items', '15', pg_temp.items_visible_to(v_pat, rid));
   perform pg_temp.ck('...the order is resulted', 'resulted', pg_temp.order_status(o));
   perform pg_temp.ck('...the patient got one neutral notice', '1', (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'lab_result_ready'));
   perform pg_temp.ck('...whose payload names no value', 'true',
@@ -201,7 +203,7 @@ begin
   perform pg_temp.ck('...the flag was computed by the database (a flag sent by the lab is ignored)', 'normal',
     (select flag from public.lab_result_items where lab_result_id = rid and analyte_code = 'creatinine'));
   perform pg_temp.ck('...a second submission for the same order is refused', 'true',
-    (pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', pg_temp.items(0.9)) like 'ERR:lab_result_already_received')::text);
+    (pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', pg_temp.items(0.9)) like 'ERR:lab_result_already_received')::text);
   perform pg_temp.ck('...explain is allowed for an all-normal released result', 'true',
     (pg_temp.mine(v_pat, rid) ->> 'explain_allowed'));
 end $$;
@@ -211,7 +213,7 @@ do $$
 declare v_pat uuid := pg_temp.f('pat'); v_org uuid := pg_temp.f('org'); o uuid; r text; rid uuid; q text;
 begin
   o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
-  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', pg_temp.items(1.9));
+  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', pg_temp.items(1.9));
   rid := pg_temp.rid(r);
   perform pg_temp.setf('res_high', rid);
   perform pg_temp.ck('case 11: creatinine 1.9 is held for review', 'awaiting_review', pg_temp.state_of(rid));
@@ -232,7 +234,7 @@ begin
   perform pg_temp.ck('...a reason is required', 'true',
     (pg_temp.q_as(pg_temp.f('doc'), format($q$select public.lab_result_for_review(%L, '')::text$q$, rid)) like 'ERR:A reason is required')::text);
   q := pg_temp.q_as(pg_temp.f('doc'), format($q$select public.lab_result_for_review(%L, 'Reviewing a held lab result')::text$q$, rid));
-  perform pg_temp.ck('the tied clinician reads it with its items', 'high', case when q like 'ERR:%' then q else q::jsonb -> 'items' -> 1 ->> 'flag' end);
+  perform pg_temp.ck('the tied clinician reads it with its items', 'high', case when q like 'ERR:%' then q else (select i ->> 'flag' from jsonb_array_elements(q::jsonb -> 'items') i where i ->> 'analyte_code' = 'creatinine') end);
   perform pg_temp.ck('...and the read is in the audit log', 'true',
     (exists (select 1 from public.audit_log where subject_patient_id = v_pat and action = 'staff.chart_read' and event ->> 'sections' like '%lab_results%'))::text);
   perform pg_temp.ck('the queue lists it for the tied clinician', '1',
@@ -261,7 +263,7 @@ begin
 
   -- a critical value gets the higher priority task
   o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
-  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', replace(pg_temp.items(0.9), '"potassium","value_numeric":4.1', '"potassium","value_numeric":7.2'));
+  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', replace(pg_temp.items(0.9), '"potassium","value_numeric":4.1', '"potassium","value_numeric":7.2'));
   perform pg_temp.ck('a critical potassium makes a critical result review task', 'critical_result_review', pg_temp.task_of(pg_temp.rid(r)));
   perform pg_temp.setf('res_crit', pg_temp.rid(r));
   perform pg_temp.ck('a medical officer cannot release a critical value (OQ-180)', 'true',
@@ -274,10 +276,10 @@ end $$;
 -- 4. Case 12: positive HBsAg ---------------------------------------------------------------------------------------------------
 do $$
 declare v_pat uuid := pg_temp.f('pat'); v_org uuid := pg_temp.f('org'); o uuid; r text; rid uuid;
-  v_extra text := ',{"analyte_code":"ast","value_numeric":20},{"analyte_code":"haemoglobin","value_numeric":14},{"analyte_code":"wbc","value_numeric":6},{"analyte_code":"platelets","value_numeric":250},{"analyte_code":"tsh","value_numeric":2},{"analyte_code":"hbsag","value_text":"positive"}';
+  v_extra text := ',{"analyte_code":"hbsag","value_text":"positive"}';
 begin
   o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
-  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'annual_health_check', pg_temp.items(0.9, v_extra));
+  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', pg_temp.items(0.9, v_extra));
   rid := pg_temp.rid(r);
   perform pg_temp.setf('res_sens', rid);
   perform pg_temp.ck('case 12: a positive HBsAg needs clinician disclosure', 'clinician_disclosure_required', pg_temp.state_of(rid));
@@ -308,7 +310,7 @@ begin
 
   -- a negative screen with otherwise normal values auto-releases and may be explained
   o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
-  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'annual_health_check', pg_temp.items(0.9, replace(v_extra, '"positive"', '"negative"')));
+  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', pg_temp.items(0.9, replace(v_extra, '"positive"', '"negative"')));
   perform pg_temp.ck('a negative HBsAg with normal values auto-releases', 'released', pg_temp.state_of(pg_temp.rid(r)));
 end $$;
 
@@ -318,24 +320,24 @@ declare v_pat uuid := pg_temp.f('pat'); v_org uuid := pg_temp.f('org'); o uuid; 
 begin
   o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
   perform pg_temp.ck('a wrong unit is refused', 'true',
-    (pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', '[{"analyte_code":"creatinine","value_numeric":90,"unit":"umol/L"}]') like 'ERR:lab_unit_mismatch')::text);
+    (pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', '[{"analyte_code":"creatinine","value_numeric":90,"unit":"umol/L"}]') like 'ERR:lab_unit_mismatch')::text);
   perform pg_temp.ck('an unknown analyte is refused', 'true',
-    (pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', '[{"analyte_code":"made_up","value_numeric":1}]') like 'ERR:lab_unknown_analyte')::text);
+    (pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', '[{"analyte_code":"made_up","value_numeric":1}]') like 'ERR:lab_unknown_analyte')::text);
   perform pg_temp.ck('indeterminate text is refused, never guessed', 'true',
-    (pg_temp.partner_submit(pg_temp.f('labA'), o, 'annual_health_check', '[{"analyte_code":"hbsag","value_text":"indeterminate"}]') like 'ERR:lab_value_not_recognised')::text);
+    (pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', '[{"analyte_code":"hbsag","value_text":"indeterminate"}]') like 'ERR:lab_value_not_recognised')::text);
   perform pg_temp.ck('a duplicate analyte is refused', 'true',
-    (pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', '[{"analyte_code":"alt","value_numeric":1},{"analyte_code":"alt","value_numeric":2}]') like 'ERR:lab_duplicate_analyte')::text);
+    (pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', '[{"analyte_code":"alt","value_numeric":1},{"analyte_code":"alt","value_numeric":2}]') like 'ERR:lab_duplicate_analyte')::text);
   perform pg_temp.ck('a refused entry leaves no result behind', '0', (select count(*)::text from public.lab_results where lab_order_id = o));
   perform pg_temp.ck('another lab cannot submit for this order', 'true',
-    (pg_temp.partner_submit(pg_temp.f('labB'), o, 'essential', pg_temp.items(0.9)) like 'ERR:Order not found for this lab')::text);
+    (pg_temp.partner_submit(pg_temp.f('labB'), o, 'membership_annual', pg_temp.items(0.9)) like 'ERR:Order not found for this lab')::text);
   perform pg_temp.ck('a patient cannot use the partner function', 'true',
-    (pg_temp.partner_submit(v_pat, o, 'essential', pg_temp.items(0.9)) like 'ERR:This action is for partner labs')::text);
-  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', (select replace(pg_temp.items(0.9), ',{"analyte_code":"alt","value_numeric":24}', '')));
+    (pg_temp.partner_submit(v_pat, o, 'membership_annual', pg_temp.items(0.9)) like 'ERR:This action is for partner labs')::text);
+  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', (select replace(pg_temp.items(0.9), ',{"analyte_code":"alt","value_numeric":24}', '')));
   perform pg_temp.ck('a normal result with a required analyte missing is held, not released', 'awaiting_review|incomplete',
     pg_temp.state_of(pg_temp.rid(r)) || '|' || (select release_reason from public.lab_results where id = pg_temp.rid(r)));
   perform pg_temp.ck('a pending-payment order is refused', 'true',
-    (pg_temp.partner_submit(pg_temp.f('labA'), pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'pending_payment'), 'essential', pg_temp.items(0.9)) like 'ERR:Order not found for this lab' or
-     pg_temp.partner_submit(pg_temp.f('labA'), pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'pending_payment'), 'essential', pg_temp.items(0.9)) like 'ERR:lab_order_not_payable_state')::text);
+    (pg_temp.partner_submit(pg_temp.f('labA'), pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'pending_payment'), 'membership_annual', pg_temp.items(0.9)) like 'ERR:Order not found for this lab' or
+     pg_temp.partner_submit(pg_temp.f('labA'), pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'pending_payment'), 'membership_annual', pg_temp.items(0.9)) like 'ERR:lab_order_not_payable_state')::text);
   perform pg_temp.ck('the partner worklist shows only its own orders', 'true',
     (pg_temp.q_as(pg_temp.f('labB'), 'select count(*)::text from public.lab_partner_portal_orders()') = '0')::text);
 end $$;
@@ -433,11 +435,11 @@ begin
   -- corrections
   select lab_order_id into o from public.lab_results where id = old_id;
   perform pg_temp.ck('a correction needs a kind and a reason', 'true',
-    (pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'corrected', '', 'essential', %L::jsonb)::text$q$, o, old_id, pg_temp.items(0.9))) like 'ERR:lab_correction_needs_kind_and_reason')::text);
+    (pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'corrected', '', 'membership_annual', %L::jsonb)::text$q$, o, old_id, pg_temp.items(0.9))) like 'ERR:lab_correction_needs_kind_and_reason')::text);
   perform pg_temp.ck('another lab cannot correct this order', 'true',
-    (pg_temp.q_as(pg_temp.f('labB'), format($q$select public.lab_partner_submit_correction(%L, %L, 'corrected', 'Typing error', 'essential', %L::jsonb)::text$q$, o, old_id, pg_temp.items(0.9))) like 'ERR:Order not found for this lab')::text);
+    (pg_temp.q_as(pg_temp.f('labB'), format($q$select public.lab_partner_submit_correction(%L, %L, 'corrected', 'Typing error', 'membership_annual', %L::jsonb)::text$q$, o, old_id, pg_temp.items(0.9))) like 'ERR:Order not found for this lab')::text);
   select count(*) into n_notes from public.notifications where recipient_id = v_pat and template = 'lab_result_corrected';
-  c := pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'corrected', 'Creatinine was keyed wrongly', 'essential', %L::jsonb)::text$q$, o, old_id, pg_temp.items(1.9)));
+  c := pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'corrected', 'Creatinine was keyed wrongly', 'membership_annual', %L::jsonb)::text$q$, o, old_id, pg_temp.items(1.9)));
   cid := pg_temp.rid(c);
   perform pg_temp.ck('a correction that makes a value abnormal is HELD (it goes back through the gate)', 'awaiting_review', pg_temp.state_of(cid));
   perform pg_temp.ck('...the original stays released and is not yet marked replaced', 'released|null',
@@ -450,7 +452,7 @@ begin
   perform pg_temp.ck('...the replaced result may no longer be explained', 'false', pg_temp.q_as(v_pat, format('select public.lab_result_explain_allowed(%L)::text', old_id)));
   perform pg_temp.ck('...and the patient list marks it replaced', 'true', (pg_temp.mine(v_pat, old_id) ->> 'replaced'));
   perform pg_temp.ck('a result already replaced cannot be corrected again', 'true',
-    (pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'amended', 'Again', 'essential', %L::jsonb)::text$q$, o, old_id, pg_temp.items(0.9))) like 'ERR:lab_correction_target_invalid')::text);
+    (pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'amended', 'Again', 'membership_annual', %L::jsonb)::text$q$, o, old_id, pg_temp.items(0.9))) like 'ERR:lab_correction_target_invalid')::text);
   perform pg_temp.ck('the correction link and reason cannot be edited afterwards', '42501',
     pg_temp.try_sql(format($q$update public.lab_results set correction_reason = 'changed' where id = %L$q$, cid)));
 
@@ -477,8 +479,8 @@ begin
 
   -- disclosure fallback: three attempts escalate to the CMO and never release
   o2 := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
-  c := pg_temp.partner_submit(pg_temp.f('labA'), o2, 'annual_health_check',
-         pg_temp.items(0.9, ',{"analyte_code":"ast","value_numeric":20},{"analyte_code":"haemoglobin","value_numeric":14},{"analyte_code":"wbc","value_numeric":6},{"analyte_code":"platelets","value_numeric":250},{"analyte_code":"tsh","value_numeric":2},{"analyte_code":"hcv_ab","value_text":"positive"}'));
+  c := pg_temp.partner_submit(pg_temp.f('labA'), o2, 'membership_annual',
+         pg_temp.items(0.9, ',{"analyte_code":"hcv_ab","value_text":"positive"}'));
   rid := pg_temp.rid(c);
   perform pg_temp.ck('a positive HCV Ab is held for personal disclosure', 'clinician_disclosure_required', pg_temp.state_of(rid));
   perform pg_temp.ck('a medical officer cannot record a disclosure attempt', 'true',
@@ -501,8 +503,8 @@ begin
 
   -- the time based sweep
   o2 := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
-  c := pg_temp.partner_submit(pg_temp.f('labA'), o2, 'annual_health_check',
-         pg_temp.items(0.9, ',{"analyte_code":"ast","value_numeric":20},{"analyte_code":"haemoglobin","value_numeric":14},{"analyte_code":"wbc","value_numeric":6},{"analyte_code":"platelets","value_numeric":250},{"analyte_code":"tsh","value_numeric":2},{"analyte_code":"hbsag","value_text":"positive"}'));
+  c := pg_temp.partner_submit(pg_temp.f('labA'), o2, 'membership_annual',
+         pg_temp.items(0.9, ',{"analyte_code":"hbsag","value_text":"positive"}'));
   rid := pg_temp.rid(c);
   n_notes := private.lab_disclosure_sweep();
   perform pg_temp.ck('the sweep leaves a fresh held sensitive result alone', '0|0', n_notes::text || '|' || (select count(*)::text from public.ops_incidents where external_reference = 'lab-disclosure:' || rid));
@@ -539,12 +541,12 @@ declare v_pat uuid := pg_temp.f('pat'); v_org uuid := pg_temp.f('org'); o uuid; 
 begin
   -- replace while held
   o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
-  c := pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', pg_temp.items(1.9));
+  c := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', pg_temp.items(1.9));
   held := pg_temp.rid(c);
   perform pg_temp.ck('a high creatinine is held', 'awaiting_review', pg_temp.state_of(held));
   select count(*) into n_corr from public.notifications where recipient_id = v_pat and template = 'lab_result_corrected';
   select count(*) into n_ready from public.notifications where recipient_id = v_pat and template = 'lab_result_ready';
-  c := pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'corrected', 'Creatinine was keyed wrongly', 'essential', %L::jsonb)::text$q$, o, held, pg_temp.items(0.9)));
+  c := pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'corrected', 'Creatinine was keyed wrongly', 'membership_annual', %L::jsonb)::text$q$, o, held, pg_temp.items(0.9)));
   repl := pg_temp.rid(c);
   perform pg_temp.ck('the lab can replace a result that is still held', 'true', (c ~ '^\{')::text);
   perform pg_temp.ck('...the held one is marked replaced at once', 'true', (select (superseded_by = repl)::text from public.lab_results where id = held));
@@ -566,7 +568,7 @@ begin
   perform pg_temp.ck('a reviewer opening a correction sees its kind and reason', 'corrected|Creatinine was keyed wrongly',
     (select (x ->> 'correction_kind') || '|' || (x ->> 'correction_reason') from (select pg_temp.q_as(pg_temp.f('senior'), format($q$select public.lab_result_for_review(%L, 'Checking a correction')::text$q$, repl))::jsonb x) q));
   perform pg_temp.ck('a result can still be replaced only once', 'true',
-    (pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'amended', 'Again', 'essential', %L::jsonb)::text$q$, o, held, pg_temp.items(0.9))) like 'ERR:lab_correction_target_invalid')::text);
+    (pg_temp.q_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_correction(%L, %L, 'amended', 'Again', 'membership_annual', %L::jsonb)::text$q$, o, held, pg_temp.items(0.9))) like 'ERR:lab_correction_target_invalid')::text);
 
   -- the liaison's neutral list
   l := pg_temp.q_as(pg_temp.f('liaison'), format($q$select public.team_submit_lab_result(%L, null, null, null, %L::jsonb)::text$q$, v_pat, v_file));
@@ -599,13 +601,94 @@ begin
     (pg_temp.q_as(v_pat, format($q$select public.patient_released_lab_results(%L, 'x y z')::text$q$, v_pat)) like 'ERR:This action is for clinicians')::text);
 end $$;
 
+-- 10. S27g: one Membership panel, sex-specific reference ranges (founder decision 2026-10-07) -----------------------------------------
+do $$
+declare
+  v_pat uuid := pg_temp.f('pat'); v_org uuid := pg_temp.f('org'); v_ver uuid; v_before jsonb; o uuid; r text;
+  v_hb text := '[{"analyte_code":"haemoglobin","value_numeric":12.5}]';
+  v_cr text := '[{"analyte_code":"creatinine","value_numeric":1.2}]';
+  v_hdl text := '[{"analyte_code":"hdl_cholesterol","value_numeric":45}]';
+  v_hb_all text := replace(pg_temp.items(0.9), '"haemoglobin","value_numeric":14', '"haemoglobin","value_numeric":12.5');
+begin
+  select id, analytes into v_ver, v_before from public.lab_panel_versions where panel_code = 'membership_annual' and is_active;
+  perform pg_temp.ck('exactly one panel is active and it is the Membership panel', '1|membership_annual',
+    (select count(*)::text || '|' || min(panel_code) from public.lab_panel_versions where is_active));
+  o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
+  perform pg_temp.ck('the old package panel names are refused by the database', '23514',
+    pg_temp.try_sql(format($q$update public.lab_orders set panel_code = 'essential' where id = %L$q$, o)));
+  perform pg_temp.ck('...and so is the old annual name', '23514',
+    pg_temp.try_sql(format($q$update public.lab_orders set panel_code = 'annual_health_check' where id = %L$q$, o)));
+
+  -- haemoglobin 12.5 g/dL: normal for a non-pregnant woman (WHO 12), low for a man (WHO 13), low when sex is not recorded (narrowest range)
+  update public.profiles set sex = 'male' where id = v_pat;
+  perform pg_temp.ck('male: haemoglobin 12.5 is low', 'low', private.classify_lab_result(v_ver, v_hb::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  perform pg_temp.ck('male: the stored reference low is 13', '13', private.classify_lab_result(v_ver, v_hb::jsonb, v_pat) -> 'items' -> 0 ->> 'ref_low');
+  perform pg_temp.ck('male: creatinine 1.2 is normal', 'normal', private.classify_lab_result(v_ver, v_cr::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  perform pg_temp.ck('male: HDL 45 is normal', 'normal', private.classify_lab_result(v_ver, v_hdl::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  update public.profiles set sex = 'female' where id = v_pat;
+  perform pg_temp.ck('female: haemoglobin 12.5 is normal', 'normal', private.classify_lab_result(v_ver, v_hb::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  perform pg_temp.ck('female: the stored reference range is 12 to 15.5', '12|15.5',
+    (private.classify_lab_result(v_ver, v_hb::jsonb, v_pat) -> 'items' -> 0 ->> 'ref_low') || '|' || (private.classify_lab_result(v_ver, v_hb::jsonb, v_pat) -> 'items' -> 0 ->> 'ref_high'));
+  perform pg_temp.ck('female: creatinine 1.2 is high', 'high', private.classify_lab_result(v_ver, v_cr::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  perform pg_temp.ck('female: HDL 45 is low', 'low', private.classify_lab_result(v_ver, v_hdl::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  update public.profiles set sex = null where id = v_pat;
+  perform pg_temp.ck('sex not recorded: haemoglobin 12.5 is low (the narrowest range)', 'low', private.classify_lab_result(v_ver, v_hb::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  perform pg_temp.ck('sex not recorded: creatinine 1.2 is high', 'high', private.classify_lab_result(v_ver, v_cr::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  perform pg_temp.ck('sex not recorded: HDL 45 is low', 'low', private.classify_lab_result(v_ver, v_hdl::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  perform pg_temp.ck('no patient given behaves the same as sex not recorded', 'low', private.classify_lab_result(v_ver, v_hb::jsonb) -> 'items' -> 0 ->> 'flag');
+
+  -- critical limits are the same for everyone
+  update public.profiles set sex = 'female' where id = v_pat;
+  perform pg_temp.ck('critical haemoglobin 6.9 is critical for a woman', 'critical',
+    private.classify_lab_result(v_ver, '[{"analyte_code":"haemoglobin","value_numeric":6.9}]'::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  update public.profiles set sex = 'male' where id = v_pat;
+  perform pg_temp.ck('...and for a man', 'critical',
+    private.classify_lab_result(v_ver, '[{"analyte_code":"haemoglobin","value_numeric":6.9}]'::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  perform pg_temp.ck('potassium 6.1 is critical (above 6.0)', 'critical',
+    private.classify_lab_result(v_ver, '[{"analyte_code":"potassium","value_numeric":6.1}]'::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  perform pg_temp.ck('sodium 120 is critical, 121 is only low', 'critical|low',
+    (private.classify_lab_result(v_ver, '[{"analyte_code":"sodium","value_numeric":120}]'::jsonb, v_pat) -> 'items' -> 0 ->> 'flag') || '|' ||
+    (private.classify_lab_result(v_ver, '[{"analyte_code":"sodium","value_numeric":132}]'::jsonb, v_pat) -> 'items' -> 0 ->> 'flag'));
+  perform pg_temp.ck('fasting glucose 44 mg/dL is critical, 45 is only low', 'critical|low',
+    (private.classify_lab_result(v_ver, '[{"analyte_code":"fasting_glucose","value_numeric":44}]'::jsonb, v_pat) -> 'items' -> 0 ->> 'flag') || '|' ||
+    (private.classify_lab_result(v_ver, '[{"analyte_code":"fasting_glucose","value_numeric":45}]'::jsonb, v_pat) -> 'items' -> 0 ->> 'flag'));
+
+  -- through the real submit path: the same all-normal result releases for a woman and is held for a man
+  update public.profiles set sex = 'female' where id = v_pat;
+  o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
+  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', v_hb_all);
+  perform pg_temp.ck('a woman with haemoglobin 12.5 and everything else normal is released (RES-001)', 'released', case when r like 'ERR:%' then r else r::jsonb ->> 'release_state' end);
+  update public.profiles set sex = 'male' where id = v_pat;
+  o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
+  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', v_hb_all);
+  perform pg_temp.ck('a man with haemoglobin 12.5 and everything else normal is held for review', 'awaiting_review|abnormal',
+    case when r like 'ERR:%' then r else (r::jsonb ->> 'release_state') || '|' || (r::jsonb ->> 'reason') end);
+  perform pg_temp.ck('...and a review task is created', 'routine_result_review', pg_temp.task_of(pg_temp.rid(r)));
+
+  -- units stay strict inside the database (the app converts first)
+  o := pg_temp.mkorder(v_org, v_pat, pg_temp.f('labA_provider'), 'sample_collected');
+  perform pg_temp.ck('a unit that is not the panel unit is still refused here', 'true',
+    (pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', '[{"analyte_code":"fasting_glucose","value_numeric":5.2,"unit":"mmol/L"}]') like 'ERR:lab_unit_mismatch')::text);
+
+  -- the sign-off draft for these ranges exists, unsigned, and does not displace the live one
+  perform pg_temp.ck('the v2 sign-off draft is unsigned and not active', '1',
+    (select count(*)::text from public.lab_panel_signoffs where version = 2 and approved_at is null and not is_active));
+
+  -- SABOTAGE: strip the sex ranges from the panel; the "male haemoglobin 12.5 is low" check must flip
+  update public.lab_panel_versions set analytes = (select jsonb_agg(a - 'bySex') from jsonb_array_elements(analytes) a) where id = v_ver;
+  insert into results values ('sabotaged', 'male haemoglobin 12.5 is still low without sex ranges', 'low',
+    private.classify_lab_result(v_ver, v_hb::jsonb, v_pat) -> 'items' -> 0 ->> 'flag');
+  update public.lab_panel_versions set analytes = v_before where id = v_ver;
+  update public.profiles set sex = null where id = v_pat;
+end $$;
+
 -- the unsigned-ranges rule opened: an all-normal result must then NOT be held, which flips the check below
 create or replace function private.lab_panels_signed() returns boolean language sql stable security definer set search_path = '' as $$ select true $$;
 do $$
 declare o uuid; r text;
 begin
   o := pg_temp.mkorder(pg_temp.f('org'), pg_temp.f('pat2'), pg_temp.f('labA_provider'), 'sample_collected');
-  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'essential', pg_temp.items(0.9));
+  r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', pg_temp.items(0.9));
   insert into results values ('sabotaged', 'unsigned ranges still hold an all-normal result', 'awaiting_review', pg_temp.state_of(pg_temp.rid(r)));
 end $$;
 
@@ -634,7 +717,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

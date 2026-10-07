@@ -26,19 +26,19 @@ describe("validateLabResultFile", () => {
 
 describe("resultEntrySchema", () => {
   it("accepts numeric and qualitative items and carries no flag field", () => {
-    const r = resultEntrySchema.safeParse({ orderId: id, panel: "essential", items: [{ analyte_code: "creatinine", value_numeric: 0.9, unit: "mg/dL" }, { analyte_code: "hbsag", value_text: "negative" }] });
+    const r = resultEntrySchema.safeParse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "creatinine", value_numeric: 0.9, unit: "mg/dL" }, { analyte_code: "hbsag", value_text: "negative" }] });
     expect(r.success).toBe(true);
   });
   it("strips a flag the lab tries to send, so it can never reach the database", () => {
-    const r = resultEntrySchema.parse({ orderId: id, panel: "essential", items: [{ analyte_code: "creatinine", value_numeric: 9, flag: "normal" }] });
+    const r = resultEntrySchema.parse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "creatinine", value_numeric: 9, flag: "normal" }] });
     expect(JSON.stringify(r)).not.toContain("flag");
   });
   it("refuses an item with both or neither value, an unknown panel and free text", () => {
-    expect(resultEntrySchema.safeParse({ orderId: id, panel: "essential", items: [{ analyte_code: "alt", value_numeric: 1, value_text: "positive" }] }).success).toBe(false);
-    expect(resultEntrySchema.safeParse({ orderId: id, panel: "essential", items: [{ analyte_code: "alt" }] }).success).toBe(false);
+    expect(resultEntrySchema.safeParse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "alt", value_numeric: 1, value_text: "positive" }] }).success).toBe(false);
+    expect(resultEntrySchema.safeParse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "alt" }] }).success).toBe(false);
     expect(resultEntrySchema.safeParse({ orderId: id, panel: "other", items: [] }).success).toBe(false);
-    expect(resultEntrySchema.safeParse({ orderId: id, panel: "essential", items: [{ analyte_code: "hbsag", value_text: "indeterminate" }] }).success).toBe(false);
-    expect(resultEntrySchema.safeParse({ orderId: id, panel: "essential", items: [{ analyte_code: "alt", value_numeric: -1 }] }).success).toBe(false);
+    expect(resultEntrySchema.safeParse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "hbsag", value_text: "indeterminate" }] }).success).toBe(false);
+    expect(resultEntrySchema.safeParse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "alt", value_numeric: -1 }] }).success).toBe(false);
   });
 });
 

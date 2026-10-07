@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState, useTransition } from "react";
+import { acceptedUnits } from "@tarragon/clinical";
 import { markOrderCollected, submitPartnerCorrection, submitPartnerResult } from "@/lib/lab-results/structured-actions";
 import {
   CORRECTION_KINDS,
@@ -102,8 +103,10 @@ export function OrderResultCard({ order, panels }: { order: PortalOrder; panels:
 }
 
 function EntryForm({ order, panels, correctsId }: { order: PortalOrder; panels: Record<string, PanelDefinition>; correctsId?: string }) {
-  const [panel, setPanel] = useState<PanelCode>(isPanel(order.panel_code) ? order.panel_code : "essential");
+  const [panel, setPanel] = useState<PanelCode>(isPanel(order.panel_code) ? order.panel_code : "membership_annual");
   const [values, setValues] = useState<Record<string, string>>({});
+  // The unit the lab printed, per analyte. Defaults to the panel unit; another known unit is converted on the server.
+  const [units, setUnits] = useState<Record<string, string>>({});
   const [state, action, pending] = useActionState(correctsId ? submitPartnerCorrection : submitPartnerResult, undefined);
   const def = panels[panel];
 
@@ -114,11 +117,11 @@ function EntryForm({ order, panels, correctsId }: { order: PortalOrder; panels: 
       if (raw === "") return [];
       if (a.kind === "numeric") {
         const n = Number(raw);
-        return Number.isFinite(n) ? [{ analyte_code: a.code, value_numeric: n, unit: a.unit }] : [];
+        return Number.isFinite(n) ? [{ analyte_code: a.code, value_numeric: n, unit: units[a.code] ?? a.unit }] : [];
       }
       return raw === "positive" || raw === "negative" ? [{ analyte_code: a.code, value_text: raw }] : [];
     });
-  }, [def, values]);
+  }, [def, values, units]);
 
   if (state?.success) {
     return <p role="status" className="text-sm text-green-800">Received. Thank you.</p>;
@@ -176,7 +179,21 @@ function EntryForm({ order, panels, correctsId }: { order: PortalOrder; panels: 
                   {a.kind === "numeric" ? ` (${a.unit})` : ""}
                 </Label>
                 {a.kind === "numeric" ? (
-                  <Input id={id} inputMode="decimal" className={TOUCH} value={values[a.code] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [a.code]: e.target.value }))} />
+                  <div className="flex gap-2">
+                    <Input id={id} inputMode="decimal" className={TOUCH} value={values[a.code] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [a.code]: e.target.value }))} />
+                    {acceptedUnits(a.code).length > 1 ? (
+                      <Select
+                        aria-label={`Unit for ${a.label}`}
+                        className={TOUCH}
+                        value={units[a.code] ?? a.unit}
+                        onChange={(e) => setUnits((u) => ({ ...u, [a.code]: e.target.value }))}
+                      >
+                        {[a.unit, ...acceptedUnits(a.code).filter((u) => u.toLowerCase() !== a.unit.toLowerCase())].map((u) => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </Select>
+                    ) : null}
+                  </div>
                 ) : (
                   <Select id={id} className={TOUCH} value={values[a.code] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [a.code]: e.target.value }))}>
                     <option value="">Not tested</option>
