@@ -19,6 +19,7 @@ import {
 } from "@/lib/overview";
 import { getPendingPaymentIssue, type PendingPaymentIssue } from "@/lib/services";
 import { PaymentIssueCard } from "@/screens/sections/payment-issue-card";
+import { AccountNotices } from "@/screens/sections/account-notices";
 import { HowYoureDoingCard } from "@/screens/sections/how-youre-doing-card";
 import { TodayCard } from "@/screens/sections/today-card";
 import { todayIsoDate } from "@/lib/medications";
@@ -150,6 +151,9 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
           {tr("home.subtitle")}
         </AppText>
       </View>
+
+      {/* Things that need the person's own answer first: a request from someone who wants to help, and the hand-over at 18. Nothing renders when there is none. */}
+      <AccountNotices acting={false} />
 
       {partialError ? (
         <PressableScale onPress={onRefresh} accessibilityRole="button" accessibilityLabel={tr("home.partial_error")}>

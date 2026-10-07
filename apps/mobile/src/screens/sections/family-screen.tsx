@@ -1,3 +1,4 @@
+import { ProxyArrangementsCard, ProxySetupCard } from "@/screens/sections/proxy-section";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
 import {
@@ -203,6 +204,10 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
       ) : (
         activityLog.length > 0 && <CareAccessLogCard events={activityLog} />
       )}
+
+      <ProxyArrangementsCard />
+
+      <ProxySetupCard />
 
       <CalloutCard
         icon="people-circle-outline"
