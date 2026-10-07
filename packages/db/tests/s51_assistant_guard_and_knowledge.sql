@@ -186,7 +186,7 @@ select pg_temp.ck('real', 'the step table never leaves', 'false',
 select pg_temp.ck('real', 'anon cannot read limits', 'ERR:42501', pg_temp.q_anon($q$select public.assistant_protocol_limits()::text$q$));
 
 -- 5. Events ---------------------------------------------------------------------------------------------------------------------
-select pg_temp.ck('real', 'three assistant event types exist', '3', (select count(*)::text from public.event_types where event_type like 'assistant.%'));
+select pg_temp.ck('real', 'three assistant event types exist', '3', (select count(*)::text from public.event_types where event_type in ('assistant.message', 'assistant.red_flag_detected', 'assistant.handoff')));
 select pg_temp.ck('real', 'the service role can emit assistant.handoff', 'ok',
   case when pg_temp.q_service(format($q$select public.emit_domain_event('assistant.handoff', %L::uuid, '{"conversation_id":"c1","target":"symptom_checker"}'::jsonb, 's51-proof-1', %L::uuid)::text$q$, pg_temp.f('org'), pg_temp.f('real'))) like 'ERR:%' then 'refused' else 'ok' end);
 select pg_temp.ck('real', 'a patient cannot emit an event', 'ERR:42501',

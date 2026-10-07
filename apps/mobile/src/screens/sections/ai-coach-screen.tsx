@@ -19,6 +19,7 @@ import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { EmergencyBlock, LimitsBlock, MemoryBlock, ReportBlock } from "./ai-coach-extras";
 
 interface AiCoachScreenProps {
   patientId: string;
@@ -68,6 +69,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
   const [handoff, setHandoff] = useState<"idle" | "pending" | "done" | "error">("idle");
   const [handoffError, setHandoffError] = useState<string | null>(null);
   // S51 (7.7, INV-11): the pre-visit draft. Editable, sent only when the patient presses Send, never written to the record.
+  const [lastInteractionId, setLastInteractionId] = useState<string | null>(null);
   const [nudge, setNudge] = useState<{ text: string; week: string; section: string } | null>(null);
   const [prepDraft, setPrepDraft] = useState<string | null>(null);
   const [prepState, setPrepState] = useState<"editing" | "sending" | "sent" | "error">("editing");
@@ -117,6 +119,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
         return;
       }
       setConversationId(result.conversationId);
+      setLastInteractionId(result.aiInteractionId ?? null);
       const conversation = await loadAiConversation(patientId);
       setMessages(conversation.messages);
       scrollToEnd();
@@ -187,6 +190,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
   if (access === "not_open") {
     return (
       <View style={{ flex: 1, padding: spacing.screen, gap: 8 }}>
+        <EmergencyBlock patientId={patientId} />
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>AI Health Coach</Text>
         <MutedText>The assistant is not open yet. If you need help now, send your care team a message in the app.</MutedText>
       </View>
@@ -196,6 +200,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
   if (access === "denied") {
     return (
       <View style={{ flex: 1, padding: spacing.screen, gap: 8 }}>
+        <EmergencyBlock patientId={patientId} />
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>AI Health Coach</Text>
         <MutedText>
           The AI Coach isn&apos;t included on your current plan. Contact your care team if you think
@@ -211,7 +216,9 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={90}
     >
-      <View style={{ padding: spacing.screen, paddingBottom: 8 }}>
+      <View style={{ padding: spacing.screen, paddingBottom: 8, gap: 6 }}>
+        {/* S52 (7.8): the emergency button is on every assistant screen, always visible, never behind a guard */}
+        <EmergencyBlock patientId={patientId} />
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>AI Health Coach</Text>
         <MutedText>Ask me anything about your health. I&apos;m here to help you understand what to do next.</MutedText>
       </View>
@@ -387,8 +394,11 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
         </Pressable>
       </View>
 
-      <View style={{ paddingHorizontal: spacing.screen, paddingBottom: 6 }}>
+      <View style={{ paddingHorizontal: spacing.screen, paddingBottom: 6, gap: 6 }}>
         <MutedText>{COACH_DISCLAIMER}</MutedText>
+        <LimitsBlock />
+        {messages.length > 0 ? <ReportBlock interactionId={lastInteractionId} /> : null}
+        <MemoryBlock />
       </View>
 
       <View style={{ paddingHorizontal: spacing.screen, paddingBottom: spacing.screen }}>

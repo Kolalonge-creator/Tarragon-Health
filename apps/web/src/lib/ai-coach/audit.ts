@@ -32,6 +32,8 @@ export interface LogAssistantTurnParams {
   /** Set only when this turn actually caused one to exist. */
   clinicianAlertId?: string | null;
   escalationId?: string | null;
+  /** S52: the ai_interaction_log row of the governed call, so a reported answer can be traced to its conversation. */
+  interactionId?: string | null;
   finalAction: "replied" | "clinician_alert_created" | "escalation_created" | "declined";
   status: "completed" | "degraded" | "access_denied" | "rate_limited";
   errorMessage?: string | null;
@@ -59,6 +61,7 @@ export async function logAssistantTurn(
         retrieved_source_ids: params.retrievedSourceIds ?? [],
         clinician_alert_id: params.clinicianAlertId ?? null,
         escalation_id: params.escalationId ?? null,
+        interaction_id: params.interactionId ?? null,
         final_action: params.finalAction,
         status: params.status,
         error_message: params.errorMessage ?? null,

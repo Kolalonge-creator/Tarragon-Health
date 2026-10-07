@@ -103,6 +103,14 @@
     {
       "path": "/api/cron/community-housekeeping",
       "schedule": "50 3 * * *"
+    },
+    {
+      "path": "/api/cron/assistant-silence",
+      "schedule": "40 7 * * *"
+    },
+    {
+      "path": "/api/cron/assistant-review-sample",
+      "schedule": "0 4 1 * *"
     }
   ]
 }

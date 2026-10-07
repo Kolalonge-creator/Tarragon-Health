@@ -32,7 +32,8 @@ select e.key, e.value, 1
   from jsonb_each($json${
  "silence": {"silence_days": 7, "reengage_after_days": 10, "reengage_cooldown_days": 30},
  "review": {"monthly_sample_size": 20},
- "memory": {"max_items": 30, "max_chars": 200, "consent_text_version": "mem-v1"}
+ "memory": {"max_items": 30, "max_chars": 200, "consent_text_version": "mem-v1"},
+ "paging": {"repeat_hours": 6, "no_cover_repeat_minutes": 30}
 }$json$::jsonb) as e(key, value);
 -- assistant-config-s52-end
 
@@ -67,7 +68,7 @@ create table public.assistant_memory_consents (
   granted_at      timestamptz not null default now(),
   revoked_at      timestamptz,
   source          text not null default 'patient' check (source = 'patient'),
-  recorded_by     uuid not null references public.profiles (id) on delete restrict,
+  recorded_by     uuid not null references public.profiles (id) on delete cascade,
   is_test         boolean not null default false,
   created_at      timestamptz not null default now(),
   check (revoked_at is null or revoked_at >= granted_at)
@@ -81,11 +82,11 @@ create table public.assistant_memory_items (
   id              uuid primary key default gen_random_uuid(),
   organisation_id uuid not null references public.organisations (id) on delete restrict,
   patient_id      uuid not null references public.profiles (id) on delete cascade,
-  consent_id      uuid not null references public.assistant_memory_consents (id) on delete restrict,
+  consent_id      uuid not null references public.assistant_memory_consents (id) on delete cascade,
   kind            text not null check (kind in ('goal', 'preference')),
   text            text not null check (length(btrim(text)) between 3 and 400),
   source          text not null default 'patient' check (source = 'patient'),
-  recorded_by     uuid not null references public.profiles (id) on delete restrict,
+  recorded_by     uuid not null references public.profiles (id) on delete cascade,
   is_test         boolean not null default false,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
@@ -144,8 +145,12 @@ begin
       perform private.log_audit('assistant_memory.consent_granted', 'assistant_memory_consents', v_active, '{}'::jsonb);
     end if;
   elsif v_active is not null then
+    -- Switching the memory off FORGETS it: the items go with the consent, so a later "switch on" can never bring back what the patient
+    -- thought was gone. They can export first (the screen says so). The audit row keeps a count, never the words.
     update public.assistant_memory_consents set revoked_at = now() where id = v_active;
-    perform private.log_audit('assistant_memory.consent_revoked', 'assistant_memory_consents', v_active, '{}'::jsonb);
+    perform private.log_audit('assistant_memory.consent_revoked', 'assistant_memory_consents', v_active,
+      jsonb_build_object('items_removed', (select count(*) from public.assistant_memory_items where patient_id = v_uid)));
+    delete from public.assistant_memory_items where patient_id = v_uid;
     v_active := null;
   end if;
   return jsonb_build_object('consented', v_active is not null);
@@ -264,7 +269,7 @@ as $$
     select jsonb_agg(jsonb_build_object('kind', i.kind, 'text', i.text) order by i.created_at)
       from public.assistant_memory_items i
      where i.patient_id = (select auth.uid())
-       and private.assistant_memory_consent_id((select auth.uid())) is not null
+       and i.consent_id = private.assistant_memory_consent_id((select auth.uid()))
        and public.assistant_memory_available()), '[]'::jsonb)
 $$;
 revoke all on function public.assistant_memory_for_prompt() from public, anon;
@@ -344,11 +349,14 @@ revoke all on function public.assistant_detect_silence(timestamptz) from public,
 grant execute on function public.assistant_detect_silence(timestamptz) to service_role;
 
 -- ---------------------------------------------------------------------------
--- 5. On-call page for a self-harm message (INV-05)
+-- 5. On-call page for a self-harm message (INV-05), in the shape the F1 crisis fix uses
 -- ---------------------------------------------------------------------------
--- The S19 page rows hang off a triage event, and a triage event graded by an unapproved rule set is a shadow that never pages (OQ-88).
--- So the assistant pages the on-call clinician directly, with the same critical, neutral notification the page uses, and tells the clinical
--- lead and ops when nobody is on the rota. The emergency escalation raised in the same turn keeps its own SLA ladder as the second line.
+-- Reuses what exists rather than adding a second crisis path: the S16 class 1 task type red_event_unacknowledged (no lead window, so a
+-- crisis never waits to be pulled) under the dedup key crisis:<patient> that the wellbeing-screen crisis follow-up (F1, PR #1005) uses too,
+-- so a crisis from the check-in and one from the assistant are ONE live task for the patient; the neutral on_call_page notice to the
+-- clinician on call (or the clinical lead and ops with an incident when nobody is); a failed step is audited and opens an incident and never
+-- blocks the patient's emergency copy. The S19 page rows hang off a graded triage event, and a shadow grade never pages (OQ-88), so this does
+-- not create one. The emergency escalation raised in the same turn keeps its own SLA ladder as the second line.
 create function public.assistant_page_on_call(p_patient uuid, p_conversation uuid) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -356,24 +364,77 @@ declare
   v_org uuid;
   v_test boolean;
   v_to uuid;
+  v_task uuid;
+  v_n integer := 0;
+  v_failed boolean := false;
+  v_notified boolean := false;
+  v_repeat integer := coalesce((private.assistant_cfg('paging') ->> 'repeat_hours')::integer, 6);
+  v_repeat_nc integer := coalesce((private.assistant_cfg('paging') ->> 'no_cover_repeat_minutes')::integer, 30);
   c text;
+  r record;
 begin
   select organisation_id, coalesce(is_test, false) into v_org, v_test from public.profiles where id = p_patient;
   if v_org is null then raise exception 'unknown patient' using errcode = '22023'; end if;
-  v_to := private.page_recipient(v_org, v_test);
-  if v_to is not null then
-    foreach c in array array['push', 'in_app', 'email'] loop
-      insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
-      values (v_to, v_org, c::public.notification_channel, 'on_call_page', jsonb_build_object('conversation_id', p_conversation), 'pending', 'non_clinical', 'critical', 'ai_conversations', p_conversation);
-    end loop;
-  else
-    perform private.page_notify_leadership(v_org, null, v_test);
-    perform private.page_incident(v_org, 'assistant_self_harm_no_cover:' || p_conversation, 'A self-harm message arrived with nobody on call',
-      'The assistant raised a self-harm emergency while no eligible clinician was on the rota. The clinical lead and ops were alerted.');
+  -- once per conversation per window: a patient who keeps writing is not paged every message (the task merges them). A page that found
+  -- nobody on call is retried sooner (the rota may have cover by then); a page that failed to send leaves no marker at all.
+  if exists (select 1 from public.audit_log a
+              where a.action = 'assistant.on_call_paged' and a.entity_id = p_conversation
+                and a.created_at > now() - case when coalesce((a.event ->> 'no_cover')::boolean, false) then make_interval(mins => v_repeat_nc) else make_interval(hours => v_repeat) end) then
+    return jsonb_build_object('paged', false, 'already', true);
   end if;
-  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
-  values (v_org, null, 'assistant.on_call_paged', 'ai_conversations', p_conversation, jsonb_build_object('no_cover', v_to is null));
-  return jsonb_build_object('paged', v_to is not null, 'no_cover', v_to is null);
+
+  begin
+    v_task := private.create_clinical_task(p_patient, 'red_event_unacknowledged', null, 'crisis:' || p_patient, null, null, null);
+  exception when others then
+    v_failed := true;
+    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      values (v_org, 'assistant.crisis_task_error', 'ai_conversations', p_conversation, jsonb_build_object('step', 'task', 'error', sqlerrm));
+    perform private.page_incident(v_org, 'assistant_crisis_follow_up_failed:' || p_conversation, 'A priority follow-up could not be completed',
+      'A priority follow-up from the assistant failed; see audit_log action assistant.crisis_task_error. The emergency guidance was still shown.');
+  end;
+
+  begin
+    v_to := private.page_recipient(v_org, v_test);
+    if v_to is not null then
+      foreach c in array array['push', 'in_app', 'email'] loop
+        insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
+        values (v_to, v_org, c::public.notification_channel, 'on_call_page', '{}'::jsonb, 'pending', 'non_clinical', 'critical',
+                case when v_task is not null then 'clinical_tasks' else 'ai_conversations' end, coalesce(v_task, p_conversation));
+      end loop;
+      v_notified := true;
+    else
+      for r in
+        select p.id from public.profiles p where p.organisation_id = v_org and p.is_active and p.role = 'admin' and p.is_test = v_test
+        union
+        select cs.profile_id from public.clinical_staff cs join public.profiles p on p.id = cs.profile_id
+         where cs.organisation_id = v_org and cs.profile_id is not null and cs.active and cs.status = 'active'
+           and cs.doctor_tier = 'chief_medical_officer' and p.is_test = v_test
+      loop
+        foreach c in array array['push', 'in_app', 'email'] loop
+          insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
+          values (r.id, v_org, c::public.notification_channel, 'on_call_escalation', '{}'::jsonb, 'pending', 'non_clinical', 'critical',
+                  case when v_task is not null then 'clinical_tasks' else 'ai_conversations' end, coalesce(v_task, p_conversation));
+        end loop;
+        v_n := v_n + 1;
+      end loop;
+      v_notified := v_n > 0;
+      perform private.page_incident(v_org, 'assistant_crisis_no_cover:' || p_conversation, 'A priority case with nobody on call',
+        'A self-harm message reached the assistant while no eligible clinician was on the rota. The clinical lead and ops were alerted' ||
+        case when v_n = 0 then ' (nobody matched: add or activate a chief medical officer or admin account)' else '' end || ' and a priority task is open.');
+    end if;
+  exception when others then
+    v_failed := true;
+    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      values (v_org, 'assistant.crisis_task_error', 'ai_conversations', p_conversation, jsonb_build_object('step', 'notify', 'error', sqlerrm));
+    perform private.page_incident(v_org, 'assistant_crisis_follow_up_failed:' || p_conversation, 'A priority follow-up could not be completed',
+      'A priority follow-up from the assistant failed; see audit_log action assistant.crisis_task_error. The emergency guidance was still shown.');
+  end;
+
+  if v_notified then
+    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+    values (v_org, null, 'assistant.on_call_paged', 'ai_conversations', p_conversation, jsonb_build_object('no_cover', v_to is null, 'task_id', v_task));
+  end if;
+  return jsonb_build_object('paged', v_notified and v_to is not null, 'no_cover', v_to is null, 'task_id', v_task, 'failed', v_failed);
 end $$;
 revoke all on function public.assistant_page_on_call(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.assistant_page_on_call(uuid, uuid) to service_role;
@@ -406,22 +467,24 @@ create index assistant_review_samples_state_idx on public.assistant_review_sampl
 comment on table public.assistant_review_samples is
   'S52 (spec 7.13): one row per sampled or reported conversation per month. Holds ids and the reviewer''s verdict, NEVER the conversation text. The text is read only through assistant_review_read(), which demands a reason and writes an audit row (INV-10). The conversation read policy is not widened.';
 alter table public.assistant_review_samples enable row level security;
-create policy assistant_review_samples_reader on public.assistant_review_samples for select to authenticated using (private.credential_is_cmo());
+create policy assistant_review_samples_reader on public.assistant_review_samples for select to authenticated
+  using (private.credential_is_cmo() and organisation_id = private.caller_org());
 revoke all on public.assistant_review_samples from public, anon, authenticated;
 grant select on public.assistant_review_samples to authenticated;
 
+-- No DELETE grant exists for any role, and no policy; a patient erasure still cascades (the FKs are on delete cascade), so erasure and
+-- retention jobs are never blocked by a sampled conversation.
 create function private.assistant_review_samples_guard() returns trigger
 language plpgsql set search_path = ''
 as $$
 begin
-  if tg_op = 'DELETE' then raise exception 'a review sample is never deleted' using errcode = '42501'; end if;
   if tg_op = 'UPDATE' and old.state = 'reviewed' then raise exception 'a recorded review is final' using errcode = '42501'; end if;
   if tg_op = 'UPDATE' and coalesce(current_setting('tarragon.assistant_review_write', true), '') <> 'on' then
     raise exception 'a review is recorded only through assistant_review_record()' using errcode = '42501';
   end if;
   return new;
 end $$;
-create trigger assistant_review_samples_guard before update or delete on public.assistant_review_samples
+create trigger assistant_review_samples_guard before update on public.assistant_review_samples
   for each row execute function private.assistant_review_samples_guard();
 
 -- The sampler (service role, monthly): every reported conversation plus a random sample, once per month and conversation.
@@ -479,6 +542,7 @@ begin
            (select count(*)::integer from public.ai_assistant_turns t where t.conversation_id = s.conversation_id),
            s.selection = 'reported'
       from public.assistant_review_samples s
+     where s.organisation_id = private.caller_org()
      order by (s.state = 'pending') desc, s.month desc, s.created_at;
 end $$;
 revoke all on function public.assistant_review_queue() from public, anon;
@@ -494,7 +558,7 @@ declare
 begin
   if not private.credential_is_cmo() then raise exception 'only the Chief Medical Officer can read a sampled conversation' using errcode = '42501'; end if;
   if length(btrim(coalesce(p_reason, ''))) < 10 then raise exception 'say why you are reading this conversation, in a sentence' using errcode = '22023'; end if;
-  select * into s from public.assistant_review_samples where id = p_sample;
+  select * into s from public.assistant_review_samples where id = p_sample and organisation_id = private.caller_org();
   if not found then raise exception 'no such sample' using errcode = '22023'; end if;
   select messages into v_messages from public.ai_conversations where id = s.conversation_id;
   perform private.log_audit('assistant_review.read', 'assistant_review_samples', s.id,
@@ -524,7 +588,7 @@ begin
   end if;
   if p_verdict = 'unsafe' and length(btrim(coalesce(p_note, ''))) < 10 then raise exception 'an unsafe verdict needs a note saying what was wrong' using errcode = '22023'; end if;
   if p_verdict <> 'appropriate' and p_category = 'none' then raise exception 'name the issue category' using errcode = '22023'; end if;
-  select * into s from public.assistant_review_samples where id = p_sample for update;
+  select * into s from public.assistant_review_samples where id = p_sample and organisation_id = private.caller_org() for update;
   if not found then raise exception 'no such sample' using errcode = '22023'; end if;
   if s.state = 'reviewed' then raise exception 'this review is already recorded' using errcode = '22023'; end if;
   -- the reviewer must have read it through the audited door first: one assistant_review.read audit row for this sample by this person
@@ -563,7 +627,7 @@ do $$
 begin
   if (select is_enabled from public.ai_systems where system_code = 'AI-020') is distinct from false then raise exception 'AI-020 must be registered disabled'; end if;
   if public.assistant_memory_available() then raise exception 'the memory reads as available'; end if;
-  if (select count(*) from public.assistant_config where key in ('silence', 'review', 'memory')) <> 3 then raise exception 'assistant_config keys'; end if;
+  if (select count(*) from public.assistant_config where key in ('silence', 'review', 'memory', 'paging')) <> 4 then raise exception 'assistant_config keys'; end if;
   if has_function_privilege('anon', 'public.assistant_memory_for_prompt()', 'EXECUTE') then raise exception 'anon can read memory'; end if;
   if has_function_privilege('authenticated', 'public.assistant_detect_silence(timestamptz)', 'EXECUTE') then raise exception 'authenticated can run the silence job'; end if;
   if has_function_privilege('authenticated', 'public.assistant_sample_month(date, integer)', 'EXECUTE') then raise exception 'authenticated can run the sampler'; end if;

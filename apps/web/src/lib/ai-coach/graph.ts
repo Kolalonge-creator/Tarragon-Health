@@ -11,7 +11,6 @@ import {
   type CoachTier,
   type CoachSuggestedAction,
   type Database,
-  SELF_HARM_REPLY,
 } from "@tarragon/shared";
 import {
   COACH_SYSTEM_PROMPT,
@@ -20,9 +19,9 @@ import {
   EMERGENCY_SAFETY_REPLY,
   SYMPTOM_SUGGESTION_INTRO,
 } from "./prompts";
-import { detectEmergencyKeywords, isSelfHarmMessage } from "./keyword-guardrail";
+import { detectEmergencyKeywords } from "./keyword-guardrail";
 import { decideClarification } from "./clarify";
-import { emergencyAddendumFor } from "./nearest-hospital";
+import { buildEmergencyReply } from "./emergency-reply";
 import { pageOnCallForSelfHarm } from "./emergency-page";
 import { loadAssistantMemory, memoryContextLine } from "./memory";
 import {
@@ -319,10 +318,11 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
   // S52 (7.8, INV-06): the emergency reply is the fixed copy, plus the nearest hospitals and the patient's own emergency contact read
   // from data we hold (best effort, bounded; the fixed copy always stands alone). Self-harm wording gets its own copy.
   async function emergencyContext(state: CoachGraphState) {
-    const selfHarm = isSelfHarmMessage(state.incomingMessage);
-    const base = selfHarm ? SELF_HARM_REPLY : state.reply;
-    const addendum = await emergencyAddendumFor(deps.supabase, state.profileId);
-    return { selfHarm, reply: addendum ? `${base}\n\n${addendum}` : base };
+    const built = await buildEmergencyReply(
+      { supabase: deps.supabase, service: deps.getServiceRoleSupabase() },
+      { profileId: state.profileId, conversationId: state.conversationId, message: state.incomingMessage, fixedReply: state.reply, page: false },
+    );
+    return { selfHarm: built.selfHarm, reply: built.reply };
   }
 
   async function llmTurn(state: CoachGraphState) {
@@ -622,7 +622,8 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
 
       const inputSnapshot = {
         memoryItemCount: memoryLines.length,
-        contextLines,
+        // the patient's own memory words are never copied into the audit trail: only how many there were
+        contextLines: memoryContext ? contextLines.filter((l) => l !== memoryContext) : contextLines,
         retrievedSourceIds,
         toolsCalled,
         historyMessageCount: history.length,
