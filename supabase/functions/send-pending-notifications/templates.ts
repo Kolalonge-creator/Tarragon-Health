@@ -621,6 +621,13 @@ export const TEMPLATE_MAP: Record<
     smsText: "Your care team has a change for you. Open the Tarragon Health app to read it.",
     pushUrl: "/patient/medications",
   }),
+  // S11f: private.queue_triage_recheck_backup_reminders() queues this (push, or in_app when there is no push subscription, plus an in_app
+  // copy) when a patient told to rest and measure again after 2 hours has still not done so, ten minutes after the phone's own reminder
+  // was due. INV-07: no condition, reading or number in any channel's wording.
+  triage_recheck_due: () => ({
+    smsText: "Hi, it is time for your check-in. Open the Tarragon Health app to continue. Tarragon Health",
+    pushUrl: "/patient/vitals",
+  }),
   care_change_declined_staff: () => ({
     smsText: "A patient answered a change. Nothing was changed. Open your patient list.",
     pushUrl: "/clinician/patients",

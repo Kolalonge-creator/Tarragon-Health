@@ -799,6 +799,10 @@ s07_my_home_bp_target.sql
 s07_care_tasks_kind_patient_tasks_view.sql
 s10_event_bus.sql
 s11_triage_rule_sets.sql
+s11e_new_symptom_answers_page.sql
+s11f_recheck_backup_push.sql
+s11g_legacy_bp_alert_follows_approved_rule.sql
+s11i_bp_care_triage_v3.sql
 s12_triage_wiring.sql
 s12b_divergence_and_cuff.sql
 s09_record_shares_and_timeline_events.sql
