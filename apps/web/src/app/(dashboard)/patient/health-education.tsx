@@ -29,6 +29,7 @@ import {
   type HealthEducationFeedbackType,
 } from "@/lib/queries/health-education";
 import { useCarePlans } from "@/lib/queries/care-plans";
+import { useHealthEducationSearch } from "@/lib/queries/learning-centre";
 import {
   parseKnowledgeCheck,
   scoreKnowledgeCheck,
@@ -41,6 +42,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import {
+  FaqView,
+  InfographicView,
+  MembersLockNotice,
+  NextStepFooter,
+  ReviewCreditBlock,
+  ReviewCreditInline,
+  ShareButtons,
+} from "@/components/learning/learning-parts";
+import { SITE_URL } from "@/lib/marketing/site";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -304,6 +315,18 @@ function ContentDetailBody({
   const questions = useMemo(() => parseKnowledgeCheck(item.knowledge_check), [item.knowledge_check]);
   const audioUrl = "audio_url" in item ? item.audio_url : null;
 
+  const locked = "locked" in item && item.locked === true;
+  const isPublic = "is_public" in item && item.is_public === true;
+  const creatorName = "creator_name" in item ? item.creator_name : null;
+
+  if (locked) {
+    return (
+      <div className="space-y-4 pt-1">
+        <MembersLockNotice creatorName={creatorName} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 pt-1">
       {item.content_type === "video" && item.video_url && (
@@ -317,13 +340,19 @@ function ContentDetailBody({
         </a>
       )}
       {item.content_type === "audio" && audioUrl && (
-        <audio controls src={audioUrl} className="w-full">
-          Your browser does not support inline audio.
+        <audio controls preload="none" src={audioUrl} className="w-full">
+          Your browser does not support inline audio. The written version is below.
         </audio>
       )}
-      <div className="whitespace-pre-line text-sm leading-relaxed text-charcoal-ink/90 dark:text-night-ink/90">
-        {item.body}
-      </div>
+      {item.content_type === "faq" ? (
+        <FaqView body={item.body} />
+      ) : item.content_type === "infographic" ? (
+        <InfographicView body={item.body} />
+      ) : (
+        <div className="whitespace-pre-line text-sm leading-relaxed text-charcoal-ink/90 dark:text-night-ink/90">
+          {item.body}
+        </div>
+      )}
 
       {questions ? (
         <KnowledgeCheck
@@ -355,7 +384,10 @@ function ContentDetailBody({
         <p className="text-xs text-red-600 dark:text-red-300">Could not save your progress. Try again.</p>
       )}
 
+      <NextStepFooter item={item} />
       <SetGoalFromLesson item={item} patientId={patientId} organisationId={organisationId} />
+      {isPublic && <ShareButtons code={item.code} title={item.title} siteOrigin={SITE_URL} />}
+      <ReviewCreditBlock item={item} />
       <ContentFeedback contentId={item.content_id} patientId={patientId} organisationId={organisationId} />
     </div>
   );
@@ -423,7 +455,7 @@ function EducationItem({
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         {item.estimated_minutes ? <span>{item.estimated_minutes} min read</span> : null}
-        {item.clinician_reviewed && <span>Reviewed by our clinical team</span>}
+        <ReviewCreditInline item={item} />
       </div>
 
       {!href && open && (
@@ -634,8 +666,21 @@ function LearningPathways({
                     audio_url: row.audio_url,
                     estimated_minutes: row.estimated_minutes,
                     condition: programme?.condition ?? null,
-                    clinician_reviewed: false,
-                    reviewed_by_name: null,
+                    clinician_reviewed: row.clinician_reviewed,
+                    reviewed_by_name: row.reviewed_by_name,
+                    reviewed_at: row.reviewed_at,
+                    source_reference: row.source_reference,
+                    next_review_due: row.next_review_due,
+                    next_action: row.next_action,
+                    next_step_kind: row.next_step_kind,
+                    next_step_target_code: row.next_step_target_code,
+                    next_step_target_title: row.next_step_target_title,
+                    series_tag: row.series_tag,
+                    audio_clip_id: row.audio_clip_id,
+                    members_only: false,
+                    locked: false,
+                    creator_name: null,
+                    is_public: false,
                     has_knowledge_check: row.has_knowledge_check,
                     knowledge_check: row.knowledge_check,
                     status: row.status,
@@ -676,6 +721,65 @@ function LearningPathways({
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * One search box across every category, in everyday words (S55, 9.3). Plain full-text search plus the clinician-reviewed
+ * alias list ("BP", "sugar", "high blood"); no model call. A question works too: "What does my reading mean?".
+ */
+function LibrarySearch() {
+  const [text, setText] = useState("");
+  const query = text.trim();
+  const { data, isLoading, isError } = useHealthEducationSearch(query);
+  const alias = data?.find((r) => r.matched_alias)?.matched_alias ?? null;
+  const expanded = data?.find((r) => r.expanded_to)?.expanded_to ?? null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Search</CardTitle>
+        <Input
+          type="search"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Try: BP, sugar, or what does my reading mean?"
+          aria-label="Search all health topics"
+        />
+      </CardHeader>
+      {query.length >= 2 && (
+        <CardContent>
+          {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Searching…</p>}
+          {isError && <p className="text-sm text-red-600 dark:text-red-300">Search is not available right now. You can still browse by topic below.</p>}
+          {alias && expanded && (
+            <p className="mb-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Showing results for &quot;{expanded}&quot; as well as &quot;{alias}&quot;.
+            </p>
+          )}
+          {data && data.length === 0 && (
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+              Nothing matches that yet. Try another word, or browse by topic below.
+            </p>
+          )}
+          {data && data.length > 0 && (
+            <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
+              {data.map((r) => (
+                <li key={r.content_id} className="py-2">
+                  <Link
+                    href={`/patient/learn/${encodeURIComponent(r.code)}`}
+                    className="text-sm font-medium text-charcoal-ink dark:text-night-ink hover:text-brand-green dark:hover:text-brand-green-bright"
+                  >
+                    {r.title}
+                  </Link>
+                  {r.locked && <Badge variant="grey" className="ml-2">Members</Badge>}
+                  {r.summary && <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{r.summary}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      )}
+    </Card>
   );
 }
 
@@ -875,6 +979,8 @@ export function HealthEducationLibrary({
         conditionLanguagePreference={conditionLanguagePreference}
       />
 
+      <LibrarySearch />
+
       <LearningPathways
         patientId={patientId}
         organisationId={organisationId}
@@ -961,7 +1067,7 @@ export function TopicDetailView({
         {item.summary && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{item.summary}</p>}
         <div className="flex flex-wrap items-center gap-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
           {item.estimated_minutes ? <span>{item.estimated_minutes} min read</span> : null}
-          {item.clinician_reviewed && <span>Reviewed by our clinical team</span>}
+          <ReviewCreditInline item={item} />
         </div>
       </CardHeader>
       <CardContent>

@@ -78,6 +78,12 @@ describe("the real admin menus", () => {
     expect(top("weekly payout")).toContain("/admin/payouts");
   });
 
+  it("finds the Learning Centre search terms and creators pages (every console page needs a search entry)", () => {
+    expect(top("search terms")).toContain("/admin/settings/health-education/aliases");
+    expect(top("synonyms")).toContain("/admin/settings/health-education/aliases");
+    expect(top("creators")).toContain("/admin/settings/health-education/creators");
+  });
+
   it("indexes a useful number of pages with no path twice", () => {
     expect(real.length).toBeGreaterThan(60);
     expect(new Set(real.map((e) => e.href)).size).toBe(real.length);
@@ -94,6 +100,7 @@ describe("the Chief Medical Officer index", () => {
   it("points at the /clinician pages, never /admin (which a clinician account cannot open)", () => {
     expect(cmo.every((e) => e.href.startsWith("/clinician"))).toBe(true);
     expect(searchAdminEntries(cmo, "test content").map((e) => e.href)).toContain("/clinician/credentialing/content");
+    expect(searchAdminEntries(cmo, "everyday words").map((e) => e.href)).toContain("/clinician/learning-governance");
     expect(searchAdminEntries(cmo, "licence").map((e) => e.href)).toContain("/clinician/credentialing/expiry");
   });
 });

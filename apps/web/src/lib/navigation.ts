@@ -513,6 +513,8 @@ export function getNavSections(
               label: "My work",
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
+                // S55 (9.7): verified clinicians apply to write Members-only learning series.
+                { label: "Write for the Learning Centre", href: "/clinician/learning-creator", icon: "review" },
                 // S27: lab results held before the patient can see them (INV-03, INV-04).
                 { label: "Lab results to review", href: "/clinician/lab-results", icon: "labs" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },

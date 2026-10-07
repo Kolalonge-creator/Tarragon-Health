@@ -46,6 +46,7 @@ export const HEALTH_EDUCATION_FEEDBACK_OPTIONS: { value: HealthEducationFeedback
  * about a topic out of interest, not only if a matching diagnosis is on
  * file. Order is roughly "most commonly relevant first". */
 export const HEALTH_EDUCATION_CATEGORIES: { value: HealthEducationCategory; label: string }[] = [
+  { value: "when_to_seek_care", label: "When to seek care" },
   { value: "hypertension", label: "Blood pressure" },
   { value: "diabetes", label: "Diabetes" },
   { value: "heart", label: "Heart health" },
@@ -252,6 +253,15 @@ export type HealthEducationContentInput = {
   next_review_due?: string | null;
   min_age?: number | null;
   max_age?: number | null;
+  /** "What can I do next?" line and its kind: required before an item can be published (S55, 9.4). */
+  next_action?: string | null;
+  next_step_kind?: "care_plan_goal" | "booking" | "lesson" | null;
+  next_step_target_code?: string | null;
+  series_tag?: string | null;
+  /** Only a clinician-reviewed item can be public (the database refuses otherwise). */
+  is_public?: boolean;
+  /** The verified clinician (clinical_staff id) who reviewed it. */
+  clinical_owner_id?: string | null;
 };
 
 /** Create a new content item — always lands as content_status='draft' (the

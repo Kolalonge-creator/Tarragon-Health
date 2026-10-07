@@ -23,6 +23,9 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/credentialing", "doctor clinician onboarding application applicant apply verify verification mdcn folio credentials referees nysc approve"],
   ["/admin/credentialing/expiry", "licence license mdcn indemnity expiry expires renewal renew grace suspended reinstate"],
   ["/admin/credentialing", "doctor clinician onboarding application applicant apply verify verification mdcn folio credentials referees nysc"],
+  ["/admin/settings/health-education/aliases", "learning library search everyday words terms synonyms bp sugar alias local terms education"],
+  ["/admin/settings/health-education/creators", "learning creator creators write author clinician series members only content education"],
+  ["/clinician/learning-governance", "learning library search everyday words terms synonyms alias creators approve education content cmo"],
   ["/admin/memberships", "membership member grant end subscription free tier written questions entitlement"],
   ["/clinician/memberships", "membership member grant end subscription free tier written questions entitlement"],
   ["/admin/catalogue", "catalogue prices price list items membership care pack consultation checkout paystack switch on off sell buy"],
@@ -82,6 +85,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Result release policies", href: "/clinician/result-release-policies", group: "Clinical governance", hint: "Which abnormal results wait for a doctor before the patient sees them." },
   { label: "Safety concerns", href: "/clinician/quality/concerns", group: "Clinical governance", hint: "The speak-up inbox: replies, backup readers and reviews after a concern." },
   { label: "Titration protocols", href: "/clinician/titration-protocols", group: "Clinical sign-off", hint: "Write, check and approve the step table the dose suggestion tool reads." },
+  { label: "Learning Centre governance", href: "/clinician/learning-governance", group: "Clinical governance", hint: "Review everyday search words (BP, sugar) and approve the clinicians who write learning series." },
 ];
 
 export interface SettingsPageInput {

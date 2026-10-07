@@ -248,6 +248,20 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
+        href: "/admin/settings/health-education/aliases",
+        label: "Learning search terms",
+        blurb: "Everyday words (BP, sugar, high blood) the library search understands, reviewed by the CMO.",
+        icon: NAV_ICON.ledger,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/health-education/creators",
+        label: "Clinician creators",
+        blurb: "Verified clinicians who write Members-only learning series; approve or suspend.",
+        icon: NAV_ICON.ledger,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/vitals-reminders",
         label: "Vitals reminder cadence",
         blurb: "How often patients are nudged to log vitals.",

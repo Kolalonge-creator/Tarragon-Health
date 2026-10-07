@@ -38,6 +38,7 @@ export const MARKETING_ROUTES = {
   corporate: "/corporate",
   hmo: "/hmo",
   resources: "/resources",
+  healthLibrary: "/health-library",
   impact: "/impact",
   contact: "/contact",
   privacy: "/privacy",

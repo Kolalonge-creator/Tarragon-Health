@@ -23,6 +23,7 @@ import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { AskTarragonCard } from "@/app/(dashboard)/patient/ask-tarragon-card";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
+import { ThisWeeksLessonCard } from "@/app/(dashboard)/patient/this-weeks-lesson-card";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
 import { WeeklyPlanCard } from "@/app/(dashboard)/patient/weekly-plan-card";
 import { BiomarkerCategoriesCard } from "@/app/(dashboard)/patient/biomarker-categories-card";
@@ -169,6 +170,9 @@ export default async function PatientOverviewPage() {
           Above the stat tiles deliberately: doing beats reading, and on a
           phone this row is what's on screen when the page opens. */}
       <QuickActions showCycle={shouldOfferCycleTracking(subjectSex)} />
+
+      {/* One short lesson for the week (S55, 9.2), under five minutes, never a daily push; renders nothing when there is none. */}
+      {!acting && <ThisWeeksLessonCard patientId={subjectId} />}
 
       {/* Prominent, single-screen "ask" entry point -- composes the already-
           governed AI Coach (symptom text) and result-upload + AI summary

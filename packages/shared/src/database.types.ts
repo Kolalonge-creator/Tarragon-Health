@@ -16565,14 +16565,75 @@ export type Database = {
         }
         Relationships: []
       }
+      creators: {
+        Row: {
+          bio: string | null
+          clinical_staff_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          is_test: boolean
+          organisation_id: string
+          requested_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      health_education_search_aliases: {
+        Row: {
+          alias: string
+          alias_normalised: string | null
+          created_at: string
+          created_by: string | null
+          expands_to: string
+          id: string
+          note: string | null
+          review_state: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          alias: string
+          created_at?: string
+          created_by?: string | null
+          expands_to: string
+          id?: string
+          note?: string | null
+          review_state?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alias?: string
+          created_at?: string
+          created_by?: string | null
+          expands_to?: string
+          id?: string
+          note?: string | null
+          review_state?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       health_education_content: {
         Row: {
           approved_at: string | null
+          audio_clip_id: string | null
           audio_url: string | null
           author_name: string | null
           body: string
           category: Database["public"]["Enums"]["health_education_category"]
           clinical_author_name: string | null
+          clinical_owner_id: string | null
           clinician_reviewed: boolean
           code: string
           condition: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -16580,21 +16641,28 @@ export type Database = {
           content_type: Database["public"]["Enums"]["health_education_content_type"]
           content_version: number
           created_at: string
+          creator_id: string | null
           drip_week: number | null
           embedding: string | null
           estimated_minutes: number | null
           evidence_source: string | null
           id: string
           is_active: boolean
+          is_public: boolean
           knowledge_check: Json | null
           max_age: number | null
+          members_only: boolean
           min_age: number | null
           min_risk_level: Database["public"]["Enums"]["risk_level"] | null
+          next_action: string | null
           next_review_due: string | null
+          next_step_kind: string | null
+          next_step_target_code: string | null
           reading_level: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at: string | null
           reviewed_at: string | null
           reviewed_by_name: string | null
+          series_tag: string | null
           sort_order: number
           source_reference: string | null
           summary: string | null
@@ -16606,11 +16674,13 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          audio_clip_id?: string | null
           audio_url?: string | null
           author_name?: string | null
           body: string
           category: Database["public"]["Enums"]["health_education_category"]
           clinical_author_name?: string | null
+          clinical_owner_id?: string | null
           clinician_reviewed?: boolean
           code: string
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -16618,21 +16688,28 @@ export type Database = {
           content_type?: Database["public"]["Enums"]["health_education_content_type"]
           content_version?: number
           created_at?: string
+          creator_id?: string | null
           drip_week?: number | null
           embedding?: string | null
           estimated_minutes?: number | null
           evidence_source?: string | null
           id?: string
           is_active?: boolean
+          is_public?: boolean
           knowledge_check?: Json | null
           max_age?: number | null
+          members_only?: boolean
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          next_action?: string | null
           next_review_due?: string | null
+          next_step_kind?: string | null
+          next_step_target_code?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by_name?: string | null
+          series_tag?: string | null
           sort_order?: number
           source_reference?: string | null
           summary?: string | null
@@ -16644,11 +16721,13 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          audio_clip_id?: string | null
           audio_url?: string | null
           author_name?: string | null
           body?: string
           category?: Database["public"]["Enums"]["health_education_category"]
           clinical_author_name?: string | null
+          clinical_owner_id?: string | null
           clinician_reviewed?: boolean
           code?: string
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -16656,21 +16735,28 @@ export type Database = {
           content_type?: Database["public"]["Enums"]["health_education_content_type"]
           content_version?: number
           created_at?: string
+          creator_id?: string | null
           drip_week?: number | null
           embedding?: string | null
           estimated_minutes?: number | null
           evidence_source?: string | null
           id?: string
           is_active?: boolean
+          is_public?: boolean
           knowledge_check?: Json | null
           max_age?: number | null
+          members_only?: boolean
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          next_action?: string | null
           next_review_due?: string | null
+          next_step_kind?: string | null
+          next_step_target_code?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by_name?: string | null
+          series_tag?: string | null
           sort_order?: number
           source_reference?: string | null
           summary?: string | null
@@ -45476,9 +45562,102 @@ export type Database = {
           item_count: number
         }[]
       }
+      apply_as_creator: {
+        Args: { p_bio?: string }
+        Returns: string
+      }
+      creator_my_content: {
+        Args: never
+        Returns: {
+          code: string
+          content_id: string
+          content_status: Database["public"]["Enums"]["health_education_content_status"]
+          title: string
+          updated_at: string
+        }[]
+      }
+      creator_submit_content: {
+        Args: {
+          p_body: string
+          p_category: Database["public"]["Enums"]["health_education_category"]
+          p_code: string
+          p_content_type: Database["public"]["Enums"]["health_education_content_type"]
+          p_estimated_minutes: number
+          p_next_action: string
+          p_next_step_kind: string
+          p_next_step_target_code: string
+          p_source_reference: string
+          p_summary: string
+          p_title: string
+        }
+        Returns: string
+      }
+      health_education_search: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          category: Database["public"]["Enums"]["health_education_category"]
+          code: string
+          content_id: string
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          estimated_minutes: number
+          expanded_to: string
+          locked: boolean
+          matched_alias: string
+          rank: number
+          summary: string
+          title: string
+        }[]
+      }
+      health_education_servable_codes: {
+        Args: { p_codes: string[] }
+        Returns: {
+          code: string
+          content_version: number
+          next_review_due: string
+        }[]
+      }
+      learning_this_week: {
+        Args: never
+        Returns: {
+          audio_clip_id: string
+          category: Database["public"]["Enums"]["health_education_category"]
+          code: string
+          content_id: string
+          drip_week: number
+          estimated_minutes: number
+          is_current_week: boolean
+          summary: string
+          title: string
+        }[]
+      }
+      mirror_marketing_resource_to_learning: {
+        Args: { p_series_tag?: string; p_slug: string }
+        Returns: string
+      }
+      public_health_education_item: {
+        Args: { p_code: string }
+        Returns: {
+          body: string
+          category: Database["public"]["Enums"]["health_education_category"]
+          code: string
+          estimated_minutes: number
+          next_action: string
+          next_review_due: string
+          reviewed_at: string
+          reviewed_by_name: string
+          source_reference: string
+          summary: string
+          title: string
+        }[]
+      }
+      set_creator_status: {
+        Args: { p_creator: string; p_reason: string; p_status: string }
+        Returns: undefined
+      }
       health_education_content_detail: {
         Args: { p_code: string }
         Returns: {
+          audio_clip_id: string
           audio_url: string
           body: string
           category: Database["public"]["Enums"]["health_education_category"]
@@ -45489,11 +45668,23 @@ export type Database = {
           condition: Database["public"]["Enums"]["care_plan_condition"]
           content_id: string
           content_type: Database["public"]["Enums"]["health_education_content_type"]
+          creator_name: string
           estimated_minutes: number
           has_knowledge_check: boolean
+          is_public: boolean
           knowledge_check: Json
+          locked: boolean
+          members_only: boolean
+          next_action: string
+          next_review_due: string
+          next_step_kind: string
+          next_step_target_code: string
+          next_step_target_title: string
           reading_level: Database["public"]["Enums"]["health_education_reading_level"]
+          reviewed_at: string
           reviewed_by_name: string
+          series_tag: string
+          source_reference: string
           status: Database["public"]["Enums"]["health_education_status"]
           summary: string
           title: string
@@ -45503,6 +45694,7 @@ export type Database = {
       health_education_feed: {
         Args: never
         Returns: {
+          audio_clip_id: string
           audio_url: string
           body: string
           category: Database["public"]["Enums"]["health_education_category"]
@@ -45513,11 +45705,23 @@ export type Database = {
           condition: Database["public"]["Enums"]["care_plan_condition"]
           content_id: string
           content_type: Database["public"]["Enums"]["health_education_content_type"]
+          creator_name: string
           estimated_minutes: number
           has_knowledge_check: boolean
+          is_public: boolean
           knowledge_check: Json
+          locked: boolean
+          members_only: boolean
+          next_action: string
+          next_review_due: string
+          next_step_kind: string
+          next_step_target_code: string
+          next_step_target_title: string
           reading_level: Database["public"]["Enums"]["health_education_reading_level"]
+          reviewed_at: string
           reviewed_by_name: string
+          series_tag: string
+          source_reference: string
           status: Database["public"]["Enums"]["health_education_status"]
           summary: string
           title: string
@@ -45529,6 +45733,7 @@ export type Database = {
           p_category?: Database["public"]["Enums"]["health_education_category"]
         }
         Returns: {
+          audio_clip_id: string
           audio_url: string
           body: string
           category: Database["public"]["Enums"]["health_education_category"]
@@ -45539,11 +45744,23 @@ export type Database = {
           condition: Database["public"]["Enums"]["care_plan_condition"]
           content_id: string
           content_type: Database["public"]["Enums"]["health_education_content_type"]
+          creator_name: string
           estimated_minutes: number
           has_knowledge_check: boolean
+          is_public: boolean
           knowledge_check: Json
+          locked: boolean
+          members_only: boolean
+          next_action: string
+          next_review_due: string
+          next_step_kind: string
+          next_step_target_code: string
+          next_step_target_title: string
           reading_level: Database["public"]["Enums"]["health_education_reading_level"]
+          reviewed_at: string
           reviewed_by_name: string
+          series_tag: string
+          source_reference: string
           status: Database["public"]["Enums"]["health_education_status"]
           summary: string
           title: string
@@ -45575,6 +45792,17 @@ export type Database = {
           programme_title: string
           status: Database["public"]["Enums"]["health_education_status"]
           video_url: string
+          audio_clip_id: string
+          clinician_reviewed: boolean
+          next_action: string
+          next_review_due: string
+          next_step_kind: string
+          next_step_target_code: string
+          next_step_target_title: string
+          reviewed_at: string
+          reviewed_by_name: string
+          series_tag: string
+          source_reference: string
         }[]
       }
       health_education_programmes_list: {
@@ -48748,6 +48976,7 @@ export type Database = {
         | "sleep"
         | "vaccination"
         | "sexual_health"
+        | "when_to_seek_care"
       health_education_content_status:
         | "draft"
         | "clinical_review"
@@ -51125,6 +51354,7 @@ export const Constants = {
         "sleep",
         "vaccination",
         "sexual_health",
+        "when_to_seek_care",
       ],
       health_education_content_status: [
         "draft",

@@ -37,6 +37,8 @@ const TITLE_SUFFIX = ` | ${SITE.name}`;
 const METADATA_ELSEWHERE = [
   "corporate/page.tsx",
   "diabetes/page.tsx",
+  // S55: a public Learning Centre item, metadata built from the database row like resources/[slug].
+  "health-library/[code]/page.tsx",
   "hmo/page.tsx",
   "hypertension/page.tsx",
   "labs/page.tsx",

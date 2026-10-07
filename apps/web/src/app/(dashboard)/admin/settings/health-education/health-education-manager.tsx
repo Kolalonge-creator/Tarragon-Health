@@ -14,6 +14,8 @@ import {
   type HealthEducationContentStatus,
   type HealthEducationContentInput,
 } from "@/lib/queries/health-education";
+import { getProposedConfig } from "@tarragon/shared";
+import { useProgrammeLessonIds, useVerifiedClinicians } from "@/lib/queries/learning-centre";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -105,18 +107,26 @@ function emptyForm(): HealthEducationContentInput {
   };
 }
 
+const MAX_LESSON_MINUTES = Number(getProposedConfig("learning.max_lesson_minutes").value);
+
 function ContentForm({
   initial,
   submitLabel,
   onSubmit,
   pending,
+  isCourseLesson = false,
 }: {
   initial: HealthEducationContentInput;
   submitLabel: string;
   onSubmit: (input: HealthEducationContentInput) => void;
   pending: boolean;
+  /** True when this item is a lesson in a programme: its length is then limited (spec 9.2), here and in the database. */
+  isCourseLesson?: boolean;
 }) {
   const [form, setForm] = useState<HealthEducationContentInput>(initial);
+  const { data: clinicians } = useVerifiedClinicians();
+  const minutesTooLong =
+    isCourseLesson && (form.estimated_minutes == null || form.estimated_minutes < 1 || form.estimated_minutes > MAX_LESSON_MINUTES);
 
   function set<K extends keyof HealthEducationContentInput>(key: K, value: HealthEducationContentInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -206,14 +216,22 @@ function ContentForm({
           </Select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="content_minutes">Estimated minutes (optional)</Label>
+          <Label htmlFor="content_minutes">
+            {isCourseLesson ? `Estimated minutes (course lesson: 1 to ${MAX_LESSON_MINUTES})` : "Estimated minutes (optional)"}
+          </Label>
           <Input
             id="content_minutes"
             type="number"
             min={1}
+            max={isCourseLesson ? MAX_LESSON_MINUTES : undefined}
+            required={isCourseLesson}
+            aria-invalid={minutesTooLong}
             value={form.estimated_minutes ?? ""}
             onChange={(e) => set("estimated_minutes", e.target.value ? Number(e.target.value) : null)}
           />
+          {minutesTooLong && (
+            <p className="text-xs text-red-600">A lesson in a course must take {MAX_LESSON_MINUTES} minutes or less.</p>
+          )}
         </div>
         {(form.content_type === "video" || form.content_type === "interactive_module") && (
           <div className="space-y-1">
@@ -248,6 +266,71 @@ function ContentForm({
             onChange={(e) => set("next_review_due", e.target.value || null)}
           />
         </div>
+        <div className="space-y-1 sm:col-span-2">
+          <Label htmlFor="content_next_action">What can I do next? (required before publishing)</Label>
+          <Input
+            id="content_next_action"
+            value={form.next_action ?? ""}
+            maxLength={400}
+            onChange={(e) => set("next_action", e.target.value || null)}
+            placeholder="One concrete thing the person can do after reading this"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="content_next_kind">Next step goes to</Label>
+          <Select
+            id="content_next_kind"
+            value={form.next_step_kind ?? ""}
+            onChange={(e) => set("next_step_kind", (e.target.value || null) as HealthEducationContentInput["next_step_kind"])}
+          >
+            <option value="">Not set</option>
+            <option value="care_plan_goal">A care plan goal</option>
+            <option value="booking">A booking</option>
+            <option value="lesson">Another lesson</option>
+          </Select>
+        </div>
+        {form.next_step_kind === "lesson" && (
+          <div className="space-y-1">
+            <Label htmlFor="content_next_target">Code of the next lesson</Label>
+            <Input
+              id="content_next_target"
+              className="font-mono text-xs"
+              value={form.next_step_target_code ?? ""}
+              onChange={(e) => set("next_step_target_code", e.target.value || null)}
+              required
+            />
+          </div>
+        )}
+        <div className="space-y-1">
+          <Label htmlFor="content_reviewer">Reviewed by (verified clinician)</Label>
+          <Select
+            id="content_reviewer"
+            value={form.clinical_owner_id ?? ""}
+            onChange={(e) => set("clinical_owner_id", e.target.value || null)}
+          >
+            <option value="">Not linked</option>
+            {(clinicians ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.full_name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="content_series">Series (optional)</Label>
+          <Select id="content_series" value={form.series_tag ?? ""} onChange={(e) => set("series_tag", e.target.value || null)}>
+            <option value="">None</option>
+            <option value="myth_busting">Myth-busting</option>
+          </Select>
+        </div>
+        <label className="flex items-center gap-2 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={form.is_public ?? false}
+            onChange={(e) => set("is_public", e.target.checked)}
+          />
+          Public: anyone with the link can read it (needs a complete clinician review record)
+        </label>
       </div>
       <div className="space-y-1">
         <Label htmlFor="content_summary">Summary (optional)</Label>
@@ -257,7 +340,7 @@ function ContentForm({
         <Label htmlFor="content_body">Body</Label>
         <Textarea id="content_body" rows={6} value={form.body} onChange={(e) => set("body", e.target.value)} required />
       </div>
-      <Button type="submit" size="sm" disabled={pending}>
+      <Button type="submit" size="sm" disabled={pending || minutesTooLong}>
         {pending ? "Saving…" : submitLabel}
       </Button>
     </form>
@@ -290,7 +373,7 @@ function ContentHistory({ item }: { item: HealthEducationContent }) {
   );
 }
 
-function ContentRow({ item }: { item: HealthEducationContent }) {
+function ContentRow({ item, isCourseLesson }: { item: HealthEducationContent; isCourseLesson: boolean }) {
   const setDripWeek = useSetContentDripWeek();
   const setStatus = useSetHealthEducationContentStatus();
   const updateContent = useUpdateHealthEducationContent();
@@ -342,17 +425,22 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        {nextStatuses.map((n) => (
+        {nextStatuses.map((n) => {
+          const needsNextStep =
+            n.status === "published" && item.content_status !== "review_due" && (!item.next_action || !item.next_step_kind);
+          return (
           <Button
             key={n.status}
             size="sm"
             variant="outline"
-            disabled={setStatus.isPending}
+            title={needsNextStep ? "Add a \"what can I do next\" line first (Edit)" : undefined}
+            disabled={setStatus.isPending || needsNextStep}
             onClick={() => setStatus.mutate({ id: item.id, status: n.status })}
           >
             {n.label}
           </Button>
-        ))}
+          );
+        })}
       </div>
       {setStatus.isError && <p className="text-xs text-red-600">{(setStatus.error as Error).message}</p>}
       {editing && (
@@ -373,7 +461,14 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
               author_name: item.author_name,
               source_reference: item.source_reference,
               next_review_due: item.next_review_due,
+              next_action: item.next_action,
+              next_step_kind: item.next_step_kind as HealthEducationContentInput["next_step_kind"],
+              next_step_target_code: item.next_step_target_code,
+              series_tag: item.series_tag,
+              is_public: item.is_public,
+              clinical_owner_id: item.clinical_owner_id,
             }}
+            isCourseLesson={isCourseLesson}
             submitLabel="Save changes"
             pending={updateContent.isPending}
             onSubmit={(input) => {
@@ -395,6 +490,8 @@ export function HealthEducationManager() {
   const createContent = useCreateHealthEducationContent();
   const [categoryFilter, setCategoryFilter] = useState<HealthEducationCategory | "all">("all");
   const [showCreate, setShowCreate] = useState(false);
+  const { data: lessonIdList } = useProgrammeLessonIds();
+  const lessonIds = new Set(lessonIdList ?? []);
 
   const liveCount = content?.filter((c) => c.is_active).length ?? 0;
   const filtered = content?.filter(
@@ -420,6 +517,12 @@ export function HealthEducationManager() {
                 </Link>
                 <Link href="/admin/settings/health-education/analytics" className="text-brand-green hover:underline">
                   Analytics →
+                </Link>
+                <Link href="/admin/settings/health-education/aliases" className="text-brand-green hover:underline">
+                  Search terms →
+                </Link>
+                <Link href="/admin/settings/health-education/creators" className="text-brand-green hover:underline">
+                  Clinician creators →
                 </Link>
               </div>
             </div>
@@ -464,7 +567,7 @@ export function HealthEducationManager() {
           {filtered && filtered.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">
               {filtered.map((item) => (
-                <ContentRow key={item.id} item={item} />
+                <ContentRow key={item.id} item={item} isCourseLesson={lessonIds.has(item.id)} />
               ))}
             </ul>
           )}

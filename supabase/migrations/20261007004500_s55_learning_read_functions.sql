@@ -13,6 +13,7 @@
 drop function if exists public.health_education_feed();
 drop function if exists public.health_education_library(public.health_education_category);
 drop function if exists public.health_education_content_detail(text);
+drop function if exists public.health_education_programme_detail(text);
 
 create or replace function private.health_education_items()
 returns table (
@@ -406,7 +407,9 @@ create or replace function public.health_education_programme_detail(p_code text)
 returns table (programme_id uuid, programme_code text, programme_title text, programme_description text, module_id uuid,
   module_number integer, module_title text, content_id uuid, content_code text, content_title text, content_summary text,
   content_body text, content_type public.health_education_content_type, video_url text, audio_url text, estimated_minutes integer,
-  has_knowledge_check boolean, knowledge_check jsonb, status public.health_education_status, check_score integer, check_total integer)
+  has_knowledge_check boolean, knowledge_check jsonb, status public.health_education_status, check_score integer, check_total integer,
+  clinician_reviewed boolean, reviewed_by_name text, reviewed_at timestamptz, source_reference text, next_review_due date, next_action text,
+  next_step_kind text, next_step_target_code text, next_step_target_title text, series_tag text, audio_clip_id text)
 language sql
 stable
 security definer
@@ -415,7 +418,9 @@ as $$
   select
     p.id, p.code, p.title, p.description, m.id, m.module_number, m.title,
     i.content_id, i.code, i.title, i.summary, i.body, i.content_type, i.video_url, i.audio_url, i.estimated_minutes,
-    i.has_knowledge_check, i.knowledge_check, i.status, i.check_score, i.check_total
+    i.has_knowledge_check, i.knowledge_check, i.status, i.check_score, i.check_total,
+    i.clinician_reviewed, i.reviewed_by_name, i.reviewed_at, i.source_reference, i.next_review_due, i.next_action,
+    i.next_step_kind, i.next_step_target_code, i.next_step_target_title, i.series_tag, i.audio_clip_id
   from public.health_education_programmes p
   join public.health_education_programme_modules m on m.programme_id = p.id
   join private.health_education_items() i on i.content_id = m.content_id

@@ -1297,4 +1297,15 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
   },
+  {
+    key: "learning.max_lesson_minutes",
+    // Spec 9.2: a lesson in a course is under five minutes (read or listen). Enforced in the admin editor and by the database
+    // (private.learning_max_lesson_minutes, mirrored by learning-mirror.test.ts). Weekly pacing stays; Today shows one lesson.
+    value: 5,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/BUILD-SPEC-v5.md 9.2; docs/design/S55.md",
+  },
 ];
