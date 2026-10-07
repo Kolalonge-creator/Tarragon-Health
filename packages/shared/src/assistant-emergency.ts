@@ -32,7 +32,7 @@ export const SELF_HARM_GUIDANCE = {
     "I am really glad you told me. What you are feeling matters, and help is close.",
     "Please go to the nearest hospital now, or ask someone you trust to come and stay with you.",
     "If you have a person you trust, tell them how you are feeling right now.",
-    "I am letting your care team know, so someone can reach you.",
+    "You can message your care team in the app at any time, and they will want to hear from you.",
   ],
 } as const;
 

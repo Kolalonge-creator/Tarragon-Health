@@ -16,10 +16,13 @@ export async function GET(request: Request): Promise<Response> {
   const lagosNow = new Date(Date.now() + 60 * 60 * 1000);
   const firstOf = (monthsBack: number) => new Date(Date.UTC(lagosNow.getUTCFullYear(), lagosNow.getUTCMonth() - monthsBack, 1)).toISOString().slice(0, 10);
   const results: unknown[] = [];
-  for (const month of [firstOf(2), firstOf(1)]) {
+  const failed: string[] = [];
+  // every month is attempted: one that keeps failing never stops the other from being drawn
+  for (const month of [firstOf(1), firstOf(2)]) {
     const { data, error } = await svc.rpc("assistant_sample_month", { p_month: month });
-    if (error) return Response.json({ error: "sample_job_failed", month }, { status: 500 });
-    results.push(data);
+    if (error) failed.push(month);
+    else results.push(data);
   }
+  if (failed.length > 0) return Response.json({ error: "sample_job_failed", months: failed, done: results }, { status: 500 });
   return Response.json({ months: results });
 }

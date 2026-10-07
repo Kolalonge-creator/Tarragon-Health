@@ -349,9 +349,8 @@ begin
       if v_days >= v_reengage and not exists (
            select 1 from public.notifications n
             where n.recipient_id = r.patient_id and n.template = 'assistant_reengage' and n.created_at > p_now - make_interval(days => v_cooldown)) then
-        insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
-        values (r.organisation_id, r.patient_id, private.patient_reminder_channel(r.patient_id, false), 'pending', 'assistant_reengage', jsonb_build_object('day', p_now::date));
-        v_reengaged := v_reengaged + 1;
+        -- the S51 door: it honours the patient's education_wellness opt-out and is once per day
+        if public.assistant_queue_nudge(r.patient_id, 'assistant_reengage', p_now::date) then v_reengaged := v_reengaged + 1; end if;
       end if;
     end if;
   end loop;
@@ -521,7 +520,8 @@ begin
     join public.profiles p on p.id = t.patient_id
     join public.ai_interaction_log l on l.id = t.interaction_id
    where t.conversation_id is not null and t.interaction_id is not null
-     and exists (select 1 from public.ai_safety_incidents i where i.interaction_id = t.interaction_id and i.created_at >= v_from and i.created_at < v_to)
+     and exists (select 1 from public.ai_safety_incidents i where i.interaction_id = t.interaction_id and i.reporter_kind = 'patient'
+                    and i.created_at >= v_from and i.created_at < v_to)
   on conflict (month, conversation_id) do nothing;
   get diagnostics v_reported = row_count;
 
