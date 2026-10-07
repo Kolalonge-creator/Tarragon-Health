@@ -92,6 +92,11 @@ begin
   perform pg_temp.back();
   if v_r <> 'ok' then raise exception 'FAIL 2b: a test patient should still be able to try the flow, got %', v_r; end if;
 
+  -- S60: two of the four attestations now need a record behind them (a regulatory position, an accuracy baseline report). Fixtures:
+  insert into public.regulatory_positions (organisation_id, topic, position_text, classification, counsel_name, position_date, attached_by, is_test)
+  values (v_org, 'symptom_checker', 'Proof fixture: counsel advises the checker is decision support, labelled as such.', 'decision_support_not_a_device', 'F1 proof counsel', current_date, v_cmo, true);
+  perform private.run_symptom_accuracy_audit(v_org, (date_trunc('month', now()) - interval '1 month')::date, true, v_cmo);
+
   -- 3. cannot switch on while conditions are unmet
   perform pg_temp.act(v_cmo);
   begin

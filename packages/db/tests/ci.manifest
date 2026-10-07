@@ -898,3 +898,9 @@ f1_wellness_points_non_monetary.sql
 f1_symptom_checker_go_live_guard.sql
 # F1 fix 4: a crisis-flagged wellbeing screen raises one class 1 task, an urgent crisis.detected event (ids only), a neutral notice to the clinician on call or the lead and ops with an incident, idempotent on replay, loud on failure. Sabotage: the trigger dropped, no task.
 f1_crisis_priority_task_and_event.sql
+# S60 (spec 12.10): doctor review of a symptom check. Guard-closed for a real patient; symptom_check.completed and symptom_review.completed are ids-only events; no invented review time (stated only from a signed SLA); role matrix (patient own columns only, other patient, untied clinician, coordinator, admin, anon refused; no staff policy on the table); audited reads and audited denials; a completed review is immutable. Sabotage: the immutability trigger dropped, the select policy widened.
+s60_symptom_reviews_rls_and_audit.sql
+# S60 (spec 12.12): the monthly accuracy audit. Baseline once and idempotent, correct counts and Wilson intervals, test accounts excluded, small cells and the next-smallest cell suppressed, aggregate only, never publishable, immutable, admin and CMO only. Sabotage: the minimum cell size lowered, the publishable CHECK dropped, the immutability trigger dropped.
+s60_symptom_accuracy_audit.sql
+# S60 (spec 12.13): the recorded regulatory position and the F1 attestations wired to records. Admin or CMO only, append-only, a NAFDAC attestation refused without a determined position and a baseline attestation refused without a baseline report, the dashboard shows what the record says. Sabotage: the check skipped, the refused attestation must succeed.
+s60_regulatory_position_and_guard_wiring.sql

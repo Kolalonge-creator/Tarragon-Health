@@ -1477,3 +1477,57 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Fixed after review: crisis failure incidents are per screen (`crisis_follow_up_failed:<screen id>`); a replay after a partial failure does not notify twice (`crisis.notified` marker); orphaned education recommendations (content hidden by expiry) are dropped on web and mobile; the closed symptom checker card no longer prints an emergency number (numbers are an unconfirmed localisation fact); a database refusal (42501) on the symptom checker insert returns the calm unavailable state.
 - Accepted, recorded: the guard check on the web action answers for the signed-in person while the table checks the person acted for (only differs for a test account acting for a real dependant; the table is the gate). The AI coach medicine tool relies on RLS for expiry (patient sessions are covered; an admin session sees everything by design). The draft SLA's version is computed at apply time (highest plus one): re-check `max(version)` at apply. See OQ-F1-02, OQ-F1-03, OQ-F1-04.
 
+
+### S60: symptom checker safety half (2026-10-07), on `s55-60/s60-symptom-safety`
+Built on top of F1; nothing applied to production; `symptom_checker_enabled` stays OFF. See `docs/design/S60.md`.
+
+### OQ-S60-01 NAFDAC and counsel position on a symptom checker
+- Blocks: the `nafdac_position_recorded` attestation, so switching on `symptom_checker_enabled`.
+- Built: a recorded-position table and form (admin at `/admin/symptom-safety`, CMO at `/clinician/symptom-safety`): the position in the counsel's words, a classification (decision support, regulated device, not yet determined), counsel, date, document reference, who attached it. Append-only. The attestation is refused until a determined position is on record. Nothing is recorded; the table is empty.
+- Needed from the founder: request NAFDAC's view, obtain Nigerian counsel's opinion (including whether MDCN treats triage software as practice), record it. The plan recommends classifying conservatively as decision support until told otherwise.
+- Decision: open (founder and counsel).
+
+### OQ-S60-02 What the checker does when its engine fails, and the signed chest pain rule's severity floor
+- Built: the red-flag floor runs first on the device; an engine error, timeout or missing protocol is never reassurance: the result is the more urgent of the degraded floor and `urgent`, with a clinician asked to look. PROPOSED config `symptom.degraded_mode`: severity floors ignored, unclassifiable is `urgent`, 3 second timeout.
+- Finding for the CMO: the SIGNED v1 rule `chest_pain.cardiac_pattern` needs severity 6 or more. Chest pain with sweating at severity 5 or less does not fire as signed (urgent or lower via the questionnaire). It fires only in degraded mode. The acceptance test uses severity 7. Whether the signed rule itself should drop its severity floor is a clinical decision for the CMO; it was not changed.
+- Also confirm: `urgent` as the unclassifiable category (alternative: `emergency`), and the timeout.
+- Decision: open (CMO).
+
+### OQ-S60-03 Prevalence and seasonal risk entries are empty drafts
+- Built: PROPOSED config `symptom.risk_tightening`, an entry can only name a minimum category (never lower or replace one; strict schema; property test). Four placeholder entries (malaria season fever, typhoid, Lassa season, sickle cell history) are marked `UNVERIFIED DRAFT`, have no sign-off and take no effect.
+- Needed from the CMO: which entries exist, their sources, seasons, states and minimum categories, then a new registry version with each entry `signed_off` and a named signer. Some entries name symptoms or history (abdominal pain, sickle cell disease) that no signed pathway asks yet; they stay inert until one does.
+- Decision: open (CMO).
+
+### OQ-S60-04 An accuracy baseline before launch, and INV-13
+- Why it matters: the guard needs an accuracy baseline, and a baseline needs clinician-reviewed checks, which only exist once the checker is open. INV-13 excludes test accounts from every metric.
+- Built: the scheduled audit counts real accounts only. An admin or the CMO can deliberately run it including test accounts for a finished month; that report is marked `includes_test_accounts` and is a pre-launch validation baseline. The attestation only needs a baseline row to exist; a baseline of zero reviewed checks is allowed to exist, and the attesting person's note must say what it rests on.
+- Needed: the founder or CMO decides whether a test-session baseline may satisfy the guard (a recommended validation set of clinician-reviewed scripted cases), or whether launch is to a small supervised group first.
+- Decision: open (founder and CMO).
+
+### OQ-S60-05 Accuracy audit parameters, and what it cannot measure yet
+- Built: PROPOSED `symptom.accuracy_audit`: minimum cell 10, 95 percent Wilson intervals, five age bands; matched, under-triaged (unsafe direction) and over-triaged per cell; complementary suppression; every report `publishable = false` by a CHECK.
+- Cannot be measured yet: top-suggestion accuracy against the final diagnosis, because no differential exists (founder decision). The final diagnosis code is recorded now. CMO to confirm the parameters; publishing any figure needs an independent local validation and a founder decision.
+- Decision: open (CMO).
+
+### OQ-S60-06 Languages: the brief says English and Pidgin, the repository is English only
+- The S60 brief asked for i18n in `en` and `pcm`. D-14 (founder, 2026-10-06) removed Pidgin and the other local languages, and `packages/i18n` has one locale. The `symptom.*` namespace is English only, with no Pidgin file. Confirm English only for the checker, including the on-device emergency guidance; localisation sign-off (a guard attestation) will need to say which languages are covered.
+- Decision: open (founder).
+
+### OQ-S60-07 The assessment table still lets all org staff read every assessment (INV-12)
+- Existing behaviour, not changed in S60 (Step 1 of the prompt): `symptom_triage_assessments` select and update policies use `private.is_org_staff()`, so any staff account in the organisation can read every assessment. The new `symptom_reviews` table has no staff policy and is read only through an audited, tied function.
+- Recommend: close the staff path on the assessment table the way S05f closed `symptoms`, with an audited read function, once the safety monitoring view and any admin screen that reads it have moved. Needs its own proof.
+- Decision: open (founder).
+
+### OQ-S60-08 An urgent result that cannot be recorded raises no clinician alert
+- Built: the patient always gets the result. If the check cannot be recorded (a database error, no protocol version), an emergency still raises the emergency event directly, and every failure is reported to Sentry. An urgent result that cannot be recorded is reported but raises no `clinician_alerts` row (that needs the recorded assessment and a signed `symptom_triage` SLA, OQ-F1-02).
+- Options: (a) as built; (b) also create a `symptom_review` task for such a patient. Recommend (b) after the SLA is signed.
+- Decision: open (CMO).
+
+### OQ-S60-09 Smaller follow-ups from S60
+- The bundled red-flag floor is a frozen copy of the signed v1 rules (parity-tested against the database seed fixture). When the CMO signs a later protocol that changes a red flag, the bundled copy and its parity test must be updated in the same change, or the floor will lag. It can only raise an answer, so a lag means a missed addition, not a false alarm.
+- No notification is sent when a review completes (a neutral template needs content approval, INV-07); the patient sees the state and the clinician's message in the app.
+- The clinician review screen opens the audited read with a fixed reason; each open or refresh writes an audit row.
+- The final diagnosis code is typed and shape-checked (ICD-10 pattern), not picked from a licensed code list.
+- The stated review time reuses the `clinician_review` tier of the `symptom_triage` SLA (draft: 24 hours); the CMO should confirm that is the right tier for a patient-requested review.
+- There is no mobile checker screen. The on-device floor is exposed as `apps/mobile/src/lib/symptom-red-flags.ts` for a future one.
+- Decision: open (CMO for the first four, founder for the rest).

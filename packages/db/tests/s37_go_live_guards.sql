@@ -442,6 +442,10 @@ begin
     (select count(*)::text from public.proposed_config_signoffs where signed_by not in (v_cmo, v_admin)));
 
   -- every condition the dashboard shows as recorded by a person can actually be recorded (the attestable list matches the conditions)
+  -- S60: two symptom_checker_enabled attestations need a record behind them (a determined regulatory position, a baseline report); fixtures:
+  insert into public.regulatory_positions (organisation_id, topic, position_text, classification, counsel_name, position_date, attached_by, is_test)
+  values (v_org, 'symptom_checker', 'Proof fixture: counsel advises the checker is decision support, labelled as such.', 'decision_support_not_a_device', 'S37 proof counsel', current_date, v_admin, true);
+  perform private.run_symptom_accuracy_audit(v_org, (date_trunc('month', now()) - interval '1 month')::date, true, v_admin);
   perform pg_temp.act(v_admin);
   perform pg_temp.rec('every attestation condition the dashboard lists can be attested', '0',
     (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g, jsonb_array_elements(g -> 'conditions') c

@@ -1311,4 +1311,84 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/OPEN-QUESTIONS.md OQ-08 and OQ-F1-01; docs/design/S55-S60-build-plan.md section 4.3",
   },
+  {
+    key: "symptom.degraded_mode",
+    // S60 (spec 12.8, INV-06): what the symptom checker does when its engine errors, times out or has no protocol to run. The
+    // bundled red-flag floor runs first either way. In degraded mode the severity floors on the signed red-flag rules may be
+    // ignored (a strictly more sensitive screen), and a run that fired no flag is never reassurance: it is routed to at least
+    // this category with a human review. The CMO confirms or changes it.
+    value: { ignore_severity_floors: true, unclassifiable_category: "urgent", engine_timeout_ms: 3000 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 3; spec 12.8; docs/OPEN-QUESTIONS.md OQ-S60-02",
+  },
+  {
+    key: "symptom.risk_tightening",
+    // S60 (spec 12.2 and 12.11): Nigerian prevalence and seasonal risk, as a layer that can only RAISE an urgency (a minimum
+    // category), never lower or replace one. Every entry below is a DRAFT: status "draft", no clinical sign-off, a placeholder
+    // provenance that says so. The engine ignores an entry until it is "signed_off" with a named signer and date, so shipping
+    // this changes nothing for any patient. The CMO decides which entries exist, their wording, seasons, regions and minimums;
+    // none of the months, states or symptom keys below is clinical advice. `applies_when` keys that no signed pathway asks yet
+    // (for example sickle_cell_disease history) will simply not match until a signed pathway collects them.
+    value: {
+      entries: [
+        {
+          id: "malaria_season_fever",
+          label: "Fever during the rainy season",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must confirm the season and the source (for example national malaria programme guidance) before this is signed." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [4, 5, 6, 7, 8, 9, 10], any_associated_symptom: ["fever"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "typhoid_fever_with_abdominal_pain",
+          label: "Fever with abdominal pain",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. Needs a sourced definition and a signed abdominal pain pathway that collects these symptoms." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_associated_symptom: ["fever"], complaint_keys: ["abdominal_pain"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "lassa_season_fever",
+          label: "Fever in the dry season in a high-risk state",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must name the season, the states and the source (for example national disease control centre guidance) before this is signed." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [11, 12, 1, 2, 3, 4], states: [], any_associated_symptom: ["fever"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "sickle_cell_history_with_symptom",
+          label: "Sickle cell history with fever or pain",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. Needs a signed pathway that records sickle cell history, and the CMO's minimum category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_history: ["sickle_cell_disease"], any_associated_symptom: ["fever", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 4; spec 12.2 and 12.11; docs/OPEN-QUESTIONS.md OQ-S60-03",
+  },
+  {
+    key: "symptom.accuracy_audit",
+    // S60 (spec 12.12): the monthly accuracy audit. Cells with fewer reviewed cases than min_cell_size are suppressed (a
+    // group of a few people is a person, and a rate over a handful of cases is noise). Intervals are Wilson score intervals at
+    // this confidence. The live value is the active row of `symptom_accuracy_config`; a test fails if the migration seed and
+    // this value drift. The first report is a baseline, not a claim: nothing here lets a figure be published.
+    value: { min_cell_size: 10, confidence_level: 0.95, age_bands: [[0, 4], [5, 17], [18, 39], [40, 59], [60, 150]] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 6; spec 12.12; docs/OPEN-QUESTIONS.md OQ-S60-05",
+  },
 ];

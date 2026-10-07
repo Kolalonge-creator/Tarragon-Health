@@ -3,13 +3,31 @@
 import { useState, useTransition } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  requestSymptomReview,
   stepSymptomTriage,
   type PresentingComplaintOption,
+  type ReviewTime,
   type SymptomTriageStepResult,
 } from "./symptom-triage-actions";
 import { activeEmergencyKey } from "@/lib/queries/emergency";
 import { CATEGORY_SAFETY_NET_MESSAGE, getSafetyNetMessage } from "@/lib/symptom-triage/safety-net-copy";
-import type { AnswerMap, AnsweredQuestion, Onset, QuestionNode } from "@tarragon/symptom-triage-engine";
+import {
+  SEED_PATHWAYS,
+  categoryAtLeast,
+  evaluateBundledRedFlags,
+  runTriageFailSafe,
+  type AnswerMap,
+  type AnsweredQuestion,
+  type DegradedModeConfig,
+  type Onset,
+  type QuestionNode,
+  type SymptomCapture,
+  type TriageCategory,
+} from "@tarragon/symptom-triage-engine";
+import { t, type MessageKey } from "@tarragon/i18n";
+import { NotADiagnosis } from "@/components/symptom/not-a-diagnosis";
+import { reviewTimeSentence } from "@/lib/symptom-triage/review-time";
+import { symptomOptionLabel } from "@/lib/symptom-triage/option-label";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -25,6 +43,13 @@ type Stage =
       category: string;
       clinicianReviewRequired: boolean;
       safetyNetMessageKey: string;
+      assessmentId: string | null;
+      /** The engine could not answer; this is the fail-toward-escalation result. */
+      degraded: boolean;
+      /** The check could not be saved (the patient still has this result). */
+      recorded: boolean;
+      /** Worked out on this device, with no server (INV-06). */
+      onDevice: boolean;
     }
   | { step: "unavailable" }
   | { step: "error"; message: string };
@@ -70,7 +95,40 @@ function handleStepResult(result: SymptomTriageStepResult): Stage {
     category: result.category,
     clinicianReviewRequired: result.clinicianReviewRequired,
     safetyNetMessageKey: result.safetyNetMessageKey,
+    assessmentId: result.assessmentId,
+    degraded: result.degraded,
+    recorded: result.recorded,
+    onDevice: false,
   };
+}
+
+type ResultStage = Extract<Stage, { step: "result" }>;
+
+/**
+ * INV-06: the red-flag screen runs on this device, from content bundled with the page, so emergency guidance never waits for a
+ * network. This builds the result stage for the bundled floor (or the engine-down fallback) with no server call.
+ */
+async function resultOnDevice(capture: SymptomCapture, degraded: DegradedModeConfig): Promise<ResultStage> {
+  const r = await runTriageFailSafe({ pathway: null, capture, answers: {}, degraded });
+  return {
+    step: "result",
+    category: r.category,
+    clinicianReviewRequired: true,
+    safetyNetMessageKey: r.safetyNetMessageKey,
+    assessmentId: null,
+    degraded: true,
+    recorded: false,
+    onDevice: true,
+  };
+}
+
+/** Never let a later, softer answer (or a "closed" or an error) replace an emergency the bundled floor already showed. */
+function keepMoreUrgent(shown: ResultStage | null, next: Stage): Stage {
+  if (!shown) return next;
+  if (next.step !== "result") return shown;
+  return categoryAtLeast(next.category as TriageCategory, shown.category as TriageCategory)
+    ? next
+    : { ...next, category: shown.category, safetyNetMessageKey: shown.safetyNetMessageKey };
 }
 
 /**
@@ -86,9 +144,15 @@ function handleStepResult(result: SymptomTriageStepResult): Stage {
 export function SymptomTriageCheck({
   patientId,
   presentingComplaints,
+  degradedConfig,
+  reviewTime,
 }: {
   patientId: string;
   presentingComplaints: PresentingComplaintOption[];
+  /** PROPOSED config `symptom.degraded_mode`, read on the server. */
+  degradedConfig: DegradedModeConfig;
+  /** The stated review time from the active signed SLA, or not stated. */
+  reviewTime: ReviewTime;
 }) {
   const [stage, setStage] = useState<Stage>({ step: "pick_complaint" });
   const [pending, startTransition] = useTransition();
@@ -117,17 +181,47 @@ export function SymptomTriageCheck({
   }
 
   function submitCapture(capture: CaptureDraft) {
+    // Red flags first, on this device (spec 12.8, INV-06). An emergency is shown at once, before and whatever the server does.
+    const local = evaluateBundledRedFlags(capture as SymptomCapture);
+    let shown: ResultStage | null = null;
+    if (local.topCategory === "emergency") {
+      const first = local.fired[0];
+      shown = {
+        step: "result",
+        category: "emergency",
+        clinicianReviewRequired: true,
+        safetyNetMessageKey: first ? `redflag.${first.key}` : "degraded.engine_unavailable",
+        assessmentId: null,
+        degraded: false,
+        recorded: false,
+        onDevice: true,
+      };
+      setStage(shown);
+    }
     startTransition(async () => {
-      const result = await stepSymptomTriage({ capture, answers: {}, questionLog: [] });
-      setStage(handleStepResult(result));
+      try {
+        const result = await stepSymptomTriage({ capture, answers: {}, questionLog: [] });
+        // closed or unavailable never replaces an on-device emergency
+        const next = handleStepResult(result);
+        setStage(keepMoreUrgent(shown, next));
+      } catch {
+        // no server: the answer is worked out here, and it can only be as safe or safer than silence
+        const fallback = await resultOnDevice(capture as SymptomCapture, degradedConfig);
+        setStage(keepMoreUrgent(shown, fallback));
+      }
     });
   }
 
   function submitAnswer(current: Extract<Stage, { step: "question" }>, value: boolean | string) {
     const answers = { ...current.answers, [current.question.key]: value };
     startTransition(async () => {
-      const result = await stepSymptomTriage({ capture: current.capture, answers, questionLog: current.questionLog });
-      const next = handleStepResult(result);
+      let next: Stage;
+      try {
+        const result = await stepSymptomTriage({ capture: current.capture, answers, questionLog: current.questionLog });
+        next = handleStepResult(result);
+      } catch {
+        next = await resultOnDevice(current.capture as SymptomCapture, degradedConfig);
+      }
       setStage(next);
       if (next.step === "result" && (next.category === "emergency" || next.category === "urgent")) {
         // An emergency assessment raises a linked emergency_events row
@@ -172,17 +266,31 @@ export function SymptomTriageCheck({
             <Badge variant={CATEGORY_BADGE_VARIANT[stage.category]}>
               {CATEGORY_LABEL[stage.category] ?? stage.category.replace(/_/g, " ")}
             </Badge>
+            {stage.degraded && (
+              <div className="space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+                <p className="font-medium">{t("symptom.degraded.title")}</p>
+                <p>{t(stage.onDevice ? "symptom.degraded.offline" : "symptom.degraded.body")}</p>
+              </div>
+            )}
             <p className="text-sm text-charcoal-ink dark:text-night-ink">
-              {getSafetyNetMessage(
-                stage.safetyNetMessageKey,
-                stage.category as keyof typeof CATEGORY_SAFETY_NET_MESSAGE
-              )}
+              {stage.category === "emergency"
+                ? t("symptom.emergency.go_now")
+                : getSafetyNetMessage(stage.safetyNetMessageKey, stage.category as keyof typeof CATEGORY_SAFETY_NET_MESSAGE)}
             </p>
-            {stage.clinicianReviewRequired && (
+            {stage.category === "urgent" && stage.degraded && (
+              <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("symptom.result.urgent_floor")}</p>
+            )}
+            {stage.onDevice && <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("symptom.emergency.offline_note")}</p>}
+            {!stage.recorded && stage.category !== "emergency" && (
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("symptom.degraded.not_saved")}</p>
+            )}
+            {stage.clinicianReviewRequired && !stage.degraded && (
               <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                 A member of our care team will also take a look at this one directly.
               </p>
             )}
+            <NotADiagnosis />
+            {stage.assessmentId && <ReviewRequest assessmentId={stage.assessmentId} reviewTime={reviewTime} />}
             <Button type="button" variant="outline" onClick={() => setStage({ step: "pick_complaint" })}>
               Check another symptom
             </Button>
@@ -205,6 +313,11 @@ export function SymptomTriageCheck({
   );
 }
 
+/**
+ * The first screen after choosing a complaint: when it started, how bad, and the safety checklist (spec 12.8). The checklist
+ * options come from the BUNDLED signed pathway vocabulary, so this screen works with no connection. Unticked means "not
+ * reported", never "ruled out".
+ */
 function InitialCaptureForm({
   complaintKey,
   pending,
@@ -216,6 +329,28 @@ function InitialCaptureForm({
 }) {
   const [onset, setOnset] = useState<Onset>("gradual");
   const [severity, setSeverity] = useState(5);
+  const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [triggers, setTriggers] = useState<string[]>([]);
+  const [history, setHistory] = useState<string[]>([]);
+  const vocab = SEED_PATHWAYS.find((p) => p.key === complaintKey);
+
+  const toggle = (list: string[], set: (v: string[]) => void, key: string) =>
+    set(list.includes(key) ? list.filter((k) => k !== key) : [...list, key]);
+
+  const group = (title: MessageKey, keys: readonly string[] | undefined, list: string[], set: (v: string[]) => void) =>
+    keys && keys.length > 0 ? (
+      <fieldset className="space-y-1.5">
+        <legend className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{t(title)}</legend>
+        <div className="flex flex-col gap-1.5 text-sm">
+          {keys.map((k) => (
+            <label key={k} className="flex items-center gap-2">
+              <input type="checkbox" checked={list.includes(k)} onChange={() => toggle(list, set, k)} />
+              {symptomOptionLabel(k)}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    ) : null;
 
   return (
     <form
@@ -226,13 +361,18 @@ function InitialCaptureForm({
           presentingComplaintKey: complaintKey,
           onset,
           severity,
-          associatedSymptoms: [],
-          triggers: [],
-          relevantHistory: [],
+          associatedSymptoms: symptoms,
+          triggers,
+          relevantHistory: history,
           measurements: {},
         });
       }}
     >
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{t("symptom.redflag.title")}</p>
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("symptom.redflag.intro")}</p>
+      </div>
+
       <div className="space-y-1.5">
         <Label>When did it start?</Label>
         <div className="flex gap-4 text-sm">
@@ -261,10 +401,50 @@ function InitialCaptureForm({
         />
       </div>
 
+      {group("symptom.redflag.symptoms", vocab?.knownAssociatedSymptoms, symptoms, setSymptoms)}
+      {group("symptom.redflag.triggers", vocab?.knownTriggers, triggers, setTriggers)}
+      {group("symptom.redflag.history", vocab?.knownHistory, history, setHistory)}
+
       <Button type="submit" disabled={pending}>
-        {pending ? "Checking..." : "Continue"}
+        {pending ? "Checking..." : t("symptom.redflag.continue")}
       </Button>
     </form>
+  );
+}
+
+/** Ask the care team to look at the check (spec 12.10), with the stated time read from the signed SLA, or none. */
+function ReviewRequest({ assessmentId, reviewTime }: { assessmentId: string; reviewTime: ReviewTime }) {
+  const [state, setState] = useState<"idle" | "sending" | "requested" | "closed" | "error">("idle");
+  const [time, setTime] = useState<ReviewTime>(reviewTime);
+  return (
+    <div className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3 dark:border-night-ink/15">
+      {state === "requested" ? (
+        <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("symptom.review.requested")}</p>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          disabled={state === "sending"}
+          onClick={async () => {
+            setState("sending");
+            try {
+              const r = await requestSymptomReview(assessmentId);
+              if (r.status === "requested") {
+                setTime(r.stated);
+                setState("requested");
+              } else setState(r.status === "unavailable" ? "closed" : "error");
+            } catch {
+              setState("error");
+            }
+          }}
+        >
+          {t("symptom.review.cta")}
+        </Button>
+      )}
+      <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{reviewTimeSentence(time)}</p>
+      {state === "closed" && <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{t("symptom.review.closed")}</p>}
+      {state === "error" && <p className="text-xs text-red-800">{t("symptom.review.error")}</p>}
+    </div>
   );
 }
 
