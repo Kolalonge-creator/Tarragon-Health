@@ -857,6 +857,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S17.md; spec 7.6 and 7.8",
   },
   {
+    key: "queue.sla_warning",
+    // When a held task's due time turns from blue to amber on the clinician queue and task screens (S35): this many minutes
+    // before it is due. Display only: it changes no deadline, routing or fee. PROPOSED, CMO to confirm; the value on the
+    // go-live sign-off screen is the one in force.
+    value: { warn_within_minutes: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S35.md; docs/research/S35.md (OpenMRS keeps thresholds in data, not in the formatter)",
+  },
+  {
     key: "outcomes.snapshot_rules",
     // Outcome snapshots and the 90-day BP control report (S38, spec 4.10 and Module 22). Live values are the active row of
     // `outcome_config`; this entry mirrors it and a test fails if the migration seed and this value drift. Every number is PROPOSED
@@ -1278,6 +1290,50 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S26.md; OQ-127",
+  },
+  {
+    key: "risk.stratification",
+    // Risk points for ordering clinician outreach (S38c, Module 22.3). Live value is the active row of `risk_config`; a test fails if
+    // the migration seed and this value drift. PROPOSED, owned by the CMO (OQ-274): every weight and tier cut-off. Points only order
+    // outreach; they are never a clinical grade and never gate, price or deny care.
+    value: {
+      joined_min_days: 7,
+      bp_window_days: 7,
+      min_readings: 3,
+      above_target: { systolic: 10, diastolic: 5 },
+      well_above_target: { systolic: 20, diastolic: 10 },
+      rising_systolic: 10,
+      silence_days: { medium: 5, high: 10 },
+      adherence_low_pct: 60,
+      triage_lookback_days: 30,
+      points: {
+        deterioration: { above_target: 25, well_above_target: 45, rising: 15, red_event: 40, amber_event: 15, last_snapshot_uncontrolled: 15, low_adherence: 10 },
+        dropout: { silent_medium: 25, silent_high: 50, fewer_readings: 20, low_adherence: 20, no_readings_ever: 40 },
+      },
+      tiers: { medium_min: 30, high_min: 60 },
+      override_max_days: 30,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S38c.md; docs/research/S38.md section 22.3",
+  },
+  {
+    key: "reports.monthly",
+    // The personal monthly progress report (S38c, Module 22.5). Live value is the active row of `monthly_report_config`; drift test.
+    // PROPOSED, owned by the CMO (OQ-275): readings needed before any average or direction is shown, and the wait for late syncs.
+    value: {
+      min_readings: 3,
+      grace_days: 2,
+      direction_threshold_systolic: 5,
+      default_target: { systolic: 140, diastolic: 90 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S38c.md; docs/research/S38.md section 22.5",
   },
   {
     key: "audio.bundled_max_bytes",

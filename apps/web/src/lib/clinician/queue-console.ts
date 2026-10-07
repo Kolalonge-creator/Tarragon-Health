@@ -157,17 +157,18 @@ export function rankLeadPatients(leads: LeadPatient[]): LeadPatient[] {
   );
 }
 
-export type SlaState = { kind: "none" } | { kind: "overdue" } | { kind: "due"; minutes: number };
+export type SlaState = { kind: "none" } | { kind: "overdue" } | { kind: "due"; minutes: number; warn: boolean };
 
 /**
- * How a task's due time reads: overdue, or minutes left. No warning threshold lives here: a colour change at some
- * number of minutes would be a PROPOSED value and belongs in versioned config. The due time itself comes from the
+ * How a task's due time reads: overdue, or minutes left, and whether it is inside the warning window. The window is a
+ * PROPOSED value (`queue.sla_warning`) passed in by the caller, never a literal here. The due time itself comes from the
  * task (set from the signed task type), so this only reports it.
  */
-export function slaState(dueAt: string | null | undefined, now: Date): SlaState {
+export function slaState(dueAt: string | null | undefined, now: Date, warnWithinMinutes?: number): SlaState {
   if (!dueAt) return { kind: "none" };
   const ms = new Date(dueAt).getTime() - now.getTime();
   if (Number.isNaN(ms)) return { kind: "none" };
   if (ms <= 0) return { kind: "overdue" };
-  return { kind: "due", minutes: Math.ceil(ms / 60_000) };
+  const minutes = Math.ceil(ms / 60_000);
+  return { kind: "due", minutes, warn: warnWithinMinutes !== undefined && minutes <= warnWithinMinutes };
 }
