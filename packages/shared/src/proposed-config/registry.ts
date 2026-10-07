@@ -954,6 +954,74 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S38.md; spec 4.10 and Module 22; docs/research/S38.md",
   },
   {
+    key: "outcomes.measures",
+    // Outcome measures beyond blood pressure (S75b, spec 22.1): HbA1c, weight, PHQ-9 and GAD-7 windows, thresholds and severity bands, the response-time
+    // grouping rules, the retention days and the evaluation-design note a sponsor pack carries. Live values are the active row of `outcome_measure_config`;
+    // this entry mirrors it and a test fails if the migration seed and this value drift. Every number is PROPOSED and owned by the CMO. The reports show
+    // NO figure for these measures until the CMO has signed this version on the go-live sign-off screen (decision S75-2); nothing here is signed.
+    value: {
+        days: [0, 90, 180],
+        grace_days: 3,
+        min_age_years: 18,
+        hba1c: {
+          baseline_before_days: 90,
+          baseline_after_days: 14,
+          half_width_days: 30,
+          meaningful_change_pp: 0.5,
+          target_pct: 7.0,
+          min_plausible: 3.0,
+          max_plausible: 20.0,
+        },
+        weight: {
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          half_width_days: 14,
+          loss_pct: 5.0,
+        },
+        phq9: {
+          baseline_before_days: 30,
+          baseline_after_days: 14,
+          half_width_days: 21,
+          response_pct: 50,
+          remission_below: 5,
+          meaningful_change: 5,
+          safeguard_item9_above: 0,
+          safeguard_score_from: 20,
+          bands: [["minimal", 0, 4], ["mild", 5, 9], ["moderate", 10, 14], ["moderately_severe", 15, 19], ["severe", 20, 27]],
+        },
+        gad7: {
+          baseline_before_days: 30,
+          baseline_after_days: 14,
+          half_width_days: 21,
+          response_pct: 50,
+          remission_below: 5,
+          meaningful_change: 4,
+          bands: [["minimal", 0, 4], ["mild", 5, 9], ["moderate", 10, 14], ["severe", 15, 21]],
+        },
+        response_times: {
+          min_clinicians_per_group: 3,
+          priority_bands: {
+            urgent: [1, 2],
+            soon: [3, 5],
+            routine: [6, 9],
+          },
+        },
+        retention: {
+          days: [30, 90, 180],
+          engaged_window_days: 30,
+        },
+        pack: {
+          evaluation_design: "What this pack is: a descriptive before-and-after summary of the members who agreed to share group figures, taken at the day they joined and again 90 and 180 days later. There is no comparison group, members were not chosen at random, and the people who stay are not the same as the people who leave. For these reasons the figures describe what happened to these members and cannot show what would have happened without the programme. Differences between months or groups can arise from who joined, not from anything the programme did.",
+          caveat: "A change in a measure is not a verdict on the programme. Results for the same programme will differ with who joined, how long they stayed and how often they were measured.",
+        },
+      },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S75.md; docs/plans/S70-S75-cmo-signoff-pack.md C7; decision S75-2",
+  },
+  {
     key: "quality.audit",
     // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
     // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.

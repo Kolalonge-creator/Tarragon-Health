@@ -30,3 +30,17 @@ describe("outcomes.snapshot_rules mirrors the migration seeds", () => {
     expect(v.min_readings).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("outcomes.measures mirrors the S75b migration seed", () => {
+  it("v1 is identical to the outcome_measure_config v1 seed", () => {
+    expect(seed("_s75b_outcome_measures.sql", "measures-rules")).toEqual(PROPOSED_CONFIG.find((e) => e.key === "outcomes.measures" && e.version === 1)?.value);
+  });
+  it("is owned by the CMO, proposed (never self-confirmed), and the safeguarding lines are present", () => {
+    const e = PROPOSED_CONFIG.find((x) => x.key === "outcomes.measures" && x.version === 1);
+    expect(e?.owner).toBe("CMO");
+    expect(e?.status).toBe("proposed");
+    const v = e?.value as { phq9: { safeguard_item9_above: number; safeguard_score_from: number } };
+    expect(v.phq9.safeguard_item9_above).toBe(0);
+    expect(v.phq9.safeguard_score_from).toBe(20);
+  });
+});

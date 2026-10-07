@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
-import { allowedAgreements, parseReviewList, type Agreement } from "@/lib/triage-accuracy/report";
+import { allowedAgreements, parseReviewList, type Agreement } from "@/lib/triage-agreement/report";
 import { recordTriageReviewAction } from "./actions";
 
 export const metadata = { title: "Review automatic grades" };

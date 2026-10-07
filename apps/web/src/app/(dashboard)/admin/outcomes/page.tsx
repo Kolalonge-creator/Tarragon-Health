@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-function CohortView({ title, c }: { title: string; c: Cohort }) {
+function CohortView({ title, c, day }: { title: string; c: Cohort; day: number }) {
   return (
     <Card>
       <CardHeader>
@@ -20,12 +21,12 @@ function CohortView({ title, c }: { title: string; c: Cohort }) {
         {isShown(c) ? (
           <>
             <p>
-              <strong>{pct(c.rate_strict_pct)}</strong> had blood pressure under control at day 90, counting everyone in this group ({c.controlled} of {c.n}).
+              <strong>{pct(c.rate_strict_pct)}</strong> had blood pressure under control at day {day}, counting everyone in this group ({c.controlled} of {c.n}).
               People who stopped logging count as not controlled.
             </p>
             <p>Among the {c.controlled + c.uncontrolled} people with enough readings: {pct(c.rate_among_measured_pct) ?? "not shown (too few)"}.</p>
             <p>
-              No readings or too few at day 90: {c.insufficient_data} people ({pct(c.missing_pct)}). Not controlled: {c.uncontrolled}.
+              No readings or too few at day {day}: {c.insufficient_data} people ({pct(c.missing_pct)}). Not controlled: {c.uncontrolled}.
             </p>
           </>
         ) : (
@@ -43,8 +44,11 @@ export default async function AdminOutcomesPage({ searchParams }: { searchParams
   const sp = await searchParams;
   const from = dateParam(sp.from);
   const to = dateParam(sp.to);
+  const day = sp.day === "180" ? 180 : 90;
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("bp_control_report", { p_from: from ?? undefined, p_to: to ?? undefined });
+  const { data, error } = day === 180
+    ? await supabase.rpc("bp_control_report_180d", { p_from: from ?? undefined, p_to: to ?? undefined })
+    : await supabase.rpc("bp_control_report", { p_from: from ?? undefined, p_to: to ?? undefined });
   const report = error ? null : parseReport(data);
 
   return (
@@ -52,10 +56,17 @@ export default async function AdminOutcomesPage({ searchParams }: { searchParams
       <PageHeader
         title="Outcomes"
         backTo={{ href: "/admin", label: "Admin" }}
-        description="Blood pressure control 90 days after people join. Everyone whose day-90 window has closed is counted, including people who stopped logging. Small numbers are withheld. This page lists no individual."
+        description={`Blood pressure control ${day} days after people join. Everyone whose day-${day} window has closed is counted, including people who stopped logging. Small numbers are withheld. This page lists no individual.`}
       />
       <p className="text-sm">Ranges are by whole calendar month of joining, so a figure cannot be narrowed to a few people.{report?.range?.from ? ` Showing ${report.range.from} to ${report.range.to ?? "now"}.` : ""}</p>
+      <nav aria-label="Outcome reports" className="flex flex-wrap gap-3 text-sm">
+        <Link href="/admin/outcomes?day=90" className="min-h-11 rounded border px-3 py-2" aria-current={day === 90 ? "page" : undefined}>Blood pressure, day 90</Link>
+        <Link href="/admin/outcomes?day=180" className="min-h-11 rounded border px-3 py-2" aria-current={day === 180 ? "page" : undefined}>Blood pressure, day 180</Link>
+        <Link href="/admin/outcomes/measures" className="min-h-11 rounded border px-3 py-2">HbA1c, weight, PHQ-9, GAD-7, retention, response times, data quality</Link>
+      </nav>
+      <p className="text-sm">Blood pressure is judged against each person&apos;s own home target when they have one, otherwise 140/90. Home readings usually run lower than clinic readings, so control may be overstated.</p>
       <form method="get" className="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="day" value={day} />
         <label className="space-y-1">
           <span className="block text-sm">Joined from</span>
           <input type="date" name="from" defaultValue={from ?? ""} className="min-h-11 rounded border px-2" />
@@ -70,8 +81,8 @@ export default async function AdminOutcomesPage({ searchParams }: { searchParams
         <p role="alert">The report could not be read. Please refresh, or ask an admin or the CMO to open it.</p>
       ) : (
         <>
-          <CohortView title="Everyone whose day 90 is due" c={report.cohort_all_due} />
-          <CohortView title="People who started above target" c={report.cohort_baseline_uncontrolled} />
+          <CohortView title={`Everyone whose day ${day} is due`} c={report.cohort_all_due} day={day} />
+          <CohortView title="People who started above target" c={report.cohort_baseline_uncontrolled} day={day} />
           <Card>
             <CardHeader>
               <CardTitle>Change and adherence (kept apart from control)</CardTitle>
@@ -98,12 +109,12 @@ export default async function AdminOutcomesPage({ searchParams }: { searchParams
             </CardHeader>
             <CardContent className="space-y-1">
               {"suppressed" in report.data_quality ? (
-                <p>{withheldText(report.data_quality)} Enrolled in this range: {report.data_quality.enrolled_total ?? "unknown"}.</p>
+                <p>{withheldText(report.data_quality)} Enrolled in this range: {report.data_quality.enrolled_total ?? "withheld"}.</p>
               ) : (
                 <ul className="list-disc pl-5">
-                  <li>Enrolled: {report.data_quality.enrolled_total}; day 90 not due yet: {report.data_quality.not_yet_due}.</li>
+                  <li>Enrolled: {report.data_quality.enrolled_total ?? "withheld"}; day {day} not due yet: {report.data_quality.not_yet_due ?? "withheld"}.</li>
                   <li>No day-0 baseline: {pct(report.data_quality.baseline_missing_pct)}.</li>
-                  <li>No usable reading at day 90: {pct(report.data_quality.day90_no_reading_pct)}.</li>
+                  <li>No usable reading at day {day}: {pct(report.data_quality.due_day_no_reading_pct ?? report.data_quality.day90_no_reading_pct)}.</li>
                   <li>Held to the default 140/90 because no personal target was set: {pct(report.data_quality.default_target_used_pct)}.</li>
                   <li>Readings that arrived after the snapshot was taken: {pct(report.data_quality.readings_arriving_after_snapshot_pct)}.</li>
                   <li>Adherence could not be read: {pct(report.data_quality.adherence_unavailable_pct) ?? "not reported"}.</li>
