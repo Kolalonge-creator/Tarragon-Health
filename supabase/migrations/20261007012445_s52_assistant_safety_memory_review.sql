@@ -386,6 +386,8 @@ declare
 begin
   select organisation_id, coalesce(is_test, false) into v_org, v_test from public.profiles where id = p_patient;
   if v_org is null then raise exception 'unknown patient' using errcode = '22023'; end if;
+  -- two messages at once never page twice: the second waits for the first, then sees its marker
+  perform pg_advisory_xact_lock(hashtext('assistant_page:' || p_conversation::text));
   -- once per conversation per window: a patient who keeps writing is not paged every message (the task merges them). A page that found
   -- nobody on call is retried sooner (the rota may have cover by then); a page that failed to send leaves no marker at all.
   if exists (select 1 from public.audit_log a
@@ -524,6 +526,17 @@ begin
                     and i.created_at >= v_from and i.created_at < v_to)
   on conflict (month, conversation_id) do nothing;
   get diagnostics v_reported = row_count;
+  -- a conversation already drawn at random (an earlier run, the backfill) that a patient has since reported becomes a reported one
+  perform set_config('tarragon.assistant_review_write', 'on', true);
+  update public.assistant_review_samples s
+     set selection = 'reported',
+         incident_id = (select i.id from public.ai_safety_incidents i join public.ai_assistant_turns t on t.interaction_id = i.interaction_id
+                         where t.conversation_id = s.conversation_id and i.reporter_kind = 'patient' and i.created_at >= v_from and i.created_at < v_to
+                         order by i.created_at limit 1)
+   where s.month = v_month and s.state = 'pending' and s.selection = 'random'
+     and exists (select 1 from public.ai_safety_incidents i join public.ai_assistant_turns t on t.interaction_id = i.interaction_id
+                  where t.conversation_id = s.conversation_id and i.reporter_kind = 'patient' and i.created_at >= v_from and i.created_at < v_to);
+  perform set_config('tarragon.assistant_review_write', 'off', true);
 
   -- the random draw is made once per month: a re-run (a retried cron) never draws a second sample
   if exists (select 1 from public.assistant_review_samples where month = v_month and selection = 'random') then

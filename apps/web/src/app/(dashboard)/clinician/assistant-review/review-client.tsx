@@ -62,7 +62,7 @@ export function AssistantReviewClient({ initial }: { initial: ReviewQueueRow[] }
             <span>{row.turns} turn(s)</span>
             <span>{row.state === "reviewed" ? `Reviewed: ${row.verdict ?? ""}` : "Waiting"}</span>
             {row.state === "pending" && open !== row.id && (
-              <Button type="button" size="sm" variant="outline" onClick={() => { setOpen(row.id); setConversation(null); setError(null); }}>
+              <Button type="button" size="sm" variant="outline" onClick={() => { setOpen(row.id); setConversation(null); setError(null); setReason(""); setNote(""); setVerdict("appropriate"); setCategory("none"); }}>
                 Review
               </Button>
             )}

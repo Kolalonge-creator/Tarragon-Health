@@ -689,7 +689,13 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       }
     );
     // INV-05: a self-harm message also pages the on-call clinician now. In addition to the escalation above, never instead of it.
-    if (state.selfHarm) await pageOnCallForSelfHarm(deps.getServiceRoleSupabase(), state.profileId, state.conversationId);
+    // bounded, so the patient's emergency copy is never held up by a slow page (the page itself keeps running and logs its own failure)
+    if (state.selfHarm) {
+      await Promise.race([
+        pageOnCallForSelfHarm(deps.getServiceRoleSupabase(), state.profileId, state.conversationId),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 4000)),
+      ]);
+    }
     return { clinicianAlertId, escalationId, careMessageThreadId };
   }
 
