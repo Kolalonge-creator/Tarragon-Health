@@ -209,7 +209,9 @@ jobs:
               - "packages/ui/**"
               - "packages/staff-core/**"
               - "supabase/migrations/**"
-              - "supabase/seed.sql"
+              - "supabase/seed/**"
+              - "supabase/functions/**"
+              - "packages/clinical/**"
               - ".github/workflows/ci.yml"
 
       - name: Install pnpm
@@ -322,7 +324,24 @@ jobs:
           # 2026-09-23 (checked via `gh secret list`) — add
           # PAYSTACK_SECRET_KEY as a repo secret to turn that test on.
           PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
+          # S85 journeys (e2e-browser/journeys): psql seeds the local stack; this is the CLI's default local db port.
+          E2E_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          # Lets a TEST chief medical officer approve the newest bp_care_triage draft inside this disposable database so journey 2
+          # exercises the queue, page and Care Circle path. It is not a signature: the journey still reports d1-rule-approved as
+          # pending (CMO) and the journey verdict as incomplete. See e2e-browser/journeys/README.md.
+          S85_FIXTURE_APPROVE_RULESET: "1"
         run: pnpm test:e2e-browser
+
+      # S85: print every journey's step report (passed / pending / skipped / failed) so a reader sees what is pending.
+      - name: Journey step report
+        if: always() && (github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true')
+        working-directory: apps/web
+        run: |
+          if ls test-results/journeys/*.txt >/dev/null 2>&1; then
+            { echo '### End to end journeys (S85)'; echo '```'; cat test-results/journeys/*.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'no journey reports were written' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       # The extracted staff console (S01d) has its own Playwright suite: anonymous
       # boundary and header checks always run; the sign-in specs use the same
