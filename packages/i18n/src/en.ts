@@ -1,3 +1,5 @@
+import { activeWording } from "./clinical-wording";
+
 /**
  * English catalogue (v5 spec Section 12). Flat dot-keys, `{param}` placeholders.
  *
@@ -710,20 +712,22 @@ export const en = {
   "reminders.permission.undetermined": "Allow notifications so reminders can reach you.",
   "reminders.saved": "Saved",
   // S11: triage messages. Notification keys (notify.*) never name a condition or a reading (INV-07).
-  "triage.emg_001.title": "Get help now",
-  "triage.emg_001.body": "Your reading and how you feel mean you need care now. Go to the nearest hospital, or ask someone to take you. Do not drive yourself. Tell them your blood pressure and your symptoms.",
-  "triage.emg_001l.title": "Sit or lie down, then get help",
-  "triage.emg_001l.body": "Sit or lie down now, and raise your legs if you can. Go to the nearest hospital, or ask someone to take you. Stand up slowly and do not drive yourself.",
-  "triage.tri_001.title": "Within your target",
-  "triage.tri_001.body": "Well done. Keep checking at the times you planned.",
-  "triage.tri_002.title": "Your care team will look at this",
-  "triage.tri_002.body": "Your care team will review this and may contact you. If you feel worse, go to the nearest hospital.",
-  "triage.tri_003.title": "A little above your target",
-  "triage.tri_003.body": "This is not an emergency. Rest, take your medicines as planned, and check again at your next time. If you feel unwell, go to the nearest hospital.",
-  "triage.tri_005.title": "Check again in 5 minutes",
-  "triage.tri_005.body": "Sit quietly for 5 minutes with your arm supported. Then measure once more and save it.",
-  "triage.tri_006.title": "That reading does not look right",
-  "triage.tri_006.body": "Check the numbers you typed, or measure again.",
+  "audio.listen": "Listen",
+  "audio.stop": "Stop",
+  "triage.emg_001.title": activeWording("EMG-001").title,
+  "triage.emg_001.body": activeWording("EMG-001").body,
+  "triage.emg_001l.title": activeWording("EMG-001L").title,
+  "triage.emg_001l.body": activeWording("EMG-001L").body,
+  "triage.tri_001.title": activeWording("TRI-001").title,
+  "triage.tri_001.body": activeWording("TRI-001").body,
+  "triage.tri_002.title": activeWording("TRI-002").title,
+  "triage.tri_002.body": activeWording("TRI-002").body,
+  "triage.tri_003.title": activeWording("TRI-003").title,
+  "triage.tri_003.body": activeWording("TRI-003").body,
+  "triage.tri_005.title": activeWording("TRI-005").title,
+  "triage.tri_005.body": activeWording("TRI-005").body,
+  "triage.tri_006.title": activeWording("TRI-006").title,
+  "triage.tri_006.body": activeWording("TRI-006").body,
   "notify.triage.task_created.title": "New task",
   "notify.triage.task_created.body": "A new task is waiting for you in TarragonHealth.",
   "share.title": "Share my records",
@@ -1893,6 +1897,18 @@ export const en = {
   "labres.replaced": "Replaced by a newer result",
   "labres.correction": "This is a corrected result. It replaces an earlier one.",
   "labres.screening": "This is a screening result. It is not a diagnosis, and your care team will tell you what happens next.",
+  "payapprove.title": "Payout approvals",
+  "payapprove.intro": "Weekly payout drafts waiting for approval. Approving only agrees the amount. The founder sends the money, and you cannot approve a payout that is yours.",
+  "payapprove.off": "Approval is switched off. You can read the drafts, but nothing can be approved until payouts are switched on from the go-live page.",
+  "payapprove.load_error": "The drafts could not be loaded. This is not the same as there being none.",
+  "payapprove.none": "No drafts are waiting.",
+  "payapprove.earnings": "{count} earnings, up to {date}",
+  "payapprove.no_bank": "No verified bank account yet, so this cannot be approved.",
+  "payapprove.approve": "Approve",
+  "payapprove.working": "Working...",
+  "payapprove.unnamed": "A clinician",
+  "payapprove.truncated": "Showing {shown} of {total} drafts waiting. Approve some to see the rest.",
+  "payapprove.mine": "This payout is yours, so someone else needs to approve it.",
 } as const;
 
 export type MessageKey = keyof typeof en;

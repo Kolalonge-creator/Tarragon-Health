@@ -1323,7 +1323,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ## Founder decisions recorded 2026-10-06 (after S36)
 - **OQ-215 (payouts): resolved by S31, not S36.** S31 (weekly payouts, approval, Paystack transfers, bank verification) was already merged and live when this was reconciled, with its own `payouts` table and `approve_payout`. The S36f payout draft build duplicated it and was removed from the branch before it was applied. Nothing from S36f is live.
-- **Who approves payouts when the founder is the only admin: admin or the Chief Medical Officer (founder, 2026-10-06).** Not yet implemented. The live `approve_payout` (S31) calls `private.payout_admin_org()`, which admits `admin` only, and `payout_admin_org` is shared by the other payout admin functions, so widening it is a change to a money gate and needs its own migration and proof (a CMO may approve a draft they did not prepare and who is not the payee; self-approval stays refused). Follow-up for S31.
+- **Who approves payouts when the founder is the only admin: admin or the Chief Medical Officer (founder, 2026-10-06).** Built by S36j (migration `20261007114253_s36j_cmo_may_approve_payouts.sql`, `/clinician/payout-approvals`): `approve_payout` now uses a new `private.payout_approver_org()` (admin or active CMO) and `payout_admin_org` was NOT widened, so the CMO still cannot build, discard, send, retry or list. Original note: the S31 `approve_payout` called `private.payout_admin_org()`, which admits `admin` only, and `payout_admin_org` is shared by the other payout admin functions, so widening it is a change to a money gate and needs its own migration and proof (a CMO may approve a draft they did not prepare and who is not the payee; self-approval stays refused). Follow-up for S31.
 - **OQ-230 (freelance means `contracted`): yes**, but moot for now because S36f was removed; the S31 build decides which clinicians it pays.
 - **OQ-245 (backup readers for safety concerns): none for now.** The founder is not named as a backup reader; the CMO alone reads concerns until a reader is chosen. The screen's add-reader button stays unused.
 - **Nigerian Pidgin removed from the platform (founder, 2026-10-06).** See the chore entry in `docs/BUILD-PROGRESS.md` and `docs/DECISIONS.md`. The Pidgin strings flagged for native review in S36d, S36e, S36g, S36h and S36i are therefore dropped, not reviewed.
@@ -1377,11 +1377,17 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-202 EMG-001L is not in the Audio Production List (raised by S32)
 - The triage engine (S11, OQ-87) emits `EMG-001L` for a low reading with fainting. The list has EMG-001 to EMG-013 and no low-pressure variant, so that guidance has text and no voice. A test lists this gap so closing it is a deliberate change.
 - Options: (a) the CMO writes the low-pressure script, it is added to the list and recorded (recommended); (b) play EMG-001 for it (wrong advice for a low reading, not recommended).
+- Decision: open.
+- Update 2026-10-07: EMG-001L is now a clip, added from `packages/i18n/src/clinical-wording.json` (today's text; the signed proposal replaces it only when the CMO signs). It still needs adding to the Audio Production List so it is recorded in order.
+
 
 ### OQ-203 The recorded scripts and the text on screen differ, so no Listen button is wired (raised by S32)
 - A voice must say what the screen says. They differ today. The list's EMG-001 says "call one one two or go to the nearest hospital emergency department"; S11's EMG-001 text prints no number (OQ-87, PR #785) and the list itself says to confirm 112 first. The list's TRI-002 is for care pack members and promises a reply within twenty-four hours; S11 uses TRI-002 for every amber. TRI-003 and TRI-005 differ in wording too.
 - S32 added the scripts as `AUDIO_SCRIPTS` (generated, the words each clip will say) beside the existing `triage.*` catalogue and changed neither. `triageAudioId` now returns the real clip id, but no screen shows a Listen button.
 - Options: (a) the CMO signs one wording per code, the catalogue and the list are made identical, then Listen buttons are wired to EMG and TRI (recommended); (b) the screen shows the list's script text whenever it plays the clip.
+- Decision: open.
+- Built 2026-10-07 (PR 989): one wording file (`clinical-wording.json`) feeds the screen text, the audio script and the manifest, and a test fails if they differ. **The proposal is gated**: until the CMO fills in `signed` (by, on, version) the app keeps saying today's text, so merging the code changes nothing a patient reads. The emergency modal now shows the EMG-001 or EMG-001L words with a Listen button when on-device triage chose them. A Listen button shows only when a signed recording and an audio engine exist. EMG-001 still prints no phone number (OQ-87); the 112 sentence waits for the CMO. "Your care team has been told" was dropped from the red text (untrue on Free plan and for unsynced readings). TRI-002: see OQ-251.
+- Signed 2026-10-07 by the founder on their own instruction, all seven codes (`signed` in `clinical-wording.json`): EMG-001 keeps no phone number (OQ-87 stays; "call 112" not added), TRI-002 without a review promise (OQ-251), EMG-001L added. This is the founder's sign-off, not a CMO signature; the CMO can re-sign by raising `version`. EMG-001L still has to be added to the Audio Production List document so it is recorded in order.
 
 ### OQ-204 Where post-sign-up and on-demand audio is hosted (raised by S32)
 - NAV, HLP, CON, SYS and REM download once after sign-up; RES downloads when first played. There is no bucket or CDN for them. Files are addressed by checksum (`fileUrl`), so any static host works.
@@ -1434,6 +1440,13 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 - **Gift window decided 2026-10-07 (founder): 14 days, with one reminder on day 7.** Built in migration `20261007101733_s29d_gift_window_14_days.sql` (care circle config version 3: `gift_decide_days` 14, `gift_remind_days` 7; the sweep declines past the window and reminds once).
 
+### OQ-251 TRI-002 promises a clinician review that Free plan patients do not get (raised by the OQ-203 wording work)
+- Today's TRI-002 text says "Your care team will review this and may contact you". Doctor escalation on patient-logged readings is a paid-plan feature (CLAUDE.md, 2026-08-10), so a Free plan patient can be told something that will not happen.
+- The draft in `clinical-wording.json` removes the promise (the proposed TRI-002 says rest, check again, go to hospital if unwell). TRI-002 and TRI-003 then say nearly the same thing.
+- Options: (a) the CMO signs the no-promise text for everyone (recommended); (b) keep the promise only for patients who have clinician review, which needs the triage result to say which text applies; (c) change nothing.
+- Decision (founder, 2026-10-07): option (a), the no-promise text for everyone. Signed.
+
+
 ### OQ-250 AI-017 version v1 still names Nigerian Pidgin (found 2026-10-07)
 - Blocks: nothing. The live `ai_system_versions` row for `AI-017` `v1` (an approved governance record) has `intended_population` reading "...in Nigerian English or Nigerian Pidgin, with a transcript good enough to read." Pidgin was removed on 2026-10-06 (#984), so the record no longer describes the system.
 - The record is approved and immutable by design; only the Chief Medical Officer can register a new version. Suggested `v2` wording for the CMO to enter and approve in the governance screen: "Consultations between a Tarragon clinician and a consenting adult patient, in Nigerian English, with a transcript good enough to read." No other field changes. Nothing was written to the registry by an agent.
@@ -1478,3 +1491,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-288 Dose screens will sometimes over-block (raised by S51)
 - The dose-change request screen and the dose-advice reply screen are regular expressions. Over-matching routes a patient to their care team with fixed copy; under-matching is the failure to avoid. The CMO should read the patterns in `apps/web/src/lib/ai-coach/reply-screen.ts` and the fixed refusal wording (PROPOSED).
 - Decision: open (CMO).
+### OQ-252 (S34): size and cold-start targets conflict
+- The S34 prompt asks for under 40 MB and cold start under 3 seconds on a 2 GB Android phone. Spec D.1 and decision DG-1 (2026-10-02) superseded those targets: the floor is a 4 GB Android 10+ or iOS 16+ phone.
+- Options: (a) keep tracking the old numbers as PROPOSED budgets in config and fail CI only on growth (recommended); (b) set new targets for the 4 GB floor; (c) drop size budgets.
+- Decision (founder, 2026-10-07): no pass or fail targets for size or cold start. Build what is needed: the low-data setting, accessibility, and a size and start-time report that is tracked, never a gate. Numbers stay PROPOSED in versioned config for information only.

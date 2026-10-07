@@ -20,15 +20,15 @@ describe("what ships in the app", () => {
   it("counts one file per clip and one for each shared number clip", () => {
     const r = bundleReport(m, off);
     // ONB 18, EMG 13, TRI 8; NUM-P and D clips (23); 640 shared number clips.
-    expect(r.files).toBe(18 + 13 + 8 + 23 + 640);
-    expect(r.clips).toBe(18 + 13 + 8 + 23 + 640);
+    expect(r.files).toBe(18 + 14 + 8 + 23 + 640);
+    expect(r.clips).toBe(18 + 14 + 8 + 23 + 640);
     expect(bundleReport(m, on).files).toBe(r.files + 11);
   });
 
   it("reports everything as not yet recorded today, with zero bytes", () => {
     const r = bundleReport(m, off);
     expect(r).toMatchObject({ recorded: 0, bytes: 0, pendingRecording: r.files });
-    expect(r.byGroup.EMG).toEqual({ files: 13, recorded: 0, bytes: 0 });
+    expect(r.byGroup.EMG).toEqual({ files: 14, recorded: 0, bytes: 0 });
   });
 
   it("adds up the bytes of what has been recorded, per group", () => {
