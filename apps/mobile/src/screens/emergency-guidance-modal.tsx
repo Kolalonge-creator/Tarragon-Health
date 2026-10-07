@@ -3,6 +3,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, spacing } from "@/ui/theme";
 import { SecondaryButton } from "@/ui/components";
 import type { EmergencyContact } from "@/lib/emergency";
+import { ListenButton } from "@/ui/ListenButton";
+import { t, type MessageKey } from "@tarragon/i18n";
 
 /**
  * Native, zero-network "go to the nearest hospital now" safety net for a
@@ -27,6 +29,8 @@ export interface EmergencyGuidanceModalProps {
    * own beyond what the caller already knows from the queue/flush result. */
   synced: boolean;
   emergencyContact: EmergencyContact | null;
+  /** EMG-001 or EMG-001L: show those words (the same ones the voice says) and a Listen button. Null keeps the generic text. */
+  wordingCode?: string | null;
   onDismiss: () => void;
 }
 
@@ -35,6 +39,7 @@ export function EmergencyGuidanceModal({
   detail,
   synced,
   emergencyContact,
+  wordingCode = null,
   onDismiss,
 }: EmergencyGuidanceModalProps) {
   return (
@@ -67,6 +72,14 @@ export function EmergencyGuidanceModal({
           </View>
 
           <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
+            {wordingCode ? (
+              <>
+                <Text style={{ fontSize: 15, lineHeight: 22, color: colors.ink, fontWeight: "700" }}>
+                  {t(`triage.${wordingCode.toLowerCase()}.body`.replace("-", "_") as MessageKey, "en")}
+                </Text>
+                <ListenButton clipId={wordingCode} lang="en" />
+              </>
+            ) : null}
             <Text style={{ fontSize: 15, lineHeight: 22, color: colors.ink }}>
               TarragonHealth does not provide emergency care. If this is a medical emergency, please{" "}
               <Text style={{ fontWeight: "700" }}>go to your nearest hospital or emergency department now.</Text>
