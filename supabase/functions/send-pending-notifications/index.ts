@@ -130,6 +130,7 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   lifestyle_nudge: "education_wellness",
   lifestyle_review_due: "education_wellness",
   wellness_challenge_ending: "education_wellness",
+  community_update: "education_wellness",
   region_now_available: "education_wellness",
   // Patient Engagement Engine (see private.queue_engagement_interventions) —
   // same bucket as the other keep-up-with-your-care nudges above, rather than

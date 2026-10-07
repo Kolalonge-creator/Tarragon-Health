@@ -1922,3 +1922,57 @@ Numbering: the last number used on another branch was OQ-327; S66 starts at OQ-3
 - The server stores the result the phone reached (same pure code as the tests) and turns a "go today" result into an emergency event. A tampered client could raise a false alert (a nuisance, limited to one an hour) or hide a real one (no worse than not using the counter). Re-deriving the result on the server from the stored movements and config version is possible with the same package.
 - Options: (a) accept for now (recommended); (b) add a server recheck that flags a mismatch for review.
 - Decision: open.
+
+## S69 (community cohorts and challenges): questions from OQ-360
+
+### OQ-360 Who may start a cohort? (raised by S69)
+- Built: any signed-in adult patient can start up to 3 cohorts (PROPOSED), name it and become its moderator. Nothing checks that "Grace Fellowship" is a real church or that the organiser speaks for it; a stranger could start a group with a convincing name and invite people.
+- Options: (a) as built plus admin freeze and report-and-remove (recommended while the module is off); (b) organisers are vetted by Tarragon before they can start a cohort; (c) a cohort only goes live after a second member joins and confirms.
+- Decision: open. Recommend (a) for the test period, (b) before real launch.
+
+### OQ-361 Residual re-identification: two published snapshots a few hours apart (raised by S69)
+- Floor of 10, leave-one-out at 30 percent, rounding to 10, a 12 hour delay and a band instead of a count are all PROPOSED. If one person withdraws consent between two published snapshots the total drops by about their share (up to 30 percent when the cap is reached); others who know who withdrew could read their contribution approximately. Cohorts of exactly 10 are the weakest case.
+- Options: raise the floor to 15 or 20; add a floor on cohort size to start a challenge; publish at most once a day; add small noise. The CMO, the DPO and counsel should choose, with the DPIA.
+- Decision: open. Values stay in `community_config` (versioned) so changing them needs no deploy.
+
+### OQ-362 What a member can see of other members (raised by S69)
+- Built: first names and roles, to members and moderator only. A moderator knows who they invited. A "workplace" cohort could be started by a manager; the employer account itself reads nothing, but a manager who is also a patient is a moderator like any other.
+- Options: initials instead of first names; hide names from other members and show only a count; forbid a person who is also an employer admin from moderating a workplace cohort.
+- Decision: open.
+
+### OQ-363 The effort-only rule depends on what is recorded (raised by S69)
+- The rule reads: active conditions whose name or ICD-10 code points to heart failure, kidney disease or an eating disorder, the pregnancy record, active medicines named as insulins, and a positive eating-disorder screen. Someone with an undiagnosed or unrecorded condition, a recent birth (the postnatal record is not read), or a differently worded condition name is not restricted. The CMO should confirm the list, the wording match, and whether the postnatal period and "history of" entries (a resolved condition is currently NOT restricted: `status = resolved` is skipped, which may be wrong for an eating disorder in recovery) should count.
+- Safety default kept: restricted people see "not available for you" and nothing else; the reason is never shown.
+- Decision: open (CMO).
+
+### OQ-364 Activity minutes have no wearable source yet (raised by S69)
+- The wearable tables carry steps but no active-minutes reading, so `activity_minutes` is self-reported (1 to 180 a day, 300 a week, WHO range). The plan says "consented wearables"; that waits for S70 and per-category consent (`consent_activity`).
+- Decision: open (S70).
+
+### OQ-365 Templates, consent text and counsel are all drafts (raised by S69)
+- The seven challenge templates are `proposed`; nothing is approved. The consent text version is `draft-1`. The go-live guard needs the CMO's signature on at least one template, a recorded DPIA and counsel's confirmation of the NDPA 2023 references [verify]. The templates carry no clinical claim beyond effort, but the CMO should read each label and the WHO 150 to 300 minute wording.
+- Decision: pending (CMO, DPO, counsel).
+
+### OQ-366 The go-live guard patches two shared functions (raised by S69)
+- `private.go_live_conditions` and `public.attest_go_live_condition` are redefined by several sessions. Migration s69b reads the current definition and inserts the community branch and two attestable codes, and fails loudly if its anchor text moved. It is stamped after every known redefinition (S28c, 20261007153917). A later session that pastes a whole copy of either function will drop the community branch unless it keeps it.
+- Decision: open (process). Add the community guard to the S37 guard list when S37 is next touched.
+
+### OQ-367 Test accounts open the community even when the module is off (raised by S69)
+- Same as the S37 consultations rule (a test account passes), so the whole flow can be proved before launch. A test account can only be in a test cohort. Say if you would rather have the module switch gate test accounts too.
+- Decision: open (recommend as built).
+
+### OQ-368 Care Circle 17.1 to 17.4: what was not changed (raised by S69)
+- OQ-220: the join link now survives "Create an account" on the sign-in page (not run end to end in a browser). Still open: the same-organisation rule, native app deep links for the join link, and whether Paystack's foreign-card setting is switched on so diaspora supporters can pay (cannot be checked from the repository).
+- Decision: open.
+
+### OQ-369 Moderator succession and co-moderators (raised by S69)
+- Only the person who starts a cohort is a moderator. The plan says lay moderators (a pastor's assistant, an estate chair) invite, remove and close; there is no function yet to make a second moderator. If the only moderator leaves, the cohort closes, so nobody is promoted by accident.
+- Decision: open. Recommend a "make moderator" action by the moderator, with the person's own yes.
+
+### OQ-370 Group audio (17.8) is schema only (raised by S69)
+- Deferred by the founder 2026-10-07. When it is built: S21 real-device testing, the Zoom plan limit (Meeting versus Webinar, about 20 people), a clinician host tied to every attendee (INV-12), no recording and no scribe (the table already forbids both), roster of first names that is audit-logged.
+- Decision: pending (founder, later).
+
+### OQ-371 The solo wellness challenge still shows its title in the app (raised by S69)
+- Fixed: the ending notice no longer names the challenge or progress (INV-07). The titles ("5-Day Vitals Streak") remain inside the app's own wellness screen, where they are not a notification. The template still carries a legacy `smsText` field; `private.patient_reminder_channel` never picks SMS, so INV-08 holds, but the field could be removed.
+- Decision: open (low).
