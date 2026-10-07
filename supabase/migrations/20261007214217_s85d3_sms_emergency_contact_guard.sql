@@ -13,11 +13,33 @@
 -- does not know the guard refuses every emergency-contact SMS anyway, so this migration cannot open anything.
 -- COUNTS CHECKED live 2026-10-07 (read-only): go_live_guards has 7 rows, none named sms_emergency_contact_enabled.
 
+-- Refuse to replace the two functions below if the live bodies are not the ones this file was written against (an older or newer
+-- branch changed them): replacing blind would silently revert that work. Re-read both with pg_get_functiondef and rebase this file.
+do $$
+declare v_c text := pg_get_functiondef('private.go_live_conditions(text, uuid)'::regprocedure);
+        v_a text := pg_get_functiondef('public.attest_go_live_condition(text, text, boolean, text)'::regprocedure);
+begin
+  if position('notification_sender_deployed' in v_c) = 0 or position('clinical_safety_case_current' in v_c) = 0
+     or position('notification_sender_deployed' in v_a) = 0 or position('clinical_safety_case_current' in v_a) = 0 then
+    raise exception 'S85-D3: the live go-live functions are not the bodies this migration repeats; re-read them and rebase this file';
+  end if;
+  if position('sms_emergency_contact_enabled' in v_c) > 0 then
+    raise exception 'S85-D3: go_live_conditions already knows the guard; nothing to add';
+  end if;
+end $$;
+
+-- A second run of the sender (cron plus the escalation kick can overlap) must not queue the contact copies twice. The sender inserts
+-- one row per channel and treats 23505 as "already queued".
+create unique index if not exists notifications_emergency_contact_copy_once
+  on public.notifications ((payload ->> 'source_notification_id'), channel, template)
+  where template = 'emergency_contact_alert' and payload ? 'source_notification_id';
+
 insert into public.go_live_guards (key, label, blocks, condition_text, switch_role, enforced_in, not_enforced_in) values
   ('sms_emergency_contact_enabled', 'Emergency-contact SMS', 'The one SMS to a patient''s consented emergency contact (push and email still go out when the contact is reachable)',
    'Live SMS delivery proven (sender ID, DND route, real handset); founder approval of D3 recorded', 'admin',
    array['send-pending-notifications (emergency_contact_alert rows on the sms channel)'],
-   'Verification codes (Supabase phone auth) and clinician paging are separate and never read this guard. Push and email to a reachable contact never wait for it.');
+   'Verification codes (Supabase phone auth) and clinician paging are separate and never read this guard. Push and email to a reachable contact never wait for it.')
+on conflict (key) do nothing;
 
 create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
@@ -128,8 +150,21 @@ revoke all on function private.go_live_conditions(text, uuid) from public;
 revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
 grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;
 
+-- The server action asks one question: is the emergency-contact SMS exception open right now, by the same test the sender uses
+-- (is_on, with no test-account exemption). Service role only; a patient's browser session never calls it.
+create or replace function public.sms_emergency_contact_open() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select private.go_live_guard_on('sms_emergency_contact_enabled')
+$$;
+revoke all on function public.sms_emergency_contact_open() from public, anon, authenticated;
+grant execute on function public.sms_emergency_contact_open() to service_role;
+
 do $$
 begin
+  if has_function_privilege('authenticated', 'public.sms_emergency_contact_open()', 'EXECUTE')
+     or has_function_privilege('anon', 'public.sms_emergency_contact_open()', 'EXECUTE') then
+    raise exception 'S85-D3 assertion: only the service role may ask whether the exception is open';
+  end if;
   if exists (select 1 from public.go_live_guards where key = 'sms_emergency_contact_enabled' and is_on) then
     raise exception 'S85-D3 assertion: the guard must be born off';
   end if;

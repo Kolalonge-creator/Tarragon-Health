@@ -18,6 +18,38 @@ export function emergencyContactText(rawName: unknown): string {
   return `Tarragon: please call ${emergencyContactName(rawName)} now.`;
 }
 
+/**
+ * The patient's consent and number are re-checked when a row is sent, not only when it was queued. `owner` is the patient's
+ * live profile row (null when it could not be read: refuse, never assume consent).
+ */
+export function checkEmergencyContactRow(
+  owner: { readonly emergency_contact_consent: boolean | null; readonly emergency_contact_phone: string | null } | null,
+  toPhone: string | null,
+): "ok" | "consent_or_number_mismatch" {
+  if (!owner || owner.emergency_contact_consent !== true) return "consent_or_number_mismatch";
+  if (!toPhone || owner.emergency_contact_phone !== toPhone) return "consent_or_number_mismatch";
+  return "ok";
+}
+
+/** A copy for the contact (push, email, in-app) only needs the patient's consent still standing; the number was matched at fan-out. */
+export function checkFanoutRowConsent(owner: { readonly emergency_contact_consent: boolean | null } | null): "ok" | "consent_withdrawn" {
+  return owner?.emergency_contact_consent === true ? "ok" : "consent_withdrawn";
+}
+
+/** The go-live guard as the sender reads it: open only on a successful read of `is_on = true`. Any error or missing row is closed. */
+export function guardIsOpen(error: unknown, row: { readonly is_on: boolean } | null | undefined): boolean {
+  return !error && row?.is_on === true;
+}
+
+/**
+ * A contact is matched to a Tarragon account only through a CONFIRMED phone: the auth user's phone equals the number the patient
+ * gave and was confirmed. A profile that merely lists the number (unverified) is never alerted with the patient's name.
+ */
+export function confirmedPhoneMatches(authUser: { readonly phone?: string | null; readonly phone_confirmed_at?: string | null } | null | undefined, contactPhone: string): boolean {
+  const norm = (p: string | null | undefined) => (p ?? "").replace(/^\+/, "").trim();
+  return !!authUser && !!authUser.phone_confirmed_at && norm(authUser.phone) !== "" && norm(authUser.phone) === norm(contactPhone);
+}
+
 export interface ContactProfile { readonly id: string; readonly email: string | null }
 export interface FanoutRow {
   readonly recipient_id: string;
@@ -42,7 +74,7 @@ export function planContactFanout(input: {
 }): FanoutRow[] {
   const c = input.contact;
   if (!c || c.id === input.patientId) return [];
-  const base = { patient_name: emergencyContactName(input.patientName), source_notification_id: input.sourceNotificationId };
+  const base = { patient_name: emergencyContactName(input.patientName), patient_id: input.patientId, source_notification_id: input.sourceNotificationId };
   const row = (channel: FanoutRow["channel"], extra: Record<string, unknown> = {}): FanoutRow => ({
     recipient_id: c.id, organisation_id: input.organisationId, channel, template: "emergency_contact_alert", priority: "routine",
     payload: { ...base, ...extra },

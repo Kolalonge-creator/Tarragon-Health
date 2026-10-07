@@ -42980,6 +42980,7 @@ export type Database = {
         }[]
       }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
+      sms_emergency_contact_open: { Args: never; Returns: boolean }
       learning_course: {
         Args: { p_programme_code: string }
         Returns: {

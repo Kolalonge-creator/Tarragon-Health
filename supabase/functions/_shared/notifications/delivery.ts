@@ -59,6 +59,8 @@ export interface DecideInput {
  * Through this queue only the last two exist.
  */
 export type SmsPurpose = "clinician_page" | "emergency_contact" | "none";
+/** A refused critical row is FAILED so the escalation ladder still moves and alarms; a refused routine row is suppressed. */
+export const refusedSmsOutcome = (priority: Priority): "fail" | "suppress" => (priority === "critical" ? "fail" : "suppress");
 export const EMERGENCY_CONTACT_TEMPLATE = "emergency_contact_alert";
 export const EMERGENCY_CONTACT_SMS_GUARD_KEY = "sms_emergency_contact_enabled";
 

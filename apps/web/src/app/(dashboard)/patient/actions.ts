@@ -1274,6 +1274,11 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
   // notifications is queue-write only; the deployed dispatcher sends off-session.
   // recipient_id is the patient this emergency belongs to, not necessarily the caller.
   const serviceRole = createServiceRoleClient();
+  // While the SMS exception is switched off the text will not go. Say so, and do not mark the contact as notified: the
+  // patient must never be told "alerted" when only a suppressed row exists. The copies for a contact who is a Tarragon
+  // account are still queued below, so the alert may reach them in the app.
+  const { data: smsGuardOn, error: smsGuardError } = await serviceRole.rpc("sms_emergency_contact_open");
+  const smsOpen = !smsGuardError && smsGuardOn === true;
   const { error: notifyError } = await serviceRole.from("notifications").insert([
     {
       organisation_id: event.organisation_id,
@@ -1286,6 +1291,13 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
   ]);
   if (notifyError) {
     return { error: notifyError.message };
+  }
+
+  if (!smsOpen) {
+    return {
+      error:
+        "We can't send a text message to your contact yet. If they use Tarragon they have been told in the app. Please call them yourself now. If you need help right away, go to the nearest hospital.",
+    };
   }
 
   // Routed through an RPC so the write can be attributed to the patient in public.audit_log
