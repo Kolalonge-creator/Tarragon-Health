@@ -1,4 +1,4 @@
-import { rankLeadPatients, classCounts, completeTaskSchema, leadPatientsSchema, minutesLeft, patientSummarySchema, queueSummarySchema, safetyConcernSchema } from "./queue-console";
+import { slaState, rankLeadPatients, classCounts, completeTaskSchema, leadPatientsSchema, minutesLeft, patientSummarySchema, queueSummarySchema, safetyConcernSchema } from "./queue-console";
 
 describe("minutesLeft", () => {
   const now = new Date("2026-10-06T10:00:00Z");
@@ -67,5 +67,25 @@ describe("rankLeadPatients", () => {
     const input = [lead("B", 0, 0, 90), lead("A", 1, 0, 90)];
     rankLeadPatients(input);
     expect(input[0].first_name).toBe("B");
+  });
+});
+
+describe("slaState", () => {
+  const now = new Date("2026-10-06T10:00:00Z");
+  it("is overdue at and after the due time", () => {
+    expect(slaState("2026-10-06T10:00:00Z", now)).toEqual({ kind: "overdue" });
+    expect(slaState("2026-10-06T09:00:00Z", now)).toEqual({ kind: "overdue" });
+  });
+  it("rounds minutes left up", () => {
+    expect(slaState("2026-10-06T10:00:30Z", now)).toEqual({ kind: "due", minutes: 1, warn: false });
+  });
+  it("warns only inside the window it is given", () => {
+    expect(slaState("2026-10-06T10:20:00Z", now, 30)).toEqual({ kind: "due", minutes: 20, warn: true });
+    expect(slaState("2026-10-06T11:00:00Z", now, 30)).toEqual({ kind: "due", minutes: 60, warn: false });
+    expect(slaState("2026-10-06T10:30:00Z", now, 30)).toMatchObject({ warn: true });
+  });
+  it("is none without a due time or with a bad one", () => {
+    expect(slaState(null, now)).toEqual({ kind: "none" });
+    expect(slaState("nonsense", now)).toEqual({ kind: "none" });
   });
 });
