@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
-import { koboToNaira } from "@tarragon/shared";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import {
   enrolInWellnessChallenge,
   loadMyChallengeEnrolments,
@@ -14,7 +13,6 @@ import {
   loadWellnessPointsLedger,
   markWellnessClassAttended,
   reasonLabel,
-  redeemWellnessPoints,
   registerForWellnessClass,
   type ChallengeEnrolment,
   type PatientWellnessBadge,
@@ -27,8 +25,8 @@ import {
 } from "@/lib/wellness";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
-import { Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { useLegacyColors } from "@/ui/design";
+import { Card, ErrorText, MutedText, ScreenTitle } from "@/ui/legacy-kit";
 
 function classDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -72,7 +70,7 @@ interface WellnessScreenProps {
  * mutation is a plain RLS-scoped call or a SECURITY DEFINER RPC already
  * granted to authenticated.
  */
-export function WellnessScreen({ patientId, organisationId, onNavigate }: WellnessScreenProps) {
+export function WellnessScreen({ patientId, organisationId }: WellnessScreenProps) {
   const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState<WellnessPointsBalance | null>(null);
@@ -128,12 +126,11 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
         <ScreenTitle>Wellness rewards</ScreenTitle>
         <MutedText>
           Small, everyday habits add up. Earn points for logging, learning, and finishing challenges,
-          collect badges along the way, and redeem points any time for a real reward voucher you can put
-          towards your care.
+          and collect badges along the way. Points show your progress; they are not money.
         </MutedText>
       </View>
 
-      <PointsCard balance={balance} ledger={ledger} onChanged={refresh} onNavigate={onNavigate} />
+      <PointsCard balance={balance} ledger={ledger} />
       <BadgesCard catalogue={badgeCatalogue} earned={myBadges} />
       <ChallengesCard catalogue={challengeCatalogue} enrolments={enrolments} onChanged={refresh} />
       <ClassesCard
@@ -150,51 +147,19 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
 function PointsCard({
   balance,
   ledger,
-  onChanged,
-  onNavigate,
 }: {
   balance: WellnessPointsBalance | null;
   ledger: WellnessPointsLedgerEntry[];
-  onChanged: () => void;
-  onNavigate: (section: SectionId) => void;
 }) {
   const colors = useLegacyColors();
-  const { scheme } = useTheme();
-  const [amount, setAmount] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [redeemed, setRedeemed] = useState(false);
-
   const currentBalance = balance?.balance ?? 0;
-
-  async function submit() {
-    setError(null);
-    setMessage(null);
-    const points = Number(amount);
-    if (!points || points <= 0) {
-      setError("Enter a positive number of points.");
-      return;
-    }
-    setSubmitting(true);
-    const result = await redeemWellnessPoints(points);
-    setSubmitting(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setMessage(`Redeemed: a ₦${koboToNaira(result.data.koboCredited ?? 0).toLocaleString()} reward voucher is now on your account.`);
-    setAmount("");
-    setRedeemed(true);
-    onChanged();
-  }
 
   return (
     <Card style={{ gap: 10 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Wellness points</Text>
       <MutedText>
         Earn points for logging vitals, meals, and check-ins, finishing lessons, and hitting challenges.
-        Redeem any time for a reward voucher you can put towards your care.
+        Points are a way to see your progress; they are not money.
       </MutedText>
 
       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
@@ -204,24 +169,7 @@ function PointsCard({
         </MutedText>
       </View>
 
-      <View style={{ gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Redeem for a voucher</Text>
-        <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
-          value={amount}
-          onChangeText={setAmount}
-          placeholder="e.g. 100"
-          keyboardType="numeric"
-          style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: colors.ink }}
-        />
-        {error && <ErrorText>{error}</ErrorText>}
-        {message && <MutedText>{message}</MutedText>}
-        <SecondaryButton title="Redeem" onPress={submit} disabled={currentBalance <= 0} loading={submitting} />
-        {redeemed && (
-          <Text onPress={() => onNavigate("financialProfile")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
-            See your voucher in Your finances →
-          </Text>
-        )}
-      </View>
+      <MutedText>Points cannot be redeemed yet. Your points are safe and keep building.</MutedText>
 
       {ledger.length > 0 && (
         <View style={{ gap: 4 }}>

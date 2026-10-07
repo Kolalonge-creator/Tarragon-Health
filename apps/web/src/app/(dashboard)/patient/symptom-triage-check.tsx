@@ -95,9 +95,21 @@ export function SymptomTriageCheck({
   const queryClient = useQueryClient();
 
   if (presentingComplaints.length === 0) {
-    // No signed protocol yet (see triage_protocols migration) — the
-    // feature stays hidden rather than showing a broken/empty picker.
-    return null;
+    // Closed: the go-live guard `symptom_checker_enabled` is off, or no protocol is signed yet. Never a
+    // broken or empty picker; a calm note that points to the safe routes that are always open (F1, INV-14).
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Check a symptom</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+            The symptom checker is not open yet. If something is worrying you, use the emergency check above or
+            message your care team. If you think it is an emergency, call 112 or go to the nearest hospital now.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   function pickComplaint(complaintKey: string) {

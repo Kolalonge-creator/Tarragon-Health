@@ -58,7 +58,7 @@ const STATUS_BADGE: Record<HealthEducationContentStatus, { label: string; varian
   clinical_review: { label: "In clinical review", variant: "amber" },
   approved: { label: "Approved, not live", variant: "blue" },
   published: { label: "Live", variant: "green" },
-  review_due: { label: "Live, review due", variant: "amber" },
+  review_due: { label: "Hidden, review due", variant: "amber" },
   updated: { label: "Updated, needs re-review", variant: "amber" },
 };
 

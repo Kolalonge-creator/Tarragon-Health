@@ -1,16 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import {
-  useWellnessPointsBalance,
-  useWellnessPointsLedger,
-  useRedeemWellnessPoints,
-} from "@/lib/queries/wellness";
+import { useWellnessPointsBalance, useWellnessPointsLedger } from "@/lib/queries/wellness";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { SEMANTIC_ICON } from "@/lib/icons";
-import { koboToNaira } from "@tarragon/shared";
 
 const REASON_LABEL: Record<string, string> = {
   vitals_logged: "Logged a vitals reading",
@@ -21,7 +13,7 @@ const REASON_LABEL: Record<string, string> = {
   lpe_goal_achieved: "Achieved a lifestyle goal",
   challenge_completed: "Completed a challenge",
   wellness_class_attended: "Attended a class",
-  redeemed_to_voucher: "Redeemed for a voucher",
+  redeemed_to_voucher: "Redeemed (earlier rewards)",
 };
 
 function reasonLabel(reason: string): string {
@@ -31,9 +23,6 @@ function reasonLabel(reason: string): string {
 export function WellnessPointsCard({ patientId }: { patientId: string }) {
   const { data: balance, isLoading } = useWellnessPointsBalance(patientId);
   const { data: ledger } = useWellnessPointsLedger(patientId, 8);
-  const redeem = useRedeemWellnessPoints(patientId);
-  const [amount, setAmount] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
 
   const currentBalance = balance?.balance ?? 0;
 
@@ -46,7 +35,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
         </CardTitle>
         <CardDescription>
           Earn points for logging vitals, meals, and check-ins, finishing lessons, and hitting
-          challenges. Redeem any time for a reward voucher you can put towards your care.
+          challenges. Points are a way to see your progress; they are not money.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -62,48 +51,9 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
           </div>
         )}
 
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setMessage(null);
-            const points = Number(amount);
-            if (!points || points <= 0) {
-              setMessage("Enter a positive number of points.");
-              return;
-            }
-            redeem.mutate(points, {
-              onSuccess: (res) => {
-                // koboToNaira rather than an inline /100: every NGN amount on the
-                // platform is stored in kobo, and the one shared converter is
-                // what keeps a stray factor of 100 from reaching a patient.
-                setMessage(`Redeemed: a ₦${koboToNaira(res.kobo_credited ?? 0).toLocaleString()} reward voucher is now on your account.`);
-                setAmount("");
-              },
-              onError: (err) => setMessage(err instanceof Error ? err.message : "Something went wrong."),
-            });
-          }}
-        >
-          <div className="grid gap-1">
-            <label htmlFor="redeem-points" className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
-              Redeem for a voucher
-            </label>
-            <Input
-              id="redeem-points"
-              type="number"
-              min={1}
-              max={currentBalance || undefined}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="e.g. 100"
-              className="h-9 w-32"
-            />
-          </div>
-          <Button type="submit" size="sm" disabled={redeem.isPending || currentBalance <= 0}>
-            {redeem.isPending ? "Redeeming…" : "Redeem"}
-          </Button>
-          {message && <span className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{message}</span>}
-        </form>
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+          Points cannot be redeemed yet. Your points are safe and keep building.
+        </p>
 
         {ledger && ledger.length > 0 && (
           <div>

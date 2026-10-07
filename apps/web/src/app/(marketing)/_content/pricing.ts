@@ -583,7 +583,7 @@ export function getPricingFaq(
   {
     question: "What are wellness points, and are they real money?",
     answer:
-      "You earn points for everyday habits: logging a reading, finishing a lesson, or completing a challenge. Collect badges as you go, and redeem points any time for a reward voucher that comes off the price of a paid service. A reward voucher is a discount, not cash, and cannot be exchanged for money.",
+      "You earn points for everyday habits: logging a reading, finishing a lesson, or completing a challenge. Collect badges as you go. Points show your progress; they are not money and cannot be exchanged for money.",
   },
   {
     question: "I'm healthy. Why would I use a health platform at all?",

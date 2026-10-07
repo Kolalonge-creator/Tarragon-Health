@@ -890,3 +890,11 @@ governed_config_supersede_guard.sql
 remove_pidgin_english_only.sql
 # The platform switch mechanism on a throwaway key: an admin turns it off in one call (no note) and it reads false for a signed-in patient and a signed-out (anon) caller, back on restores it; a patient and anon cannot change it; each change is audited once; an unknown key reads false and cannot be written; sabotage clears the anon opt-in and the anon read must flip false.
 platform_switch_acl_and_audit.sql
+# F1 fix 1: learning content past its review date is not served. Hidden at read time on the table (RLS), library, detail, category counts, coach text retrieval before the daily job runs; the job flags it; a republish with a past date is refused; review_due_at is a mirror of next_review_due. Sabotage: the expiry rule neutered, the expired item must be readable again.
+f1_learning_content_expiry_gate.sql
+# F1 fix 2 (OQ-08): wellness points are non-monetary. redeem_wellness_points writes nothing and returns a calm refusal, points_to_kobo_rate is gone, the redemptions table refuses new rows. Sabotage: the refusing trigger dropped (insert must succeed) and a spending RPC (balance check must flip).
+f1_wellness_points_non_monetary.sql
+# F1 fix 3: the symptom checker is behind go-live guard symptom_checker_enabled (off). A real patient is refused at the table even through the service role; it cannot be switched on until the four attestations and the SLA/protocol data conditions are met; the draft symptom_triage SLA is unsigned and inactive. Sabotage: the trigger dropped, the refusal must flip.
+f1_symptom_checker_go_live_guard.sql
+# F1 fix 4: a crisis-flagged wellbeing screen raises one class 1 task, an urgent crisis.detected event (ids only), a neutral notice to the clinician on call or the lead and ops with an incident, idempotent on replay, loud on failure. Sabotage: the trigger dropped, no task.
+f1_crisis_priority_task_and_event.sql

@@ -37140,17 +37140,14 @@ export type Database = {
       wellness_points_config: {
         Row: {
           id: boolean
-          points_to_kobo_rate: number
           updated_at: string
         }
         Insert: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Update: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Relationships: []
@@ -37210,7 +37207,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          kobo_credited: number
+          kobo_credited: number | null
           organisation_id: string
           patient_id: string
           points_redeemed: number
@@ -37219,7 +37216,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          kobo_credited: number
+          kobo_credited?: number | null
           organisation_id: string
           patient_id: string
           points_redeemed: number
