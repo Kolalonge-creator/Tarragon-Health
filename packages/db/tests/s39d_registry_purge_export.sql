@@ -58,7 +58,7 @@ create function pg_temp.try_sql(p_sql text) returns text language plpgsql as
 $f$ begin execute p_sql; return 'ok'; exception when others then return sqlerrm; end $f$;
 
 do $$
-declare v_org uuid; v_org2 uuid; v_real uuid; v_test uuid; v_clin uuid; v_clin2 uuid; v_ad uuid; v_co uuid; v_ox uuid;
+declare v_org uuid; v_org2 uuid; v_real uuid; v_test uuid; v_clin uuid; v_clin2 uuid; v_ad uuid; v_co uuid; v_ox uuid; v_c3 uuid; v_c4 uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   select id into v_org2 from public.organisations where id <> v_org order by created_at limit 1;
@@ -71,6 +71,10 @@ begin
   v_co := pg_temp.mkuser(v_org, 'coordinator', 'care_coordinator');
   v_ad := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_ox := pg_temp.mkuser(v_org2, 'other org clinician', 'clinician');
+  v_c3 := pg_temp.mkuser(v_org, 'authoring clinician', 'clinician');
+  v_c4 := pg_temp.mkuser(v_org, 'opening clinician', 'clinician');
+  insert into public.clinician_conflicts (organisation_id, clinician_id, patient_id, reason, source) values (v_org, v_c3, v_real, 'S39d fixture conflict', 'cmo');
+  insert into public.staff_record_opens (expires_at, staff_id, patient_id, organisation_id, basis) values (now() + interval '8 hours', v_c4, v_real, v_org, 'open');
   -- rows for the real patient
   insert into public.patient_serology_status (organisation_id, patient_id) values (v_org, v_real);
   perform set_config('request.jwt.claim.sub', v_real::text, true);
@@ -87,7 +91,7 @@ begin
   perform set_config('request.jwt.claim.sub', '', true);
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id) values (v_org, v_clin, 's39d_fixture', 'patient', v_test);
   perform pg_temp.setf('org', v_org); perform pg_temp.setf('real', v_real); perform pg_temp.setf('test', v_test); perform pg_temp.setf('clin', v_clin); perform pg_temp.setf('clin2', v_clin2);
-  perform pg_temp.setf('co', v_co); perform pg_temp.setf('ad', v_ad); perform pg_temp.setf('ox', v_ox);
+  perform pg_temp.setf('co', v_co); perform pg_temp.setf('ad', v_ad); perform pg_temp.setf('ox', v_ox); perform pg_temp.setf('c3', v_c3); perform pg_temp.setf('c4', v_c4);
 end $$;
 
 -- A. registry ---------------------------------------------------------------------------------------------------------------------------------
@@ -96,8 +100,8 @@ select pg_temp.ck('real', 'A1 every public table with a patient_id column is in 
     where c.table_schema = 'public' and c.column_name = 'patient_id' and c.data_type = 'uuid' and c.table_name not in (select table_name from public.data_registry)));
 select pg_temp.ck('real', 'A2 the access log is class audit and not exported', 'audit|false',
   (select retention_class || '|' || in_export::text from public.data_registry where table_name = 'staff_record_opens'));
-select pg_temp.ck('real', 'A3 classes are assigned by name (maternity, consent, financial, operational, mental health)', 'true',
-  (private.retention_class_for('patient_pregnancy') = 'maternity' and private.retention_class_for('scribe_consents') = 'consent' and private.retention_class_for('payment_attempts') = 'financial'
+select pg_temp.ck('real', 'A3 classes are assigned by whole words (maternity, consent, financial, operational, mental health), not substrings', 'true',
+  (private.retention_class_for('discharge_summaries') = 'clinical_record' and private.retention_class_for('symptom_journal_entries') = 'clinical_record' and private.retention_class_for('patient_pregnancy') = 'maternity' and private.retention_class_for('scribe_consents') = 'consent' and private.retention_class_for('payment_attempts') = 'financial'
    and private.retention_class_for('notification_deliveries') = 'operational' and private.retention_class_for('mental_health_assessments') = 'mental_health' and private.retention_class_for('vitals_readings') = 'clinical_record')::text);
 select pg_temp.ck('real', 'A4 the classification is proposed, not reviewed', '0', (select count(*)::text from public.data_registry where reviewed));
 select pg_temp.ck('real', 'A5 only an admin or the CMO reads the registry', 'ERR 0|true',
@@ -130,6 +134,12 @@ select pg_temp.ck('real', 'C10 the clinician and their staff row are gone', '0|0
   (select (select count(*) from public.profiles where id = pg_temp.f('clin'))::text || '|' || (select count(*) from public.clinical_staff where profile_id = pg_temp.f('clin'))::text));
 select pg_temp.ck('real', 'C11 rows they authored elsewhere are kept with the author cleared, not deleted', '1',
   (select count(*)::text from public.audit_log where action = 's39d_fixture' and actor_id is null));
+-- C12 to C15: a test account never takes a real patient's records, or the log of what it opened, with it
+select pg_temp.ck('real', 'C12 a test clinician with a NOT NULL link to a REAL patient''s row cannot be purged', 'ERR 23503', pg_temp.as_user(pg_temp.f('ad'), format('select public.purge_test_account(%L)::text', pg_temp.f('c3'))));
+select pg_temp.ck('real', 'C13 ...and nothing was deleted: the clinician and the real patient''s row are still there', '1|1',
+  (select (select count(*) from public.profiles where id = pg_temp.f('c3'))::text || '|' || (select count(*) from public.clinician_conflicts where patient_id = pg_temp.f('real') and clinician_id = pg_temp.f('c3'))::text));
+select pg_temp.ck('real', 'C14 a test clinician who only opened a real patient is purged', 'true', (pg_temp.as_user(pg_temp.f('ad'), format('select (public.purge_test_account(%L)) ->> ''purged''', pg_temp.f('c4'))) = 'true')::text);
+select pg_temp.ck('real', 'C15 ...and the log of that opening is kept', '1', (select count(*)::text from public.staff_record_opens where staff_id = pg_temp.f('c4') and patient_id = pg_temp.f('real')));
 -- D. export ----------------------------------------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('real', 'D1 an admin exports the real patient: the serology rows are there', 'true',
   (pg_temp.as_user(pg_temp.f('ad'), format('select jsonb_array_length(public.export_patient_data(%L) -> ''tables'' -> ''patient_serology_status'')', pg_temp.f('real')))::integer >= 1)::text);
@@ -151,6 +161,8 @@ select pg_temp.ck('real', 'E3 anon is refused the report', 'ERR 42501', pg_temp.
 do $$ begin perform set_config('request.jwt.claim.sub', pg_temp.f('real')::text, true); insert into public.data_export_requests (organisation_id, patient_id) values (pg_temp.f('org'), pg_temp.f('real')); perform set_config('request.jwt.claim.sub', '', true); end $$;
 select pg_temp.ck('real', 'G1 a new export request is due in 30 days', 'true',
   (select (due_at between requested_at + interval '29 days' and requested_at + interval '31 days')::text from public.data_export_requests where patient_id = pg_temp.f('real') order by requested_at desc limit 1));
+select pg_temp.ck('real', 'G3 the clock follows the config, not a literal', 'true',
+  (select (private.export_review_due() between now() + interval '29 days' and now() + interval '31 days')::text));
 select pg_temp.ck('real', 'G2 the active config is v3 with export_review_days 30', 'true',
   (select (version = 3 and (config ->> 'export_review_days') = '30' and (config -> 'retention' ->> 'real_data_auto_delete') = 'false')::text from public.security_config where is_active));
 

@@ -44,12 +44,12 @@ comment on table public.data_registry is 'S39d: every patient-keyed table, its r
 create function private.retention_class_for(p_table text) returns text language sql immutable set search_path = '' as
 $$
   select case
-    when p_table ~ 'audit|access_log|record_opens' then 'audit'
-    when p_table ~ 'mental|phq|gad7|psych|wellbeing' then 'mental_health'
-    when p_table ~ 'pregnan|postnatal|antenatal|maternity|labour|birth' then 'maternity'
-    when p_table ~ 'consent|profile_access|care_access|waiver' then 'consent'
-    when p_table ~ 'payment|invoice|ledger|voucher|refund|payout|billing|subscription|charge|wallet|journal|order_item|checkout' then 'financial'
-    when p_table ~ 'notification|push_|device_token|session|reminder|nudge|delivery|otp|queue|digest|inbox|failure' then 'operational'
+    when p_table ~ '(^|_)(audit|access_log|record_opens)(_|$)' then 'audit'
+    when p_table ~ '(^|_)(mental|phq|gad7|psych|psychiatric|wellbeing)(_|$)' then 'mental_health'
+    when p_table ~ '(^|_)(pregnancy|postnatal|antenatal|maternity|labour|birth)(_|$)' then 'maternity'
+    when p_table ~ '(^|_)(consent|consents|waiver|waivers)(_|$)' or p_table ~ '^(profile_access|care_access)' then 'consent'
+    when p_table ~ '(^|_)(payment|payments|invoice|invoices|ledger|voucher|vouchers|refund|refunds|payout|payouts|billing|subscription|subscriptions|charge|charges|wallet|checkout)(_|$)' then 'financial'
+    when p_table ~ '(^|_)(notification|notifications|push|device_token|reminder|reminders|nudge|nudges|delivery|deliveries|otp|queue|digest|inbox|failure|failures)(_|$)' then 'operational'
     else 'clinical_record'
   end
 $$;
@@ -83,7 +83,7 @@ create function private.purge_refs(p_rel regclass, p_ids uuid[], p_apply boolean
 language plpgsql security definer set search_path = '' as
 $$
 declare
-  fk record; v_child_ids uuid[]; v_has_id boolean; v_new uuid[]; v_done boolean;
+  fk record; v_child_ids uuid[]; v_has_id boolean; v_new uuid[]; v_done boolean; v_real boolean;
 begin
   if coalesce(array_length(p_ids, 1), 0) = 0 then return; end if;
   for fk in
@@ -105,6 +105,12 @@ begin
     end if;
     if not v_done then
       select exists (select 1 from pg_attribute where attrelid = fk.child_oid and attname = 'id' and atttypid = 'uuid'::regtype and not attisdropped) into v_has_id;
+      -- a row that belongs to a REAL patient is never deleted because a test account is linked to it (a cascading or restricting foreign key would
+      -- otherwise remove it): the purge stops with an error and the whole call rolls back
+      if fk.col <> 'patient_id' and exists (select 1 from pg_attribute where attrelid = fk.child_oid and attname = 'patient_id' and not attisdropped) then
+        execute format('select exists (select 1 from %s where %I = any($1) and patient_id is not null and patient_id not in (select id from public.profiles where is_test))', fk.child, fk.col) into v_real using p_ids;
+        if v_real then raise exception 'cannot purge: real patient records in % still reference this test account', fk.child using errcode = '23503'; end if;
+      end if;
       if v_has_id then
         execute format('select coalesce(array_agg(id), ''{}'') from %s where %I = any($1)', fk.child, fk.col) into v_child_ids using p_ids;
         select coalesce(array_agg(x), '{}') into v_new from unnest(v_child_ids) x where not exists (select 1 from pg_temp.purge_seen s where s.rel = fk.child_oid and s.id = x);
@@ -123,7 +129,7 @@ $$
 declare
   v_is_test boolean; v_staff uuid[]; v_org uuid; tg record;
 begin
-  if (select auth.uid()) is not null and not private.is_admin() then raise exception 'only an admin or the service role can purge a test account' using errcode = '42501'; end if;
+  if not (private.is_admin() or (select auth.role()) = 'service_role' or ((select auth.role()) is null and session_user in ('postgres', 'supabase_admin'))) then raise exception 'only an admin or the service role can purge a test account' using errcode = '42501'; end if;
   if p_profile = (select auth.uid()) then raise exception 'you cannot purge your own account' using errcode = '42501'; end if;
   select is_test, organisation_id into v_is_test, v_org from public.profiles where id = p_profile;
   if not found then raise exception 'no such account' using errcode = 'P0002'; end if;
@@ -144,13 +150,18 @@ begin
     insert into pg_temp.purge_disabled values (tg.rel, tg.tgname);
   end loop;
 
-  -- pass 2: change them
+  -- pass 2: change them (a foreign key that still points at a real patient's row stops the whole call)
+  begin
   truncate pg_temp.purge_seen;
   perform private.purge_refs('public.clinical_staff'::regclass, v_staff, true);
   delete from public.clinical_staff where profile_id = p_profile;
   perform private.purge_refs('public.profiles'::regclass, array[p_profile], true);
-  delete from public.staff_record_opens where staff_id = p_profile or patient_id = p_profile;
+  -- only the log of a test PATIENT being opened goes with it; the log of who a test clinician opened is kept
+  delete from public.staff_record_opens where patient_id = p_profile;
   delete from public.profiles where id = p_profile;
+  exception when foreign_key_violation then
+    raise exception 'cannot purge: real patient records still reference this test account (%)', sqlerrm using errcode = '23503';
+  end;
 
   for tg in select rel, trig from pg_temp.purge_disabled loop
     execute format('alter table %s enable trigger %I', tg.rel, tg.trig);
@@ -170,7 +181,7 @@ $$
 declare
   r record; v_rows jsonb; v_out jsonb := '{}'::jsonb; v_profile jsonb;
 begin
-  if (select auth.uid()) is not null and not private.is_admin() then raise exception 'only an admin can fulfil an export' using errcode = '42501'; end if;
+  if not (private.is_admin() or (select auth.role()) = 'service_role' or ((select auth.role()) is null and session_user in ('postgres', 'supabase_admin'))) then raise exception 'only an admin can fulfil an export' using errcode = '42501'; end if;
   if not exists (select 1 from public.profiles where id = p_patient and role = 'patient') then raise exception 'no such patient' using errcode = 'P0002'; end if;
   select to_jsonb(p) - 'id' into v_profile from public.profiles p where p.id = p_patient;
   for r in select table_name, patient_expr from public.data_registry where in_export order by table_name loop
@@ -187,7 +198,11 @@ grant execute on function public.export_patient_data(uuid) to authenticated, ser
 
 alter table public.data_export_requests add column due_at timestamptz;
 update public.data_export_requests set due_at = requested_at + interval '30 days' where due_at is null;
-alter table public.data_export_requests alter column due_at set default now() + interval '30 days';
+create function private.export_review_due() returns timestamptz language sql stable security definer set search_path = '' as
+$$ select now() + make_interval(days => coalesce((select (config ->> 'export_review_days')::integer from public.security_config where is_active), 30)) $$;
+revoke all on function private.export_review_due() from public, anon, authenticated;
+grant execute on function private.export_review_due() to authenticated;
+alter table public.data_export_requests alter column due_at set default private.export_review_due();
 alter table public.data_export_requests alter column due_at set not null;
 comment on column public.data_export_requests.due_at is 'S39d: the review clock (security_config.export_review_days, 30 by default). Set at creation.';
 
@@ -209,7 +224,14 @@ begin
       when 'financial' then now() - make_interval(years => (v_ret ->> 'payments_ledger_years')::int)
       when 'audit' then now() - make_interval(years => (v_ret ->> 'access_audit_log_years')::int)
       else now() - make_interval(days => (v_ret ->> 'operational_data_days_max')::int) end;
-    v_per := case r.rc when 'operational' then (v_ret ->> 'operational_data_days_max') || ' days' else to_char(now() - v_cut, 'YY') || ' years' end;
+    v_per := case r.rc
+      when 'operational' then (v_ret ->> 'operational_data_days_max') || ' days'
+      when 'clinical_record' then (v_ret ->> 'adult_clinical_record_years_after_last_contact') || ' years'
+      when 'mental_health' then (v_ret ->> 'mental_health_years_after_last_contact') || ' years'
+      when 'maternity' then (v_ret ->> 'maternity_record_years') || ' years'
+      when 'consent' then (v_ret ->> 'consent_years_after_relationship_end') || ' years'
+      when 'financial' then (v_ret ->> 'payments_ledger_years') || ' years'
+      else (v_ret ->> 'access_audit_log_years') || ' years' end;
     execute format('select count(*) from public.%I where created_at < $1', r.tn) into v_n using v_cut;
     table_name := r.tn; retention_class := r.rc; period := v_per; rows_older_than_period := v_n; reviewed := r.rv;
     return next;
