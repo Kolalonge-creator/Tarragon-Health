@@ -400,6 +400,7 @@ begin
   perform pg_temp.mkresult(pat, now(), '[{"code":"alt","num":70,"unit":"U/L","low":7,"high":56,"flag":"high"}]'::jsonb);
   perform pg_temp.mkresult(pat, make_timestamptz(yr - 1, 6, 1, 9, 0, 0, 'Africa/Lagos'), '[{"code":"alt","num":90,"unit":"U/L","low":7,"high":56,"flag":"high"}]'::jsonb);
   perform pg_temp.mkresult(pat, now(), '[{"code":"hiv_screen","text":"positive","unit":"none","flag":"positive","sens":true},{"code":"hbsag","text":"positive","unit":"none","flag":"positive","sens":true}]'::jsonb);
+  perform pg_temp.mkresult(pat, now(), '[{"code":"hbv_dna","num":3,"unit":"IU/mL","low":0,"high":1,"flag":"high"}]'::jsonb);
   perform pg_temp.scomp(pat, 'fit', interval '2 months');
   perform pg_temp.scomp(pat, 'hiv', interval '2 months');
   perform pg_temp.scomp(pat, 'hep_c', interval '2 months');
@@ -407,10 +408,15 @@ begin
   perform pg_temp.ck('collector: blood pressure count and an alt with last year''s value', '4,70,90',
     (coll::jsonb -> 'bp' ->> 'count') || ',' || (select (x -> 'latest' ->> 'value')::numeric::text from jsonb_array_elements(coll::jsonb -> 'labs') x where x ->> 'code' = 'alt')
     || ',' || (select (x -> 'previous' ->> 'value')::numeric::text from jsonb_array_elements(coll::jsonb -> 'labs') x where x ->> 'code' = 'alt'));
-  perform pg_temp.ck('INV-04: the collector never carries an HIV or hepatitis result or screening item', 'false', (coll ~* 'hiv|hbsag|hbs_ag|hcv|hepatitis|hep_b|hep_c')::text);
+  perform pg_temp.ck('INV-04: the collector never carries an HIV or hepatitis result or screening item', 'false', (coll ~* 'hiv|hbsag|hbs_ag|hcv|hbv|hepatitis|hep_b|hep_c')::text);
   perform pg_temp.ck('...but keeps an ordinary screening item (fit)', 'true', (coll::jsonb -> 'screening' -> 'done' @> '[{"code":"fit"}]'::jsonb)::text);
   perform pg_temp.ck('the risk band is "not assessed" while the instrument is unsigned and its guard off', 'not_assessed', coll::jsonb -> 'risk' ->> 'state');
   perform pg_temp.ck('only the service role can collect', '42501', pg_temp.sqlstate_as(pat, format('select public.health_report_collect(%L, %s)', pat, yr)));
+
+  perform pg_temp.ck('the yearly build considers a patient with data and no report, and not one without data', 'true,false',
+    (pg_temp.as_service(format('select (count(*) > 0)::text from public.health_report_candidates(%s, 100) c where c.patient_id = %L', yr, pat))) || ',' ||
+    (pg_temp.as_service(format('select (count(*) > 0)::text from public.health_report_candidates(%s, 100) c where c.patient_id = %L', yr, pg_temp.mkpatient('nodata')))));
+  perform pg_temp.ck('only the service role can list candidates', '42501', pg_temp.sqlstate_as(doc, format('select * from public.health_report_candidates(%s, 5)', yr)));
 
   -- building a draft
   v_real := pg_temp.mkuser(pg_temp.f('org'), 'realhr', 'patient', 'female', 45);
@@ -424,6 +430,8 @@ begin
   perform pg_temp.ck('a draft for a test patient is built and waits for signature', 'pending_signature', (select status from public.health_reports where id = v_id));
   perform pg_temp.ck('...assigned to the care team doctor and tied to a settings version (INV-16)', 'true',
     (select (assigned_clinician_id = doc and config_version_id is not null)::text from public.health_reports where id = v_id));
+  perform pg_temp.ck('...and once a draft exists the patient is no longer a candidate', 'false',
+    (pg_temp.as_service(format('select (count(*) > 0)::text from public.health_report_candidates(%s, 100) c where c.patient_id = %L', yr, pat))));
   perform pg_temp.ck('the event carries ids only (INV-07)', 'health_report_id',
     (select string_agg(k, ',') from (select jsonb_object_keys(payload) k from public.domain_events where event_type = 'health_report.generated' and aggregate_id = v_id) x));
   perform pg_temp.ck('a second draft for the same year is refused while one is waiting', '23505', pg_temp.draft_state(pat, yr, ok_c, ok_p));
@@ -516,6 +524,14 @@ begin
   perform pg_temp.ck('(control) with the guard on and signed settings a real patient is built', 'ok', pg_temp.draft_state(v_real, yr, ok_c, ok_p));
   perform pg_temp.ck('...against the signed settings version', 'true', (select (config_version_id = v_cfg)::text from public.health_reports where patient_id = v_real));
   perform pg_temp.guards_on(array[]::text[]);
+  perform pg_temp.ck('ACL: no S46 function is executable by anon, and the service-only ones are not executable by authenticated', '',
+    coalesce((select string_agg(p.proname, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where ((n.nspname = 'public' and p.proname in ('health_report_collect','record_health_report_draft','refresh_health_report_draft','health_report_candidates','clinician_health_report_queue',
+               'clinician_get_health_report','sign_health_report','correct_health_report','sign_health_report_config','clinician_record_hbv_immunity','clinician_clear_hbv_immunity',
+               'override_pathway_suppression','revoke_pathway_override','clinician_list_pathway_overrides'))
+           or (n.nspname = 'private' and p.proname in ('serology_rule','anti_hbs_threshold_confirmed','set_hbv_immune','is_sensitive_result_code','report_excluded_code','is_signing_clinician','hr_biomarker_points','health_report_collect','health_report_assert_honest')))
+         and (has_function_privilege('anon', p.oid, 'EXECUTE')
+              or (p.proname in ('health_report_collect','record_health_report_draft','refresh_health_report_draft','health_report_candidates') and has_function_privilege('authenticated', p.oid, 'EXECUTE')))), ''));
   perform pg_temp.ck('the report guard starts off', 'false', (select is_on::text from public.go_live_guards where key = 'health_report_generation_enabled'));
   perform pg_temp.ck('no grants for anon or a direct write for authenticated', 'false,false',
     has_table_privilege('anon', 'public.health_reports', 'SELECT')::text || ',' || has_table_privilege('authenticated', 'public.health_reports', 'INSERT')::text);

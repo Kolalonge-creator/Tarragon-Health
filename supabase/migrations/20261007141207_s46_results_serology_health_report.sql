@@ -669,6 +669,14 @@ create policy health_reports_patient_read on public.health_reports for select to
 revoke all on public.health_reports from public, anon, authenticated;
 grant select on public.health_reports to authenticated;
 
+-- Codes that never appear in a report: the sensitive list, and anything that merely looks like a blood-borne or sexual-health test (a lab can name
+-- an analyte "hbv_dna" or "hepatitis_b_core"). Kept in step with the honesty guard's word list so a stray analyte cannot make a build fail either.
+create function private.report_excluded_code(p_code text) returns boolean
+language sql stable security definer set search_path = ''
+as $$ select private.is_sensitive_result_code(p_code)
+          or lower(coalesce(p_code, '')) ~ '(^|[^a-z])(hiv|hbsag|hbs_ag|hcv|hbv|hep_b|hep_c|hepatitis|syphilis|chlamydia|gonorrh|anti_hbs)' $$;
+revoke all on function private.report_excluded_code(text) from public, anon, authenticated;
+
 -- Biomarker series for the report (same rules as the S43 trends: released, not withdrawn, not replaced, never a sensitive code). A separate name so
 -- S43's private.biomarker_points can replace it at merge without a collision (OQ-S46-6).
 create function private.hr_biomarker_points(p_patient uuid, p_code text)
@@ -679,12 +687,12 @@ as $$
     from public.lab_result_items i join public.lab_results r on r.id = i.lab_result_id
    where i.patient_id = p_patient and lower(i.analyte_code) = lower(p_code) and i.value_numeric is not null
      and r.release_state = 'released' and r.withdrawn_at is null and r.superseded_by is null
-     and not i.sensitive_positive and not private.is_sensitive_result_code(i.analyte_code)
+     and not i.sensitive_positive and not private.report_excluded_code(i.analyte_code)
   union all
   select l.taken_at, l.value, l.unit, l.reference_range_low, l.reference_range_high, l.abnormal_flag::text
     from public.lab_analyte_readings l
    where l.patient_id = p_patient and lower(l.code) = lower(p_code) and l.value is not null
-     and l.report_status in ('final', 'corrected', 'amended') and not private.is_sensitive_result_code(l.code)
+     and l.report_status in ('final', 'corrected', 'amended') and not private.report_excluded_code(l.code)
 $$;
 revoke all on function private.hr_biomarker_points(uuid, text) from public, anon, authenticated;
 
@@ -734,7 +742,7 @@ begin
       from (select distinct lower(i.analyte_code) as code from public.lab_result_items i where i.patient_id = p_patient and i.value_numeric is not null
             union select distinct lower(l.code) from public.lab_analyte_readings l where l.patient_id = p_patient and l.value is not null) c
       cross join lateral private.hr_biomarker_points(p_patient, c.code) p
-     where not private.is_sensitive_result_code(c.code)
+     where not private.report_excluded_code(c.code)
      group by c.code
     having count(*) filter (where p.taken_at >= v_from and p.taken_at < v_to) > 0) s;
 
@@ -747,7 +755,7 @@ begin
                             order by q.taken_at desc limit 6) z)) as t
       from (select distinct lower(i.analyte_code) as code from public.lab_result_items i where i.patient_id = p_patient and i.value_numeric is not null
             union select distinct lower(l.code) from public.lab_analyte_readings l where l.patient_id = p_patient and l.value is not null) c
-     where not private.is_sensitive_result_code(c.code)) s2
+     where not private.report_excluded_code(c.code)) s2
    where jsonb_array_length(t -> 'points') >= 2;
 
   -- screening done and due. Blood-borne and sexual-health items are never listed. Reproductive items are flagged so a shared copy can drop them.
