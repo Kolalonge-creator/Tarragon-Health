@@ -16,7 +16,7 @@
 insert into public.task_types
   (code, version, priority_class, default_due_minutes, min_doctor_tier, required_competencies,
    lead_window_minutes, claim_timeout_minutes, pushable, creatable, source_task_keys, note) values
-  ('health_report_signoff', 1, 8, 10080, 'medical_officer', '{}', 1440, 60, true, true, '{}',
+  ('health_report_signoff', 1, 8, 10080, 'senior_medical_officer', '{}', 1440, 60, true, true, '{}',
    'S46c UNCONFIRMED: a yearly Health Report draft waits for a doctor to read and sign it. PROPOSED class, due time, tier and windows for the CMO to confirm (OQ-S46-11). Never created by a triage rule.');
 
 alter table public.health_reports add column signoff_task_id uuid references public.clinical_tasks (id) on delete set null;

@@ -152,7 +152,7 @@ begin
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin', 'male', 40);
   perform pg_temp.setf('admin', v_admin);
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', v_admin));
-  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'medical_officer', v_admin));
+  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'senior_medical_officer', v_admin));
   -- S46c: the sign-off task is offered to an employed named doctor first; a contracted one pulls from the pool with an availability block
   update public.clinical_staff set employment_type = 'employed', indemnity_exempt = false, indemnity_exempt_by = null where profile_id = pg_temp.f('doc');
   perform pg_temp.setf('stranger', pg_temp.mkdoc(v_org, 'stranger', 'senior_medical_officer', v_admin));
