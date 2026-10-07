@@ -1377,4 +1377,74 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/plans/S41-S45-cmo-signoff-pack.md section A; docs/design/S45.md",
   },
+  {
+    key: "report.settings",
+    // Yearly Tarragon Health Report settings (S46, function 3.15). Live value is the `config` of `health_report_config_versions` v1, UNSIGNED. Every
+    // number is a placeholder for the CMO (OQ-S46-3); the BP target, margins and windows are not clinical decisions made by an agent. A test fails if
+    // the migration seed and this value drift.
+    value: {
+          "maxPriorities": 3,
+          "minBpReadings": 3,
+          "bpTarget": {
+                    "systolicBelow": 140,
+                    "diastolicBelow": 90
+          },
+          "bpBorderlineMarginMmHg": 5,
+          "labBorderlineMarginPct": 5,
+          "changeTolerancePct": 3,
+          "recheckWeeks": 4,
+          "priorityWindows": {
+                    "bp": "within 4 weeks",
+                    "lab": "within 4 weeks",
+                    "screening": "within 3 months",
+                    "risk": "within 4 weeks"
+          },
+          "trendMinPoints": 2,
+          "trendYears": 3,
+          "statementKey": "report.statement.not_rule_out",
+          "statementApprovedByCmo": false,
+          "shareExcludedSections": [
+                    "screening_reproductive",
+                    "risk",
+                    "questionnaires"
+          ]
+},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/research/health-report-study.md; docs/design/S46.md",
+  },
+  {
+    key: "screening.serology_rules",
+    // Hepatitis and HIV repeat rules (S46, function 3.12; founder decision 2026-10-07, the spec rule wins). Live value is `serology_rule_versions` v2 (registry version 1 is this entry's own).
+    // The anti-HBs threshold is PROPOSED and unconfirmed (OQ-S46-2). Version 1 (legacy once-ever) is documented in the migration header.
+    value: {
+          "hiv": {
+                    "repeatMonths": 12,
+                    "suppressWithinInterval": false
+          },
+          "hep_c": {
+                    "repeatMonths": 12,
+                    "suppressWithinInterval": true
+          },
+          "hep_b": {
+                    "repeatMonths": 12,
+                    "suppressWithinInterval": true,
+                    "stopsWhenHbvStatus": [
+                              "immune"
+                    ],
+                    "immunityTest": "anti_hbs"
+          },
+          "antiHbs": {
+                    "thresholdMiuPerMl": 10,
+                    "thresholdStatus": "proposed_unsigned"
+          }
+},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-build-plan.md X2; docs/design/S46.md",
+  },
 ];

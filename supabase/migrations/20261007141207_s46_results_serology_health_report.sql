@@ -49,10 +49,14 @@ insert into public.serology_rule_versions (version, code, status, decision_ref, 
   '{"hep_b":{"oncePerLifetime":true},"hep_c":{"oncePerLifetime":true},"hiv":{"repeatMonths":12,"suppressWithinInterval":false}}'::jsonb),
  (2, 'spec_2026_10', 'active', 'founder 2026-10-07: the spec rule (3.12) wins',
   'HIV and hepatitis C annual. HBsAg annual until a positive anti-HBs records immunity once. The anti-HBs threshold is PROPOSED and unconfirmed by the CMO (OQ-S46-2).',
-  '{"hiv":{"repeatMonths":12,"suppressWithinInterval":false},
-    "hep_c":{"repeatMonths":12,"suppressWithinInterval":true},
-    "hep_b":{"repeatMonths":12,"suppressWithinInterval":true,"stopsWhenHbvStatus":["immune"],"immunityTest":"anti_hbs"},
-    "antiHbs":{"thresholdMiuPerMl":10,"thresholdStatus":"proposed_unsigned"}}'::jsonb);
+  -- serology-rules-begin
+  $json${
+ "hiv": { "repeatMonths": 12, "suppressWithinInterval": false },
+ "hep_c": { "repeatMonths": 12, "suppressWithinInterval": true },
+ "hep_b": { "repeatMonths": 12, "suppressWithinInterval": true, "stopsWhenHbvStatus": ["immune"], "immunityTest": "anti_hbs" },
+ "antiHbs": { "thresholdMiuPerMl": 10, "thresholdStatus": "proposed_unsigned" }
+}$json$::jsonb);
+  -- serology-rules-end
 
 alter table public.serology_rule_versions enable row level security;
 create policy serology_rule_versions_read on public.serology_rule_versions for select to authenticated using (true);
