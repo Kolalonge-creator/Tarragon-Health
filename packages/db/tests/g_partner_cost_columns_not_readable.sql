@@ -92,17 +92,17 @@ begin
 
   insert into public.medications (organisation_id, patient_id, drug_name, source, is_active)
     values (v_org, v_patient, 'G Test Amlodipine 5mg', 'clinician', true);
-  insert into public.pharmacy_orders (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, status, fulfilment_method,
+  insert into public.pharmacy_orders (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, status,
                                       origin, partner_cost_kobo, partner_cost_provider_id, partner_cost_breakdown)
     values (v_org, v_patient, v_partner,
             jsonb_build_array(jsonb_build_object('drug_name', 'G Test Amlodipine 5mg', 'price_kobo', 150000, 'quantity', 1)),
-            150000, 'pending_payment', 'pickup', 'patient_initiated', 90000, v_partner, '[{"cost_kobo":90000}]'::jsonb)
+            150000, 'pending_payment', 'patient_initiated', 90000, v_partner, '[{"cost_kobo":90000}]'::jsonb)
     returning id into v_porder;
-  insert into public.pharmacy_orders (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, status, fulfilment_method,
+  insert into public.pharmacy_orders (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, status,
                                       origin, partner_cost_kobo, partner_cost_provider_id)
     values (v_org, v_patient, v_partner,
             jsonb_build_array(jsonb_build_object('drug_name', 'G Test Amlodipine 5mg', 'price_kobo', 150000, 'quantity', 1)),
-            150000, 'pending_payment', 'pickup', 'patient_initiated', 90000, v_partner)
+            150000, 'pending_payment', 'patient_initiated', 90000, v_partner)
     returning id into v_porder2;
   select partner_cost_kobo into v_pcost from public.pharmacy_orders where id = v_porder;
   insert into t_results values ('S fixture: the pharmacy order really carries a partner cost', case when v_pcost > 0 then '>0' else 'zero-or-null' end, '>0', null);
@@ -152,7 +152,7 @@ begin
   insert into t_results select 'B another patient still sees no lab order (RLS intact)', pg_temp.probe(v_patient2, 'authenticated',
     format('select id, status from public.lab_orders where id = %L', v_lorder)), 'rows:0', null;
   insert into t_results select 'B patient reads own pharmacy order (every safe column)', pg_temp.probe(v_patient, 'authenticated',
-    format('select id, status, total_kobo, payable_kobo, items, fulfilment_method, pharmacy_partner_id, partner_cost_provider_id, refund_status, refund_amount_kobo, confirmed_price_kobo from public.pharmacy_orders where id = %L', v_porder)), 'rows:1', null;
+    format('select id, status, total_kobo, payable_kobo, items, pharmacy_partner_id, partner_cost_provider_id, refund_status, refund_amount_kobo, confirmed_price_kobo from public.pharmacy_orders where id = %L', v_porder)), 'rows:1', null;
   insert into t_results select 'B clinician reads the org pharmacy order', pg_temp.probe(v_clin, 'authenticated',
     format('select id, status, total_kobo, partner_cost_provider_id from public.pharmacy_orders where id = %L', v_porder)), 'rows:1', null;
   insert into t_results select 'B another patient still sees no pharmacy order (RLS intact)', pg_temp.probe(v_patient2, 'authenticated',
