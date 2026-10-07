@@ -23,7 +23,13 @@ export async function pageOnCallForSelfHarm(
   conversationId: string,
 ): Promise<boolean> {
   const rpc = (svc as unknown as { rpc: Rpc }).rpc.bind(svc);
-  const { pageWaitMs } = assistantPagingWaits();
+  let pageWaitMs = 0;
+  try {
+    pageWaitMs = assistantPagingWaits().pageWaitMs;
+  } catch (error) {
+    // a broken setting must be SEEN, but it never removes the patient's emergency copy: the page still runs, kept alive past the response
+    console.error("ai-coach: assistant.paging config is invalid", error);
+  }
   try {
     const queued = await rpc("assistant_page_enqueue", { p_patient: patientId, p_conversation: conversationId });
     if (queued.error) console.error("ai-coach: could not queue the on-call page (the page is still attempted)", queued.error.message);
@@ -51,7 +57,11 @@ export async function pageOnCallForSelfHarm(
   // Every page also sweeps any OTHER page that was cut off earlier (best effort, after the response; the daily cron is the last line).
   try {
     after(async () => {
-      await rpc("assistant_page_retry_due", {}).catch(() => undefined);
+      try {
+        await rpc("assistant_page_retry_due", {});
+      } catch {
+        // the daily cron is the last line
+      }
     });
   } catch {
     // not inside a request

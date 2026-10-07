@@ -37,11 +37,6 @@ select e.key, e.value, 1
 }$json$::jsonb) as e(key, value);
 -- assistant-config-s52-end
 
-create function private.assistant_cfg(p_key text) returns jsonb
-language sql stable security definer set search_path = ''
-as $$ select value from public.assistant_config where key = p_key $$;
-revoke all on function private.assistant_cfg(text) from public, anon;
-grant execute on function private.assistant_cfg(text) to authenticated, service_role;
 
 -- A PROPOSED text setting, with NO built-in fallback: a missing row or field is a loud error (see private.assistant_cfg_int in S51).
 create function private.assistant_cfg_text(p_key text, p_field text) returns text

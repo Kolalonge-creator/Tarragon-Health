@@ -28,7 +28,7 @@ export const ASSISTANT_EXTRA_DANGER_PHRASES: readonly string[] = [
   "shortness of breath", "short of breath", "hard to breathe", "trouble breathing", "can not breathe", "cant breathe", "cannot breath", "can't breath", "gasping",
   // self-harm and suicide
   "suicid*", "wants to die", "wanted to die", "kill himself", "kill herself", "kill themselves",
-  "don't want to live", "do not want to live", "cutting myself", "hurting myself", "harming myself", "selfharm", "take my own life", "taking my own life", "take his own life", "take her own life",
+  "don't want to live", "do not want to live", "cutting myself", "hurting myself", "harming myself", "hurt myself", "harm myself", "selfharm", "better off dead", "no reason to live", "end it all", "dont want to live", "take my own life", "taking my own life", "take his own life", "take her own life",
   ...END_VERBS.flatMap((v) => PRONOUNS.map((p) => `${v} ${p} life`)),
   // psychosis
   "hearing voices", "hear voices", "heard voices", "seeing things that aren't there", "seeing things that are not there",
@@ -66,7 +66,7 @@ export const ASSISTANT_DANGER_PAIRS: readonly (readonly [readonly string[], read
 const SELF_HARM_PHRASES: ReadonlySet<string> = new Set([
   "suicide", "suicidal", "suicid", "kill myself", "kill himself", "kill herself", "kill themselves", "end my life", "want to die", "wants to die",
   "wanted to die", "self harm", "self-harm", "selfharm", "don't want to live", "do not want to live", "cutting myself", "hurting myself",
-  "harming myself", "take my own life", "taking my own life", "take his own life", "take her own life",
+  "harming myself", "hurt myself", "harm myself", "better off dead", "no reason to live", "end it all", "dont want to live", "take my own life", "taking my own life", "take his own life", "take her own life",
   ...END_VERBS.flatMap((v) => PRONOUNS.map((p) => `${v} ${p} life`)),
 ]);
 
