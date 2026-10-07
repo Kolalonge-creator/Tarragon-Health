@@ -12,6 +12,8 @@ import {
   type ReminderIssue,
   type ReminderMedicine,
 } from "@tarragon/medicines";
+import { loadManagedDependants, type ManagedDependant } from "./acting";
+import { ownerOfNotification } from "./reminder-owner";
 import { loadMedicineRules } from "./medicines-config";
 import { readLocalMedications, readLocalRecords } from "./offline-store";
 import { listOutbox, type DosePayload } from "./outbox";
@@ -49,8 +51,11 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function text(key: "medicines.notify.title" | "medicines.notify.body" | "medicines.notify.follow_up_title" | "medicines.notify.follow_up_body" | "medicines.notify.channel" | "medicines.notify.test_title" | "medicines.notify.test_body") {
-  return t(key, asLocale(await getUiLanguage()));
+async function text(
+  key: "medicines.notify.title" | "medicines.notify.body" | "medicines.notify.follow_up_title" | "medicines.notify.follow_up_body" | "medicines.notify.channel" | "medicines.notify.test_title" | "medicines.notify.test_body" | "medicines.notify.title_for" | "medicines.notify.body_for",
+  params?: Record<string, string | number>,
+) {
+  return t(key, asLocale(await getUiLanguage()), params);
 }
 
 async function ensureChannel(): Promise<void> {
@@ -154,6 +159,21 @@ export async function replanDoseReminders(
     const meds = await loadMedicines(patientId);
     const closed = await loadClosedSlots(patientId, nowMs);
     const reminderMeds: ReminderMedicine[] = meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) }));
+    // The dependants this person manages are reminded about too (OQ-70): one plan, one cap, their first name in the text.
+    const dependants: ManagedDependant[] = await loadManagedDependants(patientId);
+    const dependantOfMedicine = new Map<string, string>();
+    for (const dep of dependants) {
+      try {
+        const depMeds = await loadMedicines(dep.profileId);
+        for (const slot of await loadClosedSlots(dep.profileId, nowMs)) closed.add(slot);
+        for (const m of depMeds) {
+          reminderMeds.push({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) });
+          dependantOfMedicine.set(m.id, dep.firstName);
+        }
+      } catch {
+        // A dependant who cannot be read right now is skipped; the person's own reminders still go ahead.
+      }
+    }
     const planned = planDoseNotifications(reminderMeds, closed, nowMs, {
       maxPending: cfg.maxPending,
       horizonDays: cfg.horizonDays,
@@ -171,9 +191,12 @@ export async function replanDoseReminders(
     for (const id of diff.toCancel) await Notifications.cancelScheduledNotificationAsync(id);
     for (const item of diff.toSchedule) {
       const followUp = item.kind === "follow_up";
+      const forName = ownerOfNotification(item.slotKeys, dependantOfMedicine);
+      const title = forName && !followUp ? await text("medicines.notify.title_for", { name: forName }) : followUp ? followTitle : dueTitle;
+      const body = forName && !followUp ? await text("medicines.notify.body_for", { name: forName }) : followUp ? followBody : dueBody;
       await Notifications.scheduleNotificationAsync({
         identifier: item.id,
-        content: { title: followUp ? followTitle : dueTitle, body: followUp ? followBody : dueBody, data: { slotKeys: item.slotKeys } },
+        content: { title, body, data: { slotKeys: item.slotKeys } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(item.fireAtMs), channelId: DOSE_CHANNEL },
       });
     }

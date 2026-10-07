@@ -426,6 +426,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-70 Local reminders are planned only for the device owner's own medicines (raised by S08)
 - A guardian who manages a dependant can view and log that person's doses, and the dependant's schedule is their own (8.15), but `replanDoseReminders` plans for the signed-in account only. Planning for dependants on the guardian's phone needs a neutral way to tell the doses apart without naming a medicine (a first name is not a condition, so INV-07 allows it) and a rule for which phone reminds, since the dependant may have their own.
 - Options: (a) plan for every dependant the guardian manages, generic text plus the dependant's first name (recommended); (b) leave it: the Today list for that person is still correct, only the reminder is missing; (c) remind only on the dependant's own phone.
+- Update 2026-10-07 (S54): option (a) built on the phone (local reminders and the catch-up sheet); the server push copy is OQ-316.
 
 ### OQ-71 Other server notification templates still name a medicine (raised by S08)
 - S08 made `medication_dose_reminder` and `medication_refill_reminder` neutral and added a test (`packages/medicines/src/notification-wording.test.ts`). These still put `drug_name` in wording that reaches a push, an email or the in-app inbox: `medication_adherence_checkin`, `medication_review_due`, `medication_prescribed_patient`, `prescription_updated_patient`, `pharmacy_order_patient_confirmation`, `missed_dose_behavioural_nudge` (written by `private.route_missed_dose_reason`, whose wording is also a behavioural nudge the research would reject if it shames), and the `send-pending-notifications` lines that build text from `payload.drug_name`.
@@ -450,6 +451,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ### OQ-76 Windows on existing medicines, and catch-up for dependants (raised by S08b)
 - A flexible window can be set when a patient adds a medicine, but not edited afterwards, and a clinician-prescribed medicine has no window (its times are the care team's). The catch-up sheet covers the device owner's own medicines only; a guardian is not asked about a dependant's doses (same gap as OQ-70).
+- Update 2026-10-07 (S54): the catch-up half is built (a guardian is asked per dependant, answers recorded for the dependant). Editing a window after the fact is still open.
 - Options: (a) add "change window" to a patient-added medicine's card and a clinician-side window on prescriptions in S24 (recommended); (b) leave windows as an add-time choice; for dependants, (c) ask the guardian too, per dependant, once OQ-70 is decided.
 - Known limits found in the S08b review, recorded and not changed: (1) fixed in S08c: the phone's Today list now keeps yesterday's slot while its window is open (the web list still shows today only). (2) fixed in S08d: a failed catch-up read is recorded in the sync diagnostics and retried after 30 seconds and 2 minutes (then at the next open). (3) fixed in S08e: the database now refuses a `windowMinutes` that is not a whole number from 0 to 360 (`medications_schedule_window_valid`), exactly what the phone accepts. (4) fixed in S08g: follow-ups now have their own budget (`medicines.dose_rules.maxFollowUps`, 8, earliest first) and the rest of the notification cap is always due reminders, so follow-ups can shorten the days of due reminders by at most 8 places instead of up to half.
 ### OQ-80 Trends: no target is shown until the care team sets one, and the server's derived target is not visible to the app (raised by S07)
@@ -1744,3 +1746,30 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Fixed in S11g and S11h: (a) the older server alert path now follows the 200/130 decision once the rule set is APPROVED: the old emergency range with no red-flag symptom (and not in pregnancy or after a birth) raises the Priority 1 alert but no patient emergency record; a symptom keeps it an emergency, and a symptom answered after the reading opens the emergency record then (migration `20261006000812`, proof `s11g`, a no-op until approval). The 160/100 and 135/85 bands are unchanged, so a 165/105 reading still pages Priority 1 for a reading the engine would treat as amber: that is the S12 band alignment of OQ-67 and needs the CMO. (f) Tapping the reminder or the server push now opens the blood pressure screen, from closed or running, once per tap (`notification-tap.ts`). (d) The Pidgin for the question's buttons and the reminder is drafted in the catalogue; the emergency guidance, triage messages and symptom names stay in English until a native reviewer and the CMO sign them; the full list is `docs/PIDGIN-REVIEW-S11.md`.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
+
+### OQ-310 The clinician does not send a prescription to a pharmacy; the patient chooses (raised by S54)
+- The S54 brief asked for a clinician "send to nearest partner pharmacy" writing `state = sent`, the pharmacy and the code. The founder decided on 2026-10-07 (S28) that the patient chooses a verified pharmacy herself, S28 moved the code to a patient-only table and stopped writing `prescriptions.collection_code`, and spec 8.16 says clinicians never see which pharmacy earns more. Doing it the brief's way would reverse a same-day founder decision, so it was not built. What the patient gets is the comparison before choosing, and the signed prescription to take anywhere.
+- Options: (a) as built (recommended); (b) a clinician "suggest a pharmacy" that only pre-selects it for the patient to confirm (stores a suggestion, never routes); (c) full clinician routing (reverses the S28 decision).
+- Decision: open (founder).
+
+### OQ-311 No pharmacy can be compared yet, and prices are per pack (raised by S54)
+- Live: 4 partners, none active; `pharmacy_medications` has 0 rows. Real prices need a partner rate card entered by an admin. A price is per listed pack; the comparison sums one pack per prescribed item and says "about", it does not scale to the quantity written. Matching is by the medicine's first word and the exact strength; a strength nobody lists finds nothing rather than a price for another strength.
+- Options: (a) as built; (b) add a quantity-aware price (pack size parsing) once real rate cards exist (recommended then).
+
+### OQ-312 main-dev carries the first S28 build, which conflicts with the live S28 (raised by S54)
+- main-dev holds #990 (migration `20261006231000_s28_pharmacy_collection` and `20261007112458_s28b_*`); production has the other S28 (`20261007120114_s28_pharmacy_collection_and_dispensing`). Revert #1001 is open; #993 and #1000 follow. S54 is stacked on #993 and its own migration deliberately uses no S28 object (only a trigger on `prescriptions`), so it replays either way. Merge order for S53/S54: #1001 (revert), #993, #1000, then S53, then S54. S54 edits one S28 proof (`s28_pharmacy_collection_and_dispensing.sql`) so its fixture pharmacies carry the new NAFDAC-source attestation.
+- Decision: open (lead).
+
+### OQ-313 Pharmacist chat: retention, moderation, attachments (raised by S54)
+- Built: text only, 1000 characters, 30 messages a day per thread per patient (an abuse limit, PROPOSED), first name only to the pharmacist, audited reads, no clinician or admin read, nothing in notifications. Not decided: how long threads are kept, who reviews a complaint about a pharmacist's answer, and whether photos are ever allowed (not built; a photo of a pack is a different, riskier thing).
+- Options: (a) keep as built and decide retention with the data-protection officer before real use (recommended); (b) add a retention job now (needs a number).
+
+### OQ-314 Delivery schema and screens are hidden, not removed (D5, restates OQ-16 and OQ-272)
+- The CHECK stops any new delivery order and the screens are behind `PHARMACY_DELIVERY_ENABLED = false`. `pharmacy_order_delivery_attempts`, `logistics_partners`, the delivery fee column, the courier RPCs, the admin Logistics page and the delivery notification templates remain. A later batch counts, then drops them.
+
+### OQ-315 No price comparison or pharmacist chat on the phone (raised by S54)
+- Web only, as with the S28 chooser (OQ-277). The phone shows "collect at X" and fixes dependants' reminders and catch-up.
+
+### OQ-316 Dependants: the server's push and in-app dose reminders still go to the dependant's own account (raised by S54)
+- S54 fixes the guardian's phone (local reminders and the catch-up sheet, first name only in the text). The server job that queues push and in-app dose reminders still addresses the person whose medicine it is; a guardian who wants those too needs a rule for which phone reminds (OQ-70's last question).
+- Options: (a) leave (recommended until a real guardian asks); (b) also queue to a guardian with the manage grant.
