@@ -34,6 +34,11 @@ begin
     (v_untied, v_org, 'clinician', 'S66B Untied Doctor', '+2348066100009', true), (v_other, v_org2, 'clinician', 'S66B Other Org Doctor', '+2348066100010', true),
     (v_tied, v_org, 'clinician', 'S66B Tied Doctor', '+2348066100011', true)
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name, is_test = true;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  execute 'set local role service_role';
+  update public.profiles set is_test = true where id in (v_pat, v_pat2, v_cg, v_sp, v_emp, v_ph, v_adm, v_cc, v_untied, v_other, v_tied);
+  execute 'reset role';
+  perform set_config('request.jwt.claims', null, true);
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier) values
     (v_org, v_tied, 'S66B Tied Doctor', true, now(), 'senior_medical_officer'), (v_org, v_untied, 'S66B Untied Doctor', true, now(), 'senior_medical_officer'),
     (v_org2, v_other, 'S66B Other Org Doctor', true, now(), 'senior_medical_officer');

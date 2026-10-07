@@ -31,6 +31,12 @@ begin
     (v_cg, v_org, 'patient', 'S66A Caregiver', '+2348066000003', true), (v_doc, v_org, 'clinician', 'S66A Doctor', '+2348066000004', true),
     (v_sponsor, v_org, 'hmo_admin', 'S66A Sponsor', '+2348066000005', true), (v_emp, v_org, 'corporate_admin', 'S66A Employer', '+2348066000006', true)
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;
+  -- profiles.is_test can be set only by an admin or a service context (guard_is_test_flag), so the fixture does it as the service role
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  execute 'set local role service_role';
+  update public.profiles set is_test = true where id in (v_pat, v_pat2, v_cg, v_doc, v_sponsor, v_emp);
+  execute 'reset role';
+  perform set_config('request.jwt.claims', null, true);
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
   values (v_org, v_doc, 'S66A Doctor', true, now(), 'senior_medical_officer');
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_pat, v_cg, 'manage', v_pat);
