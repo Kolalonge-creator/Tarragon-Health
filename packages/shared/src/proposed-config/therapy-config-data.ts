@@ -113,6 +113,8 @@ export interface TherapyWorseningRule {
 
 export interface TherapyProgrammeConfig {
   /** Due windows (minutes) for the clinician task each route raises. BUILD, the CMO confirms. */
+  /** Hours after an entry-screen stop (crisis or red flag) during which the same programme cannot be re-entered by answering again: a clinician looks first. BUILD. */
+  readonly reenrol_cooldown_hours: number;
   readonly route_due_minutes: { readonly same_day_clinician: number; readonly medical_review_first: number; readonly worsening_review: number };
   /** Outcome instruments asked at the checkpoint sessions; the first is the programme's primary score. */
   readonly instruments: Readonly<Record<TherapyProgrammeCode, readonly string[]>>;
@@ -134,6 +136,7 @@ export interface TherapyProgrammeConfig {
 const SIX = [1, 3, 6] as const;
 
 export const THERAPY_PROGRAMME_CONFIG: TherapyProgrammeConfig = {
+  reenrol_cooldown_hours: 72,
   route_due_minutes: { same_day_clinician: 480, medical_review_first: 2880, worsening_review: 1440 },
   instruments: {
     panic_breathing: ["panic_episodes_week"],

@@ -54,6 +54,19 @@ describe("offline completion queue", () => {
   });
 });
 
+describe("queue on a shared phone", () => {
+  it("sends only the signed-in person's own items and keeps the rest", async () => {
+    const s = memoryStore();
+    await enqueueCompletion(s, { ...item(1), userId: "A" });
+    await enqueueCompletion(s, { ...item(2), userId: "B" });
+    const sentFor: number[] = [];
+    const r = await flushQueue(s, async (q) => { sentFor.push(q.ordinal); return "sent"; }, "B");
+    expect(sentFor).toEqual([2]);
+    expect(r).toEqual({ sent: 1, kept: 1 });
+    expect((await readQueue(s)).map((q) => q.userId)).toEqual(["A"]);
+  });
+});
+
 describe("session cache", () => {
   it("keeps an opened session for offline reading and clears it", async () => {
     const s = memoryStore();

@@ -118,7 +118,7 @@ $$ select count(*)::integer from public.audit_log where actor_id = p_actor and a
 create function pg_temp.answers(p_code text, p_positive text default null) returns jsonb language plpgsql as
 $f$ declare r record; a jsonb := '{}'::jsonb; v jsonb;
 begin
-  for r in select * from public.therapy_exclusion_rules where programme_code = p_code and list_version = (select max(version) from public.therapy_exclusion_list_versions where programme_code = p_code) loop
+  for r in select * from public.therapy_exclusion_rules where programme_code = p_code and list_version = (select coalesce(max(version) filter (where status = 'confirmed'), max(version)) from public.therapy_exclusion_list_versions where programme_code = p_code) loop
     if r.item_code = p_positive then
       v := case r.kind when 'yes_no' then 'true'::jsonb when 'score_at_least' then to_jsonb(r.threshold) else to_jsonb(r.threshold - 1) end;
     else
@@ -166,6 +166,7 @@ begin
   perform pg_temp.setf('patB', pg_temp.mkuser(v_org, 'patB', 'patient'));
   perform pg_temp.setf('patC', pg_temp.mkuser(v_org, 'patC', 'patient'));
   perform pg_temp.setf('patD', pg_temp.mkuser(v_org, 'patD', 'patient'));
+  perform pg_temp.setf('patE', pg_temp.mkuser(v_org, 'patE', 'patient'));
   v_real := pg_temp.mkuser(v_org, 'real', 'patient'); perform pg_temp.setf('real', v_real);
   update public.profiles set is_test = false where id = v_real;
   v_doc := pg_temp.mkdoc(v_org, 'doctied', 'medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('doctied', v_doc);
@@ -197,6 +198,8 @@ begin
   perform pg_temp.ck('empty answers refuse', 'false', pg_temp.enrol_as(pg_temp.f('pat2'), 'ibs_hypnotherapy', '{}'::jsonb) ->> 'enrolled');
   perform pg_temp.ck('a wrong kind of answer (text for a yes/no) refuses', 'false',
     pg_temp.enrol_as(pg_temp.f('pat2'), 'pelvic_floor', pg_temp.answers('pelvic_floor') || '{"blood_in_urine":"no"}'::jsonb) ->> 'enrolled');
+  perform pg_temp.ck('answering the form again after a stop does not undo it (a clinician looks first)', 'clinician_review_pending',
+    pg_temp.enrol_as(pg_temp.f('pat2'), 'pelvic_floor', pg_temp.answers('pelvic_floor')) ->> 'reason');
   perform pg_temp.ck('a programme with no entry list admits nobody', 'true', (pg_temp.enrol_as(pg_temp.f('pat2'), 'pulmonary_rehab', '{}'::jsonb) ->> 'no_rules'));
   -- ACCEPTANCE
   o := pg_temp.enrol_as(pg_temp.f('pat'), 'pain_back', pg_temp.answers('pain_back', 'saddle_numbness'));
@@ -204,7 +207,7 @@ begin
   perform pg_temp.ck('...and returns the same-day clinician route (urgent guidance)', 'same_day_clinician', o ->> 'route');
   perform pg_temp.ck('...and a clinician task exists (never only a notification)', '1', pg_temp.tasks_for(pg_temp.f('pat'), 'symptom_review'));
   perform pg_temp.ck('...and nothing is active', '0', (select count(*)::text from public.therapy_enrolments where patient_id = pg_temp.f('pat') and state = 'active'));
-  perform pg_temp.ck('a scaffold programme with clean answers is not available', 'not_available', pg_temp.enrol_as(pg_temp.f('pat'), 'pain_back', pg_temp.answers('pain_back')) ->> 'reason');
+  perform pg_temp.ck('a scaffold programme with clean answers is not available', 'not_available', pg_temp.enrol_as(pg_temp.f('patB'), 'pain_back', pg_temp.answers('pain_back')) ->> 'reason');
   -- the pure check shows guidance and writes nothing
   perform pg_temp.ck('the pure screen writes nothing', 'same_day_clinician',
     pg_temp.q_as(pg_temp.f('patB'), format($q$select (public.therapy_check_entry_screen('pain_back', %L::jsonb))->>'route'$q$, pg_temp.answers('pain_back', 'saddle_numbness')::text)));
@@ -231,10 +234,10 @@ end $$;
 do $$
 declare o jsonb; e uuid; i integer; s jsonb;
 begin
-  o := pg_temp.enrol_as(pg_temp.f('pat2'), 'panic_breathing', pg_temp.answers('panic_breathing'));
+  o := pg_temp.enrol_as(pg_temp.f('patE'), 'panic_breathing', pg_temp.answers('panic_breathing'));
   perform pg_temp.ck('a test account with clean answers enrols', 'true', o ->> 'enrolled');
   e := (o ->> 'enrolment_id')::uuid; perform pg_temp.setf('e_panic', e);
-  perform pg_temp.ck('...and a repeat returns the same enrolment', e::text, pg_temp.enrol_as(pg_temp.f('pat2'), 'panic_breathing', pg_temp.answers('panic_breathing')) ->> 'enrolment_id');
+  perform pg_temp.ck('...and a repeat returns the same enrolment', e::text, pg_temp.enrol_as(pg_temp.f('patE'), 'panic_breathing', pg_temp.answers('panic_breathing')) ->> 'enrolment_id');
   perform pg_temp.ck('a real patient is told the programme is not open yet (guard off)', 'not_open_yet',
     pg_temp.enrol_as(pg_temp.f('real'), 'panic_breathing', pg_temp.answers('panic_breathing')) ->> 'reason');
   -- the trigger itself, as the table owner
@@ -245,32 +248,33 @@ begin
   exception when others then
     perform pg_temp.ck('the guard trigger refuses an active row for a real patient', 'refused', case when sqlerrm like '%not open%' then 'refused' else sqlerrm end);
   end;
-  perform pg_temp.ck('session 2 before session 1 is refused', 'true', (pg_temp.start_as(pg_temp.f('pat2'), e, 2, pg_temp.answers('panic_breathing')) ->> 'error' like '%not open yet%')::text);
-  s := pg_temp.start_as(pg_temp.f('pat2'), e, 1, pg_temp.answers('panic_breathing'));
+  perform pg_temp.ck('session 2 before session 1 is refused', 'true', (pg_temp.start_as(pg_temp.f('patE'), e, 2, pg_temp.answers('panic_breathing')) ->> 'error' like '%not open yet%')::text);
+  s := pg_temp.start_as(pg_temp.f('patE'), e, 1, pg_temp.answers('panic_breathing'));
   perform pg_temp.ck('a clean re-check opens session 1 with the draft text', 'ok', s ->> 'status');
   perform pg_temp.ck('...marked as draft content', 'true', s ->> 'draft_content');
   perform pg_temp.ck('...and it is a checkpoint with its instrument', 'panic_episodes_week', s -> 'instruments' ->> 0);
-  perform pg_temp.ck('a checkpoint session cannot finish without scores', 'true', (pg_temp.done_as(pg_temp.f('pat2'), e, 1, null) ->> 'error' like '%scores are needed%')::text);
-  perform pg_temp.ck('an out-of-range score is refused', 'true', (pg_temp.done_as(pg_temp.f('pat2'), e, 1, '{"panic_episodes_week":500}') ->> 'error' like '%out of range%')::text);
-  perform pg_temp.ck('a good score completes session 1', 'ok', pg_temp.done_as(pg_temp.f('pat2'), e, 1, '{"panic_episodes_week":2}') ->> 'status');
+  perform pg_temp.ck('a checkpoint session cannot finish without scores', 'true', (pg_temp.done_as(pg_temp.f('patE'), e, 1, null) ->> 'error' like '%scores are needed%')::text);
+  perform pg_temp.ck('an out-of-range score is refused', 'true', (pg_temp.done_as(pg_temp.f('patE'), e, 1, '{"panic_episodes_week":500}') ->> 'error' like '%out of range%')::text);
+  perform pg_temp.ck('a good score completes session 1', 'ok', pg_temp.done_as(pg_temp.f('patE'), e, 1, '{"panic_episodes_week":2}') ->> 'status');
   perform pg_temp.ck('...baseline recorded', '2', (select baseline_score::text from public.therapy_enrolments where id = e));
   perform pg_temp.ck('...programme.session_completed event written, ids only', '1',
     (select count(*)::text from public.domain_events where event_type = 'programme.session_completed' and aggregate_id = e and payload ?& array['enrolment_id', 'ordinal']));
-  perform pg_temp.ck('...a repeat completion is safe (already saved)', 'true', pg_temp.done_as(pg_temp.f('pat2'), e, 1, '{"panic_episodes_week":2}') ->> 'already');
+  perform pg_temp.ck('...a repeat completion is safe (already saved)', 'true', pg_temp.done_as(pg_temp.f('patE'), e, 1, '{"panic_episodes_week":2}') ->> 'already');
   -- session 2: a positive re-check stops the programme and routes it
-  perform pg_temp.ck('session 2 opens', 'ok', pg_temp.start_as(pg_temp.f('pat2'), e, 2, pg_temp.answers('panic_breathing')) ->> 'status');
-  perform pg_temp.ck('session 2 completes (not a checkpoint, no scores)', 'ok', pg_temp.done_as(pg_temp.f('pat2'), e, 2, null) ->> 'status');
-  perform pg_temp.ck('session 3 (a checkpoint) opens', 'ok', pg_temp.start_as(pg_temp.f('pat2'), e, 3, pg_temp.answers('panic_breathing')) ->> 'status');
+  perform pg_temp.ck('session 2 opens', 'ok', pg_temp.start_as(pg_temp.f('patE'), e, 2, pg_temp.answers('panic_breathing')) ->> 'status');
+  perform pg_temp.ck('session 2 completes (not a checkpoint, no scores)', 'ok', pg_temp.done_as(pg_temp.f('patE'), e, 2, null) ->> 'status');
+  perform pg_temp.ck('scores outside a checkpoint are refused', 'true',
+    (pg_temp.start_as(pg_temp.f('patE'), e, 3, pg_temp.answers('panic_breathing')) ->> 'status' = 'ok')::text);
   perform pg_temp.ck('a worsening score at the next checkpoint (2 to 6, a rise of 4) pauses for review', 'true',
-    pg_temp.done_as(pg_temp.f('pat2'), e, 3, '{"panic_episodes_week":6}') ->> 'paused_for_review');
+    pg_temp.done_as(pg_temp.f('patE'), e, 3, '{"panic_episodes_week":6}') ->> 'paused_for_review');
   perform pg_temp.ck('...the enrolment is paused for review', 'paused', (select state from public.therapy_enrolments where id = e));
-  perform pg_temp.ck('...a clinician review task exists', '1', (select count(*)::text from public.clinical_tasks where patient_id = pg_temp.f('pat2') and type = 'symptom_review' and dedup_key = 'therapy_worsening:' || e));
+  perform pg_temp.ck('...a clinician review task exists', '1', (select count(*)::text from public.clinical_tasks where patient_id = pg_temp.f('patE') and type = 'symptom_review' and dedup_key = 'therapy_worsening:' || e));
   perform pg_temp.ck('...a programme.flag event exists', '1', (select count(*)::text from public.domain_events where event_type = 'programme.flag' and aggregate_id = e and idempotency_key = 'programme.flag:' || e || ':worsening_review'));
   perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
   perform public.therapy_run_progress(e);
   perform set_config('request.jwt.claims', '', true);
-  perform pg_temp.ck('the bus handler path is idempotent: no second task', '1', (select count(*)::text from public.clinical_tasks where patient_id = pg_temp.f('pat2') and dedup_key = 'therapy_worsening:' || e));
-  perform pg_temp.ck('a paused programme opens no session', 'not_active', pg_temp.start_as(pg_temp.f('pat2'), e, 4, pg_temp.answers('panic_breathing')) ->> 'status');
+  perform pg_temp.ck('the bus handler path is idempotent: no second task', '1', (select count(*)::text from public.clinical_tasks where patient_id = pg_temp.f('patE') and dedup_key = 'therapy_worsening:' || e));
+  perform pg_temp.ck('a paused programme opens no session', 'not_active', pg_temp.start_as(pg_temp.f('patE'), e, 4, pg_temp.answers('panic_breathing')) ->> 'status');
 end $$;
 -- therapy_run_progress is service role only
 
@@ -308,6 +312,13 @@ begin
   perform pg_temp.ck('...and reads version 2 text', 'true', (t2 like 'VERSION TWO TEXT 1')::text);
   begin update public.therapy_enrolments set programme_version = 2 where id = e1; v := 'changed'; exception when others then v := 'refused'; end;
   perform pg_temp.ck('...trigger refuses the change', 'refused', v);
+  update public.therapy_exclusion_list_versions set status = 'confirmed', confirmed_by = v_admin, confirmed_at = now() where programme_code = 'ibs_hypnotherapy' and version = 1;
+  insert into public.therapy_exclusion_list_versions (programme_code, version, status) values ('ibs_hypnotherapy', 2, 'draft');
+  insert into public.therapy_exclusion_rules (programme_code, list_version, ordinal, item_code, question, kind, route) values ('ibs_hypnotherapy', 2, 1, 'only_draft_item', 'q', 'yes_no', 'same_day_clinician');
+  perform pg_temp.ck('a newer unconfirmed list does not replace the confirmed one on the live screen', 'true',
+    pg_temp.q_as(pg_temp.f('patB'), format($q$select (public.therapy_check_entry_screen('ibs_hypnotherapy', %L::jsonb))->>'passed'$q$, pg_temp.answers('ibs_hypnotherapy')::text)));
+  begin update public.therapy_exclusion_rules set question = 'edited' where programme_code = 'ibs_hypnotherapy' and list_version = 1 and ordinal = 1; v := 'changed'; exception when others then v := 'refused'; end;
+  perform pg_temp.ck('a confirmed list cannot be edited', 'refused', v);
   -- approve version 1 and prove it is frozen
   update public.therapy_programme_versions set review_state = 'approved', approved_by = v_admin, approved_at = now() where programme_id = pid and version = 1;
   begin update public.therapy_programme_sessions set text_body = 'edited' where programme_id = pid and version = 1 and ordinal = 1; v := 'changed'; exception when others then v := 'refused'; end;
@@ -323,26 +334,26 @@ end $$;
 do $$
 declare t text; who text;
 begin
-  perform pg_temp.ck('the patient reads their own enrolments', (select count(*)::text from public.therapy_enrolments where patient_id = pg_temp.f('pat2')), pg_temp.cnt(pg_temp.f('pat2'), 'therapy_enrolments'));
-  perform pg_temp.ck('...and own progress rows', '3', pg_temp.cnt(pg_temp.f('pat2'), 'therapy_session_progress'));
-  perform pg_temp.ck('another patient sees none of patient pat2', '0', pg_temp.q_as(pg_temp.f('real'), format('select count(*)::text from public.therapy_enrolments where patient_id = %L', pg_temp.f('pat2'))));
+  perform pg_temp.ck('the patient reads their own enrolments', '1', pg_temp.cnt(pg_temp.f('patE'), 'therapy_enrolments'));
+  perform pg_temp.ck('...and own progress rows', '3', pg_temp.cnt(pg_temp.f('patE'), 'therapy_session_progress'));
+  perform pg_temp.ck('another patient sees none of patient pat2', '0', pg_temp.q_as(pg_temp.f('real'), format('select count(*)::text from public.therapy_enrolments where patient_id = %L', pg_temp.f('patE'))));
   foreach t in array array['therapy_enrolments', 'therapy_session_progress', 'therapy_share_consents'] loop
     foreach who in array array['doctied', 'docuntied', 'coord', 'cmo', 'admin', 'finance', 'analyst', 'corp'] loop
       perform pg_temp.ck(who || ' cannot read ' || t || ' directly', '0', pg_temp.cnt(pg_temp.f(who), t));
     end loop;
   end loop;
-  foreach who in array array['pat2', 'doctied', 'coord', 'finance', 'analyst', 'corp'] loop
+  foreach who in array array['patE', 'doctied', 'coord', 'finance', 'analyst', 'corp'] loop
     perform pg_temp.ck(who || ' cannot read programme content', '0', pg_temp.cnt(pg_temp.f(who), 'therapy_programme_sessions'));
   end loop;
   perform pg_temp.ck('admin can read programme content for review', (select count(*)::text from public.therapy_programme_sessions), pg_temp.cnt(pg_temp.f('admin'), 'therapy_programme_sessions'));
   perform pg_temp.ck('a patient cannot write an enrolment directly', 'true',
-    (pg_temp.try_as(pg_temp.f('pat2'), format($q$update public.therapy_enrolments set completed_count = 99 where id = %L$q$, pg_temp.f('e_panic'))) like '%permission denied%')::text);
+    (pg_temp.try_as(pg_temp.f('patE'), format($q$update public.therapy_enrolments set completed_count = 99 where id = %L$q$, pg_temp.f('e_panic'))) like '%permission denied%')::text);
   perform pg_temp.ck('a patient cannot insert one directly', 'true',
-    (pg_temp.try_as(pg_temp.f('pat2'), format($q$insert into public.therapy_enrolments (organisation_id, patient_id, programme_id, programme_version, exclusion_list_version, state) select %L, %L, id, 1, 1, 'active' from public.therapy_programmes limit 1$q$, pg_temp.f('org'), pg_temp.f('pat2'))) like '%permission denied%')::text);
+    (pg_temp.try_as(pg_temp.f('patE'), format($q$insert into public.therapy_enrolments (organisation_id, patient_id, programme_id, programme_version, exclusion_list_version, state) select %L, %L, id, 1, 1, 'active' from public.therapy_programmes limit 1$q$, pg_temp.f('org'), pg_temp.f('patE'))) like '%permission denied%')::text);
   perform pg_temp.ck('anon is refused at the table', '42501', pg_temp.try_anon('select count(*) from public.therapy_enrolments'));
   perform pg_temp.ck('anon cannot enrol', '42501', pg_temp.try_anon($q$select public.enrol_in_therapy_programme('panic_breathing', '{}'::jsonb)$q$));
   perform pg_temp.ck('therapy_run_progress is refused to a patient', 'true',
-    (pg_temp.try_as(pg_temp.f('pat2'), format($q$select public.therapy_run_progress(%L)$q$, pg_temp.f('e_panic'))) like '%permission denied%')::text);
+    (pg_temp.try_as(pg_temp.f('patE'), format($q$select public.therapy_run_progress(%L)$q$, pg_temp.f('e_panic'))) like '%permission denied%')::text);
   perform pg_temp.ck('a clinician (not CMO) cannot save an exclusion list', 'true',
     (pg_temp.try_as(pg_temp.f('doctied'), $q$select public.save_therapy_exclusion_list('panic_breathing', '[{"code":"x","question":"q","kind":"yes_no","route":"same_day_clinician"}]'::jsonb)$q$) like '%only the Chief Medical Officer%')::text);
   perform pg_temp.ck('...nor approve content', 'true', (pg_temp.try_as(pg_temp.f('doctied'), $q$select public.approve_therapy_programme_version('panic_breathing', 1)$q$) like '%only the Chief Medical Officer%')::text);
@@ -370,7 +381,7 @@ end $$;
 
 -- 8. Consent and the audited read -----------------------------------------------------------------------------------------------------
 do $$
-declare e uuid := pg_temp.f('e_panic'); pat uuid := pg_temp.f('pat2'); q text;
+declare e uuid := pg_temp.f('e_panic'); pat uuid := pg_temp.f('patE'); q text;
 begin
   -- pat2 is tied to nobody; tie them to the tied doctor for these checks
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, care_coordinator_id) values (pg_temp.f('org'), pat, pg_temp.f('doctied'), pg_temp.f('coord'));
@@ -394,6 +405,12 @@ begin
   perform pg_temp.ck('...and the clinician is refused at once', 'not_shared', pg_temp.q_as(pg_temp.f('doctied'), q));
   perform pg_temp.ck('sharing and revoking are logged', '2', (select count(*)::text from public.audit_log where actor_id = pat and action like 'therapy_progress.share_%'));
   perform pg_temp.ck('a clinician resumes a paused programme (tied)', 'ok', pg_temp.try_as(pg_temp.f('doctied'), format($q$select public.resume_therapy_enrolment(%L, 'reviewed with the patient today')$q$, e)));
+  perform pg_temp.ck('after resume the old checkpoint scores are not assessed again', 'false',
+    (pg_temp.start_as(pat, e, 4, pg_temp.answers('panic_breathing')) ->> 'status' = 'ok' and pg_temp.done_as(pat, e, 4, null) ->> 'paused_for_review' = 'true')::text);
+  perform pg_temp.ck('...and the programme is still active', 'active', (select state from public.therapy_enrolments where id = e));
+  update public.therapy_programme_config set is_active = false;
+  perform pg_temp.ck('with no active config a session will not open (fails closed)', 'true', (pg_temp.start_as(pat, e, 5, pg_temp.answers('panic_breathing')) ->> 'error' like '%not configured%')::text);
+  update public.therapy_programme_config set is_active = true where version = 1;
   perform pg_temp.ck('...an untied clinician cannot resume', 'true', (pg_temp.try_as(pg_temp.f('docuntied'), format($q$select public.resume_therapy_enrolment(%L, 'trying to resume it')$q$, e)) like '%not authorised%')::text);
 end $$;
 

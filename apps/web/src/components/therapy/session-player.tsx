@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  cacheSession, enqueueCompletion, flushQueue, readCachedSession,
+  cacheSession, classifyRpcError, clearCachedSession, enqueueCompletion, flushQueue, isTherapyProgrammeCode, readCachedSession, validateScores,
   type AsyncStore, type CachedSession, type TherapyAnswers, type TherapyRoute,
 } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
@@ -28,7 +28,7 @@ type View =
   | { kind: "loading" }
   | { kind: "recheck"; questions: EntryQuestions }
   | { kind: "session"; session: SessionContent | CachedSession; offlineCopy: boolean }
-  | { kind: "stopped"; route: TherapyRoute | null }
+  | { kind: "stopped"; route: TherapyRoute | null; taskFailed: boolean }
   | { kind: "finished"; programmeCompleted: boolean; pausedForReview: boolean; queued: boolean }
   | { kind: "message"; key: MessageKey };
 
@@ -50,15 +50,20 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
   const [scores, setScores] = useState<Record<string, string>>({});
   const [scoreError, setScoreError] = useState(false);
   const [diary, setDiary] = useState("");
+  const [userId, setUserId] = useState<string | undefined>(undefined);
 
   const sendQueued = useCallback(async () => {
+    const { data: u } = await createClient().auth.getUser();
+    const me = u.user?.id;
+    if (!me) return;
+    setUserId(me);
     await flushQueue(deviceStore, async (item) => {
       const { data, error } = await createClient().rpc("complete_therapy_session", {
         p_enrolment: item.enrolmentId, p_ordinal: item.ordinal, p_scores: item.scores ?? undefined,
       });
-      if (error) return /not started|not found|out of range|missing|unknown score|asked only/i.test(error.message) ? "sent" : "retry";
+      if (error) return classifyRpcError(error) === "permanent" ? "sent" : "retry";
       return readCompleteOutcome(data).kind === "unknown" ? "retry" : "sent";
-    });
+    }, me);
   }, []);
 
   useEffect(() => {
@@ -99,7 +104,7 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
           setView({ kind: "session", session: s, offlineCopy: false });
           break;
         }
-        case "stopped": setView({ kind: "stopped", route: outcome.route }); break;
+        case "stopped": setView({ kind: "stopped", route: outcome.route, taskFailed: outcome.taskFailed }); break;
         case "not_active": setView({ kind: "message", key: "therapy.player.not_active" }); break;
         case "content_not_approved": setView({ kind: "message", key: "therapy.player.content_pending" }); break;
         case "not_open_yet": setView({ kind: "message", key: "therapy.enrol.not_open" }); break;
@@ -125,6 +130,7 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
       }
       payload = parsed;
     }
+    if (payload && isTherapyProgrammeCode(programmeCode) && validateScores(programmeCode, ordinal, payload) !== null) { setScoreError(true); return; }
     setScoreError(false);
     setBusy(true);
     try {
@@ -135,10 +141,26 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
         return;
       }
       if (outcome.kind === "not_active") { setView({ kind: "message", key: "therapy.player.not_active" }); return; }
+      if (error && classifyRpcError(error) === "permanent") { setScoreError(true); return; }
       throw new Error("not saved");
     } catch {
-      const queued = await enqueueCompletion(deviceStore, { enrolmentId, ordinal, scores: payload, queuedAt: new Date().toISOString() });
+      const queued = await enqueueCompletion(deviceStore, { userId, enrolmentId, ordinal, scores: payload, queuedAt: new Date().toISOString() });
       setView(queued ? { kind: "finished", programmeCompleted: false, pausedForReview: false, queued: true } : { kind: "message", key: "therapy.player.finish_error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function stopProgramme() {
+    setBusy(true);
+    try {
+      const { error } = await createClient().rpc("stop_therapy_enrolment", { p_enrolment: enrolmentId });
+      if (error) { setView({ kind: "message", key: "therapy.player.error" }); return; }
+      await clearCachedSession(deviceStore, enrolmentId, ordinal);
+      try { window.localStorage.removeItem(DIARY_KEY(enrolmentId)); } catch { /* nothing to remove */ }
+      setView({ kind: "message", key: "therapy.player.stopped" });
+    } catch {
+      setView({ kind: "message", key: "therapy.player.error" });
     } finally {
       setBusy(false);
     }
@@ -152,7 +174,7 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
 
   if (view.kind === "loading") return <p className="text-sm" role="status">{t("therapy.player.starting")}</p>;
   if (view.kind === "message") return <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t(view.key)}</p>;
-  if (view.kind === "stopped") return <TherapyGuidanceCard route={view.route} />;
+  if (view.kind === "stopped") return <TherapyGuidanceCard route={view.route} taskFailed={view.taskFailed} />;
   if (view.kind === "finished") {
     return (
       <Card>
@@ -222,7 +244,14 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
             {scoreError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t("therapy.player.scores_needed")}</p>}
           </section>
         )}
-        <Button type="button" onClick={finish} disabled={busy}>{busy ? t("therapy.player.finishing") : t("therapy.player.finish")}</Button>
+        {view.offlineCopy ? (
+          <p className="text-sm" role="status">{t("therapy.player.read_only_copy")}</p>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" onClick={finish} disabled={busy}>{busy ? t("therapy.player.finishing") : t("therapy.player.finish")}</Button>
+            <Button type="button" variant="outline" onClick={stopProgramme} disabled={busy}>{t("therapy.player.stop")}</Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

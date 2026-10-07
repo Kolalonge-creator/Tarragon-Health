@@ -2,14 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  cacheSession, enqueueCompletion, evaluateEntryScreen, flushQueue, isTherapyProgrammeCode, readCachedSession, therapyExclusionRules,
+  cacheSession, clearCachedSession, enqueueCompletion, evaluateEntryScreen, flushQueue, isTherapyProgrammeCode, readCachedSession, therapyExclusionRules, validateScores,
   type CachedSession, type EntryQuestion, type EntryQuestions, type SessionContent, type TherapyAnswers, type TherapyRoute,
 } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { HiddenCard, SharedPhoneSettings } from "@/components/mental-health/shared-phone-controls";
 import { useSharedPhone } from "@/lib/shared-phone";
 import {
-  completeSession, deviceStore, diaryKey, enrol, loadEntryQuestions, loadOpenProgrammes, loadSharing, setSharing, startSession,
+  completeSession, currentUserId, deviceStore, diaryKey, enrol, loadEntryQuestions, loadOpenProgrammes, loadSharing, setSharing, startSession, stopEnrolment,
   type EnrolmentRow, type ProgrammeRow,
 } from "@/lib/therapy-programmes";
 import { spacing } from "@/ui/theme";
@@ -22,7 +22,7 @@ type Step =
   | { kind: "player"; programme: ProgrammeRow; enrolmentId: string; ordinal: number };
 
 /** Guidance when a programme is stopped. No phone number and no helpline (CMO decision): the crisis card says go to the nearest hospital now. */
-function Guidance({ route, taskFailed, onBack }: { route: TherapyRoute | null; taskFailed?: boolean; onBack: () => void }) {
+function Guidance({ route, taskFailed, onBack }: { route: TherapyRoute | "clinician_review_pending" | "offline_stop" | null; taskFailed?: boolean; onBack: () => void }) {
   const colors = useLegacyColors();
   const key = route ?? "not_available";
   return (
@@ -76,7 +76,7 @@ function Entry({ programme, onBack, onEnrolled }: { programme: ProgrammeRow; onB
   const [offline, setOffline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ route: TherapyRoute | null; taskFailed: boolean; closed?: boolean } | "error" | null>(null);
+  const [result, setResult] = useState<{ route: TherapyRoute | "clinician_review_pending" | "offline_stop" | null; taskFailed: boolean; closed?: boolean } | "error" | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -98,14 +98,14 @@ function Entry({ programme, onBack, onEnrolled }: { programme: ProgrammeRow; onB
     if (offline && isTherapyProgrammeCode(programme.code)) {
       const local = evaluateEntryScreen(therapyExclusionRules(programme.code), answers);
       setBusy(false);
-      setResult(local.passed ? "error" : { route: local.route, taskFailed: true });
+      setResult(local.passed ? "error" : { route: "offline_stop", taskFailed: false });
       return;
     }
     const o = await enrol(programme.code, answers);
     setBusy(false);
     if (o.kind === "enrolled") onEnrolled();
     else if (o.kind === "blocked") setResult({ route: o.route, taskFailed: o.taskFailed });
-    else if (o.kind === "closed") setResult({ route: null, taskFailed: false, closed: true });
+    else if (o.kind === "closed") setResult({ route: o.reason === "clinician_review_pending" ? "clinician_review_pending" : null, taskFailed: false, closed: true });
     else setResult("error");
   };
 
@@ -125,8 +125,8 @@ function Entry({ programme, onBack, onEnrolled }: { programme: ProgrammeRow; onB
 type PlayerView =
   | { kind: "loading" }
   | { kind: "recheck"; q: EntryQuestions }
-  | { kind: "session"; s: SessionContent | CachedSession }
-  | { kind: "stopped"; route: TherapyRoute | null }
+  | { kind: "session"; s: SessionContent | CachedSession; offlineCopy: boolean }
+  | { kind: "stopped"; route: TherapyRoute | null; taskFailed: boolean }
   | { kind: "done"; text: MessageKey; paused: boolean }
   | { kind: "message"; key: MessageKey };
 
@@ -138,12 +138,16 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
   const [scoreError, setScoreError] = useState(false);
   const [diary, setDiary] = useState("");
   const [shared, setShared] = useState<boolean | null>(null);
+  const [userId, setUserId] = useState<string | undefined>(undefined);
 
   const sendQueued = useCallback(async () => {
+    const me = await currentUserId();
+    if (!me) return;
+    setUserId(me);
     await flushQueue(deviceStore, async (item) => {
       const r = await completeSession(item.enrolmentId, item.ordinal, item.scores);
       return r.kind === "network" || r.kind === "unknown" ? "retry" : "sent";
-    });
+    }, me);
   }, []);
 
   useEffect(() => {
@@ -156,7 +160,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
       if (!alive) return;
       if (q) return setView({ kind: "recheck", q });
       const cached = await readCachedSession(deviceStore, enrolmentId, ordinal);
-      if (alive) setView(cached ? { kind: "session", s: cached } : { kind: "message", key: "therapy.player.error" });
+      if (alive) setView(cached ? { kind: "session", s: cached, offlineCopy: true } : { kind: "message", key: "therapy.player.error" });
     })();
     return () => { alive = false; };
   }, [programme.code, enrolmentId, ordinal, sendQueued]);
@@ -168,8 +172,8 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
     if (o.kind === "ok") {
       const s = o.session;
       await cacheSession(deviceStore, enrolmentId, { title: s.title, kind: s.kind, text: s.text, ordinal: s.ordinal, totalSessions: s.totalSessions, programmeTitle: s.programmeTitle, checkpoint: s.checkpoint, instruments: s.instruments, cachedAt: new Date().toISOString() });
-      setView({ kind: "session", s });
-    } else if (o.kind === "stopped") setView({ kind: "stopped", route: o.route });
+      setView({ kind: "session", s, offlineCopy: false });
+    } else if (o.kind === "stopped") setView({ kind: "stopped", route: o.route, taskFailed: o.taskFailed });
     else if (o.kind === "not_active") setView({ kind: "message", key: "therapy.player.not_active" });
     else if (o.kind === "content_not_approved") setView({ kind: "message", key: "therapy.player.content_pending" });
     else if (o.kind === "not_open_yet") setView({ kind: "message", key: "therapy.enrol.not_open" });
@@ -187,13 +191,15 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
       }
       payload = parsed;
     }
+    if (payload && isTherapyProgrammeCode(programme.code) && validateScores(programme.code, ordinal, payload) !== null) { setScoreError(true); return; }
     setScoreError(false);
     setBusy(true);
     const r = await completeSession(enrolmentId, ordinal, payload);
     if (r.kind === "ok") setView({ kind: "done", text: r.programmeCompleted ? "therapy.player.programme_done" : "therapy.player.done", paused: r.pausedForReview });
     else if (r.kind === "not_active") setView({ kind: "message", key: "therapy.player.not_active" });
+    else if (r.kind === "rejected") setScoreError(true);
     else {
-      const queued = await enqueueCompletion(deviceStore, { enrolmentId, ordinal, scores: payload, queuedAt: new Date().toISOString() });
+      const queued = await enqueueCompletion(deviceStore, { userId, enrolmentId, ordinal, scores: payload, queuedAt: new Date().toISOString() });
       setView(queued ? { kind: "done", text: "therapy.player.saved_offline", paused: false } : { kind: "message", key: "therapy.player.finish_error" });
     }
     setBusy(false);
@@ -201,7 +207,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
 
   if (view.kind === "loading") return <ActivityIndicator />;
   if (view.kind === "message") return <><ErrorText>{t(view.key)}</ErrorText><SecondaryButton title={t("therapy.guidance.back")} onPress={onBack} /></>;
-  if (view.kind === "stopped") return <Guidance route={view.route} onBack={onBack} />;
+  if (view.kind === "stopped") return <Guidance route={view.route} taskFailed={view.taskFailed} onBack={onBack} />;
   if (view.kind === "done") {
     return (
       <Card style={{ gap: 8 }}>
@@ -255,7 +261,23 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
           {scoreError && <ErrorText>{t("therapy.player.scores_needed")}</ErrorText>}
         </Card>
       )}
-      <PrimaryButton title={t("therapy.player.finish")} onPress={() => finish(s)} loading={busy} />
+      {view.offlineCopy ? (
+        <MutedText>{t("therapy.player.read_only_copy")}</MutedText>
+      ) : (
+        <>
+          <PrimaryButton title={t("therapy.player.finish")} onPress={() => finish(s)} loading={busy} />
+          <SecondaryButton
+            title={t("therapy.player.stop")}
+            onPress={async () => {
+              if (await stopEnrolment(enrolmentId)) {
+                await clearCachedSession(deviceStore, enrolmentId, ordinal);
+                AsyncStorage.removeItem(diaryKey(enrolmentId)).catch(() => {});
+                setView({ kind: "message", key: "therapy.player.stopped" });
+              } else setView({ kind: "message", key: "therapy.player.error" });
+            }}
+          />
+        </>
+      )}
       <Card style={{ gap: 6 }}>
         <Text style={{ fontWeight: "700", color: colors.ink }}>{t("therapy.share.title")}</Text>
         <MutedText>{t("therapy.share.body")}</MutedText>

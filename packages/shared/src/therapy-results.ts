@@ -51,7 +51,7 @@ export function readEntryQuestions(raw: unknown): EntryQuestions | null {
 export type EnrolOutcome =
   | { kind: "enrolled"; enrolmentId: string }
   | { kind: "blocked"; route: TherapyRoute | null; taskFailed: boolean }
-  | { kind: "closed"; reason: "not_open_yet" | "not_available" }
+  | { kind: "closed"; reason: "not_open_yet" | "not_available" | "clinician_review_pending" }
   | { kind: "unknown" };
 
 export function readEnrolOutcome(raw: unknown): EnrolOutcome {
@@ -61,7 +61,7 @@ export function readEnrolOutcome(raw: unknown): EnrolOutcome {
     return id ? { kind: "enrolled", enrolmentId: id } : { kind: "unknown" };
   }
   if (raw.enrolled === false) {
-    if (raw.reason === "not_open_yet" || raw.reason === "not_available") return { kind: "closed", reason: raw.reason };
+    if (raw.reason === "not_open_yet" || raw.reason === "not_available" || raw.reason === "clinician_review_pending") return { kind: "closed", reason: raw.reason };
     if (raw.no_rules === true) return { kind: "closed", reason: "not_available" };
     if (raw.state === "blocked") return { kind: "blocked", route: asRoute(raw.route), taskFailed: raw.task_failed === true };
   }
@@ -86,7 +86,7 @@ export interface SessionContent {
 
 export type StartOutcome =
   | { kind: "ok"; session: SessionContent }
-  | { kind: "stopped"; route: TherapyRoute | null }
+  | { kind: "stopped"; route: TherapyRoute | null; taskFailed: boolean }
   | { kind: "not_active" }
   | { kind: "not_open_yet" }
   | { kind: "content_not_approved" }
@@ -123,7 +123,7 @@ export function readStartOutcome(raw: unknown): StartOutcome {
       };
     }
     case "stopped":
-      return { kind: "stopped", route: asRoute(raw.route) };
+      return { kind: "stopped", route: asRoute(raw.route), taskFailed: raw.task_failed === true };
     case "not_active":
       return { kind: "not_active" };
     case "not_open_yet":
@@ -152,4 +152,14 @@ export function readCompleteOutcome(raw: unknown): CompleteOutcome {
   }
   if (raw.status === "not_active" || raw.status === "not_open_yet") return { kind: "not_active" };
   return { kind: "unknown" };
+}
+
+/**
+ * Whether a failed programme call is worth retrying. The database raises 22023 (bad input), 42501 (not allowed) and 55000 (wrong state)
+ * for answers it will always give again; those must be shown to the person, never queued. Anything else (no connection, a timeout, a server
+ * fault) is a transport problem and the call may be queued and sent again.
+ */
+export function classifyRpcError(error: { code?: string | null } | null | undefined): "permanent" | "transport" {
+  const code = error?.code ?? "";
+  return code === "22023" || code === "42501" || code === "55000" ? "permanent" : "transport";
 }

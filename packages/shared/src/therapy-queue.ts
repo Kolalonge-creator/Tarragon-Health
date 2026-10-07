@@ -17,6 +17,8 @@ export interface AsyncStore {
 }
 
 export interface QueuedCompletion {
+  /** The signed-in person who queued it. Another person on the same device never sends it (shared phones). */
+  userId?: string;
   enrolmentId: string;
   ordinal: number;
   scores: Record<string, number> | null;
@@ -69,11 +71,16 @@ export async function enqueueCompletion(store: AsyncStore, item: QueuedCompletio
 export async function flushQueue(
   store: AsyncStore,
   send: (item: QueuedCompletion) => Promise<"sent" | "retry">,
+  userId?: string,
 ): Promise<{ sent: number; kept: number }> {
   const q = await readQueue(store);
   const kept: QueuedCompletion[] = [];
   let sent = 0;
   for (const item of q) {
+    if (item.userId !== undefined && userId !== undefined && item.userId !== userId) {
+      kept.push(item);
+      continue;
+    }
     let outcome: "sent" | "retry";
     try {
       outcome = await send(item);

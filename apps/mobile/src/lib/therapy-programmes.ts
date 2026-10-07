@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  readCompleteOutcome, readEnrolOutcome, readEntryQuestions, readStartOutcome,
+  classifyRpcError, readCompleteOutcome, readEnrolOutcome, readEntryQuestions, readStartOutcome,
   type AsyncStore, type CompleteOutcome, type EnrolOutcome, type EntryQuestions, type StartOutcome, type TherapyAnswers,
 } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
@@ -65,14 +65,32 @@ export async function startSession(enrolmentId: string, ordinal: number, answers
   }
 }
 
-/** "network" means the call did not get an answer, so the caller may queue it; anything else is the database's answer. */
-export async function completeSession(enrolmentId: string, ordinal: number, scores: Record<string, number> | null): Promise<CompleteOutcome | { kind: "network" }> {
+/** "network" means the call did not get an answer, so the caller may queue it; "rejected" is a permanent answer to show, never queue. */
+export async function completeSession(enrolmentId: string, ordinal: number, scores: Record<string, number> | null): Promise<CompleteOutcome | { kind: "network" } | { kind: "rejected" }> {
   try {
     const { data, error } = await supabase.rpc("complete_therapy_session", { p_enrolment: enrolmentId, p_ordinal: ordinal, p_scores: scores ?? undefined });
-    if (error) return /not started|not found|out of range|missing|unknown score|asked only/i.test(error.message) ? { kind: "not_active" } : { kind: "network" };
+    if (error) return classifyRpcError(error) === "permanent" ? { kind: "rejected" } : { kind: "network" };
     return readCompleteOutcome(data);
   } catch {
     return { kind: "network" };
+  }
+}
+
+export async function currentUserId(): Promise<string | undefined> {
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function stopEnrolment(enrolmentId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.rpc("stop_therapy_enrolment", { p_enrolment: enrolmentId });
+    return !error;
+  } catch {
+    return false;
   }
 }
 
