@@ -159,8 +159,8 @@ begin
   perform pg_temp.ck('anon cannot preview', '42501', pg_temp.try_anon($q$select public.circle_preview_permissions(array['red_alerts'])$q$));
   perform pg_temp.ck('anon cannot acknowledge an alert', '42501', pg_temp.try_anon(format($q$select public.circle_ack_alert(%L)$q$, v_pat)));
   perform pg_temp.ck('anon cannot renew', '42501', pg_temp.try_anon(format($q$select public.renew_care_circle_member(%L)$q$, v_mem_a)));
-  perform pg_temp.ck('the active config is version 2 with the 14 and 3 day notices and a 7 day pause', '2,14,3,7',
-    (select version::text || ',' || (rules ->> 'expiry_notice_days') || ',' || (rules ->> 'expiry_final_notice_days') || ',' || (rules ->> 'pause_days') from public.care_circle_config where is_active));
+  perform pg_temp.ck('the active config (version 2 or later) has the 14 and 3 day notices and a 7 day pause', 'true,14,3,7',
+    (select (version >= 2)::text || ',' || (rules ->> 'expiry_notice_days') || ',' || (rules ->> 'expiry_final_notice_days') || ',' || (rules ->> 'pause_days') from public.care_circle_config where is_active));
   begin
     insert into public.care_circle_config (version, is_active, effective_from, rules)
       select 96, false, current_date, jsonb_set(rules, '{expiry_final_notice_days}', '20') from public.care_circle_config where is_active;

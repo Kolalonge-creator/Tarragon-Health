@@ -63,8 +63,12 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
 ];
 
+export type SettledConfig = { table: string; title: string; href: string; version: number };
+
 export type SignoffQueueResult = {
   items: SignoffQueueItem[];
+  /** The governed configurations whose live version is signed, read in the same pass, so a page needn't read each table again. Incomplete if a source failed. */
+  settledConfigs: SettledConfig[];
   /** Names of the sources that could not be read. While this is non-empty `items` is incomplete and must never be shown as an all-clear. */
   failedSources: string[];
 };
@@ -80,6 +84,17 @@ type VersionRow = {
 };
 
 const isSigned = (r: VersionRow) => Boolean(r.approved_by ?? r.approved_at);
+
+/**
+ * The live row, or null. More than one live row is a corrupt state (five of these tables have
+ * no unique one-live-row index to prevent it), and silently taking the first could show a
+ * signed row while an unsigned one is also live, so it is reported as an unreadable source.
+ */
+function singleLiveRow(rows: VersionRow[], source: string): VersionRow | null {
+  const live = rows.filter((r) => r.is_active);
+  if (live.length > 1) throw new Error(`failed reading ${source}: ${live.length} versions are live at once`);
+  return live[0] ?? null;
+}
 
 /**
  * The unsigned draft worth the Chief Medical Officer's attention: the highest
@@ -123,6 +138,7 @@ export async function readSignoffQueue(
   };
 
   const sources: Source[] = [];
+  const settledConfigs: SettledConfig[] = [];
 
   for (const def of VERSIONED_TABLES) {
     sources.push({
@@ -135,8 +151,9 @@ export async function readSignoffQueue(
           .or("is_active.eq.true,approved_by.is.null");
         if (error) fail(def.table, error.message);
         const rows = (data ?? []) as unknown as VersionRow[];
-        const live = rows.find((r) => r.is_active);
+        const live = singleLiveRow(rows, def.table);
         const href = `${basePath}/${def.slug}`;
+        if (live && isSigned(live)) settledConfigs.push({ table: def.table, title: def.title, href, version: live.version });
         if (live && !isSigned(live)) {
           return [
             {
@@ -155,7 +172,7 @@ export async function readSignoffQueue(
             {
               key: `versioned_draft:${def.table}`,
               title: def.title,
-              detail: `Version ${draft.version} is drafted${live ? `, newer than the live version ${live.version},` : " with nothing live yet,"} and waiting for your signature to come into force.${what ? ` ${what}` : ""}`,
+              detail: `Version ${draft.version} is drafted${live ? `, newer than the live version ${live.version},` : " with nothing live yet,"} and waiting for a Clinical Director's signature to come into force.${what ? ` ${what}` : ""}`,
               href,
               severity: "draft_pending",
             },
@@ -233,7 +250,7 @@ export async function readSignoffQueue(
         .select("id, version, is_active, approved_at");
       if (error) fail("result_release_policies", error.message);
       const rows = (data ?? []) as unknown as VersionRow[];
-      const live = rows.find((r) => r.is_active);
+      const live = singleLiveRow(rows, "result_release_policies");
       const href = `${basePath}/result-release-policies`;
       if (live && !isSigned(live)) {
         return [
@@ -252,7 +269,7 @@ export async function readSignoffQueue(
             {
               key: "result_release_policies",
               title: "Result release policies",
-              detail: `Version ${draft.version} is drafted and waiting for your signature to come into force.`,
+              detail: `Version ${draft.version} is drafted and waiting for a Clinical Director's signature to come into force.`,
               href,
               severity: "draft_pending" as const,
             },
@@ -321,7 +338,11 @@ export async function readSignoffQueue(
     else failedSources.push(sources[i].name);
   });
 
-  return { items: items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]), failedSources };
+  return {
+    items: items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]),
+    settledConfigs: settledConfigs.sort((a, b) => a.title.localeCompare(b.title)),
+    failedSources,
+  };
 }
 
 /**

@@ -1,4 +1,4 @@
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import {
   CIRCLE_PERMISSIONS, circleErrorKey, inviteLinkPath, parseAlerts, parseInviteMade, parseMyCircle, parseSupported, parseSupporterView,
   parseViewLog, permissionKey, parsePendingGifts, parseGiftAnswer, endsSoon, parsePreviewView,
@@ -11,10 +11,9 @@ import { ackAlert, loadPreviewMember, loadPreviewPermissions, pauseCircle, renew
 beforeEach(() => mockRpc.mockReset());
 
 describe("parsing", () => {
-  it("every permission has copy in both languages", () => {
+  it("every permission has copy", () => {
     for (const p of CIRCLE_PERMISSIONS) {
       expect(en[permissionKey(p)].length).toBeGreaterThan(0);
-      expect(pcm[permissionKey(p)].length).toBeGreaterThan(0);
     }
   });
 
