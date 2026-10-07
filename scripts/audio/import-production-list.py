@@ -27,10 +27,18 @@ NUM_CSV = ROOT / "audio" / "source" / "TH-NUM-number-list.csv"
 # The words the CMO is asked to sign for the screen AND the voice (OQ-203): one source, so they cannot differ.
 # Until `signed` is set the voice says today's on-screen text, never the unsigned proposal.
 WORDING = ROOT / "packages" / "i18n" / "src" / "clinical-wording.json"
+# Clips the list does not have yet, shaped like its rows (id, en, note). Move into the list at its next version.
+EXTRAS = ROOT / "audio" / "source" / "extra-clips.json"
 TS_OUT = ROOT / "packages" / "i18n" / "src" / "audio-scripts.ts"
+# Long-form scripts (BPC lessons, BRE-01), generated from packages/i18n/src/bpc-course.ts by `bpc-seed.test.ts`.
+LONG_FORM = ROOT / "audio" / "source" / "long-form-scripts.json"
+# Section 7 long-form clips built in Stage 1 (spec 8.7): the BP care course (BPC-15 is Release 3, pregnancy) and BRE-01.
+LONG_FORM_WANTED = {f"BPC-{n:02d}" for n in range(1, 15)} | {"BRE-01"}
 
 # Section 4 of the list: who must review what. A group not named here needs brand review only.
 CLINICAL_GROUPS = {"EMG", "TRI", "RES", "SYM", "CON", "NUM"}
+# Long-form clips that need clinical sign-off: the whole BP course, and BRE-01 because it carries stop-if-unwell wording.
+CLINICAL_LONG_FORM = {"BRE-01"}
 LEGAL_CLIPS = {"ONB-010", "CON-001"}
 # "How it reaches the phone" (section 6 headers) -> manifest bundle group.
 BUNDLE = {"ONB": "bundled", "EMG": "bundled", "TRI": "bundled", "NUM": "bundled", "SYM": "bundled"}
@@ -76,6 +84,26 @@ def parse(items):
     return groups
 
 
+def parse_long_form(items):
+    """Section 7 tables: ID, Title, Length, Content. -> {group: {title, how, review, rows: [[id, title, length, content]]}}"""
+    groups, cur = {}, None
+    for kind, v in items:
+        if kind == "p":
+            m = re.match(r"^7\.\d+ ([A-Z]{3}): (.*)$", v)
+            if m:
+                cur = {"code": m.group(1), "title": m.group(2), "how": "", "review": "", "rows": []}
+                groups[m.group(1)] = cur
+            elif cur is not None and v.startswith("How it reaches the phone:"):
+                cur["how"] = v.split(":", 1)[1].strip()
+            elif cur is not None and v.startswith("Review:"):
+                cur["review"] = v.split(":", 1)[1].strip()
+            elif re.match(r"^(8|9)\. ", v):
+                cur = None
+        elif kind == "row" and cur is not None and re.match(r"^[A-Z]{3}-\d\d$", v[0] or ""):
+            cur["rows"].append(v + [""] * (4 - len(v)))
+    return groups
+
+
 def bundle_group(code, how):
     if code in BUNDLE:
         return "bundled"
@@ -116,7 +144,8 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if len(args) != 1:
         raise SystemExit(__doc__)
-    groups = parse(read_docx(args[0]))
+    docx_items = read_docx(args[0])
+    groups = parse(docx_items)
     wording = json.loads(WORDING.read_text())
     spoken = {}
     for cid, w in wording["codes"].items():
@@ -163,6 +192,8 @@ def main():
                 "clinical": True, "legal": False, "language_neutral": True,
                 "files": {"shared": empty_file(cid, None)},
             })
+    for extra in json.loads(EXTRAS.read_text()) if EXTRAS.exists() else []:
+        num_rows[extra["id"]] = [extra["id"], "Added by S32", extra["en"], "", extra.get("note", "")]
     for cid, r in num_rows.items():
         if not re.match(r"^NUM-(D|P)\d\d$", cid) or cid == "NUM-P22":
             continue
@@ -172,6 +203,23 @@ def main():
             "clinical": True, "legal": False, "language_neutral": False,
             "files": {"en": empty_file(cid, "en")},
         })
+
+    # Long-form clips (BPC lessons, BRE-01): scripts come from the lesson source, not the list (which holds briefs only).
+    long_scripts = json.loads(LONG_FORM.read_text()) if LONG_FORM.exists() else {}
+    for code, g in parse_long_form(docx_items).items():
+        rows = [r for r in g["rows"] if r[0] in LONG_FORM_WANTED]
+        if not rows:
+            continue
+        group_meta[code] = {"title": g["title"], "bundle_group": bundle_group(code, g["how"]), "reaches_phone": g["how"], "review": clean_review(g["review"])}
+        for cid, _title, _length, _content in rows:
+            if cid not in long_scripts:
+                raise SystemExit(f"No long-form script for {cid}: run UPDATE_BPC_SEED=1 pnpm --filter @tarragon/i18n test bpc-seed first")
+            scripts[cid] = {"en": long_scripts[cid]["en"]}
+            clips.append({
+                "id": cid, "group": code, "bundle_group": group_meta[code]["bundle_group"], "release": 1,
+                "clinical": code == "BPC" or cid in CLINICAL_LONG_FORM, "legal": False, "language_neutral": False,
+                "files": {"en": empty_file(cid, "en")},
+            })
 
     # Wording changed since the last run: the audio no longer matches, so drop file facts and approvals.
     for c in clips:

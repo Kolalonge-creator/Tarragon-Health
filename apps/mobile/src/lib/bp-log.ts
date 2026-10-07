@@ -59,12 +59,19 @@ export const evaluateOnDevice: TriageEvaluator = async (input) => {
       systolic: input.systolic,
       diastolic: input.diastolic,
       symptoms: (input.symptoms ?? input.redFlagTicked) as readonly SymptomCode[],
+      // Not answered here: a reading of 200/130 or more asks the emergency-symptom question first (symptom-question.ts).
+      // Ticking a symptom on the form answers it, which the engine reads from the symptoms themselves.
     }).catch(() => null),
   ]);
   const symptomFlag = input.redFlagTicked.length > 0;
   const legacy = symptomFlag || bpFlag?.severity === "emergency" ? "emergency" : (bpFlag?.severity ?? null);
-  // The stricter of the two: the engine adds guidance, it never takes any away (OQ-88).
-  const severity = device?.severity === "emergency" ? "emergency" : legacy;
+  // The stricter of the two: the engine adds guidance, it never takes any away (OQ-88) ...
+  // ... except for the very high band once the Chief Medical Officer has approved the rule set: there the engine asks the
+  // symptom question (or sets the rest and 2 hour recheck) instead of the older check's blanket emergency.
+  // A ticked red-flag symptom is never softened.
+  const engineLeads =
+    device?.ruleSet.status === "approved" && (device.result.status === "symptom_check_required" || device.result.ruleId === "BP-X2");
+  const severity = device?.severity === "emergency" ? "emergency" : engineLeads && !symptomFlag ? null : legacy;
   return { severity, bpFlag, symptomFlag, thresholdVersion: thresholds?.version ?? "unavailable", device };
 };
 

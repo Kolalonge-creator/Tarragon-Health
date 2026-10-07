@@ -268,7 +268,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
                   {new Date(item.created_at).toLocaleString()}
                 </Text>
                 {suggestion && (
-                  <Pressable onPress={() => onNavigate(suggestion.section as SectionId)} style={{ marginTop: 4 }}>
+                  <Pressable accessibilityRole="link" onPress={() => onNavigate(suggestion.section as SectionId)} style={{ marginTop: 4 }}>
                     <Text style={{ fontSize: 12, color: colors.brandPressed, textDecorationLine: "underline" }}>
                       {suggestion.label} →
                     </Text>
@@ -393,7 +393,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
 
       <View style={{ paddingHorizontal: spacing.screen, paddingBottom: spacing.screen }}>
         {handoff === "idle" && (
-          <Pressable onPress={() => void handleHandoff()}>
+          <Pressable accessibilityRole="button" onPress={() => void handleHandoff()}>
             <Text style={{ fontSize: 12, color: colors.brandPressed, textDecorationLine: "underline" }}>
               I want to speak to someone
             </Text>
@@ -401,7 +401,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
         )}
         {handoff === "pending" && <MutedText>Starting a conversation with your care team…</MutedText>}
         {handoff === "done" && (
-          <Pressable onPress={() => onNavigate("messages")}>
+          <Pressable accessibilityRole="link" onPress={() => onNavigate("messages")}>
             <Text style={{ fontSize: 12, color: colors.ink }}>
               Sent. Your care team has what you&apos;ve talked about here.{" "}
               <Text style={{ color: colors.brandPressed, textDecorationLine: "underline" }}>Continue in Messages</Text>

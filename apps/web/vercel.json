@@ -25,6 +25,10 @@
       "schedule": "45 4 * * *"
     },
     {
+      "path": "/api/cron/credential-document-purge",
+      "schedule": "40 3 * * *"
+    },
+    {
       "path": "/api/cron/lab-turnaround-check",
       "schedule": "30 9 * * *"
     },

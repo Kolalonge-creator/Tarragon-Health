@@ -21,7 +21,7 @@
 --   A repo scan test (apps/web ai-coach/patient-explainer) fails if the AI path queries the base tables again.
 --
 -- The token list also covers the neighbouring markers a lab reports for the same conditions (hepatitis B DNA and antigen and antibody
--- markers, CD4, viral load, p24). Syphilis and other STI tests are a CMO decision (OQ-290), not guessed here.
+-- markers, CD4, viral load, p24). Syphilis and other STI tests are a CMO decision (OQ-359), not guessed here.
 --
 -- Live counts before this migration: 0 rows in lab_analyte_readings, lab_result_items and lab_results, so there is no
 -- data to backfill.

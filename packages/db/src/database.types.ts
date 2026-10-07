@@ -14138,6 +14138,8 @@ export type Database = {
           updated_at: string
           version: number
           video_url: string | null
+          audio_clip_id: string | null
+          next_action: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -14176,6 +14178,8 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          audio_clip_id?: string | null
+          next_action?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -14214,6 +14218,8 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          audio_clip_id?: string | null
+          next_action?: string | null
         }
         Relationships: []
       }
@@ -26853,15 +26859,9 @@ export type Database = {
           created_at: string
           declined_at: string | null
           declined_by: string | null
-          delivered_at: string | null
-          delivery_address: Json | null
-          delivery_confirmed_at: string | null
-          estimated_delivery_at: string | null
           estimated_fulfilment_at: string | null
-          fulfilment_method: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id: string
           items: Json
-          logistics_partner_id: string | null
           order_number: string | null
           ordered_by: string | null
           organisation_id: string
@@ -26897,15 +26897,9 @@ export type Database = {
           created_at?: string
           declined_at?: string | null
           declined_by?: string | null
-          delivered_at?: string | null
-          delivery_address?: Json | null
-          delivery_confirmed_at?: string | null
-          estimated_delivery_at?: string | null
           estimated_fulfilment_at?: string | null
-          fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
           items?: Json
-          logistics_partner_id?: string | null
           order_number?: string | null
           ordered_by?: string | null
           organisation_id: string
@@ -26941,15 +26935,9 @@ export type Database = {
           created_at?: string
           declined_at?: string | null
           declined_by?: string | null
-          delivered_at?: string | null
-          delivery_address?: Json | null
-          delivery_confirmed_at?: string | null
-          estimated_delivery_at?: string | null
           estimated_fulfilment_at?: string | null
-          fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
           items?: Json
-          logistics_partner_id?: string | null
           order_number?: string | null
           ordered_by?: string | null
           organisation_id?: string
@@ -26987,13 +26975,6 @@ export type Database = {
             columns: ["declined_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pharmacy_orders_logistics_partner_id_fkey"
-            columns: ["logistics_partner_id"]
-            isOneToOne: false
-            referencedRelation: "logistics_partners"
             referencedColumns: ["id"]
           },
           {
@@ -27276,8 +27257,6 @@ export type Database = {
           contact_email: string | null
           contact_phone: string | null
           created_at: string
-          delivery: boolean
-          delivery_fee_kobo: number | null
           id: string
           integration_tested_at: string | null
           integration_tested_by: string | null
@@ -27314,8 +27293,6 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
-          delivery?: boolean
-          delivery_fee_kobo?: number | null
           id?: string
           integration_tested_at?: string | null
           integration_tested_by?: string | null
@@ -27352,8 +27329,6 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
-          delivery?: boolean
-          delivery_fee_kobo?: number | null
           id?: string
           integration_tested_at?: string | null
           integration_tested_by?: string | null
@@ -40781,7 +40756,6 @@ export type Database = {
           p_city: string
           p_contact_email: string
           p_contact_phone: string
-          p_delivery: boolean
           p_license_expires_at: string
           p_license_number: string
           p_name: string
@@ -40860,7 +40834,6 @@ export type Database = {
       provider_org_pharmacy_order_queue: {
         Args: { p_organisation_id: string }
         Returns: {
-          delivered_at: string
           order_id: string
           order_number: string
           patient_name: string
@@ -41780,10 +41753,6 @@ export type Database = {
       set_patient_reported_diabetes_type: {
         Args: { p_type: Database["public"]["Enums"]["diabetes_type"] }
         Returns: undefined
-      }
-      set_pharmacy_order_delivery_address: {
-        Args: { p_address: Json; p_order_id: string }
-        Returns: boolean
       }
       platform_switch_is_on: { Args: { p_key: string }; Returns: boolean }
       set_platform_module: {
@@ -43554,7 +43523,6 @@ export type Database = {
         | "customer.subscription.deleted"
         | "charge.dispute.create"
         | "charge.dispute.created"
-      pharmacy_fulfilment_method: "pickup" | "delivery"
       pharmacy_medication_stock_status: "in_stock" | "low_stock" | "unavailable"
       pharmacy_order_status:
         | "pending_payment"
@@ -43562,8 +43530,6 @@ export type Database = {
         | "requested"
         | "confirmed"
         | "dispensed"
-        | "out_for_delivery"
-        | "delivered"
         | "cancelled"
       pharmacy_partner_onboarding_status:
         | "application"
@@ -45842,7 +45808,6 @@ export const Constants = {
         "charge.dispute.create",
         "charge.dispute.created",
       ],
-      pharmacy_fulfilment_method: ["pickup", "delivery"],
       pharmacy_medication_stock_status: [
         "in_stock",
         "low_stock",
@@ -45854,8 +45819,6 @@ export const Constants = {
         "requested",
         "confirmed",
         "dispensed",
-        "out_for_delivery",
-        "delivered",
         "cancelled",
       ],
       pharmacy_partner_onboarding_status: [

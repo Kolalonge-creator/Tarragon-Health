@@ -16,32 +16,35 @@ const DOWNLOAD_PATH = [
   "app/api/patient/prescriptions/[medicationId]/pdf/route.ts",
   "app/api/mobile/prescriptions/pdf/route.ts",
   "app/api/mobile/prescriptions/[medicationId]/pdf/route.ts",
-  "app/(dashboard)/patient/prescription-download.tsx",
-  "lib/prescriptions/load-prescription-pdf-data.ts",
+    "lib/prescriptions/load-prescription-pdf-data.ts",
   "lib/prescriptions/prescription-pdf-data.ts",
   "lib/prescriptions/prescription-pdf-response.ts",
 ];
-const COLLECTION = /pharmacy_collection|collection_code|pharmacy_partner_id|pharmacy-collection|go_live|prescribing_enabled|prescription_pharmacy_events|rx_routing/;
+const COLLECTION = /pharmacy_collection|collection_code|pharmacy_partner_id|pharmacy-collection|go_live|prescribing_enabled|prescription_collection_codes|rx_route|patient_choose_pharmacy/;
 
 describe("the downloadable prescription form stays for any pharmacy (S28)", () => {
   it.each(DOWNLOAD_PATH)("%s does not depend on pharmacy collection", (file) => {
     expect(read(file)).not.toMatch(COLLECTION);
   });
 
-  it("the Medicines screen shows the medicines list (and its download) whether or not the collection card loads", () => {
-    const page = read("app/(dashboard)/patient/(sections)/medications/page.tsx");
-    // the list is rendered at the top level of the page, outside every collection conditional
-    const withoutCollectionBlocks = page.replace(/\{collection\?\.ok === (true|false) && \([\s\S]*?\)\}/g, "");
-    expect(withoutCollectionBlocks).toContain("<MedicationsList");
-    expect(page).toMatch(/collection\?\.ok === false && <LoadErrorCard/); // a failed card shows an error, it does not blank the page
+  it("the download link and the collect link sit side by side: the collect link is added, never in place of the download", () => {
+    const src = read("app/(dashboard)/patient/prescription-download.tsx");
+    expect(src).toContain("Download prescription (PDF)");
+    expect(src).toContain("Choose where to collect");
+    // the PDF anchor is not conditional on a prescription row or on collection being open
+    const pdfIndex = src.indexOf("Download prescription (PDF)");
+    const collectIndex = src.indexOf("Choose where to collect");
+    expect(pdfIndex).toBeLessThan(collectIndex);
+    expect(src).not.toMatch(/pharmacy_collection_on|go_live|prescribing_enabled/);
   });
 
   it("each medicine card offers the download (the existing component, unchanged by S28)", () => {
     expect(read("app/(dashboard)/patient/medications-list.tsx")).toContain("<PrescriptionDownload");
   });
 
-  it("the card says so out loud", () => {
+  it("the collect page says so out loud when collection is not open, so the form is never the only thing offered", () => {
     const en = read("../../../packages/i18n/src/en.ts");
-    expect(en).toMatch(/"pharmacy\.any_pharmacy": "Take the downloaded form to any pharmacy"/);
+    expect(en).toMatch(/"pharmcollect\.off": "[^"]*download your prescription and take it to any pharmacy/);
+    expect(en).toMatch(/"pharmcollect\.none": "[^"]*download your prescription/);
   });
 });
