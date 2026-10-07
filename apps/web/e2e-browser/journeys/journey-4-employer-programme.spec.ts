@@ -171,7 +171,7 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
     // KNOWN GAP (shrink only). On this branch a clinician in the same organisation, with no task, lead assignment or page, can
     // read these three tables for every patient in the organisation. S39b ("tied staff reads", PR 997, 128 tables) closes it and is
     // not on main-dev yet. The step is pending(S39b) exactly while the leak equals this list; any NEW leaked table fails the journey;
-    // a table that stops leaking fails it too until it is removed from this list (the list only shrinks). See OQ-310.
+    // a table that stops leaking fails it too until it is removed from this list (the list only shrinks). See OQ-341.
     const KNOWN_UNTIED_CLINICIAN_READS = ["menstrual_cycles", "mental_health_screens", "wellbeing_checkins"];
     const untiedTables = ["vitals_readings", "symptoms", "lab_results", "menstrual_cycles", "menstrual_daily_logs", "mental_health_screens", "wellbeing_checkins", "reproductive_health_profiles", "patient_pregnancy", "contraception_plans"];
     const untied: string[] = [];
@@ -248,7 +248,7 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
 
     run.skipped(
       "aggregate-figures-over-300-people",
-      "every aggregate excludes is_test accounts (INV-13) and the rule here is that test data is always is_test, so a real figure over 300 people cannot be produced from test data; the exclusion itself is asserted in small-cells-suppressed (see OQ-309)",
+      "every aggregate excludes is_test accounts (INV-13) and the rule here is that test data is always is_test, so a real figure over 300 people cannot be produced from test data; the exclusion itself is asserted in small-cells-suppressed (see OQ-340)",
     );
 
     await run.step("no-reproductive-or-mental-health", async () => {
