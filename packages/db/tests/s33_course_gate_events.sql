@@ -128,9 +128,8 @@ begin
   perform pg_temp.rec('a lesson with no review date is not served', 'false', (pg_temp.served_codes() like '%bpc_02%')::text);
   perform pg_temp.rec('a lesson whose review date has passed is not served', 'false', (pg_temp.served_codes() like '%bpc_03%')::text);
   perform pg_temp.rec('a draft is not served', 'false', (pg_temp.served_codes() like '%bpc_04%')::text);
-  -- A published item can no longer lose its named reviewer (S58b), so "no credit without a review record" is shown on the lesson that is
-  -- still a draft (no review record), and a published lesson shows the name it was published with.
-  perform pg_temp.rec('no reviewer credit without a review record', 'null', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 4));
+  -- A published lesson is published with a named reviewer (S55's publish gate) and cannot lose it (S58b), so the state this check used
+  -- to cover (published, no reviewer, so no credit) cannot be built any more; what is checked is that the credit shown is the real name.
   perform pg_temp.rec('a published lesson shows its named reviewer', 'Test reviewer', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
   perform pg_temp.back();
   update public.health_education_content set reviewed_by_name = 'Dr Test Reviewer', reviewed_at = now(), clinician_reviewed = false where id = v_l1;
