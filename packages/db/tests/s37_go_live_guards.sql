@@ -94,6 +94,10 @@ begin
   values (v_org, p_clin, p_start, p_start + interval '2 hours', 'bookable_consultations', 'confirmed', true);
 end $f$;
 
+-- the number of guards as the table owner sees it, before any session is simulated: a session is compared against this, never against itself
+create temp table guard_snapshot as select count(*)::text as n from public.go_live_guards;
+grant select on guard_snapshot to public;
+
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_doc uuid; v_smo uuid; v_pat uuid; v_real uuid; v_realdoc uuid; v_tp uuid; v_td uuid;
@@ -128,7 +132,7 @@ begin
   perform pg_temp.rec('anon cannot execute the private reader', 'false', has_function_privilege('anon', 'private.go_live_open(text,uuid,uuid)', 'EXECUTE')::text);
   perform pg_temp.rec('an unknown guard reads closed', 'false', private.go_live_open('no_such_guard')::text);
   perform pg_temp.act(v_pat);
-  perform pg_temp.rec('a signed-in person can read the guards', (select count(*)::text from public.go_live_guards), (select count(*)::text from public.go_live_guards));
+  perform pg_temp.rec('a signed-in person can read the guards', (select n from guard_snapshot), (select count(*)::text from public.go_live_guards));
   perform pg_temp.back();
 
   -- 2. No direct change, by anyone ------------------------------------------------------------------------------
@@ -184,7 +188,7 @@ begin
   v_status := public.go_live_guard_status();
   perform pg_temp.rec('the dashboard now shows payouts all met', 'true',
     (select (g ->> 'all_met')::text from jsonb_array_elements(v_status) g where g ->> 'key' = 'payouts_enabled'));
-  perform pg_temp.rec('...and the dashboard lists every guard', (select count(*)::text from public.go_live_guards), jsonb_array_length(v_status)::text);
+  perform pg_temp.rec('...and the dashboard lists every guard', (select n from guard_snapshot), jsonb_array_length(v_status)::text);
   perform pg_temp.rec('the real switch works with every condition met', 'true',
     (public.set_go_live_guard('payouts_enabled', true, 'Stage 1 complete, fee schedule approved.') ->> 'changed'));
   perform pg_temp.back();
@@ -452,8 +456,8 @@ begin
   create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb language plpgsql stable security definer set search_path = '' as $f$
     begin raise exception 'simulated broken condition query'; end $f$;
   perform pg_temp.act(v_admin);
-  perform pg_temp.rec('a broken condition query does not blank the dashboard', (select count(*)::text from public.go_live_guards), jsonb_array_length(public.go_live_guard_status())::text);
-  perform pg_temp.rec('...every guard then reads as not satisfied', (select count(*)::text from public.go_live_guards), (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where not (g ->> 'all_met')::boolean));
+  perform pg_temp.rec('a broken condition query does not blank the dashboard', (select n from guard_snapshot), jsonb_array_length(public.go_live_guard_status())::text);
+  perform pg_temp.rec('...every guard then reads as not satisfied', (select n from guard_snapshot), (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where not (g ->> 'all_met')::boolean));
   perform pg_temp.rec('...and the stop button still works (scribe_enabled is on here)', 'true', (public.set_go_live_guard('scribe_enabled', false, 'Proof: stop under a broken evaluator.') ->> 'changed'));
   perform pg_temp.rec('...and no scribe consent is left open after the scribe is switched off', '0', (select count(*)::text from public.scribe_consents where granted and revoked_at is null));
   perform pg_temp.rec('...and the patient''s in-app allow on the open consultation went back to unanswered', 'null',

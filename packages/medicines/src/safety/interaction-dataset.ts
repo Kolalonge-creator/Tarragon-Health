@@ -24,6 +24,13 @@ export interface DatasetRule {
 
 export const DATASET_VERSION = 1;
 
+/**
+ * The content hash of the dataset the code in this package runs. The add-time check is only opened for a person when the database
+ * holds a SIGNED dataset whose content_hash equals this value, so a rule edited after the sign-off (and not re-signed) closes the
+ * check instead of quietly running unsigned content. A test fails if this constant and the rules disagree.
+ */
+export const INTERACTION_DATASET_HASH = "fa9f38ecdfbb970937ba3bfaafb365f2a01f324f57bc4b8ce15a9fb65a296ea5";
+
 const GENERIC_SOURCE =
   "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry.";
 

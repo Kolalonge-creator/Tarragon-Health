@@ -55,7 +55,11 @@ export function AddMedicationForm({
   // switched off for clinicians (their panel does its own audited read), so this adds no audit row on the clinician chart.
   const interactionCheckOpen = useInteractionCheckOpen();
   const existingMedications = useMedications(source === "patient" ? patientId : "");
+  // Do not let the add race the check: wait until the guard and (when it is open) the medicine list have answered, or failed.
+  const checkStillLoading =
+    source === "patient" && (interactionCheckOpen.isPending || (interactionCheckOpen.data === true && existingMedications.isPending));
   const [addFindings, setAddFindings] = useState<AddCheckFinding[] | null>(null);
+  const [pickedName, setPickedName] = useState<string | null>(null);
   const [pendingPatientData, setPendingPatientData] = useState<MedicationInput | null>(null);
   // S53 (8.1): a photo or catalogue prefill never saves on its own. A photo prefill needs the patient's "I checked it" tick.
   const [prefilledFromPhoto, setPrefilledFromPhoto] = useState(false);
@@ -122,6 +126,7 @@ export function AddMedicationForm({
   function applyCataloguePick(entry: CatalogueEntry) {
     const pre = prefillFromCatalogue(entry);
     setDrugName(pre.drugName);
+    setPickedName(pre.drugName);
     if (pre.strength) setDose(pre.strength);
   }
 
@@ -416,7 +421,7 @@ export function AddMedicationForm({
             />
             {source === "patient" && (
               <div className="space-y-2 pt-1">
-                <MedicineNameSuggestions query={drugName} onPick={applyCataloguePick} />
+                <MedicineNameSuggestions query={drugName === pickedName ? "" : drugName} onPick={applyCataloguePick} />
                 <PackPhotoPrefill onPrefill={applyPackPrefill} />
                 {prefilledFromPhoto && (
                   <div className="space-y-2 rounded-md border border-charcoal-ink/15 p-2 dark:border-night-ink/20">
@@ -660,7 +665,10 @@ export function AddMedicationForm({
               team before the patient takes this medicine.
             </p>
           ) : null}
-          <Button type="submit" disabled={addMedication.isPending}>
+          {source === "patient" && interactionCheckOpen.data === true && existingMedications.isError ? (
+            <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{t("medicines.addcheck.not_checked")}</p>
+          ) : null}
+          <Button type="submit" disabled={addMedication.isPending || checkStillLoading}>
             {source === "clinician"
               ? "Continue to review"
               : addMedication.isPending

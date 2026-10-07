@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildDataset, canonicalDatasetText, DATASET_VERSION } from "./interaction-dataset";
+import { buildDataset, canonicalDatasetText, DATASET_VERSION, INTERACTION_DATASET_HASH } from "./interaction-dataset";
 import { assessMedicationSafety } from "./drug-safety";
 
 const SEED = join(process.cwd(), "..", "..", "docs", "clinical", "interaction-dataset-v1.seed.json");
@@ -36,6 +36,10 @@ describe("interaction dataset v1 (D6: prepared for a human to sign, never signed
     expect(onDisk.status).toBe("draft");
     expect(onDisk.content_hash).toBe(hash);
     expect(onDisk.rules).toEqual(rules);
+  });
+
+  it("the hash constant the app compares with the signed row is exactly the hash of these rules", () => {
+    expect(INTERACTION_DATASET_HASH).toBe(hash);
   });
 
   it("never carries an approval: the seed is a draft with no signer", () => {

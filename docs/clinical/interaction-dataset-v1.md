@@ -117,6 +117,8 @@ select public.attest_go_live_condition('interaction_check_enabled', 'pharmacist_
 select public.set_go_live_guard('interaction_check_enabled', true, '<why it is safe to switch on>');
 ```
 
-To change a rule later: edit `drug-safety.ts`, regenerate the seed file (`WRITE_DATASET=1` with the medicines package tests), add a new dataset version in a migration, and sign that version. Version 1 can never be edited once signed.
+The app only runs the check when the signed dataset's hash equals `INTERACTION_DATASET_HASH` compiled into the build (packages/medicines/src/safety/interaction-dataset.ts), so a rule changed after this sign-off closes the check until it is re-signed.
+
+To change a rule later: edit `drug-safety.ts`, regenerate the seed file (`WRITE_DATASET=1` with the medicines package tests), update `INTERACTION_DATASET_HASH`, add a new dataset version in a migration, and sign that version. Version 1 can never be edited once signed.
 
 Machine-readable copy: `docs/clinical/interaction-dataset-v1.seed.json` (the same rows that are in the database as a draft).

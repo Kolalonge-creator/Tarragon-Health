@@ -479,11 +479,11 @@ alter table public.medication_side_effect_notes enable row level security;
 revoke all on public.medication_side_effect_notes from public, anon, authenticated;
 grant select, insert on public.medication_side_effect_notes to authenticated;
 create policy medication_side_effect_notes_select on public.medication_side_effect_notes for select to authenticated
-  using (patient_id = (select auth.uid()) or private.can_act_for(patient_id));
+  using (patient_id = (select auth.uid()) or private.can_act_for(patient_id, 'view_medication'::public.caregiver_permission));
 create policy medication_side_effect_notes_insert on public.medication_side_effect_notes for insert to authenticated
   with check (
     exists (select 1 from public.medications m where m.id = medication_id
-             and (m.patient_id = (select auth.uid()) or private.can_act_for(m.patient_id)))
+             and (m.patient_id = (select auth.uid()) or private.can_act_for(m.patient_id, 'view_medication'::public.caregiver_permission)))
   );
 
 -- Staff read: only the care team the patient is tied to, with a reason, every read audited.
@@ -514,7 +514,7 @@ end $$;
 revoke all on function public.care_team_side_effect_notes(uuid, text) from public, anon;
 grant execute on function public.care_team_side_effect_notes(uuid, text) to authenticated;
 
-create or replace function public.mark_side_effect_notes_reviewed(p_patient uuid, p_reason text)
+create or replace function public.mark_side_effect_notes_reviewed(p_patient uuid, p_note_ids uuid[], p_reason text)
 returns integer language plpgsql security definer set search_path = '' as $$
 declare v_n integer;
 begin
@@ -522,21 +522,23 @@ begin
   if p_reason is null or char_length(btrim(p_reason)) < 10 then
     raise exception 'a reason of at least 10 characters is required' using errcode = '22023';
   end if;
+  if p_note_ids is null or cardinality(p_note_ids) = 0 then return 0; end if;
   if exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'patient')
      or not private.can_staff_read_clinical(p_patient, 'medications'::public.care_access_category) then
     raise exception 'not authorised' using errcode = '42501';
   end if;
   perform set_config('tarragon.note_review', 'on', true);
+  -- only the notes the clinician was shown (by id), and only this patient's: a note written after the read is not marked
   update public.medication_side_effect_notes
      set reviewed_at = now(), reviewed_by = (select auth.uid())
-   where patient_id = p_patient and reviewed_at is null;
+   where patient_id = p_patient and reviewed_at is null and id = any (p_note_ids);
   get diagnostics v_n = row_count;
   perform set_config('tarragon.note_review', 'off', true);
   perform private.audit_chart_read(p_patient, array['side_effect_notes'], p_reason, 'success');
   return v_n;
 end $$;
-revoke all on function public.mark_side_effect_notes_reviewed(uuid, text) from public, anon;
-grant execute on function public.mark_side_effect_notes_reviewed(uuid, text) to authenticated;
+revoke all on function public.mark_side_effect_notes_reviewed(uuid, uuid[], text) from public, anon;
+grant execute on function public.mark_side_effect_notes_reviewed(uuid, uuid[], text) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 5. A neutral in-app notice to a consented supporter when a dose is missed (8.4, 8.6). Medfriend-style, in app only.
@@ -572,6 +574,8 @@ declare
   v_day date := (now() at time zone 'Africa/Lagos')::date;
   v_inserted integer;
 begin
+  -- a row synced late for an old slot (a phone that was offline) is history, not news: no notice
+  if new.scheduled_for_date is not null and new.scheduled_for_date < v_day - 1 then return null; end if;
   begin
     for r in
       select pa.id as grant_id, pa.grantee_user_id, pr.organisation_id
@@ -626,7 +630,7 @@ begin
   end if;
   if has_function_privilege('anon', 'public.sign_interaction_dataset(integer,text,text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.care_team_side_effect_notes(uuid,text)', 'EXECUTE')
-     or has_function_privilege('anon', 'public.mark_side_effect_notes_reviewed(uuid,text)', 'EXECUTE') then
+     or has_function_privilege('anon', 'public.mark_side_effect_notes_reviewed(uuid,uuid[],text)', 'EXECUTE') then
     raise exception 'FAIL: anon can execute an S53 function';
   end if;
   if has_table_privilege('anon', 'public.medicine_catalogue', 'SELECT') or has_table_privilege('anon', 'public.interactions', 'SELECT')

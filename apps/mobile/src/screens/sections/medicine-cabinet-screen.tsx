@@ -610,7 +610,8 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       alive = false;
     };
   }, [open]);
-  const suggestions = searchCatalogue(catalogue, drugName, 5);
+  const [pickedName, setPickedName] = useState<string | null>(null);
+  const suggestions = searchCatalogue(catalogue, drugName === pickedName ? "" : drugName, 5);
   const [kind, setKind] = useState<ScheduleKind>("daily");
   const [intervalDays, setIntervalDays] = useState("2");
   const [weekdays, setWeekdays] = useState<number[]>([]);
@@ -630,6 +631,8 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   function pickSuggestion(entry: CatalogueEntry) {
     const pre = prefillFromCatalogue(entry);
     setDrugName(pre.drugName);
+    setPickedName(pre.drugName);
+    setFindings(null);
     if (pre.strength) setDose(pre.strength);
   }
 
@@ -738,7 +741,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
         <Card style={{ gap: 10 }}>
           <View>
             <MutedText>Drug name</MutedText>
-            <TextInput keyboardAppearance={scheme} value={drugName} onChangeText={setDrugName} style={inputStyle(colors)} placeholderTextColor={colors.subtle} accessibilityLabel={tr("medicines.search.label")} />
+            <TextInput keyboardAppearance={scheme} value={drugName} onChangeText={(v) => { setDrugName(v); setFindings(null); }} style={inputStyle(colors)} placeholderTextColor={colors.subtle} accessibilityLabel={tr("medicines.search.label")} />
             {suggestions.length > 0 ? (
               <View style={{ marginTop: 6, gap: 4 }}>
                 {suggestions.map(({ entry }) => (

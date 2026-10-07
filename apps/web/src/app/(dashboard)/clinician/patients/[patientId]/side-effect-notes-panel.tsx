@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
 import { formatPatientDateTime } from "@/lib/format-date";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MarkNotesReviewedButton } from "./mark-notes-reviewed-button";
 
 /**
  * Side-effect notes the patient (or someone acting for them) wrote about a medicine, for the next consultation (spec 8.7).
@@ -40,6 +41,9 @@ export async function SideEffectNotesPanel({ patientId }: { patientId: string })
             ))}
           </ul>
         )}
+        {!error && notes.some((n) => !n.reviewed_at) ? (
+          <MarkNotesReviewedButton patientId={patientId} noteIds={notes.filter((n) => !n.reviewed_at).map((n) => n.note_id)} />
+        ) : null}
       </CardContent>
     </Card>
   );

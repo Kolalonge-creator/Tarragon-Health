@@ -47,11 +47,13 @@ describe("patient add form: catalogue", () => {
   it("shows a suggestion, fills name and strength from it, and does not save until the patient submits", () => {
     render(<AddMedicationForm patientId="p1" source="patient" />);
     type("rami");
-    fireEvent.click(screen.getByRole("option", { name: /Ramipril 5 mg tablet/ }));
+    expect(screen.getByText(/has not been checked against NAFDAC/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Ramipril 5 mg tablet/ }));
+    // the list closes once a suggestion is picked
+    expect(screen.queryByRole("button", { name: /Ramipril 5 mg tablet/ })).toBeNull();
     expect((screen.getByLabelText("Drug name") as HTMLInputElement).value).toBe("Ramipril");
     expect((screen.getByLabelText("Dose") as HTMLInputElement).value).toBe("5 mg");
     expect(mutate).not.toHaveBeenCalled();
-    expect(screen.getByText(/has not been checked against NAFDAC/i)).toBeTruthy();
   });
 
   it("a name that is not listed can still be added by hand", () => {

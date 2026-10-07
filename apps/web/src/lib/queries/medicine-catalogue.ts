@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CatalogueEntry } from "@tarragon/medicines";
+import { INTERACTION_DATASET_HASH, type CatalogueEntry } from "@tarragon/medicines";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -44,9 +44,13 @@ export function useInteractionCheckOpen() {
     refetchOnWindowFocus: false,
     retry: false,
     queryFn: async (): Promise<boolean> => {
-      const { data, error } = await createClient().rpc("go_live_guard_is_open", { p_key: "interaction_check_enabled" });
-      if (error) return false;
-      return data === true;
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("go_live_guard_is_open", { p_key: "interaction_check_enabled" });
+      if (error || data !== true) return false;
+      // The check is open only for the rules a human signed: the signed dataset's hash must be the one this build runs.
+      const signed = await supabase.from("interaction_dataset_versions").select("content_hash").eq("status", "approved");
+      if (signed.error) return false;
+      return (signed.data ?? []).some((row) => row.content_hash === INTERACTION_DATASET_HASH);
     },
   });
 }

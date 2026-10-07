@@ -468,6 +468,7 @@ export const en = {
   "medicines.addcheck.advice.note": "A small note to share with your care team: these two medicines can have a minor effect on each other.",
   "medicines.addcheck.advice.duplicate": "You may already take a medicine of this kind. Two of the same kind can add side effects without adding benefit. Please check with your care team before you take both. Do not stop a prescribed medicine on your own.",
   "medicines.addcheck.limits": "This check looks at the most common problems only. No warning does not mean two medicines are safe together. Your care team or pharmacist can check the full picture.",
+  "medicines.addcheck.not_checked": "We could not run the interaction check just now. You can still add this, and your care team or pharmacist can check it for you.",
   "medicines.addcheck.contact": "Message your care team",
   "medicines.addcheck.continue": "Add it anyway",
   "medicines.sideeffect.title": "Side effects to share",

@@ -50,7 +50,6 @@ import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/typ
 import { checkMedicineList } from "@tarragon/medicines";
 import { SideEffectNote } from "./side-effect-note";
 import { t } from "@tarragon/i18n";
-import { useInteractionCheckOpen } from "@/lib/queries/medicine-catalogue";
 
 import { formatPatientDate } from "@/lib/format-date";
 const SOURCE_BADGE: Record<
@@ -346,13 +345,13 @@ function RefillGapNote({
 /**
  * Read-only, patient-facing note about how the medicines on the list can affect each other (interactions and duplicate therapy).
  *
- * S53 (spec 8.7, decision D6): this used to print the clinician-facing rule text to patients ("stop one of them"). It now shows the
- * fixed, reviewed patient wording from @tarragon/medicines (it says "your care team" and never tells anyone to stop a medicine) and
- * it is behind the go-live guard `interaction_check_enabled`, which stays off until a human-signed dataset exists. Advisory only:
- * it never blocks anything and writes nothing. The clinician medication safety panel is unchanged.
+ * S53 (spec 8.7): this used to print the clinician-facing rule text to patients ("stop one of them"). It now shows the fixed
+ * patient wording from @tarragon/medicines (it says "your care team" and never tells anyone to stop a medicine). It was live before
+ * S53 and stays visible: removing a shipped safety note was judged worse than changing its words (OQ-295 asks the founder to confirm).
+ * Only the NEW add-time check is behind the go-live guard `interaction_check_enabled`. Advisory only: it never blocks anything and
+ * writes nothing. The clinician medication safety panel is unchanged.
  */
 function MedicationInteractionNote({ medications }: { medications: MedicationWithCarePlan[] }) {
-  const guard = useInteractionCheckOpen();
   const findings = useMemo(
     () =>
       checkMedicineList(
@@ -367,7 +366,7 @@ function MedicationInteractionNote({ medications }: { medications: MedicationWit
     [medications],
   );
 
-  if (guard.data !== true || medications.length < 2 || findings.length === 0) return null;
+  if (medications.length < 2 || findings.length === 0) return null;
 
   return (
     <div className="mb-3 space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-500/10">

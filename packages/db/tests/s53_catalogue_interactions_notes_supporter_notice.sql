@@ -60,6 +60,17 @@ begin
       'chief_medical_officer', 'contracted', 2, true, v_admin, true);
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_pat, v_clin);
 
+  -- ===== W. The guard wiring that this migration patched into two shared functions must still be there ==============
+  insert into results values ('W', 'go_live_conditions still has the interaction_check_enabled conditions', '2',
+    (select jsonb_array_length(private.go_live_conditions('interaction_check_enabled', v_org))::text));
+  perform pg_temp.as_user(v_admin);
+  begin
+    perform public.attest_go_live_condition('interaction_check_enabled', 'pharmacist_review_recorded', true, 'Proof run inside a rolled-back test transaction');
+    v_err := 'attested';
+  exception when others then v_err := 'refused: ' || sqlerrm; end;
+  reset role;
+  insert into results values ('W', 'attest_go_live_condition still accepts pharmacist_review_recorded', 'attested', v_err);
+
   -- ===== A. Catalogue ==========================================================
   perform pg_temp.as_user(v_pat);
   select count(*) into v_n from public.medicine_catalogue where is_active;
@@ -181,11 +192,41 @@ begin
   begin perform public.care_team_side_effect_notes(v_pat, 'short'); v_err := 'read'; exception when others then v_err := 'refused'; end;
   reset role;
   insert into results values ('C', 'a read without a real reason is refused', 'refused', v_err);
-  perform pg_temp.as_user(v_clin);
-  select public.mark_side_effect_notes_reviewed(v_pat, 'Reviewed at the consultation') into v_n;
+  -- a second note arrives AFTER the clinician read the first; marking what was shown must not mark it
+  perform pg_temp.as_user(v_pat);
+  insert into public.medication_side_effect_notes (medication_id, note) values (v_med, 'A new note written after the read');
   reset role;
-  insert into results values ('C', 'the tied clinician can mark the notes reviewed', '1', v_n::text);
+  perform pg_temp.as_user(v_clin);
+  select public.mark_side_effect_notes_reviewed(v_pat, array[v_note], 'Reviewed at the consultation') into v_n;
+  reset role;
+  insert into results values ('C', 'the tied clinician can mark the notes they were shown reviewed', '1', v_n::text);
+  insert into results values ('C', 'a note written after the read is NOT marked reviewed', '1',
+    (select count(*)::text from public.medication_side_effect_notes where patient_id = v_pat and reviewed_at is null));
+  perform pg_temp.as_user(v_clin2);
+  begin perform public.mark_side_effect_notes_reviewed(v_pat, array[v_note], 'Untied clinician trying to mark'); v_err := 'marked'; exception when others then v_err := 'refused'; end;
+  reset role;
+  insert into results values ('C', 'an untied clinician cannot mark notes reviewed', 'refused', v_err);
+  perform pg_temp.as_user(v_other);
+  begin perform public.mark_side_effect_notes_reviewed(v_pat, array[v_note], 'A stranger trying to mark'); v_err := 'marked'; exception when others then v_err := 'refused'; end;
+  reset role;
+  insert into results values ('C', 'a stranger cannot mark notes reviewed', 'refused', v_err);
   insert into results values ('C', 'the note text is unchanged by review', 'Felt dizzy after the tablet', (select note from public.medication_side_effect_notes where id = v_note));
+  -- a caregiver with only view_appointments (manage level, dependant) must not read or write medicine notes
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, clinical_access, permissions)
+    values (v_pat, v_stranger, 'manage', v_pat, false, array['view_appointments']::public.caregiver_permission[]);
+  perform pg_temp.as_user(v_stranger);
+  select count(*) into v_n from public.medication_side_effect_notes;
+  begin insert into public.medication_side_effect_notes (medication_id, note) values (v_med, 'wrong permission'); v_err := 'inserted'; exception when others then v_err := 'refused'; end;
+  reset role;
+  insert into results values ('C', 'a manage-level caregiver without view_medication reads no notes', '0', v_n::text);
+  insert into results values ('C', 'a manage-level caregiver without view_medication cannot add a note', 'refused', v_err);
+  update public.profile_access set permissions = array['view_appointments', 'view_medication']::public.caregiver_permission[] where grantee_user_id = v_stranger and profile_id = v_pat;
+  perform pg_temp.as_user(v_stranger);
+  select count(*) into v_n from public.medication_side_effect_notes;
+  reset role;
+  insert into results values ('C', 'the same caregiver WITH view_medication reads the notes', '2', v_n::text);
+  delete from public.profile_access where grantee_user_id = v_stranger and profile_id = v_pat;
+
   set local role anon;
   begin perform 1 from public.medication_side_effect_notes limit 1; v_err := 'read'; exception when insufficient_privilege then v_err := 'refused'; end;
   reset role;
@@ -230,12 +271,20 @@ begin
   insert into results values ('D', 'the notice is in-app only', 'in_app',
     (select distinct channel::text from public.notifications where recipient_id = v_sup and template = 'supporter_missed_dose_notice'));
 
+  -- an old missed row synced late (a phone that was offline) must not page a supporter about last week
+  delete from public.supporter_missed_dose_notices;
+  delete from public.notifications where recipient_id = v_sup and template = 'supporter_missed_dose_notice';
+  insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
+    values (v_org, v_pat, v_med, 'missed', '07:00', current_date - 5, 'system', gen_random_uuid());
+  insert into results values ('D', 'an old missed dose synced late sends no notice', '0',
+    (select count(*)::text from public.notifications where recipient_id = v_sup and template = 'supporter_missed_dose_notice'));
+
   -- a notice that fails never blocks the dose log: break the notifications template and log a dose
   delete from public.supporter_missed_dose_notices;
   alter table public.notifications add constraint s53_break_notice check (template <> 'supporter_missed_dose_notice') not valid;
   begin
     insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
-      values (v_org, v_pat, v_med, 'missed', '08:00', current_date - 3, 'system', gen_random_uuid());
+      values (v_org, v_pat, v_med, 'missed', '08:00', current_date, 'system', gen_random_uuid());
     v_err := 'logged';
   exception when others then v_err := 'blocked'; end;
   alter table public.notifications drop constraint s53_break_notice;
@@ -246,7 +295,7 @@ begin
   delete from public.supporter_missed_dose_notices;
   delete from public.notifications where recipient_id = v_sup and template = 'supporter_missed_dose_notice';
   insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
-    values (v_org, v_pat, v_med, 'missed', '08:00', current_date - 4, 'system', gen_random_uuid());
+    values (v_org, v_pat, v_med, 'missed', '09:00', current_date, 'system', gen_random_uuid());
   insert into results values ('E', 'SABOTAGE: with the trigger removed the supporter gets nothing (the positive case would FAIL)', '0',
     (select count(*)::text from public.notifications where recipient_id = v_sup and template = 'supporter_missed_dose_notice'));
 end $$;

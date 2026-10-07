@@ -21,14 +21,12 @@ export function MedicineNameSuggestions({ query, onPick }: { query: string; onPi
     return catalogue.isPending ? null : <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("medicines.search.none")}</p>;
   }
   return (
-    <div className="space-y-1" role="listbox" aria-label={t("medicines.search.label")}>
-      <ul className="divide-y divide-charcoal-ink/10 overflow-hidden rounded-md border border-charcoal-ink/15 dark:divide-night-ink/15 dark:border-night-ink/20">
+    <div className="space-y-1">
+      <ul aria-label={t("medicines.search.label")} className="divide-y divide-charcoal-ink/10 overflow-hidden rounded-md border border-charcoal-ink/15 dark:divide-night-ink/15 dark:border-night-ink/20">
         {matches.map(({ entry }) => (
           <li key={entry.id}>
             <button
               type="button"
-              role="option"
-              aria-selected={false}
               className="min-h-11 w-full px-3 py-2 text-left text-sm hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10"
               onClick={() => onPick(entry)}
             >

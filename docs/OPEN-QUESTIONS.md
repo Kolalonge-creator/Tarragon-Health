@@ -1466,9 +1466,10 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Copy uses short code 38353 and "if your pack has a scratch panel". Public pages from 2010 to 2012 (safemedicines.org, outsourcing-pharma, Daily Trust, Dubawa) agree on 38353 and the scratch panel, and say coverage began with antimalarials and antibiotics. The 2026 state was not confirmed from a NAFDAC page. The wording is hedged and says the reply is NAFDAC's, not Tarragon's. NAFDAC also runs the Greenbook app; not used.
 - Decision: open (a person to confirm with NAFDAC; change the three `medicines.mas.*` strings if it differs).
 
-### OQ-295 The patient's interaction note on the medicines list is now behind the go-live guard (raised by S53)
-- Before S53 the patient list showed clinician-written rule text (including "stop one of them") to patients, live and with no signed dataset. S53 replaced it with the four fixed patient sentences and put it behind `interaction_check_enabled`, so patients see nothing there until a human signs dataset v1. The clinician medication safety panel is unchanged.
-- Options: (a) as built (recommended, matches D6); (b) leave the old note visible.
+### OQ-295 The patient's interaction note on the medicines list changed wording, and the add-time check is bound to the signed rules (raised by S53)
+- Before S53 the patient list showed clinician-written rule text (including "stop one of them") to patients, live, with no signed dataset. S53 kept that note visible (removing a shipped safety note was judged worse than changing its words) but replaced the text with the four fixed patient sentences that say "your care team" and never tell anyone to stop a medicine. Only the NEW add-time check is behind `interaction_check_enabled`, and it opens only when the database holds a signed dataset whose `content_hash` equals `INTERACTION_DATASET_HASH` in the app build, so a rule edited after the sign-off closes the check until it is re-signed.
+- Options: (a) as built (recommended); (b) also gate the list note behind the guard (patients then see no interaction note until a human signs; matches D6 literally, removes a live safety note).
+- Decision: open (founder to confirm (a) or (b)).
 
 ### OQ-296 The phone has no pack-photo reader (raised by S53)
 - The pack reader is a web server action holding the model vendor key. The phone keeps its typed "check my pack" and the catalogue search; "fill from a photo" is web only.
@@ -1481,6 +1482,6 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Consent is a `profile_access` grant with `clinical_access`, `view_medication` and `receive_alerts` named in the permission list (a grant with no list does not count). The newer Care Circle (S29) has five permissions and none for missed doses. One notice a day, in-app only, generic wording.
 - Options: (a) as built (recommended for now); (b) add a `missed_dose_notice` permission to the Care Circle and move the trigger there (touches S29's permission check and screens).
 
-### OQ-299 Side-effect notes: no "mark reviewed" screen yet and no task (raised by S53)
-- The clinician chart lists notes (audited read). `mark_side_effect_notes_reviewed` exists but nothing calls it; a note does not create a task or an alert (a person who is unwell uses the existing side-effect report and emergency steps).
-- Options: (a) add a "reviewed" button in the consultation room (recommended); (b) leave notes as read-only context.
+### OQ-299 Side-effect notes: reviewed button is on the chart only, and a note creates no task (raised by S53)
+- The clinician chart lists notes (audited read) with a "Mark these as discussed" button that stamps exactly the notes on screen (by id). A note does not create a task or an alert (a person who is unwell uses the existing side-effect report and emergency steps).
+- Options: (a) as built, plus a place for it inside the consultation room (recommended, later); (b) leave as is.

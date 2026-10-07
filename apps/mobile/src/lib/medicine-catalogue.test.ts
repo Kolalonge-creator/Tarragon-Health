@@ -1,3 +1,4 @@
+import { INTERACTION_DATASET_HASH } from "@tarragon/medicines";
 import { addSideEffectNote, __resetCatalogueCache, catalogueFromRows, loadInteractionCheckOpen, loadMedicineCatalogue } from "./medicine-catalogue";
 import { supabase } from "./supabase";
 
@@ -48,10 +49,31 @@ describe("medicine catalogue on the phone (8.2)", () => {
 });
 
 describe("interaction check guard (INV-14)", () => {
-  it("is open only when the server says true", async () => {
+  function signedChain(result: { data: unknown; error: unknown }) {
+    const chain: Record<string, jest.Mock> = {};
+    chain.select = jest.fn(() => chain);
+    chain.eq = jest.fn(() => Promise.resolve(result));
+    return chain;
+  }
+
+  it("is open only when the guard is on AND the signed dataset is the one this build runs", async () => {
     mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    mockFrom.mockReturnValueOnce(signedChain({ data: [{ content_hash: INTERACTION_DATASET_HASH }], error: null }));
     await expect(loadInteractionCheckOpen()).resolves.toBe(true);
     expect(mockRpc).toHaveBeenCalledWith("go_live_guard_is_open", { p_key: "interaction_check_enabled" });
+  });
+  it("stays closed when the signed dataset is a different one (a rule changed after the sign-off)", async () => {
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    mockFrom.mockReturnValueOnce(signedChain({ data: [{ content_hash: "0".repeat(64) }], error: null }));
+    await expect(loadInteractionCheckOpen()).resolves.toBe(false);
+  });
+  it("stays closed when no dataset is signed, or the read fails", async () => {
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    mockFrom.mockReturnValueOnce(signedChain({ data: [], error: null }));
+    await expect(loadInteractionCheckOpen()).resolves.toBe(false);
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    mockFrom.mockReturnValueOnce(signedChain({ data: null, error: { message: "x" } }));
+    await expect(loadInteractionCheckOpen()).resolves.toBe(false);
   });
   it("fails closed on false, null, an error and a thrown call", async () => {
     mockRpc.mockResolvedValueOnce({ data: false, error: null });
@@ -62,6 +84,10 @@ describe("interaction check guard (INV-14)", () => {
     await expect(loadInteractionCheckOpen()).resolves.toBe(false);
     mockRpc.mockRejectedValueOnce(new Error("offline"));
     await expect(loadInteractionCheckOpen()).resolves.toBe(false);
+  });
+  it("a slow connection reads as closed instead of holding up the add", async () => {
+    mockRpc.mockReturnValueOnce(new Promise(() => undefined));
+    await expect(loadInteractionCheckOpen(20)).resolves.toBe(false);
   });
 });
 

@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { CatalogueEntry } from "@tarragon/medicines";
+import { INTERACTION_DATASET_HASH, type CatalogueEntry } from "@tarragon/medicines";
 import { supabase } from "./supabase";
 
 /**
@@ -83,12 +83,24 @@ export function __resetCatalogueCache(): void {
   memory = null;
 }
 
-/** Is the interaction and duplication check open for this person (go-live guard, INV-14)? Any error reads as closed. */
-export async function loadInteractionCheckOpen(): Promise<boolean> {
+const GUARD_TIMEOUT_MS = 3000;
+
+async function guardOpenNow(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("go_live_guard_is_open", { p_key: "interaction_check_enabled" });
+  if (error || data !== true) return false;
+  // Open only for the rules a human signed: the signed dataset's hash must be the one this build runs.
+  const signed = await supabase.from("interaction_dataset_versions").select("content_hash").eq("status", "approved");
+  if (signed.error) return false;
+  return (signed.data ?? []).some((row: { content_hash: string }) => row.content_hash === INTERACTION_DATASET_HASH);
+}
+
+/**
+ * Is the interaction and duplication check open for this person (go-live guard, INV-14), for the rules this build runs? Any error
+ * or a slow connection reads as closed after a few seconds, so adding a medicine is never held up by the check.
+ */
+export async function loadInteractionCheckOpen(timeoutMs: number = GUARD_TIMEOUT_MS): Promise<boolean> {
   try {
-    const { data, error } = await supabase.rpc("go_live_guard_is_open", { p_key: "interaction_check_enabled" });
-    if (error) return false;
-    return data === true;
+    return await Promise.race([guardOpenNow(), new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs))]);
   } catch {
     return false;
   }

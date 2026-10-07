@@ -7,6 +7,7 @@ export * from "./supply";
 export * from "./reminders";
 export * from "./safety/diabetes-drug-safety";
 export * from "./safety/drug-safety";
+export { INTERACTION_DATASET_HASH } from "./safety/interaction-dataset";
 export * from "./catalogue";
 export * from "./pack-prefill";
 export * from "./add-check";

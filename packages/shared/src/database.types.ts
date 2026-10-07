@@ -43168,7 +43168,7 @@ export type Database = {
         Args: { p_patient: string; p_reason: string };
         Returns: { note_id: string; medication_id: string; drug_name: string; note: string; noted_at: string; reviewed_at: string | null }[];
       };
-      mark_side_effect_notes_reviewed: { Args: { p_patient: string; p_reason: string }; Returns: number };
+      mark_side_effect_notes_reviewed: { Args: { p_patient: string; p_note_ids: string[]; p_reason: string }; Returns: number };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       liaison_recent_uploads: {
         Args: Record<PropertyKey, never>;
