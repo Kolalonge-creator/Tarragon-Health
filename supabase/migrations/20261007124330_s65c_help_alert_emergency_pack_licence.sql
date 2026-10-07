@@ -105,7 +105,7 @@ begin
   insert into public.care_circle_location_consents (patient_id, granted, text_version, changed_at)
   values (v_uid, p_granted, v_ver, now())
   on conflict (patient_id) do update set granted = excluded.granted, text_version = excluded.text_version, changed_at = now();
-  perform private.log_care_access(v_uid, case when p_granted then 'granted' else 'revoked' end, 'care_circle',
+  perform private.log_care_access(v_uid, (case when p_granted then 'granted' else 'revoked' end)::public.care_access_event_kind, 'care_circle',
                                   jsonb_build_object('help_alert_location', true, 'text_version', v_ver), v_uid);
   return jsonb_build_object('granted', p_granted, 'text_version', v_ver);
 end $$;

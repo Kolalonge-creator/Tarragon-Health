@@ -194,14 +194,17 @@ begin
 
   -- 4. Wrong-information reports (15.17) -----------------------------------------------------------------------------
   select md5(f::text) into v_hash from public.facilities f where id = fa;
+  r := pg_temp.q_as(v_rep1, format($q$select (public.report_directory_listing('facilities', %L, 'phone', 'The number rings out'))::text$q$, fa));
   perform pg_temp.ck('a first report queues re-verification as normal priority', 'normal,1',
-    (select case when pg_temp.q_as(v_rep1, format($q$select (public.report_directory_listing('facilities', %L, 'phone', 'The number rings out'))::text$q$, fa)) is not null then
+    (select case when r is not null then
        (select priority || ',' || (select count(*) from public.directory_listing_reports where queue_id = q.id)::text from public.directory_reverification_queue q where listing_id = fa and closed_at is null) end));
+  r := pg_temp.q_as(v_rep1, format($q$select (public.report_directory_listing('facilities', %L, 'hours', 'Closed on Mondays'))::text$q$, fa));
   perform pg_temp.ck('the same person reporting again does not become a second independent report', 'normal,1',
-    (select case when pg_temp.q_as(v_rep1, format($q$select (public.report_directory_listing('facilities', %L, 'hours', 'Closed on Mondays'))::text$q$, fa)) is not null then
+    (select case when r is not null then
        (select priority || ',' || (select count(*) from public.directory_listing_reports where queue_id = q.id)::text from public.directory_reverification_queue q where listing_id = fa and closed_at is null) end));
+  r := pg_temp.q_as(v_rep2, format($q$select (public.report_directory_listing('facilities', %L, 'phone', 'Wrong number'))::text$q$, fa));
   perform pg_temp.ck('a second DIFFERENT reporter makes it immediate', 'immediate,2',
-    (select case when pg_temp.q_as(v_rep2, format($q$select (public.report_directory_listing('facilities', %L, 'phone', 'Wrong number'))::text$q$, fa)) is not null then
+    (select case when r is not null then
        (select priority || ',' || (select count(*) from public.directory_listing_reports where queue_id = q.id)::text from public.directory_reverification_queue q where listing_id = fa and closed_at is null) end));
   perform pg_temp.ck('ops are told once, in the app, with no patient detail', '1,true',
     (select count(*)::text || ',' || bool_and(payload::text not like '%S65%')::text from public.notifications where recipient_id = v_admin and template = 'directory_reverify_now'));
@@ -223,8 +226,9 @@ begin
 
   -- 5. Bookings and reminders ----------------------------------------------------------------------------------------
   v_slot := date_trunc('hour', now()) + interval '10 days';
+  r := pg_temp.q_as(v_pat, format($q$select public.create_facility_booking(%L, %L::timestamptz, 'Diabetes review')::text$q$, fc, v_slot));
   perform pg_temp.ck('a patient can book a visible facility', 'ok',
-    case when pg_temp.q_as(v_pat, format($q$select public.create_facility_booking(%L, %L::timestamptz, 'Diabetes review')::text$q$, fc, v_slot)) like '%booking_id%' then 'ok' else 'failed' end);
+    case when r like '%booking_id%' then 'ok' else 'failed' end);
   select id into v_bk from public.facility_bookings where patient_id = v_pat and facility_id = fc;
   perform pg_temp.ck('the booking carries the price shown (the lowest matching per-item price)', '1500000',
     (select price_shown_kobo::text from public.facility_bookings where id = v_bk));
@@ -238,8 +242,9 @@ begin
     pg_temp.q_as(v_pat, format($q$select public.create_facility_booking(%L, now() + interval '5 minutes')::text$q$, fc)));
   perform pg_temp.ck('a hidden (stale) facility cannot be booked', 'ERR:22023',
     pg_temp.q_as(v_pat, format($q$select public.create_facility_booking(%L, %L::timestamptz)::text$q$, fd, v_slot + interval '1 day')));
+  r := pg_temp.q_as(v_pat, format($q$select public.create_facility_booking(%L, %L::timestamptz)::text$q$, fe, date_trunc('hour', now()) + interval '3 days'));
   perform pg_temp.ck('a booking three days out has only the 1 day and 2 hour reminders', '2',
-    (select case when pg_temp.q_as(v_pat, format($q$select public.create_facility_booking(%L, %L::timestamptz)::text$q$, fe, date_trunc('hour', now()) + interval '3 days')) like '%booking_id%' then
+    (select case when r like '%booking_id%' then
        (select count(*)::text from public.facility_booking_reminders where booking_id = (select id from public.facility_bookings where patient_id = v_pat and facility_id = fe)) end));
   select id into v_bk2 from public.facility_bookings where patient_id = v_pat and facility_id = fe;
   perform pg_temp.ck('a patient reads only their own bookings', '2,0',
@@ -248,10 +253,12 @@ begin
     pg_temp.q_as(v_pat2, format($q$select public.respond_facility_booking(%L, 'cancelling')::text$q$, v_bk)));
   perform pg_temp.ck('a patient cannot confirm their own booking', 'ERR:42501',
     pg_temp.q_as(v_pat, format($q$select public.confirm_facility_booking(%L, 'staff_phone')::text$q$, v_bk)));
+  r := pg_temp.q_as(v_admin, format($q$select public.confirm_facility_booking(%L, 'staff_phone')::text$q$, v_bk));
   perform pg_temp.ck('staff can confirm a booking', 'confirmed',
-    case when pg_temp.q_as(v_admin, format($q$select public.confirm_facility_booking(%L, 'staff_phone')::text$q$, v_bk)) is not null then (select state from public.facility_bookings where id = v_bk) end);
+    case when r is not null then (select state from public.facility_bookings where id = v_bk) end);
+  r := pg_temp.q_as(v_pat, format($q$select public.respond_facility_booking(%L, 'coming')::text$q$, v_bk));
   perform pg_temp.ck('"I come" is recorded and the booking stays', 'coming,confirmed',
-    (select case when pg_temp.q_as(v_pat, format($q$select public.respond_facility_booking(%L, 'coming')::text$q$, v_bk)) is not null then patient_response || ',' || state end from public.facility_bookings where id = v_bk));
+    (select case when r is not null then patient_response || ',' || state end from public.facility_bookings where id = v_bk));
   -- the sweep: two reminders due at once -> only the nearest milestone goes, the other is skipped
   update public.facility_booking_reminders set due_at = now() - interval '1 minute' where booking_id = v_bk and milestone_minutes in (1440, 120);
   perform pg_temp.ck('the sweep sends one reminder for a booking with two due', '1',
@@ -266,15 +273,17 @@ begin
   perform pg_temp.ck('running the sweep again sends nothing twice', '0', private.facility_booking_reminder_sweep()::text);
   -- "I cancel" ends the reminders
   update public.facility_booking_reminders set due_at = now() - interval '1 minute' where booking_id = v_bk2;
+  r := pg_temp.q_as(v_pat, format($q$select public.respond_facility_booking(%L, 'cancelling')::text$q$, v_bk2));
   perform pg_temp.ck('"I cancel" cancels the booking with no penalty and stops its reminders', 'cancelled,0',
-    (select case when pg_temp.q_as(v_pat, format($q$select public.respond_facility_booking(%L, 'cancelling')::text$q$, v_bk2)) is not null then
+    (select case when r is not null then
        state || ',' || (select count(*)::text from public.facility_booking_reminders where booking_id = v_bk2 and sent_at is null and skipped_at is null) end
        from public.facility_bookings where id = v_bk2));
   perform pg_temp.ck('the sweep sends nothing for a cancelled booking', '0', private.facility_booking_reminder_sweep()::text);
   perform pg_temp.ck('a cancelled booking cannot be changed again', 'ERR:23514', pg_temp.q_as(v_pat, format($q$select public.respond_facility_booking(%L, 'coming')::text$q$, v_bk2)));
+  r := pg_temp.q_as(v_admin, $q$select count(*)::text from public.facility_booking_queue()$q$);
   perform pg_temp.ck('the staff booking queue is staff only and its read is audited', 'ERR:42501,true',
     pg_temp.q_as(v_pat, $q$select count(*)::text from public.facility_booking_queue()$q$) || ',' ||
-    (case when pg_temp.q_as(v_admin, $q$select count(*)::text from public.facility_booking_queue()$q$) is not null then
+    (case when r is not null then
        exists (select 1 from public.audit_log where action = 'facility_booking.queue_read' and actor_id = v_admin)::text end));
 
   -- 6. Verified-visit ratings (Q22) ----------------------------------------------------------------------------------
@@ -288,15 +297,17 @@ begin
   update public.facility_bookings set slot_at = now() - interval '1 day' where id = v_bk;
   perform pg_temp.ck('a booking cannot be completed before its time (control)', 'ERR:23514',
     pg_temp.q_as(v_admin, format($q$select public.complete_facility_booking(%L, true)::text$q$, v_bk2)));
+  r := pg_temp.q_as(v_admin, format($q$select public.complete_facility_booking(%L, true)::text$q$, v_bk));
   perform pg_temp.ck('staff complete the visit', 'completed',
-    case when pg_temp.q_as(v_admin, format($q$select public.complete_facility_booking(%L, true)::text$q$, v_bk)) is not null then (select state from public.facility_bookings where id = v_bk) end);
+    case when r is not null then (select state from public.facility_bookings where id = v_bk) end);
   perform pg_temp.ck('a patient cannot complete their own booking', 'ERR:42501', pg_temp.q_as(v_pat, format($q$select public.complete_facility_booking(%L, true)::text$q$, v_bk)));
   perform pg_temp.ck('another patient cannot rate that visit', 'ERR:23514',
     pg_temp.q_as(v_pat2, format($q$select public.submit_facility_rating(%L, 5, null, null, %L)::text$q$, fc, v_bk)));
   perform pg_temp.ck('a rating for the wrong facility is rejected', 'ERR:23514',
     pg_temp.q_as(v_pat, format($q$select public.submit_facility_rating(%L, 5, null, null, %L)::text$q$, fe, v_bk)));
+  r := pg_temp.q_as(v_pat, format($q$select public.submit_facility_rating(%L, 4, 'Friendly staff and a short wait', null, %L)::text$q$, fc, v_bk));
   perform pg_temp.ck('a rating for the completed visit is accepted and waits for moderation', 'pending',
-    case when pg_temp.q_as(v_pat, format($q$select public.submit_facility_rating(%L, 4, 'Friendly staff and a short wait', null, %L)::text$q$, fc, v_bk)) like '%rating_id%' then
+    case when r like '%rating_id%' then
       (select status from public.facility_ratings where patient_id = v_pat and facility_booking_id = v_bk) end);
   select id into v_rt from public.facility_ratings where facility_booking_id = v_bk;
   perform pg_temp.ck('one rating per visit', 'ERR:23505', pg_temp.q_as(v_pat, format($q$select public.submit_facility_rating(%L, 2, null, null, %L)::text$q$, fc, v_bk)));
@@ -318,26 +329,30 @@ begin
     (select count(*)::text from information_schema.columns where table_name = 'facility_rating_queue' and column_name like '%patient%'));
   perform pg_temp.ck('nothing is public before moderation', '0',
     pg_temp.q_as(v_pat2, format($q$select count(*)::text from public.facility_ratings_public(%L)$q$, fc)));
+  r := pg_temp.q_as(v_admin, format($q$select public.moderate_facility_rating(%L, 'publish')::text$q$, v_rt));
   perform pg_temp.ck('an ordinary rating is published by staff', 'published',
-    case when pg_temp.q_as(v_admin, format($q$select public.moderate_facility_rating(%L, 'publish')::text$q$, v_rt)) is not null then (select status from public.facility_ratings where id = v_rt) end);
+    case when r is not null then (select status from public.facility_ratings where id = v_rt) end);
   perform pg_temp.ck('the public sees the comment, a month not a day, and no patient', '1,Friendly staff and a short wait',
     pg_temp.q_as(v_pat2, format($q$select count(*)::text || ',' || max(public_comment) from public.facility_ratings_public(%L)$q$, fc)));
   perform pg_temp.ck('a rating that was moderated cannot be moderated again', 'ERR:23514', pg_temp.q_as(v_admin, format($q$select public.moderate_facility_rating(%L, 'reject', 'Second go at it here')::text$q$, v_rt)));
+  r := pg_temp.q_as(v_admin, format($q$select public.reply_to_facility_rating(%L, 'Thank you for visiting us.', 'phone')::text$q$, v_rt));
   perform pg_temp.ck('the facility can reply to a published rating', 'phone',
-    case when pg_temp.q_as(v_admin, format($q$select public.reply_to_facility_rating(%L, 'Thank you for visiting us.', 'phone')::text$q$, v_rt)) is not null then (select channel from public.facility_rating_replies where rating_id = v_rt) end);
+    case when r is not null then (select channel from public.facility_rating_replies where rating_id = v_rt) end);
   perform pg_temp.ck('the reply is shown with the rating', 'Thank you for visiting us.',
     pg_temp.q_as(v_pat2, format($q$select reply_body from public.facility_ratings_public(%L)$q$, fc)));
   perform pg_temp.ck('a patient cannot post a facility reply', 'ERR:42501', pg_temp.q_as(v_pat, format($q$select public.reply_to_facility_rating(%L, 'x', 'portal')::text$q$, v_rt)));
   -- a comment judging a clinician is held
   update public.facility_bookings set slot_at = now() - interval '2 days' where id = v_bk2;
   update public.facility_bookings set state = 'completed', completed_at = now(), completed_by = v_admin, patient_response = null where id = v_bk2;
+  r := pg_temp.q_as(v_pat, format($q$select public.submit_facility_rating(%L, 1, 'The doctor misdiagnosed me', null, %L)::text$q$, fe, v_bk2));
   perform pg_temp.ck('a comment that judges the doctor is accepted but HELD for moderation', 'clinical_judgement',
-    case when pg_temp.q_as(v_pat, format($q$select public.submit_facility_rating(%L, 1, 'The doctor misdiagnosed me', null, %L)::text$q$, fe, v_bk2)) like '%rating_id%' then
+    case when r like '%rating_id%' then
       (select held_reason from public.facility_ratings where facility_booking_id = v_bk2) end);
   select id into v_rt2 from public.facility_ratings where facility_booking_id = v_bk2;
   perform pg_temp.ck('a held comment cannot be published with its comment', 'ERR:23514', pg_temp.q_as(v_admin, format($q$select public.moderate_facility_rating(%L, 'publish')::text$q$, v_rt2)));
+  r := pg_temp.q_as(v_admin, format($q$select public.moderate_facility_rating(%L, 'publish_without_comment')::text$q$, v_rt2));
   perform pg_temp.ck('it can be published without the comment: the score stays, the comment never goes public', 'published,',
-    case when pg_temp.q_as(v_admin, format($q$select public.moderate_facility_rating(%L, 'publish_without_comment')::text$q$, v_rt2)) is not null then
+    case when r is not null then
       (select status || ',' || coalesce(public_comment, '') from public.facility_ratings where id = v_rt2) end);
   perform pg_temp.ck('a rejection needs a written reason', 'false',
     (select (pg_temp.q_as(v_admin, format($q$select public.moderate_facility_rating(%L, 'reject', 'no')::text$q$, v_rt2)) is null)::text));
@@ -357,8 +372,9 @@ begin
   insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, state, expires_at, is_test)
   values (v_org, v_pat, v_sup, 'Daughter', array['red_alerts'], 'active', now() + interval '30 days', true),
          (v_org, v_pat, v_sup2, 'Friend', array['adherence_summary'], 'active', now() + interval '30 days', true);
+  r := pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert(6.45, 3.39, 20)::text$q$);
   perform pg_temp.ck('ACCEPTANCE: with no consent, coordinates sent on the tap are discarded and the alert still goes', 'false,true,1',
-    (select case when pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert(6.45, 3.39, 20)::text$q$) like '%alert_id%' then
+    (select case when r like '%alert_id%' then
         location_shared::text || ',' || (latitude is null)::text || ',' || recipients_told::text end
        from public.care_circle_help_alerts where patient_id = v_pat order by created_at desc limit 1));
   select id into v_alert from public.care_circle_help_alerts where patient_id = v_pat order by created_at desc limit 1;
@@ -370,16 +386,19 @@ begin
   perform pg_temp.ck('a second tap inside the cooldown is the same alert, not a second one', 'true,1',
     (select (pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert()::text$q$) like '%"already_sent": true%')::text || ',' ||
             (select count(*)::text from public.care_circle_help_alerts where patient_id = v_pat)));
+  r := pg_temp.q_as(v_pat, $q$select public.set_circle_location_consent(true)::text$q$);
   perform pg_temp.ck('consent can be granted by the patient', 'true',
-    (select case when pg_temp.q_as(v_pat, $q$select public.set_circle_location_consent(true)::text$q$) is not null then granted::text end from public.care_circle_location_consents where patient_id = v_pat));
+    (select case when r is not null then granted::text end from public.care_circle_location_consents where patient_id = v_pat));
   update public.care_circle_help_alerts set created_at = now() - interval '1 hour' where patient_id = v_pat;
+  r := pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert(6.45, 3.39, 20)::text$q$);
   perform pg_temp.ck('with consent AND coordinates on the tap, the location is stored for this alert', 'true,true',
-    (select case when pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert(6.45, 3.39, 20)::text$q$) like '%alert_id%' then
+    (select case when r like '%alert_id%' then
         location_shared::text || ',' || (latitude = 6.45)::text end
        from public.care_circle_help_alerts where patient_id = v_pat order by created_at desc limit 1));
   select id into v_alert from public.care_circle_help_alerts where patient_id = v_pat order by created_at desc limit 1;
+  r := pg_temp.q_as(v_sup, format($q$select public.circle_help_alert_view(%L)::text$q$, v_pat));
   perform pg_temp.ck('a supporter holding red_alerts sees the location, and the read is written to the care access log (INV-10)', 'true,true',
-    (select case when pg_temp.q_as(v_sup, format($q$select public.circle_help_alert_view(%L)::text$q$, v_pat)) like '%"latitude": 6.45%' then
+    (select case when r like '%"latitude": 6.45%' then
        'true' end) || ',' ||
     exists (select 1 from public.care_access_events where patient_id = v_pat and scope = 'care_circle' and metadata ->> 'help_alert' = 'true')::text);
   perform pg_temp.ck('a member WITHOUT red_alerts cannot read the alert or location', 'ERR:42501', pg_temp.q_as(v_sup2, format($q$select public.circle_help_alert_view(%L)::text$q$, v_pat)));
@@ -388,21 +407,25 @@ begin
     pg_temp.q_as(v_sup, $q$select count(*)::text from public.care_circle_help_alerts$q$) || ',' || pg_temp.q_as(v_pat, $q$select count(*)::text from public.care_circle_help_alerts where latitude is not null$q$));
   -- retention: the stored location is deleted after location_keep_hours
   update public.care_circle_help_alerts set created_at = now() - interval '25 hours' where id = v_alert;
+  n := private.purge_help_alert_locations();
   perform pg_temp.ck('the sweep deletes a shared location after 24 hours and says it did', '1,true',
-    private.purge_help_alert_locations()::text || ',' || (select (latitude is null and longitude is null and location_purged_at is not null)::text from public.care_circle_help_alerts where id = v_alert));
-  perform pg_temp.ck('the supporter then sees no location (the alert is outside the visible window)', 'true',
-    (pg_temp.q_as(v_sup, format($q$select coalesce(public.circle_help_alert_view(%L)::text, 'none')$q$, v_pat)) in ('none', ''))::text);
+    n::text || ',' || (select (latitude is null and longitude is null and location_purged_at is not null)::text from public.care_circle_help_alerts where id = v_alert));
+  perform pg_temp.ck('the supporter then sees no location, only the later alert that never had one', 'true',
+    (pg_temp.q_as(v_sup, format($q$select coalesce(public.circle_help_alert_view(%L)::text, 'none')$q$, v_pat)) like '%"latitude": null%')::text);
   -- revocation
+  r := pg_temp.q_as(v_pat, $q$select public.set_circle_location_consent(false)::text$q$);
   perform pg_temp.ck('consent can be revoked at any time', 'false',
-    (select case when pg_temp.q_as(v_pat, $q$select public.set_circle_location_consent(false)::text$q$) is not null then granted::text end from public.care_circle_location_consents where patient_id = v_pat));
+    (select case when r is not null then granted::text end from public.care_circle_location_consents where patient_id = v_pat));
   update public.care_circle_help_alerts set created_at = now() - interval '2 hours' where patient_id = v_pat;
+  r := pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert(6.45, 3.39, 20)::text$q$);
   perform pg_temp.ck('after revoking, a tap with coordinates shares no location but still alerts', 'false,true,1',
-    (select case when pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert(6.45, 3.39, 20)::text$q$) like '%alert_id%' then
+    (select case when r like '%alert_id%' then
         location_shared::text || ',' || (latitude is null)::text || ',' || recipients_told::text end
        from public.care_circle_help_alerts where patient_id = v_pat order by created_at desc limit 1));
   perform pg_temp.ck('a person who is not a test account cannot send the alert while the guard is off', 'ERR:55000', pg_temp.q_as(v_real, $q$select public.send_circle_help_alert()::text$q$));
+  r := pg_temp.q_as(v_real, $q$select public.set_circle_location_consent(false)::text$q$);
   perform pg_temp.ck('but anyone can revoke location consent even with the guard off', 'ok',
-    case when pg_temp.q_as(v_real, $q$select public.set_circle_location_consent(false)::text$q$) not like 'ERR%' then 'ok' end);
+    case when r not like 'ERR%' then 'ok' end);
   perform pg_temp.ck('and cannot grant it while the guard is off', 'ERR:55000', pg_temp.q_as(v_real, $q$select public.set_circle_location_consent(true)::text$q$));
   perform pg_temp.ck('the automatic S29 red alert is untouched and carries no location: its trigger still exists', '1',
     (select count(*)::text from pg_trigger where tgname = 'pages_notify_circle' and not tgisinternal));
@@ -437,6 +460,7 @@ begin
   -- 9. Clinician licence (Q19): null-gated -----------------------------------------------------------------------------
   perform pg_temp.ck('a clinician with no checked licence returns nothing (the screen never claims a check that did not happen)', '0',
     pg_temp.q_as(v_pat, format($q$select count(*)::text from public.clinician_licence_public(%L)$q$, v_admin)));
+  r := pg_temp.q_as(v_pat2, format($q$select public.submit_facility_rating(%L, 5, null, null, %L)::text$q$, fq, v_bk));
   perform pg_temp.ck('anon cannot read licences', '42501', pg_temp.try_anon(format($q$select * from public.clinician_licence_public(%L)$q$, v_admin)));
 end $$;
 
@@ -465,7 +489,7 @@ begin
   perform pg_temp.q_as(v_pat2, format($q$select public.create_facility_booking(%L, now() + interval '5 days')::text$q$, fq));
   select id into v_bk from public.facility_bookings where patient_id = v_pat2 and facility_id = fq;
   insert into results values ('sabotaged', 'ACCEPTANCE: a rating without a completed visit is rejected', 'ERR:23514',
-    case when pg_temp.q_as(v_pat2, format($q$select public.submit_facility_rating(%L, 5, null, null, %L)::text$q$, fq, v_bk)) like 'ERR:%' then 'ERR:23514' else 'accepted' end);
+    case when r like 'ERR:%' then 'ERR:23514' else 'accepted' end);
 
   -- (c) the red_alerts filter removed from the one-tap alert
   select pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer)'::regprocedure) into d;
