@@ -43092,6 +43092,10 @@ export type Database = {
         Args: { p_device_id: string }
         Returns: { is_supporter: boolean; organisation_id: string; patient_id: string }[]
       }
+      emit_device_synced: {
+        Args: { p_patient: string; p_readings: number; p_ref?: string; p_source: string }
+        Returns: string
+      }
       log_outcome_export: { Args: { p_from?: string; p_to?: string }; Returns: undefined };
       my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
       override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };

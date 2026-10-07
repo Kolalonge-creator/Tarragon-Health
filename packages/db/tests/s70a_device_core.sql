@@ -424,6 +424,10 @@ begin
   perform public.report_device_synced('healthkit', 3);
   perform pg_temp.back();
   perform pg_temp.rec('device.synced is one event per source per ten minutes', '2', (select count(*)::text from public.domain_events where event_type = 'device.synced' and patient_id = v_pat));
+  perform pg_temp.rec('the server-side sync event is for the service role only', 'false/false', has_function_privilege('anon', 'public.emit_device_synced(uuid,text,integer,uuid)', 'EXECUTE')::text || '/' || has_function_privilege('authenticated', 'public.emit_device_synced(uuid,text,integer,uuid)', 'EXECUTE')::text);
+  perform public.emit_device_synced(v_pat6, 'wearable', 5, null);
+  perform public.emit_device_synced(v_pat6, 'wearable', 7, null);
+  perform pg_temp.rec('...and emits one device.synced per source per ten minutes', '1', (select count(*)::text from public.domain_events where event_type = 'device.synced' and patient_id = v_pat6));
   perform pg_temp.act(v_pat);
   perform pg_temp.rec('a sync report with a negative count is refused (as the person)', '22023', pg_temp.try('select public.report_device_synced(''x'', -1)'));
   perform pg_temp.back();

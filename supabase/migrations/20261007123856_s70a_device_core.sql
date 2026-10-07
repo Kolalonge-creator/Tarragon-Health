@@ -567,6 +567,26 @@ end $$;
 revoke all on function public.report_device_synced(text, integer, uuid) from public, anon;
 grant execute on function public.report_device_synced(text, integer, uuid) to authenticated;
 
+-- The same event for a sync the server runs itself (a wearable webhook or the scheduled pull): no signed-in person, so the server names the
+-- patient. Service role only; a signed-in browser or phone cannot call it, so nobody can emit an event for someone else.
+create or replace function public.emit_device_synced(p_patient uuid, p_source text, p_readings integer, p_ref uuid default null) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_org uuid;
+begin
+  if p_readings is null or p_readings < 0 or p_readings > 100000 or coalesce(length(p_source), 0) not between 1 and 40 then
+    raise exception 'invalid sync report' using errcode = '22023';
+  end if;
+  select organisation_id into v_org from public.profiles where id = p_patient and role = 'patient';
+  if v_org is null then raise exception 'unknown patient' using errcode = '22023'; end if;
+  return private.emit_domain_event('device.synced', v_org,
+    jsonb_build_object('source', p_source, 'readings', p_readings, 'ref', p_ref),
+    'device.synced:' || p_patient || ':' || p_source || ':' || floor(extract(epoch from now()) / 600)::bigint,
+    p_patient, 'device_sync', p_ref);
+end $$;
+revoke all on function public.emit_device_synced(uuid, text, integer, uuid) from public, anon, authenticated;
+grant execute on function public.emit_device_synced(uuid, text, integer, uuid) to service_role;
+
 -- ---------------------------------------------------------------------------
 -- 7. 18.5 CGM sustained events
 -- ---------------------------------------------------------------------------
@@ -933,6 +953,10 @@ begin
    where n.nspname = 'public' and p.proname in ('resolve_held_reading', 'report_device_synced', 'record_device_rhythm_result', 'review_device_catalog_entry', 'recommended_devices', 'pair_device_for', 'device_target_for_reading')
      and (has_function_privilege('anon', p.oid, 'EXECUTE') or not has_function_privilege('authenticated', p.oid, 'EXECUTE'));
   if v_n <> 0 then raise exception 'FAIL: % new public function(s) with the wrong anon or authenticated execute', v_n; end if;
+  if has_function_privilege('anon', 'public.emit_device_synced(uuid,text,integer,uuid)', 'EXECUTE') or has_function_privilege('authenticated', 'public.emit_device_synced(uuid,text,integer,uuid)', 'EXECUTE')
+     or not has_function_privilege('service_role', 'public.emit_device_synced(uuid,text,integer,uuid)', 'EXECUTE') then
+    raise exception 'FAIL: emit_device_synced must be callable by the service role only';
+  end if;
   if (select count(*) from public.task_types where code in ('cgm_glucose_review', 'device_rhythm_review') and is_active) <> 2 then raise exception 'FAIL: task types missing'; end if;
   if (select count(*) from public.event_types where event_type in ('device.synced', 'device.alert')) <> 2 then raise exception 'FAIL: event types missing'; end if;
   if not exists (select 1 from pg_trigger where tgrelid = 'public.vitals_readings'::regclass and tgname = 'vitals_readings_a_hold_impossible') then raise exception 'FAIL: hold trigger missing'; end if;
