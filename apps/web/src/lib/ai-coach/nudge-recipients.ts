@@ -9,6 +9,7 @@ export function eligibleForAssistantNudge(p: {
   isActive: boolean | null;
   isTest: boolean | null;
 }): boolean {
-  if (p.role !== "patient" || p.isActive === false) return false;
-  return p.guardOpen || p.isTest === true;
+  // A test account is never nudged (it would count as a real engagement signal); a real patient only while the guard is on.
+  if (p.role !== "patient" || p.isActive === false || p.isTest === true) return false;
+  return p.guardOpen;
 }

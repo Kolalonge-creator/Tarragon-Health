@@ -222,6 +222,54 @@ select pg_temp.ck('real', 'a patient who switched every wellness channel off is 
 select pg_temp.ck('real', 'a draft (inactive) content row is not described to a patient at all', '0',
   pg_temp.q_as(pg_temp.f('real'), format($q$select jsonb_array_length(public.assistant_knowledge_sources(array[%L::uuid]))::text$q$, pg_temp.f('kb_draft'))));
 
+-- 6c. Who the daily nudge may go to: recent, real, entitled, not opted out, guard on, capped; and no built-in config fallback ------------------
+create function pg_temp.cands() returns text language plpgsql as
+$f$ declare r text;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  set local role service_role;
+  begin select coalesce(string_agg(c.patient_id::text, ',' order by c.patient_id), '') into r from public.assistant_nudge_candidates() c;
+  exception when others then r := 'ERR:' || sqlstate; end;
+  reset role;
+  perform set_config('request.jwt.claims', '', true);
+  return r;
+end $f$;
+do $$
+declare v_org uuid := pg_temp.f('org'); v_old uuid; v_noent uuid; v_opt uuid;
+begin
+  v_old := pg_temp.mkuser(v_org, 'old', false);
+  v_noent := pg_temp.mkuser(v_org, 'noent', false);
+  v_opt := pg_temp.mkuser(v_org, 'optout', false);
+  perform pg_temp.setf('old', v_old); perform pg_temp.setf('noent', v_noent); perform pg_temp.setf('optout', v_opt);
+  insert into public.ai_coach_access_rules (organisation_id, patient_id, enabled)
+    values (v_org, pg_temp.f('real'), true), (v_org, v_old, true), (v_org, pg_temp.f('test'), true), (v_org, v_noent, false), (v_org, v_opt, true);
+  insert into public.ai_conversations (organisation_id, profile_id, messages, updated_at) values
+    (v_org, pg_temp.f('real'), '[]'::jsonb, now() - interval '2 days'),
+    (v_org, v_old, '[]'::jsonb, now() - interval '90 days'),
+    (v_org, pg_temp.f('test'), '[]'::jsonb, now() - interval '1 day'),
+    (v_org, v_noent, '[]'::jsonb, now() - interval '1 day'),
+    (v_org, v_opt, '[]'::jsonb, now() - interval '1 day');
+  insert into public.patient_notification_preferences (organisation_id, patient_id, category, email_enabled, sms_enabled, push_enabled)
+    values (v_org, v_opt, 'education_wellness', false, false, false);
+end $$;
+select pg_temp.ck('real', 'while the guard is off nobody is a candidate', '', pg_temp.cands());
+-- the guard cannot be switched on by a bare update, so the proof stands in for it inside this rolled-back transaction
+create or replace function private.go_live_guard_on(p_key text) returns boolean language sql stable as $$ select true $$;
+select pg_temp.ck('real', 'with the guard on: only the recent, real, entitled, not-opted-out patient', pg_temp.f('real')::text, pg_temp.cands());
+select pg_temp.ck('real', 'a patient who has not used the assistant for 90 days is not a candidate', '0',
+  (select count(*)::text from (select unnest(string_to_array(pg_temp.cands(), ','))) x(id) where x.id = pg_temp.f('old')::text));
+select pg_temp.ck('real', 'a patient without the assistant on their plan is not a candidate', '0',
+  (select count(*)::text from (select unnest(string_to_array(pg_temp.cands(), ','))) x(id) where x.id = pg_temp.f('noent')::text));
+select pg_temp.ck('real', 'an opted-out patient is not a candidate', '0',
+  (select count(*)::text from (select unnest(string_to_array(pg_temp.cands(), ','))) x(id) where x.id = pg_temp.f('optout')::text));
+select pg_temp.ck('real', 'an is_test patient is never a candidate', '0',
+  (select count(*)::text from (select unnest(string_to_array(pg_temp.cands(), ','))) x(id) where x.id = pg_temp.f('test')::text));
+update public.assistant_config set value = '{"recent_days": 30, "max_per_run": 0}'::jsonb where key = 'nudges';
+select pg_temp.ck('real', 'the per-run cap holds', '', pg_temp.cands());
+delete from public.assistant_config where key = 'nudges';
+select pg_temp.ck('real', 'a missing config row fails loudly instead of using a built-in number', 'ERR:55000', pg_temp.cands());
+insert into public.assistant_config (key, value) values ('nudges', '{"recent_days": 30, "max_per_run": 2000}'::jsonb);
+
 -- 7. Grants ---------------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('real', 'authenticated cannot read assistant_config', 'ERR:42501', pg_temp.q_as(pg_temp.f('real'), 'select count(*)::text from public.assistant_config'));
 select pg_temp.ck('real', 'anon cannot execute the conditions helper', 'false', has_function_privilege('anon', 'private.go_live_conditions_assistant(uuid)', 'EXECUTE')::text);
@@ -239,6 +287,10 @@ create or replace function public.assistant_knowledge_sources(p_ids uuid[]) retu
 $$ select coalesce(jsonb_agg(jsonb_build_object('id', h.id, 'retrievable', true, 'owner', h.reviewed_by_name)), '[]'::jsonb) from public.health_education_content h where h.id = any (p_ids) $$;
 select pg_temp.ck('sabotaged', 'a lapsed row is not retrievable', 'false', pg_temp.src(pg_temp.f('real'), pg_temp.f('kb_lapsed'), 'retrievable'));
 select pg_temp.ck('sabotaged', 'a row with no owner is not retrievable', 'false', pg_temp.src(pg_temp.f('real'), pg_temp.f('kb_noowner'), 'retrievable'));
+create or replace function public.assistant_nudge_candidates() returns table (patient_id uuid) language sql stable security definer set search_path = '' as
+$$ select distinct c.profile_id from public.ai_conversations c $$;
+select pg_temp.ck('sabotaged', 'an is_test patient is never a candidate', '0',
+  (select count(*)::text from (select unnest(string_to_array(pg_temp.cands(), ','))) x(id) where x.id = pg_temp.f('test')::text));
 
 do $$
 declare v_bad integer; v_caught integer;
@@ -249,7 +301,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
+  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

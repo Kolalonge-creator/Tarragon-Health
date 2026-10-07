@@ -44,6 +44,10 @@ const MED_NOUN = String.raw`(?:dose|doses|dosage|tablet|tablets|pill|pills|medic
 // Verbs that only ever mean "change a medicine" next to a medicine noun. The vaguer ones (reduce, lower, raise, cut, change, adjust, swap,
 // switch) are used for diet and lifestyle all day ("reduce my blood sugar without medication"), so they count ONLY next to dose/dosage.
 const CHANGE_VERB = String.raw`(?:increase|increasing|decrease|decreasing|double|doubling|halve|halving|stop(?!\s+(?:thinking|worrying|forgetting))|stopping|skip|skipping|quit|quitting|come off|coming off)`;
+// The same, said about something that has ALREADY happened ("I stopped my tablets", "I doubled my dose"). A patient who has changed a medicine
+// on their own is the most important adherence and safety signal there is: the same refusal, the same route to the care team, and the same
+// clinician flag as a request. Request-side only: a drafted REPLY restating the record ("you stopped...") is not screened with these.
+const PAST_CHANGE_VERB = String.raw`(?:increased|decreased|doubled|halved|stopped|skipped|quit|came off|not taking|haven'?t (?:been )?taking|haven'?t taken|have not (?:been )?(?:taking|taken))`;
 const DOSE_NOUN = String.raw`(?:dose|doses|dosage)`;
 const VAGUE_VERB = String.raw`(?:reduce|reducing|lower|lowering|raise|raising|cut|cutting|change|changing|adjust|adjusting|swap|switch|switching)`;
 const MORE_LESS = String.raw`(?:more|less|extra|double|another|half|two)`;
@@ -52,6 +56,8 @@ const MORE_LESS = String.raw`(?:more|less|extra|double|another|half|two)`;
 const CHANGE_PATTERNS: RegExp[] = [
   new RegExp(String.raw`\b${CHANGE_VERB}\b.{0,40}\b${MED_NOUN}\b`, "i"),
   new RegExp(String.raw`\b${MED_NOUN}\b.{0,40}\b${CHANGE_VERB}\b`, "i"),
+  new RegExp(String.raw`\b${PAST_CHANGE_VERB}\b.{0,40}\b${MED_NOUN}\b`, "i"),
+  new RegExp(String.raw`\b${MED_NOUN}\b.{0,40}\b${PAST_CHANGE_VERB}\b`, "i"),
   new RegExp(String.raw`\b${VAGUE_VERB}\b.{0,40}\b${DOSE_NOUN}\b`, "i"),
   new RegExp(String.raw`\b${DOSE_NOUN}\b.{0,40}\b${VAGUE_VERB}\b`, "i"),
   new RegExp(String.raw`\btake\s+${MORE_LESS}\s+(?:(?:a|an|the|my|your|of)\s+)*${MED_NOUN}\b`, "i"),

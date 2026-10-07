@@ -1334,6 +1334,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["min_approved_kb_rows\\s*[=:]\\s*20\\b"],
   },
   {
+    key: "assistant.nudges",
+    // S51 (7.5): the daily nudge goes only to a patient with an assistant conversation in the last recent_days, at most max_per_run in a run.
+    // Mirrored by public.assistant_config (key nudges); read by public.assistant_nudge_candidates() with no built-in fallback.
+    value: { recent_days: 30, max_per_run: 2000 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (nudges)",
+  },
+  {
     key: "assistant.emergency",
     // S52 (7.8, INV-06). Nigeria has no usable national crisis helpline, so `phoneNumbers` is EMPTY on purpose: the CMO adds a number
     // (a hospital line, a clinic desk) here and nowhere else, and it is shown only once set. `nearestHospitalsShown` is how many hospitals

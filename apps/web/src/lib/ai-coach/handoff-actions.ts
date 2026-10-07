@@ -7,6 +7,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { buildCoachHandoffSummary } from "./handoff-summary";
 import { loadHandoffSnapshot } from "./escalate";
 import { sendApprovedPrepDraft, type SendPrepDraftResult } from "./send-prep-draft";
+import { isAssistantOpen } from "./guard";
 
 const conversationIdSchema = z.string().uuid().optional();
 
@@ -39,6 +40,10 @@ export async function requestCareTeamHandoffAction(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Not signed in" };
+  // INV-14: behind the assistant_enabled guard like every other assistant door. The care team is always reachable from the messages page.
+  if (!(await isAssistantOpen(supabase))) {
+    return { success: false, error: "This is not open yet. You can message your care team directly in the app." };
+  }
 
   let recentMessages: CoachChatMessage[] = [];
   if (parsedId.data) {
@@ -46,6 +51,7 @@ export async function requestCareTeamHandoffAction(
       .from("ai_conversations")
       .select("messages")
       .eq("id", parsedId.data)
+      .eq("profile_id", user.id)
       .maybeSingle();
     recentMessages = ((conversation?.messages as CoachChatMessage[] | null) ?? []).slice(-10);
   }

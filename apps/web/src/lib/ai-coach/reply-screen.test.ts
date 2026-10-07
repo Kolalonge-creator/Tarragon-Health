@@ -107,3 +107,20 @@ describe("INV-04 reply screen", () => {
     expect(SENSITIVE_RESULT_REPLY).not.toMatch(/—/);
   });
 });
+
+describe("a medicine already changed is the same signal as a request to change it", () => {
+  it.each([
+    "I stopped taking my blood pressure tablets",
+    "I skipped my insulin yesterday",
+    "I doubled my dose last night",
+    "I halved my tablets",
+    "I haven't been taking my medicine this week",
+    "my tablets, I came off them",
+  ])("%s is a change (refusal, route to the care team, clinician flag)", (m) => {
+    expect(classifyDoseRequest(m)).toBe("change");
+  });
+  it("ordinary adherence chat is not a change", () => {
+    expect(classifyDoseRequest("I took my tablets this morning")).toBe("none");
+    expect(classifyDoseRequest("what is my current dose of metformin")).toBe("none");
+  });
+});
