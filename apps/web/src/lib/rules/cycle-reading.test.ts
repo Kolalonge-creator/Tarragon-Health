@@ -1,3 +1,4 @@
+import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n";
 import {
   ALL_CYCLE_READING_CODES,
   suggestCycleReading,
@@ -10,8 +11,26 @@ describe("suggestCycleReading", () => {
       phase: "fertile",
       lifeStage: "menstruating",
       isIrregular: false,
+      planningMode: true,
     });
     expect(reading[0].code).toBe("women-fertility-basics");
+  });
+
+  it("carries the not-contraception label in the reason text of every suggestion that names the fertile window", () => {
+    for (const phase of ["fertile", "ovulation"] as const) {
+      const reading = suggestCycleReading({ phase, lifeStage: "menstruating", isIrregular: false, planningMode: true });
+      expect(reading[0].reason).toContain(FERTILE_WINDOW_LABEL);
+      expect(reading[0].namesFertileWindow).toBe(true);
+    }
+  });
+
+  it("with Planning a pregnancy off, never names the fertile window or ovulation", () => {
+    for (const phase of ["fertile", "ovulation", "luteal", "follicular", "menstrual"] as const) {
+      const reading = suggestCycleReading({ phase, lifeStage: "menstruating", isIrregular: true, planningMode: false });
+      for (const item of reading) {
+        expect(`${item.title} ${item.reason}`).not.toMatch(/fertile window|ovulation|fertility basics/i);
+      }
+    }
   });
 
   it("lets life stage win over cycle phase", () => {
@@ -20,6 +39,7 @@ describe("suggestCycleReading", () => {
       phase: "luteal",
       lifeStage: "pregnant",
       isIrregular: false,
+      planningMode: true,
     });
     expect(reading).toHaveLength(1);
     expect(reading[0].code).toBe("women-pregnancy-warning-signs");
@@ -30,6 +50,7 @@ describe("suggestCycleReading", () => {
       phase: "luteal",
       lifeStage: "menstruating",
       isIrregular: true,
+      planningMode: true,
     });
     expect(reading.map((r) => r.code)).toContain(IRREGULAR_CYCLES_READING.code);
   });
@@ -41,6 +62,7 @@ describe("suggestCycleReading", () => {
       phase: "follicular",
       lifeStage: "trying_to_conceive",
       isIrregular: true,
+      planningMode: true,
     });
     expect(reading.map((r) => r.code)).toEqual([
       "women-preconception-health",
@@ -51,7 +73,7 @@ describe("suggestCycleReading", () => {
   it("never returns more than two suggestions", () => {
     for (const phase of ["menstrual", "follicular", "fertile", "ovulation", "luteal"] as const) {
       expect(
-        suggestCycleReading({ phase, lifeStage: "menstruating", isIrregular: true }).length
+        suggestCycleReading({ phase, lifeStage: "menstruating", isIrregular: true, planningMode: true }).length
       ).toBeLessThanOrEqual(2);
     }
   });
@@ -61,6 +83,7 @@ describe("suggestCycleReading", () => {
       phase: "menstrual",
       lifeStage: "menstruating",
       isIrregular: true,
+      planningMode: true,
     });
     expect(new Set(reading.map((r) => r.code)).size).toBe(reading.length);
   });
@@ -71,6 +94,7 @@ describe("suggestCycleReading", () => {
         phase: "unknown",
         lifeStage: "not_applicable",
         isIrregular: false,
+        planningMode: true,
       })
     ).toEqual([]);
   });

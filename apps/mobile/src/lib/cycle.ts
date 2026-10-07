@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 import { todayIsoDate } from "./medications";
 import type { Enums, Tables } from "@tarragon/shared";
+import { applyPlanningMode, isPlanningMode } from "./cycle-fertile-mode";
 import {
   predictCycle,
   type CyclePrediction,
@@ -186,7 +187,9 @@ export interface CycleTrackerData {
 export async function loadCycleTracker(
   patientId: string,
   lifeStage: ReproductiveLifeStage,
-  selfReportedCycleLengthDays: number | null
+  selfReportedCycleLengthDays: number | null,
+  /** "Planning a pregnancy" (S85 D2). No default on purpose: a caller must say. */
+  planningMode: boolean
 ): Promise<QueryResult<CycleTrackerData>> {
   const [cyclesRes, logsRes] = await Promise.all([
     loadMenstrualCycles(patientId),
@@ -204,13 +207,17 @@ export async function loadCycleTracker(
     endDate: cycle.period_end_date,
   }));
   const heavyFlowDates = dailyLogs.filter((log) => log.flow === "flooding").map((log) => log.log_date);
-  const prediction = predictCycle({
-    periods,
-    today,
-    lifeStage,
-    selfReportedCycleLengthDays,
-    heavyFlowDates,
-  });
+  // The screen never holds the raw prediction: while "Planning a pregnancy" is off it has no ovulation date or window (S85 D2).
+  const prediction = applyPlanningMode(
+    predictCycle({
+      periods,
+      today,
+      lifeStage,
+      selfReportedCycleLengthDays,
+      heavyFlowDates,
+    }),
+    planningMode
+  );
 
   // Same "still plausibly running" rule as web: no end date AND started
   // within the last 14 days, so a period somebody forgot to close months
@@ -225,4 +232,53 @@ export async function loadCycleTracker(
   }
 
   return { ok: true, data: { cycles, dailyLogs, prediction, openCycle, today } };
+}
+
+// ---------------------------------------------------------------------------
+// "Planning a pregnancy" mode (S85 D2, OQ-12). Mirrors apps/web/src/lib/cycle/planning-mode.ts and the web action.
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads the saved choice. Off is the safe state, so every failure reads as off: no row, a null, a column that has not
+ * been deployed yet, a refused read, a thrown error. Read on its own so a missing column cannot take the life stage
+ * and average cycle length down with it.
+ */
+export async function loadPlanningMode(patientId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from("reproductive_health_profiles")
+      .select("planning_pregnancy_mode")
+      .eq("patient_id", patientId)
+      .maybeSingle();
+    if (error) return false;
+    return isPlanningMode((data as { planning_pregnancy_mode?: boolean | null } | null)?.planning_pregnancy_mode);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Saves the choice on the person's own reproductive_health_profiles row. It is a personal choice, so only the person
+ * themselves makes it: when the screen is open for someone being supported (patientId is not the signed-in user) it is
+ * refused, even though the table's category-scoped policy would admit a caregiver with manage plus the category.
+ */
+export async function savePlanningMode(input: {
+  patientId: string;
+  organisationId: string;
+  enabled: boolean;
+}): Promise<QueryResult<null>> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user || auth.user.id !== input.patientId) {
+    return { ok: false, error: "Only you can switch Planning a pregnancy on or off. It cannot be changed for someone you support." };
+  }
+  const { error } = await supabase.from("reproductive_health_profiles").upsert(
+    {
+      patient_id: input.patientId,
+      organisation_id: input.organisationId,
+      planning_pregnancy_mode: input.enabled === true,
+    },
+    { onConflict: "patient_id" }
+  );
+  if (error) return { ok: false, error: "Could not save that just now. Please try again." };
+  return { ok: true, data: null };
 }
