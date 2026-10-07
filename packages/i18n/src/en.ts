@@ -632,6 +632,7 @@ export const en = {
   "history.source.device": "From a device",
   "history.source.wearable": "From a wearable",
   "history.source.other": "Imported",
+  "history.source.photo_confirmed": "Photo, confirmed by you",
   "history.sync.sent": "With your care team",
   "history.sync.on_phone": "Saved on this phone, not sent yet",
   "history.sync.not_accepted": "Not accepted. Quote code {code} if you contact support.",
