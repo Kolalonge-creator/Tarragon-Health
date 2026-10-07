@@ -123,6 +123,11 @@ begin
   end if;
   select creator_id into v_creator from public.health_education_content where id = new.content_id;
   if private.learning_creator_locked_for(v_creator, new.patient_id) then
+    -- the app records "seen" when a lesson is opened; for a lesson the person cannot read that is not an action to refuse, just a
+    -- write with nothing to record, so it is skipped quietly. Anything that claims the lesson was understood is refused loudly.
+    if new.status = 'seen' then
+      return null;
+    end if;
     raise exception 'This lesson is part of Membership' using errcode = '42501';
   end if;
   return new;
@@ -382,6 +387,18 @@ begin
     end if;
     execute v_new;
   end loop;
+
+  -- the Learning Centre search matches on title, summary and body: a locked lesson is matched on title and summary only, so a
+  -- non-member cannot probe the text of a body they cannot read
+  v_sig := 'public.search_health_education(text, integer, boolean)';
+  v_def := pg_get_functiondef(v_sig::regprocedure);
+  v_new := replace(v_def,
+    'coalesce(c.body, '''')',
+    'case when ' || v_lock || ' then '''' else coalesce(c.body, '''') end');
+  if v_new = v_def or (length(v_new) - length(replace(v_new, 'then '''' else coalesce(c.body', ''))) / length('then '''' else coalesce(c.body') <> 2 then
+    raise exception 'creator perk: % was not patched in exactly its two body matches (definition drifted)', v_sig;
+  end if;
+  execute v_new;
 
   foreach v_sig in array array[
     'public.match_health_education_content(extensions.vector, integer, public.care_plan_condition)',

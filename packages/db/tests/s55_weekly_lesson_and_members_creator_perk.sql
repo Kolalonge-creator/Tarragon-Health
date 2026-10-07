@@ -93,7 +93,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_pw uuid; v_pm uuid; v_pn uuid; v_pe uuid; v_cc uuid; v_other uuid;
-  v_cr uuid; v_w1 uuid; v_w2 uuid; v_w3 uuid; v_cm uuid; v_cart uuid; v_free uuid; v_n integer; v_t text;
+  v_cr uuid; v_w1 uuid; v_w2 uuid; v_w3 uuid; v_cm uuid; v_probe uuid; v_cart uuid; v_free uuid; v_n integer; v_t text;
   v_q constant text := '[{"question":"q","options":["a","b"],"answer_index":0}]';
 begin
   select id, organisation_id into v_admin, v_org from public.profiles where role = 'admin' limit 1;
@@ -200,6 +200,14 @@ begin
     pg_temp.as_count(v_pn, $q$select count(*) from public.learning_offline_pack() where code = 'cr-article'$q$) = 0
     and pg_temp.as_count(v_pn, $q$select count(*) from public.learning_pack_status(array['cr-article']) where servable$q$) = 0
     and pg_temp.as_count(v_pn, $q$select count(*) from public.learning_pack_status(array['free-article']) where servable$q$) = 1);
+  perform pg_temp.ck('M13a opening a locked lesson (a "seen" write) is skipped quietly and records nothing',
+    pg_temp.as_try(v_pn, format($q$insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (%L, %L, %L, 'seen')$q$, v_org, v_pn, v_cart)) = 'ok'
+    and (select count(*) from public.health_education_progress where patient_id = v_pn and content_id = v_cart) = 0);
+  v_probe := pg_temp.mkitem('cr-probe', format($s$creator_id = %L, body = 'Some text with the unusual word zebrafishx inside'$s$, v_cr));
+  perform pg_temp.ck('M13b search matches a locked lesson on title and summary only: a body-only word finds it for a Member, not for a non-member',
+    pg_temp.as_count(v_pm, $q$select count(*) from public.search_health_education('zebrafishx') where code = 'cr-probe'$q$) = 1
+    and pg_temp.as_count(v_pn, $q$select count(*) from public.search_health_education('zebrafishx') where code = 'cr-probe'$q$) = 0
+    and pg_temp.as_count(v_pn, $q$select count(*) from public.search_health_education('Title cr-probe') where code = 'cr-probe'$q$) = 1);
   perform pg_temp.ck('M13 a non-member cannot record progress on it',
     pg_temp.as_try(v_pn, format($q$insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (%L, %L, %L, 'understood')$q$, v_org, v_pn, v_cart)) = '42501');
   perform pg_temp.ck('M14a a non-member is offered a free lesson ahead of a creator lesson, so the weekly card is never stuck on a locked one',
@@ -273,9 +281,10 @@ begin
   -- ================= SABOTAGE =================
   -- (i) the lock function neutered: a non-member then reads the body (the lock is what withholds it)
   create or replace function private.learning_creator_locked_for(p_creator uuid, p_patient uuid) returns boolean language sql stable as $f$ select false $f$;
-  perform pg_temp.ck('S1 sabotage: with the lock neutered a non-member reads the creator body',
+  perform pg_temp.ck('S1 sabotage: with the lock neutered a non-member reads the creator body, the shared link body and finds a lesson by a body-only word',
     pg_temp.as_text(v_pn, $q$select body from public.health_education_content_detail('cr-article')$q$) = 'BODY-cr-article'
-    and pg_temp.as_text(null, $q$select body from public.learn_shared_article('cr-article')$q$) = 'BODY-cr-article');
+    and pg_temp.as_text(null, $q$select body from public.learn_shared_article('cr-article')$q$) = 'BODY-cr-article'
+    and pg_temp.as_count(v_pn, $q$select count(*) from public.search_health_education('zebrafishx') where code = 'cr-probe'$q$) = 1);
   -- (ii) the progress gate dropped: a non-member can then record progress (the trigger is what refuses it)
   drop trigger health_education_progress_members_gate on public.health_education_progress;
   perform pg_temp.ck('S2 sabotage: with the progress gate dropped a non-member records progress',
