@@ -73,6 +73,10 @@ describe("withdrawSuggestionAction", () => {
     const refused = await withdrawSuggestionAction(undefined, fd({ patientId: PAT, suggestionId: S }));
     expect(refused?.ok).toBe(false);
     expect(refused?.message).toMatch(/Only the clinician who made the suggestion/);
+    rpc.mockResolvedValue({ data: null, error: { message: "network", code: "08006" } });
+    const failed = await withdrawSuggestionAction(undefined, fd({ patientId: PAT, suggestionId: S }));
+    expect(failed?.message).toMatch(/Please try again/);
+    expect(failed?.message).not.toMatch(/Only the clinician/);
     rpc.mockResolvedValue({ data: false, error: null });
     const settled = await withdrawSuggestionAction(undefined, fd({ patientId: PAT, suggestionId: S }));
     expect(settled?.ok).toBe(false);
