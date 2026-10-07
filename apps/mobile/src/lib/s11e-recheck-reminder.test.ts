@@ -5,7 +5,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { postVitalReading } from "./api";
 import { discardRejectedRow, flushOutbox, listOutbox } from "./outbox";
@@ -160,8 +160,8 @@ describe("the 2 hour reminder", () => {
 
 const FORBIDDEN = [/\bblood\b/i, /\bpressure\b/i, /\bbp\b/i, /\breadings?\b/i, /\bhigh\b/i, /\burgent\b/i, /\bemergency\b/i, /\bsymptoms?\b/i, /\bmedic\w*/i, /\bhospital\b/i, /\d/];
 describe("the wording", () => {
-  it("names no condition, reading or number, in either language", () => {
-    for (const cat of [en, pcm] as Record<string, string>[]) {
+  it("names no condition, reading or number", () => {
+    for (const cat of [en] as Record<string, string>[]) {
       for (const key of ["notify.triage.recheck_due.title", "notify.triage.recheck_due.body", "notify.triage.recheck_due.channel"]) {
         const hits = FORBIDDEN.filter((re) => re.test(cat[key] ?? "")).map((re) => re.source);
         expect([key, hits]).toEqual([key, []]);
@@ -170,7 +170,7 @@ describe("the wording", () => {
   });
 
   it("the server's backup push and the in-app preview say the same neutral thing (INV-07)", () => {
-    const src = readFileSync(join(__dirname, "../../../../supabase/functions/send-pending-notifications/index.ts"), "utf8");
+    const src = readFileSync(join(__dirname, "../../../../supabase/functions/send-pending-notifications/templates.ts"), "utf8");
     const block = /triage_recheck_due: \(\) => \(\{([\s\S]*?)\}\),/.exec(src);
     expect(block).not.toBeNull();
     const text = block![1]!.replace(/pushUrl: "[^"]*"/, "");

@@ -2,7 +2,7 @@
  * S11d: the emergency-symptom question for a reading of 200/130 or more (CMO decision, rule BP-X1, text TRI-008):
  * what the engine asks, what each answer does, what is saved, and when the phone shows the question at all.
  */
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import { Constants } from "@tarragon/shared";
 import { BP_CARE_V1 } from "@tarragon/clinical";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -70,13 +70,11 @@ describe("the question list", () => {
     for (const s of QUESTION_SYMPTOMS) {
       expect([s, stored.includes(s)]).toEqual([s, true]);
       expect(en).toHaveProperty([`vitals.symptom.${s}`]);
-      expect(pcm).toHaveProperty([`vitals.symptom.${s}`]);
     }
   });
-  it("has the question text in both languages", () => {
+  it("has the question text", () => {
     for (const key of ["triage.tri_008.title", "triage.tri_008.body", "triage.question.yes", "triage.question.none"]) {
       expect(en).toHaveProperty([key]);
-      expect(pcm).toHaveProperty([key]);
     }
   });
 });

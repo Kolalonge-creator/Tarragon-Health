@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { en } from "@tarragon/i18n";
 import { getProposedConfig } from "@tarragon/shared";
-import { BP_CARE_V1, TRIAGE_MESSAGE_KEYS, messageKeyFor } from "./index";
+import { BP_CARE_V1, BP_CARE_V3, TRIAGE_MESSAGE_KEYS, messageKeyFor } from "./index";
 
 const catalogues = { en: en as Record<string, string> };
 
@@ -83,14 +83,15 @@ describe("triage wording", () => {
 describe("configuration links", () => {
   it("the registry entry names this rule set and version", () => {
     const entry = getProposedConfig<{ code: string; ruleSetVersion: number; adultAgeYears: number }>("triage.bp_rule_set");
-    expect(entry.value.code).toBe(BP_CARE_V1.code);
-    expect(entry.value.ruleSetVersion).toBe(BP_CARE_V1.version);
-    expect(entry.value.adultAgeYears).toBe(BP_CARE_V1.params.minAdultAgeYears);
+    // The registry names the newest rule set (v3: the CMO's v2 decisions plus the 7 day silence line); the bundled BP_CARE_V1 holds v2.
+    expect(entry.value.code).toBe(BP_CARE_V3.code);
+    expect(entry.value.ruleSetVersion).toBe(BP_CARE_V3.version);
+    expect(entry.value.adultAgeYears).toBe(BP_CARE_V3.params.minAdultAgeYears);
     expect(entry.status).toBe("proposed");
   });
 
   it("the silence and adherence lines equal the registered PROPOSED values", () => {
-    expect(getProposedConfig<number>("triage.silence_rule_days").value).toBe(BP_CARE_V1.params.silence.days);
+    expect(getProposedConfig<number>("triage.silence_rule_days").value).toBe(BP_CARE_V3.params.silence.days);
     expect(getProposedConfig<{ percent: number }>("adherence.threshold").value.percent).toBe(BP_CARE_V1.params.adherence.minPercent);
   });
 

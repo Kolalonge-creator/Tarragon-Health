@@ -1591,5 +1591,26 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
   },
+  {
+    key: "triage.silence_rule_days",
+    // v2 (decision S11-1, 2026-10-07): 7 days, not 5. Takes effect when the CMO approves bp_care_triage v3 in the database; the live rule set
+    // carries its own copy of this number and stays at the earlier line until then. The rule set, not this entry, is what the engine reads.
+    value: 7,
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/DECISIONS.md S11-1; OQ-273 (spec safety case 7 said 5 days)",
+    guardPatterns: ["silence\\w*\\s*[=:]\\s*7\\b"],
+  },
+  {
+    key: "triage.bp_rule_set",
+    // v3 names bp_care_triage v3: the CMO's version 2 decisions plus the 7 day silence line. The database row is a draft until the CMO approves it.
+    value: { code: "bp_care_triage", ruleSetVersion: 3, adultAgeYears: 18 },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-07",
+    source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
+  },
 ];
-
