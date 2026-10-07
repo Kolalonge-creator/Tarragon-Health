@@ -28,7 +28,11 @@ function PriceCompare({ rows, locale }: { rows: PriceRow[]; locale: Locale }) {
           <p className="text-sm text-charcoal-ink/70">{[r.location_name, r.address, r.state].filter(Boolean).join(", ")}</p>
           <p className="mt-1 text-sm text-charcoal-ink/80">
             {r.items_matched < r.items_total ? `${t("pharmprice.partial", locale, { matched: r.items_matched, total: r.items_total })}. ` : ""}
-            {r.all_in_stock ? (r.any_low_stock ? t("pharmprice.low_stock", locale) : t("pharmprice.in_stock", locale)) : t("pharmprice.unknown_stock", locale)}
+            {r.lines.some((l) => l.stock === "unavailable")
+              ? t("pharmprice.some_unavailable", locale)
+              : r.all_in_stock
+                ? r.any_low_stock ? t("pharmprice.low_stock", locale) : t("pharmprice.in_stock", locale)
+                : t("pharmprice.unknown_stock", locale)}
           </p>
           <ul className="mt-1 space-y-0.5 text-xs text-charcoal-ink/70">
             {r.lines.map((l) => (

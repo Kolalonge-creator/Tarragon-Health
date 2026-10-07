@@ -160,7 +160,11 @@ export async function replanDoseReminders(
     const closed = await loadClosedSlots(patientId, nowMs);
     const reminderMeds: ReminderMedicine[] = meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) }));
     // The dependants this person manages are reminded about too (OQ-70): one plan, one cap, their first name in the text.
-    const dependants: ManagedDependant[] = await loadManagedDependants(patientId);
+    const loadedDependants = await loadManagedDependants(patientId);
+    // Could not find out who is managed (offline, a failed read): leave the plan exactly as it is. Replanning from the person's own doses
+    // alone would cancel the reminders already set for the people they care for.
+    if (loadedDependants === null) return { ok: false, planned: 0, pending: 0, allowed: true };
+    const dependants: ManagedDependant[] = loadedDependants;
     const dependantOfMedicine = new Map<string, string>();
     for (const dep of dependants) {
       try {

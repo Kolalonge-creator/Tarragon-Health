@@ -12,6 +12,7 @@ import { logDose } from "./medications";
 type Row = Record<string, unknown>;
 const mockTables: Record<string, Row[]> = {};
 let mockFailFor: string | null = null;
+let mockFailGrants = false;
 
 jest.mock("./api", () => ({ ...(jest.requireActual("./api") as object), postVitalReading: jest.fn().mockResolvedValue({ success: true }) }));
 jest.mock("./medications", () => ({ ...(jest.requireActual("./medications") as object), logDose: jest.fn().mockResolvedValue({}) }));
@@ -32,6 +33,7 @@ jest.mock("./supabase", () => ({
         gte: () => q,
         in: () => q,
         then: (res: (v: unknown) => unknown) => {
+          if (mockFailGrants && grantee) return Promise.resolve({ data: null, error: { message: "offline" } }).then(res);
           if (mockFailFor && patient === mockFailFor) return Promise.resolve({ data: null, error: { message: "denied" } }).then(res);
           let rows = mockTables[table] ?? [];
           if (patient) rows = rows.filter((r) => r.patient_id === patient);
@@ -64,9 +66,14 @@ describe("which dependants a guardian manages", () => {
     mockTables.profile_access = [grant("kid", "manage", true), grant("adult", "manage", false), grant("viewonly", "view", true), grant("noorg", "manage", true, null)];
     expect(await loadManagedDependants("guardian")).toEqual([{ profileId: "kid", organisationId: "org-1", firstName: "Ada" }]);
   });
-  it("a failed read is an empty list, never a throw", async () => {
+  it("manages nobody is an empty list", async () => {
     mockTables.profile_access = [];
     expect(await loadManagedDependants("guardian")).toEqual([]);
+  });
+  it("a failed read is NULL, never an empty list (so a replan cannot cancel the dependants' reminders)", async () => {
+    mockFailGrants = true;
+    expect(await loadManagedDependants("guardian")).toBeNull();
+    mockFailGrants = false;
   });
 });
 

@@ -90,7 +90,7 @@ export async function runCatchUpCheck(patientId: string, nowMs: number, recordFa
   }
   const all: CatchUpItem[] = [...res.data];
   // The dependants this person manages are asked about too; a dependant who cannot be read right now is skipped, never a reason to hide the rest.
-  for (const dep of await loadManagedDependants(patientId)) {
+  for (const dep of (await loadManagedDependants(patientId)) ?? []) {
     const depRes = await loadCatchUpDoses(dep.profileId, nowMs);
     if (!depRes.ok) {
       if (recordFailure) recordSyncError("catch_up", "read", depRes.error);
