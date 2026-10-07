@@ -56,3 +56,17 @@ describe("assistant.go_live mirrors the assistant_config seed", () => {
     expect(JSON.parse(match[1])).toEqual(getProposedConfig("assistant.nudges").value);
   });
 });
+
+describe("assistant.silence, .review and .memory mirror the S52 assistant_config seed", () => {
+  it("are identical to the seeded values", () => {
+    const file = readdirSync(MIGRATIONS).find((f) => f.endsWith("_s52_assistant_safety_memory_review.sql"));
+    if (!file) throw new Error("S52 migration not found");
+    const sql = readFileSync(join(MIGRATIONS, file), "utf8");
+    const match = /assistant-config-s52-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
+    if (!match?.[1]) throw new Error("seed not found");
+    const seeded = JSON.parse(match[1]) as Record<string, unknown>;
+    for (const key of ["silence", "review", "memory", "paging"]) {
+      expect(seeded[key]).toEqual(getProposedConfig(`assistant.${key}`).value);
+    }
+  });
+});

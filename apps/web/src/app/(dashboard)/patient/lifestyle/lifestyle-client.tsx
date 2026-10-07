@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { GoalsDialog } from "./goals-dialog";
 import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
+import { AssistantEmergencyButton } from "@/components/ai/assistant-emergency-button";
 import { ConditionEnrollmentCard } from "./condition-enrollment-card";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { useWeightGoal } from "@/lib/queries/weight-goal";
@@ -211,7 +212,7 @@ export function LifestyleClient({
         <ConditionEnrollmentCard key={e.id} enrollment={e} />
       ))}
 
-      {coachAccess && <AiCoachChat patientId={patientId} />}
+      {coachAccess ? <AiCoachChat patientId={patientId} /> : <AssistantEmergencyButton />}
 
       {available.length > 0 && (
         <Card>

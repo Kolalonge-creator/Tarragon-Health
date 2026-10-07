@@ -19,6 +19,7 @@ import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { EmergencyBlock, LimitsBlock, MemoryBlock, ReportBlock } from "./ai-coach-extras";
 
 interface AiCoachScreenProps {
   patientId: string;
@@ -61,6 +62,8 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
   const [access, setAccess] = useState<"checking" | "denied" | "not_open" | "granted">("checking");
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [messages, setMessages] = useState<CoachChatMessage[]>([]);
+  // A report is about the LATEST assistant answer on screen, and only when that answer carries its own id (also after the app is reopened).
+  const reportableId = [...messages].reverse().find((m) => m.role === "assistant")?.interactionId ?? null;
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -138,9 +141,12 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
         return;
       }
       setConversationId(result.conversationId);
-      setPrepDraft(result.draft ?? null);
-      setPrepState("editing");
-      setPrepError(null);
+      // only a result that carries a draft replaces the one being edited: any other quick action leaves the patient's text alone
+      if (result.draft) {
+        setPrepDraft(result.draft);
+        setPrepState("editing");
+        setPrepError(null);
+      }
       const conversation = await loadAiConversation(patientId);
       setMessages(conversation.messages);
       scrollToEnd();
@@ -187,6 +193,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
   if (access === "not_open") {
     return (
       <View style={{ flex: 1, padding: spacing.screen, gap: 8 }}>
+        <EmergencyBlock patientId={patientId} />
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>AI Health Coach</Text>
         <MutedText>The assistant is not open yet. If you need help now, send your care team a message in the app.</MutedText>
       </View>
@@ -196,6 +203,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
   if (access === "denied") {
     return (
       <View style={{ flex: 1, padding: spacing.screen, gap: 8 }}>
+        <EmergencyBlock patientId={patientId} />
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>AI Health Coach</Text>
         <MutedText>
           The AI Coach isn&apos;t included on your current plan. Contact your care team if you think
@@ -211,7 +219,9 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={90}
     >
-      <View style={{ padding: spacing.screen, paddingBottom: 8 }}>
+      <View style={{ padding: spacing.screen, paddingBottom: 8, gap: 6 }}>
+        {/* S52 (7.8): the emergency button is on every assistant screen, always visible, never behind a guard */}
+        <EmergencyBlock patientId={patientId} />
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>AI Health Coach</Text>
         <MutedText>Ask me anything about your health. I&apos;m here to help you understand what to do next.</MutedText>
       </View>
@@ -387,8 +397,11 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
         </Pressable>
       </View>
 
-      <View style={{ paddingHorizontal: spacing.screen, paddingBottom: 6 }}>
+      <View style={{ paddingHorizontal: spacing.screen, paddingBottom: 6, gap: 6 }}>
         <MutedText>{COACH_DISCLAIMER}</MutedText>
+        <LimitsBlock />
+        {messages.length > 0 ? <ReportBlock key={reportableId ?? "none"} interactionId={reportableId} /> : null}
+        <MemoryBlock />
       </View>
 
       <View style={{ paddingHorizontal: spacing.screen, paddingBottom: spacing.screen }}>

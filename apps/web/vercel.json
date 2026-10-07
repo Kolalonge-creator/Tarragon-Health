@@ -95,6 +95,14 @@
     {
       "path": "/api/cron/assistant-nudges",
       "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/cron/assistant-silence",
+      "schedule": "40 7 * * *"
+    },
+    {
+      "path": "/api/cron/assistant-review-sample",
+      "schedule": "0 4 1 * *"
     }
   ]
 }

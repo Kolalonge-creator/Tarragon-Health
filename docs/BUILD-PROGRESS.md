@@ -1084,6 +1084,13 @@ Built: migration `20261007120347_s36k_payout_approval_followups.sql` (the local 
 Reused: the S36j proof, extended (no new file) with source, is_mine, total_waiting and constraint checks plus a second sabotage. Tests: s36j proof, s31 and s37 proofs pass on a fresh `db reset`; apps/web tsc clean, 470 jest suites / 4142 tests pass, i18n tests pass.
 Not done: not applied to production, not pushed.
 
+
+## S52: AI health assistant (2 of 2: safety, transparency, memory and clinician review) (2026-10-07), on `s52/ai-assistant-safety-memory-review` (stacked on S51)
+- **Built**: emergency button on every assistant screen (web and mobile) with bundled guidance, nearest hospitals and the patient's emergency contact; self-harm copy (PROPOSED) with on-call page reusing the F1 crisis task key; report-an-answer, sources and a limits panel on mobile and web; a deterministic clarifying-question node with fixed evals; consent-first memory (AI-020, disabled, goals and preferences only, patient-only RLS, view, edit, delete, export); silence signal and generic re-engagement for programme members; the monthly review (sampler, `assistant_review_samples`, CMO reader and recorder RPCs, reviewer screen, search entry, crons).
+- **Reused**: S51 guard, `assistant_config`, outbox and templates; S16 task, S19 notice shape, F1 crisis key; `report_ai_safety_incident`; `facilities`; the scribe-consent pattern; the INV-07 term list for memory content.
+- **Tests**: DB proof `s52_assistant_safety_memory_review.sql` (94 checks, sabotage flips two), full `run-db-proofs.sh`, Jest and typecheck on web, mobile, shared and clinical; the three spec B.7 acceptance tests pass (`spec-b7-acceptance.test.ts`, `graph-sources.test.ts`).
+- **Open questions**: OQ-362 to OQ-366.
+- **Follow-ups**: CMO signs the emergency and self-harm wording and sets the thresholds; AI-020 governance criteria; a crisis rule set so assistant crisis can use `create_red_page`.
 ## S28c: the founder's additions to S28 on top of the live collection-code migration (2026-10-07)
 
 - **Why a delta**: another session's S28 (PR #993, migration `20261007120114_s28_pharmacy_collection_and_dispensing.sql`) was already live in production when this work was ready. Founder decision 2026-10-07: keep the live one as the base and rebuild the additions on top of it. The first build (PR #990, its own tables and functions) is superseded and closed; nothing of its schema is carried over.
