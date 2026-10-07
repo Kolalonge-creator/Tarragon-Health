@@ -815,6 +815,13 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - Still true: `my_lead_patients` runs the adherence query once per lead; Playwright is OQ-212; page `metadata` titles are plain strings like the rest of the app.
 - **Applied to production 2026-10-06** (founder asked): `20261006190225_s35_clinician_patient_summary_and_lead_patients` in one transaction with `schema_migrations.version` pinned to the filename; four functions exist, `anon` cannot execute any, `authenticated` can execute the two public ones and neither private helper, the version is recorded once.
 
+## S35c: scribe safety (2026-10-06, branch `s35c/scribe-safety`, stacked on S35b)
+
+- **Built**: five plan items. (1) Facts-to-confirm: edge modes `facts` and `facts_draft`, shared verifier and grounding checks, the clinician review step, an AI-017 suite of 6 deterministic cases wired into the runner. (2) Consent gate: the screen shows the patient's own three-state answer and starts only on a live, allowed consultation. (3) Hash-bound sign: `signed_content_hash`, `note_content_matches_hash`, append-only `scribe_review_events`. (4) SLA warning as a PROPOSED registry value. (5) Measurement: `pnpm scribe-wer`, CMO-only `scribe_edit_rates` and `scribe_audit_sample`, `/clinician/scribe-quality`.
+- **Migrations NOT applied** (two): `*_s35c_scribe_review_record_hash_and_quality.sql` and `*_s35c_ai017_facts_stage_eval_suite.sql`. Both run rolled back against live; the first with its proof (35 checks, two sabotages that flip), the second with its closing assertions. The edge function is NOT deployed.
+- **Tests**: DB proof `s35c_scribe_review_hash_and_quality.sql` 35 checks; Jest: WER, review record, consent state, facts, facts review, panels, scribe quality page, facts eval scorers; i18n 28; `tsc` clean.
+- **Open questions**: OQ-213 to OQ-217. **Found**: `private.may_work_on_note` fails open (task spawned).
+- **Follow-ups**: apply both migrations before the code is used; deploy `scribe-draft` from this branch (check `get_edge_function` drift first); a CMO decision on OQ-213 and OQ-214 before AI-017 is evaluated; no evaluation was run and none was seeded.
 
 ## S36: console operations, clinical lead and admin areas (2026-10-06, branch `s36/console-ops-lead-admin`, stacked on S35 / PR #963)
 

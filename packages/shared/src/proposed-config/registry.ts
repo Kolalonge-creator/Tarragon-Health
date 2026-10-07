@@ -857,6 +857,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S17.md; spec 7.6 and 7.8",
   },
   {
+    key: "queue.sla_warning",
+    // When a held task's due time turns from blue to amber on the clinician queue and task screens (S35): this many minutes
+    // before it is due. Display only: it changes no deadline, routing or fee. PROPOSED, CMO to confirm; the value on the
+    // go-live sign-off screen is the one in force.
+    value: { warn_within_minutes: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S35.md; docs/research/S35.md (OpenMRS keeps thresholds in data, not in the formatter)",
+  },
+  {
     key: "outcomes.snapshot_rules",
     // Outcome snapshots and the 90-day BP control report (S38, spec 4.10 and Module 22). Live values are the active row of
     // `outcome_config`; this entry mirrors it and a test fails if the migration seed and this value drift. Every number is PROPOSED

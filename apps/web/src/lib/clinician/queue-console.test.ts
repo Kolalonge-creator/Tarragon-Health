@@ -77,7 +77,12 @@ describe("slaState", () => {
     expect(slaState("2026-10-06T09:00:00Z", now)).toEqual({ kind: "overdue" });
   });
   it("rounds minutes left up", () => {
-    expect(slaState("2026-10-06T10:00:30Z", now)).toEqual({ kind: "due", minutes: 1 });
+    expect(slaState("2026-10-06T10:00:30Z", now)).toEqual({ kind: "due", minutes: 1, warn: false });
+  });
+  it("warns only inside the window it is given", () => {
+    expect(slaState("2026-10-06T10:20:00Z", now, 30)).toEqual({ kind: "due", minutes: 20, warn: true });
+    expect(slaState("2026-10-06T11:00:00Z", now, 30)).toEqual({ kind: "due", minutes: 60, warn: false });
+    expect(slaState("2026-10-06T10:30:00Z", now, 30)).toMatchObject({ warn: true });
   });
   it("is none without a due time or with a bad one", () => {
     expect(slaState(null, now)).toEqual({ kind: "none" });
