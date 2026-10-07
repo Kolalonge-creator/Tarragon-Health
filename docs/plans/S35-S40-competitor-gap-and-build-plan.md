@@ -3,6 +3,7 @@
 Drafted 2026-10-07. Inputs: `docs/v5-sessions/S35` to `S40`, spec lines 254-262, 511-551, 589-698, 1933-2000, 2082-2091, 2219-2256 (read from `origin/main-dev`), the progress log and open-question files on `origin/main-dev`, open PR bodies (#1013, #1014, #1018, #1022, #1025), `docs/STAGE-1-SIGNOFF.md`, the earlier S35 to S39 research notes, and five fresh competitor passes (one per area).
 
 **Read this first.**
+- Nothing links to `docs/plans/` yet. Add an entry to `CLAUDE.md` "Where to Look" when the founder accepts the plan.
 - The local checkout was 172 commits behind `origin/main-dev`. Everything below is read from `origin/main-dev`, not the working tree.
 - **Evidence caveat.** The competitor passes were short web searches. Several vendor help pages returned 403, and Wheel, OpenLoop, Teladoc, Vezeeta, Mobihealth, Lark, Glooko and Medisafe gave almost nothing. Every row tagged UNVERIFIED must be re-checked before it drives a decision. Competitor numbers (ROI, minutes saved, fines, pricing) are vendor or blog figures. Nothing here is legal or clinical advice.
 - Counts such as "53 of 55 PROPOSED values unsigned" come from `STAGE-1-SIGNOFF.md`, written earlier today. Several things have moved since (S39h confirmed `security.rules`). Re-measure before quoting.
@@ -15,7 +16,7 @@ Drafted 2026-10-07. Inputs: `docs/v5-sessions/S35` to `S40`, spec lines 254-262,
 | Session | What it was for | State |
 |---|---|---|
 | S35 clinician console + patient summary | Next task, task view, audited summary, consultation view, hand-back, signing | Built and merged (#963, #967, #975). Screens live in `apps/web/clinician`, not `apps/console` (OQ-209, decided). **Playwright never written** (OQ-212). Scribe and summary are not inside the consultation room (OQ-210). Two scribe consents unresolved (OQ-211). AI-017 still off; no evaluation run exists. |
-| S36 ops, clinical lead, admin | Credentialing, search with audit, roster, reliability, directory, partner, speak-up, payouts | Built in pieces (S36a to S36k). Merged. Open decisions OQ-213 to OQ-216 and OQ-220 to OQ-247 (S36 numbering). **No Playwright** (credentialing, payout approval, result release were all deferred). No support inbox across app, email and phone. No automation of routine ops. |
+| S36 ops, clinical lead, admin | Credentialing, search with audit, roster, reliability, directory, partner, speak-up, payouts | Built in pieces (S36a to S36k). Merged. Open decisions OQ-213 to OQ-216 (S36a), OQ-220 to OQ-229 (S36d/e) and OQ-235 to OQ-247 (S36g to S36i). Question numbers are reused across sessions (for example OQ-213 to OQ-217 also belong to S35c); read the session tag, not just the number. **No Playwright** (credentialing, payout approval, result release were all deferred). No support inbox across app, email and phone. No automation of routine ops. |
 | S37 go-live guards | Seven guards, sign-off screen | Built and merged, with S37b (safety-case attestation). **Only some guards are enforced anywhere** (OQ-184). Safety case not tied to a protocol version. One-person attestations (OQ-183). |
 | S38 outcomes | Snapshots, report, risk, monthly report, sponsor figures, triage accuracy | Built through S38g. Mostly merged and applied. Triage-review switch is **off** (OQ-257). Sponsor consent text is a DRAFT (OQ-256). Accuracy report has no data. No HEARTS-vocabulary indicators. |
 | S39 security | Catalog test, tied reads and writes, audited opens, registry, purge, export, secret scan | S39 to S39c merged and applied. S39d to S39h on stacked PRs #1013, #1014, #1018, #1022, #1025, mostly applied, **CI red on those PRs** (Playwright browser E2E, migration replay, TypeScript). #1022 reports **24 proofs that already fail on the live baseline**. Open: PITR off and never restored (OQ-266), DPAs unsigned (OQ-268), rate limits unprovisioned (OQ-267), erasure (OQ-262, counsel). |
@@ -100,7 +101,7 @@ Failure modes to design against: lapsed credentials unnoticed, one-time register
 | Stale-guard lifecycle | LaunchDarkly stale-flag reports, change history | None; no review-by date | **Gap** |
 | Audit log outside the DB it protects | Flagsmith streams audit logs out by webhook | Append-only inside the same database | **Gap**, cheap |
 | Post-market surveillance | DCB0129 and ISO 14971 require it | Incidents exist; no monthly safety review linking incidents to hazards | **Gap** |
-| Enforcement coverage | n/a | Four of seven guards plus several live clinical flows not enforced (OQ-184) | **Own weakness, biggest real risk** |
+| Enforcement coverage | n/a | Five of seven guards (per the S37 progress entry, OQ-184) plus several live clinical flows not enforced. Re-check `go_live_guards.enforced_in` live: S28c and S31 may have wired or gated some since | **Own weakness, biggest real risk** |
 
 Failures cited: Babylon (MHRA concerns, how safety-raisers were treated), Epic Sepsis Model (missed about two thirds of cases, local validation skipped), CrowdStrike (no staged rollout).
 
@@ -172,9 +173,9 @@ Session ids use the project's lettering convention (next free letter after the l
 
 | ID | Work | Effort | Acceptance |
 |---|---|---|---|
-| **S40-0a** | **Backups (D2).** Pro plan, PITR on, restore into a scratch project, record RTO/RPO in `BUSINESS_CONTINUITY_DR_SPEC.md`. Storage buckets (lab documents, transcripts) are not covered by database backups: add a separate copy plan | S | Restore drill logged with measured time and data loss |
+| **S40-0a** | **Backups (D2).** Pro plan (also answers the standing CI-branching question in `CLAUDE.md` known follow-ups, so S40-0b/0c may use branching instead of local Docker), PITR on, restore into a scratch project, record RTO/RPO in `BUSINESS_CONTINUITY_DR_SPEC.md`. Storage buckets (lab documents, transcripts) are not covered by database backups: add a separate copy plan | S | Restore drill logged with measured time and data loss |
 | **S40-0b** | **Triage the red CI on the S39 stack** (#1013, #1014, #1018, #1022, #1025). Classify each failure: stale base, real regression, or already-failing baseline. Fix or quarantine the **24 proofs that fail on the live baseline** (each with an owner and a date, not silently excluded) | M | Every proof is green, or listed in a signed exclusions table with a reason |
-| **S40-0c** | **Playwright against a local Supabase in CI** for the five S35/S36 flows never covered: next task, hand-back, claim timeout, scribe draft and sign, credentialing, payout approval, result review and release. Needs a clinician and task fixture (OQ-212) | L | Specs run green in CI, not on a developer laptop |
+| **S40-0c** | **Playwright against a local Supabase in CI** for the eight S35/S36 flows never covered: next task, hand-back, claim timeout, scribe draft and sign, credentialing, payout approval, result review and release. Needs a clinician and task fixture (OQ-212) | L | Specs run green in CI, not on a developer laptop |
 | **S40-0d** | **MFA and tracker check.** Confirm MFA on every staff and admin login; scan authenticated pages for third-party scripts | S | Written result; failures become tickets |
 | **S40-0e** | **Resolve the safety-case 7 mismatch** (case text says 5 days, fixture and PROPOSED value say 6; OQ-273 wants 7 via a new signed rule set) and record CMO review of the 54-case fixture | S | CMO entry in the sign-off hub |
 | **S40-0f** | **Waiver register in `STAGE-1-SIGNOFF.md`.** For each unrunnable check (Maestro on hardware, device performance, staging): name, owner, expiry, rollback plan. Do **not** waive unsigned PROPOSED values: sign the ones a release depends on, or ship those features disabled | S | Register complete; founder signs D1 |
@@ -201,7 +202,7 @@ Sizing note: S37c-4 is the real risk reduction. S37c-3 is the largest but depend
 | Step | Work | Effort |
 |---|---|---|
 | S39i-1 | **Alert case workflow** on `staff_record_opens` alerts: states open, justified, escalated, closed; clinician confirmation prompt; CMO/DPO queue | S |
-| S39i-2 | **Snooping rules in SQL**: same surname, same address or phone, staff-as-patient, repeated unrelated opens, VIP list. **Restricted-record tier** for flagged patients with an extra reason step (D12) | M |
+| S39i-2 | **Snooping rules in SQL** (gated on counsel and D12: matching staff to patients by surname or address is itself processing of sensitive data): same surname, same address or phone, staff-as-patient, repeated unrelated opens, VIP list. **Restricted-record tier** for flagged patients with an extra reason step (D12) | M |
 | S39i-3 | Table-level access log for sensitive categories (already on the S39h "next builds" list) and the DPO access-log report | M |
 | S39i-4 | **NDPC pack**: confirm level (D11), calendar the 31 March return and engage a licensed compliance organisation if required, DPIA on file for clinical record, scribe, triage, 72-hour breach clock added to the runbook | M (mostly counsel) |
 | S39i-5 | **Patient-visible access log** only if counsel agrees (D10) | M |
@@ -246,7 +247,7 @@ Do not build in this phase: real-time call prompts, AI-staged orders, scribe tha
 | S36l-5 | **Content governance**: review-by date, author is not reviewer, dated release notes with added/removed/changed counts, and a regression set for anything that feeds triage (spec 25.1, 25.2) | L | CMO |
 | S36l-6 | **Rules-based ops automation**: appointment reminders, partner chasing, report generation. Never for credentials, payouts or clinical content | M | none |
 | S36l-7 | **One onboarding case per clinician** with a single checklist and visible status (avoids repeated document requests) | S | none |
-| S36l-8 | Resolve open S36 decisions (grant expiry OQ-221, overdue-listing behaviour OQ-236, reliability display OQ-225 to OQ-227) before building more on them | S | CMO, founder |
+| S36l-8 | Resolve open S36 decisions (grant expiry OQ-221 (S36d), overdue-listing behaviour OQ-236 (S36g), reliability display OQ-225 to OQ-227 (S36e). These numbers are also used by S29; always check the session tag in `docs/OPEN-QUESTIONS.md`) before building more on them | S | CMO, founder |
 
 ### Parked or rejected (with reason)
 
