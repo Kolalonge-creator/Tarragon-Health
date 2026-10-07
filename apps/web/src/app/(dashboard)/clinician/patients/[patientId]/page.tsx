@@ -1,6 +1,7 @@
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { openPatientRecord } from "@/lib/clinical/open-patient-record";
 import {
   canConfirmMedicationRefill,
   hasPrescribingAuthority,
@@ -116,6 +117,11 @@ export default async function ClinicianPatientPage({
       </Card>
     );
   }
+
+  // S39c: opening the chart writes the append-only access log and grants the window in which an untied clinician can read the tied
+  // tables below. It must run before those reads. A logging failure is surfaced in the server log, never hidden.
+  const opened = await openPatientRecord(supabase, patient.id);
+  if (opened.status === "failed") console.error("Failed to open the patient record", opened.message);
 
   // Read-access audit: a trigger can log who changed a patient row, but not who merely
   // opened it — this is the one explicit read-logging call site on the platform so far
