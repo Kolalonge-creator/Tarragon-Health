@@ -2,7 +2,13 @@ import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COUNTRY_CALLING_CODES, E164_GENERIC } from "@tarragon/shared";
+import { normalisePhoneWithCountry } from "@tarragon/auth/phone";
 import { supabase } from "@/lib/supabase";
+import { ta } from "@/lib/auth/auth-locale";
+import { startPhoneSignUp } from "@/lib/auth/auth-flow";
+import { checkNewPassword } from "@/lib/auth/password-verdict";
+import { DEFAULT_LOCALE } from "@tarragon/i18n";
+import { VerifyCodeStep } from "@/screens/verify-code-step";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
@@ -29,7 +35,6 @@ const inputStyle = {
  * either changes.
  */
 const PASSWORD_MIN_LENGTH = 8;
-const PASSWORD_RULE_HINT = `At least ${PASSWORD_MIN_LENGTH} characters.`;
 
 const NIGERIAN_STATES: ReadonlyArray<{ value: string; label: string }> = [
   { value: "Abia", label: "Abia" },
@@ -119,7 +124,15 @@ function friendlySignUpError(rawMessage: string): string {
  * parity for native ever becomes a real ask, that's follow-up work, not a
  * silent gap in this screen's coverage of the ordinary signup path.
  */
+type SignUpMethod = "phone" | "email";
+
 export function SignUpScreen({ onClose }: { onClose: () => void }) {
+  const locale = DEFAULT_LOCALE;
+  const [method, setMethod] = useState<SignUpMethod>("phone");
+  // Phone method: after signUp the account exists but is unconfirmed; this
+  // holds the E.164 number the code went to. The app is never entered until
+  // verifyOtp succeeds (the listener in App.tsx only sees a session then).
+  const [verifyPhone, setVerifyPhone] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -138,10 +151,41 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
   const selectedStateLabel =
     NIGERIAN_STATES.find((s) => s.value === stateValue)?.label ?? "Prefer not to say";
 
+  async function handlePhoneSignUp() {
+    const phone = normalisePhoneWithCountry(countryCode, localPhone);
+    if (!phone.ok) {
+      setError(ta("auth.error.invalid_phone", locale));
+      return;
+    }
+    setLoading(true);
+    const pwCheck = await checkNewPassword(password);
+    if (!pwCheck.ok) {
+      setLoading(false);
+      setError(ta(pwCheck.key, locale, { min: PASSWORD_MIN_LENGTH }));
+      return;
+    }
+    const outcome = await startPhoneSignUp(supabase.auth, {
+      phone: phone.e164,
+      password,
+      fullName: `${firstName.trim()} ${lastName.trim()}`.trim(),
+      state: stateValue || undefined,
+    });
+    setLoading(false);
+    if (outcome.kind === "error") {
+      setError(ta(outcome.key, locale));
+      return;
+    }
+    setVerifyPhone(phone.e164);
+  }
+
   async function handleSignUp() {
     setError(null);
     if (!firstName.trim() || !lastName.trim()) {
       setError("Enter your first and last name.");
+      return;
+    }
+    if (method === "phone") {
+      await handlePhoneSignUp();
       return;
     }
     if (!email.trim().includes("@")) {
@@ -158,6 +202,12 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
     }
 
     setLoading(true);
+    const pwCheck = await checkNewPassword(password);
+    if (!pwCheck.ok) {
+      setLoading(false);
+      setError(ta(pwCheck.key, locale, { min: PASSWORD_MIN_LENGTH }));
+      return;
+    }
     const { error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
@@ -179,6 +229,23 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
       return;
     }
     setSuccess(true);
+  }
+
+  if (verifyPhone) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ padding: spacing.screen, paddingTop: 56, gap: 12 }}
+        >
+          <VerifyCodeStep
+            phone={verifyPhone}
+            locale={locale}
+            onBack={() => setVerifyPhone(null)}
+          />
+        </ScrollView>
+      </View>
+    );
   }
 
   if (success) {
@@ -218,16 +285,49 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
 
         <View>
           <Text style={{ fontSize: 22, fontWeight: "700", color: colors.ink }}>
-            Create your account
+            {ta("auth.signup.title", locale)}
           </Text>
           <MutedText>A couple of minutes to set up. Your care team takes it from there.</MutedText>
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            backgroundColor: inkAlpha(0.05),
+            borderRadius: radius.control,
+            padding: 4,
+            gap: 4,
+          }}
+        >
+          {(["phone", "email"] as const).map((m) => (
+            <Pressable
+              key={m}
+              accessibilityRole="button"
+              accessibilityState={{ selected: method === m }}
+              onPress={() => {
+                setMethod(m);
+                setError(null);
+              }}
+              style={{
+                flex: 1,
+                alignItems: "center",
+                paddingVertical: 8,
+                borderRadius: radius.control - 2,
+                backgroundColor: method === m ? colors.card : "transparent",
+              }}
+            >
+              <Text style={{ fontWeight: "600", color: method === m ? colors.ink : colors.muted }}>
+                {ta(m === "phone" ? "auth.method.phone" : "auth.method.email", locale)}
+              </Text>
+            </Pressable>
+          ))}
         </View>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
           <TextInput
             accessibilityLabel="First name"
             placeholder="First name"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             autoCapitalize="words"
             autoComplete="given-name"
             value={firstName}
@@ -237,7 +337,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
           <TextInput
             accessibilityLabel="Last name"
             placeholder="Last name"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             autoCapitalize="words"
             autoComplete="family-name"
             value={lastName}
@@ -246,17 +346,19 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
           />
         </View>
 
-        <TextInput
-          accessibilityLabel="Email"
-          placeholder="Email"
-          placeholderTextColor={colors.faint}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-          value={email}
-          onChangeText={setEmail}
-          style={inputStyle}
-        />
+        {method === "email" ? (
+          <TextInput
+            accessibilityLabel="Email"
+            placeholder="Email"
+            placeholderTextColor={colors.subtle}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+            value={email}
+            onChangeText={setEmail}
+            style={inputStyle}
+          />
+        ) : null}
 
         <View style={{ gap: 6 }}>
           <View style={{ flexDirection: "row", gap: 8 }}>
@@ -271,7 +373,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
             <TextInput
               accessibilityLabel="Phone number"
               placeholder="8012345678"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               keyboardType="phone-pad"
               autoComplete="tel-national"
               value={localPhone}
@@ -305,7 +407,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
             <TextInput
               accessibilityLabel="Password"
               placeholder="Password"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               secureTextEntry={!showPassword}
               autoComplete="new-password"
               value={password}
@@ -322,11 +424,15 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
               <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color={colors.faint} />
             </Pressable>
           </View>
-          <MutedText>{PASSWORD_RULE_HINT}</MutedText>
+          <MutedText>{ta("auth.password.rule", locale, { min: PASSWORD_MIN_LENGTH })}</MutedText>
         </View>
 
         {error ? <ErrorText>{error}</ErrorText> : null}
-        <PrimaryButton title="Create account" onPress={handleSignUp} loading={loading} />
+        <PrimaryButton
+          title={loading ? ta("auth.signup.submitting", locale) : ta("auth.signup.submit", locale)}
+          onPress={handleSignUp}
+          loading={loading}
+        />
       </ScrollView>
 
       <Modal

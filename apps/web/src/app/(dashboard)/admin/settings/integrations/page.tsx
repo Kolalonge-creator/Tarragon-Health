@@ -7,6 +7,8 @@ import { LoadFailure } from "@/components/ui/load-failure";
 import { IntegrationsManager } from "./integrations-manager";
 import { IntegrationMonitoringPanel } from "./monitoring-panel";
 
+export const metadata = { title: "API keys & integrations" };
+
 export default async function IntegrationsSettingsPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");

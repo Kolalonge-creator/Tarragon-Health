@@ -4,6 +4,8 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/ui/page-header";
 import { SpecialistsManager } from "./specialists-manager";
 
+export const metadata = { title: "Specialists" };
+
 export default async function SpecialistsPartnersPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");

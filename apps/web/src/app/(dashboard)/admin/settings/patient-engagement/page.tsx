@@ -4,6 +4,8 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { getVisibleItemsForTab } from "@/lib/admin-settings-nav";
 import { SettingsHubGrid } from "@/components/shell/settings-hub-grid";
 
+export const metadata = { title: "Patient Engagement" };
+
 export default async function PatientEngagementSettingsPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");

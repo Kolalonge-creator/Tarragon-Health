@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
@@ -8,6 +9,25 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { USER_ROLE_LABELS, type UserRoleValue } from "@/lib/validation/members";
+
+// Mirrors the page component's own gate below rather than skipping straight
+// to the name lookup — generateMetadata resolves before that redirect runs,
+// so without this check the member's full name would still reach the
+// response's <title> tag for a caller the page itself is about to bounce.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const profile = await getCurrentProfile();
+  if (!profile) return { title: "Member details" };
+  const { isSuperAdmin, keys } = await getCallerPermissions();
+  if (!isSuperAdmin && !keys.has("members.activity.view")) return { title: "Member details" };
+  const svc = createServiceRoleClient();
+  const { data: member } = await svc.from("profiles").select("full_name").eq("id", id).maybeSingle();
+  return { title: member?.full_name ?? "Member details" };
+}
 
 type ActivityCount = { action: string; count: number };
 type ActivityEntry = {

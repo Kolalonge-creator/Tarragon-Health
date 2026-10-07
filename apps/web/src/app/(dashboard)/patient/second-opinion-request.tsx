@@ -7,8 +7,7 @@ import {
   type SecondOpinionRequestWithAnswerer,
 } from "@/lib/queries/second-opinion";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
-import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
+import { PayByCard } from "@/components/billing/pay-by-card";
 import { secondOpinionRequestSchema } from "@/lib/validation/second-opinion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
+import { DoctorNameLink } from "@/components/doctor-name-link";
 const SECOND_OPINION_CREDIT_CODE = "second_opinion_credit";
 
 function RequestRow({
@@ -26,10 +26,6 @@ function RequestRow({
   request: SecondOpinionRequestWithAnswerer;
 }) {
   const answered = request.status === "answered" || request.status === "closed";
-  const credential =
-    request.answerer?.credential_type && request.answerer?.credential_number
-      ? `${request.answerer.credential_type} ${request.answerer.credential_number}`
-      : null;
 
   return (
     <li className="space-y-1 py-3">
@@ -57,8 +53,7 @@ function RequestRow({
               never rendered without a real clinical_staff match. */}
           {request.answerer && request.answered_at && (
             <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              Answered by Dr. {request.answerer.full_name}
-              {credential ? ` (${credential})` : ""} on{" "}
+              Answered by <DoctorNameLink staffId={request.answerer.id} fullName={request.answerer.full_name} /> on{" "}
               {formatPatientDate(request.answered_at)}
             </p>
           )}
@@ -91,7 +86,6 @@ export function SecondOpinionRequestCard({
   const [sourceDescription, setSourceDescription] = useState("");
   const [specificQuestion, setSpecificQuestion] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
-  const [isBuying, setIsBuying] = useState(false);
 
   if (!organisationId) return null;
 
@@ -134,27 +128,6 @@ export function SecondOpinionRequestCard({
     );
   };
 
-  async function buyCredit() {
-    setIsBuying(true);
-    setFormError(null);
-    try {
-      const result = await purchaseServiceProduct({
-        serviceProductCode: SECOND_OPINION_CREDIT_CODE,
-        callbackPath: "/patient/care",
-      });
-      if (result?.error) {
-        setFormError(result.error);
-        return;
-      }
-      if (result?.checkoutUrl) {
-        window.location.href = result.checkoutUrl;
-        return;
-      }
-    } finally {
-      setIsBuying(false);
-    }
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -172,10 +145,11 @@ export function SecondOpinionRequestCard({
             <p className="text-sm text-charcoal-ink dark:text-night-ink">
               Buy a second opinion credit to send a request.
             </p>
-            <Button size="sm" disabled={isBuying} onClick={buyCredit}>
-              {isBuying ? "Redirecting to payment…" : "Buy a credit"}
-            </Button>
-            <PaystackFeeNotice />
+            <PayByCard
+              serviceProductCode={SECOND_OPINION_CREDIT_CODE}
+              callbackPath="/patient/care"
+              onError={setFormError}
+            />
           </div>
         )}
 

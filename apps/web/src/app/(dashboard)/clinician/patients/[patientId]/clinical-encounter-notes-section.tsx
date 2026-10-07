@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   usePatientEncounterNotes,
   useCreateEncounterNote,
@@ -17,6 +18,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
 import { ConsultationFollowUpsPanel } from "./consultation-follow-ups-panel";
+import { ScribePanel, type ScribeDraftResult } from "@/components/scribe";
+import { attachScribeDraftToNote } from "@/lib/scribe/actions";
+import { useScribeAvailable } from "@/lib/scribe/use-scribe-available";
+import { scribeErrorMessage } from "@/lib/scribe/error-messages";
+import { createNoteAmendment, setNoteProtected, withdrawNoteAsEnteredInError } from "./note-actions";
+import { AMENDMENT_KINDS, AMENDMENT_KIND_LABEL, type AmendmentKind, type NoteActionState } from "@/lib/clinician/note-requests";
 
 const ENCOUNTER_TYPE_LABEL: Record<ClinicalEncounterNote["encounter_type"], string> = {
   video_consult: "Video consult",
@@ -236,6 +243,167 @@ function NewNoteForm({
   );
 }
 
+const notesKey = (patientId: string) => ["clinical-encounter-notes", patientId];
+
+/** "Protected content" switch on a draft (S22): only the Chief Medical Officer can release a protected note to the patient. */
+function ProtectedToggle({ note, patientId }: { note: ClinicalEncounterNote; patientId: string }) {
+  const queryClient = useQueryClient();
+  const [pending, start] = useTransition();
+  const [state, setState] = useState<NoteActionState>();
+  return (
+    <div className="space-y-1 rounded-md border border-charcoal-ink/10 p-2">
+      <label className="flex items-center gap-2 text-sm text-charcoal-ink">
+        <input
+          type="checkbox"
+          checked={note.is_protected}
+          disabled={pending}
+          onChange={(e) =>
+            start(async () => {
+              const result = await setNoteProtected({ noteId: note.id, protected: e.target.checked });
+              setState(result);
+              if (result?.message) await queryClient.invalidateQueries({ queryKey: notesKey(patientId) });
+            })
+          }
+        />
+        Protected content
+      </label>
+      <p className="text-xs text-charcoal-ink/60">
+        For reproductive health and similar sensitive notes. Only the Chief Medical Officer can release a protected note to the patient.
+      </p>
+      {state?.error && <p role="alert" className="text-xs text-red-600">{state.error}</p>}
+    </div>
+  );
+}
+
+/** "Amend" on a signed note (S22): starts a linked draft (addendum, late entry or correction); the original is never edited. */
+function AmendNote({ note, patientId }: { note: ClinicalEncounterNote; patientId: string }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<AmendmentKind>("addendum");
+  const [reason, setReason] = useState("");
+  const [state, setState] = useState<NoteActionState>();
+  const [pending, start] = useTransition();
+  if (!open) {
+    return (
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        Amend
+      </Button>
+    );
+  }
+  return (
+    <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+      <p className="text-xs text-charcoal-ink/60">
+        The signed note stays as it is. This starts a new linked draft, which you edit and sign like any other note.
+      </p>
+      <div>
+        <Label>What kind of amendment?</Label>
+        <Select value={kind} onChange={(e) => setKind(e.target.value as AmendmentKind)}>
+          {AMENDMENT_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {AMENDMENT_KIND_LABEL[k]}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div>
+        <Label>Reason (required)</Label>
+        <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={1000} />
+      </div>
+      {state?.error && <p role="alert" className="text-sm text-red-600">{state.error}</p>}
+      {state?.message && <p className="text-sm text-brand-green">{state.message}</p>}
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const result = await createNoteAmendment({ noteId: note.id, kind, reason });
+              setState(result);
+              if (result?.message) {
+                // The new draft appears in this list as an editable draft; the existing editor takes it from here.
+                await queryClient.invalidateQueries({ queryKey: notesKey(patientId) });
+                setReason("");
+              }
+            })
+          }
+        >
+          {pending ? "Starting..." : "Start amendment draft"}
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
+          Close
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** "Withdraw (entered in error)" on a signed note: needs a reason and a confirm step. The note itself is never deleted. */
+function WithdrawNote({ note, patientId }: { note: ClinicalEncounterNote; patientId: string }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [reason, setReason] = useState("");
+  const [state, setState] = useState<NoteActionState>();
+  const [pending, start] = useTransition();
+  if (!open) {
+    return (
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        Withdraw (entered in error)
+      </Button>
+    );
+  }
+  const reasonOk = reason.trim().length >= 10;
+  return (
+    <div className="space-y-2 rounded-md border border-red-200 p-3">
+      <p className="text-xs text-charcoal-ink/60">
+        The note is never deleted: staff still see it marked as withdrawn. The patient sees that it was withdrawn and why, but none of its
+        text. A withdrawn note cannot be amended; write a new note instead.
+      </p>
+      <div>
+        <Label>Reason (required, 10 characters or more)</Label>
+        <Textarea
+          rows={2}
+          value={reason}
+          maxLength={1000}
+          onChange={(e) => {
+            setReason(e.target.value);
+            setConfirming(false);
+          }}
+        />
+      </div>
+      {state?.error && <p role="alert" className="text-sm text-red-600">{state.error}</p>}
+      <div className="flex flex-wrap items-center gap-2">
+        {!confirming ? (
+          <Button size="sm" disabled={!reasonOk} onClick={() => setConfirming(true)}>
+            Withdraw this note
+          </Button>
+        ) : (
+          <>
+            <span className="text-sm text-charcoal-ink">This cannot be undone. Withdraw this note?</span>
+            <Button
+              size="sm"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  const result = await withdrawNoteAsEnteredInError({ noteId: note.id, reason });
+                  setState(result);
+                  setConfirming(false);
+                  if (result?.message) await queryClient.invalidateQueries({ queryKey: notesKey(patientId) });
+                })
+              }
+            >
+              {pending ? "Withdrawing..." : "Yes, withdraw it"}
+            </Button>
+          </>
+        )}
+        <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
+          Close
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function DraftNoteCard({
   note,
   patientId,
@@ -262,6 +430,66 @@ function DraftNoteCard({
   const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const update = useUpdateEncounterNoteDraft();
   const finalize = useFinalizeEncounterNote();
+  const scribeAvailable = useScribeAvailable().data === true;
+  // Set when the clinician uses an AI scribe draft; recorded on the note (consent, summary, ai_drafted) at the next save or sign.
+  const [scribe, setScribe] = useState<(ScribeDraftResult & { persisted: boolean }) | null>(null);
+  const [scribeError, setScribeError] = useState<string | null>(null);
+
+  function applyScribeDraft(result: ScribeDraftResult) {
+    // Applying a second draft replaces the first one's text rather than stacking a duplicate after it.
+    const without = (existing: string, previous: string | undefined) =>
+      previous?.trim() ? existing.replace(previous.trim(), "").replace(/\n{3,}/g, "\n\n").trim() : existing;
+    const add = (existing: string, previous: string | undefined, incoming: string) => {
+      const base = without(existing, previous);
+      return incoming.trim() ? (base.trim() ? `${base.trim()}\n\n${incoming.trim()}` : incoming.trim()) : base;
+    };
+    const prev = scribe?.draft;
+    setFields((f) => ({
+      ...f,
+      history: add(f.history, prev?.history, result.draft.history),
+      examinationFindings: add(f.examinationFindings, prev?.examination, result.draft.examination),
+      assessment: add(f.assessment, prev?.assessment, result.draft.assessment),
+      plan: add(f.plan, prev?.plan, result.draft.plan),
+      followUpInstructions: add(f.followUpInstructions, prev?.followUp, result.draft.followUp),
+    }));
+    setScribe({ ...result, persisted: false });
+    setScribeError(null);
+  }
+
+  /** Records the scribe's consent and summary on the note before a save or sign. Returns false (and says why) if refused. */
+  async function persistScribe(): Promise<boolean> {
+    setScribeError(null);
+    if (!scribe || scribe.persisted) return true;
+    try {
+      await attachScribeDraftToNote({
+        encounterNoteId: note.id,
+        scribeConsentId: scribe.consentId,
+        patientSummary: scribe.patientSummary,
+      });
+      setScribe({ ...scribe, persisted: true });
+      return true;
+    } catch (err) {
+      setScribeError(scribeErrorMessage(err));
+      return false;
+    }
+  }
+
+  const noteFieldsPayload = () => ({
+    reason_for_encounter: fields.reasonForEncounter.trim(),
+    history: fields.history.trim() || null,
+    examination_findings: fields.examinationFindings.trim() || null,
+    assessment: fields.assessment.trim() || null,
+    diagnosis: fields.diagnosis.trim() || null,
+    plan: fields.plan.trim() || null,
+    follow_up_instructions: fields.followUpInstructions.trim() || null,
+  });
+
+  // Computed once on mount (the lint rule forbids Date.now() during render); age only needs to be right to the year.
+  const [ageYears] = useState(() =>
+    patientDateOfBirth
+      ? Math.floor((Date.now() - new Date(patientDateOfBirth).getTime()) / (365.25 * 24 * 3600 * 1000))
+      : undefined
+  );
 
   return (
     <Card>
@@ -270,11 +498,46 @@ function DraftNoteCard({
           <CardTitle className="text-base">
             {ENCOUNTER_TYPE_LABEL[note.encounter_type]} · {formatDateTime(note.encounter_date)}
           </CardTitle>
-          <Badge variant="amber">Draft</Badge>
+          <div className="flex items-center gap-1.5">
+            {note.auto_generated && (
+              <Badge variant="blue" title="The platform drafted this the moment the encounter concluded — review and complete it before signing.">
+                Auto-drafted
+              </Badge>
+            )}
+            <Badge variant="amber">Draft</Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <NoteFields values={fields} onChange={(field, value) => setFields((f) => ({ ...f, [field]: value }))} />
+        {scribeAvailable && (
+          <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
+            <ScribePanel
+              patientId={patientId}
+              encounterNoteId={note.id}
+              patientContext={ageYears !== undefined && ageYears >= 0 && ageYears <= 130 ? { age: ageYears } : undefined}
+              onUseDraft={applyScribeDraft}
+            />
+            {scribe && <p className="text-xs text-charcoal-ink/50">AI-drafted text is in the fields above. It is yours to edit; nothing is saved until you save or sign.</p>}
+          </div>
+        )}
+        {scribeError && (
+          <div className="space-y-1">
+            <p className="text-sm text-red-600">{scribeError}</p>
+            {scribe && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setScribe(null);
+                  setScribeError(null);
+                }}
+              >
+                Remove the AI draft marker (the text in the fields stays yours to edit or delete)
+              </Button>
+            )}
+          </div>
+        )}
         {update.isError && <p className="text-sm text-red-600">{(update.error as Error).message}</p>}
         {finalize.isError && <p className="text-sm text-red-600">{(finalize.error as Error).message}</p>}
         <div className="flex gap-2">
@@ -282,25 +545,15 @@ function DraftNoteCard({
             size="sm"
             variant="outline"
             disabled={update.isPending}
-            onClick={() =>
-              update.mutate({
-                noteId: note.id,
-                patientId,
-                fields: {
-                  reason_for_encounter: fields.reasonForEncounter.trim(),
-                  history: fields.history.trim() || null,
-                  examination_findings: fields.examinationFindings.trim() || null,
-                  assessment: fields.assessment.trim() || null,
-                  diagnosis: fields.diagnosis.trim() || null,
-                  plan: fields.plan.trim() || null,
-                  follow_up_instructions: fields.followUpInstructions.trim() || null,
-                },
-              })
-            }
+            onClick={async () => {
+              if (!(await persistScribe())) return;
+              update.mutate({ noteId: note.id, patientId, fields: noteFieldsPayload() });
+            }}
           >
             {update.isPending ? "Saving…" : "Save changes"}
           </Button>
         </div>
+        <ProtectedToggle note={note} patientId={patientId} />
         <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
           <PatientIdentityConfirm
             patientName={patientName}
@@ -329,14 +582,24 @@ function DraftNoteCard({
                 finalize.isPending
               }
               title="Locks this note permanently, no further edits after signing"
-              onClick={() =>
+              onClick={async () => {
+                if (!(await persistScribe())) return;
+                // The AI text lives only in these fields until saved, and signing locks the note: save it first, so a note
+                // is never locked blank while its patient summary is attached.
+                if (scribe) {
+                  try {
+                    await update.mutateAsync({ noteId: note.id, patientId, fields: noteFieldsPayload() });
+                  } catch {
+                    return;
+                  }
+                }
                 finalize.mutate({
                   noteId: note.id,
                   patientId,
                   outcome: outcome as NonNullable<ClinicalEncounterNote["outcome"]>,
                   identityConfirmed,
-                })
-              }
+                });
+              }}
             >
               {finalize.isPending ? "Signing…" : "Sign & finalise"}
             </Button>
@@ -358,11 +621,13 @@ function FinalizedNoteCard({
   patientId,
   organisationId,
   canActionFollowUps,
+  canAmend,
 }: {
   note: ClinicalEncounterNote;
   patientId: string;
   organisationId: string;
   canActionFollowUps: boolean;
+  canAmend: boolean;
 }) {
   return (
     <Card>
@@ -371,7 +636,9 @@ function FinalizedNoteCard({
           <CardTitle className="text-base">
             {ENCOUNTER_TYPE_LABEL[note.encounter_type]} · {formatDateTime(note.encounter_date)}
           </CardTitle>
-          {note.status === "finalized" && note.finalized_at ? (
+          {note.entered_in_error ? (
+            <Badge variant="red">Withdrawn as entered in error</Badge>
+          ) : note.status === "finalized" && note.finalized_at ? (
             <Badge variant="green">Signed {formatDateTime(note.finalized_at)}</Badge>
           ) : (
             <Badge variant="amber">Draft</Badge>
@@ -379,6 +646,13 @@ function FinalizedNoteCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-2 text-sm text-charcoal-ink">
+        {note.entered_in_error && (
+          <div role="note" className="rounded-md border border-red-200 bg-red-50 p-2 text-red-800">
+            <p className="font-medium">Withdrawn as entered in error</p>
+            {note.withdrawn_at && <p className="text-xs">On {formatDateTime(note.withdrawn_at)}</p>}
+            {note.withdrawn_reason && <p className="text-xs">Reason: {note.withdrawn_reason}</p>}
+          </div>
+        )}
         <p>
           <span className="font-medium">Reason: </span>
           {note.reason_for_encounter}
@@ -424,6 +698,12 @@ function FinalizedNoteCard({
             <span className="font-medium">Outcome: </span>
             {OUTCOME_LABEL[note.outcome]}
           </p>
+        )}
+        {canAmend && note.status === "finalized" && !note.entered_in_error && (
+          <div className="flex flex-wrap gap-2">
+            <AmendNote note={note} patientId={patientId} />
+            <WithdrawNote note={note} patientId={patientId} />
+          </div>
         )}
         <ConsultationFollowUpsPanel
           encounterNoteId={note.id}
@@ -477,7 +757,8 @@ export function ClinicalEncounterNotesSection({
   patientName: string;
   patientDateOfBirth: string | null;
 }) {
-  const { data: notes, isLoading } = usePatientEncounterNotes(patientId);
+  const { data: notesData, isLoading, isError } = usePatientEncounterNotes(patientId);
+  const notes = notesData?.notes;
 
   const body = (
     <div className="space-y-4">
@@ -491,7 +772,18 @@ export function ClinicalEncounterNotesSection({
         />
       )}
       {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-      {!isLoading && (notes?.length ?? 0) === 0 && (
+      {isError && (
+        <p role="alert" className="text-sm text-amber-700">
+          The clinical notes are not available to you for this patient (you are not on their care team), or could not be loaded. This is
+          not the same as no notes.
+        </p>
+      )}
+      {notesData?.scope === "own_only" && (
+        <p className="text-xs text-amber-700">
+          You are not on this patient&apos;s care team, so only the notes you wrote are shown.
+        </p>
+      )}
+      {!isLoading && !isError && (notes?.length ?? 0) === 0 && (
         <p className="text-sm text-charcoal-ink/60">No clinical notes yet.</p>
       )}
       {notes?.map((note) =>
@@ -511,6 +803,7 @@ export function ClinicalEncounterNotesSection({
             patientId={patientId}
             organisationId={organisationId}
             canActionFollowUps={canActionFollowUps}
+            canAmend={canWrite}
           />
         )
       )}

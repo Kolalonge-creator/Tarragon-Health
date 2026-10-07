@@ -10,6 +10,7 @@ export type SectionId =
   | "alcohol"
   | "myActions"
   | "vitals"
+  | "bpHistory"
   | "medications"
   | "labs"
   | "devices"
@@ -38,6 +39,7 @@ export type SectionId =
   | "services"
   | "receipts"
   | "notificationSettings"
+  | "reminders"
   | "technicalSupport"
   | "privacy"
   | "emergency"
@@ -108,6 +110,7 @@ export const SECTIONS: SectionDef[] = [
   },
   { id: "labs", label: "Labs & results", icon: "flask-outline", group: "top" },
   { id: "devices", label: "Devices", icon: "bluetooth-outline", group: "Your health" },
+  { id: "reminders", label: "Reminders", icon: "alarm-outline", group: "Your health" },
   {
     id: "prevention",
     label: "Prevention",
@@ -118,6 +121,12 @@ export const SECTIONS: SectionDef[] = [
     id: "healthSummary",
     label: "Health summary",
     icon: "document-text-outline",
+    group: "Your health",
+  },
+  {
+    id: "bpHistory",
+    label: "Blood pressure history",
+    icon: "list-outline",
     group: "Your health",
   },
   {
@@ -210,16 +219,6 @@ export const SECTIONS: SectionDef[] = [
     id: "aiCoach",
     label: "AI Health Coach",
     icon: "sparkles-outline",
-    group: "Support",
-  },
-  // Promoted out of "Your account" (2026-09-11), mirroring web's
-  // navigation.ts — the buy page for the same paid-per-service doctor-time
-  // revenue belongs next to Care & support, not four rows down an
-  // admin-flavoured band.
-  {
-    id: "services",
-    label: "My services",
-    icon: "card-outline",
     group: "Support",
   },
   {

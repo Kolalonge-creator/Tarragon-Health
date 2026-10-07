@@ -8,6 +8,8 @@ import {
   type ProviderQualityPolicyVersionRow,
 } from "./provider-quality-policy-manager";
 
+export const metadata = { title: "Provider quality policy" };
+
 /**
  * Clinical Director sign-off for the provider quality policy — the
  * operational/documentation/patient-experience/clinical-quality metric

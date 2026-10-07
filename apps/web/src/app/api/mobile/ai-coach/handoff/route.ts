@@ -64,6 +64,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     aiAction: "Patient asked to speak with a person instead of continuing with the AI Coach",
     medications: snapshot.medications,
     conditions: snapshot.conditions,
+    supabase,
   });
 
   const { data: threadId, error } = await supabase.rpc("start_care_thread", {

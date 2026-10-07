@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ensureAppointmentVideoConsultation } from "@/app/(dashboard)/patient/appointments/video-actions";
 import { confirmAppointmentAndSetupVideo } from "@/lib/appointments/confirm-with-video-setup";
 import type { Tables, Enums } from "@tarragon/shared";
+import { toConsultSlots, type BookableConsultSlotRow } from "@/lib/consultations/slots";
 
 export type Appointment = Tables<"appointments">;
 export type AppointmentWaitingListEntry = Tables<"appointment_waiting_list">;
@@ -40,6 +41,8 @@ export function useAvailableAppointmentSlots(params: {
   appointmentType: AppointmentType;
   consultationMethod?: ConsultationMethod;
   clinicianId?: string;
+  /** Who is being booked (a caregiver books for someone else); the slots, conflicts and test/real separation are for this person. */
+  patientId?: string;
   from?: string;
   to?: string;
   enabled?: boolean;
@@ -50,6 +53,12 @@ export function useAvailableAppointmentSlots(params: {
     enabled,
     queryFn: async () => {
       const supabase = createClient();
+      // S21 (OQ-124): a consultation is booked only from time a clinician has declared and the rota has confirmed.
+      if (params.appointmentType === "telemedicine") {
+        const { data: open, error: openError } = await supabase.rpc("list_bookable_consult_slots" as never, { p_from: params.from, p_to: params.to, p_patient: params.patientId } as never);
+        if (openError) throw openError;
+        return toConsultSlots(open as unknown as BookableConsultSlotRow[]) as AvailableAppointmentSlot[];
+      }
       const { data, error } = await supabase.rpc("get_available_appointment_slots", {
         p_organisation_id: params.organisationId,
         p_appointment_type: params.appointmentType,
@@ -81,6 +90,75 @@ export function useMyUpcomingAppointments(patientId: string) {
         .order("scheduled_for", { ascending: true });
       if (error) throw error;
       return data as (Appointment & { clinician: { full_name: string | null } | null })[];
+    },
+  });
+}
+
+/** S21: a coming consultation (my_upcoming_encounters). Joins an appointment to its consultation room. */
+export type UpcomingEncounter = {
+  encounter_id: string;
+  type: string;
+  status: string;
+  scheduled_at: string;
+  appointment_id: string | null;
+  final_media_mode: "video" | "audio_only" | "phone" | null;
+};
+
+/** The patient's coming consultations, so an appointment can open its room. The function answers for the signed-in person only. */
+export function useMyUpcomingEncounters(patientId: string) {
+  return useQuery({
+    queryKey: ["encounters", "my-upcoming", patientId] as const,
+    enabled: !!patientId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("my_upcoming_encounters" as never, {} as never);
+      if (error) throw error;
+      return (data ?? []) as unknown as UpcomingEncounter[];
+    },
+  });
+}
+
+/** S21: what a patient is told before paying (my_consultation_rule): the price, the cancel window and the age rule, all from live config. */
+export type ConsultationRule = {
+  price_kobo: number | null;
+  cancel_window_hours: number;
+  late_cancel_credit_returned: boolean;
+  min_age_years: number;
+  policy_version: number;
+};
+
+export function useMyConsultationRule() {
+  return useQuery({
+    queryKey: ["consultations", "rule"] as const,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("my_consultation_rule" as never, {} as never);
+      if (error) throw error;
+      return data as unknown as ConsultationRule;
+    },
+  });
+}
+
+/**
+ * S37 (INV-14, client side): whether consultations are open for the signed-in person. This only decides what the screen shows;
+ * hold_appointment_slot and confirm_appointment_booking refuse in the database whatever this says. Fails closed: with no answer the
+ * screen shows "not open". It answers for the signed-in person only (a test account sees the form because the database lets a test
+ * patient with a test clinician through); a test patient with a real clinician, or someone booking for another person, can still be
+ * refused by the database, which says so in plain words.
+ */
+export function useGoLiveGuardOpen(guardKey: string, subjectId?: string) {
+  return useQuery({
+    // the person is part of the key: an answer for one signed-in person is never reused for another
+    queryKey: ["go-live", "guard-open", guardKey, subjectId ?? "me"] as const,
+    staleTime: 60_000,
+    retry: 1,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("go_live_guard_is_open" as never, { p_key: guardKey } as never);
+      // An error is thrown, not cached as an answer: with no data the screen shows the closed state (fails closed) and asks again later.
+      if (error) throw error;
+      return data === true;
     },
   });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,8 +95,8 @@ export function EmployerBilling() {
             </thead>
             <tbody>
               {(summary.data ?? []).map((row) => (
-                <>
-                  <tr key={row.organisation_id} className="border-b border-charcoal-ink/5">
+                <Fragment key={row.organisation_id}>
+                  <tr className="border-b border-charcoal-ink/5">
                     <td className="py-1.5 pr-4 text-charcoal-ink/80">
                       {row.organisation_name}
                       <span className="ml-1 text-xs text-charcoal-ink/40">
@@ -183,7 +183,7 @@ export function EmployerBilling() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </TableShell>

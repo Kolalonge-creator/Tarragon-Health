@@ -9,7 +9,7 @@ import {
 } from "./refund-idempotency";
 
 const CANONICAL = resolve(__dirname, "refund-idempotency.ts");
-const WEBHOOK = resolve(__dirname, "../../../../../supabase/functions/paystack-webhook/index.ts");
+const WEBHOOK = resolve(__dirname, "../../../../../supabase/functions/paystack-webhook/handler.ts");
 const BEGIN = "// >>> BEGIN SHARED REFUND IDEMPOTENCY";
 const END = "// <<< END SHARED REFUND IDEMPOTENCY";
 

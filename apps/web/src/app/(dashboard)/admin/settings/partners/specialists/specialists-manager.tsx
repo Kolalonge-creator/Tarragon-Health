@@ -16,7 +16,6 @@ import {
   useSetSpecialistProviderActive,
   useUpdateSpecialistProviderCommission,
   useUpdateSpecialistProviderLicense,
-  type SpecialistType,
 } from "@/lib/queries/partner-catalogues";
 import { useUpdateSpecialistProviderProfile } from "@/lib/queries/specialist-provider-network";
 import { SpecialistProfileEditor } from "./specialist-profile-editor";
@@ -24,21 +23,7 @@ import { SpecialistVerificationPanel } from "./specialist-verification-panel";
 import { SpecialistLocationsManager } from "./specialist-locations-manager";
 import { SpecialistCalendarManager } from "./specialist-calendar-manager";
 import { SpecialistWorkloadPerformancePanel } from "./specialist-workload-performance-panel";
-
-const SPECIALIST_TYPES: SpecialistType[] = [
-  "urologist",
-  "oncologist",
-  "ob_gyn",
-  "cardiology",
-  "endocrinology",
-  "nephrology",
-  "ophthalmology",
-  "dietetics",
-  "podiatry",
-  "psychiatry",
-  "psychology",
-  "other",
-];
+import { SPECIALIST_TYPES, type SpecialistType } from "@tarragon/shared";
 
 export function SpecialistsManager() {
   const { data: specialists, isLoading } = useAllSpecialistProviders();

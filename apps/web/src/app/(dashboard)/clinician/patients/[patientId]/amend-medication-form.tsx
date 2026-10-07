@@ -2,11 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { useAmendMedication } from "@/lib/queries/medications";
-import { amendMedicationSchema } from "@/lib/validation/medications";
+import { amendMedicationSchema, prescriptionDetailSchema } from "@/lib/validation/medications";
 import type { MedicationWithCarePlan } from "@/lib/queries/medications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { isSafetyResubmitReady, parseSafetyError } from "@/lib/prescriptions/parse-safety-error";
+import { SafetyFindingsPrompt } from "@/components/prescribing/safety-findings-prompt";
 
 /**
  * Spec §62.14 amendment — "a changed prescription should create a new
@@ -40,6 +42,9 @@ export function AmendMedicationForm({
   const [instructions, setInstructions] = useState(medication.instructions ?? "");
   const [reason, setReason] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  // S24 signing checks: answers to a SAFETY_FINDINGS stop. Never pre-ticked.
+  const [allergiesConfirmed, setAllergiesConfirmed] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -59,15 +64,29 @@ export function AmendMedicationForm({
       setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
       return;
     }
+    // The amended prescription must still say how much and for how long (an older prescription may never have).
+    const detail = prescriptionDetailSchema.safeParse({ quantity, duration_days: durationDays });
+    if (!detail.success) {
+      setValidationError(detail.error.issues[0]?.message ?? "Enter the quantity and duration");
+      return;
+    }
     setValidationError(null);
     amendMedication.mutate(
-      { medicationId: medication.id, patientId, input: parsed.data },
+      {
+        medicationId: medication.id,
+        patientId,
+        organisationId: medication.organisation_id,
+        input: parsed.data,
+        safety: { allergiesConfirmed, overrideReason },
+      },
       { onSuccess: onDone }
     );
   }
 
-  const mutationError = (amendMedication.error as Error | null)?.message ?? null;
+  const safetyError = amendMedication.isError ? parseSafetyError(amendMedication.error) : null;
+  const mutationError = safetyError ? null : ((amendMedication.error as Error | null)?.message ?? null);
   const displayError = validationError ?? mutationError;
+  const safetyReady = safetyError ? isSafetyResubmitReady(safetyError, { allergiesConfirmed, overrideReason }) : true;
 
   return (
     <form
@@ -125,12 +144,13 @@ export function AmendMedicationForm({
         </div>
         <div className="space-y-1">
           <Label htmlFor={`amend_duration_${medication.id}`} className="text-xs">
-            Duration (days)
+            Duration (days) *
           </Label>
           <Input
             id={`amend_duration_${medication.id}`}
             type="number"
             min={1}
+            required
             value={durationDays}
             onChange={(event) => setDurationDays(event.target.value)}
             className="h-8 text-xs"
@@ -138,10 +158,11 @@ export function AmendMedicationForm({
         </div>
         <div className="space-y-1">
           <Label htmlFor={`amend_quantity_${medication.id}`} className="text-xs">
-            Quantity
+            Quantity *
           </Label>
           <Input
             id={`amend_quantity_${medication.id}`}
+            required
             value={quantity}
             onChange={(event) => setQuantity(event.target.value)}
             className="h-8 text-xs"
@@ -196,9 +217,19 @@ export function AmendMedicationForm({
           className="h-8 text-xs"
         />
       </div>
+      {safetyError && (
+        <SafetyFindingsPrompt
+          error={safetyError}
+          idPrefix={`amend-${medication.id}`}
+          allergiesConfirmed={allergiesConfirmed}
+          onAllergiesConfirmedChange={setAllergiesConfirmed}
+          overrideReason={overrideReason}
+          onOverrideReasonChange={setOverrideReason}
+        />
+      )}
       {displayError && <p className="text-xs text-red-600">{displayError}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" size="sm" disabled={amendMedication.isPending}>
+        <Button type="submit" size="sm" disabled={amendMedication.isPending || !safetyReady}>
           {amendMedication.isPending ? "Saving…" : "Sign amended version"}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>

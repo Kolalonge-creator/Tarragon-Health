@@ -30,7 +30,9 @@ export interface RawMealPlanItem {
 
 export interface RawMealPlanDay {
   day: number;
-  meals: Partial<Record<string, RawMealPlanItem[]>>;
+  /** A slot the model left null (its natural way of saying "none today",
+   * e.g. no snack) is treated identically to a missing or empty slot below. */
+  meals: Partial<Record<string, RawMealPlanItem[] | null>>;
 }
 
 export interface RawMealPlan {

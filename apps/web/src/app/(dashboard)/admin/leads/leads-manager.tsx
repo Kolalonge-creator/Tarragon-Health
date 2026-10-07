@@ -6,17 +6,39 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SearchableList } from "@/components/ui/searchable-list";
-import { LEAD_ROLES } from "@/lib/validation/lead";
+import { LEAD_ROLES, LEAD_GOAL_LABEL, type LeadGoal } from "@/lib/validation/lead";
 import { toggleLeadContactedAction, type LeadActionState } from "./actions";
 import type { LeadRow } from "./page";
 
-const ROLE_LABEL: Record<string, string> = {
+// Record<(typeof LEAD_ROLES)[number], ...> rather than Record<string, ...>
+// deliberately, so TypeScript fails the build if LEAD_ROLES ever gains a
+// value this map doesn't — a plain Record<string, string> let the "ngo" role
+// go unlabelled here (and employerHmoNewCount below silently exclude it)
+// until review caught it.
+const ROLE_LABEL: Record<(typeof LEAD_ROLES)[number], string> = {
   patient: "Patient",
   family: "Family",
   employer: "Employer",
   hmo: "HMO",
+  ngo: "NGO / PHC / government",
   other: "Other",
 };
+
+/** `lead.role` is a plain string off the DB row (not narrowed to LeadRole),
+ * so a direct ROLE_LABEL[lead.role] index fails to typecheck against the
+ * now-exhaustive Record above — this keeps that exhaustiveness (a missing
+ * key for a real LeadRole value is still a compile error) while safely
+ * falling back to the raw string for any value ROLE_LABEL doesn't know. */
+function roleLabel(role: string): string {
+  return role in ROLE_LABEL ? ROLE_LABEL[role as keyof typeof ROLE_LABEL] : role;
+}
+
+/** Same safe-fallback shape as roleLabel above: `lead.goal` is a plain
+ * nullable string off the DB row, not narrowed to LeadGoal. */
+function goalLabel(goal: string | null): string | null {
+  if (!goal) return null;
+  return goal in LEAD_GOAL_LABEL ? LEAD_GOAL_LABEL[goal as LeadGoal] : goal;
+}
 
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", {
@@ -41,8 +63,11 @@ export function LeadsManager({ leads }: { leads: LeadRow[] }) {
   }, [leads, roleFilter, showContacted]);
 
   const newCount = leads.filter((l) => !l.contacted_at).length;
-  const employerHmoNewCount = leads.filter(
-    (l) => !l.contacted_at && (l.role === "employer" || l.role === "hmo")
+  // Includes "ngo" alongside employer/hmo: the Corporate page's NGO/PHC
+  // funded-cohort offer (docs/FUNDING_STRATEGY.md) generates the same kind
+  // of high-value B2B enquiry and must not go unnoticed on this dashboard.
+  const b2bNewCount = leads.filter(
+    (l) => !l.contacted_at && (l.role === "employer" || l.role === "hmo" || l.role === "ngo")
   ).length;
 
   return (
@@ -57,13 +82,13 @@ export function LeadsManager({ leads }: { leads: LeadRow[] }) {
             <p className="font-heading text-2xl font-semibold text-brand-green">{newCount}</p>
             <p className="text-sm text-charcoal-ink/60">not yet contacted</p>
           </div>
-          {employerHmoNewCount > 0 && (
+          {b2bNewCount > 0 && (
             <div>
               <p className="font-heading text-2xl font-semibold text-clinical-navy">
-                {employerHmoNewCount}
+                {b2bNewCount}
               </p>
               <p className="text-sm text-charcoal-ink/60">
-                employer/HMO {employerHmoNewCount === 1 ? "enquiry" : "enquiries"} waiting
+                employer/HMO/NGO {b2bNewCount === 1 ? "enquiry" : "enquiries"} waiting
               </p>
             </div>
           )}
@@ -104,7 +129,7 @@ export function LeadsManager({ leads }: { leads: LeadRow[] }) {
         <SearchableList
           items={filtered}
           filterFn={(lead, q) =>
-            [lead.name, lead.contact, lead.message, ROLE_LABEL[lead.role] ?? lead.role, lead.source]
+            [lead.name, lead.contact, lead.message, roleLabel(lead.role), goalLabel(lead.goal), lead.source]
               .filter(Boolean)
               .some((field) => field!.toLowerCase().includes(q))
           }
@@ -132,7 +157,7 @@ function LeadCard({ lead }: { lead: LeadRow }) {
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-medium text-charcoal-ink">{lead.name}</p>
               <Badge variant={lead.role === "employer" || lead.role === "hmo" ? "green" : "grey"}>
-                {ROLE_LABEL[lead.role] ?? lead.role}
+                {roleLabel(lead.role)}
               </Badge>
               {lead.contacted_at && <Badge variant="grey">Contacted</Badge>}
             </div>
@@ -143,6 +168,9 @@ function LeadCard({ lead }: { lead: LeadRow }) {
           </p>
         </div>
 
+        {goalLabel(lead.goal) && (
+          <p className="text-xs text-charcoal-ink/60">Goal: {goalLabel(lead.goal)}</p>
+        )}
         {lead.message && <p className="text-sm text-charcoal-ink/80">{lead.message}</p>}
 
         <div className="flex flex-wrap items-center gap-3 pt-1">

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
+import { DoctorNameLink } from "@/components/doctor-name-link";
 import { DraftReplyCard } from "@/components/draft-reply-card";
 import { NAV_ICON } from "@/lib/icons";
 
@@ -36,27 +37,25 @@ function when(iso: string): string {
  * rather than relying on the reader inferring it from the styling. The name
  * itself comes from author_display, frozen server-side at insert: a patient
  * cannot read their own supporter's profile row, so resolving names at render
- * time would show "someone" against their own daughter's question.
+ * time would show "someone" against their own daughter's question. A doctor's
+ * name links to their profile page — speciality/years of experience live
+ * there only, never inline in a message header.
  */
-function authorLabel(message: CareMessage): string {
+function AuthorLabel({ message }: { message: CareMessage }) {
   // Null-gated clinician attribution: only name a doctor when a real
   // clinical_staff row backs the message AND it's an actual clinical tier —
   // a Care Coordinator's own active clinical_staff row (doctor_tier =
   // 'care_coordinator') must never render as "Dr. <coordinator's name>".
   if (message.author_role === "care_team") {
     if (message.actor?.full_name && isClinicalTier(message.actor)) {
-      const credential =
-        message.actor.credential_type && message.actor.credential_number
-          ? ` · ${message.actor.credential_type} ${message.actor.credential_number}`
-          : "";
-      return `Dr. ${message.actor.full_name}${credential}`;
+      return <DoctorNameLink staffId={message.actor.id} fullName={message.actor.full_name} />;
     }
-    return "Care team";
+    return <>Care team</>;
   }
   if (message.author_role === "sponsor") {
-    return message.author_display ?? "Someone who supports them";
+    return <>{message.author_display ?? "Someone who supports them"}</>;
   }
-  return message.author_display ?? "Patient";
+  return <>{message.author_display ?? "Patient"}</>;
 }
 
 /** A plain word for the seat someone is speaking from, next to their name. */
@@ -213,7 +212,7 @@ export function CareMessageThread({
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
-                {authorLabel(message)}
+                <AuthorLabel message={message} />
                 {roleLabel(message) && (
                   <span className="ml-1 font-normal text-charcoal-ink/50 dark:text-night-ink/55">
                     · {roleLabel(message)}
@@ -292,6 +291,7 @@ export function CareMessageThread({
                   ref={fileInputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+                  aria-label="Attach a file"
                   className="hidden"
                   onChange={(e) => onFilePicked(e.target.files?.[0] ?? null)}
                 />

@@ -403,7 +403,11 @@ export async function extractEcgReport(input: {
         unreadableReason: parsed.data.unreadable_reason?.trim() || null,
       },
     };
-  } catch {
+  } catch (error) {
+    // Real gap found during the AI-002-015 evaluation (2026-09-17): this
+    // used to swallow the cause entirely, so a real production failure here
+    // was undiagnosable -- the caller only ever saw reason: "error", never why.
+    console.error("ecg-reports: extraction failed", error);
     return { ok: false, reason: "error" };
   } finally {
     clearTimeout(timer);

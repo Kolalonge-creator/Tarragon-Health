@@ -9,7 +9,8 @@ import { MyCarePlanTasks } from "@/app/(dashboard)/patient/my-care-plan-tasks";
 import { ChronicProgrammeTimeline } from "@/app/(dashboard)/patient/chronic-programme-timeline";
 import { PregnancyStatus } from "@/app/(dashboard)/patient/pregnancy-status";
 import { ObesitySummary } from "@/app/(dashboard)/patient/obesity-summary";
-import { AskADoctor } from "@/app/(dashboard)/patient/ask-a-doctor";
+import { WrittenQuestionCard } from "@/app/(dashboard)/patient/written-question-card";
+import { PatientNotesCard } from "@/app/(dashboard)/patient/patient-notes-card";
 import { SecondOpinionRequestCard } from "@/app/(dashboard)/patient/second-opinion-request";
 import { VerifiedDocumentsCard } from "@/app/(dashboard)/patient/verified-documents-card";
 import { SeniorCaseReviewCard } from "@/app/(dashboard)/patient/senior-case-review-card";
@@ -28,12 +29,9 @@ import { GoalsAndMilestonesCard } from "@/app/(dashboard)/patient/goals-and-mile
 import { TestimonialForm } from "@/components/testimonial-form";
 
 export default async function PatientCarePage() {
-  const { profile, subjectId } = await getPatientDashboardContext();
+  const { profile, subjectId, uiLanguage } = await getPatientDashboardContext();
   const supabase = await createClient();
   const coachAccess = await hasCoachAccess(supabase);
-  const { data: asyncDoctorVisitPlanAccess } = await supabase.rpc("has_feature_access", {
-    feature: "async_doctor_visit",
-  });
 
   return (
     <DashboardSection
@@ -80,19 +78,17 @@ export default async function PatientCarePage() {
           {/* Paid per-visit service — no plan gate; the card itself carries the
               availability + not-for-emergencies copy. */}
           <BookVideoVisit patientId={subjectId} />
-          {/* Paid per-question service — no hard plan gate; a patient without
-              async_doctor_visit on their plan can still buy a one-off
-              credit, the card itself offers that. */}
-          <AskADoctor
-            patientId={subjectId}
-            organisationId={profile.organisation_id}
-            hasPlanAccess={Boolean(asyncDoctorVisitPlanAccess)}
-          />
+          {/* Member benefit with a monthly allowance (S22): the card reads its own allowance, never shows a price. */}
+          <WrittenQuestionCard patientId={subjectId} locale={uiLanguage} />
+          <PatientNotesCard locale={uiLanguage} />
           {/* Pure pay-per-service — no plan bypass, the card carries its own
               buy-a-credit prompt. */}
           <SecondOpinionRequestCard patientId={subjectId} organisationId={profile.organisation_id} />
-          <VerifiedDocumentsCard patientId={subjectId} organisationId={profile.organisation_id} />
-          <SeniorCaseReviewCard patientId={subjectId} organisationId={profile.organisation_id} />
+          {/* Both retired from purchase 2026-09-24 (no request form left) —
+              read-only history, so each renders nothing once a patient has
+              none of its own. */}
+          <VerifiedDocumentsCard patientId={subjectId} />
+          <SeniorCaseReviewCard patientId={subjectId} />
           {coachAccess && <AiCoachChat patientId={subjectId} />}
           <ServiceNavigationAssistant />
           <CareCircleCard />

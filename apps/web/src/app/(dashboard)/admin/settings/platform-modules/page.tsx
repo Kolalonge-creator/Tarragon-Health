@@ -4,6 +4,8 @@ import { listPlatformModules } from "@/lib/platform-modules";
 import { PageHeader } from "@/components/ui/page-header";
 import { PlatformModulesManager } from "./platform-modules-manager";
 
+export const metadata = { title: "Platform modules" };
+
 /**
  * Superadmin-only console for activating module 27 (insurer/payer platform)
  * and module 28 (provider organisation platform) — both built fully, both

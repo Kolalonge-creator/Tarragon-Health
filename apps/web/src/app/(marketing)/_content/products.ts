@@ -184,10 +184,10 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     slug: "medication",
     headline: "Reduce missed doses and avoid running out of medication.",
     intro:
-      "Tarragon keeps your medication schedule in the same record as your vitals and labs: reminders on WhatsApp or app, refill alerts before you run out, and a care team that follows up when doses are missed.",
+      "Tarragon keeps your medication schedule in the same record as your vitals and labs: reminders in the app, refill alerts before you run out, and a care team that follows up when doses are missed.",
     included: [
       "Medication schedule built into your health record",
-      "App and WhatsApp reminders for your doses",
+      "In-app reminders for your doses",
       "Refill alerts before you run out",
       "Buy from any pharmacy you like, log the collection in seconds",
       "Doctor follow-up when doses are missed",
@@ -199,7 +199,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Get reminded, log it in the app",
-        body: "A WhatsApp or app reminder lands at the right time; logging your dose in the app takes seconds and keeps your record accurate.",
+        body: "An in-app reminder lands at the right time; logging your dose in the app takes seconds and keeps your record accurate.",
       },
       {
         title: "Keep your supply going, and stay in touch",
@@ -209,7 +209,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     metadata: {
       title: "Medication Support",
       description:
-        "Medication reminders, refill alerts, and adherence follow-up, on WhatsApp or app, in the same record as the rest of your care.",
+        "Medication reminders, refill alerts, and adherence follow-up, in the app, in the same record as the rest of your care.",
     },
   },
   labs: {

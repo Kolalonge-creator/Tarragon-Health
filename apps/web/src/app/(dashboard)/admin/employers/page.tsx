@@ -9,6 +9,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { CreateEmployerForm } from "./create-employer-form";
 
+export const metadata = { title: "Employers" };
+
 const VERIFICATION_BADGE: Record<string, { variant: "green" | "grey" | "amber" | "red"; label: string }> = {
   unverified: { variant: "grey", label: "Unverified" },
   pending: { variant: "amber", label: "Pending review" },

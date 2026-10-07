@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { AppState, View } from "react-native";
 import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import type { SectionId } from "@/lib/sections";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
 import { registerPushToken } from "@/lib/push-registration";
+import { replanDoseReminders } from "@/lib/dose-reminders";
+import { CatchUpSheet } from "@/screens/catch-up-sheet";
 import { TopBar } from "@/ui/top-bar";
 import { NavDrawer } from "@/ui/nav-drawer";
 import { BottomTabBar } from "@/ui/bottom-tab-bar";
 import { ActingForBanner } from "@/ui/acting-for-banner";
-import { colors } from "@/ui/theme";
+import { useTheme } from "@/ui/design";
 import { OverviewScreen } from "@/screens/sections/overview-screen";
 import { VitalsScreen } from "@/screens/sections/vitals-screen";
 import { MedicationsScreen } from "@/screens/sections/medications-screen";
@@ -21,6 +23,7 @@ import { AiCoachScreen } from "@/screens/sections/ai-coach-screen";
 import { ActionsScreen } from "@/screens/sections/actions-screen";
 import { DevicesScreen } from "@/screens/devices-screen";
 import { SyncScreen } from "@/screens/sync-screen";
+import { startWrittenQuestionFlushing } from "@/lib/written-questions/queue-flush";
 import { MessagesScreen } from "@/screens/sections/messages-screen";
 import { HealthPassportScreen } from "@/screens/sections/health-passport-screen";
 import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
@@ -28,11 +31,14 @@ import { SettingsScreen } from "@/screens/sections/settings-screen";
 import { SupportingScreen } from "@/screens/sections/supporting-screen";
 import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
 import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
+import { RemindersScreen } from "@/screens/sections/reminders-screen";
 import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
 import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
+import { BpHistoryScreen } from "@/screens/sections/bp-history-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
+import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
@@ -153,11 +159,16 @@ interface HomeShellProps {
  *   lib/healthy-ageing.ts's own comment on loadCoordinatedCareSummary.
  */
 export function HomeShell({ userId, organisationId, patientName, patientNumber, initials }: HomeShellProps) {
+  const { colors: theme } = useTheme();
   const [section, setSection] = useState<SectionId>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [acting, setActing] = useState<ActingFor | null>(null);
+  // Whether the acting-for lookup has finished: until then "no acting-for" is only a guess.
+  const [actingChecked, setActingChecked] = useState(false);
   const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
   const [openVideoVisitId, setOpenVideoVisitId] = useState<string | null>(null);
+  // S21 follow-up (OQ-158): the consultation room opened from the Care area's "Your consultations" card.
+  const [openConsultationId, setOpenConsultationId] = useState<string | null>(null);
 
   const refreshActing = useCallback(() => {
     // Best-effort: a failed read (e.g. SecureStore hiccup) falls back to the
@@ -165,7 +176,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     // rejection — the safe default for whose record gets written.
     getActingFor()
       .then(setActing)
-      .catch(() => setActing(null));
+      .catch(() => setActing(null))
+      .finally(() => setActingChecked(true));
   }, []);
 
   useEffect(() => {
@@ -182,6 +194,24 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     // into this render.
     void registerPushToken(userId, organisationId);
   }, [userId, organisationId]);
+
+  useEffect(() => {
+    // Dose reminders are a rolling plan held on the phone (S08). Rebuild it when the
+    // app opens and every time it returns to the foreground, so a reminder never
+    // depends on the Medications screen having been visited. Always the device
+    // owner's own medicines, not the acting-for subject's. Never throws.
+    void replanDoseReminders(userId);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void replanDoseReminders(userId);
+    });
+    return () => sub.remove();
+  }, [userId]);
+
+  useEffect(() => {
+    // Written questions saved on this phone (S22) are sent whenever this patient is signed in,
+    // not only while that screen is open. Only this account's own items are ever touched.
+    return startWrittenQuestionFlushing(userId);
+  }, [userId]);
 
   function handleSelect(id: SectionId) {
     setSection(id);
@@ -212,6 +242,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         />
       ),
     vitals: () => <VitalsScreen patientId={subjectId} beneficiaryProfileId={acting?.profileId} />,
+    bpHistory: () => <BpHistoryScreen patientId={subjectId} userId={userId} organisationId={organisationId} />,
     medications: () => (
       <MedicationsScreen
         patientId={subjectId}
@@ -222,7 +253,19 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     labs: () => <LabsScreen />,
     appointments: () => <AppointmentsScreen patientId={userId} organisationId={organisationId} />,
     prevention: () => <PreventionScreen patientId={subjectId} organisationId={organisationId} />,
-    care: () => <CareSupportScreen patientId={userId} organisationId={organisationId} />,
+    care: () =>
+      openConsultationId ? (
+        <ConsultationRoomScreen encounterId={openConsultationId} onBack={() => setOpenConsultationId(null)} />
+      ) : openVideoVisitId ? (
+        <VideoVisitScreen consultationId={openVideoVisitId} onBack={() => setOpenVideoVisitId(null)} />
+      ) : (
+        <CareSupportScreen
+          patientId={userId}
+          organisationId={organisationId}
+          onOpenVideoVisit={setOpenVideoVisitId}
+          onOpenConsultation={setOpenConsultationId}
+        />
+      ),
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
     healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
     timeline: () => <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />,
@@ -251,6 +294,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       />
     ),
     receipts: () => <ReceiptsScreen />,
+    reminders: () => <RemindersScreen userId={userId} />,
     notificationSettings: () => (
       <NotificationSettingsScreen patientId={userId} organisationId={organisationId} />
     ),
@@ -281,9 +325,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     activity: () => <ActivityScreen patientId={subjectId} />,
     smoking: () => <SmokingScreen patientId={subjectId} />,
     alcohol: () => <AlcoholScreen patientId={subjectId} />,
-    weightManagement: () => (
-      <WeightManagementScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
-    ),
+    weightManagement: () => <WeightManagementScreen userId={userId} onNavigate={handleSelect} />,
     learn: () => <LearnScreen userId={userId} organisationId={organisationId} />,
     wellness: () => (
       <WellnessScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
@@ -298,7 +340,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: theme.canvas }}>
       <TopBar
         userId={userId}
         patientName={patientName}
@@ -328,6 +370,10 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         onSelect={handleSelect}
         onMore={() => setDrawerOpen(true)}
       />
+
+      {/* S08b: doses from yesterday and today that closed with no answer, asked about once. The
+          device owner's own medicines only, never the person being acted for. */}
+      <CatchUpSheet patientId={userId} organisationId={organisationId} enabled={actingChecked && acting === null} />
 
       <NavDrawer
         visible={drawerOpen}

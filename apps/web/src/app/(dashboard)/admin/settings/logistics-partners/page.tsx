@@ -4,6 +4,8 @@ import { hasAnyPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/ui/page-header";
 import { LogisticsPartnersManager } from "./logistics-partners-manager";
 
+export const metadata = { title: "Home visit & delivery" };
+
 export default async function LogisticsPartnersSettingsPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");

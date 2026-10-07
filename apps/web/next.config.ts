@@ -71,26 +71,53 @@ const supabaseWebSocketOrigin = supabaseOrigin.replace(/^https:/, "wss:");
 //   carry `import "server-only"` or an explicit "never import from a 'use
 //   client' file" comment and run on the Node/Edge server, never the
 //   browser, so they need no CSP entry either.
-const cspDirectives = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: " + supabaseOrigin,
-  "font-src 'self'",
-  [
-    "connect-src 'self'",
-    supabaseOrigin,
-    supabaseWebSocketOrigin,
-    "https://*.ingest.us.sentry.io",
-    "https://*.ingest.de.sentry.io",
-    "https://*.ingest.sentry.io",
-  ].join(" "),
-  `frame-src ${supabaseOrigin} https://www.youtube-nocookie.com`,
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'self'",
-].join("; ");
+// The in-app Zoom call (S21 follow-up, OQ-136) needs more than the rest of the app, so the extra allowances are added ONLY on the two
+// consultation routes (see headers() below) and nowhere else. They are Zoom's own hosts: its Meeting SDK script and assets
+// (source.zoom.us at the pinned SDK version's path only: the only place allowed to supply SCRIPT, and no blob: scripts, because these pages carry the most sensitive data), its
+// signalling and media over https and wss (*.zoom.us, and *.zoom.com for its new domain), blob: for the media and workers the SDK
+// creates, and 'wasm-unsafe-eval' for its WebAssembly media engine (not 'unsafe-eval': nothing in the SDK bundle was found to need it).
+// Evidence for leaving blob: out of script-src: in the 6.5.0 bundle the audio worklets are loaded by path from source.zoom.us
+// (`audioWorkletPath`), and the blob URLs it creates feed an Audio element (media-src), not scripts; the SDK's workers are blob
+// workers (worker-src) that importScripts from source.zoom.us. Not verified live.
+// Anything narrower than this that a live call turns out to need (an iframe, a blob script, eval) is added HERE, one directive at a
+// time, after a real violation report; until a live test the call falls back to the link if the SDK is blocked.
+// Cross-origin isolation (COOP/COEP) is deliberately NOT turned on: it would break every other embed on these pages, and without it
+// the SDK simply runs without SharedArrayBuffer (no gallery view, lower send resolution), which a one-to-one consultation does not need.
+const zoomHosts = "https://*.zoom.us https://*.zoom.com";
+// SCRIPT and WORKER code may come only from the one pinned SDK version's path on Zoom's host, not from anywhere on source.zoom.us.
+// Keep this version equal to ZOOM_SDK_VERSION in src/lib/consultations/zoom-sdk.ts (csp.test.ts fails if they drift). A browser matches
+// a path prefix only on the URL as requested, so a redirect to another path would be blocked: that is the intent.
+const ZOOM_SDK_CODE_SOURCE = "https://source.zoom.us/6.5.0/";
+function buildCsp(opts: { inAppCall: boolean }): string {
+  const call = opts.inAppCall;
+  return [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'" + (call ? ` 'wasm-unsafe-eval' ${ZOOM_SDK_CODE_SOURCE}` : ""),
+    "style-src 'self' 'unsafe-inline'" + (call ? " https://source.zoom.us" : ""),
+    "img-src 'self' data: blob: " + supabaseOrigin + (call ? ` ${zoomHosts}` : ""),
+    "font-src 'self'" + (call ? " data: https://source.zoom.us" : ""),
+    call ? `media-src 'self' blob: ${zoomHosts}` : "",
+    call ? `worker-src 'self' blob: ${ZOOM_SDK_CODE_SOURCE}` : "",
+    [
+      "connect-src 'self'",
+      supabaseOrigin,
+      supabaseWebSocketOrigin,
+      "https://*.ingest.us.sentry.io",
+      "https://*.ingest.de.sentry.io",
+      "https://*.ingest.sentry.io",
+      ...(call ? [zoomHosts, "wss://*.zoom.us", "wss://*.zoom.com"] : []),
+    ].join(" "),
+    `frame-src ${supabaseOrigin} https://www.youtube-nocookie.com`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+  ]
+    .filter((d) => d.length > 0)
+    .join("; ");
+}
+const cspDirectives = buildCsp({ inAppCall: false });
+const consultationCspDirectives = buildCsp({ inAppCall: true });
 
 const nextConfig: NextConfig = {
   // In a monorepo, trace files from the repo root so shared workspace
@@ -108,16 +135,27 @@ const nextConfig: NextConfig = {
     },
   },
   // Compile TypeScript sources imported from workspace packages.
-  transpilePackages: ["@tarragon/shared", "@tarragon/lifestyle-engine", "@tarragon/symptom-triage-engine"],
-  // Dev-server-only (ignored in production builds). The Expo mobile app's
-  // WebView sections (apps/mobile/src/screens/webview-screen.tsx) hit this
-  // dev server over the LAN IP set in apps/mobile/.env's
-  // EXPO_PUBLIC_PLATFORM_URL — without this, Next refuses cross-origin
-  // requests to its own dev resources (_next/webpack-hmr, static chunks)
-  // from that origin, which silently prevents client-side JS from
-  // hydrating at all (a page can look loaded — server-rendered markup
-  // shows — while every useEffect never runs).
-  allowedDevOrigins: ["192.168.40.137"],
+  transpilePackages: ["@tarragon/shared", "@tarragon/ui", "@tarragon/auth", "@tarragon/i18n", "@tarragon/staff-core", "@tarragon/lifestyle-engine", "@tarragon/symptom-triage-engine", "@tarragon/medicines", "@tarragon/clinical", "@tarragon/commerce"],
+  // Dev-server-only (ignored in production builds). Next auto-allows only
+  // the exact hostname the dev server was initialized with (`localhost` by
+  // default; see allowedDevOrigins docs) — every other origin needs to be
+  // listed explicitly, or Next silently blocks cross-origin requests to its
+  // own dev resources (_next/webpack-hmr, static chunks). Two real origins
+  // hit this dev server: the Expo mobile app's WebView sections
+  // (apps/mobile/src/screens/webview-screen.tsx) over the LAN IP set in
+  // apps/mobile/.env's EXPO_PUBLIC_PLATFORM_URL, and Playwright's browser
+  // E2E suite (apps/web/playwright.config.ts's BASE_URL defaults to
+  // `http://127.0.0.1:...`, which is a different origin from `localhost` as
+  // far as this check is concerned). Missing `127.0.0.1` here silently
+  // broke the E2E suite: the initial server-rendered HTML still showed
+  // (page "looked loaded"), but blocked static chunks meant client
+  // components never hydrated — useQuery hooks never ran, so anything
+  // gated on their loading state (e.g. onboarding's "I agree, continue"
+  // button) stayed stuck disabled forever, confirmed live via CI on
+  // 2026-09-23 (chunk-block warning in the dev-server log, screenshot
+  // showing "Loading…" frozen with the checkbox already checked by
+  // Playwright's raw DOM manipulation).
+  allowedDevOrigins: ["192.168.40.137", "127.0.0.1"],
   // The marketing site's hero photography is 150-710 KB of source JPEG per
   // page, served to a market where mobile data is metered and often slow.
   // next/image already resizes, but with no `formats` set it re-encodes to
@@ -174,6 +212,22 @@ const nextConfig: NextConfig = {
           },
           { key: "Content-Security-Policy", value: cspDirectives },
         ],
+      },
+      {
+        // S36i: the speak-up screens show private words and who wrote them (spec INV-07). Never cached by a browser, a proxy or
+        // the CDN, and the address is never sent on as a referrer. This entry comes after the catch-all above so it wins for these paths.
+        source: "/clinician/(quality/concerns|my-concerns)",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+      {
+        // The consultation rooms only. Declared after the rule above on purpose: when two rules set the same header on one path, the
+        // last one wins (Next's "Header Overriding Behavior"), so these two routes get the wider policy and everything else keeps the
+        // strict one.
+        source: "/(patient|clinician)/consultation/:encounterId",
+        headers: [{ key: "Content-Security-Policy", value: consultationCspDirectives }],
       },
     ];
   },

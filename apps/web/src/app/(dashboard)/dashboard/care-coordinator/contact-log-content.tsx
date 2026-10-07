@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-const CHANNEL_LABEL: Record<OutreachContactChannel, string> = { call: "Call", whatsapp: "WhatsApp" };
+const CHANNEL_LABEL: Record<OutreachContactChannel, string> = { call: "Call" };
 
 interface PatientRef {
   id: string;
@@ -31,9 +31,8 @@ interface PatientRef {
 /**
  * The reframed "Messages" tab: a per-patient outreach CONTACT LOG, not a live
  * chat. CLAUDE.md is explicit that two-way patient<->care-team conversation
- * stays in-app only, never WhatsApp — a coordinator-authored live WhatsApp
- * send here would reopen exactly the trust gap that rule closed. So instead
- * of a send box, this is a history feed (what a coordinator did and what
+ * stays in-app only, so there is no send box here. Instead
+ * of one, this is a history feed (what a coordinator did and what
  * happened) with a form that appends one more entry.
  */
 export function CareCoordinatorContactLog() {
@@ -181,7 +180,6 @@ function ContactThread({ patient }: { patient: PatientRef }) {
             className="w-32 shrink-0"
           >
             <option value="call">Call</option>
-            <option value="whatsapp">WhatsApp</option>
           </Select>
           <Textarea
             value={note}

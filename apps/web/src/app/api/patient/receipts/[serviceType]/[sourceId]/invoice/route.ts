@@ -4,7 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { InvoiceDocument, type InvoiceDocumentData, type InvoiceLetterhead } from "@/lib/invoices/invoice-document";
 
 const paramsSchema = z.object({
-  serviceType: z.enum(["membership", "laboratory", "pharmacy", "referral", "consultation", "care_voucher"]),
+  serviceType: z.enum([
+    "membership",
+    "laboratory",
+    "pharmacy",
+    "referral",
+    "consultation",
+    "care_voucher",
+  ]),
   sourceId: z.string().uuid(),
 });
 

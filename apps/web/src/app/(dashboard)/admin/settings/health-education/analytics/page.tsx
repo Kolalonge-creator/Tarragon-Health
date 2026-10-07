@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { AnalyticsManager } from "./analytics-manager";
 
+export const metadata = { title: "Health education analytics" };
+
 export default async function HealthEducationAnalyticsPage() {
   const profile = await getCurrentProfile();
 

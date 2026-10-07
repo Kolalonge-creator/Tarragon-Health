@@ -1,11 +1,10 @@
 /**
  * Messaging — the outbound gateway interface + toneGuard (spec §10).
  *
- * The engine NEVER owns WhatsApp Cloud API plumbing; it calls a MessagingGateway
- * (implemented in apps/web over the existing notifications queue). WhatsApp is
- * outbound alerts/comms only — never a logging surface.
+ * The engine never owns delivery plumbing; it calls a MessagingGateway
+ * (implemented in apps/web over the existing notifications queue). Outbound
+ * messages are never a logging surface.
  */
-export * from "./inbound";
 
 export const MESSAGE_CLASSES = [
   "reminder",

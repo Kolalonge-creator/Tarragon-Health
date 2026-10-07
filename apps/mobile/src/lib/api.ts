@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import { PLATFORM_URL } from "./platform-url";
 import type { HealthReadingType, HealthSample } from "./healthkit";
 import type { HealthProvider } from "./health-sync";
+import type { DialInResponse, JoinResponse } from "./consultation-room-model";
 
 /**
  * The mobile app is a separate deployment from the web app, so it hits the
@@ -29,13 +30,15 @@ export async function postDeviceReading(payload: Record<string, unknown>): Promi
 export interface PostVitalReadingResult {
   success: boolean;
   error?: string;
+  /** HTTP status of a failed call, so the outbox can tell a refusal from an outage. */
+  status?: number;
 }
 
 /** Mirrors the mobileVitalsSchema union in
  * apps/web/src/app/api/mobile/vitals/route.ts — the six vital types the
  * native quick-log screen collects (MOBILE_APP_SPEC.md §2.2). */
 export type VitalReadingPayload =
-  | { vital_type: "blood_pressure"; systolic: number; diastolic: number; note?: string }
+  | { vital_type: "blood_pressure"; systolic: number; diastolic: number; note?: string; cuff_type?: "upper_arm" | "wrist" | "not_sure" }
   | {
       vital_type: "glucose";
       glucose_value: number;
@@ -64,15 +67,19 @@ export type VitalReadingPayload =
 export async function postVitalReading(
   payload: VitalReadingPayload,
   beneficiaryProfileId?: string,
-  clientReadingId?: string
+  clientReadingId?: string,
+  clientRecordedAt?: string
 ): Promise<PostVitalReadingResult> {
   const body = {
     ...payload,
+    // The device clock at logging (S06). The database keeps it only inside a
+    // bounded window, see private.resolve_offline_event_time.
+    ...(clientRecordedAt ? { taken_at: clientRecordedAt } : {}),
     ...(beneficiaryProfileId ? { beneficiary_profile_id: beneficiaryProfileId } : {}),
     ...(clientReadingId ? { client_reading_id: clientReadingId } : {}),
   };
   const result = await request<Record<string, never>>("/api/mobile/vitals", "POST", body);
-  return result.ok ? { success: true } : { success: false, error: result.error };
+  return result.ok ? { success: true } : { success: false, error: result.error, status: result.status };
 }
 
 export interface MobileThresholds {
@@ -87,6 +94,31 @@ export interface MobileThresholds {
 export async function fetchVitalsThresholds(): Promise<MobileThresholds | null> {
   const result = await request<MobileThresholds>("/api/mobile/vitals-thresholds", "GET");
   return result.ok ? result.data : null;
+}
+
+/** What the consultation routes return when the call itself failed, as opposed to the server answering with a reason. "offline"
+ * means the request never got an answer, so the screen can say the place is safe and keep trying. */
+export type ConsultationCallResult<T> = { ok: true; data: T } | { ok: false; offline: boolean };
+
+async function consultationCall<T>(path: string, body: unknown): Promise<ConsultationCallResult<T>> {
+  // Not retried blind: a join request that reached the server may already have issued a link, and a dial-in request logs the ask, so
+  // a repeat after a timeout would do both twice. The patient can tap again; the screen says their place is safe.
+  const result = await request<T>(path, "POST", body, false, true);
+  if (result.ok) return { ok: true, data: result.data };
+  // "The vendor is not set up" arrives as an ordinary answer with a reason code (HTTP 200), never as a status the app has to guess
+  // at. Anything that failed here (no answer, an expired session, a server hiccup) is worth trying again.
+  return { ok: false, offline: result.error === NETWORK_ERROR_MESSAGE };
+}
+
+/** S21 / OQ-158: asks the server for the patient's own join link (apps/web/.../api/mobile/consultations/join). The caller opens the
+ * link and drops it; it is never stored or logged. */
+export function postConsultationJoin(encounterId: string, media: "video" | "audio_only"): Promise<ConsultationCallResult<JoinResponse>> {
+  return consultationCall<JoinResponse>("/api/mobile/consultations/join", { encounterId, media });
+}
+
+/** S21 / OQ-158: the Zoom dial-in number, meeting id and passcode for the same room. Held in memory for the screen only. */
+export function postConsultationDialIn(encounterId: string): Promise<ConsultationCallResult<DialInResponse>> {
+  return consultationCall<DialInResponse>("/api/mobile/consultations/dial-in", { encounterId });
 }
 
 export interface HealthSyncCursor {
@@ -398,6 +430,30 @@ export async function postCoachHandoffToCareTeam(
   return result.ok ? result.data : { error: result.error };
 }
 
+export interface SelectVideoVisitAlternateSlotResult {
+  success?: boolean;
+  consultationId?: string;
+  error?: string;
+}
+
+/** Mirrors video-visit-actions.ts's selectVideoVisitAlternateSlot — see
+ * apps/web/src/app/api/mobile/video-visits/select-alternate-slot/route.ts.
+ * The RPC alone is a safe direct call, but booking a Zoom meeting and
+ * sending the confirmation both need a service-role client this app
+ * doesn't have, so this goes through the route rather than calling
+ * select_video_visit_alternate_slot from the mobile client directly. */
+export async function postSelectVideoVisitAlternateSlot(
+  requestId: string,
+  slotId: string
+): Promise<SelectVideoVisitAlternateSlotResult> {
+  const result = await request<SelectVideoVisitAlternateSlotResult>(
+    "/api/mobile/video-visits/select-alternate-slot",
+    "POST",
+    { requestId, slotId }
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
 /**
  * The one error message request() returns when it never got a usable
  * response from the server (network drop, timeout, or an unparseable
@@ -409,7 +465,7 @@ export async function postCoachHandoffToCareTeam(
  */
 export const NETWORK_ERROR_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
 
-type RequestResult<T> = { ok: true; data: T } | { ok: false; error: string };
+type RequestResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
 
 /** Nigerian mobile networks routinely go slow-but-not-dead rather than
  * cleanly failing, and React Native's fetch has no built-in timeout — left
@@ -462,13 +518,14 @@ async function request<T>(
   path: string,
   method: "GET" | "POST",
   body?: unknown,
-  isRetry = false
+  isRetry = false,
+  noRetry = false
 ): Promise<RequestResult<T>> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
   if (!session?.access_token) {
-    return { ok: false, error: "Not signed in" };
+    return { ok: false, error: "Not signed in", status: 401 };
   }
 
   const url = `${API_BASE_URL}${path}`;
@@ -483,7 +540,7 @@ async function request<T>(
 
   let response: Response;
   try {
-    response = await fetchWithTimeoutAndRetry(url, init);
+    response = noRetry ? await fetchWithTimeout(url, init) : await fetchWithTimeoutAndRetry(url, init);
   } catch {
     return { ok: false, error: NETWORK_ERROR_MESSAGE };
   }
@@ -496,16 +553,16 @@ async function request<T>(
   if (response.status === 401 && !isRetry) {
     const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
     if (!refreshError && refreshed.session) {
-      return request<T>(path, method, body, true);
+      return request<T>(path, method, body, true, noRetry);
     }
     await supabase.auth.signOut();
-    return { ok: false, error: "Your session expired — please sign in again." };
+    return { ok: false, error: "Your session expired — please sign in again.", status: 401 };
   }
 
   try {
     const json = (await response.json()) as T & { error?: string };
     if (!response.ok) {
-      return { ok: false, error: json.error ?? `Request failed (${response.status})` };
+      return { ok: false, error: json.error ?? `Request failed (${response.status})`, status: response.status };
     }
     return { ok: true, data: json };
   } catch {

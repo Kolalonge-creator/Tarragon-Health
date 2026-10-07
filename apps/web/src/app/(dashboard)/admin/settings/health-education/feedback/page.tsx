@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { FeedbackQueueManager } from "./feedback-queue-manager";
 
+export const metadata = { title: "Health education feedback" };
+
 export default async function HealthEducationFeedbackPage() {
   const profile = await getCurrentProfile();
 

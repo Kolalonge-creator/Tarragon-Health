@@ -93,7 +93,9 @@ export async function payTowardVoucher(
     voucherId,
     instalmentKobo: nairaToKobo(amountNaira),
     email: user.email,
-    callbackUrl: `${origin}/patient/vouchers`,
+    // CareVouchersCard (the only caller of this action) renders on
+    // /patient/care — there is no page at /patient/vouchers to return to.
+    callbackUrl: `${origin}/patient/care`,
     description: "Care voucher payment",
   });
 

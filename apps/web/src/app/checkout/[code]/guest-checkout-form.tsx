@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
+import { useRemountOnActionResult } from "@/lib/forms/use-remount-on-action-result";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
@@ -34,9 +35,26 @@ export function GuestCheckoutForm({ code }: { code: string }) {
   const verifyErrorId = fieldErrorId("guest-checkout-verify");
   const requestErrorId = fieldErrorId("guest-checkout-request");
 
+  // See useRemountOnActionResult's own comment: a rate-limit or
+  // duplicate-email error used to wipe name/email/phone too and make the
+  // visitor start this paid checkout over, since React resets every
+  // uncontrolled field once the action returns. Remounting on a failed
+  // attempt is what lets fresh `defaultValue`s below (from the server's
+  // echoed `values`) actually take; focus lands on the error banner rather
+  // than being lost to document.body.
+  const requestAttempt = useRemountOnActionResult(requestState, (s) => Boolean(s?.error), requestErrorId);
+  const requestValues = requestState?.values;
+
+  // Same reasoning as the request step above — a wrong or expired code used
+  // to wipe the typed digits too, forcing a trip back to the inbox to
+  // retype the whole thing over a single mistyped character.
+  const verifyAttempt = useRemountOnActionResult(verifyState, (s) => Boolean(s?.error), verifyErrorId);
+  const verifyValues = verifyState?.values;
+
   if (showVerify && email) {
     return (
       <form
+        key={verifyAttempt}
         action={verifyAction}
         className="space-y-5 rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-7"
       >
@@ -56,6 +74,7 @@ export function GuestCheckoutForm({ code }: { code: string }) {
             maxLength={8}
             autoComplete="one-time-code"
             required
+            defaultValue={verifyValues?.token}
             className={FIELD_CLASS}
             {...fieldErrorProps(verifyErrorId, Boolean(verifyState?.error))}
           />
@@ -70,6 +89,7 @@ export function GuestCheckoutForm({ code }: { code: string }) {
 
   return (
     <form
+      key={requestAttempt}
       action={requestAction}
       className="space-y-5 rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-7"
     >
@@ -82,6 +102,7 @@ export function GuestCheckoutForm({ code }: { code: string }) {
           name="fullName"
           autoComplete="name"
           required
+          defaultValue={requestValues?.fullName}
           className={FIELD_CLASS}
           {...fieldErrorProps(requestErrorId, requestState?.field === "fullName")}
         />
@@ -97,6 +118,7 @@ export function GuestCheckoutForm({ code }: { code: string }) {
           inputMode="email"
           autoComplete="email"
           required
+          defaultValue={requestValues?.email}
           className={FIELD_CLASS}
           {...fieldErrorProps(requestErrorId, requestState?.field === "email")}
         />
@@ -108,7 +130,7 @@ export function GuestCheckoutForm({ code }: { code: string }) {
         <div className="flex gap-2">
           <Select
             name="countryCode"
-            defaultValue="+234"
+            defaultValue={requestValues?.countryCode || "+234"}
             className="h-11 w-28 shrink-0 rounded-xl"
             aria-label="Country code"
           >
@@ -121,6 +143,7 @@ export function GuestCheckoutForm({ code }: { code: string }) {
           <Input
             {...phoneInputProps}
             required={false}
+            defaultValue={requestValues?.phone}
             aria-describedby={PHONE_HINT_ID}
             className={FIELD_CLASS}
           />

@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ExerciseClient } from "./exercise-client";
 
@@ -23,12 +21,7 @@ export default async function ExercisePage() {
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
         description="Structured plans to build activity safely: a walking programme is open to anyone; anything more intensive asks a few safety questions first."
       />
-      <RequiresEntitlement
-        feature="lifestyle_coaching"
-        fallback={<UpgradePrompt feature="lifestyle_coaching" />}
-      >
-        <ExerciseClient patientId={profile.id} />
-      </RequiresEntitlement>
+      <ExerciseClient patientId={profile.id} />
     </div>
   );
 }

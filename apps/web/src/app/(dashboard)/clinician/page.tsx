@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
+import { OpenAdminSearchBar } from "@/components/shell/open-admin-search-bar";
 import { DOCTOR_TIER_LABEL, DOCTOR_TIER_AUTHORITY_BLURB } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { credentialMonitorSchema } from "@/lib/queries/provider-quality";
 import { Worklist } from "./worklist";
+import { TodayPriorities } from "./today-priorities";
 import { RedFlagAttestation } from "./red-flag-attestation";
 import { AttestationCard } from "./attestation-card";
 import { HtnAttestationCard } from "./htn-attestation-card";
@@ -24,6 +27,24 @@ type OverviewEscalationRow = {
   status: "open" | "under_review" | "resolved" | "referred";
   patient: { full_name: string | null } | null;
   clinician_alert: { level: EscalationLevel; sla_due_at: string | null } | null;
+};
+
+type PendingAutoDraftedNoteRow = {
+  id: string;
+  patient_id: string;
+  encounter_type: string;
+  reason_for_encounter: string;
+  encounter_date: string;
+  patient: { full_name: string | null } | null;
+};
+
+const ENCOUNTER_TYPE_LABEL: Record<string, string> = {
+  video_consult: "Video consult",
+  async_consult: "Async consult",
+  in_person: "In person",
+  phone: "Phone",
+  escalation_review: "Escalation review",
+  other: "Other",
 };
 
 const LEVEL_PRIORITY: Record<EscalationLevel, number> = {
@@ -147,6 +168,30 @@ export default async function ClinicianPage() {
   ).length;
   const reviewsDue = (medReviewsRes.count ?? 0) + (carePlanReviewsRes.count ?? 0);
 
+  // "Notes to complete" — the continuous-note worklist. Every escalation
+  // this clinician resolves, async consult they answer, or video
+  // consultation attributed to them guarantees a draft clinical_encounter_
+  // notes row (private.auto_draft_note_from_*,
+  // 20260917031004_auto_generated_continuous_clinical_note.sql), so this is
+  // the one place a "nothing was ever documented" gap would surface. Only
+  // fetched when the caller has a clinical_staff row (staff.id), since the
+  // notes are attributed by clinical_staff.id, not profile id.
+  let pendingAutoDraftedNotes: PendingAutoDraftedNoteRow[] = [];
+  let pendingNotesFailed = false;
+  if (staff) {
+    // INV-10: the table is closed to direct reads; this returns only this clinician's own auto-drafted notes.
+    const pendingNotesRes = await supabase.rpc("my_pending_auto_drafted_notes");
+    pendingNotesFailed = pendingNotesRes.error !== null;
+    pendingAutoDraftedNotes = (pendingNotesRes.data ?? []).map((row) => ({
+      id: row.id,
+      patient_id: row.patient_id,
+      encounter_type: row.encounter_type,
+      reason_for_encounter: row.reason_for_encounter,
+      encounter_date: row.encounter_date,
+      patient: { full_name: row.patient_name },
+    }));
+  }
+
   // Clinical Director governance panel (Gap E, CMO governance-surface audit
   // 2026-09-14) — additive to the shared worklist above, not a fork of it:
   // every tier still sees the same page, this section just renders when
@@ -198,6 +243,8 @@ export default async function ClinicianPage() {
 
   return (
     <div className="space-y-6">
+      {/* The Chief Medical Officer has the same search as the admin console (the layout only builds the index for them). */}
+      {canAssignCases(staff) && <OpenAdminSearchBar />}
       <div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">
           {greetingWord(new Date())}
@@ -205,6 +252,12 @@ export default async function ClinicianPage() {
         </h1>
         <p className="text-sm text-charcoal-ink/60">Here&apos;s what needs you today.</p>
       </div>
+
+      {/* A founder-commissioned launch-scope audit's core clinician-side ask:
+          the first thing on this page should be 3 priority buckets, not a
+          ~50-destination sidebar. Purely additive -- every worklist page
+          below stays exactly where it is, this just summarises them. */}
+      <TodayPriorities />
 
       {/* Chief Medical Officer is the top tier, not an orthogonal flag —
           reaching it carries every capability this dashboard grants any
@@ -426,6 +479,59 @@ export default async function ClinicianPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Continuous-note worklist — see the comment above pendingAutoDraftedNotes.
+          Only rendered for a caller with a clinical_staff row; a note is
+          always drafted the moment the underlying interaction concludes, so
+          this list is the honest measure of what's left undocumented, not
+          an aspirational reminder. */}
+      {staff && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Notes to complete</CardTitle>
+            <CardDescription>
+              Drafted automatically when you resolved these — review and sign each one.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {pendingNotesFailed ? (
+              <LoadFailure>
+                This list could not be loaded. Do not read this as &ldquo;nothing pending&rdquo; —
+                open a recently-resolved case&apos;s patient page directly to check for its note.
+              </LoadFailure>
+            ) : pendingAutoDraftedNotes.length === 0 ? (
+              <p className="text-sm text-charcoal-ink/60">Nothing waiting on you right now.</p>
+            ) : (
+              <ul className="divide-y divide-charcoal-ink/10">
+                {pendingAutoDraftedNotes.map((note) => (
+                  <li key={note.id}>
+                    <Link
+                      href={`/clinician/patients/${note.patient_id}`}
+                      className="flex items-center justify-between gap-3 py-2.5 hover:bg-charcoal-ink/[0.02]"
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-soft-sage font-heading text-xs font-semibold text-deep-forest">
+                          {initials(note.patient?.full_name)}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-charcoal-ink">
+                            {note.patient?.full_name ?? "Unknown patient"}
+                          </span>
+                          <span className="block truncate text-xs text-charcoal-ink/55">
+                            {ENCOUNTER_TYPE_LABEL[note.encounter_type] ?? note.encounter_type} ·{" "}
+                            {note.reason_for_encounter}
+                          </span>
+                        </span>
+                      </span>
+                      <Badge variant="blue">Auto-drafted</Badge>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Worklist />
     </div>

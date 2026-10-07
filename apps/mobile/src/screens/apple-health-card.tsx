@@ -3,8 +3,8 @@ import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { isHealthKitAvailable } from "@/lib/healthkit";
 import { syncAppleHealth, type HealthSyncResult } from "@/lib/health-sync";
-import { colors } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/components";
+import { useLegacyColors } from "@/ui/design";
+import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/legacy-kit";
 
 /**
  * Apple Health card, shown above the Bluetooth device list.
@@ -20,6 +20,7 @@ import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/components";
  * no alarm language, and honest that this reads and never writes.
  */
 export function AppleHealthCard() {
+  const colors = useLegacyColors();
   const [available, setAvailable] = useState<boolean | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<HealthSyncResult | null>(null);
@@ -96,6 +97,7 @@ export function AppleHealthCard() {
 }
 
 function SyncMessage({ result }: { result: HealthSyncResult }) {
+  const colors = useLegacyColors();
   if (result.status === "error") return <ErrorText>{result.message}</ErrorText>;
 
   if (result.status === "no_new_data") {

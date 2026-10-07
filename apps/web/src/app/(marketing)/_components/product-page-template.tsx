@@ -12,15 +12,36 @@ import { MARKETING_MEDIA, PRODUCT_VIDEOS } from "../_content/media";
 import type { ProductPageContent } from "../_content/products";
 import { PRICING_HREF } from "../_content/products";
 import { cn } from "@/lib/utils";
+import { JsonLdScript } from "./json-ld-script";
+import { medicalWebPageJsonLd } from "@/lib/marketing/structured-data";
+import { SITE, SITE_URL } from "@/lib/marketing/site";
 
 export function ProductPageTemplate({
   content,
+  riskNote,
   children,
 }: {
   content: ProductPageContent;
+  /**
+   * Optional "why this matters" band, rendered right after the hero and
+   * before "What's included" — pass a <ConditionRiskNote /> for a chronic
+   * condition page. Omitted entirely on pages (prevention, parentcare, …)
+   * where a condition-risk framing doesn't fit.
+   */
+  riskNote?: React.ReactNode;
   /** Optional page-specific sections, rendered after "How it works". */
   children?: React.ReactNode;
 }) {
+  const metaTitle = typeof content.metadata.title === "string" ? content.metadata.title : null;
+  const metaDescription =
+    typeof content.metadata.description === "string" ? content.metadata.description : null;
+  const pageJsonLd = medicalWebPageJsonLd({
+    name: metaTitle,
+    description: metaDescription,
+    path: `/${content.slug}`,
+    providerName: SITE.name,
+    providerUrl: SITE_URL,
+  });
   const heroMedia =
     MARKETING_MEDIA.productHero[content.slug as keyof typeof MARKETING_MEDIA.productHero] ?? {
       illustration: "connected-care" as const,
@@ -50,6 +71,7 @@ export function ProductPageTemplate({
 
   return (
     <>
+      {pageJsonLd ? <JsonLdScript data={pageJsonLd} /> : null}
       {hasPhoto ? (
         // Rendered outside Section on purpose — full-bleed spans the full
         // viewport width; see marketing-photo-banner-hero.tsx's header comment.
@@ -87,6 +109,10 @@ export function ProductPageTemplate({
           </MarketingHero>
         </Section>
       )}
+
+      {riskNote ? (
+        <Section variant="navy">{riskNote}</Section>
+      ) : null}
 
       <Section>
         <SectionHeading title="What's included" />

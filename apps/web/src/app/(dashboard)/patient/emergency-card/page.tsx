@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { getActingFor } from "@/lib/acting/acting-for";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,14 @@ import { BloodAttestationForm } from "./blood-attestation-form";
 export default async function EmergencyCardPage() {
   const user = await getCurrentUser();
   if (!user) return null;
+
+  // This feature is not yet extended to a dependent's account — everything
+  // below reads and writes the CALLER's own record, via user.id, even while
+  // acting for someone else. Flagging that plainly rather than letting a
+  // supporter believe they are looking at the person they support (found
+  // during the 2026-09-24 patient-dashboard audit: nothing on this page
+  // otherwise says whose data it is, unlike every other /patient/* route).
+  const acting = await getActingFor();
 
   const supabase = await createClient();
   // Every read here is destructured with its error. A card whose read failed
@@ -72,6 +81,20 @@ export default async function EmergencyCardPage() {
           </Button>
         }
       />
+
+      {/* This whole feature is self-only for now (see the comment above the
+          acting getActingFor() call). Everything below belongs to the
+          person signed in right now, not to whoever's account is open. */}
+      {acting ? (
+        <Card className="border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10">
+          <CardContent className="pt-6 text-sm text-amber-900 dark:text-amber-200">
+            This is <span className="font-semibold">your own</span> emergency card, not{" "}
+            {acting.fullName ? `${acting.fullName}'s` : "theirs"} — this feature does not yet
+            cover the people you support. Do not print or carry this if you meant to get one for
+            them.
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Sits before either card option: both the print and live paths depend
           on this being filled in, and it is the field most likely to be blank. */}

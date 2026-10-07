@@ -1,22 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useOrgSpecialistReferrals } from "@/lib/queries/specialist-referrals";
+import { usePatientReferralsWithDrafts } from "@/lib/queries/specialist-referrals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { REFERRAL_STATUS_BADGE } from "@/lib/worklist/referral-status-badge";
 import { URGENCY_BADGE } from "@/lib/worklist/referral-urgency-badge";
+import { chaseLabel } from "@/lib/referrals/chase";
 
 /**
  * This patient's own specialist referrals (including drafts), on their
  * record — "Where is this referral now?" (67.17) answered from the one
  * place a clinician is already looking, without a trip to the org-wide
- * worklist. Filters the org query client-side rather than adding a second
- * network round trip; the org list is already small per-org.
+ * worklist. Read through the audited per-patient function (INV-10); a refusal is
+ * shown as unavailable, never as "No referrals".
  */
 export function PatientReferralsList({ patientId }: { patientId: string }) {
-  const { data, isLoading, isError } = useOrgSpecialistReferrals();
-  const referrals = data?.filter((r) => r.patient_id === patientId) ?? [];
+  const { data, isLoading, isError } = usePatientReferralsWithDrafts(patientId);
+  const referrals = data ?? [];
 
   return (
     <Card>
@@ -25,8 +26,12 @@ export function PatientReferralsList({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load referrals.</p>}
-        {!isLoading && referrals.length === 0 && (
+        {isError && (
+          <p className="text-sm text-red-600">
+            Referrals are not available to you for this patient, or could not be loaded. This is not the same as no referrals.
+          </p>
+        )}
+        {!isLoading && !isError && referrals.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">No referrals for this patient yet.</p>
         )}
         {referrals.length > 0 && (
@@ -47,6 +52,9 @@ export function PatientReferralsList({ patientId }: { patientId: string }) {
                     )}
                   </div>
                   <p className="text-sm text-charcoal-ink">{referral.specialist_type.replace(/_/g, " ")}</p>
+                  {chaseLabel(referral, new Date()) && (
+                    <p className="text-xs text-charcoal-ink/60">{chaseLabel(referral, new Date())}</p>
+                  )}
                   {referral.status !== "draft" ? (
                     <Link
                       href={`/clinician/referrals/${referral.id}`}

@@ -4,7 +4,8 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createMeeting } from "@/lib/zoom/meetings";
 import { isZoomConfigured } from "@/lib/zoom/client";
-import { sendPatientLinkSms } from "@/lib/notifications/send-patient-link";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { queueVideoCallRequestedNotice } from "@/lib/notifications/video-call-requested";
 
 const escalationIdSchema = z.string().uuid();
 
@@ -19,9 +20,8 @@ export type StartVirtualReviewState =
  * before deciding whether to refer at all) — doctor <-> patient, tied to
  * this escalation. Creates the video_consultations row first (so nothing
  * is lost if the Zoom call fails), then the real Zoom meeting, then
- * delivers the patient's own join link via SMS (Termii only for now — no
- * approved WhatsApp template exists yet for a video-call link, see
- * lib/notifications/send-patient-link.ts). The doctor's host_start_url is
+ * tells the patient in the app (never by SMS and never with the link in the
+ * message: INV-07 and INV-08, S21). The doctor's host_start_url is
  * returned directly rather than sent anywhere, since they're the one who
  * just clicked the button.
  */
@@ -47,7 +47,7 @@ export async function startVirtualReview(escalationId: string): Promise<StartVir
   // this page — an escalation outside the caller's org simply doesn't come back.
   const { data: escalation } = await supabase
     .from("escalations")
-    .select("id, organisation_id, patient_id, patient:profiles!escalations_patient_id_fkey(full_name, phone)")
+    .select("id, organisation_id, patient_id")
     .eq("id", parsedId.data)
     .maybeSingle();
   if (!escalation) {
@@ -70,7 +70,8 @@ export async function startVirtualReview(escalationId: string): Promise<StartVir
   }
 
   const meetingResult = await createMeeting({
-    topic: `Tarragon Health: virtual review with ${escalation.patient?.full_name ?? "patient"}`,
+    // Neutral on purpose (INV-07): a meeting topic is visible to Zoom and in its logs, so it never carries a name.
+    topic: "Tarragon consultation",
   });
   if (!meetingResult.ok) {
     await supabase.from("video_consultations").update({ status: "cancelled" }).eq("id", consultation.id);
@@ -89,14 +90,12 @@ export async function startVirtualReview(escalationId: string): Promise<StartVir
     return { error: updateError.message };
   }
 
-  let patientNotified = false;
-  if (escalation.patient?.phone) {
-    const smsResult = await sendPatientLinkSms(
-      escalation.patient.phone,
-      `Your Tarragon doctor would like a quick video call. Join here: ${meetingResult.data.joinUrl}`
-    );
-    patientNotified = smsResult.ok;
-  }
+  const patientNotified = await queueVideoCallRequestedNotice({
+    service: createServiceRoleClient(),
+    organisationId: escalation.organisation_id,
+    patientId: escalation.patient_id,
+    consultationId: consultation.id,
+  });
 
   return { success: true, hostStartUrl: meetingResult.data.hostStartUrl, patientNotified };
 }

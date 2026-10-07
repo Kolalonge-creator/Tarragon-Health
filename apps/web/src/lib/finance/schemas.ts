@@ -252,15 +252,31 @@ export type TaxRate = z.infer<typeof taxRatesListSchema>[number];
  */
 
 // --- Approvals ---------------------------------------------------------
+// reversal_target is populated only for request_type "journal_reversal" —
+// finance_pending_approvals/finance_approval_history look up the entry the
+// request targets so the UI can show what it actually is (amount, currency,
+// entry number), rather than trying to render a reversal's {entry_id,
+// reason} payload through the manual_journal summary shape. Null when the
+// request type isn't a reversal, or (rarely) when the target entry no
+// longer exists.
+const reversalTargetSchema = z
+  .object({
+    entry_no: z.number(),
+    currency: z.string(),
+    amount_minor: num,
+  })
+  .nullable();
+
 export const pendingApprovalsSchema = z.array(
   z.object({
     id: z.string(),
-    request_type: z.enum(["manual_journal", "period_lock"]),
+    request_type: z.enum(["manual_journal", "period_lock", "journal_reversal"]),
     payload: z.record(z.string(), z.unknown()),
     reason: z.string().nullable(),
     requested_by_name: z.string().nullable(),
     requested_at: z.string(),
     is_own_request: z.boolean(),
+    reversal_target: reversalTargetSchema.optional(),
   }),
 );
 export type PendingApproval = z.infer<typeof pendingApprovalsSchema>[number];
@@ -268,7 +284,7 @@ export type PendingApproval = z.infer<typeof pendingApprovalsSchema>[number];
 export const approvalHistorySchema = z.array(
   z.object({
     id: z.string(),
-    request_type: z.enum(["manual_journal", "period_lock"]),
+    request_type: z.enum(["manual_journal", "period_lock", "journal_reversal"]),
     status: z.enum(["approved", "rejected"]),
     payload: z.record(z.string(), z.unknown()),
     reason: z.string().nullable(),
@@ -278,6 +294,7 @@ export const approvalHistorySchema = z.array(
     reviewed_at: z.string().nullable(),
     review_note: z.string().nullable(),
     result_entry_id: z.string().nullable(),
+    reversal_target: reversalTargetSchema.optional(),
   }),
 );
 export type ApprovalHistoryEntry = z.infer<typeof approvalHistorySchema>[number];
@@ -467,6 +484,21 @@ export const kpiSummarySchema = z.object({
   receivable_minor: num,
 });
 export type KpiSummary = z.infer<typeof kpiSummarySchema>;
+
+/** public.finance_revenue_by_funding_source — splits revenue booked in a
+ * period into cash actually collected (Paystack) vs promo/voucher-funded
+ * (a reward_discount voucher) — never real money. See
+ * 20260924211136_finance_revenue_by_funding_source.sql. */
+export const revenueByFundingSourceSchema = z.object({
+  currency: z.string(),
+  period_start: z.string(),
+  period_end: z.string(),
+  cash_minor: num,
+  promotional_minor: num,
+  unclassified_minor: num,
+  total_minor: num,
+});
+export type RevenueByFundingSource = z.infer<typeof revenueByFundingSourceSchema>;
 
 export const riskFlagsSchema = z.object({
   pending_approvals_count: int,

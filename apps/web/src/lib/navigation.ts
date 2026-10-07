@@ -243,6 +243,8 @@ export function getNavSections(
             // sign this points at the old recurring-plan page — it renders
             // the current one-off service catalogue.
             { label: "My services", href: "/patient/subscription", icon: "billing" },
+            // Buy the Membership or a care pack, see what is included and the price, and see your payments (S25).
+            { label: "Membership", href: "/patient/membership", icon: "billing" },
             { label: "Family", href: "/patient/family", icon: "family" },
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
@@ -335,7 +337,6 @@ export function getNavSections(
                   icon: "medication",
                 },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
-                { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
                 { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
                 {
@@ -350,11 +351,24 @@ export function getNavSections(
             // administrator" or "Provider network administrator" role
             // presets) — the pages self-gate, so this link is always safe to
             // show, same pattern as every other admin-area nav entry.
+            // Support view-as is real here specifically because "Customer
+            // support administrator" carries `support.view_as` (see
+            // 20260922185119_support_view_as_customer_support_preset_grant.sql)
+            // — unlike the other 3 delegated sections below (Clinical
+            // administrator, Technical/Data & analytics administrator,
+            // Finance administrator), whose presets do NOT carry it, so the
+            // link stays deliberately absent there rather than bouncing.
             {
               label: "Operations",
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+                { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+                { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+                { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+                { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
+                { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
               ],
             },
           ]
@@ -370,31 +384,65 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation", countKey: "escalations" },
-                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
+                {
+                  label: "Safeguarding",
+                  href: "/clinician/safeguarding",
+                  icon: "warning",
+                  countKey: "openSafeguardingConcerns",
+                },
                 {
                   label: "Operations queue",
                   href: "/clinician/operations-queue",
                   icon: "escalation",
+                  countKey: "operationsQueueAlerts",
                 },
                 {
                   label: "Medication issues",
                   href: "/clinician/medication-issues",
                   icon: "medication",
+                  countKey: "openMedicationDispenseFlags",
                 },
-                { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
-                { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
-                { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
-                { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
-                { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
-                { label: "Async consults", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
+                {
+                  label: "Results inbox",
+                  href: "/clinician/results-inbox",
+                  icon: "labs",
+                  countKey: "resultsInboxAwaitingAction",
+                },
+                {
+                  label: "Support tickets",
+                  href: "/clinician/support-tickets",
+                  icon: "helpCenter",
+                  countKey: "openSupportTickets",
+                },
+                {
+                  label: "Complaints",
+                  href: "/clinician/complaints",
+                  icon: "governance",
+                  countKey: "openComplaints",
+                },
+                {
+                  label: "Patient messages",
+                  href: "/clinician/messages",
+                  icon: "messages",
+                  countKey: "careThreadsAwaitingReply",
+                },
+                { label: "Written questions", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
                 // Real pages with no prior sidebar entry at all — previously
                 // reachable only via the dashboard's "All worklists" strip,
                 // so a doctor who didn't happen to scroll that far never
                 // found them. See the countKey doc comment above.
                 { label: "Second opinions", href: "/clinician/second-opinions", icon: "inbox", countKey: "secondOpinionRequests" },
                 { label: "Prescription renewals", href: "/clinician/prescription-renewals", icon: "medication", countKey: "prescriptionRenewalRequests" },
+                // Problems a partner pharmacy raised on a prescription (S36h).
+                { label: "Pharmacy messages", href: "/clinician/pharmacy-flags", icon: "medication" },
                 { label: "Verified documents", href: "/clinician/verified-documents", icon: "inbox", countKey: "verifiedDocumentRequests" },
                 { label: "Senior case reviews", href: "/clinician/senior-case-reviews", icon: "escalation", countKey: "seniorCaseReviews" },
+                {
+                  label: "Curbside consults",
+                  href: "/clinician/curbside-consults",
+                  icon: "messages",
+                  countKey: "curbsideConsultsAwaitingReply",
+                },
               ],
             },
             {
@@ -408,7 +456,12 @@ export function getNavSections(
                 { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle", countKey: "lifestyleFlags" },
                 { label: "Annual reviews", href: "/clinician/annual-reviews", icon: "review", countKey: "annualReviews" },
                 { label: "Preventive reviews", href: "/clinician/preventive-reviews", icon: "preventive", countKey: "preventiveReviews" },
-                { label: "Sexual health cases", href: "/clinician/sexual-health", icon: "escalation" },
+                {
+                  label: "Sexual health cases",
+                  href: "/clinician/sexual-health",
+                  icon: "escalation",
+                  countKey: "pendingEcRequests",
+                },
               ],
             },
             {
@@ -416,7 +469,12 @@ export function getNavSections(
               items: [
                 { label: "Referrals", href: "/clinician/referrals", icon: "referral", countKey: "referralsNeedingUrgency" },
                 { label: "Waitlisted referrals", href: "/clinician/referrals/waitlisted", icon: "referral", countKey: "waitlistedReferrals" },
-                { label: "Orders", href: "/clinician/orders", icon: "logistics" },
+                {
+                  label: "Orders",
+                  href: "/clinician/orders",
+                  icon: "logistics",
+                  countKey: "labOrdersAwaitingHomeVisitAssignment",
+                },
                 { label: "Vaccinations", href: "/clinician/vaccinations", icon: "vaccination", countKey: "vaccinationVerifications" },
               ],
             },
@@ -431,44 +489,80 @@ export function getNavSections(
                   href: "/clinician/quality-improvement",
                   icon: "review",
                 },
-                { label: "Safety incidents", href: "/clinician/safety-incidents", icon: "warning" },
+                {
+                  label: "Safety incidents",
+                  href: "/clinician/safety-incidents",
+                  icon: "warning",
+                  countKey: "openSafetyIncidents",
+                },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication", countKey: "adherenceAlerts" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages", countKey: "outreach" },
                 { label: "Population health", href: "/clinician/populations", icon: "population" },
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan", countKey: "recommendations" },
                 { label: "Device operations", href: "/clinician/device-operations", icon: "devices" },
                 { label: "Data deletion requests", href: "/clinician/data-deletion-requests", icon: "compliance" },
+                {
+                  label: "FHIR partner review",
+                  href: "/clinician/fhir-review",
+                  icon: "inbox",
+                  countKey: "fhirProposedResourcesPending",
+                },
               ],
             },
             {
               label: "My work",
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
+                // S27: lab results held before the patient can see them (INV-03, INV-04).
+                { label: "Lab results to review", href: "/clinician/lab-results", icon: "labs" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
+                // S21: today's and tomorrow's consultation rooms (spec 9.1, "Consultations").
+                { label: "Consultations", href: "/clinician/consultations", icon: "booking" },
                 {
                   label: "Lab result consults",
                   href: "/clinician/lab-result-consults",
                   icon: "labs",
+                  countKey: "labResultConsultsWaiting",
                 },
-                // Both added 2026-09-10 with the two new clinical products.
-                // Shown to every clinician tier, per this file's gating
-                // philosophy: the authority rules live in the database
-                // (private.enforce_therapy_approver_authority and
-                // enforce_weight_checkin_reviewer_authority), so a Care
-                // Coordinator can see either queue and is refused if they try
-                // to act on it, which is the right shape -- they route work,
-                // they do not close clinical decisions.
+                // Added 2026-09-22 alongside the Preventive Health Check
+                // Review SKU — before this, a paid-for Health Check review
+                // had no queue anywhere; a doctor could only find one by
+                // already knowing the patientId. See
+                // 20260922185300_preventive_health_check_review_sku.sql.
                 {
-                  label: "Weight management",
-                  href: "/clinician/weight-management",
-                  icon: "weight",
+                  label: "Preventive Health Check reviews",
+                  href: "/clinician/preventive-health-check-reviews",
+                  icon: "preventive",
+                  countKey: "preventiveHealthCheckReviewsWaiting",
                 },
+                // Added 2026-09-10 with the therapy-approval clinical
+                // product. Shown to every clinician tier, per this file's
+                // gating philosophy: the authority rule lives in the database
+                // (private.enforce_therapy_approver_authority), so a Care
+                // Coordinator can see the queue and is refused if they try to
+                // act on it, which is the right shape -- they route work,
+                // they do not close clinical decisions.
                 {
                   label: "Therapy approvals",
                   href: "/clinician/therapy-approvals",
                   icon: "mood",
+                  countKey: "therapyApprovalsWaiting",
                 },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
+                // Documents, licence and cover dates, level and renewal uploads (S15).
+                { label: "Training and profile", href: "/clinician/credentials", icon: "review" },
+                // Declared hours, the on-call rota, cover requests (S18).
+                // Red event pages sent to you: acknowledge, open the chart, close with a note (S19).
+                // The Next task queue, the task I hold, and the patients I lead (S35).
+                { label: "Next task", href: "/clinician/queue", icon: "escalation" },
+                { label: "My lead patients", href: "/clinician/lead-patients", icon: "patientActivity" },
+                { label: "On call", href: "/clinician/on-call", icon: "siren" },
+                { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
+                // What a contracted clinician has earned, line by line, and the fee schedule that applies (S30).
+                { label: "Earnings", href: "/clinician/earnings", icon: "analytics" },
+                // The concerns this clinician raised and the replies to them (S36i). Their own only.
+                { label: "My concerns", href: "/clinician/my-concerns", icon: "review" },
+                { label: "Payouts", href: "/clinician/payouts", icon: "analytics" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier
                 // per this file's own gating philosophy above; the page
@@ -489,19 +583,86 @@ export function getNavSections(
             {
               label: "Clinical governance",
               items: [
+                // Leads the section on purpose: the one page that answers
+                // "what still needs my signature, and what do I press"
+                // across every governed table below, rather than making a
+                // CMO check nine separate pages to find out. Added
+                // 2026-09-22 alongside the rest of this section's entries —
+                // before that, only 2 of the 9 governance pages below had a
+                // /clinician mirror at all (Clinical protocols, Symptom
+                // triage protocols); the other 7 plus this checklist were
+                // reachable only via /admin, which a real CMO account
+                // (always `profiles.role = "clinician"`) cannot open.
+                { label: "Sign-off hub", href: "/clinician/clinical-signoff", icon: "review" },
+                // New clinician applications, licence and cover expiry, and the training and test content (S15).
+                // Chief Medical Officer only; the pages redirect anyone below that tier.
+                { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
+                // The on-call rota, declared on-call hours and lead clinicians (S18). Chief Medical Officer only; the page redirects anyone below that tier.
+                { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
+                // The go-live guards and the proposed values the CMO owns (S37). CMO only; the page redirects anyone below that tier.
+                { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
+                // Weekly payout drafts the CMO may approve (S36j, founder decision 2026-10-06). CMO only; the page redirects others. Sending stays with the admin.
+                { label: "Payout approvals", href: "/clinician/payout-approvals", icon: "governance" },
+                // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
+                { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
+                // Every clinician with status, licence, competencies; decide competency grants and reinstatements, pause someone (S36d). CMO only; the page redirects others.
+                { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
+                // Queue and page times against their limits, on-call cover and reliability bands (S36e). CMO only; the page redirects others.
+                { label: "Reliability and SLA", href: "/clinician/reliability", icon: "caseload" },
+                // Private safety concerns raised by clinicians, backup readers and retaliation reviews (S36i). CMO only; the page redirects others.
+                { label: "Safety concerns", href: "/clinician/quality/concerns", icon: "governance" },
+                // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
+                { label: "Memberships", href: "/clinician/memberships", icon: "members" },
+                // The AI governance console's two CMO-only actions (approving
+                // an ai_system_versions row, labelling an ai_evaluation_cases
+                // clinical-accuracy scenario) — same reachability gap as
+                // Clinical sign-off above, closed the same way. See that
+                // page's own comment for the admin-banner/proxy.ts history.
+                { label: "AI governance sign-off", href: "/clinician/ai-governance", icon: "review" },
                 { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
+                { label: "Titration protocols", href: "/clinician/titration-protocols", icon: "review" },
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
+                { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
+                { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
+                { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
+                { label: "Alert rules", href: "/clinician/alert-rules", icon: "siren" },
+                { label: "Escalation SLAs", href: "/clinician/escalation-slas", icon: "escalation" },
+                { label: "CV-risk (cholesterol) config", href: "/clinician/cv-risk-config", icon: "bp" },
+                {
+                  label: "Risk questionnaire configuration",
+                  href: "/clinician/risk-questionnaire-config",
+                  icon: "review",
+                },
+                {
+                  label: "Mental health screening cadences",
+                  href: "/clinician/mental-health-screening",
+                  icon: "preventive",
+                },
+                {
+                  label: "Provider quality policy",
+                  href: "/clinician/provider-quality-policy",
+                  icon: "review",
+                },
+                { label: "Vaccination schedule", href: "/clinician/vaccination-schedule", icon: "vaccination" },
                 { label: "Provider quality", href: "/clinician/provider-quality", icon: "analytics" },
               ],
             },
             // Only reachable for a clinician holding a delegated
             // ops.console.view/incidents.* grant (the "Clinical
             // administrator" role preset) — self-gated, safe to always show.
+            // Support view-as is deliberately NOT listed here — the Clinical
+            // administrator preset carries no `support.view_as` grant, so
+            // the link would always bounce (see the identical note in the
+            // care_coordinator case above).
             {
               label: "Operations administration",
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+                { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+                { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+                { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
               ],
             },
           ];
@@ -529,10 +690,30 @@ export function getNavSections(
             { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
+            // New clinician applications, document and licence checks, licence and indemnity expiry (S15).
+            { label: "Clinician credentialing", href: "/admin/credentialing", icon: "review" },
+            // Who is on call, who is declared to work, who leads each care pack patient (S18).
+            { label: "Rota and lead clinicians", href: "/admin/rota", icon: "caseload" },
+            // The go-live guards and the proposed values the founder owns (S37).
+            { label: "Go-live guards", href: "/admin/go-live", icon: "governance" },
+            // Grant or end a Membership by hand until checkout exists (S22b).
+            { label: "Memberships", href: "/admin/memberships", icon: "members" },
+            // What can be bought, its price and its history; switch an item on or off (S25).
+            { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
+            // Fee schedules, what contracted clinicians have earned, adjustments (S30).
+            { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
+            { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+            { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+            { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
+            { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
             { label: "Leads", href: "/admin/leads", icon: "members" },
             { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
+            { label: "Data rights requests", href: "/admin/data-rights", icon: "privacy" },
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
             { label: "AI governance", href: "/admin/settings/ai-governance", icon: "audit" },
@@ -541,6 +722,7 @@ export function getNavSections(
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
             { label: "Provider quality", href: "/admin/provider-quality", icon: "governance" },
             { label: "Testimonials", href: "/admin/testimonials", icon: "review" },
+            { label: "Doctor testimonials", href: "/admin/doctor-testimonials", icon: "review" },
           ],
         },
         {
@@ -554,6 +736,7 @@ export function getNavSections(
           items: [
             { label: "Overview", href: "/pharmacist", icon: "dashboard", exact: true },
             { label: "Orders", href: "/pharmacist/orders", icon: "pharmacy" },
+            { label: "Prescriptions sent to you", href: "/pharmacist/prescriptions", icon: "medication" },
             { label: "Verify a prescription", href: "/pharmacist/verify", icon: "approvals" },
             { label: "Dispensing history", href: "/pharmacist/history", icon: "audit" },
             { label: "Pharmacy profile", href: "/pharmacist/profile", icon: "settings" },
@@ -565,6 +748,8 @@ export function getNavSections(
         {
           items: [
             { label: "Dashboard", href: "/lab-partner", icon: "dashboard", exact: true },
+            // S27: structured result entry (spec 9.6).
+            { label: "Enter results", href: "/lab-partner/results", icon: "labs" },
           ],
         },
       ];
@@ -600,12 +785,19 @@ export function getNavSections(
         // grant (the "Technical administrator" or "Data & analytics
         // administrator" role presets carry ops.console.view/incidents.*;
         // only Technical administrator carries feature_flags.manage) —
-        // self-gated, safe to always show.
+        // self-gated, safe to always show. Support view-as is deliberately
+        // NOT listed here — neither preset carries `support.view_as`, so the
+        // link would always bounce (see the identical note in the
+        // care_coordinator case above).
         {
           label: "Platform operations",
           items: [
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+            { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+            { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
         },
@@ -639,11 +831,19 @@ export function getNavSections(
         },
         // Only reachable for a Finance administrator holding the delegated
         // ops.console.view/incidents.* grant — self-gated, safe to show.
+        // Support view-as is deliberately NOT listed here — the Finance
+        // administrator preset carries no `support.view_as` grant, so the
+        // link would always bounce (see the identical note in the
+        // care_coordinator case above).
         {
           label: "Operations",
           items: [
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+            { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+            { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
           ],
         },
         {
@@ -735,6 +935,16 @@ export function getNavSections(
           items: [
             { label: "Settlements", href: "/provider-org/settlements", icon: "statements" },
           ],
+        },
+      ];
+    // Module ngo_funded_cohort — built dormant (platform_modules.
+    // ngo_funded_cohort, off by default). Same posture as the payer/
+    // provider-org nav above: /ngo itself checks module + role server-side
+    // and renders a "not yet activated" placeholder when the module is off.
+    case "ngo_admin":
+      return [
+        {
+          items: [{ label: "Overview", href: "/ngo", icon: "dashboard", exact: true }],
         },
       ];
     default:

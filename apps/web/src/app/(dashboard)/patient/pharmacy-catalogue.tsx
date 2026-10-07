@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { koboToNaira } from "@tarragon/shared";
+import { canonicalizeNigerianState } from "@/lib/nigeria-states";
 
 /**
  * Per the clinician-originated-orders guardrail (see
@@ -70,7 +71,11 @@ export function PharmacyCatalogue({
   const [quantity, setQuantity] = useState(1);
   const [origin, setOrigin] = useState<Coords | null>(null);
   const [geoStatus, setGeoStatus] = useState<"idle" | "loading" | "denied" | "ready">("idle");
-  const [filterState, setFilterState] = useState(patientLocation?.state ?? "");
+  // Canonicalized for the same reason facility-selector.tsx's picker is: a stale
+  // profiles.state (pre-Select free text) can be a casing/whitespace/"...State"-suffix
+  // variant that `matches()`'s substring search would otherwise fail to match against
+  // pharmacy_partners.state's canonical spelling.
+  const [filterState, setFilterState] = useState(canonicalizeNigerianState(patientLocation?.state));
   const [filterCity, setFilterCity] = useState(patientLocation?.city ?? "");
   const [filterArea, setFilterArea] = useState(patientLocation?.area ?? "");
 

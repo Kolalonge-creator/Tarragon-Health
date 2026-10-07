@@ -5,7 +5,7 @@ import { alertAdminsOfOpenFlags } from "@/lib/finance/reconciliation-flags";
 
 /**
  * Daily automated Paystack reconciliation (Vercel Cron, see
- * apps/web/vercel.json). Three passes, in order:
+ * apps/web/vercel.json). Two passes plus an admin alert, in order:
  *
  *   1. runReconciliationSweep — compares Paystack's own record of the last
  *      48 hours against payment_transactions and flags any discrepancy.

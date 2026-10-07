@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { refuseSupersededDraft } from "@/lib/clinical/refuse-superseded-draft";
+import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import type { Json } from "@tarragon/shared";
 import { slaFieldName } from "./sla-field";
 
@@ -48,7 +50,13 @@ export async function createEscalationSlaDraftAction(
   formData: FormData
 ): Promise<CreateEscalationSlaDraftState> {
   const profile = await getCurrentProfile();
-  if (profile?.role !== "admin") {
+  const staff = await getCurrentClinicalStaff();
+  // Dual-gated the same way triage-protocols/actions.ts was fixed 2026-09-14:
+  // an admin login OR the org's Chief Medical Officer / Clinical Director.
+  // Found 2026-09-22 — this action was admin-only even though
+  // sign_escalation_slas (below) already required a Clinical Director,
+  // never admin — a CMO could sign a version but never draft one.
+  if (profile?.role !== "admin" && !canAssignCases(staff)) {
     return { error: "Not authorised" };
   }
 
@@ -100,7 +108,7 @@ export async function createEscalationSlaDraftAction(
     String(formData.get("notes") ?? "").trim() ||
     (changes.length > 0
       ? `Version ${nextVersion}: ${changes.join("; ")}. Sign to bring into force.`
-      : `Re-attested by admin, version ${nextVersion}, config unchanged from the prior active version. Sign to bring into force.`);
+      : `Re-attested by ${profile?.role === "admin" ? "admin" : "the Clinical Director"}, version ${nextVersion}, config unchanged from the prior active version. Sign to bring into force.`);
 
   const { error } = await supabase.from("escalation_slas").insert({
     version: nextVersion,
@@ -110,6 +118,8 @@ export async function createEscalationSlaDraftAction(
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings/escalation-slas");
+  revalidatePath("/clinician/escalation-slas");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
 
@@ -124,10 +134,14 @@ export async function signEscalationSlasAction(
   versionId: string
 ): Promise<SignEscalationSlasState> {
   const supabase = await createClient();
+  const refused = await refuseSupersededDraft(supabase, "escalation_slas", versionId);
+  if (refused) return { error: refused };
   const { error } = await supabase.rpc("sign_escalation_slas", {
     p_id: versionId,
   });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/escalation-slas");
+  revalidatePath("/clinician/escalation-slas");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }

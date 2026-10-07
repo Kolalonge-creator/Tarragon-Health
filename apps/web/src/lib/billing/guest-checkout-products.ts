@@ -1,11 +1,11 @@
-import { PAID_SERVICES, WEIGHT_MANAGEMENT } from "@/app/(marketing)/_content/pricing";
+import { PAID_SERVICES } from "@/app/(marketing)/_content/pricing";
 
 /**
  * Which service_products codes can be bought without an existing account.
  *
- * Deliberately a curated subset of everything in PAID_SERVICES/
- * WEIGHT_MANAGEMENT, not "every active service_products row" — guest
- * checkout provisions a brand-new profile on the spot
+ * Deliberately a curated subset of everything in PAID_SERVICES, not "every
+ * active service_products row" — guest checkout provisions a brand-new
+ * profile on the spot
  * (apps/web/src/lib/billing/guest-checkout.ts), so it only makes sense for a
  * product that stands on its own with no existing record, prescription or
  * programme history behind it. `prescription_renewal_credit` (needs an
@@ -20,17 +20,12 @@ import { PAID_SERVICES, WEIGHT_MANAGEMENT } from "@/app/(marketing)/_content/pri
  * a hand-crafted request for a code that was never meant to be guest-buyable.
  */
 export const GUEST_CHECKOUT_PRODUCT_CODES = [
-  "continuous_monitoring_3m",
-  "continuous_monitoring_6m",
-  "continuous_monitoring_12m",
+  "continuous_monitoring_90d",
   "written_result_interpretation",
   "result_interpretation_credit",
   "async_consult_credit",
   "second_opinion_credit",
   "video_visit_credit",
-  "weight_management_3m",
-  "weight_management_6m",
-  "weight_management_12m",
 ] as const;
 
 export type GuestCheckoutProductCode = (typeof GUEST_CHECKOUT_PRODUCT_CODES)[number];
@@ -45,50 +40,28 @@ export type GuestCheckoutProductCopy = {
   staticPrice: string;
   priceCaption?: string;
   description: string;
-  disclosure?: string;
-  /** Other terms of the same product, e.g. Continuous Monitoring's 3/6/12-month options. */
-  terms?: readonly { code: string; label: string; price: string; perMonth: string }[];
 };
 
 /**
  * Resolves a guest-buyable code's marketing copy from the same source the
- * pricing page reads — PAID_SERVICES for everything except Supervised Weight
- * Management, which is kept as its own object (see pricing.ts's comment on
- * WEIGHT_MANAGEMENT) because it carries a mandatory medical disclosure the
- * other products don't.
+ * pricing page reads.
  */
 export function guestCheckoutProductCopy(
   code: GuestCheckoutProductCode
 ): GuestCheckoutProductCopy | null {
-  if (code.startsWith("weight_management_")) {
-    const term = WEIGHT_MANAGEMENT.terms.find((t) => t.code === code);
-    if (!term) return null;
-    return {
-      code,
-      name: WEIGHT_MANAGEMENT.name,
-      staticPrice: term.price,
-      priceCaption: `for ${term.label.toLowerCase()}`,
-      description: WEIGHT_MANAGEMENT.description,
-      disclosure: WEIGHT_MANAGEMENT.disclosure,
-      terms: WEIGHT_MANAGEMENT.terms,
-    };
-  }
-
-  // Continuous Monitoring's 6/12-month terms share the 3-month entry's copy
-  // and description — only the price/term label differ, held in `terms`.
-  const parentCode = code.startsWith("continuous_monitoring_")
-    ? "continuous_monitoring_3m"
-    : code;
-  const service = PAID_SERVICES.find((s) => s.code === parentCode);
+  // Continuous Monitoring collapsed to a single 90-day code 2026-09-22 (see
+  // 20260922185200_continuous_monitoring_90d_single_tier.sql) — no more
+  // 3/6/12-month terms to special-case here, `code` matches a PAID_SERVICES
+  // entry directly. No PAID_SERVICES entry carries a `terms` array anymore,
+  // so this branch reads price/priceCaption straight off the product.
+  const service = PAID_SERVICES.find((s) => s.code === code);
   if (!service) return null;
 
-  const term = service.terms?.find((t) => t.code === code);
   return {
     code,
     name: service.name,
-    staticPrice: term?.price ?? service.price,
-    priceCaption: term ? `for ${term.label.toLowerCase()}` : service.priceCaption,
+    staticPrice: service.price,
+    priceCaption: service.priceCaption,
     description: service.description,
-    terms: service.terms,
   };
 }

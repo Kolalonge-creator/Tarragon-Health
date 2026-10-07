@@ -10,7 +10,9 @@ export const REFERRAL_OUTCOME_DOC_BUCKET = "specialist-referral-outcome-document
  * exist) — the row-level RLS on specialist_referrals is the real
  * authorisation gate, so the CALLER must already have read the row through
  * their own RLS-scoped session before asking for a URL. Never returns a
- * public URL. Mirrors lib/lab-results/documents.ts's signResultDocumentPath.
+ * public URL. This is a single-document lookup, not a list, so it stays a
+ * plain createSignedUrl call rather than using
+ * lib/supabase/sign-storage-paths.ts's batched signStoragePaths.
  */
 export async function signReferralOutcomeDocumentPath(path: string): Promise<string | null> {
   const service = createServiceRoleClient();

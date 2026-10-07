@@ -292,10 +292,11 @@ async function writeRefillConfirmation(
   supabase: Supabase,
   payload: Extract<ProposedPayload, { kind: "confirm_medication_refill" }>
 ): Promise<WriteResult> {
-  const { error } = await supabase
-    .from("medications")
-    .update({ refill_date: payload.refillDate })
-    .eq("id", payload.medicationId);
+  // INV-10: through the tie-gated function (a direct staff update would match zero rows and still report success).
+  const { error } = await supabase.rpc("confirm_medication_refill", {
+    p_medication: payload.medicationId,
+    p_refill_date: payload.refillDate,
+  });
 
   if (error) return { success: false, message: error.message };
   return { success: true, resultTable: "medications", resultId: payload.medicationId };

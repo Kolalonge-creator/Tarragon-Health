@@ -8,9 +8,11 @@ import {
   type TimelineEventType,
 } from "@/lib/timeline";
 import { isClinicalTier } from "@tarragon/shared";
+import { formatDoctorName } from "@/lib/doctor-name";
 import type { SectionId } from "@/lib/sections";
-import { colors, spacing } from "@/ui/theme";
-import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, SecondaryButton, ScreenTitle } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, SecondaryButton, ScreenTitle } from "@/ui/legacy-kit";
 
 const PAGE_SIZE = 20;
 
@@ -54,12 +56,14 @@ function formatWhen(value: string): string {
 
 // Same null-gating as ActorAttribution on web: a real clinical_staff row
 // isn't the same as a real doctor -- a Care Coordinator carries one too.
-function actorSubtitle(actor: TimelineEvent["actor"]): string | undefined {
+// No credential number, specialty, or years-of-experience here -- per
+// docs/CLINICAL_TRUST_MODEL_SPEC.md's 2026-09-25/2026-09-26 correction,
+// per-case attribution is name-only ("Dr. First Last"); mobile has no
+// doctor-profile-page equivalent to link that detail to.
+export function actorSubtitle(actor: TimelineEvent["actor"]): string | undefined {
   if (!actor?.full_name) return undefined;
   if (!isClinicalTier(actor)) return "By your care team";
-  const credential =
-    actor.credential_type && actor.credential_number ? ` · ${actor.credential_type} ${actor.credential_number}` : "";
-  return `By Dr. ${actor.full_name}${credential}`;
+  return `By ${formatDoctorName(actor.full_name)}`;
 }
 
 interface TimelineScreenProps {
@@ -68,6 +72,7 @@ interface TimelineScreenProps {
 }
 
 export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
+  const colors = useLegacyColors();
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -98,7 +103,7 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
   const hasMore = events.length === limit;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <View>
         <ScreenTitle>Full activity timeline</ScreenTitle>
         <MutedText>Every update to your record, newest first.</MutedText>
@@ -156,7 +161,7 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
               }}
             />
           ) : (
-            <Text style={{ textAlign: "center", color: colors.faint, fontSize: 13 }}>
+            <Text style={{ textAlign: "center", color: colors.subtle, fontSize: 13 }}>
               You&apos;ve reached the beginning of your record.
             </Text>
           )}

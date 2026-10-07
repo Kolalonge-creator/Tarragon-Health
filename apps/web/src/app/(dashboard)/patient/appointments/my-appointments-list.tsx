@@ -10,6 +10,7 @@ import {
   useCancelWaitingListEntry,
   useAcceptWaitingListOffer,
   useEnsureAppointmentVideoConsultation,
+  useMyUpcomingEncounters,
 } from "@/lib/queries/appointments";
 import {
   APPOINTMENT_TYPE_LABELS,
@@ -20,6 +21,8 @@ import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConsultationRuleCard } from "@/components/consultation/consultation-rule";
+import type { Locale } from "@tarragon/i18n";
 
 import { formatPatientDateTime } from "@/lib/format-date";
 const JOINABLE_STATUSES = ["booked", "confirmed", "checked_in", "in_progress"];
@@ -37,8 +40,11 @@ function formatSlot(iso: string): string {
 /** The patient's own upcoming appointments across every appointment_type,
  * plus any live waiting-list entries (10.17) — a cancellation elsewhere can
  * turn one of these into an "offered" slot the patient needs to accept. */
-export function MyAppointmentsList({ patientId }: { patientId: string }) {
+export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: string; locale?: Locale }) {
   const { data: appointments, isLoading } = useMyUpcomingAppointments(patientId);
+  // S21: a booked consultation has its own room; an appointment without one (older bookings) keeps the older waiting room.
+  const { data: encounters } = useMyUpcomingEncounters(patientId);
+  const roomFor = (appointmentId: string) => encounters?.find((e) => e.appointment_id === appointmentId)?.encounter_id ?? null;
   const { data: waitingList } = useMyWaitingListEntries(patientId);
   const cancel = useCancelAppointment();
   const confirm = useConfirmAppointmentBooking();
@@ -97,6 +103,11 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
    * this appointment doesn't have one yet. */
   async function handleJoinCall(appointmentId: string) {
     setError(null);
+    const room = roomFor(appointmentId);
+    if (room) {
+      router.push(`/patient/consultation/${room}`);
+      return;
+    }
     try {
       const result = await ensureVideo.mutateAsync(appointmentId);
       router.push(`/patient/video-visit/${result.videoConsultationId}`);
@@ -111,8 +122,13 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
         <CardTitle>Your upcoming appointments</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            {error}
+          </p>
+        )}
 
+        {appointments?.some((a) => a.consultation_method === "telemedicine") && <ConsultationRuleCard locale={locale} />}
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {appointments && appointments.length === 0 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No upcoming appointments yet.</p>

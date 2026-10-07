@@ -133,8 +133,12 @@ export async function loadHealthCheckState(patientId: string): Promise<QueryResu
 
   let reviewerName: string | null = null;
   if (check?.reviewed_by) {
+    // Reads from clinical_staff_directory, not clinical_staff, since
+    // 2026-09-25's clinical_staff_select narrowing (see
+    // 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+    // stopped admitting a patient session to the base table.
     const { data: reviewer } = await supabase
-      .from("clinical_staff")
+      .from("clinical_staff_directory")
       .select("full_name")
       .eq("id", check.reviewed_by)
       .maybeSingle();

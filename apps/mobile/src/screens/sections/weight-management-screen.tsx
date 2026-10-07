@@ -13,19 +13,9 @@ import {
   type LpeGoalModule,
 } from "@/lib/weight-management";
 import type { SectionId } from "@/lib/sections";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
-import { SupervisedWeightManagementCard } from "@/screens/sections/supervised-weight-management-card";
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const OBESITY_STATUS_COPY: Record<string, string> = {
   preclinical:
@@ -64,9 +54,10 @@ function when(iso: string): string {
 }
 
 function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
+  const colors = useLegacyColors();
   return (
     <Text onPress={onToggle} style={{ fontSize: 13, color: colors.ink, paddingVertical: 4 }}>
-      <Text style={{ fontWeight: "700", color: checked ? colors.brand : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
+      <Text style={{ fontWeight: "700", color: checked ? colors.brandPressed : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
       {label}
     </Text>
   );
@@ -74,7 +65,6 @@ function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: ()
 
 interface WeightManagementScreenProps {
   userId: string;
-  organisationId: string;
   onNavigate: (section: SectionId) => void;
 }
 
@@ -90,7 +80,8 @@ interface WeightManagementScreenProps {
  * evaluation that must not be reimplemented client-side; goal create/resolve
  * are plain RLS-scoped RPCs, called directly.
  */
-export function WeightManagementScreen({ userId, organisationId, onNavigate }: WeightManagementScreenProps) {
+export function WeightManagementScreen({ userId, onNavigate }: WeightManagementScreenProps) {
+  const colors = useLegacyColors();
   const [assessment, setAssessment] = useState<ObesityAssessment | null>(null);
   const [referral, setReferral] = useState<BariatricReferral | null>(null);
   const [enrollment, setEnrollment] = useState<LifestyleEnrollment | null>(null);
@@ -132,12 +123,6 @@ export function WeightManagementScreen({ userId, organisationId, onNavigate }: W
         <ScreenTitle>Weight management</ScreenTitle>
         <MutedText>Your assessment, your programme, your trackers, and what your care team is doing for you, all in one place.</MutedText>
       </View>
-
-      {/* A separate, paid track from the free lifestyle coaching below: a
-          doctor supervising weight-loss medication you obtained yourself.
-          Placed first so the two don't get confused — mirrors
-          weight-management-panel.tsx, which lives on its own web route. */}
-      <SupervisedWeightManagementCard organisationId={organisationId} patientId={userId} />
 
       {assessment && (
         <Card style={{ gap: 8 }}>
@@ -186,6 +171,7 @@ export function WeightManagementScreen({ userId, organisationId, onNavigate }: W
 }
 
 function EnrollCta({ onEnrolled }: { onEnrolled: () => void }) {
+  const colors = useLegacyColors();
   const [consented, setConsented] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [needsEdScreen, setNeedsEdScreen] = useState(false);
@@ -230,6 +216,9 @@ function EnrollCta({ onEnrolled }: { onEnrolled: () => void }) {
 }
 
 function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [behaviours, setBehaviours] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
@@ -298,7 +287,7 @@ function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () =>
       <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink, marginTop: 4 }}>
         Anything else you&apos;d like your care team to know?
       </Text>
-      <TextInput
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={notes}
         onChangeText={setNotes}
         multiline
@@ -313,6 +302,7 @@ function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () =>
 }
 
 function EnrollmentCard({ enrollment, onChanged }: { enrollment: LifestyleEnrollment; onChanged: () => void }) {
+  const colors = useLegacyColors();
   return (
     <Card style={{ gap: 10 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -346,6 +336,7 @@ function EnrollmentCard({ enrollment, onChanged }: { enrollment: LifestyleEnroll
 }
 
 function GoalRow({ goal, onChanged }: { goal: { id: string; module: string; title: string; personalised: boolean }; onChanged: () => void }) {
+  const colors = useLegacyColors();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
 
@@ -368,7 +359,7 @@ function GoalRow({ goal, onChanged }: { goal: { id: string; module: string; titl
         <MutedText>{done}</MutedText>
       ) : goal.personalised ? (
         <View style={{ flexDirection: "row", gap: 10 }}>
-          <Text onPress={() => !busy && resolve("achieved")} style={{ fontSize: 12, fontWeight: "600", color: colors.brand }}>
+          <Text onPress={() => !busy && resolve("achieved")} style={{ fontSize: 12, fontWeight: "600", color: colors.brandPressed }}>
             Mark achieved
           </Text>
           <Text onPress={() => !busy && resolve("abandoned")} style={{ fontSize: 12, color: colors.muted }}>
@@ -381,6 +372,9 @@ function GoalRow({ goal, onChanged }: { goal: { id: string; module: string; titl
 }
 
 function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [type, setType] = useState<"mood" | "weight" | "activity_minutes">("mood");
   const [value, setValue] = useState("");
   const [strugglingWithFood, setStrugglingWithFood] = useState(false);
@@ -437,7 +431,7 @@ function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }) {
           </Text>
         ))}
       </View>
-      <TextInput value={value} onChangeText={setValue} placeholder="Value (e.g. 3)" keyboardType="numeric" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={value} onChangeText={setValue} placeholder="Value (e.g. 3)" keyboardType="numeric" style={textInputStyle} />
       <Checkbox
         checked={strugglingWithFood}
         onToggle={() => setStrugglingWithFood((v) => !v)}
@@ -453,6 +447,9 @@ function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }) {
 const GOAL_MODULES: LpeGoalModule[] = ["diet", "activity", "behaviour", "sleep", "stress", "smoking"];
 
 function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; onAdded: () => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [module, setModule] = useState<LpeGoalModule>("diet");
   const [title, setTitle] = useState("");
@@ -475,7 +472,7 @@ function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; onAdded:
 
   if (!open) {
     return (
-      <Text onPress={() => setOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}>
+      <Text onPress={() => setOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
         + Add a goal
       </Text>
     );
@@ -503,7 +500,7 @@ function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; onAdded:
           </Text>
         ))}
       </View>
-      <TextInput value={title} onChangeText={setTitle} placeholder="Describe your goal" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={title} onChangeText={setTitle} placeholder="Describe your goal" style={textInputStyle} />
       {error && <ErrorText>{error}</ErrorText>}
       <SecondaryButton title="Save goal" onPress={submit} loading={submitting} />
     </View>

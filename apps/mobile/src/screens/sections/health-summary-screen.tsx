@@ -11,8 +11,9 @@ import {
 } from "@/lib/health-summary";
 import type { Enums } from "@tarragon/shared";
 import type { SectionId } from "@/lib/sections";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, ScreenTitle } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
+import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, ScreenTitle } from "@/ui/legacy-kit";
 
 type ConditionStatus = Enums<"condition_clinical_status">;
 
@@ -26,15 +27,15 @@ const CONDITION_STATUS_LABEL: Record<ConditionStatus, string> = {
   historical: "Historical",
 };
 
-const CONDITION_STATUS_COLOR: Record<ConditionStatus, { bg: string; text: string }> = {
+const conditionStatusColor = (colors: ReturnType<typeof useLegacyColors>): Record<ConditionStatus, { bg: string; text: string }> => ({
   suspected: { bg: colors.status.warnBg, text: colors.status.warn },
   under_investigation: { bg: colors.status.warnBg, text: colors.status.warn },
-  active: { bg: "#FDECEC", text: colors.status.critical },
-  uncontrolled: { bg: "#FDECEC", text: colors.status.critical },
+  active: { bg: colors.dangerBg, text: colors.status.critical },
+  uncontrolled: { bg: colors.dangerBg, text: colors.status.critical },
   controlled: { bg: colors.brandTint, text: colors.brandPressed },
   resolved: { bg: colors.groupBg, text: colors.muted },
   historical: { bg: colors.groupBg, text: colors.muted },
-};
+});
 
 const ALLERGY_SEVERITY_LABEL: Record<AllergySeverity, string> = {
   mild: "Mild",
@@ -54,15 +55,17 @@ function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
 }
 
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
+const textInputStyle = (colors: ReturnType<typeof useLegacyColors>) =>
+  ({
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.control,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: colors.ink,
+    backgroundColor: colors.card,
+  }) as const;
 
 interface HealthSummaryScreenProps {
   patientId: string;
@@ -80,6 +83,8 @@ interface HealthSummaryScreenProps {
  * same data.
  */
 export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScreenProps) {
+  const { scheme } = useTheme();
+  const colors = useLegacyColors();
   const [conditions, setConditions] = useState<PatientCondition[]>([]);
   const [allergies, setAllergies] = useState<PatientAllergy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,7 +166,7 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
           <MutedText>Nothing on file yet. Your care team adds a condition here once it has been confirmed.</MutedText>
         )}
         {conditions.map((c) => {
-          const tone = CONDITION_STATUS_COLOR[c.status];
+          const tone = conditionStatusColor(colors)[c.status];
           return (
             <Card key={c.id} style={{ gap: 4, marginBottom: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -187,7 +192,7 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
           <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Allergies</Text>
           <Text
             onPress={() => setFormOpen((v) => !v)}
-            style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}
+            style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}
           >
             {formOpen ? "Cancel" : "+ Add"}
           </Text>
@@ -195,17 +200,17 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
 
         {formOpen && (
           <Card style={{ gap: 10, marginBottom: 8 }}>
-            <TextInput
+            <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
               value={allergen}
               onChangeText={setAllergen}
               placeholder="Allergen (e.g. Penicillin)"
-              style={textInputStyle}
+              style={textInputStyle(colors)}
             />
-            <TextInput
+            <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
               value={reaction}
               onChangeText={setReaction}
               placeholder="Reaction (optional)"
-              style={textInputStyle}
+              style={textInputStyle(colors)}
             />
             <View style={{ flexDirection: "row", gap: 8 }}>
               {(["mild", "moderate", "severe"] as const).map((s) => (
@@ -240,7 +245,7 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
               {a.severity && (
                 <StatusChip
                   label={ALLERGY_SEVERITY_LABEL[a.severity]}
-                  bg={a.severity === "severe" ? "#FDECEC" : colors.groupBg}
+                  bg={a.severity === "severe" ? colors.dangerBg : colors.groupBg}
                   text={a.severity === "severe" ? colors.status.critical : colors.muted}
                 />
               )}

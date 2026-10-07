@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Text } from "react-native";
 import { loadMonitoringCover } from "@/lib/monitoring-cover";
 import type { ServicePurchaseWithProduct } from "@/lib/services";
-import { colors } from "@/ui/theme";
-import { Card, MutedText } from "@/ui/components";
+import { useLegacyColors } from "@/ui/design";
+import { Card, MutedText } from "@/ui/legacy-kit";
 
 const ENDING_SOON_DAYS = 21;
 
@@ -29,6 +29,7 @@ function shortDate(iso: string): string {
  * cancel" promise).
  */
 export function MonitoringCoverCard() {
+  const colors = useLegacyColors();
   const [cover, setCover] = useState<ServicePurchaseWithProduct | null | undefined>(undefined);
 
   useEffect(() => {
@@ -52,8 +53,8 @@ export function MonitoringCoverCard() {
         <MutedText>
           Every reading you log is still checked against care protocols, and you still get the full
           emergency safety net — immediate guidance, your emergency contact notified, and a check-in
-          afterwards. Continuous Monitoring adds a doctor on your care team being told as well, from
-          ₦7,500 for three months. Nothing renews and no card is kept.
+          afterwards. Continuous Monitoring adds a doctor on your care team being told as well, for
+          ₦30,000 across 90 days. Nothing renews and no card is kept.
         </MutedText>
       </Card>
     );

@@ -3,60 +3,14 @@ import type { QueryResult } from "./medications";
 import type { Tables, Enums } from "@tarragon/shared";
 
 // ---------------------------------------------------------------------------
-// Ask a doctor — async written Q&A. Mirrors apps/web/src/app/(dashboard)/
-// patient/ask-a-doctor.tsx. A plain insert, not a two-step RPC: the credit/
-// plan-access gate lives in a BEFORE INSERT trigger on async_consults
-// (20260831164640_async_consult_credit_gate.sql), which raises a specific,
-// catchable error when neither is available — this file never duplicates
-// that check, it only recognises the error text to offer buying a credit in
-// the system browser instead (no Paystack secret key exists on this app).
+// The written-question ("Ask your care team") flow moved to
+// ./written-questions/ and ./patient-notes.ts in S22. Patients can no longer
+// read async_consults directly; every read and write there goes through the
+// database functions. Only the marker below stays, because other credit-gated
+// services (second opinion, senior case review) cite it in their comments.
 // ---------------------------------------------------------------------------
 
-export type AsyncConsult = Tables<"async_consults">;
-export type AsyncConsultWithAnswerer = AsyncConsult & {
-  answerer: { full_name: string; credential_type: string | null; credential_number: string | null } | null;
-};
-
-export const ASYNC_CONSULT_CATEGORIES: { value: string; label: string }[] = [
-  { value: "medication", label: "A question about my medicines" },
-  { value: "symptom", label: "A symptom I'm unsure about" },
-  { value: "results", label: "Understanding a result" },
-  { value: "lifestyle", label: "Diet, exercise or lifestyle" },
-  { value: "general", label: "Something else" },
-];
-
 export const ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER = "Ask a doctor";
-
-export async function loadMyAsyncConsults(patientId: string): Promise<QueryResult<AsyncConsultWithAnswerer[]>> {
-  const { data, error } = await supabase
-    .from("async_consults")
-    .select(
-      "*, answerer:clinical_staff!async_consults_answered_by_fkey(full_name, credential_type, credential_number)"
-    )
-    .eq("patient_id", patientId)
-    .order("created_at", { ascending: false })
-    .limit(10);
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, data: data as AsyncConsultWithAnswerer[] };
-}
-
-export async function submitAsyncConsult(input: {
-  patientId: string;
-  organisationId: string;
-  category: string;
-  question: string;
-  durationNote?: string;
-}): Promise<QueryResult<null>> {
-  const { error } = await supabase.from("async_consults").insert({
-    patient_id: input.patientId,
-    organisation_id: input.organisationId,
-    category: input.category,
-    question: input.question,
-    duration_note: input.durationNote || null,
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, data: null };
-}
 
 // ---------------------------------------------------------------------------
 // Navigation requests — "I need help with something" (non-clinical: booking,

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
@@ -6,6 +7,7 @@ import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
+import { ChangePhoneCard } from "@/components/account/change-phone-card";
 import { MfaSettingsCard } from "@/components/account/mfa-settings-card";
 import { SignOutOtherDevicesCard } from "@/components/account/sign-out-other-devices-card";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
@@ -143,7 +145,24 @@ export default async function AccountPage() {
 
       {isPatient && profile.organisation_id === DEFAULT_CONSUMER_ORG_ID && <JoinEmployerCodeForm />}
 
+      {profile.role === "patient" && !profile.is_dependent_account && (
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Are you a doctor?</CardTitle>
+            <CardDescription>
+              Apply to join the Tarragon Health care team, or renew your documents if you already work with us.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/account/clinician" className="text-sm font-medium text-brand-green underline">
+              Join as a clinician
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
       <ChangePasswordForm />
+      <ChangePhoneCard />
       <MfaSettingsCard verifiedFactorId={verifiedFactorId} />
       <SignOutOtherDevicesCard />
     </div>

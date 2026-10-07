@@ -5,10 +5,10 @@
     "owner": "worldbest",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "scheme": "tarragonhealth",
     "icon": "./assets/icon.png",
-    "runtimeVersion": "0.1.0-native2",
+    "runtimeVersion": "0.1.0-native5",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -45,8 +45,8 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "TarragonHealth uses your camera to photograph a lab result so it can be read into your record.",
-          "photosPermission": "TarragonHealth accesses your photos so you can upload a lab result you've already photographed.",
+          "cameraPermission": "TarragonHealth uses your camera to photograph a lab result so it can be read into your record, and to take a photo to send with a written question to your care team.",
+          "photosPermission": "TarragonHealth accesses your photos so you can upload a lab result you've already photographed, or attach a photo to a written question to your care team.",
           "microphonePermission": false
         }
       ],
@@ -56,10 +56,16 @@
         "expo-build-properties",
         {
           "android": {
-            "minSdkVersion": 26
+            "minSdkVersion": 29
+          },
+          "ios": {
+            "deploymentTarget": "16.0"
           }
         }
-      ]
+      ],
+      "react-native-health-connect",
+      "./plugins/withHealthConnectMainActivity.js",
+      "expo-font"
     ],
     "ios": {
       "bundleIdentifier": "com.tarragonhealth.mobile",
@@ -80,7 +86,16 @@
       "permissions": [
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.BLUETOOTH",
-        "android.permission.BLUETOOTH_ADMIN"
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_BLOOD_PRESSURE",
+        "android.permission.health.READ_BLOOD_GLUCOSE",
+        "android.permission.health.READ_WEIGHT",
+        "android.permission.health.READ_OXYGEN_SATURATION",
+        "android.permission.health.READ_HEART_RATE_VARIABILITY",
+        "android.permission.health.READ_RESTING_HEART_RATE",
+        "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND",
+        "android.permission.health.READ_HEALTH_DATA_HISTORY"
       ]
     },
     "extra": {

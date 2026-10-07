@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { ConditionsManager } from "./conditions-manager";
 
+export const metadata = { title: "Chronic conditions" };
+
 export default async function ConditionsSettingsPage() {
   const profile = await getCurrentProfile();
 

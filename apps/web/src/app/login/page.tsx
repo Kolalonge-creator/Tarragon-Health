@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LoginForm } from "./login-form";
 import { GuardLeafMark } from "@/components/brand/guard-leaf-mark";
+import { getAuthLocale } from "@/lib/auth/auth-locale";
 
 export default async function LoginPage({
   searchParams,
@@ -8,6 +9,7 @@ export default async function LoginPage({
   searchParams: Promise<{ redirect?: string }>;
 }) {
   const { redirect } = await searchParams;
+  const locale = await getAuthLocale();
 
   return (
     <div className="flex flex-1 items-center justify-center bg-white px-4 py-12 sm:py-16">
@@ -29,7 +31,7 @@ export default async function LoginPage({
           </p>
         </div>
 
-        <LoginForm redirectTo={redirect} />
+        <LoginForm redirectTo={redirect} locale={locale} />
 
         <p className="text-center text-sm text-charcoal-ink/60">
           New here?{" "}

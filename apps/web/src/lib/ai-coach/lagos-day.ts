@@ -15,6 +15,22 @@ export function startOfLagosDayUtc(now: Date): Date {
   return new Date(startOfLagosDayAsUtc - LAGOS_OFFSET_MS);
 }
 
+/** The UTC instant corresponding to 00:00 Africa/Lagos time on the 1st of
+ * the given instant's Lagos calendar month — the monthly equivalent of
+ * startOfLagosDayUtc, for anything bucketing by "this month"/"last month"
+ * in Lagos wall-clock time (a naive Date.UTC(y, m, 1) boundary misclassifies
+ * any instant within the ~1-hour band either side of UTC midnight on the
+ * 1st). */
+export function startOfLagosMonthUtc(now: Date, monthOffset = 0): Date {
+  const lagosNow = new Date(now.getTime() + LAGOS_OFFSET_MS);
+  const startOfLagosMonthAsUtc = Date.UTC(
+    lagosNow.getUTCFullYear(),
+    lagosNow.getUTCMonth() + monthOffset,
+    1
+  );
+  return new Date(startOfLagosMonthAsUtc - LAGOS_OFFSET_MS);
+}
+
 /** Today's calendar date in Africa/Lagos as YYYY-MM-DD.
  *
  * Anything that reasons about which DAY something happened on must go

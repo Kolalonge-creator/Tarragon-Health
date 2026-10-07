@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { SmokingClient } from "./smoking-client";
 
@@ -23,12 +21,7 @@ export default async function SmokingPage() {
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
         description="Whether you're thinking about quitting, mid-quit, or just want to keep track: this is yours to log, and your care team can support you along the way."
       />
-      <RequiresEntitlement
-        feature="lifestyle_coaching"
-        fallback={<UpgradePrompt feature="lifestyle_coaching" />}
-      >
-        <SmokingClient patientId={profile.id} />
-      </RequiresEntitlement>
+      <SmokingClient patientId={profile.id} />
     </div>
   );
 }

@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { refuseSupersededDraft } from "@/lib/clinical/refuse-superseded-draft";
+import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 
 export type CreateSignoffDraftState = { error?: string; success?: boolean } | undefined;
 export type SignVaccinationScheduleState = { error?: string; success?: boolean } | undefined;
@@ -19,7 +21,13 @@ export async function createVaccinationScheduleDraftAction(
   formData: FormData
 ): Promise<CreateSignoffDraftState> {
   const profile = await getCurrentProfile();
-  if (profile?.role !== "admin") {
+  const staff = await getCurrentClinicalStaff();
+  // Dual-gated the same way triage-protocols/actions.ts was fixed 2026-09-14:
+  // an admin login OR the org's Chief Medical Officer / Clinical Director.
+  // Found 2026-09-22 — this action was admin-only even though
+  // sign_vaccination_schedule (below) already required a Clinical Director,
+  // never admin — a CMO could sign a version but never draft one.
+  if (profile?.role !== "admin" && !canAssignCases(staff)) {
     return { error: "Not authorised" };
   }
 
@@ -43,7 +51,7 @@ export async function createVaccinationScheduleDraftAction(
   const sourceUrl = String(formData.get("source_url") ?? "").trim() || null;
   const notes =
     String(formData.get("notes") ?? "").trim() ||
-    `Reviewed and drafted by admin, version ${nextVersion}. Sign to bring into force.`;
+    `Reviewed and drafted by ${profile?.role === "admin" ? "admin" : "the Clinical Director"}, version ${nextVersion}. Sign to bring into force.`;
 
   const { error } = await supabase.from("vaccination_schedule_signoffs").insert({
     version: nextVersion,
@@ -54,6 +62,8 @@ export async function createVaccinationScheduleDraftAction(
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings/vaccination-schedule");
+  revalidatePath("/clinician/vaccination-schedule");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
 
@@ -68,10 +78,14 @@ export async function signVaccinationScheduleAction(
   signoffId: string
 ): Promise<SignVaccinationScheduleState> {
   const supabase = await createClient();
+  const refused = await refuseSupersededDraft(supabase, "vaccination_schedule_signoffs", signoffId);
+  if (refused) return { error: refused };
   const { error } = await supabase.rpc("sign_vaccination_schedule", {
     p_signoff_id: signoffId,
   });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/vaccination-schedule");
+  revalidatePath("/clinician/vaccination-schedule");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }

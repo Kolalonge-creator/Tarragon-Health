@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { NAV_ICON } from "@/lib/icons";
 
+// SMS is deliberately not offered here: it is reserved for verification
+// codes and clinician paging. In-app notifications reach a patient
+// regardless of this setting; this only controls the reminder-channel
+// fallback ladder.
 const CHANNEL_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "", label: "No preference (default: app notification, then WhatsApp/SMS as needed)" },
-  { value: "whatsapp", label: "WhatsApp" },
-  { value: "sms", label: "SMS" },
+  { value: "", label: "No preference (default: app notification, then email as needed)" },
   { value: "email", label: "Email" },
   { value: "push", label: "App notification" },
 ];

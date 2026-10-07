@@ -18,6 +18,8 @@ import {
   diagnosticPathwayAnalyticsSchema,
   diagnosticSafetyDashboardSchema,
   diseaseSurveillanceSchema,
+  doctorIncomeSchema,
+  doctorPaidJobsSchema,
   doctorPerformanceSchema,
   engagementOutcomeCorrelationSchema,
   engagementSummarySchema,
@@ -38,6 +40,7 @@ import {
   programmeFunnelSchema,
   providerCapacitySchema,
   referralTurnaroundSchema,
+  reputationReviewConversionSchema,
   retentionCohortsSchema,
   riskRegisterSchema,
   safetyDashboardSummarySchema,
@@ -70,6 +73,22 @@ export function useBusinessSummary() {
       const { data, error } = await createClient().rpc("analytics_business_summary");
       if (error) throw error;
       return businessSummarySchema.parse(data);
+    },
+  });
+}
+
+/** Forces the nightly-refreshed analytics_business_summary snapshot
+ * (docs/DATA_ARCHITECTURE_GAPS_BUILD_PLAN.md §3) to recompute on demand,
+ * same shape as useRecomputeImpactMetrics. */
+export function useRecomputeBusinessSummary() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await createClient().rpc("admin_refresh_analytics_business_summary");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["analytics", "business-summary"] });
     },
   });
 }
@@ -246,6 +265,18 @@ export function useAcquisitionFunnel() {
       const { data, error } = await createClient().rpc("analytics_acquisition_funnel", {});
       if (error) throw error;
       return acquisitionFunnelSchema.parse(data);
+    },
+  });
+}
+
+// ---- Reputation review prompts ---------------------------------------------
+export function useReputationReviewConversion() {
+  return useQuery({
+    queryKey: ["analytics", "reputation-review-conversion"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_reputation_review_conversion");
+      if (error) throw error;
+      return reputationReviewConversionSchema.parse(data);
     },
   });
 }
@@ -502,6 +533,52 @@ export function useDoctorPerformance() {
       if (error) throw error;
       return doctorPerformanceSchema.parse(data);
     },
+  });
+}
+
+// ---- Doctor income — paid jobs per doctor, for commission calculation -----
+export function useDoctorIncome(range?: { from?: string; to?: string }) {
+  return useQuery({
+    queryKey: ["analytics", "doctor-income", range?.from ?? null, range?.to ?? null],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_doctor_income", {
+        p_from: range?.from,
+        p_to: range?.to,
+      });
+      if (error) throw error;
+      return doctorIncomeSchema.parse(data);
+    },
+  });
+}
+
+export function useDoctorPaidJobs(params?: {
+  doctorProfileId?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: [
+      "analytics",
+      "doctor-paid-jobs",
+      params?.doctorProfileId ?? null,
+      params?.from ?? null,
+      params?.to ?? null,
+      params?.limit ?? null,
+    ],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_doctor_paid_jobs", {
+        p_doctor_profile_id: params?.doctorProfileId,
+        p_from: params?.from,
+        p_to: params?.to,
+        p_limit: params?.limit,
+      });
+      if (error) throw error;
+      return doctorPaidJobsSchema.parse(data);
+    },
+    // Only fetch line items once a doctor is actually selected — the whole-
+    // period list can be large and the UI only shows it inside a drill-down.
+    enabled: Boolean(params?.doctorProfileId),
   });
 }
 

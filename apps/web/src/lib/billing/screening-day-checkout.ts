@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { initializeOneOffTransaction } from "@/lib/paystack/transactions";
+import { toPatientFacingCheckoutError } from "@/lib/paystack/patient-facing-error";
 import type { CheckoutMetadata } from "@/lib/billing/checkout-metadata";
 
 export type ScreeningDayCheckoutResult =
@@ -50,7 +51,7 @@ export async function initiateScreeningDayPaymentCheckout(args: {
     callbackUrl: args.callbackUrl,
     metadata,
   });
-  if (!result.ok) return { ok: false, error: result.error };
+  if (!result.ok) return { ok: false, error: toPatientFacingCheckoutError(result.error) };
 
   // Recorded AFTER the provider reference exists, so a pending row can never
   // point at a charge that was never created. The RPC re-checks authorisation

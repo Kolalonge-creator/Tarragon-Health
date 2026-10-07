@@ -10,6 +10,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { AnnualHealthCheckBooking } from "@/app/(dashboard)/patient/annual-health-check-booking";
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
 import { PreventiveScreeningCalendar } from "@/app/(dashboard)/patient/preventive-screening-calendar";
+import { OptionalScreeningsCard } from "@/app/(dashboard)/patient/optional-screenings-card";
 import { PreventiveProgrammes } from "@/app/(dashboard)/patient/preventive-programmes";
 import { CancerScreeningCard } from "@/app/(dashboard)/patient/cancer-screening-card";
 import { CareProgrammeRecommendations } from "@/app/(dashboard)/patient/care-programme-recommendations";
@@ -119,6 +120,10 @@ export default async function PreventionHubPage() {
                 patientId={subjectId}
                 organisationId={profile.organisation_id}
                 bookingEnabled={screeningBookingEnabled}
+              />
+              <OptionalScreeningsCard
+                patientId={subjectId}
+                profile={{ sex: subjectSex, ageYears: subjectAgeYears }}
               />
             </div>
 

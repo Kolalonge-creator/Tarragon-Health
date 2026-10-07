@@ -244,6 +244,60 @@ async function writeSignals(supabase: SupabaseClient<Database>, signals: FraudSi
   return signals.length;
 }
 
+/**
+ * The other half of what was missing: somebody being told. Mirrors
+ * reconciliation-flags.ts's alertAdminsOfOpenFlags exactly — one in_app
+ * notification per admin per sweep, only when a signal is genuinely open,
+ * and only once a day per admin so a persistent unresolved signal doesn't
+ * re-announce itself every run. Before this, a duplicate-charge or
+ * chargeback signal sat silent in payment_fraud_signals until someone
+ * happened to open /finance/fraud.
+ */
+export async function alertAdminsOfOpenFraudSignals(
+  supabase: SupabaseClient<Database>,
+): Promise<{ openSignals: number; adminsNotified: number }> {
+  const { data: open } = await supabase
+    .from("payment_fraud_signals")
+    .select("id, organisation_id, severity")
+    .eq("status", "open");
+
+  const openSignals = open?.length ?? 0;
+  if (openSignals === 0) return { openSignals: 0, adminsNotified: 0 };
+
+  const { data: admins } = await supabase.from("profiles").select("id").eq("role", "admin");
+  if (!admins?.length) return { openSignals, adminsNotified: 0 };
+
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { data: alreadyTold } = await supabase
+    .from("notifications")
+    .select("recipient_id")
+    .eq("template", "payment_fraud_signals_open")
+    .gte("created_at", since);
+  const told = new Set((alreadyTold ?? []).map((n) => n.recipient_id));
+
+  const highSeverityCount = (open ?? []).filter((s) => s.severity === "high").length;
+  const organisationId = open?.find((s) => s.organisation_id)?.organisation_id ?? null;
+  const rows = admins
+    .filter((a) => !told.has(a.id))
+    .map((a) => ({
+      organisation_id: organisationId,
+      recipient_id: a.id,
+      channel: "in_app" as const,
+      template: "payment_fraud_signals_open",
+      content_class: "non_clinical" as const,
+      priority: highSeverityCount > 0 ? ("critical" as const) : ("routine" as const),
+      payload: { open_count: openSignals, high_severity_count: highSeverityCount } as Json,
+    }));
+  if (rows.length === 0) return { openSignals, adminsNotified: 0 };
+
+  const { error } = await supabase.from("notifications").insert(rows);
+  if (error) {
+    console.error("fraud-sweep: could not alert admins", error);
+    return { openSignals, adminsNotified: 0 };
+  }
+  return { openSignals, adminsNotified: rows.length };
+}
+
 export interface FraudSweepTotals {
   paymentsChecked: number;
   signalsWritten: number;

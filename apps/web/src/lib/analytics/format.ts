@@ -30,3 +30,15 @@ export function formatNumber(value: number): string {
 export function formatPercent(value: number): string {
   return `${value.toLocaleString("en-NG", { maximumFractionDigits: 1 })}%`;
 }
+
+/** A duration in minutes, scaled to whichever unit reads best — minutes under
+ * an hour, hours under a day, days beyond that. A raw "6,641.7 min" or
+ * "19913.2m" is unreadable; every "avg time to ack/acknowledge" tile should
+ * go through this rather than appending "m"/"min" to the raw figure. */
+export function formatMinutesDuration(minutes: number): string {
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  const hours = minutes / 60;
+  if (hours < 24) return `${hours.toLocaleString("en-NG", { maximumFractionDigits: 1 })}h`;
+  const days = hours / 24;
+  return `${days.toLocaleString("en-NG", { maximumFractionDigits: 1 })}d`;
+}

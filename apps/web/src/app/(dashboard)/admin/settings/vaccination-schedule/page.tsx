@@ -8,6 +8,8 @@ import {
   type VaccinationCatalogRow,
 } from "./vaccination-schedule-manager";
 
+export const metadata = { title: "Vaccination schedule" };
+
 /**
  * Clinical Director sign-off for the vaccination reference schedule that
  * drives vaccination_catalog's due/overdue computation and the vaccination_due

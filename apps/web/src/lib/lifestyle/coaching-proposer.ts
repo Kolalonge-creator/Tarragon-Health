@@ -35,7 +35,7 @@ const messageSchema = z.object({
 // Mirrors packages/lifestyle-engine/src/messaging/index.ts's toneGuard deny
 // list explicitly, so a rejected message (screened again at send time by
 // messaging-gateway.ts) is the rare case, not the common one.
-const PROPOSER_SYSTEM_PROMPT = `You are writing a short, warm, supportive WhatsApp
+const PROPOSER_SYSTEM_PROMPT = `You are writing a short, warm, supportive in-app
 nudge for a Tarragon Health patient who has gone quiet on their lifestyle
 programme. You will be given their condition, programme phase, current goals,
 recent weight readings if any, and possibly some clinician-approved reference

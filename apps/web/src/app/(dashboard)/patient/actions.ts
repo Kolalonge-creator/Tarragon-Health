@@ -1,9 +1,10 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import * as Sentry from "@sentry/nextjs";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { resolveSubjectId } from "@/lib/acting/acting-for";
+import { resolveSubjectId, assertNotActingFor } from "@/lib/acting/acting-for";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { validatePatientAvatarFile } from "@/lib/validation/patient-avatar";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
@@ -11,7 +12,7 @@ import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
 import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
 import { assessHealthScoreBestEffort } from "@/lib/health-score/assess-health-score";
 import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate-vaccination-schedule";
-import { vitalsReadingSchema } from "@/lib/validation/vitals";
+import { vitalsReadingSchema, type VitalsReadingInput } from "@/lib/validation/vitals";
 import { recordWeeklyPlanProgress } from "@/lib/lifestyle/weekly-plan-progress";
 import { symptomLogSchema } from "@/lib/validation/symptoms";
 import { medicationAccessBarrierSchema } from "@/lib/validation/medication-access-barriers";
@@ -40,12 +41,16 @@ import {
 } from "@/lib/validation/diabetes-logs";
 import {
   riskAssessmentSchema,
+  parseRiskAssessmentFormData,
   QUESTION_CATEGORY,
   type RiskAssessmentInput,
 } from "@/lib/validation/risk-assessment";
 import { computePreventionRiskScores } from "@/lib/rules/compute-risk-scores";
 import type { ComputedRiskScore, PreventionCondition, RiskTier } from "@/lib/rules/risk-scoring";
-import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
+import {
+  computeScreeningRecommendations,
+  buildLastCompletedByScreenTypeId,
+} from "@/lib/rules/screening-recommendations";
 import { computeCareProgrammeRecommendations } from "@/lib/rules/care-programme-recommendations";
 import {
   computePreventiveProgrammeRecommendations,
@@ -65,6 +70,40 @@ export async function logVital(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
+  // Everything below this point does real network I/O (auth, the profile
+  // lookup, the insert itself). A Postgrest-level rejection already comes
+  // back as a `{ error }` result and is handled inline below, but a dropped
+  // or unstable connection surfaces as a THROWN exception instead — with no
+  // try/catch here, that exception would propagate out of this Server
+  // Action to the dashboard's error.tsx boundary, which unmounts this whole
+  // route segment (including the form the patient just filled in) and
+  // replaces it with a generic full-page fallback. Catching it here instead
+  // keeps the route segment mounted and returns the same friendly, retryable
+  // `{ error }` shape as any other failure — deliberately NOT claiming the
+  // typed values survive: React resets a <form action={...}> after ANY
+  // action completion (this one included, since it always resolves rather
+  // than throwing), clearing the uncontrolled inputs regardless of whether
+  // the result carries an error. See docs/OFFLINE_RESILIENCE_AUDIT.md §4 —
+  // preserving the typed reading through an error would need the form's
+  // inputs to be converted to controlled state, which is a separate,
+  // form-wide change this pass didn't make.
+  //
+  // In practice this only ever fires for auth.getUser()/the profile
+  // lookup/the insert call itself: logVitalInner has its own inner
+  // try/catch around everything that runs AFTER a successful insert, so a
+  // failure there can never reach here and be misreported as "the reading
+  // wasn't saved" — see that inner try/catch's own comment.
+  try {
+    return await logVitalInner(parsed.data);
+  } catch (err) {
+    Sentry.captureException(err, { extra: { action: "logVital" } });
+    return {
+      error: "Couldn't save that reading. Check your connection and try again.",
+    };
+  }
+}
+
+async function logVitalInner(data: VitalsReadingInput): Promise<LogVitalActionState> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -93,7 +132,7 @@ export async function logVital(
     return { error: "No organisation on file" };
   }
 
-  const { taken_at, ...reading } = parsed.data;
+  const { taken_at, ...reading } = data;
 
   // vitals_readings stores canonical columns per type — normalise the form
   // shape into DB columns here (glucose→glucose_mmol_l; drop the ketone_kind
@@ -133,57 +172,103 @@ export async function logVital(
     return { error: error.message };
   }
 
-  if (row.vital_type === "blood_pressure") {
-    await assessBpControlBestEffort(supabase, subjectId, profile.organisation_id);
-  }
-  if (row.vital_type === "pulse") {
-    await assessHeartRateBestEffort(supabase, subjectId, profile.organisation_id);
-  }
-  // Glucose OR ketones both re-run the glucose red-flag engine — a ketone log
-  // pairs with the latest glucose to catch suspected DKA (§15.3).
-  if (row.vital_type === "glucose" || row.vital_type === "ketones") {
-    await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
-  }
-
-  // Bridges into the Weekly Plan card's own completion tracking — a no-op
-  // for a patient with no active goal for this metric. Only when subjectId
-  // is the caller's own id: lpe_measurements RLS lets a patient insert only
-  // their own rows, with no supporter-acting-for-dependent path (unlike
-  // vitals_readings above), so a supporter logging for someone they
-  // support must not attempt this write. Deliberately does not re-run
-  // red-flag evaluation — that's already handled by the assess*BestEffort
-  // calls above, specific to this reading; see the helper's own comment.
-  if (subjectId === user.id) {
-    if (row.vital_type === "weight") {
-      await recordWeeklyPlanProgress(supabase, {
-        patientId: subjectId,
-        organisationId: profile.organisation_id,
-        metric: "weight",
-        valueNum: row.weight_kg,
-        unit: "kg",
-      });
-    } else if (row.vital_type === "blood_pressure") {
-      await recordWeeklyPlanProgress(supabase, {
-        patientId: subjectId,
-        organisationId: profile.organisation_id,
-        metric: "bp",
-        valueJson: { systolic: row.systolic, diastolic: row.diastolic },
-        unit: "mmHg",
-      });
-    } else if (row.vital_type === "glucose") {
-      await recordWeeklyPlanProgress(supabase, {
-        patientId: subjectId,
-        organisationId: profile.organisation_id,
-        metric: "glucose",
-        valueNum: row.glucose_mmol_l,
-        unit: "mmol/L",
-      });
+  // From here on the reading is durably saved. The assess*BestEffort helpers
+  // below are documented "never throws," but that contract isn't literally
+  // enforced by a try/catch inside every one of them — assessBpControlBestEffort,
+  // assessHeartRateBestEffort, and assessGlucoseBestEffort each await a
+  // Supabase call directly with no internal try/catch, so a genuine network
+  // drop right after the insert above can still throw here.
+  //
+  // These three calls are the platform's actual red-flag/escalation
+  // detection for this reading (BP crisis, pulse EMERGENCY range, DKA/severe
+  // hypo) — CLAUDE.md is explicit that an abnormal-result event must "never
+  // deprioritise or silently swallow" it. A failure here is caught
+  // SEPARATELY from the inert bookkeeping below, and deliberately does NOT
+  // just log-and-succeed the way that bookkeeping's own catch does: telling
+  // the patient a plain "Reading logged" when the one check that actually
+  // matters didn't run would be worse than this function's pre-fix crash,
+  // which was at least loud enough to prompt a retry (see
+  // docs/OFFLINE_RESILIENCE_AUDIT.md §3 for the full reasoning). `success`
+  // stays true — the row genuinely is saved, and returning `success: false`
+  // here would falsely suggest otherwise and risk a duplicate insert on
+  // retry — but `error` carries an honest, distinct message so the patient
+  // knows the safety check itself didn't finish.
+  let safetyAssessmentFailed = false;
+  try {
+    if (row.vital_type === "blood_pressure") {
+      await assessBpControlBestEffort(supabase, subjectId, profile.organisation_id);
     }
+    if (row.vital_type === "pulse") {
+      await assessHeartRateBestEffort(supabase, subjectId, profile.organisation_id);
+    }
+    // Glucose OR ketones both re-run the glucose red-flag engine — a ketone log
+    // pairs with the latest glucose to catch suspected DKA (§15.3).
+    if (row.vital_type === "glucose" || row.vital_type === "ketones") {
+      await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
+    }
+  } catch (err) {
+    safetyAssessmentFailed = true;
+    Sentry.captureException(err, {
+      extra: { action: "logVital", stage: "safety_assessment" },
+    });
   }
-  // subjectId, not user.id: a supporter logging for someone they act for
-  // must reassess THAT person's health score, not their own.
-  await assessHealthScoreBestEffort(supabase, subjectId, profile.organisation_id);
 
+  // Genuinely inert bookkeeping — a lost update here (a missed Weekly Plan
+  // tick, a stale Health Score) has no clinical-safety consequence, unlike
+  // the red-flag assessments above, so a failure here staying silent
+  // (Sentry-only) is the right call, not an oversight.
+  try {
+    // Bridges into the Weekly Plan card's own completion tracking — a no-op
+    // for a patient with no active goal for this metric. Only when subjectId
+    // is the caller's own id: lpe_measurements RLS lets a patient insert only
+    // their own rows, with no supporter-acting-for-dependent path (unlike
+    // vitals_readings above), so a supporter logging for someone they
+    // support must not attempt this write. Deliberately does not re-run
+    // red-flag evaluation — that's already handled by the assess*BestEffort
+    // calls above, specific to this reading; see the helper's own comment.
+    if (subjectId === user.id) {
+      if (row.vital_type === "weight") {
+        await recordWeeklyPlanProgress(supabase, {
+          patientId: subjectId,
+          organisationId: profile.organisation_id,
+          metric: "weight",
+          valueNum: row.weight_kg,
+          unit: "kg",
+        });
+      } else if (row.vital_type === "blood_pressure") {
+        await recordWeeklyPlanProgress(supabase, {
+          patientId: subjectId,
+          organisationId: profile.organisation_id,
+          metric: "bp",
+          valueJson: { systolic: row.systolic, diastolic: row.diastolic },
+          unit: "mmHg",
+        });
+      } else if (row.vital_type === "glucose") {
+        await recordWeeklyPlanProgress(supabase, {
+          patientId: subjectId,
+          organisationId: profile.organisation_id,
+          metric: "glucose",
+          valueNum: row.glucose_mmol_l,
+          unit: "mmol/L",
+        });
+      }
+    }
+    // subjectId, not user.id: a supporter logging for someone they act for
+    // must reassess THAT person's health score, not their own.
+    await assessHealthScoreBestEffort(supabase, subjectId, profile.organisation_id);
+  } catch (err) {
+    Sentry.captureException(err, {
+      extra: { action: "logVital", stage: "post_insert_best_effort" },
+    });
+  }
+
+  if (safetyAssessmentFailed) {
+    return {
+      success: true,
+      error:
+        "Your reading was saved, but we could not finish checking it against your care protocols. If this reading concerns you, contact your care team or log it again.",
+    };
+  }
   return { success: true };
 }
 
@@ -420,7 +505,24 @@ export async function reportMedicationAccessBarrier(
   return { success: true };
 }
 
-export type SubmitRiskAssessmentState = { error?: string; success?: boolean } | undefined;
+export type SubmitRiskAssessmentState =
+  | {
+      error?: string;
+      success?: boolean;
+      /**
+       * The raw (pre-Zod, FormData-shaped) submitted values, echoed back so
+       * RiskAssessmentForm can restore the whole questionnaire after an
+       * error. React resets a `<form action={...}>`'s uncontrolled fields
+       * synchronously at submit time, before this action even runs — the
+       * same bug fixed on the signup form (see signup/actions.ts), just
+       * with many more fields across 4 steps here. Before `noValidate` was
+       * added to the form, this path was effectively unreachable with any
+       * required field genuinely blank (the browser silently refused to
+       * submit at all), which is why this went unnoticed until then.
+       */
+      values?: ReturnType<typeof parseRiskAssessmentFormData>;
+    }
+  | undefined;
 
 /**
  * Submits the risk assessment questionnaire, then recomputes and stores
@@ -437,34 +539,11 @@ export async function submitRiskAssessment(
   _prevState: SubmitRiskAssessmentState,
   formData: FormData
 ): Promise<SubmitRiskAssessmentState> {
-  const raw = {
-    family_diabetes: formData.get("family_diabetes"),
-    family_hypertension: formData.get("family_hypertension"),
-    family_heart_disease: formData.get("family_heart_disease"),
-    family_sickle_cell: formData.get("family_sickle_cell"),
-    family_cancer_types: formData.getAll("family_cancer_types"),
-    family_cancer_other_detail: formData.get("family_cancer_other_detail") || undefined,
-    smoking_status: formData.get("smoking_status"),
-    cigarettes_per_day: formData.get("cigarettes_per_day") || undefined,
-    alcohol_use: formData.get("alcohol_use"),
-    exercise_days_per_week: formData.get("exercise_days_per_week"),
-    exercise_minutes_per_session: formData.get("exercise_minutes_per_session"),
-    diet_pattern: formData.getAll("diet_pattern"),
-    sleep_hours: formData.get("sleep_hours"),
-    stress_level: formData.get("stress_level"),
-    height_cm: formData.get("height_cm"),
-    weight_kg: formData.get("weight_kg") || undefined,
-    existing_diagnoses: formData.getAll("existing_diagnoses"),
-    existing_diagnoses_other_detail: formData.get("existing_diagnoses_other_detail") || undefined,
-    current_medications: formData.get("current_medications") || undefined,
-    hpv_vaccinated: formData.get("hpv_vaccinated"),
-    other_vaccines_detail: formData.get("other_vaccines_detail") || undefined,
-    prior_abnormal_result: formData.get("prior_abnormal_result"),
-  };
+  const raw = parseRiskAssessmentFormData(formData);
 
   const parsed = riskAssessmentSchema.safeParse(raw);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input", values: raw };
   }
   const responses = parsed.data;
 
@@ -473,7 +552,7 @@ export async function submitRiskAssessment(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { error: "Not signed in" };
+    return { error: "Not signed in", values: raw };
   }
 
   // Whoever's account is open. resolveSubjectId re-checks the live 'manage'
@@ -488,7 +567,7 @@ export async function submitRiskAssessment(
     .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) {
-    return { error: "No organisation on file" };
+    return { error: "No organisation on file", values: raw };
   }
   const organisationId = profile.organisation_id;
 
@@ -508,7 +587,7 @@ export async function submitRiskAssessment(
     .from("risk_assessment_responses")
     .insert(responseRows);
   if (responsesError) {
-    return { error: responsesError.message };
+    return { error: responsesError.message, values: raw };
   }
 
   // Keep the assessment's weight part of the same longitudinal vitals
@@ -521,7 +600,7 @@ export async function submitRiskAssessment(
       weight_kg: responses.weight_kg,
     });
     if (weightInsertError) {
-      return { error: weightInsertError.message };
+      return { error: weightInsertError.message, values: raw };
     }
   }
 
@@ -571,7 +650,7 @@ export async function submitRiskAssessment(
       }))
     );
   if (scoresError) {
-    return { error: scoresError.message };
+    return { error: scoresError.message, values: raw };
   }
 
   // Auto-enrol into any preventive programme these fresh tiers newly
@@ -624,7 +703,7 @@ export async function submitRiskAssessment(
 
   const { data: screenTypes } = await supabase
     .from("screen_types")
-    .select("id, code, sex_applicability, age_from, age_to, frequency_months")
+    .select("id, code, sex_applicability, age_from, age_to, frequency_months, is_optional")
     .eq("is_active", true);
 
   const { data: existingSchedules } = await supabase
@@ -632,15 +711,29 @@ export async function submitRiskAssessment(
     .select("id, screen_type_id, status, due_date")
     .eq("patient_id", subjectId);
 
-  const lastCompletedByScreenTypeId = new Map<string, string>();
+  // No row at all (most patients, including everyone straight out of
+  // onboarding's general risk assessment, which never asks a women's-health
+  // question) must gate the same as an explicit 'not_applicable' — never
+  // treat "no signal" as license to assume a life-stage-gated screen type
+  // like antenatal_booking applies. See LIFE_STAGE_GATED_SCREENS in
+  // screening-recommendations.ts. Only fetched for female patients — every
+  // current gated code is female-only, so the lookup can never change the
+  // outcome for anyone else.
+  const reproductiveHealthProfile =
+    profile.sex === "female"
+      ? (
+          await supabase
+            .from("reproductive_health_profiles")
+            .select("life_stage")
+            .eq("patient_id", subjectId)
+            .maybeSingle()
+        ).data
+      : null;
+
+  const lastCompletedByScreenTypeId = buildLastCompletedByScreenTypeId(existingSchedules ?? []);
   const activeByScreenTypeId = new Map<string, { id: string; due_date: string }>();
   for (const row of existingSchedules ?? []) {
-    if (row.status === "completed") {
-      const latest = lastCompletedByScreenTypeId.get(row.screen_type_id);
-      if (!latest || row.due_date > latest) {
-        lastCompletedByScreenTypeId.set(row.screen_type_id, row.due_date);
-      }
-    } else if (row.status === "pending" || row.status === "booked") {
+    if (row.status === "pending" || row.status === "booked") {
       activeByScreenTypeId.set(row.screen_type_id, { id: row.id, due_date: row.due_date });
     }
   }
@@ -659,7 +752,7 @@ export async function submitRiskAssessment(
   const recommendations = computeScreeningRecommendations(
     screenTypes ?? [],
     tiersByCondition as Map<PreventionCondition, RiskTier>,
-    { sex: profile.sex, ageYears },
+    { sex: profile.sex, ageYears, reproductiveLifeStage: reproductiveHealthProfile?.life_stage ?? null },
     lastCompletedByScreenTypeId
   );
 
@@ -672,7 +765,18 @@ export async function submitRiskAssessment(
   // own session.
   const serviceRoleClient = createServiceRoleClient();
 
-  const newSchedules = recommendations.filter((rec) => !activeByScreenTypeId.has(rec.screenTypeId));
+  // is_optional screen types (screen_types.is_optional — "Offered when due,
+  // never assumed. The patient opts in rather than finding it already
+  // inside their review.") are never auto-inserted here, no matter how due
+  // they are — a patient accepts one explicitly from the "Optional
+  // screenings" offer surface (useAcceptOptionalScreening), which performs
+  // the identical insert this loop does for everything else, just gated on
+  // the patient's own action. Once accepted, the row lands in
+  // activeByScreenTypeId on the next run and the tighten-due-date loop
+  // below treats it exactly like any other screening from then on.
+  const newSchedules = recommendations.filter(
+    (rec) => !rec.isOptional && !activeByScreenTypeId.has(rec.screenTypeId)
+  );
   if (newSchedules.length > 0) {
     const { error: scheduleInsertError } = await serviceRoleClient.from("screening_schedules").insert(
       newSchedules.map((rec) => ({
@@ -684,7 +788,7 @@ export async function submitRiskAssessment(
       }))
     );
     if (scheduleInsertError) {
-      return { error: scheduleInsertError.message };
+      return { error: scheduleInsertError.message, values: raw };
     }
   }
 
@@ -696,7 +800,7 @@ export async function submitRiskAssessment(
         .update({ due_date: rec.dueDate })
         .eq("id", existing.id);
       if (scheduleUpdateError) {
-        return { error: scheduleUpdateError.message };
+        return { error: scheduleUpdateError.message, values: raw };
       }
     }
   }
@@ -737,7 +841,7 @@ export async function submitRiskAssessment(
           })),
         );
       if (recError) {
-        return { error: recError.message };
+        return { error: recError.message, values: raw };
       }
     }
   }
@@ -1104,7 +1208,7 @@ export async function acknowledgeEmergency(eventId: string): Promise<EmergencyEv
 }
 
 /**
- * Immediately messages the patient's saved emergency contact (SMS + WhatsApp)
+ * Immediately messages the patient's saved emergency contact (SMS)
  * for one of their own active events, without waiting for the acknowledge-gated
  * timeout. Ownership is verified via the patient's own RLS-scoped session
  * before any service-role write (same pattern as the AI-coach escalation) —
@@ -1172,14 +1276,6 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
       organisation_id: event.organisation_id,
       recipient_id: subjectId,
       channel: "sms",
-      status: "pending",
-      template: "emergency_contact_alert",
-      payload,
-    },
-    {
-      organisation_id: event.organisation_id,
-      recipient_id: subjectId,
-      channel: "whatsapp",
       status: "pending",
       template: "emergency_contact_alert",
       payload,
@@ -1314,13 +1410,19 @@ async function currentPatientOrg(): Promise<
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in" };
+  // Whoever's account is open — the diabetes daily log (vitals/page.tsx)
+  // already renders these forms against the acting-for SUBJECT, so the write
+  // must land on that same subject, not the caller. resolveSubjectId
+  // re-checks the live 'manage' grant server-side, so a stale/forged cookie
+  // resolves back to the caller's own id.
+  const subjectId = await resolveSubjectId(user.id);
   const { data: profile } = await supabase
     .from("profiles")
     .select("organisation_id")
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) return { error: "No organisation on file" };
-  return { supabase, userId: user.id, organisationId: profile.organisation_id };
+  return { supabase, userId: subjectId, organisationId: profile.organisation_id };
 }
 
 export type DiabetesLogActionState = { error?: string; success?: boolean } | undefined;
@@ -1405,6 +1507,17 @@ export async function logSickDay(
  * obstetric-led — the app surfaces the "referred to antenatal care" banner and
  * the drug-safety advisory contraindicates oral agents / ACEi-ARB. Upsert on
  * the patient's own row (RLS-scoped).
+ *
+ * Deliberately self-only, unlike logInsulin/logFootSelfCheck/logSickDay
+ * above: this writes into the reproductive-health domain, which this
+ * platform never grants on a bare 'manage' acting-for relationship (see
+ * reproductive_health_profiles' RLS — a category-scoped grant AND
+ * private.guardian_may_edit_confidential_domain, never plain
+ * private.can_act_for). patient_pregnancy's own RLS is still the older,
+ * self-or-staff-only shape, so refuse cleanly here with an explanatory
+ * message rather than let a supporter hit a bare, confusing RLS error —
+ * extending this to supporters is a deliberate future design decision, not
+ * a default this action should reach for on its own.
  */
 export async function setPregnancyStatus(
   _prev: DiabetesLogActionState,
@@ -1413,6 +1526,11 @@ export async function setPregnancyStatus(
   const isPregnant = formData.get("is_pregnant") === "true";
   const eddRaw = (formData.get("estimated_due_date") as string | null) ?? null;
   const edd = eddRaw && !Number.isNaN(Date.parse(eddRaw)) ? eddRaw : null;
+
+  const guardError = await assertNotActingFor(
+    "Pregnancy status can only be updated by the account holder themselves right now, not by someone supporting their account."
+  );
+  if (guardError) return guardError;
 
   const ctx = await currentPatientOrg();
   if ("error" in ctx) return { error: ctx.error };
@@ -1451,6 +1569,7 @@ export async function setPatientReportedDiabetesType(
 
   const { error } = await ctx.supabase.rpc("set_patient_reported_diabetes_type", {
     p_type: parsed.data.diabetes_type,
+    p_patient_id: ctx.userId,
   });
   if (error) return { error: error.message };
   return { success: true };
@@ -1469,7 +1588,7 @@ export async function setPatientReportedDiabetesType(
  * Fire-and-forget from the client's point of view: this never throws, so a
  * failed safety check can never make "medication added" look like it failed.
  */
-export async function checkMedicationSafetyAfterAdd(patientId: string): Promise<void> {
+export async function checkMedicationSafetyAfterAdd(patientId: string): Promise<{ allergyCheckSkipped: boolean }> {
   try {
     const { assessMedicationSafetyBestEffort } = await import("@/lib/clinical/patient-clinical-context");
     const supabase = await createClient();
@@ -1478,9 +1597,10 @@ export async function checkMedicationSafetyAfterAdd(patientId: string): Promise<
       .select("organisation_id")
       .eq("id", patientId)
       .single();
-    if (!profile?.organisation_id) return;
-    await assessMedicationSafetyBestEffort(supabase, patientId, profile.organisation_id);
+    if (!profile?.organisation_id) return { allergyCheckSkipped: false };
+    return await assessMedicationSafetyBestEffort(supabase, patientId, profile.organisation_id);
   } catch {
     // Best-effort follow-up — never let this surface to the caller.
+    return { allergyCheckSkipped: false };
   }
 }

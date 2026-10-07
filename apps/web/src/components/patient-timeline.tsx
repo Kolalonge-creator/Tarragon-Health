@@ -5,6 +5,7 @@ import { usePatientTimeline, type TimelineEvent, type TimelineEventType } from "
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
+import { DoctorNameLink } from "@/components/doctor-name-link";
 
 /**
  * The shared unified activity timeline. Rendered on both the patient dashboard
@@ -46,6 +47,8 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   record_conflict_resolved: { dot: "bg-green-600", label: "Record conflict" },
   clinical_summary_validated: { dot: "bg-green-600", label: "Clinical summary" },
   dependent_account_transitioned: { dot: "bg-clinical-navy dark:bg-blue-400", label: "Account access" },
+  vitals_recorded: { dot: "bg-green-600", label: "Vitals" },
+  prescription_signed: { dot: "bg-clinical-navy dark:bg-blue-400", label: "Prescription" },
 };
 
 // Where each event type's "open it" destination lives, relative to
@@ -74,6 +77,8 @@ const EVENT_LINK_SUBPATH: Partial<Record<TimelineEventType, string>> = {
   condition_recorded: "/health-summary",
   condition_status_changed: "/health-summary",
   document_uploaded: "/health-summary",
+  vitals_recorded: "/vitals",
+  prescription_signed: "/medications",
 };
 
 // Belt-and-braces only — private.record_timeline_event() now strips
@@ -107,14 +112,9 @@ function ActorAttribution({ actor }: { actor: TimelineEvent["actor"] }) {
   if (!isClinicalTier(actor)) {
     return <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">By your care team</p>;
   }
-  const credential =
-    actor.credential_type && actor.credential_number
-      ? ` · ${actor.credential_type} ${actor.credential_number}`
-      : "";
   return (
     <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-      By <span className="font-medium">Dr. {actor.full_name}</span>
-      {credential}
+      By <span className="font-medium"><DoctorNameLink staffId={actor.id} fullName={actor.full_name} /></span>
     </p>
   );
 }

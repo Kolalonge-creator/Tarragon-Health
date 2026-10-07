@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { loadPatientMonitoringRoster } from "@/lib/queries/patient-monitoring";
+import { loadPatientMonitoringRoster, DEFAULT_ROSTER_LIMIT } from "@/lib/queries/patient-monitoring";
 import { PatientMonitoringCard } from "./patient-monitoring-card";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -42,14 +42,15 @@ export default async function PatientMonitoringPage({
   const supabase = await createClient();
   const currentUser = showMineOnly ? await getCurrentUser() : null;
 
-  const { rows, rosterFailed, readingsFailed } = await loadPatientMonitoringRoster(supabase, {
+  const { rows, rosterFailed, readingsFailed, truncated } = await loadPatientMonitoringRoster(supabase, {
     q,
     mineOnly: showMineOnly,
     callerId: currentUser?.id ?? null,
   });
 
   const patients = rows.filter((p) => {
-    if (statusFilter !== "all" && p.status !== statusFilter) return false;
+    // Patients the caller is not tied to carry no readings: they have no status, so a status filter never matches them.
+    if (statusFilter !== "all" && (!p.visible || p.status !== statusFilter)) return false;
     if (genderFilter !== "all" && p.sex !== genderFilter) return false;
     if (ageFilter !== "all") {
       if (p.ageYears == null || !AGE_BANDS[ageFilter].test(p.ageYears)) return false;
@@ -57,7 +58,8 @@ export default async function PatientMonitoringPage({
     return true;
   });
 
-  const exceptionCount = patients.filter((p) => p.status === "exception").length;
+  const exceptionCount = patients.filter((p) => p.visible && p.status === "exception").length;
+  const hiddenCount = patients.filter((p) => !p.visible).length;
 
   // Builds a query string for the "Everyone"/"Assigned to me" links, carrying
   // every other filter forward so switching the toggle doesn't reset them —
@@ -76,7 +78,7 @@ export default async function PatientMonitoringPage({
   const csvRows: CsvRow[] = patients.map((p) => ({
     name: p.fullName,
     patient_number: p.patientNumber ?? "",
-    status: p.status,
+    status: p.visible ? p.status : "not on your care team",
     heart_rate_bpm: p.vitals.pulse.value ?? "",
     blood_pressure: p.vitals.bp.systolic != null ? `${p.vitals.bp.systolic}/${p.vitals.bp.diastolic}` : "",
     spo2_pct: p.vitals.spo2.value ?? "",
@@ -94,7 +96,9 @@ export default async function PatientMonitoringPage({
           <p className="text-sm text-charcoal-ink/60">
             {rosterFailed
               ? "Latest vitals across your roster."
-              : `Latest vitals across your roster. ${exceptionCount} of ${patients.length} need a look.`}
+              : `Latest vitals across your roster. ${exceptionCount} of ${patients.length - hiddenCount} on your care team need a look.${
+                  hiddenCount > 0 ? ` ${hiddenCount} more ${hiddenCount === 1 ? "is" : "are"} listed without readings because you are not on their care team.` : ""
+                }`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -177,6 +181,23 @@ export default async function PatientMonitoringPage({
           </Link>
         </div>
       </form>
+
+      {/* Rendered above every branch below, including the empty and failure
+          states — a truncated roster fetch can still turn up zero matches
+          after a name search, or under a status/gender/age filter (all
+          three are applied client-side on top of this same capped fetch,
+          below), and that empty result must not read as a definitive
+          "no match" when only the first DEFAULT_ROSTER_LIMIT patients on
+          file were ever checked. Not gated on a search/filter being active:
+          even the unfiltered "Everyone" view is drawing from the same
+          capped fetch. */}
+      {truncated && !rosterFailed && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          This view is showing the first {DEFAULT_ROSTER_LIMIT} patients on file, so it may not
+          include everyone in your organisation. Narrow your search or filters for a complete
+          result.
+        </p>
+      )}
 
       {/* readingsFailed is deliberately shown ALONGSIDE the cards rather than
           instead of them: the roster itself is real, and knowing which

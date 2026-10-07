@@ -28,21 +28,13 @@ import {
   type MentalHealthScreen,
 } from "@/lib/mental-health";
 import type { SectionId } from "@/lib/sections";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { WellbeingTrendChart } from "./wellbeing-trend-chart";
 
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  borderRadius: radius.control,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
-
 function ScalePicker({ value, onChange }: { value: number | null; onChange: (v: number) => void }) {
+  const colors = useLegacyColors();
   return (
     <View style={{ flexDirection: "row", gap: 6 }}>
       {[1, 2, 3, 4, 5].map((n) => (
@@ -71,6 +63,7 @@ function ScalePicker({ value, onChange }: { value: number | null; onChange: (v: 
 }
 
 function OptionPicker({ options, value, onChange }: { options: readonly string[]; value: number | null; onChange: (v: number) => void }) {
+  const colors = useLegacyColors();
   return (
     <View style={{ gap: 6 }}>
       {options.map((label, v) => (
@@ -115,6 +108,7 @@ interface WellbeingScreenProps {
  * already-native screen.
  */
 export function WellbeingScreen({ patientId, organisationId, onNavigate }: WellbeingScreenProps) {
+  const colors = useLegacyColors();
   const [checkin, setCheckin] = useState<WellbeingCheckin | null>(null);
   const [therapyOpen, setTherapyOpen] = useState(false);
   const [frequencyDays, setFrequencyDays] = useState(7);
@@ -225,6 +219,7 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
 }
 
 function Tile({ label, value }: { label: string; value: string | null }) {
+  const colors = useLegacyColors();
   return (
     <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, minWidth: 110 }}>
       <Text style={{ fontSize: 10.5, textTransform: "uppercase", color: colors.muted }}>{label}</Text>
@@ -244,6 +239,9 @@ function CheckinForm({
   frequencyDays: number;
   onSaved: () => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -302,7 +300,7 @@ function CheckinForm({
       ))}
       <View style={{ gap: 6 }}>
         <Text style={{ fontSize: 13, color: colors.ink }}>Anything else you&apos;d like to note? (optional)</Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={note}
           onChangeText={setNote}
           multiline
@@ -349,6 +347,7 @@ function CheckinForm({
 }
 
 function MentalHealthSummaryCard({ screens }: { screens: Partial<Record<string, MentalHealthScreen>> }) {
+  const colors = useLegacyColors();
   const { phq9, gad7, auditc, epds } = screens;
   if (!phq9 && !gad7 && !auditc && !epds) return null;
 
@@ -390,6 +389,7 @@ function SummaryRow({
   flagged?: boolean | null;
   flagLabel?: string;
 }) {
+  const colors = useLegacyColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
       <Text style={{ fontSize: 13, color: colors.ink }}>{label}</Text>
@@ -402,6 +402,7 @@ function SummaryRow({
 }
 
 function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
+  const colors = useLegacyColors();
   const [phq9, setPhq9] = useState<(number | null)[]>(Array(9).fill(null));
   const [gad7, setGad7] = useState<(number | null)[]>(Array(7).fill(null));
   const [auditc, setAuditc] = useState<(number | null)[]>(Array(3).fill(null));
@@ -442,11 +443,10 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Thanks for checking in</Text>
         <MutedText>Your answers are saved and your care team can see them.</MutedText>
         {result.crisis && (
-          <View style={{ backgroundColor: "#FDECEC", borderRadius: radius.card, padding: 10 }}>
+          <View style={{ backgroundColor: colors.dangerBg, borderRadius: radius.card, padding: 10 }}>
             <Text style={{ fontSize: 13, color: colors.status.critical }}>
               You told us you have had thoughts of harming yourself. You are not alone. A member of your care
-              team will reach out. If you are in immediate danger, please contact emergency services or go to
-              the nearest hospital now.
+              team will reach out. If you are in immediate danger, please go to the nearest hospital now.
             </Text>
           </View>
         )}
@@ -507,9 +507,10 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
+  const colors = useLegacyColors();
   return (
     <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: colors.brand, textTransform: "uppercase", letterSpacing: 0.5 }}>
+      <Text style={{ fontSize: 11, fontWeight: "700", color: colors.brandPressed, textTransform: "uppercase", letterSpacing: 0.5 }}>
         {title}
       </Text>
       {children}
@@ -518,6 +519,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function FrequencyQuestion({ prompt, value, onChange }: { prompt: string; value: number | null; onChange: (v: number) => void }) {
+  const colors = useLegacyColors();
   return (
     <View style={{ gap: 6 }}>
       <Text style={{ fontSize: 13, color: colors.ink }}>{prompt}</Text>

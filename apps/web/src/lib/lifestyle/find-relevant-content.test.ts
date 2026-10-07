@@ -53,8 +53,8 @@ const contentCalls = (supabase: SupabaseClient<Database>) =>
 describe("findRelevantLifestyleContent", () => {
   beforeEach(() => __clearAiGovernanceCache());
 
-  it("returns [] without calling the RPC when the embedder throws", async () => {
-    const supabase = fakeSupabase(jest.fn());
+  it("falls back to lexical search when the embedder throws", async () => {
+    const supabase = fakeSupabase(async () => ({ data: [], error: null }));
     const embedder: Embedder = {
       embed: async () => {
         throw new Error("Voyage unreachable");
@@ -64,13 +64,18 @@ describe("findRelevantLifestyleContent", () => {
     const result = await findRelevantLifestyleContent(supabase, embedder, "some query");
 
     expect(result).toEqual([]);
-    expect(contentCalls(supabase)).toHaveLength(0);
+    // Previously this asserted NO content RPC was called at all, which is
+    // what made an unreachable embedder indistinguishable from "nothing
+    // relevant found". A failed embedding must now degrade to keyword search
+    // over the same rows, not to silence.
+    expect(contentCalls(supabase).map((c) => c[0])).toEqual(["search_lpe_content_blocks_text"]);
   });
 
-  it("does not embed anything when AI-009 is switched off", async () => {
+  it("falls back to lexical search, without embedding, when AI-009 is switched off", async () => {
     // 40.17: the kill switch has to reach the embedding provider, not just
-    // the surfaces that read from it.
-    const supabase = fakeSupabase(jest.fn(), { enabled: false });
+    // the surfaces that read from it. It must NOT also reach plain keyword
+    // retrieval, which calls no AI system at all.
+    const supabase = fakeSupabase(async () => ({ data: [], error: null }), { enabled: false });
     const embed = jest.fn(async () => [0.1, 0.2, 0.3]);
     const embedder: Embedder = { embed };
 
@@ -78,7 +83,46 @@ describe("findRelevantLifestyleContent", () => {
 
     expect(result).toEqual([]);
     expect(embed).not.toHaveBeenCalled();
-    expect(contentCalls(supabase)).toHaveLength(0);
+    expect(contentCalls(supabase).map((c) => c[0])).toEqual(["search_lpe_content_blocks_text"]);
+  });
+
+  it("uses lexical search, and never consults AI-009, when no embedder is configured", async () => {
+    // The production case since day one: VOYAGE_API_KEY unset, so every
+    // caller passes null. This used to skip retrieval entirely.
+    const rpc = jest.fn(async (..._args: unknown[]) => ({
+      data: [
+        {
+          id: "abc",
+          key: "htn.diet.less_salt_cooking",
+          title: "Cooking with less salt, still tasty",
+          body_md: "Try building flavour with onion, garlic...",
+          condition: "hypertension",
+          module: "diet",
+          similarity: 0.41,
+        },
+      ],
+      error: null,
+    }));
+    const supabase = fakeSupabase(rpc);
+
+    const result = await findRelevantLifestyleContent(supabase, null, "salt and blood pressure", {
+      matchCount: 2,
+      conditionFilter: "hypertension",
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.bodyMd).toBe("Try building flavour with onion, garlic...");
+    expect(rpc).toHaveBeenCalledWith("search_lpe_content_blocks_text", {
+      query_text: "salt and blood pressure",
+      match_count: 2,
+      filter_condition: "hypertension",
+      filter_module: undefined,
+    });
+    // No embedder means no embedding vendor is reached, so there is nothing
+    // for AI-009's kill switch to govern and it is never consulted.
+    expect(
+      (supabase.rpc as unknown as jest.Mock).mock.calls.filter((c) => c[0] === "ai_runtime_config"),
+    ).toHaveLength(0);
   });
 
   it("returns [] when the RPC call errors", async () => {

@@ -13,8 +13,9 @@ import {
   type PanelBundleOption,
 } from "@/lib/screening-days";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const STATUS_LABEL: Record<ScreeningDay["status"], string> = {
   requested: "Awaiting confirmation",
@@ -32,16 +33,6 @@ const STATUS_TONE: Record<ScreeningDay["status"], "brand" | "neutral"> = {
 
 const naira = (kobo: number) => `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
 
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
-
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "long", year: "numeric" });
 }
@@ -55,6 +46,7 @@ function when(iso: string): string {
  * pay-to-confirm) rather than reimplementing checkout initiation natively.
  */
 export function ScreeningDaysScreen() {
+  const colors = useLegacyColors();
   const [days, setDays] = useState<ScreeningDay[]>([]);
   const [bundles, setBundles] = useState<PanelBundleOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +97,9 @@ export function ScreeningDaysScreen() {
 }
 
 function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone: () => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [hostName, setHostName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [location, setLocation] = useState("");
@@ -141,10 +136,10 @@ function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone
   return (
     <Card style={{ gap: 10 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Request a screening day</Text>
-      <TextInput value={hostName} onChangeText={setHostName} placeholder="Group name (e.g. Redeemer's Church, Lekki)" style={textInputStyle} />
-      <TextInput value={contactPhone} onChangeText={setContactPhone} placeholder="Contact phone" style={textInputStyle} keyboardType="phone-pad" />
-      <TextInput value={location} onChangeText={setLocation} placeholder="Where will this happen?" style={textInputStyle} />
-      <TextInput value={eventDate} onChangeText={setEventDate} placeholder="Event date (YYYY-MM-DD)" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={hostName} onChangeText={setHostName} placeholder="Group name (e.g. Redeemer's Church, Lekki)" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={contactPhone} onChangeText={setContactPhone} placeholder="Contact phone" style={textInputStyle} keyboardType="phone-pad" />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={location} onChangeText={setLocation} placeholder="Where will this happen?" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={eventDate} onChangeText={setEventDate} placeholder="Event date (YYYY-MM-DD)" style={textInputStyle} />
 
       <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Which check?</Text>
       <View style={{ gap: 6 }}>
@@ -170,14 +165,14 @@ function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone
         })}
       </View>
 
-      <TextInput
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={slotsRequested}
         onChangeText={setSlotsRequested}
         placeholder="How many people?"
         keyboardType="numeric"
         style={textInputStyle}
       />
-      <TextInput
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={notes}
         onChangeText={setNotes}
         placeholder="Anything else we should know? (optional)"
@@ -198,6 +193,7 @@ function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone
 }
 
 function ScreeningDayCard({ day, onChanged }: { day: ScreeningDay; onChanged: () => void }) {
+  const colors = useLegacyColors();
   const outstanding = (day.total_kobo ?? 0) - day.amount_paid_kobo;
   const fullyPaid = (day.total_kobo ?? 0) > 0 && day.amount_paid_kobo >= (day.total_kobo ?? 0);
 
@@ -221,6 +217,11 @@ function ScreeningDayCard({ day, onChanged }: { day: ScreeningDay; onChanged: ()
         </MutedText>
       )}
       {day.status === "confirmed" && outstanding > 0 && (
+        // Pure browser hand-off: a confirmed screening day is a single-payer,
+        // sponsor-funded pooled booking settled by card through
+        // screening_day_payments/record_screening_day_payment_intent (see
+        // screening-day-checkout.ts), any instalment amount up to what's
+        // still outstanding.
         <SecondaryButton
           title="Pay"
           onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/screening-days`)}
@@ -232,6 +233,9 @@ function ScreeningDayCard({ day, onChanged }: { day: ScreeningDay; onChanged: ()
 }
 
 function AddSlotSection({ day, onChanged }: { day: ScreeningDay; onChanged: () => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [slots, setSlots] = useState<ScreeningDaySlot[]>([]);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -279,8 +283,8 @@ function AddSlotSection({ day, onChanged }: { day: ScreeningDay; onChanged: () =
       ))}
       {remaining > 0 && (
         <View style={{ gap: 8 }}>
-          <TextInput value={fullName} onChangeText={setFullName} placeholder="Attendee name" style={textInputStyle} />
-          <TextInput value={phone} onChangeText={setPhone} placeholder="Phone (optional)" style={textInputStyle} keyboardType="phone-pad" />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={fullName} onChangeText={setFullName} placeholder="Attendee name" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={phone} onChangeText={setPhone} placeholder="Phone (optional)" style={textInputStyle} keyboardType="phone-pad" />
           {error && <ErrorText>{error}</ErrorText>}
           <SecondaryButton title="Add to the list" onPress={submit} loading={saving} />
         </View>

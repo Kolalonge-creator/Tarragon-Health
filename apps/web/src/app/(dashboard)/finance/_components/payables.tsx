@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialog";
 import { lagosToday } from "@/lib/format-date";
-import type { FinanceBill } from "@/lib/finance/schemas";
+import type { FinanceBill, FinanceVendor } from "@/lib/finance/schemas";
 import {
   useVendors,
   useBills,
@@ -56,25 +56,51 @@ export function PayablesAndVendors() {
   const [payBankCode, setPayBankCode] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const emptyVendorForm = () => ({
+    id: null as string | null,
+    name: "",
+    vendor_type: "",
+    contact_email: "",
+    contact_phone: "",
+    tin: "",
+    wht_applicable: false,
+    wht_rate_pct: "",
+    is_active: true,
+  });
   const [showVendorForm, setShowVendorForm] = useState(false);
-  const [vf, setVf] = useState({ name: "", vendor_type: "", wht_applicable: false, wht_rate_pct: "" });
+  const [vf, setVf] = useState(emptyVendorForm());
+  function startEditVendor(v: FinanceVendor) {
+    setMsg(null);
+    setVf({
+      id: v.id,
+      name: v.name,
+      vendor_type: v.vendor_type ?? "",
+      contact_email: v.contact_email ?? "",
+      contact_phone: v.contact_phone ?? "",
+      tin: v.tin ?? "",
+      wht_applicable: v.wht_applicable,
+      wht_rate_pct: v.wht_rate_pct != null ? String(v.wht_rate_pct) : "",
+      is_active: v.is_active,
+    });
+    setShowVendorForm(true);
+  }
   async function saveVendor() {
     setMsg(null);
     if (!vf.name) return setMsg({ ok: false, text: "Vendor name is required." });
     const res = await upsertVendorAction({
-      id: null,
+      id: vf.id,
       name: vf.name,
       vendor_type: vf.vendor_type,
-      contact_email: "",
-      contact_phone: "",
-      tin: "",
+      contact_email: vf.contact_email,
+      contact_phone: vf.contact_phone,
+      tin: vf.tin,
       wht_applicable: vf.wht_applicable,
       wht_rate_pct: vf.wht_applicable && vf.wht_rate_pct ? parseFloat(vf.wht_rate_pct) : null,
-      is_active: true,
+      is_active: vf.is_active,
     });
     if (!res.ok) return setMsg({ ok: false, text: res.error ?? "Could not save vendor." });
-    setMsg({ ok: true, text: "Vendor saved." });
-    setVf({ name: "", vendor_type: "", wht_applicable: false, wht_rate_pct: "" });
+    setMsg({ ok: true, text: vf.id ? "Vendor updated." : "Vendor saved." });
+    setVf(emptyVendorForm());
     setShowVendorForm(false);
     invalidate();
   }
@@ -228,7 +254,14 @@ export function PayablesAndVendors() {
       <SectionCard
         title="Vendors"
         actions={
-          <Button size="sm" variant={showVendorForm ? "outline" : "default"} onClick={() => setShowVendorForm((s) => !s)}>
+          <Button
+            size="sm"
+            variant={showVendorForm ? "outline" : "default"}
+            onClick={() => {
+              if (showVendorForm) setVf(emptyVendorForm());
+              setShowVendorForm((s) => !s);
+            }}
+          >
             {showVendorForm ? "Hide" : "New vendor"}
           </Button>
         }
@@ -242,6 +275,18 @@ export function PayablesAndVendors() {
             <div>
               <Label>Type</Label>
               <Input value={vf.vendor_type} onChange={(e) => setVf((p) => ({ ...p, vendor_type: e.target.value }))} placeholder="e.g. professional_services" />
+            </div>
+            <div>
+              <Label>Contact email</Label>
+              <Input type="email" value={vf.contact_email} onChange={(e) => setVf((p) => ({ ...p, contact_email: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Contact phone</Label>
+              <Input value={vf.contact_phone} onChange={(e) => setVf((p) => ({ ...p, contact_phone: e.target.value }))} placeholder="+234…" />
+            </div>
+            <div>
+              <Label>TIN</Label>
+              <Input value={vf.tin} onChange={(e) => setVf((p) => ({ ...p, tin: e.target.value }))} placeholder="Tax identification number" />
             </div>
             <div className="flex items-end gap-2">
               <input
@@ -258,8 +303,19 @@ export function PayablesAndVendors() {
                 <Input inputMode="decimal" value={vf.wht_rate_pct} onChange={(e) => setVf((p) => ({ ...p, wht_rate_pct: e.target.value }))} />
               </div>
             )}
+            {vf.id && (
+              <div className="flex items-end gap-2">
+                <input
+                  id="vendor-active"
+                  type="checkbox"
+                  checked={vf.is_active}
+                  onChange={(e) => setVf((p) => ({ ...p, is_active: e.target.checked }))}
+                />
+                <Label htmlFor="vendor-active">Active</Label>
+              </div>
+            )}
             <div className="sm:col-span-4 flex justify-end">
-              <Button size="sm" onClick={saveVendor}>Save vendor</Button>
+              <Button size="sm" onClick={saveVendor}>{vf.id ? "Save changes" : "Save vendor"}</Button>
             </div>
           </div>
         )}
@@ -271,7 +327,7 @@ export function PayablesAndVendors() {
           <TableShell>
             <thead>
               <tr className="border-b border-charcoal-ink/10 text-xs text-charcoal-ink/50">
-                <Th>Name</Th><Th>Type</Th><Th>WHT</Th><Th>Status</Th>
+                <Th>Name</Th><Th>Type</Th><Th>Contact</Th><Th>TIN</Th><Th>WHT</Th><Th>Status</Th><Th right>Actions</Th>
               </tr>
             </thead>
             <tbody>
@@ -280,10 +336,23 @@ export function PayablesAndVendors() {
                   <td className="py-2 pr-4 text-charcoal-ink/80">{v.name}</td>
                   <td className="py-2 pr-4 text-charcoal-ink/60">{v.vendor_type ?? "—"}</td>
                   <td className="py-2 pr-4 text-charcoal-ink/60">
+                    {v.contact_email || v.contact_phone || "—"}
+                  </td>
+                  <td className="py-2 pr-4 text-charcoal-ink/60">{v.tin ?? "—"}</td>
+                  <td className="py-2 pr-4 text-charcoal-ink/60">
                     {v.wht_applicable ? `${v.wht_rate_pct ?? 0}%` : "—"}
                   </td>
                   <td className="py-2">
                     {v.is_active ? <Badge variant="green">Active</Badge> : <Badge variant="grey">Inactive</Badge>}
+                  </td>
+                  <td className="py-2 text-right">
+                    <button
+                      type="button"
+                      className="text-xs text-charcoal-ink/50 hover:text-brand-green"
+                      onClick={() => startEditVendor(v)}
+                    >
+                      Edit
+                    </button>
                   </td>
                 </tr>
               ))}

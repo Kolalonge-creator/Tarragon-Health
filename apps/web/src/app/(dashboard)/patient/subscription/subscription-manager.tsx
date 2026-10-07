@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatPatientDate } from "@/lib/format-date";
 import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
+import { BuyServiceDialog } from "./buy-service-dialog";
 
 function formatPrice(priceKobo: number, currency: Currency): string {
   if (priceKobo === 0) return "Free";
@@ -71,9 +72,7 @@ const PRODUCT_GROUPS: {
     title: "Ongoing cover",
     blurb:
       "Paid once for a fixed term, then it stops. No card is kept on file and there is nothing to cancel.",
-    match: (code) =>
-      code.startsWith("continuous_monitoring_") ||
-      code.startsWith("weight_management_"),
+    match: (code) => code.startsWith("continuous_monitoring_"),
   },
   {
     id: "doctor-time",
@@ -212,7 +211,10 @@ export function SubscriptionManager() {
         <Card>
           <CardHeader>
             <CardTitle>Buy a service</CardTitle>
-            <CardDescription>One-off payment, no auto-renewal.</CardDescription>
+            <CardDescription>
+              One-off payment, no auto-renewal. Your first purchase is covered by a 30-day
+              money-back guarantee.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {buyable.length > 0 && <PaystackFeeNotice />}
@@ -278,30 +280,50 @@ export function SubscriptionManager() {
                               </p>
                             ) : null}
                           </div>
-                          <form action={buyAction} className="shrink-0">
-                            <input
-                              type="hidden"
-                              name="serviceProductCode"
-                              value={product.code}
-                            />
-                            <input
-                              type="hidden"
-                              name="promoCode"
-                              value={promoCode}
-                            />
-                            <Button
-                              type="submit"
-                              size="sm"
-                              variant="outline"
-                              disabled={buyPending}
-                            >
-                              {product.price_kobo === 0 ? "Switch to" : "Buy"}{" "}
-                              {formatPrice(
-                                product.price_kobo,
-                                product.currency as Currency,
-                              )}
-                            </Button>
-                          </form>
+                          {product.price_kobo === 0 ? (
+                            <form action={buyAction} className="shrink-0">
+                              <input
+                                type="hidden"
+                                name="serviceProductCode"
+                                value={product.code}
+                              />
+                              <input
+                                type="hidden"
+                                name="promoCode"
+                                value={promoCode}
+                              />
+                              <Button
+                                type="submit"
+                                size="sm"
+                                variant="outline"
+                                disabled={buyPending}
+                              >
+                                Switch to Free
+                              </Button>
+                            </form>
+                          ) : (
+                            <div className="shrink-0">
+                              <BuyServiceDialog
+                                product={product}
+                                promoCode={promoCode}
+                                paystackFormAction={buyAction}
+                                trigger={
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={buyPending}
+                                  >
+                                    Buy{" "}
+                                    {formatPrice(
+                                      product.price_kobo,
+                                      product.currency as Currency,
+                                    )}
+                                  </Button>
+                                }
+                              />
+                            </div>
+                          )}
                         </li>
                       ))}
                     </ul>

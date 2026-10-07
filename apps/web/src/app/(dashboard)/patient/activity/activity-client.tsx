@@ -403,7 +403,13 @@ function EntryRow({
           onClick={async () => {
             const next = !favorite;
             setFavorite(next);
-            await toggleActivityFavoriteAction(entry.id, next);
+            const result = await toggleActivityFavoriteAction(entry.id, next);
+            if (result?.error) {
+              // Roll back the optimistic toggle rather than leaving the icon
+              // showing a state the write never actually reached.
+              setFavorite(!next);
+              return;
+            }
             queryClient.invalidateQueries({ queryKey: [ENTRIES_KEY, patientId] });
           }}
           className="text-lg"

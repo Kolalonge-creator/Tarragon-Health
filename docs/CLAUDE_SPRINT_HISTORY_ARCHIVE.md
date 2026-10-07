@@ -3924,3 +3924,269 @@ call reaches the mobile bundle. Fixed the handful of real medium/low gaps found:
 tsc --noEmit and eslint clean on both `apps/web` and `apps/mobile`; full mobile Jest suite (151 tests,
 including 3 new tests covering the 401 refresh/retry/sign-out paths) passes. Committed on
 `claude/mobile-backend-integration-audit`, not yet merged as of this writing.
+
+### 2026-09-17 — Platform Credit: fal.ai/SaveAI-style prepaid balance built same-day, then a founder
+audit found it, and a second pass found what the audit missed. Neither the original build nor either
+fix pass was ever logged here — a real gap this entry corrects.
+
+Founder ask: fund a balance once, never expires, spend it on any `service_products` purchase, cost
+shown up front with a top-up prompt when short. Built same-day (`20260917100300`-`20260917100629`,
+PR #663): `platform_credit_balances`/`platform_credit_ledger_entries`/`platform_credit_topup_intents`/
+`platform_credit_config`, with the design decision the migration's own header states plainly — every
+balance splits into `paid_balance_kobo` (only ever funded by a verified Paystack charge) and
+`promo_balance_kobo` (only ever funded by `grant_platform_credit`), so "whose money is this" is a
+stored fact from the ledger up, not a reconstruction — structurally answering the exact objection that
+killed the Health Wallet on 2026-07-31 (see that entry). A spend draws promo first, then paid.
+Reuses the care-voucher liability accounts (2100 customer prepayments, 2600 promotional credit) rather
+than adding new ones, per this project's standing "chart of accounts per economic substance, not per
+feature" discipline.
+
+**Founder-requested audit, same day, PR #664 (`fix/platform-credit-gaps`):** a raw Paystack validation
+error (`"email" must be a valid email` — QA's `.test` fixture domain trips Paystack's validator) leaked
+verbatim to the checkout UI; traced to a systemic gap in all 7 one-off checkout initiators under
+`lib/billing/`, not something platform-credit-specific, and fixed in all 7 via a new
+`lib/paystack/patient-facing-error.ts`. `finance_unified_ledger()` could not resolve a platform-credit
+journal entry's payer at all — its posting trigger names the ledger entry in `source_ref`, not a
+`payment_transactions.id` the way every other source does, so a patient's own "Transactions" lookup
+silently dropped their platform-credit history even though the GL itself looked correct; fixed
+read-side, catching and fixing (before ever shipping, via the migration's own proof) a real bug in the
+fix itself — a spend split across both buckets was double-counting instead of showing each bucket's
+own posted amount. `patient_receipts()` had no branch for a top-up at all, so a real card charge to fund
+the balance produced no receipt and no downloadable invoice, unlike every other payable thing on the
+platform — added, reusing `get_or_create_invoice()`'s existing generic-account-code fallback with zero
+code change there. Biggest gap: `grant_platform_credit`/`correct_platform_credit` had no UI caller
+anywhere and `platform_credit_config` had no settings page — built a "Manage" panel into
+`/admin/patients` (balance, ledger, grant, manual correction) and a new
+`/admin/settings/platform-credit` config page.
+
+**Second pass, same PR, found by auditing the rest of the feature rather than re-reading the founder's
+original list:** `platform_credit_topup_intents` had no automatic sweep for an abandoned checkout —
+unlike `service_purchases` (fixed 2026-09-05, see that entry) and `pharmacy_orders` (had it from the
+start), a top-up whose webhook never landed would sit `pending_payment` forever. Added
+`sweepStalePlatformCreditTopups`, the exact same decision shape as `sweepStaleServicePurchases` (never
+cancel a charge Paystack confirms was actually paid — flag it for a webhook replay instead), wired into
+the existing daily `reconcile-payment-providers` cron. `grant_platform_credit`/`correct_platform_credit`
+could move a patient's balance with zero signal to the patient at all — every comparable admin-initiated
+money event on this platform notifies the beneficiary (reward vouchers, sponsored-plan activation);
+Platform Credit was the one left silent. Added one `in_app` notification template
+(`platform_credit_balance_adjusted`) covering both entry types, scoped deliberately to admin-initiated
+changes only — a patient's own top-up/spend already gets on-screen feedback from the page that triggered
+it, so notifying them of their own action would be noise.
+
+**A cleanup lesson worth keeping visible**, since it recurred three times inside this same PR before
+being caught: every `platform_credit_apply()` call — including one made directly from a migration's own
+behavioural proof, not through a patient-facing RPC — fires `private.finance_post_platform_credit_ledger_entry`
+and posts a real `finance_journal_entries`/`finance_journal_lines` row. A proof that deletes the
+`platform_credit_ledger_entries` row it created but forgets to also capture and delete the GL entry the
+trigger posted leaves a real orphaned journal entry live in production — found each time by reading the
+GL browser live after applying the migration, not by re-reading the migration's own cleanup block. Any
+future proof that calls `platform_credit_apply` (or anything else with an `AFTER INSERT` finance-posting
+trigger) directly must capture the resulting `finance_journal_entries.id` (via its `source_ref`, e.g.
+`'topup:' || ledger_entry_id`) alongside the ledger entry id, and delete both.
+
+Both new migrations (`20260917214034`, `20260917214131`, `20260917220507`) carry real behavioural
+proofs — fund a real top-up, read it back through simulated RLS, sabotage-test that it doesn't leak to
+an unrelated profile, confirm a plain top-up does not notify while an admin grant/correction does — and
+have been applied to the live project. Browser-verified end-to-end as patient/admin/finance on a
+worktree-pinned dev server (see the worktree-vs-main-checkout `preview_start` gotcha this required
+working around, in memory).
+
+### 2026-09-18 — Full finance-team console audit (logged in as `finance@tarragonhealth.ng`): two
+real book-accuracy bugs found and corrected in production, a silent no-op fixed, a maker-checker gap
+closed, and a broad polish/consistency sweep
+
+Founder asked for the finance team's console to be audited end-to-end and brought to the standard
+expected of the platform generally. Logged in as the real `finance@tarragonhealth.ng` account (a
+magic link, per the established recipe — there is no `@tarragon.test` finance fixture) rather than
+the founder's own admin login, since the finance role's own gated views (see
+`lib/finance/partner-statement-access.ts`) are materially different from what admin sees on the same
+pages. Ran a code-inventory pass in parallel with live click-through of all 15 `/finance/*` pages.
+
+**Two real, live book-accuracy bugs, both found by comparing one finance RPC against a sibling that
+does the same calculation correctly, and both confirmed and fixed at the root:**
+1. `finance_kpi_summary`'s cash figure (feeding the Overview page's "Cash runway" tile) summed only
+   accounts 1000/1010, omitting 1020 "Payment processor clearing" — the account holding the bulk of
+   real live cash (every platform-credit top-up and most card payments land there first).
+   `finance_dashboard_summary`'s own `cash_ngn` tile already included 1020 correctly; the KPI RPC was
+   the odd one out. Live effect: real cash was ~₦20,355 but the KPI tile showed "Cash runway: 0 mo" —
+   an alarming, wrong number on the single dashboard whose job is telling the founder how much runway
+   is left. Fixed by adding `'1020'` to the KPI RPC's cash query; verified live, runway now correctly
+   shows 174.5 months against the trailing-90-day expense average.
+2. `private.finance_post_platform_credit_ledger_entry`'s `'spend'` branch always credited revenue
+   (4100) immediately, with no check for whether the purchased service has a bounded access window —
+   unlike the card-payment path (`private.finance_post_from_payment`'s `service_purchase` branch),
+   which correctly defers to 2000 and creates a `revenue_recognition_schedules` row when
+   `service_products.access_duration_days` is set. Live effect: the identical "Continuous Monitoring,
+   3 months" product was booked to deferred revenue when paid by card but recognised as revenue on
+   day one when paid by platform credit — a real matching-principle violation, and a direct
+   contradiction of this platform's own stated policy ("a service bought up front is deferred until
+   it is delivered," quoted verbatim on the Finance Overview page's own banner). Fixed by looking up
+   the purchase's `access_duration_days` before deciding the destination account (2000 vs 4100), and
+   creating the same recognition schedule the card path creates when it's bounded — verified via
+   several `BEGIN ... ROLLBACK` transactions (never left test data live) proving both the fixed
+   (duration-based → deferred + schedule) and unfixed (no `service_purchase_id` → still immediate
+   4100, a deliberate regression check) code paths. Migration `20260917234555`.
+   **The one real live entry this bug had already produced** (entry #290, 2026-09-17, a QA test
+   purchase on `patient.free.test@tarragon.test` made during the prior Platform Credit audit session)
+   was reversed and reposted correctly (2100→2000 instead of 2100→4100) with its own recognition
+   schedule backdated to the original spend date, rather than left misstated — same "correct the
+   books, don't just fix the code going forward" discipline as the 2026-09-05 "Phantom ₦10k revenue
+   reversed" entry above. Revenue YTD dropped from a phantom ₦7,500 to the correct ₦0 for this young,
+   still-pre-revenue-recognition dataset; deferred revenue rose by the same ₦7,500.
+
+**A third bug, found only because fixing #10 below required reading the code path closely:**
+`setPeriodStatusAction` (the server action behind Settings' period Close/Lock/Reopen buttons) called
+`finance_set_period_status` but discarded its `data` entirely — and locking a period is
+*unconditional* maker-checker (every lock request goes to Approvals, never posts immediately,
+regardless of amount). The client-side `if (resultStatus === "pending_approval")` branch that was
+supposed to tell the finance officer "this was sent for approval" could therefore never fire: `res.data`
+was always `undefined`. Clicking "Lock" looked like it did nothing at all — no error, no confirmation,
+the period's status badge didn't change — exactly the "[[reference_silent_disable_looks_like_empty_result]]"
+failure shape flagged elsewhere in this file. Fixed by passing `data` through; verified live end-to-end
+(clicked Lock on a real period, got the correct "sent to Approvals" message, confirmed the real pending
+request appeared on `/finance/approvals` correctly blocked from self-approval, then deleted that one
+test request row afterward).
+
+**A fourth, unrelated bug found by chance while spot-checking pages for "stuck loading" during the
+sweep:** `/finance/audit` (the Activity log) was permanently stuck on "Loading…" — confirmed the RPC
+itself worked fine via a direct authenticated REST call (`200`, `[]`), so the bug was client-side:
+`FinanceAuditLog` computed `const to = now();` inline on every render instead of once, so the query's
+own `args`/`queryKey` object was a new value (with a new `to` timestamp) on every re-render, and the
+query kept superseding itself before it could ever resolve. Fixed by moving it into
+`useState(now)` (a lazy initializer, computed once on mount) exactly like `from` already was. This is
+worth remembering as its own pattern: a bare `Date.now()`/`new Date().toISOString()` call used
+directly in a hook's query-key input, rather than stored in state, can produce an infinite-loading
+page with no console error and no failed network request to point at it — this was the only file in
+the finance console with this shape, but it's cheap to grep for (`= now();`/`= new Date().toISOString();`
+not behind `useState`) before shipping a similar client component elsewhere.
+
+**Maker-checker gap closed:** `finance_reverse_journal` only checked `finance.gl.post`, so unlike
+posting a large manual journal entry (which correctly routes to a second officer above the configured
+threshold via `finance_post_manual_journal`), reversing an entry of ANY size — including a
+fraud-motivated reversal, exactly the scenario Approvals exists to catch — was a single officer's
+unilateral action. Gave it the identical threshold check, routed through the same
+`finance_approval_requests` queue (a new `'journal_reversal'` request type; `request_type` is a plain
+text column, no `ALTER TYPE` needed), with `finance_approve_request` gaining a matching execution
+branch. `finance_reverse_journal`'s return type changed from a bare `uuid` to the same
+`{status, ...}` shape `finance_post_manual_journal` already returns, so the UI can tell a synchronous
+reversal from one sent for approval — `ledger.tsx`'s reverse flow was rewritten from a
+`window.prompt`/`window.alert` pair to a proper `ConfirmDialog` (recap of entry/date/memo/amount, a
+required reason field, disabled-until-filled) in the same pass, matching `payables.tsx`'s existing
+pattern rather than leaving the platform's single highest-stakes ledger action with the least UI
+friction of any of them. Migration `20260917235414`.
+
+**Access-control UI gap closed:** `/finance/partner-settlements`'s "Record a new laboratory invoice"
+form was fully live and submittable for the `finance` role even though `partner_statements` RLS
+(`private.is_org_staff`) deliberately excludes `finance` from writing to it (recording what a lab
+delivered is a care-team operations question by design, not an accounting one — see
+`lib/finance/partner-statement-access.ts`'s own header). The read side already had an honest access
+notice for this; the write side had nothing, so a finance officer could fill out the whole form and
+only discover it doesn't work from a raw RLS error on submit. Replaced the form with the same access
+notice for a `finance`-role reader, verified live.
+
+**Broad consistency/polish sweep**, matching the "same standard as a US company" bar the founder asked
+for: a React key warning on every render of Employer billing (a bare `<>...</>` fragment returned from
+inside `.map()` with no key, only its child `<tr>` was keyed — fixed with `<Fragment key=...>`); seven
+spots across the console (`approvals.tsx`, `audit.tsx`, `fraud-signals.tsx`, `unified-ledger.tsx`,
+`partner-settlements-client.tsx`, the print pack's `letterhead.tsx`/`audit-pack.tsx`) using a bare
+`toLocaleString()`/`toLocaleDateString()` with no `timeZone` — resolving to the *browser's* zone
+instead of the documented `Africa/Lagos` rule, and in one printed-document case, the printed date's
+day/month order varying by whichever device printed it — routed through the existing
+`formatPatientDate`/`formatPatientDateTime` helpers instead; a hand-rolled `naira()` formatter on the
+Laboratory settlements page reinvented `formatMinor` with no fixed locale; the new-vendor form on
+Payables silently dropped `contact_email`/`contact_phone`/`tin` on every save (hardcoded to `""` even
+though the RPC/schema fully support them) and had no edit affordance at all for an existing vendor —
+both fixed; `payment_fraud_signals` had zero proactive alerting, unlike reconciliation flags, so a
+duplicate-charge or chargeback signal sat silent until someone opened `/finance/fraud` — added
+`alertAdminsOfOpenFraudSignals`, the same once-daily-per-admin `in_app` pattern
+`alertAdminsOfOpenFlags` already uses, wired into the `fraud-sweep` cron the same way the
+reconciliation cron wires its own alert call; `lib/auth/permissions.ts`'s `PERMISSION_KEYS` union
+(whose own comment says "keep in sync with the migration's seed") was missing seven real, grantable
+`finance.*` permissions (`approvals.manage`, `vendors.manage`, `cost_centers.manage`,
+`budgets.manage`, `compliance.manage`, `capitation.manage`, `employer_billing.manage`) — confirmed
+against the live `public.permissions` table before adding, rather than trusting the sub-agent's
+narrower list; and Settings' period Close/Lock/Reopen buttons fired on a single click with no
+confirmation despite the page's own copy warning "Locked periods can't be reopened without care" —
+given the same `ConfirmDialog` treatment as the ledger reversal above.
+
+**Deliberately not built in this pass — real gaps, lower priority, left for an explicit ask:**
+`finance_pnl_by_cost_center` is a working, previously-fixed RPC with no UI anywhere in the console;
+`useUnifiedLedger`'s documented org-wide lookup mode has no UI toggle (profile-ID lookup only);
+`finance.export` is a seeded, grantable permission that unlocks nothing (no CSV/XLSX export exists
+anywhere, only browser print-to-PDF for the three report packs, which isn't gated on this permission
+at all); nothing in the console checks a caller's specific granular `finance.*` capability before
+rendering a Post/Reverse/Close/Lock/Approve button — only the coarse `finance.view` gate at the
+layout level — so a delegate granted only `finance.view` sees every action fully live and only
+discovers they can't use it from a raw RPC error; and several lower-stakes `window.prompt`/`alert`
+call sites remain (approvals reject, payables void) that would benefit from the same `ConfirmDialog`
+treatment given to reversal and period-locking in this pass.
+
+### 2026-09-22 — Swept the remaining bare-literal `can_read_clinical` RLS policies for the
+overload-ambiguity hole first found (and only partly closed) three weeks earlier
+
+A separate, unmerged admin/support "view as" branch (`claude/zen-montalcini-16829e`) hit a real,
+live bug while writing a brand-new migration: `private.can_read_clinical(patient_id,
+'vitals_readings')`, copied verbatim from `vitals_readings_select`'s own last migration
+(`20260902232555`), failed to even apply with `function private.can_read_clinical(uuid, unknown) is
+not unique` (42725). Confirmed live via `pg_get_function_identity_arguments` that
+`private.can_read_clinical` now has three overloads — the legacy 1-arg form, `(uuid,
+care_access_category)`, and `(uuid, caregiver_permission)`, the last added by
+`20260902234600_caregiver_permission_enforcement.sql` — and a bare untyped string-literal second
+argument is ambiguous between the two 2-arg forms regardless of the literal's value (this is type
+resolution on an "unknown"-typed literal, not a check of whether the value is a valid member of
+either enum). That branch fixed the two policies it happened to touch
+(`20260922175144_support_view_as.sql` §9) and flagged the rest as a platform-wide latent risk.
+
+The underlying overload-addition already broke things twice before, in two different ways, both same
+day as the overload landed: `20260902235200_fix_can_read_clinical_overload_ambiguity_live_callers.sql`
+had to fix four already-shipped plpgsql function bodies (`mark_care_message_thread_read`,
+`private.can_read_record_correction`, `care_receipt`, `search_patient_record`) that broke
+*immediately and silently* the moment the overload existed — plpgsql function bodies re-resolve their
+function calls on every invocation, unlike RLS policies, which bind their expression tree once at
+`CREATE POLICY` time and never re-resolve it. That's exactly why the 16 RLS policies below had sat
+broken-if-ever-touched-again for three weeks without a single live error: every one of them was
+created (or last redefined) *before* the caregiver_permission overload existed, so they kept working
+fine — the hole only opens the moment a *future* migration re-creates that same bare text, which is
+precisely what almost happened on the "view as" branch.
+
+Rather than wait for the next accidental hit, did a repo-wide scan: for every RLS policy referencing
+`can_read_clinical`, traced its true current definition (the most recent migration that
+`DROP`+`CREATE POLICY`'d it, not just the first), cross-checked against live `pg_policies`. Found 16
+more still on the bare form — `care_message_attachments_select`, `care_plan_goals_select`,
+`care_plan_interventions_select`, `clinical_summaries_select`, `clinician_alerts_select`,
+`escalations_select`, `medication_logs_select`, `patient_blood_profile_select`,
+`patient_cardiovascular_profile_select`, `patient_quarterly_reports_select`,
+`patient_risk_scores_select`, `patient_serology_status_select`, `reproductive_health_profiles_select`,
+`symptom_triage_assessments_select`, `vaccination_records_select`, `vaccination_schedules_select` —
+plus two false positives correctly left alone (`care_vouchers_select` calls a function that already
+returns a concretely-typed `care_access_category`; `patient_timeline_select` passes a
+concretely-typed column, not a literal — neither is actually ambiguous).
+`private.has_emergency_access` calls sitting alongside several of these were left bare on purpose:
+confirmed via the same `pg_proc` query it has exactly one live overload, so it isn't ambiguous.
+`vitals_readings_select`/`screening_schedules_select` were deliberately **not** re-touched here —
+already fixed live by the other, still-unmerged branch, and redefining them from this branch's own
+migration history would have silently reverted the `can_support_view` clause that branch already
+added live (a real trap: pulling "the true current definition" from live state instead of from this
+branch's own git history is exactly what avoided it).
+
+Fixed in `20260922183343_fix_remaining_can_read_clinical_bare_literal_policies.sql` — every clause
+copied byte-identical from the live definition, only the `can_read_clinical` call gets the explicit
+`::care_access_category` cast. Dry-run (`BEGIN`/`ROLLBACK`) then real apply, both directly against the
+live project via the Supabase CLI (no `apply_migration` MCP tool in this session — see
+`reference_supabase_cli_sql_access` in memory), ahead of opening the PR. Added a standing regression
+test (`packages/db/tests/can_read_clinical_bare_literal_policy_cast.sql`, registered in
+`ci.manifest`) with a real sabotage step: it creates a scratch policy against a real table
+(`clinical_summaries`) using the pre-fix bare text and confirms it still fails to even `CREATE`
+(42725) today, then confirms the cast form succeeds. `/code-review high` on the diff: no findings.
+Merged as PR #706 into `main-dev` after all CI checks (including "Supabase migration replay," which
+re-ran the new migration and the new regression test from a fresh local reset) and the Vercel preview
+passed.
+
+**The general lesson, not just this one function** — see the new standing-engineering-lessons bullet
+in this file's parent `CLAUDE.md`: adding a new overload to a function already called with untyped
+literal arguments doesn't just risk ambiguity going forward, it silently breaks every existing
+bare-literal call site, differently depending on the call site's kind — a plpgsql function body
+re-resolves on every call and breaks immediately; an RLS policy (or a view) binds once and keeps
+working until something re-creates it. Grep every existing call site — policies and function bodies
+both — and cast all of them in the same migration that adds the overload, rather than finding them
+one accidental hit at a time over the following weeks.

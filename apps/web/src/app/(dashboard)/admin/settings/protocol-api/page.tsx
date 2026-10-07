@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { ProtocolApiManager } from "./protocol-api-manager";
 
+export const metadata = { title: "Protocol API" };
+
 /**
  * Admin surface for the Protocol API licensing play (founder ask,
  * 2026-07-31): license the escalation/risk/protocol machinery to smaller

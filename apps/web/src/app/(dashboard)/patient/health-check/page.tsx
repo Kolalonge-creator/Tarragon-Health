@@ -1,3 +1,4 @@
+import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
@@ -12,6 +13,7 @@ import { AnnualHealthCheckBooking } from "../annual-health-check-booking";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { RiskSignalsCard } from "../risk-signals-card";
 import { HealthCheckVideoConsultCard } from "../health-check-video-consult-card";
+import { PreventiveHealthCheckReviewCta } from "./preventive-health-check-review-cta";
 import {
   countStageState,
   screeningStageState,
@@ -54,7 +56,7 @@ export default async function HealthCheckPage() {
   const { data: check } = await supabase
     .from("annual_health_checks")
     .select(
-      "created_at, reviewed_at, reviewed_by, review_summary, status, lab_order_id, lab_order:lab_orders!annual_health_checks_lab_order_id_fkey(panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name)), video_consult:video_consultations!annual_health_checks_video_consultation_id_fkey(id, proposed_slots, scheduled_at)"
+      "created_at, reviewed_at, reviewed_by, review_summary, review_requested_at, status, lab_order_id, lab_order:lab_orders!annual_health_checks_lab_order_id_fkey(panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name)), video_consult:video_consultations!annual_health_checks_video_consultation_id_fkey(id, proposed_slots, scheduled_at)"
     )
     .eq("patient_id", profile.id)
     .eq("year", year)
@@ -69,6 +71,7 @@ export default async function HealthCheckPage() {
     { count: wellbeingCount },
     { data: vitalsRows, error: vitalsError },
     { count: screeningsDue },
+    { data: reviewProduct },
   ] = await Promise.all([
     supabase
       .from("prevention_risk_scores")
@@ -89,6 +92,16 @@ export default async function HealthCheckPage() {
       .select("id", { count: "exact", head: true })
       .eq("patient_id", profile.id)
       .in("status", ["pending", "overdue"]),
+    // Whether Preventive Health Check Review can actually be bought right
+    // now — see 20260922185300_preventive_health_check_review_sku.sql's
+    // header: it ships is_active = false pending a Clinical Director
+    // signature, so the buy button must not be offered until an admin
+    // flips this on.
+    supabase
+      .from("service_products")
+      .select("is_active, price_kobo")
+      .eq("code", "preventive_health_check_review")
+      .maybeSingle(),
   ]);
 
   const vitalTypeCounts = (vitalsRows ?? []).reduce<Record<string, number>>((acc, row) => {
@@ -105,11 +118,11 @@ export default async function HealthCheckPage() {
   let reviewerName: string | null = null;
   if (check?.reviewed_by) {
     const { data: reviewer } = await supabase
-      .from("clinical_staff")
+      .from("clinical_staff_directory")
       .select("full_name")
       .eq("id", check.reviewed_by)
       .maybeSingle();
-    reviewerName = reviewer?.full_name ? `Dr. ${reviewer.full_name}` : null;
+    reviewerName = reviewer?.full_name ? `Dr. ${stripDoctorTitle(reviewer.full_name)}` : null;
   }
 
   const tierName = check?.lab_order?.panel_bundle?.name ?? null;
@@ -267,6 +280,19 @@ export default async function HealthCheckPage() {
                 </a>
               </p>
             </>
+          ) : check?.review_requested_at ? (
+            <p className="text-charcoal-ink/60 dark:text-night-ink/60">
+              Requested{" "}
+              {new Date(check.review_requested_at).toLocaleDateString("en-GB", {
+                timeZone: "Africa/Lagos",
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+              . A doctor on your care team will review your check and write back a plan.
+            </p>
+          ) : reviewProduct?.is_active ? (
+            <PreventiveHealthCheckReviewCta priceKobo={reviewProduct.price_kobo} />
           ) : (
             <p className="text-charcoal-ink/60 dark:text-night-ink/60">
               Once your checks are in, a doctor reviews everything and walks you through your

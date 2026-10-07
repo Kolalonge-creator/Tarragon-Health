@@ -4,6 +4,7 @@ import {
   canHandleEmergencyEscalation,
   canReviewSafeguardingConcern,
   hasPrescribingAuthority,
+  isActiveChiefMedicalOfficer,
 } from "./doctor-tier";
 
 type Staff = Parameters<typeof hasPrescribingAuthority>[0];
@@ -136,6 +137,41 @@ describe("canAssignCases", () => {
   it("refuses a null record and a record with no tier", () => {
     expect(canAssignCases(null)).toBe(false);
     expect(canAssignCases(staff(null))).toBe(false);
+  });
+});
+
+/**
+ * The regression this exists to prevent: (dashboard)/layout.tsx queries
+ * clinical_staff directly (rather than through getCurrentClinicalStaff,
+ * which already filters `.eq("active", true)`) so it can still resolve
+ * staff_number/id for an inactive member — but that means canAssignCases
+ * alone isn't enough to gate the AI governance sign-off banner there. An
+ * offboarded Chief Medical Officer still carries doctor_tier =
+ * 'chief_medical_officer' and would see the banner and its "Review AI
+ * governance" link, which leads to a page gated on getCurrentClinicalStaff
+ * and would immediately bounce them back out.
+ */
+describe("isActiveChiefMedicalOfficer", () => {
+  it("admits only an active Chief Medical Officer", () => {
+    expect(isActiveChiefMedicalOfficer({ doctor_tier: "chief_medical_officer", active: true })).toBe(
+      true
+    );
+  });
+
+  it("refuses an inactive/offboarded Chief Medical Officer", () => {
+    expect(
+      isActiveChiefMedicalOfficer({ doctor_tier: "chief_medical_officer", active: false })
+    ).toBe(false);
+  });
+
+  it("refuses an active Senior Medical Officer — tier still governs, active alone isn't enough", () => {
+    expect(isActiveChiefMedicalOfficer({ doctor_tier: "senior_medical_officer", active: true })).toBe(
+      false
+    );
+  });
+
+  it("refuses a null record", () => {
+    expect(isActiveChiefMedicalOfficer(null)).toBe(false);
   });
 });
 

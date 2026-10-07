@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { IncidentsManager, type OpsIncidentRow } from "./incidents-manager";
 
+export const metadata = { title: "Incident register" };
+
 /**
  * Module 30.18 — the unified operations incident register. Sits above
  * clinical_incident_reports and data_breach_incidents (see the migration

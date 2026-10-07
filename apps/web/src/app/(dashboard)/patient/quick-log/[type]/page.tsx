@@ -15,9 +15,8 @@ function isVitalType(value: string): value is VitalType {
 /**
  * A one-purpose, no-hunting-through-the-dashboard page for a specific vital
  * type — the destination for the deep link now carried in vitals_reminder's
- * WhatsApp/SMS body. This does NOT relax the app/web-only entry rule
- * (Non-Negotiable Business Rules: no WhatsApp-driven data entry, ever) —
- * the message only ever links here, it never accepts a reply as data.
+ * message body. A reminder only ever links here; it never accepts a
+ * reply as data.
  * Proxy.ts already preserves this exact path through a login bounce
  * (isRoleHomePrefixed + redirect-after-login), so a signed-out tap on the
  * reminder still lands here, not on the generic dashboard, after signing in.

@@ -10,6 +10,7 @@ import { extractEcgReport, isEcgReportExtractionConfigured } from "./extract";
 import { isReadableDocumentType, normaliseForVision } from "@/lib/lab-reports/heic";
 import { confirmEcgReportExtractionSchema } from "@/lib/validation/ecg-report-extraction";
 import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
+import { deriveEcgAiSummaryStatus, extractMachineRhythmStatement } from "./ai-summary";
 
 export type EcgExtractionActionResult = { error?: string; success?: boolean; message?: string };
 
@@ -100,6 +101,24 @@ export async function runEcgReportExtraction(
     } catch (error) {
       console.error("ecg-reports: could not persist failure", error);
     }
+    // -- Patient-facing AI summary status -------------------------------------
+    // Every failure path routes through here, so this covers all of them
+    // uniformly. Mirrors lib/lab-reports/extraction-actions.ts's own
+    // 'unavailable' write exactly — never touches clinician_alerts, stores no
+    // clinical judgement, only a status the patient sees immediately on their
+    // own upload, independent of any doctor review.
+    try {
+      await service
+        .from("ecg_report_documents")
+        .update({
+          ai_summary_status: "unavailable",
+          ai_rhythm_statement: null,
+          ai_summary_generated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId);
+    } catch (error) {
+      console.error("ecg-reports: could not persist AI summary status", error);
+    }
     return { status: "failed" as const, readyCount: 0, message };
   };
 
@@ -122,28 +141,23 @@ export async function runEcgReportExtraction(
     );
   }
 
-  let fileBase64: string;
-  let visionMediaType: string = mimeType;
-  try {
-    const { data: file, error } = await service.storage.from(ECG_REPORT_BUCKET).download(filePath);
-    if (error || !file) throw error ?? new Error("Not found in storage");
-
-    // An iPhone photographing a printed ECG produces HEIC, same as a
-    // photographed lab report — reuses lib/lab-reports/heic.ts rather than
-    // duplicating the conversion. Never throws.
-    const normalised = await normaliseForVision(Buffer.from(await file.arrayBuffer()), mimeType);
-    fileBase64 = normalised.buffer.toString("base64");
-    visionMediaType = normalised.mediaType;
-  } catch (error) {
-    console.error("ecg-reports: could not download document", error);
-    return fail("Could not open the stored ECG file.", "Download failed.");
-  }
-
   // -- AI-006 governance gate -----------------------------------------------
-  // Same shape and the same reasoning as the lab pipeline's gate: the kill
-  // switch is honoured before the model is reached, every outcome reaches
+  // Checked BEFORE the storage download/HEIC-normalisation below, not after:
+  // AI-006 is live/enabled in production, but the kill switch must still be
+  // honoured before any real network + CPU cost is paid, not after. Same
+  // shape and the same reasoning as the lab pipeline's gate: the kill switch
+  // is honoured before the model is reached, every outcome reaches
   // ai_interaction_log, and the fallback is the manual entry form this
   // function already fell back to for every other failure.
+  //
+  // Checked AFTER the download/normalise above, unlike
+  // imaging-reports/extraction-actions.ts's own governance gate (checked
+  // BEFORE its download, 2026-09-22 — see that file's comment). Deliberately
+  // left as-is here rather than reordered to match: AI-006 is live/enabled,
+  // so this only wastes work during an actual kill-switch/incident, not on
+  // every call the way AI-016's disabled-by-default state made it waste work
+  // on every imaging upload. Tracked as a follow-up, not forgotten — see the
+  // "Move lab/ECG AI governance check before storage download" task.
   const governance = await decideAiGovernance(service, AI_SYSTEMS.ecgReportExtraction.code);
   if (!governance.allow) {
     await recordAiInteraction(service, {
@@ -161,6 +175,23 @@ export async function runEcgReportExtraction(
       "Automatic reading is switched off just now. Enter the parameters by hand.",
       `AI governance: ${governance.reason}`,
     );
+  }
+
+  let fileBase64: string;
+  let visionMediaType: string = mimeType;
+  try {
+    const { data: file, error } = await service.storage.from(ECG_REPORT_BUCKET).download(filePath);
+    if (error || !file) throw error ?? new Error("Not found in storage");
+
+    // An iPhone photographing a printed ECG produces HEIC, same as a
+    // photographed lab report — reuses lib/lab-reports/heic.ts rather than
+    // duplicating the conversion. Never throws.
+    const normalised = await normaliseForVision(Buffer.from(await file.arrayBuffer()), mimeType);
+    fileBase64 = normalised.buffer.toString("base64");
+    visionMediaType = normalised.mediaType;
+  } catch (error) {
+    console.error("ecg-reports: could not download document", error);
+    return fail("Could not open the stored ECG file.", "Download failed.");
   }
 
   const startedAt = Date.now();
@@ -220,6 +251,23 @@ export async function runEcgReportExtraction(
   );
   if (upsertError) {
     return fail("Could not save the draft.", upsertError.message);
+  }
+
+  // -- Patient-facing AI summary status ---------------------------------------
+  // Mirrors lib/lab-reports/extraction-actions.ts's own write exactly. Reads
+  // only the machine's own printed rhythm statement (ai-summary.ts) — never
+  // touches clinician_alerts, never a clinical judgement of the tracing.
+  try {
+    await service
+      .from("ecg_report_documents")
+      .update({
+        ai_summary_status: deriveEcgAiSummaryStatus(parameters),
+        ai_rhythm_statement: extractMachineRhythmStatement(parameters),
+        ai_summary_generated_at: new Date().toISOString(),
+      })
+      .eq("id", documentId);
+  } catch (error) {
+    console.error("ecg-reports: could not persist AI summary status", error);
   }
 
   // 40.11. Counts and provenance only -- the measured parameters stay in

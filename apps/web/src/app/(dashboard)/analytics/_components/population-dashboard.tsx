@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, AlertTriangle, HeartPulse, Users } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import {
@@ -120,6 +120,21 @@ export function PopulationDashboard() {
                     <Cell key={entry.sex} fill={paletteColor(i)} />
                   ))}
                 </Pie>
+                <Legend
+                  content={() => (
+                    <ul className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-charcoal-ink/70">
+                      {(s?.sex_distribution ?? []).map((entry, i) => (
+                        <li key={entry.sex} className="flex items-center gap-1.5">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                            style={{ backgroundColor: paletteColor(i) }}
+                          />
+                          {entry.sex} ({entry.count})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                />
               </PieChart>
             </ChartContainer>
           )}

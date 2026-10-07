@@ -39,7 +39,7 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   },
   multi_condition_review: {
     title: "A review across all your conditions is a paid service",
-    body: "Nothing urgent is ever held back for this: a dangerous reading reaches a doctor exactly as it always would. What this adds is one doctor looking at every condition you're managing together and writing a single plan. Available as a Senior Case Review, or with the 12-week doctor-supported programme.",
+    body: "Nothing urgent is ever held back for this: a dangerous reading reaches a doctor exactly as it always would. What this adds is one doctor looking at every condition you're managing together and writing a single plan, as part of the 12-week doctor-supported programme.",
   },
   vitals_red_flag_doctor_escalation: {
     title: "Having a doctor paged on a dangerous reading is a paid service",

@@ -17,8 +17,7 @@ export type SpeakToSomeoneResult =
  * §78.12 "I want to speak to someone" -- a patient-REQUESTED handoff,
  * distinct from the automatic tier-triggered escalation ai-coach/escalate.ts
  * already does. Opens a real care_messages thread (the platform's actual
- * in-app patient<->care-team channel, not WhatsApp — see CLAUDE.md's
- * two-way-conversation-is-in-app-only rule) pre-filled with the same
+ * in-app patient<->care-team channel) pre-filled with the same
  * structured summary shape as an automatic escalation, so whoever picks it
  * up doesn't have to re-read the whole chat.
  *
@@ -60,6 +59,7 @@ export async function requestCareTeamHandoffAction(
     aiAction: "Patient asked to speak with a person instead of continuing with the AI Coach",
     medications: snapshot.medications,
     conditions: snapshot.conditions,
+    supabase,
   });
 
   const { data: threadId, error } = await supabase.rpc("start_care_thread", {

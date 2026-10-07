@@ -16,7 +16,7 @@
 --   * the dead-letter records the absent pathway as null rather than
 --     inventing a tier nobody triaged;
 --   * a second run does not duplicate the row;
---   * a hop-1 row is HOPPED along the default push/whatsapp/sms ladder, not
+--   * a hop-1 row is HOPPED along the default push/email/sms ladder, not
 --     dead-lettered early;
 --   * CONTROL: a still-pending critical is neither hopped nor dead-lettered;
 --   * CONTROL: the engine's own exhaustion alarm, even when failed, is not
@@ -72,7 +72,7 @@ end $$;
 
 -- ==========================================================================
 -- 1. A failed, exhausted, unpathwayed critical reaches the dead-letter.
---    escalation_hop = 3 is the end of the default push/whatsapp/sms ladder.
+--    escalation_hop = 3 is the end of the default push/email/sms ladder.
 -- ==========================================================================
 do $$
 declare
@@ -157,12 +157,12 @@ begin
   select channel::text as ch, escalation_hop as hop into v_hop
     from public.notifications where escalated_from_id = v_n;
   insert into p1 values
-    ('hop 1 of an unpathwayed critical advances to the default ladder''s channel 2 (whatsapp)',
+    ('hop 1 of an unpathwayed critical advances to the default ladder''s channel 2 (email)',
      coalesce(v_hop.ch, '<none>') || ' hop=' || coalesce(v_hop.hop::text, '<none>'),
-     'whatsapp hop=2',
-     case when v_hop.ch = 'whatsapp' and v_hop.hop = 2 then 'PASS' else 'FAIL' end);
-  if v_hop.ch is distinct from 'whatsapp' or v_hop.hop is distinct from 2 then
-    raise exception 'FAIL: hop went to % at hop %, expected whatsapp at hop 2', v_hop.ch, v_hop.hop;
+     'email hop=2',
+     case when v_hop.ch = 'email' and v_hop.hop = 2 then 'PASS' else 'FAIL' end);
+  if v_hop.ch is distinct from 'email' or v_hop.hop is distinct from 2 then
+    raise exception 'FAIL: hop went to % at hop %, expected email at hop 2', v_hop.ch, v_hop.hop;
   end if;
 
   select count(*) into v_dead from public.notification_escalation_failures where notification_id = v_n;

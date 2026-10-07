@@ -15,7 +15,17 @@
 # FAIL verdict, because a script that only records FAIL in its result table
 # would otherwise exit 0 and look green.
 #
-# Every .sql file in packages/db/tests must appear in EXACTLY ONE of
+# Almost every proof is a single-session .sql file run via `psql -f`. A .sh
+# file runs instead wherever a bug is specifically a race between two
+# overlapping transactions (e.g. a missing SELECT ... FOR UPDATE) — a single
+# psql session can't hold a lock against itself to prove another session
+# actually blocks on it, so that class of proof needs two real concurrent
+# connections. A .sh proof gets $DB_URL exported and is executed directly; it
+# must still print the same check_name/observed/expected/verdict-style table
+# so a trailing "| FAIL" is caught the same way, and a nonzero exit is always
+# a failure regardless of what it printed.
+#
+# Every .sql/.sh file in packages/db/tests must appear in EXACTLY ONE of
 # ci.manifest or ci.excluded. A new proof file that is in neither fails this
 # script rather than silently never running, which is the failure mode the
 # whole directory was already in.
@@ -40,7 +50,11 @@ read_list() {
 
 MANIFEST_FILES="$(read_list "$MANIFEST")"
 EXCLUDED_FILES="$(read_list "$EXCLUDED")"
-PRESENT_FILES="$(cd "$TESTS" && ls -1 *.sql | sort)"
+# nullglob (scoped to this subshell only) so *.sh expands to nothing rather
+# than the literal string if no .sh proof exists yet -- ls on a literal,
+# nonexistent "*.sh" would fail under `set -e` above and kill this script
+# with no output.
+PRESENT_FILES="$(cd "$TESTS" && shopt -s nullglob && printf '%s\n' *.sql *.sh | sort)"
 
 # --- every file is accounted for, exactly once -----------------------------
 # Deliberately before the psql check, so this half is useful (and enforced)
@@ -85,7 +99,15 @@ while IFS= read -r f; do
   [[ -z "$f" ]] && continue
   echo "=== $f"
   out=""
-  if ! out="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q -f "$TESTS/$f" 2>&1)"; then
+  if [[ "$f" == *.sh ]]; then
+    if ! out="$(DATABASE_URL="$DB_URL" bash "$TESTS/$f" 2>&1)"; then
+      echo "$out"
+      echo "--- $f ERRORED (nonzero exit, or a raised assertion)"
+      failed="$failed $f"
+      failed_count=$((failed_count + 1))
+      continue
+    fi
+  elif ! out="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q -f "$TESTS/$f" 2>&1)"; then
     echo "$out"
     echo "--- $f ERRORED (a raised assertion, or a broken script)"
     failed="$failed $f"

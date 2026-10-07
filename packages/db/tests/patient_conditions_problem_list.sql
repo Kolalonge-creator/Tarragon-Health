@@ -74,7 +74,7 @@ begin
 end $$;
 
 -- ==========================================================================
--- 2. Org-staff (clinician) CAN insert and later update the status — and the
+-- 2. A clinician's insert and later status update (run as the owner, see the S05f note below) — and the
 --    status change lands on patient_timeline.
 -- ==========================================================================
 do $$
@@ -85,9 +85,12 @@ declare
   v_condition uuid;
   v_timeline_count bigint;
 begin
+  -- S05f (INV-10): staff can no longer insert or update patient_conditions directly (no staff write policy remains), so this block runs
+  -- as the table owner with the clinician's identity in the JWT claims: RLS is bypassed, but the timeline and correction-trail triggers
+  -- still see auth.uid() and are exercised exactly as before. The refusal of a direct staff write is proved in
+  -- s05f_four_tables_staff_writes_dropped.sql.
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_clinician::text, 'role', 'authenticated')::text, true);
-  set local role authenticated;
 
   insert into public.patient_conditions
     (organisation_id, patient_id, condition_name, status, diagnosing_clinician_id, recorded_by)
@@ -99,7 +102,7 @@ begin
   -- would make the UPDATE below raise (covered separately in test 6).
   perform set_config('app.change_reason', 'confirmed on fasting glucose + HbA1c', true);
   update public.patient_conditions set status = 'active' where id = v_condition;
-  reset role;
+  perform set_config('request.jwt.claims', null, true);
 
   insert into pcpl_fixture(k, v) values ('condition', v_condition);
 
@@ -202,7 +205,8 @@ declare
 begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_clinician::text, 'role', 'authenticated')::text, true);
-  set local role authenticated;
+  -- (S05f: run as the table owner with the clinician's identity in the claims; staff have no write policy on patient_conditions any more,
+  -- so a direct staff UPDATE would match zero rows and could never raise, but the mandatory-reason trigger still must.)
   -- app.change_reason is set via set_config(..., true) -- transaction-local,
   -- not per-statement -- so test 2's reason is still "set" this far into the
   -- same outer transaction unless explicitly cleared here. Empty string is
@@ -214,7 +218,6 @@ begin
   exception when others then
     v_caught := true;
   end;
-  reset role;
 
   insert into pcpl_result values
     ('reason is mandatory for patient_conditions', 'clinician',

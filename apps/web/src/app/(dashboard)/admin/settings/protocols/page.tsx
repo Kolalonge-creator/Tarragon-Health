@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ProtocolVersionsManager } from "./protocol-versions-manager";
 import { ProtocolDraftsManager } from "./protocol-drafts-manager";
 
+export const metadata = { title: "Clinical protocols" };
+
 export default async function ProtocolsSettingsPage() {
   const profile = await getCurrentProfile();
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Check, Gift } from "lucide-react";
 import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { NIGERIAN_STATES } from "@/lib/nigeria-states";
@@ -13,23 +13,61 @@ import { Select } from "@/components/ui/select";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULE_HINT } from "@/lib/validation/password";
+import { t, type Locale } from "@tarragon/i18n";
+import { cn } from "@/lib/utils";
+import { PhoneSignupForm } from "./phone-signup-form";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
-export function SignupForm({
+function EmailSignupForm({
   refCode,
   intent,
+  redirectTo,
 }: {
   refCode?: string;
   /** Carried through auth metadata so onboarding can land the visitor on what
    *  they came for. Hidden field, same mechanism as refCode. */
   intent?: "health_check" | "support";
+  /** Where to land after the confirmation-email link is clicked — e.g. a
+   *  sponsored_service_reservations claim link (/claim/[token]) a brand-new
+   *  recipient arrived from. Same hidden-field mechanism as login-form.tsx's
+   *  redirectTo; threaded into emailRedirectTo by the signUp action and read
+   *  back by /auth/callback once the account is confirmed. */
+  redirectTo?: string;
 }) {
   const [state, formAction, pending] = useActionState(signUp, undefined);
   const errorId = fieldErrorId("signup");
   // Server actions here return the failing field name alongside the message
   // (see firstIssue), so only that control is marked invalid.
   const invalid = (field: string) => Boolean(state?.error) && state?.field === field;
+
+  // React resets a <form action={...}>'s uncontrolled fields to their
+  // defaultValue synchronously at submit time, before the action even runs —
+  // so a `defaultValue` sourced from the *returned* state is always one
+  // submission too late to stop that reset (it only affects the *next*
+  // reset). Previously this meant a single invalid field (e.g. a mistyped
+  // phone number) silently wiped the visitor's name, email and password too,
+  // forcing a full retype. These refs let us imperatively restore the
+  // non-sensitive fields once the new state actually lands, after the reset
+  // has already happened.
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const countryCodeRef = useRef<HTMLSelectElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const stateFieldRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (!state?.values) return;
+    if (firstNameRef.current) firstNameRef.current.value = state.values.firstName ?? "";
+    if (lastNameRef.current) lastNameRef.current.value = state.values.lastName ?? "";
+    if (emailRef.current) emailRef.current.value = state.values.email ?? "";
+    if (countryCodeRef.current && state.values.countryCode) {
+      countryCodeRef.current.value = state.values.countryCode;
+    }
+    if (phoneRef.current) phoneRef.current.value = state.values.phone ?? "";
+    if (stateFieldRef.current) stateFieldRef.current.value = state.values.state ?? "";
+  }, [state]);
 
   if (state?.success) {
     return (
@@ -47,6 +85,7 @@ export function SignupForm({
   return (
     <form action={formAction} className="space-y-5">
       {intent && <input type="hidden" name="intent" value={intent} />}
+      {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
       {refCode && (
         <>
           <input type="hidden" name="refCode" value={refCode} />
@@ -69,6 +108,8 @@ export function SignupForm({
             name="firstName"
             autoComplete="given-name"
             required
+            ref={firstNameRef}
+            disabled={pending}
             className={FIELD_CLASS}
             {...fieldErrorProps(errorId, invalid("firstName"))}
           />
@@ -82,6 +123,8 @@ export function SignupForm({
             name="lastName"
             autoComplete="family-name"
             required
+            ref={lastNameRef}
+            disabled={pending}
             className={FIELD_CLASS}
             {...fieldErrorProps(errorId, invalid("lastName"))}
           />
@@ -98,6 +141,8 @@ export function SignupForm({
           inputMode="email"
           autoComplete="email"
           required
+          ref={emailRef}
+          disabled={pending}
           className={FIELD_CLASS}
           {...fieldErrorProps(errorId, invalid("email"))}
         />
@@ -112,6 +157,8 @@ export function SignupForm({
             name="countryCode"
             autoComplete="tel-country-code"
             defaultValue={COUNTRY_CALLING_CODES[0].dialCode}
+            ref={countryCodeRef}
+            disabled={pending}
             className={`w-auto shrink-0 ${FIELD_CLASS}`}
             aria-label="Country code"
             required
@@ -124,6 +171,8 @@ export function SignupForm({
           </Select>
           <Input
             {...phoneInputProps}
+            ref={phoneRef}
+            disabled={pending}
             className={FIELD_CLASS}
             {...fieldErrorProps(
               errorId,
@@ -147,6 +196,8 @@ export function SignupForm({
           name="state"
           autoComplete="address-level1"
           defaultValue=""
+          ref={stateFieldRef}
+          disabled={pending}
           className={FIELD_CLASS}
           aria-describedby="signup-state-hint"
         >
@@ -171,6 +222,7 @@ export function SignupForm({
           autoComplete="new-password"
           required
           minLength={PASSWORD_MIN_LENGTH}
+          disabled={pending}
           className={FIELD_CLASS}
           {...fieldErrorProps(errorId, invalid("password"), "signup-password-rule")}
         />
@@ -186,5 +238,44 @@ export function SignupForm({
         {pending ? "Creating account…" : "Create account"}
       </Button>
     </form>
+  );
+}
+
+/**
+ * Sign-up with a phone number or an email address (S03, function 1.1). Email stays the default so every existing
+ * link and test lands where it always did; the Phone tab is the phone-first path with a six-digit code.
+ */
+export function SignupForm({
+  locale = "en",
+  ...props
+}: {
+  locale?: Locale;
+  refCode?: string;
+  intent?: "health_check" | "support";
+  redirectTo?: string;
+}) {
+  const [method, setMethod] = useState<"email" | "phone">("email");
+
+  return (
+    <div className="space-y-5">
+      <div role="tablist" aria-label={t("auth.signup.title", locale)} className="grid grid-cols-2 rounded-xl bg-charcoal-ink/5 p-1 text-sm font-medium">
+        {(["email", "phone"] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={method === value}
+            onClick={() => setMethod(value)}
+            className={cn(
+              "rounded-lg py-1.5 transition-colors",
+              method === value ? "bg-white text-brand-green shadow-sm" : "text-charcoal-ink/60"
+            )}
+          >
+            {t(value === "email" ? "auth.method.email" : "auth.method.phone", locale)}
+          </button>
+        ))}
+      </div>
+      {method === "email" ? <EmailSignupForm {...props} /> : <PhoneSignupForm locale={locale} {...props} />}
+    </div>
   );
 }

@@ -149,6 +149,61 @@ describe("runGovernedAi", () => {
     expect(audit?.p_safety_classification).toBe("emergency");
   });
 
+  it("records an internally-degraded AI path as fallback, not completed", async () => {
+    // The regression this exists for: a call site that catches its own model
+    // failure and returns a degraded answer (the coach graph does exactly
+    // this) used to be indistinguishable from a clean success here — it
+    // returned a value and did not throw. Four real coach turns that failed
+    // with "Anthropic API key not found" are recorded in ai_interaction_log
+    // as completed model calls on a real model identifier because of it.
+    const supabase = client(registered());
+
+    const result = await runGovernedAi({
+      supabase,
+      systemCode: "AI-001",
+      inputCategory: "symptom_question",
+      run: async () => ({
+        value: "cautious degraded reply",
+        modelIdentifier: "claude-sonnet-5",
+        degradedReason: "Anthropic API key not found",
+        safetyClassification: "clinician_review" as const,
+      }),
+      fallback: () => "fallback",
+    });
+
+    // The patient still got the degraded reply — this changes the record, not
+    // the behaviour.
+    expect(result.value).toBe("cautious degraded reply");
+    expect(result.status).toBe("fallback");
+    expect(result.fallbackReason).toBe("ai_error");
+
+    const audit = auditFor(supabase.rpcCalls);
+    expect(audit?.p_status).toBe("fallback");
+    expect(audit?.p_error_message).toBe("Anthropic API key not found");
+    expect(audit?.p_fallback_reason).toContain("Anthropic API key not found");
+    // No model answered, so no model identifier may be claimed — feeding one
+    // here would put a model that never ran into the 40.19 drift check.
+    expect(audit?.p_model_identifier).toBe("none:fallback");
+  });
+
+  it("still records a clean run as completed", async () => {
+    // The control for the test above: proving the new branch discriminates
+    // rather than classifying everything as degraded.
+    const supabase = client(registered());
+
+    const result = await runGovernedAi({
+      supabase,
+      systemCode: "AI-001",
+      inputCategory: "symptom_question",
+      run: async () => ({ value: "real reply", modelIdentifier: "claude-sonnet-5" }),
+      fallback: () => "fallback",
+    });
+
+    expect(result.status).toBe("completed");
+    expect(result.fallbackReason).toBeNull();
+    expect(auditFor(supabase.rpcCalls)?.p_model_identifier).toBe("claude-sonnet-5");
+  });
+
   it("still returns an answer when the audit write itself fails", async () => {
     // Losing the record is bad; losing the patient's answer as well is worse.
     const supabase = {

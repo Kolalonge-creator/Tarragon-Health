@@ -5,6 +5,8 @@ import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
 import { AccessRulesManager } from "./access-rules-manager";
 import { ServiceCapsManager } from "./service-caps-manager";
 
+export const metadata = { title: "AI Health Coach" };
+
 export default async function AiCoachSettingsPage() {
   const profile = await getCurrentProfile();
 

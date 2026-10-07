@@ -529,3 +529,50 @@ export function useSponsorSetBasics() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sponsorship"] }),
   });
 }
+
+export type SponsoredReservation = {
+  id: string;
+  recipientFirstName: string;
+  recipientPhone: string;
+  serviceName: string;
+  amountKobo: number;
+  status: "pending_payment" | "invited" | "claimed" | "expired" | "cancelled";
+  createdAt: string;
+  claimedAt: string | null;
+};
+
+/**
+ * The sponsor's own receipts for the phone-only reservation flow
+ * (BuyCareForSomeone's "Someone who'll use the app themselves" card) — a
+ * non-clinical lifecycle list only (paid/invited/claimed/expired), same
+ * shape as every other sponsor-facing list on this page. RLS on
+ * sponsored_service_reservations already scopes SELECT to
+ * sponsor_profile_id = auth.uid() (or org staff), so this needs no filter
+ * beyond ordering.
+ */
+export function useSponsoredReservations() {
+  return useQuery({
+    queryKey: ["sponsorship", "reservations"],
+    queryFn: async (): Promise<SponsoredReservation[]> => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("sponsored_service_reservations")
+        .select(
+          "id, recipient_first_name, recipient_phone, amount_kobo, status, created_at, claimed_at, service_products(name)"
+        )
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        recipientFirstName: row.recipient_first_name,
+        recipientPhone: row.recipient_phone,
+        serviceName: row.service_products?.name ?? "Unknown service",
+        amountKobo: row.amount_kobo,
+        status: row.status,
+        createdAt: row.created_at,
+        claimedAt: row.claimed_at,
+      }));
+    },
+  });
+}

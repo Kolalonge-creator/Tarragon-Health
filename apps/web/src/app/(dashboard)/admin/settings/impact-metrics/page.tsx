@@ -4,6 +4,8 @@ import { hasAnyPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/ui/page-header";
 import { ImpactMetricsManager } from "./impact-metrics-manager";
 
+export const metadata = { title: "Public impact dashboard" };
+
 export default async function ImpactMetricsSettingsPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");

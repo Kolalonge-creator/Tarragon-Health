@@ -20,7 +20,8 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export interface Embedder {
-  /** Returns a 1536-dim embedding for the given text. */
+  /** Returns a 1024-dim embedding for the given text (voyage-3-large's own
+   * default output dimension -- see voyage-embedder.ts for why). */
   embed(text: string): Promise<number[]>;
 }
 

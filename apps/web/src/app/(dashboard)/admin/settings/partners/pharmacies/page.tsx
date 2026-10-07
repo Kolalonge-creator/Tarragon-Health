@@ -7,6 +7,8 @@ import { LoadFailure } from "@/components/ui/load-failure";
 import { PharmaciesManager } from "./pharmacies-manager";
 import type { PharmacistLoginRow } from "@/lib/queries/partner-catalogues";
 
+export const metadata = { title: "Pharmacies" };
+
 export default async function PharmaciesPartnersPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");

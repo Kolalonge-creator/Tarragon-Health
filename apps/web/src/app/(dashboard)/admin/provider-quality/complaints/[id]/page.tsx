@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { ComplaintDetailView } from "./complaint-detail-view";
 
+export const metadata = { title: "Complaint details" };
+
 /**
  * §29.5 complaint detail — handler view. Gate mirrors the dashboard page's:
  * admin, or an active Clinical Director. A complainant reading their own

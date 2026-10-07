@@ -8,11 +8,13 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.services, label: "Services" },
     { href: MARKETING_ROUTES.chronicCare, label: "Chronic care" },
     { href: MARKETING_ROUTES.prevention, label: "Prevention" },
-    { href: MARKETING_ROUTES.careCoordination, label: "Care coordination" },
+    // Kept in sync with the top-nav relabel in marketing-nav.tsx
+    // (2026-09-22) — same route, same label, so a visitor doesn't see two
+    // different names for the identical page.
+    { href: MARKETING_ROUTES.careCoordination, label: "Labs & medication" },
     { href: MARKETING_ROUTES.devices, label: "Devices" },
   ],
   programmes: [
-    { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },
     { href: MARKETING_ROUTES.annualHealthCheck, label: "Annual Health Check" },
     { href: MARKETING_ROUTES.advancedDiagnostics, label: "Advanced Diagnostics" },
     { href: MARKETING_ROUTES.screeningJourney, label: "Screening Journey" },
@@ -26,7 +28,6 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.hypertension, label: "Hypertension" },
     { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
     { href: MARKETING_ROUTES.obesity, label: "Weight Health" },
-    { href: MARKETING_ROUTES.weightManagement, label: "Supervised weight management" },
     { href: MARKETING_ROUTES.monitoring, label: "Continuous monitoring" },
     { href: MARKETING_ROUTES.resultInterpretation, label: "Understand your lab results" },
     { href: MARKETING_ROUTES.therapy, label: "Talk to someone" },
@@ -44,6 +45,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.careers, label: "Careers" },
     { href: MARKETING_ROUTES.resources, label: "Resources" },
     { href: MARKETING_ROUTES.impact, label: "Our impact" },
+    { href: MARKETING_ROUTES.partners, label: "Our partners" },
     { href: MARKETING_ROUTES.accountability, label: "How we're accountable" },
     { href: MARKETING_ROUTES.coverage, label: "Where we work" },
     { href: MARKETING_ROUTES.faq, label: "FAQ" },
@@ -199,6 +201,12 @@ export function MarketingFooter() {
                 +234 806 119 7940
               </a>
             </p>
+            {/* Registered headquarters, locality level. Care is delivered in
+                the app, so this is deliberately not framed as somewhere to
+                visit. */}
+            <p className="text-sm text-white/65">
+              Headquarters: {SITE.headquarters}
+            </p>
           </div>
           <SocialLinks />
         </div>
@@ -213,8 +221,7 @@ export function MarketingFooter() {
       <div className="border-t border-white/10 px-4 py-5 sm:px-6">
         <p className="mx-auto max-w-3xl text-center text-xs leading-relaxed text-white/80">
           <span className="font-semibold text-white">TarragonHealth does not provide emergency care.</span>{" "}
-          In a medical emergency, go to your nearest hospital immediately or call your local
-          emergency number.
+          In a medical emergency, go to your nearest hospital immediately.
         </p>
       </div>
 

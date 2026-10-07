@@ -8,6 +8,7 @@ import { useFraudSignals, financeKeys } from "@/lib/finance/queries";
 import type { FraudSignal } from "@/lib/finance/schemas";
 import { resolveFraudSignalAction } from "@/lib/finance/actions";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { formatPatientDateTime } from "@/lib/format-date";
 
 const SEVERITY_VARIANT: Record<string, "red" | "amber" | "grey"> = {
   high: "red",
@@ -27,7 +28,7 @@ function SignalRow({ signal, onResolve }: { signal: FraudSignal; onResolve: (id:
   const note = (signal.detail as { note?: string } | null)?.note;
   return (
     <tr className="border-b border-charcoal-ink/5 text-sm">
-      <td className="py-2 pr-4">{new Date(signal.detected_at).toLocaleString("en-NG")}</td>
+      <td className="py-2 pr-4">{formatPatientDateTime(signal.detected_at)}</td>
       <td className="py-2 pr-4">
         <Badge variant={SEVERITY_VARIANT[signal.severity] ?? "grey"}>{signal.severity}</Badge>
       </td>

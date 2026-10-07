@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { AlcoholClient } from "./alcohol-client";
 
@@ -23,12 +21,7 @@ export default async function AlcoholPage() {
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
         description="Track how much you're drinking and set a goal to cut back, at your own pace."
       />
-      <RequiresEntitlement
-        feature="lifestyle_coaching"
-        fallback={<UpgradePrompt feature="lifestyle_coaching" />}
-      >
-        <AlcoholClient patientId={profile.id} />
-      </RequiresEntitlement>
+      <AlcoholClient patientId={profile.id} />
     </div>
   );
 }

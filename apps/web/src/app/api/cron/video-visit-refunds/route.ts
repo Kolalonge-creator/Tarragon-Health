@@ -51,7 +51,7 @@ export async function GET(request: Request): Promise<Response> {
     await supabase.from("notifications").insert({
       organisation_id: row.organisation_id,
       recipient_id: row.patient_id,
-      channel: "whatsapp",
+      channel: "in_app",
       status: "pending",
       template: "video_visit_declined",
       payload: { reason: "No doctor was available in time — you will be refunded in full." },
@@ -80,7 +80,7 @@ export async function GET(request: Request): Promise<Response> {
     await supabase.from("notifications").insert({
       organisation_id: row.organisation_id,
       recipient_id: row.patient_id,
-      channel: "whatsapp",
+      channel: "in_app",
       status: "pending",
       template: "video_visit_declined",
       payload: { reason: "None of the offered times were picked in time — you will be refunded in full." },

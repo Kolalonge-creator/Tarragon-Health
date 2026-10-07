@@ -5,7 +5,6 @@
 # BEGIN/ROLLBACK, and depend on nothing but what the migrations and
 # supabase/seed/seed.sql create. It must fail loudly (raise exception) rather
 # than only recording a FAIL row, though the runner catches both.
-#
 # Everything else lives in ci.excluded with a reason. Nothing may be in
 # neither: the runner fails if a .sql file is unlisted, because a proof that
 # runs nowhere is the exact problem this manifest was added to fix.
@@ -72,15 +71,6 @@ b2c_revenue_reset_invariants.sql
 # that the admin console is not broken by the lockdown.
 specialist_providers_commercial_columns_hidden.sql
 
-# --- Added 2026-09-10 (third pass) ------------------------------------------
-# 20260910011851 shipped the Supervised Weight Management product and its full
-# clinician-side machinery, but nothing ever created a weight_management_enrolments
-# row when a purchase activated -- a paying patient saw the empty state forever.
-# Proves activation creates the row with the right shape, a duplicate purchase
-# while one is already live is a no-op rather than a failed payment, and an
-# unrelated product's activation does not touch this table at all.
-weight_management_enrolment_on_purchase.sql
-
 # --- Added 2026-09-14 --------------------------------------------------------
 # private.auto_assign_escalation() and the reassignment-authority pair had
 # zero test coverage -- the migration's own closing assertion block only
@@ -89,6 +79,21 @@ weight_management_enrolment_on_purchase.sql
 # roster) so it runs correctly against both a clean `supabase db reset` and
 # the live project.
 escalation_auto_assignment_and_reassignment_authority.sql
+
+# --- Added 2026-09-16 ---------------------------------------------------------
+# private.auto_assign_escalation() and private.auto_match_internal_specialist()
+# only checked clinical_staff.active/doctor_tier -- neither ever consulted
+# provider_time_off or provider_availability_rules (both built 2026-08-28 for
+# patient-facing appointment slots), so a doctor genuinely on leave with the
+# lightest caseload could still be auto-routed a brand-new emergency case.
+# These two proofs cover the fix (migration
+# 20260916005747_escalation_auto_assignment_respects_availability.sql): on
+# leave excludes outright (including dropping alert-owner continuity), merely
+# blocked/outside-declared-hours only deprioritises, and zero availability
+# rules configured is never penalised (fail open). Each mints its own fresh
+# org/doctors/patients.
+escalation_auto_assignment_respects_availability.sql
+specialist_referral_auto_match_respects_availability.sql
 
 # --- Added 2026-09-14 (second pass) ------------------------------------------
 # The Platform Analytics & Audit Console (apps/web .../analytics/) has ~55
@@ -117,3 +122,773 @@ analytics_console_rpc_authorization_gate.sql
 # (diagnostic_episode_core/closure_criteria/referral_linkage/
 # repeat_test_recalls), it just never got added to this list.
 diagnostic_episode_engine.sql
+
+# --- Added 2026-09-17 --------------------------------------------------
+# Continuous clinical note: guarantees a draft clinical_encounter_notes row
+# the moment an escalation/async consult/video consultation concludes,
+# rather than depending on a clinician remembering to open "new note".
+# Proves auto-drafting + idempotency + that a manual insert can never
+# self-claim auto_generated=true (server-derived, no GUC leak).
+auto_generated_continuous_clinical_note.sql
+
+# --- 2026-09-30 (S01b): the Platform Credit proofs (platform_credit_ledger, platform_credit_spend_revenue_deferral,
+#     platform_credit_topups_kill_switch) were deleted with the feature; remove_platform_credit.sql is their replacement.
+
+# --- Added 2026-09-18 --------------------------------------------------
+# Standing regression coverage for two of the four bug classes found in the
+# 2026-09-18 finance-console and notification-deliverability audits (PR #680,
+# #681), added so each stays closed by CI rather than only by memory/CLAUDE.md
+# prose. a dead-channel (sms) notification_channel_preference is never
+# honoured as a direct lock-in -- private.patient_reminder_channel() resolves
+# it to push-or-in_app like no preference, email is still honoured when
+# allowed, and a sabotage run (a helper returning the stored preference
+# blindly) reopens the hole. The payment-activation fee-tolerance bug (PR #531) already
+# has standing coverage in payment_activation_amount_and_reference.sql above
+# (section 8); the false-consent onlyTypes bug (PR #661) is TypeScript-level
+# application logic, not DB logic, and is covered instead by
+# apps/web/src/app/onboarding/consent-onlytypes-scope.test.ts (Jest).
+notification_channel_preference_dead_channel_no_lockin.sql
+
+
+# The three DSAR request tables (data_export_requests, data_deletion_requests,
+# data_correction_requests) shipped with RLS/attribution triggers allowing an
+# admin (org staff, for correction requests) to review a patient's request,
+# but no UI ever called that path -- a 2026-09-18 audit found real requests
+# stuck pending in production with nowhere to go. Proves the admin queue
+# added alongside this test can actually open the gate (review through to a
+# terminal status, with reviewed_by/completed_by/fulfilled_by stamped
+# server-side) on all three tables, that the requester themselves stays
+# blocked from self-approving, and that a terminal (fulfilled) request locks
+# against further edits.
+dsar_admin_review_workflow.sql
+
+# Standing coverage for the new admin/support "view as" shadow-view feature
+# (20260922175144_support_view_as.sql, PR building the read-only support
+# debugging tool the 2026-09-18 admin/ops maturity audit found missing).
+# Proves: a caller without the support.view_as permission cannot start a
+# session; a session cannot target a back-office/admin account or the caller
+# themselves; a granted caller CAN start one and the server — not the client —
+# derives the ~30-minute expires_at window; while active, the viewer can READ
+# the subject's profile but a WRITE attempt is genuinely blocked (read-only
+# proven, not assumed); an unrelated staff account with no session of its own
+# still cannot read the subject; starting a session writes a real audit_log
+# row carrying the reason and a real in-app notification to the subject;
+# ending the session immediately revokes the read grant; ended_by cannot be
+# set independently of a genuine ending transition; an ended session cannot
+# be un-ended or have its window silently extended; the update-guard's
+# generic jsonb-diff immutability check still blocks a column the allowlist
+# it replaced named; and a caller holding only the Customer support
+# administrator preset (no direct grant) can genuinely start a session.
+support_view_as_sessions.sql
+
+# private.finance_reverse_entry read finance_journal_entries with a plain
+# SELECT and only later set is_reversed = true, so two concurrent reversal
+# attempts on the same entry (finance_reverse_journal's synchronous path, or
+# finance_approve_request's journal_reversal branch) could both read
+# is_reversed = false before either committed -- a real race, though NOT the
+# double-financial-effect one it first looked like: a pre-existing unique
+# index on (source, source_ref) already makes a genuine second contra
+# posting for the same entry impossible, so what the race actually produced
+# was a raw, unhandled duplicate-key error (or a misleading false-success)
+# instead of a clean business error. The FOR UPDATE fix is still correct --
+# see the migration's own header for the full, corrected account, and this
+# proof's SABOTAGE 3 for how it verifies that corrected claim rather than the
+# original wrong one. finance_approve_request also called finance_reverse_entry
+# with no prior check that the target entry was reversible at all, so a
+# second pending request approved after the first already reversed the entry
+# (or a request whose target entry no longer exists) raised and rolled back
+# the WHOLE approval transaction, leaving that request stuck at
+# status='pending' forever -- this half is unaffected by the correction
+# above and is a real, severe bug. A .sh proof, not .sql, because the first
+# finding specifically needs two real overlapping transactions -- see its
+# own header for why a single-session BEGIN/ROLLBACK script can't prove a
+# lock actually blocks a second session. Proves exactly one reversal
+# succeeds under concurrent direct calls (check 1) and under concurrent
+# approvals of two duplicate pending requests -- the loser cleanly rejected,
+# never stuck pending (check 2) -- and two sabotage runs (reverting the FOR
+# UPDATE lock; reverting only the approve-time pre-check) each reopen their
+# respective hole. Also fixed in the same migration+PR: the CHECK constraint
+# that had silently rejected every journal_reversal request since
+# 20260917235414 shipped (drop constraint if exists + a closing DO
+# assertion), and the Approvals UI/Zod schemas, which would have thrown on
+# the whole approvals query the first time a real journal_reversal row
+# existed (apps/web/src/lib/finance/schemas.ts only accepted
+# request_type in manual_journal/period_lock).
+finance_reversal_concurrent_lock.sh
+
+# Two successive /code-review high passes on migration 20260918100746
+# (adding clinical_encounter_notes.clinical_encounter_id), both before it
+# ever reached a PR, found 4 real bugs: (1) the sync trigger's row()
+# construct had an untyped string literal that raised "cannot compare
+# dissimilar column types text and unknown" on every real insert/update with
+# a link column set; (2) two AFTER UPDATE triggers on async_consults fire in
+# undocumented alphabetical order, so an auto-drafted note could be created
+# before its clinical_encounters row existed and never get linked; (3)
+# clinical_encounter_id could be set directly by any clinical-tier staff
+# member via a plain UPDATE despite its own "never client-supplied" comment
+# -- fixed in 20260918101643; (4) the fix for (2) itself introduced a new
+# regression, caught by the SECOND review pass on that fix: its fix-up
+# UPDATE could abort an entirely unrelated, session-less source-table write
+# (e.g. a Zoom webhook completing a video consultation) by tripping
+# clinical_encounter_notes_enforce_attribution's UPDATE branch, which has no
+# trusted-system escape hatch -- fixed in 20260918103547 by making the
+# fix-up best-effort (exception-wrapped, never blocks the write it
+# piggybacks on). Proves all four fixes end-to-end via real
+# async-consult-answered and video-consultation-completed flows, with a
+# sabotage control for bug (1).
+clinical_encounter_note_link_bugs.sql
+
+# cancel_care_voucher (20260830103626) located the GL entry behind each
+# payment it cancels with a PLAIN select, unlocked -- composed with
+# 20260922181900's fix to finance_reverse_entry (its own SELECT ... FOR
+# UPDATE, and a RAISE when a concurrent caller already reversed the row),
+# a genuinely concurrent, independent reversal of the SAME payment entry
+# (an unrelated finance officer action, or an approved journal_reversal
+# request against it -- NOT a second cancel_care_voucher call on the same
+# voucher, which this function's own top-level care_vouchers FOR UPDATE
+# already fully serialises) could abort the WHOLE cancellation transaction
+# with an unhandled 'entry already reversed' -- the voucher left uncancelled
+# and its refund never queued, over something that isn't actually a reason
+# cancellation should fail. Same .sh-not-.sql reasoning as
+# finance_reversal_concurrent_lock.sh above (a single session can't hold a
+# lock against itself to prove a second one blocks on it). Fix: lock +
+# recheck, adding FOR UPDATE to both of this function's target entry
+# lookups -- under Postgres's documented SELECT ... FOR UPDATE semantics, a
+# lookup that blocks on a row someone else is reversing re-evaluates its
+# WHERE clause against the newly-committed row once unblocked, so an
+# already-reversed entry is simply excluded from the result rather than
+# handed to finance_reverse_entry to raise on. Proves the fixed race
+# completes cleanly (voucher cancelled, refund queued, challenger genuinely
+# blocked >=1s) and a sabotage phase that temporarily redeploys the exact
+# pre-fix body reopens the unhandled-abort failure mode.
+care_voucher_cancellation_concurrent_reversal.sh
+
+# NGO-funded cohort module (dormant, platform_modules key ngo_funded_cohort).
+# Proves dormancy, org-type/product/cap validation, cross-org invitation-read
+# isolation, and the claim flow producing a correctly-shaped care_voucher --
+# including the real leak this proof caught before the module ever shipped
+# (claim_funding_programme_invitation originally attributed the voucher's
+# purchaser_profile_id to the inviting ngo_admin, which handed them a second,
+# unrelated RLS door into the row via care_vouchers_select's own "purchaser_
+# profile_id = auth.uid()" clause -- fixed in 20260922184722 by attributing
+# to the programme's own creator instead). Ends with a same-organisation
+# sabotage control for private.is_org_staff()'s ngo_admin exclusion, the one
+# targeted enough to actually falsify it (a cross-org attempt is blocked by
+# ordinary tenant isolation regardless of the exclusion and would sabotage
+# nothing real -- see the file's own header for why).
+ngo_funded_cohort.sql
+
+# 20260922183343 added an explicit ::care_access_category cast to 16 RLS
+# policies whose can_read_clinical(patient_id, '<literal>') call was left
+# bare by earlier migrations, closing the ambiguous-overload hole a future
+# CREATE POLICY re-resolving that same bare text would hit now that
+# can_read_clinical has 3 live overloads (a real incident on a separate,
+# unmerged admin/support "view as" branch, which is where this was found).
+# Proves all 16 policies carry the cast, and sabotages by creating a scratch
+# policy with the pre-fix bare text against a real table to confirm it still
+# fails to even CREATE (42725) today.
+can_read_clinical_bare_literal_policy_cast.sql
+
+# --- Added 2026-09-22 — launch-scope audit reconciliation --------------------
+# Standing proofs for the launch-scope audit reconciliation work
+# (see docs/LAUNCH_SCOPE_AND_PLATFORM_REBUILD_AUDIT_2026-09-21.md):
+#   continuous_monitoring_90d_single_tier.sql — the retired 3/6/12-month
+#     tiers are inactive but an EXISTING active purchase against one still
+#     grants access (deactivating a product must never retroactively revoke
+#     it); the new 90-day tier opens/closes the escalation gate and expires
+#     exactly 90 days after a real record_service_purchase_intent purchase;
+#     buying a retired code is refused outright.
+#   preventive_health_check_review_sku.sql — the SKU ships is_active = false
+#     (a real purchase attempt is refused, not just documented as blocked)
+#     pending Clinical Director sign-off on prevention_intake; the
+#     service_purchases trigger that opens/stamps a patient's Health Check
+#     on activation is scoped to only this product's feature (an unrelated
+#     purchase never touches annual_health_checks) and works even for a
+#     patient who never started the free Health Check journey.
+continuous_monitoring_90d_single_tier.sql
+preventive_health_check_review_sku.sql
+
+# /code-review high on the above continuous_monitoring_90d_single_tier.sql
+# migration, run before its PR was opened, found a real bug in it: the new
+# product's features array was copied from continuous_monitoring_cover.sql's
+# original committed INSERT text (vitals_red_flag_doctor_escalation only),
+# never checking that the LIVE continuous_monitoring_3m/6m rows had since
+# been expanded to seven features by a later migration. Fixed in
+# 20260922193500_fix_continuous_monitoring_90d_missing_doctor_time_features.sql,
+# corrected again by 20260922225731_restore_annual_review_reachability_on_
+# continuous_monitoring_90d.sql (that fix's own "not the 12-month-only
+# annual_review bonus" reasoning turned out to make annual_review
+# unreachable platform-wide — see that migration's header). The dedicated
+# regression test for this, continuous_monitoring_90d_doctor_time_features.sql,
+# needs a real chronic-programme enrolment fixture that only the live
+# project has activated (supabase/seed/seed.sql never activates one) — see
+# its entry in ci.excluded for why, and confirmation it passes live. CI
+# coverage for "annual_review must stay reachable" instead comes from
+# doctor_time_entitlement_grantable_by_purchasable_product.sql (line 14
+# above), which builds its own fixtures generically and already covers this.
+
+# --- Added 2026-09-22 -------------------------------------------------------
+# CMO governed-config INSERT dual-gate: 5 tables were admin-INSERT-only while
+# their sign_* RPCs were Clinical-Director-only, leaving nobody who could
+# ever insert AND sign a new draft. See the migration's own header.
+cmo_governed_config_insert_dual_gate.sql
+cmo_clinical_rules_insert_dual_gate.sql
+
+# --- Added 2026-09-23 -------------------------------------------------------
+# Doctor-to-doctor curbside consult messaging: participant-only RLS (proved
+# as `authenticated`, not `postgres`, so the SELECT policy is genuinely
+# exercised), doctor-tier gating (Care Coordinator excluded on both sides),
+# same-org-only, forge-proof authorship, closed-thread terminality, and the
+# bidirectional in_app notification. See the migration's own header.
+curbside_consults.sql
+
+# public.resolve_patient_service_access(): a founder-commissioned launch-scope
+# audit's read model aggregating service_purchases into one patient-facing
+# service status (monitoring_active/service_active/self_tracking), backing
+# the patient dashboard's ServiceStatusCard. Deliberately does not yet cover a
+# "review in progress" state -- that depends on annual_health_checks columns
+# owned by a still-unmerged sibling branch, see the migration's own header.
+# Proves each status derives from real entitlement data (never a hardcoded
+# flag), that monitoring wins priority over an unrelated active purchase when
+# both are true, that self/caregiver/org-staff access all work, that an
+# unrelated caller is refused, and sabotages the org-staff branch by calling
+# as staff of a DIFFERENT organisation to confirm it discriminates by org
+# rather than admitting any staff account. Run as `authenticated`, not
+# `postgres`, so the function's EXECUTE grant is genuinely exercised.
+resolve_patient_service_access.sql
+
+# --- Added 2026-09-22 (doctor income analytics) ------------------------------
+# See supabase/migrations/20260922190157_doctor_paid_work_and_income_analytics.sql
+# and its 20260922192954 follow-up fix (cancelled-appointment carve-out,
+# O(doctors x rows) by_product fix, shared clinical_staff lookup, mixed-
+# currency flag, redeemed_entity_type CHECK constraint). Covers the
+# 'verified_document' and 'appointment' redemption paths end-to-end (the
+# latter the one path joining profiles directly, not clinical_staff), the
+# analyst gate (open/closed, with a sabotage grant/revoke), totals
+# reconciliation, and the cancelled-appointment exclusion, each verified
+# live including a wrong-actor-table-join sabotage run.
+doctor_income_attribution_and_analyst_gate.sql
+
+# public.get_funding_programme_stats(): the ngo_funded_cohort module's own
+# platform_modules.description names "aggregate small-cell-suppressed
+# programme reporting" as an intended capability that was never built (PR
+# #713 shipped the create/invite/revoke/claim RPCs with zero reporting on
+# top). Proves an ngo_admin of the programme's own org gets correct
+# invited/expired/revoked/claimed counts, a same-org non-ngo_admin is
+# refused, and sabotages by calling as ngo_admin of a DIFFERENT ngo
+# organisation to confirm the authorisation check discriminates by the
+# programme's own org rather than admitting any ngo_admin.
+funding_programme_stats.sql
+
+# sponsored_service_reservations: the launch-scope audit's claim-based
+# diaspora flow (pay for a named service against a bare phone number + first
+# name, no profile created up front). Proves the full lifecycle -- create as
+# pending_payment, a matching charge.success payment activates it to
+# invited with a real invite_token, a claim from the WRONG phone is refused
+# (the load-bearing anti-impersonation check), the correct phone succeeds
+# and creates a real active care_vouchers row -- plus two sabotage runs: the
+# same reservation cannot be claimed twice, and a payment of the wrong
+# amount does not activate a fresh reservation. Run as `authenticated`, not
+# `postgres`, for both patient-facing RPCs.
+sponsored_service_reservations.sql
+
+# region_service_available's normalized-state fallback
+# (20260923212037_region_service_available_normalized_state_fallback.sql, plus its
+# same-day 20260923213439_fix_region_service_available_review_findings.sql
+# follow-up): a casing/whitespace/"...State"-suffix variant of profiles.state --
+# the exact shape the free-text location field has always allowed -- now
+# resolves the region gate the same as the canonical spelling, for both
+# location models (regions text[] and state text) and all five gated
+# services, without the master switch (service_regions.is_active) or an
+# unrelated/unrecognized location ever being bypassed, and with
+# service_regions_normalized_state_key_unique proved to reject a
+# normalized-key collision outright (the /code-review high follow-up's fix
+# for the resolution CTE's otherwise-nondeterministic tie-break). Sabotage
+# reverts the function to its pre-fix exact-match-only body and confirms the
+# normalized case would then fail.
+region_service_available_normalized_state_fallback.sql
+
+# --- Added 2026-09-24 -------------------------------------------------------
+# insulin_logs/foot_self_checks/sick_day_logs never got the 2026-08-01
+# "acting for someone you support" treatment vitals_readings/symptoms
+# already have (20260924071557_diabetes_self_monitoring_acting_supporter.sql).
+# Found during a patient-dashboard audit: a supporter (e.g. a parent managing
+# a diabetic child's account) could not log any of the three at all, and the
+# app-layer code silently misattributed the write to the supporter's own
+# patient_id instead -- including a real foot-problem report, whose trigger
+# then raised a same-day urgent clinician_alerts row against the wrong,
+# non-diabetic patient. Proves a 'manage' supporter can add all three
+# (server-stamped logged_by_profile_id, never client-supplied), can never
+# revise or delete one (including confirming no DELETE grant exists to
+# authenticated at all), a stranger with no grant is refused, the foot-check
+# alert lands on the child and never the parent, and sabotages by dropping
+# the three *_insert_acting_supporter policies to confirm the insert that
+# just succeeded would then fail. Extended same-day to also prove
+# 20260924073141_diabetes_self_monitoring_acting_supporter_followups.sql
+# (the /code-review ultra findings on that first migration): a supporter can
+# read back an entry they just wrote (the missing *_select_own_entry
+# policies), and setPatientReportedDiabetesType's separate RPC-level
+# misattribution (a parent's diabetes-type pick for their child landing on
+# the parent's own patient_diabetes_profile row instead) is fixed and a
+# stranger with no grant is refused.
+diabetes_self_monitoring_acting_supporter.sql
+
+# 20260924210805_first_purchase_guarantee_refunds.sql — the first-purchase
+# money-back guarantee (request -> admin approve/deny -> refund). Proves
+# eligibility gating (ineligible payment_provider, already-claimed), the
+# admin-only gate on decide_purchase_guarantee_refund discriminates both ways
+# (refuses a non-admin, not just succeeds for an admin), GL reversal
+# correctness for a card-paid deferred-revenue purchase including an
+# ALREADY-RECOGNISED revenue tranche (exactly the class of bug
+# 20260905204245_reverse_phantom_service_purchase_revenue.sql exists to warn
+# about — reversing only the original entry would under-correct the ledger),
+# the Paystack refund queue row shape (incl. the customer-borne processor fee,
+# fixed by 20260924213420_fix_guarantee_refund_review_findings.sql), the
+# card-paid chronic-programme path, the chronic-programme enrolment track
+# downgrade on refund (a real gap: nothing previously reversed
+# activate_chronic_programme_doctor_supported_track's upgrade), and a
+# repeat-decide idempotency guard against a double refund.
+first_purchase_guarantee_refund.sql
+
+# doctor_testimonials (20260924210347_doctor_testimonials.sql), the doctor-
+# side counterpart to patient_testimonials — admin-entered/off-platform
+# consent instead of patient self-submit, per an explicit 2026-09-24 founder
+# decision (see the migration header). Proves a non-admin cannot insert at
+# all, a blank consent_reference is rejected, a non-admin publish attempt is
+# silently filtered to zero rows by RLS, an admin CAN publish with
+# reviewed_by/reviewed_at server-stamped to the real admin even when the
+# caller tries to spoof reviewed_by in the same statement, anon reads only
+# the published row (not a still-submitted sibling), and anon has no
+# INSERT/UPDATE grant at all. Building the fixture caught that
+# clinical_staff no longer has a `role` column (dropped by the 2026-08-31
+# doctor_tier collapse) and that `clinical_staff_active_requires_verification`
+# requires license_verified_at whenever active=true — both found only by
+# running against the live project rather than trusting the original
+# migration's column list.
+doctor_testimonials.sql
+
+# testimonials_condition_check_and_doctor_org_match
+# (20260924212340_testimonials_condition_check_and_doctor_org_match.sql) —
+# a same-day /code-review high follow-up on the two entries just above.
+# Proves patient_testimonials/doctor_testimonials.condition reject a value
+# that matches no real condition page (previously free text, silently
+# inserted and then rendered nowhere — the "silent disable looks like an
+# empty result" failure class) and that a doctor_testimonials row cannot
+# reference a clinical_staff_id from a different organisation than its own
+# organisation_id (private.is_admin() is platform-wide, not org-scoped, so
+# nothing else caught this). Sabotages by disabling the new trigger and
+# re-running the exact same cross-org insert to confirm it then succeeds.
+testimonials_condition_check_and_doctor_org_match.sql
+
+# --- Added 2026-09-24 (second pass, doctor testimonials) ---------------------
+# doctor_testimonials_consent_reference_max_length
+# (20260924214847_doctor_testimonials_consent_reference_max_length.sql) and a
+# rewrite of doctor_testimonials.sql's step-3 sabotage test -- see that file's
+# own header for the full account of the three independent, redundant gates
+# (a SELECT policy, an UPDATE policy, and the review trigger's own admin
+# check) found live while trying to sabotage it.
+
+# Reputation & Review-Generation Engine: proves the feature-flag gate, the
+# cross-trigger 90-day cooldown (with a sabotage pass removing it), the
+# claim_pending_reputation_review_prompt()/record_reputation_review_prompt_outcome()
+# ownership checks, RLS isolation between patients, and the anon-EXECUTE
+# revoke on both client-facing and internal enqueue functions.
+reputation_review_prompts.sql
+
+# --- Added 2026-09-24 (second pass) ------------------------------------------
+# private.finance_post_voucher_redeemed had two bugs, found while auditing
+# whether promo-code/care-voucher-covered service purchases report accurately
+# on the finance dashboard (20260924211113_fix_voucher_redemption_finance_
+# posting_amount_and_deferral.sql): it always posted the voucher's full
+# face_value_kobo as revenue instead of the amount actually applied to the
+# order (redeem_care_voucher's own least(face_value_kobo, payable)), and for a
+# service_purchase it always posted straight to 4100 immediate revenue with no
+# check for service_products.access_duration_days -- the same bounded-duration
+# pack paid by card or platform credit correctly defers to 2000 with a
+# recognition schedule. Proves a reward voucher worth more than a bounded-
+# duration order's price posts only the covered amount, deferred to 2000, with
+# a correctly-sized 4020 recognition schedule; a control proves the same for an
+# unbounded order (covered amount, straight to 4100, no schedule); sabotage
+# reverts the trigger to the pre-fix unconditional-face-value/unconditional-
+# 4100 body and confirms both holes reopen on a fresh redemption.
+voucher_redemption_finance_posting_amount_and_deferral.sql
+
+# --- Added 2026-09-24 (third pass) -------------------------------------------
+# public.finance_revenue_by_funding_source() (20260924211136_finance_revenue_
+# by_funding_source.sql) is a new read-side dashboard RPC, not a bug fix, but
+# gets the same standing-regression treatment given the financial-correctness
+# stakes: a reward-voucher-funded bounded-duration purchase's recognised
+# revenue must land entirely in promotional_minor, a platform-credit-paid_
+# balance-funded one entirely in cash_minor, a plain card payment/voucher
+# redemption classified correctly at the point-of-sale leg, and nothing in
+# unclassified_minor. Sabotage collapses the function back to summing every
+# revenue-account credit as cash (the pre-fix gap: no funding-source
+# distinction at all) and confirms the split disappears, proving the checks
+# discriminate rather than passing vacuously.
+finance_revenue_by_funding_source.sql
+
+# --- Added 2026-09-24 (fourth pass) -------------------------------------------
+# /code-review high on the previous two migrations, before they were ever
+# merged, found two real bugs the fix pass above introduced: private.
+# finance_post_voucher_redeemed read the redeeming order's voucher_covered_kobo,
+# which is CUMULATIVE across every voucher ever applied to that order, so a
+# second voucher redeemed directly against an already-partially-covered order
+# (redeem_care_voucher has no "one discount per order" guard of its own -- that
+# lives one layer up, in redeem_promo_code) double-counted the first voucher's
+# amount; and finance_revenue_by_funding_source computed one blended cash/promo
+# ratio per service_purchase and applied it to every revenue_recognition_
+# schedules row tied to that purchase, even though a single purchase can
+# accumulate multiple, separately-funded schedules (a partial voucher plus a
+# later card/platform-credit remainder) -- correct over the purchase's full
+# lifetime, wrong for any single reporting period queried before all of a
+# purchase's schedules have posted revenue. Fixed at the root
+# (20260924213634_fix_voucher_redemption_cross_voucher_double_count_and_revrec_
+# rounding.sql) by persisting the exact per-voucher covered amount and the
+# exact per-schedule promotional split at the moment each is created, instead
+# of re-deriving either from state shared with other redemptions/schedules.
+# Proves a second voucher against an already-partially-covered order posts
+# only its own amount; a purchase with two separately-funded schedules reports
+# a mid-period recognition of only one as fully attributed, not blended with
+# the other's lifetime share; the original single-schedule fix still holds;
+# and two independent sabotage steps (reverting each trigger to its pre-fix
+# shape) reopen the corresponding hole.
+voucher_redemption_cross_voucher_double_count_and_revrec_rounding.sql
+
+# --- Added 2026-09-24 (fifth pass) --------------------------------------------
+# 20260924213634 above added a 10th parameter to private.finance_create_
+# recognition_schedule via `create or replace function` — which only replaces
+# a function with an IDENTICAL parameter list, so Postgres created a SECOND
+# overload instead of replacing the original. Every existing 9-argument call
+# site (finance_post_from_payment, finance_post_platform_credit_ledger_entry,
+# finance_post_voucher_redeemed) became ambiguous (42725) and, because those
+# callers run inside an exception-swallowing handler built to protect a
+# payment webhook from an accounting failure, the ambiguity was silently
+# recorded into finance_posting_failures instead of raised: every booking/
+# subscription/add_on/service_purchase payment landed with ZERO GL entries and
+# ZERO revenue recognition schedules. Found live (koiplnmbgnqnbywhpjlf) while
+# testing an unrelated PR, confirmed no real production transaction was caught
+# in the window, fixed by dropping the original 9-argument overload
+# (20260924221152_fix_finance_create_recognition_schedule_overload_ambiguity.sql).
+# Proves exactly one overload exists, a real 9-argument call site (a
+# bounded-duration service_purchase payment) posts cleanly, and sabotage
+# (recreating the dropped overload) reproduces the exact 42725 ambiguity.
+finance_create_recognition_schedule_overload_ambiguity.sql
+
+# finance_create_recognition_schedule_anon_execute.sql: Release Integrity CI
+# flagged the same function as anon-executable (the anon-inherits-EXECUTE-
+# via-PUBLIC gotcha, recurred again) — its originating migration never
+# revoked the default PUBLIC grant. Fixed in
+# 20260925093358_revoke_anon_execute_finance_create_recognition_schedule.sql.
+# Proves anon lacks EXECUTE (authenticated retains it), with a sabotage step
+# reproducing the exact regression to confirm the check discriminates.
+finance_create_recognition_schedule_anon_execute.sql
+
+lab_location_reviews_rls.sql
+
+# account_lockouts_anon_execute_and_search_path.sql: 20260924215642 backfilled
+# a missing migration record for public.is_account_locked(_by_phone) (found
+# anon-executable with no legitimate caller, the anon-execute-via-PUBLIC
+# gotcha recurring again) and revoked anon EXECUTE. Its first version also
+# redefined the shared private.set_updated_at() trigger (~280 tables) as a
+# side effect of copying in unrelated functions, silently dropping its
+# search_path pin -- caught by /code-review high before merge, fixed same day
+# in 20260924221235. Proves both: anon lacks EXECUTE on the two functions
+# (authenticated retains it), and private.set_updated_at() keeps search_path
+# pinned -- each with a sabotage step reproducing the exact regression to
+# confirm the check actually discriminates.
+account_lockouts_anon_execute_and_search_path.sql
+
+# --- Added 2026-09-24 --------------------------------------------------------
+# Supervised Weight Management removed outright (founder decision), reversing
+# 20260910011851/20260910053837/20260910182555/20260910182855/20260912230030
+# and the weight-management slices of 20260910011854/20260918091341 -- see
+# 20260924220239_remove_supervised_weight_management.sql. That migration's own
+# service_products/service_delivery_cost_model rows were then corrected from a
+# hard DELETE to a retirement (is_active = false, kept resolvable) by
+# 20260924222401_retire_not_delete_weight_management_products.sql, matching
+# chronic_doctor_supported_pack's own retirement shape -- found by /code-review
+# high on the diff before it merged. A standing "stays removed" check rather
+# than a fix-proof: confirms the tables/functions/enum have not silently
+# reappeared, that the three service_products/service_delivery_cost_model rows
+# stay present-but-retired (never deleted, never reactivated), that
+# clinical_encounters' narrowed CHECK still accepts a real remaining encounter
+# type and still refuses the removed one, that the free 'obesity'
+# chronic_condition_programmes row stays reverted to its pre-product shape,
+# and that the co-located, unrelated therapy-approval product was not taken
+# down with it.
+supervised_weight_management_removed.sql
+
+# --- Added 2026-09-25 --------------------------------------------------------
+# public.approve_ai_system_version never retired a superseded draft of the
+# same ai_system, so AI-001's CMO sign-off queue accumulated four dead,
+# never-approved versions (v1, 2026-09-14.1, 2026-09-14.2, 2026-09-16.2) that
+# each real fix superseded without ever being cleaned up -- they sat forever
+# reading as "awaiting approval" even though the system was long since
+# validated and live on a later version. Fixed in
+# 20260925014357_ai_system_version_approval_retires_superseded_drafts.sql:
+# approving a version now retires every earlier, still-open sibling of the
+# same system. Mints its own fresh org/admin/probe system rather than
+# borrowing AI-001's real history, with a control proving a version created
+# AFTER the one just approved is left untouched, and a sabotage step (the
+# pre-fix function definition, reproduced in this migration's PR) confirming
+# the "earlier draft retired" check genuinely fails without the fix.
+ai_system_version_approval_retires_superseded_drafts.sql
+
+# --- Added 2026-09-25 (second pass) ------------------------------------------
+# clinical_staff_select's org-wide clause ("organisation_id = current_org_id()")
+# admitted any patient in an org to a raw SELECT on every clinical_staff row --
+# not just the safe name/photo/bio/credential columns the app's own queries
+# select, since RLS is row-level, not column-level. Every sensitive column
+# added to the table since the 20260712191500 original (indemnity_insurer,
+# indemnity_policy_number, indemnity_expires_at, indemnity_exempt_by,
+# staff_number, verified_by, credential_verified_by) rode along on that same
+# clause. Confirmed live with a simulated patient session before the fix (see
+# 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql):
+# a patient could read another doctor's indemnity_policy_number and
+# staff_number directly via the Supabase client SDK / PostgREST. Fixed by
+# narrowing the base table's patient-facing read path to org staff /
+# support-view-as only, and adding public.clinical_staff_directory -- a
+# deliberately owner-run (not security_invoker, same exception as
+# public.therapy_directory) safe-column view every patient-facing call site
+# was moved to. Proves: a patient gets zero rows from the base table; the
+# same patient still sees trust-display columns via the directory view; the
+# directory view structurally carries no sensitive column; org staff access
+# to the full base table is unaffected; and a sabotage step that reinstates
+# the old broad policy inside the same rolled-back transaction reproduces the
+# leak, confirming this test would have caught the original bug. Extended the
+# same day (still pre-merge, found by /code-review high) with a 6th section
+# proving a service-role caller (no auth.uid() at all -- cron jobs, internal
+# notification routes) still sees the view's rows, per
+# 20260925021440_fix_clinical_staff_directory_service_role_and_replay_guard.sql
+# -- the original view's predicate resolved entirely through auth.uid()-
+# dependent helpers, so a service-role caller silently got zero rows, not an
+# error, breaking the quarterly-report cron's and the lab-order-request-pdf
+# notification's doctor-attribution lines. Same-day review also found four
+# patient-facing PostgREST embedded joins (clinical_staff!<fkey>(...) in
+# patient_timeline/care_messages/second_opinion_requests/async_consults/
+# verified_documents reads) that resolved against clinical_staff's own RLS,
+# not this view -- fixed in application code (explicit follow-up query against
+# clinical_staff_directory, merged client-side) rather than here, since
+# PostgREST's "embedding through views" support couldn't be verified live in
+# this environment; see the Jest regression tests next to patient-timeline.ts
+# and care-messages.ts for that half of the fix.
+clinical_staff_directory_column_scoping.sql
+
+# --- Added 2026-09-25 (2) -----------------------------------------------------
+# lab_providers_select and pharmacy_partners_select both still carried the
+# original `for select to authenticated using (true)` shape from
+# 20260705211315_care_coordination.sql -- the exact same bug class as the
+# clinical_staff column-exposure fix (this file's other 2026-09-25 entry) and
+# as specialist_providers before its 2026-09-10 fix
+# (20260910172703_specialist_providers_commercial_columns_off_the_patient_
+# surface.sql). Confirmed live before the fix: a patient could read all 4
+# lab_providers rows including 4 populated cost_basis_note values (negotiated-
+# rate evidence). Fixed in
+# 20260925023144_restrict_lab_pharmacy_partner_read_to_safe_columns.sql:
+# narrowed both base tables to admin-or-partners.*.manage, added
+# public.lab_provider_directory / public.pharmacy_partner_directory (safe-
+# column views, no auth.uid()-dependent predicate so no service-role carve-out
+# is needed, unlike clinical_staff_directory), and repointed three PostgREST
+# embedded FK-joins that would otherwise have silently gone null
+# (lab-orders.ts's provider/ordered_by_staff, pharmacy-orders.ts's
+# pharmacy_partner, finance/partner-settlements's lab_providers(name)) at
+# follow-up queries against the new views, merged client-side. Proves: a
+# patient AND an ordinary org-staff/clinician session (deliberately narrower
+# than clinical_staff_directory's is_org_staff carve-out) are both refused
+# either base table directly, even an is_active row; the same patient still
+# sees the safe columns via both directory views; neither view structurally
+# carries a commercial/internal-workflow column; admin access to the full
+# base tables is unaffected; and a sabotage step that reinstates the old
+# `using (true)` policy on both tables inside the same rolled-back
+# transaction reproduces the leak on both, confirming this test would have
+# caught the original bug. Extended the same day (still pre-merge, found by
+# the same /code-review high pass) with a 7th section: both directory views
+# were originally defined `where is_active`, which the old `using (true)`
+# policy + plain PostgREST embed never enforced -- silently breaking
+# attribution (a patient's own past lab order, a finance officer's
+# historical settlement statement, a booked medication's pharmacy) the
+# moment the provider/partner it referenced went inactive, and in
+# pharmacy-orders.ts's usePharmacyCatalogue specifically letting a patient
+# book a now-inactive pharmacy partner's medication while shown none of its
+# identifying info (the location filter's "no structured address" escape
+# hatch also matched a null partner). Fixed in
+# 20260925024716_fix_lab_pharmacy_directory_active_filter_and_replay_guard.sql
+# by dropping the `where is_active` clause from both views; the picker call
+# sites that do need active-only (the finance page's new-statement lab
+# picker, pharmacy-orders.ts's attachPharmacyPartners, which now drops an
+# inactive-partner's medication outright rather than nulling the partner)
+# filter it themselves. Section 7 proves both views keep resolving a row
+# after is_active flips false, and sabotages by reinstating the buggy
+# `where is_active` shape on lab_provider_directory to confirm the
+# regression would have been caught. The application-level half of this fix
+# (attachPharmacyPartners dropping an inactive-partner medication) has its
+# own Jest regression test, apps/web/src/lib/queries/pharmacy-orders.test.ts,
+# per this repo's convention of a DB proof for the DB-level defect and a
+# Jest test for the application-level one.
+lab_pharmacy_partner_directory_column_scoping.sql
+
+# --- Added 2026-09-30 (S01b) --------------------------------------------------
+# Platform Credit removal: objects gone, payment_provider rebuilt without the
+# label, surviving finance/receipt/guarantee functions still work, recreated
+# functions keep their ACLs, and a sabotage run proves the checks discriminate.
+remove_platform_credit.sql
+
+# --- Added 2026-09-30 (S01c) --------------------------------------------------
+# WhatsApp removal: the clinician escalation ladder keeps its second hop (push,
+# email, sms for emergencies), an exhausted ladder still alarms the admins, the
+# naive fix is proven to shorten the ladder (sabotage), patient reminders never
+# land on a dead channel, and no function still refers to the removed label.
+remove_whatsapp.sql
+
+# --- Added 2026-09-30 (S02) ---------------------------------------------------
+# v5 identity/consent/audit baseline: is_test is admin-or-service-only (INV-13) and
+# a lint ratchet flags unfiltered metric/payout views; proxy_setups RLS and state
+# machine; audit_log cannot be UPDATEd/DELETEd/TRUNCATEd by any app role; audited
+# search/open/consent reads write audit_log (query text never stored), refuse and
+# audit every non-admin role, admit an active break-glass grant but never for
+# reproductive_health; patient_consents is patient-read-only; one sabotage per area.
+s02_identity_consent_audit_baseline.sql
+s03_sms_delivery_log.sql
+# S03 assisted recovery: two-admin rule, state machine, audit per step, masked outputs, neutral subject notices, SIM-swap second step, anon no EXECUTE; five sabotages.
+s03_assisted_recovery.sql
+# S04 "Set up for my parent": safety case 23 (proxy has no grant and sees nothing until the parent confirms on a verified number), identical refusals, parent-chosen categories only, decline/expiry terminal, anon no EXECUTE; four sabotages.
+s04_proxy_setup.sql
+# S04 consent is_optional: optional purposes never gate onboarding, a plain-INSERT version bump of a required purpose still gates, required withdrawal closes the gate, re-acceptance reopens it; one sabotage.
+s04_consent_is_optional.sql
+# S05 health record data model: idempotency keys, v5 views, triggers intact, prescriptions/referrals signature (INV-02), signed notes only (INV-11), audited chart reads and tied-patient gate (INV-10/12), closed direct staff reads; four sabotages.
+s05_health_record_data_model.sql
+# S05b allergies/conditions audited reads: extended chart sections, tied vs untied (denied, not empty), list-wide condition search (escaping, bounds, audit without the term, patient and anon refused); one sabotage.
+s05b_allergies_conditions_audited_reads.sql
+# S05c closes direct staff reads on patient_allergies and patient_conditions: patient reads own, staff (tied, untied, admin) read nothing directly, the audited read opens for the tied clinician and denies the untied one, same-transaction read-back only; one sabotage.
+s05c_close_staff_reads_allergies_conditions.sql
+# S05d encounter notes: writes only via tie-gated functions, direct select/insert/update closed for staff and patients, ok / own_only / denied reads with audit basis, worklist own-only, amendment validator still works; two sabotages.
+s05d_encounter_notes_audited_reads_and_writes.sql
+# S05e specialist referrals: visibility rule (tied / creator / assigned / desk), tie-gated writes, ok vs denied reads with audit, counts, closed table, patient_care_gaps overdue-referral branch (service role keeps it); two sabotages.
+s05e_referrals_audited_reads_and_writes.sql
+# S05f medication_logs and symptoms: patient/caregiver/acting-supporter paths keep working, staff (tied, untied, admin, pharmacist, other org) read and write nothing directly, audited dose log and symptoms section open for the tied clinician only with audit basis, red-flag trigger intact; two sabotages.
+s05f_medication_logs_symptoms_audited_and_closed.sql
+# S05f-C1 medications audited reads: patient/caregiver/supporter read through the function with no audit row, tied clinician ok with audit basis, untied/admin/pharmacist/other org denied (audited), embeds served only where visible with one summary audit row, merge counts admin-only, search_vector not leaked; two sabotages.
+s05f_medications_audited_reads.sql
+# S05f-C2 medications writes: tie-gated prescribe / confirm-refill, closed table (staff read, insert, update, delete nothing directly), patient self-add and stop and reminder times kept, clinician-prescribed row immutable to the patient (OQ-11), acting supporter and caregiver paths kept; two sabotages. Existing trigger proofs re-expressed as owner-with-claims.
+s05f_medications_tie_gated_writes.sql
+# S05f-D1 vitals audited reads: patient/caregiver/service role read with no audit row, tied clinician ok (filters, paging, source) with audit basis, untied/admin/pharmacist/other org denied (audited), monitoring roster visible flag per patient, adherence refuses untied, hypertension quality view org-level for staff and intact for non-session callers; two sabotages.
+s05f_vitals_audited_reads.sql
+# S05f-D2 vitals_readings closed: staff read/insert/update/delete nothing directly, audited read opens for the tied clinician, patient/supporter/caregiver paths kept, red-flag and stamping triggers still fire for a patient insert (BP crisis, low SpO2, dangerous pulse); two sabotages.
+s05f_vitals_closed_and_triggers.sql
+# S05f follow-up: staff write policies dropped on patient_documents, family_history, patient_allergies, patient_conditions: no staff role inserts directly, patient own writes kept (allergies, family history, patient-sourced documents), patient cannot add a condition or a clinician-sourced document; two sabotages.
+s05f_four_tables_staff_writes_dropped.sql
+# S05f review follow-up: consultation_prep_bundle, search_patient_record and clear_vitals_validation_flag require the tie (INV-12) instead of any org staff; the two readers audit (basis tied); patient, caregiver grant and support-view paths kept; anon cannot execute; unknown reading id answers like an untied caller; one sabotage.
+s05f_review_tie_gate_definer_functions.sql
+# Prescription PDF phase 1: clinical_staff_directory.license_verified readable by a same-org patient (true / never verified false / expired false), no sensitive columns, anon refused, other org sees none; a patient's own download audit row insert works and a forged actor is refused; one sabotage.
+prescription_pdf_license_flag_and_download_audit.sql
+# Prescription PDF phase 2: public_token stamped (64 hex, distinct) for clinician prescriptions only; anon holder of the token gets proof with no patient column; unknown, malformed, upper-case, null, truncated and non-clinician tokens return nothing; status follows superseded/expired/cancelled; patient cannot rewrite the token; sabotage.
+prescription_public_verification.sql
+# Prescription PDF phase 3: anon pharmacy records a supply (source pharmacy, self-declared names, no recorder); duplicate window; second supply needs a clinician-approved repeat, capped at 1+repeats_allowed; patient collection claim not counted; superseded/expired/stopped/unknown/malformed/invalid refused; verify reports supplies and availability; anon cannot touch the table; sabotage.
+prescription_supply_record_and_repeat_control.sql
+# Prescription PDF phase 4: a new prescription keeps its in-app 'prescribed' notice; an amendment gets 'prescription_updated_patient' and no second 'prescribed' in-app row, other channels unchanged; the daily expiry job queues one in-app notice for a current prescription expiring within 7 days (not later, expired, superseded, stopped or patient-sourced), never twice, not anon-executable; sabotage.
+prescription_amended_and_expiring_notices.sql
+# Doctor signature for the prescription PDF: only an admin (or the system) can set clinical_staff.signature_path, stamped with who and when, malformed paths refused; the private staff-signatures bucket accepts an admin's upload into their own organisation's folder and refuses a clinician, a patient and another organisation's folder; non-admins cannot read the object; the directory view exposes no signature column; sabotage drops the trigger.
+clinical_staff_prescription_signature.sql
+# A prescription must say how much and for how long: prescribe_medication refuses a missing/blank quantity and a missing/zero/negative duration (nothing written); both present are stored trimmed; an untied caller still gets the authorisation refusal first; amend_medication needs both effective values (an older prescription without them is refused until supplied, a blank cannot clear one); sabotage removes the checks.
+prescription_quantity_duration_required.sql
+# Prescription phone desk: staff (admin or active clinical staff) look a prescription up by Rx number + code and record a supply (desk_phone, recorded by the staff member, patient notified, duplicates refused); no patient-name column, the name on the paper only yields matches / does not match; patients, non-staff clinicians and anon refused; lookups audited and the code never stored; sabotage makes the name matcher always true.
+prescription_phone_desk.sql
+s06_offline_client_recorded_time.sql
+s08_medicines_schedule_adherence_refill.sql
+s07_my_home_bp_target.sql
+s07_care_tasks_kind_patient_tasks_view.sql
+s10_event_bus.sql
+s11_triage_rule_sets.sql
+s12_triage_wiring.sql
+s12b_divergence_and_cuff.sql
+s09_record_shares_and_timeline_events.sql
+s13_notifications_framework.sql
+s13b_push_email_fallback.sql
+# S15 clinician credentialing: state moves only through the credentialing functions (direct update refused, skipped state invalid), checks need evidence and a reviewer who is not the applicant, the answer key never reaches the applicant, 80 percent AND every red scenario right, a CMO who verified cannot approve, activation (not approval) flips the role, expiry notices at 90, 30 and 0 days once each, suspension after expiry removes the role and never fires on a missing date or inside an audited grace period, documents open only for the owner or a reviewer and every open is logged, RLS for other applicants, clinicians, patients and anon; sabotage drops the state guard and the direct-update check must change.
+s15_clinician_credentialing.sql
+s16_clinical_tasks.sql
+s16b_cmo_signoff.sql
+# Regression: every task key a triage rule set can create is answered by an active creatable task type (postpartum_review was not, which blocked the CMO's signing 2026-10-06). Sabotage: the key removed from its task type; the check must flip.
+triage_rule_set_task_keys_answered.sql
+# S17 Next task: the 186-check proof (eligibility cases shared with the TypeScript model, grants, availability gate, order, one claim at a time and an idempotent retry, tier and competency, hand-back reasons and the review flag and cooling-off, safety case 17 conflicts and who may lift them, safety case 19 timeouts and escalation and release without penalty and one extension, offers to an employed doctor and on_call for escalated tasks, reliability arithmetic and an append-only log, RLS, INV-12 ties) with a sabotage that removes the conflict clause from the candidate function and must flip the case 17 check.
+s17_queue_next.sql
+# S17 safety case 18, real contention: 50 concurrent sessions calling queue_next() (30 tasks, then one task) never hand a task out twice; a lock-free control picker must fail in the same harness or the script reports VACUOUS. A .sh proof for the same reason as the finance reversal lock proof (one session cannot race itself); local database only.
+s17_queue_concurrent_claim.sh
+# S21 encounters: policy v1, NGN 10,000 price, adults only (a minor and a patient with no date of birth are refused), encounter and room on confirm, recording pinned off, append-only events, access (patient, assigned clinician, admin; not a stranger, another clinician or anon), scribe consent only by the patient, scribe_may_start, live path with one fallback step and whitelisted payload keys, cancel returns the credit in time and keeps it late, clinician cancel and no-show return it, no-show wait enforced; two sabotage runs
+s21_encounters_consultations.sql
+# S21g scribe consent is the patient's own in-app answer only (a clinician cannot create a granted consent from nothing; the row is tied to that encounter; a withdrawal revokes it and deletes the transcript; skipped when the S23 tables are absent) and chart access after Finish (kept until a signed note exists, capped at 72 hours, lost to another clinician); sabotage: the trigger dropped, the old function body
+s21g_scribe_consent_and_chart_access.sql
+# S18 lead clinician, availability and rota: declared blocks (queue auto-confirms, on-call needs the competency and a reviewer, minimum length, overlap, past, leave), the rota (reviewer only, primary and backup on-call competent and eligible through the shift, contracted clinicians need a confirmed on-call block, overlap refused, fatigue warning needs a written override, gaps and an incident for uncovered hours, swaps change nothing until accepted and approved), conflicts (own declaration with no existence oracle, hand-back records one, a conflicted lead is replaced and never chosen), lead choice (continuity, language, fewest leads, reliability, tier and competency gate, cap, test patients never use capacity, same-transaction care_team_assignment, unassigned plus incident then retry), safety case 16 (licence expiry suspends, handler moves leads and work, nightly reconcile catches a missed event), task routing (declared hours, post-call rest), RLS and execute grants; sabotage drops the write guard and then has_conflict.
+s18_lead_clinician_availability_rota.sql
+# S19 red event paging: shadow, green and unknown events never page; a red event pages the rota primary with push, in-app and email together (critical, neutral, idempotent); safety case 8 (five minutes pages the backup and makes the class 1 task, ten minutes alerts the lead and ops and opens an incident, a repeat sweep adds nothing); acknowledgement stops the ladder and only the paged clinicians or the CMO can (ops and patients cannot); closing needs a note; an open page ties the clinician to the patient and a closed or old one does not (INV-12); safety case 9 (no cover goes to level 2 at once with a task and an incident; an ineligible primary hands over to the backup, and with nobody else the lead is alerted at five minutes); RLS and execute grants; sabotage drops the write guard and then makes every account the CMO.
+s19_red_event_paging.sql
+# S19 concurrency: an acknowledgement racing the escalation sweep never leaves a page family half acknowledged, pages the backup twice or makes two tasks (the sweep's FOR UPDATE SKIP LOCKED against acknowledge_page's FOR UPDATE); 12 rounds of two real concurrent sessions, plus a control with a lock-free sweep that must be able to produce a half-acknowledged family. Needs a local stack; written and its SQL checked, first full run is CI.
+s19_page_ack_sweep_race.sh
+# S18 concurrency: 20 concurrent lead assignments against three clinicians capped at four never exceed the cap or give a patient two live leads, and several sessions writing the same rota window produce exactly one shift; control with a lock-free assigner that must exceed the cap. Needs a local stack; written and its SQL checked, first full run is CI.
+s18_lead_capacity_race.sh
+# S20: quality and safety. Safety case 16 (expired licence removed from queue and rota), audit sampling and scoring (shared cases with Jest), tier 1 counts, hand-back review, the protected speak-up route (admin accounts see nothing), retaliation review. Sabotage: removal turned off must flip the case 16 check.
+s20_quality_and_safety.sql
+# S23 AI Scribe: consent immutability, transcript patient-invisible (safety case 15),
+# patient cannot insert consent, no deletes, revocation works, staff can read transcripts.
+scribe_consent_and_transcript_rls.sql
+s23b_ai017_governance_scaffolding.sql
+# S22: written questions and clinical notes. Intake gate (member, adult, allowance), safety screen, task per question, claim-only audited reads, answer rules (attestation, no diagnosis, call task), follow-up, the response window (reminder, release, allowance returned, CMO told), notes (draft never visible, patient asks and a clinician releases, protected notes need the CMO, amendments, correction requests, unsigned reminders). Sabotage: the visibility rule opened and the allowance removed; both checks must flip.
+s22_written_questions_and_notes.sql
+# S22b: membership (admin or CMO grants and ends, audited, dated memberships lapse), the queue_next type filter (claims only the types asked for; no argument keeps strict class order), and idempotent submit (a retry returns the first question and uses one allowance). Sabotage: membership always true and the retry check removed; both checks must flip.
+s22b_membership_claim_filter_idempotent_submit.sql
+# S22c: a paid credit returned on a missed window, grant_membership with a nullable end date, and notes withdrawn as entered in error (author or CMO only, permanent flag, the patient sees the withdrawal and none of the text, no amendment or dispute). Sabotage: credit return off and the author-or-CMO rule removed; both checks must flip.
+s22c_credit_return_nullable_end_withdrawn_notes.sql
+# S19b: on-call readiness. Unconfirmed phone checklist refuses a clinician on the rota (primary, backup, swap), confirming needs every item and a clinician account, reviewers see who has not confirmed, a new checklist version clears confirmations. Sabotage: the rota check removed must flip the refusal.
+s19b_on_call_readiness.sql
+# S22e: the care-team inbox stays shared by every org staff account; message bodies and attachments are opened only through audited functions (OQ-157). Staff cannot read the rows directly (headers still work); one audit row per person per 10 minutes; patient unaudited; strangers refused; confidential threads still open for staff; staff can still reply; the communication log has no body. Sabotage: the staff select policy restored and the open function without its audit insert; both checks must flip.
+s22e_audited_care_inbox.sql
+# S25: catalogue, prices, orders, payments, entitlements. Dormant gate (module and item), price snapshot, idempotent order creation, service-role-only payment recording, mismatch (amount, currency, fee) never marks paid and opens an incident, safety case 24 (a replayed payment leaves one payment, one entitlement, one order.paid), membership purchase makes a Member, late payment on a closed order honoured and flagged, versioned immutable prices, RLS and no direct writes. Sabotage: amount check and replay guards removed; both checks must flip.
+s25_catalogue_orders_payments.sql
+# S22d: consultation_patient_summaries readable by staff only through a real tie to the patient (INV-12); a withdrawn note can be neither requested nor released. Sabotage: the old org-wide policy and the release without the withdrawn check; both checks must flip.
+s22d_summaries_tie_and_no_release_of_withdrawn.sql
+s23c_attach_scribe_draft_to_note.sql
+# S24: signed prescribing (prescribe and amend write a signed prescription; controlled medicine hard stop; allergy and duplicate checks), care_plan_changes (unsigned cannot be saved as signed; draft invisible to the patient; applies only on her confirmation; decline, expiry, re-check), protocols (immutable once approved), plan targets only through a signed change, referral consent and chase. Sabotage: the medicine signature trigger and the signature CHECK removed; both checks must flip.
+s24_prescriptions_and_care_plan_changes.sql
+# S26: entitlements lifecycle and refunds. Safety case 25 (care packs never auto-renew; 7-day reminder via reminded_at), entitlement expiry sweep (past ends_at → expired, future → unchanged), refund state machine (invalid transition rejected, valid pending→approved works), one live refund per order (unique partial index), RLS (cross-patient invisible, own visible), anon cannot EXECUTE request_order_refund or record_refund_provider_result. Sabotage: the state-machine trigger and the unique index.
+s26_entitlements_lifecycle_and_refunds.sql
+# S30: fee schedules and the earnings ledger. Admin-only drafts and approval, an approved schedule never changes, the shared fee cases through the SQL, task / consultation / on-call / lead-month / pilot-minimum lines (idempotent, contracted only, flagged zero lines never silent, a posting failure never blocks completion), adjustments, an append-only ledger (payout_id linkable once), access by role and INV-13, queue_summary next_fee_kobo. Sabotage: the append-only guard and the fee-version CHECK removed; both checks must flip.
+s30_fee_schedules_and_earnings_ledger.sql
+# CMO sign-off hub: the active Chief Medical Officer can read unreviewed lpe_content_blocks (so the sign-off count and page are not silently empty); a non-CMO clinician, a patient and anon cannot; the CMO still cannot write a block directly. Sabotage: the new policy dropped; the CMO check must flip.
+lpe_content_blocks_cmo_read.sql
+# S24b: the CMO's protocol functions (CMO only, versioned drafts, approve retires the previous version, approved is immutable, audited) and the hardening of confirm_care_plan_change (expired licence, deactivated signer, stale stop, mid-apply failure leaves the session as the patient, audit actors, replay). Sabotage: the identity restore plus assertion removed, and the CMO check removed; both checks must flip.
+s24b_protocol_signoff_and_confirm_hardening.sql
+# S27: lab results and release rules. Held abnormal results (case 11) and a positive HBsAg (case 12) are invisible to the patient, an all-normal one auto-releases (case 13), only the database classifies, partner/patient/team writers, tied and audited clinician reads, release needs a clinician, disclosure needs a senior clinician plus attestation, items append only. Sabotage: the state guard and the patient policy opened; both checks must flip.
+s27_lab_results_release.sql
+# S37: go-live guards and PROPOSED-config sign-off. Seven guards ship off; no role, including the table owner, can change one except through set_go_live_guard (conditions evaluated, who/when/why logged); consultations and the scribe are wired. Sabotage: the reader forced open, and the guard trigger dropped; both checks must flip.
+s37_go_live_guards.sql
+# S35: the clinician patient summary and my-lead-patients reads. One audit row per open, tie required (an untied clinician and a clinician tied to another patient are denied and the denial is audited), reason and caller checks, 14-day readings, shadow triage events excluded, care circle is a count, staff cannot read triage_events directly, lead list is my own and audited once per patient per day, a lead with no other tie gets the summary (audit basis lead) and leading one patient opens no other, the audit helper is not callable by staff. Sabotage: the no-readable-section denial removed, the reason check removed, and the lead tie removed; each must flip a check.
+s35_clinician_patient_summary.sql
+# S36a: admin patient search (OQ-04). Search returns minimal identity only (no full phone, no date of birth, no email column) with the phone masked; one audit row per search holds the query LENGTH and hit count, never the text; under 3 characters refused, LIKE wildcards literal, find by name, patient number, phone digits (0801 matches +234801) and exact email; only patients; opening a record needs a 10+ character reason (a refused open writes nothing), writes exactly one audit row carrying the reason, returns support facts only; clinician, patient and anon refused. Sabotage: the reason check removed, and the admin check removed on search; each must flip a check.
+s36a_admin_patient_search.sql
+# S36b: go_live_guard_status is readable by a holder of ops.console.view (read-only dashboard for ops, spec 9.4); ops still cannot switch a guard on or off or attest a condition (42501), a plain clinician and a patient cannot read, revoking the permission closes the read. Sabotage: the permission clause removed; the ops read must flip.
+s36b_go_live_status_ops_read.sql
+# S36d: clinician roster (ops view, request and suspend; CMO-only competency grant and reinstatement decisions, never your own request) and the role-grants history (admin or users.permissions.grant only). Ops cannot reinstate, grant or decide directly; a plain clinician and a patient read neither the roster nor the history; no client write to the requests table. Sabotage: the history gate opened, and the CMO check removed from the decision door; each must flip a check.
+s36d_clinician_roster_and_grants_history.sql
+# S36e: reliability_dashboard (reliability and SLA dashboard, spec 9.5 and 9.4): the CMO reads it with named clinicians ordered by name; ops and admin read aggregates only (no individuals, no on-call names, no scores tied to anyone; the score distribution withheld below a minimum group); a plain clinician, patient and anon refused; tasks waiting by class with oldest wait and past-due count, red pages acknowledged within the configured window and still unacknowledged (no patient or clinician in a row), cover now and gaps, hand-back counts, is_test rows excluded. Sabotage: the lead test forced true (ops sees individuals) and the is_test filters removed; both must flip.
+s36e_reliability_sla_dashboard.sql
+# S36g: directory freshness (spec 25.3, 25.9). Only the manage permission for a listing kind may record a verification (ops view alone, clinician, patient, anon refused); a note of 10+ characters is required and a refused record writes nothing; recording sets next due from the PROPOSED cadence (12 months, 6 for pharmacies), appends history and audits; history is append-only even for the table owner; a listing past its date reads overdue and the sweep marks it stale and tells ops once (in-app, neutral, never SMS or email) while nothing is hidden or switched off; recording again moves the date and clears the stale mark. Sabotage: the overdue test removed from the read, and the stale marking removed from the sweep; each must flip a check.
+s36g_directory_freshness.sql
+# S36h: pharmacy "Flag a problem". A pharmacist lists only prescriptions sent to their own pharmacy; a flag keeps kind, reason, pharmacy and flagger, makes one prescriber task (repeats merge), sends one neutral notice (INV-07 lint, ids only) and one audit row; the prescription row is byte for byte unchanged (INV-02); another pharmacy, a clinician, a patient and anon are refused; dispensed or draft prescriptions and short, long, null or unknown inputs are refused and write nothing; the flag table is append only and not writable directly; the prescriber read is audited, an untied clinician sees nothing. Sabotage: the own-pharmacy check removed, and the state check removed; each must flip a check.
+s36h_pharmacy_flag_a_problem.sql
+# S36i: speak-up screens over S20. Admin, finance, care coordinator, analyst, patient and anon read zero concern rows and can call no lead function; the raiser reads only their own; the lead sees identity and 48 hour / 14 day deadlines; answer shapes carry every key the page schemas need; no notice, event or audit row carries a concern. Sabotage: reader check opened to all must flip the admin checks.
+s36i_speak_up_screens.sql
+# S31: weekly payouts. Drafts exclude test accounts and carry over below the minimum; approval needs payouts_enabled, a different approver, a verified bank and an unchanged ledger, then links lines once; Paystack transfer webhooks are idempotent and order tolerant (success then reversed is applied); bank names must match the credentialed name; only the service role writes bank rows and send results; tax data is stored only. Sabotage: name matching forced true, and the payout write guard dropped; both checks must flip.
+s31_weekly_payouts.sql
+# S29: Care Circle. Invite is a one-time hashed token bound to a verified contact, every failure identical, rate limit and attempt cap. SAFETY CASE 21 (a member without weekly_bp_trend reads no vitals through any table, view or the supporter function; with it, weekly averages only and the raw tables stay empty), revoke and expiry end access at once, neutral red alert reaches only members holding red_alerts and a failed alert opens an incident without stopping the page, pay for a loved one needs pay_for_care and opens no record access, entitlement lands on the patient once. Sabotage: the weekly_bp_trend gate, the red_alerts filter and the pay_for_care gate each removed; all three must flip.
+s29_care_circle.sql
+# S29b: a gifted Membership or care pack waits for the patient's yes. Paid but pending: order.paid carries care_pack false and gift_pending true, no Membership starts, no lead is asked for, the patient is asked once and the payer sees nothing; only the patient can answer; accept starts the Membership from the yes and asks for a lead exactly once under its own key; decline closes it, starts nothing and opens a finance incident to refund the payer (payer not told); an unanswered gift is swept as declined after the configured days; buying for yourself is unchanged. Sabotage: the patient check and the gift detection each removed; both must flip.
+s29b_gifted_care_pack.sql
+s29c_care_circle_followup.sql
+# CMO sign-off hub: a governed configuration version cannot be activated while older than one already signed, on all nine versioned tables, so a stale draft can never roll the platform back (real sign_alert_rules; partition columns for cv_risk_config and risk_questionnaire_configs). Sabotage: the trigger dropped; the older draft must then sign.
+governed_config_supersede_guard.sql
+# Nigerian Pidgin removal: profiles.language accepts en and rejects pcm and fr, the scribe language CHECKs allow only en-NG, the pidgin_language platform switch is gone and reads false; sabotage control table with the old expression accepts pcm.
+remove_pidgin_english_only.sql
+# The platform switch mechanism on a throwaway key: an admin turns it off in one call (no note) and it reads false for a signed-in patient and a signed-out (anon) caller, back on restores it; a patient and anon cannot change it; each change is audited once; an unknown key reads false and cannot be written; sabotage clears the anon opt-in and the anon read must flip false.
+platform_switch_acl_and_audit.sql
+# S36j: the CMO may approve payouts. An active CMO approves a draft that is not theirs (audit row says approver_role cmo) while an admin still can; a CMO cannot approve their own payout; guard off refuses both; doctor, finance, analyst, care coordinator, suspended CMO, patient and anon are refused; the CMO still cannot build, discard, prepare a send, retry or list; the queue lists drafts only, never a test clinician, and no bank data. Extended by S36k: payout_events.source is cmo for a CMO approval and admin for an admin one, the queue marks the caller's own draft is_mine and total_waiting equals the real count, the source check allows cmo. Sabotage: approver check put back to admin only (both CMO checks flip) and the event source hard-coded to admin (the source check flips).
+s36j_cmo_may_approve_payouts.sql

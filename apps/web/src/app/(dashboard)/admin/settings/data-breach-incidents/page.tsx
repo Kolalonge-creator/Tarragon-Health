@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { DataBreachIncidentsManager, type DataBreachIncidentRow } from "./data-breach-incidents-manager";
 
+export const metadata = { title: "Data breach incidents" };
+
 /**
  * Operationalizes docs/legal/breach-notification-runbook.md — the NDPA gives
  * a 72-hour window from the moment TarragonHealth becomes aware of a

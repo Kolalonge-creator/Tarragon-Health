@@ -4,7 +4,7 @@ jest.mock("next/headers", () => ({
   }),
 }));
 
-jest.mock("@/lib/rate-limit", () => ({
+jest.mock("@tarragon/auth/rate-limit", () => ({
   getClientIp: async () => "203.0.113.5",
 }));
 

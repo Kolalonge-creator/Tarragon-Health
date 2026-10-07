@@ -7,6 +7,8 @@ import {
   type EscalationSlaVersionRow,
 } from "./escalation-slas-manager";
 
+export const metadata = { title: "Escalation SLAs" };
+
 /**
  * Clinical Director sign-off for the escalation_slas config table (v3 port,
  * 2026-07-30) — the single place every clinician_alert-raising trigger reads

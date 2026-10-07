@@ -10,7 +10,7 @@ import type { QueryResult } from "./medications";
  * RPC — start_care_thread is SECURITY DEFINER and resolves the caller's own
  * patient/org from auth.uid() internally, no patientId parameter needed or
  * accepted. The ₦2,500 credit gate is enforced by a DB-side trigger, not
- * app code — never pre-check credit balance client-side, just catch this
+ * app code — never pre-check for a credit client-side, just catch this
  * marker in the error text, same pattern as care-support.ts's
  * ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER.
  */

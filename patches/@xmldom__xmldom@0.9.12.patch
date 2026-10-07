@@ -1,0 +1,22 @@
+diff --git a/lib/dom-parser.js b/lib/dom-parser.js
+index d74ba8dcb7b42d275a33fcdd5c64318a27cf2286..7019eee4462a7de05d6ec3ec8e0b026373e5bd88 100644
+--- a/lib/dom-parser.js
++++ b/lib/dom-parser.js
+@@ -221,6 +221,17 @@ function DOMParser(options) {
+  * @see https://html.spec.whatwg.org/#dom-domparser-parsefromstring-dev
+  */
+ DOMParser.prototype.parseFromString = function (source, mimeType) {
++	// Patched (see /patches): restore the JSDoc-documented default of
++	// 'application/xml' when `mimeType` is omitted. 0.9.x made the
++	// parameter mandatory in code without actually implementing the
++	// documented default, breaking every caller (bundled inside
++	// @expo/plist and plist, both pulled in by EAS/expo-updates' native
++	// config-sync step) that relied on the old optional-argument
++	// behaviour — see the pnpm override 2 lines up in package.json for
++	// why this version is pinned rather than downgraded.
++	if (mimeType === undefined) {
++		mimeType = MIME_TYPE.XML_APPLICATION;
++	}
+ 	if (!isValidMimeType(mimeType)) {
+ 		throw new TypeError('DOMParser.parseFromString: the provided mimeType "' + mimeType + '" is not valid.');
+ 	}

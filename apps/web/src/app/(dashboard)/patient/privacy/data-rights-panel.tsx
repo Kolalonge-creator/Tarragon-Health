@@ -14,6 +14,20 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
+
+/** mutationFn throws the raw Postgrest error object on failure (see
+ * lib/queries/data-rights.ts) — it always carries a `.message`, but the
+ * mutation's own `.error` is typed `unknown` by react-query. */
+function mutationErrorMessage(error: unknown): string | null {
+  if (!error) return null;
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return "Something went wrong sending this request. Please try again.";
+}
 
 const STATUS_BADGE: Record<string, NonNullable<BadgeProps["variant"]>> = {
   pending: "amber",
@@ -83,6 +97,7 @@ export function DataRightsPanel({
                   onChange={(e) => setExportNote(e.target.value)}
                 />
               </div>
+              <FormError id={fieldErrorId("export-request")} message={mutationErrorMessage(createExportRequest.error)} />
               <div className="flex gap-2">
                 <Button
                   disabled={createExportRequest.isPending}
@@ -172,6 +187,10 @@ export function DataRightsPanel({
                   onChange={(e) => setRequestedChange(e.target.value)}
                 />
               </div>
+              <FormError
+                id={fieldErrorId("correction-request")}
+                message={mutationErrorMessage(createCorrectionRequest.error)}
+              />
               <div className="flex gap-2">
                 <Button
                   disabled={
@@ -253,6 +272,10 @@ export function DataRightsPanel({
                   onChange={(e) => setDeletionReason(e.target.value)}
                 />
               </div>
+              <FormError
+                id={fieldErrorId("deletion-request")}
+                message={mutationErrorMessage(createDeletionRequest.error)}
+              />
               <div className="flex gap-2">
                 <Button
                   disabled={createDeletionRequest.isPending}

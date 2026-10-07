@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { ResourcesManager } from "./resources-manager";
 
+export const metadata = { title: "Resources hub" };
+
 export default async function AdminResourcesPage() {
   const profile = await getCurrentProfile();
   if (!profile || profile.role !== "admin") {

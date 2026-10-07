@@ -10,6 +10,9 @@ import {
   type SafetyReport,
 } from "@/lib/rules/drug-safety";
 import { analyseRecord, type TrendFinding } from "@/lib/rules/longitudinal";
+import { readPatientMedicationsAudited } from "./medications-audited";
+import { readPatientVitalsAudited } from "./vitals-audited";
+import { readAuditedSection } from "./audited-chart";
 import {
   medicationEffectivenessVitalType,
   computeMedicationEffectiveness,
@@ -155,6 +158,16 @@ export interface MedicationSafetyView {
   medicationCount: number;
   /** The patient's recorded allergies, for the UI to list independently of any finding firing. */
   allergies: AllergyInput[];
+  /**
+   * Set when the allergy list could not be read (not tied to this patient, or a read error). `allergies` is then empty and means
+   * "unknown", never "none": the panel must say so and the allergy cross-check did not run.
+   */
+  allergiesUnavailable: "denied" | "error" | null;
+  /**
+   * Set when the medication list could not be read (not tied to this patient, or a read error). The report is then built from no
+   * medicines and means "the check did not run", never "no findings": the panel must say so.
+   */
+  medicationsUnavailable: "denied" | "error" | null;
 }
 
 /**
@@ -168,17 +181,11 @@ export async function loadMedicationSafety(
 ): Promise<MedicationSafetyView> {
   const context = await loadPatientClinicalContext(supabase, patientId);
 
-  const [{ data: medications }, { data: allergyRows }, { data: pregnancy }] = await Promise.all([
-    supabase
-      .from("medications")
-      .select("id, drug_name, dose, prescriber_name, source")
-      .eq("patient_id", patientId)
-      .eq("is_active", true),
-    supabase
-      .from("patient_allergies")
-      .select("id, allergen, reaction, severity, source")
-      .eq("patient_id", patientId)
-      .order("allergen"),
+  const [medicationsResult, allergyResult, { data: pregnancy }] = await Promise.all([
+    // INV-10: staff read medications through the audited, tie-gated read, not the table.
+    readPatientMedicationsAudited(supabase, patientId, { active: true }),
+    // INV-10: staff read allergies through the audited chart function, not the table.
+    readAuditedSection(supabase, patientId, "allergies"),
     // The same `patient_pregnancy` row AddMedicationForm already reads
     // (clinician/patients/[patientId]/page.tsx) to drive the diabetes-ladder
     // pregnancy warnings — reused here rather than reproductive_health_profiles
@@ -191,7 +198,9 @@ export async function loadMedicationSafety(
       .maybeSingle(),
   ]);
 
-  const inputs: MedicationInput[] = (medications ?? []).map((m) => ({
+  const medicationsUnavailable = medicationsResult.status === "ok" ? null : medicationsResult.status;
+  const medications = medicationsResult.status === "ok" ? medicationsResult.rows : [];
+  const inputs: MedicationInput[] = medications.map((m) => ({
     id: m.id,
     drugName: m.drug_name,
     dose: m.dose,
@@ -199,13 +208,18 @@ export async function loadMedicationSafety(
     source: m.source,
   }));
 
-  const allergies: AllergyInput[] = (allergyRows ?? []).map((a) => ({
-    id: a.id,
-    allergen: a.allergen,
-    reaction: a.reaction,
-    severity: a.severity,
-    source: a.source,
-  }));
+  const allergyRows = allergyResult.status === "ok" ? allergyResult.rows : [];
+  const allergiesUnavailable = allergyResult.status === "ok" ? null : allergyResult.status;
+  const allergies: AllergyInput[] = allergyRows
+    .flatMap((a) => (a.id && a.substance ? [{ ...a, id: a.id, substance: a.substance }] : []))
+    .sort((a, b) => a.substance.localeCompare(b.substance))
+    .map((a) => ({
+      id: a.id,
+      allergen: a.substance,
+      reaction: a.reaction,
+      severity: a.severity,
+      source: a.source,
+    }));
 
   // Matches the existing `?? false` default everywhere else this table is
   // read (clinician/patients/[patientId]/page.tsx, patient/pregnancy-status.tsx)
@@ -218,7 +232,8 @@ export async function loadMedicationSafety(
   const report = assessMedicationSafety(inputs, {
     egfr: context.egfr?.egfr ?? null,
     egfrStale: context.egfr?.stale ?? false,
-    allergies,
+    // Unknown is not empty: when the list could not be read the engine is told it was never loaded, so it says so (allergyCheckNote).
+    allergies: allergiesUnavailable ? undefined : allergies,
     pregnant,
   });
 
@@ -230,6 +245,8 @@ export async function loadMedicationSafety(
     ckdRiskUnavailableReason: context.ckdRiskUnavailableReason,
     medicationCount: inputs.length,
     allergies,
+    allergiesUnavailable,
+    medicationsUnavailable,
   };
 }
 
@@ -253,11 +270,14 @@ export async function assessMedicationSafetyBestEffort(
   supabase: SupabaseClient<Database>,
   patientId: string,
   organisationId: string,
-): Promise<void> {
+): Promise<{ allergyCheckSkipped: boolean }> {
   try {
-    const { report } = await loadMedicationSafety(supabase, patientId);
+    const { report, allergiesUnavailable, medicationsUnavailable } = await loadMedicationSafety(supabase, patientId);
+    // The cross-checks cannot run on a list that could not be read (allergies, or the medicines themselves). Callers must show this: a
+    // quiet result here is not a clearance.
+    const outcome = { allergyCheckSkipped: allergiesUnavailable !== null || medicationsUnavailable !== null };
     const contraindicated = report.findings.filter((f) => f.severity === "contraindicated");
-    if (contraindicated.length === 0) return;
+    if (contraindicated.length === 0) return outcome;
 
     const typeCode = contraindicated.some((f) => f.kind === "interaction")
       ? "potential_interaction"
@@ -276,10 +296,12 @@ export async function assessMedicationSafetyBestEffort(
       p_detail: detail,
       p_type_code: typeCode,
     });
+    return outcome;
   } catch {
     // Advisory-only follow-up — a failed alert must never surface as a
     // failure of the medication add itself. The safety panel still shows
     // the finding even when this best-effort alert couldn't be raised.
+    return { allergyCheckSkipped: false };
   }
 }
 
@@ -303,28 +325,28 @@ export async function loadMedicationEffectiveness(
   supabase: SupabaseClient<Database>,
   patientId: string,
 ): Promise<MedicationEffectivenessView[]> {
-  const { data: medications } = await supabase
-    .from("medications")
-    .select("id, drug_name, created_at")
-    .eq("patient_id", patientId)
-    .eq("is_active", true);
+  // INV-10: through the audited read. A refusal or error means the effectiveness view cannot be built, so it shows nothing rather than
+  // a misleading partial list (the card renders only when there is something to show).
+  const medicationsResult = await readPatientMedicationsAudited(supabase, patientId, { active: true });
+  const medications = medicationsResult.status === "ok" ? medicationsResult.rows : [];
 
-  const relevant = (medications ?? [])
+  const relevant = medications
     .map((m) => ({ ...m, vitalType: medicationEffectivenessVitalType(m.drug_name) }))
     .filter((m): m is typeof m & { vitalType: NonNullable<typeof m.vitalType> } => m.vitalType !== null);
 
   if (relevant.length === 0) return [];
 
   const vitalTypes = [...new Set(relevant.map((m) => m.vitalType))];
-  const { data: readings } = await supabase
-    .from("vitals_readings")
-    .select("vital_type, systolic, diastolic, glucose_mmol_l, taken_at")
-    .eq("patient_id", patientId)
-    .in("vital_type", vitalTypes)
-    .order("taken_at", { ascending: true });
+  // INV-10: through the audited read, one call per vital type (the function takes a single type). A refusal or error builds no
+  // effectiveness view, the same as an unreadable medication list.
+  const readingResults = await Promise.all(
+    vitalTypes.map((vitalType) => readPatientVitalsAudited(supabase, patientId, { vitalType, ascending: true, limit: 5000 })),
+  );
+  if (readingResults.some((r) => r.status !== "ok")) return [];
+  const readings = readingResults.flatMap((r) => (r.status === "ok" ? r.rows : []));
 
   return relevant.map((m) => {
-    const readingsForType = (readings ?? [])
+    const readingsForType = readings
       .filter((r) => r.vital_type === m.vitalType)
       .map((r) => ({
         takenAt: r.taken_at,

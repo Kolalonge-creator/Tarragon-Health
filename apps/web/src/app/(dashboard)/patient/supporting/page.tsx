@@ -3,7 +3,10 @@ import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { NAV_ICON } from "@/lib/icons";
+import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { SupportedPeople } from "./supported-people";
+import { CircleSupporting } from "./circle-supporting";
+import { ReservationsSent } from "./reservations-sent";
 import { SponsorSharingControl } from "@/components/sponsor-care-report";
 import { joinAsPatientToo } from "./actions";
 
@@ -24,6 +27,7 @@ export default async function SupportingPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (profile.role !== "patient") redirect("/");
+  const { uiLanguage } = await getPatientDashboardContext();
 
   return (
     <div className="space-y-6">
@@ -42,7 +46,11 @@ export default async function SupportingPage() {
         }
       />
 
+      <CircleSupporting locale={uiLanguage} />
+
       <SupportedPeople />
+
+      <ReservationsSent />
 
       {/* The other half of the same relationship, on the same page on purpose.
           Someone who both supports a person and is supported BY one should be

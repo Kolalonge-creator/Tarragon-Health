@@ -4,6 +4,8 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { getVisibleItemsForTab } from "@/lib/admin-settings-nav";
 import { SettingsHubGrid } from "@/components/shell/settings-hub-grid";
 
+export const metadata = { title: "Platform & Compliance" };
+
 export default async function PlatformSettingsPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");

@@ -6,6 +6,7 @@ import type { Database } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { IMAGING_REPORT_BUCKET } from "./documents";
+import { runImagingReportExtraction } from "./extraction-actions";
 import {
   patientImagingReportUploadSchema,
   staffImagingReportUploadSchema,
@@ -114,22 +115,38 @@ export async function uploadImagingReportForPatient(
     .upload(path, file, { contentType: file.type, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
-  const { error: insertError } = await service.from("imaging_report_documents").insert({
-    organisation_id: patient.organisation_id,
-    patient_id: patientId,
-    imaging_order_id: imagingOrderId ?? null,
-    file_path: path,
-    original_filename: file.name,
-    mime_type: file.type,
-    file_size_bytes: file.size,
-    source,
-    uploaded_by: user.id,
-    note: note ?? null,
-  });
-  if (insertError) {
+  const { data: inserted, error: insertError } = await service
+    .from("imaging_report_documents")
+    .insert({
+      organisation_id: patient.organisation_id,
+      patient_id: patientId,
+      imaging_order_id: imagingOrderId ?? null,
+      file_path: path,
+      original_filename: file.name,
+      mime_type: file.type,
+      file_size_bytes: file.size,
+      source,
+      uploaded_by: user.id,
+      note: note ?? null,
+    })
+    .select("id")
+    .single();
+  if (insertError || !inserted) {
     await service.storage.from(IMAGING_REPORT_BUCKET).remove([path]);
-    return { error: insertError.message };
+    return { error: insertError?.message ?? "Could not save that upload." };
   }
+
+  // AI-016 — read the report's own Impression/Conclusion so the clinician
+  // opening the alert already has a summary. Never throws; a failure just
+  // leaves ai_summary_status = 'unavailable'. Currently a no-op in practice
+  // (AI-016 ships disabled pending evaluation) but wired from day one so
+  // enabling it needs no further code change.
+  await runImagingReportExtraction(service, {
+    documentId: inserted.id,
+    patientId,
+    filePath: path,
+    mimeType: file.type,
+  });
 
   revalidatePath(`/clinician/patients/${patientId}`);
   return { success: true };
@@ -195,22 +212,40 @@ export async function uploadImagingReportAsPatient(
     .upload(path, file, { contentType: file.type, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
-  const { error: insertError } = await supabase.from("imaging_report_documents").insert({
-    organisation_id: me.organisation_id,
-    patient_id: user.id,
-    imaging_order_id: imagingOrderId ?? null,
-    file_path: path,
-    original_filename: file.name,
-    mime_type: file.type,
-    file_size_bytes: file.size,
-    source: "patient",
-    uploaded_by: user.id,
-    note: note ?? null,
-  });
-  if (insertError) {
+  const { data: inserted, error: insertError } = await supabase
+    .from("imaging_report_documents")
+    .insert({
+      organisation_id: me.organisation_id,
+      patient_id: user.id,
+      imaging_order_id: imagingOrderId ?? null,
+      file_path: path,
+      original_filename: file.name,
+      mime_type: file.type,
+      file_size_bytes: file.size,
+      source: "patient",
+      uploaded_by: user.id,
+      note: note ?? null,
+    })
+    .select("id")
+    .single();
+  if (insertError || !inserted) {
     await supabase.storage.from(IMAGING_REPORT_BUCKET).remove([path]);
-    return { error: insertError.message };
+    return { error: insertError?.message ?? "Could not save that upload." };
   }
+
+  // AI-016 — read the report's own Impression/Conclusion into a
+  // patient-facing summary. Never throws; a failure just leaves
+  // ai_summary_status = 'unavailable'. Runs on the SERVICE-ROLE client
+  // (mirrors runLabReportExtraction/runEcgReportExtraction) since it needs
+  // storage access beyond the patient's own session. Currently a no-op in
+  // practice (AI-016 ships disabled pending evaluation) but wired from day
+  // one so enabling it needs no further code change.
+  await runImagingReportExtraction(createServiceRoleClient(), {
+    documentId: inserted.id,
+    patientId: user.id,
+    filePath: path,
+    mimeType: file.type,
+  });
 
   revalidatePath("/patient");
   return { success: true };

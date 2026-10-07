@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import { generateDraftReplyAction } from "@/lib/care-messages/actions";
 import { compareThreads } from "@/lib/worklist/message-triage";
@@ -17,16 +18,15 @@ export type CareThreadWithPatient = CareThread & {
  * a real doctor: a Care Coordinator carries an active clinical_staff row too
  * (doctor_tier = 'care_coordinator'), so a "Dr X" line must not be rendered
  * from a non-null actor alone. doctor_tier lets the UI run isClinicalTier
- * (lib/clinical/doctor-tier.ts) first — see authorLabel in
+ * (lib/clinical/doctor-tier.ts) first — see AuthorLabel in
  * components/care-message-thread.tsx. A patient/sponsor author has no actor.
  */
 export type CareMessageAttachment = Tables<"care_message_attachments">;
 
 export type CareMessage = Tables<"care_messages"> & {
   actor: {
+    id: string;
     full_name: string | null;
-    credential_type: string | null;
-    credential_number: string | null;
     doctor_tier: Enums<"doctor_tier"> | null;
   } | null;
   attachments: CareMessageAttachment[];
@@ -34,8 +34,44 @@ export type CareMessage = Tables<"care_messages"> & {
 
 export type CareMessageTemplate = Tables<"care_message_templates">;
 
-const MESSAGE_SELECT =
-  "*, actor:clinical_staff!care_messages_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number, doctor_tier), attachments:care_message_attachments(*)";
+const MESSAGE_SELECT = "*, attachments:care_message_attachments(*)";
+
+type MessageActor = NonNullable<CareMessage["actor"]>;
+
+/**
+ * `actor_clinical_staff_id` used to be embedded directly via
+ * `clinical_staff!care_messages_actor_clinical_staff_id_fkey(...)` — a
+ * PostgREST embedded join, which resolves against `clinical_staff`'s OWN RLS,
+ * not this query's own. Since 2026-09-25 (see
+ * 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+ * that policy no longer admits a patient session, so the embed would silently
+ * come back null for every patient reading their own thread. Fetching the
+ * actor separately from public.clinical_staff_directory (the safe-column
+ * view every patient-facing clinical_staff read now uses) restores the same
+ * attribution without reopening the column-exposure gap that migration
+ * fixed.
+ */
+async function fetchMessageActors(
+  supabase: ReturnType<typeof createClient>,
+  actorIds: string[]
+): Promise<Map<string, MessageActor>> {
+  const actorById = new Map<string, MessageActor>();
+  if (actorIds.length === 0) return actorById;
+  const { data, error } = await supabase
+    .from("clinical_staff_directory")
+    .select("id, full_name, doctor_tier")
+    .in("id", actorIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    actorById.set(row.id, {
+      id: row.id,
+      full_name: row.full_name,
+      doctor_tier: row.doctor_tier,
+    });
+  }
+  return actorById;
+}
 const THREAD_PATIENT_SELECT =
   "*, patient:profiles!care_message_threads_patient_id_fkey(full_name, patient_number)";
 
@@ -83,19 +119,104 @@ export function useOrgCareThreads() {
   });
 }
 
+/** SQLSTATE the audited care-inbox functions raise for someone who is neither the thread's patient nor org staff
+ * (a supporter or a break-glass reader). Those readers still use the table's own select policy, so callers fall back. */
+const NOT_AUTHORISED_CODE = "42501";
+
+export function isNotAuthorisedForAuditedOpen(error: { code?: string } | null | undefined): boolean {
+  return error?.code === NOT_AUTHORISED_CODE;
+}
+
+const rpcMessageSchema = z
+  .object({
+    id: z.string(),
+    thread_id: z.string(),
+    actor_clinical_staff_id: z.string().nullable().optional(),
+    created_at: z.string(),
+    attachments: z.array(z.object({ id: z.string() }).passthrough()).nullable().optional(),
+  })
+  .passthrough();
+
+const rpcMessagesSchema = z.array(rpcMessageSchema);
+
+type MessageRow = Tables<"care_messages"> & { attachments: CareMessageAttachment[] };
+
+/** Parse the open_care_thread_audited jsonb array. Malformed output is an error, never a half-shown thread. */
+function parseThreadRpcRows(raw: unknown): MessageRow[] {
+  const parsed = rpcMessagesSchema.parse(raw ?? []);
+  return parsed.map((row) => ({ ...row, attachments: row.attachments ?? [] }) as unknown as MessageRow);
+}
+
+async function fetchThreadRows(
+  supabase: ReturnType<typeof createClient>,
+  threadId: string
+): Promise<MessageRow[]> {
+  const { data: audited, error: auditedError } = await supabase.rpc("open_care_thread_audited", {
+    p_thread: threadId,
+  });
+  if (!auditedError) return parseThreadRpcRows(audited);
+  if (!isNotAuthorisedForAuditedOpen(auditedError)) throw auditedError;
+
+  // A supporter or break-glass reader: not the patient, not org staff. They read the table under its own policy.
+  const { data, error } = await supabase
+    .from("care_messages")
+    .select(MESSAGE_SELECT)
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data as unknown as MessageRow[];
+}
+
+export async function loadThreadMessages(
+  supabase: ReturnType<typeof createClient>,
+  threadId: string
+): Promise<CareMessage[]> {
+  const rows = await fetchThreadRows(supabase, threadId);
+  const actorIds = Array.from(
+    new Set(rows.map((row) => row.actor_clinical_staff_id).filter((id): id is string => !!id))
+  );
+  const actorById = await fetchMessageActors(supabase, actorIds);
+
+  return rows.map((row) => ({
+    ...row,
+    actor: row.actor_clinical_staff_id ? (actorById.get(row.actor_clinical_staff_id) ?? null) : null,
+  }));
+}
+
+const messageScopeSchema = z.object({
+  organisation_id: z.string(),
+  patient_id: z.string(),
+  thread_id: z.string(),
+});
+
+export type CareMessageScope = z.infer<typeof messageScopeSchema>;
+
+/** The org/patient/thread ids of a message. Staff cannot select message rows, so they use care_message_scope;
+ * a supporter (42501) falls back to the direct read. */
+export async function loadCareMessageScope(
+  supabase: ReturnType<typeof createClient>,
+  messageId: string
+): Promise<CareMessageScope> {
+  const { data: scope, error: scopeError } = await supabase.rpc("care_message_scope", { p_message: messageId });
+  if (!scopeError) return messageScopeSchema.parse(scope);
+  if (!isNotAuthorisedForAuditedOpen(scopeError)) throw scopeError;
+
+  const { data, error } = await supabase
+    .from("care_messages")
+    .select("organisation_id, patient_id, thread_id")
+    .eq("id", messageId)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 /** Messages in a thread, oldest first (reading order). */
 export function useThreadMessages(threadId: string | null) {
   return useQuery({
     queryKey: ["care-messages", threadId],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("care_messages")
-        .select(MESSAGE_SELECT)
-        .eq("thread_id", threadId as string)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data as unknown as CareMessage[];
+      return loadThreadMessages(supabase, threadId as string);
     },
     enabled: !!threadId,
   });
@@ -151,7 +272,11 @@ export function usePostMessage() {
   });
 }
 
-export type CareMessageDraftReply = Tables<"care_message_draft_replies">;
+/** The row staff can read: the model's input snapshot (the last messages, verbatim) is not readable by staff, so it is not here. */
+export type CareMessageDraftReply = Omit<Tables<"care_message_draft_replies">, "input_snapshot">;
+
+const DRAFT_REPLY_COLUMNS =
+  "id, organisation_id, patient_id, thread_id, status, model_id, draft_text, needs_clinical_review, review_reason, error_message, generated_at";
 
 /** The current AI-drafted reply suggestion for a thread, staff-only (RLS).
  * Null when none has been generated yet. */
@@ -162,11 +287,11 @@ export function useDraftReply(threadId: string | null) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("care_message_draft_replies")
-        .select("*")
+        .select(DRAFT_REPLY_COLUMNS)
         .eq("thread_id", threadId as string)
         .maybeSingle();
       if (error) throw error;
-      return data as CareMessageDraftReply | null;
+      return data as unknown as CareMessageDraftReply | null;
     },
     enabled: !!threadId,
   });
@@ -282,12 +407,7 @@ export function useUploadCareMessageAttachment() {
       // message row regardless of what's sent — reading them here first is
       // just to satisfy the Insert type's NOT NULL columns with the same
       // real values the trigger would derive anyway.
-      const { data: message, error: messageError } = await supabase
-        .from("care_messages")
-        .select("organisation_id, patient_id, thread_id")
-        .eq("id", input.messageId)
-        .single();
-      if (messageError) throw messageError;
+      const message = await loadCareMessageScope(supabase, input.messageId);
 
       const ext = input.file.name.includes(".") ? input.file.name.split(".").pop() : "bin";
       const path = `${input.patientId}/${crypto.randomUUID()}.${ext}`;

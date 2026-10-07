@@ -9,7 +9,8 @@ import { flushOfflineQueues, getPendingCount as getOfflineQueuePendingCount } fr
 import { supabase } from "@/lib/supabase";
 import { AppleHealthCard } from "@/screens/apple-health-card";
 import { AndroidHealthConnectCard } from "@/screens/android-health-connect-card";
-import { colors, radius, spacing } from "@/ui/theme";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
 import {
   Card,
   ErrorText,
@@ -19,7 +20,7 @@ import {
   PrimaryButton,
   SecondaryButton,
   SectionLabel,
-} from "@/ui/components";
+} from "@/ui/legacy-kit";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -57,6 +58,8 @@ function deviceIcon(deviceType: string): keyof typeof Ionicons.glyphMap {
  * BP-control pipeline fires (see apps/web/src/app/api/mobile/device-readings/route.ts).
  */
 export function DevicesScreen({ patientId, organisationId, onOpenDevice }: DevicesScreenProps) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const [devices, setDevices] = useState<PatientDevice[]>([]);
   const [loading, setLoading] = useState(true);
   // A failed device query must not render "No devices paired yet" — that
@@ -209,7 +212,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
             waiting to sync.
           </Text>
           <Pressable accessibilityRole="button" onPress={() => void handleSyncNow()} disabled={syncingNow} hitSlop={8}>
-            <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand }}>
+            <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
               {syncingNow ? "Syncing…" : "Sync now"}
             </Text>
           </Pressable>
@@ -365,11 +368,11 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           ) : (
             <>
               <MutedText>What's going wrong? (won't turn on, won't pair, wrong readings, etc.)</MutedText>
-              <TextInput
+              <TextInput keyboardAppearance={scheme}
                 multiline
                 numberOfLines={4}
                 placeholder="Describe the problem…"
-                placeholderTextColor={colors.faint}
+                placeholderTextColor={colors.subtle}
                 value={faultDescription}
                 onChangeText={setFaultDescription}
                 style={{

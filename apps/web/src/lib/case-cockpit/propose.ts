@@ -25,8 +25,11 @@ type Authority = Database["public"]["Enums"]["case_review_authority"];
  *     the condition has no signed protocol, the rule either does not fire or
  *     fires with a null version and a rationale that says so.
  *  3. No rule ever proposes closing a case while a protocol red flag is
- *     unresolved. Faster review is worthless if it makes closing easier than
- *     looking.
+ *     unresolved, or while the patient has an active, unacknowledged
+ *     emergency event on file (see unaddressedEmergencyEvents below) — this
+ *     half is protocol-independent, precisely because a brand-new patient
+ *     with no diagnosed condition has no protocol red flags to check at all.
+ *     Faster review is worthless if it makes closing easier than looking.
  *  4. requiredAuthority always matches the authority the underlying write
  *     independently demands -- proposing is never a way to route around a
  *     tier gate. (The DB re-checks anyway; this keeps the UI honest.)
@@ -102,6 +105,15 @@ export interface CaseFacts {
   /** Output of matchRedFlags — what the data decided, and what it could not. */
   redFlags: RedFlagAssessment;
   protocol: ResolvedProtocol | null;
+  /**
+   * This patient's emergency_events rows still `status = 'active'` with
+   * `acknowledged_at IS NULL` — the platform's own record that a dangerous
+   * reading (BP, pulse, glucose, SpO2, temperature) has not yet been acted on,
+   * regardless of which vital tripped it. Unlike redFlags, this is not parsed
+   * out of a condition protocol, so it is the only signal here that still
+   * applies to a patient with no protocol at all — see INVARIANT 3.
+   */
+  unaddressedEmergencyEvents: { id: string; source: Database["public"]["Enums"]["emergency_source"] }[];
 }
 
 /**
@@ -243,18 +255,35 @@ export function proposeActions(facts: CaseFacts, now: Date = new Date()): Propos
     });
   }
 
-  // --- 5. Close the case. Last, and the only rule a red flag can suppress.
+  // --- 5. Close the case. Last, and the only rule a red flag -- or an
+  // unaddressed emergency event -- can suppress.
   //
   // INVARIANT 3 lives here. The entire premise of the cockpit is that review
   // gets faster; if that also made CLOSING faster than LOOKING, it would be a
   // patient-safety regression dressed as an efficiency win. So when the case
-  // data matches a protocol red flag, no resolve proposal is offered at all --
-  // the doctor can still resolve it manually through the normal form, with
-  // the red flags listed in front of them. Removing an unsafe shortcut, not
-  // removing the doctor's authority.
+  // data matches a protocol red flag, OR the patient has an active,
+  // unacknowledged emergency_events row, no resolve proposal is offered at
+  // all -- the doctor can still resolve it manually through the normal form,
+  // with the red flags / open emergency listed in front of them. Removing an
+  // unsafe shortcut, not removing the doctor's authority.
+  //
+  // The emergency-events half exists because breached/redFlags is entirely a
+  // function of `protocol` -- matchRedFlags returns empty with no protocol at
+  // all, which is exactly the brand-new-patient case: no diagnosis yet means
+  // no condition protocol, which used to mean nothing here could ever
+  // suppress the shortcut no matter how dangerous the patient's actual
+  // readings were. emergency_events is populated by the platform's own
+  // vitals red-flag triggers independent of any protocol, so it is checked
+  // unconditionally, not only when `protocol` is set.
   const { breached, requiresJudgement } = facts.redFlags;
+  const hasUnaddressedEmergency = facts.unaddressedEmergencyEvents.length > 0;
 
-  if (facts.escalation && facts.escalation.status !== "resolved" && breached.length === 0) {
+  if (
+    facts.escalation &&
+    facts.escalation.status !== "resolved" &&
+    breached.length === 0 &&
+    !hasUnaddressedEmergency
+  ) {
     proposals.push({
       actionType: "resolve_case",
       payload: {

@@ -73,7 +73,7 @@ export async function generateLabRequestPdf(
   let requestedByCredentialNumber: string | null = null;
   if (order.ordered_by) {
     const { data: staff } = await supabase
-      .from("clinical_staff")
+      .from("clinical_staff_directory")
       .select("full_name, credential_type, credential_number")
       .eq("id", order.ordered_by)
       .maybeSingle();

@@ -24,6 +24,29 @@ export interface SleepSummary {
   trend: "up" | "down" | "flat" | "unknown";
 }
 
+/** Shared with lib/health-domains/domains.ts so both consumers of a
+ * SleepSummary present the same consistency/trend language rather than
+ * each hand-writing its own copy that can drift. */
+export function formatSleepDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `${hours}h ${rest}m`;
+}
+
+export const SLEEP_CONSISTENCY_LABEL: Record<SleepSummary["consistency"], string> = {
+  consistent: "Fairly consistent night to night",
+  somewhat_variable: "Somewhat variable night to night",
+  irregular: "Irregular: duration swings a lot night to night",
+  unknown: "Not enough nights yet to tell",
+};
+
+export const SLEEP_TREND_LABEL: Record<SleepSummary["trend"], string> = {
+  up: "Trending longer over the last few nights",
+  down: "Trending shorter over the last few nights",
+  flat: "Holding steady over the last few nights",
+  unknown: "Not enough nights yet for a trend",
+};
+
 /** Exported for direct unit testing — the query hook below is a thin
  * Supabase wrapper around this, which is where the actual logic lives. */
 export function summarise(values: number[]): SleepSummary {

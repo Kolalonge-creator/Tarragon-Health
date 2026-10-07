@@ -183,7 +183,7 @@ export default function CareCoordinationPage() {
               A written question, a real reply, right in the app
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              No WhatsApp thread that disappears, no waiting for the next visit to ask something.
+              No chat thread that disappears, no waiting for the next visit to ask something.
               Message your care team in the app and hear back from the doctors reviewing your case.
             </p>
           </div>

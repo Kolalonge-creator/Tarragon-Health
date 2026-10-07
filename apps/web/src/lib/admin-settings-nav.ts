@@ -75,9 +75,23 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: anyOf("users.provision", "users.roles.assign", "users.permissions.grant", "roles.manage"),
       },
       {
+        href: "/admin/settings/access/history",
+        label: "Access history",
+        blurb: "Read only: who holds which capability now, and every grant and removal.",
+        icon: NAV_ICON.members,
+        visible: anyOf("users.permissions.grant"),
+      },
+      {
         href: "/admin/settings/clinical-staff",
         label: "Clinical staff",
         blurb: "Add and verify every MDCN/NMCN-credentialed doctor.",
+        icon: SEMANTIC_ICON.clinicianFollowUp,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/credentialing",
+        label: "Clinician credentialing",
+        blurb: "Check new clinicians' licences, documents and referees, and track licence and indemnity expiry.",
         icon: SEMANTIC_ICON.clinicianFollowUp,
         visible: adminOnly,
       },
@@ -128,6 +142,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
     label: "Clinical Protocols",
     href: "/admin/settings/clinical-protocols",
     items: [
+      {
+        href: "/admin/settings/clinical-signoff",
+        label: "Clinical sign-off",
+        blurb: "What still needs your signature, and the one button that signs it.",
+        icon: NAV_ICON.review,
+        visible: adminOnly,
+      },
       {
         href: "/admin/settings/protocols",
         label: "Clinical protocols",
@@ -321,7 +342,7 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
       {
         href: "/admin/settings/broadcasts",
         label: "Broadcasts & announcements",
-        blurb: "Email/WhatsApp/SMS to a targeted audience.",
+        blurb: "Email, SMS and in-app messages to a targeted audience.",
         icon: NAV_ICON.broadcast,
         visible: adminOnly,
       },
@@ -377,7 +398,7 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
       {
         href: "/admin/settings/notification-templates",
         label: "Notification templates",
-        blurb: "The wording behind every WhatsApp/SMS/email/in-app reminder and alert.",
+        blurb: "The wording behind every SMS/email/push/in-app reminder and alert.",
         icon: NAV_ICON.messages,
         visible: anyOf("notification_templates.manage"),
       },

@@ -1,8 +1,8 @@
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { SectionId } from "@/lib/sections";
-import { type UiLanguage } from "@tarragon/shared";
-import { colors, radius, spacing, typeScale } from "@/ui/theme";
+import { radius, spacing, typeScale } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
 
 /**
  * The native twin of web's GetStartedCard -- see that file for the full
@@ -42,46 +42,14 @@ interface Step {
 export function GetStartedCard({
   progress,
   onNavigate,
-  language = "en",
 }: {
   progress: GetStartedProgress;
   onNavigate: (id: SectionId) => void;
-  language?: UiLanguage;
 }) {
-  // Written per-language rather than looked up string-by-string, matching
-  // web's get-started-card.tsx. Setup guidance only -- no clinical content,
-  // per the boundary in packages/shared/src/ui-language.ts.
-  const pidgin = language === "pcm";
-  const copy = pidgin
-    ? {
-        heading: "Three things wey you go set up",
-        of: "out of",
-        intro:
-          "This app dey keep your health record for one place, e dey tell you which check don due, and e dey put your readings for front of a care team wey fit do something about am. These three steps na wetin go turn am on.",
-        footer:
-          "All of this na free. Na only doctor time you dey ever pay for, and na only when you ask for am.",
-        steps: [
-          {
-            title: "Fill your health profile",
-            detail:
-              "Na like two minutes. E go build your own screening and vaccination calendar: the checks wey dey keep well person well.",
-            cta: "Start am",
-          },
-          {
-            title: "Enter the first reading",
-            detail:
-              "Blood pressure, blood sugar or weight, from any machine, you fit type am by hand. Na wetin the care team dey look.",
-            cta: "Enter a reading",
-          },
-          {
-            title: "Add your medicine",
-            detail:
-              "Whatever you dey take now. Once dem dey the list, you go dey get reminder for dose and refill.",
-            cta: "Add medicine",
-          },
-        ],
-      }
-    : {
+  const colors = useLegacyColors();
+  // Written as whole sentences, matching web's get-started-card.tsx.
+  // Setup guidance only -- no clinical content.
+  const copy = {
         heading: "Three things to set up",
         of: "of",
         intro:
@@ -212,7 +180,7 @@ export function GetStartedCard({
         </View>
       ))}
 
-      <Text style={{ fontSize: typeScale.caption, lineHeight: 17, color: colors.faint }}>
+      <Text style={{ fontSize: typeScale.caption, lineHeight: 17, color: colors.subtle }}>
         {copy.footer}
       </Text>
     </View>

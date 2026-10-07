@@ -10,8 +10,9 @@ import {
   type PatientReceiptStatus,
 } from "@/lib/receipts";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, spacing } from "@/ui/theme";
-import { Badge, ErrorText, GroupedList, GroupedListRow, MutedText } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, ErrorText, GroupedList, GroupedListRow, MutedText } from "@/ui/legacy-kit";
 
 const SERVICE_ICON: Record<PatientReceiptServiceType, keyof typeof Ionicons.glyphMap> = {
   membership: "card-outline",
@@ -57,6 +58,7 @@ function formatDate(iso: string): string {
  * invoice" opens the existing PDF route in the system browser rather than
  * reimplementing a PDF viewer natively. */
 export function ReceiptsScreen() {
+  const colors = useLegacyColors();
   const [receipts, setReceipts] = useState<PatientReceipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,7 +129,7 @@ export function ReceiptsScreen() {
                             `${PLATFORM_URL}/api/patient/receipts/${r.service_type}/${r.id}/invoice`
                           )
                         }
-                        style={{ fontSize: 11, fontWeight: "700", color: colors.brand }}
+                        style={{ fontSize: 11, fontWeight: "700", color: colors.brandPressed }}
                       >
                         Download invoice
                       </Text>

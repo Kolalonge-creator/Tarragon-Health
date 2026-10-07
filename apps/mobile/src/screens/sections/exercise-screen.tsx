@@ -14,8 +14,9 @@ import {
   type ExerciseEnrollment,
   type ReadinessAnswers,
 } from "@/lib/exercise";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTheme } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 const INTENSITY_LABEL: Record<string, string> = {
   beginner: "Beginner",
@@ -48,6 +49,8 @@ interface ExerciseScreenProps {
  * re-implemented here.
  */
 export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProps) {
+  const colors = useLegacyColors();
+  const { scheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [programmes, setProgrammes] = useState<ExerciseProgramme[]>([]);
   const [screen, setScreen] = useState<ExerciseReadinessScreen | null>(null);
@@ -118,7 +121,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <View>
         <ScreenTitle>Exercise programmes</ScreenTitle>
         <MutedText>
@@ -179,9 +182,9 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
                 </Text>
               </View>
             ))}
-            <TextInput
+            <TextInput keyboardAppearance={scheme}
               placeholder="Anything else your care team should know? (optional)"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               value={answers.other_concern}
               onChangeText={(v) => setAnswers((a) => ({ ...a, other_concern: v }))}
               maxLength={300}

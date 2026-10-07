@@ -1,7 +1,11 @@
 /**
  * Jest (ts-jest, CJS transform) for @tarragon/web.
- * Only pure lib/validation logic is unit-tested here — Server
- * Components/Actions and Route Handlers are exercised via the running app.
+ * Default environment is "node" — pure lib/validation logic is unit-tested
+ * here, and Server Components/Actions and Route Handlers are exercised via
+ * the running app. A `.test.tsx` file that needs a DOM (client-component
+ * interaction tests, e.g. risk-assessment-form.test.tsx) opts into it per
+ * file with a `/** @jest-environment jsdom *\/` docblock rather than
+ * flipping the default for every test.
  */
 /** @type {import('jest').Config} */
 const config = {
@@ -9,7 +13,7 @@ const config = {
   transform: {
     "^.+\\.tsx?$": [
       "ts-jest",
-      { tsconfig: { module: "commonjs", moduleResolution: "node", jsx: "react-jsx" } },
+      { tsconfig: { module: "commonjs", moduleResolution: "node", jsx: "react-jsx" }, diagnostics: { ignoreCodes: [5097] } },
     ],
   },
   moduleNameMapper: {
@@ -20,8 +24,10 @@ const config = {
     // unit-tested (lib/lab-reports/heic.ts, whose HEIC decoding is worth a real
     // test against a real HEIC file).
     "^server-only$": "<rootDir>/src/test/server-only-stub.ts",
+    // S03: the breached-password check is a network call; under Jest it is replaced by a hermetic stub.
+    "^@tarragon/auth/password-check$": "<rootDir>/src/test/password-check-stub.ts",
   },
-  testMatch: ["**/src/**/*.test.ts"],
+  testMatch: ["**/src/**/*.test.ts", "**/src/**/*.test.tsx"],
 };
 
 export default config;

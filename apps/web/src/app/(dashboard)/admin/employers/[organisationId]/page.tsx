@@ -4,6 +4,8 @@ import { hasAnyPermission } from "@/lib/auth/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { EmployerDetailManager } from "./employer-detail-manager";
 
+export const metadata = { title: "Employer details" };
+
 export default async function AdminEmployerDetailPage({
   params,
 }: {

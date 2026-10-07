@@ -4,6 +4,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { IncidentDetail, type OpsIncidentDetailRow, type OpsIncidentUpdateRow } from "./incident-detail";
 
+export const metadata = { title: "Incident details" };
+
 export default async function OpsIncidentDetailPage({
   params,
 }: {

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useUnifiedLedger } from "@/lib/finance/queries";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { formatPatientDate } from "@/lib/format-date";
 
 /**
  * §91.12 unified transaction ledger — a payer-facing view (payer, recipient,
@@ -80,7 +81,7 @@ export function UnifiedLedgerLookup() {
           <tbody>
             {ledger.data.map((row) => (
               <tr key={row.payment_transaction_id ?? row.entry_id} className="border-b border-charcoal-ink/5">
-                <td className="py-2 pr-4">{new Date(row.posted_at).toLocaleDateString("en-NG")}</td>
+                <td className="py-2 pr-4">{formatPatientDate(row.posted_at)}</td>
                 <td className="py-2 pr-4">{row.service_label}</td>
                 <td className="py-2 pr-4">{row.payer_label}</td>
                 <td className="py-2 pr-4">{row.recipient_label}</td>

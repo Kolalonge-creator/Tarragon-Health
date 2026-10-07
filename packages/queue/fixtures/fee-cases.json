@@ -1,0 +1,68 @@
+{
+  "note": "S30. Shared by packages/queue/src/fees.test.ts and packages/db/tests/s30_fee_schedules_and_earnings_ledger.sql. Test amounts only, not proposals: real amounts are set by the founder.",
+  "items": {
+    "task_types": {
+      "amber_bp_review": { "base_fee_kobo": 100000, "wait_multiplier_steps": [{ "at_pct": 50, "add_pct": 10 }, { "at_pct": 100, "add_pct": 25 }] },
+      "symptom_review": { "base_fee_kobo": 333, "wait_multiplier_steps": [{ "at_pct": 50, "add_pct": 10 }, { "at_pct": 100, "add_pct": 25 }] },
+      "admin_clinical": { "base_fee_kobo": 50000, "wait_multiplier_steps": [] },
+      "critical_result_review": { "base_fee_kobo": 0, "wait_multiplier_steps": [{ "at_pct": 100, "add_pct": 25 }] }
+    },
+    "on_call_shift_fee_kobo": 2000000,
+    "lead_fee_per_patient_month_kobo": 150000,
+    "consultation_share_pct": { "video": 60, "audio": 50, "phone": 40 },
+    "consultation_reference_price_kobo": { "video": 1000000 },
+    "pilot_minimum_per_declared_hour_kobo": 250000
+  },
+  "rules": { "lead_month": { "min_active_days": 15 }, "on_call": { "backup_fee_pct": 50 }, "minimum_guarantee": { "counted_kinds": ["task", "consultation", "on_call_shift"] } },
+  "taskCases": [
+    { "name": "claimed straight away: base fee only", "type": "amber_bp_review", "created": "2026-10-01T08:00:00Z", "due": "2026-10-02T08:00:00Z", "claimed": "2026-10-01T08:30:00Z", "expect": { "amount": 100000, "elapsed": 2, "step": null, "addPct": 0 } },
+    { "name": "just before half the window: still base", "type": "amber_bp_review", "created": "2026-10-01T08:00:00Z", "due": "2026-10-02T08:00:00Z", "claimed": "2026-10-01T19:59:00Z", "expect": { "amount": 100000, "elapsed": 49, "step": null, "addPct": 0 } },
+    { "name": "exactly half the window: plus 10 percent", "type": "amber_bp_review", "created": "2026-10-01T08:00:00Z", "due": "2026-10-02T08:00:00Z", "claimed": "2026-10-01T20:00:00Z", "expect": { "amount": 110000, "elapsed": 50, "step": 50, "addPct": 10 } },
+    { "name": "after half, before due: still plus 10", "type": "amber_bp_review", "created": "2026-10-01T08:00:00Z", "due": "2026-10-02T08:00:00Z", "claimed": "2026-10-02T07:00:00Z", "expect": { "amount": 110000, "elapsed": 95, "step": 50, "addPct": 10 } },
+    { "name": "at the due time: plus 25 percent, replacing the 10", "type": "amber_bp_review", "created": "2026-10-01T08:00:00Z", "due": "2026-10-02T08:00:00Z", "claimed": "2026-10-02T08:00:00Z", "expect": { "amount": 125000, "elapsed": 100, "step": 100, "addPct": 25 } },
+    { "name": "long overdue stays plus 25, never grows", "type": "amber_bp_review", "created": "2026-10-01T08:00:00Z", "due": "2026-10-02T08:00:00Z", "claimed": "2026-10-09T08:00:00Z", "expect": { "amount": 125000, "elapsed": 100, "step": 100, "addPct": 25 } },
+    { "name": "rounds down to the kobo", "type": "symptom_review", "created": "2026-10-01T08:00:00Z", "due": "2026-10-02T08:00:00Z", "claimed": "2026-10-01T20:00:00Z", "expect": { "amount": 366, "elapsed": 50, "step": 50, "addPct": 10 } },
+    { "name": "a type with no steps pays its base however late", "type": "admin_clinical", "created": "2026-10-01T08:00:00Z", "due": "2026-10-02T08:00:00Z", "claimed": "2026-10-09T08:00:00Z", "expect": { "amount": 50000, "elapsed": 100, "step": null, "addPct": 0 } },
+    { "name": "a zero base stays zero whatever the step", "type": "critical_result_review", "created": "2026-10-01T08:00:00Z", "due": "2026-10-01T10:00:00Z", "claimed": "2026-10-01T12:00:00Z", "expect": { "amount": 0, "elapsed": 100, "step": 100, "addPct": 25 } },
+    { "name": "a zero-length window (due at creation) claimed on time is overdue", "type": "amber_bp_review", "created": "2026-10-01T08:00:00Z", "due": "2026-10-01T08:00:00Z", "claimed": "2026-10-01T08:00:00Z", "expect": { "amount": 125000, "elapsed": 100, "step": 100, "addPct": 25 } },
+    { "name": "claimed before the task existed counts as nothing waited", "type": "amber_bp_review", "created": "2026-10-01T08:00:00Z", "due": "2026-10-02T08:00:00Z", "claimed": "2026-10-01T07:00:00Z", "expect": { "amount": 100000, "elapsed": 0, "step": null, "addPct": 0 } },
+    { "name": "a task type missing from the schedule is flagged, not zero", "type": "titration_signoff", "created": "2026-10-01T08:00:00Z", "due": "2026-10-02T08:00:00Z", "claimed": "2026-10-01T09:00:00Z", "expect": { "needsReview": "no_fee_for_task_type" } }
+  ],
+  "consultationCases": [
+    { "name": "video: 60 percent of the paid price", "type": "video", "purchase": 1200000, "expect": { "amount": 720000, "basis": "purchase" } },
+    { "name": "audio: 50 percent, rounded down", "type": "audio", "purchase": 1001, "expect": { "amount": 500, "basis": "purchase" } },
+    { "name": "phone: 40 percent", "type": "phone", "purchase": 500000, "expect": { "amount": 200000, "basis": "purchase" } },
+    { "name": "no purchase but a reference price: share of the reference", "type": "video", "purchase": null, "expect": { "amount": 600000, "basis": "reference_price" } },
+    { "name": "no purchase and no reference price: flagged", "type": "audio", "purchase": null, "expect": { "needsReview": "no_price_basis" } },
+    { "name": "a free (zero) purchase is a real zero, not a missing price", "type": "video", "purchase": 0, "expect": { "amount": 0, "basis": "purchase" } }
+  ],
+  "leadCases": [
+    { "name": "14 days: no fee", "days": 14, "expect": 0 },
+    { "name": "15 days: the fee", "days": 15, "expect": 150000 },
+    { "name": "a full month: the fee, once", "days": 31, "expect": 150000 }
+  ],
+  "onCallCases": [
+    { "name": "primary: the whole shift fee", "role": "primary", "expect": 2000000 },
+    { "name": "backup: the configured percent", "role": "backup", "expect": 1000000 }
+  ],
+  "minimumCases": [
+    { "name": "8 declared hours, nothing earned: the whole guarantee", "seconds": 28800, "earned": 0, "expect": { "guarantee": 2000000, "topUp": 2000000 } },
+    { "name": "earned part: only the shortfall", "seconds": 28800, "earned": 1500000, "expect": { "guarantee": 2000000, "topUp": 500000 } },
+    { "name": "earned more than the guarantee: no top-up", "seconds": 28800, "earned": 2500000, "expect": { "guarantee": 2000000, "topUp": 0 } },
+    { "name": "a part hour counts in proportion, rounded down", "seconds": 2700, "earned": 0, "expect": { "guarantee": 187500, "topUp": 187500 } }
+  ],
+  "invalidItems": [
+    { "name": "a negative amount", "mutate": { "on_call_shift_fee_kobo": -1 } },
+    { "name": "a fraction of a kobo", "mutate": { "lead_fee_per_patient_month_kobo": 10.5 } },
+    { "name": "an amount past the typo guard", "mutate": { "pilot_minimum_per_declared_hour_kobo": 1000000001 } },
+    { "name": "a share over 100", "mutate": { "consultation_share_pct": { "video": 101, "audio": 0, "phone": 0 } } },
+    { "name": "a missing consultation type", "mutate": { "consultation_share_pct": { "video": 10, "audio": 0 } } },
+    { "name": "an unknown key", "mutate": { "surge_fee_kobo": 5 } },
+    { "name": "steps out of order", "mutate": { "task_types": { "symptom_review": { "base_fee_kobo": 1, "wait_multiplier_steps": [{ "at_pct": 100, "add_pct": 25 }, { "at_pct": 50, "add_pct": 10 }] } } } },
+    { "name": "a step with no uplift field", "mutate": { "task_types": { "symptom_review": { "base_fee_kobo": 1, "wait_multiplier_steps": [{ "at_pct": 50 }] } } } },
+    { "name": "a task type with no fee", "mutate": { "task_types": { "symptom_review": { "wait_multiplier_steps": [] } } } },
+    { "name": "a bad task type code", "mutate": { "task_types": { "Symptom Review": { "base_fee_kobo": 1, "wait_multiplier_steps": [] } } } },
+    { "name": "a reference price for an unknown type", "mutate": { "consultation_reference_price_kobo": { "async": 5 } } },
+    { "name": "task_types not an object", "mutate": { "task_types": [] } }
+  ]
+}

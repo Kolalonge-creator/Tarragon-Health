@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Text, TextInput, View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 import {
   clearSexualHealthPin,
   isCurrentlyLocked,
@@ -38,25 +37,16 @@ import {
   type SexualHealthInstrument,
   type SexualWellnessResult,
 } from "@/lib/sexual-wellness";
-import { CONFIDENTIAL_MESSAGE_CREDIT_REQUIRED_MARKER, startConfidentialSrhThread } from "@/lib/confidential-message";
+import { startConfidentialSrhThread } from "@/lib/confidential-message";
 import { loadHealthEducationLibrary, type LibraryItem as HealthEducationLibraryItem } from "@/lib/health-education";
-import { PLATFORM_URL } from "@/lib/platform-url";
 import { SexualHealthResultsTab, SexualHealthTestingTab } from "@/screens/sections/sexual-health-testing-tab";
 import type { SectionId } from "@/lib/sections";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const colors = useLegacyColors();
   return (
     <Text
       onPress={onPress}
@@ -103,6 +93,7 @@ interface SexualHealthScreenProps {
  * changing anything here.
  */
 export function SexualHealthScreen({ userId, organisationId, onNavigate }: SexualHealthScreenProps) {
+  const colors = useLegacyColors();
   const [status, setStatus] = useState<SexualHealthPrivacyStatus | null>(null);
   const [unlocked, setUnlocked] = useState(false);
 
@@ -143,6 +134,9 @@ function PrivacyGate({
   onUnlocked: () => void;
   onStatusChanged: (s: SexualHealthPrivacyStatus) => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
@@ -184,7 +178,7 @@ function PrivacyGate({
         <MutedText>Too many attempts. Try again shortly, or reset your PIN below.</MutedText>
       ) : (
         <View style={{ width: "100%", maxWidth: 240, gap: 10 }}>
-          <TextInput
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={pin}
             onChangeText={(t) => setPin(t.replace(/\D/g, ""))}
             secureTextEntry
@@ -218,6 +212,7 @@ function SexualHealthHub({
   onPrivacyChanged: (s: SexualHealthPrivacyStatus) => void;
   onNavigate: (section: SectionId) => void;
 }) {
+  const colors = useLegacyColors();
   const [tab, setTab] = useState<TabKey>("testing");
 
   return (
@@ -260,6 +255,9 @@ function SexualHealthHub({
 }
 
 function PrivacySettingsRow({ status, onChanged }: { status: SexualHealthPrivacyStatus; onChanged: (s: SexualHealthPrivacyStatus) => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [editing, setEditing] = useState(false);
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -310,8 +308,8 @@ function PrivacySettingsRow({ status, onChanged }: { status: SexualHealthPrivacy
         </View>
       ) : (
         <View style={{ gap: 8 }}>
-          <TextInput value={pin} onChangeText={(t) => setPin(t.replace(/\D/g, ""))} secureTextEntry keyboardType="number-pad" maxLength={6} placeholder="New PIN (4-6 digits)" style={textInputStyle} />
-          <TextInput value={confirmPin} onChangeText={(t) => setConfirmPin(t.replace(/\D/g, ""))} secureTextEntry keyboardType="number-pad" maxLength={6} placeholder="Confirm PIN" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={pin} onChangeText={(t) => setPin(t.replace(/\D/g, ""))} secureTextEntry keyboardType="number-pad" maxLength={6} placeholder="New PIN (4-6 digits)" style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={confirmPin} onChangeText={(t) => setConfirmPin(t.replace(/\D/g, ""))} secureTextEntry keyboardType="number-pad" maxLength={6} placeholder="Confirm PIN" style={textInputStyle} />
           {error && <ErrorText>{error}</ErrorText>}
           <View style={{ flexDirection: "row", gap: 8 }}>
             <PrimaryButton title="Save PIN" onPress={save} loading={submitting} />
@@ -332,6 +330,9 @@ function PrivacySettingsRow({ status, onChanged }: { status: SexualHealthPrivacy
 }
 
 function EmergencyContraceptionCard({ userId, organisationId }: { userId: string; organisationId: string }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [hours, setHours] = useState("");
   const [notSure, setNotSure] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -369,7 +370,7 @@ function EmergencyContraceptionCard({ userId, organisationId }: { userId: string
         when, and we&apos;ll tell you what to get and where — plus your care team will follow up fast.
       </MutedText>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Hours since intercourse</Text>
-      <TextInput
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={hours}
         onChangeText={setHours}
         keyboardType="numeric"
@@ -378,7 +379,7 @@ function EmergencyContraceptionCard({ userId, organisationId }: { userId: string
         style={[textInputStyle, notSure ? { opacity: 0.5 } : null]}
       />
       <Text onPress={() => setNotSure((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
-        <Text style={{ fontWeight: "700", color: notSure ? colors.brand : colors.faint }}>{notSure ? "☑ " : "☐ "}</Text>
+        <Text style={{ fontWeight: "700", color: notSure ? colors.brandPressed : colors.faint }}>{notSure ? "☑ " : "☐ "}</Text>
         I&apos;m not sure
       </Text>
       {error && <ErrorText>{error}</ErrorText>}
@@ -388,6 +389,7 @@ function EmergencyContraceptionCard({ userId, organisationId }: { userId: string
 }
 
 function ContraceptionCard({ userId, organisationId }: { userId: string; organisationId: string }) {
+  const colors = useLegacyColors();
   const [methods, setMethods] = useState<ContraceptionMethod[]>([]);
   const [plans, setPlans] = useState<ContraceptionPlan[]>([]);
   const [requesting, setRequesting] = useState<string | null>(null);
@@ -474,6 +476,9 @@ function when(iso: string): string {
 }
 
 function FertilityCard() {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [months, setMonths] = useState("");
   const [cycleRegular, setCycleRegular] = useState<boolean | undefined>();
   const [riskFactors, setRiskFactors] = useState<KnownRiskFactor[]>([]);
@@ -528,7 +533,7 @@ function FertilityCard() {
         tests, or a specialist. Not a diagnosis.
       </MutedText>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How many months have you been trying to conceive?</Text>
-      <TextInput value={months} onChangeText={setMonths} keyboardType="numeric" placeholder="e.g. 8" style={[textInputStyle, { maxWidth: 120 }]} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={months} onChangeText={setMonths} keyboardType="numeric" placeholder="e.g. 8" style={[textInputStyle, { maxWidth: 120 }]} />
 
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Is your menstrual cycle regular? (Skip if this doesn&apos;t apply)</Text>
       <View style={{ flexDirection: "row", gap: 8 }}>
@@ -550,6 +555,7 @@ function FertilityCard() {
 }
 
 function SexualWellnessCard() {
+  const colors = useLegacyColors();
   const [view, setView] = useState<"picker" | "form" | "result">("picker");
   const [instrument, setInstrument] = useState<SexualHealthInstrument | null>(null);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -661,6 +667,7 @@ function SexualWellnessCard() {
  * hookup rather than reimplementing that reading UI a second time.
  */
 function LearnCard({ onOpenLearn }: { onOpenLearn: () => void }) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<HealthEducationLibraryItem[]>([]);
 
@@ -696,25 +703,25 @@ function LearnCard({ onOpenLearn }: { onOpenLearn: () => void }) {
 }
 
 function ConfidentialMessageCard() {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  const [needsCredit, setNeedsCredit] = useState(false);
 
   async function send() {
     setError(null);
-    setNeedsCredit(false);
     setPending(true);
+
     const result = await startConfidentialSrhThread(subject, body);
+
     setPending(false);
     if (!result.ok) {
       setError(result.error);
-      if (result.error.includes(CONFIDENTIAL_MESSAGE_CREDIT_REQUIRED_MARKER)) {
-        setNeedsCredit(true);
-      }
       return;
     }
     setSubject("");
@@ -729,7 +736,7 @@ function ConfidentialMessageCard() {
       <MutedText>
         For anything here you&apos;d rather write than say out loud. This thread is hidden from anyone else
         who supports your care, even someone with their usual access to your record. A doctor reads and
-        replies, so this is a paid message (₦2,500).
+        replies.
       </MutedText>
 
       {sent && <MutedText>Sent. Your care team will reply in Messages.</MutedText>}
@@ -741,22 +748,15 @@ function ConfidentialMessageCard() {
       {open && (
         <View style={{ gap: 8 }}>
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Subject</Text>
-          <TextInput value={subject} onChangeText={setSubject} placeholder="e.g. Question about my result" maxLength={150} style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={subject} onChangeText={setSubject} placeholder="e.g. Question about my result" maxLength={150} style={textInputStyle} />
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Message</Text>
-          <TextInput value={body} onChangeText={setBody} multiline numberOfLines={4} maxLength={4000} style={[textInputStyle, { minHeight: 90, textAlignVertical: "top" }]} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={body} onChangeText={setBody} multiline numberOfLines={4} maxLength={4000} style={[textInputStyle, { minHeight: 90, textAlignVertical: "top" }]} />
           {error && <ErrorText>{error}</ErrorText>}
 
-          {needsCredit ? (
-            <SecondaryButton
-              title="Buy a credit in the browser"
-              onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/sexual-health`)}
-            />
-          ) : (
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <PrimaryButton title="Send" onPress={send} disabled={subject.trim().length < 3 || body.trim().length === 0} loading={pending} />
-              <SecondaryButton title="Cancel" onPress={() => setOpen(false)} disabled={pending} />
-            </View>
-          )}
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <PrimaryButton title="Send" onPress={send} disabled={subject.trim().length < 3 || body.trim().length === 0} loading={pending} />
+            <SecondaryButton title="Cancel" onPress={() => setOpen(false)} disabled={pending} />
+          </View>
         </View>
       )}
     </Card>

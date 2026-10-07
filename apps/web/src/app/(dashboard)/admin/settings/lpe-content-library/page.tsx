@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { ContentLibraryManager, type ContentBlockRow } from "./content-library-manager";
 
+export const metadata = { title: "Lifestyle coaching content library" };
+
 /**
  * Clinical Director sign-off for the AI Coach's reference-content library.
  * The retrieval pipeline (find-relevant-content.ts) only ever surfaces

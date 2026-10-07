@@ -26,9 +26,11 @@ import {
 } from "@/lib/family-consent";
 import * as WebBrowser from "expo-web-browser";
 import type { SectionId } from "@/lib/sections";
+import { CareCircleSection } from "./care-circle-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius, spacing } from "@/ui/theme";
-import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 function shortDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -50,17 +52,8 @@ function expiryLabel(expiresAt: string | null): string {
   return `Expires in ${days} day${days === 1 ? "" : "s"}`;
 }
 
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
-
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const colors = useLegacyColors();
   return (
     <Text
       onPress={onPress}
@@ -100,6 +93,7 @@ const LEVEL_LABEL: Record<"view" | "manage", string> = { view: "view", manage: "
  * a service-role client that must never ship in the mobile bundle.
  */
 export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [nextOfKin, setNextOfKin] = useState<NextOfKinState | null>(null);
   const [nextOfKinError, setNextOfKinError] = useState<string | null>(null);
@@ -161,6 +155,8 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
           records you keep. Everyone keeps their own account, rather than a shared or family plan.
         </MutedText>
       </View>
+
+      <CareCircleSection />
 
       {emergencyGrants.length > 0 && (
         <Card style={{ borderColor: colors.status.warn, backgroundColor: colors.status.warnBg, gap: 8 }}>
@@ -225,6 +221,7 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
 }
 
 function EmergencyGrantRow({ grant, userId, onChanged }: { grant: EmergencyGrantOnMyRecord; userId: string; onChanged: () => void }) {
+  const colors = useLegacyColors();
   const [revoking, setRevoking] = useState(false);
 
   async function revoke() {
@@ -254,6 +251,7 @@ function CareAccessRequestsCard({
   currentUserId: string;
   onChanged: () => void;
 }) {
+  const colors = useLegacyColors();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -336,6 +334,9 @@ const RELATIONSHIP_LABEL: Record<string, string> = {
 };
 
 function NextOfKinCard({ current, userId, onChanged }: { current: NextOfKinState; userId: string; onChanged: () => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [fullName, setFullName] = useState(current.name ?? "");
   const [phone, setPhone] = useState(current.phone ?? "");
   const [relationship, setRelationship] = useState<NextOfKinRelationship>((current.relationship as NextOfKinRelationship) ?? "child");
@@ -409,7 +410,7 @@ function NextOfKinCard({ current, userId, onChanged }: { current: NextOfKinState
       <View style={{ flexDirection: "row", gap: 8 }}>
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Their name</Text>
-          <TextInput value={fullName} onChangeText={setFullName} style={textInputStyle} />
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={fullName} onChangeText={setFullName} style={textInputStyle} />
         </View>
       </View>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Relationship to you</Text>
@@ -419,7 +420,7 @@ function NextOfKinCard({ current, userId, onChanged }: { current: NextOfKinState
         ))}
       </View>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Their phone number</Text>
-      <TextInput value={phone} onChangeText={setPhone} placeholder="+2348012345678" keyboardType="phone-pad" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={phone} onChangeText={setPhone} placeholder="+2348012345678" keyboardType="phone-pad" style={textInputStyle} />
       <MutedText>If this number belongs to a Tarragon account, they&apos;ll be able to follow your care straight away.</MutedText>
 
       <PrimaryButton title={current.name ? "Update next of kin" : "Save next of kin"} onPress={submit} loading={submitting} />
@@ -428,6 +429,7 @@ function NextOfKinCard({ current, userId, onChanged }: { current: NextOfKinState
 }
 
 function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[]; onChanged: () => void }) {
+  const colors = useLegacyColors();
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -485,7 +487,7 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
                     onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, cat.value)))}
                     style={{ fontSize: 13, color: colors.ink, paddingVertical: 3 }}
                   >
-                    <Text style={{ fontWeight: "700", color: follower.categories.includes(cat.value) ? colors.brand : colors.faint }}>
+                    <Text style={{ fontWeight: "700", color: follower.categories.includes(cat.value) ? colors.brandPressed : colors.faint }}>
                       {follower.categories.includes(cat.value) ? "☑ " : "☐ "}
                     </Text>
                     {cat.label}
@@ -496,7 +498,7 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
                     onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, "reproductive_health")))}
                     style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}
                   >
-                    <Text style={{ fontWeight: "700", color: reproductiveHealthOn ? colors.brand : colors.faint }}>
+                    <Text style={{ fontWeight: "700", color: reproductiveHealthOn ? colors.brandPressed : colors.faint }}>
                       {reproductiveHealthOn ? "☑ " : "☐ "}
                     </Text>
                     Reproductive health
@@ -525,6 +527,7 @@ const ACCESS_LOG_PAGE_SIZE = 5;
  * capped at the same 30 rows web shows, paginated 5 at a time so a long
  * history doesn't dump the whole card onto the screen at once. */
 function CareAccessLogCard({ events }: { events: CareAccessLogRow[] }) {
+  const colors = useLegacyColors();
   const [visibleCount, setVisibleCount] = useState(ACCESS_LOG_PAGE_SIZE);
   const visible = events.slice(0, visibleCount);
   const hasMore = visibleCount < events.length;
@@ -541,7 +544,7 @@ function CareAccessLogCard({ events }: { events: CareAccessLogRow[] }) {
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}
         >
           <Text style={{ fontSize: 12.5, color: colors.ink, flex: 1 }}>{describeCareAccessEvent(row)}</Text>
-          <Text style={{ fontSize: 11, color: colors.faint, flexShrink: 0 }}>{shortDate(row.occurredAt)}</Text>
+          <Text style={{ fontSize: 11, color: colors.subtle, flexShrink: 0 }}>{shortDate(row.occurredAt)}</Text>
         </View>
       ))}
       {hasMore && (

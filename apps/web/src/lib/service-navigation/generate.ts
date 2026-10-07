@@ -3,11 +3,23 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import {
+  AI_SYSTEMS,
+  governedSystemPrompt,
+  runGovernedAi,
+} from "@/lib/ai-governance";
 import { findRelevantFacilities, type FacilityMatch } from "./search";
 
 const MODEL_ID = "claude-haiku-4-5";
 
-const FACILITY_TYPES = ["hospital", "lab", "pharmacy", "radiology", "optician", "vaccination_centre"] as const;
+const FACILITY_TYPES = [
+  "hospital",
+  "lab",
+  "pharmacy",
+  "radiology",
+  "optician",
+  "vaccination_centre",
+] as const;
 
 const intentSchema = z.object({
   serviceType: z.enum(FACILITY_TYPES).nullable(),
@@ -36,7 +48,10 @@ Rules, no exceptions:
 - This is a directory lookup, not medical advice -- never suggest which facility is clinically
   better, only describe what's available.`;
 
-function buildChatModel(model: ChatAnthropic | undefined, maxTokens: number): ChatAnthropic {
+function buildChatModel(
+  model: ChatAnthropic | undefined,
+  maxTokens: number,
+): ChatAnthropic {
   return (
     model ??
     new ChatAnthropic({
@@ -44,7 +59,11 @@ function buildChatModel(model: ChatAnthropic | undefined, maxTokens: number): Ch
       model: MODEL_ID,
       maxTokens,
       // Same claude-*-5-generation workaround as ai-coach/model.ts.
-      invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
+      invocationKwargs: {
+        temperature: undefined,
+        top_p: undefined,
+        top_k: undefined,
+      },
     })
   );
 }
@@ -63,42 +82,87 @@ export type ServiceNavigationResult =
 export async function answerServiceNavigationQuestion(
   supabase: SupabaseClient<Database>,
   question: string,
-  model?: ChatAnthropic
+  model?: ChatAnthropic,
 ): Promise<ServiceNavigationResult> {
-  try {
-    const intentModel = buildChatModel(model, 200).withStructuredOutput(intentSchema);
-    const intent = await intentModel.invoke([
-      new SystemMessage(INTENT_SYSTEM_PROMPT),
-      new HumanMessage(question),
-    ]);
+  // AI-015. This call site ran with no registry entry at all until
+  // 2026-09-16 - no kill switch, no audit trail, no guardrail record. See the
+  // 20260916162244 migration header. No subjectProfileId is passed: no
+  // patient data reaches this system at all (only the typed question and
+  // public facility rows), so attributing the interaction to a patient would
+  // put a person into the audit trail that the call itself never involved.
+  const governed = await runGovernedAi<ServiceNavigationResult>({
+    supabase,
+    systemCode: AI_SYSTEMS.serviceNavigation.code,
+    inputCategory: "facility_directory_question",
 
-    const facilities = await findRelevantFacilities(supabase, {
-      type: intent.serviceType,
-      state: intent.state,
-      city: intent.city,
-    });
+    run: async ({ config }) => {
+      const intentModel = buildChatModel(model, 200).withStructuredOutput(
+        intentSchema,
+      );
+      const intent = await intentModel.invoke([
+        new SystemMessage(INTENT_SYSTEM_PROMPT),
+        new HumanMessage(question),
+      ]);
 
-    const facilityLines =
-      facilities.length > 0
-        ? facilities
-            .map(
-              (f) =>
-                `- ${f.name} (${f.type}), ${[f.address, f.area, f.city, f.state].filter(Boolean).join(", ")}${
-                  f.hours ? `, hours: ${f.hours}` : ""
-                }${f.contact_phone ? `, phone: ${f.contact_phone}` : ""}`
-            )
-            .join("\n")
-        : "(no matching facilities found)";
+      const facilities = await findRelevantFacilities(supabase, {
+        type: intent.serviceType,
+        state: intent.state,
+        city: intent.city,
+      });
 
-    const answerModel = buildChatModel(model, 300).withStructuredOutput(answerSchema);
-    const result = await answerModel.invoke([
-      new SystemMessage(ANSWER_SYSTEM_PROMPT),
-      new HumanMessage(`Patient's question: ${question}\n\nMatching facilities:\n${facilityLines}`),
-    ]);
+      const facilityLines =
+        facilities.length > 0
+          ? facilities
+              .map(
+                (f) =>
+                  `- ${f.name} (${f.type}), ${[f.address, f.area, f.city, f.state].filter(Boolean).join(", ")}${
+                    f.hours ? `, hours: ${f.hours}` : ""
+                  }${f.contact_phone ? `, phone: ${f.contact_phone}` : ""}`,
+              )
+              .join("\n")
+          : "(no matching facilities found)";
 
-    return { status: "answered", answer: result.answer, facilities };
-  } catch (error) {
-    console.error("service-navigation: answerServiceNavigationQuestion failed", error);
-    return { status: "failed" };
-  }
+      const answerModel = buildChatModel(model, 300).withStructuredOutput(
+        answerSchema,
+      );
+      const result = await answerModel.invoke([
+        // The governed prompt when a Clinical Director has activated one for
+        // AI-015, else the in-repo constant. Only the answering call is
+        // governed-prompt-aware: the intent extraction is a filter parser, not
+        // a patient-facing voice, and swapping a clinical safety prompt into it
+        // would break the structured extraction rather than make it safer.
+        new SystemMessage(governedSystemPrompt(config) ?? ANSWER_SYSTEM_PROMPT),
+        new HumanMessage(
+          `Patient's question: ${question}\n\nMatching facilities:\n${facilityLines}`,
+        ),
+      ]);
+
+      return {
+        value: {
+          status: "answered" as const,
+          answer: result.answer,
+          facilities,
+        },
+        modelIdentifier: MODEL_ID,
+        // A category and a count, never the patient's question or the answer:
+        // a free-text directory question can carry health detail the audit
+        // trail has no reason to hold.
+        outputSummary: `${facilities.length} matching facilities described`,
+        resultingAction:
+          facilities.length > 0
+            ? "facilities_described"
+            : "no_facilities_matched",
+      };
+    },
+
+    fallback: (reason, error) => {
+      console.error("service-navigation: degrading to no answer", {
+        reason,
+        error,
+      });
+      return { status: "failed" as const };
+    },
+  });
+
+  return governed.value;
 }

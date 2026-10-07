@@ -6,6 +6,8 @@ import { PricingServices } from "../_components/pricing-services";
 import { fetchPlanPrices, servicePriceOverridesFrom } from "@/lib/marketing/plan-prices";
 import { PricingLabelBadge } from "../_components/pricing-label";
 import { CtaBand } from "../_components/cta-band";
+import { EmergencyNotice } from "../_components/emergency-notice";
+import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { SITE, SITE_URL, absoluteUrl, pageMetadata } from "@/lib/marketing/site";
@@ -15,6 +17,7 @@ import {
   ALWAYS_FREE_NOTE,
   EMPLOYER_HMO_NOTE,
   getPricingFaq,
+  NAIRA_ONLY_STATEMENT,
   PAID_SERVICES,
 } from "../_content/pricing";
 
@@ -77,6 +80,9 @@ export default async function PricingPage() {
           title="The app is free. You pay for a doctor's time."
           description="Everything you can do yourself costs nothing, with no time limit and no card required. We charge only when a doctor does a specific piece of work for you, and you always see that price first."
         />
+        <p className="mx-auto mb-10 max-w-2xl text-center text-sm font-medium text-deep-forest">
+          {NAIRA_ONLY_STATEMENT}
+        </p>
         {/* The early exit for somebody who came here for one blood test, not to
             read a pricing page. The Health Check is genuinely pay-once and the
             lab sets its own price, so sending them straight out of this page is
@@ -116,7 +122,7 @@ No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
         <SectionHeading
           eyebrow="What costs money"
           title="A doctor's time, priced per piece of work"
-          description="Nothing here is ever added on your behalf: you choose it, you see the price, you confirm, and it does not renew. Screening bundles arranged with our partner laboratory are priced separately, and you see that price before you confirm those too."
+          description="Nothing here is ever added on your behalf: you choose it, you see the price, you confirm, and it does not renew. Lab tests aren't on this list: you pay the laboratory directly, not us."
         />
         <PricingServices priceOverrides={priceOverrides} />
       </Section>
@@ -144,22 +150,7 @@ No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
           eyebrow="Questions"
           title="Frequently asked questions"
         />
-        <div className="mx-auto grid max-w-4xl gap-4">
-          {pricingFaq.map((faq) => (
-            <details
-              key={faq.question}
-              className="group rounded-xl border border-charcoal-ink/10 bg-white p-5"
-            >
-              <summary className="cursor-pointer list-none font-heading text-lg font-semibold text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2">
-                {faq.question}
-                <span className="float-right ml-4 text-brand-green transition-transform group-open:rotate-45">
-                  +
-                </span>
-              </summary>
-              <p className="mt-3 text-charcoal-ink/70">{faq.answer}</p>
-            </details>
-          ))}
-        </div>
+        <FaqAccordion items={pricingFaq} variant="minimal" />
       </Section>
 
       <Section>
@@ -178,6 +169,7 @@ No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
       </Section>
 
       <Section variant="sage" className="pb-24">
+        <EmergencyNotice className="mb-10" />
         <CtaBand
           variant="gradient"
           title="Ready to get started?"

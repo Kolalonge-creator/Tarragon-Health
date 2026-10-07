@@ -1,0 +1,63 @@
+# Android: app.json's Android package is com.tarragonhealth.app (the iOS
+# bundle id differs; see README "Platform scope"). Run against a dev/preview
+# build on an emulator.
+appId: com.tarragonhealth.app
+name: Phone sign-up, verify, reach home, accept biometric offer
+tags:
+  - auth
+  - s03
+---
+# Required flags (never hardcode them here):
+#   -e S03_FIRST_NAME=... -e S03_LAST_NAME=... -e S03_PHONE=<national number, no country code>
+#   -e S03_PASSWORD=... -e S03_CODE=<6-digit code>
+# S03_CODE: until the Termii sender id is approved the Send SMS hook runs the
+# mock provider, so the code is read from the delivery log by the tester (or a
+# fixed test-account code if the project configures one); the flow cannot
+# fetch it. Use a number that belongs to a throwaway test account.
+#
+# MANUAL, cannot be automated on an emulator:
+#   - a real SMS arriving and the OS "from messages" autofill suggestion
+#   - a real fingerprint / face scan (the emulator can only fake a match via
+#     `adb -e emu finger touch 1`, which tests the prompt, not real hardware)
+#   - the signed-in device-recognition email for a second, unfamiliar device
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create your account"
+    timeout: 20000
+- tapOn: "Create your account"
+
+# Phone is the default method on the sign-up screen; tap it anyway so the flow
+# does not depend on the default.
+- tapOn: "Phone"
+- tapOn: "First name"
+- inputText: ${S03_FIRST_NAME}
+- tapOn: "Last name"
+- inputText: ${S03_LAST_NAME}
+- tapOn: "Phone number"
+- inputText: ${S03_PHONE}
+- tapOn: "Password"
+- inputText: ${S03_PASSWORD}
+- hideKeyboard
+- tapOn: "Create account"
+
+# Verify step: the app must NOT be reachable before the code is accepted.
+- extendedWaitUntil:
+    visible: "Check your phone"
+    timeout: 20000
+- assertVisible: "You can ask for a new code in.*"
+- tapOn: "6-digit code"
+- inputText: ${S03_CODE}
+- tapOn: "Confirm"
+
+# One-time biometric offer (shown only when the emulator has a screen lock or
+# fingerprint enrolled). Accepting it triggers the OS prompt.
+- extendedWaitUntil:
+    visible: "Unlock with your fingerprint or face?"
+    timeout: 30000
+- tapOn: "Turn on"
+# MANUAL: on a real device, complete the fingerprint/face prompt here. On an
+# emulator with an enrolled fingerprint run: adb -e emu finger touch 1
+- extendedWaitUntil:
+    visible: "Today at a glance: your numbers, your care team, and recent activity."
+    timeout: 30000

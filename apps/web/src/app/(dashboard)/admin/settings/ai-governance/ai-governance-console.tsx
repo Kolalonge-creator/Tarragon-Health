@@ -204,13 +204,50 @@ function AcceptanceChecklist({ system }: { system: AiDashboardSystem }) {
     boolean,
   ][];
 
+  // A suite that ran and failed is a finding; one that has never run is a
+  // backlog item. Shown apart for the same reason the database counts them
+  // apart — an amber "Evaluations passing" badge alone would read identically
+  // whether a system had never been tested or had been tested and failed.
+  const failing = system.acceptance.evaluations.filter((e) => e.latest_outcome === "fail");
+  const neverRun = system.acceptance.evaluations.filter((e) => e.latest_outcome === null);
+
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {entries.map(([key, met]) => (
-        <Badge key={key} variant={met ? "green" : "amber"}>
-          {met ? "✓" : "•"} {ACCEPTANCE_CRITERION_LABEL[key]}
-        </Badge>
-      ))}
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {entries.map(([key, met]) => (
+          <Badge key={key} variant={met ? "green" : "amber"}>
+            {met ? "✓" : "•"} {ACCEPTANCE_CRITERION_LABEL[key]}
+          </Badge>
+        ))}
+      </div>
+
+      {failing.length > 0 && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          <p className="font-medium">
+            {failing.length === 1
+              ? "A required evaluation is failing"
+              : `${failing.length} required evaluations are failing`}
+            {system.is_enabled ? " while this system is switched on" : ""}
+          </p>
+          <ul className="mt-1 list-inside list-disc space-y-0.5">
+            {failing.map((e) => (
+              <li key={e.suite_id}>
+                {e.name}
+                {e.latest_pass_rate_pct !== null && e.pass_threshold_pct !== null
+                  ? ` — ${e.latest_pass_rate_pct}% against a ${e.pass_threshold_pct}% threshold`
+                  : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {neverRun.length > 0 && (
+        <p className="text-xs text-slate-500">
+          Never run against this system:{" "}
+          {neverRun.map((e) => e.name).join(", ")}
+        </p>
+      )}
     </div>
   );
 }
@@ -250,30 +287,64 @@ function VersionApprovalForm({ versionId }: { versionId: string }) {
 }
 
 /**
- * Runs AI-001's four governance suites for real (real model calls, roughly
- * 1-3 minutes) and records the result -- this is the missing piece that
- * previously meant only an engineer running a local script, then writing a
- * migration by hand, could ever get a version's release gate closer to
- * satisfied. Deliberately does not itself approve anything; it only
- * measures and records, same as clicking a test-runner button records a
- * test result. Real Anthropic API usage -- each click costs real money and
- * needs ANTHROPIC_API_KEY configured with a positive credit balance in this
- * environment, or every suite will fail immediately with a billing error.
+ * approve_ai_system_version already supports marking a version deployed
+ * (p_deploy) in the same call that approves it, but nothing in this console
+ * ever passed that flag -- an already-approved version had no way to record
+ * "this is what's actually running in production" at all. Reuses the same
+ * action/RPC (coalesce-safe: re-calling it on an already-approved version
+ * only ever fills in the still-null deployed_at, never touches approved_at/
+ * approved_by) rather than adding a second RPC.
  */
-function RunEvalSuitesForm() {
+function MarkVersionDeployedForm({ versionId }: { versionId: string }) {
+  const [state, action, pending] = useActionState<AiGovernanceActionState, FormData>(
+    approveAiSystemVersionAction,
+    undefined
+  );
+  return (
+    <form action={action} className="mt-2">
+      <input type="hidden" name="versionId" value={versionId} />
+      <input type="hidden" name="deploy" value="true" />
+      <Button type="submit" size="sm" variant="outline" disabled={pending}>
+        {pending ? "Marking deployed…" : "Mark as deployed"}
+      </Button>
+      <ActionFeedback state={state} />
+    </form>
+  );
+}
+
+/**
+ * Runs a system's registered governance suite(s) for real (real model calls,
+ * roughly seconds to a few minutes depending on the system) and records the
+ * result -- this is the missing piece that previously meant only an
+ * engineer running a local script, then writing a migration by hand, could
+ * ever get a version's release gate closer to satisfied. Deliberately does
+ * not itself approve anything; it only measures and records, same as
+ * clicking a test-runner button records a test result. Real Anthropic API
+ * usage -- each click costs real money and needs ANTHROPIC_API_KEY
+ * configured with a positive credit balance in this environment, or every
+ * suite will fail immediately with a billing error.
+ *
+ * Shared between AI-001 (four suites: safety baseline, red-team, fairness,
+ * clinical accuracy) and AI-016 (one suite: golden imaging report
+ * extraction) via the `systemCode` prop -- runAiEvalSuitesAction dispatches
+ * to the right harness module server-side.
+ */
+function RunEvalSuitesForm({ systemCode }: { systemCode: "AI-001" | "AI-016" | "AI-017" }) {
   const [state, action, pending] = useActionState<RunEvalSuitesState, FormData>(
     runAiEvalSuitesAction,
     undefined
   );
+  const suiteCountLabel = systemCode === "AI-001" ? "the four suites below" : "the suite below";
 
   return (
     <form action={action} className="min-w-[20rem] flex-1 space-y-2">
+      <input type="hidden" name="systemCode" value={systemCode} />
       <Button type="submit" size="sm" variant="outline" disabled={pending}>
-        {pending ? "Running evaluations… this takes a few minutes" : "Run evaluations"}
+        {pending ? "Running evaluations… this may take a few minutes" : "Run evaluations"}
       </Button>
       <p className="text-xs text-charcoal-ink/50">
-        Makes real model calls against the four suites below and records the result. Does not
-        approve anything by itself.
+        Makes real model calls against {suiteCountLabel} and records the result. Does not approve
+        anything by itself.
       </p>
       {state && "error" in state && <p className="text-sm text-red-600">{state.error}</p>}
       {state && "results" in state && (
@@ -293,12 +364,21 @@ function RunEvalSuitesForm() {
   );
 }
 
-function AiSystemVersionCard({ version }: { version: AiSystemVersionRow }) {
+/**
+ * Exported (not just used inline below) so /clinician/ai-governance — the
+ * Chief Medical Officer's own reachable mirror of this console, same reason
+ * /clinician/clinical-signoff exists — can render the same card for a
+ * version awaiting approval without duplicating its markup or its approve/
+ * mark-deployed forms.
+ */
+export function AiSystemVersionCard({ version }: { version: AiSystemVersionRow }) {
   const status = version.retired_at
     ? { variant: "grey" as const, label: `Retired ${formatDate(version.retired_at)}` }
-    : version.approved_at
-      ? { variant: "green" as const, label: `Approved ${formatDate(version.approved_at)}` }
-      : { variant: "amber" as const, label: "Awaiting Clinical Director approval" };
+    : version.deployed_at
+      ? { variant: "green" as const, label: `Deployed ${formatDate(version.deployed_at)}` }
+      : version.approved_at
+        ? { variant: "green" as const, label: `Approved ${formatDate(version.approved_at)}` }
+        : { variant: "amber" as const, label: "Awaiting Clinical Director approval" };
 
   return (
     <div className="rounded-lg border border-charcoal-ink/10 bg-white p-3 text-sm">
@@ -336,6 +416,9 @@ function AiSystemVersionCard({ version }: { version: AiSystemVersionRow }) {
         {version.validated_by_staff && (
           <> · Validated by {version.validated_by_staff.full_name}</>
         )}
+        {version.approved_at && (
+          <> · {version.deployed_at ? `Deployed ${formatDate(version.deployed_at)}` : "Not yet marked deployed"}</>
+        )}
       </p>
 
       {version.change_summary && (
@@ -343,11 +426,24 @@ function AiSystemVersionCard({ version }: { version: AiSystemVersionRow }) {
       )}
 
       {!version.approved_at && !version.retired_at && <VersionApprovalForm versionId={version.id} />}
+      {version.approved_at && !version.deployed_at && !version.retired_at && (
+        <MarkVersionDeployedForm versionId={version.id} />
+      )}
     </div>
   );
 }
 
-function ClinicalAccuracyLabelForm({ caseId }: { caseId: string }) {
+function ClinicalAccuracyLabelForm({
+  caseId,
+  defaultTier = "",
+  defaultRationale = "",
+  submitLabel = "Record my tier judgement",
+}: {
+  caseId: string;
+  defaultTier?: "" | "routine" | "clinician_review" | "emergency";
+  defaultRationale?: string;
+  submitLabel?: string;
+}) {
   const [state, action, pending] = useActionState<AiGovernanceActionState, FormData>(
     labelAiEvaluationCaseTierAction,
     undefined
@@ -357,7 +453,7 @@ function ClinicalAccuracyLabelForm({ caseId }: { caseId: string }) {
       <input type="hidden" name="caseId" value={caseId} />
       <div>
         <Label htmlFor={`tier-${caseId}`}>Tier you would assign</Label>
-        <Select id={`tier-${caseId}`} name="tier" defaultValue="" required>
+        <Select id={`tier-${caseId}`} name="tier" defaultValue={defaultTier} required>
           <option value="" disabled>
             Choose a tier
           </option>
@@ -368,12 +464,54 @@ function ClinicalAccuracyLabelForm({ caseId }: { caseId: string }) {
           ))}
         </Select>
       </div>
-      <Textarea name="rationale" rows={2} placeholder="Why this tier (optional, kept on the record)" />
+      <Textarea
+        name="rationale"
+        rows={2}
+        placeholder="Why this tier (optional, kept on the record)"
+        defaultValue={defaultRationale}
+      />
       <Button type="submit" size="sm" disabled={pending}>
-        {pending ? "Recording…" : "Record my tier judgement"}
+        {pending ? "Recording…" : submitLabel}
       </Button>
       <ActionFeedback state={state} />
     </form>
+  );
+}
+
+/**
+ * A labelled case's tier is re-labellable, not fixed forever — a CMO
+ * revisiting a scenario after seeing how the coach actually handled it
+ * (e.g. during eval-result review) is a real, legitimate correction, and
+ * public.label_ai_evaluation_case_tier() already supports it (a plain
+ * UPDATE plus a fresh audit_log row each call, no "already labelled"
+ * guard). Collapsed behind a "Change tier" toggle by default so the
+ * common read-only view of the labelled list stays uncluttered.
+ */
+function LabeledCaseRow({ caseData: c }: { caseData: AiClinicalAccuracyCaseRow }) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <li className="text-sm">
+      <p className="text-charcoal-ink">&ldquo;{c.scenario}&rdquo;</p>
+      <p className="mt-1 text-charcoal-ink/70">
+        <Badge variant="blue">
+          {COACH_TIER_OPTIONS.find((t) => t.value === c.expected_tier)?.label ?? c.expected_tier}
+        </Badge>{" "}
+        — by {c.labeled_by_staff?.full_name ?? "unknown"} on {formatDate(c.labeled_at)}
+      </p>
+      {c.label_rationale && <p className="mt-1 text-charcoal-ink/60">{c.label_rationale}</p>}
+      {editing ? (
+        <ClinicalAccuracyLabelForm
+          caseId={c.id}
+          defaultTier={c.expected_tier ?? ""}
+          defaultRationale={c.label_rationale ?? ""}
+          submitLabel="Save corrected tier"
+        />
+      ) : (
+        <Button type="button" variant="ghost" size="sm" className="mt-1 h-auto p-0 text-tarragon-green" onClick={() => setEditing(true)}>
+          Change tier
+        </Button>
+      )}
+    </li>
   );
 }
 
@@ -387,7 +525,8 @@ function ClinicalAccuracyLabelForm({ caseId }: { caseId: string }) {
  * shows each scenario blind (no hint at an expected answer) so labelling
  * here is a real, independent second opinion, not a rubber stamp.
  */
-function ClinicalAccuracyReviewSection({ cases }: { cases: AiClinicalAccuracyCaseRow[] }) {
+/** Exported for the same reason as AiSystemVersionCard above — see its comment. */
+export function ClinicalAccuracyReviewSection({ cases }: { cases: AiClinicalAccuracyCaseRow[] }) {
   if (cases.length === 0) return null;
   const unlabeled = cases.filter((c) => !c.expected_tier);
   const labeled = cases.filter((c) => c.expected_tier);
@@ -426,16 +565,7 @@ function ClinicalAccuracyReviewSection({ cases }: { cases: AiClinicalAccuracyCas
           </summary>
           <ul className="mt-3 space-y-3">
             {labeled.map((c) => (
-              <li key={c.id} className="text-sm">
-                <p className="text-charcoal-ink">&ldquo;{c.scenario}&rdquo;</p>
-                <p className="mt-1 text-charcoal-ink/70">
-                  <Badge variant="blue">
-                    {COACH_TIER_OPTIONS.find((t) => t.value === c.expected_tier)?.label ?? c.expected_tier}
-                  </Badge>{" "}
-                  — by {c.labeled_by_staff?.full_name ?? "unknown"} on {formatDate(c.labeled_at)}
-                </p>
-                {c.label_rationale && <p className="mt-1 text-charcoal-ink/60">{c.label_rationale}</p>}
-              </li>
+              <LabeledCaseRow key={c.id} caseData={c} />
             ))}
           </ul>
         </details>
@@ -551,6 +681,21 @@ export function AiGovernanceConsole({
           {dashboard.window_days} days
           {dashboard.scope === "platform" ? " across the platform" : " for your organisation"}.
         </p>
+        {/*
+          Says plainly what this page is and is not. The acceptance criteria
+          below read like a launch checklist and are not one: the runtime
+          consults `is_enabled` and nothing else — never an approved version,
+          never these criteria — so an outstanding criterion records a gap in
+          the paperwork, it does not hold a feature back. Without this line the
+          permanent amber invites the opposite reading, which is how a true
+          record ends up being treated as a blocker.
+        */}
+        <p className="mt-3 max-w-3xl rounded-md border border-mist-grey/40 bg-mist-grey/10 p-3 text-sm text-charcoal-ink/70">
+          <span className="font-medium text-charcoal-ink">This page is a record, not a gate.</span>{" "}
+          An outstanding criterion below does not stop a feature running or hold up a release — the
+          only thing that stops an AI system is its switch, on its own card. Outstanding items are a
+          dated, visible backlog, which is what a registry is for.
+        </p>
       </div>
 
       {/* 40.13 — the clinical-governance view */}
@@ -594,6 +739,7 @@ export function AiGovernanceConsole({
         {(dashboard.monitoring.unacknowledged_model_changes > 0 ||
           dashboard.monitoring.drift_breaches > 0 ||
           dashboard.monitoring.material_disparities > 0 ||
+          dashboard.monitoring.systems_live_with_failing_evaluations > 0 ||
           dashboard.monitoring.systems_overdue_review > 0) && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             <p className="font-medium">Needs attention</p>
@@ -612,6 +758,15 @@ export function AiGovernanceConsole({
                 <li>
                   {dashboard.monitoring.material_disparities} material performance disparities
                   between population groups
+                </li>
+              )}
+              {dashboard.monitoring.systems_live_with_failing_evaluations > 0 && (
+                <li>
+                  {dashboard.monitoring.systems_live_with_failing_evaluations} switched-on
+                  {dashboard.monitoring.systems_live_with_failing_evaluations === 1
+                    ? " system has"
+                    : " systems have"}{" "}
+                  a required evaluation that ran and failed
                 </li>
               )}
               {dashboard.monitoring.systems_overdue_review > 0 && (
@@ -750,10 +905,28 @@ export function AiGovernanceConsole({
                   {versions.length > 0 && (
                     <div className="space-y-1.5">
                       <p className="text-sm text-charcoal-ink/50">Model versions</p>
+                      {/* Newest version (systemVersions is ordered by created_at desc, see
+                          page.tsx) always shown in full -- that is the one anyone landing on
+                          this card actually needs to act on. Older versions are real audit
+                          history, not something to review again, so they collapse the same
+                          way the "Labelled" case list further down this page does: present,
+                          one click away, not competing for attention with a wall of stale
+                          "Awaiting Clinical Director approval" cards that will only grow as
+                          the system racks up more draft/superseded versions over time. */}
                       <div className="space-y-2">
-                        {versions.map((v) => (
-                          <AiSystemVersionCard key={v.id} version={v} />
-                        ))}
+                        <AiSystemVersionCard version={versions[0]} />
+                        {versions.length > 1 && (
+                          <details className="rounded-lg border border-charcoal-ink/10 bg-white p-3">
+                            <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
+                              {versions.length - 1} older version{versions.length - 1 === 1 ? "" : "s"}
+                            </summary>
+                            <div className="mt-2 space-y-2">
+                              {versions.slice(1).map((v) => (
+                                <AiSystemVersionCard key={v.id} version={v} />
+                              ))}
+                            </div>
+                          </details>
+                        )}
                       </div>
                     </div>
                   )}
@@ -784,7 +957,9 @@ export function AiGovernanceConsole({
 
                   <div className="flex flex-wrap items-start gap-4">
                     {row && <KillSwitchForm system={row} enabled={entry.is_enabled} />}
-                    {entry.system_code === "AI-001" && <RunEvalSuitesForm />}
+                    {(entry.system_code === "AI-001" || entry.system_code === "AI-016" || entry.system_code === "AI-017") && (
+                      <RunEvalSuitesForm systemCode={entry.system_code} />
+                    )}
                     {draftPrompt && !activePrompt && (
                       <div className="min-w-[20rem] flex-1">
                         <p className="text-sm text-charcoal-ink/70">

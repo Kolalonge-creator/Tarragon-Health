@@ -9,6 +9,8 @@ import {
 } from "./risk-questionnaire-config-manager";
 import { RiskQuestionnaireConfigEditor } from "./risk-questionnaire-config-editor";
 
+export const metadata = { title: "Risk questionnaire configuration" };
+
 const QUESTIONNAIRE_CODE = "prevention_intake";
 
 /**

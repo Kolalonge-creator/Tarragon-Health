@@ -101,11 +101,11 @@ export function useUpdateOutreachTask() {
 }
 
 /**
- * A single patient's outreach contact log — every call/WhatsApp attempt a
+ * A single patient's outreach contact log — every call attempt a
  * coordinator has logged, newest first. This is a log, not a chat: there is
  * no live send and no inbound-reply capture (see the care_outreach_contacts
- * migration for why — two-way patient<->care-team conversation stays in-app
- * only, never WhatsApp).
+ * migration for why — two-way patient<->care-team conversation stays
+ * in-app only).
  */
 export function useOutreachContacts(patientId: string | null) {
   return useQuery({

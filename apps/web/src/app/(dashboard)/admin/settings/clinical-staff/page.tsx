@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { ClinicalStaffManager } from "./clinical-staff-manager";
 
+export const metadata = { title: "Clinical staff" };
+
 export default async function ClinicalStaffSettingsPage() {
   const profile = await getCurrentProfile();
 

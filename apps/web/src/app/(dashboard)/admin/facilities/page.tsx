@@ -4,6 +4,8 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/ui/page-header";
 import { FacilityManager } from "./facility-manager";
 
+export const metadata = { title: "Facilities" };
+
 export default async function AdminFacilitiesPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");

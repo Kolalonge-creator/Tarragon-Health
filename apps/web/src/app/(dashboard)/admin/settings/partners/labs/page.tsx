@@ -7,6 +7,8 @@ import { LoadFailure } from "@/components/ui/load-failure";
 import { LabsManager } from "./labs-manager";
 import type { LabPartnerLoginRow } from "@/lib/queries/partner-catalogues";
 
+export const metadata = { title: "Labs" };
+
 export default async function LabsPartnersPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");

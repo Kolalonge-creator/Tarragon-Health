@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useFacilities, type Facility, type FacilityWithServices } from "@/lib/queries/facilities";
 import { distanceKm } from "@/lib/geo";
+import { canonicalizeNigerianState } from "@/lib/nigeria-states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +38,13 @@ export function FacilitySelector({
   idPrefix?: string;
   emptyText?: string;
 }) {
-  const [state, setState] = useState(patientLocation?.state ?? "");
+  // Canonicalized rather than used raw: a saved profile location that predates the
+  // location field's Select (or was typed before that fix existed) can hold a
+  // casing/whitespace/"...State"-suffix variant of a real state, which this component's
+  // ilike("state", `%${state}%`) substring search would otherwise fail to match against
+  // facilities.state's canonical spelling. Falls back to the raw value unchanged when it
+  // doesn't resolve to any canonical state (e.g. a genuinely non-Nigerian location).
+  const [state, setState] = useState(canonicalizeNigerianState(patientLocation?.state));
   const [city, setCity] = useState(patientLocation?.city ?? "");
   const [area, setArea] = useState(patientLocation?.area ?? "");
   const [nearMe, setNearMe] = useState<{ lat: number; lng: number } | null>(null);

@@ -2,17 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import {
-  loadMyAsyncConsults,
-  submitAsyncConsult,
-  ASYNC_CONSULT_CATEGORIES,
-  ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER,
   loadMyNavigationRequests,
   createNavigationRequest,
   submitNavigationRequestFeedback,
   NAVIGATION_REQUEST_CATEGORIES,
   NAVIGATION_REQUEST_CATEGORY_LABEL,
   NAVIGATION_REQUEST_STATUS_LABEL,
-  type AsyncConsultWithAnswerer,
   type NavigationRequest,
   type NavigationRequestCategory,
 } from "@/lib/care-support";
@@ -42,9 +37,14 @@ import {
   type HospitalAdmission,
   type ReferralItem,
 } from "@/lib/care";
+import { PatientNotesSection } from "./patient-notes-section";
+import { WrittenQuestionsSection } from "./written-questions-section";
+import { MembershipSection } from "./membership-section";
 import { SecondOpinionSection } from "./second-opinion-section";
 import { SeniorCaseReviewSection } from "./senior-case-review-section";
 import { VerifiedDocumentsSection } from "./verified-documents-section";
+import { VideoVisitBookingSection } from "./video-visit-booking-section";
+import { UpcomingConsultationsSection } from "./upcoming-consultations-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
   loadMyVouchers,
@@ -54,7 +54,8 @@ import {
   type CareVoucher,
 } from "@/lib/vouchers";
 import { submitTestimonial } from "@/lib/testimonials";
-import { colors, radius, spacing } from "@/ui/theme";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import {
   Badge,
   CalloutCard,
@@ -64,33 +65,22 @@ import {
   PrimaryButton,
   SecondaryButton,
   SectionLabel,
-} from "@/ui/components";
+} from "@/ui/legacy-kit";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
-
-const dateInputStyle = {
-  ...textInputStyle,
-  paddingVertical: 0,
-  height: 38,
-} as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 interface CareSupportScreenProps {
   patientId: string;
   organisationId: string;
+  /** Pushes the native "manage this visit" screen once a video-visit
+   * request reaches 'accepted' — see home-shell.tsx's openVideoVisitId. */
+  onOpenVideoVisit: (consultationId: string) => void;
+  /** Opens the S21 consultation room (OQ-158); see home-shell.tsx's openConsultationId. */
+  onOpenConsultation: (encounterId: string) => void;
 }
 
 /**
@@ -112,18 +102,25 @@ interface CareSupportScreenProps {
  * system browser — same reasoning as "My services" elsewhere in the app
  * (App Store Review 3.1.1: embedding a digital-purchase checkout in-app
  * risks rejection, so the actual payment always opens the system browser,
- * never a WebView or an in-app checkout form). Book Video Visit is the one
- * remaining service still left as a full system-browser hand-off below,
- * not rebuilt here — it isn't credit-based at all (a slot-pick-and-pay
- * atomic action followed by a multi-stage doctor-acceptance lifecycle),
- * a materially different shape that deserves its own native pass. Also
+ * never a WebView or an in-app checkout form). Book Video Visit is now
+ * native too (VideoVisitBookingSection, below) — it was the one remaining
+ * browser-only gap on this screen until this pass; it isn't credit-based
+ * at all (a slot-pick-and-pay HELD-payment request followed by a
+ * multi-stage doctor-acceptance lifecycle), a materially different shape
+ * from every other section here, which is why it lives in its own file.
+ * A doctor's proposed alternate-time pick goes through a
+ * bearer-authenticated passthrough route (video-visit-booking.ts) rather
+ * than a raw client RPC call, since it needs more than the mobile client's
+ * own RLS-scoped session; a card payment opens the web booking page in the system browser, same App
+ * Store Review 3.1.1 reasoning as everything else on this screen. Also
  * left on web: proposing a
  * new care-plan goal (a form on top of an already sizeable screen) and the
  * discretionary/engagement cards (chronic programme timeline, care circle,
  * vouchers, wellness points, testimonials) that the web page itself treats
  * as lower priority than the content above.
  */
-export function CareSupportScreen({ patientId, organisationId }: CareSupportScreenProps) {
+export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit, onOpenConsultation }: CareSupportScreenProps) {
+  const colors = useLegacyColors();
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -134,25 +131,25 @@ export function CareSupportScreen({ patientId, organisationId }: CareSupportScre
         <MutedText>Your care plan, reviews, and referrals.</MutedText>
       </View>
 
+      <UpcomingConsultationsSection onOpenConsultation={onOpenConsultation} />
       <CarePlanSection patientId={patientId} />
       <EscalationsSection patientId={patientId} />
       <ReferralsSection patientId={patientId} />
       <HospitalAdmissionsSection patientId={patientId} organisationId={organisationId} />
-      <AskADoctorSection patientId={patientId} organisationId={organisationId} />
+      <VideoVisitBookingSection
+        patientId={patientId}
+        organisationId={organisationId}
+        onOpenVideoVisit={onOpenVideoVisit}
+      />
+      <MembershipSection />
+      <WrittenQuestionsSection />
+      <PatientNotesSection />
       <SecondOpinionSection patientId={patientId} organisationId={organisationId} />
-      <SeniorCaseReviewSection patientId={patientId} organisationId={organisationId} />
-      <VerifiedDocumentsSection patientId={patientId} organisationId={organisationId} />
+      <SeniorCaseReviewSection patientId={patientId} />
+      <VerifiedDocumentsSection patientId={patientId} />
       <NeedHelpSection patientId={patientId} />
       <VouchersSection patientId={patientId} />
       <TestimonialSection />
-
-      <CalloutCard
-        icon="medkit-outline"
-        title="Book a video visit"
-        subtitle="A one-off online consultation with a doctor — booking and payment both happen in your browser."
-        ctaLabel="Open"
-        onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care`)}
-      />
     </ScrollView>
   );
 }
@@ -163,6 +160,7 @@ export function CareSupportScreen({ patientId, organisationId }: CareSupportScre
 // ---------------------------------------------------------------------------
 
 function CarePlanSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [plans, setPlans] = useState<CarePlanSummaryItem[]>([]);
@@ -303,6 +301,7 @@ function CarePlanSection({ patientId }: { patientId: string }) {
 }
 
 function TaskGroup({ title, tasks, onChanged }: { title: string; tasks: CareTask[]; onChanged: () => void }) {
+  const colors = useLegacyColors();
   if (tasks.length === 0) return null;
   return (
     <View style={{ gap: 8 }}>
@@ -319,6 +318,9 @@ function TaskGroup({ title, tasks, onChanged }: { title: string; tasks: CareTask
 }
 
 function TaskRow({ task, onChanged }: { task: CareTask; onChanged: () => void }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [showUnable, setShowUnable] = useState(false);
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
@@ -342,7 +344,7 @@ function TaskRow({ task, onChanged }: { task: CareTask; onChanged: () => void })
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <Text style={{ flex: 1, fontSize: 14, fontWeight: "500", color: colors.ink }}>{task.title}</Text>
         {task.status === "missed" ? <Badge tone="neutral">Overdue</Badge> : null}
-        {due ? <Text style={{ fontSize: 11, color: colors.faint }}>Due {due}</Text> : null}
+        {due ? <Text style={{ fontSize: 11, color: colors.subtle }}>Due {due}</Text> : null}
       </View>
       {task.description ? <MutedText>{task.description}</MutedText> : null}
       {!showUnable ? (
@@ -352,10 +354,10 @@ function TaskRow({ task, onChanged }: { task: CareTask; onChanged: () => void })
         </View>
       ) : (
         <View style={{ gap: 6 }}>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             style={textInputStyle}
             placeholder="What's stopping you? (optional)"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             value={reason}
             onChangeText={setReason}
           />
@@ -375,6 +377,7 @@ function TaskRow({ task, onChanged }: { task: CareTask; onChanged: () => void })
 // ---------------------------------------------------------------------------
 
 function EscalationsSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
   const [escalations, setEscalations] = useState<EscalationItem[] | null>(null);
 
   useEffect(() => {
@@ -400,12 +403,12 @@ function EscalationsSection({ patientId }: { patientId: string }) {
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
               <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>{escalation.reason}</Text>
-              <Text style={{ fontSize: 11, color: colors.faint }}>{formatCareDate(escalation.createdAt)}</Text>
+              <Text style={{ fontSize: 11, color: colors.subtle }}>{formatCareDate(escalation.createdAt)}</Text>
             </View>
             <MutedText>{ESCALATION_STATUS_COPY[escalation.status]}</MutedText>
             {(() => {
               const next = whatHappensNext(escalation.status, escalation.slaDueAt);
-              return next ? <Text style={{ fontSize: 12, color: colors.faint }}>{next}</Text> : null;
+              return next ? <Text style={{ fontSize: 12, color: colors.subtle }}>{next}</Text> : null;
             })()}
           </View>
         ))}
@@ -419,6 +422,7 @@ function EscalationsSection({ patientId }: { patientId: string }) {
 // ---------------------------------------------------------------------------
 
 function ReferralsSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
   const [referrals, setReferrals] = useState<ReferralItem[] | null>(null);
 
   useEffect(() => {
@@ -446,7 +450,7 @@ function ReferralsSection({ patientId }: { patientId: string }) {
               <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>
                 {humanizeCareLabel(referral.specialistType)}
               </Text>
-              <Text style={{ fontSize: 11, color: colors.faint }}>{formatCareDate(referral.createdAt)}</Text>
+              <Text style={{ fontSize: 11, color: colors.subtle }}>{formatCareDate(referral.createdAt)}</Text>
             </View>
             <MutedText>{REFERRAL_STATUS_COPY[referral.status]}</MutedText>
             {referral.appointmentDate ? (
@@ -457,7 +461,7 @@ function ReferralsSection({ patientId }: { patientId: string }) {
             {referral.status === "closed" && referral.carePlanUpdateNote ? (
               <Text style={{ fontSize: 12, color: colors.ink }}>What changed: {referral.carePlanUpdateNote}</Text>
             ) : (
-              <Text style={{ fontSize: 11.5, color: colors.faint, lineHeight: 16 }}>
+              <Text style={{ fontSize: 11.5, color: colors.subtle, lineHeight: 16 }}>
                 Take this to any {referral.specialistType.replace(/_/g, " ")} you like — you pay that clinic
                 directly. Download your referral letter and upload what they give you back on web.
               </Text>
@@ -474,6 +478,7 @@ function ReferralsSection({ patientId }: { patientId: string }) {
 // ---------------------------------------------------------------------------
 
 function HospitalAdmissionsSection({ patientId, organisationId }: { patientId: string; organisationId: string }) {
+  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [admissions, setAdmissions] = useState<HospitalAdmission[]>([]);
   const [formOpen, setFormOpen] = useState(false);
@@ -534,6 +539,10 @@ function HospitalAdmissionForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const dateInputStyle = { ...textInputStyle, paddingVertical: 0, height: 38 } as const;
+  const { scheme } = useTheme();
   const [admittedOn, setAdmittedOn] = useState("");
   const [dischargedOn, setDischargedOn] = useState("");
   const [facilityName, setFacilityName] = useState("");
@@ -584,10 +593,10 @@ function HospitalAdmissionForm({
     <Card style={{ gap: 10 }}>
       <View style={{ gap: 4 }}>
         <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Admission date (YYYY-MM-DD)</Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme}
           style={dateInputStyle}
           placeholder={todayDateInput()}
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={admittedOn}
           onChangeText={setAdmittedOn}
           keyboardType="numbers-and-punctuation"
@@ -596,10 +605,10 @@ function HospitalAdmissionForm({
       </View>
       <View style={{ gap: 4 }}>
         <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Discharge date (optional)</Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme}
           style={dateInputStyle}
           placeholder="Leave blank if still admitted"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={dischargedOn}
           onChangeText={setDischargedOn}
           keyboardType="numbers-and-punctuation"
@@ -608,9 +617,9 @@ function HospitalAdmissionForm({
       </View>
       <View style={{ gap: 4 }}>
         <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Hospital (optional)</Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme}
           style={textInputStyle}
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={facilityName}
           onChangeText={setFacilityName}
           maxLength={200}
@@ -620,9 +629,9 @@ function HospitalAdmissionForm({
         <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>
           What were you admitted for? (optional)
         </Text>
-        <TextInput
+        <TextInput keyboardAppearance={scheme}
           style={textInputStyle}
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.subtle}
           value={diagnosis}
           onChangeText={setDiagnosis}
           maxLength={500}
@@ -647,6 +656,10 @@ function AdmissionRow({
   first: boolean;
   onDischarged: () => void;
 }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const dateInputStyle = { ...textInputStyle, paddingVertical: 0, height: 38 } as const;
+  const { scheme } = useTheme();
   const [dischargedOn, setDischargedOn] = useState("");
   const [summary, setSummary] = useState("");
   const [saving, setSaving] = useState(false);
@@ -684,7 +697,7 @@ function AdmissionRow({
             {admission.is_current ? "Currently admitted" : "Discharged"}
           </Badge>
         </View>
-        <Text style={{ fontSize: 11, color: colors.faint }}>{admissionDurationLabel(admission)}</Text>
+        <Text style={{ fontSize: 11, color: colors.subtle }}>{admissionDurationLabel(admission)}</Text>
       </View>
       <MutedText>
         Admitted {formatCareDate(admission.admitted_on)}
@@ -702,19 +715,19 @@ function AdmissionRow({
 
       {admission.is_current ? (
         <View style={{ gap: 6, marginTop: 4 }}>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             style={dateInputStyle}
             placeholder="Discharge date (YYYY-MM-DD)"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             value={dischargedOn}
             onChangeText={setDischargedOn}
             keyboardType="numbers-and-punctuation"
             maxLength={10}
           />
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             style={textInputStyle}
             placeholder="Discharge notes (optional)"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             value={summary}
             onChangeText={setSummary}
             multiline
@@ -730,140 +743,13 @@ function AdmissionRow({
 }
 
 // ---------------------------------------------------------------------------
-// Ask a doctor — async written Q&A (unchanged from before this pass).
-// ---------------------------------------------------------------------------
-
-function AskADoctorSection({ patientId, organisationId }: { patientId: string; organisationId: string }) {
-  const [consults, setConsults] = useState<AsyncConsultWithAnswerer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState(ASYNC_CONSULT_CATEGORIES[0].value);
-  const [question, setQuestion] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [needsCredit, setNeedsCredit] = useState(false);
-
-  const refresh = useCallback(async () => {
-    const result = await loadMyAsyncConsults(patientId);
-    if (result.ok) setConsults(result.data);
-  }, [patientId]);
-
-  useEffect(() => {
-    refresh().finally(() => setLoading(false));
-  }, [refresh]);
-
-  async function submit() {
-    if (question.trim().length < 10) {
-      setError("Tell us a little more so the doctor can actually help");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    setNeedsCredit(false);
-    const result = await submitAsyncConsult({ patientId, organisationId, category, question: question.trim() });
-    setSubmitting(false);
-    if (!result.ok) {
-      if (result.error.includes(ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER)) {
-        setNeedsCredit(true);
-      } else {
-        setError(result.error);
-      }
-      return;
-    }
-    setQuestion("");
-    void refresh();
-  }
-
-  return (
-    <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Ask a doctor</Text>
-      <MutedText>
-        Send a written question and a doctor on your care team answers here, usually within 72
-        hours. Not for emergencies.
-      </MutedText>
-
-      {needsCredit && (
-        <Card style={{ gap: 8, backgroundColor: colors.brandTint }}>
-          <Text style={{ fontSize: 13, color: colors.brandPressed }}>
-            Ask a doctor isn&apos;t included on your current plan. Buy a one-off credit to send
-            this question.
-          </Text>
-          <SecondaryButton
-            title="Buy a credit in the browser"
-            onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care#ask-a-doctor`)}
-          />
-        </Card>
-      )}
-
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {ASYNC_CONSULT_CATEGORIES.map((c) => {
-          const selected = c.value === category;
-          return (
-            <Pressable
-              key={c.value}
-              onPress={() => setCategory(c.value)}
-              style={{
-                borderRadius: 999,
-                paddingVertical: 7,
-                paddingHorizontal: 12,
-                backgroundColor: selected ? colors.brand : colors.groupBg,
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: "600", color: selected ? "#FFFFFF" : colors.ink }}>
-                {c.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <TextInput
-        value={question}
-        onChangeText={setQuestion}
-        placeholder="e.g. I've felt dizzy in the mornings since my dose changed. Is that expected?"
-        multiline
-        numberOfLines={3}
-        style={[textInputStyle, { minHeight: 70, textAlignVertical: "top" }]}
-      />
-      {error && <ErrorText>{error}</ErrorText>}
-      <PrimaryButton title="Send to my care team" onPress={submit} loading={submitting} />
-
-      {loading && <ActivityIndicator color={colors.brand} />}
-      {consults.length > 0 && (
-        <View style={{ gap: 10, marginTop: 4 }}>
-          {consults.map((c) => {
-            const answered = c.status === "answered" || c.status === "closed";
-            return (
-              <Card key={c.id} style={{ gap: 6 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flex: 1 }}>
-                    {c.question}
-                  </Text>
-                  <Badge tone={answered ? "brand" : "neutral"}>{answered ? "Answered" : "With your care team"}</Badge>
-                </View>
-                {answered && c.answer && (
-                  <>
-                    <Text style={{ fontSize: 13.5, color: colors.ink }}>{c.answer}</Text>
-                    {c.answerer && c.answered_at && (
-                      <MutedText>
-                        Answered by Dr. {c.answerer.full_name} on {when(c.answered_at)}
-                      </MutedText>
-                    )}
-                  </>
-                )}
-              </Card>
-            );
-          })}
-        </View>
-      )}
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Need help — non-clinical navigation requests (unchanged from before this pass).
 // ---------------------------------------------------------------------------
 
 function NeedHelpSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [requests, setRequests] = useState<NavigationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -934,7 +820,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
               );
             })}
           </View>
-          <TextInput
+          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={description}
             onChangeText={setDescription}
             placeholder="e.g. My pharmacy doesn't have my usual medicine in stock"
@@ -1019,6 +905,9 @@ const STATUS_LABEL: Record<string, string> = {
  * get care" callout below this section already does for video visits etc.
  */
 function VouchersSection({ patientId }: { patientId: string }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [vouchers, setVouchers] = useState<CareVoucher[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1085,11 +974,11 @@ function VouchersSection({ patientId }: { patientId: string }) {
         </MutedText>
         {referralCode && <Text style={{ fontSize: 13, color: colors.ink, fontFamily: "monospace" }}>{referralCode}</Text>}
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-          <TextInput
+          <TextInput keyboardAppearance={scheme}
             value={redeemInput}
             onChangeText={setRedeemInput}
             placeholder="Enter a referral code"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.subtle}
             style={[textInputStyle, { flex: 1 }]}
           />
           <SecondaryButton title="Apply" disabled={!redeemInput} loading={applyingCode} onPress={() => void handleApplyCode()} />
@@ -1106,6 +995,9 @@ function VouchersSection({ patientId }: { patientId: string }) {
  * before anything appears on the marketing site.
  */
 function TestimonialSection() {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [displayName, setDisplayName] = useState("");
   const [quote, setQuote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1135,22 +1027,22 @@ function TestimonialSection() {
           </MutedText>
           <View>
             <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 4 }}>How should we credit you?</Text>
-            <TextInput
+            <TextInput keyboardAppearance={scheme}
               value={displayName}
               onChangeText={setDisplayName}
               placeholder="e.g. Amina O."
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               maxLength={80}
               style={textInputStyle}
             />
           </View>
           <View>
             <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 4 }}>Your words</Text>
-            <TextInput
+            <TextInput keyboardAppearance={scheme}
               value={quote}
               onChangeText={setQuote}
               placeholder="What made a difference for you?"
-              placeholderTextColor={colors.faint}
+              placeholderTextColor={colors.subtle}
               maxLength={500}
               multiline
               numberOfLines={3}

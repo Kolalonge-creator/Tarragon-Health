@@ -1,5 +1,5 @@
 import "server-only";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { signStoragePaths } from "@/lib/supabase/sign-storage-paths";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
@@ -15,24 +15,17 @@ export interface EcgReportDocumentView {
   reviewedBy: string | null;
   reviewedAt: string | null;
   reviewNote: string | null;
+  /** Deterministic, patient-visible summary status — never a doctor opinion.
+   * See lib/ecg-reports/ai-summary.ts. */
+  aiSummaryStatus: Database["public"]["Enums"]["ai_document_summary_status"];
+  /** The ECG machine's own printed rhythm statement, verbatim — populated
+   * whenever the extraction resolved one, regardless of aiSummaryStatus.
+   * Null when no statement was printed/read. */
+  aiRhythmStatement: string | null;
+  aiSummaryGeneratedAt: string | null;
   /** Short-lived signed URL for the file, or null if it could not be signed. */
   signedUrl: string | null;
   isPdf: boolean;
-}
-
-/**
- * Mint a short-lived signed URL for an ECG document's storage object. Uses
- * the service-role client because org staff have no storage-object read
- * policy (the bucket's policies only let a patient read their own uid
- * folder) — the row-level RLS on ecg_report_documents is the real
- * authorisation gate, so the CALLER must already have read the row through
- * their own RLS-scoped session before asking for a URL. Never returns a
- * public URL. Mirrors lib/lab-results/documents.ts's signResultDocumentPath.
- */
-export async function signEcgReportPath(path: string): Promise<string | null> {
-  const service = createServiceRoleClient();
-  const { data } = await service.storage.from(ECG_REPORT_BUCKET).createSignedUrl(path, 300);
-  return data?.signedUrl ?? null;
 }
 
 /**
@@ -47,26 +40,35 @@ export async function loadEcgReportDocuments(
   const { data: rows } = await supabase
     .from("ecg_report_documents")
     .select(
-      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note",
+      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, ai_summary_status, ai_rhythm_statement, ai_summary_generated_at",
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
 
   if (!rows || rows.length === 0) return [];
 
-  return Promise.all(
-    rows.map(async (row) => ({
-      id: row.id,
-      source: row.source,
-      originalFilename: row.original_filename,
-      mimeType: row.mime_type,
-      note: row.note,
-      createdAt: row.created_at,
-      reviewedBy: row.reviewed_by,
-      reviewedAt: row.reviewed_at,
-      reviewNote: row.review_note,
-      signedUrl: await signEcgReportPath(row.file_path),
-      isPdf: row.mime_type === "application/pdf",
-    })),
+  // One batched Storage call for every document's signed URL instead of one
+  // request per row (see signStoragePaths).
+  const signedUrlByPath = await signStoragePaths(
+    ECG_REPORT_BUCKET,
+    rows.map((row) => row.file_path),
+    300,
   );
+
+  return rows.map((row) => ({
+    id: row.id,
+    source: row.source,
+    originalFilename: row.original_filename,
+    mimeType: row.mime_type,
+    note: row.note,
+    createdAt: row.created_at,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: row.reviewed_at,
+    reviewNote: row.review_note,
+    aiSummaryStatus: row.ai_summary_status,
+    aiRhythmStatement: row.ai_rhythm_statement,
+    aiSummaryGeneratedAt: row.ai_summary_generated_at,
+    signedUrl: signedUrlByPath.get(row.file_path) ?? null,
+    isPdf: row.mime_type === "application/pdf",
+  }));
 }

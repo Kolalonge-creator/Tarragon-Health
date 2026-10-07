@@ -5,9 +5,11 @@ export const CARE_MESSAGE_ATTACHMENT_BUCKET = "care-message-attachments";
 
 /**
  * Mint a short-lived signed URL for a care-message attachment's storage
- * object. Same reasoning as lib/lab-results/documents.ts'
- * signResultDocumentPath: the bucket's own storage policies only let the
- * uploader read their own uid folder back, so a patient's attachment is
+ * object. Same reasoning as the batched signStoragePaths in
+ * lib/supabase/sign-storage-paths.ts (this is a single-attachment lookup,
+ * not a list, so it stays a plain createSignedUrl call): the bucket's own
+ * storage policies only let the uploader read their own uid folder back,
+ * so a patient's attachment is
  * unreadable to org staff (and a clinician's own upload is unreadable to
  * the patient) without this — the row-level RLS on
  * care_message_attachments is the real authorisation gate, so the CALLER

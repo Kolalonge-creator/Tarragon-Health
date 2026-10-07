@@ -32,34 +32,28 @@ async function countOpenEscalations(supabase: Client) {
   return count ?? 0;
 }
 
-async function countReferralsNeedingUrgency(supabase: Client) {
-  const { count, error } = await supabase
-    .from("specialist_referrals")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+/**
+ * The three referral counts come from one rule-applying function (S05e): a staff member counts only the referrals she may see (tied, the
+ * creator, the assigned specialist, or the referral desk), so the badge never advertises work she cannot open. Errors throw, as above.
+ */
+async function referralCount(supabase: Client, kind: "needing_urgency" | "waitlisted" | "awaiting_closure") {
+  const { data, error } = await supabase.rpc("referral_worklist_count", { p_kind: kind });
   if (error) throw error;
-  return count ?? 0;
+  return data ?? 0;
+}
+
+async function countReferralsNeedingUrgency(supabase: Client) {
+  return referralCount(supabase, "needing_urgency");
 }
 
 async function countWaitlistedReferrals(supabase: Client) {
-  const { count, error } = await supabase
-    .from("specialist_referrals")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "waitlisted");
-  if (error) throw error;
-  return count ?? 0;
+  return referralCount(supabase, "waitlisted");
 }
 
 /** A referral with an outcome on file (transcribed plan or uploaded
  * document) that hasn't been reviewed & closed yet — task spec §11.15. */
 async function countReferralsAwaitingClosure(supabase: Client) {
-  const { count, error } = await supabase
-    .from("specialist_referrals")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "completed")
-    .or("treatment_plan_received_at.not.is.null,outcome_document_path.not.is.null");
-  if (error) throw error;
-  return count ?? 0;
+  return referralCount(supabase, "awaiting_closure");
 }
 
 async function countOutreachTasks(supabase: Client) {
@@ -206,6 +200,223 @@ async function countActiveCases(supabase: Client) {
   return count ?? 0;
 }
 
+/** Exact same filter as useOperationsQueueAlerts (lib/queries/operations-queue.ts). */
+async function countOperationsQueueAlerts(supabase: Client) {
+  const { count, error } = await supabase
+    .from("clinician_alerts")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "open");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as the results-inbox page's own "Awaiting action" count
+ * (apps/web/src/app/(dashboard)/clinician/results-inbox/page.tsx). */
+async function countResultsInboxAwaitingAction(supabase: Client) {
+  const { count, error } = await supabase
+    .from("lab_result_documents")
+    .select("id", { count: "exact", head: true })
+    .neq("acknowledgement_status", "action_completed");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Emergency contraception requests specifically (not the sexual-health
+ * worklist's other two sub-lists, STI case episodes and requested
+ * contraception plans) -- exact same filter as useOrgPendingEcRequests
+ * (lib/queries/emergency-contraception.ts). Singled out because it carries a
+ * 1-hour SLA, the most time-critical item on that page by a wide margin --
+ * found sitting 127 hours overdue with no badge anywhere pointing at it
+ * during the 2026-09-17 pending-jobs-banner audit.
+ */
+async function countPendingEcRequests(supabase: Client) {
+  const { count, error } = await supabase
+    .from("emergency_contraception_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as safety-incidents-console.tsx's own "Open" tab
+ * (`status !== "closed"`). Found a CRITICAL-severity incident sitting in
+ * this queue with no badge anywhere pointing at it during the same audit
+ * that found the emergency-contraception gap above. */
+async function countOpenSafetyIncidents(supabase: Client) {
+  const { count, error } = await supabase
+    .from("clinical_incident_reports")
+    .select("id", { count: "exact", head: true })
+    .neq("status", "closed");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as safeguarding/page.tsx's own `openCount`
+ * (`status !== "closed"`). Restricted-visibility worklist (only a Senior
+ * Medical Officer+ can move a concern into review or close it), but every
+ * tier can see the queue -- see that page's own header comment -- so the
+ * count is safe to show to every tier too. */
+async function countOpenSafeguardingConcerns(supabase: Client) {
+  const { count, error } = await supabase
+    .from("safeguarding_concerns")
+    .select("id", { count: "exact", head: true })
+    .neq("status", "closed");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Medication issues has two independent sub-worklists (affordability
+ * reports, dispense/interaction concerns) -- this counts only the latter
+ * (medication_dispense_flags, same filter as useOpenDispenseFlags), chosen
+ * as the single more clinically load-bearing of the two rather than summing
+ * both into one query: worklist-counts.test.ts's generic success test
+ * stubs the whole client to one fixed result per key, so a counter issuing
+ * more than one real query resolves to a multiple of the stub value, not
+ * the value itself -- learned the hard way building the sexual-health
+ * counter earlier the same day. Affordability reports stay uncounted here,
+ * not silently dropped: opening the page itself still shows them exactly as
+ * before. */
+async function countOpenMedicationDispenseFlags(supabase: Client) {
+  const { count, error } = await supabase
+    .from("medication_dispense_flags")
+    .select("id", { count: "exact", head: true })
+    .neq("status", "resolved");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as useSupportTicketQueue (lib/queries/support-tickets.ts). */
+async function countOpenSupportTickets(supabase: Client) {
+  const { count, error } = await supabase
+    .from("support_tickets")
+    .select("id", { count: "exact", head: true })
+    .not("status", "in", "(resolved,closed)");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as useComplaintQueue (lib/queries/complaints.ts) --
+ * every complaint short of governance_review, the point at which it moves
+ * to a different reviewer and stops being this queue's job. */
+async function countOpenComplaints(supabase: Client) {
+  const { count, error } = await supabase
+    .from("complaints")
+    .select("id", { count: "exact", head: true })
+    .neq("status", "governance_review");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as therapy-approvals/queue.tsx's own psychiatry-request
+ * query. Approving needs prescribing authority (a Senior Medical Officer+),
+ * but the queue is visible to every tier -- see that page's own header
+ * comment -- so the count is safe to show to every tier too. */
+async function countTherapyApprovalsWaiting(supabase: Client) {
+  const { count, error } = await supabase
+    .from("therapy_sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "awaiting_clinician_approval");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Orders needing a home-visit provider assigned -- exact same predicate as
+ * the "Home visits & deliveries" page's LabOrdersWorklist (a lab order with
+ * no home_visit_provider yet, in payment_confirmed or ordered status --
+ * apps/web/src/app/(dashboard)/clinician/orders/page.tsx). That page also
+ * has a second sub-worklist (pharmacy orders needing a courier assigned, out
+ * for delivery, or a failed delivery to retry), left uncounted here for the
+ * same reason Medication issues leaves its second sub-worklist uncounted:
+ * this file's counters issue exactly one query each,
+ * and a home-visit collection blocks a diagnostic sample from ever being
+ * taken -- the more clinically load-bearing of the two. Pharmacy orders stay
+ * fully visible on the page itself, just not globally counted.
+ */
+async function countLabOrdersAwaitingHomeVisitAssignment(supabase: Client) {
+  const { count, error } = await supabase
+    .from("lab_orders")
+    .select("id", { count: "exact", head: true })
+    .is("home_visit_provider_id", null)
+    .in("status", ["payment_confirmed", "ordered"]);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as useOrgLabResultConsultRequests
+ * (lib/queries/lab-result-consult.ts) -- a paid consult request whose result
+ * a doctor hasn't yet accepted a booking slot for. */
+async function countLabResultConsultsWaiting(supabase: Client) {
+  const { count, error } = await supabase
+    .from("lab_result_consult_requests")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["payment_confirmed", "document_uploaded"]);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Recognised FHIR Bundle entries from a partner import (labs/HMOs/hospitals
+ * via POST /api/v1/fhir/import) waiting for a clinician to confirm, modify,
+ * or dismiss them into the record -- see clinician/fhir-review. */
+async function countFhirProposedResourcesPending(supabase: Client) {
+  const { count, error } = await supabase
+    .from("fhir_import_proposed_resources")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "proposed");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Threads waiting on a care-team reply -- exact same predicate as
+ * isAwaitingCareTeam (lib/worklist/message-triage.ts), which compares
+ * care_team_last_read_at to last_message_at. That's a column-vs-column
+ * comparison PostgREST's query-string filters can't express (they only ever
+ * compare a column to a supplied value), so this counter calls a
+ * `security invoker` SQL RPC instead of the usual .select().eq() chain --
+ * see migration 20260917090629_count_care_threads_awaiting_reply_rpc.sql.
+ * RLS on care_message_threads still scopes the result per caller, same as
+ * every other counter here.
+ */
+async function countCareThreadsAwaitingReply(supabase: Client) {
+  const { data, error } = await supabase.rpc("count_care_threads_awaiting_reply");
+  if (error) throw error;
+  return data ?? 0;
+}
+
+/**
+ * Preventive Health Check Reviews a patient has paid for but nobody has
+ * written back yet — exact same predicate as the preventive-health-check-
+ * reviews worklist page's own query. Before this counter/page existed
+ * (added 2026-09-22 alongside the Preventive Health Check Review SKU, see
+ * 20260922185300_preventive_health_check_review_sku.sql), a doctor could
+ * only find a check to review by already knowing the patientId and
+ * navigating straight to /clinician/patients/[patientId] — nothing
+ * surfaced "a patient is waiting on this" anywhere.
+ */
+async function countPreventiveHealthCheckReviewsWaiting(supabase: Client) {
+  const { count, error } = await supabase
+    .from("annual_health_checks")
+    .select("id", { count: "exact", head: true })
+    .not("review_requested_at", "is", null)
+    .is("reviewed_at", null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Doctor-to-doctor curbside consults where the OTHER party sent last --
+ * same "column-vs-caller" RPC shape as countCareThreadsAwaitingReply, and
+ * the same reason: comparing last_message_sender_id to the caller's own
+ * clinical_staff id isn't expressible as a plain .select().eq() filter. See
+ * public.count_curbside_consults_awaiting_reply()
+ * (20260922230142_curbside_consults.sql). */
+async function countCurbsideConsultsAwaitingReply(supabase: Client) {
+  const { data, error } = await supabase.rpc("count_curbside_consults_awaiting_reply");
+  if (error) throw error;
+  return data ?? 0;
+}
+
 export type WorklistCountKey =
   | "escalations"
   | "referralsNeedingUrgency"
@@ -226,7 +437,22 @@ export type WorklistCountKey =
   | "carePlanReviewPrompts"
   | "recommendations"
   | "vaccinationVerifications"
-  | "activeCases";
+  | "activeCases"
+  | "operationsQueueAlerts"
+  | "resultsInboxAwaitingAction"
+  | "pendingEcRequests"
+  | "openSafetyIncidents"
+  | "openSafeguardingConcerns"
+  | "openMedicationDispenseFlags"
+  | "openSupportTickets"
+  | "openComplaints"
+  | "therapyApprovalsWaiting"
+  | "careThreadsAwaitingReply"
+  | "labOrdersAwaitingHomeVisitAssignment"
+  | "labResultConsultsWaiting"
+  | "fhirProposedResourcesPending"
+  | "preventiveHealthCheckReviewsWaiting"
+  | "curbsideConsultsAwaitingReply";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -254,6 +480,21 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   recommendations: countRecommendations,
   vaccinationVerifications: countPendingVaccinationVerifications,
   activeCases: countActiveCases,
+  operationsQueueAlerts: countOperationsQueueAlerts,
+  resultsInboxAwaitingAction: countResultsInboxAwaitingAction,
+  pendingEcRequests: countPendingEcRequests,
+  openSafetyIncidents: countOpenSafetyIncidents,
+  openSafeguardingConcerns: countOpenSafeguardingConcerns,
+  openMedicationDispenseFlags: countOpenMedicationDispenseFlags,
+  openSupportTickets: countOpenSupportTickets,
+  openComplaints: countOpenComplaints,
+  therapyApprovalsWaiting: countTherapyApprovalsWaiting,
+  careThreadsAwaitingReply: countCareThreadsAwaitingReply,
+  labOrdersAwaitingHomeVisitAssignment: countLabOrdersAwaitingHomeVisitAssignment,
+  labResultConsultsWaiting: countLabResultConsultsWaiting,
+  fhirProposedResourcesPending: countFhirProposedResourcesPending,
+  preventiveHealthCheckReviewsWaiting: countPreventiveHealthCheckReviewsWaiting,
+  curbsideConsultsAwaitingReply: countCurbsideConsultsAwaitingReply,
 };
 
 /**

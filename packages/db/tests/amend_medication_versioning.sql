@@ -16,9 +16,20 @@
 --   4. Empty amendment_reason        -> BLOCKED
 --   5. Patient cannot amend a clinician-issued prescription -> BLOCKED
 --
--- TO CONFIRM THIS TEST DISCRIMINATES, break it on purpose: change
--- amend_medication's SECURITY INVOKER to SECURITY DEFINER. Case 1 must FAIL,
--- showing a Medical Officer amending a prescription under an elevated identity.
+-- Case 7 (S05f, INV-12): a Senior Medical Officer who is NOT tied to the patient is blocked
+-- (amend_medication is SECURITY DEFINER since S05f and checks the prescribing authority and the tie
+-- itself; it no longer leans on medications' staff UPDATE policy, which is gone).
+--
+-- TO CONFIRM THIS TEST DISCRIMINATES, break it on purpose: delete the
+-- clinician_has_patient_access line from amend_medication's authorisation check and case 7 must
+-- FAIL. (Deleting the has_prescribing_authority line does NOT fail case 1: the confirm-only trigger
+-- independently blocks a Medical Officer's amendment, which is deliberate defence in depth.)
+--
+-- Case 6 (added 2026-09-18, 20260918085308_wire_audit_reason_and_denied_action_logging.sql):
+-- proves public.log_denied_action() durably records case 1's denial the way the app layer
+-- actually does it -- as its OWN separate call, right after catching amend_medication's 42501 --
+-- rather than something amend_medication itself could log before raising (a same-transaction
+-- "log then raise" would just roll the log entry back too; see that migration's header).
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/amend_medication_versioning.sql
 -- Nothing here persists -- the whole file runs inside begin/rollback.
@@ -65,10 +76,15 @@ begin
     'Probe Indemnity Ltd', 'PROBE-AMEND-RX', now() + interval '1 year'
   ) returning id into v_staff_id;
 
+  -- S05f: a prescriber must be tied to the patient (INV-12)
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
+  values (v_org, v_pat, v_clin, now())
+  on conflict (patient_id) do update set clinician_id = v_clin;
+
   insert into public.medications (
-    organisation_id, patient_id, drug_name, dose, frequency, source, is_active
+    organisation_id, patient_id, drug_name, dose, frequency, source, is_active, quantity, duration_days
   ) values (
-    v_org, v_pat, 'Amend Probe Drug', '5mg', 'daily', 'clinician', true
+    v_org, v_pat, 'Amend Probe Drug', '5mg', 'daily', 'clinician', true, '30 tablets', 30
   ) returning id, rx_number into v_med, v_rx1;
 
   ---------------------------------------------------------------- case 1
@@ -87,6 +103,41 @@ begin
   insert into test_result values (1, 'Medical Officer attempts to amend -> BLOCKED',
     case when v_raised is not null and (select version from public.medications where id = v_med) = 1
       then 'PASS' else 'FAIL' end, coalesce(v_raised, 'no error raised'));
+
+  ---------------------------------------------------------------- case 6
+  -- public.log_denied_action(), called standalone the way
+  -- apps/web/src/lib/audit/log-denied-action.ts calls it right after the app
+  -- layer catches case 1's 42501 -- proves the denial row actually survives
+  -- as its own audit_log entry (a same-transaction "log inside
+  -- amend_medication, then raise" cannot, per this migration's header).
+  -- v_clin is still a Medical Officer here (case 2 below upgrades it), so
+  -- this reuses the exact denied attempt case 1 just proved.
+  declare
+    v_denied_id uuid;
+    v_denied_row record;
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
+    select public.log_denied_action(
+      'medications.amendment_denied', 'medications', v_med, v_org,
+      'Prescription amendment attempted without prescribing authority'
+    ) into v_denied_id;
+    perform set_config('request.jwt.claims', '', true);
+
+    select * into v_denied_row from public.audit_log where id = v_denied_id;
+
+    insert into test_result values (6, 'log_denied_action() durably records case 1''s denied amendment attempt',
+      case when v_denied_row.result = 'denied'
+        and v_denied_row.actor_id = v_clin
+        and v_denied_row.entity_type = 'medications'
+        and v_denied_row.entity_id = v_med
+        and v_denied_row.reason = 'Prescription amendment attempted without prescribing authority'
+        then 'PASS' else 'FAIL' end,
+      'result=' || coalesce(v_denied_row.result, 'null') || ' actor_id=' || coalesce(v_denied_row.actor_id::text, 'null'));
+  exception when others then
+    perform set_config('request.jwt.claims', '', true);
+    insert into test_result values (6, 'log_denied_action() durably records case 1''s denied amendment attempt', 'FAIL', sqlerrm);
+  end;
 
   ---------------------------------------------------------------- case 2
   update public.clinical_staff set doctor_tier = 'senior_medical_officer' where id = v_staff_id;
@@ -159,6 +210,24 @@ begin
 
   insert into test_result values (5, 'Patient cannot amend a clinician-issued prescription -> BLOCKED',
     case when v_raised is not null and (select version from public.medications where id = v_new_id) = 2
+      then 'PASS' else 'FAIL' end, coalesce(v_raised, 'no error raised'));
+
+  ---------------------------------------------------------------- case 7
+  delete from public.care_team_assignment where patient_id = v_pat;
+  v_raised := null;
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
+    perform set_config('role', 'authenticated', true);
+    perform public.amend_medication(v_new_id, 'Untied Senior Medical Officer attempt');
+  exception when others then
+    v_raised := sqlerrm;
+  end;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
+  insert into test_result values (7, 'Senior Medical Officer NOT tied to the patient -> BLOCKED',
+    case when v_raised like '%Not authorised to amend%' and (select version from public.medications where id = v_new_id) = 2
       then 'PASS' else 'FAIL' end, coalesce(v_raised, 'no error raised'));
 end $$;
 

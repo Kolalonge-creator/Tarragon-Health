@@ -249,8 +249,19 @@ function PersonCard({
         question a sponsor opens this page with is "did the money do anything?",
         not "what can I change?". Everything in it is either their own payment
         record or activity this person chose to share; it never contains a
-        clinical value at any sharing level. */}
-    <SponsorCareReport beneficiaryId={person.profileId} beneficiaryName={name} />
+        clinical value at any sharing level.
+
+        Only rendered once something has actually been bought — the backing
+        sponsor_care_report() RPC authorizes purely on a care_vouchers row
+        existing between caller and beneficiary, so calling it for a
+        manage-only relationship (e.g. an elder-proxy account with no
+        purchase yet) always raises "You have not sponsored this person's
+        care." The "You have not bought anything for them yet" line on the
+        card below already covers that case; this avoids surfacing that
+        exception as a raw "Could not load this report" error. */}
+    {person.lastFundedAt && (
+      <SponsorCareReport beneficiaryId={person.profileId} beneficiaryName={name} />
+    )}
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">

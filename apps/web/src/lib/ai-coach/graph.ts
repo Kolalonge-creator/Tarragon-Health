@@ -25,8 +25,6 @@ import { logAiCoachEscalation, logAiCoachReviewFlag } from "./escalate";
 import { buildAnthropicModel, getConfiguredModelId } from "./model";
 import { buildPatientRecordTools } from "./tools";
 import { buildReferralRequestTool } from "./referral-tool";
-import type { Embedder } from "@/lib/lifestyle/embed-content";
-import { createVoyageEmbedderFromEnv } from "@/lib/lifestyle/voyage-embedder";
 import { findRelevantLifestyleContent } from "@/lib/lifestyle/find-relevant-content";
 import { findRelevantHealthEducationContent } from "./knowledge-base";
 
@@ -133,11 +131,6 @@ export interface CoachGraphDeps {
    * the single point of failure 40.18 exists to prevent.
    */
   systemPrompt?: string;
-  /** Injectable for tests; defaults to a real Voyage AI client built from
-   * VOYAGE_API_KEY (voyage-embedder.ts). `null` (the default when unset)
-   * means "no embedder configured" — content retrieval is skipped
-   * gracefully, same no-op contract as populateContentEmbeddings. */
-  embedder?: Embedder | null;
 }
 
 /**
@@ -280,62 +273,87 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
     }
 
     // Multi-source retrieval — closes the "one library out of three" gap
-    // (docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md §2.4/§7 Phase B). Both
-    // sources degrade gracefully to nothing when unconfigured (no
-    // VOYAGE_API_KEY, or nothing clinician_reviewed yet), so this whole
-    // block is a no-op today and starts surfacing content automatically
-    // the moment either is populated — no further code change needed.
+    // (docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md §2.4/§7 Phase B).
+    //
+    // This block used to be wrapped in `if (embedder)`, and the comment here
+    // used to claim it would "start surfacing content automatically the
+    // moment either is populated". It never did. The only Embedder is Voyage,
+    // VOYAGE_API_KEY has never been set on this platform, so `embedder` was
+    // always null, retrieval was skipped whole, and every coach reply in
+    // production was ungrounded — with `retrievedSourceIds: []` on the audit
+    // row making it look like an honest "nothing relevant found". Both
+    // finders now take a nullable embedder and fall back to keyword search
+    // over the same clinician-reviewed rows, so retrieval runs on every turn
+    // and only the ranking quality depends on the vendor.
     const retrievedSourceIds: string[] = [];
     // §78.18 "knowledge source" auditability -- human-readable titles (as
     // opposed to retrievedSourceIds' ids) of any retrieved content that fed
     // this reply, carried through to the persisted message and the
     // audit_log event regardless of which branch below returns.
     const knowledgeSourceUsed: string[] = [];
-    const embedder = deps.embedder ?? createVoyageEmbedderFromEnv();
-    if (embedder) {
-      // 1. Lifestyle content — deliberately still scoped to the patient's
-      // own active (non-paused, non-flagged) lifestyle programme, by
-      // design (see find-relevant-content.ts's own docstring). A
-      // paused/flagged programme already got a deference instruction
-      // above and shouldn't also be handed goal-adjacent reading material.
-      const activeProgramme = context.lifestyleProgrammes.find(
-        (p) => p.status !== "paused" && !p.hasOpenRedFlag
-      );
-      if (activeProgramme) {
-        const relevant = await findRelevantLifestyleContent(deps.supabase, embedder, state.incomingMessage, {
-          matchCount: 2,
-          conditionFilter: activeProgramme.condition,
-        });
-        if (relevant.length > 0) {
-          retrievedSourceIds.push(...relevant.map((r) => r.id));
-          knowledgeSourceUsed.push(...relevant.map((r) => r.title));
-          contextLines.push(
-            "Clinician-approved reference material that may be relevant to this message " +
-              "(use it to inform your answer in your own words and voice, don't quote it at " +
-              "length or present it as a document):\n" +
-              relevant.map((r) => `- ${r.title}: ${r.bodyMd}`).join("\n")
-          );
-        }
-      }
-
-      // 2. General health-education content — NOT scoped to lifestyle
-      // enrolment (unlike the source above), so a patient with no
-      // programme at all still gets grounded, reviewed reference material
-      // for a general question. This is the source that was previously
-      // not retrievable at all — see the architecture doc §2.4/§4.
-      const relevantEducation = await findRelevantHealthEducationContent(deps.supabase, embedder, state.incomingMessage, {
+    // AI-009's own registered excluded_population is explicit: "Any
+    // patient-authored text. Patient content is never sent to the embedding
+    // provider." Both retrieval calls below query on `state.incomingMessage`
+    // -- the patient's own chat text -- so a real Voyage embedder must NEVER
+    // be passed here, or embed() sends that text straight to Voyage. This
+    // was previously masked entirely: VOYAGE_API_KEY has never been set on
+    // this platform, so `embedder` here was always null anyway and this
+    // never actually happened -- but the code as written would have sent
+    // every patient message to Voyage the moment a real key was configured
+    // anywhere the app reads it from (found and fixed during the AI-009
+    // evaluation, 2026-09-17, the same session that finally got a real key
+    // configured to test with). Deliberately `null`, not `deps.embedder`:
+    // this call site must always use the lexical fallback
+    // (findRelevantLifestyleContent/findRelevantHealthEducationContent both
+    // already fall back gracefully to keyword search over the same
+    // clinician-reviewed rows on a null embedder, so retrieval quality is
+    // unaffected here -- only ranking method). The real Voyage embedder is
+    // still used correctly elsewhere (e.g. coaching-proposer.ts's nudge
+    // retrieval), where the query text is clinician-authored programme
+    // metadata, never the patient's own words.
+    const embedder = null;
+    // 1. Lifestyle content — deliberately still scoped to the patient's
+    // own active (non-paused, non-flagged) lifestyle programme, by
+    // design (see find-relevant-content.ts's own docstring). A
+    // paused/flagged programme already got a deference instruction
+    // above and shouldn't also be handed goal-adjacent reading material.
+    const activeProgramme = context.lifestyleProgrammes.find(
+      (p) => p.status !== "paused" && !p.hasOpenRedFlag
+    );
+    if (activeProgramme) {
+      const relevant = await findRelevantLifestyleContent(deps.supabase, embedder, state.incomingMessage, {
         matchCount: 2,
+        conditionFilter: activeProgramme.condition,
       });
-      if (relevantEducation.length > 0) {
-        retrievedSourceIds.push(...relevantEducation.map((r) => r.id));
-        knowledgeSourceUsed.push(...relevantEducation.map((r) => r.title));
+      if (relevant.length > 0) {
+        retrievedSourceIds.push(...relevant.map((r) => r.id));
+        knowledgeSourceUsed.push(...relevant.map((r) => r.title));
         contextLines.push(
-          "Clinician-approved health education material that may be relevant to this message " +
-            "(use it to inform your answer in your own words and voice, don't quote it at length " +
-            "or present it as a document):\n" +
-            relevantEducation.map((r) => `- ${r.title}: ${r.excerpt}`).join("\n")
+          "Clinician-approved reference material that may be relevant to this message " +
+            "(use it to inform your answer in your own words and voice, don't quote it at " +
+            "length or present it as a document):\n" +
+            relevant.map((r) => `- ${r.title}: ${r.bodyMd}`).join("\n")
         );
       }
+    }
+
+    // 2. General health-education content — NOT scoped to lifestyle
+    // enrolment (unlike the source above), so a patient with no
+    // programme at all still gets grounded, reviewed reference material
+    // for a general question. This is the source that was previously
+    // not retrievable at all — see the architecture doc §2.4/§4.
+    const relevantEducation = await findRelevantHealthEducationContent(deps.supabase, embedder, state.incomingMessage, {
+      matchCount: 2,
+    });
+    if (relevantEducation.length > 0) {
+      retrievedSourceIds.push(...relevantEducation.map((r) => r.id));
+      knowledgeSourceUsed.push(...relevantEducation.map((r) => r.title));
+      contextLines.push(
+        "Clinician-approved health education material that may be relevant to this message " +
+          "(use it to inform your answer in your own words and voice, don't quote it at length " +
+          "or present it as a document):\n" +
+          relevantEducation.map((r) => `- ${r.title}: ${r.excerpt}`).join("\n")
+      );
     }
 
     const contextLine = contextLines.join("\n\n");

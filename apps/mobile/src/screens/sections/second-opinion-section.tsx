@@ -8,28 +8,22 @@ import {
   type SecondOpinionRequestWithAnswerer,
 } from "@/lib/second-opinion";
 import { formatCareDate } from "@/lib/care";
+import { formatDoctorName } from "@/lib/doctor-name";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
-
-const textInputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.control,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 14,
-  color: colors.ink,
-} as const;
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
  * Native "Second opinion" — mirrors apps/web/src/app/(dashboard)/patient/
- * second-opinion-request.tsx. Payment stays on the web (App Store 3.1.1):
- * this submits the request directly and, only if the DB trigger rejects for
- * lack of a credit, offers to buy one in the system browser — same pattern
- * as AskADoctorSection in care-support-screen.tsx.
+ * second-opinion-request.tsx. Submits the request directly; if the DB
+ * trigger rejects it for lack of a credit, this points the patient at the
+ * system browser to buy one — buying a credit requires Paystack checkout,
+ * which stays web-only (App Store 3.1.1).
  */
 export function SecondOpinionSection({ patientId, organisationId }: { patientId: string; organisationId: string }) {
+  const colors = useLegacyColors();
+  const textInputStyle = useTextInputStyle();
+  const { scheme } = useTheme();
   const [requests, setRequests] = useState<SecondOpinionRequestWithAnswerer[]>([]);
   const [loading, setLoading] = useState(true);
   const [existingDiagnosisOrResult, setExistingDiagnosisOrResult] = useState("");
@@ -58,13 +52,16 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
     setError(null);
     setNeedsCredit(false);
     setSent(false);
-    const result = await submitSecondOpinionRequest({
+
+    const input = {
       patientId,
       organisationId,
       existingDiagnosisOrResult: existingDiagnosisOrResult.trim(),
       sourceDescription: sourceDescription.trim() || undefined,
       specificQuestion: specificQuestion.trim() || undefined,
-    });
+    };
+    const result = await submitSecondOpinionRequest(input);
+
     setSubmitting(false);
     if (!result.ok) {
       if (result.error.includes(SECOND_OPINION_CREDIT_REQUIRED_MARKER)) {
@@ -101,7 +98,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
         </Card>
       )}
 
-      <TextInput
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={existingDiagnosisOrResult}
         onChangeText={setExistingDiagnosisOrResult}
         placeholder="e.g. My GP diagnosed me with X and suggested Y. I'd like another doctor's view."
@@ -109,13 +106,13 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
         numberOfLines={3}
         style={[textInputStyle, { minHeight: 70, textAlignVertical: "top" }]}
       />
-      <TextInput
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={sourceDescription}
         onChangeText={setSourceDescription}
         placeholder="Where is this from? (optional)"
         style={textInputStyle}
       />
-      <TextInput
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={specificQuestion}
         onChangeText={setSpecificQuestion}
         placeholder="A specific question? (optional)"
@@ -145,7 +142,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
                     <Text style={{ fontSize: 13.5, color: colors.ink }}>{r.answer}</Text>
                     {r.answerer && r.answered_at && (
                       <MutedText>
-                        Answered by Dr. {r.answerer.full_name} on {formatCareDate(r.answered_at)}
+                        Answered by {formatDoctorName(r.answerer.full_name)} on {formatCareDate(r.answered_at)}
                       </MutedText>
                     )}
                   </>

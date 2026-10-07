@@ -5,7 +5,8 @@ import * as WebBrowser from "expo-web-browser";
 import { startThread } from "@/lib/messages";
 import { cancelPendingServicePurchase, formatPrice, type PendingPaymentIssue } from "@/lib/services";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius, spacing } from "@/ui/theme";
+import { radius, spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
 
 interface PaymentIssueCardProps {
   issue: PendingPaymentIssue;
@@ -21,18 +22,16 @@ interface PaymentIssueCardProps {
  * patient started and never finished (still 'pending_payment' after the
  * same 30-minute grace period, see getPendingPaymentIssue).
  *
- * "Retry payment" is the one action that stays a WebBrowser handoff:
- * buying is never done natively anywhere in this app (see
- * services-screen.tsx's own note) — retrying is literally the same
- * operation as buying the product again, so this opens the same
- * /patient/subscription page every other native "Pay" entry point already
- * opens (Screening Days, Financial Profile, Services), not a bespoke
- * "resume this checkout" implementation. "Message the care team" and
- * "Not right now" are real native actions — both already have a plain
- * RPC (start_care_thread / cancel_pending_service_purchase) a native
- * screen can call directly.
+ * "Retry payment" hands off to the same WebBrowser page every other native
+ * "Pay" entry point opens (/patient/subscription — Screening Days,
+ * Financial Profile, Services), not a bespoke "resume this checkout"
+ * implementation.
+ * "Message the care team" and "Not right now" are real native actions —
+ * both already have a plain RPC (start_care_thread /
+ * cancel_pending_service_purchase) a native screen can call directly.
  */
 export function PaymentIssueCard({ issue, onResolved }: PaymentIssueCardProps) {
+  const colors = useLegacyColors();
   const [retrying, setRetrying] = useState(false);
   const [messaging, setMessaging] = useState(false);
   const [messageSent, setMessageSent] = useState(false);
@@ -41,11 +40,12 @@ export function PaymentIssueCard({ issue, onResolved }: PaymentIssueCardProps) {
 
   async function handleRetry() {
     setRetrying(true);
+    setError(null);
     try {
       await WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/subscription`);
+      onResolved();
     } finally {
       setRetrying(false);
-      onResolved();
     }
   }
 
@@ -103,7 +103,7 @@ export function PaymentIssueCard({ issue, onResolved }: PaymentIssueCardProps) {
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         <ActionPill title="Retry payment" tone="brand" loading={retrying} onPress={handleRetry} />
         {messageSent ? (
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brand, paddingVertical: 9 }}>
+          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brandPressed, paddingVertical: 9 }}>
             Sent. The care team will follow up.
           </Text>
         ) : (
@@ -128,6 +128,7 @@ function ActionPill({
   loading?: boolean;
   onPress: () => void;
 }) {
+  const colors = useLegacyColors();
   const toneStyle =
     tone === "brand"
       ? { backgroundColor: colors.brand }

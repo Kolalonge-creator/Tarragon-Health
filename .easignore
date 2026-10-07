@@ -1,0 +1,46 @@
+# Controls what EAS Build uploads in the project archive (monorepo root).
+# Found 2026-09-18: with no .easignore, the archive was 3.8 GB — over EAS's
+# 2.0 GB upload cap — and every `eas build --platform ios` failed at the
+# upload step. The single biggest contributor was apps/mobile/ios/build/
+# (2.3 GB of local Xcode DerivedData-style build output from prior local
+# builds): it has its own nested apps/mobile/ios/.gitignore entry, but
+# eas-cli's archiver doesn't reliably walk nested .gitignore files the way
+# `git` itself does, so a deeply-nested ignored directory can still make it
+# into the tarball. Listed explicitly here rather than assumed inherited.
+#
+# This is a monorepo: EAS Build for apps/mobile still needs the workspace
+# root (pnpm-workspace.yaml, root package.json, packages/) to resolve
+# workspace deps, so this file excludes bulk/irrelevant content rather than
+# everything outside apps/mobile.
+
+# Root and per-workspace node_modules — EAS always does a fresh install
+# server-side from the lockfile, so shipping any local copy is pure waste.
+node_modules/
+apps/*/node_modules/
+packages/*/node_modules/
+services/*/node_modules/
+
+# Xcode/Gradle local build output — regenerated every build, never a build
+# input. android/ itself is already fully gitignored (expo-prebuild
+# generated, never committed) but excluded explicitly here too for the same
+# "don't rely on nested-gitignore support" reason as ios/build/ above.
+apps/mobile/ios/build/
+apps/mobile/ios/Pods/
+apps/mobile/android/
+
+# This session's/agents' local worktree fleet — already gitignored via
+# .git/info/exclude (machine-local, so not in the committed .gitignore),
+# but that's a git-ignore file, not necessarily one eas-cli's archiver
+# reads either. Was ~51 GB at the time this file was added.
+.claude/
+
+# Not needed to build the mobile app; large/irrelevant to this archive.
+services/
+docs/
+guideline/
+reference/
+.git/
+apps/web/.next/
+apps/web/out/
+**/coverage/
+*.log

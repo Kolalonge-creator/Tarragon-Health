@@ -22,6 +22,13 @@
 --   8. The fail-closed policy hardcoded in
 --      apps/web/src/lib/ai-governance/system-codes.ts agrees with the
 --      risk_class in the registry — the one duplication that file admits to.
+--   9. record_ai_interaction actually inserts a row for the overwhelmingly
+--      common call shape -- no safety_classification, no output_flags,
+--      status not 'blocked' -- instead of raising a silent not-null
+--      violation on flagged_for_review (found live 2026-09-16, fixed in
+--      20260916024101_fix_record_ai_interaction_null_flag_not_null_violation.sql).
+--      Case 5 above never caught this because it always passes
+--      'routine'::alert_level explicitly.
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/ai_governance.sql
 
@@ -327,6 +334,40 @@ begin
       'high-risk systems missing from the fail-closed list: ' || v_mismatch,
       'every high or very-high risk system fails closed when governance is unreadable'
     ));
+
+  -- ---- Case 9: record_ai_interaction must not silently drop the routine
+  -- call shape -- no safety_classification, no output_flags, a non-blocked
+  -- status. Under the pre-fix v_flag expression, SQL three-valued logic
+  -- makes `false or NULL or false` evaluate to NULL, which then violates
+  -- flagged_for_review's `not null` constraint and raises 23502 -- silently,
+  -- because the TS caller swallows this error by design. This is exactly
+  -- the shape AI-010/AI-004 call it with in production.
+  v_blocked := false;
+  v_err := null;
+  v_interaction := null;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient)::text, true);
+  begin
+    v_interaction := public.record_ai_interaction(
+      'AI-001', 'claude-sonnet-5', 'patient_coach_message', 'completed', v_patient,
+      'probe output, no safety_classification passed'
+    );
+  exception when others then
+    v_blocked := true;
+    get stacked diagnostics v_err = message_text;
+  end;
+  perform set_config('request.jwt.claims', '', true);
+
+  insert into test_result values (9, 'a routine call with no safety_classification actually inserts a row',
+    case when not v_blocked and v_interaction is not null then 'PASS' else 'FAIL' end,
+    coalesce(v_err, format('interaction id=%s', v_interaction)));
+
+  if v_interaction is not null then
+    insert into test_result values (9, 'flagged_for_review is false, not NULL, for that row',
+      case when (select flagged_for_review from public.ai_interaction_log where id = v_interaction) is false
+           then 'PASS' else 'FAIL' end,
+      format('flagged_for_review=%s',
+             (select flagged_for_review from public.ai_interaction_log where id = v_interaction)));
+  end if;
 end;
 $$;
 

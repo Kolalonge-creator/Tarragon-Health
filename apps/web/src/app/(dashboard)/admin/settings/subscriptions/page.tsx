@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PlansManager } from "./plans-manager";
 import { AddOnsManager } from "./add-ons-manager";
 
+export const metadata = { title: "Retired subscription catalogue" };
+
 /**
  * Kept as a read-only archive rather than deleted.
  *

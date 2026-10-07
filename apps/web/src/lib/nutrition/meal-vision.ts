@@ -110,8 +110,12 @@ export async function analyzeMealPhoto(input: {
       return { ok: false, reason: "error" };
     }
     return { ok: true, estimate: parsed.data };
-  } catch {
+  } catch (error) {
     // Timeout (AbortError), network failure, or malformed structured output.
+    // Real gap found during the AI-002-015 evaluation (2026-09-17): this
+    // used to swallow the cause entirely, so a real production failure here
+    // was undiagnosable -- the caller only ever saw reason: "error", never why.
+    console.error("meal-vision: analysis failed", error);
     return { ok: false, reason: "error" };
   } finally {
     clearTimeout(timer);

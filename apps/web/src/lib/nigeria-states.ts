@@ -46,3 +46,69 @@ export const NIGERIAN_STATES: ReadonlyArray<{ value: string; label: string }> = 
   { value: "Zamfara", label: "Zamfara" },
   { value: "Abuja", label: "Federal Capital Territory (Abuja)" },
 ];
+
+const FCT_ALIASES = new Set(["fct", "federal capital territory", "abuja fct", "fct abuja"]);
+
+/**
+ * Mirrors private.normalize_ng_state (20260923213439_fix_region_service_available_review_findings.sql,
+ * which rebuilt the SQL side on the shared private.normalise_term): lowercases, folds any
+ * run of non-alphanumeric characters (including whitespace, hyphens, commas, etc.) to a
+ * single space, trims, strips a trailing "state" suffix ("Lagos State" -> "lagos"), and
+ * folds common FCT/Abuja spellings. Used client-side to compare a raw, possibly-stale value
+ * (e.g. profiles.state, saved before the location field was a Select) against
+ * NIGERIAN_STATES/service_regions without a round trip to the DB. Returns null for
+ * blank/null input, matching the SQL function's null-for-blank behaviour. Folding non-
+ * alphanumerics (not just whitespace) matters even though no current NIGERIAN_STATES entry
+ * has punctuation: private.normalise_term already does this on the DB side, so a
+ * hyphenated/comma'd stale value (e.g. "Cross-River") must resolve identically here or this
+ * function silently stops mirroring its SQL counterpart for that input.
+ */
+export function normalizeNigerianStateKey(value: string | null | undefined): string | null {
+  const collapsed = (value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  if (!collapsed) return null;
+  const stripped = collapsed.replace(/\s*state\s*$/i, "").trim();
+  if (!stripped) return null;
+  return FCT_ALIASES.has(stripped) ? "abuja" : stripped;
+}
+
+// Precomputed once at module load — every canonical NIGERIAN_STATES entry keyed by its own
+// normalized form (so an already-canonical value round-trips through the same map a
+// variant does), avoiding a repeated 37-entry scan per lookup in the two helpers below.
+const NORMALIZED_STATE_MAP: ReadonlyMap<string, string> = new Map(
+  NIGERIAN_STATES.map((s) => [normalizeNigerianStateKey(s.value) as string, s.value]),
+);
+
+/**
+ * Resolves a raw state string in a single normalization pass — the shared implementation
+ * behind canonicalizeNigerianState/isRecognizedNigerianState below, and the one to call
+ * directly when a caller (e.g. RegionGate) needs both facts and would otherwise normalize
+ * the same input twice.
+ */
+export function resolveNigerianState(value: string | null | undefined): { recognized: boolean; canonical: string } {
+  const key = normalizeNigerianStateKey(value);
+  if (!key) return { recognized: false, canonical: "" };
+  const match = NORMALIZED_STATE_MAP.get(key);
+  return { recognized: match !== undefined, canonical: match ?? (value as string) };
+}
+
+/**
+ * Resolves a raw state string (e.g. a patient's on-file profiles.state) to its canonical
+ * NIGERIAN_STATES spelling — exact match preferred, falling back to the same
+ * casing/whitespace/"...State"-suffix-tolerant comparison region_service_available uses on
+ * the DB side. Returns an empty string for blank/null/whitespace-only input (matching
+ * normalizeNigerianStateKey's own null-for-blank behaviour), or the raw value unchanged
+ * when it's non-blank but matches no canonical state (a genuinely non-Nigerian location,
+ * e.g. a diaspora patient's home country, or a typo too garbled to recognise) — callers
+ * still get *something* to prefill with, they just don't get a false canonicalisation.
+ */
+export function canonicalizeNigerianState(value: string | null | undefined): string {
+  return resolveNigerianState(value).canonical;
+}
+
+/** Whether a raw state string matches a canonical NIGERIAN_STATES entry, exactly or via normalizeNigerianStateKey. */
+export function isRecognizedNigerianState(value: string | null | undefined): boolean {
+  return resolveNigerianState(value).recognized;
+}

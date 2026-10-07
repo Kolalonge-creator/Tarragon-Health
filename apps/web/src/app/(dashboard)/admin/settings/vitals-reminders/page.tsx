@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { RulesManager } from "./rules-manager";
 
+export const metadata = { title: "Vitals reminder cadence" };
+
 export default async function VitalsRemindersSettingsPage() {
   const profile = await getCurrentProfile();
 

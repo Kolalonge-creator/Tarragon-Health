@@ -8,6 +8,8 @@ import {
   type TriageProtocolVersionRow,
 } from "./triage-protocols-manager";
 
+export const metadata = { title: "Symptom triage protocols" };
+
 /**
  * Clinical Director sign-off for the Symptom Assessment & Triage Engine's
  * governed protocol config (platform brief §37; supabase/migrations/

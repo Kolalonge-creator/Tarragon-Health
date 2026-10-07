@@ -5,11 +5,11 @@ import { revalidatePath } from "next/cache";
 import type { Database } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { submitPartnerResult, submitTeamResult } from "@/lib/lab-results/structured-actions";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
 import { testCodeLabel } from "@/lib/labs/test-code-labels";
 import {
-  labPartnerResultUploadSchema,
   markResultReviewedSchema,
   patientResultUploadSchema,
   replaceResultDocumentSchema,
@@ -21,19 +21,7 @@ type DocumentSource = Database["public"]["Enums"]["lab_result_document_source"];
 export type ResultUploadResult = {
   error?: string;
   success?: boolean;
-  /**
-   * Set when `error` is specifically "no paid consultation-fee credit" —
-   * lets the UI offer a "pay and continue" action instead of a dead-end
-   * error, rather than lumping it in with every other upload failure.
-   */
-  requiresConsultFeePayment?: boolean;
 };
-
-/** The stable, machine-readable marker
- * public.claim_lab_result_consult_credit raises in its error DETAIL when no
- * unclaimed, paid request is found — never pattern-match on its message
- * text, which is free to change. */
-const CONSULT_FEE_REQUIRED_DETAIL = "CONSULT_FEE_REQUIRED";
 
 /**
  * Which staff account roles may upload a result on a patient's behalf, and the
@@ -139,51 +127,13 @@ export async function uploadResultDocumentForPatient(
     return { error: "That patient isn't in your organisation." };
   }
 
-  const service = createServiceRoleClient();
-  const ext = EXT_BY_MIME[file.type] ?? "bin";
-  const path = `${patientId}/${randomUUID()}.${ext}`;
-
-  const { error: uploadError } = await service.storage
-    .from(RESULT_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (uploadError) return { error: uploadError.message };
-
-  // Routed through an RPC (rather than a raw .insert()) so the write can be attributed to the
-  // uploading staff member in public.audit_log despite running on the service-role client — see
-  // 20260812041044_service_role_write_actor_attribution.sql.
-  const { data: insertedId, error: insertError } = await service.rpc(
-    "insert_audited_lab_result_document",
-    {
-      p_organisation_id: patient.organisation_id,
-      p_patient_id: patientId,
-      p_lab_order_id: (labOrderId ?? null) as unknown as string,
-      p_file_path: path,
-      p_original_filename: file.name,
-      p_mime_type: file.type,
-      p_file_size_bytes: file.size,
-      p_source: source,
-      p_uploaded_by: user.id,
-      p_note: (note ?? null) as unknown as string,
-      p_actor_id: user.id,
-    },
-  );
-  const inserted = insertedId ? { id: insertedId } : null;
-  if (insertError || !inserted) {
-    // Roll back the orphaned object so a failed insert leaves no stray file.
-    await service.storage.from(RESULT_DOC_BUCKET).remove([path]);
-    return { error: insertError?.message ?? "Could not save that upload." };
-  }
-
-  // Same structured read as the patient-upload path — an emailed result is no
-  // less worth turning into trendable numbers. Never throws.
-  await runLabReportExtraction(service, {
-    documentId: inserted.id,
-    organisationId: patient.organisation_id,
-    patientId,
-    filePath: path,
-    mimeType: file.type,
-  });
-
+  // S27d (INV-03): an emailed or staff-supplied result is recorded as a HELD result in the private store. The older path wrote a
+  // visible document, announced it to the patient at once and read its numbers into the patient's trends before any clinician had
+  // looked. The patient now sees it only after review. The free-text note is not kept (a held result has no text a patient could be
+  // shown) and the automatic number extraction is not run on an unreviewed file.
+  const held = await submitTeamResult(patientId, labOrderId, file);
+  if (held?.error) return { error: held.error };
+  void note;
   revalidatePath("/lab-liaison");
   revalidatePath(`/clinician/patients/${patientId}`);
   return { success: true };
@@ -210,31 +160,29 @@ export async function uploadResultDocumentForPatient(
  * the "your result is available" notification for a self-upload. Uploading a
  * file never records a clinical finding on its own — a clinician does that.
  *
- * Founder rule, 2026-08-30: uploading is now gated behind a one-off ₦10,000
- * consultation fee (see requestLabResultConsult in the patient dashboard's
- * lab-result-consult-actions.ts, and the lab_result_consult_requests /
- * public.claim_lab_result_consult_credit migrations). The gate is DB-enforced
- * — public.claim_lab_result_consult_credit is called BEFORE the storage
- * upload even starts (so an unpaid patient never wastes an upload), and it
- * atomically finds-and-reserves a paid, unclaimed request or raises; a
- * network-billed (fulfilment='partner') order is exempt and skips this
- * entirely (claim returns null, nothing to do). This does NOT change what
- * gates a doctor actually READING the upload — that stays
+ * Founder rule, 2026-08-30, REVERSED 2026-09-22: uploading was gated behind
+ * a one-off ₦10,000 consultation fee. It no longer is — a free patient must
+ * be able to upload any result and get an automated read for free ("a good
+ * reason to upload on the free version"). The fee stays exactly what it
+ * always priced: a doctor walkthrough of the result, booked separately
+ * (requestLabResultConsult) and offered as a next step from the automated
+ * summary. public.claim_lab_result_consult_credit is still called, but is
+ * now purely OPTIONAL and best-effort: if the patient already paid for a
+ * walkthrough it gets claimed and linked to this upload exactly as before;
+ * if not, the upload proceeds with nothing linked. Nothing here can fail the
+ * upload over it any more — see the migration comment on that function for
+ * the DB-level half of this change. This does NOT change what gates a doctor
+ * actually READING the upload — that stays
  * private.patient_has_feature_access("result_document_review")'s call
- * (subscription-plan gated), an unrelated, orthogonal rule: this fee gates
- * whether the upload is allowed to happen at all, not whether it gets read.
+ * (subscription-plan gated), an unrelated, orthogonal rule.
  *
  * screening_completion_id is the OTHER entry point into this same action —
  * ConfirmScreeningDoneForm's "upload your result" step after a patient
  * self-reports a screening as already done (see screening_self_reported_
- * completion.sql). That flow used to write straight to `lab_result_documents`
- * from the browser via a plain React Query mutation (useUploadOwnResultDocument,
- * now removed), which meant it silently skipped both this consultation fee AND
- * runLabReportExtraction below — neither exemption was ever a real founder
- * decision, just a gap left over from before the 2026-08-30 fee existed. A
- * screening-completion upload is the same self-arranged-result event as any
- * other patient upload, so it is gated and extracted identically; the only
- * difference is this optional FK for traceability back to the confirmation.
+ * completion.sql). A screening-completion upload is the same self-arranged-
+ * result event as any other patient upload, so it is extracted identically;
+ * the only difference is this optional FK for traceability back to the
+ * confirmation.
  */
 export async function uploadResultDocumentAsPatient(
   formData: FormData,
@@ -309,30 +257,25 @@ export async function uploadResultDocumentAsPatient(
     if (!completion) return { error: "That screening confirmation isn't on your record." };
   }
 
-  // The consultation-fee gate — called BEFORE the storage upload so an
-  // unpaid patient never wastes one. Returns the claimed request id (settle
-  // it once the document exists, below), or null when the linked order is
-  // network-billed and the fee doesn't apply, or raises when there is no
-  // paid credit to claim.
+  // Best-effort, never blocking: if the patient already paid for a doctor
+  // walkthrough of this result, link it to this upload so it gets consumed;
+  // if not, upload proceeds anyway with nothing linked. See this function's
+  // own header and the 2026-09-22 migration on claim_lab_result_consult_credit
+  // for why this can no longer fail the upload.
   let claimedRequestId: string | null = null;
-  const { data: claimed, error: claimError } = await supabase.rpc(
-    "claim_lab_result_consult_credit",
-    {
-      p_patient_id: user.id,
-      p_lab_order_id: (labOrderId ?? null) as unknown as string,
-    },
-  );
-  if (claimError) {
-    if (claimError.details === CONSULT_FEE_REQUIRED_DETAIL) {
-      return {
-        error:
-          "Pay the ₦10,000 lab-result consultation fee to upload this result — it also books you a 15-minute call with a doctor to walk through it.",
-        requiresConsultFeePayment: true,
-      };
-    }
-    return { error: claimError.message };
+  try {
+    const { data: claimed, error: claimError } = await supabase.rpc(
+      "claim_lab_result_consult_credit",
+      {
+        p_patient_id: user.id,
+        p_lab_order_id: (labOrderId ?? null) as unknown as string,
+      },
+    );
+    if (claimError) throw claimError;
+    claimedRequestId = claimed ?? null;
+  } catch (error) {
+    console.error("lab-results: could not claim a consult-fee credit (non-blocking)", error);
   }
-  claimedRequestId = claimed ?? null;
 
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   // The leading folder MUST be the caller's uid: that is exactly what the
@@ -630,74 +573,17 @@ export async function markResultDocumentReviewed(input: {
 export async function uploadResultAsLabPartner(
   formData: FormData,
 ): Promise<ResultUploadResult> {
-  const user = await getCurrentUser();
-  if (!user) return { error: "Not signed in" };
-
-  const supabase = await createClient();
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (me?.role !== "lab_partner") {
-    return { error: "This action is for partner labs." };
-  }
-
+  // S27 (OQ-177): a partner PDF is no longer written as a visible document. It goes through the same path as the Enter
+  // results page: stored privately, recorded as a HELD result, never shown or announced to the patient before a clinician
+  // has reviewed it (INV-03). The free-text note is not kept: a held result has nothing a patient could be shown.
+  const fd = new FormData();
+  fd.set("order_id", String(formData.get("order_id") ?? ""));
+  fd.set("panel", "essential");
+  fd.set("items", "[]");
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "Attach the result file (PDF or image)." };
-  }
-  const fileError = validateResultDocFile(file);
-  if (fileError) return { error: fileError };
-
-  const parsed = labPartnerResultUploadSchema.safeParse({
-    order_id: formData.get("order_id"),
-    note: formData.get("note") || undefined,
-  });
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
-  }
-  const { order_id: orderId, note } = parsed.data;
-
-  // Scoped to the caller's own lab via private.lab_partner_provider() —
-  // returns null for another lab's order, so this can't leak a patient_id
-  // cross-lab even at the path-building stage.
-  const { data: patientId, error: lookupError } = await supabase.rpc(
-    "lab_partner_order_patient",
-    { p_order_id: orderId },
-  );
-  if (lookupError || !patientId) {
-    return { error: "Order not found for your lab." };
-  }
-
-  const service = createServiceRoleClient();
-  const ext = EXT_BY_MIME[file.type] ?? "bin";
-  const path = `${patientId}/${randomUUID()}.${ext}`;
-
-  const { error: uploadError } = await service.storage
-    .from(RESULT_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (uploadError) return { error: uploadError.message };
-
-  // Re-verifies ownership independently (defence in depth) and derives
-  // patient_id/organisation_id itself from the order row — never trusts the
-  // lookup above for the write. Also advances the order to 'resulted'.
-  const { error: insertError } = await supabase.rpc(
-    "lab_partner_upload_result",
-    {
-      p_order_id: orderId,
-      p_file_path: path,
-      p_original_filename: file.name,
-      p_mime_type: file.type,
-      p_file_size_bytes: file.size,
-      p_note: (note ?? null) as unknown as string,
-    },
-  );
-  if (insertError) {
-    await service.storage.from(RESULT_DOC_BUCKET).remove([path]);
-    return { error: insertError.message };
-  }
-
+  if (file instanceof File) fd.set("file", file);
+  const r = await submitPartnerResult(undefined, fd);
+  if (r?.error) return { error: r.error };
   revalidatePath("/lab-partner");
   return { success: true };
 }

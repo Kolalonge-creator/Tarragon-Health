@@ -1,7 +1,9 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { PageHeader } from "@/components/ui/page-header";
 import { NAV_ICON } from "@/lib/icons";
+import { asLocale } from "@tarragon/i18n";
 import { NotificationPreferencesForm } from "./notification-preferences-form";
+import { DeliveryPrivacyCard } from "./delivery-privacy-card";
 
 /**
  * Spec §76.12/§76.13 — patient control over notification channels
@@ -30,6 +32,7 @@ export default async function NotificationSettingsPage() {
         icon={NAV_ICON.bell}
         description="Choose how you'd like to hear from us for each kind of update. Critical health alerts sit outside this: they always reach you in the app."
       />
+      <DeliveryPrivacyCard profileId={profile.id} locale={asLocale(profile.language)} />
       <NotificationPreferencesForm patientId={subjectId} organisationId={profile.organisation_id} />
     </div>
   );

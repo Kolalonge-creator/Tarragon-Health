@@ -6,6 +6,8 @@ import { LoadFailure } from "@/components/ui/load-failure";
 import { companyProfileSchema } from "@/lib/finance/schemas";
 import { CompanyProfileForm } from "./company-profile-form";
 
+export const metadata = { title: "Company & legal profile" };
+
 /**
  * The legal-identity facts every printed government-filing/investor/audit
  * report (finance/reports/print/[pack]) puts on its letterhead — RC number,

@@ -23,7 +23,7 @@ import { validateMealPlan, type RawMealPlan, type ValidatedMealPlan } from "./me
  * patients are routed to the dietitian-referral pathway instead.
  */
 
-const REQUEST_TIMEOUT_MS = 25000;
+const REQUEST_TIMEOUT_MS = 40000;
 
 const mealPlanItemSchema = z.object({
   food_code: z.string(),
@@ -32,13 +32,29 @@ const mealPlanItemSchema = z.object({
   rationale: z.string().nullable(),
 });
 
+/**
+ * Real finding (2026-09-16, AI-011 evaluation): `.optional()` alone accepts
+ * a missing key but rejects an explicit `null` -- and the model reliably
+ * writes `"snack": null` (a perfectly natural way to say "no snack today"),
+ * which withStructuredOutput's schema validation then rejected outright,
+ * throwing OUTPUT_PARSING_FAILURE and discarding the entire 7-day plan over
+ * one slot on one day. Not an edge case: snack is optional by design (see
+ * buildSystemPrompt below), so an empty snack day is the COMMON case, and
+ * this made real generation fail far more often than it succeeded.
+ * validateMealPlan() below already treats a missing/empty/null slot
+ * identically (`if (!rawItems || rawItems.length === 0) continue`), so
+ * `.nullable()` costs nothing downstream -- it only stops rejecting a
+ * perfectly valid, common shape at the schema boundary.
+ */
+const optionalMealSlot = () => z.array(mealPlanItemSchema).max(6).nullable().optional();
+
 const mealPlanDaySchema = z.object({
   day: z.number().int().min(1).max(7),
   meals: z.object({
-    breakfast: z.array(mealPlanItemSchema).max(6).optional(),
-    lunch: z.array(mealPlanItemSchema).max(6).optional(),
-    dinner: z.array(mealPlanItemSchema).max(6).optional(),
-    snack: z.array(mealPlanItemSchema).max(6).optional(),
+    breakfast: optionalMealSlot(),
+    lunch: optionalMealSlot(),
+    dinner: optionalMealSlot(),
+    snack: optionalMealSlot(),
   }),
 });
 
@@ -119,6 +135,58 @@ function buildUserPrompt(preferencesNote: string | null): string {
   return base;
 }
 
+/**
+ * One real attempt at the model call. Never throws to its caller in the
+ * "expected failure" sense -- OUTPUT_PARSING_FAILURE and a failed safeParse
+ * both come back as `null`, same as a timeout/network error, so
+ * generateMealPlan can decide whether to retry.
+ */
+async function attemptGeneration(input: {
+  catalogue: FoodCatalogueItem[];
+  conditions: CarePlanCondition[];
+  budgetTier: FoodCostTier | null;
+  preferencesNote: string | null;
+}): Promise<ValidatedMealPlan | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const model = new ChatAnthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
+      // A full 7-day plan (up to 4 meal slots x up to 3 items x a rationale
+      // sentence each) is a large structured generation -- headroom above
+      // the original 4000 costs nothing and protects against a genuinely
+      // large plan (many items per slot, a long preferencesNote) truncating
+      // mid-object.
+      maxTokens: 6000,
+      // Same reason as meal-vision.ts / the AI Coach: claude-sonnet-5
+      // rejects temperature/top_p/top_k — omit them entirely.
+      invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
+    });
+    const structured = model.withStructuredOutput(mealPlanSchema, { name: "meal_plan" });
+    const messages = [
+      new SystemMessage(buildSystemPrompt(input)),
+      new HumanMessage(buildUserPrompt(input.preferencesNote)),
+    ];
+    const raw = await structured.invoke(messages, { signal: controller.signal });
+    const parsed = mealPlanSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error("meal-plan-generate: model output failed schema validation", parsed.error);
+      return null;
+    }
+    return validateMealPlan(parsed.data as RawMealPlan, input.catalogue);
+  } catch (error) {
+    // Timeout (AbortError), network failure, or malformed structured output.
+    // Real gap found during the AI-011 evaluation (2026-09-16): this used to
+    // swallow the cause entirely, so a real production failure here was
+    // undiagnosable -- the caller only ever saw reason: "error", never why.
+    console.error("meal-plan-generate: generation attempt failed", error);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function generateMealPlan(input: {
   catalogue: FoodCatalogueItem[];
   conditions: CarePlanCondition[];
@@ -135,33 +203,22 @@ export async function generateMealPlan(input: {
     return { ok: false, reason: "error" };
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const model = new ChatAnthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
-      maxTokens: 4000,
-      // Same reason as meal-vision.ts / the AI Coach: claude-sonnet-5
-      // rejects temperature/top_p/top_k — omit them entirely.
-      invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
-    });
-    const structured = model.withStructuredOutput(mealPlanSchema, { name: "meal_plan" });
-    const messages = [
-      new SystemMessage(buildSystemPrompt(input)),
-      new HumanMessage(buildUserPrompt(input.preferencesNote)),
-    ];
-    const raw = await structured.invoke(messages, { signal: controller.signal });
-    const parsed = mealPlanSchema.safeParse(raw);
-    if (!parsed.success) {
-      return { ok: false, reason: "error" };
-    }
-    const validated = validateMealPlan(parsed.data as RawMealPlan, input.catalogue);
-    return { ok: true, plan: validated };
-  } catch {
-    // Timeout (AbortError), network failure, or malformed structured output.
+  // Real finding (2026-09-16, AI-011 evaluation): claude-sonnet-5 tool-use
+  // output for a payload this large (up to 84 items across 7 days) fails
+  // AnthropicToolsOutputParser's own validation on a genuinely stochastic
+  // basis -- observed roughly half of real, independent attempts against
+  // the live catalogue, with no pattern tied to conditions/budget/prompt
+  // content (the "days" field itself sometimes arrives as a malformed
+  // string rather than an array, a tool-call-encoding issue on the
+  // provider/library side, not a schema or prompt bug this codebase can
+  // fix directly). One retry on a genuine failure raises the realistic
+  // success rate from roughly 50% to roughly 75-90%+ without materially
+  // changing worst-case latency for the common case (the first attempt
+  // usually succeeds).
+  const first = await attemptGeneration(input);
+  const plan = first ?? (await attemptGeneration(input));
+  if (!plan) {
     return { ok: false, reason: "error" };
-  } finally {
-    clearTimeout(timer);
   }
+  return { ok: true, plan };
 }

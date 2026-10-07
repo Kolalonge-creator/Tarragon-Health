@@ -15,6 +15,7 @@ import {
   PDF_BRAND_GREEN,
   PDF_CLINICAL_NAVY,
 } from "@/lib/pdf/pdf-brand";
+import { specialistTypeNoun } from "@tarragon/shared";
 
 registerPdfFonts();
 
@@ -201,31 +202,6 @@ function humanise(value: string): string {
   return value.replace(/_/g, " ");
 }
 
-/**
- * The practitioner noun for a specialist_type, because the letter addresses a
- * person: "any cardiologist the patient chooses", not "any cardiology". An
- * unmapped value falls back to humanise, so a new enum member degrades to
- * readable text rather than printing a raw underscored code at a specialist.
- */
-const SPECIALIST_NOUN: Record<string, string> = {
-  urologist: "urologist",
-  oncologist: "oncologist",
-  ob_gyn: "OB-GYN",
-  cardiology: "cardiologist",
-  endocrinology: "endocrinologist",
-  nephrology: "nephrologist",
-  ophthalmology: "ophthalmologist",
-  dietetics: "dietitian",
-  podiatry: "podiatrist",
-  psychiatry: "psychiatrist",
-  psychology: "psychologist",
-  other: "specialist",
-};
-
-function specialistNoun(value: string): string {
-  return SPECIALIST_NOUN[value] ?? humanise(value);
-}
-
 function vitalLine(v: ReferralVital): string {
   const on = new Date(v.taken_at).toLocaleDateString("en-GB");
   switch (v.vital_type) {
@@ -303,7 +279,7 @@ export function ReferralLetterDocument({ data }: { data: ReferralLetterData }) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            To: any {specialistNoun(data.specialistType)} the patient chooses
+            To: any {specialistTypeNoun(data.specialistType)} the patient chooses
           </Text>
           <Text style={styles.muted}>
             This patient has not been booked with a named specialist. They are

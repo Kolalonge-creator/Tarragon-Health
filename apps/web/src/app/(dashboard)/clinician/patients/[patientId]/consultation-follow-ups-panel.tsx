@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { SPECIALIST_TYPES } from "@tarragon/shared";
 
 const ACTION_TYPE_LABEL: Record<ConsultationFollowUp["action_type"], string> = {
   monitoring_schedule: "Monitoring schedule",
@@ -22,19 +23,6 @@ const ACTION_TYPE_LABEL: Record<ConsultationFollowUp["action_type"], string> = {
   follow_up_appointment: "Follow-up appointment",
   care_plan_review: "Care plan review",
 };
-
-const SPECIALIST_TYPES = [
-  "urologist",
-  "oncologist",
-  "ob_gyn",
-  "cardiology",
-  "endocrinology",
-  "nephrology",
-  "ophthalmology",
-  "dietetics",
-  "podiatry",
-  "other",
-] as const;
 
 const STATUS_BADGE: Record<ConsultationFollowUp["status"], { label: string; tone: "amber" | "green" | "grey" }> = {
   pending: { label: "Pending", tone: "amber" },

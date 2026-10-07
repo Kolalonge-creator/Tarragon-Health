@@ -7,6 +7,7 @@ import { PriceBreakdownConfirm } from "@/components/billing/price-breakdown-conf
 import { orderBreakdown } from "@/lib/billing/price-breakdown";
 import { koboToNaira } from "@tarragon/shared";
 
+/** Pay for a pharmacy order by card (Paystack) after confirming the price. */
 export function PayForPharmacyOrderButton({
   orderId,
   amountKobo,

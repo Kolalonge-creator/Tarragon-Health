@@ -3,6 +3,7 @@ import Constants, { ExecutionEnvironment } from "expo-constants";
 import type * as HealthConnectPackage from "react-native-health-connect";
 import type { HealthReadingType, HealthReadResult, HealthSample } from "./healthkit";
 import { recordSyncError } from "./sync-diagnostics";
+import { hasAcceptedHealthConnectRationale } from "./health-connect-consent";
 
 /**
  * Loaded lazily via require(), never as a static top-level import — same
@@ -28,26 +29,34 @@ let cachedModule: typeof HealthConnectPackage | null | undefined;
 const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 /**
- * Health Connect is switched OFF for the first Google Play release
- * (v0.1.0, 2026-09-08). The whole bridge below has never run against a real
- * Health Connect payload on any device or emulator, and the ten
- * `android.permission.health.*` permissions it needs (two of them, background
- * and history read, being the ones Play scrutinises hardest, plus a
- * permissions-rationale intent no screen in this app handles yet) would put
- * the first store review behind Google's Health Connect declaration gate for
- * a feature nobody has yet exercised. So the first release ships without it.
+ * Health Connect is switched back ON as of the release that follows v0.1.0
+ * (first shipped 2026-09-08, disabled that same day for the reasons this
+ * comment used to describe — see git history on this flag for the original
+ * wording). Re-enabling reversed the three things that were undone then:
+ * `react-native-health-connect` is no longer excluded from autolinking in
+ * package.json, the plugin entries + ten `android.permission.health.*`
+ * permissions are back in app.json, and `runtimeVersion` was bumped (a
+ * native-code change — new autolinked module, new permissions).
+ * `requestHealthConnectPermissions()` below now also gates the actual OS
+ * permission request behind the patient having accepted TarragonHealth's
+ * own in-app rationale screen first (health-connect-rationale-modal.tsx,
+ * via health-connect-consent.ts) — the missing piece the original disabling
+ * comment called out (Play's Health Connect declaration expects the
+ * requesting app to explain what it reads and link to a privacy policy in
+ * its own UI before the OS permission dialog fires, not just declare a
+ * permission string).
  *
- * This flag is the JS half; the native half is (a) `react-native-health-
- * connect` listed under `expo.autolinking.exclude` in package.json, so its
- * native code never links into the binary, and (b) the plugin entries and
- * health permissions removed from app.json. Re-enabling for 0.4.0 means
- * reversing those three things, adding the permissions-rationale screen,
- * bumping runtimeVersion (a native change), and testing on a real Android
- * phone with Health Connect installed BEFORE resubmitting; the last shipped
- * version of the full wiring is at git commit 8b41111f (app.json, package.json,
- * plugins/withHealthConnectMainActivity.js).
+ * **What is still true, and still open before this can be called
+ * confirmed-working:** the bridge below — reading, mapping, permission
+ * request, background sync — has never run against a real Health Connect
+ * payload on any physical device or emulator. There is no Health
+ * Connect-capable emulator or device available in the environment that
+ * re-enabled this, so none of it could be exercised end to end here. A real
+ * Android phone with Health Connect installed, running a fresh EAS build at
+ * this runtimeVersion, is the founder's required step before this ships —
+ * see docs/PLAY_STORE_SUBMISSION.md.
  */
-const HEALTH_CONNECT_ENABLED = false;
+const HEALTH_CONNECT_ENABLED = true;
 
 function loadHealthConnect(): typeof HealthConnectPackage | null {
   if (cachedModule !== undefined) return cachedModule;
@@ -153,9 +162,21 @@ export async function isHealthConnectAvailable(): Promise<boolean> {
  * its own permission screen; unlike HealthKit it does not hide which of
  * these were actually granted — getGrantedPermissions() after this call
  * tells the truth.
+ *
+ * Gated on `hasAcceptedHealthConnectRationale()`: the native OS permission
+ * dialog never fires until the patient has been shown TarragonHealth's own
+ * rationale screen (health-connect-rationale-modal.tsx) and chosen to
+ * continue. This is what makes it safe for `syncHealthConnect()`
+ * (health-sync.ts) to call this function unconditionally on every sync,
+ * including from the headless background task (background-sync.ts) — a
+ * background run before the rationale has ever been accepted in the
+ * foreground simply returns false here and falls through to reading
+ * whatever is currently granted (nothing, on a first install), rather than
+ * trying to pop OS permission UI with no screen behind it.
  */
 export async function requestHealthConnectPermissions(): Promise<boolean> {
   if (!isHealthConnectPlatform()) return false;
+  if (!(await hasAcceptedHealthConnectRationale())) return false;
   const hc = loadHealthConnect();
   if (!hc) return false;
   try {

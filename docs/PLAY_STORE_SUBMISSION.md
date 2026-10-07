@@ -5,6 +5,42 @@
 > `@worldbest/tarragon-health`. This file is the single place the Play Console answers are
 > written down so they can be re-entered consistently on every future release.
 
+> **Reconciliation pass, 2026-09-17** — the original v0.1.0 build (versionCode 3, cut
+> 2026-09-08) was rejected on 2026-09-17 for an unrelated Impersonation-policy issue (the app
+> icon's shield+checkmark silhouette read as a "verified" badge — see the icon variant work in
+> `apps/mobile/assets/icon.png`). Since 87 commits touched `apps/mobile`/`packages/shared`
+> between that build and this pass, every claim below was re-checked against current code
+> rather than trusted as still true. Two things changed in that window that this file's answers
+> did **not** yet reflect:
+> - **The AI Health Coach shipped natively on mobile 2026-09-12** (previously web-only). Its
+>   Anthropic data flow is broader than the "structured extract, never free-text notes" line
+>   this file previously described for the doctor-summary AI use case — see the corrected
+>   Health info row below.
+> - Everything else re-verified **unchanged and still accurate**: Health Connect is still off
+>   (`HEALTH_CONNECT_ENABLED = false`), the Bluetooth "in early testing" banner is still shown,
+>   no meal-photo/AI-vision capture was added to mobile (deliberately web-only, per
+>   `apps/mobile`'s own governance rationale), the new "Verified Documents" native screens are a
+>   request/view flow for doctor-issued documents (no new personal-data type, payment stays
+>   browser-side per App Store 3.1.1), and the "Platform Credit" prepaid balance added on
+>   2026-09-17 has since been removed entirely (2026-09-30, S01b), including its mobile screens,
+>   so the mobile app no longer has any stored-value or top-up surface.
+
+> **Combined Android+iOS release-readiness audit, 2026-09-18** — a separate, in-flight session
+> (branch `feat/health-connect-full-build-20260918`, PR #670) is independently re-enabling Health
+> Connect for this same release; this pass deliberately did not touch that work to avoid
+> colliding with it — check that PR's status before assuming Health Connect is still off. This
+> pass instead found and fixed **two build-tooling bugs that would have blocked the next `eas
+> build` on either platform, not just iOS**, discovered while producing an iOS
+> `development-simulator` build (see `docs/APP_STORE_SUBMISSION.md`, the new iOS-side twin of
+> this file, for the full detail): (1) a 2026-09-16 security bump of `@xmldom/xmldom` to `0.9.12`
+> had an undocumented regression that crashed the plist-parsing step every native build depends
+> on — fixed with a scoped `pnpm patch`, no security regression; (2) the project archive had grown
+> to 3.8 GB with no `.easignore`, over EAS's 2.0 GB upload cap — fixed by adding one at the repo
+> root. Neither was specific to iOS; both apply equally to the next Android upload. Also fixed:
+> `ios/TarragonHealth/TarragonHealth.entitlements`'s `aps-environment` was hardcoded
+> `development`, which would have failed code signing on an App Store/ad-hoc iOS archive (not
+> relevant to Android, noted here only because it was found in the same pass).
+
 ## Pre-upload checklist
 
 1. Build from `main-dev` with `pnpm build:prod` (production profile, AAB, `versionCode`
@@ -21,10 +57,26 @@
    audience, Data safety, government apps, financial features, category = Medical, store
    listing, contact email privacy@tarragonhealth.ng). The one open item is the **Health apps**
    declaration; see the "Health apps declaration" section below before saving it.
-3. Health Connect is **off** in this build (no `android.permission.health.*` in the manifest,
-   `react-native-health-connect` excluded from autolinking). If the Play Console still shows a
-   Health Connect declaration from an earlier upload, it should disappear once the new AAB
-   replaces it; if it still asks, answer that the app does not use Health Connect.
+
+   **Superseded 2026-09-17** — a bundle *was* subsequently uploaded (production track,
+   versionCode 3, appVersion 0.1.0, gitCommitHash `3994219d`) and Google **rejected** it the
+   same day for an Impersonation-policy violation on the app icon/title, not on anything in
+   this checklist. Current Play Console state: `Production · Release 0.1.0 rejected · 1
+   version code · 0 installs`. The next upload should be a fresh build (new versionCode) with
+   the corrected icon (`apps/mobile/assets/icon.png`, pulse-line replacing the checkmark) and
+   the Data safety correction below, submitted together — see the reconciliation note at the
+   top of this file.
+3. **Updated 2026-09-18 — Health Connect is now `on` in this build** (nine
+   `android.permission.health.*` permissions in the manifest, `react-native-health-connect`
+   autolinked, `HEALTH_CONNECT_ENABLED = true` in `apps/mobile/src/lib/health-connect.ts`),
+   re-enabled after being switched off for v0.1.0 — see "What is deliberately not in v0.1.0"
+   below for what changed and what is still open. The Play Console **Health apps declaration
+   must now say the app uses Health Connect** and name the data types it reads (steps, blood
+   pressure, blood glucose, weight, oxygen saturation, heart rate variability, resting heart
+   rate) — do not answer "does not use Health Connect" the way an earlier version of this
+   checklist item said to. **This has never been exercised on a real Android device or a
+   Health Connect-capable emulator**; do not build/submit the AAB that carries this change
+   until that verification has actually happened.
 4. Testers: not required for this organisation account, but an internal-testing release of
    the same AAB first (up to 100 testers, no review) is still the safest way to confirm the
    store build installs and signs in before promoting it to production.
@@ -79,8 +131,8 @@ Ireland). Nothing is shared with third parties for advertising, and **no data is
 | Name, email, phone number | Yes | No | Required | Account management, app functionality |
 | Date of birth, sex, state / LGA of residence | Yes | No | Required | App functionality (clinical thresholds are age/sex aware) |
 | Emergency contact (name, phone) | Yes | No | Optional | App functionality (emergency safety net) |
-| Health info: blood pressure, glucose, weight, SpO2, temperature, pulse, symptoms, medications, screening and lab results, vaccinations, clinical notes, women's-health cycle data | Yes | Yes, with the patient's own care team, and a limited structured extract with Anthropic to draft a doctor-facing summary (never free-text notes) | Required for the features that use it | App functionality (care delivery), never advertising |
-| Fitness info (steps, sleep, HRV) | Yes, on iOS via Apple Health only | No | Optional | App functionality. **Not collected on Android in v0.1.0** (Health Connect is off) |
+| Health info: blood pressure, glucose, weight, SpO2, temperature, pulse, symptoms, medications, screening and lab results, vaccinations, clinical notes, women's-health cycle data | Yes | Yes, with the patient's own care team; and with Anthropic in two distinct ways — (1) a limited structured extract to draft a doctor-facing summary (never free-text notes), and (2) **corrected 2026-09-17**: the native AI Health Coach chat (shipped on mobile 2026-09-12) sends the patient's own chat messages plus a context snapshot (recent vitals, active medications, symptoms) to Anthropic's Claude model to generate its reply — this is a direct, patient-facing use, not a structured-extract-only one | Required for the features that use it | App functionality (care delivery), never advertising |
+| Fitness info (steps, sleep, HRV) | Yes, on iOS via Apple Health, and — **updated 2026-09-18** — in code on Android via Health Connect (re-enabled after v0.1.0 — see "What is deliberately not in v0.1.0" below) | No | Optional | App functionality. **The Android path is code-complete but has never run on a real device or a Health Connect-capable emulator** — do not represent Android fitness-info collection as confirmed-working until that verification happens |
 | Photos | Yes, only when the user photographs a lab result | No | Optional | App functionality (lab-result upload) |
 | Messages (care-team chat) | Yes | With the care team | Optional | App functionality |
 | Payment info: Paystack payment references, purchase history | Yes | Paystack processes the payment | Optional | Payments. Card numbers are never stored by Tarragon |
@@ -95,9 +147,10 @@ deletion (in-app request, reviewed and completed by an admin; see the privacy no
 after account deletion where the law requires it.
 
 Data processors to name if asked: Supabase (database, auth, storage; eu-west-1), Vercel
-(web/API hosting), Paystack (payments, Nigeria), Anthropic (AI summary drafting, structured
-extract only), Meta WhatsApp Cloud API and Termii (reminder/alert delivery only, phone number
-and message content).
+(web/API hosting), Paystack (payments, Nigeria), Anthropic (two uses: governed structured-extract
+summary drafting, and — as of 2026-09-12 on mobile — the AI Health Coach chat, which receives the
+patient's own messages plus a recent-vitals/medications/symptoms context snapshot), Meta WhatsApp
+Cloud API and Termii (reminder/alert delivery only, phone number and message content).
 
 ## Permissions the binary declares, and why
 
@@ -109,7 +162,19 @@ and message content).
 | `USE_BIOMETRIC` | App Lock (biometric unlock of the health record) |
 | `INTERNET`, `RECEIVE_BOOT_COMPLETED`, foreground/background task | Sync, offline queue flush, reminder scheduling |
 
-No `android.permission.health.*` and no location permission in v0.1.0.
+| `android.permission.health.READ_STEPS`, `READ_BLOOD_PRESSURE`, `READ_BLOOD_GLUCOSE`, `READ_WEIGHT`, `READ_OXYGEN_SATURATION`, `READ_HEART_RATE_VARIABILITY`, `READ_RESTING_HEART_RATE`, `READ_HEALTH_DATA_IN_BACKGROUND`, `READ_HEALTH_DATA_HISTORY` | Health Connect: bring across the same reading types Apple Health already syncs on iOS, in the background, and further back than the default ~30-day window on first connect. Re-enabled after v0.1.0 shipped without them — **code-complete, never exercised on a real device**; see "What is deliberately not in v0.1.0" below before submitting a build that declares these |
+
+No location permission in v0.1.0 or after.
+
+## App access / demo account
+
+If Google Play's "App access" declaration asks for a login (it can, e.g. for the Health apps
+declaration reviewer or a restricted-permission review), use the same dedicated account created
+for Apple App Review, not one of the shared `*.test@tarragon.test` QA fixtures — those get reset/
+reused by every concurrent QA session on this project and can't be trusted to still work when a
+reviewer actually logs in weeks later. See `docs/APP_STORE_SUBMISSION.md`'s "App Review
+information" section for the credentials and full reasoning: `appreview.demo@tarragon.test` /
+`TarragonReview2026!`, fully onboarded, verified directly against the Supabase Auth API.
 
 ## Store listing
 
@@ -144,13 +209,29 @@ describe — that stays live, including on the web app's own notification settin
 
 ## What is deliberately not in v0.1.0
 
-- **Android Health Connect.** Built, never exercised on a device, ten health permissions
-  including background and history read, and no permissions-rationale screen. Turned off
-  (see `apps/mobile/src/lib/health-connect.ts`, `HEALTH_CONNECT_ENABLED`). Re-enable in
-  0.4.0 only after: the rationale intent is handled by a real screen showing the privacy
-  policy, the flow has run on a physical Android phone with Health Connect installed, the
-  Health Connect declaration form in the Play Console has been filled, and `runtimeVersion`
-  has been bumped for the native change.
+- **Android Health Connect was off in v0.1.0, re-enabled in code for the release after it —
+  but still not verified on real hardware.** v0.1.0 shipped without it: never exercised on a
+  device, nine health permissions including background and history read, and no
+  permissions-rationale screen. Two of those three gaps are now closed:
+  `HEALTH_CONNECT_ENABLED` is back to `true` (`apps/mobile/src/lib/health-connect.ts`), the
+  plugin entries + nine `android.permission.health.*` permissions are back in `app.json`,
+  `react-native-health-connect` is no longer excluded from autolinking
+  (`apps/mobile/package.json`), `runtimeVersion` was bumped `0.1.0-native2` -> `0.1.0-native3`
+  for the native-affecting change, and a real permissions-rationale screen now exists
+  (`apps/mobile/src/screens/health-connect-rationale-modal.tsx`, gated via
+  `apps/mobile/src/lib/health-connect-consent.ts`) — it shows what TarragonHealth reads, that
+  it never writes anything back, and links to
+  `https://tarragonhealth.ng/privacy`, and is shown before the native permission dialog ever
+  fires, on the first "Sync Health Connect" tap on the Devices screen.
+  **What is still open, and is the reason this must not be submitted yet:** none of this —
+  the rationale screen, the permission request, the read/mapping logic, background sync —
+  has ever run on a real Android phone or a Health Connect-capable emulator. Before building
+  the AAB that carries this: run it on a physical Android device with Health Connect
+  installed, confirm the rationale screen actually appears before the OS permission dialog,
+  confirm at least one reading type actually round-trips into `vitals_readings`/
+  `wearable_readings`, and fill in the Play Console's Health Connect declaration form
+  truthfully (see the pre-upload checklist above — it no longer says "does not use Health
+  Connect").
 - **Bluetooth pairing is labelled "in early testing"** on the Devices screen. The BLE path is
   built but has never paired a real cuff or glucometer; manual entry is the proven path.
   Remove the notice once pairing passes on real hardware (A&D UA-651BLE, Accu-Chek Guide).

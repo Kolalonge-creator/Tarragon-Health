@@ -13,6 +13,7 @@ import {
 } from "@/lib/finance/queries";
 import { ReportLetterhead } from "./letterhead";
 import { PrintToolbar } from "./print-toolbar";
+import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 import {
   PrintSection,
   PrintTable,
@@ -181,7 +182,7 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
             <tbody>
               {approvalsInRange.map((a) => (
                 <tr key={a.id}>
-                  <PrintTd muted>{new Date(a.requested_at).toLocaleDateString()}</PrintTd>
+                  <PrintTd muted>{formatPatientDate(a.requested_at)}</PrintTd>
                   <PrintTd>{a.request_type.replace(/_/g, " ")}</PrintTd>
                   <PrintTd muted>{a.requested_by_name ?? "—"}</PrintTd>
                   <PrintTd><Badge variant={a.status === "approved" ? "green" : "red"}>{a.status}</Badge></PrintTd>
@@ -206,7 +207,7 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
             <tbody>
               {(auditLog.data ?? []).map((e) => (
                 <tr key={e.id}>
-                  <PrintTd muted>{new Date(e.created_at).toLocaleString()}</PrintTd>
+                  <PrintTd muted>{formatPatientDateTime(e.created_at)}</PrintTd>
                   <PrintTd>{e.actor_name ?? "—"}</PrintTd>
                   <PrintTd muted>{e.action}</PrintTd>
                 </tr>

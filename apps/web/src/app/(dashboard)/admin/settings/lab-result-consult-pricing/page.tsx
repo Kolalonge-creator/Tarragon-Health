@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { LabResultConsultPricingManager, type PriceRow } from "./lab-result-consult-pricing-manager";
 
+export const metadata = { title: "Lab-result consult fee" };
+
 /**
  * Admin control for the self-arranged lab-result consultation fee (founder
  * rule, 2026-08-30 — see docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md). Precedent

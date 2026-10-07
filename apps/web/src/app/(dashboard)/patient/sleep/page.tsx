@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { SleepClient } from "./sleep-client";
 
@@ -23,12 +21,7 @@ export default async function SleepPage() {
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
         description="Log how you're sleeping: duration, quality, and how alert you feel during the day."
       />
-      <RequiresEntitlement
-        feature="lifestyle_coaching"
-        fallback={<UpgradePrompt feature="lifestyle_coaching" />}
-      >
-        <SleepClient patientId={profile.id} />
-      </RequiresEntitlement>
+      <SleepClient patientId={profile.id} />
     </div>
   );
 }

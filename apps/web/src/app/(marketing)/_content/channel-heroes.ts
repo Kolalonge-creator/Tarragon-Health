@@ -27,15 +27,29 @@ export type ChannelHeroCopy = {
   secondaryLabel: string;
 };
 
+/**
+ * Rewritten 2026-09-22. The previous hero led with "Continuity, not just
+ * monitoring" over a comma-separated category description ("Chronic care,
+ * prevention, and family health tracking, in one app, with a doctor behind
+ * it"). Both described the product's shape rather than the visitor's
+ * situation, and neither carried the offer. The free-app / pay-only-for-a-
+ * doctor's-time model (founder decision 2026-09-02) is the single strongest
+ * hook this business has in a price-sensitive market, and it was previously
+ * not mentioned until roughly the eighth section of the page.
+ *
+ * Every claim here is checked: the app genuinely is free (see
+ * _content/pricing.ts), and the "stops when you leave the hospital" framing
+ * is the reader's own experience, not a statistic this site cannot source.
+ */
 export const DEFAULT_HERO: ChannelHeroCopy = {
-  eyebrow: "Continuity, not just monitoring",
+  eyebrow: "Free to join. You only pay for a doctor's time.",
   title: "Care that stays with you.",
   description:
-    "Chronic care, prevention, and family health tracking, in one app, with a doctor behind it.",
+    "Care usually stops the moment you leave the hospital. Tarragon is what happens next: your readings watched, your screenings tracked, and a doctor when you actually need one.",
   primaryHref: "/signup",
-  primaryLabel: "Get started",
-  secondaryHref: MARKETING_ROUTES.services,
-  secondaryLabel: "See how it works",
+  primaryLabel: "Create your free account",
+  secondaryHref: MARKETING_ROUTES.pricing,
+  secondaryLabel: "See what it costs",
 };
 
 export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {

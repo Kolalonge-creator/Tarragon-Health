@@ -1,6 +1,8 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { PromoCodeManager } from "./promo-code-manager";
 
+export const metadata = { title: "Promo codes" };
+
 export default function AdminPromoCodesPage() {
   return (
     <div className="space-y-6">

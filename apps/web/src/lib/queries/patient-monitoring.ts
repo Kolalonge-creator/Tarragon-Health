@@ -23,6 +23,11 @@ export interface PatientMonitoringRow {
   sex: Sex | null;
   ageYears: number | null;
   status: MonitoringStatus;
+  /**
+   * false: the caller is not tied to this patient (INV-12), so no readings or alerts were returned for her. The row is listed, but it
+   * must never be drawn as "Normal" with empty tiles: that is "not available to you", not a quiet patient.
+   */
+  visible: boolean;
   vitals: {
     bp: { systolic: number | null; diastolic: number | null; level: VitalLevel; takenAt: string | null };
     spo2: { value: number | null; level: VitalLevel; takenAt: string | null };
@@ -51,6 +56,10 @@ export interface PatientMonitoringRow {
   openAlertCount: number;
 }
 
+/** Default cap on the roster fetch below — also the number named in the
+ * monitoring page's truncation caveat, so the two never drift apart. */
+export const DEFAULT_ROSTER_LIMIT = 200;
+
 export interface LoadPatientMonitoringRosterOptions {
   q?: string;
   /** "Assigned to me" toggle — mirrors clinician/patients/page.tsx's `mine`
@@ -72,11 +81,19 @@ export interface LoadPatientMonitoringRosterOptions {
  * renders as a patient who has logged no BP, no glucose, no SpO2 and has no
  * open alert. A screen of patients who all look quiet is the most reassuring
  * thing this page can draw, and a broken RPC drew it.
+ *
+ * `truncated` is a third, separate concern: the roster fetch itself is
+ * capped (`limit`, default `DEFAULT_ROSTER_LIMIT`), so in an org with more
+ * patients than that, a name search — or a status/gender/age filter, which
+ * the page applies client-side on top of this same fetch — that finds
+ * nothing must not read as "this patient is not on the platform" when it
+ * may simply be past the cap.
  */
 export interface PatientMonitoringRoster {
   rows: PatientMonitoringRow[];
   rosterFailed: boolean;
   readingsFailed: boolean;
+  truncated: boolean;
 }
 
 /**
@@ -91,7 +108,7 @@ export async function loadPatientMonitoringRoster(
   supabase: SupabaseClient<Database>,
   options: LoadPatientMonitoringRosterOptions
 ): Promise<PatientMonitoringRoster> {
-  const { q, mineOnly, callerId, limit = 200 } = options;
+  const { q, mineOnly, callerId, limit = DEFAULT_ROSTER_LIMIT } = options;
 
   let assignedPatientIds: string[] | null = null;
   if (mineOnly) {
@@ -99,20 +116,23 @@ export async function loadPatientMonitoringRoster(
       ? await supabase.from("care_team_assignment").select("patient_id").eq("clinician_id", callerId)
       : { data: [] as { patient_id: string }[], error: null };
     if (assignmentsError) {
-      return { rows: [], rosterFailed: true, readingsFailed: false };
+      return { rows: [], rosterFailed: true, readingsFailed: false, truncated: false };
     }
     assignedPatientIds = (assignments ?? []).map((a) => a.patient_id);
     if (assignedPatientIds.length === 0) {
-      return { rows: [], rosterFailed: false, readingsFailed: false };
+      return { rows: [], rosterFailed: false, readingsFailed: false, truncated: false };
     }
   }
 
+  // Fetches one row past `limit` so `truncated` below can tell "exactly
+  // `limit` patients, nothing more" apart from "more than `limit` exist" —
+  // the extra row is sliced back off immediately and never rendered.
   let query = supabase
     .from("profiles")
     .select("id, full_name, patient_number, avatar_url, sex, date_of_birth")
     .eq("role", "patient")
     .order("full_name", { ascending: true })
-    .limit(limit);
+    .limit(limit + 1);
   if (q?.trim()) {
     query = query.ilike("full_name", `%${q.trim()}%`);
   }
@@ -120,11 +140,13 @@ export async function loadPatientMonitoringRoster(
     query = query.in("id", assignedPatientIds);
   }
 
-  const { data: patients, error: patientsError } = await query;
-  if (patientsError) return { rows: [], rosterFailed: true, readingsFailed: false };
-  if (!patients || patients.length === 0) {
-    return { rows: [], rosterFailed: false, readingsFailed: false };
+  const { data: fetchedPatients, error: patientsError } = await query;
+  if (patientsError) return { rows: [], rosterFailed: true, readingsFailed: false, truncated: false };
+  if (!fetchedPatients || fetchedPatients.length === 0) {
+    return { rows: [], rosterFailed: false, readingsFailed: false, truncated: false };
   }
+  const truncated = fetchedPatients.length > limit;
+  const patients = fetchedPatients.slice(0, limit);
 
   const patientIds = patients.map((p) => p.id);
   const { data: readings, error: readingsError } = await supabase.rpc(
@@ -143,6 +165,9 @@ export async function loadPatientMonitoringRoster(
 
     return {
       id: p.id,
+      // When the whole readings call failed the page shows its own failure banner, so rows stay "visible"; a per-patient `false` is the
+      // tie refusal.
+      visible: readingsError ? true : (r?.visible ?? false),
       fullName: p.full_name ?? "Unnamed patient",
       patientNumber: p.patient_number,
       avatarUrl: p.avatar_url,
@@ -184,5 +209,5 @@ export async function loadPatientMonitoringRoster(
     };
   });
 
-  return { rows, rosterFailed: false, readingsFailed: readingsError !== null };
+  return { rows, rosterFailed: false, readingsFailed: readingsError !== null, truncated };
 }

@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { ClinicalRulesManager, type ClinicalRuleVersionRow } from "./clinical-rules-manager";
 
+export const metadata = { title: "Clinical rules engine" };
+
 /**
  * Clinical Rules & Care Protocol Engine governance console (spec §32).
  *

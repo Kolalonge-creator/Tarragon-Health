@@ -2,28 +2,43 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Json, ReferralSource, ReferralUrgency, Tables } from "@tarragon/shared";
 import type { AppropriatenessFlag } from "@/lib/referrals/appropriateness-check";
+import { ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
 
 export type SpecialistReferralWithDetails = Tables<"specialist_referrals"> & {
   patient: { full_name: string | null } | null;
   specialist_provider: { name: string; consultation_fee_kobo: number } | null;
 };
 
-const REFERRAL_SELECT =
-  "*, patient:profiles!specialist_referrals_patient_id_fkey(full_name), specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name, consultation_fee_kobo)";
+/** A referral list or one referral from the audited functions. A refusal throws so it can never read as "no referrals". */
+export function parseReferralList(data: unknown, key?: "referrals"): SpecialistReferralWithDetails[] {
+  if (key) {
+    const payload = data as { status?: string; referrals?: unknown } | null;
+    if (!payload || payload.status !== "ok" || !Array.isArray(payload.referrals)) throw new Error("referrals denied");
+    return payload.referrals as SpecialistReferralWithDetails[];
+  }
+  if (!Array.isArray(data)) throw new Error("unexpected referral list response");
+  return data as SpecialistReferralWithDetails[];
+}
 
-/** All specialist referrals in the caller's org, newest first — clinician worklist. RLS (private.is_org_staff) does the org-scoping. */
+export function parseReferral(data: unknown): SpecialistReferralWithDetails {
+  const payload = data as { status?: string; referral?: unknown } | null;
+  if (!payload || payload.status !== "ok" || !payload.referral) throw new Error("referral denied");
+  return payload.referral as SpecialistReferralWithDetails;
+}
+
+/** The specialist referrals the caller may see (tied, creator, assigned, or the referral desk), newest first — clinician worklist. */
 export function useOrgSpecialistReferrals() {
   return useQuery({
     queryKey: ["specialist-referrals", "org"],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("specialist_referrals")
-        .select(REFERRAL_SELECT)
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.rpc("list_referrals_audited");
       if (error) throw error;
-      return data as SpecialistReferralWithDetails[];
+      return parseReferralList(data);
     },
+    // Every audited read writes an audit row: no refetch on focus.
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -33,15 +48,17 @@ export function useSpecialistReferral(referralId: string) {
     queryKey: ["specialist-referrals", "detail", referralId],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("specialist_referrals")
-        .select(REFERRAL_SELECT)
-        .eq("id", referralId)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("get_referral_audited", {
+        p_referral: referralId,
+        p_reason: ROUTINE_CHART_READ_REASON,
+      });
       if (error) throw error;
-      return data as SpecialistReferralWithDetails | null;
+      return parseReferral(data);
     },
     enabled: !!referralId,
+    retry: false,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -56,16 +73,42 @@ export function usePatientSpecialistReferrals(patientId: string) {
     queryKey: ["specialist-referrals", "patient", patientId],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("specialist_referrals")
-        .select(REFERRAL_SELECT)
-        .eq("patient_id", patientId)
-        .neq("status", "draft")
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.rpc("list_patient_referrals_audited", {
+        p_patient: patientId,
+        p_reason: ROUTINE_CHART_READ_REASON,
+        p_include_drafts: false,
+      });
       if (error) throw error;
-      return data as SpecialistReferralWithDetails[];
+      return parseReferralList(data, "referrals");
     },
     enabled: !!patientId,
+    retry: false,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * A patient's referrals INCLUDING drafts, for the "Referral history" card on the clinician-side record (a draft is a clinician's own
+ * in-progress work, so it belongs there). Through the audited read; a refusal throws.
+ */
+export function usePatientReferralsWithDrafts(patientId: string) {
+  return useQuery({
+    queryKey: ["specialist-referrals", "patient-with-drafts", patientId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("list_patient_referrals_audited", {
+        p_patient: patientId,
+        p_reason: ROUTINE_CHART_READ_REASON,
+        p_include_drafts: true,
+      });
+      if (error) throw error;
+      return parseReferralList(data, "referrals");
+    },
+    enabled: !!patientId,
+    retry: false,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -221,7 +264,6 @@ export function useCreateReferral() {
   return useMutation({
     mutationFn: async ({
       patientId,
-      organisationId,
       specialistType,
       referralSource,
       urgency,
@@ -229,6 +271,7 @@ export function useCreateReferral() {
       requestedService,
       appropriatenessFlags,
       asDraft,
+      patientConsentAt,
     }: {
       patientId: string;
       organisationId: string;
@@ -239,28 +282,25 @@ export function useCreateReferral() {
       requestedService: string;
       appropriatenessFlags: AppropriatenessFlag[];
       asDraft: boolean;
+      /** S24: when the patient agreed to share their record. Required by the database for anything but a draft; null for a draft. */
+      patientConsentAt: string | null;
     }) => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("specialist_referrals")
-        .insert({
-          // Re-derived and overwritten server-side from the patient's own
-          // profile by the create-gate trigger regardless of what's sent —
-          // passed here for clarity, never trusted as the source of truth.
-          organisation_id: organisationId,
-          patient_id: patientId,
-          specialist_type: specialistType,
-          referral_source: referralSource,
-          urgency,
-          referral_reason: referralReason.trim() || null,
-          requested_service: requestedService.trim() || null,
-          appropriateness_flags: appropriatenessFlags as unknown as Json,
-          status: asDraft ? "draft" : "pending",
-        })
-        .select("id")
-        .single();
+      // The organisation is derived from the patient on the server (input.organisationId is unused); the create-gate trigger still
+      // requires a clinical-tier member, and the function requires the tie to the patient.
+      const { data, error } = await supabase.rpc("create_specialist_referral", {
+        p_patient: patientId,
+        p_specialist_type: specialistType,
+        p_referral_source: referralSource,
+        p_urgency: urgency ?? undefined,
+        p_reason: referralReason,
+        p_requested_service: requestedService,
+        p_flags: appropriatenessFlags as unknown as Json,
+        p_as_draft: asDraft,
+        p_patient_consent_at: asDraft ? undefined : (patientConsentAt ?? undefined),
+      });
       if (error) throw error;
-      return data;
+      return { id: data };
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["specialist-referrals", "patient", variables.patientId] });
@@ -273,12 +313,9 @@ export function useCreateReferral() {
 export function useSubmitDraftReferral() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (referralId: string) => {
+    mutationFn: async ({ referralId, patientConsentAt }: { referralId: string; patientConsentAt: string }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("specialist_referrals")
-        .update({ status: "pending" })
-        .eq("id", referralId);
+      const { error } = await supabase.rpc("submit_draft_referral", { p_referral: referralId, p_patient_consent_at: patientConsentAt });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -302,15 +339,8 @@ export function useSetReferralUrgency() {
   return useMutation({
     mutationFn: async ({ referralId, urgency }: { referralId: string; urgency: ReferralUrgency }) => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not signed in");
-
-      const { error } = await supabase
-        .from("specialist_referrals")
-        .update({ urgency, set_by: user.id })
-        .eq("id", referralId);
+      // set_by is stamped from the caller's own session inside the function.
+      const { error } = await supabase.rpc("set_referral_urgency", { p_referral: referralId, p_urgency: urgency });
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {
@@ -334,10 +364,7 @@ export function useRecordTreatmentPlanReceived() {
   return useMutation({
     mutationFn: async ({ referralId, note }: { referralId: string; note: string }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("specialist_referrals")
-        .update({ treatment_plan_received_at: new Date().toISOString(), treatment_plan_note: note })
-        .eq("id", referralId);
+      const { error } = await supabase.rpc("record_referral_treatment_plan", { p_referral: referralId, p_note: note });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -356,10 +383,7 @@ export function useRecordSharedCareHandback() {
   return useMutation({
     mutationFn: async (referralId: string) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("specialist_referrals")
-        .update({ shared_care_handback_at: new Date().toISOString() })
-        .eq("id", referralId);
+      const { error } = await supabase.rpc("record_referral_shared_care_handback", { p_referral: referralId });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -382,14 +406,10 @@ export function useWaitlistReferral() {
   return useMutation({
     mutationFn: async ({ referralId, interimManagementPlan }: { referralId: string; interimManagementPlan: string }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("specialist_referrals")
-        .update({
-          status: "waitlisted",
-          interim_management_plan: interimManagementPlan,
-          waitlisted_at: new Date().toISOString(),
-        })
-        .eq("id", referralId);
+      const { error } = await supabase.rpc("waitlist_referral", {
+        p_referral: referralId,
+        p_interim_management_plan: interimManagementPlan,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -404,14 +424,12 @@ export function useWaitlistedReferrals() {
     queryKey: ["specialist-referrals", "waitlisted"],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("specialist_referrals")
-        .select(REFERRAL_SELECT)
-        .eq("status", "waitlisted")
-        .order("waitlisted_at", { ascending: true });
+      const { data, error } = await supabase.rpc("list_referrals_audited", { p_status: "waitlisted" });
       if (error) throw error;
-      return data as SpecialistReferralWithDetails[];
+      return parseReferralList(data);
     },
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -425,10 +443,7 @@ export function useDeclineReferral() {
   return useMutation({
     mutationFn: async ({ referralId, declinedReason }: { referralId: string; declinedReason: string }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("specialist_referrals")
-        .update({ status: "declined", declined_reason: declinedReason })
-        .eq("id", referralId);
+      const { error } = await supabase.rpc("decline_referral", { p_referral: referralId, p_declined_reason: declinedReason });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -452,10 +467,7 @@ export function useCloseReferral() {
   return useMutation({
     mutationFn: async ({ referralId, carePlanUpdateNote }: { referralId: string; carePlanUpdateNote: string }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("specialist_referrals")
-        .update({ status: "closed", care_plan_update_note: carePlanUpdateNote })
-        .eq("id", referralId);
+      const { error } = await supabase.rpc("close_referral", { p_referral: referralId, p_care_plan_update_note: carePlanUpdateNote });
       if (error) throw error;
     },
     onSuccess: () => {

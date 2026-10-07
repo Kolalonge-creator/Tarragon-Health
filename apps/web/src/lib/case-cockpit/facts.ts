@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { resolveProtocolsForPatient, primaryProtocol } from "./protocol";
 import { matchRedFlags, type CaseFacts } from "./propose";
+import { readPatientMedicationsAudited } from "@/lib/clinical/medications-audited";
+import { readPatientVitalsAudited } from "@/lib/clinical/vitals-audited";
 
 /**
  * Loads everything the deterministic rule engine needs for one case.
@@ -39,10 +41,11 @@ export async function loadCaseFacts(
 
   const [
     { data: escalation },
-    { data: medications },
+    medicationsResult,
     { data: schedules },
     { data: enrolments },
-    { data: vitals },
+    vitalsResult,
+    { data: unaddressedEmergencyEvents },
     protocols,
   ] = await Promise.all([
     supabase
@@ -50,11 +53,8 @@ export async function loadCaseFacts(
       .select("id, status")
       .eq("clinician_alert_id", clinicianAlertId)
       .maybeSingle(),
-    supabase
-      .from("medications")
-      .select("id, drug_name, dose, refill_date")
-      .eq("patient_id", patientId)
-      .eq("is_active", true),
+    // INV-10: medications are read through the audited, tie-gated function, not the table.
+    readPatientMedicationsAudited(supabase, patientId, { active: true }),
     // Due or overdue only. A schedule that is not yet due is not a finding,
     // and proposing an early order would be the engine inventing work.
     supabase
@@ -69,13 +69,20 @@ export async function loadCaseFacts(
       .select("programme:chronic_condition_programmes(review_cadence_months)")
       .eq("patient_id", patientId)
       .eq("status", "enrolled"),
+    // INV-10: through the audited, tie-gated read, not the table.
+    readPatientVitalsAudited(supabase, patientId, { vitalType: "blood_pressure", limit: 5 }),
+    // Same "unaddressed" predicate as useActiveEmergency (lib/queries/emergency.ts):
+    // status='active' AND acknowledged_at IS NULL, index-backed by
+    // emergency_events_active_idx. Deliberately not scoped to blood_pressure or
+    // to this alert's own clinician_alert_id -- a dangerous pulse or glucose
+    // reading logged minutes ago is just as disqualifying for the resolve
+    // shortcut as the reading that raised this particular alert.
     supabase
-      .from("vitals_readings")
-      .select("systolic, diastolic")
+      .from("emergency_events")
+      .select("id, source")
       .eq("patient_id", patientId)
-      .eq("vital_type", "blood_pressure")
-      .order("taken_at", { ascending: false })
-      .limit(5),
+      .eq("status", "active")
+      .is("acknowledged_at", null),
     resolveProtocolsForPatient(supabase, patientId, organisationId),
   ]);
 
@@ -84,6 +91,15 @@ export async function loadCaseFacts(
   // and clinician order forms already use. Fetched once for all the due
   // schedules rather than per row.
   const dueScreenings = await resolveScreeningBundles(supabase, schedules ?? []);
+
+  // An unreadable medication list must not become "no medicines, so no refill to propose". A refusal means the case is not available to
+  // this caller (the same answer as an unreadable alert); a read error throws so the caller sees a failure, never a quiet empty cockpit.
+  if (medicationsResult.status === "denied" || vitalsResult.status === "denied") return null;
+  if (medicationsResult.status === "error") throw new Error(`case cockpit: could not read medications (${medicationsResult.message})`);
+  // The same for the blood-pressure readings: "no readings" would switch off the red-flag matching for this case.
+  if (vitalsResult.status === "error") throw new Error(`case cockpit: could not read vitals (${vitalsResult.message})`);
+  const medications = medicationsResult.rows;
+  const vitals = vitalsResult.rows;
 
   // The shortest cadence wins for a multi-condition patient: a 3-month
   // diabetes review and a 6-month hypertension review means the patient is
@@ -102,7 +118,7 @@ export async function loadCaseFacts(
       detail: alert.detail,
     },
     escalation: escalation ? { id: escalation.id, status: escalation.status } : null,
-    medications: (medications ?? []).map((medication) => ({
+    medications: medications.map((medication) => ({
       id: medication.id,
       // Dose included in the label so a doctor confirming a refill sees
       // exactly what is being continued, not just a drug name.
@@ -111,8 +127,12 @@ export async function loadCaseFacts(
     })),
     dueScreenings,
     reviewCadenceMonths: cadences.length > 0 ? Math.min(...cadences) : null,
-    redFlags: matchRedFlags(protocol, vitals ?? []),
+    redFlags: matchRedFlags(protocol, vitals),
     protocol,
+    unaddressedEmergencyEvents: (unaddressedEmergencyEvents ?? []).map((event) => ({
+      id: event.id,
+      source: event.source,
+    })),
   };
 
   return { facts, patientId, organisationId };

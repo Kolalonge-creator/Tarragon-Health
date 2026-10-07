@@ -3,7 +3,7 @@ import { tool, type StructuredToolInterface } from "@langchain/core/tools";
 // needs this exact package identity.
 import { z } from "zod3";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Enums } from "@tarragon/shared";
+import { SPECIALIST_TYPE_VALUES, type Database } from "@tarragon/shared";
 import { requestSpecialistReferral } from "./referral-request";
 
 /**
@@ -19,22 +19,9 @@ import { requestSpecialistReferral } from "./referral-request";
  * patient request to see a specialist — never speculatively.
  */
 
-const SPECIALIST_TYPES = [
-  "urologist",
-  "oncologist",
-  "ob_gyn",
-  "cardiology",
-  "endocrinology",
-  "nephrology",
-  "ophthalmology",
-  "dietetics",
-  "podiatry",
-  "other",
-] as const satisfies readonly Enums<"specialist_type">[];
-
 const requestReferralSchema = z.object({
   specialistType: z
-    .enum(SPECIALIST_TYPES)
+    .enum(SPECIALIST_TYPE_VALUES)
     .describe("The kind of specialist the patient wants to see. Use 'other' if none of the listed types fit."),
   reason: z
     .string()

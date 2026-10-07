@@ -14,9 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Enums } from "@tarragon/shared";
 
-/** Typed off the enum, not a hand-written union — see the matching map in
- * apps/web/src/app/(dashboard)/patient/verified-documents-card.tsx, which
- * this mirrors so a doctor sees the same label the patient picked. */
+/** Typed off the enum, not a hand-written union. Mirrors the patient-facing
+ * label set the (now-retired, 2026-09-24) patient purchase card used, so a
+ * doctor sees the same label a patient picked on any document requested
+ * before the retirement. */
 const DOCUMENT_TYPE_LABEL: Record<Enums<"verified_document_type">, string> = {
   fit_to_work: "Fit-to-work letter",
   return_to_work: "Return-to-work letter",

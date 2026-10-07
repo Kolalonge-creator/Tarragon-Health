@@ -9,6 +9,7 @@ import {
   initiateSubsidizedCheckout,
   type SubsidizedOrderType,
 } from "@/lib/billing/subsidy-checkout";
+import { initiateSponsoredServiceReservationCheckout } from "@/lib/billing/sponsored-service-reservation-checkout";
 import { startActingFor, stopActingFor } from "@/lib/acting/acting-for";
 
 export type SponsorActionState = { error?: string; message?: string } | undefined;
@@ -74,6 +75,44 @@ export async function paySomeonesBill(
   const result = await initiateSponsorBillCheckout({
     beneficiaryProfileId,
     orderId,
+    email: user.email,
+    callbackUrl: `${origin}/patient/supporting`,
+  });
+
+  if (!result.ok) return { error: result.error };
+  redirect(result.checkoutUrl);
+}
+
+/**
+ * Pays for a named service for someone who isn't on Tarragon yet and has no
+ * profile_access grant — just their phone number and first name. Unlike
+ * paySomeonesPlan/paySomeonesBill above, there is no existing grant to
+ * re-check: the reservation sits pending until the sponsor's payment lands,
+ * then the recipient claims it themselves once they've signed up under that
+ * same phone number. See sponsored-service-reservation-checkout.ts's header
+ * for the full two-step shape.
+ */
+export async function reserveServiceForSomeone(
+  _prevState: SponsorActionState,
+  formData: FormData,
+): Promise<SponsorActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+  if (!user.email) return { error: "Your account needs an email on file to check out." };
+
+  const serviceProductId = formData.get("serviceProductId") as string;
+  const recipientPhone = formData.get("recipientPhone") as string;
+  const recipientFirstName = formData.get("recipientFirstName") as string;
+
+  if (!serviceProductId) return { error: "Choose a service first." };
+  if (!recipientPhone) return { error: "Enter their phone number." };
+  if (!recipientFirstName?.trim()) return { error: "Enter their first name." };
+
+  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const result = await initiateSponsoredServiceReservationCheckout({
+    serviceProductId,
+    recipientPhone,
+    recipientFirstName,
     email: user.email,
     callbackUrl: `${origin}/patient/supporting`,
   });

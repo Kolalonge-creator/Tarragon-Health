@@ -38,7 +38,7 @@ export function SmokingClient({ patientId }: { patientId: string }) {
 
   return (
     <div className="space-y-6">
-      <ProfileCard patientId={patientId} profile={profile.data} />
+      <ProfileCard patientId={patientId} profile={profile.data} isLoading={profile.isLoading} />
 
       {status === "current" && (
         <Card>
@@ -121,24 +121,48 @@ export function SmokingClient({ patientId }: { patientId: string }) {
   );
 }
 
-function ProfileCard({
+// Exported for testing only (smoking-client.test.tsx) — every other
+// consumer should still go through SmokingClient.
+export function ProfileCard({
   patientId,
   profile,
+  isLoading,
 }: {
   patientId: string;
   profile: ReturnType<typeof useSmokingProfile>["data"];
+  isLoading: boolean;
 }) {
   const t = useT();
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState(!profile);
-  const [status, setStatus] = useState(profile?.status ?? "never");
+  // Not seeded from `!profile` directly: `profile` is undefined before the
+  // query resolves (async), and useState's initializer only runs once --
+  // seeding from it here would permanently show the edit form on every fresh
+  // load, even for a patient who already has a saved profile. Wait for the
+  // query to settle before deciding there's nothing to edit (same fix as
+  // weight-client.tsx's WeightGoalSection).
+  const [editingOverride, setEditingOverride] = useState<boolean | null>(null);
+  const editing = editingOverride ?? (!isLoading && !profile);
+  // Same async-seeding trap as `editing` above, one component-instance level
+  // deeper: ProfileCard never unmounts across the loading -> loaded
+  // transition, so a useState(profile?.status ?? "never") initializer here
+  // would freeze on whatever `profile` was (usually undefined) at the very
+  // first render and never notice the real value arriving later. That left
+  // the edit form's Status dropdown defaulting to "never" for a returning
+  // "current"/"former" smoker who clicks Update, hiding the fields that
+  // status implies and silently overwriting their saved status back to
+  // "never" if they saved without touching the dropdown. Derived fresh from
+  // `profile` every render instead, only overridden once the patient
+  // actually picks something in this edit session.
+  const [statusOverride, setStatusOverride] = useState<(typeof SMOKING_STATUSES)[number] | null>(null);
+  const status = statusOverride ?? profile?.status ?? "never";
 
   const [state, formAction, pending] = useActionState<SmokingActionState, FormData>(
     async (prev, formData) => {
       const result = await setSmokingProfileAction(prev, formData);
       if (result?.success) {
         queryClient.invalidateQueries({ queryKey: [PROFILE_KEY, patientId] });
-        setEditing(false);
+        setEditingOverride(false);
+        setStatusOverride(null);
       }
       return result;
     },
@@ -150,7 +174,7 @@ function ProfileCard({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>{SMOKING_STATUS_LABELS[profile.status]}</CardTitle>
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+          <Button size="sm" variant="outline" onClick={() => setEditingOverride(true)}>
             {t("Update")}
           </Button>
         </CardHeader>
@@ -178,7 +202,7 @@ function ProfileCard({
               id="status"
               name="status"
               defaultValue={status}
-              onChange={(e) => setStatus(e.target.value as typeof status)}
+              onChange={(e) => setStatusOverride(e.target.value as typeof status)}
             >
               {SMOKING_STATUSES.map((s) => (
                 <option key={s} value={s}>
@@ -235,7 +259,14 @@ function ProfileCard({
               {pending ? t("Saving…") : t("Save")}
             </Button>
             {profile && (
-              <Button type="button" variant="outline" onClick={() => setEditing(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditingOverride(false);
+                  setStatusOverride(null);
+                }}
+              >
                 {t("Cancel")}
               </Button>
             )}

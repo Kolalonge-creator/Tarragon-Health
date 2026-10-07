@@ -11,7 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { anyQueryFailed, failedQueryLabels, joinLabels } from "@/lib/queries/server-query-state";
+import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
+import { OpenAdminSearchBar } from "@/components/shell/open-admin-search-bar";
+
+export const metadata = { title: "Dashboard" };
 
 type AdminTile = {
   href: string;
@@ -41,7 +45,6 @@ function statusBadgeVariant(status: string): "green" | "red" | "grey" {
 const DEPENDENCY_LABELS: Record<keyof Omit<DependencyReport, "checked_at">, string> = {
   supabase: "Supabase",
   ml_service: "ML service",
-  whatsapp: "WhatsApp",
   termii: "Termii SMS",
   paystack: "Paystack",
   resend: "Resend (email)",
@@ -73,11 +76,17 @@ export default async function AdminPage() {
   const canViewIncidents = isSuperAdmin || keys.has("incidents.view") || keys.has("incidents.manage");
   const canManageAiGovernance = isSuperAdmin || keys.has("ai_governance.manage");
 
-  // Live platform KPIs for the welcome banner + stat row. The RPCs return
+  // Platform KPIs for the welcome banner + stat row. The RPCs return
   // '{}' (parsed to all-zero defaults) for a caller who isn't analyst/admin,
   // and the count queries return 0 rows rather than erroring under RLS — so
   // this is safe to call unconditionally for any role that can reach /admin
   // via the delegated-access carve-out in proxy.ts.
+  // Corrected 2026-09-18: businessRes below is no longer live-aggregated —
+  // analytics_business_summary() now reads a nightly-refreshed snapshot
+  // (docs/DATA_ARCHITECTURE_GAPS_BUILD_PLAN.md §3); it carries its own
+  // `_computed_at` for a consumer that wants to show staleness, which this
+  // banner does not yet do (see the full "as of"/refresh treatment on
+  // /analytics/business instead).
   const supabase = await createClient();
   const [
     businessRes,
@@ -87,8 +96,7 @@ export default async function AdminPage() {
     openBookingsRes,
     pendingBookingsRes,
     dependencyReport,
-    pendingAiVersionApprovalRes,
-    pendingClinicalAccuracyLabelRes,
+    aiGovernanceSignoff,
   ] = await Promise.all([
     supabase.rpc("analytics_business_summary"),
     supabase.rpc("analytics_financial_summary"),
@@ -110,20 +118,13 @@ export default async function AdminPage() {
     // server-side. See docs/BUSINESS_CONTINUITY_DR_SPEC.md.
     checkDependencies(),
     // AI governance (Module 40) is easy to lose track of — it lives one tile
-    // among ~60 on this page, and the two actions below are real,
+    // among ~60 on this page, and the two counts below are real,
     // time-sensitive work sitting on a Chief Medical Officer's desk, not
     // background configuration. Surfaced in the welcome banner below rather
-    // than left for someone to happen across the tile.
-    supabase
-      .from("ai_system_versions")
-      .select("*", { count: "exact", head: true })
-      .is("approved_at", null)
-      .is("retired_at", null),
-    supabase
-      .from("ai_evaluation_cases")
-      .select("*, ai_evaluation_suites!inner(kind)", { count: "exact", head: true })
-      .eq("ai_evaluation_suites.kind", "clinical")
-      .is("expected_tier", null),
+    // than left for someone to happen across the tile. Shared with the
+    // clinician-reachable mirror (/clinician/ai-governance) via
+    // readPendingAiGovernanceSignoff so the two counts can never drift.
+    readPendingAiGovernanceSignoff(supabase),
   ]);
 
   const business = businessSummarySchema.parse(businessRes.data ?? {});
@@ -132,10 +133,10 @@ export default async function AdminPage() {
   const pendingVerificationCount = pendingVerificationRes.count ?? 0;
   const openBookingsCount = openBookingsRes.count ?? 0;
   const pendingBookingsCount = pendingBookingsRes.count ?? 0;
-  const pendingAiVersionApprovalCount = pendingAiVersionApprovalRes.count ?? 0;
-  const pendingClinicalAccuracyLabelCount = pendingClinicalAccuracyLabelRes.count ?? 0;
-  const aiGovernanceFailed = anyQueryFailed([pendingAiVersionApprovalRes, pendingClinicalAccuracyLabelRes]);
-  const aiGovernanceAttentionCount = pendingAiVersionApprovalCount + pendingClinicalAccuracyLabelCount;
+  const pendingAiVersionApprovalCount = aiGovernanceSignoff.pendingVersionApprovalCount;
+  const pendingClinicalAccuracyLabelCount = aiGovernanceSignoff.pendingClinicalAccuracyLabelCount;
+  const aiGovernanceFailed = aiGovernanceSignoff.failed;
+  const aiGovernanceAttentionCount = aiGovernanceSignoff.attentionCount;
 
   // Six reads, four tiles and one welcome sentence, all of which used to
   // render a confident zero on failure. The `?? 0` and `?? {}` above are what
@@ -366,6 +367,13 @@ export default async function AdminPage() {
           icon: SEMANTIC_ICON.booking,
           visible: isSuperAdmin,
         },
+        {
+          href: "/admin/refund-requests",
+          label: "Refund requests",
+          blurb: "First-purchase money-back guarantee claims awaiting a decision",
+          icon: SEMANTIC_ICON.billing,
+          visible: isSuperAdmin,
+        },
       ],
     },
     {
@@ -395,7 +403,7 @@ export default async function AdminPage() {
         {
           href: "/admin/settings/broadcasts",
           label: "Broadcasts & announcements",
-          blurb: "Email/WhatsApp/SMS to a targeted audience",
+          blurb: "Email and in-app announcements to a targeted audience",
           icon: NAV_ICON.broadcast,
           visible: can("broadcasts.send"),
         },
@@ -412,13 +420,6 @@ export default async function AdminPage() {
           blurb: "Inbound partner keys and outbound partner APIs",
           icon: SEMANTIC_ICON.family,
           visible: can("integrations.manage"),
-        },
-        {
-          href: "/admin/settings/feature-flags",
-          label: "Feature flags",
-          blurb: "Roll a feature out to staff, a percentage, or a named cohort",
-          icon: NAV_ICON.settings,
-          visible: can("feature_flags.manage"),
         },
         {
           href: "/admin/settings/protocol-api",
@@ -442,10 +443,24 @@ export default async function AdminPage() {
           visible: isSuperAdmin,
         },
         {
+          href: "/admin/doctor-testimonials",
+          label: "Doctor testimonials",
+          blurb: "Add and publish a doctor's quote, with its off-platform consent on file",
+          icon: NAV_ICON.review,
+          visible: isSuperAdmin,
+        },
+        {
           href: "/admin/settings/platform-modules",
           label: "Platform modules",
           blurb: "Activate the payer or provider-organisation platform",
           icon: NAV_ICON.settings,
+          visible: isSuperAdmin,
+        },
+        {
+          href: "/admin/settings/ngo-programmes",
+          label: "NGO-funded programmes",
+          blurb: "Create a funded cohort for a signed NGO/PHC partner",
+          icon: SEMANTIC_ICON.corporate,
           visible: isSuperAdmin,
         },
       ],
@@ -470,7 +485,7 @@ export default async function AdminPage() {
         {
           href: "/admin/settings/feature-flags",
           label: "Feature flags",
-          blurb: "Roll a feature out by state, role, org or percentage, no deploy",
+          blurb: "Roll a feature out by staff, state, role, organisation, or percentage — no deploy",
           icon: NAV_ICON.flag,
           visible: can("feature_flags.manage"),
         },
@@ -482,6 +497,7 @@ export default async function AdminPage() {
 
   return (
     <div className="space-y-6">
+      <OpenAdminSearchBar />
       <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-clinical-navy to-brand-green p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
         <div>
           <h1 className="font-heading text-2xl font-semibold sm:text-3xl">

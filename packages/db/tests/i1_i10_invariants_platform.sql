@@ -31,7 +31,7 @@
 -- Mapping summary (see each section for the full reasoning):
 --   I1  no clinical content on an open rail            -> PASS (fixed 20260730094515 -- notifications.
 --                                                                 content_class + a CHECK reject
---                                                                 clinical + whatsapp/sms/email; see
+--                                                                 clinical + sms/email; see
 --                                                                 packages/db/tests/i1_notifications_
 --                                                                 content_class.sql for the full proof)
 --   I2  every reading resolves to exactly one           -> N/A (platform has no rigid classification-join
@@ -304,22 +304,22 @@ begin
 end $$;
 
 -- ===========================================================================
--- I1 — no clinical content on an open rail (whatsapp/sms/email). FIXED
+-- I1 — no clinical content on an open rail (sms/email). FIXED
 -- 20260730094515_i1_notifications_content_class.sql.
 --
 -- notifications.content_class ('clinical'/'non_clinical', default
 -- 'non_clinical') + a CHECK (notifications_no_clinical_on_open_rail) now
--- reject content_class='clinical' on whatsapp/sms/email at the DB level —
+-- reject content_class='clinical' on sms/email at the DB level —
 -- a real backstop, not just the prior CONVENTION (Non-Negotiable Business
--- Rules: every WhatsApp/SMS/email template in this codebase is
+-- Rules: every SMS/email template in this codebase is
 -- deliberately non-clinical — confirmations, reminders, alerts). All 28
 -- live templates in supabase/functions/send-pending-notifications were
 -- read before this migration; the two nuances found (broadcast_
 -- announcement's admin free text, referral_specialist_alert's email-only
 -- referral_reason to a receiving specialist) are documented in the
 -- migration's own header, not silently resolved. Proven live: an insert
--- with content_class='clinical' now fails a real check_violation on all
--- three open channels; content_class='clinical' + in_app succeeds; every
+-- with content_class='clinical' now fails a real check_violation on both
+-- open channels (sms, email); content_class='clinical' + in_app succeeds; every
 -- EXISTING insert pattern (no content_class specified) still succeeds and
 -- defaults to 'non_clinical', so zero of the ~25 pre-existing notification
 -- trigger functions needed to change. Full 5-case proof in
@@ -335,17 +335,35 @@ begin
 
   begin
     insert into public.notifications (organisation_id, recipient_id, channel, template, content_class)
-    values (v_org, v_pat, 'whatsapp', 'I1 PASS-PROOF FIXTURE', 'clinical');
+    values (v_org, v_pat, 'sms', 'I1 PASS-PROOF FIXTURE', 'clinical');
   exception when check_violation then
     v_blocked := true;
   end;
 
   insert into invariant_result values (
     1, 'I1', case when v_blocked then 'PASS' else 'GAP' end,
-    'a content_class=clinical row on channel=whatsapp is rejected',
+    'a content_class=clinical row on channel=sms is rejected',
     'rejected (check_violation)',
     case when v_blocked then 'rejected' else 'ACCEPTED — REGRESSION, was fixed 20260730094515' end
   );
+
+  -- SABOTAGE: with the CHECK dropped (undone straight after), the same insert
+  -- must be accepted, otherwise the rejection above is not the CHECK's doing.
+  declare v_sab_accepted boolean := false;
+  begin
+    begin
+      alter table public.notifications drop constraint notifications_no_clinical_on_open_rail;
+      insert into public.notifications (organisation_id, recipient_id, channel, template, content_class)
+      values (v_org, v_pat, 'sms', 'I1 SABOTAGE FIXTURE', 'clinical');
+      v_sab_accepted := true;
+      raise exception 'sabotage_undo';
+    exception when others then
+      if sqlerrm <> 'sabotage_undo' then raise; end if;
+    end;
+    if not v_sab_accepted then
+      raise exception 'VACUOUS TEST: the I1 row was still rejected with the CHECK dropped';
+    end if;
+  end;
 end $$;
 
 -- ===========================================================================

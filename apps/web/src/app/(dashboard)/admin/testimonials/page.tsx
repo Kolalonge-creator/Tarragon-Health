@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { TestimonialModerationButtons } from "./moderation-buttons";
 
+export const metadata = { title: "Testimonials" };
+
 export default async function AdminTestimonialsPage() {
   const profile = await getCurrentProfile();
   // proxy.ts already blocks non-admins from /admin/**; defence in depth.
@@ -51,6 +53,7 @@ export default async function AdminTestimonialsPage() {
                 <Badge variant={t.consent_to_publish ? "green" : "red"}>
                   {t.consent_to_publish ? "Consented to publish" : "No consent to publish"}
                 </Badge>
+                {t.condition && <Badge variant="grey">{t.condition}</Badge>}
               </div>
               <p className="mt-1 text-sm text-charcoal-ink/80">&ldquo;{t.quote}&rdquo;</p>
               <TestimonialModerationButtons
@@ -80,6 +83,7 @@ export default async function AdminTestimonialsPage() {
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <Badge variant={t.status === "published" ? "green" : "grey"}>{t.status}</Badge>
+                {t.condition && <Badge variant="grey">{t.condition}</Badge>}
                 {!t.consent_to_publish && <Badge variant="red">No consent on file</Badge>}
               </div>
             </div>

@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import { useCompanyProfile } from "@/lib/finance/queries";
+import { formatPatientDateTime } from "@/lib/format-date";
 
 export function ReportLetterhead({ title, subtitle }: { title: string; subtitle: string }) {
   const { data: profile } = useCompanyProfile();
 
-  const generatedAt = new Date().toLocaleString("en-GB", {
+  const generatedAt = formatPatientDateTime(new Date(), {
     day: "numeric",
     month: "long",
     year: "numeric",

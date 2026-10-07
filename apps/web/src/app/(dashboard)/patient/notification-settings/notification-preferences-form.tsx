@@ -21,15 +21,18 @@ const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
   care_messages: "Messages from your care team",
   education_wellness: "Health education & wellness",
   billing: "Billing & payments",
+  reputation_requests: "Review requests",
 };
 
-type Channel = "email" | "sms" | "push" | "whatsapp";
+type Channel = "email" | "sms" | "push";
 
+// SMS is deliberately not rendered as a toggle: it is reserved for
+// verification codes and clinician paging, so a routine-notification toggle
+// would promise something it wouldn't do. The underlying column stays
+// untouched so a stored value is preserved, just not shown or editable.
 const CHANNELS: { key: Channel; label: string }[] = [
   { key: "email", label: "Email" },
-  { key: "sms", label: "SMS" },
   { key: "push", label: "Push" },
-  { key: "whatsapp", label: "WhatsApp" },
 ];
 
 /** A missing row for a category means every channel defaults on — matches
@@ -39,7 +42,6 @@ const ALL_CHANNELS_ON: Record<Channel, boolean> = {
   email: true,
   sms: true,
   push: true,
-  whatsapp: true,
 };
 
 function togglesFromRow(
@@ -50,7 +52,6 @@ function togglesFromRow(
     email: row.email_enabled,
     sms: row.sms_enabled,
     push: row.push_enabled,
-    whatsapp: row.whatsapp_enabled,
   };
 }
 
@@ -85,7 +86,6 @@ export function NotificationPreferencesForm({
         emailEnabled: next.email,
         smsEnabled: next.sms,
         pushEnabled: next.push,
-        whatsappEnabled: next.whatsapp,
       },
       {
         onSuccess: () => {
@@ -112,7 +112,10 @@ export function NotificationPreferencesForm({
             <Card key={category}>
               <CardHeader className="flex-row items-center justify-between gap-3 pb-3">
                 <CardTitle className="text-base">{CATEGORY_LABEL[category]}</CardTitle>
-                <div className="h-4 text-xs">
+                {/* role="status": a toggle's save outcome appears here purely
+                    as a visual flash — without a live region a screen-reader
+                    user gets no confirmation a preference actually saved. */}
+                <div className="h-4 text-xs" role="status">
                   {isSavingThis && <span className="text-charcoal-ink/50 dark:text-night-ink/55">Saving…</span>}
                   {isSavedFlash && <span className="font-medium text-brand-green dark:text-brand-green-bright">Saved</span>}
                 </div>

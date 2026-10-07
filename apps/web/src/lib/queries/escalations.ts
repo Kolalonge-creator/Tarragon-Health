@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { compareByAlert } from "@/lib/worklist/priority";
 import { generateCaseBriefAction } from "@/lib/case-briefs/actions";
+import { handleIfPermissionDenied } from "@/lib/audit/log-denied-action";
 import type { EscalationLevel, ScreeningResultStatus, Tables } from "@tarragon/shared";
 
 export type EscalationWithDetails = Tables<"escalations"> & {
@@ -151,11 +152,23 @@ export function useRaiseEscalation() {
  * specific doctor's queue at creation, so this mutation is deliberately
  * scoped to `assigned_doctor_id is null` only — it is not the everyday way
  * work gets picked up any more, see useStartEscalationReview for that.
+ *
+ * Gated by the same private.enforce_emergency_escalation_tier trigger as
+ * useStartEscalationReview (a stale worklist showing an unassigned case that
+ * someone else just claimed, or a tier that can't clear the emergency bar,
+ * both surface here as 42501) -- durably logged via handleIfPermissionDenied
+ * for the same reason its sibling is.
  */
 export function useClaimEscalation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (escalationId: string) => {
+    mutationFn: async ({
+      escalationId,
+      organisationId,
+    }: {
+      escalationId: string;
+      organisationId: string;
+    }) => {
       const supabase = createClient();
       const {
         data: { user },
@@ -170,7 +183,16 @@ export function useClaimEscalation() {
         .is("assigned_doctor_id", null)
         .select("clinician_alert_id")
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        handleIfPermissionDenied(error, {
+          action: "escalations.claim_denied",
+          entityType: "escalations",
+          entityId: escalationId,
+          organisationId,
+          fallbackReason: "Escalation status-transition attempt rejected by the authority gate",
+        });
+        throw error;
+      }
       return data;
     },
     onSuccess: (data) => {
@@ -197,11 +219,29 @@ export function useClaimEscalation() {
  * (private.enforce_emergency_escalation_tier, 20260831001458) to the
  * assigned doctor or the Chief Medical Officer; this mutation only decides
  * whether to render the "Start review" control.
+ *
+ * A bystander (not the assigned doctor, not the CMO) who still attempts this
+ * — e.g. a stale worklist that hasn't refreshed since the case was
+ * reassigned — gets a 42501 from the trigger, which is durably logged via
+ * logDeniedAction (see
+ * supabase/migrations/20260918085308_wire_audit_reason_and_denied_action_logging.sql
+ * for why that has to be a separate call, not something the trigger itself
+ * can log). private.enforce_emergency_escalation_tier raises 42501 for more
+ * than one reason (the bystander check here, but also re-resolving an
+ * already-terminal case) — denialReasonFromError logs the trigger's own
+ * message rather than a single hardcoded guess, so the audit trail names
+ * whichever branch actually fired.
  */
 export function useStartEscalationReview() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (escalationId: string) => {
+    mutationFn: async ({
+      escalationId,
+      organisationId,
+    }: {
+      escalationId: string;
+      organisationId: string;
+    }) => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("escalations")
@@ -210,7 +250,16 @@ export function useStartEscalationReview() {
         .eq("status", "open")
         .select("clinician_alert_id")
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        handleIfPermissionDenied(error, {
+          action: "escalations.claim_denied",
+          entityType: "escalations",
+          entityId: escalationId,
+          organisationId,
+          fallbackReason: "Escalation status-transition attempt rejected by the authority gate",
+        });
+        throw error;
+      }
       return data;
     },
     onSuccess: (data) => {
@@ -229,12 +278,19 @@ export function useStartEscalationReview() {
  * gets assigned (see private.auto_assign_escalation, 20260831001458).
  * Resets status back to "open": the newly-assigned doctor starts their own
  * review explicitly (useStartEscalationReview) rather than being marked as
- * already reviewing something they haven't opened yet. Setting
- * assigned_doctor_id to someone OTHER than the caller is gated by a DB
- * trigger to doctor_tier = 'chief_medical_officer'; this mutation only
- * decides whether to render the "Assign to…" control (see canAssignCases in
- * lib/clinical/doctor-tier.ts) — the trigger is the real enforcement
- * boundary.
+ * already reviewing something they haven't opened yet.
+ *
+ * Goes through the public.reassign_escalation() RPC rather than a bare
+ * `.update()` (see 20260918085308_wire_audit_reason_and_denied_action_logging.sql)
+ * so an optional caller-supplied `reason` ("rebalancing", "routing to a
+ * specialist's expertise") lands on the resulting audit_log row — never
+ * patient-identifying or clinical detail, see audit_log.reason's own column
+ * comment. The RPC is SECURITY INVOKER and performs the exact same update;
+ * setting assigned_doctor_id to someone OTHER than the caller is still gated
+ * by the DB trigger to doctor_tier = 'chief_medical_officer', unchanged —
+ * this mutation only decides whether to render the "Assign to…" control (see
+ * canAssignCases in lib/clinical/doctor-tier.ts) and, on a 42501 from that
+ * gate, durably logs the denial via logDeniedAction.
  */
 export function useAssignEscalation() {
   const queryClient = useQueryClient();
@@ -242,16 +298,30 @@ export function useAssignEscalation() {
     mutationFn: async ({
       escalationId,
       doctorProfileId,
+      organisationId,
+      reason,
     }: {
       escalationId: string;
       doctorProfileId: string;
+      organisationId: string;
+      reason?: string;
     }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("escalations")
-        .update({ assigned_doctor_id: doctorProfileId, status: "open" })
-        .eq("id", escalationId);
-      if (error) throw error;
+      const { error } = await supabase.rpc("reassign_escalation", {
+        p_escalation_id: escalationId,
+        p_doctor_profile_id: doctorProfileId,
+        p_reason: reason || undefined,
+      });
+      if (error) {
+        handleIfPermissionDenied(error, {
+          action: "escalations.reassignment_denied",
+          entityType: "escalations",
+          entityId: escalationId,
+          organisationId,
+          fallbackReason: "Reassignment attempted without Chief Medical Officer authority",
+        });
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["escalations"] });

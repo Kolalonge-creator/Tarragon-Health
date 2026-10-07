@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/client";
 import type { Database, Tables } from "@tarragon/shared";
 
 export type PanelBundle = Tables<"panel_bundles">;
-export type LabProvider = Tables<"lab_providers">;
 
 /**
  * §56.4/§56.6 test-definition fields (specimen/prep/units/reference range/
@@ -21,44 +20,6 @@ export type ScreenTypeCatalogueFields = {
   reference_range_text: string | null;
   patient_explainer: string | null;
 };
-
-/** One branch of one active laboratory that offers a given test — the
- * §56.7 booking flow's location-selection step. Backed by the
- * list_lab_test_locations RPC (read-only, composes already-readable
- * catalogues), ahead of codegen for the same reason as above. */
-export type LabTestLocation = {
-  provider_id: string;
-  provider_name: string;
-  integration_status: string;
-  accreditation: string | null;
-  location_id: string;
-  location_name: string;
-  location_state: string;
-  location_address: string;
-  contact_phone: string | null;
-  opening_hours: Record<string, { open: string; close: string } | null> | null;
-  capabilities: string[];
-  turnaround_hours: number | null;
-  price_kobo: number | null;
-};
-
-/** Which branches (across every active, priced laboratory) can actually run
- * this test — pass no code to list every active branch. */
-export function useLabTestLocations(testCode: string | null | undefined, state?: string | null) {
-  return useQuery({
-    queryKey: ["lab-test-locations", testCode, state],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc("list_lab_test_locations", {
-        p_test_code: testCode ?? undefined,
-        p_state: state ?? undefined,
-      });
-      if (error) throw error;
-      return (data ?? []) as LabTestLocation[];
-    },
-    enabled: !!testCode,
-  });
-}
 
 /** §56.4/§56.6 catalogue detail for one screen_type — what it is, why it may
  * be requested, prep, and turnaround-relevant fields, for the test-search
@@ -111,23 +72,6 @@ export function findSingleTestBundle(bundles: PanelBundle[], screenTypeCode: str
   );
 }
 
-/** Active lab_providers — the schema has no bundle->provider relationship, so this is every active provider, not a filtered "who offers this bundle" list. */
-export function useLabProviders() {
-  return useQuery({
-    queryKey: ["lab-providers"],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("lab_providers")
-        .select("*")
-        .eq("is_active", true)
-        .order("name", { ascending: true });
-      if (error) throw error;
-      return data as LabProvider[];
-    },
-  });
-}
-
 export type LabOrderWithDetails = Tables<"lab_orders"> & {
   // test_codes drives, e.g., whether this order needs the ECG-specific
   // uploader alongside (not instead of — a bundle can mix ecg_resting with
@@ -137,6 +81,10 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
   provider: { name: string; regions: string[] } | null;
   home_visit_provider: { name: string } | null;
   facility: { name: string } | null;
+  // Which lab_provider_locations branch the patient recorded via
+  // set_lab_order_location (2026-09-24) — null until the patient chooses
+  // one, drives both LabOrderLocationPicker and RateLabLocation.
+  location: { name: string } | null;
   // Null-gated "ordered by" attribution (module 57.10) — present only for a
   // clinician-generated order; the patient self-service due-screening path
   // never sets ordered_by, so this stays null there by construction, not by
@@ -153,9 +101,93 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
  * itself is still whatever the assigning staff member manually selects
  * (same UX as /clinician/referrals), this is only used for the read-only
  * patient-facing availability hint.
+ *
+ * `provider` and `ordered_by_staff` used to be embedded directly via
+ * `lab_providers!lab_orders_provider_id_fkey(...)` and
+ * `clinical_staff!lab_orders_ordered_by_fkey(...)` — PostgREST embedded
+ * joins, which resolve against each target table's OWN RLS, not this
+ * query's own. Since 2026-09-25
+ * (20260925023144_restrict_lab_pharmacy_partner_read_to_safe_columns.sql and
+ * 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+ * neither policy admits a patient or ordinary org-staff session, so both
+ * embeds would silently come back null for every row. Fetched separately
+ * from public.lab_provider_directory / public.clinical_staff_directory (the
+ * safe-column views every other patient-facing read of these tables now
+ * uses) and merged client-side instead.
+ *
+ * Both directory views carry every row regardless of is_active (see
+ * 20260925024716_fix_lab_pharmacy_directory_active_filter_and_replay_guard.sql)
+ * — a lab order placed against a provider that has since gone inactive
+ * still needs to show which provider it was, so this attribution lookup is
+ * deliberately NOT filtered to active-only, unlike pharmacy-orders.ts's
+ * usePharmacyCatalogue (a picker, not an attribution read).
  */
 const LAB_ORDER_SELECT =
-  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name), ordered_by_staff:clinical_staff!lab_orders_ordered_by_fkey(full_name, credential_type, credential_number)";
+  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name), location:lab_provider_locations!lab_orders_location_id_fkey(name)";
+
+type LabOrderRow = Omit<LabOrderWithDetails, "provider" | "ordered_by_staff"> & {
+  provider_id: string | null;
+  ordered_by: string | null;
+};
+
+type LabOrderProvider = NonNullable<LabOrderWithDetails["provider"]>;
+type LabOrderOrderer = NonNullable<LabOrderWithDetails["ordered_by_staff"]>;
+
+async function fetchLabOrderProviders(
+  supabase: ReturnType<typeof createClient>,
+  providerIds: string[],
+): Promise<Map<string, LabOrderProvider>> {
+  const providerById = new Map<string, LabOrderProvider>();
+  if (providerIds.length === 0) return providerById;
+  const { data, error } = await supabase.from("lab_provider_directory").select("id, name, regions").in("id", providerIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    providerById.set(row.id, { name: row.name ?? "", regions: row.regions ?? [] });
+  }
+  return providerById;
+}
+
+async function fetchLabOrderOrderers(
+  supabase: ReturnType<typeof createClient>,
+  orderedByIds: string[],
+): Promise<Map<string, LabOrderOrderer>> {
+  const ordererById = new Map<string, LabOrderOrderer>();
+  if (orderedByIds.length === 0) return ordererById;
+  const { data, error } = await supabase
+    .from("clinical_staff_directory")
+    .select("id, full_name, credential_type, credential_number")
+    .in("id", orderedByIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    ordererById.set(row.id, {
+      full_name: row.full_name ?? "",
+      credential_type: row.credential_type,
+      credential_number: row.credential_number,
+    });
+  }
+  return ordererById;
+}
+
+async function attachProvidersAndOrderers(
+  supabase: ReturnType<typeof createClient>,
+  rows: LabOrderRow[],
+): Promise<LabOrderWithDetails[]> {
+  const providerIds = Array.from(new Set(rows.map((r) => r.provider_id).filter((id): id is string => !!id)));
+  const orderedByIds = Array.from(new Set(rows.map((r) => r.ordered_by).filter((id): id is string => !!id)));
+
+  const [providerById, ordererById] = await Promise.all([
+    fetchLabOrderProviders(supabase, providerIds),
+    fetchLabOrderOrderers(supabase, orderedByIds),
+  ]);
+
+  return rows.map((row) => ({
+    ...row,
+    provider: row.provider_id ? (providerById.get(row.provider_id) ?? null) : null,
+    ordered_by_staff: row.ordered_by ? (ordererById.get(row.ordered_by) ?? null) : null,
+  }));
+}
 
 /** Patient's own lab_orders, newest first. RLS (patient_id = auth.uid()) does the scoping. */
 export function usePatientLabOrders(patientId: string) {
@@ -169,7 +201,7 @@ export function usePatientLabOrders(patientId: string) {
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as LabOrderWithDetails[];
+      return attachProvidersAndOrderers(supabase, (data ?? []) as LabOrderRow[]);
     },
     enabled: !!patientId,
   });
@@ -190,7 +222,7 @@ export function useOrgLabOrders() {
         .select(LAB_ORDER_SELECT)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as LabOrderWithDetails[];
+      return attachProvidersAndOrderers(supabase, (data ?? []) as LabOrderRow[]);
     },
   });
 }

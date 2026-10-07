@@ -6,10 +6,9 @@ import { EmergencyContactForm } from "@/app/(dashboard)/patient/emergency-contac
 import { HeightForm } from "@/app/(dashboard)/patient/height-form";
 import { AvatarUploadForm } from "@/app/(dashboard)/patient/avatar-upload-form";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
+import { ChangePhoneCard } from "@/components/account/change-phone-card";
 import { CommunicationPreferencesForm } from "@/app/(dashboard)/patient/communication-preferences-form";
 import { GlucoseUnitForm } from "@/app/(dashboard)/patient/glucose-unit-form";
-import { UiLanguageForm } from "@/app/(dashboard)/patient/ui-language-form";
-import { asUiLanguage } from "@tarragon/shared";
 import { CommunicationHistoryCard } from "@/app/(dashboard)/patient/communication-history-card";
 
 export default async function PatientProfilePage() {
@@ -50,7 +49,6 @@ export default async function PatientProfilePage() {
           <ConditionLanguageForm
             initial={{ condition_language_preference: profile.condition_language_preference }}
           />
-          <UiLanguageForm initial={asUiLanguage(profile.language)} />
           <GlucoseUnitForm
             initial={profile.glucose_display_unit === "mmol_l" ? "mmol_l" : "mg_dl"}
           />
@@ -62,6 +60,7 @@ export default async function PatientProfilePage() {
             }}
           />
           <ChangePasswordForm />
+          <ChangePhoneCard />
         </div>
       </div>
       <CommunicationHistoryCard />

@@ -72,8 +72,7 @@ const CONTEXT_HISTORY_LIMIT = 20;
 
 /** Transport-agnostic AI Coach turn — takes a profile + message, runs the
  * LangGraph flow, and returns the reply. Callable from a server action
- * today; the same function is what a future WhatsApp webhook route would
- * call too, so it doesn't assume anything about how it was invoked.
+ * today and assumes nothing about how it was invoked.
  *
  * Every return path also writes one ai_assistant_turns audit row
  * (audit.ts) — the §36.17 provenance record docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md
@@ -214,6 +213,15 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
         // That is a guardrail suppressing output, which the audit trail
         // records as `blocked`, not `completed`.
         blockedByGuardrail: keywordEmergency,
+        // llmTurn catches its own model failures and degrades to a cautious
+        // reply rather than throwing, so without this the governance audit
+        // trail records a turn that never reached Claude as a completed model
+        // call — which is exactly what it did for the four "Anthropic API key
+        // not found" turns in September 2026. ai_assistant_turns knew; the
+        // one table Module 40 exists to keep honest did not.
+        degradedReason: result.degraded
+          ? (result.errorMessage ?? "the model call failed and the turn degraded")
+          : null,
         resultingAction: result.escalationId
           ? "clinician_alert_raised"
           : tier === "clinician_review"

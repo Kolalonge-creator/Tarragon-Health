@@ -4,8 +4,9 @@ import * as WebBrowser from "expo-web-browser";
 import { koboToNaira } from "@tarragon/shared";
 import { loadFinancialProfile, type FinancialProfile } from "@/lib/financial-profile";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const naira = (kobo: number) => `₦${koboToNaira(kobo).toLocaleString()}`;
 
@@ -44,6 +45,7 @@ interface FinancialProfileScreenProps {
  * system browser rather than reimplementing Paystack initiation here.
  */
 export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) {
+  const colors = useLegacyColors();
   const [profile, setProfile] = useState<FinancialProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +122,12 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
         <View>
           <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Your share of a split bill</Text>
           <MutedText>Someone supporting you paid part of one of your bills. This is the reduced amount left for you to pay yourself.</MutedText>
+          {/*
+           * "Pay my share" is a pure browser hand-off: share.amount_minor is a
+           * subsidy_contributions row (the patient's reduced remainder of a
+           * lab/pharmacy/referral order split with a sponsor, see
+           * payMySubsidyShare/subsidy-checkout.ts), paid by card on the web.
+           */}
           {profile.pendingShares.map((share) => (
             <Card key={share.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
               <Text style={{ fontSize: 13.5, color: colors.ink, flex: 1 }}>
@@ -144,7 +152,7 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
             <Card key={v.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
               <Text style={{ fontSize: 13, color: colors.ink, flex: 1 }}>
                 {v.sku_name ?? (v.kind === "reward_discount" ? "Reward credit" : "Care voucher")}{" "}
-                <Text style={{ color: colors.faint }}>{v.voucher_number}</Text>
+                <Text style={{ color: colors.subtle }}>{v.voucher_number}</Text>
                 {"\n"}
                 <Text style={{ color: colors.muted, fontSize: 12 }}>
                   {naira(v.amount_paid_kobo)} of {naira(v.face_value_kobo)}

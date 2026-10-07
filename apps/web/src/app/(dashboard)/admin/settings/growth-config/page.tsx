@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { GrowthConfigManager, type GrowthConfigRow } from "./growth-config-manager";
 
+export const metadata = { title: "Referral & growth config" };
+
 /**
  * Admin control for public.growth_config — the referral reward (kobo,
  * credited to both referrer and referred) and the apply window (days a new

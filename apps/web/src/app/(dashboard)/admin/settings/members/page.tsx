@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
+import { membersListScope } from "@/lib/auth/members-list-scope";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { anyQueryFailed } from "@/lib/queries/server-query-state";
 import { MembersManager } from "./members-manager";
+
+export const metadata = { title: "Members & access" };
 
 export type MemberRow = {
   id: string;
@@ -30,6 +33,12 @@ export type OrgRow = { id: string; name: string; type: string };
  * so it can show auth emails (which live in auth.users, not profiles) alongside
  * each member's role, custom role, and active permission grants. Reachable by the
  * super admin or anyone the super admin has delegated a user-admin capability to.
+ *
+ * The service role bypasses row-level security, so what the caller sees is decided
+ * here (lib/auth/members-list-scope.ts), matching what the actions let them do: a
+ * Super Admin sees everyone; anyone else sees only the non-admin members of their
+ * own organisation, and only their own organisation in the organisation list.
+ * Grants are attached to the member rows, so they are scoped with them.
  */
 export default async function MembersPage() {
   const profile = await getCurrentProfile();
@@ -40,31 +49,42 @@ export default async function MembersPage() {
     isSuperAdmin ||
     keys.has("users.provision") ||
     keys.has("users.roles.assign") ||
+    keys.has("users.suspend") ||
     keys.has("users.permissions.grant") ||
     keys.has("roles.manage");
   if (!canManageUsers) redirect("/admin");
 
+  const scope = membersListScope({ isSuperAdmin, organisationId: profile.organisation_id });
+
   const svc = createServiceRoleClient();
+
+  // custom_roles is embedded via the profiles.custom_role_id FK explicitly —
+  // custom_roles.created_by also references profiles, so the relationship
+  // is ambiguous without the hint (PostgREST PGRST201).
+  // Excludes patients: this page provisions staff/partner logins only, and
+  // profiles is the same table the entire patient base lives in — loading
+  // every patient here would be both a scale problem and unnecessary PHI
+  // exposure on a page that never needs it.
+  let profilesQuery = svc
+    .from("profiles")
+    .select("id, full_name, role, phone, organisation_id, custom_role_id, is_active, organisations(name), custom_roles!profiles_custom_role_id_fkey(name)")
+    .neq("role", "patient")
+    .order("created_at", { ascending: false });
+  let orgsQuery = svc.from("organisations").select("id, name, type").order("name");
+  if (scope.kind === "organisation") {
+    profilesQuery = profilesQuery.eq("organisation_id", scope.organisationId).neq("role", "admin");
+    orgsQuery = orgsQuery.eq("id", scope.organisationId);
+  }
 
   const [profilesRes, permissionsRes, customRolesRes, grantsRes, orgsRes] =
     await Promise.all([
-      svc
-        .from("profiles")
-        // custom_roles is embedded via the profiles.custom_role_id FK explicitly —
-        // custom_roles.created_by also references profiles, so the relationship
-        // is ambiguous without the hint (PostgREST PGRST201).
-        // Excludes patients: this page provisions staff/partner logins only, and
-        // profiles is the same table the entire patient base lives in — loading
-        // every patient here would be both a scale problem and unnecessary PHI
-        // exposure on a page that never needs it.
-        .select("id, full_name, role, phone, organisation_id, custom_role_id, is_active, organisations(name), custom_roles!profiles_custom_role_id_fkey(name)")
-        .neq("role", "patient")
-        .order("created_at", { ascending: false })
-        .limit(2000),
+      // `limit(0)` returns no rows: a caller with no organisation of their own
+      // sees no members and no organisations.
+      profilesQuery.limit(scope.kind === "none" ? 0 : 2000),
       svc.from("permissions").select("key, label, category, description").order("category").order("label"),
       svc.from("custom_roles").select("id, name, description, base_role, role_permissions(permission_key)").order("name"),
       svc.from("user_permission_grants").select("id, profile_id, permission_key").is("revoked_at", null),
-      svc.from("organisations").select("id, name, type").order("name"),
+      scope.kind === "none" ? orgsQuery.limit(0) : orgsQuery,
     ]);
 
   const { data: profiles } = profilesRes;
@@ -151,6 +171,7 @@ export default async function MembersPage() {
         customRoles={roleRows}
         organisations={(orgs ?? []) as OrgRow[]}
         canProvision={isSuperAdmin || keys.has("users.provision")}
+        provisionCaller={{ isSuperAdmin, organisationId: profile.organisation_id }}
         canManageOrgs={
           isSuperAdmin ||
           keys.has("orgs.manage") ||
@@ -159,6 +180,9 @@ export default async function MembersPage() {
         }
         canAssignRoles={isSuperAdmin || keys.has("users.roles.assign")}
         canEditContact={isSuperAdmin || keys.has("users.contact.edit")}
+        canSuspend={isSuperAdmin || keys.has("users.suspend")}
+        currentMemberId={profile.id}
+        suspendScope={{ isSuperAdmin, organisationId: profile.organisation_id }}
         canGrant={isSuperAdmin || keys.has("users.permissions.grant")}
         canManageRoles={isSuperAdmin || keys.has("roles.manage")}
         canViewActivity={isSuperAdmin || keys.has("members.activity.view")}

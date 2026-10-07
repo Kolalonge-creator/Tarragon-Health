@@ -122,18 +122,45 @@ function fromMedicationSafety(report: SafetyReport): CdsRecommendation[] {
   });
 }
 
+/**
+ * Mirrors private.classify_bp_level's home-BP triage bands (bp_red_flag_engine
+ * migration, §15/§16) — the same population thresholds the platform's BP
+ * red-flag trigger already uses to decide EMERGENCY/RED/AMBER escalation
+ * elsewhere on the platform. Reused here, not re-derived, per this module's
+ * own rule against inventing new clinical logic: this only grades how the
+ * existing "BP remains uncontrolled." recommendation is prioritised, it never
+ * raises or suppresses anything itself. 'high' is reserved for the same
+ * readings that would trigger the red-flag engine's RED/EMERGENCY tiers
+ * (urgent same-day review or hypertensive-crisis territory); 'medium' is the
+ * red-flag engine's AMBER band; 'low' is above the patient's own target but
+ * below every population red-flag threshold.
+ */
+function bpControlSeverity(systolic: number, diastolic: number): { priority: CdsPriority; note: string } {
+  if (diastolic >= 120 || systolic >= 200) {
+    return { priority: "high", note: " This is in the hypertensive-crisis range." };
+  }
+  if (systolic >= 160 || diastolic >= 100) {
+    return { priority: "high", note: " This is in the urgent, same-day-review range." };
+  }
+  if (systolic >= 135 || diastolic >= 85) {
+    return { priority: "medium", note: "" };
+  }
+  return { priority: "low", note: "" };
+}
+
 /** §38.3 "BP remains uncontrolled." — driven by the same HBPM-vs-target comparison hbpm_summary already computes. */
 function fromBpControl(hbpm: HbpmContext | null): CdsRecommendation[] {
   if (!hbpm?.average || hbpm.average.at_target) return [];
   const { systolic, diastolic, n_readings, n_days } = hbpm.average;
+  const { priority, note } = bpControlSeverity(systolic, diastolic);
   return [
     {
       key: "bp_uncontrolled",
       fingerprint: `${systolic}/${diastolic}|target:${hbpm.target.systolic}/${hbpm.target.diastolic}|n:${n_readings}`,
       category: "chronic_disease_control",
-      priority: "medium",
+      priority,
       title: "BP remains uncontrolled.",
-      triggerText: `The patient's home BP average (${systolic}/${diastolic} mmHg over ${n_readings} readings across ${n_days} days) remains above their treatment target of ${hbpm.target.systolic}/${hbpm.target.diastolic} mmHg.`,
+      triggerText: `The patient's home BP average (${systolic}/${diastolic} mmHg over ${n_readings} readings across ${n_days} days) remains above their treatment target of ${hbpm.target.systolic}/${hbpm.target.diastolic} mmHg.${note}`,
       sourceLabel: `Tarragon Hypertension Pathway (Nigeria HEARTS) — target source: ${hbpm.target.source}`,
     },
   ];

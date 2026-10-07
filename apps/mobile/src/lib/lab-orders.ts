@@ -81,12 +81,37 @@ export interface LabOrderItem {
 }
 
 const LAB_ORDER_SELECT =
-  "id, order_number, status, urgency, ordered_at, clinical_indication, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), ordered_by_staff:clinical_staff!lab_orders_ordered_by_fkey(full_name)";
+  "id, order_number, status, urgency, ordered_at, clinical_indication, ordered_by, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions)";
 
 const AWAITING_RESULT_STATUSES: LabOrderStatus[] = ["payment_confirmed", "ordered", "processing"];
 
 export function isAwaitingResult(status: LabOrderStatus): boolean {
   return AWAITING_RESULT_STATUSES.includes(status);
+}
+
+/**
+ * `ordered_by` used to be embedded directly via
+ * `clinical_staff!lab_orders_ordered_by_fkey(...)` — a PostgREST embedded
+ * join, which resolves against `clinical_staff`'s OWN RLS, not this query's
+ * own. Since 2026-09-25 (see
+ * 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+ * that policy no longer admits a patient session, so the embed would
+ * silently come back null for every patient viewing their own lab order.
+ * Fetching the orderer separately from public.clinical_staff_directory (the
+ * safe-column view every patient-facing clinical_staff read now uses)
+ * restores the same attribution without reopening the column-exposure gap
+ * that migration fixed. Mirrors care-support.ts's fetchAnswerers.
+ */
+async function fetchOrderedByStaff(staffIds: string[]): Promise<Map<string, { full_name: string | null }>> {
+  const staffById = new Map<string, { full_name: string | null }>();
+  if (staffIds.length === 0) return staffById;
+  const { data, error } = await supabase.from("clinical_staff_directory").select("id, full_name").in("id", staffIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    staffById.set(row.id, { full_name: row.full_name });
+  }
+  return staffById;
 }
 
 /** Patient's own lab_orders, newest first. RLS (patient_id = auth.uid()) does the scoping. */
@@ -98,9 +123,14 @@ export async function getLabOrders(patientId: string): Promise<QueryResult<LabOr
       .eq("patient_id", patientId)
       .order("ordered_at", { ascending: false });
     if (error) return { ok: false, error: error.message };
+
+    const rows = data ?? [];
+    const orderedByIds = Array.from(new Set(rows.map((row) => row.ordered_by).filter((id): id is string => !!id)));
+    const orderedByStaff = await fetchOrderedByStaff(orderedByIds);
+
     return {
       ok: true,
-      data: (data ?? []).map((row) => ({
+      data: rows.map((row) => ({
         id: row.id,
         orderNumber: row.order_number,
         status: row.status,
@@ -112,7 +142,7 @@ export async function getLabOrders(patientId: string): Promise<QueryResult<LabOr
         testCodes: row.panel_bundle?.test_codes ?? [],
         preparationInstructions: row.panel_bundle?.preparation_instructions ?? null,
         clinicalIndication: row.clinical_indication,
-        orderedByName: row.ordered_by_staff?.full_name ?? null,
+        orderedByName: row.ordered_by ? (orderedByStaff.get(row.ordered_by)?.full_name ?? null) : null,
       })),
     };
   } catch (e) {
@@ -163,7 +193,7 @@ export async function getLabResultInterpretations(
 }
 
 export type ResultDocumentSource = Enums<"lab_result_document_source">;
-export type AiSummaryStatus = Enums<"lab_result_ai_summary_status">;
+export type AiSummaryStatus = Enums<"ai_document_summary_status">;
 
 /** Same storage bucket as apps/web/src/lib/lab-results/documents.ts's
  * RESULT_DOC_BUCKET — kept as a local literal since that file is
@@ -194,6 +224,11 @@ export interface ResultDocumentItem {
   nextSteps: string | null;
   interpretationSentAt: string | null;
   aiSummaryStatus: AiSummaryStatus;
+  /** Which test(s) aiSummaryStatus = 'flagged' refers to — label and the
+   * lab's own printed range, both copied verbatim off the document. Empty
+   * unless aiSummaryStatus is 'flagged'. Mirrors web's ResultDocumentView.aiFlaggedAnalytes
+   * (2026-09-22 widening — see apps/web/src/lib/lab-reports/ai-summary.ts). */
+  aiFlaggedAnalytes: { label: string; reportedRange: string | null }[];
 }
 
 /**
@@ -207,7 +242,7 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
     const { data: rows, error } = await supabase
       .from("lab_result_documents")
       .select(
-        "id, source, original_filename, mime_type, note, test_code, created_at, file_path, reviewed_by, reviewed_at, patient_interpretation, next_steps, interpretation_sent_at, ai_summary_status"
+        "id, source, original_filename, mime_type, note, test_code, created_at, file_path, reviewed_by, reviewed_at, patient_interpretation, next_steps, interpretation_sent_at, ai_summary_status, ai_flagged_analytes"
       )
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false });
@@ -217,12 +252,15 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
     // Batch-resolve reviewer names in one query rather than N+1 — same
     // null-gated attribution as ReviewedResultLine on web, but reviewed_by
     // on this table references profiles.id, so the lookup joins through
-    // clinical_staff.profile_id.
+    // clinical_staff.profile_id. Reads from clinical_staff_directory, not
+    // clinical_staff, since 2026-09-25's clinical_staff_select narrowing
+    // (see 20260925015430_restrict_clinical_staff_patient_read_to_safe_columns.sql)
+    // stopped admitting a patient session to the base table.
     const reviewerIds = [...new Set(rows.map((r) => r.reviewed_by).filter((id): id is string => !!id))];
-    const reviewerNameByProfileId = new Map<string, string>();
+    const reviewerNameByProfileId = new Map<string, string | null>();
     if (reviewerIds.length > 0) {
       const { data: staff } = await supabase
-        .from("clinical_staff")
+        .from("clinical_staff_directory")
         .select("profile_id, full_name")
         .in("profile_id", reviewerIds)
         .eq("active", true);
@@ -231,33 +269,43 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
       }
     }
 
-    const items = await Promise.all(
-      rows.map(async (row) => {
-        let signedUrl: string | null = null;
-        if (row.file_path) {
-          const { data: signed } = await supabase.storage
-            .from(RESULT_DOC_BUCKET)
-            .createSignedUrl(row.file_path, 300);
-          signedUrl = signed?.signedUrl ?? null;
-        }
-        return {
-          id: row.id,
-          source: row.source,
-          originalFilename: row.original_filename,
-          note: row.note,
-          testCode: row.test_code,
-          createdAt: row.created_at,
-          isPdf: row.mime_type === "application/pdf",
-          signedUrl,
-          reviewedAt: row.reviewed_at,
-          reviewedByName: row.reviewed_by ? reviewerNameByProfileId.get(row.reviewed_by) ?? null : null,
-          patientInterpretation: row.patient_interpretation,
-          nextSteps: row.next_steps,
-          interpretationSentAt: row.interpretation_sent_at,
-          aiSummaryStatus: row.ai_summary_status,
-        };
-      })
-    );
+    // Batch-resolve every signed URL in one Storage call rather than N+1 —
+    // same fix as the reviewer-name lookup just above, which this one
+    // originally missed despite sitting right next to it. A patient with
+    // 20 result documents used to fire 20 separate createSignedUrl round
+    // trips on every load of this screen.
+    const filePaths = [...new Set(rows.map((r) => r.file_path).filter((p): p is string => !!p))];
+    const signedUrlByPath = new Map<string, string | null>();
+    if (filePaths.length > 0) {
+      const { data: signed, error: signError } = await supabase.storage
+        .from(RESULT_DOC_BUCKET)
+        .createSignedUrls(filePaths, 300);
+      if (signError) {
+        console.error(`Failed to batch-sign ${filePaths.length} result document URL(s)`, signError);
+      }
+      for (const entry of signed ?? []) {
+        signedUrlByPath.set(entry.path ?? "", entry.signedUrl ?? null);
+      }
+    }
+
+    const items = rows.map((row) => ({
+      id: row.id,
+      source: row.source,
+      originalFilename: row.original_filename,
+      note: row.note,
+      testCode: row.test_code,
+      createdAt: row.created_at,
+      isPdf: row.mime_type === "application/pdf",
+      signedUrl: row.file_path ? (signedUrlByPath.get(row.file_path) ?? null) : null,
+      reviewedAt: row.reviewed_at,
+      reviewedByName: row.reviewed_by ? reviewerNameByProfileId.get(row.reviewed_by) ?? null : null,
+      patientInterpretation: row.patient_interpretation,
+      nextSteps: row.next_steps,
+      interpretationSentAt: row.interpretation_sent_at,
+      aiSummaryStatus: row.ai_summary_status,
+      aiFlaggedAnalytes:
+        (row.ai_flagged_analytes as { label: string; reportedRange: string | null }[] | null) ?? [],
+    }));
     return { ok: true, data: items };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

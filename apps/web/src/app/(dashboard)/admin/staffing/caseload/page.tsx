@@ -20,6 +20,8 @@ import {
   type UtilisationInput,
 } from "@/lib/staffing/caseload";
 
+export const metadata = { title: "Doctor caseload" };
+
 /**
  * Ops-facing view of who's carrying how much, right now — not a fixed
  * doctor:patient ratio (there isn't one, see CLAUDE.md's Non-Negotiable

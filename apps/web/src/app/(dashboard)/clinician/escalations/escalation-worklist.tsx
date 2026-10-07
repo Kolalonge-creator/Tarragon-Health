@@ -243,7 +243,12 @@ export function EscalationWorklist({
                           size="sm"
                           variant="outline"
                           disabled={claim.isPending}
-                          onClick={() => claim.mutate(escalation.id)}
+                          onClick={() =>
+                            claim.mutate({
+                              escalationId: escalation.id,
+                              organisationId: escalation.organisation_id,
+                            })
+                          }
                         >
                           Claim
                         </Button>
@@ -259,7 +264,12 @@ export function EscalationWorklist({
                           size="sm"
                           variant="outline"
                           disabled={startReview.isPending}
-                          onClick={() => startReview.mutate(escalation.id)}
+                          onClick={() =>
+                            startReview.mutate({
+                              escalationId: escalation.id,
+                              organisationId: escalation.organisation_id,
+                            })
+                          }
                         >
                           Start review
                         </Button>
@@ -276,18 +286,79 @@ export function EscalationWorklist({
                         disabled={assign.isPending}
                         value=""
                         onChange={(e) => {
-                          if (!e.target.value) return;
-                          assign.mutate({ escalationId: escalation.id, doctorProfileId: e.target.value });
+                          const doctorProfileId = e.target.value;
+                          if (!doctorProfileId) return;
+                          // Optional -- see useAssignEscalation's own doc
+                          // comment for why this lands in audit_log.reason.
+                          // Never enter a patient name or clinical detail here.
+                          // Clicking Cancel aborts the reassignment entirely
+                          // -- same convention as the reject-reason prompt in
+                          // finance/_components/approvals.tsx -- rather than
+                          // silently proceeding with no reason, which would
+                          // surprise a CMO who meant to back out.
+                          const reason = window.prompt(
+                            "Reason for this reassignment? (optional, no clinical detail)"
+                          );
+                          if (reason === null) {
+                            // The native <select> already visually shows the
+                            // just-picked doctor by the time this handler
+                            // runs (the browser updates it before firing
+                            // onChange) -- window.prompt then blocks
+                            // rendering entirely, so nothing re-syncs it back
+                            // to the value="" prop on abort unless the DOM is
+                            // reset directly here. Not fighting React: this
+                            // control's "value" is a fixed "", never
+                            // state-driven, so there's nothing for a re-render
+                            // to reconcile against.
+                            e.target.value = "";
+                            return;
+                          }
+                          assign.mutate({
+                            escalationId: escalation.id,
+                            doctorProfileId,
+                            organisationId: escalation.organisation_id,
+                            reason: reason.trim() || undefined,
+                          });
                         }}
                       >
                         <option value="">Assign to…</option>
-                        {(assignableDoctors ?? []).map((d) => (
-                          <option key={d.profile_id} value={d.profile_id ?? ""}>
-                            {d.full_name} — {d.doctor_tier ? DOCTOR_TIER_LABEL[d.doctor_tier] : "Unassigned tier"}
-                          </option>
-                        ))}
+                        {(assignableDoctors ?? [])
+                          // The doctor already holding this case is excluded
+                          // -- public.reassign_escalation() itself now
+                          // rejects a same-doctor "reassignment" outright
+                          // (20260918095533), since it would otherwise be a
+                          // no-op UPDATE that silently drops the CMO's
+                          // reason with no audit_log row at all. This is the
+                          // UI-side half of that fix; the DB check is what
+                          // actually enforces it.
+                          .filter((d) => d.profile_id !== escalation.assigned_doctor_id)
+                          .map((d) => (
+                            <option key={d.profile_id} value={d.profile_id ?? ""}>
+                              {d.full_name} — {d.doctor_tier ? DOCTOR_TIER_LABEL[d.doctor_tier] : "Unassigned tier"}
+                            </option>
+                          ))}
                       </select>
                     )}
+                    {canAssign &&
+                      assign.isError &&
+                      // useAssignEscalation() is one shared mutation used by
+                      // every row's select -- isError/error are global to
+                      // that instance, not per-row. Gate the banner on
+                      // `variables` (the args from the LAST .mutate() call)
+                      // matching THIS row's escalation id, or every other
+                      // row would show the same failed row's error too.
+                      assign.variables?.escalationId === escalation.id && (
+                        // reassign_escalation can reject a reason over 300
+                        // chars (22001), a same-doctor no-op (22023), or an
+                        // authority denial (42501, already durably logged by
+                        // handleIfPermissionDenied) -- either way the CMO
+                        // needs to see that the reassignment did NOT go
+                        // through, not just watch the select silently reset.
+                        <span className="max-w-[14rem] text-right text-xs text-red-600">
+                          {(assign.error as { message?: string } | null)?.message ??
+                            "Could not reassign this case."}
+                        </span>
+                      )}
                   </div>
                 </li>
               );

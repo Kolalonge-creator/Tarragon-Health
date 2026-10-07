@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Switch, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, Switch, Text, TextInput, View } from "react-native";
+import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { DEFAULT_SETTINGS, normaliseTime, validateSettings, type NotificationSettingsValue } from "@tarragon/shared";
+import { useUiLanguage } from "@/lib/ui-language";
+import { loadNotificationSettings, saveNotificationSettings } from "@/lib/notification-settings";
+import { NotificationHealthCard } from "./notification-health-card";
 import {
   loadNotificationPreferences,
   updateNotificationPreference,
+  channelTogglesFromRow,
+  type NotificationChannel,
   NOTIFICATION_PREFERENCE_CATEGORIES,
   type NotificationPreferenceCategory,
   type PatientNotificationPreferenceRow,
 } from "@/lib/notification-preferences";
-import { colors, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, SectionDivider } from "@/ui/components";
+import { spacing } from "@/ui/theme";
+import { useLegacyColors } from "@/ui/design";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, SectionDivider } from "@/ui/legacy-kit";
 
 const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
   appointments: "Appointment reminders",
@@ -22,28 +30,13 @@ const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
 };
 
 /**
- * `sms`/`whatsapp` stay real, settable columns on `patient_notification_preferences`
- * (the shared table `notification-preferences.ts` reads/writes) — this app just
- * stopped rendering a toggle for them 2026-09-08, on explicit founder ask, once
- * push registration actually went live (see push-registration.ts). Whatever value
- * those two columns already held keeps flowing to send-pending-notifications
- * unchanged; this is a UI-only narrowing, not a data wipe, and not a change to the
- * platform-wide WhatsApp/SMS notification channel (CLAUDE.md's Non-Negotiable
- * Business Rules) — that stays live for the web app and for delivery-provider
- * fallback. Displayed channels here are just Email and Push now.
+ * `sms` stays a real, settable column on `patient_notification_preferences`
+ * (used for verification codes), but this app only renders Email and Push.
  */
-type Channel = "email" | "sms" | "push" | "whatsapp";
-const DISPLAYED_CHANNELS: { key: Channel; label: string }[] = [
+const DISPLAYED_CHANNELS: { key: NotificationChannel; label: string }[] = [
   { key: "email", label: "Email" },
   { key: "push", label: "Push" },
 ];
-
-const ALL_CHANNELS_ON: Record<Channel, boolean> = { email: true, sms: true, push: true, whatsapp: true };
-
-function togglesFromRow(row: PatientNotificationPreferenceRow | undefined): Record<Channel, boolean> {
-  if (!row) return ALL_CHANNELS_ON;
-  return { email: row.email_enabled, sms: row.sms_enabled, push: row.push_enabled, whatsapp: row.whatsapp_enabled };
-}
 
 interface NotificationSettingsScreenProps {
   patientId: string;
@@ -58,6 +51,34 @@ interface NotificationSettingsScreenProps {
  * scoped strictly to the routine send path.
  */
 export function NotificationSettingsScreen({ patientId, organisationId }: NotificationSettingsScreenProps) {
+  const colors = useLegacyColors();
+  const language = asLocale(useUiLanguage());
+  const tr = (key: MessageKey) => t(key, language);
+  const [delivery, setDelivery] = useState<NotificationSettingsValue>(DEFAULT_SETTINGS);
+  const [deliveryReady, setDeliveryReady] = useState(false);
+  const [deliveryNote, setDeliveryNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    void loadNotificationSettings(patientId).then((r) => {
+      if (r.ok) setDelivery(r.data);
+      setDeliveryReady(true);
+    });
+  }, [patientId]);
+
+  async function saveDelivery() {
+    setDeliveryNote(null);
+    if (validateSettings(delivery) !== null) {
+      setDeliveryNote(tr("notif.settings.error_times"));
+      return;
+    }
+    const next = {
+      ...delivery,
+      quietStart: normaliseTime(delivery.quietStart) ?? delivery.quietStart,
+      quietEnd: normaliseTime(delivery.quietEnd) ?? delivery.quietEnd,
+    };
+    const r = await saveNotificationSettings(next);
+    setDeliveryNote(tr(r.ok ? "notif.settings.saved" : "notif.settings.error_save"));
+  }
   const [rows, setRows] = useState<PatientNotificationPreferenceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,8 +100,8 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
 
   const rowsByCategory = new Map(rows.map((row) => [row.category, row]));
 
-  async function handleToggle(category: NotificationPreferenceCategory, channel: Channel, nextValue: boolean) {
-    const current = togglesFromRow(rowsByCategory.get(category));
+  async function handleToggle(category: NotificationPreferenceCategory, channel: NotificationChannel, nextValue: boolean) {
+    const current = channelTogglesFromRow(rowsByCategory.get(category));
     const next = { ...current, [channel]: nextValue };
     setSavingCategory(category);
     setError(null);
@@ -91,7 +112,6 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
       emailEnabled: next.email,
       smsEnabled: next.sms,
       pushEnabled: next.push,
-      whatsappEnabled: next.whatsapp,
     });
     setSavingCategory(null);
     if (!result.ok) {
@@ -129,12 +149,65 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
         </View>
       </Card>
 
+      <Card style={{ gap: 10 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{tr("notif.settings.quiet_title")}</Text>
+        <MutedText>{tr("notif.settings.quiet_body")}</MutedText>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ fontSize: 13.5, color: colors.ink, flex: 1 }}>{tr("notif.settings.quiet_on")}</Text>
+          <Switch
+            value={delivery.quietEnabled}
+            disabled={!deliveryReady}
+            onValueChange={(v) => setDelivery({ ...delivery, quietEnabled: v })}
+          />
+        </View>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <MutedText>{tr("notif.settings.quiet_from")}</MutedText>
+            <TextInput
+              value={delivery.quietStart}
+              editable={deliveryReady && delivery.quietEnabled}
+              onChangeText={(v) => setDelivery({ ...delivery, quietStart: v })}
+              placeholder="21:00"
+              keyboardType="numbers-and-punctuation"
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, color: colors.ink }}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <MutedText>{tr("notif.settings.quiet_to")}</MutedText>
+            <TextInput
+              value={delivery.quietEnd}
+              editable={deliveryReady && delivery.quietEnabled}
+              onChangeText={(v) => setDelivery({ ...delivery, quietEnd: v })}
+              placeholder="07:00"
+              keyboardType="numbers-and-punctuation"
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, color: colors.ink }}
+            />
+          </View>
+        </View>
+        <SectionDivider />
+        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{tr("notif.settings.discreet_title")}</Text>
+        <MutedText>{tr("notif.settings.discreet_body")}</MutedText>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ fontSize: 13.5, color: colors.ink, flex: 1 }}>{tr("notif.settings.discreet_on")}</Text>
+          <Switch
+            value={delivery.discreet}
+            disabled={!deliveryReady}
+            onValueChange={(v) => setDelivery({ ...delivery, discreet: v })}
+          />
+        </View>
+        <MutedText>{tr("notif.settings.lockscreen_note")}</MutedText>
+        <PrimaryButton title={tr("notif.settings.save")} onPress={() => void saveDelivery()} />
+        {deliveryNote && <MutedText>{deliveryNote}</MutedText>}
+      </Card>
+
+      <NotificationHealthCard />
+
       {loading && <ActivityIndicator color={colors.brand} />}
       {error && <ErrorText>{error}</ErrorText>}
 
       {!loading &&
         NOTIFICATION_PREFERENCE_CATEGORIES.map((category) => {
-          const toggles = togglesFromRow(rowsByCategory.get(category));
+          const toggles = channelTogglesFromRow(rowsByCategory.get(category));
           const isSaving = savingCategory === category;
           return (
             <Card key={category} style={{ gap: 10 }}>

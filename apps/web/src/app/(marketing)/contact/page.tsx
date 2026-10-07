@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Section, SectionHeading } from "../_components/section";
 import { ContactForm } from "./contact-form";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
-import { pageMetadata } from "@/lib/marketing/site";
+import { SITE, pageMetadata } from "@/lib/marketing/site";
 
 export const metadata: Metadata = pageMetadata({
   title: "Contact",
@@ -47,6 +47,12 @@ export default function ContactPage() {
           </p>
           <p className="mt-2 text-center text-xs text-charcoal-ink/65">
             TarragonHealth · RC 9702108
+          </p>
+          {/* Headquarters, not a walk-in address: care happens in the app, so
+              this says where the company is registered, not where to turn up. */}
+          <p className="mt-1 text-center text-xs text-charcoal-ink/65">
+            Headquarters: {SITE.headquarters}. We are an online service, so
+            there is no walk-in clinic to visit.
           </p>
         </div>
       </Section>
