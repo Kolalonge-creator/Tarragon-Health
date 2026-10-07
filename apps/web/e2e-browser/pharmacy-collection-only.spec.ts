@@ -39,10 +39,30 @@ async function createStaff(role: StaffRole, organisationId: string, label: strin
 }
 
 async function login(page: Page, who: { email: string; password: string }): Promise<void> {
-  await page.goto("/login");
-  await page.locator("#email").fill(who.email);
-  await page.locator("#password").fill(who.password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  // One retry: under load the first sign-in can answer "We could not sign you in just then" and clear the form.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page.goto("/login");
+    await page.locator("#email").fill(who.email);
+    await page.locator("#password").fill(who.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    try {
+      await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
+      return;
+    } catch {
+      if (attempt === 1) throw new Error("sign-in did not leave /login after two attempts");
+    }
+  }
+}
+
+// The dev server compiles a route on its first request and can answer that one request with the 404 page (see the note in
+// playwright.config.ts). Reload for up to about 40s before treating a 404 as real, so a cold compile does not fail a required check.
+async function gotoRoute(page: Page, path: string): Promise<void> {
+  await page.goto(path);
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    if ((await page.getByText("We couldn’t find that page").count()) === 0 && (await page.getByText("We couldn't find that page").count()) === 0) return;
+    await page.waitForTimeout(3_000);
+    await page.reload();
+  }
 }
 
 async function shot(page: Page, name: string): Promise<void> {
@@ -59,6 +79,7 @@ test.describe("collection-only pharmacy screens", () => {
   let partnerId: string;
 
   test.beforeAll(async () => {
+    test.setTimeout(180_000);
     patient = await createTestPatient(runId);
     const { data: partner, error } = await adminClient
       .from("pharmacy_partners")
@@ -74,6 +95,8 @@ test.describe("collection-only pharmacy screens", () => {
   });
 
   test.afterAll(async () => {
+    // deleting auth users cascades through many tables; on a busy local database that outlasts the 30s default
+    test.setTimeout(180_000);
     if (pharmacist) await adminClient.auth.admin.deleteUser(pharmacist.userId);
     if (admin) await adminClient.auth.admin.deleteUser(admin.userId);
     if (partnerId) await adminClient.from("pharmacy_partners").delete().eq("id", partnerId);
@@ -83,7 +106,7 @@ test.describe("collection-only pharmacy screens", () => {
   test("a pharmacist edits and saves the pharmacy profile, with no delivery control", async ({ page }) => {
     await login(page, pharmacist);
     await page.waitForURL(/\/pharmacist/, { timeout: 60_000 });
-    await page.goto("/pharmacist/profile");
+    await gotoRoute(page, "/pharmacist/profile");
     await expect(page.locator("#p_name")).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText(/offers delivery/i)).toHaveCount(0);
     await shot(page, "1-pharmacist-profile-before");
@@ -102,7 +125,7 @@ test.describe("collection-only pharmacy screens", () => {
     expect(saved.license_number).toBe("PCN-CLICK-001");
     await shot(page, "2-pharmacist-profile-saved");
 
-    await page.goto("/pharmacist");
+    await gotoRoute(page, "/pharmacist");
     await expect(page.getByText("PCN-CLICK-001").first()).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText(/^Delivery$/)).toHaveCount(0);
     await shot(page, "3-pharmacist-overview");
@@ -112,7 +135,7 @@ test.describe("collection-only pharmacy screens", () => {
     await login(page, admin);
     await page.waitForURL(/\/admin/, { timeout: 60_000 });
     await shot(page, "4a-admin-home");
-    await page.goto("/admin/settings/partners/pharmacies");
+    await gotoRoute(page, "/admin/settings/partners/pharmacies");
     await expect(page.getByText(/Click-through Pharmacy/).first()).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText(/offers delivery/i)).toHaveCount(0);
     await expect(page.locator("main").getByText(/^Delivery$/)).toHaveCount(0);
@@ -122,11 +145,11 @@ test.describe("collection-only pharmacy screens", () => {
   test("the operations dashboard pharmacy tile counts dispensed orders", async ({ page }) => {
     await login(page, admin);
     await page.waitForURL(/\/admin/, { timeout: 60_000 });
-    await page.goto("/analytics/operations");
+    await gotoRoute(page, "/analytics/operations");
     const tile = page.getByText("Pharmacy orders").first();
     await expect(tile).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByText(/dispensed/i).first()).toBeVisible();
-    await expect(page.getByText(/avg/i).filter({ hasText: /pharmacy/i })).toHaveCount(0);
+    // the pharmacy tile now reads "N dispensed" (the old summary showed an average turnaround in hours instead)
+    await expect(page.getByText(/^· \d+ dispensed$/)).toBeVisible();
     await shot(page, "5-ops-dashboard");
   });
 
@@ -144,7 +167,7 @@ test.describe("collection-only pharmacy screens", () => {
     await page.getByRole("button", { name: /take me to my dashboard/i }).click();
     await page.waitForURL(/\/patient(?!\/onboarding)/, { timeout: 60_000 });
 
-    await page.goto("/patient/medications");
+    await gotoRoute(page, "/patient/medications");
     await expect(page.locator("main")).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText(/something went wrong|application error/i)).toHaveCount(0);
     await expect(page.getByText(/medication delivery|home delivery|out for delivery/i)).toHaveCount(0);

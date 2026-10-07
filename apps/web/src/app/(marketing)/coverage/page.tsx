@@ -68,8 +68,8 @@ export default async function CoveragePage() {
             nothing on top.
           </p>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            We do not deliver medication. Your doctor gives you a prescription
-            you can download, and you collect your medicine from a pharmacy you
+            We do not deliver medication. When a doctor prescribes you medicine
+            you can download the prescription and collect it from a pharmacy you
             choose. Collecting a sample from your home still needs a contracted
             partner in your state, and we&apos;d rather say so than imply
             otherwise.

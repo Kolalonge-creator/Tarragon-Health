@@ -13,7 +13,8 @@
  * Home sample collection still depends entirely on a real logistics partner
  * being contracted, and none exists yet in any state. Medication is not
  * delivered at all (spec Part C.2, OQ-16): the patient takes the prescription
- * PDF to a pharmacy they choose and collects it there. Labs briefly gained a second, optional path on 2026-08-21 — a
+ * PDF to a pharmacy they choose and collects it there. Labs briefly gained a
+ * second, optional path on 2026-08-21 — a
  * contracted lab (Synlab) pricing a test so Tarragon could arrange and bill
  * it directly — but every panel_bundles row became guidance_only on
  * 2026-09-10 (migration 20260910011846_catalogue_becomes_guidance_not_
