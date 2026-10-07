@@ -116,9 +116,6 @@ begin
   perform pg_temp.pub(v_l1, v_today + 30);     -- served
   perform pg_temp.pub(v_l2, null);             -- no review date
   perform pg_temp.pub(v_l3, v_today - 1);      -- date passed
-  -- the original fixture had no named reviewer on the published row (the publish gate now requires one at publication), so the check below
-  -- that no reviewer credit is shown without a review record keeps its meaning only if the name and date are cleared again afterwards
-  update public.health_education_content set reviewed_by_name = null, reviewed_at = null where id = v_l1;
   -- v_l4 stays draft
   -- The programme row stays inactive for good: learning_course checks every lesson, the older programme functions only check the row.
   perform pg_temp.act(v_pat);
@@ -131,7 +128,9 @@ begin
   perform pg_temp.rec('a lesson with no review date is not served', 'false', (pg_temp.served_codes() like '%bpc_02%')::text);
   perform pg_temp.rec('a lesson whose review date has passed is not served', 'false', (pg_temp.served_codes() like '%bpc_03%')::text);
   perform pg_temp.rec('a draft is not served', 'false', (pg_temp.served_codes() like '%bpc_04%')::text);
-  perform pg_temp.rec('no reviewer credit without a review record', 'null', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
+  -- A published lesson is published with a named reviewer (S55's publish gate) and cannot lose it (S58b), so the state this check used
+  -- to cover (published, no reviewer, so no credit) cannot be built any more; what is checked is that the credit shown is the real name.
+  perform pg_temp.rec('a published lesson shows its named reviewer', 'Test reviewer', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
   perform pg_temp.back();
   update public.health_education_content set reviewed_by_name = 'Dr Test Reviewer', reviewed_at = now(), clinician_reviewed = false where id = v_l1;
   perform pg_temp.act(v_pat);
