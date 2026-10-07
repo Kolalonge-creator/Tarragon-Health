@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
-import { getProposedConfig } from "@tarragon/shared";
+import { BODY_AREAS, skinPhotoPolicy } from "./skin-photo-config";
 import { t } from "@tarragon/i18n";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -16,14 +16,6 @@ import { stripImageMetadata } from "@/lib/symptom-triage/strip-image-metadata";
  * folder, and then asks the database to register it (consent, limits, retention, the review task). Nothing here reads the image or
  * scores it. Closed means closed: while symptom_checker_enabled is off nothing is stored (and the database refuses as well).
  */
-export type SkinPhotoPolicy = { max_bytes: number; allowed_types: string[]; max_open_per_patient: number; retention_days_unreviewed: number; retention_days_after_review: number; signed_url_seconds: number };
-export const BODY_AREAS = ["face", "scalp", "neck", "chest_or_back", "abdomen", "arm_or_hand", "leg_or_foot", "eye", "mouth_or_ear", "other"] as const;
-export type BodyArea = (typeof BODY_AREAS)[number];
-
-export function skinPhotoPolicy(): SkinPhotoPolicy {
-  return getProposedConfig("symptom.skin_photo_policy").value as unknown as SkinPhotoPolicy;
-}
-
 export type UploadSkinPhotoResult =
   | { status: "sent"; photoId: string }
   | { status: "unavailable" }

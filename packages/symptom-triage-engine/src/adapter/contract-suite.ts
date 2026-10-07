@@ -91,9 +91,24 @@ export function withFault(base: SymptomEngine, fault: ContractFault): SymptomEng
   };
 }
 
+/** Removes /* ... *\/ comments in one linear pass (a lazy regular expression over input of this kind can run slowly on adversarial text). */
+function stripBlockComments(source: string): string {
+  let out = "";
+  let i = 0;
+  while (i < source.length) {
+    const open = source.indexOf("/*", i);
+    if (open === -1) return out + source.slice(i);
+    out += source.slice(i, open);
+    const close = source.indexOf("*/", open + 2);
+    if (close === -1) return out + source.slice(open); // unterminated: keep the text so a forbidden name after it is still found
+    i = close + 2;
+  }
+  return out;
+}
+
 /** Static half of INV-01: names that must not appear in an adapter's source. Returns the offending matches (empty is good). */
 export function forbiddenModelOrNetworkUse(source: string): string[] {
-  const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const code = stripBlockComments(source).replace(/(^|[^:])\/\/.*$/gm, "$1");
   const patterns: [string, RegExp][] = [
     ["anthropic", /anthropic/i],
     ["openai", /openai/i],
