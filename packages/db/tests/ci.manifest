@@ -896,3 +896,5 @@ s36j_cmo_may_approve_payouts.sql
 s41_onboarding_answers.sql
 # S41 acceptance: a cohort code at max_uses is rejected under 30 concurrent claims (exactly 5 of 5 places taken, never 6, same plain refusal for the rest), a returning member is told already, and a lock-free control join must break the limit. Needs S38e (PR 988): prints SKIPPED, not PASS, until join_cohort exists on the database.
 s41_cohort_max_uses_concurrent.sh
+# S42 consent matrix: 5 x 4 policy, required-for-care only on the care purpose, no sensitive type in any bundle; history append-only, RPC-only writes, own rows only; a required withdrawal is refused even for the table owner (OQ-53) and on patient_consents; care access functions never read the matrix; withdrawing every optional consent leaves care in force; the research roster drops a person after withdrawal and never lists test accounts; Care Circle BP block follows the vitals sharing cell. Sabotage: rule trigger removed and consent_in_force always true; both must flip.
+s42_consent_matrix.sql
