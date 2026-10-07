@@ -1361,21 +1361,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "sleep.apnoea_screen",
-    // S57 (function 10.11). Identical to `sleep_apnoea_screen_config` v1 (a test fails on drift). DRAFT, UNSIGNED: eight yes/no items in the
-    // build's own wording modelled on the idea of the published STOP-Bang tool, NOT verified against it. The CMO must read, amend and confirm
-    // (public.confirm_sleep_apnoea_screen_config). Until then the questionnaire saves answers and does nothing else: no result, no task.
+    // S57 (function 10.11), redrafted S57b. Identical to `sleep_apnoea_screen_config` v1 (a test fails on drift). DRAFT, UNSIGNED: eight items
+    // following the published STOP-Bang tool (Chung et al.) in the build's own wording; docs/research/S57b.md lists what is and is not verified.
+    // BMI is computed from height and weight (above 35); neck is a number in cm (40 or more); "not sure" scores unsure_points. Cut-off 3 of 8.
+    // The CMO must read, amend and confirm (public.confirm_sleep_apnoea_screen_config). Until then the questionnaire saves answers and
+    // does nothing else: no result, no task.
     value: {
-      items: [
-        { id: "snoring", points: 1 },
-        { id: "tired", points: 1 },
-        { id: "observed_pauses", points: 1 },
-        { id: "high_blood_pressure", points: 1 },
-        { id: "bmi_over_35", points: 1 },
-        { id: "age_over_50", points: 1 },
-        { id: "neck_large", points: 1 },
-        { id: "sex_male", points: 1 },
-      ],
       cut_off: 3,
+      unsure_points: 1,
+      items: [
+        { id: "snoring", kind: "yes_no", points: 1 },
+        { id: "tired", kind: "yes_no", points: 1 },
+        { id: "observed_pauses", kind: "yes_no", points: 1 },
+        { id: "high_blood_pressure", kind: "yes_no", points: 1 },
+        { id: "bmi", kind: "bmi", points: 1, above: 35 },
+        { id: "age_over_50", kind: "yes_no", points: 1 },
+        { id: "neck", kind: "neck_cm", points: 1, at_least: 40 },
+        { id: "sex_male", kind: "yes_no", points: 1 },
+      ],
     },
     owner: "CMO",
     status: "proposed",

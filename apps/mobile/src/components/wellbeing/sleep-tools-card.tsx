@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Text, View } from "react-native";
-import { SLEEP_SCREEN_ITEM_IDS, getProposedConfig, sleepScreenMessageKey, weeklySleepFeedback, type SleepScreenAnswer, type SleepScreenResult } from "@tarragon/shared";
+import { Text, TextInput, View } from "react-native";
+import { SLEEP_SCREEN_ITEM_IDS, getProposedConfig, sleepScreenAnswers, sleepScreenMessageKey, weeklySleepFeedback, type SleepScreenItem, type SleepScreenResult } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { supabase } from "@/lib/supabase";
 import { useLegacyColors } from "@/ui/design";
@@ -106,12 +106,12 @@ function WindDown({ patientId }: { patientId: string }) {
 
 function Questions() {
   const colors = useLegacyColors();
-  const [inst, setInst] = useState<{ open: boolean; items?: string[] } | null>(null);
-  const [answers, setAnswers] = useState<Record<string, SleepScreenAnswer>>({});
+  const [inst, setInst] = useState<{ open: boolean; items?: SleepScreenItem[] } | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<SleepScreenResult | null>(null);
   const [err, setErr] = useState<"incomplete" | "error" | null>(null);
   useEffect(() => {
-    void supabase.rpc("get_sleep_apnoea_instrument").then(({ data }) => setInst((data ?? { open: false }) as { open: boolean; items?: string[] }));
+    void supabase.rpc("get_sleep_apnoea_instrument").then(({ data }) => setInst((data ?? { open: false }) as unknown as { open: boolean; items?: SleepScreenItem[] }));
   }, []);
   if (!inst?.open || !inst.items) return null;
   const items = inst.items;
@@ -123,22 +123,45 @@ function Questions() {
       ) : (
         <>
           <MutedText>{t("sleep.screen.intro")}</MutedText>
-          {items.map((id) => (
-            <View key={id} style={{ gap: 4 }}>
-              <Text style={{ color: colors.ink }}>{(SLEEP_SCREEN_ITEM_IDS as readonly string[]).includes(id) ? t(`sleep.screen.item.${id}` as MessageKey) : id}</Text>
-              <View style={{ flexDirection: "row", gap: 6 }}>
-                {(["yes", "no", "unsure"] as const).map((a) => (
-                  <SecondaryButton key={a} title={`${answers[id] === a ? "* " : ""}${t(`sleep.screen.${a}` as MessageKey)}`} onPress={() => setAnswers({ ...answers, [id]: a })} />
-                ))}
+          {items.map(({ id, kind }) => {
+            const fields = kind === "bmi" ? (["height_cm", "weight_kg"] as const) : kind === "neck_cm" ? (["neck_cm"] as const) : null;
+            return (
+              <View key={id} style={{ gap: 4 }}>
+                <Text style={{ color: colors.ink }}>{(SLEEP_SCREEN_ITEM_IDS as readonly string[]).includes(id) ? t(`sleep.screen.item.${id}` as MessageKey) : id}</Text>
+                {fields ? (
+                  fields.map((k) => (
+                    <View key={k} style={{ gap: 4 }}>
+                      <MutedText>{t(`sleep.screen.${k}` as MessageKey)}</MutedText>
+                      <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+                        <TextInput
+                          accessibilityLabel={t(`sleep.screen.${k}` as MessageKey)}
+                          keyboardType="decimal-pad"
+                          editable={answers[k] !== "unsure"}
+                          value={answers[k] === "unsure" ? "" : (answers[k] ?? "")}
+                          onChangeText={(v) => setAnswers({ ...answers, [k]: v })}
+                          style={{ borderWidth: 1, borderColor: colors.ink, borderRadius: 6, paddingHorizontal: 8, minWidth: 90, color: colors.ink }}
+                        />
+                        <SecondaryButton title={`${answers[k] === "unsure" ? "* " : ""}${t("sleep.screen.unsure")}`} onPress={() => setAnswers({ ...answers, [k]: answers[k] === "unsure" ? "" : "unsure" })} />
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <View style={{ flexDirection: "row", gap: 6 }}>
+                    {(["yes", "no", "unsure"] as const).map((a) => (
+                      <SecondaryButton key={a} title={`${answers[id] === a ? "* " : ""}${t(`sleep.screen.${a}` as MessageKey)}`} onPress={() => setAnswers({ ...answers, [id]: a })} />
+                    ))}
+                  </View>
+                )}
               </View>
-            </View>
-          ))}
+            );
+          })}
           <PrimaryButton
             title={t("sleep.screen.submit")}
             onPress={async () => {
               setErr(null);
-              if (items.some((id) => !answers[id])) return setErr("incomplete");
-              const { data, error } = await supabase.rpc("submit_sleep_apnoea_screen", { p_answers: answers });
+              const built = sleepScreenAnswers(items, answers);
+              if (!built.ok) return setErr("incomplete");
+              const { data, error } = await supabase.rpc("submit_sleep_apnoea_screen", { p_answers: built.answers });
               if (error) return setErr("error");
               setResult(data as unknown as SleepScreenResult);
             }}

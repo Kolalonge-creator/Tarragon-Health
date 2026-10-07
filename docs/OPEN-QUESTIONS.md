@@ -1544,3 +1544,23 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 
 ### OQ-S57-06 Deferred and recorded only
 - 10.12 structured insomnia and anxiety programmes: deferred to Module 14 (S63) as planned. Nothing built.
+
+### OQ-S57b-01 Sourced redraft of the sleep questionnaire (C12): what is verified and what is not (S57b)
+- Redrafted in place (the S57 migrations were not yet live): the eight items now follow the published STOP-Bang tool, in the build's own wording; BMI is computed from height and weight (above 35), neck is a number in cm (40 or more), "not sure" scores one point. Sources and the full list of unverified points are in `docs/research/S57b.md`. Still an UNSIGNED draft; `confirm_sleep_apnoea_screen_config` was not called.
+- NOT verified, for the CMO and counsel before confirming: (1) the licence: search results say the instrument belongs to University Health Network (Toronto) and a commercial use may need written permission; I could not open stopbang.ca; (2) neck threshold operator (the published form says 40 cm or larger, the original paper above 40 cm); (3) a cut-off of 3 in a Nigerian primary-care population (about 88 percent sensitivity and 42 percent specificity in the general-population meta-analysis, so many referrals will not have the condition); (4) whether to hide it under 18 (developed in adults); (5) "not sure scores a point" is a Tarragon design choice (config `unsure_points`; set 0 to change). Decision: open (CMO, counsel).
+
+### OQ-S57b-02 crisis_follow_up task type needs the CMO's confirmation, and blocks rule-set approval until then (S57b, closes OQ-F1-03's second half)
+- New task type `crisis_follow_up` (class 1, due at once, no lead window, senior medical officer, on_call), created as `needs_confirmation`. The crisis trigger now creates it instead of reusing `red_event_unacknowledged`; page recipient, idempotency and the loud failure path are unchanged (proved). Tasks made before this keep their old type.
+- Side effect, deliberate: `approve_triage_rule_set` refuses while any task type awaits confirmation, so no triage rule set can be approved until the CMO runs `confirm_task_type('crisis_follow_up')` (same mechanism as `adherence_follow_up`). Crisis tasks are created whether or not it is confirmed. Decision: open (CMO confirms class, tier and competency).
+
+### OQ-S57b-03 Daily expiry job (S57b)
+- pg_cron job `media-library-expiry-sweep` runs daily at 01:25 UTC (02:25 Lagos), calls `private.media_library_expiry_sweep()`, audits what it flagged, and on any failure writes an audit row and opens an ops incident. `media_library_expiry_sweep_health()` (admin) reports the last run. No console tile shows the health yet (follow-up). Display-only: the read rule already hides expired items.
+
+### OQ-S57b-04 Faith-compatible reflection and the draft scripts (S57b)
+- A `faith_reflection` item cannot publish without a named faith-leader reviewer (name, role, date) as well as the clinical reviewer (proved). The CMO writes the content; the two faith drafts the content agent wrote in `docs/content/meditations/med-faith-*.md` were NOT seeded.
+- 24 DRAFT narration scripts (10 meditation, 8 sleep, 6 breathing) are seeded from `docs/content` for the CMO to read in Settings, Calm and sleep library. All are placeholder, draft, not live, no audio, no reviewer, not servable. A script cannot publish as it stands even if the placeholder flag is cleared (no audio file; a breathing item has no steps or pattern). Found and fixed on the way: the publish gate let a script with NO `steps` key through (a NULL comparison); the fix is in the S57 media-library migration and the new proof covers it. The folder README and manifest list the myth-busting and BP micro-lesson drafts too; those belong to S55 and were not seeded here.
+- The seeded breathing scripts are spoken guides; the machine-readable pattern and steps the breathing component needs must be added by the reviewer before publishing. Decision: open (CMO).
+
+### OQ-S57b-05 Offline downloads built but inert (S57b)
+- See `docs/design/S57b-offline-downloads.md`. Behind flag `mobile_offline_downloads` (OFF), needs a new EAS native build and a `runtimeVersion` bump (NOT done), never run on a real device. Integrity is size only until `media_library` gains a SHA-256 column (follow-up). Playback still needs a native audio engine (OQ-S57-04). Wind-down reminder left out (item 7): the in-app inbox route would be a notification that exists only to nudge, and OQ-S57-04's point stands that the words should be fixed and name nothing; not trivial enough to add safely here.
+

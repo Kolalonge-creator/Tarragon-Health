@@ -30,6 +30,7 @@ export const TASK_TYPE_LABEL: Readonly<Record<string, string>> = {
   async_question: "Written question",
   routine_result_review: "Routine result review",
   admin_clinical: "Referral letters and repeat prescriptions",
+  crisis_follow_up: "Crisis follow-up (wellbeing check-in)",
   adherence_follow_up: "Adherence follow-up (missed doses or silence)",
 };
 

@@ -37015,6 +37015,9 @@ export type Database = {
           downloadable: boolean
           duration_seconds: number | null
           exercise_type: string | null
+          faith_leader_reviewed_at: string | null
+          faith_leader_reviewer_name: string | null
+          faith_leader_reviewer_role: string | null
           id: string
           is_active: boolean
           is_placeholder: boolean
@@ -37042,6 +37045,9 @@ export type Database = {
           downloadable?: boolean
           duration_seconds?: number | null
           exercise_type?: string | null
+          faith_leader_reviewed_at?: string | null
+          faith_leader_reviewer_name?: string | null
+          faith_leader_reviewer_role?: string | null
           id?: string
           is_active?: boolean
           is_placeholder?: boolean
@@ -37069,6 +37075,9 @@ export type Database = {
           downloadable?: boolean
           duration_seconds?: number | null
           exercise_type?: string | null
+          faith_leader_reviewed_at?: string | null
+          faith_leader_reviewer_name?: string | null
+          faith_leader_reviewer_role?: string | null
           id?: string
           is_active?: boolean
           is_placeholder?: boolean

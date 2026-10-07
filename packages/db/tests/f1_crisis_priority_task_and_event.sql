@@ -1,6 +1,6 @@
--- Proof (F1 fix 4): a crisis-flagged wellbeing screen raises a class 1 clinical task and a crisis.detected event, and reaches a person.
+-- Proof (F1 fix 4, retyped to crisis_follow_up by S57b): a crisis-flagged wellbeing screen raises a class 1 clinical task and a crisis.detected event, and reaches a person.
 --
---   1. With nobody on the rota: the emergency event still fires (unchanged), ONE class 1 task exists (type red_event_unacknowledged,
+--   1. With nobody on the rota: the emergency event still fires (unchanged), ONE class 1 task exists (type crisis_follow_up,
 --      no lead window), one urgent crisis.detected event whose payload carries only screen_id, the clinical lead and ops are told
 --      with the neutral on_call_escalation notice, and one "nobody on call" incident opens. The screen is marked handled.
 --   2. A non-crisis screen creates no task and no event.
@@ -76,7 +76,7 @@ begin
   select count(*) into v_n from public.clinical_tasks where patient_id = pt1;
   if v_n <> 1 then raise exception 'FAIL 1b: expected one task, got %', v_n; end if;
   select id into v_task from public.clinical_tasks where patient_id = pt1;
-  if not exists (select 1 from public.clinical_tasks where id = v_task and type = 'red_event_unacknowledged' and priority_class = 1
+  if not exists (select 1 from public.clinical_tasks where id = v_task and type = 'crisis_follow_up' and priority_class = 1
                   and priority_class_original = 1 and lead_window_ends_at is null and is_test and state in ('open', 'escalated')) then
     raise exception 'FAIL 1c: the task is not an open class 1 task with no lead window';
   end if;
@@ -140,9 +140,9 @@ begin
   if v_n <> 0 then raise exception 'FAIL 6b: a crisis event payload carries a clinical word or a name'; end if;
 
   -- 7. failure is loud, never silent, never undoes the screen or the emergency event ------------------------------------------------
-  update public.task_types set is_active = false where code = 'red_event_unacknowledged';
+  update public.task_types set is_active = false where code = 'crisis_follow_up';
   s5 := pg_temp.screen(v_org, pt4, true);
-  update public.task_types set is_active = true where code = 'red_event_unacknowledged';
+  update public.task_types set is_active = true where code = 'crisis_follow_up';
   if not exists (select 1 from public.mental_health_screens where id = s5) then raise exception 'FAIL 7a: the patient screen was lost'; end if;
   if not exists (select 1 from public.emergency_events where patient_id = pt4 and source = 'mental_health_screen') then
     raise exception 'FAIL 7b: the emergency event was lost';
@@ -159,9 +159,9 @@ begin
   v_def := pg_get_functiondef('private.page_incident(uuid, text, text, text)'::regprocedure);
   create or replace function private.page_incident(p_org uuid, p_ref text, p_title text, p_summary text) returns void
     language plpgsql as $f$ begin raise exception 'incident writer is down'; end $f$;
-  update public.task_types set is_active = false where code = 'red_event_unacknowledged';
+  update public.task_types set is_active = false where code = 'crisis_follow_up';
   s7 := pg_temp.screen(v_org, pt6, true);
-  update public.task_types set is_active = true where code = 'red_event_unacknowledged';
+  update public.task_types set is_active = true where code = 'crisis_follow_up';
   execute v_def;
   if not exists (select 1 from public.mental_health_screens where id = s7)
      or not exists (select 1 from public.emergency_events where patient_id = pt6 and source = 'mental_health_screen') then
