@@ -25,7 +25,7 @@
       "care_category"
     ]
   },
-  "baselineCeiling": 836,
+  "baselineCeiling": 839,
   "entries": {
     "breathing.a11y_phase": {
       "hash": "72354cf0a6f4aa9e",
@@ -587,6 +587,24 @@
     },
     "circle.members.title": {
       "hash": "38eb8e59e1bded6d",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.monthly.help": {
+      "hash": "74bf50337e7eb59e",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.monthly.label": {
+      "hash": "ba926b83875c2ec3",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.monthly.notice": {
+      "hash": "b265260ceb059864",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
