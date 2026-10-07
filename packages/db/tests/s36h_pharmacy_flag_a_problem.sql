@@ -92,8 +92,8 @@ declare v_org uuid; v_pA uuid; v_pB uuid; v_phA uuid; v_phB uuid; v_doc uuid; v_
         v_rxA uuid; v_rxB uuid; v_rxDraft uuid; v_rxDisp uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
-  insert into public.pharmacy_partners (name, is_active) values ('S36h Pharmacy A', false) returning id into v_pA;
-  insert into public.pharmacy_partners (name, is_active) values ('S36h Pharmacy B', false) returning id into v_pB;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S36h Pharmacy A', true, now(), now(), 'activated', now()) returning id into v_pA;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S36h Pharmacy B', true, now(), now(), 'activated', now()) returning id into v_pB;
   v_phA := pg_temp.mkuser(v_org, 'phA', 'pharmacist', 'S36h Pharmacist A');
   v_phB := pg_temp.mkuser(v_org, 'phB', 'pharmacist', 'S36h Pharmacist B');
   update public.profiles set pharmacy_partner_id = v_pA where id = v_phA;
