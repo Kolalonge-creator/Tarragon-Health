@@ -6,6 +6,7 @@ export function actionToString(action: TriageAction): string {
     case "show_emergency_guidance":
     case "show_message":
     case "prompt_recheck":
+    case "ask_symptoms":
       return `${action.kind}:${action.code}`;
     case "route_referral":
       return `route_referral:${action.reason}`;

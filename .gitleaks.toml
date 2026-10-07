@@ -11,6 +11,8 @@ paths = [
 ]
 regexes = [
   '''sk_test_[A-Za-z0-9_.]*YOURS_HERE''',
+  # S33 breathing screen: ACK_KEY is the name of an on-device storage slot ("breathing.safety_ack.v1"), not a credential.
+  '''breathing\.safety_ack\.v1''',
 ]
 
 # The Supabase anon key in apps/mobile/eas.json is public by design (row-level security is the protection). Allowed for the JWT rules in
@@ -19,3 +21,20 @@ regexes = [
 description = "public anon key"
 targetRules = ["jwt", "generic-api-key"]
 paths = ['''apps/mobile/eas\.json$''']
+
+# The generic-api-key rule fires on any constant or object property whose name ends in "key" next to a string, such as `const CACHE_KEY = "medicine-catalogue-v1"`,
+# a registry entry `key: "outcomes.snapshot_rules"` or a test lookup `c.key === "..."`. In mobile source, test files and the proposed-config
+# registry those are storage slot names and configuration names, not credentials (history is scanned too, so they cannot be reworded away).
+# Only the generic rule is relaxed, and only for these paths: every specific rule (cloud keys, JWTs, private keys, payment keys) still applies there.
+# Approved by the founder on 2026-10-07.
+# gitleaks 8.21 does not read `targetRules` inside `[[allowlists]]`, so the relaxation is attached to the one rule it is for: this entry overrides only
+# the allowlist of the built-in generic-api-key rule (every other field is inherited from the default rule).
+[[rules]]
+id = "generic-api-key"
+[rules.allowlist]
+description = "storage slot and configuration names, not credentials"
+paths = [
+  '''apps/mobile/src/.*\.(ts|tsx)$''',
+  '''.*\.test\.(ts|tsx)$''',
+  '''packages/shared/src/proposed-config/registry\.ts$''',
+]

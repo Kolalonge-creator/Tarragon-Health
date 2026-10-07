@@ -1,4 +1,6 @@
 import {
+  describeSexRanges,
+  panelDefinitionSchema,
   describeLabError,
   disclosureSchema,
   formatRange,
@@ -26,19 +28,19 @@ describe("validateLabResultFile", () => {
 
 describe("resultEntrySchema", () => {
   it("accepts numeric and qualitative items and carries no flag field", () => {
-    const r = resultEntrySchema.safeParse({ orderId: id, panel: "essential", items: [{ analyte_code: "creatinine", value_numeric: 0.9, unit: "mg/dL" }, { analyte_code: "hbsag", value_text: "negative" }] });
+    const r = resultEntrySchema.safeParse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "creatinine", value_numeric: 0.9, unit: "mg/dL" }, { analyte_code: "hbsag", value_text: "negative" }] });
     expect(r.success).toBe(true);
   });
   it("strips a flag the lab tries to send, so it can never reach the database", () => {
-    const r = resultEntrySchema.parse({ orderId: id, panel: "essential", items: [{ analyte_code: "creatinine", value_numeric: 9, flag: "normal" }] });
+    const r = resultEntrySchema.parse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "creatinine", value_numeric: 9, flag: "normal" }] });
     expect(JSON.stringify(r)).not.toContain("flag");
   });
   it("refuses an item with both or neither value, an unknown panel and free text", () => {
-    expect(resultEntrySchema.safeParse({ orderId: id, panel: "essential", items: [{ analyte_code: "alt", value_numeric: 1, value_text: "positive" }] }).success).toBe(false);
-    expect(resultEntrySchema.safeParse({ orderId: id, panel: "essential", items: [{ analyte_code: "alt" }] }).success).toBe(false);
+    expect(resultEntrySchema.safeParse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "alt", value_numeric: 1, value_text: "positive" }] }).success).toBe(false);
+    expect(resultEntrySchema.safeParse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "alt" }] }).success).toBe(false);
     expect(resultEntrySchema.safeParse({ orderId: id, panel: "other", items: [] }).success).toBe(false);
-    expect(resultEntrySchema.safeParse({ orderId: id, panel: "essential", items: [{ analyte_code: "hbsag", value_text: "indeterminate" }] }).success).toBe(false);
-    expect(resultEntrySchema.safeParse({ orderId: id, panel: "essential", items: [{ analyte_code: "alt", value_numeric: -1 }] }).success).toBe(false);
+    expect(resultEntrySchema.safeParse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "hbsag", value_text: "indeterminate" }] }).success).toBe(false);
+    expect(resultEntrySchema.safeParse({ orderId: id, panel: "membership_annual", items: [{ analyte_code: "alt", value_numeric: -1 }] }).success).toBe(false);
   });
 });
 
@@ -96,5 +98,24 @@ describe("liaisonUploadsSchema", () => {
     expect(liaisonUploadsSchema.safeParse([{ ...base, status: "reviewed" }]).success).toBe(true);
     expect(liaisonUploadsSchema.safeParse([{ ...base, status: "withheld" }]).success).toBe(false);
     expect(liaisonUploadsSchema.safeParse([{ ...base, status: "released" }]).success).toBe(false);
+  });
+});
+
+describe("sex-specific ranges stay visible to the CMO and the lab", () => {
+  it("keeps bySex through the panel schema (it must not be stripped) and describes it in words", () => {
+    const parsed = panelDefinitionSchema.parse({
+      panel_code: "membership_annual",
+      version: 1,
+      analytes: [
+        { code: "haemoglobin", label: "Haemoglobin", kind: "numeric", unit: "g/dL", refLow: 12, refHigh: 17.5, bySex: { male: { refLow: 13, refHigh: 17.5 }, female: { refLow: 12, refHigh: 15.5 } } },
+        { code: "hdl_cholesterol", label: "HDL", kind: "numeric", unit: "mg/dL", refLow: 40, bySex: { male: { refLow: 40 }, female: { refLow: 50 } } },
+        { code: "alt", label: "ALT", kind: "numeric", unit: "U/L", refLow: 7, refHigh: 40 },
+      ],
+    });
+    const [hb, hdl, alt] = parsed.analytes;
+    expect(hb!.bySex?.female?.refHigh).toBe(15.5);
+    expect(describeSexRanges(hb!)).toBe("men 13 to 17.5 g/dL, women 12 to 15.5 g/dL");
+    expect(describeSexRanges(hdl!)).toBe("men 40 or more mg/dL, women 50 or more mg/dL");
+    expect(describeSexRanges(alt!)).toBe("");
   });
 });

@@ -92,7 +92,7 @@ begin
 
   v_cmo := pg_temp.mkdoc(v_org, v_admin, 'cmo', 'chief_medical_officer', 'contracted', '{en}', null, '{}');
   v_a  := pg_temp.mkdoc(v_org, v_admin, 'lead-a', 'senior_medical_officer', 'employed',   '{en}',     90, '{lead_clinician,hypertension,on_call}');
-  v_b  := pg_temp.mkdoc(v_org, v_admin, 'lead-b', 'senior_medical_officer', 'contracted', '{pcm,en}',  80, '{lead_clinician,hypertension,on_call}');
+  v_b  := pg_temp.mkdoc(v_org, v_admin, 'lead-b', 'senior_medical_officer', 'contracted', '{fr,en}',  80, '{lead_clinician,hypertension,on_call}');
   v_c  := pg_temp.mkdoc(v_org, v_admin, 'lead-c', 'senior_medical_officer', 'employed',   '{en}',     70, '{lead_clinician,hypertension,on_call}');
   v_d  := pg_temp.mkdoc(v_org, v_admin, 'oncall-d', 'senior_medical_officer', 'employed', '{en}',     60, '{hypertension,on_call}');
   v_mo := pg_temp.mkdoc(v_org, v_admin, 'mo', 'medical_officer', 'employed', '{en}',                   99, '{lead_clinician,hypertension}');
@@ -100,7 +100,7 @@ begin
   v_e := pg_temp.mkdoc(v_org, v_admin, 'oncall-e', 'senior_medical_officer', 'employed', '{en}', 50, '{on_call}');
   -- real (not test) clinicians for the real patients: test and real never mix (INV-13)
   r1 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-1', 'senior_medical_officer', 'employed', '{en}',    90, '{lead_clinician,hypertension,on_call}', false);
-  r2 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-2', 'senior_medical_officer', 'employed', '{pcm,en}', 80, '{lead_clinician,hypertension,on_call}', false);
+  r2 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-2', 'senior_medical_officer', 'employed', '{fr,en}', 80, '{lead_clinician,hypertension,on_call}', false);
   r3 := pg_temp.mkdoc(v_org, v_admin, 'real-lead-3', 'senior_medical_officer', 'employed', '{en}',    70, '{lead_clinician,hypertension,on_call}', false);
   select id into v_staff_a from public.clinical_staff where profile_id = v_a;
   select id into v_staff_b from public.clinical_staff where profile_id = v_b;
@@ -108,7 +108,7 @@ begin
   select id into v_staff_r3 from public.clinical_staff where profile_id = r3;
 
   p1 := pg_temp.mkuser(v_org, 'patient-1', 'patient', 'en');
-  p2 := pg_temp.mkuser(v_org, 'patient-2', 'patient', 'pcm');
+  p2 := pg_temp.mkuser(v_org, 'patient-2', 'patient', 'en');
   p3 := pg_temp.mkuser(v_org, 'patient-3', 'patient', 'en');
   p4 := pg_temp.mkuser(v_org, 'patient-4', 'patient', 'en');
   p5 := pg_temp.mkuser(v_org, 'patient-5', 'patient', 'en');
@@ -116,7 +116,7 @@ begin
   p9 := pg_temp.mkuser(v_org, 'patient-9', 'patient', 'en');
   p7 := pg_temp.mkuser(v_org, 'patient-7', 'patient', 'en');
   pn1 := pg_temp.mkuser(v_org, 'real-1', 'patient', 'en');
-  pn2 := pg_temp.mkuser(v_org, 'real-2', 'patient', 'pcm');
+  pn2 := pg_temp.mkuser(v_org, 'real-2', 'patient', 'en');
   pn3 := pg_temp.mkuser(v_org, 'real-3', 'patient', 'en');
   pn4 := pg_temp.mkuser(v_org, 'real-4', 'patient', 'en');
   insert into fx values ('admin', v_admin), ('cmo', v_cmo), ('lead-a', v_a), ('lead-b', v_b), ('lead-c', v_c), ('oncall-d', v_d),
@@ -313,7 +313,7 @@ begin
   perform pg_temp.rec('the lead is told', '1', (select count(*)::text from public.notifications where recipient_id = v_a and channel = 'in_app' and template = 'credential_notice' and payload ->> 'audience' = 'lead'));
   perform pg_temp.rec('the patient gets a care team notice', '1', (select count(*)::text from public.notifications where recipient_id = p1 and channel = 'in_app' and template = 'care_team_notice' and payload ->> 'kind' = 'assigned'));
   perform pg_temp.act(v_cmo); perform public.assign_lead_clinician(p2); perform pg_temp.back();
-  perform pg_temp.rec('p2 (Pidgin): language outranks fewer leads', v_b::text, (select clinician_id::text from public.lead_assignments where patient_id = p2 and state = 'active'));
+  perform pg_temp.rec('p2 (English): test assignments use no capacity, so highest reliability is lead-a', v_a::text, (select clinician_id::text from public.lead_assignments where patient_id = p2 and state = 'active'));
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, p3, v_c);
   perform pg_temp.act(v_cmo); perform public.assign_lead_clinician(p3); perform pg_temp.back();
   perform pg_temp.rec('p3: the clinician who already treats the patient is preferred', v_c::text, (select clinician_id::text from public.lead_assignments where patient_id = p3 and state = 'active'));

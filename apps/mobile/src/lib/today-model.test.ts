@@ -1,4 +1,4 @@
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import type { DoseChecklistItem } from "./medications";
 import { lagosTimeToUtcMs } from "./lagos-date";
 import { buildTodayList, toTodayTasks, type TodayTask } from "./today-model";
@@ -236,7 +236,7 @@ describe("toTodayTasks", () => {
   });
 });
 
-describe("every translation key the model can return exists in English and Pidgin", () => {
+describe("every translation key the model can return exists in English", () => {
   const keys = new Set<string>();
   const collect = (l: { key: string }) => keys.add(l.key);
   const out = build({
@@ -260,7 +260,6 @@ describe("every translation key the model can return exists in English and Pidgi
   }
   it.each([...keys])("%s", (key) => {
     expect((en as Record<string, string>)[key]).toBeTruthy();
-    expect((pcm as Record<string, string>)[key]).toBeTruthy();
   });
 });
 
@@ -269,7 +268,6 @@ describe("the repeat-reading prompt from triage (S12)", () => {
     const out = build({ tasks: [task({ id: "r", title: "", source: "triage_recheck", dueAt: at(TODAY, "10:05") })] });
     expect(out.open[0]?.title).toEqual({ line: { key: "today.recheck_bp" } });
     expect(en["today.recheck_bp"]).toBe("Measure your blood pressure again");
-    expect(pcm["today.recheck_bp"].length).toBeGreaterThan(0);
   });
 
   it("an untitled task from anywhere else keeps the kind line, and a titled triage task keeps its title", () => {
