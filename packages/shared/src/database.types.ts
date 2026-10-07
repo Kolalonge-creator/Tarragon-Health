@@ -11824,60 +11824,180 @@ export type Database = {
           },
         ]
       }
+      device_alerts: {
+        Row: {
+          alert_code: string
+          config_kind: string
+          config_version: number
+          created_at: string
+          dedup_key: string
+          device_result_text: string | null
+          episode_minutes: number | null
+          episode_started_at: string | null
+          event_id: string | null
+          extreme_value: number | null
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          provider: string
+          source_kind: string
+          state: string
+          task_id: string | null
+          vitals_reading_id: string | null
+        }
+        Insert: {
+          alert_code: string
+          config_kind: string
+          config_version: number
+          created_at?: string
+          dedup_key: string
+          device_result_text?: string | null
+          episode_minutes?: number | null
+          episode_started_at?: string | null
+          event_id?: string | null
+          extreme_value?: number | null
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          provider: string
+          source_kind: string
+          state?: string
+          task_id?: string | null
+          vitals_reading_id?: string | null
+        }
+        Update: {
+          alert_code?: string
+          config_kind?: string
+          config_version?: number
+          created_at?: string
+          dedup_key?: string
+          device_result_text?: string | null
+          episode_minutes?: number | null
+          episode_started_at?: string | null
+          event_id?: string | null
+          extreme_value?: number | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          provider?: string
+          source_kind?: string
+          state?: string
+          task_id?: string | null
+          vitals_reading_id?: string | null
+        }
+        Relationships: []
+      }
       device_catalog: {
         Row: {
           active: boolean
+          bluetooth_via: string
           category: Database["public"]["Enums"]["device_catalog_category"]
           clinically_reviewed: boolean
           created_at: string
           description: string | null
           device_name: string
+          distributor_checked_on: string | null
+          distributor_name: string | null
           display_order: number
           fulfillment_type: Database["public"]["Enums"]["device_catalog_fulfillment_type"]
           gatt_service_uuids: string[]
           id: string
           image_url: string | null
+          nafdac_registration_number: string | null
+          nafdac_status: string
           pairing_path: Database["public"]["Enums"]["device_catalog_pairing_path"]
           price_range_ngn: string | null
           updated_at: string
+          validation_reference: string | null
+          validation_standard: string | null
           vendor_name: string | null
           vendor_sdk_ref: string | null
         }
         Insert: {
           active?: boolean
+          bluetooth_via?: string
           category: Database["public"]["Enums"]["device_catalog_category"]
           clinically_reviewed?: boolean
           created_at?: string
           description?: string | null
           device_name: string
+          distributor_checked_on?: string | null
+          distributor_name?: string | null
           display_order?: number
           fulfillment_type?: Database["public"]["Enums"]["device_catalog_fulfillment_type"]
           gatt_service_uuids?: string[]
           id?: string
           image_url?: string | null
+          nafdac_registration_number?: string | null
+          nafdac_status?: string
           pairing_path: Database["public"]["Enums"]["device_catalog_pairing_path"]
           price_range_ngn?: string | null
           updated_at?: string
+          validation_reference?: string | null
+          validation_standard?: string | null
           vendor_name?: string | null
           vendor_sdk_ref?: string | null
         }
         Update: {
           active?: boolean
+          bluetooth_via?: string
           category?: Database["public"]["Enums"]["device_catalog_category"]
           clinically_reviewed?: boolean
           created_at?: string
           description?: string | null
           device_name?: string
+          distributor_checked_on?: string | null
+          distributor_name?: string | null
           display_order?: number
           fulfillment_type?: Database["public"]["Enums"]["device_catalog_fulfillment_type"]
           gatt_service_uuids?: string[]
           id?: string
           image_url?: string | null
+          nafdac_registration_number?: string | null
+          nafdac_status?: string
           pairing_path?: Database["public"]["Enums"]["device_catalog_pairing_path"]
           price_range_ngn?: string | null
           updated_at?: string
+          validation_reference?: string | null
+          validation_standard?: string | null
           vendor_name?: string | null
           vendor_sdk_ref?: string | null
+        }
+        Relationships: []
+      }
+      device_config: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          kind: string
+          note: string | null
+          rules: Json
+          status: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind: string
+          note?: string | null
+          rules: Json
+          status?: string
+          version: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind?: string
+          note?: string | null
+          rules?: Json
+          status?: string
+          version?: number
         }
         Relationships: []
       }
@@ -40268,6 +40388,42 @@ export type Database = {
           },
         ]
       }
+      vitals_reading_links: {
+        Row: {
+          canonical_id: string
+          canonical_source: string
+          created_at: string
+          dedup_config_version: number
+          duplicate_id: string
+          duplicate_source: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          canonical_id: string
+          canonical_source: string
+          created_at?: string
+          dedup_config_version: number
+          duplicate_id: string
+          duplicate_source: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          canonical_id?: string
+          canonical_source?: string
+          created_at?: string
+          dedup_config_version?: number
+          duplicate_id?: string
+          duplicate_source?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: []
+      }
       vitals_readings: {
         Row: {
           arm: string | null
@@ -40291,6 +40447,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           peak_flow_l_min: number | null
+          photo_confirmed: boolean
           position: string | null
           pulse_bpm: number | null
           respiratory_rate_bpm: number | null
@@ -40335,6 +40492,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           peak_flow_l_min?: number | null
+          photo_confirmed?: boolean
           position?: string | null
           pulse_bpm?: number | null
           respiratory_rate_bpm?: number | null
@@ -40379,6 +40537,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           peak_flow_l_min?: number | null
+          photo_confirmed?: boolean
           position?: string | null
           pulse_bpm?: number | null
           respiratory_rate_bpm?: number | null
@@ -42866,6 +43025,52 @@ export type Database = {
         }
         Relationships: []
       }
+      vitals_readings_counted: {
+        Row: {
+          arm: string | null
+          cgm_connection_id: string | null
+          client_reading_id: string | null
+          client_recorded_at: string | null
+          received_at: string | null
+          time_basis: string | null
+          created_at: string | null
+          cuff_type: string | null
+          device_id: string | null
+          diastolic: number | null
+          external_reading_id: string | null
+          glucose_context: Database["public"]["Enums"]["glucose_context"] | null
+          glucose_mmol_l: number | null
+          id: string | null
+          ketone_urine: string | null
+          ketones_mmol_l: number | null
+          logged_by_profile_id: string | null
+          note: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          peak_flow_l_min: number | null
+          photo_confirmed: boolean | null
+          position: string | null
+          pulse_bpm: number | null
+          respiratory_rate_bpm: number | null
+          source: Database["public"]["Enums"]["vital_source"] | null
+          spo2_pct: number | null
+          systolic: number | null
+          taken_at: string | null
+          temperature_c: number | null
+          triage_event_id: string | null
+          validated_at: string | null
+          validated_by: string | null
+          validation_flags: string[] | null
+          validation_status: Database["public"]["Enums"]["vitals_validation_status"] | null
+          value_numeric: number | null
+          value_unit: string | null
+          vital_type: Database["public"]["Enums"]["vital_type"] | null
+          waist_cm: number | null
+          wearable_connection_id: string | null
+          weight_kg: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
@@ -42980,6 +43185,34 @@ export type Database = {
         }[]
       }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
+      record_device_sync: {
+        Args: { p_duplicate_count?: number; p_patient: string; p_provider: string; p_reading_count: number; p_source_kind: string }
+        Returns: string
+      }
+      report_device_ecg_result: {
+        Args: { p_classification: string; p_device_result_text: string; p_provider: string; p_recorded_at: string }
+        Returns: Json
+      }
+      clinician_device_alerts: {
+        Args: { p_patient: string }
+        Returns: {
+          alert_code: string
+          alert_id: string
+          config_version: number
+          created_at: string
+          device_result_text: string
+          episode_minutes: number
+          episode_started_at: string
+          extreme_value: number
+          provider: string
+          source_kind: string
+          state: string
+          task_id: string
+        }[]
+      }
+      my_device_review_status: { Args: never; Returns: number }
+      sweep_unlinked_duplicates: { Args: { p_days?: number }; Returns: number }
+      release_held_device_alerts: { Args: never; Returns: number }
       learning_course: {
         Args: { p_programme_code: string }
         Returns: {
@@ -49882,6 +50115,7 @@ export type Database = {
         | "dexcom"
         | "libre"
         | "android_health_connect"
+        | "withings"
       wellness_challenge_metric:
         | "vitals_logs"
         | "meal_logs"
@@ -52399,6 +52633,7 @@ export const Constants = {
         "dexcom",
         "libre",
         "android_health_connect",
+        "withings",
       ],
       wellness_challenge_metric: [
         "vitals_logs",

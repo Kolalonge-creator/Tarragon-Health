@@ -1736,4 +1736,63 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
   },
+  {
+    key: "devices.dedup_rules",
+    // S70 (CMO pack C1, OQ-309). Windows for blood pressure (10) and glucose (5) are the pack's figures; the tolerances, the other windows and the rank order are drafted.
+    value: {
+      ranks: { device: 1, photo: 1, manual: 1, cgm: 2, wearable: 3, fhir_import: 4 },
+      types: {
+        blood_pressure: { window_minutes: 10, tolerance_systolic: 4, tolerance_diastolic: 4 },
+        glucose: { window_minutes: 5, tolerance_mmol_l: 0.6 },
+        weight: { window_minutes: 10, tolerance_kg: 0.3 },
+        temperature: { window_minutes: 5, tolerance_c: 0.3 },
+        spo2: { window_minutes: 5, tolerance_pct: 2 },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S70-S75-cmo-signoff-pack.md C1; supabase/migrations/20261007155314_s70_devices_dedup_events_cgm.sql (device_config kind dedup)",
+  },
+  {
+    key: "devices.cgm_events",
+    // S70 (CMO pack C2 option a, OQ-310). Basis: International Consensus on Time in Range (secondary source, primary text not read).
+    value: {
+      events: [
+        { code: "cgm_severe_low", comparison: "below", threshold_mmol_l: 3.0, min_minutes: 15, due_minutes: 240 },
+        { code: "cgm_low", comparison: "below", threshold_mmol_l: 3.9, min_minutes: 60, due_minutes: 1440 },
+        { code: "cgm_high", comparison: "above", threshold_mmol_l: 13.9, min_minutes: 120, due_minutes: 1440 },
+      ],
+      max_gap_minutes: 20,
+      lookback_hours: 6,
+      suppress_hours: 6,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S70-S75-cmo-signoff-pack.md C2; supabase/migrations/20261007155314_s70_devices_dedup_events_cgm.sql (device_config kind cgm_events)",
+    guardPatterns: ["(severe_?low|sustained_?low)\\w*\\s*[=:]\\s*3(\\.0)?\\b", "cgm\\w*(high|hyper)\\w*\\s*[=:]\\s*13\\.9\\b"],
+  },
+  {
+    key: "devices.device_alert",
+    // S70 (CMO pack C3 option a, OQ-311): a routine task within one working day.
+    value: { ecg_codes: ["ecg_irregular", "ecg_inconclusive"], ecg_due_minutes: 1440, ecg_daily_cap: 10 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S70-S75-cmo-signoff-pack.md C3; supabase/migrations/20261007155314_s70_devices_dedup_events_cgm.sql (device_config kind device_alert)",
+  },
+  {
+    key: "devices.photo_capture",
+    // S70 (CMO pack C4 option a, OQ-312): which cuff types draw the less-reliable note. The note wording is a CMO item.
+    value: { less_reliable_cuff_types: ["wrist"], confirm_every_number: true, upload_photo: false },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S70-S75-cmo-signoff-pack.md C4",
+  },
 ];
