@@ -127,6 +127,7 @@ begin
   perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('senior', pg_temp.mkdoc(v_org, 'senior', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('stranger', pg_temp.mkdoc(v_org, 'stranger', 'senior_medical_officer', v_admin));
+  perform pg_temp.setf('junior', pg_temp.mkdoc(v_org, 'junior', 'care_coordinator', v_admin));
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', v_admin));
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient');
   perform pg_temp.setf('pat', v_pat);
@@ -266,8 +267,8 @@ begin
   r := pg_temp.partner_submit(pg_temp.f('labA'), o, 'membership_annual', replace(pg_temp.items(0.9), '"potassium","value_numeric":4.1', '"potassium","value_numeric":7.2'));
   perform pg_temp.ck('a critical potassium makes a critical result review task', 'critical_result_review', pg_temp.task_of(pg_temp.rid(r)));
   perform pg_temp.setf('res_crit', pg_temp.rid(r));
-  perform pg_temp.ck('a medical officer cannot release a critical value (OQ-180)', 'true',
-    (pg_temp.q_as(pg_temp.f('doc'), format($q$select public.release_lab_result(%L)::text$q$, pg_temp.rid(r))) like 'ERR:lab_critical_needs_senior_clinician')::text);
+  perform pg_temp.ck('a care coordinator cannot release a critical value (OQ-180)', 'true',
+    (pg_temp.q_as(pg_temp.f('junior'), format($q$select public.release_lab_result(%L)::text$q$, pg_temp.rid(r))) like 'ERR:lab_critical_needs_senior_clinician')::text);
   perform pg_temp.ck('...it is still held', 'awaiting_review', pg_temp.state_of(pg_temp.rid(r)));
   perform pg_temp.ck('a senior clinician can', 'true',
     (pg_temp.q_as(pg_temp.f('senior'), format($q$select public.release_lab_result(%L)::text$q$, pg_temp.rid(r))) like '%"ok": true%')::text);
@@ -291,8 +292,8 @@ begin
   perform pg_temp.ck('...and no notice was sent', '3', (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'lab_result_ready'));
   perform pg_temp.ck('the ordinary release function refuses it', 'true',
     (pg_temp.q_as(pg_temp.f('senior'), format($q$select public.release_lab_result(%L)$q$, rid)) like 'ERR:lab_result_not_awaiting_review')::text);
-  perform pg_temp.ck('a medical officer cannot record the disclosure', 'true',
-    (pg_temp.q_as(pg_temp.f('doc'), format($q$select public.record_lab_disclosure(%L, 'in_person', true)$q$, rid)) like 'ERR:lab_disclosure_needs_senior_clinician')::text);
+  perform pg_temp.ck('a care coordinator cannot record the disclosure', 'true',
+    (pg_temp.q_as(pg_temp.f('junior'), format($q$select public.record_lab_disclosure(%L, 'in_person', true)$q$, rid)) like 'ERR:lab_disclosure_needs_senior_clinician')::text);
   perform pg_temp.ck('a senior clinician cannot do it without the attestation', 'true',
     (pg_temp.q_as(pg_temp.f('senior'), format($q$select public.record_lab_disclosure(%L, 'in_person', false)$q$, rid)) like 'ERR:lab_disclosure_needs_attestation')::text);
   perform pg_temp.ck('...nor with an unknown method', 'true',
@@ -457,8 +458,8 @@ begin
     pg_temp.try_sql(format($q$update public.lab_results set correction_reason = 'changed' where id = %L$q$, cid)));
 
   -- withdrawal (senior clinician only)
-  perform pg_temp.ck('a medical officer cannot withdraw a released result', 'true',
-    (pg_temp.q_as(pg_temp.f('doc'), format($q$select public.withdraw_lab_result(%L, 'Wrong patient')::text$q$, cid)) like 'ERR:lab_disclosure_needs_senior_clinician')::text);
+  perform pg_temp.ck('a care coordinator cannot withdraw a released result', 'true',
+    (pg_temp.q_as(pg_temp.f('junior'), format($q$select public.withdraw_lab_result(%L, 'Wrong patient')::text$q$, cid)) like 'ERR:lab_disclosure_needs_senior_clinician')::text);
   perform pg_temp.ck('a withdrawal needs a reason', 'true',
     (pg_temp.q_as(pg_temp.f('senior'), format($q$select public.withdraw_lab_result(%L, ' ')::text$q$, cid)) like 'ERR:A reason is required')::text);
   perform pg_temp.ck('a senior clinician withdraws it', 'true',
@@ -483,8 +484,8 @@ begin
          pg_temp.items(0.9, ',{"analyte_code":"hcv_ab","value_text":"positive"}'));
   rid := pg_temp.rid(c);
   perform pg_temp.ck('a positive HCV Ab is held for personal disclosure', 'clinician_disclosure_required', pg_temp.state_of(rid));
-  perform pg_temp.ck('a medical officer cannot record a disclosure attempt', 'true',
-    (pg_temp.q_as(pg_temp.f('doc'), format($q$select public.record_lab_disclosure_attempt(%L, 'no_answer')::text$q$, rid)) like 'ERR:lab_disclosure_needs_senior_clinician')::text);
+  perform pg_temp.ck('a care coordinator cannot record a disclosure attempt', 'true',
+    (pg_temp.q_as(pg_temp.f('junior'), format($q$select public.record_lab_disclosure_attempt(%L, 'no_answer')::text$q$, rid)) like 'ERR:lab_disclosure_needs_senior_clinician')::text);
   perform pg_temp.ck('a stranger clinician is refused and the refusal is returned', 'true',
     (pg_temp.q_as(pg_temp.f('stranger'), format($q$select public.record_lab_disclosure_attempt(%L, 'no_answer')::text$q$, rid)) like '%not_permitted%')::text);
   perform pg_temp.ck('an unknown outcome is refused', 'true',
@@ -583,8 +584,8 @@ begin
     pg_temp.q_as(pg_temp.f('liaison'), format($q$select status from public.liaison_recent_uploads() where lab_result_id = %L$q$, pg_temp.rid(l))));
 
   -- the released-results list for withdrawal
-  perform pg_temp.ck('a medical officer gets the senior-only answer', 'senior_only',
-    pg_temp.q_as(pg_temp.f('doc'), format($q$select public.patient_released_lab_results(%L, 'Looking for a result to withdraw')::jsonb ->> 'error'$q$, v_pat)));
+  perform pg_temp.ck('a care coordinator gets the senior-only answer', 'senior_only',
+    pg_temp.q_as(pg_temp.f('junior'), format($q$select public.patient_released_lab_results(%L, 'Looking for a result to withdraw')::jsonb ->> 'error'$q$, v_pat)));
   perform pg_temp.ck('a stranger clinician is refused and the refusal is audited', 'not_permitted|true',
     pg_temp.q_as(pg_temp.f('stranger'), format($q$select public.patient_released_lab_results(%L, 'Looking')::jsonb ->> 'error'$q$, v_pat)) || '|' ||
     (exists (select 1 from public.audit_log where subject_patient_id = v_pat and result = 'denied' and actor_id = pg_temp.f('stranger') and action = 'staff.chart_read'))::text);

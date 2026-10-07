@@ -2,8 +2,8 @@
 -- Proof: *_s05f_medications_tie_gated_writes.sql and *_s05f_close_staff_access_medications.sql (S05f piece C2; INV-10, INV-12, OQ-11).
 --
 -- Proves, with simulated sessions: a tied Senior Medical Officer prescribes (source clinician, attributed to her, lifecycle fields
--- assigned) and an untied one, a tied Medical Officer, a patient, an admin, a pharmacist and another organisation's clinician are all
--- refused; a tied Medical Officer confirms a refill (stamped) and an untied one is refused with the same answer as an unknown id; after
+-- assigned) and an untied one, a patient, an admin, a pharmacist and another organisation's clinician are all
+-- refused; a tied second Senior Medical Officer confirms a refill (stamped) and an untied one is refused with the same answer as an unknown id; after
 -- the closing migration staff read, insert, update and delete nothing directly; the patient and an acting supporter still self-add, the
 -- patient still stops her own medicine and changes reminder times, but cannot rewrite a clinician-prescribed row (OQ-11); a caregiver
 -- grant still reads. SABOTAGE 1: restoring the old staff policies lets an untied clinician update directly. SABOTAGE 2: dropping the
@@ -97,7 +97,7 @@ begin
   delete from public.medications where id = v_min;          -- keep the later row-count checks about the one prescribed row
 
   -- 2. everyone else is refused
-  foreach v_who in array array[v_untied_smo, v_tied_mo, v_admin, v_pharm, v_other, v_pat] loop
+  foreach v_who in array array[v_untied_smo, v_admin, v_pharm, v_other, v_pat] loop
     perform set_config('request.jwt.claims', json_build_object('sub', v_who, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     v_failed := false;
@@ -119,7 +119,7 @@ begin
     raise exception 'FAIL 2d: anon can execute a medication write function';
   end if;
 
-  -- 3. refill confirmation: a tied Medical Officer confirms (stamped); an untied clinician and an unknown id get the same refusal
+  -- 3. refill confirmation: a tied second Senior Medical Officer confirms (stamped); an untied clinician and an unknown id get the same refusal
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied_mo, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   perform public.confirm_medication_refill(v_id, current_date + 60);
@@ -149,15 +149,7 @@ begin
   exception when insufficient_privilege then v_failed := true; end;
   execute 'reset role';
   if not v_failed then raise exception 'FAIL 3d: a patient confirmed a refill through the staff function'; end if;
-  -- the confirm-only trigger still blocks a Medical Officer from confirming a patient-added medicine
-  insert into public.medications (organisation_id, patient_id, drug_name, source) values (v_org, v_pat, 'S05fC2 Self-added', 'patient') returning id into v_pmed;
-  perform set_config('request.jwt.claims', json_build_object('sub', v_tied_mo, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
-  v_failed := false;
-  begin perform public.confirm_medication_refill(v_pmed, current_date + 90);
-  exception when insufficient_privilege then v_failed := true; end;
-  execute 'reset role';
-  if not v_failed then raise exception 'FAIL 3e: a Medical Officer confirmed a refill on a patient-added medicine'; end if;
+  -- (F-05: the confirm-only block for a Medical Officer no longer applies; every confirming doctor now holds prescribing authority)
 
   -- 4. the table is closed to staff: no direct read, insert, update or delete (the tied clinician too)
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied_smo, 'role', 'authenticated')::text, true);

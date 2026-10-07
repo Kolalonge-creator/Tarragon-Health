@@ -95,7 +95,7 @@ begin
   v_b  := pg_temp.mkdoc(v_org, v_admin, 'lead-b', 'senior_medical_officer', 'contracted', '{fr,en}',  80, '{lead_clinician,hypertension,on_call}');
   v_c  := pg_temp.mkdoc(v_org, v_admin, 'lead-c', 'senior_medical_officer', 'employed',   '{en}',     70, '{lead_clinician,hypertension,on_call}');
   v_d  := pg_temp.mkdoc(v_org, v_admin, 'oncall-d', 'senior_medical_officer', 'employed', '{en}',     60, '{hypertension,on_call}');
-  v_mo := pg_temp.mkdoc(v_org, v_admin, 'mo', 'senior_medical_officer', 'employed', '{en}',                   99, '{lead_clinician,hypertension}');
+  v_mo := pg_temp.mkdoc(v_org, v_admin, 'mo', 'care_coordinator', 'employed', '{en}',                   99, '{lead_clinician,hypertension}');
   v_nc := pg_temp.mkdoc(v_org, v_admin, 'no-comp', 'senior_medical_officer', 'employed', '{en}',       99, '{hypertension}');
   v_e := pg_temp.mkdoc(v_org, v_admin, 'oncall-e', 'senior_medical_officer', 'employed', '{en}', 50, '{on_call}');
   -- real (not test) clinicians for the real patients: test and real never mix (INV-13)

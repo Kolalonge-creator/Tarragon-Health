@@ -461,7 +461,7 @@ begin
   update public.clinical_staff set active = false where is_test is not true;
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', 'contracted', '{hypertension,adult_general,result_review,prescribing,on_call}', v_admin));
   perform pg_temp.setf('fin', pg_temp.mkdoc(v_org, 'fin', 'senior_medical_officer', 'contracted', '{hypertension,adult_general,result_review,prescribing,on_call}', v_admin));
-  perform pg_temp.setf('t1', pg_temp.mkdoc(v_org, 't1', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_admin));
+  perform pg_temp.setf('t1', pg_temp.mkdoc(v_org, 't1', 'care_coordinator', 'contracted', '{hypertension,adult_general}', v_admin));
   perform pg_temp.setf('other', pg_temp.mkdoc(v_org, 'other', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_admin));
   perform pg_temp.setf('pat', pg_temp.mkuser(v_org, 'pat', 'patient'));
   perform pg_temp.mkblock(v_org, pg_temp.f('cmo'));
