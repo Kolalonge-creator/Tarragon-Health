@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COUNTRY_CALLING_CODES, E164_GENERIC } from "@tarragon/shared";
@@ -144,12 +144,36 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Shown only while sign-up is invite-only. A failed read means "not invite-only": the database is the real gate either way.
+  const [inviteOnly, setInviteOnly] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const fullPhone = `${countryCode}${localPhone.trim()}`;
   const selectedStateLabel =
     NIGERIAN_STATES.find((s) => s.value === stateValue)?.label ?? "Prefer not to say";
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const { data, error: rpcError } = await supabase.rpc("platform_switch_is_on", { p_key: "signup_invites_required" });
+        if (alive && !rpcError && data === true) setInviteOnly(true);
+      } catch {
+        /* stay open: the database decides */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** The database refuses an uninvited sign-up with a generic error; while invite-only is on, say what it means. */
+  function inviteAwareMessage(raw: string, fallback: string): string {
+    const m = raw.toLowerCase();
+    return inviteOnly && (m.includes("signup_invite_required") || m.includes("database error saving new user")) ? ta("signup.invite_required", locale) : fallback;
+  }
 
   async function handlePhoneSignUp() {
     const phone = normalisePhoneWithCountry(countryCode, localPhone);
@@ -169,6 +193,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
       password,
       fullName: `${firstName.trim()} ${lastName.trim()}`.trim(),
       state: stateValue || undefined,
+      inviteCode: inviteCode.trim() || undefined,
     });
     setLoading(false);
     if (outcome.kind === "error") {
@@ -220,12 +245,13 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
           full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
           phone: fullPhone,
           ...(stateValue ? { state: stateValue } : {}),
+          ...(inviteCode.trim() ? { invite_code: inviteCode.trim() } : {}),
         },
       },
     });
     setLoading(false);
     if (signUpError) {
-      setError(friendlySignUpError(signUpError.message));
+      setError(inviteAwareMessage(signUpError.message, friendlySignUpError(signUpError.message)));
       return;
     }
     setSuccess(true);
@@ -401,6 +427,23 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
             Helps us show what&apos;s available near you. You can add or change this at any time.
           </MutedText>
         </View>
+
+        {inviteOnly && (
+          <View style={{ gap: 6 }}>
+            <TextInput
+              accessibilityLabel={ta("signup.invite_code_label", locale)}
+              placeholder={ta("signup.invite_code_label", locale)}
+              placeholderTextColor={colors.subtle}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={32}
+              value={inviteCode}
+              onChangeText={setInviteCode}
+              style={inputStyle}
+            />
+            <MutedText>{ta("signup.invite_code_hint", locale)}</MutedText>
+          </View>
+        )}
 
         <View style={{ gap: 6 }}>
           <View style={{ justifyContent: "center" }}>

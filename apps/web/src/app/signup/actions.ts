@@ -16,6 +16,7 @@ import { firstIssue } from "@/lib/validation/first-issue";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
 import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
+import { checkSignupGate } from "@/lib/auth/signup-gate";
 
 export type SignupActionState =
   | {
@@ -76,6 +77,7 @@ export async function signUp(
     phone: formData.get("phone"),
     state: formData.get("state"),
     refCode: formData.get("refCode"),
+    inviteCode: formData.get("inviteCode") ?? undefined,
     intent: formData.get("intent"),
     password: formData.get("password"),
   });
@@ -99,6 +101,12 @@ export async function signUp(
   const verdict = await checkNewPassword(parsed.data.password);
   if (!verdict.ok) {
     return { error: verdict.message, field: "password" };
+  }
+
+  // Invite-only sign-up (the database enforces it; this just says so kindly before GoTrue is asked).
+  const gate = await checkSignupGate({ phone: parsed.data.phone, email: parsed.data.email, inviteCode: parsed.data.inviteCode });
+  if (!gate.allowed) {
+    return { error: t("signup.invite_required", await getAuthLocale()), field: "inviteCode", values };
   }
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
@@ -126,6 +134,7 @@ export async function signUp(
         phone: parsed.data.phone,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
+        ...(parsed.data.inviteCode ? { invite_code: parsed.data.inviteCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
         // Someone signing up to pay for a relative's care rather than to be
         // treated. /auth/callback turns this into profiles.account_purpose,
@@ -194,6 +203,7 @@ export async function signUpWithPhone(
     phone: formData.get("phone"),
     state: formData.get("state"),
     refCode: formData.get("refCode"),
+    inviteCode: formData.get("inviteCode") ?? undefined,
     intent: formData.get("intent"),
     password: formData.get("password"),
   });
@@ -221,6 +231,13 @@ export async function signUpWithPhone(
     };
   }
 
+  // Invite-only sign-up: say so kindly before a code is sent. A number that already has an account never reaches the gate, so this
+  // cannot be used to learn which numbers are registered.
+  const gate = await checkSignupGate({ phone: parsed.data.phone, inviteCode: parsed.data.inviteCode });
+  if (!gate.allowed) {
+    return { error: t("signup.invite_required", locale), field: "inviteCode" };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     phone: parsed.data.phone,
@@ -230,6 +247,7 @@ export async function signUpWithPhone(
         full_name: parsed.data.fullName,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
+        ...(parsed.data.inviteCode ? { invite_code: parsed.data.inviteCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
         ...(parsed.data.intent === "support" ? { account_purpose: "support" } : {}),
       },

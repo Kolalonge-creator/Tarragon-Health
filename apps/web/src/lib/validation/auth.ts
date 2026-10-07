@@ -70,6 +70,13 @@ const signupObject = z
       .trim()
       .optional()
       .transform((v) => (v && v.length > 0 ? v : undefined)),
+    // Only shown while sign-up is invite-only. Case and spaces do not matter (the database trims and upper-cases it); an empty box is no code.
+    inviteCode: z
+      .string()
+      .trim()
+      .max(32)
+      .optional()
+      .transform((v) => (v && v.length > 0 ? v : undefined)),
     // Carried from a shareable referral link (?ref=CODE on /signup) so
     // /auth/callback can auto-redeem it once a session exists — see
     // redeem_referral_code's own validation (self-referral, 30-day window,

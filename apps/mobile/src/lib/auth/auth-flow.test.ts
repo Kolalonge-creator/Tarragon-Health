@@ -91,6 +91,16 @@ describe("phone sign-up", () => {
     });
   });
 
+  it("carries an invite code into the account metadata (invite-only sign-up), and sends none when there is none", async () => {
+    const withCode = fakeAuth();
+    await startPhoneSignUp(withCode.auth, { phone: "+2348031234567", password: "a-long-password", fullName: "Ada Obi", inviteCode: "ABCD2345EF" });
+    expect(withCode.calls.signUp?.[0]).toMatchObject({ options: { data: { invite_code: "ABCD2345EF" } } });
+    const without = fakeAuth();
+    await startPhoneSignUp(without.auth, { phone: "+2348031234567", password: "a-long-password", fullName: "Ada Obi" });
+    const data = (without.calls.signUp?.[0] as { options: { data: Record<string, unknown> } }).options.data;
+    expect(data).not.toHaveProperty("invite_code");
+  });
+
   it("looks identical when the number already has an account (no enumeration)", async () => {
     const { auth } = fakeAuth({ signUp: fail("User already registered") });
     expect(

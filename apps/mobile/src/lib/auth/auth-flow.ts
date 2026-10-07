@@ -112,7 +112,7 @@ export type SignUpOutcome =
  */
 export async function startPhoneSignUp(
   auth: AuthApi,
-  args: { phone: string; password: string; fullName: string; state?: string },
+  args: { phone: string; password: string; fullName: string; state?: string; inviteCode?: string },
 ): Promise<SignUpOutcome> {
   const { error } = await auth.signUp({
     phone: args.phone,
@@ -122,6 +122,7 @@ export async function startPhoneSignUp(
         full_name: args.fullName,
         phone: args.phone,
         ...(args.state ? { state: args.state } : {}),
+        ...(args.inviteCode ? { invite_code: args.inviteCode } : {}),
       },
     },
   });
