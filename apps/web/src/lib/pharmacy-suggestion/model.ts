@@ -38,6 +38,7 @@ export const routingRowSchema = z
     suggested_location_name: z.string().nullable(),
     suggested_at: z.string().nullable(),
     suggested_by_me: z.boolean().nullable(),
+    patient_can_confirm: z.boolean().nullable(),
   })
   .strict();
 export type RoutingRow = z.infer<typeof routingRowSchema>;
@@ -58,7 +59,7 @@ export const proximityLabel: Record<(typeof PROXIMITY)[number], string> = {
 };
 export const stockLabel: Record<(typeof IN_STOCK)[number], string> = {
   yes: "Medicines in stock",
-  no: "Some medicines not in stock",
+  no: "Some medicines not listed or not in stock",
   unknown: "Stock not confirmed",
 };
 export const statusLabel: Record<string, string> = {

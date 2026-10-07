@@ -28,7 +28,7 @@ const opt = (n: string, i: number, extra: object = {}) => ({
 });
 const row = (extra: object = {}) => ({
   prescription_id: RX, rx_state: "signed", item_summary: "Item one", signed_at: "2026-10-07T10:00:00Z",
-  suggestion_id: null, suggestion_status: null, suggested_partner_name: null, suggested_location_name: null, suggested_at: null, suggested_by_me: null, ...extra,
+  suggestion_id: null, suggestion_status: null, suggested_partner_name: null, suggested_location_name: null, suggested_at: null, suggested_by_me: null, patient_can_confirm: true, ...extra,
 });
 const render = async () => renderToStaticMarkup(await PharmacySuggestionPanel({ patientId: PAT }));
 
@@ -45,7 +45,7 @@ describe("PharmacySuggestionPanel", () => {
     expect(html.indexOf("Alpha Pharmacy")).toBeGreaterThan(-1);
     expect(html.indexOf("Alpha Pharmacy")).toBeLessThan(html.indexOf("Beta Pharmacy"));
     expect(html).toContain("Same city as the patient");
-    expect(html).toContain("Some medicines not in stock");
+    expect(html).toContain("Some medicines not listed or not in stock");
     expect(html).toContain("Verified partner");
     expect(html).toContain("The patient chooses and confirms");
     expect(html).not.toMatch(/commission|earn|margin|payout|price|cheapest|best|₦/i);
@@ -83,8 +83,22 @@ describe("PharmacySuggestionPanel", () => {
     loadOptions.mockResolvedValue({ ok: true, data: [] });
     expect(await render()).toContain("take the signed prescription to any pharmacy");
   });
-  it("says so when nothing is waiting", async () => {
+  it("says so when nothing is waiting, without claiming the patient has nothing", async () => {
     loadRoutingRows.mockResolvedValue({ ok: true, data: [] });
-    expect(await render()).toContain("No signed prescription is waiting");
+    const html = await render();
+    expect(html).toContain("No signed prescription is waiting for a pharmacy, or this patient is not on your care team");
+  });
+  it("a dependant account is told it cannot confirm, and no options are read for it", async () => {
+    loadRoutingRows.mockResolvedValue({ ok: true, data: [row({ patient_can_confirm: false })] });
+    const html = await render();
+    expect(html).toContain("managed by someone else and cannot confirm");
+    expect(html).not.toContain("Suggest this pharmacy");
+    expect(loadOptions).not.toHaveBeenCalled();
+  });
+  it("says when it is showing only the most recent prescriptions", async () => {
+    const many = Array.from({ length: 7 }, (_, i) => row({ prescription_id: `22222222-2222-4222-8222-22222222222${i}` }));
+    loadRoutingRows.mockResolvedValue({ ok: true, data: many });
+    loadOptions.mockResolvedValue({ ok: true, data: [] });
+    expect(await render()).toContain("Showing the 5 most recent of 7 prescriptions");
   });
 });

@@ -1,10 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { formatPatientDateTime } from "@/lib/format-date";
 import { loadOptions, loadRoutingRows, type Loaded } from "@/lib/pharmacy-suggestion/load";
-import { withdrawSuggestionAction } from "@/lib/pharmacy-suggestion/actions";
 import { proximityLabel, statusLabel, stockLabel, type PharmacyOption, type RoutingRow } from "@/lib/pharmacy-suggestion/model";
 import { SuggestPharmacyForm } from "./suggest-pharmacy-form";
+import { WithdrawPharmacySuggestionForm } from "./withdraw-pharmacy-suggestion-form";
 
 /**
  * S54c (OQ-310 option b): suggest a pharmacy for a signed prescription. The PATIENT confirms; nothing is sent until the patient does, and the patient can take
@@ -14,7 +13,7 @@ import { SuggestPharmacyForm } from "./suggest-pharmacy-form";
 const MAX_PRESCRIPTIONS = 5;
 
 function Options({ patientId, prescriptionId, options }: { patientId: string; prescriptionId: string; options: PharmacyOption[] }) {
-  if (options.length === 0) return <p className="text-sm text-charcoal-ink/60">No verified partner pharmacy near this patient yet. The patient can take the signed prescription to any pharmacy.</p>;
+  if (options.length === 0) return <p className="text-sm text-charcoal-ink/60">No verified partner pharmacy near this patient was found for this prescription. The patient can take the signed prescription to any pharmacy.</p>;
   return (
     <ul className="space-y-2">
       {options.map((o) => (
@@ -48,13 +47,12 @@ function Row({ patientId, row, options }: { patientId: string; row: RoutingRow; 
             {row.suggested_at ? ` (${formatPatientDateTime(row.suggested_at)})` : ""}.
           </p>
           {mine && (row.suggestion_status === "pending" || row.suggestion_status === "unavailable") ? (
-            <form action={withdrawSuggestionAction}>
-              <input type="hidden" name="patientId" value={patientId} />
-              <input type="hidden" name="suggestionId" value={row.suggestion_id} />
-              <Button type="submit" size="sm" variant="outline">Withdraw suggestion</Button>
-            </form>
+            <WithdrawPharmacySuggestionForm patientId={patientId} suggestionId={row.suggestion_id} />
           ) : null}
         </div>
+      ) : null}
+      {waiting && row.patient_can_confirm === false ? (
+        <p className="text-sm text-charcoal-ink/60">This patient&apos;s account is managed by someone else and cannot confirm a suggestion. The signed prescription can be taken to any pharmacy.</p>
       ) : null}
       {waiting && options ? (
         options.ok ? (
@@ -72,7 +70,7 @@ export async function PharmacySuggestionPanel({ patientId }: { patientId: string
   const shown = rows.ok ? rows.data.slice(0, MAX_PRESCRIPTIONS) : [];
   // Options are read (and audited) only for a prescription with no live suggestion: withdraw first to pick another. This keeps a plain
   // page view from writing one audit row per prescription for options nobody asked to see.
-  const wantsOptions = (r: RoutingRow) => r.rx_state === "signed" && r.suggestion_status !== "pending";
+  const wantsOptions = (r: RoutingRow) => r.rx_state === "signed" && r.suggestion_status !== "pending" && r.patient_can_confirm !== false;
   const optionSets = await Promise.all(shown.map((r) => (wantsOptions(r) ? loadOptions(patientId, r.prescription_id) : Promise.resolve(null))));
   return (
     <Card>
@@ -86,9 +84,12 @@ export async function PharmacySuggestionPanel({ patientId }: { patientId: string
         {!rows.ok ? (
           <p role="alert" className="text-sm text-charcoal-ink/60">Not available to you right now. This is not an empty list.</p>
         ) : rows.data.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/60">No signed prescription is waiting for a pharmacy.</p>
+          <p className="text-sm text-charcoal-ink/60">No signed prescription is waiting for a pharmacy, or this patient is not on your care team.</p>
         ) : (
           <ul className="space-y-3">
+            {rows.data.length > MAX_PRESCRIPTIONS ? (
+              <li className="text-xs text-charcoal-ink/60">Showing the {MAX_PRESCRIPTIONS} most recent of {rows.data.length} prescriptions.</li>
+            ) : null}
             {shown.map((r, i) => (
               <Row key={r.prescription_id} patientId={patientId} row={r} options={optionSets[i]} />
             ))}

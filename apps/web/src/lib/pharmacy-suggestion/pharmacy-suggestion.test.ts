@@ -53,16 +53,34 @@ describe("suggestPharmacyAction", () => {
     const r = await suggestPharmacyAction(undefined, fd(form));
     expect(r?.ok).toBe(false);
     expect(r?.message).toMatch(/Nothing was sent/);
+    rpc.mockResolvedValue({ data: null, error: { message: "patient_cannot_confirm", code: "22023" } });
+    expect((await suggestPharmacyAction(undefined, fd(form)))?.message).toMatch(/managed by someone else/);
   });
 });
 
 describe("withdrawSuggestionAction", () => {
-  it("withdraws only by id", async () => {
+  it("withdraws only by id and says it worked", async () => {
     rpc.mockResolvedValue({ data: true, error: null });
-    await withdrawSuggestionAction(fd({ patientId: PAT, suggestionId: S }));
+    const r = await withdrawSuggestionAction(undefined, fd({ patientId: PAT, suggestionId: S }));
     expect(rpc).toHaveBeenCalledWith("care_team_withdraw_pharmacy_suggestion", { p_suggestion: S });
+    expect(r?.ok).toBe(true);
     rpc.mockClear();
-    await withdrawSuggestionAction(fd({ patientId: PAT, suggestionId: "x" }));
+    expect((await withdrawSuggestionAction(undefined, fd({ patientId: PAT, suggestionId: "x" })))?.ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("a refusal and an already-settled suggestion are said out loud, never shown as success", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "not authorised", code: "42501" } });
+    const refused = await withdrawSuggestionAction(undefined, fd({ patientId: PAT, suggestionId: S }));
+    expect(refused?.ok).toBe(false);
+    expect(refused?.message).toMatch(/Only the clinician who made the suggestion/);
+    rpc.mockResolvedValue({ data: false, error: null });
+    const settled = await withdrawSuggestionAction(undefined, fd({ patientId: PAT, suggestionId: S }));
+    expect(settled?.ok).toBe(false);
+    expect(settled?.message).toMatch(/already settled/);
+  });
+  it("needs a signed-in user", async () => {
+    user = null;
+    expect((await withdrawSuggestionAction(undefined, fd({ patientId: PAT, suggestionId: S })))?.ok).toBe(false);
     expect(rpc).not.toHaveBeenCalled();
   });
 });
@@ -97,6 +115,7 @@ describe("what a clinician can see (spec 8.16)", () => {
     "apps/web/src/lib/pharmacy-suggestion/actions.ts",
     "apps/web/src/app/(dashboard)/clinician/patients/[patientId]/pharmacy-suggestion-panel.tsx",
     "apps/web/src/app/(dashboard)/clinician/patients/[patientId]/suggest-pharmacy-form.tsx",
+    "apps/web/src/app/(dashboard)/clinician/patients/[patientId]/withdraw-pharmacy-suggestion-form.tsx",
   ];
   const root = join(__dirname, "../../../../..");
   it.each(files)("%s never names an earning, a margin, a payout or a price outside comments that forbid it", (f) => {

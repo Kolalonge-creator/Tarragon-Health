@@ -27,6 +27,7 @@ export async function suggestPharmacyAction(_prev: SuggestState, formData: FormD
   });
   if (error) {
     if (error.message.includes("pharmacy_not_available")) return { ok: false, message: "That pharmacy is not available any more. Please pick another." };
+    if (error.message.includes("patient_cannot_confirm")) return { ok: false, message: "This patient's account is managed by someone else and cannot confirm a suggestion. The signed prescription can be taken to any pharmacy." };
     if (error.message.includes("suggestion_not_open")) return { ok: false, message: "This prescription is no longer waiting for a pharmacy." };
     return { ok: false, message: "The suggestion was not saved. Nothing was sent." };
   }
@@ -34,10 +35,14 @@ export async function suggestPharmacyAction(_prev: SuggestState, formData: FormD
   return { ok: true, message: "Suggestion saved. The patient chooses; nothing is sent until the patient confirms." };
 }
 
-export async function withdrawSuggestionAction(formData: FormData): Promise<void> {
+/** Withdraws a pending suggestion of her own. A refusal, an error and "already settled" are all said out loud, never shown as success. */
+export async function withdrawSuggestionAction(_prev: SuggestState, formData: FormData): Promise<SuggestState> {
   const parsed = withdrawFormSchema.safeParse({ patientId: formData.get("patientId"), suggestionId: formData.get("suggestionId") });
-  if (!parsed.success) return;
-  if (!(await getCurrentUser())) return;
-  await loose(await createClient()).rpc("care_team_withdraw_pharmacy_suggestion", { p_suggestion: parsed.data.suggestionId });
+  if (!parsed.success) return { ok: false, message: "That did not work and nothing was changed." };
+  if (!(await getCurrentUser())) return { ok: false, message: "Please sign in again." };
+  const { data, error } = await loose(await createClient()).rpc("care_team_withdraw_pharmacy_suggestion", { p_suggestion: parsed.data.suggestionId });
+  if (error) return { ok: false, message: "Only the clinician who made the suggestion can withdraw it. Nothing was changed." };
   revalidatePath(`/clinician/patients/${parsed.data.patientId}`);
+  if (data === false) return { ok: false, message: "It was already settled, so there was nothing to withdraw." };
+  return { ok: true, message: "Withdrawn. The patient no longer sees it." };
 }

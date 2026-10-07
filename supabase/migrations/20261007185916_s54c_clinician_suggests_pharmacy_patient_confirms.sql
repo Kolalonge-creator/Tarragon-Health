@@ -95,7 +95,7 @@ revoke all on function private.pharmacy_place_key(text) from public, anon, authe
 create function public.care_team_prescriptions_for_routing(p_patient uuid, p_reason text)
 returns table (prescription_id uuid, rx_state text, item_summary text, signed_at timestamptz,
                suggestion_id uuid, suggestion_status text, suggested_partner_name text, suggested_location_name text, suggested_at timestamptz,
-               suggested_by_me boolean)
+               suggested_by_me boolean, patient_can_confirm boolean)
 language plpgsql security definer set search_path = '' as $$
 begin
   if (select auth.uid()) is null then raise exception 'not authorised' using errcode = '42501'; end if;
@@ -119,7 +119,8 @@ begin
            case when s.status = 'pending' and not (private.pharmacy_partner_listable(s.pharmacy_partner_id) and l.is_active and l.verified_at is not null
                                                    and private.prescription_collectable(rx.id))
                 then 'unavailable' else s.status end,
-           pp.name, l.name, s.suggested_at, (s.recorded_by = (select auth.uid()))
+           pp.name, l.name, s.suggested_at, (s.recorded_by = (select auth.uid())),
+           not exists (select 1 from public.profiles pt where pt.id = p_patient and pt.is_dependent_account)
       from public.prescriptions rx
       left join lateral (select x.* from public.prescription_pharmacy_suggestions x where x.prescription_id = rx.id
                           order by (x.status = 'pending') desc, x.suggested_at desc, x.id limit 1) s on true
@@ -155,13 +156,14 @@ begin
     return;
   end if;
   select * into rx from public.prescriptions where id = p_prescription and patient_id = p_patient and state = 'signed';
-  if not found or not private.prescription_collectable(rx.id) then
+  if not found or not private.prescription_collectable(rx.id)
+     or exists (select 1 from public.profiles where id = p_patient and is_dependent_account) then
     perform private.audit_chart_read(p_patient, array['pharmacy_suggestions'], p_reason, 'denied');
     return;
   end if;
   perform private.audit_chart_read(p_patient, array['pharmacy_suggestions'], p_reason, 'success');
   select private.pharmacy_place_key(pr.city), private.pharmacy_place_key(pr.state) into v_city, v_state from public.profiles pr where pr.id = p_patient;
-  if v_city is not null and char_length(v_city) < 3 then v_city := null; end if;
+  if v_city is not null and (char_length(v_city) < 3 or v_city is not distinct from v_state) then v_city := null; end if;
   v_total := coalesce(jsonb_array_length(rx.items), 0);
 
   return query
@@ -176,7 +178,7 @@ begin
            -- "city" is a summary and says nothing about a second branch somewhere else, so with several branches only the branch address counts.
            case when v_city is not null
                      and (v_state is null or private.pharmacy_place_key(l.state) is not distinct from v_state)
-                     and (position(v_city in coalesce(private.normalise_term(l.address), '')) > 0
+                     and ((' ' || coalesce(private.normalise_term(l.address), '') || ' ') like ('% ' || v_city || ' %')
                           or (private.pharmacy_place_key(pp.city) = v_city
                               and (select count(*) from public.pharmacy_partner_locations x where x.pharmacy_partner_id = pp.id and x.is_active and x.verified_at is not null) = 1))
                 then 'same_city'
@@ -223,12 +225,16 @@ end $$;
 create function public.care_team_suggest_pharmacy(p_prescription uuid, p_partner uuid, p_location uuid)
 returns uuid language plpgsql security definer set search_path = '' as $$
 declare
-  rx public.prescriptions%rowtype; v_id uuid; v_uid uuid := (select auth.uid()); v_replaced boolean;
+  rx public.prescriptions%rowtype; v_id uuid; v_uid uuid := (select auth.uid()); v_replaced boolean; v_pat uuid;
 begin
   if v_uid is null then raise exception 'not authorised' using errcode = '42501'; end if;
+  -- authorise on a plain read first, so a stranger calling this with any prescription id never takes a row lock
+  select patient_id into v_pat from public.prescriptions where id = p_prescription;
+  if v_pat is null or not private.may_suggest_pharmacy(v_pat) then raise exception 'not authorised' using errcode = '42501'; end if;
   select * into rx from public.prescriptions where id = p_prescription for update;
-  if not found or not private.may_suggest_pharmacy(rx.patient_id) then raise exception 'not authorised' using errcode = '42501'; end if;
   if rx.state <> 'signed' or not private.prescription_collectable(rx.id) then raise exception 'suggestion_not_open' using errcode = '22023'; end if;
+  -- a dependant's account has nobody who can confirm it (the S28 chooser is patient-only, OQ-332), so a suggestion would wait forever
+  if exists (select 1 from public.profiles where id = rx.patient_id and is_dependent_account) then raise exception 'patient_cannot_confirm' using errcode = '22023'; end if;
   if not private.pharmacy_partner_listable(p_partner) or not exists (
        select 1 from public.pharmacy_partner_locations l
         where l.id = p_location and l.pharmacy_partner_id = p_partner and l.is_active and l.verified_at is not null) then
@@ -312,11 +318,18 @@ create function private.settle_pharmacy_suggestions() returns trigger language p
 begin
   if new.state = 'sent' and (old.state is distinct from 'sent' or new.pharmacy_partner_id is distinct from old.pharmacy_partner_id
                              or new.pharmacy_location_id is distinct from old.pharmacy_location_id) then
-    update public.prescription_pharmacy_suggestions s
-       set status = case when s.pharmacy_partner_id = new.pharmacy_partner_id and s.pharmacy_location_id = new.pharmacy_location_id
-                         then 'accepted' else 'chose_other' end,
-           settled_at = now(), settled_by = (select auth.uid())
-     where s.prescription_id = new.id and s.status = 'pending';
+    if coalesce(current_setting('tarragon.rx_route', true), '') = 'on' then
+      -- routed by the patient's own choice (the flag patient_choose_pharmacy sets for its one statement)
+      update public.prescription_pharmacy_suggestions s
+         set status = case when s.pharmacy_partner_id = new.pharmacy_partner_id and s.pharmacy_location_id = new.pharmacy_location_id
+                           then 'accepted' else 'chose_other' end,
+             settled_at = now(), settled_by = (select auth.uid())
+       where s.prescription_id = new.id and s.status = 'pending';
+    else
+      -- routed some other way (a prescriber, a maintenance script): the patient confirmed nothing, so the suggestion is never recorded as hers
+      update public.prescription_pharmacy_suggestions s set status = 'lapsed', settled_at = now()
+       where s.prescription_id = new.id and s.status = 'pending';
+    end if;
   elsif new.state in ('cancelled', 'dispensed') and old.state is distinct from new.state then
     update public.prescription_pharmacy_suggestions s set status = 'lapsed', settled_at = now()
      where s.prescription_id = new.id and s.status = 'pending';
