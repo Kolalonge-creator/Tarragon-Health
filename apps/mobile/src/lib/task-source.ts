@@ -1,4 +1,4 @@
-import { OFFLINE_BUDGET } from "./offline-budget";
+import { activeBudget } from "./offline-budget";
 import { addDays, lagosDayStartUtcMs, lagosLocalDate } from "./lagos-date";
 import { supabase } from "./supabase";
 
@@ -26,8 +26,8 @@ export async function fetchPatientTasks(patientId: string, nowMs: number = Date.
   const cutoff = new Date(lagosDayStartUtcMs(addDays(lagosLocalDate(nowMs), -1))).toISOString();
   const base = () => supabase.from("patient_tasks").select(TASK_COLUMNS).eq("patient_id", patientId);
   const [open, recent] = await Promise.all([
-    base().eq("state", "open").order("updated_at", { ascending: false }).limit(OFFLINE_BUDGET.taskPullLimit),
-    base().neq("state", "open").gte("updated_at", cutoff).order("updated_at", { ascending: false }).limit(OFFLINE_BUDGET.taskRecentLimit),
+    base().eq("state", "open").order("updated_at", { ascending: false }).limit(activeBudget().taskPullLimit),
+    base().neq("state", "open").gte("updated_at", cutoff).order("updated_at", { ascending: false }).limit(activeBudget().taskRecentLimit),
   ]);
   const error = open.error ?? recent.error;
   if (error) return { rows: [], error: { code: error.code, message: error.message } };
