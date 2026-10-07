@@ -446,7 +446,6 @@ begin
     'public.learning_offline_pack()',
     'public.learning_pack_status(text[])',
     'public.set_learning_creator_perk(boolean, text)',
-    'private.learning_creator_locked_for(uuid, uuid)',
     'private.learning_creator_locked(uuid)',
     'private.learning_content_locked(uuid)',
     'private.health_education_unlock_anchor(public.care_plan_condition)',
@@ -457,6 +456,10 @@ begin
     execute format('grant execute on function %s to authenticated, service_role', v_sig);
   end loop;
   grant execute on function public.learn_shared_article(text) to anon;
+  -- the two-argument form takes any patient id: it is for the progress trigger and the one-argument wrapper (both definer functions),
+  -- and must not let a signed-in person ask "is this other patient a Member"
+  revoke execute on function private.learning_creator_locked_for(uuid, uuid) from public, anon, authenticated;
+  grant execute on function private.learning_creator_locked_for(uuid, uuid) to service_role;
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -478,6 +481,9 @@ begin
   end if;
   if (select private.learning_config('creator_perk') ->> 'members_only') is distinct from 'true' then
     raise exception 'creator perk: the seeded switch is not members_only = true';
+  end if;
+  if has_function_privilege('authenticated', 'private.learning_creator_locked_for(uuid, uuid)', 'EXECUTE') then
+    raise exception 'creator perk: a signed-in person can probe another patient''s Membership';
   end if;
   if not exists (select 1 from pg_trigger where tgname = 'health_education_progress_members_gate') then
     raise exception 'creator perk: progress gate missing';
