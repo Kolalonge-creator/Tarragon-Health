@@ -726,6 +726,7 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+            { label: "Automations", href: "/admin/ops/automations", icon: "settings" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
