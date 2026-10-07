@@ -95,7 +95,7 @@ Answered in a single prompt session. Full options and reasoning are in `docs/OPE
 | OQ-13 | On-call roster plus page table with ack timer; channel per OQ-05. |
 | OQ-14 | Versioned config table read by the classifiers plus `classifier_version` on alerts; current live values load unchanged as version 1. |
 | OQ-15 | Create `packages/clinical`: re-export the triage engine first, then port remaining classifiers; test that no LLM import is reachable. |
-| OQ-16 | Leave dormant; drop in a later removal batch using the count-first pattern. |
+| OQ-16 | Leave dormant; drop in a later removal batch using the count-first pattern. **Delivery part done 2026-10-07** (also closes OQ-272 and OQ-281): home delivery removed; `logistics_partners`, the courier and cold-chain columns and all non-delivery ordering kept dormant for a future partner (logistics and direct ordering are not MVP). See OPEN-QUESTIONS OQ-16. |
 | OQ-17 | Mobile stays `apps/mobile`; console is `apps/console` after S01d; create `packages/queue` and `packages/clinical` when their sessions start. |
 | OQ-18 | Reuse `platform_modules` and per-domain versioned tables; no `app_config`; move S01 registry reads into the database as each owning session lands. |
 | OQ-19 | New strings go to `@tarragon/i18n`; old dictionary migrates later; clinical Pidgin needs clinician sign-off and native review first. |
