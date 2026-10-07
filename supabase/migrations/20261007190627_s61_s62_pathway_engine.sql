@@ -338,7 +338,7 @@ declare
   v_cycle integer;
 begin
   select * into e from public.chronic_programme_enrolments where id = p_enrolment;
-  if not found or (select auth.uid()) is null or not private.staff_may_write(e.patient_id, e.organisation_id, 'medical_history'::public.care_access_category) then
+  if not found or (select auth.uid()) is null or not (private.clinician_has_patient_access(e.patient_id) and exists (select 1 from public.profiles pr where pr.id = (select auth.uid()) and pr.role = 'clinician')) then
     raise exception 'not authorised' using errcode = '42501';
   end if;
   select max(cycle) into v_cycle from public.pathway_milestones where enrolment_id = p_enrolment;
@@ -419,7 +419,7 @@ begin
   select * into e from public.chronic_programme_enrolments where id = p_enrolment for update;
   if not found then raise exception 'unknown enrolment' using errcode = '22023'; end if;
   v_self := e.patient_id = v_uid;
-  v_staff := private.staff_may_write(e.patient_id, e.organisation_id, 'medical_history'::public.care_access_category);
+  v_staff := (private.clinician_has_patient_access(e.patient_id) and exists (select 1 from public.profiles pr where pr.id = (select auth.uid()) and pr.role = 'clinician'));
   if not (v_staff or (v_self and p_patient_may)) then raise exception 'not authorised' using errcode = '42501'; end if;
   select coalesce(is_test, false) into v_test from public.profiles where id = e.patient_id;
 

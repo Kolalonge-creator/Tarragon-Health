@@ -76,9 +76,9 @@ begin
   perform set_config('tarragon.lead_write', 'on', true);
   insert into public.lead_assignments (organisation_id, patient_id, clinician_id, state, source, config_version, assigned_by, is_test)
   values (v_org, p_patient, p_clin, 'active', 'reassign', private.lead_config_version(), p_clin, true);
-  perform set_config('tarragon.lead_write', 'off', true);
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, p_patient, p_clin)
   on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
+  perform set_config('tarragon.lead_write', 'off', true);
 end $f$;
 create function pg_temp.enrol(p_patient uuid, p_programme text) returns text language plpgsql as
 $f$ declare v_org uuid;
@@ -114,7 +114,7 @@ begin
   perform pg_temp.rec('ten pathways', '10', (select count(*)::text from public.pathway_definitions));
   perform pg_temp.rec('ten pathway guards exist, all off', '10/0', (select count(*) || '/' || count(*) filter (where g.is_on) from public.go_live_guards g join public.pathway_definitions d on d.guard_key = g.key));
   perform pg_temp.rec('every guard is switched by the CMO', '10', (select count(*)::text from public.go_live_guards g join public.pathway_definitions d on d.guard_key = g.key where g.switch_role = 'cmo'));
-  perform pg_temp.rec('RLS on for all new tables', '6', (select count(*)::text from pg_class where oid in ('public.pathway_definitions'::regclass, 'public.pathway_config'::regclass, 'public.pathway_baselines'::regclass, 'public.pathway_milestones'::regclass, 'public.pathway_lifecycle_events'::regclass, 'public.pathway_definitions'::regclass) and relrowsecurity) );
+  perform pg_temp.rec('RLS on for all new tables', '5', (select count(*)::text from pg_class where oid in ('public.pathway_definitions'::regclass, 'public.pathway_config'::regclass, 'public.pathway_baselines'::regclass, 'public.pathway_milestones'::regclass, 'public.pathway_lifecycle_events'::regclass) and relrowsecurity));
   perform pg_temp.rec('authenticated cannot write any new table', '0',
     (select count(*)::text from unnest(array['public.pathway_definitions', 'public.pathway_config', 'public.pathway_baselines', 'public.pathway_milestones', 'public.pathway_lifecycle_events']) t
       where has_table_privilege('authenticated', t, 'INSERT') or has_table_privilege('authenticated', t, 'UPDATE') or has_table_privilege('authenticated', t, 'DELETE')));
