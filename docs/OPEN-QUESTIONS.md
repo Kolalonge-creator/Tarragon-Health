@@ -1837,3 +1837,47 @@ Numbering: the last number used on another branch was OQ-327; S66 starts at OQ-3
 ### OQ-377 Source badge coverage (raised by S70a)
 - The badge is on the web readings list and the phone BP history. Other phone lists (glucose, weight) and the clinician readings views were not found to list per-reading sources; check before calling "every UI" done.
 
+
+## S68: postnatal and child (Module 16, 3 of 3) (raised 2026-10-07)
+### OQ-350 Which pieces of S68 run only after the CMO signs (raised by S68)
+- Everything below is PROPOSED config in `maternal_child_config` and `packages/shared/src/proposed-config/registry.ts` (keys `maternal_child.*`), mirrored by `maternal-child-mirror.test.ts`. Nothing is signed. `maternal_enabled` stays OFF. Until it is on: a real child's malnutrition class is stored but raises no alert and pages nobody (the screen says follow-up is not switched on and to message the care team), the feed log and the lifecycle functions refuse a real person with "not open yet". Test accounts pass (S37 rule).
+- Decision: open (CMO signs the A6/A7 values; the founder or CMO flips the guard).
+### OQ-351 MUAC age range and the 12 hour "same-day" line (raised by S68)
+- Pack A7 says "MUAC under 115 mm" with no age range. WHO/UNICEF use 115 and 125 mm for 6 to 59 months; under 6 months MUAC is not a screening tool. The config applies MUAC from 6 to under 60 months (`muac_min_age_months`, `muac_max_age_months`) and treats weight-for-height z as the only rule below 6 months. "Same-day referral" is set as 12 hours (`sam_review_within_hours`). Both are proposals.
+- Decision: open (CMO).
+### OQ-352 WHO LMS source and licence (raised by S68; CMO pack question 5)
+- Data comes from the published WHO workbooks (URLs in each row's `source_url` and in the generator). The licence terms for redistributing them inside a product were not checked. Golden tests use the `anthro` package (a third-party port) for 0 to 5 years and an independent calculation from the WHO 2007 workbooks for 5 to 19 years.
+- Decision: open (CMO and counsel).
+### OQ-353 Plausibility ranges for head circumference and MUAC (raised by S68)
+- Weight-for-age (-6/+5), height-for-age (-6/+6), weight-for-height and BMI-for-age (-5/+5) follow the WHO Anthro documentation. Head circumference and MUAC-for-age use -5/+5 as an assumption. A flagged row is kept and still routed.
+- Decision: open (CMO).
+### OQ-354 EPDS cut-offs and the Nigerian validation range (raised by S68; pack A6)
+- 10 and 13 (review within a week, within 48 hours) are provisional. Nigerian studies are said to report 7 to 12 depending on language and period (not re-verified). Local audit after the first 200 screens, then adjust.
+- Decision: open (CMO).
+### OQ-355 When to prompt the EPDS (raised by S68)
+- `postnatal.checks.epds_prompt_windows` = week 6 is a proposal. The existing app opt-in (perinatal self-identification) is unchanged.
+- Decision: open (CMO).
+### OQ-356 Lifecycle stages, the loss path and its copy (raised by S68; founder items 8)
+- Stage names, transitions, the 90 day baby-content hold and the 400 day look-back are proposals (`lifecycle.rules`). The loss wording is a placeholder (`mch.life.loss_note`, `maternal_child_content.loss.gentle_path`); the founder or CMO writes it. The stage history keeps the fact that a confirmed loss event happened (no note) even after the note is deleted: confirm that is acceptable.
+- Decision: open (founder, CMO).
+### OQ-357 NDPA wording for sealed clinician data (raised by S68; pack B3)
+- Sealed for 8 years then destroyed is a proposal; counsel to confirm the period and the carve-out wording. Sealed means: clinician-recorded rows, a growth row that raised a nutrition alert or a trajectory alert, a baby check linked to an appointment.
+- Decision: open (counsel).
+### OQ-358 Deleting the loss note but not the stage fact (raised by S68)
+- `lifecycle_events` is append-only, so a deleted loss note leaves an event row `pregnancy_loss_recorded` with no note. A person who wants even that gone has no path. Options: (a) accept (recommended, it is the audit of a state change); (b) allow a redaction function that nulls the kind to a neutral value.
+- Decision: open.
+### OQ-359 Nothing schedules the deletion sweep (raised by S68)
+- `public.sweep_due_tracker_deletions()` (service role) exists and is not scheduled. Today a person completes their own deletion after the window. A cron entry needs the Vercel cron limit / pg_cron decision.
+- Decision: open.
+### OQ-360 NPHCDA schedule reconciliation not possible from the official source (raised by S68; pack A8)
+- The NPHCDA site (nphcda.gov.ng) was fetched and searched; no schedule table or document was reachable. The catalogue (`vaccination_catalog`, `child_*`, migration `20260723200847`) was therefore NOT edited. Points to check against the agency's current schedule document: (1) malaria vaccine (R21): press says 4 doses at 5, 6, 7 and about 15 months where phased in; the catalogue has no malaria row; (2) IPV: press says a second dose was added in 2021 at 14 weeks; the catalogue has one dose; (3) rotavirus doses, measles second dose at 15 months, MenA (and any newer meningococcal product), vitamin A, HPV single dose age. Reminders stay generic (INV-07) and no wording advises delaying a dose.
+- Decision: open (CMO or the immunisation lead supplies the schedule document).
+### OQ-361 `sponsor_care_report.last_clinical_review` can reflect a maternal or child alert date (raised by S68)
+- The function returns the latest date a clinician acknowledged ANY alert for the beneficiary. A review of a child growth alert or a postnatal wellbeing alert would move that date. It discloses no value, only that a review happened, but it can hint. Options: (a) accept; (b) exclude alerts whose title starts "Child growth check" or "Postnatal wellbeing" (a title match is brittle); (c) add an alert category column (a wider change).
+- Decision: open.
+### OQ-362 Staff reads of the new tables use `is_org_staff` today (raised by S68)
+- Until S39b (tied staff reads, #997) lands, any staff member of the organisation can read the S68 tables through `private.maternal_staff_may_read`, which is one function. S39b must register the nine new tables (growth columns, baby checks, feed log, lifecycle, loss records, deletion receipts) in `staff_read_scope` as tied and change that one function.
+- Decision: open (S39b follow-up).
+### OQ-363 Real-clinician paging for severe acute malnutrition does not use the S19 on-call page (raised by S68; INV-05)
+- The severe route uses the existing alert and `enqueue_critical_notification` loop (as the red-flag symptom handler does), not `create_red_page`, because that function takes a triage event from a BP rule set. A child nutrition triage rule set would be needed to feed the on-call page and its escalation timer.
+- Decision: open (CMO, S11/S19 owners).

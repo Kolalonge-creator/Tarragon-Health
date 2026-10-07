@@ -256,3 +256,4 @@ export * from "./device-dedupe";
 export * from "./photo-reading";
 export * from "./cgm-events";
 export * from "./device-source";
+export * from "./maternal-child";

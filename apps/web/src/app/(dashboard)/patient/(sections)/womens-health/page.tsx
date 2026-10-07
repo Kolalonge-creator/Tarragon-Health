@@ -12,6 +12,7 @@ import { ContraceptionCard } from "@/app/(dashboard)/patient/contraception-card"
 import { AntenatalCard } from "@/app/(dashboard)/patient/antenatal-card";
 import { PregnancyRedFlagCheck } from "@/app/(dashboard)/patient/pregnancy-red-flag-check";
 import { PostnatalCard } from "@/app/(dashboard)/patient/postnatal-card";
+import { BabyChecksCard, FeedLogCard, LifecycleCard, TrackerDeletionCard } from "@/app/(dashboard)/patient/maternal-child-cards";
 import { BreastSymptomCard } from "@/app/(dashboard)/patient/breast-symptom-card";
 import { MenopauseSymptomCard } from "@/app/(dashboard)/patient/menopause-symptom-card";
 import { PrivateSection } from "@/components/private-section/private-section";
@@ -275,6 +276,11 @@ export default async function WomensHealthPage() {
         )}
 
         {showFertility && <FertilityRequestCard patientId={subjectId} />}
+
+        {showPostnatal && <BabyChecksCard patientId={subjectId} />}
+        {showPostnatal && <FeedLogCard patientId={subjectId} organisationId={profile.organisation_id ?? null} />}
+        <LifecycleCard />
+        <TrackerDeletionCard patientId={subjectId} />
 
         {showMenopause && <MenopauseSymptomCard patientId={subjectId} />}
         {showMenopause && menopauseTreatmentCautionNote(activeConditions) && (
