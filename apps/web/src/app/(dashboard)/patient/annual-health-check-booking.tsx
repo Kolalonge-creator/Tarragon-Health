@@ -87,7 +87,7 @@ export function AnnualHealthCheckBooking({
   screensEnabled?: boolean;
 }) {
   const { data: bundles } = useLabCatalogue();
-  const { data: orders } = usePatientLabOrders(patientId);
+  const { data: orders, isError: ordersError } = usePatientLabOrders(patientId);
   const createOrder = useCreateLabOrder();
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
@@ -186,6 +186,12 @@ export function AnnualHealthCheckBooking({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {ordersError && (
+          <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
+            We could not load your existing requests, so we cannot tell whether you already have one open. Booking is paused until
+            you reload the page.
+          </p>
+        )}
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           We tell you which tests are worth doing and why, and a doctor reads every result with
           you, including the all-clear ones.
@@ -343,7 +349,7 @@ export function AnnualHealthCheckBooking({
                 <Button
                   type="button"
                   size="sm"
-                  disabled={createOrder.isPending}
+                  disabled={createOrder.isPending || ordersError}
                   onClick={() => {
                     setPrintError(null);
                     createOrder.mutate(

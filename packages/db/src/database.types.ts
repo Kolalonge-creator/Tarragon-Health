@@ -37728,7 +37728,6 @@ export type Database = {
           laboratory: string | null
           order_number: string | null
           organisation_id: string | null
-          partner_cost_kobo: number | null
           patient_id: string | null
           payment_confirmed_at: string | null
           total_kobo: number | null
@@ -41251,65 +41250,7 @@ export type Database = {
           p_preferred_time_of_day: Database["public"]["Enums"]["lab_order_time_of_day"]
           p_scheduled_date: string
         }
-        Returns: {
-          applied_voucher_id: string | null
-          chronic_programme_occurrence_id: string | null
-          clinical_indication: string | null
-          courier_reference: string | null
-          created_at: string
-          excluded_test_codes: Json
-          facility_id: string | null
-          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
-          home_visit_provider_id: string | null
-          home_visit_scheduled_at: string | null
-          id: string
-          investigation_tier: number
-          order_number: string | null
-          ordered_at: string
-          ordered_by: string | null
-          organisation_id: string
-          origin: Database["public"]["Enums"]["booking_origin"]
-          panel_bundle_id: string | null
-          partner_cost_breakdown: Json | null
-          partner_cost_kobo: number | null
-          partner_cost_provider_id: string | null
-          partner_reference: string | null
-          patient_id: string
-          payable_kobo: number | null
-          payment_confirmed_at: string | null
-          payment_provider:
-            | Database["public"]["Enums"]["payment_provider"]
-            | null
-          payment_provider_ref: string | null
-          pending_payment_provider_ref: string | null
-          preferred_time_of_day:
-            | Database["public"]["Enums"]["lab_order_time_of_day"]
-            | null
-          provider_id: string | null
-          rejected_at: string | null
-          rejected_by: string | null
-          rejection_reason: string | null
-          resulted_at: string | null
-          sample_collected_at: string | null
-          scheduled_date: string | null
-          screening_schedule_id: string | null
-          status: Database["public"]["Enums"]["lab_order_status"]
-          subscriber_discount_kobo: number
-          total_kobo: number
-          transmission: Database["public"]["Enums"]["lab_order_transmission"]
-          transmission_ack_at: string | null
-          transmission_note: string | null
-          transmitted_at: string | null
-          updated_at: string
-          urgency: Database["public"]["Enums"]["lab_order_urgency"]
-          voucher_covered_kobo: number
-        }
-        SetofOptions: {
-          from: "*"
-          to: "lab_orders"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: undefined
       }
       request_lab_order_refund: {
         Args: {
@@ -41697,65 +41638,7 @@ export type Database = {
       }
       set_lab_order_facility: {
         Args: { p_facility_id: string; p_order_id: string }
-        Returns: {
-          applied_voucher_id: string | null
-          chronic_programme_occurrence_id: string | null
-          clinical_indication: string | null
-          courier_reference: string | null
-          created_at: string
-          excluded_test_codes: Json
-          facility_id: string | null
-          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
-          home_visit_provider_id: string | null
-          home_visit_scheduled_at: string | null
-          id: string
-          investigation_tier: number
-          order_number: string | null
-          ordered_at: string
-          ordered_by: string | null
-          organisation_id: string
-          origin: Database["public"]["Enums"]["booking_origin"]
-          panel_bundle_id: string | null
-          partner_cost_breakdown: Json | null
-          partner_cost_kobo: number | null
-          partner_cost_provider_id: string | null
-          partner_reference: string | null
-          patient_id: string
-          payable_kobo: number | null
-          payment_confirmed_at: string | null
-          payment_provider:
-            | Database["public"]["Enums"]["payment_provider"]
-            | null
-          payment_provider_ref: string | null
-          pending_payment_provider_ref: string | null
-          preferred_time_of_day:
-            | Database["public"]["Enums"]["lab_order_time_of_day"]
-            | null
-          provider_id: string | null
-          rejected_at: string | null
-          rejected_by: string | null
-          rejection_reason: string | null
-          resulted_at: string | null
-          sample_collected_at: string | null
-          scheduled_date: string | null
-          screening_schedule_id: string | null
-          status: Database["public"]["Enums"]["lab_order_status"]
-          subscriber_discount_kobo: number
-          total_kobo: number
-          transmission: Database["public"]["Enums"]["lab_order_transmission"]
-          transmission_ack_at: string | null
-          transmission_note: string | null
-          transmitted_at: string | null
-          updated_at: string
-          urgency: Database["public"]["Enums"]["lab_order_urgency"]
-          voucher_covered_kobo: number
-        }
-        SetofOptions: {
-          from: "*"
-          to: "lab_orders"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: undefined
       }
       set_monitoring_baseline: {
         Args: { p_baseline: Json; p_item_id: string }
