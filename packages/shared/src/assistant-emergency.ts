@@ -10,7 +10,7 @@ import { getProposedConfig } from "./proposed-config";
  * the server sends.
  *
  * WORDING STATUS: every sentence below is PROPOSED wording. The self-harm copy in particular is a clinical document and needs the
- * Chief Medical Officer's sign-off before the assistant is switched on (OQ-293). Nothing here is marked approved. Plain, warm, no
+ * Chief Medical Officer's sign-off before the assistant is switched on (OQ-362). Nothing here is marked approved. Plain, warm, no
  * fear-based urgency, no em dash, "your care team" and never "your doctor".
  */
 export const EMERGENCY_BUTTON_LABEL = "Emergency";
@@ -25,7 +25,7 @@ export const EMERGENCY_GUIDANCE = {
   ],
 } as const;
 
-/** Self-harm gets its own, calmer copy. PROPOSED, awaiting the CMO (OQ-293). */
+/** Self-harm gets its own, calmer copy. PROPOSED, awaiting the CMO (OQ-362). */
 export const SELF_HARM_GUIDANCE = {
   title: "You do not have to face this alone",
   lines: [

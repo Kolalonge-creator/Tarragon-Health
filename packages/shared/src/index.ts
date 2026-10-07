@@ -248,6 +248,7 @@ export {
   FORBIDDEN_PARAM_KEYS as NOTIFICATION_FORBIDDEN_PARAM_KEYS,
   type Violation as NotificationViolation,
 } from "./notification-neutral";
+export * from "./breathing";
 export * from "./consent-state";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";

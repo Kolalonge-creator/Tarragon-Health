@@ -7,7 +7,7 @@ export type PharmacyPartner = Tables<"pharmacy_partners">;
 
 type PharmacyPartnerSummary = Pick<
   PharmacyPartner,
-  "id" | "name" | "delivery" | "regions" | "address" | "latitude" | "longitude" | "state" | "city" | "area" | "delivery_fee_kobo"
+  "id" | "name" | "regions" | "address" | "latitude" | "longitude" | "state" | "city" | "area"
 >;
 
 export type PharmacyMedicationWithPartner = PharmacyMedication & {
@@ -56,8 +56,6 @@ async function fetchPharmacyPartners(
     partnerById.set(row.id, {
       id: row.id,
       name: row.name ?? "",
-      // S28b (Part C.2): the directory no longer carries delivery. These two stay on the type for the dormant legacy order screens, fixed at "no delivery".
-      delivery: false,
       regions: row.regions ?? [],
       address: row.address,
       latitude: row.latitude,
@@ -65,7 +63,6 @@ async function fetchPharmacyPartners(
       state: row.state,
       city: row.city,
       area: row.area,
-      delivery_fee_kobo: null,
     });
   }
   return partnerById;
@@ -124,13 +121,6 @@ export type PharmacyOrderItem = {
 
 export type PharmacyOrder = Tables<"pharmacy_orders">;
 
-export type PharmacyOrderWithLogistics = PharmacyOrder & {
-  logistics_partner: { name: string; delivery_fee_kobo: number; supports_cold_chain: boolean } | null;
-};
-
-const PHARMACY_ORDER_SELECT =
-  "*, logistics_partner:logistics_partners!pharmacy_orders_logistics_partner_id_fkey(name, delivery_fee_kobo, supports_cold_chain)";
-
 /** Patient's own pharmacy_orders, newest first. Client hook from the start — Build 4's lab-orders-list bug (server component missed cache invalidation) taught this. */
 export function usePatientPharmacyOrders(patientId: string) {
   return useQuery({
@@ -139,11 +129,11 @@ export function usePatientPharmacyOrders(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("pharmacy_orders")
-        .select(PHARMACY_ORDER_SELECT)
+        .select("*")
         .eq("patient_id", patientId)
         .order("requested_at", { ascending: false });
       if (error) throw error;
-      return data as PharmacyOrderWithLogistics[];
+      return data as PharmacyOrder[];
     },
     enabled: !!patientId,
   });
@@ -151,7 +141,7 @@ export function usePatientPharmacyOrders(patientId: string) {
 
 /**
  * All pharmacy_orders in the caller's org, newest first — ops/clinician
- * worklist for assigning a courier/logistics partner. RLS
+ * worklist. RLS
  * (private.is_org_staff) does the org-scoping.
  */
 export function useOrgPharmacyOrders() {
@@ -161,10 +151,10 @@ export function useOrgPharmacyOrders() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("pharmacy_orders")
-        .select(PHARMACY_ORDER_SELECT)
+        .select("*")
         .order("requested_at", { ascending: false });
       if (error) throw error;
-      return data as PharmacyOrderWithLogistics[];
+      return data as PharmacyOrder[];
     },
   });
 }
@@ -242,26 +232,6 @@ export function useRecordDispense() {
   });
 }
 
-export type PharmacyOrderDeliveryAttempt = Tables<"pharmacy_order_delivery_attempts">;
-
-/** Delivery-attempt history for an order (spec §63.10) — newest first. */
-export function useOrderDeliveryAttempts(orderId: string) {
-  return useQuery({
-    queryKey: ["pharmacy-order-delivery-attempts", orderId],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("pharmacy_order_delivery_attempts")
-        .select("*")
-        .eq("pharmacy_order_id", orderId)
-        .order("attempted_at", { ascending: false });
-      if (error) throw error;
-      return data as PharmacyOrderDeliveryAttempt[];
-    },
-    enabled: !!orderId,
-  });
-}
-
 /**
  * Patient books a medication with a chosen quantity. pharmacy_orders' INSERT
  * RLS allows patient_id = auth.uid() directly, same generic-loop policy
@@ -278,20 +248,12 @@ export function useCreatePharmacyOrder() {
       pharmacyPartnerId,
       medication,
       quantity,
-      fulfilmentMethod = "pickup",
-      deliveryFeeKobo,
     }: {
       organisationId: string;
       patientId: string;
       pharmacyPartnerId: string;
       medication: PharmacyMedication;
       quantity: number;
-      /** Delivery is model-ready but gated in the UI until logistics partners onboard — defaults to pickup. */
-      fulfilmentMethod?: "pickup" | "delivery";
-      /** The pharmacy's own flat fee (pharmacy_partners.delivery_fee_kobo) —
-       * only added to the total when fulfilmentMethod is "delivery"; ignored
-       * for pickup, matching §12.7's "delivery fee" price-visibility line. */
-      deliveryFeeKobo?: number | null;
     }) => {
       const supabase = createClient();
       const item: PharmacyOrderItem = {
@@ -302,9 +264,7 @@ export function useCreatePharmacyOrder() {
         quantity,
         requires_cold_chain: medication.requires_cold_chain,
       };
-      const totalKobo =
-        medication.price_kobo * quantity +
-        (fulfilmentMethod === "delivery" ? (deliveryFeeKobo ?? 0) : 0);
+      const totalKobo = medication.price_kobo * quantity;
       const { error } = await supabase.from("pharmacy_orders").insert({
         organisation_id: organisationId,
         patient_id: patientId,
@@ -312,7 +272,6 @@ export function useCreatePharmacyOrder() {
         items: [item],
         total_kobo: totalKobo,
         status: "pending_payment",
-        fulfilment_method: fulfilmentMethod,
         requires_cold_chain: medication.requires_cold_chain,
       });
       if (error) throw error;

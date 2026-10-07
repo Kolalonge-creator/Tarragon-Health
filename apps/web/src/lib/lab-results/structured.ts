@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LAB_UNIT_CONVERSIONS, LabEntryError, toCanonicalUnit } from "@tarragon/clinical/lab-units";
 
 /**
  * Shared pieces for structured lab results (S27): the file rule, the input schemas, the plain-words error mapping and
@@ -19,9 +20,10 @@ export function validateLabResultFile(file: { type: string; size: number }): str
   return null;
 }
 
-export const PANEL_CODES = ["essential", "annual_health_check"] as const;
+/** One panel: the Membership annual blood test (there are no packages to choose between). */
+export const PANEL_CODES = ["membership_annual"] as const;
 export type PanelCode = (typeof PANEL_CODES)[number];
-export const PANEL_LABEL: Record<PanelCode, string> = { essential: "Essential panel", annual_health_check: "Annual health check" };
+export const PANEL_LABEL: Record<PanelCode, string> = { membership_annual: "Annual blood test" };
 
 const itemSchema = z
   .object({
@@ -38,6 +40,30 @@ export const resultEntrySchema = z.object({
   items: z.array(itemSchema).max(60),
 });
 export type ResultEntryItem = z.infer<typeof itemSchema>;
+
+/**
+ * A lab may print a value in another unit (glucose in mmol/L, creatinine in µmol/L, haemoglobin in g/L). The database judges
+ * every value in the panel's own unit and refuses any other, so a value in a known alternate unit is converted here first, and
+ * a unit nobody knows is refused with the plain message rather than guessed. An analyte this table does not know is passed
+ * through untouched, so the database gives its own unknown-analyte answer.
+ */
+export function toPanelUnits(items: ResultEntryItem[]): { items: ResultEntryItem[] } | { error: string } {
+  const out: ResultEntryItem[] = [];
+  for (const item of items) {
+    if (item.value_numeric === undefined || !(item.analyte_code in LAB_UNIT_CONVERSIONS)) {
+      out.push(item);
+      continue;
+    }
+    try {
+      const n = toCanonicalUnit(item.analyte_code, item.value_numeric, item.unit);
+      out.push({ analyte_code: item.analyte_code, value_numeric: n.value, unit: n.unit });
+    } catch (e) {
+      if (e instanceof LabEntryError) return { error: MESSAGES[e.code] ?? "That unit is not one we can read. Enter the value in the unit shown." };
+      throw e;
+    }
+  }
+  return { items: out };
+}
 
 export const disclosureSchema = z.object({
   resultId: z.string().uuid(),
@@ -73,6 +99,8 @@ export const correctionSchema = resultEntrySchema.extend({
 
 export const releaseSchema = z.object({ resultId: z.string().uuid(), note: z.string().trim().max(500).optional() });
 
+const sexRangeSchema = z.object({ refLow: z.number().optional(), refHigh: z.number().optional() });
+
 export const panelDefinitionSchema = z.object({
   panel_code: z.string(),
   version: z.number(),
@@ -86,12 +114,28 @@ export const panelDefinitionSchema = z.object({
       refHigh: z.number().optional(),
       criticalLow: z.number().optional(),
       criticalHigh: z.number().optional(),
+      bySex: z.object({ male: sexRangeSchema.optional(), female: sexRangeSchema.optional() }).optional(),
       sensitive: z.boolean().optional(),
       optional: z.boolean().optional(),
     }),
   ),
 });
 export type PanelDefinition = z.infer<typeof panelDefinitionSchema>;
+
+/**
+ * "Men 13 to 17.5, women 12 to 15.5" for an analyte with sex-specific ranges, or "" for one without. The CMO reads this before signing
+ * and the partner lab sees it beside the entry box, so a range that differs by sex is never hidden behind the general one.
+ */
+export function describeSexRanges(a: PanelDefinition["analytes"][number]): string {
+  if (!a.bySex) return "";
+  const side = (label: string, r: { refLow?: number; refHigh?: number } | undefined) => {
+    const low = r?.refLow ?? a.refLow ?? null;
+    const high = r?.refHigh ?? a.refHigh ?? null;
+    const text = formatRange(low, high, a.unit);
+    return text ? `${label} ${text}` : "";
+  };
+  return [side("men", a.bySex.male), side("women", a.bySex.female)].filter(Boolean).join(", ");
+}
 
 /** Analytes whose positive is a screening result, not a diagnosis (WHO: a reactive screen needs confirmation). */
 export const SCREENING_ANALYTES: ReadonlySet<string> = new Set(["hiv_screen", "hbsag", "hcv_ab"]);

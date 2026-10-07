@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, spacing } from "@/ui/theme";
 import { SecondaryButton } from "@/ui/components";
 import type { EmergencyContact } from "@/lib/emergency";
-import { ListenButton } from "@/ui/ListenButton";
+import { ListenButton } from "@/ui/kit";
 import { t, type MessageKey } from "@tarragon/i18n";
 
 /**
@@ -77,7 +77,7 @@ export function EmergencyGuidanceModal({
                 <Text style={{ fontSize: 15, lineHeight: 22, color: colors.ink, fontWeight: "700" }}>
                   {t(`triage.${wordingCode.toLowerCase()}.body`.replace("-", "_") as MessageKey, "en")}
                 </Text>
-                <ListenButton clipId={wordingCode} lang="en" />
+                <ListenButton clipIds={[wordingCode]} lang="en" />
               </>
             ) : null}
             <Text style={{ fontSize: 15, lineHeight: 22, color: colors.ink }}>
