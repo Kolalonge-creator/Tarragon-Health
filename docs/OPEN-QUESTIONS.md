@@ -1700,3 +1700,14 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Fixed in S11g and S11h: (a) the older server alert path now follows the 200/130 decision once the rule set is APPROVED: the old emergency range with no red-flag symptom (and not in pregnancy or after a birth) raises the Priority 1 alert but no patient emergency record; a symptom keeps it an emergency, and a symptom answered after the reading opens the emergency record then (migration `20261006000812`, proof `s11g`, a no-op until approval). The 160/100 and 135/85 bands are unchanged, so a 165/105 reading still pages Priority 1 for a reading the engine would treat as amber: that is the S12 band alignment of OQ-67 and needs the CMO. (f) Tapping the reminder or the server push now opens the blood pressure screen, from closed or running, once per tap (`notification-tap.ts`). (d) The Pidgin for the question's buttons and the reminder is drafted in the catalogue; the emergency guidance, triage messages and symptom names stay in English until a native reviewer and the CMO sign them; the full list is `docs/PIDGIN-REVIEW-S11.md`.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
+
+
+## Raised by S80 (prepared work)
+
+### OQ-310 Who runs the monthly AI review sample draw, and when? (raised by S80c)
+- `draw_ai_review_sample(month, rate)` exists and takes the rate as a parameter; nothing schedules it, deliberately, because `ai.review_sample_rate` (0.05) is proposed and unsigned. Options: (a) a monthly cron that reads the confirmed config value and skips if it is only proposed (recommended); (b) the CMO draws it by hand each month.
+- Decision: open.
+
+### OQ-311 The 213 published health education items that were never clinician-reviewed (raised by S80 fix-first)
+- Live on 2026-10-07: 219 published, 213 with `clinician_reviewed` not true. The new gate does not change them. Options: (a) leave published and re-review in priority order, high-risk categories first (recommended, avoids emptying the app); (b) move all to `review_due` so the CMO re-affirms each; (c) withdraw all not reviewed. Content past its review date is already hidden by the nightly sweep.
+- Decision: open (CMO).
