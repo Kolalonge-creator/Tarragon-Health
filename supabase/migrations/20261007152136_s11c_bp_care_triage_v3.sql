@@ -8,6 +8,9 @@
 -- version than the one live" guard, which is the same hazard that was closed for the ten other governed tables on 2026-10-06; this migration
 -- adds that guard for rule sets too (below).
 --
+-- The guard does not remove the way back: to return to older rules on purpose, insert a NEW higher version that copies the older rules and approve that
+-- (the version number records the decision; nothing is rolled back silently).
+--
 -- This row is derived in SQL from the stored version 2 (not retyped): same rules and parameters, `version` 3 and `params.silence.days` 7.
 -- It stays a DRAFT. Nothing about live behaviour changes until the CMO approves it with `approve_triage_rule_set`, which retires version 1 and
 -- approves version 3. Spec safety case 7 says 5 days; the departure is recorded in docs/DECISIONS.md (S11-1) and OQ-273.
