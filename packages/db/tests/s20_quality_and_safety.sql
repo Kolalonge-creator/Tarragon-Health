@@ -95,7 +95,7 @@ begin
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone;
   return v;
 end $f$;
-create function pg_temp.mkdoc(p_org uuid, p_label text, p_tier text, p_emp text, p_comps text[], p_admin uuid, p_test boolean default true) returns uuid
+create function pg_temp.mkdoc(p_org uuid, p_label text, p_tier text, p_emp text, p_comps text[], p_admin uuid, p_test boolean default true, p_level integer default null) returns uuid
 language plpgsql as $f$
 declare v uuid; s uuid; c text;
 begin
@@ -104,7 +104,7 @@ begin
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
   values (p_org, v, 'S20 ' || p_label, 'MDCN', 'S17-' || p_label || '-' || substr(v::text, 1, 8), true, 'active', now(), p_admin,
       p_tier::public.doctor_tier, p_emp::public.staff_employment_type,
-      case when p_tier in ('senior_medical_officer', 'chief_medical_officer') then 2 else 1 end,
+      coalesce(p_level, case when p_tier in ('senior_medical_officer', 'chief_medical_officer') then 2 else 1 end),
       p_emp = 'contracted', case when p_emp = 'contracted' then p_admin else null end, p_test)
   returning id into s;
   foreach c in array p_comps loop
@@ -461,7 +461,7 @@ begin
   update public.clinical_staff set active = false where is_test is not true;
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', 'contracted', '{hypertension,adult_general,result_review,prescribing,on_call}', v_admin));
   perform pg_temp.setf('fin', pg_temp.mkdoc(v_org, 'fin', 'senior_medical_officer', 'contracted', '{hypertension,adult_general,result_review,prescribing,on_call}', v_admin));
-  perform pg_temp.setf('t1', pg_temp.mkdoc(v_org, 't1', 'care_coordinator', 'contracted', '{hypertension,adult_general}', v_admin));
+  perform pg_temp.setf('t1', pg_temp.mkdoc(v_org, 't1', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_admin, true, 1));
   perform pg_temp.setf('other', pg_temp.mkdoc(v_org, 'other', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_admin));
   perform pg_temp.setf('pat', pg_temp.mkuser(v_org, 'pat', 'patient'));
   perform pg_temp.mkblock(v_org, pg_temp.f('cmo'));

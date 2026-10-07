@@ -150,6 +150,7 @@ begin
   execute 'reset role';
   if not v_failed then raise exception 'FAIL 3d: a patient confirmed a refill through the staff function'; end if;
   -- (F-05: the confirm-only block for a Medical Officer no longer applies; every confirming doctor now holds prescribing authority)
+  insert into public.medications (organisation_id, patient_id, drug_name, source) values (v_org, v_pat, 'S05fC2 Self-added', 'patient') returning id into v_pmed;
 
   -- 4. the table is closed to staff: no direct read, insert, update or delete (the tied clinician too)
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied_smo, 'role', 'authenticated')::text, true);

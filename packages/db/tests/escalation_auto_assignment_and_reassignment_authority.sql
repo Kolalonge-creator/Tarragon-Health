@@ -100,11 +100,11 @@ begin
   -- employed -- the non-CMO who must be refused when reassigning someone
   -- ELSE's case.
   for r in select * from (values
-      ('doctor_a', 'senior_medical_officer'),
-      ('doctor_b', 'senior_medical_officer'),
+      ('doctor_a', 'care_coordinator'),
+      ('doctor_b', 'care_coordinator'),
       ('doctor_c', 'senior_medical_officer'),
       ('doctor_cmo', 'chief_medical_officer'),
-      ('doctor_rogue', 'senior_medical_officer')
+      ('doctor_rogue', 'care_coordinator')
     ) as t(key_name, tier)
   loop
     v_id := gen_random_uuid();
