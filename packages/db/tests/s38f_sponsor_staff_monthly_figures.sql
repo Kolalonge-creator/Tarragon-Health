@@ -250,7 +250,7 @@ begin
   insert into s38f_results values ('5c0 one new member since the last published figure holds the month back', coalesce(v_h::text, 'none'), 'true', case when v_h then 'PASS' else 'FAIL' end);
   -- then take the hold out of the job: the same one-person change must now be published
   select pg_get_functiondef('private.generate_sponsor_snapshots(timestamptz)'::regprocedure) into v_txt;
-  v_txt := replace(v_txt, 'v_held := v_diff between 1 and v_min - 1;', 'v_held := false;');
+  v_txt := replace(v_txt, 'v_held := private.suppress_difference(v_diff, 0, v_min);', 'v_held := false;');  -- S75a: the rule now lives in private.suppress_difference
   if v_txt = pg_get_functiondef('private.generate_sponsor_snapshots(timestamptz)'::regprocedure) then raise exception 'sabotage (c) did not change the function'; end if;
   execute v_txt;
   v_n := private.generate_sponsor_snapshots((v_next5 + v_grace)::timestamp at time zone 'Africa/Lagos' + interval '12 hours');
