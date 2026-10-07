@@ -8,7 +8,6 @@ import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
 import { loadEngagementOutcomeCorrelation } from "@/lib/outcomes/engagement-outcome-correlation";
 import { loadVaccinationCoverage } from "@/lib/vaccination/load-coverage-analytics";
-import { loadWellbeingCohortMetric } from "@/lib/corporate/load-wellbeing-cohort-metric";
 import { loadActivationFunnel, loadDepartmentBreakdown } from "@/lib/corporate/load-activation-funnel";
 
 /**
@@ -58,7 +57,6 @@ async function loadCorporateDashboardDataUncached() {
     medicationOutcomes,
     engagementOutcomes,
     vaccinationCoverage,
-    wellbeingCohortMetric,
     activationFunnel,
     departmentBreakdown,
   ] = await Promise.all([
@@ -67,7 +65,6 @@ async function loadCorporateDashboardDataUncached() {
     loadMedicationOutcomes(access.client, access.organisationId),
     loadEngagementOutcomeCorrelation(access.client, access.organisationId, access.minCohortSize),
     loadVaccinationCoverage(access.client, access.organisationId, access.minCohortSize),
-    loadWellbeingCohortMetric(access.client, access.organisationId),
     loadActivationFunnel(access.client, access.organisationId, access.minCohortSize),
     loadDepartmentBreakdown(access.client, access.organisationId, access.minCohortSize),
   ]);
@@ -84,7 +81,6 @@ async function loadCorporateDashboardDataUncached() {
     medicationOutcomes,
     engagementOutcomes,
     vaccinationCoverage,
-    wellbeingCohortMetric,
     activationFunnel,
     departmentBreakdown,
   };
