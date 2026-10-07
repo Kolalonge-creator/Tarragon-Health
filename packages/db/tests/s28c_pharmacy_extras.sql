@@ -127,10 +127,10 @@ begin
   perform pg_temp.setf('org', v_org);
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin', 'S28c Admin');
   perform pg_temp.setf('admin', v_admin);
-  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, license_expires_at, onboarding_status, state, city, area)
-    values ('S28c Pharmacy A', true, now(), now(), current_date + 365, 'activated', 'Lagos', 'Lagos', 'Yaba') returning id into v_pA;
-  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, license_expires_at, onboarding_status, state, city, area)
-    values ('S28c Pharmacy B', true, now(), now(), current_date + 365, 'activated', 'Lagos', 'Lagos', 'Ikeja') returning id into v_pB;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, license_expires_at, onboarding_status, state, city, area, nafdac_source_attested_at)
+    values ('S28c Pharmacy A', true, now(), now(), current_date + 365, 'activated', 'Lagos', 'Lagos', 'Yaba', now()) returning id into v_pA;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, license_expires_at, onboarding_status, state, city, area, nafdac_source_attested_at)
+    values ('S28c Pharmacy B', true, now(), now(), current_date + 365, 'activated', 'Lagos', 'Lagos', 'Ikeja', now()) returning id into v_pB;
   insert into public.pharmacy_partner_locations (pharmacy_partner_id, name, state, address, is_active, verified_at) values (v_pA, 'S28c A Lekki', 'Lagos', '1 Test Road', true, now()) returning id into v_lA;
   insert into public.pharmacy_partner_locations (pharmacy_partner_id, name, state, address, is_active, verified_at) values (v_pB, 'S28c B Ikeja', 'Lagos', '2 Test Road', true, now()) returning id into v_lB;
   perform pg_temp.setf('pA', v_pA); perform pg_temp.setf('pB', v_pB); perform pg_temp.setf('lA', v_lA); perform pg_temp.setf('lB', v_lB);
