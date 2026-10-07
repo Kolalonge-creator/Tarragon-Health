@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
+import { readdirSync, readFileSync } from "node:fs";
 import { BP_CARE_V3, BP_CARE_V4, grade, validateRuleSet, type SymptomCode, type TriageInput, type TriageResult } from "./index";
 
 /**
@@ -168,5 +169,25 @@ describe("determinism and the device path", () => {
         history: [], target: { systolic: 135, diastolic: 85 }, pathway: { state: "self_guided" }, pregnant: true, ageYears: 28, now: NOW,
       })) as TriageInput, device)).toEqual(run(s, d, { symptoms: [...sym] }));
     }
+  });
+});
+
+describe("server seed", () => {
+  it("the v4 draft row in the S67 migration is identical to the bundled rule set", () => {
+    const dir = new URL("../../../supabase/migrations/", import.meta.url);
+    const file = readdirSync(dir).find((f) => f.endsWith("_s67_bp_rule_set_v4_and_maternal_guard.sql"))!;
+    const sql = readFileSync(new URL(file, dir), "utf8");
+    const seeded = JSON.parse(/\$rules_json\$([\s\S]*?)\$rules_json\$/.exec(sql)![1]!) as unknown;
+    expect(seeded).toEqual(JSON.parse(JSON.stringify(BP_CARE_V4)));
+    expect(sql).toContain("'draft'");
+    expect(sql).not.toMatch(/approve_triage_rule_set\(/);
+  });
+
+  it("the migration that adds the guard writes no sign-off, attestation, log or approval", () => {
+    const dir = new URL("../../../supabase/migrations/", import.meta.url);
+    const file = readdirSync(dir).find((f) => f.endsWith("_s67_bp_rule_set_v4_and_maternal_guard.sql"))!;
+    const sql = readFileSync(new URL(file, dir), "utf8");
+    expect(sql).not.toMatch(/insert into public\.(go_live_guard_log|go_live_attestations|proposed_config_signoffs)/);
+    expect(sql).not.toMatch(/set_go_live_guard\(/);
   });
 });
