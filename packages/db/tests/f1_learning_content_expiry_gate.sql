@@ -59,8 +59,8 @@ begin
   if v_n <> 1 then raise exception 'FAIL 1d: search does not find a servable item'; end if;
   select count(*) into v_n from public.health_education_item_trust(array['f1-proof-expiry']);
   if v_n <> 1 then raise exception 'FAIL 1e: trust lookup does not return a servable item'; end if;
-  select count(*) into v_n from public.daily_micro_lesson() where code = 'f1-proof-expiry';
-  if v_n <> 1 then raise exception 'FAIL 1f: the daily lesson card does not offer a servable micro-lesson'; end if;
+  select count(*) into v_n from public.weekly_micro_lesson() where code = 'f1-proof-expiry';
+  if v_n <> 1 then raise exception 'FAIL 1f: the weekly lesson card does not offer a servable micro-lesson'; end if;
   select count(*) into v_n from public.learning_offline_pack() where code = 'f1-proof-expiry';
   if v_n <> 1 then raise exception 'FAIL 1g: the offline pack omits a servable item'; end if;
   reset role;
@@ -118,8 +118,8 @@ begin
   if v_n <> 0 then raise exception 'FAIL 2g-1: search still returns an expired item'; end if;
   select count(*) into v_n from public.health_education_item_trust(array['f1-proof-expiry']);
   if v_n <> 0 then raise exception 'FAIL 2g-2: trust lookup still returns an expired item'; end if;
-  select count(*) into v_n from public.daily_micro_lesson() where code = 'f1-proof-expiry';
-  if v_n <> 0 then raise exception 'FAIL 2g-3: the daily lesson card still offers an expired lesson'; end if;
+  select count(*) into v_n from public.weekly_micro_lesson() where code = 'f1-proof-expiry';
+  if v_n <> 0 then raise exception 'FAIL 2g-3: the weekly lesson card still offers an expired lesson'; end if;
   select count(*) into v_n from public.learning_offline_pack() where code = 'f1-proof-expiry';
   if v_n <> 0 then raise exception 'FAIL 2g-4: the offline pack still includes an expired item'; end if;
   select count(*) into v_n from public.learning_pack_status(array['f1-proof-expiry']) where servable;

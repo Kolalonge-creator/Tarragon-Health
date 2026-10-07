@@ -293,7 +293,7 @@ function ContentForm({
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={form.is_micro_lesson ?? false} onChange={(e) => set("is_micro_lesson", e.target.checked)} />
-          Daily micro-lesson (under five minutes, one action, one check question)
+          Weekly micro-lesson (under five minutes, one action, one check question)
         </label>
       </div>
       {form.is_micro_lesson && (

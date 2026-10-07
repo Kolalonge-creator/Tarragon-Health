@@ -1313,7 +1313,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "learning.micro_lesson",
-    // S55 (spec 9.2): a daily lesson takes under five minutes, asks for one action and ends in one check question. Live value is the
+    // S55 (spec 9.2): a weekly lesson (one per programme week) takes under five minutes, asks for one action and ends in one check question. Live value is the
     // active `micro_lesson` row of `learning_config`; a test fails if the migration seed and this value drift. UNSIGNED.
     value: { max_minutes: 5, check_questions: 1 },
     owner: "CMO",
@@ -1332,6 +1332,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S55.md; spec 9.6; OQ-S55-04",
+  },
+  {
+    key: "learning.creator_perk",
+    // S55 follow-up (founder decision): creator series are a Membership perk. true = a person who is not a Member sees the title, the
+    // creator credit and the teaser of a creator lesson but not its body or audio; false = creator content is open to everyone. No
+    // payment logic. Live value is the active `creator_perk` row of `learning_config`; an admin changes it with
+    // set_learning_creator_perk() (a new version row, audited), no deploy. A missing value fails closed (locked). UNSIGNED.
+    value: { members_only: true },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md section 8; founder decision 2026-10-07",
   },
   {
     key: "learning.search_gap_log",

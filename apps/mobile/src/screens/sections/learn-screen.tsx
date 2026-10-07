@@ -27,7 +27,7 @@ import {
   type HealthEducationReadingLevel,
   type KnowledgeCheckQuestion,
 } from "@/lib/health-education";
-import { DailyLessonCard, DownloadsCard, LearnSearchCard, LessonFooter, LessonViewer } from "@/screens/sections/learning-sections";
+import { WeeklyLessonCard, DownloadsCard, LearnSearchCard, LessonFooter, LessonViewer, useMembersOnly } from "@/screens/sections/learning-sections";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
@@ -149,7 +149,7 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
         </Card>
       )}
 
-      <DailyLessonCard patientId={userId} organisationId={organisationId} />
+      <WeeklyLessonCard patientId={userId} organisationId={organisationId} />
       <LearnSearchCard userId={userId} onOpen={setOpenCode} />
       {openCode ? <LessonViewer code={openCode} userId={userId} onClose={() => setOpenCode(null)} /> : null}
       <DownloadsCard userId={userId} onOpen={setOpenCode} />
@@ -367,6 +367,7 @@ function EducationItemRow({
   const [marking, setMarking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const questions = useMemo(() => parseKnowledgeCheck(item.knowledge_check), [item.knowledge_check]);
+  const membersOnly = useMembersOnly(item.code, open, !item.body);
 
   async function toggle() {
     const next = !open;
@@ -414,7 +415,12 @@ function EducationItemRow({
       {item.summary && <MutedText>{item.summary}</MutedText>}
       {item.estimated_minutes ? <MutedText>{item.estimated_minutes} min read</MutedText> : null}
 
-      {open && (
+      {open && membersOnly && (
+        <View style={{ gap: 10, paddingTop: 4 }}>
+          <LessonFooter code={item.code} title={item.title} />
+        </View>
+      )}
+      {open && !membersOnly && (
         <View style={{ gap: 10, paddingTop: 4 }}>
           <Text style={{ fontSize: 13, color: colors.ink, lineHeight: 19 }}>{item.body}</Text>
 

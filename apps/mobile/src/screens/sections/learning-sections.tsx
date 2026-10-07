@@ -5,22 +5,24 @@ import { buildNextStep, buildTrustLine } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { getAudioService } from "@/lib/audio/service";
 import {
-  loadDailyLesson,
+  loadWeeklyLesson,
   loadItemTrust,
   loadLessonDetail,
   saveLessonForConsultation,
   searchLibrary,
   sharedArticleUrl,
-  type DailyLesson,
+  type WeeklyLesson,
   type ItemTrust,
   type SearchHit,
 } from "@/lib/learning-centre";
 import {
   bindPackToUser,
   isPackEnabled,
-  pickOfflineDailyLesson,
+  pickOfflineWeeklyLesson,
   purgeExpired,
   readOffline,
+  recallWeeklyLessonCode,
+  rememberWeeklyLessonCode,
   refreshPackNow,
   searchOffline,
   setPackEnabled,
@@ -34,6 +36,42 @@ import { AppText, Button, Card, InlineAlert, PressableScale } from "@/ui/kit";
 function useTr() {
   const language = asLocale(useUiLanguage());
   return (key: MessageKey, params?: Record<string, string | number>) => t(key, language, params);
+}
+
+/**
+ * The calm note shown in place of a creator series lesson for someone who is not a Member. The server has already withheld the
+ * body, audio and check; this only names the creator and says what it is (no price, no pressure, no payment here).
+ */
+export function MembersOnlyNote({ creatorName }: { creatorName?: string | null }) {
+  const tr = useTr();
+  const { colors } = useTheme();
+  return (
+    <View
+      accessibilityLabel={tr("learn.members.title")}
+      style={{ gap: space.xs, backgroundColor: colors.brandTint, borderRadius: radii.md, padding: space.md }}
+    >
+      <AppText variant="bodyStrong" heading>{tr("learn.members.title")}</AppText>
+      {creatorName ? <AppText variant="caption" tone="textMuted">{tr("learn.members.by", { name: creatorName })}</AppText> : null}
+      <AppText>{tr("learn.members.body")}</AppText>
+    </View>
+  );
+}
+
+/** Whether a lesson is a members-only creator lesson the person cannot open (the server decides; while loading, or when the server cannot be reached, a lesson that came back with an empty body counts as locked). */
+export function useMembersOnly(code: string, enabled = true, startLocked = false): boolean {
+  // startLocked: the lesson came back with an empty body (core lessons always have one), so treat it as locked until the server answers
+  const [locked, setLocked] = useState(startLocked);
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    loadItemTrust(code)
+      .then((r) => alive && setLocked(r?.members_only === true))
+      .catch(() => alive && setLocked(startLocked));
+    return () => {
+      alive = false;
+    };
+  }, [code, enabled, startLocked]);
+  return locked;
 }
 
 /**
@@ -89,6 +127,7 @@ export function LessonFooter({ code, title, fallback }: { code: string; title: s
 
   return (
     <View style={{ gap: space.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: space.md }}>
+      {trust?.members_only === true ? <MembersOnlyNote creatorName={trust.creator_name} /> : null}
       <View style={{ gap: 2 }}>
         {line.author ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.author", { name: line.author })}</AppText> : null}
         {line.reviewedBy ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.reviewed_by", { name: line.reviewedBy })}</AppText> : null}
@@ -142,13 +181,13 @@ export function LessonFooter({ code, title, fallback }: { code: string; title: s
 }
 
 /**
- * The daily micro-lesson (spec 9.2): under five minutes, one action, one check question. Reusable: the Learn screen and Home mount
- * it today, and the Today screen can mount the same component. Nothing is drawn when there is no in-date lesson. With no
+ * This week's micro-lesson (spec 9.2, weekly pacing): one lesson per programme week, under five minutes, one action, one check question.
+ * Reusable: the Learn screen and Home mount it, and the Today screen can mount the same component. Nothing is drawn when there is no in-date lesson. With no
  * signal it falls back to the first in-date downloaded micro-lesson, read-only.
  */
-export function DailyLessonCard({ patientId, organisationId }: { patientId: string; organisationId: string }) {
+export function WeeklyLessonCard({ patientId, organisationId }: { patientId: string; organisationId: string }) {
   const tr = useTr();
-  const [lesson, setLesson] = useState<DailyLesson | null>(null);
+  const [lesson, setLesson] = useState<WeeklyLesson | null>(null);
   const [offline, setOffline] = useState<StoredLesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -157,12 +196,14 @@ export function DailyLessonCard({ patientId, organisationId }: { patientId: stri
 
   const load = useCallback(async () => {
     try {
-      setLesson(await loadDailyLesson());
+      const next = await loadWeeklyLesson();
+      setLesson(next);
       setOffline(null);
+      if (next) await rememberWeeklyLessonCode(patientId, next.code);
     } catch {
       setLesson(null);
       await bindPackToUser(patientId);
-      setOffline(pickOfflineDailyLesson(await readOffline(sqlitePackStore)));
+      setOffline(pickOfflineWeeklyLesson(await readOffline(sqlitePackStore), new Date(), await recallWeeklyLessonCode(patientId)));
     }
   }, [patientId]);
 
@@ -173,17 +214,19 @@ export function DailyLessonCard({ patientId, organisationId }: { patientId: stri
   const source = lesson
     ? {
         id: lesson.content_id, code: lesson.code, title: lesson.title, body: lesson.body, minutes: lesson.estimated_minutes,
-        action: lesson.lesson_action, check: lesson.check_question, doneToday: lesson.completed_today === true,
+        action: lesson.lesson_action, check: lesson.check_question, doneThisWeek: lesson.completed_this_week === true,
+        membersOnly: lesson.members_only === true, creatorName: lesson.creator_name,
       }
     : offline
       ? {
           id: null, code: offline.code, title: offline.title, body: offline.body, minutes: offline.estimatedMinutes,
-          action: offline.lessonAction, check: Array.isArray(offline.knowledgeCheck) ? (offline.knowledgeCheck[0] ?? null) : null, doneToday: false,
+          action: offline.lessonAction, check: Array.isArray(offline.knowledgeCheck) ? (offline.knowledgeCheck[0] ?? null) : null, doneThisWeek: false,
+          membersOnly: false, creatorName: offline.creatorName,
         }
       : null;
   if (loading || !source) return null;
   const question = parseKnowledgeCheck(source.check ? [source.check] : null)?.[0] ?? null;
-  const done = source.doneToday || result === "right";
+  const done = source.doneThisWeek || result === "right";
 
   async function submit() {
     if (!source?.id || !question || picked === null) return;
@@ -204,20 +247,22 @@ export function DailyLessonCard({ patientId, organisationId }: { patientId: stri
 
   return (
     <Card style={{ gap: space.sm }}>
-      <AppText variant="caption" tone="brandText">{tr("learn.daily.title")}</AppText>
+      <AppText variant="caption" tone="brandText">{tr("learn.weekly.title")}</AppText>
       <AppText variant="title" heading>{source.title}</AppText>
-      {source.minutes ? <AppText variant="caption" tone="textMuted">{tr("learn.daily.minutes", { minutes: source.minutes })}</AppText> : null}
-      {done ? (
-        <AppText>{tr("learn.daily.done")}</AppText>
+      {source.minutes ? <AppText variant="caption" tone="textMuted">{tr("learn.weekly.minutes", { minutes: source.minutes })}</AppText> : null}
+      {source.membersOnly ? (
+        <MembersOnlyNote creatorName={source.creatorName} />
+      ) : done ? (
+        <AppText>{tr("learn.weekly.done")}</AppText>
       ) : !open ? (
-        <Button title={tr("learn.daily.start")} onPress={() => setOpen(true)} />
+        <Button title={tr("learn.weekly.start")} onPress={() => setOpen(true)} />
       ) : (
         <View style={{ gap: space.sm }}>
           <AppText>{source.body}</AppText>
-          {source.action ? <AppText variant="bodyStrong">{`${tr("learn.daily.action_label")}: ${source.action}`}</AppText> : null}
+          {source.action ? <AppText variant="bodyStrong">{`${tr("learn.weekly.action_label")}: ${source.action}`}</AppText> : null}
           {question ? (
             <View style={{ gap: space.xs }}>
-              <AppText variant="bodyStrong">{tr("learn.daily.check_label")}</AppText>
+              <AppText variant="bodyStrong">{tr("learn.weekly.check_label")}</AppText>
               <AppText>{question.question}</AppText>
               {question.options.map((opt, i) => (
                 <PressableScale
@@ -232,8 +277,8 @@ export function DailyLessonCard({ patientId, organisationId }: { patientId: stri
                 </PressableScale>
               ))}
               {result === null && source.id ? <Button title={tr("common.continue")} disabled={picked === null} onPress={() => void submit()} /> : null}
-              {result === "again" ? <AppText variant="caption" tone="textMuted">{tr("learn.daily.again")}</AppText> : null}
-              {result === "failed" ? <AppText variant="caption" tone="dangerText">{tr("learn.daily.save_failed")}</AppText> : null}
+              {result === "again" ? <AppText variant="caption" tone="textMuted">{tr("learn.weekly.again")}</AppText> : null}
+              {result === "failed" ? <AppText variant="caption" tone="dangerText">{tr("learn.weekly.save_failed")}</AppText> : null}
             </View>
           ) : null}
           <LessonFooter code={source.code} title={source.title} fallback={offline} />
@@ -384,7 +429,7 @@ export function LessonViewer({ code, userId, onClose }: { code: string; userId: 
       ) : (
         <>
           <AppText variant="title" heading>{view.title}</AppText>
-          <AppText>{view.body}</AppText>
+          {view.body ? <AppText>{view.body}</AppText> : null}
           <LessonFooter code={code} title={view.title} fallback={view.fallback} />
         </>
       )}

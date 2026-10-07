@@ -87,6 +87,18 @@ describe("LearningItemFooter", () => {
     expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
   });
 
+  it("says calmly that a creator lesson is part of Membership, naming the creator, only when the server says so", () => {
+    trust = { ...FULL, members_only: true, self_care_action: null };
+    const { rerender } = render(<LearningItemFooter code="htn-basics" title="Basics" />);
+    const note = screen.getByTestId("members-only-prompt");
+    expect(note.textContent).toContain("Part of Membership");
+    expect(note.textContent).toContain("By Dr Creator Name");
+    expect(screen.getByTestId("urgent-help-box")).toBeTruthy();
+    trust = { ...FULL, members_only: false };
+    rerender(<LearningItemFooter code="htn-basics" title="Basics" />);
+    expect(screen.queryByTestId("members-only-prompt")).toBeNull();
+  });
+
   it("has no accessibility violations", async () => {
     await expectNoA11yViolations(<LearningItemFooter code="htn-basics" title="Basics" />);
   });
