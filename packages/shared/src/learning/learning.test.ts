@@ -44,7 +44,11 @@ describe("offline expiry (the F1 rule on the phone)", () => {
     expect(isExpired({ nextReviewDue: "2026-10-07" }, NOW)).toBe(true);
     expect(isExpired({ nextReviewDue: "2026-10-08" }, NOW)).toBe(false);
     expect(isExpired({ nextReviewDue: null }, NOW)).toBe(false);
-    expect(isExpired({ status: "review_due", nextReviewDue: "2030-01-01" }, NOW)).toBe(true);
+    // OQ-F1-04: a review_due FLAG (protocol bump) is not expiry; only the item's own date is
+    expect(isExpired({ status: "review_due", nextReviewDue: "2030-01-01" }, NOW)).toBe(false);
+    expect(isExpired({ status: "review_due", nextReviewDue: null }, NOW)).toBe(false);
+    expect(isExpired({ status: "review_due", nextReviewDue: "2026-10-07" }, NOW)).toBe(true);
+    expect(isExpired({ status: "published", nextReviewDue: "2026-10-07" }, NOW)).toBe(true);
   });
 });
 

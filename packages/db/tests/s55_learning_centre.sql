@@ -274,21 +274,13 @@ begin
   insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pa, v_id3, 'understood');
   perform pg_temp.ck('4d course.completed once the last module is understood',
     (select count(*) from public.domain_events where event_type = 'course.completed' and patient_id = v_pa) = 1);
-  perform pg_temp.ck('4e the payloads hold ids and a code only',
+  perform pg_temp.ck('4e the payloads hold course and lesson codes and a count only (S33 contract, no topic names)',
     not exists (select 1 from public.domain_events where patient_id = v_pa and event_type in ('lesson.completed', 'course.completed')
-                 and (select count(*) from jsonb_object_keys(payload) k where k not in ('content_id', 'content_code', 'programme_id', 'programme_code')) > 0));
+                 and (select count(*) from jsonb_object_keys(payload) k where k not in ('course_code', 'lesson_code', 'lesson_count')) > 0));
   perform pg_temp.ck('4f the events are marked test for a test patient',
     (select bool_and(is_test) from public.domain_events where patient_id = v_pa and event_type in ('lesson.completed', 'course.completed')));
-
-  -- a failing event write is loud, never silent, and never loses the patient's progress; repeated failures share one incident
-  update public.event_types set is_active = false where event_type = 'lesson.completed';
-  insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pb, pg_temp.f('micro'), 'understood');
-  insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pb, v_id3, 'understood');
-  perform pg_temp.ck('4g the progress is saved even though the event could not be written',
-    (select count(*) from public.health_education_progress where patient_id = v_pb and status = 'understood') = 2);
-  perform pg_temp.ck('4h each failure wrote an audit row', (select count(*) from public.audit_log where action = 'learning_event.error') = 2);
-  perform pg_temp.ck('4i ...and all failures share ONE open incident', (select count(*) from public.ops_incidents where external_reference = 'learning_event_failed' and status not in ('resolved', 'closed')) = 1);
-  update public.event_types set is_active = true where event_type = 'lesson.completed';
+  perform pg_temp.ck('4g S55 registers no second emitter of these events',
+    not exists (select 1 from pg_trigger where tgname = 'health_education_progress_emit_events'));
 
   -- ================= 5. creators =================
   perform pg_temp.ck('5a a patient cannot invite', pg_temp.as_try(v_pa, format('select public.invite_learning_creator(%L, ''X Name'')', v_cc)) = '42501');
@@ -322,6 +314,13 @@ begin
   v_id := pg_temp.mkitem('s55-credit');
   update public.health_education_content set creator_id = v_cr where id = v_id;
   perform pg_temp.ck('5q a verified creator can be credited and the item publishes', pg_temp.publish(v_id) = 'ok');
+  -- a second credited item that a protocol bump has FLAGGED (review_due, still served, OQ-F1-04): suspension must take it down too
+  v_id3 := pg_temp.mkitem('s55-credit-flag');
+  update public.health_education_content set creator_id = v_cr where id = v_id3;
+  perform pg_temp.publish(v_id3);
+  update public.health_education_content set content_status = 'review_due' where id = v_id3;
+  perform pg_temp.ck('5q2 a flagged (review_due) item is still served to a patient',
+    pg_temp.as_count(v_pa, format('select count(*) from public.health_education_content where id = %L', v_id3)) = 1);
   perform set_config('request.jwt.claims', json_build_object('sub', v_pa, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into v_n from public.health_education_item_trust(array['s55-credit']) where creator_name = 'Dr Creator Name';
@@ -331,7 +330,13 @@ begin
   perform pg_temp.ck('5s a short reason is refused', pg_temp.as_try(v_admin, format('select public.suspend_learning_creator(%L, ''no'')', v_cr)) = '22023');
   perform pg_temp.ck('5t a clinician cannot suspend', pg_temp.as_try(v_cu, format('select public.suspend_learning_creator(%L, ''a long enough reason'')', v_cr)) = '42501');
   perform pg_temp.ck('5u an admin suspends', pg_temp.as_try(v_admin, format('select public.suspend_learning_creator(%L, ''Registration query raised by the council'')', v_cr)) = 'ok');
-  perform pg_temp.ck('5v the credited item is taken down', (select content_status = 'review_due' and not is_active from public.health_education_content where id = v_id));
+  perform pg_temp.ck('5v the credited item is taken down (needs re-review: status updated, not live)', (select content_status = 'updated' and not is_active from public.health_education_content where id = v_id));
+  perform pg_temp.ck('5v2 ...and so is a credited item that was only flagged review_due (a flag keeps content served, so suspension must really take it down)',
+    (select content_status = 'updated' and not is_active from public.health_education_content where code = 's55-credit-flag')
+    and pg_temp.as_count(v_pa, format('select count(*) from public.health_education_content where code = ''s55-credit-flag''')) = 0);
+  perform pg_temp.ck('5v3 ...with both moves in the status history',
+    (select count(*) from public.health_education_content_status_history h join public.health_education_content c on c.id = h.content_id
+      where c.creator_id = v_cr and h.to_status = 'updated' and h.note = 'Automatic: credited creator suspended') = 2);
   perform pg_temp.ck('5w a patient no longer reads it', pg_temp.as_count(v_pa, format('select count(*) from public.health_education_content where id = %L', v_id)) = 0);
   v_id := pg_temp.mkitem('s55-credit2');
   update public.health_education_content set creator_id = v_cr where id = v_id;
@@ -342,7 +347,7 @@ begin
   perform pg_temp.ck('5aa an admin reinstates a suspended creator', v_s = 'ok');
   perform pg_temp.ck('5aa2 ...back to invited with the old MDCN number and evidence cleared (they must send them again)',
     (select status = 'invited' and verified_by is null and mdcn_number is null and credential_evidence is null and not indemnity_confirmed from public.learning_creators where id = v_cr));
-  perform pg_temp.ck('5ab the credited item stays down until it is reviewed again', (select content_status = 'review_due' from public.health_education_content where code = 's55-credit'));
+  perform pg_temp.ck('5ab the credited item stays down until it is reviewed again', (select content_status = 'updated' from public.health_education_content where code = 's55-credit'));
   perform pg_temp.ck('5ab2 they cannot be verified again until they have sent credentials', pg_temp.as_try(v_admin2, format('select public.verify_learning_creator(%L)', v_cr)) = '22023');
   perform pg_temp.ck('5ab3 they send new credentials', pg_temp.as_try(v_cc, $q$select public.submit_creator_credentials('MDCN12345', 'Register entry re-checked and new certificate on file', true)$q$) = 'ok');
   perform pg_temp.ck('5ac a different admin verifies them again', pg_temp.as_try(v_admin2, format('select public.verify_learning_creator(%L)', v_cr)) = 'ok');
@@ -412,13 +417,28 @@ begin
   perform pg_temp.ck('8b the pack omits a placeholder and a draft',
     pg_temp.as_count(v_pa, $q$select count(*) from public.learning_offline_pack() where code in ('myth-draft-01', 's55-share-draft')$q$) = 0);
   perform pg_temp.ck('8c anon cannot fetch the pack', pg_temp.as_count(null, 'select count(*) from public.learning_offline_pack()') = -1);
-  update public.health_education_content set content_status = 'review_due' where code = 's55-search-belle';
+  update public.health_education_content set content_status = 'updated' where code = 's55-search-belle';
   perform pg_temp.ck('8d pack status flags a removed item as not servable and keeps a good one',
     pg_temp.as_count(v_pa, $q$select count(*) from public.learning_pack_status(array['s55-search-belle','s55-search-htn','gone']) where not servable$q$) = 2
     and pg_temp.as_count(v_pa, $q$select count(*) from public.learning_pack_status(array['s55-search-belle','s55-search-htn','gone']) where servable$q$) = 1);
 
+  -- OQ-F1-04: a review_due FLAG (a protocol bump) keeps the item servable on every S55 reader until its own date
+  update public.health_education_content set content_status = 'review_due', next_review_due = current_date + 30, sort_order = 0 where code = 's55-search-belle';  -- sort_order 0: the pack is capped by item count
+  perform pg_temp.ck('8e1 a flagged review_due item with a future date stays servable in pack status',
+    pg_temp.as_count(v_pa, $q$select count(*) from public.learning_pack_status(array['s55-search-belle']) where servable$q$) = 1);
+  perform pg_temp.ck('8e2 ...stays in the offline pack',
+    pg_temp.as_count(v_pa, $q$select count(*) from public.learning_offline_pack() where code = 's55-search-belle'$q$) = 1);
+  perform pg_temp.ck('8e3 ...and stays findable by search',
+    pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('belle') where code = 's55-search-belle'$q$) >= 1);
+  update public.health_education_content set next_review_due = current_date - 1 where code = 's55-search-belle';
+  perform pg_temp.ck('8f ...and is withdrawn the day its own date passes',
+    pg_temp.as_count(v_pa, $q$select count(*) from public.learning_pack_status(array['s55-search-belle']) where servable$q$) = 0);
+  update public.health_education_content set next_review_due = current_date + 30 where code = 's55-search-belle';
+
   -- ================= readiness report =================
-  perform pg_temp.ck('9a the admin readiness report answers', pg_temp.as_count(v_admin, 'select count(*) from public.learning_readiness_report()') = 8);
+  perform pg_temp.ck('9a the admin readiness report answers', pg_temp.as_count(v_admin, 'select count(*) from public.learning_readiness_report()') = 9);
+  perform pg_temp.ck('9a2 the readiness report counts items flagged review_due that are still live (OQ-F1-04 admin notice source)',
+    pg_temp.as_count(v_admin, $q$select coalesce(max(n), 0) from public.learning_readiness_report() where metric = 'review_flagged_still_live'$q$) >= 1);
   perform pg_temp.ck('9b a patient is refused the readiness report', pg_temp.as_try(v_pa, 'select * from public.learning_readiness_report()') = '42501');
 
   -- ================= SABOTAGE =================
@@ -436,6 +456,12 @@ begin
   create or replace function private.learning_age_ok(p_min integer, p_max integer) returns boolean language sql stable as $f$ select true $f$;
   perform pg_temp.ck('S3 sabotage: with the audience gate neutered a 20 year old finds the 40-and-over item',
     pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka midlife') where code = 's55-age'$q$) = 1);
+  -- (iv) status-based expiry put back (the first F1 draft): the flagged-but-in-date item is then withdrawn, so 8e can fail
+  create or replace function private.health_education_content_expired(p_status public.health_education_content_status, p_next_review_due date)
+    returns boolean language sql stable set search_path = '' as $f$
+      select p_status = 'review_due' or (p_next_review_due is not null and p_next_review_due <= (now() at time zone 'Africa/Lagos')::date) $f$;
+  perform pg_temp.ck('S4 sabotage: with status-based expiry a flagged review_due item is withdrawn (the date-only rule is what keeps it served)',
+    pg_temp.as_count(v_pa, $q$select count(*) from public.learning_pack_status(array['s55-search-belle']) where servable$q$) = 0);
   raise notice 'PASS: S55 learning centre, % checks', (select count(*) from results);
 end $$;
 

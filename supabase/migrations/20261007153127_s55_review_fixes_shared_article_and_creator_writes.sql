@@ -34,7 +34,7 @@ revoke insert, update, delete on public.learning_creators from authenticated;
 
 -- 3. A suspended or declined creator had no way back. Reinstating does NOT restore trust: the creator returns to "invited" with
 --    the old MDCN number, evidence and indemnity cleared, so they must send credentials again and an admin must verify again;
---    their earlier content stays down (review_due) until a clinician re-reviews and republishes it.
+--    their earlier content stays down (status 'updated', needs re-review) until a clinician re-reviews and republishes it.
 create or replace function public.reinstate_learning_creator(p_id uuid, p_note text)
 returns void
 language plpgsql

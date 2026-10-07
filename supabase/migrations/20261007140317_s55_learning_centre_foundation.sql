@@ -347,16 +347,12 @@ comment on table public.learning_saved_for_consultation is
   'S55 (spec 9.4): "ask your care team" saves a lesson here. Written only by save_lesson_for_consultation(). A clinician reads it only through consultation_saved_lessons(), which needs a tie to the patient and writes an audit row (INV-10, INV-12).';
 
 -- ---------------------------------------------------------------------------
--- 8. Events (ids only, INV-07)
+-- 8. Events
 -- ---------------------------------------------------------------------------
-insert into public.event_types (event_type, description, owner_section, is_urgent) values
-  ('lesson.completed', 'A patient completed a learning lesson (marked understood)', 'S55', false),
-  ('course.completed', 'A patient completed every lesson of a learning course', 'S55', false)
-on conflict (event_type) do nothing;
-insert into public.event_type_versions (event_type, version, required_keys) values
-  ('lesson.completed', 1, array['content_id', 'content_code']),
-  ('course.completed', 1, array['programme_id', 'programme_code'])
-on conflict (event_type, version) do nothing;
+-- lesson.completed and course.completed are S33's (20261006193149_s33_course_columns_review_gate_events.sql): it registered both event
+-- types with the required keys course_code, lesson_code and lesson_count and emits them from health_education_progress for course
+-- lessons. S55 does not register or emit them a second time: a second emitter with another payload shape would fail the registered
+-- required-keys check on every lesson. (Integration after merging origin/main-dev, 2026-10-07.)
 
 -- ---------------------------------------------------------------------------
 -- self-check

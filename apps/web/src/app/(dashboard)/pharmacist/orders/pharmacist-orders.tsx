@@ -257,10 +257,7 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
           Declined: {order.cancellation_reason}
         </p>
       )}
-      {(order.status === "confirmed" ||
-        order.status === "dispensed" ||
-        order.status === "out_for_delivery" ||
-        order.status === "delivered") &&
+      {(order.status === "confirmed" || order.status === "dispensed") &&
         order.confirmed_quantity && (
           <p className="text-xs text-charcoal-ink/50">
             Accepted: {order.confirmed_quantity}

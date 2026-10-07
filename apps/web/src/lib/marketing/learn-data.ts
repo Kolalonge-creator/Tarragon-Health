@@ -3,8 +3,8 @@ import { marketingAnonClient } from "./anon-client";
 /**
  * A shared Learning Centre article (spec 9.8). Read through the bare anon client, like every marketing loader, and only through
  * public.learn_shared_article(), which returns an article only while it is published, clinically reviewed, shareable and
- * inside its review date. Anything else (unpublished, expired, withdrawn, unknown, a different content type, an outage)
- * returns null and the page answers with a calm 404. The code in the link is the only input: no patient, account or reading
+ * inside its review date. Anything else (unpublished, expired, withdrawn, unknown, a different content type)
+ * returns null and the page answers with a calm 404; an outage throws so it is seen, not mistaken for a missing article. The code in the link is the only input: no patient, account or reading
  * information is ever part of the URL or the response.
  */
 export interface SharedArticle {
@@ -48,7 +48,10 @@ export async function loadSharedArticle(code: string): Promise<SharedArticle | n
   const client = marketingAnonClient();
   if (!client) return null;
   const { data, error } = await client.rpc("learn_shared_article", { p_code: code });
-  if (error || !Array.isArray(data) || data.length === 0) return null;
+  // A database error is NOT "this article does not exist": throwing lets the error page and monitoring see an outage, where a
+  // calm 404 would tell the sender their link is dead while the real fault goes unnoticed.
+  if (error) throw new Error(`learn_shared_article failed: ${error.message}`);
+  if (!Array.isArray(data) || data.length === 0) return null;
   const r = data[0] as Row;
   return {
     code: r.code,

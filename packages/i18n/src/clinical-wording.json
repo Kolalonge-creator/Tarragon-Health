@@ -1,0 +1,91 @@
+{
+  "signed": {
+    "by": "Kola Longe, founder",
+    "on": "2026-10-07",
+    "version": 1,
+    "note": "Founder sign-off recorded on the founder's own instruction in chat, all seven codes as in EMG-TRI-proposed-wording.md: no phone number in EMG-001 (OQ-87 stays), TRI-002 without a review promise (OQ-251), EMG-001L added. Not a CMO signature; the CMO may re-sign by raising `version`."
+  },
+  "note": "Until `signed` is filled in by the CMO (as {\"by\": \"name\", \"on\": \"YYYY-MM-DD\", \"version\": n}), the app shows and says `current` (today's text). `proposed` is the draft in docs/clinical-wording/EMG-TRI-proposed-wording.md (OQ-203). Nobody but the CMO sets `signed`. EMG-001 prints no phone number (OQ-87); the 'call 112' sentence waits for the CMO to confirm the number.",
+  "spoken": {
+    "5 minutes": "five minutes"
+  },
+  "codes": {
+    "EMG-001": {
+      "key": "emg_001",
+      "current": {
+        "title": "Get help now",
+        "body": "Your reading and how you feel mean you need care now. Go to the nearest hospital, or ask someone to take you. Do not drive yourself. Tell them your blood pressure and your symptoms."
+      },
+      "proposed": {
+        "title": "Get help now",
+        "body": "Your reading and how you feel mean you need care now. Go to the nearest hospital, or ask someone to take you. Do not drive yourself. Tell them your blood pressure and your symptoms."
+      }
+    },
+    "EMG-001L": {
+      "key": "emg_001l",
+      "current": {
+        "title": "Sit or lie down, then get help",
+        "body": "Sit or lie down now, and raise your legs if you can. Go to the nearest hospital, or ask someone to take you. Stand up slowly and do not drive yourself."
+      },
+      "proposed": {
+        "title": "Sit or lie down, then get help",
+        "body": "Sit or lie down now, and raise your legs if you can. Go to the nearest hospital, or ask someone to take you. Stand up slowly and do not drive yourself."
+      }
+    },
+    "TRI-001": {
+      "key": "tri_001",
+      "current": {
+        "title": "Within your target",
+        "body": "Well done. Keep checking at the times you planned."
+      },
+      "proposed": {
+        "title": "Within your target",
+        "body": "This reading is within your target. Well done. Keep checking at the times you planned."
+      }
+    },
+    "TRI-002": {
+      "key": "tri_002",
+      "current": {
+        "title": "Your care team will look at this",
+        "body": "Your care team will review this and may contact you. If you feel worse, go to the nearest hospital."
+      },
+      "proposed": {
+        "title": "Higher than your target",
+        "body": "This reading is higher than your target. Rest, then check again at your next time. If you feel unwell or worse, go to the nearest hospital."
+      }
+    },
+    "TRI-003": {
+      "key": "tri_003",
+      "current": {
+        "title": "A little above your target",
+        "body": "This is not an emergency. Rest, take your medicines as planned, and check again at your next time. If you feel unwell, go to the nearest hospital."
+      },
+      "proposed": {
+        "title": "A little above your target",
+        "body": "This reading is a little above your target. This is not an emergency. Rest, take your medicines as planned, and check again at your next time. If it stays high over the next few days, book a review with your care team. If you feel unwell, go to the nearest hospital."
+      }
+    },
+    "TRI-005": {
+      "key": "tri_005",
+      "current": {
+        "title": "Check again in 5 minutes",
+        "body": "Sit quietly for 5 minutes with your arm supported. Then measure once more and save it."
+      },
+      "proposed": {
+        "title": "Check again in 5 minutes",
+        "body": "Sit quietly for 5 minutes with your arm supported. Then measure once more and save it."
+      }
+    },
+    "TRI-006": {
+      "key": "tri_006",
+      "current": {
+        "title": "That reading does not look right",
+        "body": "Check the numbers you typed, or measure again."
+      },
+      "proposed": {
+        "title": "That reading does not look right",
+        "body": "That reading does not look right. Check the numbers you typed, or measure again."
+      }
+    }
+  }
+}

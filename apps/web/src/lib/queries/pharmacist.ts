@@ -219,7 +219,6 @@ export type PharmacistProfile = {
   state: string | null;
   contact_phone: string | null;
   contact_email: string | null;
-  delivery: boolean;
   license_number: string | null;
   license_expires_at: string | null;
 };
@@ -247,7 +246,6 @@ export function usePharmacistUpdateProfile() {
       state: string;
       contactPhone: string;
       contactEmail: string;
-      delivery: boolean;
       licenseNumber: string;
       licenseExpiresAt: string | null;
     }) => {
@@ -259,7 +257,6 @@ export function usePharmacistUpdateProfile() {
         p_state: input.state,
         p_contact_phone: input.contactPhone,
         p_contact_email: input.contactEmail,
-        p_delivery: input.delivery,
         p_license_number: input.licenseNumber,
         // The generated RPC arg type is non-nullable `string`, but the SQL
         // param has no NOT NULL constraint and null is a legitimate "no
