@@ -12,6 +12,7 @@ const LABEL: Record<string, string> = {
   draft_placeholders: "Draft placeholders waiting for a clinical author",
   creators_verified: "Verified creators",
   creators_waiting_verification: "Creators waiting for verification",
+  review_flagged_still_live: "Flagged for re-review (for example after a protocol change) and still live until their own review date",
 };
 
 export function ReadinessManager() {

@@ -28,9 +28,9 @@ describe("loadSharedArticle (the shared link, spec 9.8)", () => {
     expect(await loadSharedArticle("expired-one")).toBeNull();
   });
 
-  it("returns null on a database error rather than rendering stale or partial content", async () => {
+  it("throws on a database error: an outage is not a calm 404, and no stale or partial content is rendered", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
-    expect(await loadSharedArticle("htn-basics")).toBeNull();
+    await expect(loadSharedArticle("htn-basics")).rejects.toThrow("learn_shared_article failed: boom");
   });
 
   it("never calls the database for a malformed code, and the link carries only that code", async () => {

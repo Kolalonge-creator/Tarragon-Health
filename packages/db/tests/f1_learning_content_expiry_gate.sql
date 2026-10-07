@@ -205,15 +205,26 @@ begin
     values (v_org, v_cmo, 'F1 bump cmo', 'MDCN', 'F1-BUMP-' || substr(v_cmo::text, 1, 8), true, 'active', now(), v_admin,
         'chief_medical_officer', 'contracted', 2, true, v_admin, true)
     returning id into v_staff;
-    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed, next_review_due)
-    values ('f1-bump-future', 'F1 bump future', 'Body.', 'getting_started', 'hypertension', 'published', true, v_today + 40) returning id into v_future;
-    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed)
-    values ('f1-bump-undated', 'F1 bump undated', 'Body.', 'getting_started', 'hypertension', 'published', true) returning id into v_undated;
-    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed, next_review_due)
-    values ('f1-bump-pastdue', 'F1 bump past due', 'Body.', 'getting_started', 'hypertension', 'published', true, v_today + 5) returning id into v_pastdue;
+    -- (S55: the publish gate needs a named reviewer, a source, a self-care action and a future review date to publish, so the
+    -- undated fixtures are inserted complete and the date is cleared afterwards, as the 235 grandfathered items have none.)
+    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed, next_review_due,
+      reviewed_by_name, reviewed_at, source_reference, self_care_action)
+    values ('f1-bump-future', 'F1 bump future', 'Body.', 'getting_started', 'hypertension', 'published', true, v_today + 40,
+      'Dr Proof Reviewer', now(), 'F1 proof source', 'Take one proof step today.') returning id into v_future;
+    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed, next_review_due,
+      reviewed_by_name, reviewed_at, source_reference, self_care_action)
+    values ('f1-bump-undated', 'F1 bump undated', 'Body.', 'getting_started', 'hypertension', 'published', true, v_today + 40,
+      'Dr Proof Reviewer', now(), 'F1 proof source', 'Take one proof step today.') returning id into v_undated;
+    update public.health_education_content set next_review_due = null where id = v_undated;
+    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed, next_review_due,
+      reviewed_by_name, reviewed_at, source_reference, self_care_action)
+    values ('f1-bump-pastdue', 'F1 bump past due', 'Body.', 'getting_started', 'hypertension', 'published', true, v_today + 5,
+      'Dr Proof Reviewer', now(), 'F1 proof source', 'Take one proof step today.') returning id into v_pastdue;
     update public.health_education_content set next_review_due = v_today - 2 where id = v_pastdue;
-    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed)
-    values ('f1-bump-other', 'F1 bump other condition', 'Body.', 'getting_started', 'diabetes', 'published', true) returning id into v_other;
+    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed, next_review_due,
+      reviewed_by_name, reviewed_at, source_reference, self_care_action)
+    values ('f1-bump-other', 'F1 bump other condition', 'Body.', 'getting_started', 'diabetes', 'published', true, v_today + 40,
+      'Dr Proof Reviewer', now(), 'F1 proof source', 'Take one proof step today.') returning id into v_other;
 
     select coalesce(max(version_number), 0) + 2 into v_ver from public.protocol_versions where protocol_id = 'hypertension' and organisation_id = v_org;
     perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role', 'authenticated')::text, true);
