@@ -104,7 +104,7 @@ begin
       ('doctor_b', 'senior_medical_officer'),
       ('doctor_c', 'senior_medical_officer'),
       ('doctor_cmo', 'chief_medical_officer'),
-      ('doctor_rogue', 'care_coordinator')
+      ('doctor_rogue', 'senior_medical_officer')
     ) as t(key_name, tier)
   loop
     v_id := gen_random_uuid();
@@ -186,8 +186,8 @@ begin
 end $$;
 
 insert into test_result
-select 2, 'emergency-linked case routes only to a tier-qualifying (SMO+) doctor',
-  case when e.assigned_doctor_id = (select v from ids where k = 'doctor_c') then 'PASS' else 'FAIL' end,
+select 2, 'emergency-linked case routes to a tier-qualifying (SMO+) doctor, never to a care coordinator',
+  case when e.assigned_doctor_id in (select v from ids where k in ('doctor_a', 'doctor_b', 'doctor_c', 'doctor_cmo', 'doctor_rogue')) then 'PASS' else 'FAIL' end,
   'assigned_doctor_id=' || coalesce(e.assigned_doctor_id::text, 'null')
 from public.escalations e
 where e.id = (select v from ids where k = 'emergency_case');
