@@ -27,9 +27,12 @@ paths = ['''apps/mobile/eas\.json$''']
 # registry those are storage slot names and configuration names, not credentials (history is scanned too, so they cannot be reworded away).
 # Only the generic rule is relaxed, and only for these paths: every specific rule (cloud keys, JWTs, private keys, payment keys) still applies there.
 # Approved by the founder on 2026-10-07.
-[[allowlists]]
+# gitleaks 8.21 does not read `targetRules` inside `[[allowlists]]`, so the relaxation is attached to the one rule it is for: this entry overrides only
+# the allowlist of the built-in generic-api-key rule (every other field is inherited from the default rule).
+[[rules]]
+id = "generic-api-key"
+[rules.allowlist]
 description = "storage slot and configuration names, not credentials"
-targetRules = ["generic-api-key"]
 paths = [
   '''apps/mobile/src/.*\.(ts|tsx)$''',
   '''.*\.test\.(ts|tsx)$''',
