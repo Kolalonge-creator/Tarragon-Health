@@ -25,22 +25,19 @@ function formatDate(dateStr: string): string {
   });
 }
 
-const STATUS_TONE: Record<PharmacyOrderStatus, "green" | "amber" | "grey" | "red"> = {
+const STATUS_TONE: Partial<Record<PharmacyOrderStatus, "green" | "amber" | "grey" | "red">> = {
   pending_payment: "amber",
   payment_confirmed: "grey",
   requested: "grey",
   confirmed: "grey",
   unavailable: "amber",
   dispensed: "grey",
-  out_for_delivery: "grey",
-  delivery_failed: "red",
-  delivered: "green",
   cancelled: "grey",
 };
 
 function StatusPill({ status }: { status: PharmacyOrderStatus }) {
   const colors = useLegacyColors();
-  const tone = STATUS_TONE[status];
+  const tone = STATUS_TONE[status] ?? "grey";
   const styles: Record<string, { bg: string; text: string }> = {
     green: { bg: colors.brandTint, text: colors.brandPressed },
     amber: { bg: colors.status.warnBg, text: colors.status.warn },
@@ -50,7 +47,7 @@ function StatusPill({ status }: { status: PharmacyOrderStatus }) {
   const s = styles[tone];
   return (
     <View style={{ backgroundColor: s.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9 }}>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: s.text }}>{PHARMACY_ORDER_STATUS_LABEL[status]}</Text>
+      <Text style={{ fontSize: 11, fontWeight: "700", color: s.text }}>{PHARMACY_ORDER_STATUS_LABEL[status] ?? "In progress"}</Text>
     </View>
   );
 }
@@ -99,7 +96,7 @@ function PharmacyOrderCard({ order, onChanged }: { order: PharmacyOrderListItem;
  * See lib/prescription-renewal.ts's module comment for why order CREATION
  * isn't ported here (no live pharmacy to choose from yet).
  *
- * Delivery-address collection, dispense logging, and the courier timeline
+ * Dispense logging and the collection timeline
  * stay web-only for this pass — this screen's job is "see your orders, pay
  * the ones that need it," matching the gap medicine-cabinet-screen.tsx's
  * header comment used to flag.
