@@ -1893,6 +1893,18 @@ export const en = {
   "labres.replaced": "Replaced by a newer result",
   "labres.correction": "This is a corrected result. It replaces an earlier one.",
   "labres.screening": "This is a screening result. It is not a diagnosis, and your care team will tell you what happens next.",
+  "payapprove.title": "Payout approvals",
+  "payapprove.intro": "Weekly payout drafts waiting for approval. Approving only agrees the amount. The founder sends the money, and you cannot approve a payout that is yours.",
+  "payapprove.off": "Approval is switched off. You can read the drafts, but nothing can be approved until payouts are switched on from the go-live page.",
+  "payapprove.load_error": "The drafts could not be loaded. This is not the same as there being none.",
+  "payapprove.none": "No drafts are waiting.",
+  "payapprove.earnings": "{count} earnings, up to {date}",
+  "payapprove.no_bank": "No verified bank account yet, so this cannot be approved.",
+  "payapprove.approve": "Approve",
+  "payapprove.working": "Working...",
+  "payapprove.unnamed": "A clinician",
+  "payapprove.truncated": "Showing {shown} of {total} drafts waiting. Approve some to see the rest.",
+  "payapprove.mine": "This payout is yours, so someone else needs to approve it.",
 } as const;
 
 export type MessageKey = keyof typeof en;
