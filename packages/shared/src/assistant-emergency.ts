@@ -130,7 +130,12 @@ export function nearestHospitalsShown(): number {
 
 /** "Lagos State" and "lagos" are the same place. */
 export function normaliseState(state: string | null | undefined): string | null {
-  const s = (state ?? "").trim().toLowerCase().replace(/\s+state$/, "");
+  // No regular expression on the input (a trailing-whitespace pattern is quadratic on long strings): trim, then drop one trailing word "state".
+  let s = (state ?? "").trim().toLowerCase();
+  if (s.endsWith("state")) {
+    const head = s.slice(0, -5);
+    if (head.length > 0 && head.charAt(head.length - 1) === " ") s = head.trim();
+  }
   return s ? s : null;
 }
 

@@ -1,4 +1,5 @@
 import {
+  assistantPagingWaits,
   buildEmergencyAddendum,
   nearestHospitalsShown,
   normaliseState,
@@ -14,7 +15,7 @@ import { postCoachReport } from "./api";
  * no signal; this file only adds what can be read when there IS a signal: the nearest hospitals and the patient's own emergency contact
  * (their own profile, the shared facilities directory), the report-an-answer call, and the patient's own memory (RLS patient only).
  */
-export async function loadEmergencyContext(userId: string): Promise<EmergencyAddendumInput> {
+async function readEmergencyContext(userId: string): Promise<EmergencyAddendumInput> {
   const empty: EmergencyAddendumInput = { hospitals: [], contactName: null, contactPhone: null };
   try {
     const { data: profile } = await supabase
@@ -45,6 +46,27 @@ export async function loadEmergencyContext(userId: string): Promise<EmergencyAdd
     return { hospitals, contactName: profile?.emergency_contact_name?.trim() || null, contactPhone: profile?.emergency_contact_phone?.trim() || null };
   } catch {
     return empty;
+  }
+}
+
+/**
+ * The same bounded read the web uses (assistant.paging hospital_lookup_ms): on a slow or absent connection it gives up and returns nothing, so
+ * the bundled emergency guidance already on screen stands alone. Never throws.
+ */
+export async function loadEmergencyContext(userId: string): Promise<EmergencyAddendumInput> {
+  const empty: EmergencyAddendumInput = { hospitals: [], contactName: null, contactPhone: null };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      readEmergencyContext(userId),
+      new Promise<EmergencyAddendumInput>((resolve) => {
+        timer = setTimeout(() => resolve(empty), assistantPagingWaits().hospitalLookupMs);
+      }),
+    ]);
+  } catch {
+    return empty;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

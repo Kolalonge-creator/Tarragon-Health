@@ -209,7 +209,25 @@ select pg_temp.ck('real', 'two consent rows now exist, one active', '2:1',
   (select count(*)::text from public.assistant_memory_consents where patient_id = pg_temp.f('pat')) || ':' || (select count(*)::text from public.assistant_memory_consents where patient_id = pg_temp.f('pat') and revoked_at is null));
 
 -- 5. Silence signal ------------------------------------------------------------------------------------------------------------------------
--- the test patient is a programme member (an active care pack) whose last message was long ago; the real patient has no programme.
+-- INV-13: the silence job never touches a test account. For this section the proof patient is made a REAL patient and the guard check is
+-- stood in for (a bare update cannot switch the guard on); both are put back before section 6.
+create temp table gl_saved as select pg_get_functiondef('private.go_live_open_patient(text, uuid)'::regprocedure) as def;
+update public.profiles set is_test = false where id = pg_temp.f('pat');
+create or replace function private.go_live_open_patient(p_key text, p_patient uuid) returns boolean language sql stable as $$ select true $$;
+-- a TEST account that is also a programme member with an old message: it must never be signalled
+do $$
+declare v_t uuid; v_org uuid := pg_temp.f('org');
+begin
+  v_t := pg_temp.mkuser(v_org, 'silent_test', 'patient', true);
+  perform pg_temp.setf('silent_test', v_t);
+  insert into public.ai_conversations (organisation_id, profile_id, messages)
+    values (v_org, v_t, '[{"id":"s1","role":"user","content":"hi","created_at":"2020-01-01T00:00:00Z"}]'::jsonb);
+  set local session_replication_role = replica;
+  insert into public.entitlements (organisation_id, patient_id, order_id, kind, starts_at, state, is_test)
+    values (v_org, v_t, gen_random_uuid(), 'care_pack', now() - interval '60 days', 'active', true);
+  set local session_replication_role = origin;
+end $$;
+-- the real patient is a programme member (an active care pack) whose last message was long ago; the other real patient has no programme.
 set local session_replication_role = replica;
 insert into public.entitlements (organisation_id, patient_id, order_id, kind, starts_at, state, is_test)
   values (pg_temp.f('org'), pg_temp.f('pat'), gen_random_uuid(), 'care_pack', now() - interval '60 days', 'active', true),
@@ -229,7 +247,13 @@ select pg_temp.ck('real', 'the event count is still one', '1', (select count(*):
 select pg_temp.ck('real', 'a patient with no programme is not signalled', '0', (select count(*)::text from public.domain_events where event_type = 'assistant.silence_detected' and patient_id = pg_temp.f('real')));
 select pg_temp.ck('real', 'the reengagement wording passes the INV-07 lint', '0',
   (select count(*)::text from public.notification_template_locales l where l.template_key = 'assistant_reengage' and cardinality(private.notification_text_violations(coalesce(l.subject, '') || ' ' || l.body)) > 0));
+select pg_temp.ck('real', 'a test account that is a programme member is never signalled (INV-13)', '0:0',
+  (select count(*)::text from public.domain_events where event_type = 'assistant.silence_detected' and patient_id = pg_temp.f('silent_test')) || ':' ||
+  (select count(*)::text from public.notifications where recipient_id = pg_temp.f('silent_test') and template = 'assistant_reengage'));
 select pg_temp.ck('real', 'a patient cannot run the job', 'ERR:42501', pg_temp.q_as(pg_temp.f('pat'), 'select public.assistant_detect_silence(now())::text'));
+-- put the proof patient and the guard check back
+update public.profiles set is_test = true where id = pg_temp.f('pat');
+do $$ begin execute (select def from gl_saved); end $$;
 
 -- 6. On-call page for a self-harm message -----------------------------------------------------------------------------------------------
 select pg_temp.ck('real', 'a page is queued durably before it is attempted', 'ok',
@@ -406,6 +430,17 @@ create or replace function public.assistant_review_queue() returns table (id uui
 language sql stable security definer set search_path = '' as
 $$ select s.id, s.month, s.selection, s.state, s.verdict, left(s.patient_id::text, 8), 0, s.selection = 'reported' from public.assistant_review_samples s $$;
 select pg_temp.ck('sabotaged', 'a clinician below CMO cannot open the queue', 'ERR:42501', pg_temp.q_as(pg_temp.f('doc'), 'select count(*)::text from public.assistant_review_queue()'));
+-- the silence job without its test-account exclusion must signal the test account
+do $f$ declare d text;
+begin
+  d := pg_get_functiondef('public.assistant_detect_silence(timestamptz)'::regprocedure);
+  d := replace(d, ' and not coalesce(p.is_test, false)', '');
+  execute d;
+  create or replace function private.go_live_open_patient(p_key text, p_patient uuid) returns boolean language sql stable as $x$ select true $x$;
+end $f$;
+select pg_temp.n($q$select (public.assistant_detect_silence(now() + interval '1 day') ->> 'signals')$q$);
+select pg_temp.ck('sabotaged', 'a test account is never signalled', '0',
+  (select count(*)::text from public.domain_events where event_type = 'assistant.silence_detected' and patient_id = pg_temp.f('silent_test')));
 -- the observation function without its none: guard must record none:code2
 do $f$ declare d text;
 begin
@@ -436,7 +471,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
+  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of 5 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result
