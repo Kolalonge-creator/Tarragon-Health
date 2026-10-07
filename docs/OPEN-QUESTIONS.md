@@ -1787,3 +1787,46 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 ### OQ-327 Gaps found in the S70 to S75 review that need an owner
 - OQ-192 (any `profile_access` grantee can read and pay) is still open and must be fixed before any real caregiver grant. OQ-39 (56 older `analytics_*` RPCs ignore `is_test`) is still open. `device.synced` and `device.alert` are not in the S10 event catalogue. Withings, Samsung, inhaler sensors and `LabResultsSource` are not built. `partner_quality`, `partner.quality_breach`, `partner.settlement_due` and `settlement-run` are not built. Price quoting (`price-quote`, `price.changed`, `discount_codes`, `price_books`) is not built.
 - Decision: open; each is in the build plan.
+
+### OQ-380 CMO signature on the outcome measure definitions (raised by S75b)
+- `outcomes.measures` v1 (HbA1c, weight, PHQ-9, GAD-7 windows, thresholds, severity bands, response-time grouping, retention days, evaluation-design note) is PROPOSED. Until the CMO confirms it on the go-live sign-off screen, every report for those measures returns "awaiting signature" and no figure. Nothing was signed by this session.
+- Open: the CMO confirms or asks for changes; any change is a new version.
+- Decision:
+
+### OQ-381 Pregnancy and age rules for the new measures (raised by S75b)
+- Pregnancy is read from the current `patient_pregnancy.is_pregnant`, not from the state at the time of the result, so someone who became pregnant after day 0 is excluded from both ends. Members with no date of birth are excluded (`age_unknown`); all four measures are adult only (under 18 excluded, including PHQ-9 and GAD-7).
+- Options: (a) keep, the safe direction (recommended); (b) store the pregnancy state at each window; (c) include adolescents with their own instruments.
+- Decision:
+
+### OQ-382 HbA1c source of truth (raised by S75b)
+- Snapshots read `lab_analyte_readings` (patient-confirmed extraction and staff entry). Structured partner results in `lab_result_items` (S27) are not read, so a partner-reported HbA1c that never reached `lab_analyte_readings` is invisible to outcomes. Units other than % and mmol/mol are ignored.
+- Options: (a) copy released HbA1c items into `lab_analyte_readings` (recommended, one source); (b) read both with de-duplication.
+- Decision:
+
+### OQ-383 What "programme completion" means (raised by S75c, function 22.2)
+- The report counts care packs that have ended and the share whose entitlement state is `used`, labelled exactly that. A sponsor-facing "completed the 12-week programme" needs a founder and CMO definition (for example a final review done), probably a new field.
+- Decision:
+
+### OQ-384 CMO door for the fairness review (raised by S75c, decision S75-4)
+- `record_risk_fairness_review` works and is proven, but the CMO's clinician login cannot open `/admin/risk-fairness`, where the monthly list lives, so there is no button yet. Needs a `/clinician/...` page (the S36e and S37 two-door pattern). Also: who prepares the monthly note (OQ-317).
+- Decision:
+
+### OQ-385 Response times: scope and the S36e overlap (raised by S75c, function 22.7)
+- Added turnaround, escalation, hand-back and follow-up rates by urgency band and finisher tier. "Follow-up" is only the `adherence_follow_up` task type; the CMO may want a wider definition. Hand-backs are counted from `handback_count`, which resets nothing but is a task-level count. No per-clinician view by design.
+- Decision:
+
+### OQ-386 Triage report old name (raised by S75a, decision S75-3)
+- `triage_accuracy_report` remains as a deprecated wrapper of `triage_agreement_report` and the audit action changed from `triage.accuracy_report` to `triage.agreement_report`. Drop the wrapper in the migration after the web deploy.
+- Decision:
+
+### OQ-387 Latent bug in the payer board report (raised by S75a)
+- S38 added measure specs (`bp_control_90d`, now `bp_control_180d`) that the payer board engine cannot compute; `generate_payer_board_report` looped every spec and would have raised on the first report once the payer module is on. Fixed by restricting it to known keys (`private.board_measure_keys()`); the older proof `payer_board_outcomes_report.sql` is in `ci.excluded` and already failed at its attest step before this session (not investigated).
+- Decision:
+
+### OQ-388 Floors raised for older dashboards (raised by S75a)
+- Corporate, payer and reproductive dashboards used 5 to 10; they now use 20 (or the organisation's higher number). Small employers may see "withheld" where they saw figures. Counsel or the DPO confirms the number (OQ-233).
+- Decision:
+
+### OQ-389 OQ-39 progress (raised by S75a)
+- Fixed for the surfaces touched: reproductive analytics, institution subsidy summary, payer dashboard, the new reports. The 56 older `analytics_*` RPCs still ignore `is_test`; see the S75 progress entry for the list. Retrofit or retire them in one session.
+- Decision:
