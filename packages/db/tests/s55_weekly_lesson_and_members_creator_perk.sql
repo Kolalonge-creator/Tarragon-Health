@@ -192,6 +192,9 @@ begin
     and pg_temp.as_count(v_pm, $q$select count(*) from public.health_education_content where code = 'cr-article'$q$) = 1);
   perform pg_temp.ck('M4 a Member can record progress on it',
     pg_temp.as_try(v_pm, format($q$insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (%L, %L, %L, 'seen')$q$, v_org, v_pm, v_cart)) = 'ok');
+  v_t := pg_temp.as_try(v_pm, format($q$update public.health_education_progress set understood_at = now() + interval '1 year' where patient_id = %L and content_id = %L$q$, v_pm, v_cart));
+  perform pg_temp.ck('M4b a patient cannot set the finished-at time themselves (the server stamps it)',
+    (select understood_at is null from public.health_education_progress where patient_id = v_pm and content_id = v_cart));
   perform pg_temp.ck('M5 the offline pack includes it for a Member',
     pg_temp.as_count(v_pm, $q$select count(*) from public.learning_offline_pack() where code = 'cr-article' and body = 'BODY-cr-article'$q$) = 1);
   perform pg_temp.ck('M6 a Member opens the shared link in full',
