@@ -87,7 +87,7 @@ begin
     organisation_id, profile_id, full_name, active, license_verified_at,
     doctor_tier
   ) values (
-    v_org, null, 'Protocol Attribution Probe (Victim)', true, now(), 'medical_officer'
+    v_org, null, 'Protocol Attribution Probe (Victim)', true, now(), 'senior_medical_officer'
   ) returning id into v_victim_id;
 
   ---------------------------------------------------------------- case 1 (+1b)
@@ -131,7 +131,7 @@ begin
 
   ---------------------------------------------------------------- case 3
   update public.clinical_staff
-     set doctor_tier = 'medical_officer'
+     set doctor_tier = 'senior_medical_officer'
    where id = v_staff_id;
 
   v_blocked := false;

@@ -136,8 +136,8 @@ create function pg_temp.score_of(p_uid uuid) returns text language sql as $$ sel
 create temp table cases_json on commit drop as select $cases$
 {
   "defaults": {
-    "clinician": { "tier": "medical_officer", "competencies": ["hypertension"], "employed": false, "hasBlock": true, "isTest": true, "conflicted": false, "handedBack": false, "ownPatient": false },
-    "task": { "state": "open", "minTier": "medical_officer", "requiredCompetencies": ["hypertension"], "offeredTo": "none", "isTest": true }
+    "clinician": { "tier": "senior_medical_officer", "competencies": ["hypertension"], "employed": false, "hasBlock": true, "isTest": true, "conflicted": false, "handedBack": false, "ownPatient": false },
+    "task": { "state": "open", "minTier": "senior_medical_officer", "requiredCompetencies": ["hypertension"], "offeredTo": "none", "isTest": true }
   },
   "cases": [
     { "name": "base: an open pool task for a matching clinician", "expect": true },
@@ -146,7 +146,7 @@ create temp table cases_json on commit drop as select $cases$
     { "name": "employed doctor with no block still takes work pushed to them", "clinician": { "hasBlock": false, "employed": true }, "task": { "state": "offered_to_lead", "offeredTo": "me" }, "expect": true },
     { "name": "freelancer with no block cannot take an offered task either", "clinician": { "hasBlock": false }, "task": { "state": "offered_to_lead", "offeredTo": "me" }, "expect": false },
     { "name": "tier below the task minimum", "clinician": { "tier": "care_coordinator" }, "expect": false },
-    { "name": "tier above the task minimum", "clinician": { "tier": "senior_medical_officer" }, "expect": true },
+    { "name": "tier above the task minimum", "clinician": { "tier": "chief_medical_officer" }, "expect": true },
     { "name": "a missing competency", "clinician": { "competencies": ["adult_general"] }, "expect": false },
     { "name": "extra competencies are fine", "clinician": { "competencies": ["hypertension", "adult_general"] }, "expect": true },
     { "name": "task needing no competency", "task": { "requiredCompetencies": [] }, "clinician": { "competencies": [] }, "expect": true },
@@ -160,7 +160,7 @@ create temp table cases_json on commit drop as select $cases$
     { "name": "an offered task still needs the competency", "task": { "state": "offered_to_lead", "offeredTo": "me" }, "clinician": { "competencies": [] }, "expect": false },
     { "name": "an escalated task needs the on_call competency", "task": { "state": "escalated" }, "expect": false },
     { "name": "an escalated task for an on-call clinician", "task": { "state": "escalated" }, "clinician": { "competencies": ["hypertension", "on_call"] }, "expect": true },
-    { "name": "an escalated task still needs the tier", "task": { "state": "escalated", "minTier": "senior_medical_officer" }, "clinician": { "competencies": ["hypertension", "on_call"] }, "expect": false }
+    { "name": "an escalated task still needs the tier", "task": { "state": "escalated", "minTier": "chief_medical_officer" }, "clinician": { "competencies": ["hypertension", "on_call"] }, "expect": false }
   ]
 }
 $cases$::jsonb as j;
@@ -233,7 +233,7 @@ declare
 begin
   perform pg_temp.setf('A', pg_temp.mkdoc(v_org, 'A', 'senior_medical_officer', 'contracted', '{hypertension,adult_general,result_review,prescribing,on_call}', v_admin));
   perform pg_temp.setf('B', pg_temp.mkdoc(v_org, 'B', 'senior_medical_officer', 'contracted', '{hypertension,adult_general,result_review,prescribing}', v_admin));
-  perform pg_temp.setf('MO', pg_temp.mkdoc(v_org, 'MO', 'medical_officer', 'contracted', '{hypertension,adult_general}', v_admin));
+  perform pg_temp.setf('MO', pg_temp.mkdoc(v_org, 'MO', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_admin));
   perform pg_temp.setf('R', pg_temp.mkdoc(v_org, 'R', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_admin));
   perform pg_temp.setf('R2', pg_temp.mkdoc(v_org, 'R2', 'senior_medical_officer', 'contracted', '{hypertension,adult_general}', v_admin));
   perform pg_temp.setf('E', pg_temp.mkdoc(v_org, 'E', 'senior_medical_officer', 'employed', '{hypertension,adult_general,result_review}', v_admin));

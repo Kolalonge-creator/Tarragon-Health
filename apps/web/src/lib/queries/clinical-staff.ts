@@ -253,8 +253,8 @@ export function useSetClinicalStaffLicenseExpiry() {
  * Toggles employed/contracted — this is what decides, alongside tier,
  * whether individual indemnity tracking is required
  * (private.enforce_clinical_staff_indemnity): chief_medical_officer always
- * needs it, senior_medical_officer only when contracted, medical_officer
- * never does (employed staff stay under Tarragon's institutional policy).
+ * needs it, senior_medical_officer only when contracted (an employed
+ * doctor stays under Tarragon's institutional policy).
  * Editable post-creation since a Senior Medical Officer's employment
  * relationship can change over time, unlike tier/name/credential.
  */
@@ -560,7 +560,7 @@ export function useOrgClinicians() {
       const { data, error } = await supabase
         .from("clinical_staff")
         .select("*")
-        .in("doctor_tier", ["medical_officer", "senior_medical_officer"])
+        .in("doctor_tier", ["senior_medical_officer"])
         .eq("active", true)
         .order("full_name", { ascending: true });
       if (error) throw error;

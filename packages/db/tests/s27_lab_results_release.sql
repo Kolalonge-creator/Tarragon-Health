@@ -124,7 +124,7 @@ begin
   update public.profiles set lab_provider_id = v_lab_a where id = pg_temp.f('labA');
   update public.profiles set lab_provider_id = v_lab_b where id = pg_temp.f('labB');
   perform pg_temp.setf('labA_provider', v_lab_a);
-  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'medical_officer', v_admin));
+  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('senior', pg_temp.mkdoc(v_org, 'senior', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('stranger', pg_temp.mkdoc(v_org, 'stranger', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', v_admin));

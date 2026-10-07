@@ -100,11 +100,11 @@ begin
   -- employed -- the non-CMO who must be refused when reassigning someone
   -- ELSE's case.
   for r in select * from (values
-      ('doctor_a', 'medical_officer'),
-      ('doctor_b', 'medical_officer'),
+      ('doctor_a', 'senior_medical_officer'),
+      ('doctor_b', 'senior_medical_officer'),
       ('doctor_c', 'senior_medical_officer'),
       ('doctor_cmo', 'chief_medical_officer'),
-      ('doctor_rogue', 'medical_officer')
+      ('doctor_rogue', 'senior_medical_officer')
     ) as t(key_name, tier)
   loop
     v_id := gen_random_uuid();
@@ -378,7 +378,7 @@ end $$;
 -- NOTE: private.classify_and_assign_clinician_alert() (the pre-existing
 -- BEFORE INSERT trigger, 20260828014055) already auto-assigned
 -- responsible_clinician_id at creation -- 'deterioration' carries a rule
--- with owner_tier='medical_officer', so it landed on the least-loaded active
+-- with owner_tier='senior_medical_officer', so it landed on the least-loaded active
 -- medical_officer at insert time (doctor_a, first-created of the two tied
 -- medical_officers). The exemption/authority checks below all reassign
 -- FROM that starting value TO a genuinely different clinical_staff id, never

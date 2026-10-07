@@ -133,8 +133,8 @@ begin
 
   insert into public.clinical_staff (profile_id, organisation_id, full_name, active, license_verified_at, doctor_tier, employment_type)
   values
-    (v_org_a_staff, v_org_a, 'RPSA Org A Staff', true, now(), 'medical_officer', 'employed'),
-    (v_org_b_staff, v_org_b, 'RPSA Org B Staff', true, now(), 'medical_officer', 'employed')
+    (v_org_a_staff, v_org_a, 'RPSA Org A Staff', true, now(), 'senior_medical_officer', 'employed'),
+    (v_org_b_staff, v_org_b, 'RPSA Org B Staff', true, now(), 'senior_medical_officer', 'employed')
   on conflict (profile_id) do update set organisation_id = excluded.organisation_id, active = true, license_verified_at = excluded.license_verified_at;
 
   -- Monitoring patient: only an active continuous_monitoring purchase, 90 days out.

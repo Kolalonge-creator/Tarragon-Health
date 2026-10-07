@@ -53,7 +53,7 @@ begin
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, active, doctor_tier,
      credential_type, credential_number, license_verified_at)
-  values (v_org, v_clin, 'Dr Extraction Test', true, 'medical_officer',
+  values (v_org, v_clin, 'Dr Extraction Test', true, 'senior_medical_officer',
           'MDCN', 'TEST-EXTRACT-1', now())
   on conflict (profile_id) do update
     set organisation_id = excluded.organisation_id, full_name = excluded.full_name,

@@ -141,7 +141,7 @@ begin
   update public.clinical_staff set active = false where is_test is not true;
   perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'smo', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('doc2', pg_temp.mkdoc(v_org, 'smo2', 'senior_medical_officer', v_admin));
-  perform pg_temp.setf('mo', pg_temp.mkdoc(v_org, 'mo', 'medical_officer', v_admin));
+  perform pg_temp.setf('mo', pg_temp.mkdoc(v_org, 'mo', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('pat', pg_temp.mkuser(v_org, 'pat', 'patient'));
   perform pg_temp.setf('pat2', pg_temp.mkuser(v_org, 'pat2', 'patient'));
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, clinical_director_id, assigned_at)

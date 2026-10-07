@@ -59,7 +59,7 @@ begin
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier,
                                      indemnity_insurer, indemnity_policy_number, indemnity_expires_at) values
     (v_org,  v_tied_smo,   'S05fC2 Tied SMO',      true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S05F-1', now() + interval '1 year'),
-    (v_org,  v_tied_mo,    'S05fC2 Tied MO',       true, now(), 'medical_officer',        'Probe Indemnity', 'S05F-2', now() + interval '1 year'),
+    (v_org,  v_tied_mo,    'S05fC2 Tied MO',       true, now(), 'senior_medical_officer',        'Probe Indemnity', 'S05F-2', now() + interval '1 year'),
     (v_org,  v_untied_smo, 'S05fC2 Untied SMO',    true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S05F-3', now() + interval '1 year'),
     (v_org2, v_other,      'S05fC2 Other Org SMO', true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S05F-4', now() + interval '1 year');
   -- tie: the care team's clinician slot holds the SMO and its second slot holds the MO (both are tied by care_team_assignment)
