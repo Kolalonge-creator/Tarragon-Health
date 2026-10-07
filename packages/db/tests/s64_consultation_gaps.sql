@@ -42,7 +42,7 @@ $f$ begin
   perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
   set local role anon;
 end $f$;
-create function pg_temp.back() returns void language plpgsql as $f$ begin reset role; end $f$;
+create function pg_temp.back() returns void language plpgsql as $f$ begin reset role; perform set_config('request.jwt.claims', '', true); end $f$;
 create function pg_temp.mkuser(p_org uuid, p_label text, p_role text, p_dob date, p_sex text default null) returns uuid
 language plpgsql as $f$
 declare v uuid := gen_random_uuid();
@@ -112,6 +112,9 @@ end $f$;
 -- how many of those slots belong to one clinician
 create function pg_temp.slots_of(p_json jsonb, p_clin uuid) returns integer language sql as
 $$ select count(*)::integer from jsonb_array_elements(p_json) x where (x ->> 'clinician_id')::uuid = p_clin $$;
+-- reads a referral's facility columns as the owner (the acting clinician's RLS may not show a draft)
+create function pg_temp.ref_facility(p_ref uuid, p_fac uuid) returns text language sql security definer as
+$$ select coalesce((facility_id = p_fac)::text, 'null') || '/' || coalesce(facility_id::text, 'null') || '/' || coalesce(facility_name_text, 'null') from public.specialist_referrals where id = p_ref $$;
 create function pg_temp.count_slots(p_patient uuid, p_from timestamptz, p_to timestamptz, p_args text) returns integer language plpgsql as
 $f$ declare v jsonb;
 begin
@@ -148,11 +151,11 @@ begin
 
   -- doctor A: a recorded MDCN check; doctor B: none. The dietitian sits on the care_coordinator tier (the only tier a non-doctor role may hold).
   insert into public.clinical_staff (organisation_id, profile_id, full_name, is_test, active, languages, license_verified_at, license_expires_at, specialty,
-                                     indemnity_exempt, indemnity_exempt_by, credential_type, credential_number, credential_verified_at, credential_verified_by)
+                                     indemnity_exempt, indemnity_exempt_by, credential_type, credential_number, credential_verified_at, credential_verified_by, doctor_tier)
   values (v_org, v_docA, 'S64 doctor-a', true, true, array['en', 'fr'], now() - interval '10 days', now() + interval '1 year', 'General practice', true, v_admin,
-          'MDCN', 'MDCN/S64-A', now() - interval '5 days', v_admin),
+          'MDCN', 'MDCN/S64-A', now() - interval '5 days', v_admin, 'senior_medical_officer'),
          (v_org, v_docB, 'S64 doctor-b', true, true, array['en'], now() - interval '3 days', now() + interval '1 year', 'Cardiology', true, v_admin,
-          null, null, null, null);
+          null, null, null, null, 'senior_medical_officer');
 
   -- ===== 1. care_role =====
   perform pg_temp.rec('a dietitian on a doctor tier is refused (23514)', '23514',
@@ -380,20 +383,20 @@ begin
 
   -- ===== 7. referral facility =====
   select id into v_staff_a from public.clinical_staff where profile_id = v_docA;
-  insert into public.specialist_referrals (organisation_id, patient_id, specialist_type, referred_by) values (v_org, v_pat, 'cardiology', v_staff_a) returning id into v_ref;
+  perform pg_temp.act(v_docA);
+  select public.create_specialist_referral(v_pat, 'cardiology', 'clinician_initiated', 'routine', 'S64 proof', null, '{}'::jsonb, true) into v_ref;  -- a draft is unsigned; submitting it signs it
+  perform pg_temp.back();
   insert into public.facilities (name, type, state, city) values ('S64 Heart Centre', 'hospital', 'Lagos', 'Ikeja') returning id into v_fac;
   insert into public.facilities (name, type, state, city, is_active) values ('S64 Closed Clinic', 'hospital', 'Lagos', 'Ikeja', false) returning id into v_fac2;
   perform pg_temp.act(v_docA);
   perform public.set_referral_facility(v_ref, v_fac, null);
-  perform pg_temp.rec('a directory facility is stored', 'true/null',
-    (select (facility_id = v_fac)::text || '/' || coalesce(facility_name_text, 'null') from public.specialist_referrals where id = v_ref));
+  perform pg_temp.rec('a directory facility is stored', 'true/' || v_fac || '/null', pg_temp.ref_facility(v_ref, v_fac));
   perform pg_temp.rec('a directory entry and typed text together are refused (22023)', '22023',
     pg_temp.try(format('select public.set_referral_facility(%L, %L, ''Typed'')', v_ref, v_fac)));
   perform pg_temp.rec('an unknown facility is refused (P0002)', 'P0002', pg_temp.try(format('select public.set_referral_facility(%L, %L, null)', v_ref, gen_random_uuid())));
   perform pg_temp.rec('an inactive listing is refused (P0002)', 'P0002', pg_temp.try(format('select public.set_referral_facility(%L, %L, null)', v_ref, v_fac2)));
   perform public.set_referral_facility(v_ref, null, '  Mercy Clinic  ');
-  perform pg_temp.rec('typed text is the fallback and clears the directory link', 'null/Mercy Clinic',
-    (select coalesce(facility_id::text, 'null') || '/' || coalesce(facility_name_text, 'null') from public.specialist_referrals where id = v_ref));
+  perform pg_temp.rec('typed text is the fallback and clears the directory link', 'null/null/Mercy Clinic', pg_temp.ref_facility(v_ref, v_fac));
   perform pg_temp.back();
   perform pg_temp.rec('the table refuses both forms at once (23514)', '23514',
     pg_temp.try(format('update public.specialist_referrals set facility_id = %L, facility_name_text = ''x'' where id = %L', v_fac, v_ref)));
@@ -403,7 +406,10 @@ begin
   perform pg_temp.act(v_stranger);
   perform pg_temp.rec('a patient cannot set it (42501)', '42501', pg_temp.try(format('select public.set_referral_facility(%L, %L, null)', v_ref, v_fac)));
   perform pg_temp.back();
-  update public.specialist_referrals set signed_by = v_docA, signed_at = now() where id = v_ref;
+  perform pg_temp.act(v_docA);
+  perform public.submit_draft_referral(v_ref, now());  -- submitting signs the referral (stamp trigger)
+  perform pg_temp.back();
+  perform pg_temp.rec('submitting the referral signs it', 'true', (select (signed_at is not null)::text from public.specialist_referrals where id = v_ref));
   perform pg_temp.act(v_docA);
   perform pg_temp.rec('a signed referral cannot be changed (42501)', '42501', pg_temp.try(format('select public.set_referral_facility(%L, %L, null)', v_ref, v_fac)));
   perform pg_temp.back();
@@ -427,8 +433,8 @@ begin
 
   -- ===== 10. SABOTAGE: each guard removed must let the bad thing through =====
   execute 'alter table public.clinical_encounter_notes disable trigger clinical_encounter_notes_scribe_safety_gate';
-  update public.clinical_encounter_notes set safety_lines_reviewed_at = null where id = v_n3;
   perform pg_temp.act(v_docA);
+  perform public.update_encounter_note_draft(v_n3, '{"plan":"Rest more"}'::jsonb);  -- the edit clears the confirmation
   perform pg_temp.rec('SABOTAGE sign gate off: an unreviewed AI note signs (so the real test discriminates)', 'ok',
     pg_temp.try(format('select public.finalize_encounter_note(%L, ''reassurance'', true)', v_n3)));
   perform pg_temp.back();
