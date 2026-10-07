@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { readFlash } from "@/lib/go-live/flash";
 import { GoLivePage } from "@/components/go-live/go-live-page";
 
@@ -13,6 +12,6 @@ export default async function AdminGoLive({ searchParams }: { searchParams: Prom
   const profile = await getCurrentProfile();
   if (profile?.role !== "admin") redirect("/admin");
   const flash = await readFlash((await searchParams).n);
-  const locale = resolveUiLanguage(profile.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   return <GoLivePage viewer="admin" locale={locale} notice={flash?.notice} detail={flash?.detail} ok={flash?.ok} />;
 }

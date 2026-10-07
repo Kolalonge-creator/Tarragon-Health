@@ -5,7 +5,6 @@ import { t } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DraftReviewPanel, type DraftSection } from "./draft-review-panel";
 import { draftScribeFromFacts, findScribeFactsFromText, getScribeConsentState, recordScribeConsent, revokeScribeConsent } from "@/lib/scribe/actions";
@@ -66,7 +65,8 @@ interface ScribePanelProps {
 
 export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseDraft }: ScribePanelProps) {
   const [state, setState] = useState<ScribeState>({ step: "checking" });
-  const [language, setLanguage] = useState<Language>("en-NG");
+  // English only (decision D-14): the language selector is gone; the review record still names the language the draft was written in.
+  const language: Language = "en-NG";
   const [text, setText] = useState("");
   const [, startTransition] = useTransition();
 
@@ -92,7 +92,12 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
     startTransition(async () => {
       try {
         // The database accepts this row only because the patient allowed it in the app (S21g); it is the audit record.
-        const row = await recordScribeConsent({ patientId, encounterNoteId, granted: true, language });
+        const row = await recordScribeConsent({ patientId, encounterNoteId, granted: true });
+        if (!row.ok) {
+          // A result, not a thrown error (main-dev, S21g follow-up): the database refuses unless the patient allowed it in the app.
+          setState({ step: "error", message: t(row.reason === "not_allowed" ? "scribe.consent.not_allowed" : "scribe.consent.start_failed", "en") });
+          return;
+        }
         setState({ step: "input", consentId: row.id });
       } catch (err) {
         setState({ step: "error", message: scribeErrorMessage(err) });
@@ -176,13 +181,6 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
       return (
         <div className="flex flex-wrap items-end gap-3">
           <p className="w-full text-xs text-brand-green">{t("scribe.gate.agreed", "en")}</p>
-          <div>
-            <Label>{t("scribe.language.label", "en")}</Label>
-            <Select value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
-              <option value="en-NG">{t("scribe.language.en", "en")}</option>
-              <option value="pcm">{t("scribe.language.pcm", "en")}</option>
-            </Select>
-          </div>
           <Button size="sm" variant="outline" onClick={handleStart}>
             {t("scribe.start", "en")}
           </Button>

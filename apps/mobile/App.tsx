@@ -14,16 +14,16 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import logoMarkWhite from "./assets/logo-mark-white.png";
 import { readAppLockEnabled } from "@/lib/app-lock";
+import { loadLowDataPreference } from "@/lib/low-data";
 import { registerBackgroundHealthSync } from "@/lib/background-sync";
+import { registerAudio } from "@/lib/audio/register";
 import { registerPushToken } from "@/lib/push-registration";
 import { flushPendingVitals } from "@/lib/offline-vitals-queue";
 import { syncThresholdsIfOnline } from "@/lib/threshold-sync";
 import { checkForPendingReviewPrompt } from "@/lib/review-prompts";
 import { loadPatientIdentity, type PatientIdentity } from "@/lib/identity";
-import { clearChosenAuthLocale } from "@/lib/auth/auth-locale";
 import { checkBiometricOfferEligible } from "@/lib/auth/biometric-offer";
 import { runPostSignIn } from "@/lib/auth/post-sign-in";
-import { clearUiLanguageCache } from "@/lib/ui-language";
 import { BiometricOfferScreen } from "@/screens/biometric-offer-screen";
 import { LoginScreen } from "@/screens/login-screen";
 import { AppLockScreen } from "@/screens/app-lock-screen";
@@ -74,6 +74,11 @@ function AppContent() {
   const offerCheckedFor = useRef<string | null>(null);
   const postSignInFor = useRef<string | null>(null);
 
+  // Hand the phone's speaker and storage to the audio service (S32). A phone without the native module stays text-only.
+  useEffect(() => {
+    registerAudio();
+  }, []);
+
   useEffect(() => {
     const {
       data: { subscription },
@@ -104,20 +109,7 @@ function AppContent() {
         // Deferred a tick: supabase-js must not be called from inside its own
         // auth callback. Best effort, never blocks sign-in (see post-sign-in.ts).
         setTimeout(() => {
-          void runPostSignIn({
-            userId,
-            rpc: supabase,
-            profiles: {
-              setLanguage: async (id, language) => {
-                const { error } = await supabase.from("profiles").update({ language }).eq("id", id);
-                return { error };
-              },
-            },
-            onLanguageWritten: () => {
-              clearUiLanguageCache();
-              void clearChosenAuthLocale();
-            },
-          }).catch(() => {});
+          void runPostSignIn({ userId, rpc: supabase }).catch(() => {});
         }, 0);
       }
     });
@@ -139,6 +131,7 @@ function AppContent() {
   }, [retryToken]);
 
   useEffect(() => {
+    void loadLowDataPreference();
     readAppLockEnabled()
       .then((enabled) => setLockState(enabled ? "locked" : "unlocked"))
       .catch(() => setLockState("unlocked"));

@@ -39,6 +39,7 @@ import {
 } from "@/lib/care";
 import { PatientNotesSection } from "./patient-notes-section";
 import { WrittenQuestionsSection } from "./written-questions-section";
+import { MembershipSection } from "./membership-section";
 import { SecondOpinionSection } from "./second-opinion-section";
 import { SeniorCaseReviewSection } from "./senior-case-review-section";
 import { VerifiedDocumentsSection } from "./verified-documents-section";
@@ -140,6 +141,7 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit,
         organisationId={organisationId}
         onOpenVideoVisit={onOpenVideoVisit}
       />
+      <MembershipSection />
       <WrittenQuestionsSection />
       <PatientNotesSection />
       <SecondOpinionSection patientId={patientId} organisationId={organisationId} />
@@ -801,7 +803,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
             {NAVIGATION_REQUEST_CATEGORIES.map((c) => {
               const selected = c === category;
               return (
-                <Pressable
+                <Pressable accessibilityRole="button" accessibilityState={{ selected }}
                   key={c}
                   onPress={() => setCategory(c)}
                   style={{
@@ -861,13 +863,13 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <MutedText>How did we do?</MutedText>
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <Pressable
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Rate ${n} out of 5`} hitSlop={4}
                       key={n}
                       onPress={() => void rate(r.id, n)}
                       style={{
-                        width: 26,
-                        height: 26,
-                        borderRadius: 13,
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
                         borderWidth: 1,
                         borderColor: colors.border,
                         alignItems: "center",

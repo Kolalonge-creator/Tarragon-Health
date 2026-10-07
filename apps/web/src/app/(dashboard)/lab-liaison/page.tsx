@@ -4,6 +4,8 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { formatNumber } from "@/lib/analytics/format";
 import { startOfLagosDayUtc } from "@/lib/ai-coach/lagos-day";
+import { liaisonUploadsSchema } from "@/lib/lab-results/structured";
+import { HeldUploads } from "./held-uploads";
 import {
   LabLiaisonWorklist,
   type LiaisonPatient,
@@ -68,6 +70,11 @@ export default async function LabLiaisonPage() {
       .gte("created_at", weekStartIso),
   ]);
 
+  // Files this liaison recorded, as a neutral list: "waiting for review" or "reviewed", never values or reasons (S27f).
+  const { data: heldRows } = await supabase.rpc("liaison_recent_uploads");
+  const heldParsed = liaisonUploadsSchema.safeParse(heldRows ?? []);
+  const held = heldParsed.success ? heldParsed.data : [];
+
   const patients: LiaisonPatient[] = (patientRows ?? []).map((p) => ({
     id: p.id,
     fullName: p.full_name,
@@ -124,6 +131,8 @@ export default async function LabLiaisonPage() {
           }}
         />
       </div>
+
+      <HeldUploads rows={held} />
 
       {patients.length === 0 ? (
         <Card>

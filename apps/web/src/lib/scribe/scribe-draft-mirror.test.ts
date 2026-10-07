@@ -38,8 +38,8 @@ describe("note-draft.ts mirrors the scribe-draft edge function", () => {
   it("describes typed notes the same way in the function and the evaluation helper", () => {
     const line = "Input type: notes the clinician typed or pasted about the consultation (not a recording).";
     expect(source).toContain(line);
-    expect(buildScribeUserMessage("en-NG", "PATIENT: hi", "typed")).toContain(line);
-    expect(buildScribeUserMessage("en-NG", "[00:00] PATIENT: hi")).not.toContain("Input type");
+    expect(buildScribeUserMessage("PATIENT: hi", "typed")).toContain(line);
+    expect(buildScribeUserMessage("[00:00] PATIENT: hi")).not.toContain("Input type");
   });
 
   it("drops timestamps for typed notes and records them under their own audit category", () => {

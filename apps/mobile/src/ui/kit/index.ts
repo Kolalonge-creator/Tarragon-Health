@@ -17,3 +17,4 @@ export { Chip } from "./Chip";
 export { InlineAlert } from "./InlineAlert";
 export { SegmentedControl } from "./SegmentedControl";
 export { TrendChart } from "./TrendChart";
+export { ListenButton } from "./ListenButton";

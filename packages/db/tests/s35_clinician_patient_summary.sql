@@ -109,8 +109,11 @@ begin
   values (v_org, v_pat, 'observation', gen_random_uuid(), 'amber', v_rs, 's35', 1, 'approved', false, true),
          (v_org, v_pat, 'observation', gen_random_uuid(), 'amber', v_rs, 's35', 1, 'draft', true, true);
   set local session_replication_role = origin;
-  insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at, state, is_test)
-  values (v_org, v_pat, v_sup, 'sister', array['adherence_summary'], now() + interval '30 days', 'active', true);
+  -- the care circle table comes from the Care Circle build; on a replay without it the summary reports 0
+  if to_regclass('public.care_circle_members') is not null then
+    execute format($i$insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at, state, is_test)
+      values (%L, %L, %L, 'sister', array['adherence_summary'], now() + interval '30 days', 'active', true)$i$, v_org, v_pat, v_sup);
+  end if;
 end $$;
 
 -- 1. A tied clinician gets the summary, and one audit row ----------------------------------------------------------------
@@ -127,7 +130,7 @@ begin
       and event -> 'sections' ? 'summary' and result = 'success'))::text);
   insert into results values ('real', 'readings: only the last 14 days', '1', jsonb_array_length(r -> 'readings' -> 'rows')::text);
   insert into results values ('real', 'triage events: the shadow one is excluded', '1', jsonb_array_length(r -> 'triage_events')::text);
-  insert into results values ('real', 'care circle is a count, no identities', '1|false',
+  insert into results values ('real', 'care circle is a count, no identities', case when to_regclass('public.care_circle_members') is not null then '1|false' else '0|false' end,
     (r -> 'care_circle' ->> 'active_members') || '|' || (r -> 'care_circle' ? 'supporter_id')::text);
   insert into results values ('real', 'patient first name comes back for the header', 'true', (r ? 'patient_first_name')::text);
 end $$;

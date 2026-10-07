@@ -54,10 +54,19 @@ describe("ScribePanel consent gate", () => {
 
   it("given and startable: start records the clinician-side row and opens the input step", async () => {
     getState.mockResolvedValue({ state: "given", may_start: true });
-    recordConsent.mockResolvedValue({ id: "33333333-3333-4333-8333-333333333333" });
+    recordConsent.mockResolvedValue({ ok: true, id: "33333333-3333-4333-8333-333333333333" });
     renderPanel();
     fireEvent.click(await screen.findByRole("button", { name: /Start AI scribe/ }));
     await waitFor(() => expect(recordConsent).toHaveBeenCalledWith(expect.objectContaining({ granted: true, encounterNoteId: noteId })));
+  });
+
+  it("a refusal returned by the database (the patient did not allow it in the app) is shown in words and nothing starts", async () => {
+    getState.mockResolvedValue({ state: "given", may_start: true });
+    recordConsent.mockResolvedValue({ ok: false, reason: "not_allowed" });
+    renderPanel();
+    fireEvent.click(await screen.findByRole("button", { name: /Start AI scribe/ }));
+    await waitFor(() => expect(screen.getByText(/has not allowed the AI note-taker/)).toBeTruthy());
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("the check can be repeated", async () => {
@@ -70,7 +79,7 @@ describe("ScribePanel consent gate", () => {
 
   it("the full path: notes, facts, confirm, draft with grounding warnings, then the review step", async () => {
     getState.mockResolvedValue({ state: "given", may_start: true });
-    recordConsent.mockResolvedValue({ id: "33333333-3333-4333-8333-333333333333" });
+    recordConsent.mockResolvedValue({ ok: true, id: "33333333-3333-4333-8333-333333333333" });
     findFacts.mockResolvedValue({
       status: "ok",
       facts: [{ id: "f1", type: "symptom", text: "Headache.", quote: "headache", speaker: "patient" }],

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { refuseSupersededDraft } from "@/lib/clinical/refuse-superseded-draft";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { riskQuestionnaireConfigJsonSchema } from "@/lib/validation/risk-questionnaire-config";
@@ -63,6 +64,7 @@ export async function createRiskQuestionnaireConfigDraftAction(
 
   revalidatePath("/admin/settings/risk-questionnaire-config");
   revalidatePath("/clinician/risk-questionnaire-config");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
 
@@ -78,9 +80,12 @@ export async function signRiskQuestionnaireConfigAction(
   configId: string
 ): Promise<SignRiskQuestionnaireConfigState> {
   const supabase = await createClient();
+  const refused = await refuseSupersededDraft(supabase, "risk_questionnaire_configs", configId);
+  if (refused) return { error: refused };
   const { error } = await supabase.rpc("sign_risk_questionnaire_config", { p_config_id: configId });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/risk-questionnaire-config");
   revalidatePath("/clinician/risk-questionnaire-config");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }

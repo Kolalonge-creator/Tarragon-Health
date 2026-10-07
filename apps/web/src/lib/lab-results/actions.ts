@@ -5,11 +5,11 @@ import { revalidatePath } from "next/cache";
 import type { Database } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { submitPartnerResult, submitTeamResult } from "@/lib/lab-results/structured-actions";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
 import { testCodeLabel } from "@/lib/labs/test-code-labels";
 import {
-  labPartnerResultUploadSchema,
   markResultReviewedSchema,
   patientResultUploadSchema,
   replaceResultDocumentSchema,
@@ -127,51 +127,13 @@ export async function uploadResultDocumentForPatient(
     return { error: "That patient isn't in your organisation." };
   }
 
-  const service = createServiceRoleClient();
-  const ext = EXT_BY_MIME[file.type] ?? "bin";
-  const path = `${patientId}/${randomUUID()}.${ext}`;
-
-  const { error: uploadError } = await service.storage
-    .from(RESULT_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (uploadError) return { error: uploadError.message };
-
-  // Routed through an RPC (rather than a raw .insert()) so the write can be attributed to the
-  // uploading staff member in public.audit_log despite running on the service-role client — see
-  // 20260812041044_service_role_write_actor_attribution.sql.
-  const { data: insertedId, error: insertError } = await service.rpc(
-    "insert_audited_lab_result_document",
-    {
-      p_organisation_id: patient.organisation_id,
-      p_patient_id: patientId,
-      p_lab_order_id: (labOrderId ?? null) as unknown as string,
-      p_file_path: path,
-      p_original_filename: file.name,
-      p_mime_type: file.type,
-      p_file_size_bytes: file.size,
-      p_source: source,
-      p_uploaded_by: user.id,
-      p_note: (note ?? null) as unknown as string,
-      p_actor_id: user.id,
-    },
-  );
-  const inserted = insertedId ? { id: insertedId } : null;
-  if (insertError || !inserted) {
-    // Roll back the orphaned object so a failed insert leaves no stray file.
-    await service.storage.from(RESULT_DOC_BUCKET).remove([path]);
-    return { error: insertError?.message ?? "Could not save that upload." };
-  }
-
-  // Same structured read as the patient-upload path — an emailed result is no
-  // less worth turning into trendable numbers. Never throws.
-  await runLabReportExtraction(service, {
-    documentId: inserted.id,
-    organisationId: patient.organisation_id,
-    patientId,
-    filePath: path,
-    mimeType: file.type,
-  });
-
+  // S27d (INV-03): an emailed or staff-supplied result is recorded as a HELD result in the private store. The older path wrote a
+  // visible document, announced it to the patient at once and read its numbers into the patient's trends before any clinician had
+  // looked. The patient now sees it only after review. The free-text note is not kept (a held result has no text a patient could be
+  // shown) and the automatic number extraction is not run on an unreviewed file.
+  const held = await submitTeamResult(patientId, labOrderId, file);
+  if (held?.error) return { error: held.error };
+  void note;
   revalidatePath("/lab-liaison");
   revalidatePath(`/clinician/patients/${patientId}`);
   return { success: true };
@@ -611,74 +573,17 @@ export async function markResultDocumentReviewed(input: {
 export async function uploadResultAsLabPartner(
   formData: FormData,
 ): Promise<ResultUploadResult> {
-  const user = await getCurrentUser();
-  if (!user) return { error: "Not signed in" };
-
-  const supabase = await createClient();
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (me?.role !== "lab_partner") {
-    return { error: "This action is for partner labs." };
-  }
-
+  // S27 (OQ-177): a partner PDF is no longer written as a visible document. It goes through the same path as the Enter
+  // results page: stored privately, recorded as a HELD result, never shown or announced to the patient before a clinician
+  // has reviewed it (INV-03). The free-text note is not kept: a held result has nothing a patient could be shown.
+  const fd = new FormData();
+  fd.set("order_id", String(formData.get("order_id") ?? ""));
+  fd.set("panel", "membership_annual");
+  fd.set("items", "[]");
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "Attach the result file (PDF or image)." };
-  }
-  const fileError = validateResultDocFile(file);
-  if (fileError) return { error: fileError };
-
-  const parsed = labPartnerResultUploadSchema.safeParse({
-    order_id: formData.get("order_id"),
-    note: formData.get("note") || undefined,
-  });
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
-  }
-  const { order_id: orderId, note } = parsed.data;
-
-  // Scoped to the caller's own lab via private.lab_partner_provider() —
-  // returns null for another lab's order, so this can't leak a patient_id
-  // cross-lab even at the path-building stage.
-  const { data: patientId, error: lookupError } = await supabase.rpc(
-    "lab_partner_order_patient",
-    { p_order_id: orderId },
-  );
-  if (lookupError || !patientId) {
-    return { error: "Order not found for your lab." };
-  }
-
-  const service = createServiceRoleClient();
-  const ext = EXT_BY_MIME[file.type] ?? "bin";
-  const path = `${patientId}/${randomUUID()}.${ext}`;
-
-  const { error: uploadError } = await service.storage
-    .from(RESULT_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (uploadError) return { error: uploadError.message };
-
-  // Re-verifies ownership independently (defence in depth) and derives
-  // patient_id/organisation_id itself from the order row — never trusts the
-  // lookup above for the write. Also advances the order to 'resulted'.
-  const { error: insertError } = await supabase.rpc(
-    "lab_partner_upload_result",
-    {
-      p_order_id: orderId,
-      p_file_path: path,
-      p_original_filename: file.name,
-      p_mime_type: file.type,
-      p_file_size_bytes: file.size,
-      p_note: (note ?? null) as unknown as string,
-    },
-  );
-  if (insertError) {
-    await service.storage.from(RESULT_DOC_BUCKET).remove([path]);
-    return { error: insertError.message };
-  }
-
+  if (file instanceof File) fd.set("file", file);
+  const r = await submitPartnerResult(undefined, fd);
+  if (r?.error) return { error: r.error };
   revalidatePath("/lab-partner");
   return { success: true };
 }

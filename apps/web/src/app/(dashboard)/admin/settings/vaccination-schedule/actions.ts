@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { refuseSupersededDraft } from "@/lib/clinical/refuse-superseded-draft";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 
@@ -62,6 +63,7 @@ export async function createVaccinationScheduleDraftAction(
 
   revalidatePath("/admin/settings/vaccination-schedule");
   revalidatePath("/clinician/vaccination-schedule");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
 
@@ -76,11 +78,14 @@ export async function signVaccinationScheduleAction(
   signoffId: string
 ): Promise<SignVaccinationScheduleState> {
   const supabase = await createClient();
+  const refused = await refuseSupersededDraft(supabase, "vaccination_schedule_signoffs", signoffId);
+  if (refused) return { error: refused };
   const { error } = await supabase.rpc("sign_vaccination_schedule", {
     p_signoff_id: signoffId,
   });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/vaccination-schedule");
   revalidatePath("/clinician/vaccination-schedule");
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
