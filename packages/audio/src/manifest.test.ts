@@ -27,7 +27,7 @@ describe("audio/manifest.json (the real one)", () => {
     expect(count("ONB")).toBe(18);
     expect(count("NAV")).toBe(7);
     expect(count("HLP")).toBe(41);
-    expect(count("EMG")).toBe(13);
+    expect(count("EMG")).toBe(14);
     expect(count("TRI")).toBe(8);
     expect(count("SYM")).toBe(11);
     expect(count("CON")).toBe(12);
