@@ -6,6 +6,7 @@ import { PricingServices } from "../_components/pricing-services";
 import { fetchPlanPrices, servicePriceOverridesFrom } from "@/lib/marketing/plan-prices";
 import { PricingLabelBadge } from "../_components/pricing-label";
 import { CtaBand } from "../_components/cta-band";
+import { EmergencyNotice } from "../_components/emergency-notice";
 import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
@@ -168,6 +169,7 @@ No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
       </Section>
 
       <Section variant="sage" className="pb-24">
+        <EmergencyNotice className="mb-10" />
         <CtaBand
           variant="gradient"
           title="Ready to get started?"

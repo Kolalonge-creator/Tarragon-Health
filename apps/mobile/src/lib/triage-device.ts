@@ -12,6 +12,7 @@ import {
 } from "@tarragon/clinical";
 import type { VitalReadingPayload } from "./api";
 import { loadTriageWiringConfig } from "./triage-config";
+import { clipIdFor } from "./audio/manifest";
 import { readCachedBpTarget } from "./bp-target";
 import { readLocalRecords } from "./offline-store";
 import { listOutbox } from "./outbox";
@@ -40,9 +41,8 @@ const RECHECK_KEY = (subjectId: string) => `@tarragon/triage/pending-recheck/v1:
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const FALLBACK_TARGET = { systolic: 135, diastolic: 85 } as const;
 
-/** Placeholder until the audio session (S32) records the clips: the manifest swaps this prefix for a real clip id. */
-export const AUDIO_PLACEHOLDER_PREFIX = "audio-pending:";
-export const triageAudioId = (code: string | null): string | null => (code === null ? null : `${AUDIO_PLACEHOLDER_PREFIX}${code}`);
+/** The audio manifest's clip for a message code (S32), or null when it has none: the text is then shown alone. */
+export const triageAudioId = clipIdFor;
 
 export interface DeviceRuleSet {
   ruleSet: RuleSet;
@@ -57,7 +57,7 @@ export interface DeviceTriage {
   emergencyCode: string | null;
   /** Catalogue keys (@tarragon/i18n) for the message to show, if the result has one. */
   message: { title: string; body: string } | null;
-  /** Placeholder clip id for the message (the real clips arrive in S32). */
+  /** The manifest clip id for the message (EMG-001, TRI-003 ...), or null when there is no recording for that code. */
   audioId: string | null;
   ruleSet: { code: string; version: number; status: "approved" | "draft" };
 }

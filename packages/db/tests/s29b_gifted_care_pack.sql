@@ -205,7 +205,14 @@ begin
   perform pg_temp.ck('a third gift is pending', 'pending', (select acceptance from public.entitlements where id = e3));
   v_n := private.expire_pending_gifts();
   perform pg_temp.ck('a gift younger than the window is left alone', '0', v_n::text);
-  update public.entitlements set created_at = now() - interval '31 days' where id = e3;
+  -- S29d: 14 days to answer, with one reminder on day 7
+  update public.entitlements set created_at = now() - interval '10 days' where id = e3;
+  v_n := private.expire_pending_gifts();
+  v_n := v_n + private.expire_pending_gifts();
+  perform pg_temp.ck('ten days in, the gift is still waiting', 'pending', (select acceptance from public.entitlements where id = e3));
+  perform pg_temp.ck('and the patient has had one reminder, not two', '1',
+    (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'circle_gift_waiting' and source_table = 'entitlements' and source_id = e3 and payload = '{}'::jsonb));
+  update public.entitlements set created_at = now() - interval '15 days' where id = e3;
   v_n := private.expire_pending_gifts();
   perform pg_temp.ck('an unanswered gift is swept', '1', v_n::text);
   perform pg_temp.ck('it is declined and revoked', 'declined/revoked', (select acceptance || '/' || state from public.entitlements where id = e3));

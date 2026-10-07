@@ -465,7 +465,6 @@ function DraftNoteCard({
         encounterNoteId: note.id,
         scribeConsentId: scribe.consentId,
         patientSummary: scribe.patientSummary,
-        patientSummaryLanguage: scribe.language,
       });
       setScribe({ ...scribe, persisted: true });
       return true;

@@ -214,6 +214,15 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // S36i: the speak-up screens show private words and who wrote them (spec INV-07). Never cached by a browser, a proxy or
+        // the CDN, and the address is never sent on as a referrer. This entry comes after the catch-all above so it wins for these paths.
+        source: "/clinician/(quality/concerns|my-concerns)",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+      {
         // The consultation rooms only. Declared after the rule above on purpose: when two rules set the same header on one path, the
         // last one wins (Next's "Header Overriding Behavior"), so these two routes get the wider policy and everything else keeps the
         // strict one.
