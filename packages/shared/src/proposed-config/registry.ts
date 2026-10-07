@@ -1452,6 +1452,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
   },
   {
+    key: "breathing.bre01",
+    value: {
+      inhale_seconds: 4,
+      exhale_seconds: 6,
+      duration_seconds: 180,
+      short_duration_seconds: 60,
+      gentle_inhale_seconds: 3,
+      gentle_exhale_seconds: 5,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S33.md section 5 and docs/research/S33.md section 4 (about six breaths a minute with a longer out-breath; the pace and length are the CMO's to confirm, and the exercise is never presented as a treatment)",
+  },
+  {
+    key: "learning.understandability_pass_rule",
+    value: { min_participants: 10, min_recall: 0.8, max_unsafe: 0 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/research/S33.md section 5 (10 to 15 community participants per language; 80 percent give the message and name the action; any unsafe misunderstanding means rewrite and retest). Scoring: packages/i18n/src/understandability.ts",
+  },
+  {
     key: "bp.starting_suggestion_target",
     // v2 (CMO, 2026-10-07): aligned to NICE NG136 home (HBPM) averages, which is the only band the device can apply
     // on its own: under 80 years below 135/85; 80 years or more below 145/85. Tighter targets (type 2 diabetes with kidney,

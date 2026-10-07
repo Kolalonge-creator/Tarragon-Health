@@ -1522,6 +1522,48 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - **Liaison view CLOSED:** the Lab Liaison sees a neutral list of the files they recorded (last 30 days): date, patient number, order, file name and one of two words, "waiting for review" or "reviewed". Never values, reasons, or whether a result was withheld.
 - **Held corrections CLOSED:** a lab can replace a result that is still held. The held one is marked replaced at once, its review task is cancelled, and it can no longer be released or withheld (`lab_result_replaced`). The replacement goes through the same gate, the reviewer sees the kind and reason, and if the patient never saw the first result they get the normal release notice, not a "corrected" one. A claimed task held by another clinician is left to that clinician, who will find the release refused.
 - **Withdraw screen CLOSED (patient-scoped):** on a tied senior clinician's patient chart, "Released lab results" opens on a click (one audited read) and offers Withdraw with a required reason. There is deliberately no org-wide list.
+### OQ-300 BRE-01 is "Three minute calm" in the Audio Production List, not the blood pressure exercise (raised by S33)
+- Spec 8.7 and Module 10 say Stage 1 ships "breathing exercise BRE-01". The Production List (7.6) names BRE-01 "Three minute calm" (slow breathing for any moment, Release 2) and the blood pressure exercise BRE-03 "Slow breathing for blood pressure" (about six breaths a minute, Release 2). The pace S33 built (four seconds in, six out) is the one the research gives for BRE-03, run for three minutes under the BRE-01 name and framed as a calm moment, never a treatment.
+- The pacer reads one PROPOSED value (`breathing.bre01`), so a different exercise (BRE-02 to BRE-06) is a config entry plus a script, not a new build.
+- Options: (a) accept as built (recommended); (b) also ship BRE-03 now under its own name and a longer length once the CMO confirms the pace and the wording; (c) hold the exercise until the CMO confirms.
+- Decision: open.
+
+### OQ-301 Overdue review hides a course lesson only; the older programme functions ignore lesson status (raised by S33)
+- Spec 9 says content past its review date is not served. S33 enforces that for the course lessons: `learning_course()` checks it on every read and an hourly job moves an overdue lesson back to clinical review. The rest of the library keeps today's rule (`review_due` is still served), because changing it hides content that is live now with no review date at all (0 of 235 rows have a date).
+- Found while building: `health_education_programme_detail` and `_programmes_list` check only that the programme is active, not the lesson's status, so any draft lesson inside an active programme is served on the web today. The course programme is therefore kept inactive for good and read only through `learning_course()`. The two older programmes are published content, so nothing leaks today.
+- Options: (a) leave the library as is and keep the course programme inactive (recommended until the older functions are fixed); (b) make the older programme functions check lesson status and review date too (small, own migration, own test); (c) apply the review-date rule to the whole library, which needs the CMO to date every row first.
+- Decision: open.
+
+### OQ-302 Who may approve a course lesson, and where the CMO does it (raised by S33)
+- All 14 lessons are seeded as drafts and written by the build session from the production-list briefs; no clinician has read them. A lesson reaches a patient only after draft, clinical_review, approved and published, with a review date (`next_review_due`) set; `learning_course()` will not serve one with no date.
+- The existing status function lets any admin move a row to approved and published, and "approved" sets `clinician_reviewed` and the date but not the reviewer's name, so no credit shows. D.4 says content is owned and reviewed by a named clinical lead.
+- Options: (a) course lessons can be approved only by the CMO and the CMO's name is recorded as `reviewed_by_name` at approval (recommended; one small function and a CMO screen, a follow-up build); (b) keep the admin route and have the CMO sign outside the system (not recommended: the credit would stay blank).
+- Wording the CMO must check, lesson by lesson, is in `docs/research/s33-understandability/cmo-review-checklist.md`.
+- Decision (founder, 2026-10-06): option (a). Only the CMO approves a course lesson, and the CMO's name is recorded at approval. Follow-up build, not yet done.
+
+### OQ-303 Pidgin for the lessons and the screens (raised by S33)
+- Decision (founder, 2026-10-07, D-14): CLOSED. The product is English only. The seven Pidgin lesson drafts, the Pidgin screen strings, the held-in-English ledger and the translation columns S33 added were removed; `learning_course()` serves English only.
+
+### OQ-304 Lesson audio: speed, voice for BRE-01, and playing a health lesson aloud in public (raised by S33)
+- The audio engine port (S32) has no playback rate and no end-of-clip position, so the 0.75, 1 and 1.25 speed control and a voice that follows the breathing guide are not built; the model and the strings exist. Starting a voice and the silent guide together would drift over three minutes, so the exercise is silent today.
+- The Production List says a clip that could play aloud in public must not name a condition. A lesson is played on purpose, not as a notification, and the lesson screen says "use earphones if other people are near you", but the clips do name blood pressure.
+- Options: (a) accept: silent breathing and no speed control until the native audio module ships (OQ-197), earphone tip as built (recommended); (b) require earphones or a confirm before playing; (c) extend the port now and ship speed in this release.
+- Decision: open.
+
+### OQ-305 Breathing pace, length and safety wording are the CMO's to confirm (raised by S33)
+- `breathing.bre01` (PROPOSED, owner CMO): four seconds in, six out, three minutes; a gentler pace (three in, five out) and a one minute version. The research verified the evidence only in outline (about 6 to 10 breaths a minute, a modest effect on blood pressure); the stop list (dizzy, tingling, chest pain, new breathlessness, racing heart) and the "ask your care team first" list (lung disease, heart rhythm problems, problems in pregnancy) are UNVERIFIED and need the CMO's wording. The exercise never claims to lower blood pressure and always says to keep taking medicines.
+- Options: (a) the CMO confirms or edits the value and the card before the exercise is shown to patients (recommended; the founder go-live screen already lists the value); (b) hide the card from the Learn tab until confirmed.
+- Decision: open. Note the card is visible today; the course is not (lessons are drafts).
+
+### OQ-306 The understandability test needs people, a budget and two sites (raised by S33)
+- The kit is built (protocol, scoring sheets, scorer, in-app clarity signals); no participant has seen a lesson. The protocol needs 10 to 15 adults, at least one site outside Lagos, mixed literacy (3 to 4 low-literacy participants, read-aloud sessions), paid for their time, and two PEMAT raters.
+- Options: (a) the founder names who recruits and moderates and sets a budget; run before any lesson is published (recommended); (b) publish after the automatic checks and the CMO review only, and run the test on the live course (not recommended for the medicines and warning-signs lessons).
+- Decision (founder, 2026-10-06): option (a), run before any lesson is published. The founder will name who recruits and moderates; not named yet, so this stays open until then.
+
+### OQ-307 Course text needs a connection; offline lesson download is not built (raised by S33)
+- Spec 9.6 asks for offline downloads. The lesson text is read from the server each time and is not cached on the phone; the breathing exercise and the emergency guidance work with no connection. The audio manifest already supports on-demand download (OQ-200).
+- Options: (a) cache the last course payload on the phone for reading offline (small, recommended before launch); (b) leave it for Release 2 with the full Learning Centre.
+- Decision: open.
 
 ### OQ-254 Sponsor reporting built; what it still needs (raised by S38d, built by S38e)
 - Built: sponsor cohorts (programme codes), joining, per-programme consent to share group figures, the aggregate-only sponsor report and its audited CSV (admin or CMO only). Left: (a) counsel must approve the consent text, which is seeded as a DRAFT and not current, so no member can consent and no sponsor figure exists until then (OQ-256); (b) a sponsor's own staff cannot log in to see their figures; today an admin or the CMO reads them and hands over the file (OQ-258).
@@ -1568,6 +1610,10 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) keep tracking the old numbers as PROPOSED budgets in config and fail CI only on growth (recommended); (b) set new targets for the 4 GB floor; (c) drop size budgets.
 - Decision (founder, 2026-10-07): no pass or fail targets for size or cold start. Build what is needed: the low-data setting, accessibility, and a size and start-time report that is tracked, never a gate. Numbers stay PROPOSED in versioned config for information only.
 
+### OQ-308 `health_education_translations` is now an empty, unused table that four SQL functions still join (raised by S33 English-only pass)
+- S33 added three columns to it and they were dropped again (migration `20261007123419_s33_course_english_only.sql`). The table itself stays, empty, because four older functions join it (see the remove-Pidgin migration). Dropping it needs those four functions rewritten from their live definitions.
+- Options: (a) leave it (recommended until the Learning Centre is next touched); (b) rewrite the four functions and drop the table in its own reviewed change.
+- Decision: open.
 ### OQ-278 Device and server work for the CMO's 200/130 flow (raised by S11c, updated by S11d; first numbered OQ-91, which S13 already used)
 - Built and tested: the engine, rule set v2, the server context and result recording, and (S11d) the phone's emergency-symptom question: a sheet shown over the blood pressure form after a reading of 200/130 or more (`symptom-question-sheet.tsx`, `symptom-question.ts`, text TRI-008), "yes" saves the symptoms as danger rows and shows the emergency guidance, "none" starts the rest and 2 hour recheck (TRI-007, remembered on the phone, the repeat task S12 creates is due at 2 hours). Three symptom_type values were added to the database (weakness_or_numbness, difficulty_speaking, back_pain).
 - **The sheet appears only once the rule set is APPROVED** (OQ-88). While it is a draft the older on-device check still raises the emergency for 200/130 and the engine only adds guidance, so showing the question as well would give two answers. Approving the rule set (console, S37) turns the new flow on for the phone; until then nothing changes for the patient.
