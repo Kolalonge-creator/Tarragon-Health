@@ -305,8 +305,8 @@ begin
   create or replace view public.pharmacy_partner_directory
     with (security_invoker = false)
     as
-    select id, name, regions, is_active, address, latitude, longitude, state, city, area,
-           license_type, license_number, license_expires_at, license_verified_at
+    select id, name, delivery, regions, is_active, address, latitude, longitude, state, city, area,
+           delivery_fee_kobo, license_type, license_number, license_expires_at, license_verified_at
     from public.pharmacy_partners
     where is_active;
 
@@ -324,8 +324,8 @@ begin
   create or replace view public.pharmacy_partner_directory
     with (security_invoker = false)
     as
-    select id, name, regions, is_active, address, latitude, longitude, state, city, area,
-           license_type, license_number, license_expires_at, license_verified_at
+    select id, name, delivery, regions, is_active, address, latitude, longitude, state, city, area,
+           delivery_fee_kobo, license_type, license_number, license_expires_at, license_verified_at
     from public.pharmacy_partners;
 
   raise notice 'ALL LAB_PROVIDERS / PHARMACY_PARTNERS COLUMN-SCOPING CHECKS PASSED';

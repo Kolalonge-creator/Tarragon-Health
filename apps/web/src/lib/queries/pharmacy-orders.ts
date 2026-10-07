@@ -47,7 +47,7 @@ async function fetchPharmacyPartners(
   if (partnerIds.length === 0) return partnerById;
   const { data, error } = await supabase
     .from("pharmacy_partner_directory")
-    .select("id, name, regions, address, latitude, longitude, state, city, area")
+    .select("id, name, delivery, regions, address, latitude, longitude, state, city, area, delivery_fee_kobo")
     .eq("is_active", true)
     .in("id", partnerIds);
   if (error) throw error;
@@ -56,8 +56,7 @@ async function fetchPharmacyPartners(
     partnerById.set(row.id, {
       id: row.id,
       name: row.name ?? "",
-      // S28b (Part C.2): the directory no longer carries delivery. These two stay on the type for the dormant legacy order screens, fixed at "no delivery".
-      delivery: false,
+      delivery: row.delivery ?? false,
       regions: row.regions ?? [],
       address: row.address,
       latitude: row.latitude,
@@ -65,7 +64,7 @@ async function fetchPharmacyPartners(
       state: row.state,
       city: row.city,
       area: row.area,
-      delivery_fee_kobo: null,
+      delivery_fee_kobo: row.delivery_fee_kobo,
     });
   }
   return partnerById;

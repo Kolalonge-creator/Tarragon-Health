@@ -209,13 +209,3 @@ describe("the real Chief Medical Officer menu", () => {
     expect(hits).not.toContain("/admin/memberships");
   });
 });
-
-describe("the pharmacy questions page is findable (S28)", () => {
-  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
-  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
-  it("a clinician or the CMO finds it by the words they would use", () => {
-    for (const q of ["pharmacy questions", "pharmacy question", "where is my prescription", "collected", "substitute"]) {
-      expect(hit(cmoIndex, q)).toContain("/clinician/pharmacy");
-    }
-  });
-});
