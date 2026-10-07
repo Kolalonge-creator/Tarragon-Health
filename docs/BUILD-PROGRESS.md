@@ -896,3 +896,9 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Built**: migration `20261007190000_s39f_export_download_and_class_review.sql` (NOT yet applied). `private.export_patient_json` (one body for admin and patient), `export_my_data()` (a patient, only after an admin fulfilled a request within 30 days, audited), `/api/patient/data-export` now uses it; registry classes confirmed by the CMO with six corrections, all 302 rows reviewed.
 - **Proof**: `s39f_export_download_and_class_review.sql` (14 checks, sabotage flips); S39d proof A4 updated; web test 3 pass.
 - **Decided**: OQ-283 follow UK and US standards; OQ-284 confirmed; OQ-285 built (mobile download still to do).
+
+## S39g: staff writes on the tied tables need a tie or a logged opening (2026-10-07, branch `s39g/tied-staff-writes`, stacked on S39f)
+- **Built**: migration `20261007193000_s39g_tied_staff_writes.sql` (NOT yet applied). `private.staff_may_write`, the `tied_staff_writes` switch, and the rewrite of the INSERT, UPDATE and DELETE policies of the tied tables (the old text is saved in `staff_read_policy_backup`). Functions and triggers are unaffected.
+- **Workflow**: a clinician opens the patient (the chart does it, or the worklist link goes through the chart) and then acts; the opening lasts 8 hours. Coordinators and admins no longer write clinical tables directly.
+- **Proof**: `s39g_tied_staff_writes.sql` (19 checks, sabotage flips) plus the whole `ci.manifest` run with and without the migration.
+- **Risk**: any server action by a coordinator or admin that writes a tied table directly now fails; roll back with `set_platform_module('tied_staff_writes', false, '<why>')`.
