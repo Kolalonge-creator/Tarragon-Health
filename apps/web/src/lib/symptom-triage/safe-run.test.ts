@@ -45,19 +45,33 @@ describe("the shipped prevalence layer is inert until the CMO signs it", () => {
     expect(cfg.owner).toBe("CMO");
     expect(cfg.status).toBe("proposed");
     const parsed = riskTighteningConfigSchema.parse(cfg.value);
-    expect(parsed.entries.length).toBeGreaterThanOrEqual(4);
+    expect(parsed.entries.length).toBeGreaterThanOrEqual(2);
     for (const e of parsed.entries) {
       expect(e.status).toBe("draft");
       expect(e.clinical_sign_off).toBeNull();
-      expect(e.provenance.source).toMatch(/UNVERIFIED/);
+      expect(e.provenance.source.length).toBeGreaterThan(0); // a draft may carry a source, but never a sign-off
     }
     const base = await runSymptomCheck({ pathway, capture: capture(), answers: {}, state: "Lagos", now: new Date("2026-08-15T12:00:00Z") });
     expect(base.raisedByRisk).toEqual([]);
   });
 
-  it("covers the four named risks the spec lists", () => {
-    const ids = riskTighteningConfigSchema.parse(getProposedConfig("symptom.risk_tightening").value).entries.map((e) => e.id).join(" ");
-    for (const word of ["malaria", "typhoid", "lassa", "sickle"]) expect(ids).toContain(word);
+  it("covers the risks a SIGNED pathway can ask about (S59b redraft: typhoid and sickle cell dropped, no signed pathway collects them)", () => {
+    const entries = riskTighteningConfigSchema.parse(getProposedConfig("symptom.risk_tightening").value).entries;
+    const ids = entries.map((e) => e.id).join(" ");
+    for (const word of ["malaria", "lassa"]) expect(ids).toContain(word);
+    // every entry's keys must be askable by a signed pathway, or it could never match
+    const askable = new Set(SEED_PATHWAYS.flatMap((p) => [p.key, ...p.knownAssociatedSymptoms, ...p.knownHistory]));
+    for (const e of entries) {
+      for (const k of [...(e.applies_when.any_associated_symptom ?? []), ...(e.applies_when.any_history ?? []), ...(e.applies_when.complaint_keys ?? [])]) {
+        expect(askable.has(k)).toBe(true);
+      }
+    }
+  });
+  it("names states for Lassa (never nationwide by accident) and carries a source on every entry", () => {
+    const entries = riskTighteningConfigSchema.parse(getProposedConfig("symptom.risk_tightening").value).entries;
+    const lassa = entries.find((e) => e.id === "lassa_season_fever");
+    expect(lassa?.applies_when.states?.length).toBeGreaterThan(0);
+    for (const e of entries) expect(e.provenance.source).toMatch(/^https:\/\//);
   });
 });
 

@@ -14,7 +14,7 @@
  * outcome asks a human to look, because a child is never told "self-care" by a draft nobody has signed.
  *
  * A child's age is not tested against a number here. Whether the child is a young infant is a question the carer answers
- * (`infant_under_3_months`), so no age threshold lives in code; the CMO decides the wording, and any age band, when signing.
+ * (`infant_under_2_months`), so no age threshold lives in code; the CMO decides the wording, and any age band, when signing.
  *
  * The migration `*_s59_paediatric_draft_protocol.sql` carries a copy of this JSON; `paediatric-drafts.test.ts` fails if the two
  * differ.
@@ -37,11 +37,11 @@ const PAEDIATRIC_FEVER: PresentingComplaintProtocol = {
   label: "Fever in a child",
   knownAssociatedSymptoms: [...DANGER_SIGNS, "stiff_neck", "rash_that_does_not_fade", "fast_breathing", "chest_indrawing"],
   knownTriggers: [],
-  knownHistory: ["infant_under_3_months", "sickle_cell_disease", "hiv_or_immunocompromised"],
+  knownHistory: ["infant_under_2_months", "sickle_cell_disease", "hiv_or_immunocompromised"],
   redFlagScreen: [
     { key: "paediatric_fever.general_danger_sign", label: "Fever with a general danger sign", category: "emergency", rule: { anyAssociatedSymptom: DANGER_SIGNS } },
     { key: "paediatric_fever.meningeal_signs", label: "Fever with a stiff neck or a rash that does not fade", category: "emergency", rule: { anyAssociatedSymptom: ["stiff_neck", "rash_that_does_not_fade"] } },
-    { key: "paediatric_fever.young_infant", label: "Fever in a very young infant", category: "emergency", rule: { anyHistory: ["infant_under_3_months"] } },
+    { key: "paediatric_fever.young_infant", label: "Fever in a very young infant", category: "emergency", rule: { anyHistory: ["infant_under_2_months"] } },
     { key: "paediatric_fever.breathing", label: "Fever with fast breathing or the chest pulling in", category: "urgent", rule: { anyAssociatedSymptom: ["fast_breathing", "chest_indrawing"] } },
     { key: "paediatric_fever.vulnerable_child", label: "Fever in a child with sickle cell disease or a weakened immune system", category: "urgent", rule: { anyHistory: ["sickle_cell_disease", "hiv_or_immunocompromised"] } },
   ],
@@ -61,10 +61,10 @@ const PAEDIATRIC_DEHYDRATION: PresentingComplaintProtocol = {
   label: "Diarrhoea or vomiting in a child",
   knownAssociatedSymptoms: [...DANGER_SIGNS, "sunken_eyes", "sunken_soft_spot", "no_tears", "very_few_wet_nappies", "skin_pinch_slow", "blood_in_stool"],
   knownTriggers: [],
-  knownHistory: ["infant_under_3_months", "sickle_cell_disease"],
+  knownHistory: ["infant_under_2_months", "sickle_cell_disease"],
   redFlagScreen: [
     { key: "paediatric_dehydration.general_danger_sign", label: "Diarrhoea or vomiting with a general danger sign", category: "emergency", rule: { anyAssociatedSymptom: DANGER_SIGNS } },
-    { key: "paediatric_dehydration.young_infant", label: "Diarrhoea or vomiting in a very young infant", category: "emergency", rule: { anyHistory: ["infant_under_3_months"] } },
+    { key: "paediatric_dehydration.young_infant", label: "Diarrhoea or vomiting in a very young infant", category: "emergency", rule: { anyHistory: ["infant_under_2_months"] } },
     { key: "paediatric_dehydration.signs", label: "Signs of dehydration", category: "urgent", rule: { anyAssociatedSymptom: ["sunken_eyes", "sunken_soft_spot", "no_tears", "very_few_wet_nappies", "skin_pinch_slow"] } },
     { key: "paediatric_dehydration.blood", label: "Blood in the stool", category: "urgent", rule: { anyAssociatedSymptom: ["blood_in_stool"] } },
   ],
@@ -84,12 +84,12 @@ const PAEDIATRIC_BREATHING: PresentingComplaintProtocol = {
   label: "Breathing trouble in a child",
   knownAssociatedSymptoms: [...DANGER_SIGNS, "blue_lips", "chest_indrawing", "grunting", "stridor", "fast_breathing", "wheeze"],
   knownTriggers: ["choking_or_swallowed_object"],
-  knownHistory: ["infant_under_3_months", "asthma", "sickle_cell_disease"],
+  knownHistory: ["infant_under_2_months", "asthma", "sickle_cell_disease"],
   redFlagScreen: [
     { key: "paediatric_breathing.severe_signs", label: "Blue lips, grunting, the chest pulling in or a harsh noise on breathing in", category: "emergency", rule: { anyAssociatedSymptom: ["blue_lips", "chest_indrawing", "grunting", "stridor"] } },
     { key: "paediatric_breathing.general_danger_sign", label: "Breathing trouble with a general danger sign", category: "emergency", rule: { anyAssociatedSymptom: DANGER_SIGNS } },
     { key: "paediatric_breathing.choking", label: "Breathing trouble after choking or swallowing something", category: "emergency", rule: { anyTrigger: ["choking_or_swallowed_object"] } },
-    { key: "paediatric_breathing.young_infant", label: "Breathing trouble in a very young infant", category: "emergency", rule: { anyHistory: ["infant_under_3_months"] } },
+    { key: "paediatric_breathing.young_infant", label: "Breathing trouble in a very young infant", category: "emergency", rule: { anyHistory: ["infant_under_2_months"] } },
     { key: "paediatric_breathing.fast_or_wheeze", label: "Fast breathing or wheezing", category: "urgent", rule: { anyAssociatedSymptom: ["fast_breathing", "wheeze"] } },
   ],
   startNodeKey: "speech_check",

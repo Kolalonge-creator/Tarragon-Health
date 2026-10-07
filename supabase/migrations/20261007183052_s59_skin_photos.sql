@@ -23,9 +23,9 @@
 --     the PROPOSED task-type mirror is untouched). Task creation failure is audited and pages an incident, never silent.
 --   * event skin_photo.submitted (ids only, INV-07).
 --
--- NOT BUILT HERE (OQ-S59-07): the job that actually deletes expired objects from storage. Deleting storage rows from SQL leaves the file
--- behind on hosted storage, so the deletion must go through the storage API from a server job. Until it exists `retention_until` records
--- when each photo is due to go and skin_photos_due_for_purge() lists them. The checker (and so this feature) is OFF.
+-- THE DELETION JOB (S59b): deleting storage rows from SQL leaves the file behind on hosted storage, so removal goes through the storage API from
+-- a server job: apps/web/src/app/api/cron/skin-photo-purge (daily, service role) lists skin_photos_due_for_purge(), removes each file, and only then
+-- calls mark_skin_photo_purged(). `retention_until` records when each photo is due to go. The checker (and so this feature) is OFF.
 --
 -- INV-14: register_skin_photo refuses with 42501 while symptom_checker_enabled is closed for that patient (test accounts excepted).
 -- Intimate areas are deliberately not offered as a body area; the patient copy says so.

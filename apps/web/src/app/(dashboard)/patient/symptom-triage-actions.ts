@@ -1,18 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { resolveSubjectId } from "@/lib/acting/acting-for";
-import { getActivePathway, getActiveTriageProtocolConfig, isSymptomCheckerOpen } from "@/lib/symptom-triage/protocol";
-import { runSymptomCheck } from "@/lib/symptom-triage/safe-run";
-import { parseCheckContext } from "@/lib/symptom-triage/context";
-import { getProposedConfig } from "@tarragon/shared";
-import * as Sentry from "@sentry/nextjs";
-import { runBestEffort } from "@/lib/sentry/run-best-effort";
-import { symptomTriageStepSchema, type SymptomTriageStepInput } from "@/lib/validation/symptom-triage";
-import { SEED_PATHWAYS, nextTriageStep } from "@tarragon/symptom-triage-engine";
-import type { PresentingComplaintProtocol, QuestionNode } from "@tarragon/symptom-triage-engine";
-import type { Json } from "@tarragon/shared";
+import { getActiveTriageProtocolConfig, isSymptomCheckerOpen } from "@/lib/symptom-triage/protocol";
+import { runSymptomStep, readEligibility, type CheckerBlockReason, type SymptomTriageStepResult } from "@/lib/symptom-triage/run-step";
+import { SEED_PATHWAYS } from "@tarragon/symptom-triage-engine";
+import type { SymptomTriageStepInput } from "@/lib/validation/symptom-triage";
 
 /**
  * Symptom Assessment & Triage Engine (platform brief §37) — patient-facing
@@ -50,245 +43,29 @@ export async function listAvailablePresentingComplaints(): Promise<PresentingCom
   }));
 }
 
-export type SymptomTriageStepResult =
-  | { status: "unavailable" }
-  | { status: "error"; error: string }
-  | {
-      status: "in_progress";
-      question: QuestionNode;
-      state: SymptomTriageStepInput;
-    }
-  | {
-      status: "complete";
-      category: string;
-      clinicianReviewRequired: boolean;
-      safetyNetMessageKey: string;
-      /** Null when the check could not be recorded (the patient still has the result). */
-      assessmentId: string | null;
-      /** True when the engine could not answer and the result is the fail-toward-escalation one. */
-      degraded: boolean;
-      /** The six-level wording, only when a SIGNED urgency map exists; null means show the four-category result only. */
-      urgencyLevel: string | null;
-      /** The checker is for a child (answered by a parent or carer): the screen leaves out the consultation booking (adults only). */
-      forDependant: boolean;
-      /** False when the check could not be saved; the screen says so. */
-      recorded: boolean;
-    };
+export type { SymptomTriageStepResult, CheckerBlockReason } from "@/lib/symptom-triage/run-step";
 
-type Subject = { userId: string; subjectId: string; organisationId: string; state: string | null };
-/** The person is known but their profile row could not be read: the check cannot be recorded, an emergency can still be raised. */
-type KnownPerson = { userId: string; subjectId: string };
-
-async function resolveSubject(): Promise<{ subject: Subject | null; person: KnownPerson | null }> {
+/**
+ * Advance the wizard by one step. `input` is the FULL rolling state (capture + answers so far + the question log). Called directly
+ * from the client component (not a <form action>). The work is in lib/symptom-triage/run-step.ts, shared with the mobile route.
+ */
+export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<SymptomTriageStepResult> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { subject: null, person: null };
-  // Not guarded on purpose: if who is being acted for cannot be resolved, guessing could raise an emergency for the wrong person.
+  return runSymptomStep(input, { supabase, userId: user?.id ?? null, resolveSubjectId });
+}
+
+/** Whether the checker can be used for the person it would be for: ok, or why not. The screen shows a calm state for anything else. */
+export async function getSymptomCheckerEligibility(): Promise<"ok" | CheckerBlockReason | "error"> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return "error";
   const subjectId = await resolveSubjectId(user.id);
-  const person: KnownPerson = { userId: user.id, subjectId };
-  let profile: { organisation_id: string | null; state: string | null } | null = null;
-  try {
-    profile = (await supabase.from("profiles").select("organisation_id, state").eq("id", subjectId).single()).data;
-  } catch {
-    profile = null; // the person is still known: an emergency can be raised without it
-  }
-  if (!profile?.organisation_id) return { subject: null, person };
-  return { subject: { userId: user.id, subjectId, organisationId: profile.organisation_id, state: profile.state ?? null }, person };
-}
-
-/**
- * Advance the wizard by one step. `input` is the FULL rolling state
- * (capture + answers so far + the question log) — see
- * lib/validation/symptom-triage.ts. Called directly from the client
- * component (not a <form action>), so it receives a real typed object, not
- * FormData; the schema below is defence-in-depth, not the parsing layer.
- */
-export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<SymptomTriageStepResult> {
-  const parsed = symptomTriageStepSchema.safeParse(input);
-  if (!parsed.success) {
-    return { status: "error", error: parsed.error.issues[0]?.message ?? "Invalid input" };
-  }
-  const { capture, answers, questionLog } = parsed.data;
-
-  // F1 (INV-14): closed means closed, whatever the client sent. The database refuses the insert as well.
-  // The fail-safe below never reaches around this: a closed checker answers nothing and records nothing.
-  if (!(await isSymptomCheckerOpen())) return { status: "unavailable" };
-
-  // Who the check is for. If this cannot be read the patient STILL gets their answer (it is worked out from what they ticked,
-  // not from their profile); it just cannot be recorded, and an emergency is still raised if the person is known. Fail toward
-  // escalation: never an error instead of an emergency.
-  let who: { subject: Subject | null; person: KnownPerson | null } = { subject: null, person: null };
-  try {
-    who = await resolveSubject();
-  } catch {
-    who = { subject: null, person: null };
-  }
-  const subject = who.subject;
-
-  // The protocol may be unreadable (a database error): that is a degraded run, not a reason to say nothing.
-  let active: { pathway: PresentingComplaintProtocol; protocolVersion: number } | null = null;
-  try {
-    active = await getActivePathway(capture.presentingComplaintKey);
-  } catch {
-    active = null;
-  }
-
-  // What the record says (age, pregnancy, conditions, medicines, readings): only ever tightens. If it cannot be read the check
-  // still runs with nothing known, which can only mean fewer layers apply, never a lower result.
-  let context = parseCheckContext(null);
-  if (subject) {
-    try {
-      const supabase = await createClient();
-      const windowDays = Number(getProposedConfig("symptom.context_window_days").value);
-      const { data } = await supabase.rpc("symptom_check_context", { p_subject: subject.subjectId, p_window_days: windowDays });
-      context = parseCheckContext(data);
-    } catch (e) {
-      Sentry.captureException(e, { extra: { where: "symptom_check_context" } });
-    }
-  }
-  const result = await runSymptomCheck({ pathway: active?.pathway ?? null, capture, answers, questionLog, state: subject?.state ?? null, context });
-
-  if (result.nextQuestion) {
-    return {
-      status: "in_progress",
-      question: result.nextQuestion,
-      state: { capture, answers, questionLog: result.questionsAsked },
-    };
-  }
-
-  // Done. Re-run the walk once more via nextTriageStep to capture the FINAL questionsAsked log (only on a healthy run).
-  let finalQuestionsAsked = questionLog;
-  if (active && !result.degraded) {
-    try {
-      const finalStep = nextTriageStep(active.pathway, answers, questionLog);
-      finalQuestionsAsked = finalStep.done ? finalStep.questionsAsked : questionLog;
-    } catch {
-      finalQuestionsAsked = questionLog;
-    }
-  }
-
-  // The protocol version is a required, signed reference on the row. When the protocol itself could not be read, try the
-  // active config once more for its version only; with none, the check cannot be recorded but the answer is still given.
-  let protocolVersion = active?.protocolVersion ?? null;
-  if (protocolVersion === null) {
-    try {
-      protocolVersion = (await getActiveTriageProtocolConfig())?.protocolVersion ?? null;
-    } catch {
-      protocolVersion = null;
-    }
-  }
-
-  const complete = {
-    status: "complete" as const,
-    category: result.category,
-    clinicianReviewRequired: result.clinicianReviewRequired,
-    safetyNetMessageKey: result.safetyNetMessageKey,
-    degraded: result.degraded,
-    urgencyLevel: result.urgencyLevel as string | null,
-    forDependant: subject !== null && subject.userId !== subject.subjectId,
-  };
-
-  if (subject === null) {
-    await escalateUnrecorded(who.person, null, capture.presentingComplaintKey, result.category, "subject lookup failed");
-    return { ...complete, assessmentId: null, recorded: false };
-  }
-  if (protocolVersion === null) {
-    await escalateUnrecorded(subject, subject, capture.presentingComplaintKey, result.category, "no protocol version available");
-    return { ...complete, assessmentId: null, recorded: false };
-  }
-
-  const service = createServiceRoleClient();
-  const { data: inserted, error: insertError } = await service
-    .from("symptom_triage_assessments")
-    .insert({
-      organisation_id: subject.organisationId,
-      patient_id: subject.subjectId,
-      logged_by_profile_id: subject.userId === subject.subjectId ? null : subject.userId,
-      presenting_complaint_key: capture.presentingComplaintKey,
-      protocol_version: protocolVersion,
-      initial_capture: capture as unknown as Json,
-      questions_asked: finalQuestionsAsked as unknown as Json,
-      red_flag_screen: result.redFlagScreen as unknown as Json,
-      category: result.category,
-      clinician_review_required: result.clinicianReviewRequired,
-      safety_net_message_key: result.safetyNetMessageKey,
-      rationale: result.rationale,
-      engine: result.engine,
-      engine_version: result.engineVersion,
-      inputs_used: result.inputsPresent as unknown as Json,
-      raised_by: result.raisedBy,
-      urgency_level: result.urgencyLevel,
-      urgency_map_version: result.urgencyMapVersion,
-    })
-    .select("id")
-    .single();
-
-  // 42501: the database closed the door (the guard, for the person being acted for). Same calm state as the screen.
-  if (insertError?.code === "42501") return { status: "unavailable" };
-
-  if (insertError || !inserted) {
-    // The patient keeps their answer. The failure is loud (Sentry) and an emergency is still raised.
-    await escalateUnrecorded(subject, subject, capture.presentingComplaintKey, result.category, insertError?.message ?? "no row returned");
-    return { ...complete, assessmentId: null, recorded: false };
-  }
-
-  return { ...complete, assessmentId: inserted.id, recorded: true };
-}
-
-/**
- * The check could not be saved. Report it, and make sure a human is told: an emergency writes the emergency event the database
- * trigger would have written, and BOTH an emergency and an urgent result open a durable incident and a follow-up task through
- * `report_unrecorded_symptom_check` (neutral text, no model; INV-01, INV-06, INV-07). A failure to tell anyone is itself loud (Sentry),
- * never swallowed: an unrecorded urgent result must not depend on a log line alone.
- */
-async function escalateUnrecorded(
-  person: KnownPerson | null,
-  subject: Subject | null,
-  complaintKey: string,
-  category: string,
-  why: string,
-): Promise<void> {
-  Sentry.captureException(new Error(`symptom check could not be recorded (${category}): ${why}`), {
-    extra: { complaintKey, category, subject: person?.subjectId ?? null },
-  });
-  if ((category !== "emergency" && category !== "urgent") || !person) return;
-  if (category === "emergency") {
-    await runBestEffort(
-      async () => {
-        const service = createServiceRoleClient();
-        let organisationId = subject?.organisationId ?? null;
-        if (!organisationId) {
-          // the profile could not be read with the person's own session: try once more with the service role, for the one write that matters
-          const { data } = await service.from("profiles").select("organisation_id").eq("id", person.subjectId).maybeSingle();
-          organisationId = data?.organisation_id ?? null;
-        }
-        if (!organisationId) throw new Error("emergency event fallback: no organisation for the person");
-        const { error } = await service.from("emergency_events").insert({
-          organisation_id: organisationId,
-          patient_id: person.subjectId,
-          source: "symptom_triage",
-          trigger_detail: `Symptom triage (${complaintKey}): emergency result that could not be recorded as an assessment (${why})`,
-          status: "active",
-          logged_by_profile_id: person.userId === person.subjectId ? null : person.userId,
-        });
-        if (error) throw new Error(`emergency event fallback failed: ${error.message}`);
-      },
-      { complaintKey, subject: person.subjectId },
-    );
-  }
-  // The durable path for urgent (and a second net for emergency): an incident the on-call team sees, plus a follow-up task.
-  await runBestEffort(
-    async () => {
-      const service = createServiceRoleClient();
-      const { data, error } = await service.rpc("report_unrecorded_symptom_check", { p_patient: person.subjectId, p_category: category });
-      if (error) throw new Error(`unrecorded symptom check report failed: ${error.message}`);
-      const ok = (data as { ok?: boolean } | null)?.ok === true;
-      if (!ok) throw new Error(`unrecorded symptom check was not reported: ${JSON.stringify(data)}`);
-    },
-    { complaintKey, subject: person.subjectId, category },
-  );
+  return readEligibility(supabase, subjectId);
 }
 
 // ---------------------------------------------------------------------------
@@ -309,6 +86,7 @@ export async function getSymptomReviewTime(): Promise<ReviewTime> {
 export type RequestReviewResult =
   | { status: "requested"; stated: ReviewTime }
   | { status: "unavailable" }
+  | { status: "members_only" }
   | { status: "error" };
 
 /** Ask the care team to look at a check. The database refuses it (42501) while the checker is closed or the check is not theirs. */
@@ -318,9 +96,23 @@ export async function requestSymptomReview(assessmentId: string): Promise<Reques
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("request_symptom_review", { p_assessment: assessmentId });
   if (error?.code === "42501") return { status: "unavailable" };
+  // TM001: the person the check is for is not a Member (a clinician's look at a check is a Membership benefit)
+  if (error?.code === "TM001") return { status: "members_only" };
   if (error || !data) return { status: "error" };
   const stated = (data as { stated_minutes?: number | null }).stated_minutes;
   return { status: "requested", stated: typeof stated === "number" ? { stated: true, minutes: stated } : { stated: false } };
+}
+
+/** Whether the person a check is for is a Member, so the screen offers the clinician-review request or says it is part of Membership. */
+export async function getSymptomReviewEntitled(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const subjectId = await resolveSubjectId(user.id);
+  const { data, error } = await supabase.rpc("symptom_review_entitled", { p_subject: subjectId });
+  return !error && data === true;
 }
 
 export type MyReviewState = { status: "none" } | { status: "requested"; dueAt: string | null } | { status: "completed"; message: string | null };

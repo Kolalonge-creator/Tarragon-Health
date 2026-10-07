@@ -1,5 +1,7 @@
 import "server-only";
 import { SYMPTOM_CHECKER_GUARD } from "@/lib/go-live/constants";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
 import {
   parseTriageProtocolConfig,
@@ -17,11 +19,11 @@ import {
  * (fail closed on an unreviewed clinical ruleset, see the
  * triage_protocols migration).
  */
-export async function getActiveTriageProtocolConfig(): Promise<{
+export async function getActiveTriageProtocolConfig(client?: SupabaseClient<Database>): Promise<{
   config: TriageProtocolConfig;
   protocolVersion: number;
 } | null> {
-  const supabase = await createClient();
+  const supabase = client ?? (await createClient());
   const { data, error } = await supabase
     .from("triage_protocols")
     .select("config, version")
@@ -42,17 +44,18 @@ export async function getActiveTriageProtocolConfig(): Promise<{
  * (trigger symptom_triage_assessments_00_go_live_guard), so this only decides what the screen and the action do.
  * Fails closed: an error, no answer or no session is "not open".
  */
-export async function isSymptomCheckerOpen(): Promise<boolean> {
-  const supabase = await createClient();
+export async function isSymptomCheckerOpen(client?: SupabaseClient<Database>): Promise<boolean> {
+  const supabase = client ?? (await createClient());
   const { data, error } = await supabase.rpc("go_live_guard_is_open", { p_key: SYMPTOM_CHECKER_GUARD });
   if (error) return false;
   return data === true;
 }
 
 export async function getActivePathway(
-  presentingComplaintKey: string
+  presentingComplaintKey: string,
+  client?: SupabaseClient<Database>,
 ): Promise<{ pathway: PresentingComplaintProtocol; protocolVersion: number } | null> {
-  const active = await getActiveTriageProtocolConfig();
+  const active = await getActiveTriageProtocolConfig(client);
   if (!active) return null;
 
   const pathway = active.config.pathways.find((p) => p.key === presentingComplaintKey);

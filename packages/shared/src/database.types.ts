@@ -50554,6 +50554,10 @@ export type Database = {
       admin_community_reports: { Args: never; Returns: Json };
       admin_community_resolve_report: { Args: { p_action: string; p_bar?: boolean; p_report: string }; Returns: Json };
       sign_challenge_template: { Args: { p_approve: boolean; p_code: string; p_note: string }; Returns: Json };
+      symptom_checker_eligibility: { Args: { p_subject?: string }; Returns: Json }
+      symptom_review_entitled: { Args: { p_subject?: string }; Returns: boolean }
+      symptom_safety_monitoring: { Args: Record<PropertyKey, never>; Returns: Json }
+      override_symptom_assessment: { Args: { p_assessment: string; p_category: Database["public"]["Enums"]["triage_category"]; p_reason: string }; Returns: Json }
     }
     Enums: {
       correction_status: "corrected" | "amended" | "entered_in_error" | "cancelled"
