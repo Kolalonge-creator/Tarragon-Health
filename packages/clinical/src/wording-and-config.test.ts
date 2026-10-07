@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { en } from "@tarragon/i18n";
 import { getProposedConfig } from "@tarragon/shared";
-import { BP_CARE_V1, TRIAGE_MESSAGE_KEYS, messageKeyFor } from "./index";
+import { BP_CARE_V1, BP_CARE_V3, TRIAGE_MESSAGE_KEYS, messageKeyFor } from "./index";
 
 const catalogues = { en: en as Record<string, string> };
 
@@ -83,14 +83,15 @@ describe("triage wording", () => {
 describe("configuration links", () => {
   it("the registry entry names this rule set and version", () => {
     const entry = getProposedConfig<{ code: string; ruleSetVersion: number; adultAgeYears: number }>("triage.bp_rule_set");
-    expect(entry.value.code).toBe(BP_CARE_V1.code);
-    expect(entry.value.ruleSetVersion).toBe(BP_CARE_V1.version);
-    expect(entry.value.adultAgeYears).toBe(BP_CARE_V1.params.minAdultAgeYears);
+    // The registry names the newest rule set (v3: the CMO's v2 decisions plus the 7 day silence line); the bundled BP_CARE_V1 holds v2.
+    expect(entry.value.code).toBe(BP_CARE_V3.code);
+    expect(entry.value.ruleSetVersion).toBe(BP_CARE_V3.version);
+    expect(entry.value.adultAgeYears).toBe(BP_CARE_V3.params.minAdultAgeYears);
     expect(entry.status).toBe("proposed");
   });
 
   it("the silence and adherence lines equal the registered PROPOSED values", () => {
-    expect(getProposedConfig<number>("triage.silence_rule_days").value).toBe(BP_CARE_V1.params.silence.days);
+    expect(getProposedConfig<number>("triage.silence_rule_days").value).toBe(BP_CARE_V3.params.silence.days);
     expect(getProposedConfig<{ percent: number }>("adherence.threshold").value.percent).toBe(BP_CARE_V1.params.adherence.minPercent);
   });
 
@@ -100,12 +101,12 @@ describe("configuration links", () => {
 });
 
 describe("server seed", () => {
-  it("the triage_rule_sets seed in the migration is identical to the bundled rule set", async () => {
+  it("the version 2 draft in the migrations (the last one to write it) is identical to the bundled rule set", async () => {
     const { readdirSync, readFileSync } = await import("node:fs");
     const dir = new URL("../../../supabase/migrations/", import.meta.url);
-    const file = readdirSync(dir).find((f) => f.endsWith("_s11_triage_rule_sets.sql"));
-    expect(file).toBeDefined();
-    const sql = readFileSync(new URL(file!, dir), "utf8");
+    const files = readdirSync(dir).filter((f) => /_s11[a-z]?_.*\.sql$/.test(f) && readFileSync(new URL(f, dir), "utf8").includes("$rules_json$")).sort();
+    expect(files.length).toBeGreaterThan(0);
+    const sql = readFileSync(new URL(files[files.length - 1]!, dir), "utf8");
     const match = /\$rules_json\$([\s\S]*?)\$rules_json\$/.exec(sql);
     expect(match).not.toBeNull();
     expect(JSON.parse(match![1])).toEqual(JSON.parse(JSON.stringify(BP_CARE_V1)));
