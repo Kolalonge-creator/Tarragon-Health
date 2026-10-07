@@ -57,6 +57,15 @@ describe("createLifestyleCoachingProposer", () => {
     expect(action.message).toBe("Small steps still count — how's the walk going?");
   });
 
+  it("INV-07: drops a personalised nudge that names a condition, reading or medicine (closes OQ-94 for AI-002)", async () => {
+    const proposer = createLifestyleCoachingProposer(CONTEXT, {
+      model: fakeModel(async () => ({ message: "Your blood pressure reading was high, take your tablets." })),
+    });
+    const action = await proposer.propose({ ...CALM, disengagementRisk: 0.9 });
+    expect(action.kind).toBe("send_nudge");
+    expect(action.message).toBeUndefined();
+  });
+
   it("falls back to the bare deterministic action when the model call throws", async () => {
     const proposer = createLifestyleCoachingProposer(CONTEXT, {
       model: fakeModel(async () => {

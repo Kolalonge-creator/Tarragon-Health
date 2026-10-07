@@ -27,6 +27,7 @@ jest.mock("@/lib/queries/ai-coach", () => ({
   useAiConversation: () => ({ data: conversation }),
   useSendCoachMessage: () => ({ mutate: jest.fn(), isPending: false, data: undefined }),
   useAiCoachQuickAction: () => ({ mutate: jest.fn(), isPending: false, data: undefined }),
+  useAssistantNudges: () => ({ data: undefined }),
 }));
 jest.mock("@/lib/ai-coach/handoff-actions", () => ({
   requestCareTeamHandoffAction: jest.fn(async () => ({ success: true })),

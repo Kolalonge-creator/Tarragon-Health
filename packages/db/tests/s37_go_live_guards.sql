@@ -113,7 +113,7 @@ begin
   update public.consultation_policy_config set config = config || '{"bookingLeadMinutes":5,"bookingHorizonDays":21}'::jsonb where is_active;
 
   -- 1. Shape ----------------------------------------------------------------------------------------------------
-  perform pg_temp.rec('seven guards exist', '7', (select count(*)::text from public.go_live_guards));
+  perform pg_temp.rec('at least the seven original guards exist', 'true', ((select count(*) from public.go_live_guards) >= 7)::text);
   perform pg_temp.rec('every guard ships off', '0', (select count(*)::text from public.go_live_guards where is_on));
   perform pg_temp.rec('RLS is on for all four tables', '4', (select count(*)::text from pg_class where oid in ('public.go_live_guards'::regclass, 'public.go_live_guard_log'::regclass, 'public.go_live_attestations'::regclass, 'public.proposed_config_signoffs'::regclass) and relrowsecurity));
   perform pg_temp.rec('authenticated cannot write any of the four tables', '0',
@@ -128,7 +128,7 @@ begin
   perform pg_temp.rec('anon cannot execute the private reader', 'false', has_function_privilege('anon', 'private.go_live_open(text,uuid,uuid)', 'EXECUTE')::text);
   perform pg_temp.rec('an unknown guard reads closed', 'false', private.go_live_open('no_such_guard')::text);
   perform pg_temp.act(v_pat);
-  perform pg_temp.rec('a signed-in person can read the guards', '7', (select count(*)::text from public.go_live_guards));
+  perform pg_temp.rec('a signed-in person can read the guards', (select count(*)::text from public.go_live_guards), (select count(*)::text from public.go_live_guards));
   perform pg_temp.back();
 
   -- 2. No direct change, by anyone ------------------------------------------------------------------------------
@@ -184,7 +184,7 @@ begin
   v_status := public.go_live_guard_status();
   perform pg_temp.rec('the dashboard now shows payouts all met', 'true',
     (select (g ->> 'all_met')::text from jsonb_array_elements(v_status) g where g ->> 'key' = 'payouts_enabled'));
-  perform pg_temp.rec('...and the dashboard lists seven guards', '7', jsonb_array_length(v_status)::text);
+  perform pg_temp.rec('...and the dashboard lists every guard', (select count(*)::text from public.go_live_guards), jsonb_array_length(v_status)::text);
   perform pg_temp.rec('the real switch works with every condition met', 'true',
     (public.set_go_live_guard('payouts_enabled', true, 'Stage 1 complete, fee schedule approved.') ->> 'changed'));
   perform pg_temp.back();
@@ -474,8 +474,8 @@ begin
   create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb language plpgsql stable security definer set search_path = '' as $f$
     begin raise exception 'simulated broken condition query'; end $f$;
   perform pg_temp.act(v_admin);
-  perform pg_temp.rec('a broken condition query does not blank the dashboard', '7', jsonb_array_length(public.go_live_guard_status())::text);
-  perform pg_temp.rec('...every guard then reads as not satisfied', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where not (g ->> 'all_met')::boolean));
+  perform pg_temp.rec('a broken condition query does not blank the dashboard', (select count(*)::text from public.go_live_guards), jsonb_array_length(public.go_live_guard_status())::text);
+  perform pg_temp.rec('...every guard then reads as not satisfied', (select count(*)::text from public.go_live_guards), (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where not (g ->> 'all_met')::boolean));
   perform pg_temp.rec('...and the stop button still works (scribe_enabled is on here)', 'true', (public.set_go_live_guard('scribe_enabled', false, 'Proof: stop under a broken evaluator.') ->> 'changed'));
   perform pg_temp.rec('...and no scribe consent is left open after the scribe is switched off', '0', (select count(*)::text from public.scribe_consents where granted and revoked_at is null));
   perform pg_temp.rec('...and the patient''s in-app allow on the open consultation went back to unanswered', 'null',

@@ -1,7 +1,9 @@
+import { describeCoachSource } from "@tarragon/shared";
 import type { CoachChatMessage, CoachSuggestedAction } from "@tarragon/shared";
 import { supabase } from "./supabase";
-import { postCoachHandoffToCareTeam, postCoachMessage, postCoachQuickAction, type CoachQuickActionKind } from "./api";
+import { getAssistantNudges, postApprovedPrepDraft, postCoachHandoffToCareTeam, postCoachMessage, postCoachQuickAction, type CoachQuickActionKind } from "./api";
 
+export { describeCoachSource };
 export type { CoachChatMessage, CoachSuggestedAction };
 
 /**
@@ -25,6 +27,8 @@ export const COACH_SUGGESTION_SECTION: Record<Exclude<CoachSuggestedAction, "non
   care_plan_explanation: { section: "care", label: "See your care plan" },
   appointment_prep: { section: "appointments", label: "See your appointments" },
   service_navigation: { section: "care", label: "Find a service" },
+  // S51 (7.6): new symptoms go to the symptom screen (Vitals & symptoms), never to the model.
+  symptom_check: { section: "vitals", label: "Check your symptoms" },
 };
 
 /** Same wording as apps/web's ai-coach-chat.tsx footer disclaimer -- kept as
@@ -65,6 +69,12 @@ export async function hasCoachAccess(): Promise<boolean> {
   return data ?? false;
 }
 
+/** S51 (INV-14): is the assistant_enabled go-live guard open for this person? Fails closed. The server refuses regardless of what this says. */
+export async function isAssistantOpen(): Promise<boolean> {
+  const guard = await supabase.rpc("go_live_guard_is_open", { p_key: "assistant_enabled" });
+  return !guard.error && guard.data === true;
+}
+
 export async function sendCoachMessage(message: string, conversationId?: string) {
   return postCoachMessage(message, conversationId);
 }
@@ -75,4 +85,12 @@ export async function runCoachQuickAction(kind: CoachQuickActionKind, conversati
 
 export async function requestCareTeamHandoff(conversationId?: string) {
   return postCoachHandoffToCareTeam(conversationId);
+}
+
+export async function sendApprovedPrepDraft(text: string, conversationId?: string) {
+  return postApprovedPrepDraft(text, conversationId);
+}
+
+export async function loadAssistantNudges() {
+  return getAssistantNudges();
 }

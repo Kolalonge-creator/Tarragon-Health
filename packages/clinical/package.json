@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./written-question-screen": "./src/written-question-screen.ts",
+    "./assistant-danger-screen": "./src/assistant-danger-screen.ts",
     "./lab-units": "./src/lab-units.ts",
     "./titration": "./src/titration-entry.ts"
   },

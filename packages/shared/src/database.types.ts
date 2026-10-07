@@ -19481,6 +19481,7 @@ export type Database = {
           reference_range_low: number | null
           reference_range_text: string | null
           report_status: Database["public"]["Enums"]["lab_report_status"]
+          sensitive_positive: boolean
           specimen_collected_at: string | null
           taken_at: string
           unit: string | null
@@ -19500,6 +19501,7 @@ export type Database = {
           reference_range_low?: number | null
           reference_range_text?: string | null
           report_status?: Database["public"]["Enums"]["lab_report_status"]
+          sensitive_positive?: boolean
           specimen_collected_at?: string | null
           taken_at?: string
           unit?: string | null
@@ -19519,6 +19521,7 @@ export type Database = {
           reference_range_low?: number | null
           reference_range_text?: string | null
           report_status?: Database["public"]["Enums"]["lab_report_status"]
+          sensitive_positive?: boolean
           specimen_collected_at?: string | null
           taken_at?: string
           unit?: string | null
@@ -21377,6 +21380,7 @@ export type Database = {
         Row: {
           body_md: string
           clinician_reviewed: boolean
+          content_version: number
           condition: Database["public"]["Enums"]["care_plan_condition"] | null
           created_at: string
           embedding: string | null
@@ -21384,6 +21388,7 @@ export type Database = {
           key: string
           module: Database["public"]["Enums"]["lpe_module"] | null
           reading_level: string | null
+          review_due_at: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           title: string
@@ -21392,6 +21397,7 @@ export type Database = {
         Insert: {
           body_md: string
           clinician_reviewed?: boolean
+          content_version?: number
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
           created_at?: string
           embedding?: string | null
@@ -21399,6 +21405,7 @@ export type Database = {
           key: string
           module?: Database["public"]["Enums"]["lpe_module"] | null
           reading_level?: string | null
+          review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           title: string
@@ -21407,6 +21414,7 @@ export type Database = {
         Update: {
           body_md?: string
           clinician_reviewed?: boolean
+          content_version?: number
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
           created_at?: string
           embedding?: string | null
@@ -21414,6 +21422,7 @@ export type Database = {
           key?: string
           module?: Database["public"]["Enums"]["lpe_module"] | null
           reading_level?: string | null
+          review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           title?: string
@@ -42227,6 +42236,23 @@ export type Database = {
       }
     }
     Views: {
+      ai_readable_lab_readings: {
+        Row: {
+          abnormal_flag: Database["public"]["Enums"]["lab_analyte_flag"] | null
+          code: string | null
+          id: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          reference_range_high: number | null
+          reference_range_low: number | null
+          report_status: Database["public"]["Enums"]["lab_report_status"] | null
+          taken_at: string | null
+          unit: string | null
+          value: number | null
+          value_text: string | null
+        }
+        Relationships: []
+      }
       allergies: {
         Row: {
           created_at: string | null
@@ -42979,6 +43005,8 @@ export type Database = {
           task_type: string
         }[]
       }
+      assistant_knowledge_sources: { Args: { p_ids: string[] }; Returns: Json }
+      assistant_protocol_limits: { Args: Record<PropertyKey, never>; Returns: Json }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
       learning_course: {
         Args: { p_programme_code: string }

@@ -166,9 +166,66 @@ export interface AppointmentPrepSummary {
   recentSymptoms: { description: string | null; severity: number | null; reportedAt: string }[];
   recentMeasurements: { vitalType: string; value: string; unit: string | null; takenAt: string }[];
   medicationIssues: { drugName: string; issue: string }[];
+  /** S51 (7.7): what changed since the last completed appointment. `lastReviewAt` is null when there has been none. */
+  changesSinceLastReview: {
+    lastReviewAt: string | null;
+    newMedicines: string[];
+    /** null when the count could not be read: the line is left out, never shown as zero. */
+    readingsLogged: number | null;
+    symptomsLogged: number | null;
+  };
+  /** S51 (7.7): questions the patient may want to ask, each built from a fact in their own record. */
+  questions: string[];
 }
 
 const RECENT_SYMPTOM_WINDOW_DAYS = 30;
+
+/**
+ * S51 (7.7): the question list is built from the patient's own record only, one rule per kind of fact. No model, no free text from
+ * anywhere else, so every line can be traced to a row. It is an offer, not advice: the patient chooses what to keep.
+ */
+export function buildPrepQuestions(
+  summary: Pick<AppointmentPrepSummary, "recentSymptoms" | "medicationIssues" | "recentMeasurements" | "changesSinceLastReview">,
+  context: Pick<PatientContext, "activeConditions">
+): string[] {
+  const q: string[] = [];
+  for (const s of summary.recentSymptoms.slice(0, 3)) {
+    q.push(`I have noticed ${s.description ?? "a symptom"}${s.severity ? ` (about ${s.severity} out of 10)` : ""}. What could be behind it, and should I do anything?`);
+  }
+  for (const m of summary.medicationIssues) q.push(`My ${m.drugName} is due to be renewed. Can that be arranged?`);
+  for (const m of summary.changesSinceLastReview.newMedicines.slice(0, 3)) q.push(`I started ${m} recently. Is it working as expected, and what should I look out for?`);
+  if (summary.recentMeasurements.length > 0) q.push("Are my recent readings where you want them to be?");
+  for (const c of context.activeConditions.slice(0, 2)) q.push(`What is my target for ${c.conditionName}, and what should I focus on before my next visit?`);
+  q.push("Is there anything I should be doing differently, or checking more often?");
+  return q.slice(0, 8);
+}
+
+/**
+ * S51 (7.7, INV-11): a message the patient can read, edit and choose to send to their care team before the visit. It is a DRAFT built
+ * from facts in their record. It is never sent on its own and never written to the record by the assistant; only the patient's own
+ * send (a message they author) leaves the app.
+ */
+export function buildPrepDraft(summary: AppointmentPrepSummary): string {
+  const lines: string[] = ["Hello, before my appointment I wanted to share a few things."];
+  const ch = summary.changesSinceLastReview;
+  if (ch.lastReviewAt) {
+    if (ch.readingsLogged !== null && ch.symptomsLogged !== null) {
+      lines.push(`Since my last review on ${ch.lastReviewAt.slice(0, 10)}: I logged ${ch.readingsLogged} reading(s) and ${ch.symptomsLogged} symptom note(s).`);
+    }
+    if (ch.newMedicines.length > 0) lines.push(`New medicines since then: ${ch.newMedicines.join(", ")}.`);
+  }
+  if (summary.recentSymptoms.length > 0) {
+    lines.push("Symptoms I have noticed: " + summary.recentSymptoms.slice(0, 5).map((s) => s.description ?? "a symptom").join("; ") + ".");
+  }
+  if (summary.medicationIssues.length > 0) {
+    lines.push("Medicines I need renewed: " + summary.medicationIssues.map((m) => m.drugName).join(", ") + ".");
+  }
+  if (summary.questions.length > 0) {
+    lines.push("My questions:");
+    summary.questions.forEach((x, i) => lines.push(`${i + 1}. ${x}`));
+  }
+  return lines.join("\n");
+}
 
 /** §36.9 — "What should I tell my doctor?" Covers symptoms, recent
  * measurements, and medication issues (an overdue refill) from §36.9's own
@@ -232,7 +289,61 @@ export async function prepareForAppointment(
     // best-effort
   }
 
-  return { nextAppointment, recentSymptoms, recentMeasurements, medicationIssues };
+  // S51 (7.7): what changed since the last completed appointment. Each read is independently guarded, like the others here.
+  let lastReviewAt: string | null = null;
+  let newMedicines: string[] = [];
+  let readingsLogged: number | null = null;
+  let symptomsLogged: number | null = null;
+  try {
+    const { data } = await supabase
+      .from("appointments")
+      .select("scheduled_for")
+      .eq("patient_id", patientId)
+      .eq("status", "completed")
+      .lt("scheduled_for", now.toISOString())
+      .order("scheduled_for", { ascending: false })
+      .limit(1);
+    lastReviewAt = data?.[0]?.scheduled_for ?? null;
+  } catch {
+    // best-effort
+  }
+  if (lastReviewAt) {
+    try {
+      const { data } = await supabase
+        .from("medications")
+        .select("drug_name")
+        .eq("patient_id", patientId)
+        .eq("is_active", true)
+        .gt("created_at", lastReviewAt);
+      newMedicines = (data ?? []).map((r) => r.drug_name);
+    } catch {
+      // best-effort
+    }
+    try {
+      const { count, error } = await supabase
+        .from("vitals_readings")
+        .select("id", { count: "exact", head: true })
+        .eq("patient_id", patientId)
+        .gt("taken_at", lastReviewAt);
+      readingsLogged = error ? null : (count ?? 0);
+    } catch {
+      // best-effort
+    }
+    try {
+      const { count, error } = await supabase
+        .from("symptoms")
+        .select("id", { count: "exact", head: true })
+        .eq("patient_id", patientId)
+        .gt("reported_at", lastReviewAt);
+      symptomsLogged = error ? null : (count ?? 0);
+    } catch {
+      // best-effort
+    }
+  }
+  const changesSinceLastReview = { lastReviewAt, newMedicines, readingsLogged, symptomsLogged };
+  const questions = buildPrepQuestions({ recentSymptoms, medicationIssues, recentMeasurements, changesSinceLastReview }, context);
+
+  return { nextAppointment, recentSymptoms, recentMeasurements, medicationIssues, changesSinceLastReview, questions };
 }
 
 /** Convenience wrapper — loads context once and runs all three composed

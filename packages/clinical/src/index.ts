@@ -9,6 +9,7 @@ export { toCanonicalUnit, fromCanonicalUnit, acceptedUnits, normaliseUnitLabel, 
 export { effectiveRange, type SexRange, type LabSex } from "./lab-release";
 export { classifyLabResult, explanationAllowed, LabEntryError, QUALITATIVE_VALUES, type LabPanelDefinition, type LabAnalyteDefinition, type LabItemInput, type LabClassification, type LabFlag, type LabReleaseState } from "./lab-release";
 export { screenWrittenQuestion, WRITTEN_QUESTION_DANGER_PHRASES, type WrittenQuestionScreen } from "./written-question-screen";
+export { screenAssistantMessage, ASSISTANT_EXTRA_DANGER_PHRASES, ASSISTANT_DANGER_PAIRS, type AssistantDangerScreen } from "./assistant-danger-screen";
 export { proposeTitration, validateProtocolDefinition, proposalToChangeArgs, ProtocolDefinitionError } from "./titration";
 export { TITRATION_STOP_KEYS, TITRATION_LABEL_KEYS } from "./titration-messages";
 export type * from "./titration-types";

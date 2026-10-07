@@ -1477,6 +1477,41 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
   },
   {
+    key: "assistant.excluded_analytes",
+    // INV-04 (S51 pre-fix). Analyte-code tokens for screening analytes the assistant and the explainer must never read unless the
+    // result is an explicit negative. Mirrored by public.ai_excluded_analyte_tokens in migration
+    // *_s51_inv04_ai_never_reads_sensitive_results.sql; assistant-safety-mirror.test.ts pins the two together. The CMO confirms the list.
+    value: ["hiv", "hbsag", "hbs_ag", "hcv", "hepatitis", "hep_b", "hep_c", "hepb", "hepc", "hbv", "hbeag", "hbe_ag", "anti_hbc", "anti_hbs", "cd4", "viral_load", "p24", "aids", "retroviral"],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/BUILD-SPEC-v5.md INV-04; docs/design/S51.md",
+  },
+  {
+    key: "assistant.go_live",
+    // S51: the go-live guard assistant_enabled needs at least this many reviewed, owned knowledge rows with a future review date.
+    // Mirrored by public.assistant_config (key go_live) in migration *_s51_assistant_guard_knowledge_events.sql. The CMO confirms the number.
+    value: { min_approved_kb_rows: 20 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (go-live guard assistant_enabled)",
+    guardPatterns: ["min_approved_kb_rows\\s*[=:]\\s*20\\b"],
+  },
+  {
+    key: "assistant.nudges",
+    // S51 (7.5): the daily nudge goes only to a patient with an assistant conversation in the last recent_days, at most max_per_run in a run.
+    // Mirrored by public.assistant_config (key nudges); read by public.assistant_nudge_candidates() with no built-in fallback.
+    value: { recent_days: 30, max_per_run: 2000 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (nudges)",
+  },
+  {
     key: "breathing.bre01",
     value: {
       inhale_seconds: 4,

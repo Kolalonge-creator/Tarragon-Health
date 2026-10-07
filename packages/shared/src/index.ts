@@ -240,6 +240,13 @@ export * from "./ui-language";
 export * from "./clinical-tier";
 export * from "./specialist-type-options";
 export * from "./proposed-config";
+export * from "./assistant-safety";
+export {
+  lintText as lintNotificationText,
+  FORBIDDEN_TERMS as NOTIFICATION_FORBIDDEN_TERMS,
+  FORBIDDEN_PARAM_KEYS as NOTIFICATION_FORBIDDEN_PARAM_KEYS,
+  type Violation as NotificationViolation,
+} from "./notification-neutral";
 export * from "./breathing";
 export * from "./consent-state";
 export * from "./notification-settings";

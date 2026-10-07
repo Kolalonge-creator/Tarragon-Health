@@ -3,6 +3,7 @@ import { createBearerClient } from "@/lib/supabase/bearer";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { coachMessageSchema } from "@/lib/validation/ai-coach";
 import { runCoachTurn } from "@/lib/ai-coach";
+import { ASSISTANT_NOT_OPEN_REPLY } from "@/lib/ai-coach/guard";
 
 /**
  * Mobile equivalent of apps/web/.../patient/ai-coach-actions.ts's
@@ -61,6 +62,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       conversationId: parsed.data.conversationId,
       message: parsed.data.message,
     });
+    // INV-14: runCoachTurn checks the assistant_enabled guard first (fails closed) and still answers an emergency with its fixed copy.
+    if (result.notOpen) {
+      return NextResponse.json({ success: false, error: ASSISTANT_NOT_OPEN_REPLY, code: "assistant_not_open" }, { status: 403 });
+    }
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     return NextResponse.json(
