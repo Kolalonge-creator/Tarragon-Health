@@ -171,7 +171,9 @@ begin
   perform pg_temp.rec('a transfer is recorded', '1', (select count(*)::text from public.pathway_lifecycle_events where enrolment_id = v_enr and action = 'transfer'));
   perform pg_temp.rec('events are append-only for the owner too', '42501', pg_temp.try(format('update public.pathway_lifecycle_events set reason = %L where enrolment_id = %L', 'rewritten history here', v_enr)));
   -- the lead may have moved: tie again so the discharge below is by a tied clinician
-  update public.lead_assignments set state = 'ended', ended_at = now(), end_reason = 'superseded' where patient_id = v_pat and state = 'active';
+  perform set_config('tarragon.lead_write', 'on', true);
+  update public.lead_assignments set state = 'ended', ended_at = now(), end_reason = 'superseded' where patient_id = v_pat and state in ('active', 'unassigned');
+  perform set_config('tarragon.lead_write', 'off', true);
   perform pg_temp.tie(v_doc, v_pat);
   perform pg_temp.act(v_doc);
   perform pg_temp.rec('the tied clinician can discharge', 'ok', pg_temp.try(format('select public.discharge_pathway_enrolment(%L, %L)', v_enr, 'goals reached and care plan complete')));
