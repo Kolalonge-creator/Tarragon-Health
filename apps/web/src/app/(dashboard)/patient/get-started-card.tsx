@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
-import { type UiLanguage } from "@tarragon/shared";
 
 /**
  * What a brand-new patient sees instead of a page of empty cards.
@@ -72,43 +71,12 @@ interface Step {
 }
 
 /**
- * Written per-language rather than looked up string-by-string, because two of
- * the three detail lines interpolate whose account this is. A dictionary keyed
- * on the English sentence cannot match a sentence that is assembled at render
- * time, and translating only the static half would leave a card that is
- * English and Pidgin in alternating lines.
+ * Written as whole sentences rather than looked up string-by-string, because two of
+ * the three detail lines interpolate whose account this is.
  *
- * Setup guidance only -- no clinical content, per the boundary in
- * packages/shared/src/ui-language.ts.
+ * Setup guidance only -- no clinical content.
  */
-function stepCopy(language: UiLanguage, subject: string, them: string) {
-  if (language === "pcm") {
-    return {
-      introBase: `This app dey keep ${subject} health record for one place, e dey tell ${them} which check don due, and e dey put ${subject} readings for front of a care team wey fit do something about am.`,
-      introCloseOne: "This one step na wetin go turn am on.",
-      introCloseMany: "These three steps na wetin go turn am on.",
-      headingOne: "One thing wey you go set up",
-      headingMany: "Three things wey you go set up",
-      steps: [
-        {
-          title: "Fill your health profile",
-          detail: `Na like two minutes. E go build ${subject} own screening and vaccination calendar: the checks wey dey keep well person well.`,
-          cta: "Start am",
-        },
-        {
-          title: "Enter the first reading",
-          detail:
-            "Blood pressure, blood sugar or weight, from any machine, you fit type am by hand. Na wetin the care team dey look.",
-          cta: "Enter a reading",
-        },
-        {
-          title: "Add the medicine",
-          detail: `Whatever ${them} dey take now. Once dem dey the list, ${them} go dey get reminder for dose and refill.`,
-          cta: "Add medicine",
-        },
-      ],
-    };
-  }
+function stepCopy(subject: string, them: string) {
   return {
     introBase: `This app keeps ${subject} health record in one place, tells ${them} which checks are due, and puts ${subject} readings in front of a care team who can act on them.`,
     introCloseOne: "This step is what switches that on.",
@@ -139,18 +107,15 @@ function stepCopy(language: UiLanguage, subject: string, them: string) {
 export function GetStartedCard({
   progress,
   acting,
-  language = "en",
 }: {
   progress: GetStartedProgress;
   /** Name of the person whose account this is, when a supporter is running
    * it, so the steps do not tell a supporter to log "your" readings. */
   acting?: string | null;
-  language?: UiLanguage;
 }) {
-  const pidgin = language === "pcm";
-  const subject = acting ? `${acting}'s` : pidgin ? "your" : "your";
+  const subject = acting ? `${acting}'s` : "your";
   const them = acting ? "them" : "you";
-  const copy = stepCopy(language, subject, them);
+  const copy = stepCopy(subject, them);
   const hrefs = ["/patient/prevention", "/patient/vitals", "/patient/medications"];
   const dones = [progress.hasRiskAssessment, progress.hasAnyVitals, progress.hasMedications];
 
@@ -181,7 +146,7 @@ export function GetStartedCard({
           {single ? copy.headingOne : copy.headingMany}
         </h2>
         <p className="text-xs font-medium text-charcoal-ink/55 dark:text-night-ink/60">
-          {doneCount} {pidgin ? "out of" : "of"} {steps.length} done
+          {doneCount} of {steps.length} done
         </p>
       </div>
       <p className="mb-4 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
@@ -243,9 +208,7 @@ export function GetStartedCard({
 
       <p className="mt-4 text-xs text-charcoal-ink/55 dark:text-night-ink/60">
         <SEMANTIC_ICON.preventive aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-        {pidgin
-          ? "All of this na free. Na only doctor time you dey ever pay for, and na only when you ask for am."
-          : "All of this is free. You are only ever charged for a doctor's time, and only when you ask for it."}
+        All of this is free. You are only ever charged for a doctor&apos;s time, and only when you ask for it.
       </p>
     </section>
   );

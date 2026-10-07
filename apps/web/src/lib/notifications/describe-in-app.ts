@@ -115,6 +115,20 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/clinician/care-plan-review",
     };
   }
+  if (n.template === "pharmacy_flag_notice") {
+    // S36h: neutral by design (INV-07). Names no medicine, patient or reason; the detail is on the page.
+    return { text: "A pharmacy has raised something. Open your pharmacy messages", href: "/clinician/pharmacy" };
+  }
+  // S28: neutral by design (INV-07): never a medicine, a person or a collection code.
+  if (n.template === "pharmacy_new_prescription") {
+    return { text: "Something is waiting for you", href: "/pharmacist/prescriptions" };
+  }
+  if (n.template === "pharmacy_question_answered") {
+    return { text: "Your question was answered. Open the app to see it", href: "/pharmacist/prescriptions" };
+  }
+  if (n.template === "pharmacy_collection_update" || n.template === "prescription_sent_patient" || n.template === "prescription_collected_patient") {
+    return { text: "Your pharmacy has an update. Open the app to see it", href: "/patient/medications" };
+  }
   if (n.template === "health_reset_complete") {
     return {
       // Plans were retired 2026-09-02; the completed Reset is its own win now.
@@ -186,6 +200,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "medication_refill_reminder") {
     return {
       text: "A reminder is coming up. Open the app to see when.",
+      // S28: the Medicines screen carries the "choose where to collect" link on each prescription
       href: "/patient/medications",
     };
   }
@@ -485,16 +500,6 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     const pharmacy = String(payload.pharmacy_name ?? "the pharmacy");
     return { text: `Your order is ready for collection at ${pharmacy}`, href: "/patient/medications" };
   }
-  if (n.template === "pharmacy_order_out_for_delivery") {
-    const courier = String(payload.courier_name ?? "your courier");
-    return { text: `Your order is out for delivery with ${courier}`, href: "/patient/medications" };
-  }
-  if (n.template === "pharmacy_order_delivered") {
-    return { text: "Your order has been delivered", href: "/patient/medications" };
-  }
-  if (n.template === "pharmacy_order_delivery_failed") {
-    return { text: "A delivery attempt for your order was unsuccessful", href: "/patient/medications" };
-  }
   if (n.template === "pharmacy_order_unavailable") {
     const pharmacy = String(payload.pharmacy_name ?? "the pharmacy");
     return { text: `${pharmacy} could not complete your order`, href: "/patient/medications" };
@@ -632,6 +637,12 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "circle_gift_waiting") {
     return { text: "Someone has paid for care for you. Open it to accept", href: "/patient/care-circle" };
+  }
+  if (n.template === "monthly_report_ready") {
+    return { text: "Your monthly summary is ready", href: "/patient/progress" };
+  }
+  if (n.template === "sponsor_figures_ready") {
+    return { text: "Your programme figures for last month are ready", href: "/" };
   }
   if (n.template === "circle_paid_for_you") {
     return { text: "Someone in your Care Circle has paid for your care", href: "/patient" };

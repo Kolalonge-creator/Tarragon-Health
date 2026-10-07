@@ -27,6 +27,12 @@ export interface ZoomConfig {
   readonly sdkSecret?: string;
   /** The "Secret Token" from the Zoom app's Feature page, used to verify webhooks. */
   readonly webhookSecretToken?: string;
+  /**
+   * The Zoom user that hosts every consultation meeting: a dedicated, low-privilege licensed user used for nothing else (S21, OQ-136).
+   * A host key lets its holder start meetings as this user, so keeping it apart from the account owner keeps a leaked key from acting as
+   * the owner. A Zoom user id or email. Unset means "me", the app's own user (the older behaviour).
+   */
+  readonly hostUserId?: string;
   readonly fetch: FetchLike;
   readonly now?: () => number;
   readonly timeoutMs?: number;
@@ -44,6 +50,8 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
   const api = config.apiBase ?? "https://api.zoom.us/v2";
   const oauthUrl = config.oauthUrl ?? "https://zoom.us/oauth/token";
   const handlers = new Map<string, Set<(e: VideoEvent) => void>>();
+  const hostPath = (userId: string): string => `/users/${encodeURIComponent(userId)}`;
+  const configuredHost = hostPath(config.hostUserId && config.hostUserId.length > 0 ? config.hostUserId : "me");
   let cached: { token: string; expiresAtMs: number } | null = null;
 
   async function accessToken(): Promise<ProviderResult<string>> {
@@ -84,7 +92,7 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       const startMs = now();
       if (!Number.isFinite(input.expiresAtMs) || input.expiresAtMs <= startMs) return fail("invalid_input", "Room expiry must be in the future");
       const duration = Math.max(1, Math.ceil((input.expiresAtMs - startMs) / 60_000));
-      const res = await call("POST", "/users/me/meetings", {
+      const res = await call("POST", `${configuredHost}/meetings`, {
         topic: TOPIC,
         type: 2,
         start_time: new Date(startMs).toISOString(),
@@ -103,6 +111,9 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       if (!isUuid(input.identity)) return fail("invalid_input", "Identity must be an opaque uuid");
       if (!Number.isInteger(input.ttlSeconds) || input.ttlSeconds <= 0 || input.ttlSeconds > MAX_TOKEN_TTL_SECONDS) {
         return fail("invalid_input", "Token lifetime is out of range");
+      }
+      if (input.hostKeyTtlSeconds !== undefined && (!Number.isInteger(input.hostKeyTtlSeconds) || input.hostKeyTtlSeconds <= 0 || input.hostKeyTtlSeconds > MAX_TOKEN_TTL_SECONDS)) {
+        return fail("invalid_input", "Host key lifetime is out of range");
       }
       if (!/^\d{9,12}$/.test(input.roomId)) return fail("not_found", "No such room", false);
       const meeting = await call("GET", `/meetings/${input.roomId}`);
@@ -129,9 +140,23 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       const pass = d?.["password"];
       const password = typeof pass === "string" && pass.length > 0 ? pass : undefined;
       if (input.role !== "clinician") return ok({ token, expiresAtMs, ...(password ? { password } : {}) });
-      // The clinician hosts the room (the meeting is owned by the service account), and an SDK host needs the owner's start key.
-      // It lasts as long as the token and no longer, and is only ever returned for the clinician role.
-      const zak = await call("GET", `/users/me/token?type=zak&ttl=${Math.max(1, Math.ceil((expiresAtMs - now()) / 1000))}`);
+      // The clinician hosts the room, and an SDK host needs the start key of the meeting's OWNER. The owner is read from the meeting itself
+      // (so the key always belongs to the user the room was made under, whatever the configuration says today), falling back to the
+      // configured host. It is only needed at the moment of joining, so it lives only as long as the caller asked, never longer than the
+      // token, and is only ever returned for the clinician role.
+      const owner = d?.["host_id"];
+      // With a dedicated host user configured, a key is only ever minted for THAT user. A meeting made before it was set (or by another
+      // path) belongs to someone else, usually the account owner, and a key for the owner is exactly what the dedicated user exists to
+      // avoid, so it is refused (the room then falls back to the link) rather than quietly issued.
+      if (config.hostUserId && config.hostUserId.length > 0) {
+        const wanted = config.hostUserId.toLowerCase();
+        const owners = [owner, d?.["host_email"]].filter((v): v is string => typeof v === "string").map((v) => v.toLowerCase());
+        if (!owners.includes(wanted)) return fail("conflict", "Meeting is not hosted by the consultation host user", false);
+      }
+      const keyUser = typeof owner === "string" && owner.length > 0 ? hostPath(owner) : configuredHost;
+      const untilEndSeconds = Math.max(1, Math.ceil((expiresAtMs - now()) / 1000));
+      const keyTtl = input.hostKeyTtlSeconds === undefined ? untilEndSeconds : Math.min(untilEndSeconds, input.hostKeyTtlSeconds);
+      const zak = await call("GET", `${keyUser}/token?type=zak&ttl=${keyTtl}`);
       if (!zak.ok) return zak;
       const zakToken = asObject(zak.data)?.["token"];
       if (typeof zakToken !== "string" || zakToken.length === 0) return fail("bad_response", "Zoom sent an unexpected host key reply");

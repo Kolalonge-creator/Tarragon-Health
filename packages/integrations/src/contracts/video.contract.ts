@@ -97,6 +97,17 @@ export function runVideoContract(name: string, make: () => VideoFixture, nowMs: 
       expect(JSON.stringify(d.data)).not.toContain(ENC);
     });
 
+    it("refuses a host key lifetime that is not a positive whole number within the token limit, for any role", async () => {
+      const f = make();
+      const room = await f.provider.createRoom({ encounterRef: ENC, expiresAtMs: nowMs() + 600_000 });
+      if (!room.ok) throw new Error("room");
+      for (const bad of [0, -5, 2.5, 100_000]) {
+        const r = await f.provider.joinToken({ roomId: room.data.roomId, role: "clinician", identity: PERSON, ttlSeconds: 300, hostKeyTtlSeconds: bad });
+        expect(r).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+      }
+      expect((await f.provider.joinToken({ roomId: room.data.roomId, role: "clinician", identity: PERSON, ttlSeconds: 300, hostKeyTtlSeconds: 120 })).ok).toBe(true);
+    });
+
     it("refuses dial-in for an unknown room, a closed room, or a country with no number", async () => {
       const f = make();
       expect((await f.provider.dialIn({ roomId: "room_missing", country: "NG" })).ok).toBe(false);
