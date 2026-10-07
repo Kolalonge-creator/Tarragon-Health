@@ -433,7 +433,8 @@ begin
   if pbe.id is not null and pbe.sponsor_share_percent > 0 then
     v_spons := (v_cur * pbe.sponsor_share_percent) / 100;
     v_prog := private.sponsor_match(v_ben, it.id, v_pb_sponsor, false);
-  elsif pbe.id is null and v_cur > 0 then
+  elsif pbe.id is null and v_cur > 0 and p_buyer = v_ben then
+    -- a programme covers the person themselves; a supporter paying for them neither gets the cover nor learns that they have one (OQ-223)
     v_prog := private.sponsor_match(v_ben, it.id, null, true);
     if v_prog.id is not null then
       v_spons := (v_cur * v_prog.share_percent) / 100;
@@ -552,6 +553,18 @@ begin
   return q - 'discount_code_id' - 'price_book_entry_id' - 'sponsor_programme_id';
 end $$;
 
+-- The reply for a repeat of the same tap. A fully covered order says so (and who covers it), so the app shows "covered" again instead of "already paid".
+create function private.order_replay_reply(o public.orders) returns jsonb
+language sql stable security definer set search_path = ''
+as $$
+  select jsonb_build_object('order_id', o.id, 'reference', o.paystack_reference, 'amount_kobo', o.amount_kobo, 'state', o.state, 'checkout_url', o.checkout_url, 'replay', true)
+         || case when o.amount_kobo = 0 and o.state = 'paid' and o.sponsor_share_kobo > 0
+                 then jsonb_build_object('covered', true, 'sponsor_name', (select so.name from public.sponsor_reservations sr join public.sponsor_programmes sp on sp.id = sr.programme_id
+                                                                              join public.organisations so on so.id = sp.sponsor_org_id where sr.order_id = o.id))
+                 else '{}'::jsonb end
+$$;
+revoke all on function private.order_replay_reply(public.orders) from public, anon, authenticated;
+
 create or replace function public.create_order(
   p_code text, p_client_key uuid default null, p_beneficiary uuid default null,
   p_discount_code text default null, p_use_points boolean default false, p_expected_amount_kobo bigint default null)
@@ -578,7 +591,7 @@ begin
   if p_client_key is not null then
     select * into o from public.orders where buyer_profile_id = v_uid and client_key = p_client_key;
     if found then
-      return jsonb_build_object('order_id', o.id, 'reference', o.paystack_reference, 'amount_kobo', o.amount_kobo, 'state', o.state, 'checkout_url', o.checkout_url, 'replay', true);
+      return private.order_replay_reply(o);
     end if;
   end if;
 
@@ -640,7 +653,7 @@ begin
   returning * into o;
   if o.id is null then
     select * into o from public.orders where buyer_profile_id = v_uid and client_key = p_client_key;
-    return jsonb_build_object('order_id', o.id, 'reference', o.paystack_reference, 'amount_kobo', o.amount_kobo, 'state', o.state, 'checkout_url', o.checkout_url, 'replay', true);
+    return private.order_replay_reply(o);
   end if;
   if o.discount_code_id is not null then
     insert into public.discount_redemptions (organisation_id, discount_code_id, order_id, beneficiary_id, reduction_kobo, is_test)
@@ -947,6 +960,17 @@ begin
   return jsonb_build_object('result', 'recorded');
 end $$;
 
+-- The health plans a patient can check with: only an HMO that has an active Tarragon programme for their kind of account (test or real).
+create function public.available_hmos() returns jsonb
+language sql stable security definer set search_path = ''
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object('hmo_id', o.id, 'name', o.name) order by o.name), '[]'::jsonb)
+    from public.organisations o
+   where exists (select 1 from public.sponsor_programmes p join public.profiles pr on pr.id = (select auth.uid())
+                  where p.sponsor_org_id = o.id and p.organisation_id = pr.organisation_id and p.eligibility = 'hmo_eligibility' and p.status = 'active'
+                    and p.is_test = coalesce(pr.is_test, false) and (now() at time zone 'Africa/Lagos')::date between p.valid_from and p.valid_to)
+$$;
+
 create function public.my_hmo_eligibility() returns jsonb
 language sql stable security definer set search_path = ''
 as $$
@@ -1110,7 +1134,7 @@ do $$
 declare f text;
 begin
   foreach f in array array[
-    'public.request_hmo_eligibility(uuid,text)', 'public.my_hmo_eligibility()', 'public.ops_verify_hmo_eligibility(uuid,text,boolean,text)',
+    'public.request_hmo_eligibility(uuid,text)', 'public.my_hmo_eligibility()', 'public.available_hmos()', 'public.ops_verify_hmo_eligibility(uuid,text,boolean,text)',
     'public.admin_hmo_checks_pending()', 'public.admin_create_sponsor_programme(uuid,text,text[],integer,bigint,bigint,text,uuid,integer,date,date,text,boolean)',
     'public.admin_set_sponsor_programme_status(uuid,text,text)', 'public.admin_set_sponsor_programme_budget(uuid,bigint,text)', 'public.admin_sponsor_programmes()',
     'public.cancel_sponsor_entitlement(uuid,text)', 'public.attest_go_live_condition(text,text,boolean,text)', 'public.my_orders()',

@@ -328,6 +328,11 @@ begin
   perform pg_temp.ck('the quote carries no programme id to the buyer', 'null', coalesce(q ->> 'sponsor_programme_id', 'null'));
   select coalesce(sum((l ->> 'amount_kobo')::bigint), 0) into v_sum from jsonb_array_elements(q -> 'lines') l;
   perform pg_temp.ck('the quote lines add up to the amount due (list plus the sponsor line)', '0', v_sum::text);
+  -- a supporter paying for the member neither gets the cover nor learns the member has one (OQ-223)
+  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level, permissions)
+    values (v_m, pg_temp.f('g_pay'), v_m, 'manage', array['manage_payments']::public.caregiver_permission[]);
+  q := pg_temp.qb(pg_temp.f('g_pay'), 'proof_consult', v_m);
+  perform pg_temp.ck('a supporter paying for the member is quoted the full price with no sponsor named', '500000,0,null', (q ->> 'amount_due_kobo') || ',' || (q ->> 'sponsor_share_kobo') || ',' || coalesce(q ->> 'sponsor_name', 'null'));
   perform pg_temp.ck('a non-member is quoted the full price, no sponsor', '500000,0', (pg_temp.qb(pg_temp.f('pat_o'), 'proof_consult') ->> 'amount_due_kobo') || ',' || (pg_temp.qb(pg_temp.f('pat_o'), 'proof_consult') ->> 'sponsor_share_kobo'));
   perform pg_temp.ck('an item the programme does not list is full price for the member', '800000', pg_temp.qb(v_m, 'proof_plain') ->> 'amount_due_kobo');
   perform pg_temp.ck('the total shown (0) is accepted as the expected amount', 'true', (pg_temp.mkc(v_m, 'proof_consult', null, 0) ->> 'covered')::text);
@@ -352,6 +357,8 @@ begin
     pg_temp.q_as(pg_temp.f('pat_m2'), $q$select (select (j ->> 'sponsor_name') || ',' || (j ->> 'sponsor_share_kobo') from jsonb_array_elements(public.my_orders()) j limit 1)$q$));
   perform pg_temp.ck('a repeat of the same tap is the same order', 'true',
     (pg_temp.q_as(pg_temp.f('pat_m2'), format($q$select public.create_order('proof_consult', %L, null)::text$q$, (select client_key from public.orders where id = v_oid))) like '%"replay": true%')::text);
+  perform pg_temp.ck('...and a repeat of a covered order still says it is covered, naming the sponsor', 'true,S71 Acme Ltd',
+    (select (r ->> 'covered') || ',' || (r ->> 'sponsor_name') from (select pg_temp.q_as(pg_temp.f('pat_m2'), format($q$select public.create_order('proof_consult', %L, null)::text$q$, (select client_key from public.orders where id = v_oid)))::jsonb as r) x));
   perform pg_temp.ck('...and takes no more budget', '2', (select count(*)::text from public.sponsor_reservations where programme_id = pg_temp.f('prog_c')));
   perform pg_temp.ck('a refund request on a covered order says the sponsor paid', 'covered_by_sponsor',
     pg_temp.q_as(pg_temp.f('pat_m2'), format($q$select public.request_order_refund(%L, 'Proof run: asking for a refund')->>'result'$q$, v_oid)));
@@ -397,6 +404,9 @@ do $$
 declare v_h uuid := pg_temp.f('pat_h'); q jsonb; o jsonb; v_oid uuid; v_prog uuid := pg_temp.f('prog_h'); v_id uuid; r text;
 begin
   -- 6a: before any eligibility there is no cover
+  perform pg_temp.ck('the health plans offered are only those with an active programme', 'S71 Proof HMO', pg_temp.q_as(v_h, $q$select (public.available_hmos() -> 0 ->> 'name')$q$));
+  perform pg_temp.ck('anon cannot list health plans', '42501', pg_temp.try_anon($q$select public.available_hmos()$q$));
+  perform pg_temp.ck('a plan with no programme is not offered', '1', pg_temp.q_as(v_h, $q$select jsonb_array_length(public.available_hmos())::text$q$));
   perform pg_temp.ck('HMO: without a passing check there is no cover', '800000,0', (pg_temp.qb(v_h, 'proof_plain') ->> 'amount_due_kobo') || ',' || (pg_temp.qb(v_h, 'proof_plain') ->> 'sponsor_share_kobo'));
   perform pg_temp.ck('HMO: a request for an HMO with no programme is refused', 'true',
     (pg_temp.q_as(v_h, format($q$select public.request_hmo_eligibility(%L, 'REL/12345/67')$q$, pg_temp.f('sponsor'))) like '%hmo_not_available%')::text);
