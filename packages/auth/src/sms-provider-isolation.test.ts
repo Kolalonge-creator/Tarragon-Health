@@ -54,7 +54,6 @@ describe("INV-08: the SMS provider is reachable only through the auth hook", () 
 
   // Legacy direct Termii callers (non-test source). Decided in OQ-05/OQ-30/OQ-32; this list may only shrink.
   const LEGACY_DIRECT_TERMII = [
-    "apps/web/src/lib/notifications/send-patient-link.ts", // patient join-link SMS (OQ-32)
     "apps/web/src/lib/status/check-dependencies.ts", // reads the key to report "configured", sends nothing
     "supabase/functions/send-pending-notifications/index.ts", // push-failure fallback and templates (OQ-32)
   ];

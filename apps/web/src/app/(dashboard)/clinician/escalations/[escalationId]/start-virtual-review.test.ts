@@ -4,11 +4,9 @@ import { describe, expect, it, jest, beforeEach } from "@jest/globals";
 // meeting topic (INV-07) and to text the raw join link (INV-08). It now sends a neutral topic and an in-app notice only.
 const createMeeting = jest.fn<(input: { topic: string }) => Promise<unknown>>();
 const queueNotice = jest.fn<(p: Record<string, unknown>) => Promise<boolean>>();
-const sendSms = jest.fn();
 
 jest.mock("@/lib/zoom/meetings", () => ({ createMeeting: (i: { topic: string }) => createMeeting(i) }));
 jest.mock("@/lib/zoom/client", () => ({ isZoomConfigured: () => true }));
-jest.mock("@/lib/notifications/send-patient-link", () => ({ sendPatientLinkSms: (...a: unknown[]) => sendSms(...a) }));
 jest.mock("@/lib/notifications/video-call-requested", () => ({ queueVideoCallRequestedNotice: (p: Record<string, unknown>) => queueNotice(p) }));
 jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({}) }));
 
@@ -37,11 +35,14 @@ import { startVirtualReview } from "./actions";
 
 const ESCALATION = "7b9c2f0e-5d3a-4c11-9a52-0f6d1e8b7a44";
 
+// Nothing in this action may call an outside service on its own: no SMS provider, nothing. The notice goes through queueVideoCallRequestedNotice only.
+const fetchSpy = jest.spyOn(globalThis, "fetch").mockImplementation(async () => new Response("{}"));
+
 describe("startVirtualReview (S21 regression)", () => {
   beforeEach(() => {
     createMeeting.mockReset();
     queueNotice.mockReset();
-    sendSms.mockReset();
+    fetchSpy.mockClear();
     selectedColumns.length = 0;
     createMeeting.mockResolvedValue({ ok: true, data: { meetingId: "81000000001", joinUrl: "https://zoom.example/j/1?pwd=x", hostStartUrl: "https://zoom.example/s/1?zak=y" } });
     queueNotice.mockResolvedValue(true);
@@ -60,7 +61,7 @@ describe("startVirtualReview (S21 regression)", () => {
 
   it("never sends an SMS and never puts the join link in a notification", async () => {
     const result = await startVirtualReview(ESCALATION);
-    expect(sendSms).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
     expect(queueNotice).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(queueNotice.mock.calls[0])).not.toContain("zoom.example");
     expect(result).toMatchObject({ success: true, hostStartUrl: "https://zoom.example/s/1?zak=y", patientNotified: true });
