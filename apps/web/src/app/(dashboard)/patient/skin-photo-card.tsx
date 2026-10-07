@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BODY_AREAS, listMySkinPhotos, uploadSkinPhoto, withdrawSkinPhoto, type MySkinPhoto } from "./skin-photo-actions";
+import { listMySkinPhotos, uploadSkinPhoto, withdrawSkinPhoto, type MySkinPhoto } from "./skin-photo-actions";
+import { BODY_AREAS } from "./skin-photo-config";
 
 /** Shrinks a large photo in the browser before it is sent (kind to slow connections; also drops metadata and fixes rotation). The
  *  server strips metadata again and is the one that decides: this is a courtesy, never a check. */
