@@ -1,7 +1,7 @@
-import { detectThermalShift, type TemperatureReading } from "./cycle-thermal-shift";
+import { detectThermalShift, type BasalTemperatureReading } from "./thermal-shift";
 
 /** Readings starting 2026-08-01, one per day, from a list of temperatures. */
-function series(temps: number[], from = "2026-08-01"): TemperatureReading[] {
+function series(temps: number[], from = "2026-08-01"): BasalTemperatureReading[] {
   return temps.map((temperature, i) => {
     const date = new Date(Date.parse(`${from}T00:00:00Z`) + i * 86_400_000)
       .toISOString()
