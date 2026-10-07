@@ -22,6 +22,11 @@ export function inAppCallAvailable(env: Readonly<Record<string, string | undefin
   return participantKeySecret(env) !== null;
 }
 
+/** How long a clinician's host key lives (versioned configuration `consultations.host_key`, never hard-coded). */
+export function hostKeyTtlSeconds(): number {
+  return getProposedConfig<{ ttlSeconds: number }>("consultations.host_key").value.ttlSeconds;
+}
+
 export function presenceFromWebhook(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
   return env["ZOOM_PRESENCE_WEBHOOK"] === "1";
 }
