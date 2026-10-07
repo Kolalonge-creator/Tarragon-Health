@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildScribeUserMessage, SCRIBE_CLAUDE_MAX_TOKENS, SCRIBE_CLAUDE_MODEL, SCRIBE_NOTE_SCHEMA, SCRIBE_SYSTEM_PROMPT } from "./note-draft";
+import { buildScribeUserMessage, SCRIBE_CLAUDE_MAX_TOKENS, SCRIBE_CLAUDE_MODEL, SCRIBE_NOTE_SCHEMA, SCRIBE_PROMPT_VERSION, SCRIBE_SYSTEM_PROMPT } from "./note-draft";
 
 const FUNCTION = join(__dirname, "..", "..", "..", "..", "..", "supabase", "functions", "scribe-draft", "index.ts");
 
@@ -22,6 +22,17 @@ describe("note-draft.ts mirrors the scribe-draft edge function", () => {
   it("has the identical model and token limit", () => {
     expect(source).toContain(`const SCRIBE_CLAUDE_MODEL = "${SCRIBE_CLAUDE_MODEL}";`);
     expect(source).toContain(`const SCRIBE_CLAUDE_MAX_TOKENS = ${SCRIBE_CLAUDE_MAX_TOKENS};`);
+  });
+
+  it("has the identical prompt version", () => {
+    expect(source).toContain(`const SCRIBE_PROMPT_VERSION = "${SCRIBE_PROMPT_VERSION}";`);
+  });
+
+  it("returns the prompt version with the draft, and uses the shared facts module for the two new modes", () => {
+    expect(source).toContain("promptVersion: SCRIBE_PROMPT_VERSION");
+    expect(source).toContain('from "../_shared/scribe/facts.ts"');
+    expect(source).toContain('mode: "facts"');
+    expect(source).toContain('mode: "facts_draft"');
   });
 
   it("describes typed notes the same way in the function and the evaluation helper", () => {

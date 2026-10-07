@@ -28,6 +28,8 @@ import { BiometricOfferScreen } from "@/screens/biometric-offer-screen";
 import { LoginScreen } from "@/screens/login-screen";
 import { AppLockScreen } from "@/screens/app-lock-screen";
 import { HomeShell } from "@/screens/home-shell";
+import { SponsorHome } from "@/screens/sponsor-home";
+import { shellForRole } from "@/lib/sponsor-figures";
 import { colors, spacing, typeScale } from "@/ui/theme";
 import { PrimaryButton, MutedText } from "@/ui/components";
 
@@ -141,7 +143,8 @@ function AppContent() {
   // it returns to the foreground and once a minute while it is open. Rows wait
   // for their owner and for backoff inside flushOutbox, so this is cheap.
   useEffect(() => {
-    if (!session?.user.id) return;
+    // Waits for the identity so a sponsor's staff never start the patient outbox and reminder work (it is patient-only).
+    if (!session?.user.id || !identity || shellForRole(identity.role) !== "patient") return;
     const run = () => void flushOutbox().catch(() => {});
     // Reminders are a rolling window of notifications, so they are topped up whenever the app
     // opens or returns to the foreground (and never ask for permission here: only the patient's
@@ -161,7 +164,7 @@ function AppContent() {
       sub.remove();
       clearInterval(timer);
     };
-  }, [session?.user.id]);
+  }, [session?.user.id, identity]);
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
@@ -228,7 +231,9 @@ function AppContent() {
   }, [session, identity, lockState, retryToken]);
 
   useEffect(() => {
-    if (session && identity) {
+    // A sponsor's own staff use only the figures screen: none of the patient background work (health sync, push token for care reminders,
+    // offline vitals queue, review prompts) applies to them.
+    if (session && identity && shellForRole(identity.role) === "patient") {
       // registerBackgroundHealthSync is deferred a tick past the others:
       // found live in the OS log, once, during this investigation —
       // "Attempt to present <HKHealthPrivacyHostAuthorizationViewController>
@@ -336,6 +341,15 @@ function AppContent() {
   // patient data mounts at all, so nothing can leak under or behind the gate.
   if (lockState === "locked") {
     return <AppLockScreen onUnlocked={() => setLockState("unlocked")} />;
+  }
+
+  if (shellForRole(identity.role) === "sponsor") {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.surface }} edges={["top", "left", "right"]}>
+        <StatusBar barStyle={scheme === "dark" ? "light-content" : "dark-content"} />
+        <SponsorHome onSignOut={() => void supabase.auth.signOut()} />
+      </SafeAreaView>
+    );
   }
 
   return (

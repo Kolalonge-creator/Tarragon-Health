@@ -22,13 +22,16 @@ description = "public anon key"
 targetRules = ["jwt", "generic-api-key"]
 paths = ['''apps/mobile/eas\.json$''']
 
-# On-device storage and cache slot names in the mobile app, for example `const CACHE_KEY = "medicine-catalogue-v1"`. The generic-api-key rule
-# fires on any constant whose name ends in KEY next to a string; these are names of local storage slots, not credentials. Narrow on purpose:
-# only the generic rule, only mobile source files, and only a `const NAME_WITH_KEY = "plain.slot-name"` line.
+# The generic-api-key rule fires on any constant or object property whose name ends in "key" next to a string, such as `const CACHE_KEY = "medicine-catalogue-v1"`,
+# a registry entry `key: "outcomes.snapshot_rules"` or a test lookup `c.key === "..."`. In mobile source, test files and the proposed-config
+# registry those are storage slot names and configuration names, not credentials (history is scanned too, so they cannot be reworded away).
+# Only the generic rule is relaxed, and only for these paths: every specific rule (cloud keys, JWTs, private keys, payment keys) still applies there.
+# Approved by the founder on 2026-10-07.
 [[allowlists]]
-description = "mobile storage slot names"
-condition = "AND"
+description = "storage slot and configuration names, not credentials"
 targetRules = ["generic-api-key"]
-paths = ['''apps/mobile/src/.*\.(ts|tsx)$''']
-regexTarget = "line"
-regexes = ['''const [A-Z][A-Z0-9_]*KEY[A-Z0-9_]*(: string)? = ["'][A-Za-z0-9._:/-]+["'];?\s*$''']
+paths = [
+  '''apps/mobile/src/.*\.(ts|tsx)$''',
+  '''.*\.test\.(ts|tsx)$''',
+  '''packages/shared/src/proposed-config/registry\.ts$''',
+]

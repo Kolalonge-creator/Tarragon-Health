@@ -26,12 +26,14 @@ export function validateInput(input: TriageInput, ruleSet: RuleSet): RejectReaso
   if (!isNum(input.target?.systolic) || !isNum(input.target?.diastolic)) return "invalid_input";
   if (input.target.systolic <= 0 || input.target.diastolic <= 0) return "invalid_input";
   if (!Array.isArray(input.history) || typeof input.pregnant !== "boolean") return "invalid_input";
+  if (input.postpartum !== undefined && typeof input.postpartum !== "boolean") return "invalid_input";
   if (!isObj(input.pathway) || typeof input.pathway.state !== "string") return "invalid_input";
   if (input.ageYears !== null && !isNum(input.ageYears)) return "invalid_input";
   if (t.type === "observation") {
     const check = checkReading(t.reading, ruleSet.params.validation);
     if (check !== "ok") return check;
     if (!Array.isArray(t.symptoms)) return "invalid_input";
+    if (t.symptomsAnswered !== undefined && typeof t.symptomsAnswered !== "boolean") return "invalid_input";
     const recheck = t.recheck;
     if (recheck === undefined) return null;
     if (!isObj(recheck)) return "invalid_input";
@@ -54,7 +56,7 @@ export function validateInput(input: TriageInput, ruleSet: RuleSet): RejectReaso
 const CMP_OPS = ["gte", "gt", "lte", "lt", "eq", "neq"];
 const TRIGGERS = ["observation", "adherence", "silence"];
 const ANCHORS = ["reading", "week", "lastReadingDate"];
-const ACTION_KINDS = ["show_emergency_guidance", "page_on_call", "show_message", "prompt_recheck", "route_referral", "create_task"];
+const ACTION_KINDS = ["show_emergency_guidance", "page_on_call", "show_message", "prompt_recheck", "ask_symptoms", "route_referral", "create_task"];
 
 function conditionErrors(cond: unknown, at: string, rs: Record<string, unknown>, known: ReadonlySet<string>): string[] {
   if (!isObj(cond)) return [`${at}: condition must be an object`];
@@ -112,9 +114,11 @@ export function validateRuleSet(value: unknown): string[] {
   if (!isObj(v) || ![v.systolicMin, v.systolicMax, v.diastolicMin, v.diastolicMax].every(isNum)) {
     errors.push("params.validation needs four numbers");
   }
-  const rc = p.recheck;
-  if (!isObj(rc) || !isNum(rc.afterMinutes) || !isNum(rc.windowMinutes) || rc.windowMinutes < rc.afterMinutes) {
-    errors.push("params.recheck needs afterMinutes and a windowMinutes that is not shorter");
+  for (const name of ["recheck", "extremeRecheck"] as const) {
+    const rc = p[name];
+    if (!isObj(rc) || !isNum(rc.afterMinutes) || !isNum(rc.windowMinutes) || rc.windowMinutes < rc.afterMinutes) {
+      errors.push(`params.${name} needs afterMinutes and a windowMinutes that is not shorter`);
+    }
   }
   if (!isNum(p.averageWindowDays) || p.averageWindowDays <= 0) errors.push("params.averageWindowDays must be positive");
   if (!isObj(p.symptomGroups) || !Array.isArray(p.symptomGroups.redFlag)) {
@@ -143,7 +147,10 @@ export function validateRuleSet(value: unknown): string[] {
     }
     if (typeof rule.explanationKey !== "string" || rule.explanationKey === "") errors.push(`${at}: explanationKey is required`);
     const isGrade = rule.result === "grade";
-    if (!isGrade && rule.result !== "recheck") errors.push(`${at}: result must be grade or recheck`);
+    if (!isGrade && rule.result !== "recheck" && rule.result !== "ask") errors.push(`${at}: result must be grade, recheck or ask`);
+    if (rule.recheckTiming !== undefined && rule.recheckTiming !== "standard" && rule.recheckTiming !== "extreme") {
+      errors.push(`${at}: recheckTiming must be standard or extreme`);
+    }
     if (isGrade && !["green", "amber", "red"].includes(rule.grade as string)) errors.push(`${at}: grade must be green, amber or red`);
     if (!Array.isArray(rule.actions)) errors.push(`${at}: actions must be a list`);
     else {
