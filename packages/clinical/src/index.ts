@@ -5,6 +5,8 @@ export { actionToString } from "./actions";
 export { summarise, expectationWithDefaults, type ResultSummary } from "./summary";
 export { TRIAGE_MESSAGE_KEYS, messageKeyFor } from "./messages";
 export type * from "./types";
+export { toCanonicalUnit, fromCanonicalUnit, acceptedUnits, normaliseUnitLabel, LAB_UNIT_CONVERSIONS, type NormalisedLabValue } from "./lab-units";
+export { effectiveRange, type SexRange, type LabSex } from "./lab-release";
 export { classifyLabResult, explanationAllowed, LabEntryError, QUALITATIVE_VALUES, type LabPanelDefinition, type LabAnalyteDefinition, type LabItemInput, type LabClassification, type LabFlag, type LabReleaseState } from "./lab-release";
 export { screenWrittenQuestion, WRITTEN_QUESTION_DANGER_PHRASES, type WrittenQuestionScreen } from "./written-question-screen";
 export { proposeTitration, validateProtocolDefinition, proposalToChangeArgs, ProtocolDefinitionError } from "./titration";

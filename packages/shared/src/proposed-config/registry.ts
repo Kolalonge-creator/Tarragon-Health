@@ -1340,4 +1340,231 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
   },
+  {
+    key: "bp.starting_suggestion_target",
+    // v2 (CMO, 2026-10-07): aligned to NICE NG136 home (HBPM) averages, which is the only band the device can apply
+    // on its own: under 80 years below 135/85; 80 years or more below 145/85. Tighter targets (type 2 diabetes with kidney,
+    // eye or cerebrovascular damage: clinic below 130/80; CKD with ACR 70 mg/mmol or more: home below 125/75, NICE NG203)
+    // depend on facts the phone does not hold, so they are set by the care team as the personal target, never inferred here.
+    value: {
+      systolicBelow: 135,
+      diastolicBelow: 85,
+      ageBands: [{ fromAgeYears: 80, systolicBelow: 145, diastolicBelow: 85 }],
+      careTeamSetTargets: [
+        {
+          when: "type 2 diabetes with kidney, eye or cerebrovascular damage, or chronic kidney disease with ACR 70 mg/mmol or more",
+          clinicBelow: "130/80",
+          homeBelow: "125/75",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "NICE NG136 (home average 135/85; 145/85 from age 80); NICE NG28 and NG203 (130/80 clinic, 125/75 home for ACR 70 or more); docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md",
+  },
+  {
+    key: "lab.panels",
+    // v2 (2026-10-07): one Membership panel, sex-specific haemoglobin, creatinine and HDL ranges, limits re-checked against published
+    // standards (docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md). Mirrors the lab_panel_versions seed in
+    // 20261007121842_s27g_lab_panel_membership_sex_ranges.sql; a test fails if the two drift. Stays `proposed` until the CMO signs
+    // lab_panel_signoffs v2 with sign_lab_panels(); it is the signed sign-off row, not this entry, that releases results.
+    value: {
+      "panels": {
+        "membership_annual": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 45,
+              "criticalHigh": 360
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4,
+              "bySex": {
+                "male": {
+                  "refLow": 0.7,
+                  "refHigh": 1.3
+                },
+                "female": {
+                  "refLow": 0.6,
+                  "refHigh": 1.1
+                }
+              }
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 3,
+              "criticalHigh": 6
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 121,
+              "criticalHigh": 150
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40,
+              "bySex": {
+                "male": {
+                  "refLow": 40
+                },
+                "female": {
+                  "refLow": 50
+                }
+              }
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 40
+            },
+            {
+              "code": "ast",
+              "label": "AST",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 10,
+              "refHigh": 40
+            },
+            {
+              "code": "haemoglobin",
+              "label": "Haemoglobin",
+              "kind": "numeric",
+              "unit": "g/dL",
+              "refLow": 12,
+              "refHigh": 17.5,
+              "criticalLow": 7,
+              "criticalHigh": 20,
+              "bySex": {
+                "male": {
+                  "refLow": 13,
+                  "refHigh": 17.5
+                },
+                "female": {
+                  "refLow": 12,
+                  "refHigh": 15.5
+                }
+              }
+            },
+            {
+              "code": "wbc",
+              "label": "White cell count",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 3,
+              "refHigh": 11,
+              "criticalLow": 1,
+              "criticalHigh": 30
+            },
+            {
+              "code": "platelets",
+              "label": "Platelets",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 150,
+              "refHigh": 450,
+              "criticalLow": 20,
+              "criticalHigh": 1000
+            },
+            {
+              "code": "tsh",
+              "label": "TSH",
+              "kind": "numeric",
+              "unit": "mIU/L",
+              "refLow": 0.4,
+              "refHigh": 4
+            },
+            {
+              "code": "hiv_screen",
+              "label": "HIV screen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true,
+              "optional": true
+            },
+            {
+              "code": "hbsag",
+              "label": "Hepatitis B surface antigen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true,
+              "optional": true
+            },
+            {
+              "code": "hcv_ab",
+              "label": "Hepatitis C antibody",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true,
+              "optional": true
+            }
+          ]
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
+  },
 ];
+

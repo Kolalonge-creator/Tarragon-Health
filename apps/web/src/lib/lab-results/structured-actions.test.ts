@@ -35,7 +35,7 @@ beforeEach(() => {
 describe("submitPartnerResult", () => {
   it("sends only analyte, value and unit, with the file metadata, and no flag", async () => {
     rpc.mockImplementation(async (name: string) => (name === "lab_partner_order_patient" ? { data: "88888888-8888-4888-8888-888888888888", error: null } : { data: {}, error: null }));
-    const r = await submitPartnerResult(undefined, form({ order_id: id, panel: "essential", items, file: pdf() }));
+    const r = await submitPartnerResult(undefined, form({ order_id: id, panel: "membership_annual", items, file: pdf() }));
     expect(r).toEqual({ success: true });
     const call = rpc.mock.calls.find((c) => c[0] === "lab_partner_submit_result");
     expect(call?.[1].p_items).toEqual([{ analyte_code: "creatinine", value_numeric: 1.9, unit: "mg/dL" }]);
@@ -43,25 +43,59 @@ describe("submitPartnerResult", () => {
     expect(JSON.stringify(call?.[1])).not.toContain("flag");
   });
 
+  it("converts a value the lab printed in another known unit before it reaches the database", async () => {
+    rpc.mockImplementation(async () => ({ data: {}, error: null }));
+    const mmol = JSON.stringify([
+      { analyte_code: "fasting_glucose", value_numeric: 5.2, unit: "mmol/L" },
+      { analyte_code: "creatinine", value_numeric: 106, unit: "µmol/L" },
+      { analyte_code: "haemoglobin", value_numeric: 125, unit: "g/L" },
+      { analyte_code: "alt", value_numeric: 24 },
+    ]);
+    const r = await submitPartnerResult(undefined, form({ order_id: id, panel: "membership_annual", items: mmol }));
+    expect(r).toEqual({ success: true });
+    const call = rpc.mock.calls.find((c) => c[0] === "lab_partner_submit_result");
+    expect(call?.[1].p_items).toEqual([
+      { analyte_code: "fasting_glucose", value_numeric: 94, unit: "mg/dL" },
+      { analyte_code: "creatinine", value_numeric: 1.2, unit: "mg/dL" },
+      { analyte_code: "haemoglobin", value_numeric: 12.5, unit: "g/dL" },
+      { analyte_code: "alt", value_numeric: 24, unit: "U/L" },
+    ]);
+  });
+
+  it("refuses a unit nobody knows with a plain message and sends nothing", async () => {
+    rpc.mockResolvedValue({ data: {}, error: null });
+    const bad = JSON.stringify([{ analyte_code: "creatinine", value_numeric: 1, unit: "stones" }]);
+    const r = await submitPartnerResult(undefined, form({ order_id: id, panel: "membership_annual", items: bad }));
+    expect(r?.error).toMatch(/unit/i);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("leaves an analyte it does not know for the database to judge", async () => {
+    rpc.mockImplementation(async () => ({ data: {}, error: null }));
+    const odd = JSON.stringify([{ analyte_code: "made_up", value_numeric: 1, unit: "mg/dL" }]);
+    await submitPartnerResult(undefined, form({ order_id: id, panel: "membership_annual", items: odd }));
+    expect(rpc.mock.calls.find((c) => c[0] === "lab_partner_submit_result")?.[1].p_items).toEqual([{ analyte_code: "made_up", value_numeric: 1, unit: "mg/dL" }]);
+  });
+
   it("removes the stored file when the database refuses the result", async () => {
     rpc.mockImplementation(async (name: string) =>
       name === "lab_partner_order_patient" ? { data: "88888888-8888-4888-8888-888888888888", error: null } : { data: null, error: { message: "lab_unit_mismatch" } },
     );
-    const r = await submitPartnerResult(undefined, form({ order_id: id, panel: "essential", items, file: pdf() }));
+    const r = await submitPartnerResult(undefined, form({ order_id: id, panel: "membership_annual", items, file: pdf() }));
     expect(r?.error).toMatch(/unit/);
     expect(remove).toHaveBeenCalledTimes(1);
   });
 
   it("refuses a file type the bucket does not allow before anything is stored", async () => {
     rpc.mockResolvedValue({ data: "88888888-8888-4888-8888-888888888888", error: null });
-    const r = await submitPartnerResult(undefined, form({ order_id: id, panel: "essential", items, file: new File(["x"], "a.exe", { type: "application/x-msdownload" }) }));
+    const r = await submitPartnerResult(undefined, form({ order_id: id, panel: "membership_annual", items, file: new File(["x"], "a.exe", { type: "application/x-msdownload" }) }));
     expect(r?.error).toMatch(/PDF/);
     expect(upload).not.toHaveBeenCalled();
   });
 
   it("does not store a file for an order that is not the caller's lab", async () => {
     rpc.mockResolvedValue({ data: null, error: null });
-    const r = await submitPartnerResult(undefined, form({ order_id: id, panel: "essential", items, file: pdf() }));
+    const r = await submitPartnerResult(undefined, form({ order_id: id, panel: "membership_annual", items, file: pdf() }));
     expect(r?.error).toMatch(/access/);
     expect(upload).not.toHaveBeenCalled();
   });
@@ -120,7 +154,7 @@ describe("refusals returned by the database (the denied audit row commits)", () 
 describe("openLabResult (the audited read happens on a click)", () => {
   it("returns the parsed result", async () => {
     rpc.mockResolvedValue({
-      data: { lab_result_id: id, patient_id: id, release_state: "awaiting_review", release_reason: "abnormal", panel_code: "essential", received_at: "2026-10-06T10:00:00Z", submitted_by_kind: "partner", file_path: null, items: [] },
+      data: { lab_result_id: id, patient_id: id, release_state: "awaiting_review", release_reason: "abnormal", panel_code: "membership_annual", received_at: "2026-10-06T10:00:00Z", submitted_by_kind: "partner", file_path: null, items: [] },
       error: null,
     });
     const r = await openLabResult(id);
@@ -155,7 +189,7 @@ describe("S27d: disclosure attempts, withdrawal, corrections and the staff path"
     rpc.mockImplementation(async (name: string) =>
       name === "lab_partner_order_patient" ? { data: "88888888-8888-4888-8888-888888888888", error: null } : { data: null, error: { message: "lab_correction_target_invalid" } },
     );
-    const r = await submitPartnerCorrection(undefined, form({ order_id: id, panel: "essential", items, corrects_result_id: id, kind: "corrected", reason: "Keyed wrongly", file: pdf() }));
+    const r = await submitPartnerCorrection(undefined, form({ order_id: id, panel: "membership_annual", items, corrects_result_id: id, kind: "corrected", reason: "Keyed wrongly", file: pdf() }));
     expect(r?.error).toMatch(/cannot be sent/);
     expect(remove).toHaveBeenCalledTimes(1);
     const call = rpc.mock.calls.find((c) => c[0] === "lab_partner_submit_correction");
@@ -163,7 +197,7 @@ describe("S27d: disclosure attempts, withdrawal, corrections and the staff path"
   });
 
   it("refuses a correction without a reason before calling the database", async () => {
-    const r = await submitPartnerCorrection(undefined, form({ order_id: id, panel: "essential", items, corrects_result_id: id, kind: "corrected", reason: "" }));
+    const r = await submitPartnerCorrection(undefined, form({ order_id: id, panel: "membership_annual", items, corrects_result_id: id, kind: "corrected", reason: "" }));
     expect(r?.error).toMatch(/what changed/i);
     expect(rpc).not.toHaveBeenCalled();
   });
@@ -179,7 +213,7 @@ describe("S27d: disclosure attempts, withdrawal, corrections and the staff path"
 });
 
 describe("S27f: the released-results list for withdrawal", () => {
-  const row = { lab_result_id: id, received_at: "2026-10-06T10:00:00Z", released_at: "2026-10-06T11:00:00Z", panel_code: "essential", order_number: "LO-1", submitted_by_kind: "partner", withdrawn: false, replaced: false, abnormal_count: 1, item_count: 10 };
+  const row = { lab_result_id: id, received_at: "2026-10-06T10:00:00Z", released_at: "2026-10-06T11:00:00Z", panel_code: "membership_annual", order_number: "LO-1", submitted_by_kind: "partner", withdrawn: false, replaced: false, abnormal_count: 1, item_count: 10 };
   it("returns the parsed rows for a senior tied clinician", async () => {
     rpc.mockResolvedValue({ data: { results: [row] }, error: null });
     const r = await listReleasedLabResults("99999999-9999-4999-8999-999999999999");
