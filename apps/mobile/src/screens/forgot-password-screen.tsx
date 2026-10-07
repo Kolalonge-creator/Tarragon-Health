@@ -330,7 +330,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
         animationType="fade"
         onRequestClose={() => setCountryPickerOpen(false)}
       >
-        <Pressable accessibilityRole="button" accessibilityLabel="Close"
+        <Pressable accessible={false}
           onPress={() => setCountryPickerOpen(false)}
           style={{ flex: 1, backgroundColor: inkAlpha(0.4), justifyContent: "flex-end" }}
         >

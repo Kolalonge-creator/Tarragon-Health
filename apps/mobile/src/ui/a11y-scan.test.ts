@@ -19,6 +19,19 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+/** Text between an opening tag and its own closing tag, skipping nested tags of the same name. */
+function bodyUntilMatchingClose(text: string, tag: string, from: number): string {
+  const re = new RegExp(`<${tag}\\b[^>]*?(/?)>|</${tag}>`, "g");
+  re.lastIndex = from;
+  let depth = 1;
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    if (m[0].startsWith("</")) depth -= 1;
+    else if (m[1] !== "/") depth += 1;
+    if (depth === 0) return text.slice(from, m.index);
+  }
+  return text.slice(from);
+}
+
 const OPEN = new RegExp(`<(${TAGS.join("|")})\\b((?:[^>{]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*?)(/?)>`, "g");
 
 interface Touchable {
@@ -36,8 +49,7 @@ function touchables(): Touchable[] {
       const start = m.index ?? 0;
       let body = "";
       if (m[3] !== "/") {
-        const close = text.indexOf(`</${m[1]}>`, start + m[0].length);
-        body = close === -1 ? "" : text.slice(start + m[0].length, close);
+        body = bodyUntilMatchingClose(text, m[1], start + m[0].length);
       }
       found.push({ file: relative(SRC, file), line: text.slice(0, start).split("\n").length, attrs: m[2], body });
     }
