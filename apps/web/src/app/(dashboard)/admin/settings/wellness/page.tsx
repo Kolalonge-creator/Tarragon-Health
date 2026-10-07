@@ -18,7 +18,7 @@ export default async function WellnessSettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Wellness rewards"
-        description="The points/badges/challenges engagement layer, free to every patient. Toggle catalogue items live or hidden here, set the points-to-voucher conversion rate, and manage the workout-class partner catalogue. New badges/challenges/classes are authored via seed/migration for now, same as the health education library."
+        description="The points/badges/challenges engagement layer, free to every patient. Toggle catalogue items live or hidden here and manage the workout-class partner catalogue. New badges/challenges/classes are authored via seed/migration for now, same as the health education library."
       />
       <WellnessManager />
     </div>

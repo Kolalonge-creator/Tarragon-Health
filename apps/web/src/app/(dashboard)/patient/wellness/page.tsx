@@ -37,7 +37,7 @@ export default async function WellnessHubPage() {
         backTo={{ href: "/patient", label: "Dashboard" }}
         title="Wellness rewards"
         icon={SEMANTIC_ICON.points}
-        description="Small, everyday habits add up. Earn points for logging, learning, and finishing challenges, collect badges along the way, and redeem points any time for a real Health reward voucher you can put towards your care."
+        description="Small, everyday habits add up. Earn points for logging, learning, and finishing challenges, and collect badges along the way. Points show your progress; they are not money."
       />
 
       <WellnessPointsCard patientId={profile.id} />

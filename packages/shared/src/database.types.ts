@@ -11143,6 +11143,36 @@ export type Database = {
           },
         ]
       }
+      crisis_card_config: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          status: string
+          version: number
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version: number
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version?: number
+        }
+        Relationships: []
+      }
       cv_risk_config: {
         Row: {
           approved_at: string | null
@@ -16591,6 +16621,8 @@ export type Database = {
           min_age: number | null
           min_risk_level: Database["public"]["Enums"]["risk_level"] | null
           next_review_due: string | null
+          review_flag_reason: string | null
+          review_flagged_at: string | null
           reading_level: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at: string | null
           reviewed_at: string | null
@@ -16631,6 +16663,8 @@ export type Database = {
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
           next_review_due?: string | null
+          review_flag_reason?: string | null
+          review_flagged_at?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
           reviewed_at?: string | null
@@ -16671,6 +16705,8 @@ export type Database = {
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
           next_review_due?: string | null
+          review_flag_reason?: string | null
+          review_flagged_at?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
           reviewed_at?: string | null
@@ -23927,6 +23963,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mental_health_follow_up_config: {
+        Row: {
+          config: Json
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          status: string
+          version: number
+        }
+        Insert: {
+          config: Json
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version: number
+        }
+        Update: {
+          config?: Json
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      mental_health_handoffs: {
+        Row: {
+          created_at: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          patient_note: string | null
+          screen_id: string | null
+          state: string
+          summary: Json
+          task_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          patient_note?: string | null
+          screen_id?: string | null
+          state?: string
+          summary?: Json
+          task_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          patient_note?: string | null
+          screen_id?: string | null
+          state?: string
+          summary?: Json
+          task_id?: string | null
+        }
+        Relationships: []
       }
       mental_health_screening_cadences: {
         Row: {
@@ -40864,6 +40975,7 @@ export type Database = {
           patient_id: string
           sleep_quality: number
           stress_score: number
+          tags: string[]
         }
         Insert: {
           activity_level: number
@@ -40877,6 +40989,7 @@ export type Database = {
           patient_id: string
           sleep_quality: number
           stress_score: number
+          tags?: string[]
         }
         Update: {
           activity_level?: number
@@ -40890,6 +41003,7 @@ export type Database = {
           patient_id?: string
           sleep_quality?: number
           stress_score?: number
+          tags?: string[]
         }
         Relationships: [
           {
@@ -41184,17 +41298,14 @@ export type Database = {
       wellness_points_config: {
         Row: {
           id: boolean
-          points_to_kobo_rate: number
           updated_at: string
         }
         Insert: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Update: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Relationships: []
@@ -41254,7 +41365,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          kobo_credited: number
+          kobo_credited: number | null
           organisation_id: string
           patient_id: string
           points_redeemed: number
@@ -41263,7 +41374,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          kobo_credited: number
+          kobo_credited?: number | null
           organisation_id: string
           patient_id: string
           points_redeemed: number
@@ -42221,6 +42332,343 @@ export type Database = {
           patient_id?: string
           pause_alerts?: boolean
           paused_until?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      // S63 (digital therapy programmes): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      therapy_enrolments: {
+        Row: {
+          id: string
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          programme_version: number
+          exclusion_list_version: number
+          state: string
+          stop_reason: string | null
+          baseline_score: number | null
+          current_score: number | null
+          exclusion_result: Json
+          source: string
+          recorded_by: string | null
+          is_test: boolean
+          completed_count: number
+          started_at: string
+          stopped_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          programme_version: number
+          exclusion_list_version: number
+          state: string
+          stop_reason?: string | null
+          baseline_score?: number | null
+          current_score?: number | null
+          exclusion_result?: Json
+          source?: string
+          recorded_by?: string | null
+          is_test?: boolean
+          completed_count?: number
+          started_at?: string
+          stopped_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          programme_id?: string
+          programme_version?: number
+          exclusion_list_version?: number
+          state?: string
+          stop_reason?: string | null
+          baseline_score?: number | null
+          current_score?: number | null
+          exclusion_result?: Json
+          source?: string
+          recorded_by?: string | null
+          is_test?: boolean
+          completed_count?: number
+          started_at?: string
+          stopped_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      therapy_exclusion_list_versions: {
+        Row: {
+          programme_code: string
+          version: number
+          status: string
+          confirmed_by: string | null
+          confirmed_at: string | null
+          created_by: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          programme_code: string
+          version: number
+          status?: string
+          confirmed_by?: string | null
+          confirmed_at?: string | null
+          created_by?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          programme_code?: string
+          version?: number
+          status?: string
+          confirmed_by?: string | null
+          confirmed_at?: string | null
+          created_by?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      therapy_exclusion_rules: {
+        Row: {
+          id: string
+          programme_code: string
+          list_version: number
+          ordinal: number
+          item_code: string
+          question: string
+          kind: string
+          threshold: number | null
+          route: string
+          unverified: boolean
+        }
+        Insert: {
+          id?: string
+          programme_code: string
+          list_version: number
+          ordinal: number
+          item_code: string
+          question: string
+          kind: string
+          threshold?: number | null
+          route: string
+          unverified?: boolean
+        }
+        Update: {
+          id?: string
+          programme_code?: string
+          list_version?: number
+          ordinal?: number
+          item_code?: string
+          question?: string
+          kind?: string
+          threshold?: number | null
+          route?: string
+          unverified?: boolean
+        }
+        Relationships: []
+      }
+      therapy_programme_config: {
+        Row: {
+          version: number
+          config: Json
+          notes: string | null
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          version: number
+          config: Json
+          notes?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          version?: number
+          config?: Json
+          notes?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      therapy_programme_sessions: {
+        Row: {
+          id: string
+          programme_id: string
+          version: number
+          ordinal: number
+          title: string
+          kind: string
+          text_body: string
+          audio_clip_id: string | null
+          duration_seconds: number
+          audio_bytes: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          programme_id: string
+          version: number
+          ordinal: number
+          title: string
+          kind: string
+          text_body: string
+          audio_clip_id?: string | null
+          duration_seconds: number
+          audio_bytes?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          programme_id?: string
+          version?: number
+          ordinal?: number
+          title?: string
+          kind?: string
+          text_body?: string
+          audio_clip_id?: string | null
+          duration_seconds?: number
+          audio_bytes?: number | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      therapy_programme_versions: {
+        Row: {
+          programme_id: string
+          version: number
+          review_state: string
+          approved_by: string | null
+          approved_at: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          programme_id: string
+          version: number
+          review_state?: string
+          approved_by?: string | null
+          approved_at?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          programme_id?: string
+          version?: number
+          review_state?: string
+          approved_by?: string | null
+          approved_at?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      therapy_programmes: {
+        Row: {
+          id: string
+          code: string
+          wave: string
+          title: string
+          summary: string
+          status: string
+          guard_key: string
+          current_version: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          wave: string
+          title: string
+          summary: string
+          status: string
+          guard_key: string
+          current_version?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          wave?: string
+          title?: string
+          summary?: string
+          status?: string
+          guard_key?: string
+          current_version?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      therapy_session_progress: {
+        Row: {
+          id: string
+          organisation_id: string
+          patient_id: string
+          enrolment_id: string
+          ordinal: number
+          started_at: string
+          completed_at: string | null
+          scores: Json | null
+          is_test: boolean
+        }
+        Insert: {
+          id?: string
+          organisation_id: string
+          patient_id: string
+          enrolment_id: string
+          ordinal: number
+          started_at?: string
+          completed_at?: string | null
+          scores?: Json | null
+          is_test?: boolean
+        }
+        Update: {
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          enrolment_id?: string
+          ordinal?: number
+          started_at?: string
+          completed_at?: string | null
+          scores?: Json | null
+          is_test?: boolean
+        }
+        Relationships: []
+      }
+      therapy_share_consents: {
+        Row: {
+          enrolment_id: string
+          organisation_id: string
+          patient_id: string
+          shared: boolean
+          text_version: string
+          granted_at: string | null
+          revoked_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          enrolment_id: string
+          organisation_id: string
+          patient_id: string
+          shared: boolean
+          text_version?: string
+          granted_at?: string | null
+          revoked_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          enrolment_id?: string
+          organisation_id?: string
+          patient_id?: string
+          shared?: boolean
+          text_version?: string
+          granted_at?: string | null
+          revoked_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -47683,9 +48131,32 @@ export type Database = {
         }[]
       }
       approve_therapy_session: {
-        Args: { p_confirm?: boolean; p_session_id: string }
+        Args: { p_confirm?: boolean; p_scheduled_for?: string; p_session_id: string }
         Returns: Database["public"]["Tables"]["therapy_sessions"]["Row"]
       }
+      corporate_wellbeing_cohort: { Args: { p_org: string }; Returns: Json }
+      count_therapy_approvals_waiting: { Args: Record<PropertyKey, never>; Returns: number }
+      get_crisis_card: { Args: Record<PropertyKey, never>; Returns: Json }
+      list_therapy_approvals_audited: { Args: Record<PropertyKey, never>; Returns: Json }
+      read_patient_mental_health_audited: {
+        Args: { p_limit?: number; p_patient: string; p_reason?: string; p_sections?: string[] }
+        Returns: Json
+      }
+      request_mental_health_handoff: { Args: { p_note?: string; p_screen?: string }; Returns: string }
+      // S63 (digital therapy programmes)
+      approve_therapy_programme_version: { Args: { p_note?: string; p_programme_code: string; p_version: number }; Returns: Json }
+      complete_therapy_session: { Args: { p_enrolment: string; p_ordinal: number; p_scores?: Json }; Returns: Json }
+      confirm_therapy_exclusion_list: { Args: { p_programme_code: string; p_version: number }; Returns: Json }
+      enrol_in_therapy_programme: { Args: { p_answers: Json; p_programme_code: string }; Returns: Json }
+      get_therapy_entry_questions: { Args: { p_programme_code: string }; Returns: Json }
+      read_therapy_progress_audited: { Args: { p_patient: string; p_reason?: string }; Returns: Json }
+      resume_therapy_enrolment: { Args: { p_enrolment: string; p_reason: string }; Returns: Json }
+      save_therapy_exclusion_list: { Args: { p_note?: string; p_programme_code: string; p_rules: Json }; Returns: Json }
+      set_therapy_progress_sharing: { Args: { p_enrolment: string; p_share: boolean }; Returns: Json }
+      start_therapy_session: { Args: { p_enrolment: string; p_ordinal: number; p_recheck: Json }; Returns: Json }
+      stop_therapy_enrolment: { Args: { p_enrolment: string }; Returns: Json }
+      therapy_check_entry_screen: { Args: { p_answers: Json; p_programme_code: string }; Returns: Json }
+      therapy_run_progress: { Args: { p_enrolment: string }; Returns: Json }
       count_care_threads_awaiting_reply: {
         Args: Record<PropertyKey, never>
         Returns: number
@@ -48027,6 +48498,7 @@ export type Database = {
         | "messaging"
         | "reproductive_health"
         | "medical_history"
+        | "mental_health"
       care_access_event_kind:
         | "granted"
         | "permission_changed"
@@ -50304,6 +50776,7 @@ export const Constants = {
         "messaging",
         "reproductive_health",
         "medical_history",
+        "mental_health",
       ],
       care_access_event_kind: [
         "granted",

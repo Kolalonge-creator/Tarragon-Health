@@ -1,0 +1,11 @@
+-- S56 step 1 of 4: a care-access category for mental health.
+--
+-- WHY. Care Circle supporters and break-glass readers are scoped by care_access_category. There was no category for mental health, so
+-- the only way to share it was to borrow a neighbouring one (medical_history), which would quietly widen who can see that someone
+-- is seeing a therapist or scored high on a depression screen. A separate value lets the patient grant or withdraw it on its own
+-- (set_care_access_categories, owner-only, logged in care_access_events) and lets break-glass be requested for it deliberately.
+--
+-- CONSENT IS NEVER IMPLIED. The only place that grants every category is a one-off backfill in 20260830103251 that already ran; a
+-- new enum value is granted to nobody. Rows affected: 0. It is its own migration because a new enum value cannot be used in the
+-- transaction that adds it; step 2 uses it.
+alter type public.care_access_category add value if not exists 'mental_health';

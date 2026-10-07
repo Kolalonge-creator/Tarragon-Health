@@ -7,8 +7,9 @@ import type { Tables } from "@tarragon/shared";
  * layer, free to every patient regardless of plan — points reward logging
  * habits and never duplicate the real reward vouchers prevention_reward already
  * pays for screening/vaccination/health-check events (see
- * 20260730120000_wellness_points_and_badges.sql). Redemption converts points
- * into a real reward voucher via the redeem_wellness_points RPC.
+ * 20260730120000_wellness_points_and_badges.sql). Points are NON-MONETARY
+ * (OQ-08, F1): there is no redemption call here, no conversion rate and no
+ * voucher path. A capped checkout discount arrives with S71/S72.
  */
 
 export type WellnessPointsBalance = Tables<"wellness_points_balances">;
@@ -81,25 +82,6 @@ export function useWellnessPointsLedger(patientId: string, limit = 20) {
     },
     enabled: !!patientId,
     refetchInterval: 60_000,
-  });
-}
-
-export function useRedeemWellnessPoints(patientId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (points: number) => {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc("redeem_wellness_points", { p_points: points });
-      if (error) throw error;
-      const result = data as { ok: boolean; error?: string; balance?: number; kobo_credited?: number };
-      if (!result.ok) throw new Error(result.error ?? "Could not redeem points.");
-      return result;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pointsBalanceKey(patientId) });
-      queryClient.invalidateQueries({ queryKey: pointsLedgerKey(patientId) });
-      queryClient.invalidateQueries({ queryKey: ["care-vouchers", patientId] });
-    },
   });
 }
 
@@ -295,7 +277,6 @@ const adminBadgesKey = ["wellness-admin-badges"] as const;
 const adminChallengesKey = ["wellness-admin-challenges"] as const;
 const adminProvidersKey = ["wellness-admin-class-providers"] as const;
 const adminClassesKey = ["wellness-admin-classes"] as const;
-const pointsConfigKey = ["wellness-points-config"] as const;
 
 export function useAdminWellnessBadges() {
   return useQuery({
@@ -429,35 +410,3 @@ export function useSetWellnessClassActive() {
   });
 }
 
-export function useWellnessPointsConfig() {
-  return useQuery({
-    queryKey: pointsConfigKey,
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("wellness_points_config")
-        .select("*")
-        .eq("id", true)
-        .single();
-      if (error) throw error;
-      return data as Tables<"wellness_points_config">;
-    },
-  });
-}
-
-export function useSetWellnessPointsRate() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (rate: number) => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("wellness_points_config")
-        .update({ points_to_kobo_rate: rate })
-        .eq("id", true);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pointsConfigKey });
-    },
-  });
-}

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   useAdminWellnessBadges,
   useSetWellnessBadgeActive,
@@ -10,75 +9,24 @@ import {
   useSetWellnessClassProviderActive,
   useAdminWellnessClasses,
   useSetWellnessClassActive,
-  useWellnessPointsConfig,
-  useSetWellnessPointsRate,
 } from "@/lib/queries/wellness";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 
-/** The DB stores kobo-per-point (points_to_kobo_rate) since every other
- * money figure in this codebase is kobo-denominated, but an admin thinks in
- * naira — so this card converts at the boundary and works entirely in naira
- * for both the displayed current rate and the input, rather than mixing
- * units (a prior version showed the rate in naira but expected kobo back on
- * save, which meant re-typing the displayed number silently zeroed it out). */
+/** F1 / OQ-08: points are non-monetary. There is no conversion rate to edit; this card says so,
+ * so an admin looking for the old control is not left guessing. The capped checkout discount
+ * (S71/S72) will read its cap from PROPOSED config, not from this screen. */
 function PointsConfigCard() {
-  const { data: config } = useWellnessPointsConfig();
-  const setRate = useSetWellnessPointsRate();
-  const [nairaInput, setNairaInput] = useState<string>("");
-  const [message, setMessage] = useState<string | null>(null);
-
-  const currentNaira = config ? config.points_to_kobo_rate / 100 : null;
-  const exampleValue = config ? Math.round(config.points_to_kobo_rate * 100) / 100 : null; // 100 pts in naira
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Points-to-voucher conversion rate</CardTitle>
+        <CardTitle>Points are not money</CardTitle>
         <CardDescription>
-          What one wellness point is worth when a patient redeems it for a reward voucher.
-          Current rate: {currentNaira !== null ? `₦${currentNaira} per point` : "…"}
-          {exampleValue !== null ? `; 100 points = ₦${exampleValue}.` : ""}
+          Wellness points do not convert to naira or to a voucher, and there is no rate to set.
+          Redemption stays switched off until a capped checkout discount is built and the founder sets its cap.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex items-end gap-2">
-        <div className="grid gap-1">
-          <label htmlFor="points-rate-naira" className="text-xs font-medium text-charcoal-ink/70">
-            Naira per point
-          </label>
-          <Input
-            id="points-rate-naira"
-            type="number"
-            min={0}
-            step="0.01"
-            placeholder={currentNaira !== null ? String(currentNaira) : ""}
-            value={nairaInput}
-            onChange={(e) => setNairaInput(e.target.value)}
-            className="h-9 w-40"
-          />
-        </div>
-        <Button
-          size="sm"
-          disabled={setRate.isPending || nairaInput === ""}
-          onClick={() => {
-            const naira = Number(nairaInput);
-            if (!Number.isFinite(naira) || naira < 0) return;
-            const kobo = Math.round(naira * 100);
-            setRate.mutate(kobo, {
-              onSuccess: () => {
-                setMessage(`Saved. 1 point is now worth ₦${naira}.`);
-                setNairaInput("");
-              },
-              onError: () => setMessage("Could not save. Please try again."),
-            });
-          }}
-        >
-          {setRate.isPending ? "Saving…" : "Save"}
-        </Button>
-        {message && <span className="text-sm text-charcoal-ink/70">{message}</span>}
-      </CardContent>
     </Card>
   );
 }

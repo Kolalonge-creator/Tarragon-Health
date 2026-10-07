@@ -14126,6 +14126,8 @@ export type Database = {
           min_age: number | null
           min_risk_level: Database["public"]["Enums"]["risk_level"] | null
           next_review_due: string | null
+          review_flag_reason: string | null
+          review_flagged_at: string | null
           reading_level: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at: string | null
           reviewed_at: string | null
@@ -14166,6 +14168,8 @@ export type Database = {
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
           next_review_due?: string | null
+          review_flag_reason?: string | null
+          review_flagged_at?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
           reviewed_at?: string | null
@@ -14206,6 +14210,8 @@ export type Database = {
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
           next_review_due?: string | null
+          review_flag_reason?: string | null
+          review_flagged_at?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
           reviewed_at?: string | null
@@ -37115,17 +37121,14 @@ export type Database = {
       wellness_points_config: {
         Row: {
           id: boolean
-          points_to_kobo_rate: number
           updated_at: string
         }
         Insert: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Update: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Relationships: []
@@ -37185,7 +37188,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          kobo_credited: number
+          kobo_credited: number | null
           organisation_id: string
           patient_id: string
           points_redeemed: number
@@ -37194,7 +37197,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          kobo_credited: number
+          kobo_credited?: number | null
           organisation_id: string
           patient_id: string
           points_redeemed: number

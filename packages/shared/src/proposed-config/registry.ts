@@ -14,6 +14,8 @@
  * thresholds 6.2, task due windows 7.3, lead windows and claim timeouts 7.4)
  * are deliberately absent: the sessions that build them add them here.
  */
+import { THERAPY_EXCLUSION_LISTS, THERAPY_PROGRAMME_CONFIG } from "./therapy-config-data";
+
 export type ConfigOwner = "CMO" | "Founder" | "Founder and counsel";
 export type ConfigStatus = "proposed" | "confirmed";
 
@@ -1314,6 +1316,61 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
   },
+  // S56: mental wellbeing. DRAFT, unsigned: the CMO confirms or replaces both entries by publishing a higher version.
+  {
+    key: "mental_health.follow_up_rules",
+    // Task due times (minutes) for the follow-up after a moderate or high PHQ-9, GAD-7 or EPDS result. Live values are the active row
+    // of `mental_health_follow_up_config`; a test fails if the migration seed and this value drift. The pathway is behind the CMO
+    // switched guard mental_health_follow_up_enabled (off). The build proposed these numbers; they are not a clinical decision.
+    value: {
+      phq9: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+      gad7: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+      epds: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S56.md; spec 10.2",
+  },
+  {
+    key: "crisis.card",
+    // The crisis card (function 10.3). Live values are the active row of `crisis_card_config`; a test fails on drift.
+    // emergency_number: the national emergency line (the card always also says go to the nearest hospital now). No helplines: the founder
+    // decided 2026-10-07 that none are usable in Nigeria. callback_sla_minutes: the staffed callback time after a crisis flag; it is
+    // shown to a patient only once this row is confirmed, never while it is a draft.
+    value: { emergency_number: "112", callback_sla_minutes: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S56.md; spec 10.3",
+  },
+  // S63: digital therapy programmes. DRAFT, unsigned: the CMO confirms or replaces both entries by publishing a higher version.
+  {
+    key: "therapy.exclusion_lists",
+    // Per programme: the entry questions and red flags that stop it (14.9). Live values are the rows of `therapy_exclusion_rules`
+    // at list version 1; a test fails if the migration seed and this value drift. Items with unverified: true are local Nigerian
+    // additions that stay draft until the CMO confirms them (Q16). An empty list (pulmonary_rehab) fails closed. The build never signs a list.
+    value: THERAPY_EXCLUSION_LISTS as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q13 to Q16; NICE NG123 and CG61 style exclusions",
+  },
+  {
+    key: "therapy.programme_config",
+    // Task due windows, outcome instruments, checkpoint sessions, worsening thresholds and the CBT-I and pelvic floor settings.
+    // Live values are the active row of `therapy_programme_config`; a test fails on drift. phq9 and gad7 worsening values and the CBT-I
+    // floor are CMO decisions (Q14, Q15); every other number was chosen by the build so the engine can run and is for the CMO to replace.
+    value: THERAPY_PROGRAMME_CONFIG as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
+  },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {
     key: "entitlements.expiry_reminder_days",
@@ -1475,6 +1532,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
+  },
+  {
+    key: "rewards.points_redemption_cap_kobo",
+    // F1 (OQ-08, founder decision 2026-09-30): wellness points are non-monetary and never convert to money or a
+    // voucher. The only future use of a point is a capped discount at checkout (S71/S72). This is the largest
+    // discount, in integer kobo, that one redemption may take off a single order. 0 means redemption is switched
+    // off, which is the state until the founder sets a cap and S71/S72 build the checkout path. Nothing may read
+    // this as a points-to-kobo rate.
+    value: 0,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/OPEN-QUESTIONS.md OQ-08 and OQ-F1-01; docs/design/S55-S60-build-plan.md section 4.3",
   },
   {
     key: "breathing.bre01",

@@ -17,7 +17,8 @@ export type CareAccessCategory =
   | "vaccinations"
   | "messaging"
   | "reproductive_health"
-  | "medical_history";
+  | "medical_history"
+  | "mental_health";
 
 /** Display order and copy for every category checkbox. */
 export const CARE_ACCESS_CATEGORIES: { value: CareAccessCategory; label: string }[] = [

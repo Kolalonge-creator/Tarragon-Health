@@ -59,6 +59,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) keep points non-monetary, remove the kobo conversion; (b) keep conversion; (c) remove points.
 - Recommend (a). Keeps engagement, removes the stored-value path.
 - Decision (founder, 2026-09-30): Keep points as non-monetary; remove the kobo conversion.
+- **Built by F1 (2026-10-07), not yet applied to production:** `redeem_wellness_points` now writes nothing and returns a calm refusal; `points_to_kobo_rate` is dropped; `wellness_points_redemptions` refuses any new row (history columns stay, nullable). Chosen option: a calm disabled state (no discount-code path) until S71/S72 build checkout discounts; the cap is PROPOSED config `rewards.points_redemption_cap_kobo` (0 = off). Live redemption and `Wellness reward` voucher counts were not verified from the repo (OQ-08 says 2 balance rows live); the dry run records them. See OQ-F1-01.
 
 ### OQ-09 Test-account flag (INV-13)
 - Blocks: S02, S37, S38. No `is_test` column exists on any public table; 45 test accounts were hard-deleted 2026-09-30.
@@ -1710,6 +1711,77 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Pidgin audio recordings or text-to-speech voices held outside this repository (a TTS account, a drive) are not touched by code and need deleting by hand.
 - Decision: open (CMO for the version; founder for outside assets).
 
+### F1: fix-first set (2026-10-07), on `s55-60/f1-fix-first`
+Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of S55 to S60. Nothing is applied to production; see the apply checklist in `docs/BUILD-PROGRESS.md` entry F1.
+
+### OQ-F1-01 Points redemption is switched off until checkout discounts exist (OQ-08)
+- Blocks: nothing urgent. Points keep accruing; they cannot be spent, converted or turned into a voucher.
+- Options: (a) calm disabled state (built); (b) a Tarragon-funded discount-code path now, capped from config; (c) wait for S71/S72 checkout discounts.
+- Recommend (a) now, (c) next. The founder still needs to set the cap (`rewards.points_redemption_cap_kobo`, integer kobo, currently 0), who funds the discount, and whether a cap is a share of the item price or a fixed amount (S58 asks the same).
+- `private.issue_reward_voucher` is NOT removed: referral, prevention and promo-code rewards still use it. Whether those are also stored value under INV-09 is a separate question for OQ-07.
+- Decision: open.
+
+### OQ-F1-02 The signed escalation SLA (v7) has no `symptom_triage` pathway; the symptom checker cannot be switched on
+- Blocks: switching on `symptom_checker_enabled`, and therefore all of Module 12 (S59, S60).
+- Why: `private.handle_symptom_triage_assessment()` calls `private.escalation_sla_minutes('symptom_triage', ...)`, which raises "No active escalation SLA configured", so an urgent or review-required assessment cannot be recorded against v7. v6 once carried the pathway as a draft, but v7 (the 12-hour screening change) was signed without it.
+- Built: the guard `symptom_checker_enabled` (seeded OFF, CMO switches it) with six conditions, two of them read from the data: a signed triage protocol, and the ACTIVE SLA carrying `symptom_triage` for both `urgent_escalation` and `clinician_review`. So the guard cannot be switched on until a signed SLA includes it. A DRAFT version (highest version plus one, unsigned, inactive) carries the pathway with proposed 60 minutes and 24 hours (values carried from draft v6, channels push then email now that WhatsApp is gone).
+- Needed from the founder or CMO: read the draft, confirm or change the two minutes, and sign it. Signing replaces the whole active config, so the signer also signs whatever the previous draft carried (for example `pulse_vitals_red_flag`). Also the four attestations: a NAFDAC and counsel position, an engine licence or internal validation, localisation sign-off, an accuracy baseline.
+- No agent signed or activated any SLA version.
+- Decision: open.
+
+### OQ-F1-03 Crisis flag reaches the queue and the on-call clinician, but not an S19 page row
+- Blocks: nothing. The emergency event and its older alert ladder were already live; F1 adds a class 1 task, an urgent `crisis.detected` event and a neutral notice.
+- Gap: `pages` rows are keyed to a graded triage event (a rule set), and the crisis route is deterministic with no approved rule set, so no page row, no 5 and 10 minute escalation ladder and no page acknowledgement exist for a crisis. The notice is the existing neutral `on_call_page` text and links to the On call page (which lists pages, not tasks), and the task uses the existing `red_event_unacknowledged` type (name is about page acknowledgement, not crisis).
+- Options: (a) as built; (b) a dedicated task type `crisis_follow_up` (CMO confirms it, like `adherence_follow_up`) and a dedicated notice that links to the queue; (c) let `pages` be created from a task or a crisis event (changes S19 and needs its proof re-run).
+- Recommend (b) then (c) with the S56 crisis card work.
+- Also open (already in the plan): the staffed callback time for a crisis flag. (The helpline list question is closed: founder decision 2026-10-07, no helplines are shown; see OQ-S56-03.)
+- Decision: open.
+
+### OQ-F1-04 Learning content past its review date is hidden; a protocol bump flags for review but never takes content offline
+- Decision (founder, 2026-10-07, recorded in the F1 review): no silent outage. A protocol version bump must NOT mass-hide published education. It flags the matching items `review_due` with a stamped reason (`review_flagged_at`, `review_flag_reason`), the admin library shows a visible notice listing every flagged item that is still live, and each item keeps being served until its OWN review date.
+- Built: one rule. An item is expired only when `next_review_due` (Lagos day) is today or earlier (a `review_due` status alone is a flag, not expiry); `next_review_due` is the authoritative column and `review_due_at` a deprecated mirror. Expired items are hidden at read time (table RLS and every patient and coach reader), flagged by the daily job, and cannot be republished until a future review date is set. The flag clears when an item leaves `review_due`.
+- Why this and not a mass hide: a protocol bump is a governance event about the protocol, not evidence that every article on the condition is now wrong; taking a whole condition's library offline overnight would be a silent clinical-service outage with nobody told. The cost is that flagged content stays visible while its re-review is pending; the notice and the review date bound that.
+- Open: the seeded library (235 published items locally) carries no review dates, so none of it ever expires today and a bump-flagged undated item is live until a clinician acts. The CMO or content owner needs to set a review date on each item. Whether a bump should also shorten an item's review date (for example to 30 days out) is a CMO call and is NOT done here.
+- Decision: built as above; the date policy is open (CMO).
+
+### F1 review notes (code-review high, 2026-10-07)
+- Fixed after review: crisis failure incidents are per screen (`crisis_follow_up_failed:<screen id>`); a replay after a partial failure does not notify twice (`crisis.notified` marker); orphaned education recommendations (content hidden by expiry) are dropped on web and mobile; the closed symptom checker card no longer prints an emergency number (numbers are an unconfirmed localisation fact); a database refusal (42501) on the symptom checker insert returns the calm unavailable state.
+- Review round 2 (2026-10-07): the protocol-bump behaviour was changed from hidden-until-re-approved to flagged, visible notice, served until its own date (OQ-F1-04); the crisis `crisis.notified` marker no longer depends on the event or task step, so a replay after a partial failure never pages the same person twice; a five-minute retry sweep (`retry-crisis-follow-ups`) completes a failed crisis follow-up by itself (at most five errors per screen); trigger functions and the flag job had their PUBLIC execute revoked.
+- Accepted, recorded: the guard check on the web action answers for the signed-in person while the table checks the person acted for (only differs for a test account acting for a real dependant; the table is the gate). The AI coach medicine tool relies on RLS for expiry (patient sessions are covered; an admin session sees everything by design). The draft SLA's version is computed at apply time (highest plus one): re-check `max(version)` at apply. See OQ-F1-02, OQ-F1-03, OQ-F1-04.
+
+
+### OQ-S56-01 Mental-health data is now per-patient: decisions and gaps for the founder and CMO (S56, 2026-10-07)
+- Built (migrations 20261007150213 to 20261007152231, not applied to production): five tables (`mental_health_screens`, `mental_health_screening_schedules`, `wellbeing_checkins`, `wellbeing_checkin_preferences`, `therapy_sessions`) readable only by the patient and a Care Circle supporter holding the explicit `mental_health` category; staff read through `read_patient_mental_health_audited` (tie or break-glass, audited, refusals audited). Closes the INV-12 and INV-10 exposure for mental health (OQ-02 option b, mental health first). The other ~100 tables are unchanged.
+- Decision needed (founder): break-glass grants are NOT category scoped. `private.has_emergency_access` ignores the category for everything except `reproductive_health`, so any active break-glass grant opens mental health. Options: (a) accept, since break-glass already needs a reason and alerts the CMO; (b) add `mental_health` to the categories break-glass never reaches, like reproductive health; (c) a per-category grant. Recommendation: (a) for now, because a person in a mental-health emergency is the case break-glass exists for.
+- Decision needed (founder): support-view (admin view-as) deliberately does NOT open mental health. Confirm that an admin investigating a support case should not see mood or screen data without a tie or break-glass.
+- Not moved, recorded: `obesity_ed_screens` (eating-disorder screens), `postnatal_checkins`, `sexual_health_screens`, alcohol tables, `safeguarding_concerns` still use org-wide staff reads. Mental-health-adjacent; each needs its own readers inventoried before it moves.
+- Partly closed in the S56 review pass: `handle_emergency_event` still pages EVERY clinician in the organisation (the whole emergency ladder is out of scope), but for the two mental-health sources (`mental_health_screen`, `intake_screen`) the notification payload now carries the neutral label `a check-in` and the patient name `A patient` instead of the raw source name and the patient's name (INV-07, INV-12). Proven in `s56_mental_health_access.sql` with a control (a blood pressure emergency keeps its label) and a sabotage. Still open: the org-wide paging itself. The F1 path (class 1 task, on-call page) is the targeted route; narrowing the older broadcast to the on-call clinician needs a decision on who must still be paged when nobody is on call.
+- Existing rows: `private.s56_neutralise_mental_health_text()` now rewrites old alert rows, old hazardous-alcohol alerts (which named AUDIT-C and the score) and old `emergency_events.trigger_detail` text for the two mental-health sources. The dry run records the counts.
+- Decision: open.
+
+### OQ-S56-02 Approving a psychiatry booking could not confirm it (CLOSED in the S56 review pass)
+- `approve_therapy_session` set `status = confirmed` but not `scheduled_for`, so the table constraint `therapy_confirmed_needs_a_time` refused every confirm. Fixed: the function now takes the approving doctor's proposed time (`p_scheduled_for`, required to confirm and must be in the future), the queue has a time field, and a decided request cannot be decided twice. A refusal for lack of authority now returns an empty row instead of raising, so the refusal's audit row is kept.
+- Still a product question (founder, clinical operations): the doctor proposes the time with no view of the practitioner's availability; the patient is not asked to accept it. Confirm that is the intended flow.
+- Decision: open (the flow), closed (the defect).
+
+### OQ-S56-03 Crisis card content and sign-offs the build cannot make
+- FOUNDER DECISION 2026-10-07: there are no usable crisis helplines in Nigeria. The crisis card shows NO helpline number. It says go to the nearest hospital now and shows the national emergency number 112. The `crisis_helplines` table, the verify and unverify functions and the admin page `/admin/settings/crisis-helplines` were removed (the S56 migrations were never applied, so the migration was edited in place). Helplines can be added later: add a table with a verified-only gate (a number is never shown unless a human has verified it and the verification is recent) and a card section; `CrisisCardData.helplines` is kept in the type, always empty, so older callers still compile.
+- The card shows the national emergency number 112 with "go to the nearest hospital" beside it. Older copy (`emergency-alert.tsx`, `emergency-guidance-modal.tsx`) says Nigeria has no single reliable emergency number, so those screens quote none. The CMO must confirm one wording for both (the 112 line is flagged for CMO approval).
+- `crisis_card_config` v1 is a DRAFT (PROPOSED, owner CMO): emergency number 112, staffed callback 30 minutes. The callback time is not shown to a patient until the row is confirmed. Nobody has confirmed that anyone is staffed to call back within it. The card says "your care team has been told" only when an emergency event for the crisis exists.
+- The marketing notice `mental-health-support-notice.tsx` no longer hard-codes a helpline number: it reads the same `crisis.*` copy and bundled emergency number as the card.
+- Decision: open (CMO, ops).
+
+### OQ-S56-04 Follow-up pathway is a DRAFT behind a guard that is off
+- `mental_health_follow_up_config` v1 (task due times 3 days for moderate, 1 day for high, for PHQ-9, GAD-7, EPDS) is the build's proposal, not a clinical decision. Guard `mental_health_follow_up_enabled` (switch role: CMO) is seeded OFF with two attestations (timings confirmed, cover confirmed); a test account always gets the task so the pathway can be exercised. A crisis is never behind it. The older clinician alert for moderate and high results is unchanged.
+- Decision: open (CMO signs the timings and attests both conditions).
+
+### OQ-S56-05 Smaller reconciliations
+- The brief asked for i18n in en and pcm. D-14 (2026-10-06) made the product English only and `pcm.ts` does not exist on this base, so the `mood` and `crisis` namespaces are English only.
+- Care Circle (S29, `care_circle_members`) is not on this branch. The consent hook is `private.supporter_has_mental_health_consent(patient, user)` over `profile_access_categories`; S29's supporter views must call it before showing anything from the five tables.
+- The patient proxy-confirmation card lists every `care_access_category` as an unticked box, so `mental_health` now appears there too (nothing is ticked by default). Confirm the label.
+- Clinician reads of the chart go through the audited function; the clinician `/clinician/tasks/[taskId]` page does not yet render the hand-off summary (the chart's wellbeing card does).
+- A clinician who is only a care coordinator (`doctor_tier = care_coordinator`) is refused mental-health reads even with a tie. Coordinators handle logistics; confirm.
+- Decision: open.
 ### OQ-272 Emergency location versus "routes are never shared" (raised 2026-10-07, S48)
 - Spec 5.7 and the Module 5 acceptance test say routes are never shared; Part C bans public maps. The founder wants the patient to be locatable in an emergency, which is the opposite use of location data.
 - Options: (a) route recording stays private and a separate consented emergency-location feature is built (recommended, decision S48-1); (b) one recorder with a sharing switch (rejected: breaks the acceptance test); (c) no emergency location.
@@ -1768,3 +1840,28 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Fixed in S11g and S11h: (a) the older server alert path now follows the 200/130 decision once the rule set is APPROVED: the old emergency range with no red-flag symptom (and not in pregnancy or after a birth) raises the Priority 1 alert but no patient emergency record; a symptom keeps it an emergency, and a symptom answered after the reading opens the emergency record then (migration `20261006000812`, proof `s11g`, a no-op until approval). The 160/100 and 135/85 bands are unchanged, so a 165/105 reading still pages Priority 1 for a reading the engine would treat as amber: that is the S12 band alignment of OQ-67 and needs the CMO. (f) Tapping the reminder or the server push now opens the blood pressure screen, from closed or running, once per tap (`notification-tap.ts`). (d) The Pidgin for the question's buttons and the reminder is drafted in the catalogue; the emergency guidance, triage messages and symptom names stay in English until a native reviewer and the CMO sign them; the full list is `docs/PIDGIN-REVIEW-S11.md`.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
+
+### OQ-S63-1 Table names and the existing `therapy_sessions` (raised by S63)
+- The spec's `programmes`/`programme_enrolments` collide with 13 tables, and `therapy_sessions` is already the S56 therapist booking table. S63 uses `therapy_programmes`, `therapy_programme_sessions`, `therapy_enrolments`. Confirm the naming. Decision: open.
+
+### OQ-S63-2 CMO must read, change or reject every S63 draft (raised by S63)
+- Wave A session text, the 12 exclusion lists (local items flagged unverified: continuous leakage, over-50 onset and night symptoms for IBS, pregnancy and alcohol or sedative dependence for CBT-I, TB, sickle cell bone pain and HIV for pain), the `therapy_programme_config` numbers (only PHQ-9 and GAD-7 worsening and the CBT-I floor are CMO values; due windows, pelvic floor dose, other thresholds and checkpoints were chosen by the build). The plan also listed prolapse symptoms and infection for pelvic floor; not added. Decision: open.
+
+### OQ-S63-3 Red-flag codes are not shown to the tied clinician without consent (raised by S63)
+- A same-day task says only that a programme was stopped. The clinician sees which red flag fired only if the patient shares progress. Confirm, or allow the codes in the task for safety. Decision: open.
+
+### OQ-S63-4 S56 crisis card shows 112; S63 shows no number (raised by S63)
+- CMO decision is no phone number anywhere. The S56 `CrisisCard` still shows the emergency number. Decide whether to align. Decision: open.
+
+### OQ-S63-5 Share-consent wording, and who resumes a paused programme (raised by S63)
+- Consent text version is `draft-1`, unreviewed. A tied non-coordinator clinician may resume a worsening-paused programme; confirm the tier. Decision: open.
+
+### OQ-S63-6 Audio and manifest (raised by S63)
+- Clips `THP-PAN01..` are named but not in `audio/manifest.json`: add via `source/extra-clips.json` and the importer when recordings are commissioned. Group THP needs a title and review entry. Decision: open.
+
+### OQ-S63-7 Mood crisis path reuses F1 task type, not `raise_crisis_follow_up` (raised by S63)
+- That function is keyed on a questionnaire row. The programme crisis route uses the same task type, page and notices keyed on the enrolment. Wave C remains a scaffold until S56 merges and the path is tested. Decision: open.
+
+### OQ-S63-8 `/code-review high` findings fixed, and what is still open (raised by S63)
+- Fixed in the branch before the PR: the live screen uses the highest CONFIRMED list (a newer draft never replaces it); a resumed programme is assessed only on scores recorded after the resume; a failed inline check on the last session leaves the programme open for the bus handler; a missing active config fails closed; an entry-screen stop cannot be undone by answering again (72 hour PROPOSED cooldown); the crisis page is sent once per patient per hour and a failed crisis task now reaches the patient screen; permanent database rejections are shown, only transport faults are queued; the offline queue is scoped to the signed-in person; an offline copy of a session is read-only; offline stops no longer claim the care team was told; task dedup keys are opaque; audit rows point at the profile.
+- Still open: no staff screen yet for `resume_therapy_enrolment` or the consent-gated `read_therapy_progress_audited` (RPCs only); a patient stop button exists on the player; sign-out does not clear the device cache; the go-live condition patches still use text replacement of function bodies (as S56 does); red-flag stops on scaffold programmes still raise a same-day task and page (a patient who reports a red flag gets a clinician even though the programme is not open); `guidanceKeyForRoute` and `assessWorsening` in `packages/shared` are mirrors used by tests only; the guard-open check is one call per programme. Decision: open.
