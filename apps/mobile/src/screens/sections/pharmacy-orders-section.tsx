@@ -32,9 +32,6 @@ const STATUS_TONE: Record<PharmacyOrderStatus, "green" | "amber" | "grey" | "red
   confirmed: "grey",
   unavailable: "amber",
   dispensed: "grey",
-  out_for_delivery: "grey",
-  delivery_failed: "red",
-  delivered: "green",
   cancelled: "grey",
 };
 
@@ -99,7 +96,7 @@ function PharmacyOrderCard({ order, onChanged }: { order: PharmacyOrderListItem;
  * See lib/prescription-renewal.ts's module comment for why order CREATION
  * isn't ported here (no live pharmacy to choose from yet).
  *
- * Delivery-address collection, dispense logging, and the courier timeline
+ * Dispense logging and the collection timeline
  * stay web-only for this pass — this screen's job is "see your orders, pay
  * the ones that need it," matching the gap medicine-cabinet-screen.tsx's
  * header comment used to flag.

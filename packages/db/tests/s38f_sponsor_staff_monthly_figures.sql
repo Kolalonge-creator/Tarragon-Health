@@ -38,7 +38,7 @@ declare
   v_org uuid := (select id from public.organisations order by created_at limit 1);
   v_sp uuid; v_sp2 uuid; v_clinic uuid; adm uuid; clin uuid; pat uuid; st uuid; st2 uuid; st_wrong uuid; st_off uuid;
   v_cohort uuid; v_cohort2 uuid; v_code text; v_r jsonb; v_r2 jsonb; v_n integer; v_txt text; p uuid; pts uuid[] := '{}'; i integer;
-  v_pay1 jsonb; v_pay2 jsonb; v_next2 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '2 months')::date; v_next3 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '3 months')::date; v_h boolean; v_next4 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '4 months')::date; v_next5 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '5 months')::date; v_cc text; v_today date := (now() at time zone 'Africa/Lagos')::date; v_next date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '1 month')::date;
+  v_pay1 jsonb; v_pay2 jsonb; v_next2 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '2 months')::date; v_next3 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '3 months')::date; v_h boolean; v_pushn integer; v_cnt0 integer; v_next4 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '4 months')::date; v_next5 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '5 months')::date; v_cc text; v_next6 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '6 months')::date; v_today date := (now() at time zone 'Africa/Lagos')::date; v_next date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '1 month')::date;
   v_cur date := date_trunc('month', now() at time zone 'Africa/Lagos')::date; v_grace integer := (private.report_rule('grace_days') #>> '{}')::integer;
 begin
   update public.outcome_config set config = jsonb_set(config, '{min_cell}', '1') where is_active;
@@ -89,6 +89,8 @@ begin
   insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses, created_at)
     values (v_org, v_sp, 'Late one', 'LLLLLLL2', v_cur - 90, v_cur + 400, 50, (v_next + 1)::timestamp at time zone 'Africa/Lagos');
   insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses, created_at)
+    values (v_org, v_sp, 'Second one', 'SSSSSSS2', v_cur - 90, v_cur + 400, 50, v_cur - 10);   -- a second live programme of the same sponsor
+  insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses, created_at)
     values (v_org, v_sp, 'Ended one', 'EEEEEEE2', v_cur - 400, v_cur - 5, 50, v_cur - 300);
 
   -- =============================== 2. the monthly job ===============================
@@ -106,8 +108,24 @@ begin
   insert into s38f_results values ('2d it is for the month that closed', v_txt, 'true', case when v_txt = 'true' then 'PASS' else 'FAIL' end);
   select count(*) into v_n from public.sponsor_report_snapshots s join public.sponsor_cohorts c on c.id = s.cohort_id where c.name in ('Late one', 'Ended one');
   insert into s38f_results values ('2c2 no figure for a programme made after the month closed or one that ended before it', v_n::text, '0', case when v_n = 0 then 'PASS' else 'FAIL' end);
+  update public.sponsor_cohorts set valid_to = v_cur where name in ('Late one', 'Second one');   -- ends them, so later months below involve only the programme under test
   v_n := private.generate_sponsor_snapshots((v_next + v_grace + 20)::timestamp at time zone 'Africa/Lagos' + interval '12 hours');
   insert into s38f_results values ('2c3 nothing is written long after the month closed (the data no longer describes it)', v_n::text, '0', case when v_n = 0 then 'PASS' else 'FAIL' end);
+  -- S38g: the notice to the sponsor's own staff when a figure is published
+  select count(*) into v_n from public.notifications where template = 'sponsor_figures_ready' and channel = 'email' and recipient_id = st and source_id = (select id from public.sponsor_report_snapshots where cohort_id = v_cohort and period = v_cur);
+  select count(*) filter (where payload ->> 'to_email' = (select email from auth.users where id = st)) into v_pushn from public.notifications where template = 'sponsor_figures_ready' and channel = 'email' and recipient_id = st;
+  insert into s38f_results values ('2h staff get one email, addressed to their own login, when the figure is published', v_n || '/' || v_pushn, '1/1', case when v_n = 1 and v_pushn = 1 then 'PASS' else 'FAIL' end);
+  select count(*) into v_n from public.notifications where template = 'sponsor_figures_ready' and channel = 'push' and recipient_id = st;
+  select count(*) into v_n from public.notifications where template = 'sponsor_figures_ready' and channel = 'email' and recipient_id = st;
+  select count(*) into v_pushn from public.sponsor_report_snapshots s join public.sponsor_cohorts c on c.id = s.cohort_id where c.name = 'Second one' and s.period = v_cur;
+  insert into s38f_results values ('2h2 one notice per person per month: a second programme publishing the same month adds none', v_n || ' email, second programme figure written: ' || v_pushn, '1 email, second programme figure written: 1',
+    case when v_n = 1 and v_pushn = 1 then 'PASS' else 'FAIL' end);
+  insert into s38f_results values ('2i and a push for the phone app', v_n::text, '1', case when v_n = 1 then 'PASS' else 'FAIL' end);
+  select count(*) into v_n from public.notifications where template = 'sponsor_figures_ready' and recipient_id in (st_off, st_wrong, st2, clin, pat, adm);
+  insert into s38f_results values ('2j nobody else is told (inactive, wrong kind of organisation, another sponsor, clinician, patient, admin)', v_n::text, '0', case when v_n = 0 then 'PASS' else 'FAIL' end);
+  select (payload = jsonb_build_object('to_email', (select email from auth.users where id = st), 'period', v_cur) and content_class = 'non_clinical' and status = 'pending')::text into v_txt
+    from public.notifications where template = 'sponsor_figures_ready' and channel = 'email' and recipient_id = st;
+  insert into s38f_results values ('2k the row carries only the destination address and the figure month, is non-clinical and pending', v_txt, 'true', case when v_txt = 'true' then 'PASS' else 'FAIL' end);
   insert into s38f_results values ('2e the table is not readable by a user',
     (has_table_privilege('authenticated', 'public.sponsor_report_snapshots', 'SELECT') or has_table_privilege('anon', 'public.sponsor_report_snapshots', 'SELECT'))::text, 'false',
     case when not (has_table_privilege('authenticated', 'public.sponsor_report_snapshots', 'SELECT') or has_table_privilege('anon', 'public.sponsor_report_snapshots', 'SELECT')) then 'PASS' else 'FAIL' end);
@@ -164,6 +182,8 @@ begin
   -- one member left (pts[1], above): the next month's figure would differ by one person from the last published one, so it is held back whole
   v_n := private.generate_sponsor_snapshots((v_next2 + v_grace)::timestamp at time zone 'Africa/Lagos' + interval '12 hours');
   select held_back into v_h from public.sponsor_report_snapshots where cohort_id = v_cohort and period = v_next;
+  select count(*) into v_n from public.notifications x join public.sponsor_report_snapshots sn on sn.id = x.source_id where x.template = 'sponsor_figures_ready' and x.channel = 'email' and x.recipient_id = st and sn.cohort_id = v_cohort;
+  insert into s38f_results values ('4c0 a held-back month sends no notice (there is no figure to read); the earlier one is still the only email', v_n::text, '1', case when v_n = 1 then 'PASS' else 'FAIL' end);
   insert into s38f_results values ('4c a one-person change is held back (two published months cannot be subtracted)', coalesce(v_h::text, 'none'), 'true', case when v_h then 'PASS' else 'FAIL' end);
   perform pg_temp.as_user(st); execute 'set local role authenticated';
   v_pay2 := public.sponsor_staff_figures(v_cohort);
@@ -176,6 +196,8 @@ begin
   end loop;
   v_n := private.generate_sponsor_snapshots((v_next3 + v_grace)::timestamp at time zone 'Africa/Lagos' + interval '12 hours');
   select held_back into v_h from public.sponsor_report_snapshots where cohort_id = v_cohort and period = v_next2;
+  select count(*) into v_n from public.notifications x join public.sponsor_report_snapshots sn on sn.id = x.source_id where x.template = 'sponsor_figures_ready' and x.channel = 'email' and x.recipient_id = st and sn.cohort_id = v_cohort;
+  insert into s38f_results values ('4e0 a month published after a held one sends its own notice', v_n::text, '2', case when v_n = 2 then 'PASS' else 'FAIL' end);
   insert into s38f_results values ('4e once enough has changed the figure is published again', coalesce(v_h::text, 'none'), 'false', case when v_h = false then 'PASS' else 'FAIL' end);
 
   -- staff export: audited first, refused alike for another sponsor and a missing programme
@@ -208,6 +230,15 @@ begin
   v_r2 := public.sponsor_staff_figures(v_cohort);
   execute 'reset role';
   insert into s38f_results values ('5b SABOTAGE: without the ownership check another sponsor reads it (3d would FAIL)', jsonb_array_length(v_r2 -> 'months')::text, 'at least 1', case when v_r2 ->> 'ok' = 'true' and jsonb_array_length(v_r2 -> 'months') >= 1 then 'PASS' else 'FAIL' end);
+  -- (d) the active filter removed from the notice: an inactive login must then be told, so check 2j would FAIL
+  select pg_get_functiondef('private.notify_sponsor_staff_figures(uuid,uuid,date)'::regprocedure) into v_txt;
+  v_txt := replace(v_txt, 'p.is_active and not coalesce(p.is_test, false)', 'not coalesce(p.is_test, false)');
+  if v_txt = pg_get_functiondef('private.notify_sponsor_staff_figures(uuid,uuid,date)'::regprocedure) then raise exception 'sabotage (d) did not change the function'; end if;
+  execute v_txt;
+  perform private.notify_sponsor_staff_figures(v_sp, (select id from public.sponsor_report_snapshots where cohort_id = v_cohort and period = v_cur), v_cur + 1000);
+  select count(*) into v_n from public.notifications where template = 'sponsor_figures_ready' and recipient_id = st_off;
+  insert into s38f_results values ('5d SABOTAGE: without the active filter an inactive login is told (2j would FAIL)', v_n::text, 'at least 1', case when v_n >= 1 then 'PASS' else 'FAIL' end);
+
   -- (c) the hold removed. First show the hold applies: one new member since the last published figure holds the next month back.
   select code into v_cc from public.sponsor_cohorts where id = v_cohort;
   p := pg_temp.mkuser('patient');
@@ -225,6 +256,16 @@ begin
   v_n := private.generate_sponsor_snapshots((v_next5 + v_grace)::timestamp at time zone 'Africa/Lagos' + interval '12 hours');
   select held_back into v_h from public.sponsor_report_snapshots where cohort_id = v_cohort and period = v_next4;
   insert into s38f_results values ('5c SABOTAGE: without the hold a one-person change is published (4c would FAIL)', coalesce(v_h::text, 'none'), 'false', case when v_h = false then 'PASS' else 'FAIL' end);
+
+  -- (e) the notice cannot be queued (made to raise): the figure must still be written, and one incident opened for the failing notices
+  select pg_get_functiondef('private.notify_sponsor_staff_figures(uuid,uuid,date)'::regprocedure) into v_txt;
+  v_txt := replace(v_txt, E'  for r in', E'  raise exception ''boom'';\n  for r in');
+  if v_txt = pg_get_functiondef('private.notify_sponsor_staff_figures(uuid,uuid,date)'::regprocedure) then raise exception 'sabotage (e) did not change the function'; end if;
+  execute v_txt;
+  v_n := private.generate_sponsor_snapshots((v_next6 + v_grace)::timestamp at time zone 'Africa/Lagos' + interval '12 hours');
+  select count(*) into v_pushn from public.sponsor_report_snapshots where cohort_id = v_cohort and period = v_next5;
+  select count(*) into v_cnt0 from public.ops_incidents where external_reference = 'sponsor-notices-failing' and status not in ('resolved', 'closed');
+  insert into s38f_results values ('5e a notice that cannot be queued does not lose the figure, and opens one incident', v_pushn || '/' || v_cnt0, '1/1', case when v_pushn = 1 and v_cnt0 = 1 then 'PASS' else 'FAIL' end);
 end $$;
 
 select * from s38f_results order by check_name;

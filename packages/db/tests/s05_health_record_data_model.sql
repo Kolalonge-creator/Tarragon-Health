@@ -338,23 +338,21 @@ begin
   if v_n <> 0 or (select state from public.prescriptions where id = v_rx) <> 'sent' then
     raise exception 'FAIL 4p: the wrong partner saw or dispensed the prescription';
   end if;
+  -- S28: no pharmacist reads or writes the table directly any more (the partner policies returned whole rows). The named partner works only
+  -- through pharmacy_inbox / pharmacy_mark_dispensed, proved in s28_pharmacy_collection.sql.
   perform set_config('request.jwt.claims', json_build_object('sub', v_ph, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   select count(*) into v_n from public.prescriptions where id = v_rx;
-  if v_n <> 1 then raise exception 'FAIL 4q: the named partner did not see the prescription'; end if;
+  if v_n <> 0 then raise exception 'FAIL 4q: the named partner read the prescription table directly (S28 closed that door)'; end if;
   v_failed := false;
-  begin update public.prescriptions set items = '[]' where id = v_rx;
+  begin update public.prescriptions set state = 'dispensed' where id = v_rx;
   exception when others then v_failed := true; end;
-  if not v_failed then raise exception 'FAIL 4r: the pharmacist altered the signed items'; end if;
-  v_failed := false;
-  begin update public.prescriptions set pharmacy_partner_id = v_pp2, state = 'dispensed' where id = v_rx;
-  exception when others then v_failed := true; end;
-  if not v_failed then raise exception 'FAIL 4r2: the pharmacist rerouted the prescription to another partner'; end if;
-  update public.prescriptions set state = 'dispensed' where id = v_rx;
   execute 'reset role';
-  if (select state from public.prescriptions where id = v_rx) <> 'dispensed' then
-    raise exception 'FAIL 4s: the named partner could not dispense (the gate does not open)';
+  if (select state from public.prescriptions where id = v_rx) <> 'sent' then
+    raise exception 'FAIL 4s: the named partner moved the prescription to dispensed by a direct update';
   end if;
+  -- the owner completes the supply so the author-read checks below still see a dispensed prescription
+  update public.prescriptions set state = 'dispensed' where id = v_rx;
 
   -- the author reads back her own row only within the inserting transaction; a later session no longer sees it directly
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
