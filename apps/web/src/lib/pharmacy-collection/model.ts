@@ -65,6 +65,49 @@ export function viewFor(c: Collection): CollectionView {
   return "closed";
 }
 
+// ---- S54 8.9: the price and stock comparison the patient sees before choosing ----
+export const priceLineSchema = z.object({
+  item: z.number(),
+  drug: z.string(),
+  pack: z.string().nullable(),
+  price_kobo: z.number(),
+  stock: z.string(),
+  verified_batch: z.boolean(),
+  strength_confirmed: z.boolean(),
+});
+export const priceRowSchema = z.object({
+  partner_id: z.string().uuid(),
+  partner_name: z.string(),
+  location_id: z.string().uuid(),
+  location_name: z.string(),
+  state: z.string().nullable(),
+  address: z.string().nullable(),
+  items_total: z.number(),
+  items_matched: z.number(),
+  total_kobo: z.number(),
+  all_in_stock: z.boolean(),
+  any_low_stock: z.boolean(),
+  all_verified_batch: z.boolean(),
+  prices_updated_at: z.string().nullable(),
+  lines: z.array(priceLineSchema),
+});
+export type PriceRow = z.infer<typeof priceRowSchema>;
+export const priceRowsSchema = z.array(priceRowSchema);
+
+/** Money is integer kobo everywhere; this is only for showing it. */
+export function nairaFromKobo(kobo: number): string {
+  const naira = Math.round(kobo) / 100;
+  return `\u20A6${naira.toLocaleString("en-NG", { minimumFractionDigits: naira % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
+
+export type StockLabelKey = "pharmprice.in_stock" | "pharmprice.low_stock" | "pharmprice.unavailable" | "pharmprice.unknown_stock";
+export function stockKey(stock: string): StockLabelKey {
+  if (stock === "in_stock") return "pharmprice.in_stock";
+  if (stock === "low_stock") return "pharmprice.low_stock";
+  if (stock === "unavailable") return "pharmprice.unavailable";
+  return "pharmprice.unknown_stock";
+}
+
 // ---- the counter desk (pharmacist) ----
 export const DESK_OUTCOMES = ["ok", "not_found", "expired", "locked", "wrong_code", "already_collected"] as const;
 export const DISPENSE_OUTCOMES = [

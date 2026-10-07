@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import { t } from "@tarragon/i18n";
+import { t, type Locale } from "@tarragon/i18n";
 import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
-import { loadCollection, loadPharmacies } from "@/lib/pharmacy-collection/load";
+import { loadCollection, loadPharmacies, loadPriceCompare } from "@/lib/pharmacy-collection/load";
 import { choosePharmacyAction, newCodeAction, withdrawAction } from "@/lib/pharmacy-collection/actions";
-import { asNotice, viewFor, type PharmacyOption } from "@/lib/pharmacy-collection/model";
+import { asNotice, nairaFromKobo, stockKey, viewFor, type PharmacyOption, type PriceRow } from "@/lib/pharmacy-collection/model";
 import { FlashClean } from "@/components/go-live/flash-clean";
 
 export const metadata = { title: "Collect your medicine" };
@@ -11,6 +11,46 @@ export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const lagos = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" }) : "");
+/**
+ * S54 8.9: the price and stock comparison. The patient reads it and then chooses; nothing here chooses for her, and nothing in it
+ * (or anywhere a clinician can read) says what Tarragon earns from a pharmacy (8.16). Ordered by items supplied, stock, then price.
+ */
+function PriceCompare({ rows, locale }: { rows: PriceRow[]; locale: Locale }) {
+  if (rows.length === 0) return <p className="text-sm text-charcoal-ink/70">{t("pharmprice.none", locale)}</p>;
+  return (
+    <ul className="space-y-3">
+      {rows.map((r) => (
+        <li key={r.location_id} className="rounded-xl border border-charcoal-ink/15 bg-white p-4 dark:border-night-ink/25">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="font-semibold text-charcoal-ink">{r.partner_name}</p>
+            <p className="font-semibold text-charcoal-ink">{t("pharmprice.total", locale, { amount: nairaFromKobo(r.total_kobo) })}</p>
+          </div>
+          <p className="text-sm text-charcoal-ink/70">{[r.location_name, r.address, r.state].filter(Boolean).join(", ")}</p>
+          <p className="mt-1 text-sm text-charcoal-ink/80">
+            {r.items_matched < r.items_total ? `${t("pharmprice.partial", locale, { matched: r.items_matched, total: r.items_total })}. ` : ""}
+            {r.lines.some((l) => l.stock === "unavailable")
+              ? t("pharmprice.some_unavailable", locale)
+              : r.all_in_stock
+                ? r.any_low_stock ? t("pharmprice.low_stock", locale) : t("pharmprice.in_stock", locale)
+                : t("pharmprice.unknown_stock", locale)}
+          </p>
+          <ul className="mt-1 space-y-0.5 text-xs text-charcoal-ink/70">
+            {r.lines.map((l) => (
+              <li key={l.item}>
+                {l.drug}{l.pack ? ` (${l.pack})` : ""}: {nairaFromKobo(l.price_kobo)}, {t(stockKey(l.stock), locale)}
+                {l.strength_confirmed ? "" : `, ${t("pharmprice.strength_unconfirmed", locale)}`}
+              </li>
+            ))}
+          </ul>
+          {r.all_verified_batch && <p className="mt-1 text-xs text-emerald-900">{t("pharmprice.verified", locale)}</p>}
+          {r.prices_updated_at && <p className="mt-1 text-xs text-charcoal-ink/60">{t("pharmprice.updated", locale, { date: lagos(r.prices_updated_at) })}</p>}
+        </li>
+      ))}
+      <li className="text-xs text-charcoal-ink/60">{t("pharmprice.verified_caveat", locale)}</li>
+    </ul>
+  );
+}
+
 const button = "rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clinical-navy";
 
 function Chooser({ id, options, locale, forWhom }: { id: string; options: PharmacyOption[]; locale: typeof DEFAULT_UI_LANGUAGE; forWhom?: string }) {
@@ -52,6 +92,7 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
   if (collection.ok && !collection.data) notFound();
   const view = collection.ok && collection.data ? viewFor(collection.data) : null;
   const pharmacies = view === "choose" || view === "code" || view === "repeat" ? await loadPharmacies(prescriptionId, forWhom) : null;
+  const prices = view === "choose" ? await loadPriceCompare(prescriptionId) : null;
   const off = !collection.ok && collection.off === true;
 
   return (
@@ -72,6 +113,12 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">{t("pharmcollect.load_failed", locale)}</p>
       ) : view === "choose" ? (
         <section className="space-y-3">
+          <section className="space-y-2">
+            <h3 className="font-semibold text-charcoal-ink">{t("pharmprice.title", locale)}</h3>
+            <p className="text-xs text-charcoal-ink/60">{t("pharmprice.intro", locale)}</p>
+            {prices?.ok ? <PriceCompare rows={prices.data} locale={locale} /> : <p className="text-sm text-charcoal-ink/70">{t("pharmprice.failed", locale)}</p>}
+            <p className="text-sm text-charcoal-ink/70">{t("pharmprice.any_pharmacy", locale)}</p>
+          </section>
           <h3 className="font-semibold text-charcoal-ink">{t("pharmcollect.choose", locale)}</h3>
           {pharmacies?.ok ? <Chooser id={prescriptionId} options={pharmacies.data} locale={locale} forWhom={forWhom} /> : <p role="alert" className="text-sm text-red-900">{t("pharmcollect.load_failed", locale)}</p>}
         </section>
@@ -88,6 +135,7 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
             {t("pharmcollect.sent_to", locale, { pharmacy: [collection.data?.pharmacy_name, collection.data?.location_name].filter(Boolean).join(", ") })}
           </p>
           {collection.data?.address && <p className="text-sm text-charcoal-ink/70">{collection.data.address}</p>}
+          <p className="text-xs text-charcoal-ink/60">{t("medicines.mas.collect_prompt", locale)} {t("medicines.mas.caveat", locale)}</p>
           <div className="rounded-xl border border-charcoal-ink/15 bg-white p-4 dark:border-night-ink/25">
             <p className="text-xs uppercase tracking-wide text-charcoal-ink/60">{t("pharmcollect.code_label", locale)}</p>
             <p className="mt-1 font-mono text-3xl font-semibold tracking-[0.3em] text-charcoal-ink" aria-label={t("pharmcollect.code_label", locale)}>

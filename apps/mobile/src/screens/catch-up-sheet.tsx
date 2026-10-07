@@ -3,8 +3,7 @@ import { AppState, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { lagosLocalDate } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
-import { type DoseChecklistItem } from "@/lib/medications";
-import { answerCatchUp, catchUpKey, retryDelayMs, runCatchUpCheck, saveDismissed, saveLastOffered, type CatchUpChoice } from "@/lib/catch-up";
+import { answerCatchUp, catchUpKey, retryDelayMs, runCatchUpCheck, saveDismissed, saveLastOffered, type CatchUpChoice, type CatchUpItem } from "@/lib/catch-up";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Button, InlineAlert, Sheet } from "@/ui/kit";
 
@@ -24,7 +23,7 @@ export function CatchUpSheet({ patientId, organisationId, enabled }: CatchUpShee
   const { colors } = useTheme();
   const locale = asLocale(useUiLanguage());
   const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
-  const [items, setItems] = useState<DoseChecklistItem[]>([]);
+  const [items, setItems] = useState<CatchUpItem[]>([]);
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -84,7 +83,7 @@ export function CatchUpSheet({ patientId, organisationId, enabled }: CatchUpShee
     setVisible(false);
   }
 
-  async function answer(item: DoseChecklistItem, choice: CatchUpChoice) {
+  async function answer(item: CatchUpItem, choice: CatchUpChoice) {
     const key = catchUpKey(item);
     if (busy) return;
     setBusy(key);
@@ -116,6 +115,11 @@ export function CatchUpSheet({ patientId, organisationId, enabled }: CatchUpShee
               <AppText variant="bodyStrong">
                 {item.date === today ? tr("meds.catchup.today") : tr("meds.catchup.yesterday")} · {item.time}
               </AppText>
+              {item.person ? (
+                <AppText variant="caption" tone="textMuted">
+                  {tr("meds.catchup.for_person", { name: item.person.firstName })}
+                </AppText>
+              ) : null}
               <AppText variant="caption" tone="textMuted">
                 {[item.drugName, item.doseText ?? item.doseLabel ?? null].filter(Boolean).join(" · ")}
               </AppText>

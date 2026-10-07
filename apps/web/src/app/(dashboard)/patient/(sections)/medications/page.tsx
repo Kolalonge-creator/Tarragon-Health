@@ -12,6 +12,7 @@ import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form
 import { CareChangeCard } from "@/app/(dashboard)/patient/care-change-card";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { loadMyCareChanges } from "@/lib/care-changes/load";
+import Link from "next/link";
 import { t } from "@tarragon/i18n";
 
 export default async function PatientMedicationsPage() {
@@ -46,6 +47,10 @@ export default async function PatientMedicationsPage() {
               Reads it back and compares it with what was prescribed — and points
               at NAFDAC for the authenticity question we cannot answer. */}
           <CheckMyPack />
+          <Link href="/patient/pharmacy-chat" className="block rounded-xl border border-charcoal-ink/15 p-4 text-sm hover:bg-charcoal-ink/5 dark:border-night-ink/20">
+            <span className="font-medium">{t("pharmchat.title", uiLanguage)}</span>
+            <span className="block text-xs text-charcoal-ink/70 dark:text-night-ink/70">{t("pharmchat.intro_short", uiLanguage)}</span>
+          </Link>
           <LabMonitoringCard patientId={subjectId} />
           <MedicationEffectivenessCard patientId={subjectId} />
         </div>
