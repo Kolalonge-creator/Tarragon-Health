@@ -5,7 +5,7 @@ const redirect = jest.fn((url: string) => {
 jest.mock("next/navigation", () => ({ redirect: (u: string) => redirect(u) }));
 jest.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc }) }));
 
-import { choosePharmacyAction, newCodeAction } from "./actions";
+import { choosePharmacyAction, newCodeAction, withdrawAction } from "./actions";
 
 const RX = "11111111-1111-4111-8111-111111111111";
 const P = "22222222-2222-4222-8222-222222222222";
@@ -55,5 +55,38 @@ describe("newCodeAction", () => {
   it("sends a bad id home without calling the database", async () => {
     expect(await goes(newCodeAction(fd({ prescription: "x" })))).toBe("REDIRECT:/patient");
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("acting for someone, and taking it back (S28c)", () => {
+  const WHO = "44444444-4444-4444-8444-444444444444";
+  it("passes who it is for on to the database, which checks the permission, and keeps them in the address", async () => {
+    rpc.mockResolvedValue({ data: "ABCD2345", error: null });
+    expect(await goes(choosePharmacyAction(fd({ prescription: RX, partner: P, location: L, for: WHO })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=chosen&for=${WHO}`);
+    expect(rpc).toHaveBeenCalledWith("patient_choose_pharmacy", { p_prescription: RX, p_partner: P, p_location: L, p_beneficiary: WHO });
+  });
+  it("ignores a 'for' that is not an id, without calling the database", async () => {
+    expect(await goes(choosePharmacyAction(fd({ prescription: RX, partner: P, location: L, for: "someone" })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=failed`);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("a missing permission is a notice, never a success", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "not_permitted_for_this_person", code: "42501" } });
+    expect(await goes(choosePharmacyAction(fd({ prescription: RX, partner: P, location: L, for: WHO })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=not_permitted_for_this_person&for=${WHO}`);
+  });
+  it("a closed go-live guard is a calm notice", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "pharmacy_collection_off", code: "55000" } });
+    expect(await goes(choosePharmacyAction(fd({ prescription: RX, partner: P, location: L })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=pharmacy_collection_off`);
+  });
+  it("takes it back, for the patient or for someone she is acted for", async () => {
+    rpc.mockResolvedValue({ data: { ok: true }, error: null });
+    expect(await goes(withdrawAction(fd({ prescription: RX })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=withdrawn`);
+    expect(rpc).toHaveBeenCalledWith("patient_withdraw_from_pharmacy", { p_prescription: RX });
+    expect(await goes(withdrawAction(fd({ prescription: RX, for: WHO })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=withdrawn&for=${WHO}`);
+    expect(rpc).toHaveBeenLastCalledWith("patient_withdraw_from_pharmacy", { p_prescription: RX, p_beneficiary: WHO });
+  });
+  it("a refused take-back is a notice and a bad id goes home", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "collection_already_started", code: "22023" } });
+    expect(await goes(withdrawAction(fd({ prescription: RX })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=collection_already_started`);
+    expect(await goes(withdrawAction(fd({ prescription: "x" })))).toBe("REDIRECT:/patient");
   });
 });

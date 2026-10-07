@@ -117,7 +117,17 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "pharmacy_flag_notice") {
     // S36h: neutral by design (INV-07). Names no medicine, patient or reason; the detail is on the page.
-    return { text: "A pharmacy has raised something. Open your pharmacy messages", href: "/clinician/pharmacy-flags" };
+    return { text: "A pharmacy has raised something. Open your pharmacy messages", href: "/clinician/pharmacy" };
+  }
+  // S28: neutral by design (INV-07): never a medicine, a person or a collection code.
+  if (n.template === "pharmacy_new_prescription") {
+    return { text: "Something is waiting for you", href: "/pharmacist/prescriptions" };
+  }
+  if (n.template === "pharmacy_question_answered") {
+    return { text: "Your question was answered. Open the app to see it", href: "/pharmacist/prescriptions" };
+  }
+  if (n.template === "pharmacy_collection_update" || n.template === "prescription_sent_patient" || n.template === "prescription_collected_patient") {
+    return { text: "Your pharmacy has an update. Open the app to see it", href: "/patient/medications" };
   }
   if (n.template === "health_reset_complete") {
     return {
@@ -190,6 +200,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "medication_refill_reminder") {
     return {
       text: "A reminder is coming up. Open the app to see when.",
+      // S28: the Medicines screen carries the "choose where to collect" link on each prescription
       href: "/patient/medications",
     };
   }

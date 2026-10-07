@@ -85,6 +85,17 @@ create function pg_temp.disp_as(p_uid uuid, p_rx uuid, p_code text, p_partial bo
 $$ select pg_temp.q_as(p_uid, format($q$select outcome from public.pharmacist_dispense_prescription(%L, %L, '30 tablets', %L, %L, 'B-1234', %L, %L, 'Ada Pharmacist')$q$,
      p_rx, p_code, p_partial, p_note, (current_date + 400)::text, p_reg)) $$;
 
+-- S28c: the whole feature sits behind the S37 prescribing guard (closed by default). This proof opens it the way the guard's own trigger allows,
+-- a log row in this transaction and then the update; the closed state is proved in s28c_pharmacy_extras.sql.
+create function pg_temp.guard(p_on boolean) returns void language plpgsql as $f$
+begin
+  insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions)
+  select 'prescribing_enabled', case when p_on then 'switched_on' else 'switched_off' end, p.id, 'admin', 'S28 proof', '[]'::jsonb from public.profiles p order by p.created_at limit 1;
+  update public.go_live_guards
+     set is_on = p_on, changed_at = case when p_on then now() end, changed_by = case when p_on then (select id from public.profiles order by created_at limit 1) end, change_note = case when p_on then 'S28 proof' end
+   where key = 'prescribing_enabled';
+end $f$;
+
 -- Fixtures ---------------------------------------------------------------------------------------------------------------------------
 do $$
 declare v_org uuid; v_pA uuid; v_pB uuid; v_pC uuid; v_lA uuid; v_lB uuid; v_lU uuid; v_lC uuid; v_doc uuid; v_pat uuid; v_pat2 uuid;
@@ -113,6 +124,8 @@ begin
   perform pg_temp.setf('rx3', pg_temp.mkrx(v_org, v_pat, v_doc, 'Proofdrug Three', 'signed'));
   perform pg_temp.setf('rxDraft', pg_temp.mkrx(v_org, v_pat, v_doc, 'Proofdrug Draft', 'draft'));
 end $$;
+
+select pg_temp.guard(true);
 
 -- A. the patient's chooser ------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('real', 'A1 the patient is offered the two verified, active locations only (not the unverified or the inactive pharmacy)', '2',

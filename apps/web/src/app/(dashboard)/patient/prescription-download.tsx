@@ -130,7 +130,7 @@ export function PrescriptionDownload({
           </a>
           {prescriptionId && (
             <a
-              href={`/patient/pharmacy/collect/${prescriptionId}`}
+              href={`/patient/pharmacy/collect/${prescriptionId}?for=${patientId}`}
               className="ml-2 inline-flex items-center rounded-md border border-clinical-navy px-3 py-1.5 font-medium text-clinical-navy hover:bg-clinical-navy/5 dark:text-night-ink dark:border-night-ink"
             >
               Choose where to collect

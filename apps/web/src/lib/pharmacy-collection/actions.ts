@@ -5,15 +5,20 @@ import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
 import { chooseFormSchema, noticeForError, prescriptionOnlySchema, type Notice } from "./model";
 
-const page = (rx: string, n: Notice): never => redirect(`/patient/pharmacy/collect/${rx}?n=${n}`);
+/** `forWhom` is set only while a caregiver acts for the patient; it rides in the address so a refresh keeps the same person. */
+const page = (rx: string, n: Notice, forWhom?: string): never => redirect(`/patient/pharmacy/collect/${rx}?n=${n}${forWhom ? `&for=${forWhom}` : ""}`);
+const beneficiary = (forWhom: string | undefined) => (forWhom ? { p_beneficiary: forWhom } : {});
 
 /**
  * S28: the patient chooses a verified pharmacy to collect from. Runs as the signed-in patient (never the service role);
  * public.patient_choose_pharmacy is the only writer and refuses a prescription that is not hers, a pharmacy that is not verified and
  * active, and a change after the pharmacy has started to supply. The code is read back on the page, not carried in the address.
+ * A caregiver with the pharmacy permission may do this for the patient (`for`): the database checks the permission, tells the patient and records who acted.
  */
 export async function choosePharmacyAction(formData: FormData): Promise<void> {
-  const parsed = chooseFormSchema.safeParse({ prescription: formData.get("prescription"), partner: formData.get("partner"), location: formData.get("location") });
+  const parsed = chooseFormSchema.safeParse({
+    prescription: formData.get("prescription"), partner: formData.get("partner"), location: formData.get("location"), for: formData.get("for") || undefined,
+  });
   if (!parsed.success) {
     const rx = String(formData.get("prescription") ?? "");
     return prescriptionOnlySchema.safeParse({ prescription: rx }).success ? page(rx, "failed") : redirect("/patient");
@@ -22,14 +27,23 @@ export async function choosePharmacyAction(formData: FormData): Promise<void> {
     p_prescription: parsed.data.prescription,
     p_partner: parsed.data.partner,
     p_location: parsed.data.location,
+    ...beneficiary(parsed.data.for),
   });
-  return page(parsed.data.prescription, error ? noticeForError(error.message) : "chosen");
+  return page(parsed.data.prescription, error ? noticeForError(error.message) : "chosen", parsed.data.for);
 }
 
 /** A new code when the old one is locked or expired. The old code stops working at once. */
 export async function newCodeAction(formData: FormData): Promise<void> {
-  const parsed = prescriptionOnlySchema.safeParse({ prescription: formData.get("prescription") });
+  const parsed = prescriptionOnlySchema.safeParse({ prescription: formData.get("prescription"), for: formData.get("for") || undefined });
   if (!parsed.success) return redirect("/patient");
-  const { error } = await loose(await createClient()).rpc("patient_new_collection_code", { p_prescription: parsed.data.prescription });
-  return page(parsed.data.prescription, error ? noticeForError(error.message) : "new_code");
+  const { error } = await loose(await createClient()).rpc("patient_new_collection_code", { p_prescription: parsed.data.prescription, ...beneficiary(parsed.data.for) });
+  return page(parsed.data.prescription, error ? noticeForError(error.message) : "new_code", parsed.data.for);
+}
+
+/** "Take it back": consent to share is revocable. The pharmacy stops seeing the prescription at once and the code stops working. */
+export async function withdrawAction(formData: FormData): Promise<void> {
+  const parsed = prescriptionOnlySchema.safeParse({ prescription: formData.get("prescription"), for: formData.get("for") || undefined });
+  if (!parsed.success) return redirect("/patient");
+  const { error } = await loose(await createClient()).rpc("patient_withdraw_from_pharmacy", { p_prescription: parsed.data.prescription, ...beneficiary(parsed.data.for) });
+  return page(parsed.data.prescription, error ? noticeForError(error.message) : "withdrawn", parsed.data.for);
 }
