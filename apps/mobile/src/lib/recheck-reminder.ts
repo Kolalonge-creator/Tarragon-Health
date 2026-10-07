@@ -2,7 +2,7 @@ import { asLocale, t } from "@tarragon/i18n";
 import { getUiLanguage } from "./ui-language";
 
 /**
- * The reminder to measure again (CMO decision 2026-10-05: after a reading of 200/130 or more with no emergency symptom,
+ * The reminder to measure again (CMO decision 2026-10-05: after a reading at or above the rule set's question line (params.extreme: 200/130 in the approved version 3, 180/120 in the draft version 4) with no emergency symptom,
  * rest and recheck after 2 hours). A local notification scheduled on the phone, so it arrives with no signal and with the
  * app closed; the repeat task on Today (S12) stays as the in-app copy.
  *

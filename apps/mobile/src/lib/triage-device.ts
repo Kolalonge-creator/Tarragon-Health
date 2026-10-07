@@ -80,7 +80,7 @@ export interface DeviceTriageRequest {
   symptoms: readonly SymptomCode[];
   /**
    * True once the patient has answered the emergency-symptom question (the sheet in symptom-question.ts). A reading of
-   * 200/130 or more asks it first, so the default is false: the engine then answers `symptom_check_required`.
+   * a reading at or above the rule set's question line (params.extreme) asks it first, so the default is false: the engine then answers `symptom_check_required`.
    */
   symptomsAnswered?: boolean;
   nowMs?: number;

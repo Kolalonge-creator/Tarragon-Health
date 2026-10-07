@@ -59,7 +59,7 @@ export const evaluateOnDevice: TriageEvaluator = async (input) => {
       systolic: input.systolic,
       diastolic: input.diastolic,
       symptoms: (input.symptoms ?? input.redFlagTicked) as readonly SymptomCode[],
-      // Not answered here: a reading of 200/130 or more asks the emergency-symptom question first (symptom-question.ts).
+      // Not answered here: a reading at or above the rule set's question line (params.extreme: 200/130 in the approved version 3, 180/120 in the draft version 4) asks the emergency-symptom question first (symptom-question.ts).
       // Ticking a symptom on the form answers it, which the engine reads from the symptoms themselves.
     }).catch(() => null),
   ]);
