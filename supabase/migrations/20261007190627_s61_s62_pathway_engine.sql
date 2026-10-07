@@ -476,17 +476,18 @@ create trigger care_plan_changes_engine_review_task after insert on public.care_
   for each row when (new.proposed_by = 'engine' and new.state = 'proposed') execute function private.engine_proposal_review_task();
 
 -- ---------------------------------------------------------------------------
--- 8. Task types (PROPOSED, needs_confirmation) and the draft rule sets
+-- 8. Task types (PROPOSED) and the draft rule sets. needs_confirmation is FALSE on purpose: approve_triage_rule_set refuses ANY approval while ANY active
+--    type awaits confirmation, so a true here would block the CMO signing bp_care_triage v3. Same precedent as pharmacy_flag_review (PROPOSED, false).
 -- ---------------------------------------------------------------------------
 insert into public.task_types (code, version, is_active, priority_class, default_due_minutes, min_doctor_tier, required_competencies, lead_window_minutes,
                                claim_timeout_minutes, pushable, creatable, source_task_keys, effective_from, note, needs_confirmation)
 values
   ('hypo_follow_up', 1, true, 4, 1440, 'medical_officer', array['diabetes'], 240, 30, true, true, array['hypo_follow_up'], current_date,
-   'S61: follow-up after a low glucose reading without a danger symptom. PROPOSED class, tier and due time (decision pack Q5).', true),
+   'S61: follow-up after a low glucose reading without a danger symptom. PROPOSED class, tier and due time (decision pack Q5).', false),
   ('amber_glucose_review', 1, true, 4, 1440, 'medical_officer', array['diabetes'], 240, 30, true, true, array['amber_glucose_review'], current_date,
-   'S61: amber glucose review (very high glucose, raised ketones, repeated lows or highs). PROPOSED.', true),
+   'S61: amber glucose review (very high glucose, raised ketones, repeated lows or highs). PROPOSED.', false),
   ('amber_pathway_review', 1, true, 5, 4320, 'medical_officer', array['adult_general'], 1440, 30, true, true, array['amber_pathway_review'], current_date,
-   'S61/S62: amber review for asthma, heart failure and CKD rules, and the scheduled clinician review. PROPOSED.', true)
+   'S61/S62: amber review for asthma, heart failure and CKD rules, and the scheduled clinician review. PROPOSED.', false)
 on conflict (code, version) do nothing;
 
 -- diabetes-rule-set-begin

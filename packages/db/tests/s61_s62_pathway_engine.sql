@@ -132,7 +132,7 @@ begin
   perform pg_temp.rec('a scaffold pathway can never meet its protocol condition', 'false', (v_conds -> 0 ->> 'met'));
   perform pg_temp.rec('rule sets are drafts', '4', (select count(*)::text from public.triage_rule_sets where code in ('diabetes_care_triage', 'asthma_copd_care_triage', 'heart_failure_triage', 'ckd_monitoring_triage') and status = 'draft' and approved_by is null));
   perform pg_temp.rec('the step table is a draft', '1', (select count(*)::text from public.protocols where code = 'htn_rtsl_ng' and status = 'draft' and approved_by is null));
-  perform pg_temp.rec('three task types exist, awaiting confirmation', '3', (select count(*)::text from public.task_types where code in ('hypo_follow_up', 'amber_glucose_review', 'amber_pathway_review') and needs_confirmation));
+  perform pg_temp.rec('three task types exist, PROPOSED, and none blocks approving another rule set', '3', (select count(*)::text from public.task_types where code in ('hypo_follow_up', 'amber_glucose_review', 'amber_pathway_review') and not needs_confirmation));
   perform pg_temp.rec('glucose_events refuses an unknown event', '23514',
     pg_temp.try(format($q$insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, taken_at, source, glucose_events) values (%L, %L, 'glucose', 5, now(), 'manual', array['dizzy'])$q$, v_org, v_pat)));
   perform pg_temp.rec('outcome_snapshots accepts the diabetes pathway code', 'true', (select (pg_get_constraintdef(oid) like '%diabetes_care%')::text from pg_constraint where conname = 'outcome_snapshots_pathway_code_check'));
