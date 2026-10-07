@@ -54,13 +54,14 @@ export function AddMedicationForm({
   // S53 (8.7): the interaction and duplication check runs on a patient's own add, only when its go-live guard is open. The list read is
   // switched off for clinicians (their panel does its own audited read), so this adds no audit row on the clinician chart.
   const interactionCheckOpen = useInteractionCheckOpen();
-  const existingMedications = useMedications(source === "patient" ? patientId : "");
+  const existingMedications = useMedications(source === "patient" && interactionCheckOpen.data === true ? patientId : "");
   // Do not let the add race the check: wait until the guard and (when it is open) the medicine list have answered, or failed.
   const checkStillLoading =
     source === "patient" && (interactionCheckOpen.isPending || (interactionCheckOpen.data === true && existingMedications.isPending));
+  // "could not find out" is different from "closed": say so rather than letting a failure read as a pass
+  const checkCouldNotRun = source === "patient" && (interactionCheckOpen.isError || (interactionCheckOpen.data === true && existingMedications.isError));
   const [addFindings, setAddFindings] = useState<AddCheckFinding[] | null>(null);
   const [pickedName, setPickedName] = useState<string | null>(null);
-  const [pendingPatientData, setPendingPatientData] = useState<MedicationInput | null>(null);
   // S53 (8.1): a photo or catalogue prefill never saves on its own. A photo prefill needs the patient's "I checked it" tick.
   const [prefilledFromPhoto, setPrefilledFromPhoto] = useState(false);
   const [photoLowConfidence, setPhotoLowConfidence] = useState(false);
@@ -140,7 +141,6 @@ export function AddMedicationForm({
 
   function resetForm() {
     setAddFindings(null);
-    setPendingPatientData(null);
     setPrefilledFromPhoto(false);
     setPhotoLowConfidence(false);
     setConfirmedAgainstPack(false);
@@ -195,6 +195,11 @@ export function AddMedicationForm({
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    runSubmit(false);
+  }
+
+  /** `skipCheck` is set only by "Add it anyway": the form on screen is read again, never a snapshot of an earlier attempt. */
+  function runSubmit(skipCheck: boolean) {
     const parsed = medicationSchema.safeParse({
       drug_name: drugName,
       dose: dose || undefined,
@@ -233,7 +238,7 @@ export function AddMedicationForm({
         return;
       }
       // The interaction and duplication check (8.7). Advice only: it can pause the add to show a warning, never refuse it.
-      if (interactionCheckOpen.data === true && existingMedications.data) {
+      if (!skipCheck && interactionCheckOpen.data === true && existingMedications.data) {
         const result = checkMedicineOnAdd(
           parsed.data.drug_name,
           existingMedications.data.map((m) => ({
@@ -245,7 +250,6 @@ export function AddMedicationForm({
           })),
         );
         if (result.findings.length > 0) {
-          setPendingPatientData(parsed.data);
           setAddFindings(result.findings);
           return;
         }
@@ -415,7 +419,10 @@ export function AddMedicationForm({
             <Input
               id="drug_name"
               value={drugName}
-              onChange={(event) => setDrugName(event.target.value)}
+              onChange={(event) => {
+                setDrugName(event.target.value);
+                setAddFindings(null);
+              }}
               required
               {...errorProps}
             />
@@ -648,9 +655,8 @@ export function AddMedicationForm({
               findings={addFindings}
               pending={addMedication.isPending}
               onContinue={() => {
-                const data = pendingPatientData;
                 setAddFindings(null);
-                if (data) submitMedication(data);
+                runSubmit(true);
               }}
             />
           ) : null}
@@ -665,7 +671,7 @@ export function AddMedicationForm({
               team before the patient takes this medicine.
             </p>
           ) : null}
-          {source === "patient" && interactionCheckOpen.data === true && existingMedications.isError ? (
+          {checkCouldNotRun ? (
             <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{t("medicines.addcheck.not_checked")}</p>
           ) : null}
           <Button type="submit" disabled={addMedication.isPending || checkStillLoading}>

@@ -16,7 +16,7 @@ import {
   type FoodNote,
   type ScheduleSpec,
 } from "@tarragon/medicines";
-import { addSideEffectNote, loadInteractionCheckOpen, loadMedicineCatalogue } from "@/lib/medicine-catalogue";
+import { addSideEffectNote, loadInteractionCheckState, loadMedicineCatalogue } from "@/lib/medicine-catalogue";
 import { useUiLanguage } from "@/lib/ui-language";
 import {
   addMedication,
@@ -600,6 +600,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
   // S53: catalogue suggestions (8.2) and the interaction and duplication check (8.7, behind its go-live guard).
   const [catalogue, setCatalogue] = useState<CatalogueEntry[]>([]);
   const [findings, setFindings] = useState<AddCheckFinding[] | null>(null);
+  const [checkSkipped, setCheckSkipped] = useState(false);
   useEffect(() => {
     if (!open) return;
     let alive = true;
@@ -696,7 +697,9 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
     }
     setPending(true);
     // The check only advises: it can pause the add to show a warning, never refuse it (spec 8.7).
-    if (!skipCheck && (await loadInteractionCheckOpen())) {
+    const guard = skipCheck ? "closed" : await loadInteractionCheckState();
+    setCheckSkipped(guard === "unknown");
+    if (guard === "open") {
       const check = checkMedicineOnAdd(
         name,
         existing.map((m) => ({ id: m.id, drugName: m.drug_name, dose: m.dose, prescriberName: m.prescriber_name, source: m.source })),
@@ -737,6 +740,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
       </View>
       {success && !open ? <MutedText>Medication added.</MutedText> : null}
       {success && !open ? <MutedText>{`${tr("medicines.mas.add_prompt")} ${tr("medicines.mas.caveat")}`}</MutedText> : null}
+      {success && !open && checkSkipped ? <MutedText>{tr("medicines.addcheck.not_checked")}</MutedText> : null}
       {open ? (
         <Card style={{ gap: 10 }}>
           <View>

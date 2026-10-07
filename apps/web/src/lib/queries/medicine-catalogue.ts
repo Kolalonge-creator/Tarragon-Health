@@ -34,22 +34,24 @@ export function useMedicineCatalogue() {
 }
 
 /**
- * Is the interaction and duplication check open for the signed-in person? Reads the go-live guard (INV-14). Fail closed: any
- * error reads as "not open", so the add form behaves exactly as it did before S53.
+ * Is the interaction and duplication check open for the signed-in person, for the rules this build runs? Reads the go-live guard
+ * (INV-14) and then the signed dataset. `false` means closed. A failed read THROWS (query error), so the form can tell "closed"
+ * from "could not find out" and say so; it never reads as a pass.
  */
 export function useInteractionCheckOpen() {
   return useQuery({
-    queryKey: ["go-live-guard", "interaction_check_enabled"],
+    queryKey: ["go-live-guard", "interaction_check_enabled", INTERACTION_DATASET_HASH],
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: false,
     queryFn: async (): Promise<boolean> => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("go_live_guard_is_open", { p_key: "interaction_check_enabled" });
-      if (error || data !== true) return false;
-      // The check is open only for the rules a human signed: the signed dataset's hash must be the one this build runs.
+      if (error) throw error;
+      if (data !== true) return false;
+      // Open only for the rules a human signed: the signed dataset's hash must be the one this build runs.
       const signed = await supabase.from("interaction_dataset_versions").select("content_hash").eq("status", "approved");
-      if (signed.error) return false;
+      if (signed.error) throw signed.error;
       return (signed.data ?? []).some((row) => row.content_hash === INTERACTION_DATASET_HASH);
     },
   });

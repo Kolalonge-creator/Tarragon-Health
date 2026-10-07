@@ -469,6 +469,7 @@ begin
   new.noted_at := now();
   new.reviewed_at := null;
   new.reviewed_by := null;
+  new.is_test := coalesce((select pr.is_test from public.profiles pr where pr.id = v.patient_id), false);
   return new;
 end $$;
 
@@ -478,8 +479,14 @@ create trigger medication_side_effect_notes_guard before insert or update on pub
 alter table public.medication_side_effect_notes enable row level security;
 revoke all on public.medication_side_effect_notes from public, anon, authenticated;
 grant select, insert on public.medication_side_effect_notes to authenticated;
+-- Same read rule as the medications table itself (category-scoped, clinical-access aware): a helper with only a booking or payments
+-- grant can read neither the medicines nor the notes about them.
 create policy medication_side_effect_notes_select on public.medication_side_effect_notes for select to authenticated
-  using (patient_id = (select auth.uid()) or private.can_act_for(patient_id, 'view_medication'::public.caregiver_permission));
+  using (
+    patient_id = (select auth.uid())
+    or private.can_read_clinical(patient_id, 'medications'::public.care_access_category)
+    or private.can_read_clinical(patient_id, 'view_medication'::public.caregiver_permission)
+  );
 create policy medication_side_effect_notes_insert on public.medication_side_effect_notes for insert to authenticated
   with check (
     exists (select 1 from public.medications m where m.id = medication_id
@@ -577,6 +584,10 @@ begin
   -- a row synced late for an old slot (a phone that was offline) is history, not news: no notice
   if new.scheduled_for_date is not null and new.scheduled_for_date < v_day - 1 then return null; end if;
   begin
+    -- the ledger only needs a few days; prune this patient's old rows as we go so it never grows without bound
+    delete from public.supporter_missed_dose_notices n
+     using public.profile_access g
+     where n.profile_access_id = g.id and g.profile_id = new.patient_id and n.notice_date < v_day - 7;
     for r in
       select pa.id as grant_id, pa.grantee_user_id, pr.organisation_id
         from public.profile_access pa

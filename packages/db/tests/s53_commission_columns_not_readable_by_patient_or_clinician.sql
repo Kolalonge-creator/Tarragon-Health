@@ -123,6 +123,13 @@ begin
     pg_temp.probe(v_fin2, 'authenticated', format('select id from public.commissions where id = %L', v_comm)), 'rows:0', null;
   insert into t_results select 'D finance with commissions.view reads the ledger',
     pg_temp.probe(v_fin, 'authenticated', format('select id from public.commissions where id = %L', v_comm)), 'rows:1', null;
+  -- commissions.view is a read permission: it must not carry a write
+  perform set_config('request.jwt.claims', json_build_object('sub', v_fin, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  update public.commissions set status = 'paid' where id = v_comm;
+  reset role;
+  insert into t_results select 'D finance with commissions.view cannot mark a commission paid',
+    (select 'rows:' || count(*) from public.commissions where id = v_comm and status <> 'paid'), 'rows:1', null;
   insert into t_results select 'D admin reads the ledger',
     pg_temp.probe(v_admin, 'authenticated', format('select id from public.commissions where id = %L', v_comm)), 'rows:1', null;
   insert into t_results select 'D anon reads no commissions (no policy for anon, so no rows)',

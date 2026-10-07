@@ -14,7 +14,7 @@ jest.mock("@/lib/queries/medications", () => ({
   useMedications: () => ({ data: undefined }),
 }));
 jest.mock("@/lib/queries/medicine-catalogue", () => ({
-  useInteractionCheckOpen: () => ({ data: false }),
+  useInteractionCheckOpen: () => ({ data: false, isPending: false, isError: false }),
   useMedicineCatalogue: () => ({ data: [], isPending: false, isError: false }),
 }));
 jest.mock("@/lib/medications/pack-actions", () => ({ checkMedicationPack: jest.fn() }));

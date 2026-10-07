@@ -85,24 +85,36 @@ export function __resetCatalogueCache(): void {
 
 const GUARD_TIMEOUT_MS = 3000;
 
-async function guardOpenNow(): Promise<boolean> {
+export type InteractionCheckState = "open" | "closed" | "unknown";
+
+async function guardStateNow(): Promise<InteractionCheckState> {
   const { data, error } = await supabase.rpc("go_live_guard_is_open", { p_key: "interaction_check_enabled" });
-  if (error || data !== true) return false;
+  if (error) return "unknown";
+  if (data !== true) return "closed";
   // Open only for the rules a human signed: the signed dataset's hash must be the one this build runs.
   const signed = await supabase.from("interaction_dataset_versions").select("content_hash").eq("status", "approved");
-  if (signed.error) return false;
-  return (signed.data ?? []).some((row: { content_hash: string }) => row.content_hash === INTERACTION_DATASET_HASH);
+  if (signed.error) return "unknown";
+  return (signed.data ?? []).some((row: { content_hash: string }) => row.content_hash === INTERACTION_DATASET_HASH) ? "open" : "closed";
 }
 
 /**
- * Is the interaction and duplication check open for this person (go-live guard, INV-14), for the rules this build runs? Any error
- * or a slow connection reads as closed after a few seconds, so adding a medicine is never held up by the check.
+ * Is the interaction and duplication check open (go-live guard, INV-14) for the rules this build runs? "unknown" (an error, or no
+ * answer within a few seconds) is kept apart from "closed" so the form can say the check could not run instead of letting a
+ * failure look like a pass; either way adding a medicine is never held up.
  */
-export async function loadInteractionCheckOpen(timeoutMs: number = GUARD_TIMEOUT_MS): Promise<boolean> {
+export async function loadInteractionCheckState(timeoutMs: number = GUARD_TIMEOUT_MS): Promise<InteractionCheckState> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await Promise.race([guardOpenNow(), new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs))]);
+    return await Promise.race([
+      guardStateNow(),
+      new Promise<InteractionCheckState>((resolve) => {
+        timer = setTimeout(() => resolve("unknown"), timeoutMs);
+      }),
+    ]);
   } catch {
-    return false;
+    return "unknown";
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

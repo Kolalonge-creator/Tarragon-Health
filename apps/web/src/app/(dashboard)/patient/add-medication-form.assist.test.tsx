@@ -11,6 +11,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const mutate = jest.fn();
 let guardOpen = false;
+let guardError = false;
 const checkMedicationPack = jest.fn();
 
 jest.mock("@/lib/queries/medications", () => ({
@@ -20,7 +21,7 @@ jest.mock("@/lib/queries/medications", () => ({
   }),
 }));
 jest.mock("@/lib/queries/medicine-catalogue", () => ({
-  useInteractionCheckOpen: () => ({ data: guardOpen }),
+  useInteractionCheckOpen: () => ({ data: guardError ? undefined : guardOpen, isPending: false, isError: guardError }),
   useMedicineCatalogue: () => ({
     isPending: false,
     isError: false,
@@ -132,6 +133,26 @@ describe("patient add form: interaction and duplication check (go-live guard)", 
     fireEvent.click(screen.getByRole("button", { name: /Add it anyway/ }));
     expect(mutate).toHaveBeenCalledTimes(1);
     expect(mutate.mock.calls[0]![0]).toMatchObject({ drug_name: "Ramipril", source: "patient" });
+  });
+
+  it("editing the name after a warning clears it, and Add it anyway saves what is on screen, not the earlier name", () => {
+    guardOpen = true;
+    render(<AddMedicationForm patientId="p1" source="patient" />);
+    type("Ramipril");
+    submit();
+    expect(screen.getByRole("button", { name: /Add it anyway/ })).toBeTruthy();
+    type("Paracetamol");
+    expect(screen.queryByRole("button", { name: /Add it anyway/ })).toBeNull();
+    submit();
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(mutate.mock.calls[0]![0]).toMatchObject({ drug_name: "Paracetamol" });
+  });
+
+  it("the guard read failing is said out loud and never reads as a pass", () => {
+    guardError = true;
+    render(<AddMedicationForm patientId="p1" source="patient" />);
+    expect(screen.getByText(/could not run the interaction check/i)).toBeTruthy();
+    guardError = false;
   });
 
   it("guard open, nothing found: adds with no pause", () => {

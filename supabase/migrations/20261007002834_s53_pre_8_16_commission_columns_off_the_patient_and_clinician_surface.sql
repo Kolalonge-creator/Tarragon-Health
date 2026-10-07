@@ -25,8 +25,8 @@
 --   Any column added to this table later is NOT readable by authenticated until it is added to the grant here: that is the
 --   intended default. S54 adds its price and stock columns with their own grant.
 --
---   commissions: select and update need `private.is_admin() or private.has_permission('commissions.view')` (the permission the
---   admin and finance presets already carry); insert and delete are admin only (the writers are SECURITY DEFINER functions).
+--   commissions: select needs `private.is_admin()` or `commissions.view` (the permission the admin and finance presets already carry)
+--   within the holder's own organisation; insert, update and delete are admin only (the automatic writers are SECURITY DEFINER functions).
 
 begin;
 
@@ -72,14 +72,15 @@ drop policy if exists commissions_update on public.commissions;
 drop policy if exists commissions_delete on public.commissions;
 create policy commissions_select on public.commissions
   for select to authenticated
-  using (private.is_admin() or private.has_permission('commissions.view'::text));
+  using (private.is_admin() or (private.has_permission('commissions.view'::text) and organisation_id = private.caller_org()));
 create policy commissions_insert on public.commissions
   for insert to authenticated
   with check (private.is_admin());
+-- "commissions.view" is a read permission: it never carries a write (mark paid and every edit are admin only)
 create policy commissions_update on public.commissions
   for update to authenticated
-  using (private.is_admin() or private.has_permission('commissions.view'::text))
-  with check (private.is_admin() or private.has_permission('commissions.view'::text));
+  using (private.is_admin())
+  with check (private.is_admin());
 create policy commissions_delete on public.commissions
   for delete to authenticated
   using (private.is_admin());

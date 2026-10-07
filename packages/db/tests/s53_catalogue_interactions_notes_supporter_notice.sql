@@ -211,21 +211,37 @@ begin
   reset role;
   insert into results values ('C', 'a stranger cannot mark notes reviewed', 'refused', v_err);
   insert into results values ('C', 'the note text is unchanged by review', 'Felt dizzy after the tablet', (select note from public.medication_side_effect_notes where id = v_note));
-  -- a caregiver with only view_appointments (manage level, dependant) must not read or write medicine notes
+  -- the notes follow EXACTLY the same read rule as the medicines table: whoever can read the medicine can read the notes about it, and
+  -- nobody else can. (A guardian of a dependant reads both; a booking helper with no clinical access reads neither.)
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, clinical_access, permissions)
-    values (v_pat, v_stranger, 'manage', v_pat, false, array['view_appointments']::public.caregiver_permission[]);
+    values (v_pat, v_stranger, 'manage', v_pat, false, null);
   perform pg_temp.as_user(v_stranger);
   select count(*) into v_n from public.medication_side_effect_notes;
+  select count(*) into v_rows from public.medications where id = v_med;
+  reset role;
+  insert into results values ('C', 'a manage-level booking helper (no clinical access, no permission list) reads neither the medicine nor its notes', '0/0', v_rows || '/' || v_n);
+  begin
+    perform pg_temp.as_user(v_stranger);
+    insert into public.medication_side_effect_notes (medication_id, note) values (v_med, 'helper note');
+    v_err := 'inserted';
+  exception when others then v_err := 'refused'; end;
+  reset role;
+  -- (the insert rule is the medicines insert rule: a manage grant with no permission list may add; one without view_medication may not)
+  update public.profile_access set permissions = array['view_appointments']::public.caregiver_permission[] where grantee_user_id = v_stranger and profile_id = v_pat;
+  perform pg_temp.as_user(v_stranger);
   begin insert into public.medication_side_effect_notes (medication_id, note) values (v_med, 'wrong permission'); v_err := 'inserted'; exception when others then v_err := 'refused'; end;
   reset role;
-  insert into results values ('C', 'a manage-level caregiver without view_medication reads no notes', '0', v_n::text);
-  insert into results values ('C', 'a manage-level caregiver without view_medication cannot add a note', 'refused', v_err);
-  update public.profile_access set permissions = array['view_appointments', 'view_medication']::public.caregiver_permission[] where grantee_user_id = v_stranger and profile_id = v_pat;
+  insert into results values ('C', 'a manage-level helper whose grant lacks view_medication cannot add a note', 'refused', v_err);
+  -- a dependant's guardian reads the medicine and so the notes
+  update public.profiles set is_dependent_account = true where id = v_pat;
   perform pg_temp.as_user(v_stranger);
   select count(*) into v_n from public.medication_side_effect_notes;
+  select count(*) into v_rows from public.medications where id = v_med;
   reset role;
-  insert into results values ('C', 'the same caregiver WITH view_medication reads the notes', '2', v_n::text);
+  insert into results values ('C', 'the guardian of a dependant reads the medicine and the notes alike', '1/2', v_rows || '/' || v_n);
   delete from public.profile_access where grantee_user_id = v_stranger and profile_id = v_pat;
+  update public.profiles set is_dependent_account = false where id = v_pat;
+  insert into results values ('C', 'a note by a test patient is marked is_test', 'true', (select bool_and(is_test)::text from public.medication_side_effect_notes where patient_id = v_pat));
 
   set local role anon;
   begin perform 1 from public.medication_side_effect_notes limit 1; v_err := 'read'; exception when insufficient_privilege then v_err := 'refused'; end;
