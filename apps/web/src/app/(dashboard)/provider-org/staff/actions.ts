@@ -40,7 +40,7 @@ export async function inviteProviderOrgStaffAction(_prev: ActionState, formData:
     email: input.email,
     password: input.password,
     email_confirm: true,
-    app_metadata: { role: "provider_org_staff", organisation_id: null },
+    app_metadata: { role: "provider_org_staff", organisation_id: null, signup_exempt: "true" },
     user_metadata: { full_name: input.fullName },
   });
   if (createError || !created.user) {

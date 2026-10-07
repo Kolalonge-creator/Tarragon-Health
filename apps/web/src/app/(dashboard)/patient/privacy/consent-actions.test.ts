@@ -23,7 +23,7 @@ jest.mock("@/lib/supabase/server", () => ({
   })),
 }));
 
-import { withdrawConsentAction } from "./consent-actions";
+import { grantConsentAction, withdrawConsentAction } from "./consent-actions";
 
 beforeEach(() => {
   insertMock.mockReset().mockResolvedValue({ error: null });
@@ -70,5 +70,40 @@ describe("withdrawConsentAction", () => {
 
   it("never takes the patient id from the caller", () => {
     expect(withdrawConsentAction.length).toBe(1);
+  });
+});
+
+describe("grantConsentAction", () => {
+  it("appends an accepted row for the caller on an optional purpose", async () => {
+    const result = await grantConsentAction("research");
+    expect(result).toEqual({ success: true });
+    expect(insertMock).toHaveBeenCalledWith({
+      organisation_id: "org-1",
+      patient_id: "patient-1",
+      consent_type: "research",
+      consent_version_id: "cv-1",
+      version: "v1",
+      action: "accepted",
+    });
+  });
+
+  it("refuses a required purpose here and writes nothing", async () => {
+    versionRow = { id: "cv-2", version: "v1", is_optional: false };
+    const result = await grantConsentAction("data_processing");
+    expect(result?.error).toMatch(/set up your account/);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses when signed out and when the type does not exist", async () => {
+    user = null;
+    expect((await grantConsentAction("research"))?.error).toMatch(/sign in/);
+    user = { id: "patient-1" };
+    expect((await grantConsentAction("not_a_type"))?.error).toMatch(/does not exist/);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed write instead of pretending it worked", async () => {
+    insertMock.mockResolvedValue({ error: { message: "rls" } });
+    expect((await grantConsentAction("research"))?.error).toMatch(/could not record/);
   });
 });

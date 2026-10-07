@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { t } from "@tarragon/i18n";
+import { checkSignupGate } from "@/lib/auth/signup-gate";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { isGuestCheckoutProductCode } from "@/lib/billing/guest-checkout-products";
 import {
@@ -116,6 +118,13 @@ export async function startGuestCheckout(
   );
   if (!limited.success) {
     return { error: RATE_LIMIT_MESSAGE, values: requestSubmittedValues(formData) };
+  }
+
+  // Guest checkout can create an account, so it is a public sign-up path too. While sign-up is invite-only, say so kindly instead of
+  // letting the database refuse it with a generic error. Email identity only: the phone here is not verified.
+  const gate = await checkSignupGate({ email });
+  if (!gate.allowed) {
+    return { error: t("signup.invite_required"), values: requestSubmittedValues(formData) };
   }
 
   const supabase = await createClient();

@@ -64,7 +64,7 @@ export async function invitePartnerStaffAction(
     password: input.password,
     phone: input.phone || undefined,
     email_confirm: true,
-    app_metadata: { role: actor.role, organisation_id: null },
+    app_metadata: { role: actor.role, organisation_id: null, signup_exempt: "true" },
     user_metadata: { full_name: input.fullName },
   });
   if (error || !data.user) {

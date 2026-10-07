@@ -53,3 +53,45 @@ export async function withdrawConsentAction(consentType: string): Promise<Withdr
   revalidatePath("/patient/privacy");
   return { success: true };
 }
+
+/**
+ * Giving an OPTIONAL consent (research, for now). One explicit choice after reading the text; never bundled with anything, never recorded for
+ * a required purpose (those are given at onboarding). Append-only like withdrawal: one more patient_consents row for the caller's own record.
+ */
+export async function grantConsentAction(consentType: string): Promise<WithdrawConsentState> {
+  const parsed = withdrawSchema.safeParse({ consentType });
+  if (!parsed.success) return { error: "That consent does not exist." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please sign in again." };
+
+  const [{ data: profile }, { data: version }] = await Promise.all([
+    supabase.from("profiles").select("organisation_id").eq("id", user.id).single(),
+    supabase
+      .from("consent_versions")
+      .select("id, version, is_optional")
+      .eq("consent_type", parsed.data.consentType)
+      .eq("is_current", true)
+      .maybeSingle(),
+  ]);
+  if (!profile?.organisation_id || !version) return { error: "We could not find that consent." };
+  if (!version.is_optional) {
+    return { error: "This one is given when you set up your account, not here." };
+  }
+
+  const { error } = await supabase.from("patient_consents").insert({
+    organisation_id: profile.organisation_id,
+    patient_id: user.id,
+    consent_type: parsed.data.consentType,
+    consent_version_id: version.id,
+    version: version.version,
+    action: "accepted",
+  });
+  if (error) return { error: "We could not record that just then. Please try again." };
+
+  revalidatePath("/patient/privacy");
+  return { success: true };
+}

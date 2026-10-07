@@ -1608,9 +1608,20 @@ export const TEMPLATE_MAP: Record<
     };
   },
   // S21: neutral by design (INV-07). Nothing here names a reason, a condition or a clinician; the details live in the app.
+  // Push and email carry the same neutral line as the in-app notice (INV-08: no SMS; the join link is issued by the page after sign-in).
   video_call_requested: (payload) => ({
     smsText: "Your care team would like a quick call. Open the app to join. Tarragon Health",
     pushUrl: `/patient/video-visit/${String(payload.consultation_id ?? "")}`,
+    email: {
+      subject: "Your care team would like a quick call",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your care team would like a quick call. Open the Tarragon Health app to join.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">The call link is in the app, after you sign in. We never send it by text message.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Your care team would like a quick call. Open the Tarragon Health app to join. The call link is in the app, after you sign in. We never send it by text message.",
+    },
   }),
   consult_join_ready: (payload) => ({
     smsText: "Your consultation room is open. Open the app to join. Tarragon Health",

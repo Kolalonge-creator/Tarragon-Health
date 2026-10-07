@@ -369,6 +369,9 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
                 { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+                { label: "Automations", href: "/admin/ops/automations", icon: "review" },
+                { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+                { label: "AI cost", href: "/admin/ops/ai-cost", icon: "governance" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
                 { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
               ],
@@ -613,6 +616,8 @@ export function getNavSections(
                 { label: "Payout approvals", href: "/clinician/payout-approvals", icon: "governance" },
                 // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
                 { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
+                { label: "AI answer review", href: "/clinician/ai-review", icon: "review" },
+                { label: "Research protocols", href: "/clinician/research", icon: "governance" },
                 // Every clinician with status, licence, competencies; decide competency grants and reinstatements, pause someone (S36d). CMO only; the page redirects others.
                 { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
                 // Queue and page times against their limits, on-call cover and reliability bands (S36e). CMO only; the page redirects others.
@@ -671,6 +676,9 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
                 { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+                { label: "Automations", href: "/admin/ops/automations", icon: "review" },
+                { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+                { label: "AI cost", href: "/admin/ops/ai-cost", icon: "governance" },
               ],
             },
           ];
@@ -723,6 +731,9 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+            { label: "Automations", href: "/admin/ops/automations", icon: "review" },
+            { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+            { label: "AI cost", href: "/admin/ops/ai-cost", icon: "governance" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
@@ -813,6 +824,9 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+            { label: "Automations", href: "/admin/ops/automations", icon: "review" },
+            { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+            { label: "AI cost", href: "/admin/ops/ai-cost", icon: "governance" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
         },
@@ -859,6 +873,9 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+            { label: "Automations", href: "/admin/ops/automations", icon: "review" },
+            { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+            { label: "AI cost", href: "/admin/ops/ai-cost", icon: "governance" },
           ],
         },
         {

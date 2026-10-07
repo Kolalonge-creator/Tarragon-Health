@@ -46,7 +46,7 @@ export async function invitePayerAdminAction(_prev: ActionState, formData: FormD
     email: input.email,
     password: input.password,
     email_confirm: true,
-    app_metadata: { role: "payer_admin", organisation_id: null },
+    app_metadata: { role: "payer_admin", organisation_id: null, signup_exempt: "true" },
     user_metadata: { full_name: input.fullName },
   });
   if (createError || !created.user) {

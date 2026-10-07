@@ -1,0 +1,15 @@
+{
+  "_note": "The ElevenLabs voice used to render every TH-*-EN.mp3 master. Not a secret. Set voice_id once the voice is chosen; the API key is never stored here (ELEVENLABS_API_KEY in your shell).",
+  "voice_id": "sdcVcB6Qd34krJNi9Csi",
+  "voice_name": "Tayo (ElevenLabs library, Nigerian English, male, calm and authoritative)",
+  "model_id": "eleven_multilingual_v2",
+  "output_format": "mp3_44100_128",
+  "voice_settings": {
+    "stability": 0.6,
+    "similarity_boost": 0.75,
+    "style": 0,
+    "use_speaker_boost": true,
+    "speed": 0.95
+  },
+  "_chosen": "2026-10-07 by the founder after hearing three samples"
+}

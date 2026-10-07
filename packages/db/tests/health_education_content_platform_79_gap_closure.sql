@@ -97,8 +97,11 @@ begin
   end if;
   raise notice 'PASS 1c: illegal transition rejected';
 
-  -- Quick toggle: review_due -> published direct edge (restore original state).
+  -- review_due -> published re-affirmation (restore original state). S80: this
+  -- edge now needs the Chief Medical Officer, so restore as the CMO session.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_cd_profile, 'role', 'authenticated')::text, true);
   perform public.set_health_education_content_status(v_content_id, 'published', 'restore');
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
   if not (select is_active from public.health_education_content where id = v_content_id) then
     raise exception 'FAIL: content should be is_active again after restoring to published';
   end if;
@@ -144,7 +147,7 @@ begin
     end if;
 
     -- restore for cleanliness (rolled back anyway, but keep the test legible)
-    perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+    perform set_config('request.jwt.claims', json_build_object('sub', v_cd_profile, 'role', 'authenticated')::text, true);
     set local role authenticated;
     perform public.set_health_education_content_status(v_content_id, 'published', 'test cleanup');
     reset role;

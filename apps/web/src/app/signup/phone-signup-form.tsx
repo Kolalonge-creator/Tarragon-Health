@@ -28,9 +28,12 @@ export function PhoneSignupForm({
   refCode,
   intent,
   redirectTo,
+  inviteOnly,
 }: {
   locale: Locale;
   refCode?: string;
+  /** Show the invite code box (only while sign-up is invite-only). */
+  inviteOnly?: boolean;
   intent?: "health_check" | "support";
   redirectTo?: string;
 }) {
@@ -160,6 +163,26 @@ export function PhoneSignupForm({
           ))}
         </Select>
       </div>
+      {inviteOnly && (
+        <div className="space-y-1.5">
+          <Label htmlFor="inviteCode" className="text-charcoal-ink/70">
+            {t("signup.invite_code_label", locale)}
+          </Label>
+          <Input
+            id="inviteCode"
+            name="inviteCode"
+            autoComplete="off"
+            autoCapitalize="characters"
+            maxLength={32}
+            disabled={signupPending}
+            className={FIELD_CLASS}
+            {...fieldErrorProps(errorId, invalid("inviteCode"), "signup-invite-hint")}
+          />
+          <p id="signup-invite-hint" className="text-xs text-charcoal-ink/50">
+            {t("signup.invite_code_hint", locale)}
+          </p>
+        </div>
+      )}
       <div className="space-y-1.5">
         <Label htmlFor="password" className="text-charcoal-ink/70">
           {t("auth.field.password", locale)}

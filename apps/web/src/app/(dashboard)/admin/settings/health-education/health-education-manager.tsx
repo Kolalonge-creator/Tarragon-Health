@@ -64,11 +64,13 @@ const STATUS_BADGE: Record<HealthEducationContentStatus, { label: string; varian
 
 /** Mirrors the legal-transition state machine enforced by
  * public.set_health_education_content_status() — kept in sync manually since
- * the server is the real gate; this only decides which buttons to show. */
+ * the server is the real gate; this only decides which buttons to show.
+ * S80: approving, and re-affirming expired content, need the Chief Medical
+ * Officer; draft and updated content can no longer skip review to published. */
 const NEXT_STATUSES: Record<HealthEducationContentStatus, { status: HealthEducationContentStatus; label: string }[]> = {
   draft: [{ status: "clinical_review", label: "Send for clinical review" }],
   clinical_review: [
-    { status: "approved", label: "Approve" },
+    { status: "approved", label: "Approve (CMO only)" },
     { status: "draft", label: "Send back to draft" },
   ],
   approved: [
@@ -81,7 +83,7 @@ const NEXT_STATUSES: Record<HealthEducationContentStatus, { status: HealthEducat
   ],
   review_due: [
     { status: "updated", label: "Mark as updated" },
-    { status: "published", label: "Re-publish as-is" },
+    { status: "published", label: "Re-affirm and publish (CMO only)" },
   ],
   updated: [{ status: "clinical_review", label: "Send for clinical review" }],
 };
