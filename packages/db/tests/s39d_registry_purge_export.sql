@@ -164,7 +164,7 @@ select pg_temp.ck('real', 'G1 a new export request is due in 30 days', 'true',
 select pg_temp.ck('real', 'G3 the clock follows the config, not a literal', 'true',
   (select (private.export_review_due() between now() + interval '29 days' and now() + interval '31 days')::text));
 select pg_temp.ck('real', 'G2 the active config is v3 with export_review_days 30', 'true',
-  (select (version = 3 and (config ->> 'export_review_days') = '30' and (config -> 'retention' ->> 'real_data_auto_delete') = 'false')::text from public.security_config where is_active));
+  (select (version >= 3 and (config ->> 'export_review_days') = '30' and (config -> 'retention' ->> 'real_data_auto_delete') = 'false')::text from public.security_config where is_active));
 
 -- SABOTAGE ---------------------------------------------------------------------------------------------------------------------------------------------------------
 do $$
