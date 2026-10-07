@@ -57,6 +57,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/ops/ai-cost", "ai cost spend price prices model tokens naira kobo month monthly assistant coach scribe unpriced budget"],
   ["/admin/settings/translations", "translation translations translate language languages review native speaker clinical reviewed draft text strings pidgin yoruba hausa igbo"],
   ["/clinician/ai-review", "ai review answers sample sampled flagged verdict accurate harmful minor issue assistant coach reported answer safety audit"],
+  ["/clinician/research", "research protocol protocols ethics approval data sharing agreement de-identified export participants consent study evaluation registered cmo dpo data protection officer"],
+  ["/admin/settings/research", "research protocol protocols data protection officer dpo confirm ethics approval data sharing agreement export study"],
   ["/admin/ops/directory-freshness", "directory freshness verification verify listing listings partner partners lab laboratory pharmacy facility specialist logistics delivery overdue stale due re-verify reverify check last verified schedule cadence"],
   ["/clinician/pharmacy", "pharmacy messages pharmacy questions question questions flag flagged problem out of stock query prescriber prescription collected collection dispensed supplied sent where is my prescription pharmacist asked answer batch substitute strength dose unclear partner dispensing"],
   ["/clinician/quality/concerns", "speak up speakup whistleblow raise concern backup reader retaliation reply acknowledge deadline overdue"],

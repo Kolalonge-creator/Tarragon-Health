@@ -616,6 +616,7 @@ export function getNavSections(
                 // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
                 { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
                 { label: "AI answer review", href: "/clinician/ai-review", icon: "review" },
+                { label: "Research protocols", href: "/clinician/research", icon: "governance" },
                 // Every clinician with status, licence, competencies; decide competency grants and reinstatements, pause someone (S36d). CMO only; the page redirects others.
                 { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
                 // Queue and page times against their limits, on-call cover and reliability bands (S36e). CMO only; the page redirects others.
