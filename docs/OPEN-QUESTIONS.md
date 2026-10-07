@@ -1583,10 +1583,9 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - `record_share_by_token` failed for any share that included the vitals section (a renamed column) or the lab results section (a status value that does not exist). Fixed in `20261007104237_s39_security_hardening_round1.sql` with a regression test. It shares lab results whose report status is final, corrected or amended; whether a lab result must also be clinician-released before it can be shared (INV-03) is for the CMO, since patients already read these rows directly.
 - Decision: informational; CMO to confirm the INV-03 point.
 
-### OQ-278 Tied direct reads on the other tables are still not audited one by one (INV-10)
-- S39b closes who may read (a care relationship, break-glass or a support view) on 128 tables. About 10 core tables also write an audit row per read through their audited functions (S05, S22e), and opening a chart is audited. The other tied tables are read directly by tied staff with no per-read audit row.
-- Options: (a) add audited read functions table group by table group, starting with transcripts, serology, mental health, sexual and reproductive health (recommended); (b) rely on the chart-open audit.
-- Decision: open (founder, CMO).
+### OQ-278 Tied direct reads on the other tables are not audited one by one (INV-10) (DECIDED 2026-10-07, built in S39c)
+- Decision (founder): meet the NHS standard. A doctor may search for any patient and open the record with no reason to type; the audit runs in the background; the patient is not told.
+- Built in S39c: `staff_record_opens`, an append-only log that is also the grant. An untied clinician reads tied tables only inside a window created by `open_patient_record`, so a read without a logged opening is impossible in the database. The log is per opening of a record, not per table read (see OQ-282).
 
 ### OQ-279 Staff writes are still organisation-wide on the tied tables
 - S39b changes SELECT only. An untied staff member can still INSERT, UPDATE or DELETE rows on those tables by policy (they cannot see the result). Writes are done mostly by functions and triggers.
@@ -1597,6 +1596,20 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Scheduling and work queues (appointments, alerts, escalations, emergency events, outreach, care-team assignment, case management), logistics (lab orders and specimens, pharmacy), billing, self-tracking and system rules. Several hold clinical detail (lab orders, alerts, escalations). They stay so coordinators can book and the on-call route can pick up unassigned work; tying them needs the work-queue design (S35, S36) first.
 - Options: (a) tie lab orders and the alert and escalation tables once unassigned-work visibility is designed (recommended); (b) leave.
 - Decision: open (founder, CMO).
+
+### OQ-281 May a patient ask who opened their record, and must they be told? (counsel)
+- Founder direction: the patient is not told and need not know a doctor opened the record (NHS practice: the audit is background). Under the NDPA 2023 a patient may have a right to know who processed their data.
+- Options: (a) keep it hidden, answer a request from the DPO with the access log (recommended pending counsel); (b) show the patient their access history in the app.
+- Decision: open (counsel, DPO). Question 21 in `docs/legal/questions-for-nigerian-counsel-S39.md`.
+
+### OQ-282 The access log records the opening of a record, not each table read inside the window
+- `staff_record_opens` has one row per opening (who, which patient, when, tied or open, after hours), valid 8 hours. Reads of individual tables inside the window are not logged one by one, and a PostgREST GET runs read-only so a policy cannot write a row per read. Edits are covered by each table's own history where it has one (OQ-279).
+- Options: (a) keep the opening-level log (NHS legitimate-relationship practice, recommended); (b) add database request logging (pgaudit) shipped to a log store for per-query detail.
+- Decision: open (founder, CMO).
+
+### OQ-283 Retention periods are proposals until counsel confirms them
+- Held as versioned config `security.rules` v2 (`retention`): adult record 8 years after last contact, child to age 25 (26 if seen at 17), maternity 25, mental health 20, access log 8, consent relationship plus 6, payments 6, operational data 90 days to 2 years. Sources: NHS Records Management Code of Practice and HIPAA as references. `real_data_auto_delete` is false: nothing deletes real patient data (founder, 2026-10-07).
+- Decision: open (counsel, DPO). Question 22 in the counsel list.
 ## S28: pharmacy partner, collection and dispensing (raised 2026-10-07)
 
 ### OQ-270 Two prescription models, one supply count (decided)

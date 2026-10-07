@@ -37,3 +37,7 @@ From the regulatory map (spec D.6) and what the S39 review found. Each is phrase
 
 ## NHIA
 20. Is eligibility-and-billing-only HMO integration outside NHIA's insurance rules, and could a 100,000 naira a year Membership be classed as insurance?
+
+## Access log and retention (added in S39c)
+21. Does a patient have a right under the NDPA 2023 to know which staff opened their record, or is an internal access log a matter for the DPO only?
+22. Are these retention periods acceptable for Nigeria: adult record 8 years after last contact, child to age 25, maternity 25 years, mental health 20 years, access log 8 years, consent records the relationship plus 6 years, payments and ledger 6 years? Does any MDCN rule or other Nigerian statute set a longer or shorter period?
