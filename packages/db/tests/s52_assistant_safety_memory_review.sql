@@ -263,6 +263,21 @@ select pg_temp.q_service(format($q$select public.assistant_page_on_call(%L::uuid
 select pg_temp.ck('real', 'still one live task after a second conversation', '1',
   (select count(*)::text from public.clinical_tasks where patient_id = pg_temp.f('pat') and type = 'red_event_unacknowledged' and dedup_key = 'crisis:' || pg_temp.f('pat')));
 select pg_temp.ck('real', 'the page is audited', '1', (select count(*)::text from public.audit_log where action = 'assistant.on_call_paged' and entity_id = pg_temp.f('conv')));
+select pg_temp.ck('real', 'the page notice carries the assistant_crisis kind, which links to the queue (not the empty on-call page)', 'true',
+  (position('assistant_crisis' in pg_get_functiondef('public.assistant_page_on_call(uuid, uuid)'::regprocedure)) > 0)::text);
+insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test)
+  select cs.organisation_id, cs.id, 'on_call', pg_temp.f('admin'), true from public.clinical_staff cs where cs.profile_id = pg_temp.f('cmo')
+  on conflict do nothing;
+select pg_temp.ck('real', 'the queue the notice links to offers the crisis task as class 1 to a clinician who can take it', '1',
+  (select count(*)::text from private.queue_candidates(pg_temp.f('cmo'), false) c join public.clinical_tasks t on t.id = c.id
+    where t.dedup_key = 'crisis:' || pg_temp.f('pat') and c.priority_class = 1));
+-- a turn answered by CODE is not a model sighting (the vendor-drift check must not be fed none:code)
+select pg_temp.n(format($q$select private.record_ai_model_observation(%L::uuid, 'none:code', %L::uuid)::text$q$, (select id from public.ai_systems where system_code = 'AI-001'), pg_temp.f('org')));
+select pg_temp.n(format($q$select private.record_ai_model_observation(%L::uuid, 'claude-proof-model', %L::uuid)::text$q$, (select id from public.ai_systems where system_code = 'AI-001'), pg_temp.f('org')));
+select pg_temp.ck('real', 'none:code is never recorded as an observed model', '0',
+  (select count(*)::text from public.ai_vendor_model_observations where observed_model_identifier = 'none:code'));
+select pg_temp.ck('real', 'a real model is still recorded (control)', '1',
+  (select count(*)::text from public.ai_vendor_model_observations where observed_model_identifier = 'claude-proof-model'));
 create temp table paging_cfg_saved as select key, value, config_version from public.assistant_config where key = 'paging';
 delete from public.assistant_config where key = 'paging';
 select pg_temp.ck('real', 'a missing paging config row fails loudly instead of using a built-in window', 'ERR:55000',
@@ -391,6 +406,16 @@ create or replace function public.assistant_review_queue() returns table (id uui
 language sql stable security definer set search_path = '' as
 $$ select s.id, s.month, s.selection, s.state, s.verdict, left(s.patient_id::text, 8), 0, s.selection = 'reported' from public.assistant_review_samples s $$;
 select pg_temp.ck('sabotaged', 'a clinician below CMO cannot open the queue', 'ERR:42501', pg_temp.q_as(pg_temp.f('doc'), 'select count(*)::text from public.assistant_review_queue()'));
+-- the observation function without its none: guard must record none:code2
+do $f$ declare d text;
+begin
+  d := pg_get_functiondef('private.record_ai_model_observation(uuid, text, uuid)'::regprocedure);
+  d := replace(d, 'if left(p_model_identifier, 5) = ''none:'' then return; end if;', '');
+  execute d;
+end $f$;
+select pg_temp.n(format($q$select private.record_ai_model_observation(%L::uuid, 'none:code2', %L::uuid)::text$q$, (select id from public.ai_systems where system_code = 'AI-001'), pg_temp.f('org')));
+select pg_temp.ck('sabotaged', 'none:code is never recorded as an observed model', '0',
+  (select count(*)::text from public.ai_vendor_model_observations where observed_model_identifier = 'none:code2'));
 -- the sampler without its test-account exclusion must put the test conversation into the draw
 do $f$ declare d text;
 begin
@@ -411,7 +436,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

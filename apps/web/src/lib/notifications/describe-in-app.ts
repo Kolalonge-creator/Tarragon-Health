@@ -653,8 +653,20 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "Someone in your Care Circle has paid for your care", href: "/patient" };
   }
   if (n.template === "on_call_page") {
-    // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
+    // Fixed neutral line, never the patient or the reading (INV-07). A page from the assistant's self-harm path (S52) has no S19 page row,
+    // so /clinician/on-call would be empty: it points to the queue, where the class 1 task is counted and "claim next" hands it out first.
+    if (payload.kind === "assistant_crisis") return { text: "A priority case is waiting for you", href: "/clinician/queue" };
     return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
+  }
+  if (n.template === "assistant_daily_nudge") {
+    // S51: generic by design (INV-07): no condition, reading or medicine is ever named.
+    return { text: "Your check-in for today is ready", href: "/patient/care" };
+  }
+  if (n.template === "assistant_weekly_reflection") {
+    return { text: "Your look back at this week is ready", href: "/patient/care" };
+  }
+  if (n.template === "assistant_reengage") {
+    return { text: "It has been a little while. Your assistant is here whenever you have a question", href: "/patient/care" };
   }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };

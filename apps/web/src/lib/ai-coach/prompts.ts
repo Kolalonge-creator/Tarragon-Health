@@ -159,6 +159,12 @@ when a purpose-built tool exists for it:
   step by step.
 - "none": nothing above fits — the default for ordinary conversation.
 
+Also set isSelfHarmConcern to true whenever the patient says anything about
+wanting to hurt themselves, end their life, not wanting to be alive, or a plan
+or means to do so, in any wording or language, even indirectly. Otherwise
+false. When it is true the platform treats the turn as an emergency and
+brings in a person; do not try to handle it yourself.
+
 Also set isHealthInformationRequest. It is true when the patient is asking
 for health or medical INFORMATION: what something is, what it means, whether
 something is safe or normal, what to do about it. It is false for logging how
