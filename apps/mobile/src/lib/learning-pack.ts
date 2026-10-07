@@ -102,6 +102,15 @@ export async function rememberWeeklyLessonCode(patientId: string, code: string):
   }
 }
 
+/** Forget the remembered lesson (the server said nothing is due this week), so a later offline card does not show an old one. */
+export async function forgetWeeklyLessonCode(patientId: string): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(`${WEEKLY_CODE_KEY}.${patientId}`);
+  } catch {
+    // harmless
+  }
+}
+
 export async function recallWeeklyLessonCode(patientId: string): Promise<string | null> {
   try {
     return await AsyncStorage.getItem(`${WEEKLY_CODE_KEY}.${patientId}`);

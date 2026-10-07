@@ -184,8 +184,9 @@ drop trigger if exists health_education_progress_understood_at on public.health_
 create trigger health_education_progress_understood_at
   before insert or update on public.health_education_progress
   for each row execute function private.health_education_progress_understood_at();
--- existing finished rows: the best record of when is the last time they were opened
-update public.health_education_progress set understood_at = coalesce(last_viewed_at, created_at) where status = 'understood' and understood_at is null;
+-- existing finished rows: last_viewed_at is refreshed by every re-read, so it is not a finish time; the first-opened time (created_at) is the
+-- safe floor, so no old lesson is counted as finished in the current programme week
+update public.health_education_progress set understood_at = created_at where status = 'understood' and understood_at is null;
 
 -- Start of the person's current programme week for a track: the same anchor private.health_education_unlock_week() counts from.
 create or replace function private.health_education_unlock_anchor(p_condition public.care_plan_condition)

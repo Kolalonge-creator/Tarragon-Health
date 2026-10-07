@@ -21,6 +21,7 @@ import {
   pickOfflineWeeklyLesson,
   purgeExpired,
   readOffline,
+  forgetWeeklyLessonCode,
   recallWeeklyLessonCode,
   rememberWeeklyLessonCode,
   refreshPackNow,
@@ -201,6 +202,7 @@ export function WeeklyLessonCard({ patientId, organisationId }: { patientId: str
       setLesson(next);
       setOffline(null);
       if (next) await rememberWeeklyLessonCode(patientId, next.code);
+      else await forgetWeeklyLessonCode(patientId);
     } catch {
       setLesson(null);
       await bindPackToUser(patientId);
