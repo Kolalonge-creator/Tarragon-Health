@@ -1,3 +1,6 @@
+-- ORDER NOTE (integration, 2026-10-07): this file was 20261007003029. S28c (20261007141623, already live) replaces private.go_live_conditions
+-- as a whole, which on a fresh replay would silently drop the branch this migration inserts by text. It now sorts after S28c so a replay
+-- and the live project (where S28c is already applied) patch the same text. No version was applied anywhere under the old name.
 -- F1 fix 3: symptom checker go-live. A new S37 go-live guard `symptom_checker_enabled`, seeded OFF, a database
 -- refusal on every symptom-triage assessment insert while it is off, and a DRAFT (never signed, never active)
 -- escalation SLA version that carries the missing `symptom_triage` pathway.
