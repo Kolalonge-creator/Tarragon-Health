@@ -1,0 +1,34 @@
+# Reviewed findings in git HISTORY (S39, 2026-10-07). Each line is one exact finding (commit:file:rule:line); nothing is allowed by rule or by path,
+# so any NEW finding, including in the same files, still fails the scan. Review result for all 24:
+#  - google-services.json "current_key" (3): the Firebase Android client key, public by design (shipped inside the app). Restrict it in the Google
+#    Cloud console to the app's package name and signing certificate; the committed copy under "android submission" should be deleted from the tree.
+#  - apps/mobile/eas.json jwt (1): the Supabase anon key, public by design (row-level security is the protection).
+#  - reference/tarragon-control/.env.example (1): a Supabase publishable key, public by design.
+#  - docs/INTEGRATIONS_API.md curl-auth-header (2): example commands that use a $TOKEN variable, not a real token.
+#  - email-mock.ts (2): base64("mock-secret"), a test value.
+#  - Podfile.lock (2): CocoaPods checksums.
+#  - symptom triage protocol "key": "..." names in a fixture, a source file and three migrations (11): configuration names, not credentials.
+184a5d4b5189ef82aeea5f15af1622e05d4be4a7:supabase/migrations/20260911202322_symptom_triage_protocols_draft_v2_fever_abdominal_pain.sql:generic-api-key:102
+218cc32af2cb8fdb08003ee069c53fd627cfa22e:packages/symptom-triage-engine/src/protocols/db-seed-fixture.json:generic-api-key:385
+218cc32af2cb8fdb08003ee069c53fd627cfa22e:packages/symptom-triage-engine/src/protocols/index.ts:generic-api-key:304
+2b56fd2b8f829f8074ce28bebddf391592a71099:supabase/migrations/20260829094847_symptom_triage_protocols_config.sql:generic-api-key:229
+3621bd0ec1af2d75950673e8496e162e117b074b:supabase/migrations/20260911202322_symptom_triage_protocols_draft_v2_fever_abdominal_pain.sql:generic-api-key:102
+3994219d983df356a6fafdddc73073d2f01fcad1:apps/mobile/google-services.json:gcp-api-key:18
+3ed1f0cdb90d154cd886780a88654b93aaa8ad90:reference/tarragon-control/.env.example:generic-api-key:3
+523c49dd391162d721e57412fef9f354a8842435:docs/INTEGRATIONS_API.md:curl-auth-header:70
+6059c34f86cca2de9372cf8c4c497dbe417c3df0:android submission/release-builds/0.1.0-3/google-services.json:gcp-api-key:18
+a24c3edd9e599d8634fb4b511fedb24dfbcc8e7a:packages/symptom-triage-engine/src/protocols/db-seed-fixture.json:generic-api-key:385
+a24c3edd9e599d8634fb4b511fedb24dfbcc8e7a:packages/symptom-triage-engine/src/protocols/index.ts:generic-api-key:304
+a24c3edd9e599d8634fb4b511fedb24dfbcc8e7a:supabase/migrations/20260829091247_symptom_triage_protocols_config.sql:generic-api-key:229
+b56aaf134f10570755e313f170da8b45ee023f85:apps/mobile/eas.json:jwt:10
+b5d236b6728193ffb91a6a03aa804c2d9cd43b8a:apps/mobile/ios/Podfile.lock:generic-api-key:2237
+bcecd8006358f50833bfdd8c7deea31c48e9acf2:supabase/migrations/20260829094847_symptom_triage_protocols_config.sql:generic-api-key:229
+dcbdfdb0681ec0dc64da7b0a7ee5ec87e175306b:packages/symptom-triage-engine/src/protocols/db-seed-fixture.json:generic-api-key:385
+dcbdfdb0681ec0dc64da7b0a7ee5ec87e175306b:packages/symptom-triage-engine/src/protocols/index.ts:generic-api-key:304
+dcbdfdb0681ec0dc64da7b0a7ee5ec87e175306b:supabase/migrations/20260829091247_symptom_triage_protocols_config.sql:generic-api-key:229
+ddeb561d832943fe6621fbe9509cc6e11b026f06:docs/INTEGRATIONS_API.md:curl-auth-header:136
+e08fa1a832fb96d0e5801f44e3fb9ef174a71550:android submission/release-builds/0.1.0-3/google-services.json:gcp-api-key:18
+e4c6a19456254e929e78662896c0beb4212fb3ae:supabase/functions/_shared/integrations/email-mock.ts:generic-api-key:13
+ef26927e032aa366f7bb51dacd6fcf909afea5c7:supabase/functions/_shared/integrations/email-mock.ts:generic-api-key:13
+fc6545f31746f6129b65749368f41f5398867c04:supabase/migrations/20260829094847_symptom_triage_protocols_config.sql:generic-api-key:229
+fdbb56df4666f5c499053c92898c6348f3544dfb:apps/mobile/ios/Podfile.lock:generic-api-key:2079

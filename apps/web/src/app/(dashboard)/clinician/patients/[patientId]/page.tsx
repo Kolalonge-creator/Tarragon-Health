@@ -1,6 +1,7 @@
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { openPatientRecord } from "@/lib/clinical/open-patient-record";
 import {
   canConfirmMedicationRefill,
   hasPrescribingAuthority,
@@ -112,6 +113,25 @@ export default async function ClinicianPatientPage({
         <CardContent>
           <p className="text-sm text-charcoal-ink/60">
             This patient doesn&apos;t exist or isn&apos;t in your organisation.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // S39c: opening the chart writes the append-only access log and grants the window in which an untied clinician can read the tied
+  // tables below. It must run before those reads. If it fails the page says so instead of showing empty sections.
+  const opened = await openPatientRecord(supabase, patient.id);
+  if (opened.status === "failed") {
+    console.error("Failed to open the patient record", opened.message);
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>This record could not be opened</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-charcoal-ink/60">
+            The opening could not be recorded, so the record is not shown. Try again in a moment. Nothing was changed.
           </p>
         </CardContent>
       </Card>
