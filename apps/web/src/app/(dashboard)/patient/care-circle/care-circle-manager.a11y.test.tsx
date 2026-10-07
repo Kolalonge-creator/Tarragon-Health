@@ -8,7 +8,7 @@ import { expectNoA11yViolations } from "@/test/a11y";
 import { CircleError } from "@/lib/queries/care-circle";
 import { CareCircleManager } from "./care-circle-manager";
 
-const MEMBER = { member_id: "m1", name: "Ngozi Eze", relationship: "Daughter", permissions: ["red_alerts"], expires_at: "2027-06-01T00:00:00Z", since: "2026-10-01T00:00:00Z" };
+const MEMBER = { member_id: "m1", name: "Ngozi Eze", relationship: "Daughter", permissions: ["red_alerts"], expires_at: "2027-06-01T00:00:00Z", since: "2026-10-01T00:00:00Z", monthly_report_shared: false };
 const INVITE = { invite_id: "i1", hint: "+234•••••4567", kind: "phone", relationship: "Son", permissions: ["pay_for_care"], expires_at: "2026-10-10T00:00:00Z" };
 
 let circle: { data: unknown; isSuccess: boolean };
@@ -20,6 +20,7 @@ const cancel = jest.fn();
 const renew = jest.fn();
 const pause = jest.fn();
 const resume = jest.fn();
+const setShare = jest.fn();
 let previewMember: { data: unknown; isPending: boolean; isError: boolean };
 let previewPerms: { data: unknown; isPending: boolean; isError: boolean };
 jest.mock("@/lib/queries/care-circle", () => {
@@ -35,6 +36,7 @@ jest.mock("@/lib/queries/care-circle", () => {
     useRenewMember: () => ({ mutateAsync: renew, isPending: false }),
     usePauseCircle: () => ({ mutateAsync: pause, isPending: false }),
     useResumeCircle: () => ({ mutateAsync: resume, isPending: false }),
+    useSetMonthlyShare: () => ({ mutate: setShare, isPending: false }),
     usePreviewMember: () => previewMember,
     usePreviewPermissions: () => previewPerms,
     usePendingGifts: () => ({ data: [] }),
@@ -47,7 +49,7 @@ beforeEach(() => {
   previewMember = { data: undefined, isPending: true, isError: false };
   previewPerms = { data: undefined, isPending: true, isError: false };
   log = { data: [{ viewer: "Ngozi Eze", at: "2026-10-06T10:00:00Z" }], isSuccess: true };
-  [create, update, revoke, cancel, renew, pause, resume].forEach((f) => f.mockReset());
+  [create, update, revoke, cancel, renew, pause, resume, setShare].forEach((f) => f.mockReset());
 });
 
 describe("CareCircleManager", () => {
@@ -58,6 +60,15 @@ describe("CareCircleManager", () => {
     expect(screen.getByText(/Ngozi Eze, /)).toBeTruthy();
     cleanup();
     await expectNoA11yViolations(<CareCircleManager locale="en" origin="https://app.example" />);
+  });
+
+  it("S75 A5: the monthly report switch is off by default, turns it on for that supporter only, and the neutral notice is shown", () => {
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect(screen.getByText(/Your monthly report is not shared with anyone until you choose/)).toBeTruthy();
+    const box = screen.getByLabelText("Share my monthly report with Ngozi Eze") as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    fireEvent.click(box);
+    expect(setShare).toHaveBeenCalledWith({ memberId: "m1", on: true });
   });
 
   it("says so when the circle is empty", () => {
