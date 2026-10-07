@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  * It carries NO phone number and no helpline (CMO decision, 2026-10-07): the crisis route says to go to the nearest hospital now.
  * It never names the answer that stopped the programme, so a person glancing at a shared phone learns nothing about their health.
  */
-export function TherapyGuidanceCard({ route, taskFailed = false, noRules = false }: { route: TherapyRoute | null; taskFailed?: boolean; noRules?: boolean }) {
+export function TherapyGuidanceCard({ route, taskFailed = false, noRules = false }: { route: TherapyRoute | "clinician_review_pending" | "offline_stop" | null; taskFailed?: boolean; noRules?: boolean }) {
   const key = noRules || route === null ? "not_available" : route;
   const urgent = route === "crisis" || route === "same_day_clinician";
   return (

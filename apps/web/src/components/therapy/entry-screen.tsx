@@ -15,7 +15,7 @@ import { TherapyQuestionForm } from "./question-form";
 type View =
   | { kind: "loading" }
   | { kind: "form"; data: EntryQuestions; offline: boolean }
-  | { kind: "stopped"; route: TherapyRoute | null; taskFailed: boolean; noRules?: boolean }
+  | { kind: "stopped"; route: TherapyRoute | "clinician_review_pending" | "offline_stop" | null; taskFailed: boolean; noRules?: boolean }
   | { kind: "closed" }
   | { kind: "error" };
 
@@ -61,7 +61,7 @@ export function TherapyEntryScreen({ code }: { code: string }) {
       // no signal: the same rule on the device. A stop is shown at once; a pass cannot start a programme without the server.
       const local = evaluateEntryScreen(therapyExclusionRules(code), answers);
       setBusy(false);
-      setView(local.passed ? { kind: "error" } : { kind: "stopped", route: local.route, taskFailed: true, noRules: local.noRules });
+      setView(local.passed ? { kind: "error" } : { kind: "stopped", route: "offline_stop", taskFailed: false, noRules: local.noRules });
       return;
     }
     try {
@@ -73,7 +73,7 @@ export function TherapyEntryScreen({ code }: { code: string }) {
         return;
       }
       if (outcome.kind === "blocked") setView({ kind: "stopped", route: outcome.route, taskFailed: outcome.taskFailed });
-      else if (outcome.kind === "closed") setView({ kind: "closed" });
+      else if (outcome.kind === "closed") setView(outcome.reason === "clinician_review_pending" ? { kind: "stopped", route: "clinician_review_pending", taskFailed: false } : { kind: "closed" });
       else setView({ kind: "error" });
     } catch {
       setView({ kind: "error" });

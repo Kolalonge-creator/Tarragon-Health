@@ -157,6 +157,8 @@ create table public.therapy_enrolments (
   completed_count        integer not null default 0 check (completed_count >= 0),
   started_at             timestamptz not null default now(),
   stopped_at             timestamptz,
+  -- set when a clinician resumes a programme paused for review: only scores recorded after this are assessed again
+  resumed_at             timestamptz,
   updated_at             timestamptz not null default now(),
   foreign key (programme_id, programme_version) references public.therapy_programme_versions (programme_id, version) on delete restrict,
   constraint therapy_enrolments_stop_shape check ((state in ('active', 'paused')) = (stopped_at is null) or state = 'paused')
@@ -343,7 +345,7 @@ declare
   v_best integer := null;
   v_pos_in_order integer;
 begin
-  v_ver := coalesce(p_list_version, (select max(version) from public.therapy_exclusion_list_versions where programme_code = p_code));
+  v_ver := coalesce(p_list_version, (select coalesce(max(version) filter (where status = 'confirmed'), max(version)) from public.therapy_exclusion_list_versions where programme_code = p_code));
   if v_ver is null or not exists (select 1 from public.therapy_exclusion_rules where programme_code = p_code and list_version = v_ver) then
     return jsonb_build_object('passed', false, 'route', null, 'stops', '[]'::jsonb, 'no_rules', true, 'list_version', v_ver);
   end if;
@@ -388,27 +390,32 @@ revoke all on function private.therapy_audit_error(uuid, uuid, text, text) from 
 -- A crisis route (item 9 above zero, or self-harm thoughts): urgent event, a class 1 task that never waits for a pull, the clinician on call.
 -- Same task type and notice templates as the F1 crisis path; it is keyed on the enrolment because there is no questionnaire row here.
 create or replace function private.therapy_raise_crisis(p_enrolment uuid)
-returns void language plpgsql security definer set search_path = '' as $$
+returns boolean language plpgsql security definer set search_path = '' as $$
 declare
   e public.therapy_enrolments%rowtype;
   v_event uuid;
   v_task uuid;
   v_to uuid;
+  v_ok boolean := true;
   r record;
 begin
   select * into e from public.therapy_enrolments where id = p_enrolment;
-  if not found then return; end if;
+  if not found then return false; end if;
   begin
     v_event := private.emit_domain_event('programme.flag', e.organisation_id, jsonb_build_object('enrolment_id', e.id),
       'programme.flag:' || e.id || ':crisis', e.patient_id, 'therapy_enrolment', e.id, 'urgent');
   exception when others then
+    v_ok := false;
     perform private.therapy_audit_error(e.organisation_id, e.id, 'crisis_event', sqlerrm);
   end;
   begin
     v_task := private.create_clinical_task(e.patient_id, 'red_event_unacknowledged', null, 'crisis:' || e.patient_id, null, null, v_event);
   exception when others then
+    v_ok := false;
     perform private.therapy_audit_error(e.organisation_id, e.id, 'crisis_task', sqlerrm);
   end;
+  -- one page per patient per hour: repeated submissions raise the (deduplicated) task but do not flood the pager
+  if not exists (select 1 from public.audit_log where action = 'therapy.crisis_notified' and entity_id = e.patient_id and created_at > now() - interval '60 minutes') then
   begin
     v_to := private.page_recipient(e.organisation_id, e.is_test);
     if v_to is not null then
@@ -426,9 +433,13 @@ begin
       perform private.page_incident(e.organisation_id, 'therapy_crisis_no_cover:' || e.id, 'A priority case with nobody on call',
         'A priority case arrived while no eligible clinician was on the rota. The clinical lead and ops were alerted and a priority task is open.');
     end if;
+    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event) values (e.organisation_id, 'therapy.crisis_notified', 'profile', e.patient_id, '{}'::jsonb);
   exception when others then
+    v_ok := false;
     perform private.therapy_audit_error(e.organisation_id, e.id, 'crisis_notify', sqlerrm);
   end;
+  end if;
+  return v_ok and v_task is not null;
 end $$;
 revoke all on function private.therapy_raise_crisis(uuid) from public, anon, authenticated;
 
@@ -446,11 +457,11 @@ begin
   select * into e from public.therapy_enrolments where id = p_enrolment;
   select code into v_code from public.therapy_programmes where id = e.programme_id;
   if v_route = 'crisis' then
-    perform private.therapy_raise_crisis(e.id);
+    v_task_failed := not private.therapy_raise_crisis(e.id);
   elsif v_route in ('same_day_clinician', 'medical_review_first') then
     begin
       v_task := private.create_clinical_task(e.patient_id, 'symptom_review',
-        (v_cfg -> 'route_due_minutes' ->> v_route)::integer, 'therapy_stop:' || e.patient_id || ':' || v_code || ':' || v_route);
+        (v_cfg -> 'route_due_minutes' ->> v_route)::integer, 'ts:' || md5(e.patient_id::text || ':' || v_code || ':' || v_route));
       begin
         perform private.emit_domain_event('programme.flag', e.organisation_id, jsonb_build_object('enrolment_id', e.id),
           'programme.flag:' || e.id || ':' || v_route, e.patient_id, 'therapy_enrolment', e.id);
@@ -467,7 +478,7 @@ end $$;
 revoke all on function private.therapy_route_stop(uuid, jsonb) from public, anon, authenticated;
 
 create or replace function private.therapy_stop_enrolment(p_enrolment uuid, p_screen jsonb)
-returns void language plpgsql security definer set search_path = '' as $$
+returns jsonb language plpgsql security definer set search_path = '' as $$
 declare v_route text := p_screen ->> 'route';
 begin
   update public.therapy_enrolments
@@ -476,7 +487,7 @@ begin
          exclusion_result = jsonb_build_object('stops', coalesce(p_screen -> 'stops', '[]'::jsonb), 'list_version', p_screen -> 'list_version'),
          stopped_at = now()
    where id = p_enrolment and state in ('active', 'paused');
-  perform private.therapy_route_stop(p_enrolment, p_screen);
+  return private.therapy_route_stop(p_enrolment, p_screen);
 end $$;
 revoke all on function private.therapy_stop_enrolment(uuid, jsonb) from public, anon, authenticated;
 
@@ -501,7 +512,8 @@ begin
   elsif e.state = 'active' then
     for k, v_rule in select key, value from jsonb_each(v_cfg -> 'worsening') loop
       select (scores ->> k)::numeric into v_base from public.therapy_session_progress where enrolment_id = e.id and completed_at is not null and scores ? k order by ordinal asc limit 1;
-      select (scores ->> k)::numeric into v_last from public.therapy_session_progress where enrolment_id = e.id and completed_at is not null and scores ? k order by ordinal desc limit 1;
+      select (scores ->> k)::numeric into v_last from public.therapy_session_progress where enrolment_id = e.id and completed_at is not null and scores ? k
+         and (e.resumed_at is null or completed_at > e.resumed_at) order by ordinal desc limit 1;
       if v_last is null then continue; end if;
       if v_rule ? 'absolute_at_least' and v_last >= (v_rule ->> 'absolute_at_least')::numeric then v_found := true;
       elsif v_base is not null and v_rule ? 'rise_at_least' and v_last - v_base >= (v_rule ->> 'rise_at_least')::numeric then v_found := true; end if;
@@ -619,7 +631,7 @@ begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
   select * into p from public.therapy_programmes where code = p_programme_code;
   if not found then raise exception 'unknown programme' using errcode = '22023'; end if;
-  select max(version) into v_ver from public.therapy_exclusion_list_versions where programme_code = p.code;
+  select coalesce(max(version) filter (where status = 'confirmed'), max(version)) into v_ver from public.therapy_exclusion_list_versions where programme_code = p.code;
   return jsonb_build_object(
     'programme', jsonb_build_object('code', p.code, 'title', p.title, 'summary', p.summary, 'status', p.status),
     'open', p.status in ('draft', 'live') and private.go_live_open_patient(p.guard_key, v_uid),
@@ -666,7 +678,7 @@ begin
       return jsonb_build_object('enrolled', false, 'route', null, 'no_rules', true, 'reason', 'not_available');
     end if;
     if v_existing.id is not null then
-      perform private.therapy_stop_enrolment(v_existing.id, v_screen);
+      v_routed := private.therapy_stop_enrolment(v_existing.id, v_screen);
       v_id := v_existing.id;
     else
       insert into public.therapy_enrolments (organisation_id, patient_id, programme_id, programme_version, exclusion_list_version, state, stop_reason,
@@ -684,6 +696,13 @@ begin
 
   if v_existing.id is not null then
     return jsonb_build_object('enrolled', true, 'enrolment_id', v_existing.id, 'state', v_existing.state, 'existing', true);
+  end if;
+  -- a stop by the entry screen (crisis or a red flag) is not undone by answering the form again: a clinician looks first
+  if exists (select 1 from public.therapy_enrolments x
+              where x.patient_id = v_uid and x.programme_id = p.id and x.state in ('blocked', 'stopped_exclusion') and x.stop_reason in ('crisis', 'exclusion')
+                and x.exclusion_result::text not like '%education_only%'
+                and x.stopped_at > now() - make_interval(hours => coalesce((private.therapy_config() ->> 'reenrol_cooldown_hours')::integer, 72))) then
+    return jsonb_build_object('enrolled', false, 'reason', 'clinician_review_pending');
   end if;
   if p.status in ('scaffold', 'held') then
     return jsonb_build_object('enrolled', false, 'reason', 'not_available');
@@ -717,11 +736,13 @@ declare
   v_total integer;
   v_cfg jsonb := private.therapy_config();
   v_approved boolean;
+  v_routed jsonb;
 begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
   select * into e from public.therapy_enrolments where id = p_enrolment and patient_id = v_uid;
   if not found then raise exception 'not found' using errcode = '42501'; end if;
   select * into p from public.therapy_programmes where id = e.programme_id;
+  if v_cfg is null then raise exception 'programmes are not configured' using errcode = '55000'; end if;
   if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;
   if not private.go_live_open_patient(p.guard_key, v_uid) then return jsonb_build_object('status', 'not_open_yet'); end if;
   select count(*) into v_total from public.therapy_programme_sessions where programme_id = e.programme_id and version = e.programme_version;
@@ -732,8 +753,8 @@ begin
   -- the re-check, every session, latest list, fail closed
   v_screen := private.therapy_evaluate_screen(p.code, p_recheck);
   if not (v_screen ->> 'passed')::boolean then
-    perform private.therapy_stop_enrolment(e.id, v_screen);
-    return jsonb_build_object('status', 'stopped', 'route', v_screen ->> 'route',
+    v_routed := private.therapy_stop_enrolment(e.id, v_screen);
+    return jsonb_build_object('status', 'stopped', 'route', v_screen ->> 'route', 'task_failed', coalesce((v_routed ->> 'task_failed')::boolean, false),
       'stop_codes', (select coalesce(jsonb_agg(x ->> 'code'), '[]'::jsonb) from jsonb_array_elements(v_screen -> 'stops') x));
   end if;
 
@@ -776,12 +797,14 @@ declare
   v_primary text;
   v_done integer;
   v_assess jsonb := jsonb_build_object('flagged', false);
+  v_assess_failed boolean := false;
   v_finished boolean := false;
 begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
   select * into e from public.therapy_enrolments where id = p_enrolment and patient_id = v_uid;
   if not found then raise exception 'not found' using errcode = '42501'; end if;
   select * into p from public.therapy_programmes where id = e.programme_id;
+  if v_cfg is null then raise exception 'programmes are not configured' using errcode = '55000'; end if;
   if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;
   if not private.go_live_open_patient(p.guard_key, v_uid) then return jsonb_build_object('status', 'not_open_yet'); end if;
   select * into v_prog from public.therapy_session_progress where enrolment_id = e.id and ordinal = p_ordinal;
@@ -832,10 +855,12 @@ begin
     begin
       v_assess := private.therapy_assess_progress(e.id);
     exception when others then
+      v_assess_failed := true;
       perform private.therapy_audit_error(e.organisation_id, e.id, 'assess', sqlerrm);
     end;
   end if;
-  if v_done >= v_total and not coalesce((v_assess ->> 'flagged')::boolean, false) then
+  -- a failed check leaves the programme open (not complete) so the bus handler can still assess and flag it
+  if v_done >= v_total and not v_assess_failed and not coalesce((v_assess ->> 'flagged')::boolean, false) then
     update public.therapy_enrolments set state = 'completed', stop_reason = 'completed', stopped_at = now() where id = e.id and state = 'active';
     v_finished := true;
   end if;
@@ -890,7 +915,7 @@ create or replace function private.audit_therapy_read(p_patient uuid, p_reason t
 returns void language plpgsql security definer set search_path = '' as $$
 begin
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, reason, result, subject_patient_id, ip)
-  select pr.organisation_id, (select auth.uid()), 'staff.therapy_progress_read', 'therapy_enrolment', pr.id,
+  select pr.organisation_id, (select auth.uid()), 'staff.therapy_progress_read', 'profile', pr.id,
          jsonb_build_object('reason', btrim(p_reason)), btrim(p_reason), p_result, pr.id, private.request_ip()
     from public.profiles pr where pr.id = p_patient;
 end $$;
@@ -945,7 +970,7 @@ begin
     raise exception 'not authorised' using errcode = '42501';
   end if;
   if e.state <> 'paused' or e.stop_reason <> 'worsening_review' then raise exception 'only a programme paused for review can be resumed' using errcode = '22023'; end if;
-  update public.therapy_enrolments set state = 'active', stop_reason = null where id = e.id;
+  update public.therapy_enrolments set state = 'active', stop_reason = null, resumed_at = now() where id = e.id;
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, reason, result, subject_patient_id)
   values (e.organisation_id, v_uid, 'staff.therapy_programme_resumed', 'therapy_enrolment', e.id, '{}'::jsonb, btrim(p_reason), 'success', e.patient_id);
   return jsonb_build_object('status', 'ok');
@@ -1077,7 +1102,7 @@ on conflict (programme_code, list_version, item_code) do nothing;
 
 -- programme-config-v1-begin (docs/design/S63.md; packages/shared/src/proposed-config mirrors it, a test fails on drift). DRAFT, PROPOSED.
 insert into public.therapy_programme_config (version, config, notes, is_active)
-values (1, $json${"route_due_minutes":{"same_day_clinician":480,"medical_review_first":2880,"worsening_review":1440},"instruments":{"panic_breathing":["panic_episodes_week"],"pelvic_floor":["leakage_episodes_week"],"ibs_hypnotherapy":["ibs_symptom_0_10"],"cbt_i":["isi"],"pain_back":["pain_nrs"],"pain_neck":["pain_nrs"],"pain_knee":["pain_nrs"],"pain_hip":["pain_nrs"],"low_mood":["phq9","gad7"],"stress":["phq9","gad7"],"anxiety":["gad7","phq9"],"pulmonary_rehab":[]},"checkpoints":{"panic_breathing":[1,3,6],"pelvic_floor":[1,4,8,12],"ibs_hypnotherapy":[1,3,6],"cbt_i":[1,3,6],"pain_back":[1,4,8],"pain_neck":[1,4,8],"pain_knee":[1,4,8],"pain_hip":[1,4,8],"low_mood":[1,3,6],"stress":[1,3,6],"anxiety":[1,3,6],"pulmonary_rehab":[]},"instrument_ranges":{"phq9":{"min":0,"max":27},"gad7":{"min":0,"max":21},"isi":{"min":0,"max":28},"pain_nrs":{"min":0,"max":10},"panic_episodes_week":{"min":0,"max":99},"leakage_episodes_week":{"min":0,"max":99},"ibs_symptom_0_10":{"min":0,"max":10}},"worsening":{"phq9":{"rise_at_least":5,"absolute_at_least":20},"gad7":{"rise_at_least":4},"isi":{"rise_at_least":4},"pain_nrs":{"rise_at_least":2},"panic_episodes_week":{"rise_at_least":3},"leakage_episodes_week":{"rise_at_least":3},"ibs_symptom_0_10":{"rise_at_least":2}},"cbt_i":{"time_in_bed_floor_minutes":330,"sleep_restriction_requires_clinician_flag":true,"default_variant":["sleep_diary","wind_down","stimulus_control"]},"pelvic_floor":{"contractions_per_set":8,"sets_per_day":3,"minimum_months":3}}$json$::jsonb,
+values (1, $json${"reenrol_cooldown_hours":72,"route_due_minutes":{"same_day_clinician":480,"medical_review_first":2880,"worsening_review":1440},"instruments":{"panic_breathing":["panic_episodes_week"],"pelvic_floor":["leakage_episodes_week"],"ibs_hypnotherapy":["ibs_symptom_0_10"],"cbt_i":["isi"],"pain_back":["pain_nrs"],"pain_neck":["pain_nrs"],"pain_knee":["pain_nrs"],"pain_hip":["pain_nrs"],"low_mood":["phq9","gad7"],"stress":["phq9","gad7"],"anxiety":["gad7","phq9"],"pulmonary_rehab":[]},"checkpoints":{"panic_breathing":[1,3,6],"pelvic_floor":[1,4,8,12],"ibs_hypnotherapy":[1,3,6],"cbt_i":[1,3,6],"pain_back":[1,4,8],"pain_neck":[1,4,8],"pain_knee":[1,4,8],"pain_hip":[1,4,8],"low_mood":[1,3,6],"stress":[1,3,6],"anxiety":[1,3,6],"pulmonary_rehab":[]},"instrument_ranges":{"phq9":{"min":0,"max":27},"gad7":{"min":0,"max":21},"isi":{"min":0,"max":28},"pain_nrs":{"min":0,"max":10},"panic_episodes_week":{"min":0,"max":99},"leakage_episodes_week":{"min":0,"max":99},"ibs_symptom_0_10":{"min":0,"max":10}},"worsening":{"phq9":{"rise_at_least":5,"absolute_at_least":20},"gad7":{"rise_at_least":4},"isi":{"rise_at_least":4},"pain_nrs":{"rise_at_least":2},"panic_episodes_week":{"rise_at_least":3},"leakage_episodes_week":{"rise_at_least":3},"ibs_symptom_0_10":{"rise_at_least":2}},"cbt_i":{"time_in_bed_floor_minutes":330,"sleep_restriction_requires_clinician_flag":true,"default_variant":["sleep_diary","wind_down","stimulus_control"]},"pelvic_floor":{"contractions_per_set":8,"sets_per_day":3,"minimum_months":3}}$json$::jsonb,
   'DRAFT, UNSIGNED (S63, 2026-10-07). PROPOSED values. The phq9 and gad7 worsening thresholds, the CBT-I time in bed floor and the CBT-I entry and review scores are CMO decisions (Q14, Q15); every other number was chosen by the build so the engine can run and must be confirmed or replaced by the CMO. Publish a higher version to change it.', true)
 on conflict (version) do nothing;
 -- programme-config-v1-end
