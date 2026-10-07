@@ -34,7 +34,7 @@
     "@tarragon/i18n": "workspace:*",
     "@tarragon/medicines": "workspace:*",
     "@tarragon/shared": "workspace:*",
-    "expo": "~54.0.36",
+    "expo": "~58.0.3",
     "expo-audio": "~1.1.1",
     "expo-background-task": "~1.0.10",
     "expo-constants": "~18.0.13",
