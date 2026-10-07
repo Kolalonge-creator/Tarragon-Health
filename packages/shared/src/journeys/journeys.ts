@@ -61,7 +61,7 @@ export const J2: JourneyDef = {
     { id: "offline-web-refuses-to-claim-saved", title: "Offline on the web: the form refuses and does not claim the reading was saved" },
     { id: "grade-from-rule-set", title: "The stored grade equals what the engine gives on the same facts with the rule set in the database" },
     { id: "no-model-call", title: "No language model call: none on the bus hosts, none in the governed AI log, none imported in the triage path (INV-01)" },
-    { id: "queue-item-created", title: "A clinical task is created in the queue from the grade (approved rule set only)" },
+    { id: "queue-item-created", title: "Every create_task action of the approved rule has a task, and a red grade pages instead of waiting in the queue (INV-05)" },
     { id: "on-call-page-created", title: "The on-call clinician is paged (approved rule set only, INV-05)" },
     { id: "care-circle-contact-notified", title: "The consented Care Circle contact receives a neutral push and in-app alert (S29)" },
     { id: "notifications-neutral", title: "No notification names a condition or a reading (INV-07)" },

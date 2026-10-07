@@ -65,6 +65,22 @@ export function anonClient(): SupabaseClient {
   return createClient(apiUrl, anonKey, { auth: { persistSession: false } });
 }
 
+/**
+ * Marks a TEST patient as having finished onboarding the way the database requires: date of birth and sex on file, and an
+ * accepted row for every current required consent version. (The consent rows are fixture data on an is_test account; they are
+ * not anyone's real consent.)
+ */
+export function completeOnboardingFixture(patientId: string, organisationId: string, opts: { receivesCare: boolean }): void {
+  sql(`
+    update public.profiles set date_of_birth = coalesce(date_of_birth, (current_date - interval '54 years')::date), sex = coalesce(sex, 'female'),
+           receives_care = ${opts.receivesCare ? "true" : "false"}, is_test = true where id = ${lit(patientId)};
+    insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action)
+      select ${lit(organisationId)}, ${lit(patientId)}, cv.consent_type, cv.id, cv.version, 'accepted'
+        from public.consent_versions cv where cv.is_current and not cv.is_optional;
+    update public.profiles set onboarding_completed_at = now() where id = ${lit(patientId)};
+  `);
+}
+
 export function newOrganisation(runId: string, name: string, type: string = "clinic"): string {
   const id = sql(
     `insert into public.organisations (name, type, metadata) values (${lit(`[s85] ${name} ${runId}`)}, ${lit(type)}, '{"s85_test": true}'::jsonb) returning id;`,

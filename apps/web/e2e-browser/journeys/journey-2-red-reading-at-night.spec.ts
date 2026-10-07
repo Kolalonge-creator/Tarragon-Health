@@ -9,7 +9,7 @@ import { newRunId } from "./harness/env";
 import { seedOnCallTeam } from "./harness/oncall";
 import { finishJourney } from "./harness/report";
 import { currentRuleSet, fixtureApprovalEnabled, fixtureApproveNewestDraft, hasRealApproval, type RuleSetRow } from "./harness/ruleset";
-import { createUser, newOrganisation, signIn } from "./harness/sessions";
+import { completeOnboardingFixture, createUser, newOrganisation, signIn } from "./harness/sessions";
 import { lit, sql, sqlRows, sqlValue } from "./harness/sql";
 
 /**
@@ -27,6 +27,8 @@ const DIASTOLIC = 120;
 
 test.describe("Journey 2: a red reading at night", () => {
   test.setTimeout(900_000);
+  // Playwright's default is no action timeout at all, which turns a wrong selector into a 15 minute hang.
+  test.use({ actionTimeout: 60_000, navigationTimeout: 120_000 });
 
   test("runs every step that can run today and declares the rest pending", async ({ page, context }, testInfo) => {
     const run = startJourney(J2);
@@ -46,11 +48,11 @@ test.describe("Journey 2: a red reading at night", () => {
     const team = await seedOnCallTeam(runId, org);
     const patient = await createUser(runId, "patient", { role: "patient", organisationId: org, phone: `+23480${runId.replace(/\D/g, "0").slice(-8).padStart(8, "0")}`, fullName: "[s85] Night Patient" });
     const supporter = await createUser(runId, "supporter", { role: "patient", organisationId: org, fullName: "[s85] Night Supporter" });
-    sql(`
-      update public.profiles set receives_care = true, onboarding_completed_at = now(), date_of_birth = (current_date - interval '54 years')::date
-       where id = ${lit(patient.id)};
-      update public.profiles set receives_care = false, onboarding_completed_at = now() where id = ${lit(supporter.id)};
-    `);
+    completeOnboardingFixture(patient.id, org, { receivesCare: true });
+    sql(`insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action)
+           select ${lit(org)}, ${lit(supporter.id)}, cv.consent_type, cv.id, cv.version, 'accepted'
+             from public.consent_versions cv where cv.is_current and cv.consent_type = 'terms_of_service';
+         update public.profiles set receives_care = false, onboarding_completed_at = now() where id = ${lit(supporter.id)};`);
 
     // The night: both people have quiet hours covering the whole day, so any message that is NOT critical would be held.
     // A critical alert must still arrive at once (that is the property the 2 am scenario is about). The browser clock is left
@@ -103,8 +105,8 @@ test.describe("Journey 2: a red reading at night", () => {
       run.pending(
         "d1-rule-approved",
         "CMO approves bp_care_triage",
-        fixtureApproved
-          ? "the only approval is a TEST fixture inside this local database, not a signature (S85_FIXTURE_APPROVE_RULESET=1)"
+        fixtureApproved || before?.status === "approved"
+          ? "the only approval is a TEST account's approval inside this local database (S85_FIXTURE_APPROVE_RULESET=1), not a signature"
           : "no approved bp_care_triage exists; the rule set is a draft and approval is the Chief Medical Officer's signature",
       );
     }
@@ -115,10 +117,12 @@ test.describe("Journey 2: a red reading at night", () => {
     let loggedIn = false;
     await run.step("patient-logs-reading-with-symptom", async () => {
       await page.goto("/login");
-      await page.getByLabel("Email").fill(patient.email);
-      await page.getByLabel("Password").fill(patient.password);
+      // Wait for hydration: a click on a not yet hydrated form is a plain GET that reloads /login with blank fields.
+      await page.waitForLoadState("networkidle");
+      await page.locator("#email").fill(patient.email);
+      await page.locator("#password").fill(patient.password);
       await page.getByRole("button", { name: "Sign in" }).click();
-      await page.waitForURL(/\/patient/, { timeout: 90_000 });
+      await page.waitForURL((u) => u.pathname.startsWith("/patient"), { timeout: 120_000 });
       loggedIn = true;
       await page.goto("/patient/vitals", { waitUntil: "domcontentloaded" });
       await page.locator("#systolic").fill(String(SYSTOLIC));
@@ -126,7 +130,8 @@ test.describe("Journey 2: a red reading at night", () => {
       await page.getByRole("button", { name: "Save reading" }).click();
       const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
       if (await confirm.isVisible({ timeout: 4000 }).catch(() => false)) await confirm.click();
-      await expect(page.getByText("Reading logged.")).toBeVisible({ timeout: 30_000 });
+      // The first server action call compiles on demand in `next dev`, which is slow on a busy machine.
+      await expect(page.getByText("Reading logged.")).toBeVisible({ timeout: 150_000 });
       readingId = sqlValue<string>(
         `select id from public.vitals_readings where patient_id = ${lit(patient.id)} and vital_type::text = 'blood_pressure' order by created_at desc limit 1`,
       );
@@ -147,6 +152,13 @@ test.describe("Journey 2: a red reading at night", () => {
     await run.step("guidance-shown-online", async () => {
       expect(loggedIn).toBe(true);
       // The live emergency pipeline (a database trigger on the reading) raises the full screen alert on every plan.
+      // The emergency record is opened by the database when the symptom lands after the reading (S11g); the page picks it up on
+      // its next fetch, so reload rather than wait for a poll.
+      expect(
+        Number(sqlValue<string>(`select count(*)::text from public.emergency_events where patient_id = ${lit(patient.id)} and status::text = 'active'`)),
+        "no active emergency record was opened for the patient",
+      ).toBeGreaterThan(0);
+      await page.reload({ waitUntil: "domcontentloaded" });
       const alert = page.getByRole("alertdialog");
       await expect(alert).toContainText(/this may be a medical emergency/i, { timeout: 30_000 });
       await expect(alert).toContainText(/nearest hospital/i);
@@ -165,7 +177,7 @@ test.describe("Journey 2: a red reading at night", () => {
         await page.getByRole("button", { name: "Save reading" }).click();
         const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
         if (await confirm.isVisible({ timeout: 2000 }).catch(() => false)) await confirm.click();
-        await expect(page.getByText(/you're offline/i)).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator("#vitals-form-error")).toContainText(/you're offline/i, { timeout: 10_000 });
         await expect(page.getByText("Reading logged.")).toHaveCount(0);
       } finally {
         await context.setOffline(false);
@@ -238,10 +250,10 @@ test.describe("Journey 2: a red reading at night", () => {
       const outside = [...browserHosts].filter((h) => ![apiHost, "127.0.0.1", "localhost"].includes(h));
       expect(outside.filter((h) => /anthropic|openai|googleapis|claude/i.test(h)), "the browser contacted a model host").toEqual([]);
       const ai = sqlValue<string>(
-        `select (select count(*) from public.ai_interaction_log where created_at >= ${lit(startedAt)}::timestamptz and patient_id = ${lit(patient.id)})::text`,
+        `select (select count(*) from public.ai_interaction_log where created_at >= ${lit(startedAt)}::timestamptz)::text`,
       );
       const turns = sqlValue<string>(
-        `select (select count(*) from public.ai_assistant_turns where created_at >= ${lit(startedAt)}::timestamptz)::text`,
+        `select (select count(*) from public.ai_assistant_turns where created_at >= ${lit(startedAt)}::timestamptz and patient_id = ${lit(patient.id)})::text`,
       );
       expect({ ai, turns }).toEqual({ ai: "0", turns: "0" });
     });
@@ -256,8 +268,10 @@ test.describe("Journey 2: a red reading at night", () => {
         expect(graded?.shadow).toBe(false);
         const actions = (graded!.actions as Array<{ kind: string; task?: string }>) ?? [];
         const wantsTask = actions.some((a) => a.kind === "create_task");
-        expect(wantsTask || !isRed, "a red grade from an approved rule set names a task").toBe(true);
-        if (wantsTask) expect(tasks.length).toBeGreaterThan(0);
+        // A task for every create_task action the approved rule names. A red grade is not queued behind other work: INV-05 says
+        // it pages the on-call clinician at once, so for red the rule must carry page_on_call whether or not it also names a task.
+        if (wantsTask) expect(tasks.length, "the rule names a task but none exists").toBeGreaterThan(0);
+        if (isRed) expect(actions.some((a) => a.kind === "page_on_call"), "a red grade must page (INV-05)").toBe(true);
       });
       await run.step("on-call-page-created", async () => {
         const actions = (graded!.actions as Array<{ kind: string }>) ?? [];
@@ -321,7 +335,7 @@ test.describe("Journey 2: a red reading at night", () => {
     }
 
     await run.step("audit-rows-written", async () => {
-      const reading = sqlValue<string>(`select count(*)::text from public.audit_log where entity_type = 'vitals_readings' or event::text like ${lit(`%${patient.id}%`)}`);
+      const reading = sqlValue<string>(`select count(*)::text from public.audit_log where subject_patient_id = ${lit(patient.id)} or entity_id = ${lit(patient.id)}`);
       const triage = sqlValue<string>(`select count(*)::text from public.triage_events where patient_id = ${lit(patient.id)}`);
       const events = sqlValue<string>(`select count(*)::text from public.domain_events where patient_id = ${lit(patient.id)} and event_type in ('observation.recorded', 'triage.graded')`);
       expect(Number(triage)).toBeGreaterThan(0);
@@ -333,13 +347,19 @@ test.describe("Journey 2: a red reading at night", () => {
       }
     });
 
-    if (approved && graded) {
+    const taskActions = approved && graded ? ((graded.actions as Array<{ kind: string }>) ?? []).filter((a) => a.kind === "create_task") : [];
+    if (approved && graded && taskActions.length > 0) {
       await run.step("followup-task-created", async () => {
-        const actions = (graded!.actions as Array<{ kind: string; task?: string }>) ?? [];
-        const wanted = actions.filter((a) => a.kind === "create_task");
-        expect(tasks.length).toBeGreaterThanOrEqual(wanted.length);
-        expect(wanted.length + pages.length, "the approved rule set named neither a task nor a page for this grade").toBeGreaterThanOrEqual(0);
+        expect(tasks.length, "the approved rule names a follow-up task but none exists").toBeGreaterThanOrEqual(taskActions.length);
       });
+    } else if (approved && graded) {
+      // The approved rule for this grade names no task: the page is the whole response (the page's own class 1 task is cancelled
+      // when the clinician acknowledges). A next-day follow-up is a gap in the rule set and in S64, not a pass.
+      run.pending(
+        "followup-task-created",
+        "S64",
+        `the approved rule set names no follow-up task for this grade (actions: ${((graded.actions as Array<{ kind: string }>) ?? []).map((a) => a.kind).join(", ")}); follow-up after a red event is S64`,
+      );
     } else {
       run.pending("followup-task-created", "CMO approves bp_care_triage", "tasks are created only from an approved rule set");
     }

@@ -26,6 +26,7 @@ const PASSWORD = "S85-first-month-pw-!Aa1";
 
 test.describe("Journey 1: a new user's first month", () => {
   test.setTimeout(900_000);
+  test.use({ actionTimeout: 60_000, navigationTimeout: 120_000 });
 
   test("spine: sign-up to first readings, the INV-03 hold, and the Care Circle", async ({ page }, testInfo) => {
     const run = startJourney(J1);
