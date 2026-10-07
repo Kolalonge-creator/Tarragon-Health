@@ -23,8 +23,10 @@
 --      and the amber task at the recheck still fires at 180/110 or more, one notch stricter than the founder's "still 180/120");
 --   3. the recheck window (today 120 minutes, window 240).
 --
--- What applying changes: nothing live. `public.triage_rule_set_for_grading` and `get_approved_triage_rule_set` always prefer the approved version
--- (order by approved first), so while version 3 is approved version 4 is never graded with, never cached on a phone, never shown to a patient.
+-- What applying changes: nothing live, WHILE VERSION 3 STAYS APPROVED. `public.triage_rule_set_for_grading` and `get_approved_triage_rule_set` prefer
+-- the approved version (order by approved first), so version 4 is not graded with, not cached on a phone, not shown to a patient. If nothing is approved
+-- (a fresh local replay, or live after version 3 were retired without a successor) the newest draft is the shadow set, so version 4 would be graded in
+-- shadow only. Note the rule JSON carries the open decisions as neutral text (no 'unsigned' wording) because an approved row can never be edited.
 -- It appears on /clinician/triage-rules as the newest draft for the CMO to read. Approving it (the CMO only, `approve_triage_rule_set`) retires
 -- version 3; the older-version guard from S11c does not stop that (4 > 3).
 --
@@ -42,15 +44,15 @@ select code, 4, 'draft',
              '{params,extreme}', '{"systolic": 180, "diastolic": 120}'::jsonb),
            '{params,proposedForCmo}',
            jsonb_build_object(
-             'status', 'PROPOSED: the founder decided the 180/120 line; the CMO has not signed it and still decides the three items below',
+             'status', 'Open decisions recorded when this version was drafted (2026-10-07): the founder decided the 180/120 line; the three items below were left to the CMO. The values in this version are the ones in force.',
              'severeHeadacheIsOneSymptom', 'one symptom today (severe_headache); the CMO decides whether ''severe or new headache'' is one symptom or two',
              'urgentLineIs180Over110', 'params.urgent stays 180/110 (the 5 minute recheck band below 180 systolic); the CMO decides whether 180/110 should be the trigger line instead',
              'recheckWindow', 'params.extremeRecheck stays 120 minutes (window 240); the CMO decides the recheck window')),
          '{rules}',
          (select jsonb_agg(
                    case r.rule ->> 'id'
-                     when 'BP-X1' then jsonb_set(r.rule, '{description}', to_jsonb('180/120 or more (either number) and the symptom question not yet answered: ask it first (founder decision D1, draft)'::text))
-                     when 'BP-X2' then jsonb_set(r.rule, '{description}', to_jsonb('180/120 or more (either number), no emergency symptom: take usual medicine if not taken, rest, recheck after 2 hours (founder decision D1, draft)'::text))
+                     when 'BP-X1' then jsonb_set(r.rule, '{description}', to_jsonb('180/120 or more (either number) and the symptom question not yet answered: ask it first (founder decision D1)'::text))
+                     when 'BP-X2' then jsonb_set(r.rule, '{description}', to_jsonb('180/120 or more (either number), no emergency symptom: take usual medicine if not taken, rest, recheck after 2 hours (founder decision D1)'::text))
                      else r.rule
                    end
                    order by r.ord)
@@ -93,6 +95,9 @@ begin
   if (select jsonb_agg(r - 'description') from jsonb_array_elements(j4 -> 'rules') r)
        is distinct from (select jsonb_agg(r - 'description') from jsonb_array_elements(j3 -> 'rules') r) then
     raise exception 'S85-D1 self-check: a v4 rule differs from v3 in more than its description';
+  end if;
+  if (select count(*) from jsonb_array_elements(j4 -> 'rules') r where r ->> 'id' in ('BP-X1', 'BP-X2') and r ->> 'description' like '180/120 or more%') <> 2 then
+    raise exception 'S85-D1 self-check: the BP-X1 and BP-X2 descriptions were not rewritten to 180/120';
   end if;
   if exists (select 1 from public.triage_rule_sets where code = 'bp_care_triage' and version = 4 and status <> 'draft') then
     raise exception 'S85-D1 self-check: v4 is not a draft';

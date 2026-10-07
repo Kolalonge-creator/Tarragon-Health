@@ -95,7 +95,9 @@ describe("bp_care_triage v4 (decision D1: a draft that asks the symptom question
   it("carries the three open CMO decisions as a PROPOSED note and leaves their parameters where they were", () => {
     const note = BP_CARE_V4.params.proposedForCmo as Record<string, string>;
     expect(Object.keys(note).sort()).toEqual(["recheckWindow", "severeHeadacheIsOneSymptom", "status", "urgentLineIs180Over110"]);
-    expect(note.status).toMatch(/CMO has not signed/);
+    expect(note.status).toMatch(/Open decisions/);
+    // neutral on purpose: an approved row is immutable, so it must not say 'unsigned' forever
+    expect(JSON.stringify(BP_CARE_V4)).not.toMatch(/not signed|unsigned|has not signed/i);
     expect(BP_CARE_V4.params.urgent).toEqual({ systolic: 180, diastolic: 110 });
     expect(BP_CARE_V4.params.extremeRecheck).toEqual({ afterMinutes: 120, windowMinutes: 240 });
     expect(BP_CARE_V4.params.symptomGroups.redFlag).toContain("severe_headache");

@@ -15,8 +15,8 @@ import type { Rule, RuleSet } from "../types";
  * (`supabase/migrations/20261007211437_s85d1_bp_care_triage_v4_draft_180_120.sql`) derives the same object from the stored version 3 row.
  */
 const DESCRIPTION_V4: Readonly<Record<string, string>> = {
-  "BP-X1": "180/120 or more (either number) and the symptom question not yet answered: ask it first (founder decision D1, draft)",
-  "BP-X2": "180/120 or more (either number), no emergency symptom: take usual medicine if not taken, rest, recheck after 2 hours (founder decision D1, draft)",
+  "BP-X1": "180/120 or more (either number) and the symptom question not yet answered: ask it first (founder decision D1)",
+  "BP-X2": "180/120 or more (either number), no emergency symptom: take usual medicine if not taken, rest, recheck after 2 hours (founder decision D1)",
 };
 
 export const BP_CARE_V4: RuleSet = {
@@ -26,7 +26,7 @@ export const BP_CARE_V4: RuleSet = {
     ...BP_CARE_V3.params,
     extreme: { systolic: 180, diastolic: 120 },
     proposedForCmo: {
-      status: "PROPOSED: the founder decided the 180/120 line; the CMO has not signed it and still decides the three items below",
+      status: "Open decisions recorded when this version was drafted (2026-10-07): the founder decided the 180/120 line; the three items below were left to the CMO. The values in this version are the ones in force.",
       severeHeadacheIsOneSymptom: "one symptom today (severe_headache); the CMO decides whether 'severe or new headache' is one symptom or two",
       urgentLineIs180Over110: "params.urgent stays 180/110 (the 5 minute recheck band below 180 systolic); the CMO decides whether 180/110 should be the trigger line instead",
       recheckWindow: "params.extremeRecheck stays 120 minutes (window 240); the CMO decides the recheck window",
