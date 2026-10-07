@@ -60,7 +60,10 @@ export function grade(input: TriageInput, ruleSet: RuleSet): TriageResult {
   const id = { code: ruleSet.code, version: ruleSet.version };
   const { redFlag } = ruleSet.params.symptomGroups;
   const symptoms: readonly string[] = input.trigger.type === "observation" && Array.isArray(input.trigger.symptoms) ? input.trigger.symptoms : [];
-  const redFlagPresent = symptoms.some((s) => redFlag.includes(s));
+  // S67: a convulsion or loss of consciousness in pregnancy is an emergency whatever the reading says, so a rejected
+  // (impossible) reading must still show the guidance. The group is optional: older rule sets simply have none.
+  const emergencyGroup = ruleSet.params.symptomGroups.obstetricEmergency ?? [];
+  const redFlagPresent = symptoms.some((s) => redFlag.includes(s) || emergencyGroup.includes(s));
 
   const reason = validateInput(input, ruleSet);
   if (reason !== null) {

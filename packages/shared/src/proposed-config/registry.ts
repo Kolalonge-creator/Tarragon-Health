@@ -1784,7 +1784,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
   },
-  // S66: private cycle section, deletion and clinician pattern report (decisions A13 to A15, B3, C)
   {
     key: "private_section.lock",
     // The section lock for cycle and, later, pregnancy and other private sections (S66 builds it, S67 to S69 reuse it). It guards a view on
@@ -1801,56 +1800,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       pbkdf2_iterations: 20000,
       on_by_default: true,
     },
-  },
-  // S68 (Module 16, postnatal and child): values mirrored in the maternal_child_config table. Append-only block.
-  {
-    key: "maternal_child.growth.reference_versions",
-    value: {"under5_version": "who-2006-v1", "over5_version": "who-2007-v1", "under5_max_age_days": 1856, "wfh_max_age_days": 1826, "recumbent_until_age_days": 730, "length_height_correction_cm": 0.7},
-    owner: "CMO",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-07",
-    source: "S68, WHO 2006 standards to day 1856, WHO 2007 reference from month 61; weight-for-height to 60 months (1826 days); recumbent length to 730 days; 0.7 cm length/height difference (WHO igrowup). CMO pack A7. Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
-  },
-  {
-    key: "maternal_child.growth.plausibility",
-    value: {"weight_for_age_z": [-6, 5], "height_for_age_z": [-6, 6], "weight_for_height_z": [-5, 5], "bmi_for_age_z": [-5, 5], "head_circumference_for_age_z": [-5, 5], "muac_for_age_z": [-5, 5]},
-    owner: "CMO",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-07",
-    source: "S68, WHO biologically implausible z-score ranges. Weight-for-age, height-for-age, weight-for-height and BMI-for-age follow the WHO Anthro documentation; head circumference and MUAC use +-5 as an assumption for the CMO to confirm (OQ-353). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
-  },
-  {
-    key: "maternal_child.growth.nutrition_routing",
-    value: {"sam_muac_mm_lt": 115, "sam_wfh_z_lt": -3, "sam_oedema": true, "sam_review_within_hours": 12, "mam_muac_mm_lt": 125, "mam_wfh_z_lt": -2, "mam_review_within_days": 3, "muac_min_age_months": 6, "muac_max_age_months": 60, "stunting_hfa_z_lt": -2, "underweight_wfa_z_lt": -2},
-    owner: "CMO",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-07",
-    source: "S68, CMO pack A7 (selected, NOT signed): severe = MUAC under 115 mm, or weight-for-height z below -3, or bilateral oedema (red, same-day, 12 hours here); moderate = MUAC 115 to under 125 mm or z -3 to under -2 (amber, within 3 days); stunting and underweight informational. The pack names no MUAC age range: 6 to 59 months is the WHO/UNICEF range for these cut-offs and is a proposal (OQ-351). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
-  },
-  {
-    key: "maternal_child.epds.cutoffs",
-    value: {"item_count": 10, "possible_min": 10, "probable_min": 13, "possible_review_within_days": 7, "probable_review_within_hours": 48, "item_10_any_nonzero_is_crisis": true},
-    owner: "CMO",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-07",
-    source: "S68, CMO pack A6 (selected, NOT signed, provisional): 10 to 12 possible, review within the week; 13 or more probable, clinician review within 48 hours; any non-zero item 10 goes to the crisis route whatever the total. Local audit after the first 200 screens. Basis and Nigerian cut-off range 7 to 12 still to be verified (OQ-354). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
-  },
-  {
-    key: "maternal_child.postnatal.checks",
-    value: {"windows": [{"code": "week_1", "days": 7}, {"code": "week_6", "days": 42}], "epds_prompt_windows": ["week_6"], "feed_log_grace_days": 7},
-    owner: "CMO",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-07",
-    source: "S68, Mother and baby checks at week 1 and week 6 after delivery (founder scope S68; the existing postnatal_checkins windows). EPDS prompted at week 6 as a proposal for the CMO to place (OQ-355). Windows are generated from this row, never typed in code. Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
-  },
-  {
-    key: "maternal_child.lifecycle.rules",
-    value: {"transitions": {"start_trying": {"from": ["tracking"], "to": "trying"}, "stop_trying": {"from": ["trying"], "to": "tracking"}, "pregnancy_confirmed": {"from": ["tracking", "trying", "postnatal", "parenting"], "to": "pregnant"}, "delivery_recorded": {"from": ["tracking", "trying", "pregnant"], "to": "postnatal"}, "pregnancy_loss_recorded": {"from": ["pregnant"], "to": "tracking"}, "postnatal_period_ended": {"from": ["postnatal"], "to": "parenting"}, "parenting_ended": {"from": ["parenting"], "to": "tracking"}}, "stage_content": {"tracking": "cycle", "trying": "conception", "pregnant": "pregnancy", "postnatal": "postnatal", "parenting": "child"}, "stage_bp_rule_set": {"pregnant": "pregnancy", "postnatal": "postpartum"}, "loss_baby_content_hold_days": 90, "max_days_back": 400},
     owner: "Founder",
     status: "proposed",
     version: 1,
@@ -1864,12 +1813,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // it is removed, during which they can cancel (decision C). sealed_retention_years: how long data a clinician recorded or acted on is kept
     // sealed before destruction, counsel to confirm (decision B3). report_window_months: how far back the clinician pattern report reads.
     value: { deletion_grace_days: 14, sealed_retention_years: 8, report_window_months: 12 },
-  },
-    source: "S68, Founder scope S68 (16.11): transitions only on confirmed events. Stage names, the stage to content map, the rule-set names S67 reads, the 90 day hold on baby content after a loss and the 400 day look-back are proposals for the CMO and founder (OQ-356). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
-  },
-  {
-    key: "maternal_child.retention.rules",
-    value: {"grace_days": 7, "sealed_retention_years": 8, "scopes": ["feed_log", "child_growth", "baby_checks", "pregnancy_loss"]},
     owner: "Founder and counsel",
     status: "proposed",
     version: 1,
@@ -1982,6 +1925,136 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S70a.md; queue.task_types pattern (S16)",
   },
+  {
+    key: "maternal_child.growth.reference_versions",
+    value: {"under5_version": "who-2006-v1", "over5_version": "who-2007-v1", "under5_max_age_days": 1856, "wfh_max_age_days": 1826, "recumbent_until_age_days": 730, "length_height_correction_cm": 0.7},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, WHO 2006 standards to day 1856, WHO 2007 reference from month 61; weight-for-height to 60 months (1826 days); recumbent length to 730 days; 0.7 cm length/height difference (WHO igrowup). CMO pack A7. Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.growth.plausibility",
+    value: {"weight_for_age_z": [-6, 5], "height_for_age_z": [-6, 6], "weight_for_height_z": [-5, 5], "bmi_for_age_z": [-5, 5], "head_circumference_for_age_z": [-5, 5], "muac_for_age_z": [-5, 5]},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, WHO biologically implausible z-score ranges. Weight-for-age, height-for-age, weight-for-height and BMI-for-age follow the WHO Anthro documentation; head circumference and MUAC use +-5 as an assumption for the CMO to confirm (OQ-353). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.growth.nutrition_routing",
+    value: {"sam_muac_mm_lt": 115, "sam_wfh_z_lt": -3, "sam_oedema": true, "sam_review_within_hours": 12, "mam_muac_mm_lt": 125, "mam_wfh_z_lt": -2, "mam_review_within_days": 3, "muac_min_age_months": 6, "muac_max_age_months": 60, "stunting_hfa_z_lt": -2, "underweight_wfa_z_lt": -2},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, CMO pack A7 (selected, NOT signed): severe = MUAC under 115 mm, or weight-for-height z below -3, or bilateral oedema (red, same-day, 12 hours here); moderate = MUAC 115 to under 125 mm or z -3 to under -2 (amber, within 3 days); stunting and underweight informational. The pack names no MUAC age range: 6 to 59 months is the WHO/UNICEF range for these cut-offs and is a proposal (OQ-351). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.epds.cutoffs",
+    value: {"item_count": 10, "possible_min": 10, "probable_min": 13, "possible_review_within_days": 7, "probable_review_within_hours": 48, "item_10_any_nonzero_is_crisis": true},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, CMO pack A6 (selected, NOT signed, provisional): 10 to 12 possible, review within the week; 13 or more probable, clinician review within 48 hours; any non-zero item 10 goes to the crisis route whatever the total. Local audit after the first 200 screens. Basis and Nigerian cut-off range 7 to 12 still to be verified (OQ-354). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.postnatal.checks",
+    value: {"windows": [{"code": "week_1", "days": 7}, {"code": "week_6", "days": 42}], "epds_prompt_windows": ["week_6"], "feed_log_grace_days": 7},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, Mother and baby checks at week 1 and week 6 after delivery (founder scope S68; the existing postnatal_checkins windows). EPDS prompted at week 6 as a proposal for the CMO to place (OQ-355). Windows are generated from this row, never typed in code. Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.lifecycle.rules",
+    value: {"transitions": {"start_trying": {"from": ["tracking"], "to": "trying"}, "stop_trying": {"from": ["trying"], "to": "tracking"}, "pregnancy_confirmed": {"from": ["tracking", "trying", "postnatal", "parenting"], "to": "pregnant"}, "delivery_recorded": {"from": ["tracking", "trying", "pregnant"], "to": "postnatal"}, "pregnancy_loss_recorded": {"from": ["pregnant"], "to": "tracking"}, "postnatal_period_ended": {"from": ["postnatal"], "to": "parenting"}, "parenting_ended": {"from": ["parenting"], "to": "tracking"}}, "stage_content": {"tracking": "cycle", "trying": "conception", "pregnant": "pregnancy", "postnatal": "postnatal", "parenting": "child"}, "stage_bp_rule_set": {"pregnant": "pregnancy", "postnatal": "postpartum"}, "loss_baby_content_hold_days": 90, "max_days_back": 400},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, Founder scope S68 (16.11): transitions only on confirmed events. Stage names, the stage to content map, the rule-set names S67 reads, the 90 day hold on baby content after a loss and the 400 day look-back are proposals for the CMO and founder (OQ-356). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.retention.rules",
+    value: {"grace_days": 7, "sealed_retention_years": 8, "scopes": ["feed_log", "child_growth", "baby_checks", "pregnancy_loss"]},
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
     source: "S68, CMO/founder pack B3 and C (selected 2026-10-07, not signed): patient-entered tracker and pregnancy-loss notes deleted on request after the grace window; clinician-recorded or acted-on data sealed 8 years (counsel to confirm the period) then destroyed. Grace window length is a proposal. Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal.rules",
+    // S67 (module 16, pregnancy). Every number is PROPOSED from the CMO selections A3, A4 and A5 recorded 2026-10-07
+    // (docs/plans/S66-S70-cmo-signoff-pack.md); none is signed and maternal_enabled stays off until the CMO signs.
+    // antenatal.contactWeeks: WHO 2016 eight contacts (the first "by" week 12); the national schedule replaces this by a new version.
+    // kicks: awareness from week 28; 10 movements in 120 minutes; a personal normal needs 3 finished sessions (median of the latest 5);
+    //   a session that takes 2 times her normal to reach 10 is a clear drop (the drop factor is this build's proposal, see OQ-341).
+    // contractions: 5-1-1 by default, 7-1-1 for a later birth, a previous fast labour or a long journey; any contraction before week 37 is an instant go sign.
+    value: {
+      antenatal: { contactWeeks: [12, 20, 26, 30, 34, 36, 38, 40] },
+      kicks: { startWeek: 28, windowMinutes: 120, movementsTarget: 10, normalMinSessions: 3, normalLatestSessions: 5, dropFactor: 2 },
+      contractions: {
+        standard: { intervalMinutes: 5, durationSeconds: 60, sustainedMinutes: 60 },
+        earlier: { intervalMinutes: 7, durationSeconds: 60, sustainedMinutes: 60 },
+        preTermBeforeWeek: 37,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S66-S70-cmo-signoff-pack.md items A3, A4, A5 (basis WHO 2016 ANC [verify], RCOG Green-top 57 [verify])",
+    guardPatterns: ["movementsTarget\\s*[=:]\\s*10\\b", "contactWeeks\\s*[=:]\\s*\\[\\s*12\\b", "preTermBeforeWeek\\s*[=:]\\s*37\\b"],
+  },
+  {
+    key: "maternal.bp_rule_set",
+    // Names the draft rule set that carries the pregnancy rules (bp_care_triage v4 = v3 plus A2). Not signed; the database row is a draft.
+    value: { code: "bp_care_triage", ruleSetVersion: 4, pregnancyRaisedSystolic: 140, pregnancyRaisedDiastolic: 90, pregnancySevereSystolic: 160, pregnancySevereDiastolic: 110 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S66-S70-cmo-signoff-pack.md items A1, A2; packages/clinical/src/rules/bp-care-v4.ts",
+  },
+  {
+    key: "community.rules",
+    // min_contributors: the floor below which a cohort total is hidden (never below 10, enforced by the database; the institutional floor of 5
+    // is NOT used here). max_single_share_pct: leave-one-out, a total is hidden when its biggest contributor holds more than this share, so
+    // removing that one person would move the total too far. round_total_to and progress_step_pct: published figures are rounded.
+    // publish_delay_hours and snapshot_every_hours: a snapshot is readable only this long after it is taken, so one entry is never a visible
+    // jump. activity_minutes_week_cap and activity_minutes_day_max: WHO 150 to 300 minutes a week, capped. board_min_cohorts: cohorts needed for
+    // a comparison. participation_keep_days: how long a member's own effort rows survive after a challenge ends. blocked_name_terms: a cohort
+    // name may not start a word with one of these (generic names only).
+    value: { min_contributors: 10, max_single_share_pct: 30, round_total_to: 10, publish_delay_hours: 12, snapshot_every_hours: 6, invite_ttl_hours: 72, max_invites_per_day: 20, max_members_per_cohort: 200, max_cohorts_per_moderator: 3, max_active_challenges: 2, challenge_min_days: 7, challenge_max_days: 60, activity_minutes_week_cap: 300, activity_minutes_day_max: 180, board_min_cohorts: 3, progress_step_pct: 5, participation_keep_days: 30, blocked_name_terms: ["diabet", "sugar", "hypertens", "blood pressure", "bp", "hiv", "aids", "cancer", "kidney", "renal", "dialysis", "heart", "stroke", "asthma", "sickle", "obes", "weight", "slim", "diet", "pregnan", "fertil", "mental", "depress", "anxiety", "addict", "recovery", "cholesterol", "epilep", "tb", "tubercul", "hepatitis", "patient", "sick", "disease"] },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S69.md; docs/research/S69.md; docs/plans/S66-S70-cmo-signoff-pack.md (A16, B1)",
+  },
+  {
+    key: "community.challenge_templates",
+    // The only challenges a moderator can start (CMO sign-off pack A16): effort counts only, never weight, calories, fasting, blood pressure or
+    // glucose. Proposed until the Chief Medical Officer signs each one through `sign_challenge_template`; nothing is approved by this entry.
+    value: [
+      { code: "log_days", label: "Check in with your health log", description: "Days you add something to your own health log.", metric: "log_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "medicine_days", label: "Medicine check-in days", description: "Days you answer your medicine check-in.", metric: "medicine_checkin_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "lessons", label: "Learn together", description: "Short health lessons you finish.", metric: "lessons_completed", unit: "lessons", default_days: 14, target_per_member: 3 },
+      { code: "move_together", label: "Move together", description: "Minutes of activity you do. Up to 300 minutes a week count.", metric: "activity_minutes", unit: "minutes", default_days: 7, target_per_member: 150 },
+      { code: "low_salt_days", label: "Lower-salt days", description: "Days you tell us you chose lower-salt food.", metric: "low_salt_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "regular_sleep", label: "Regular bedtime days", description: "Days you tell us you kept a regular bedtime.", metric: "consistent_sleep_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "water_with_meals", label: "Water with meals", description: "Days you tell us you drank water with meals.", metric: "water_with_meals_days", unit: "days", default_days: 14, target_per_member: 8 },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S69.md; docs/plans/S66-S70-cmo-signoff-pack.md (A16)",
   },
 ];

@@ -12,7 +12,7 @@ import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChe
 import { logBpWithExtras } from "@/lib/bp-log";
 import { refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
-import { refreshObstetricStatus } from "@/lib/obstetric-status";
+import { readObstetricStatus, refreshObstetricStatus } from "@/lib/obstetric-status";
 import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
 import {
   validateOtherEntry,
@@ -140,6 +140,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
   const [cuffType, setCuffType] = useState<CuffType | null>(null);
   const [rulesStale, setRulesStale] = useState(false);
+  const [obstetric, setObstetric] = useState(false);
   const [symptomOpen, setSymptomOpen] = useState(false);
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
   // The emergency-symptom question for a reading of 200/130 or more (TRI-008): the reading it is about, until answered.
@@ -169,7 +170,15 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       .catch(() => {});
     void refreshPatientFacts(patientId);
     // Pregnant or just delivered changes which lines grade a reading; kept on the phone for offline readings.
-    void refreshObstetricStatus(beneficiaryProfileId ?? patientId);
+    const obstetricSubject = beneficiaryProfileId ?? patientId;
+    // Read the saved answer first (works with no signal), then refresh it; the pregnancy danger-sign ticks follow the answer (S67).
+    void readObstetricStatus(obstetricSubject, Date.now())
+      .then((o) => setObstetric(o.pregnant || o.postpartum))
+      .catch(() => {})
+      .then(() => refreshObstetricStatus(obstetricSubject))
+      .then(() => readObstetricStatus(obstetricSubject, Date.now()))
+      .then((o) => setObstetric(o.pregnant || o.postpartum))
+      .catch(() => {});
     void resolveExpiredRecheck(patientId)
       .then((d) => d && showTriage(d))
       .catch(() => {});
@@ -510,6 +519,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         <SymptomChecklist
           tr={tr}
           selected={ticked}
+          obstetric={obstetric}
           onToggle={(sym) => setTicked((cur) => (cur.includes(sym) ? cur.filter((x) => x !== sym) : [...cur, sym]))}
         />
         {errorKey ? <InlineAlert tone="danger" message={tr(errorKey)} /> : null}

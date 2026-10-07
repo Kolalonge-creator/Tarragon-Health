@@ -4,7 +4,7 @@
  * the real save path; the repeat-reading flow and the rule set cache are proved around them.
  */
 import { t } from "@tarragon/i18n";
-import { BP_CARE_V1 } from "@tarragon/clinical";
+import { BP_CARE_V1, BP_CARE_V4 } from "@tarragon/clinical";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NETWORK_ERROR_MESSAGE, postVitalReading } from "./api";
 import { planBpLog, type BpLogInput } from "./bp-checklist";
@@ -246,7 +246,8 @@ describe("history and the rule set on the phone", () => {
   });
 
   it("uses the bundled draft rule set until an approved one is cached", async () => {
-    expect(await loadDeviceRuleSet()).toEqual({ ruleSet: BP_CARE_V1, status: "draft" });
+    // S67: the bundled draft is now version 4 (v3 plus the pregnancy danger signs), so a phone with no signal still fires the pregnancy red rules.
+    expect(await loadDeviceRuleSet()).toEqual({ ruleSet: BP_CARE_V4, status: "draft" });
   });
 
   it("refresh caches a valid approved rule set and the phone then uses it", async () => {
