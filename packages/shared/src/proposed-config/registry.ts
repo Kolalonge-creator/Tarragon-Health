@@ -469,39 +469,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S15.md; OQ-104; OQ-108",
   },
   {
-    key: "credentialing.rules",
-    // Version 3 (S-18, S76 B2): the v2 rules plus the MDCN register re-check cadence. reverify_months: a staff check of
-    // the MDCN register at onboarding and every 12 months (no API is claimed). reverify_notice_days: reviewers are told
-    // this many days before a check is due. The database row is inserted INACTIVE; the sweep does nothing until the chief
-    // medical officer signs and activates this version.
-    value: {
-      min_practice_years: 2,
-      pass_percent: 80,
-      all_red_correct: true,
-      audited_task_count: 20,
-      referees_required: 2,
-      referee_independent_contact: true,
-      test_max_attempts: 3,
-      test_retake_cooldown_hours: 24,
-      test_scenarios_per_attempt: 10,
-      notice_windows_days: [90, 30, 0],
-      grace_max_days: 14,
-      separate_verifier_and_approver: true,
-      document_max_bytes: 8388608,
-      document_retention_years_after_offboarding: 7,
-      require_verified_phone: false,
-      document_purge_enabled: false,
-      rejected_application_document_retention_months: 24,
-      reverify_months: 12,
-      reverify_notice_days: 30,
-    },
-    owner: "Founder and counsel",
-    status: "proposed",
-    version: 3,
-    effectiveFrom: "2026-10-07",
-    source: "docs/plans/S75-S80-cmo-decisions.md S-18",
-  },
-  {
     key: "lab.release_policy",
     // Lab release policy (S27d). Live value is the active row of `lab_panel_signoffs`.config; a test fails if the migration seed and this
     // value drift. maxAttempts and escalateAfterHours are the founder's competitor-research follow-up: a held sensitive result that
@@ -891,34 +858,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S19.md; spec 7.9",
   },
   {
-    key: "paging.watchdog",
-    // S78a (spec 23.15, CMO decision S-8). Mirrors paging_config version 2, which is PROPOSED and INACTIVE: the active row stays version 1 until the CMO signs
-    // a new version. watchdog_grace_seconds: how long a red triage event may exist with no page before the database watchdog creates it itself (INV-05; the
-    // outbox path normally pages in seconds). watchdog_lookback_minutes: how far back the watchdog looks. repage_after_ack_minutes: an acknowledged page still
-    // not closed after this long pages the acknowledging clinician and the backup once more; null = disabled. Until version 2 is active the watchdog uses
-    // 60 seconds and 360 minutes as hard defaults and the re-page is off.
-    // The three S78a keys of that version; the rest of version 2 repeats paging.rules and a test keeps them identical.
-    value: { watchdog_grace_seconds: 60, watchdog_lookback_minutes: 360, repage_after_ack_minutes: null },
-    owner: "CMO",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-07",
-    source: "docs/plans/S75-S80-cmo-decisions.md S-8; spec 23.15",
-  },
-  {
-    key: "response_time.targets",
-    // S78b (spec 23.16, CMO decision S-9). Mirrors response_time_config version 1, which is PROPOSED, UNSIGNED and INACTIVE: no number is published to
-    // patients and the breach sweep reads nothing until the CMO signs and activates a version. written_question_minutes and amber_review_minutes are how long
-    // a written question or an amber review may wait; appointment_start_late_minutes how long after the booked time a visit may still not have started;
-    // lookback_days how far back the sweep looks; patient_notice_cooldown_hours the shortest gap between two "slower than usual" notices to one patient.
-    value: { written_question_minutes: 1440, amber_review_minutes: 1440, appointment_start_late_minutes: 15, lookback_days: 7, patient_notice_cooldown_hours: 12 },
-    owner: "CMO",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-07",
-    source: "docs/plans/S75-S80-cmo-decisions.md S-9; spec 23.16",
-  },
-  {
     key: "queue.claims",
     // Claim, hand-back and reliability rules (S17, spec 7.6 and 7.8). Live values are the active row of
     // `queue_claim_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
@@ -1015,73 +954,53 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S38.md; spec 4.10 and Module 22; docs/research/S38.md",
   },
   {
-    key: "outcomes.measure_rules",
-    // Outcome measures added to S38's snapshots (S75, CMO decision S-5): HbA1c, weight, PHQ-9 and GAD-7, with the day-180 BP report.
-    // The database holds them as `outcome_config` v3, which is v2 plus this block. v3 is PROPOSED, UNSIGNED and INACTIVE: the live
-    // config stays v2 (`outcomes.snapshot_rules` v2 above stays the one in force) until the CMO activates v3. The migration seed and
-    // this value are checked against each other by a test. Every number is PROPOSED and owned by the CMO: the goals (HbA1c under 7.0
-    // percent or the care-plan target, weight down 5 percent or more, a 50 percent fall for response, below 5 for remission), the
-    // windows around each day within which the nearest result is used, and the lowest baseline for which response and remission
-    // are counted. PHQ-9 and GAD-7 are never shown to a sponsor (S-3, S-5).
-    value: {
-      bp_report_days: [90, 180],
-      measures: {
-        hba1c: {
-          days: [0, 90, 180],
-          goal_below_percent: 7.0,
-          use_care_plan_target: true,
-          valid_min: 3.0,
-          valid_max: 20.0,
-          baseline_before_days: 90,
-          baseline_after_days: 14,
-          followup_tolerance_days: 30,
-          definition: "HbA1c, as a percentage. Change is the value near the day minus the baseline value near joining. A person reached the goal when the value near the day is under 7.0 percent or at their own care-plan HbA1c target. The result nearest the day inside the window is used.",
-          limitations: "Only people with an HbA1c result are counted in the measure; a person with no result near a day is shown as no result, never as not improved. Results come from the lab results recorded on the platform, not from every lab a person may have used. A before and after view without a comparison group says nothing about cause.",
-        },
-        weight: {
-          days: [0, 30, 90, 180],
-          goal_loss_percent: 5.0,
-          valid_min: 20,
-          valid_max: 400,
-          min_age_years: 18,
-          baseline_before_days: 14,
-          baseline_after_days: 7,
-          followup_tolerance_days: 14,
-          definition: "Weight in kilograms. Change is the percent difference between the weight near the day and the baseline weight near joining. A person reached the goal when weight fell by 5 percent or more. The weight nearest the day inside the window is used. Adults only.",
-          limitations: "Only people who logged a weight are counted; a person with no weight near a day is shown as no result, never as not improved. Weight changes for many reasons, including pregnancy, illness and fluid; the measure is not a judgement of any person. A before and after view without a comparison group says nothing about cause.",
-        },
-        phq9: {
-          days: [0, 30, 90, 180],
-          max_score: 27,
-          response_fall_percent: 50,
-          remission_below: 5,
-          min_baseline_for_outcome: 5,
-          baseline_before_days: 14,
-          baseline_after_days: 14,
-          followup_tolerance_days: 21,
-          definition: "PHQ-9 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
-          limitations: "Only total scores are used; no answer to any single question is read. A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
-        },
-        gad7: {
-          days: [0, 30, 90, 180],
-          max_score: 21,
-          response_fall_percent: 50,
-          remission_below: 5,
-          min_baseline_for_outcome: 5,
-          baseline_before_days: 14,
-          baseline_after_days: 14,
-          followup_tolerance_days: 21,
-          definition: "GAD-7 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
-          limitations: "A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
-        },
-      },
-    },
+    key: "security.rules",
+    // Security thresholds (S39). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named): how many failed lookups on a
+    // public token door in one hour open a security incident. The answer to guessing is to see it, never to lock the door, because the
+    // emergency card must open for a stranger in an emergency.
+    value: { lookup_failure_alert_per_hour: 50 },
     owner: "CMO",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-07",
-    source: "docs/design/S75-outcome-measures.md; docs/plans/S75-S80-cmo-decisions.md S-5; ADA Standards of Care; DPP; Kroenke 2001",
+    source: "docs/design/S39.md; spec section 13",
   },
+  {
+    key: "security.rules",
+    // Security thresholds (S39, S39c). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named). v1 (S39): failed lookups on a public
+    // token door in one hour that open a security incident (the answer to guessing is to see it, never to lock the door). v2 (S39c): how long an
+    // opening of a patient record stays valid for an untied clinician, how many untied openings in an hour raise an incident, the after-hours
+    // band (Lagos hours), and the retention periods (NHS Records Management Code and HIPAA as references, counsel to confirm). Retention is
+    // config only: real_data_auto_delete is false, nothing deletes real patient data (founder, 2026-10-07).
+    value: {
+      lookup_failure_alert_per_hour: 50,
+      record_open_window_hours: 8,
+      untied_open_alert_per_hour: 20,
+      after_hours_start: 22,
+      after_hours_end: 6,
+      retention: {
+        adult_clinical_record_years_after_last_contact: 8,
+        child_record_until_age: 25,
+        child_record_until_age_if_seen_at_17: 26,
+        maternity_record_years: 25,
+        mental_health_years_after_last_contact: 20,
+        access_audit_log_years: 8,
+        consent_years_after_relationship_end: 6,
+        payments_ledger_years: 6,
+        operational_data_days_min: 90,
+        operational_data_days_max: 730,
+        real_data_auto_delete: false,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S39c.md; spec section 13; founder direction 2026-10-07",
+  },
+
   {
     key: "quality.audit",
     // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
@@ -1864,6 +1783,135 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
+  },
+  {
+    key: "credentialing.rules",
+    // Version 3 (S-18, S76 B2): the v2 rules plus the MDCN register re-check cadence. reverify_months: a staff check of
+    // the MDCN register at onboarding and every 12 months (no API is claimed). reverify_notice_days: reviewers are told
+    // this many days before a check is due. The database row is inserted INACTIVE; the sweep does nothing until the chief
+    // medical officer signs and activates this version.
+    value: {
+      min_practice_years: 2,
+      pass_percent: 80,
+      all_red_correct: true,
+      audited_task_count: 20,
+      referees_required: 2,
+      referee_independent_contact: true,
+      test_max_attempts: 3,
+      test_retake_cooldown_hours: 24,
+      test_scenarios_per_attempt: 10,
+      notice_windows_days: [90, 30, 0],
+      grace_max_days: 14,
+      separate_verifier_and_approver: true,
+      document_max_bytes: 8388608,
+      document_retention_years_after_offboarding: 7,
+      require_verified_phone: false,
+      document_purge_enabled: false,
+      rejected_application_document_retention_months: 24,
+      reverify_months: 12,
+      reverify_notice_days: 30,
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-18",
+  },
+  {
+    key: "paging.watchdog",
+    // S78a (spec 23.15, CMO decision S-8). Mirrors paging_config version 2, which is PROPOSED and INACTIVE: the active row stays version 1 until the CMO signs
+    // a new version. watchdog_grace_seconds: how long a red triage event may exist with no page before the database watchdog creates it itself (INV-05; the
+    // outbox path normally pages in seconds). watchdog_lookback_minutes: how far back the watchdog looks. repage_after_ack_minutes: an acknowledged page still
+    // not closed after this long pages the acknowledging clinician and the backup once more; null = disabled. Until version 2 is active the watchdog uses
+    // 60 seconds and 360 minutes as hard defaults and the re-page is off.
+    // The three S78a keys of that version; the rest of version 2 repeats paging.rules and a test keeps them identical.
+    value: { watchdog_grace_seconds: 60, watchdog_lookback_minutes: 360, repage_after_ack_minutes: null },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-8; spec 23.15",
+  },
+  {
+    key: "response_time.targets",
+    // S78b (spec 23.16, CMO decision S-9). Mirrors response_time_config version 1, which is PROPOSED, UNSIGNED and INACTIVE: no number is published to
+    // patients and the breach sweep reads nothing until the CMO signs and activates a version. written_question_minutes and amber_review_minutes are how long
+    // a written question or an amber review may wait; appointment_start_late_minutes how long after the booked time a visit may still not have started;
+    // lookback_days how far back the sweep looks; patient_notice_cooldown_hours the shortest gap between two "slower than usual" notices to one patient.
+    value: { written_question_minutes: 1440, amber_review_minutes: 1440, appointment_start_late_minutes: 15, lookback_days: 7, patient_notice_cooldown_hours: 12 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-9; spec 23.16",
+  },
+  {
+    key: "outcomes.measure_rules",
+    // Outcome measures added to S38's snapshots (S75, CMO decision S-5): HbA1c, weight, PHQ-9 and GAD-7, with the day-180 BP report.
+    // The database holds them as `outcome_config` v3, which is v2 plus this block. v3 is PROPOSED, UNSIGNED and INACTIVE: the live
+    // config stays v2 (`outcomes.snapshot_rules` v2 above stays the one in force) until the CMO activates v3. The migration seed and
+    // this value are checked against each other by a test. Every number is PROPOSED and owned by the CMO: the goals (HbA1c under 7.0
+    // percent or the care-plan target, weight down 5 percent or more, a 50 percent fall for response, below 5 for remission), the
+    // windows around each day within which the nearest result is used, and the lowest baseline for which response and remission
+    // are counted. PHQ-9 and GAD-7 are never shown to a sponsor (S-3, S-5).
+    value: {
+      bp_report_days: [90, 180],
+      measures: {
+        hba1c: {
+          days: [0, 90, 180],
+          goal_below_percent: 7.0,
+          use_care_plan_target: true,
+          valid_min: 3.0,
+          valid_max: 20.0,
+          baseline_before_days: 90,
+          baseline_after_days: 14,
+          followup_tolerance_days: 30,
+          definition: "HbA1c, as a percentage. Change is the value near the day minus the baseline value near joining. A person reached the goal when the value near the day is under 7.0 percent or at their own care-plan HbA1c target. The result nearest the day inside the window is used.",
+          limitations: "Only people with an HbA1c result are counted in the measure; a person with no result near a day is shown as no result, never as not improved. Results come from the lab results recorded on the platform, not from every lab a person may have used. A before and after view without a comparison group says nothing about cause.",
+        },
+        weight: {
+          days: [0, 30, 90, 180],
+          goal_loss_percent: 5.0,
+          valid_min: 20,
+          valid_max: 400,
+          min_age_years: 18,
+          baseline_before_days: 14,
+          baseline_after_days: 7,
+          followup_tolerance_days: 14,
+          definition: "Weight in kilograms. Change is the percent difference between the weight near the day and the baseline weight near joining. A person reached the goal when weight fell by 5 percent or more. The weight nearest the day inside the window is used. Adults only.",
+          limitations: "Only people who logged a weight are counted; a person with no weight near a day is shown as no result, never as not improved. Weight changes for many reasons, including pregnancy, illness and fluid; the measure is not a judgement of any person. A before and after view without a comparison group says nothing about cause.",
+        },
+        phq9: {
+          days: [0, 30, 90, 180],
+          max_score: 27,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "PHQ-9 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "Only total scores are used; no answer to any single question is read. A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
+        },
+        gad7: {
+          days: [0, 30, 90, 180],
+          max_score: 21,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "GAD-7 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
+        },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S75-outcome-measures.md; docs/plans/S75-S80-cmo-decisions.md S-5; ADA Standards of Care; DPP; Kroenke 2001",
   },
   {
     key: "follow_ups.rules",
