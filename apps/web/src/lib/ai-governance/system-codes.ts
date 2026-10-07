@@ -135,6 +135,13 @@ export const AI_SYSTEMS = {
     // behind the document_capture_enabled go-live guard.
     failClosedIfGovernanceUnavailable: true,
   },
+  healthReportSummaryDraft: {
+    code: "AI-019",
+    // Drafts the one-paragraph summary of a yearly Health Report for a clinician to edit and sign (S46). Moderate risk but stricter than the
+    // rule on the same reasoning as AI-003: it produces patient-facing wording on a care record path, and the fallback (the deterministic template
+    // paragraph) costs nothing. AI-018 is taken on the S43 branch (document capture). Registered DISABLED.
+    failClosedIfGovernanceUnavailable: true,
+  },
 } as const;
 
 export type AiSystemKey = keyof typeof AI_SYSTEMS;
