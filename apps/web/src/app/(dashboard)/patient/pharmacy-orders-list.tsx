@@ -5,9 +5,8 @@ import {
   usePatientPharmacyOrders,
   useOrderDispenses,
   useRecordDispense,
-  useOrderDeliveryAttempts,
   type PharmacyOrderItem,
-  type PharmacyOrderWithLogistics,
+  type PharmacyOrder,
 } from "@/lib/queries/pharmacy-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -17,13 +16,11 @@ import { Label } from "@/components/ui/label";
 import { koboToNaira, type PharmacyOrderStatus } from "@tarragon/shared";
 import { PayForPharmacyOrderButton } from "@/components/pay-for-pharmacy-order-button";
 import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
-import { DeliveryAddressForm } from "@/components/delivery-address-form";
-import { DeliveryStatusTimeline } from "@/components/delivery-status-timeline";
+import { PharmacyOrderStatusTimeline } from "@/components/pharmacy-order-status-timeline";
 import { PharmacyOrderCostBreakdown } from "@/components/pharmacy-order-cost-breakdown";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { listQueryState } from "@/lib/queries/list-query-state";
 import { formatPatientDate } from "@/lib/format-date";
-type DeliveryAddress = { street: string; area: string; state: string; phone: string };
 
 /** Patient records what they collected against an order (self-service, works
  * even when the pharmacy doesn't log in). Existing dispense records shown too. */
@@ -31,7 +28,7 @@ function OrderDispenses({
   order,
   patientId,
 }: {
-  order: PharmacyOrderWithLogistics;
+  order: PharmacyOrder;
   patientId: string;
 }) {
   const { data: dispenses } = useOrderDispenses(order.id);
@@ -146,9 +143,6 @@ const PHARMACY_ORDER_STATUS_BADGE: Record<PharmacyOrderStatus, { variant: BadgeP
   confirmed: { variant: "blue", label: "In progress" },
   unavailable: { variant: "amber", label: "Medicine unavailable" },
   dispensed: { variant: "blue", label: "Dispensed" },
-  out_for_delivery: { variant: "blue", label: "Out for delivery" },
-  delivery_failed: { variant: "red", label: "Delivery attempt failed" },
-  delivered: { variant: "green", label: "Delivered" },
   cancelled: { variant: "grey", label: "Cancelled" },
 };
 
@@ -156,27 +150,18 @@ function itemsSummary(items: PharmacyOrderItem[]): string {
   return items.map((item) => `${item.drug_name} × ${item.quantity}`).join(", ");
 }
 
-/** Wraps DeliveryStatusTimeline with the dispense/delivery-attempt data it needs (spec §63.9, §63.10). */
-function OrderStatusTimeline({ order }: { order: PharmacyOrderWithLogistics }) {
+/** Wraps PharmacyOrderStatusTimeline with the dispense data it needs (spec §63.9). */
+function OrderStatusTimeline({ order }: { order: PharmacyOrder }) {
   const { data: dispenses } = useOrderDispenses(order.id);
-  const { data: attempts } = useOrderDeliveryAttempts(order.id);
   const latestDispense = dispenses?.[0];
-  const latestFailedAttempt = attempts?.find((a) => a.result === "failed");
 
   return (
-    <DeliveryStatusTimeline
+    <PharmacyOrderStatusTimeline
       orderNumber={order.order_number}
       status={order.status}
-      fulfilmentMethod={order.fulfilment_method}
       requestedAt={order.requested_at}
       dispensedAt={latestDispense?.dispensed_on}
-      courierName={order.logistics_partner?.name}
-      courierAssignedAt={order.courier_assigned_at}
-      estimatedDeliveryAt={order.estimated_delivery_at}
-      deliveredAt={order.delivery_confirmed_at}
-      requiresColdChain={order.requires_cold_chain}
       unavailableReason={order.unavailable_reason}
-      latestFailureReason={latestFailedAttempt?.failure_reason}
     />
   );
 }
@@ -185,7 +170,7 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
   const { data: orders, isLoading, isError } = usePatientPharmacyOrders(patientId);
   const state = listQueryState({ isLoading, isError, count: orders?.length });
 
-  // An order still awaiting payment, or a delivery on its way, must not read
+  // An order still awaiting payment, or a medicine ready to collect, must not read
   // as "you have no orders" because one read failed.
   if (state === "error")
     return <LoadErrorCard title="Your pharmacy orders" what="your pharmacy orders" />;
@@ -226,19 +211,13 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
                     />
                   </>
                 )}
-                {order.fulfilment_method === "delivery" &&
-                  order.status === "payment_confirmed" &&
-                  !order.delivery_address && <DeliveryAddressForm orderId={order.id} />}
                 {order.status !== "pending_payment" && order.status !== "cancelled" && (
                   <OrderStatusTimeline order={order} />
                 )}
-                {order.status === "delivery_failed" && <DeliveryAddressForm orderId={order.id} />}
                 {order.status !== "pending_payment" && order.status !== "cancelled" && (
                   <PharmacyOrderCostBreakdown
                     items={items}
                     totalKobo={order.total_kobo}
-                    deliveryFeeKobo={order.logistics_partner?.delivery_fee_kobo ?? null}
-                    fulfilmentMethod={order.fulfilment_method}
                   />
                 )}
                 {order.status !== "pending_payment" && order.status !== "cancelled" && (
