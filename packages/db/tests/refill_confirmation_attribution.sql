@@ -83,7 +83,7 @@ begin
     indemnity_insurer, indemnity_policy_number, indemnity_expires_at
   ) values (
     v_org, v_clin, 'Refill Attribution Probe', true, now(),
-    'medical_officer',
+    'senior_medical_officer',
     'Probe Indemnity Ltd', 'PROBE-ATTRIBUTION', now() + interval '1 year'
   ) returning id into v_staff_id;
 
@@ -173,7 +173,7 @@ begin
     'last_confirmed_by=' || coalesce(v_by::text, 'null'));
 
   ---------------------------------------------------------------- case 5
-  update public.clinical_staff set doctor_tier = 'medical_officer' where id = v_staff_id;
+  update public.clinical_staff set doctor_tier = 'senior_medical_officer' where id = v_staff_id;
 
   insert into public.medications (
     organisation_id, patient_id, drug_name, dose, frequency, source,

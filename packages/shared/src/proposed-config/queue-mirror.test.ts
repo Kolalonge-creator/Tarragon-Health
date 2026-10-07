@@ -29,7 +29,8 @@ describe("queue.* mirrors the migration seed", () => {
       code: m[1],
       priority_class: Number(m[3]),
       default_due_minutes: Number(m[4]),
-      min_doctor_tier: m[5],
+      // F-05 (2026-10-07): the migration seed still names the retired Medical Officer tier; the F-05 migration moved those rows to the senior tier.
+      min_doctor_tier: m[5] === "medical_officer" ? "senior_medical_officer" : m[5],
       required_competencies: list(m[6] ?? ""),
       lead_window_minutes: Number(m[7]),
       claim_timeout_minutes: Number(m[8]),

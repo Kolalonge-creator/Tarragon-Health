@@ -14,7 +14,7 @@ describe("timeline actor attribution", () => {
     expect(
       actorSubtitle({
         full_name: "Amaka Okafor",
-        doctor_tier: "medical_officer",
+        doctor_tier: "senior_medical_officer",
         credential_type: "MDCN",
         credential_number: "12345",
       } as never)

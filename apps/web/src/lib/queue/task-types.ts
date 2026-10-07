@@ -5,7 +5,7 @@ export const taskTypeSchema = z.object({
   code: z.string(),
   priority_class: z.number().int().min(1).max(9),
   default_due_minutes: z.number().int().min(0),
-  min_doctor_tier: z.enum(["care_coordinator", "medical_officer", "senior_medical_officer", "chief_medical_officer"]),
+  min_doctor_tier: z.enum(["care_coordinator", "senior_medical_officer", "chief_medical_officer"]),
   required_competencies: z.array(z.string()),
   lead_window_minutes: z.number().int().min(0),
   claim_timeout_minutes: z.number().int().min(1),
@@ -36,7 +36,6 @@ export const TASK_TYPE_LABEL: Readonly<Record<string, string>> = {
 
 export const TIER_LABEL: Readonly<Record<TaskTypeRow["min_doctor_tier"], string>> = {
   care_coordinator: "Care coordinator and above",
-  medical_officer: "Medical officer and above",
   senior_medical_officer: "Senior medical officer and above",
   chief_medical_officer: "Chief medical officer",
 };

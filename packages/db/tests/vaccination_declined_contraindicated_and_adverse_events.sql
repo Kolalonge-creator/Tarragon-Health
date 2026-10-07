@@ -57,7 +57,7 @@ begin
   values (v_coordinator_profile, v_org, 'Vax Test Coordinator', 'care_coordinator', true, 'MDCN', 'VAXTEST-COORD-001', true, v_verifier, v_verifier, now());
 
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
-  values (v_doctor_profile, v_org, 'Vax Test Doctor', 'medical_officer', true, 'MDCN', 'VAXTEST-DOC-001', true, v_verifier, v_verifier, now())
+  values (v_doctor_profile, v_org, 'Vax Test Doctor', 'senior_medical_officer', true, 'MDCN', 'VAXTEST-DOC-001', true, v_verifier, v_verifier, now())
   returning id into v_doctor_staff;
 
   -- ---------------------------------------------------------------------

@@ -74,7 +74,7 @@ begin
   -- which a plain DELETE would violate on live data with real history.
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
   values
-    (v_org, v_t1,  'Referral Engine Medical Officer Fixture', true, now(), 'medical_officer'),
+    (v_org, v_t1,  'Referral Engine Medical Officer Fixture', true, now(), 'senior_medical_officer'),
     (v_org, v_dir, 'Referral Engine Director Fixture',        true, now(), 'chief_medical_officer')
   on conflict (profile_id) do update set
     organisation_id = excluded.organisation_id,

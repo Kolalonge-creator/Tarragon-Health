@@ -1124,6 +1124,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
   {
+    key: "queue.task_types",
+    // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
+    // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default
+    // due minutes, minimum doctor tier, required competencies, lead window minutes (0 for none), claim timeout minutes,
+    // pushable (an employed doctor may be pushed it), creatable (false for a class reached only by promotion) and the
+    // triage task keys it answers. adherence_follow_up is not in the spec table (OQ-S16-1). v2 (F-05, 2026-10-07): the Medical Officer tier is retired, so every doctor task type has senior_medical_officer as its minimum; nothing else changed.
+    value: [
+      { code: "red_event_unacknowledged", priority_class: 1, default_due_minutes: 0, min_doctor_tier: "senior_medical_officer", required_competencies: ["on_call"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: true, source_task_keys: [] },
+      { code: "critical_result_review", priority_class: 2, default_due_minutes: 120, min_doctor_tier: "senior_medical_officer", required_competencies: ["result_review"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: true, source_task_keys: [] },
+      { code: "amber_bp_review_due_soon", priority_class: 3, default_due_minutes: 0, min_doctor_tier: "senior_medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: false, source_task_keys: [] },
+      { code: "amber_bp_review", priority_class: 4, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 240, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["urgent_bp_review", "bp_review", "low_bp_review"] },
+      { code: "symptom_review", priority_class: 5, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "titration_signoff", priority_class: 6, default_due_minutes: 2880, min_doctor_tier: "senior_medical_officer", required_competencies: ["prescribing", "hypertension"], lead_window_minutes: 2880, claim_timeout_minutes: 60, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "async_question", priority_class: 7, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "routine_result_review", priority_class: 8, default_due_minutes: 2880, min_doctor_tier: "senior_medical_officer", required_competencies: ["result_review"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "admin_clinical", priority_class: 9, default_due_minutes: 4320, min_doctor_tier: "senior_medical_officer", required_competencies: [], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["referral_review"] },
+      { code: "adherence_follow_up", priority_class: 8, default_due_minutes: 2880, min_doctor_tier: "care_coordinator", required_competencies: [], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["adherence_review", "silence_check"] },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S16.md; spec 7.3 and 7.4",
+  },
+  {
     key: "triage.bp_rule_set",
     // Blood pressure triage rules (S11). The thresholds themselves live in the rule set, `packages/clinical`
     // (`BP_CARE_V1`) and the `triage_rule_sets` row of the same code and version; this entry records the owner and

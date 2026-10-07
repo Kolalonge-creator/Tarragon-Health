@@ -53,7 +53,7 @@ begin
   end loop;
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at)
-    values (v_org, (select v from pq_fixture where k = 'tier1'), 'PQ Test Tier1', 'medical_officer'::public.doctor_tier, true, now())
+    values (v_org, (select v from pq_fixture where k = 'tier1'), 'PQ Test Tier1', 'senior_medical_officer'::public.doctor_tier, true, now())
   on conflict do nothing;
 
   -- indemnity_exempt_by must differ from the record's own profile_id

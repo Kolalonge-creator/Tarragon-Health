@@ -613,9 +613,9 @@ begin
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   perform pg_temp.setf('admin', v_admin);
   update public.clinical_staff set active = false where is_test is not true;
-  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'medical_officer', 'contracted', '{adult_general,hypertension}', v_admin));
-  perform pg_temp.setf('doc2', pg_temp.mkdoc(v_org, 'doc2', 'medical_officer', 'contracted', '{adult_general,hypertension}', v_admin));
-  perform pg_temp.setf('emp', pg_temp.mkdoc(v_org, 'emp', 'medical_officer', 'employed', '{adult_general,hypertension}', v_admin));
+  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'senior_medical_officer', 'contracted', '{adult_general,hypertension}', v_admin));
+  perform pg_temp.setf('doc2', pg_temp.mkdoc(v_org, 'doc2', 'senior_medical_officer', 'contracted', '{adult_general,hypertension}', v_admin));
+  perform pg_temp.setf('emp', pg_temp.mkdoc(v_org, 'emp', 'senior_medical_officer', 'employed', '{adult_general,hypertension}', v_admin));
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', 'contracted', '{adult_general,on_call,prescribing,result_review,hypertension}', v_admin));
   perform pg_temp.setf('p1', pg_temp.mkuser(v_org, 'p1', 'patient'));
   perform pg_temp.setf('p2', pg_temp.mkuser(v_org, 'p2', 'patient'));

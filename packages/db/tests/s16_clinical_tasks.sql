@@ -158,7 +158,7 @@ begin
   perform pg_temp.rec('a direct state update is refused', '42501', pg_temp.try(format('update public.clinical_tasks set state = ''completed'' where id = %L', v_t1)));
   perform pg_temp.rec('a direct insert is refused', '42501',
     pg_temp.try(format($q$insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, min_tier, due_at)
-      values (%L, 'amber_bp_review', 1, 4, 4, %L, 'medical_officer', now())$q$, v_org, v_p3)));
+      values (%L, 'amber_bp_review', 1, 4, 4, %L, 'senior_medical_officer', now())$q$, v_org, v_p3)));
   perform pg_temp.rec('an illegal move is refused (open -> completed)', '23514',
     pg_temp.try(format($q$select private.apply_task_transition(%L, 'completed', 'clinician', %L, null, null, null, '{}'::jsonb)$q$, v_red, v_emp)));
   perform pg_temp.rec('the wrong actor kind is refused (system cannot claim)', '23514',
