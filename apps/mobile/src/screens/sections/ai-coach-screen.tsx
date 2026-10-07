@@ -141,9 +141,12 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
         return;
       }
       setConversationId(result.conversationId);
-      setPrepDraft(result.draft ?? null);
-      setPrepState("editing");
-      setPrepError(null);
+      // only a result that carries a draft replaces the one being edited: any other quick action leaves the patient's text alone
+      if (result.draft) {
+        setPrepDraft(result.draft);
+        setPrepState("editing");
+        setPrepError(null);
+      }
       const conversation = await loadAiConversation(patientId);
       setMessages(conversation.messages);
       scrollToEnd();

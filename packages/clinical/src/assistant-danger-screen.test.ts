@@ -133,7 +133,7 @@ describe("assistant danger screen (INV-01, one rule source)", () => {
   });
 
   it("DRIFT: every phrase in either list that is about harming oneself is classified as self-harm (so it gets the on-call page)", () => {
-    const aboutSelfHarm = /suicid|kill (?:my|him|her|them)sel|(?:end|take)(?:s|ing|ed)? (?:my|his|her|their)(?: own)? life|want(?:s|ed)? to die|want to live|self.?harm|(?:cutting|hurting|harming) myself/;
+    const aboutSelfHarm = /suicid|kill (?:my|him|her|them)sel|(?:end|take)(?:s|ing|ed)? (?:my|his|her|their)(?: own)? life|want(?:s|ed)? to die|want to live|self.?harm|(?:cutting|hurting|harming|hurt|harm) myself|better off dead|no reason to live|end it all|dont want to live/;
     const phrases = [...WRITTEN_QUESTION_DANGER_PHRASES, ...ASSISTANT_EXTRA_DANGER_PHRASES].filter((p) => aboutSelfHarm.test(p));
     expect(phrases.length).toBeGreaterThan(10);
     for (const p of phrases) {
