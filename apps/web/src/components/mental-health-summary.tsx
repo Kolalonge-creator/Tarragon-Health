@@ -1,6 +1,8 @@
 "use client";
 
-import { useLatestMentalHealthScreens } from "@/lib/queries/mental-health";
+import { useLatestMentalHealthScreens, useMentalHealthHandoffs, useMentalHealthScreenHistory } from "@/lib/queries/mental-health";
+import { changeOverTime } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
 import {
   PHQ9_BAND_LABEL,
   GAD7_BAND_LABEL,
@@ -26,8 +28,33 @@ export function MentalHealthSummary({
   patientId: string;
   showScores?: boolean;
 }) {
-  const { data } = useLatestMentalHealthScreens(patientId);
+  const { data, isError } = useLatestMentalHealthScreens(patientId);
+  const history = useMentalHealthScreenHistory(patientId);
+  const handoffs = useMentalHealthHandoffs(patientId);
+  // A refusal must read as "not available to you", never as "no screens" (S56, INV-10, INV-12).
+  if (isError) {
+    return showScores ? (
+      <Card variant="soft">
+        <CardHeader>
+          <CardTitle className="text-base">Mental wellbeing</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+          {t("mood.denied.summary")}
+        </CardContent>
+      </Card>
+    ) : null;
+  }
   if (!data) return null;
+  const changeLine = (instrument: string, max: number) => {
+    const c = changeOverTime(history.data ?? [], instrument);
+    if (c.sincePrevious === null || c.latest === null || c.previous === null) return null;
+    const change = c.direction === "same" ? t("mood.change.same") : t(c.direction === "lower" ? "mood.change.lower" : "mood.change.higher", "en", { n: Math.abs(c.sincePrevious) });
+    return (
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+        {t("mood.change.line", "en", { previous: c.previous, latest: c.latest, max, change })}
+      </p>
+    );
+  };
   const phq9 = data.phq9;
   const gad7 = data.gad7;
   const auditc = data.auditc;
@@ -50,6 +77,7 @@ export function MentalHealthSummary({
             </span>
           </div>
         )}
+        {showScores && phq9 && changeLine("phq9", 27)}
         {gad7 && (
           <div className="flex items-center justify-between gap-3">
             <span className="text-charcoal-ink/70 dark:text-night-ink/70">Anxiety (GAD-7)</span>
@@ -59,6 +87,7 @@ export function MentalHealthSummary({
             </span>
           </div>
         )}
+        {showScores && gad7 && changeLine("gad7", 21)}
         {auditc && (
           <div className="flex items-center justify-between gap-3">
             <span className="text-charcoal-ink/70 dark:text-night-ink/70">Alcohol (AUDIT-C)</span>
@@ -77,6 +106,18 @@ export function MentalHealthSummary({
               <Badge variant="grey">{EPDS_BAND_LABEL[epds.severity_band as EpdsBand] ?? epds.severity_band}</Badge>
               {showScores && <span className="text-charcoal-ink/60 dark:text-night-ink/60">{epds.total_score}/30</span>}
             </span>
+          </div>
+        )}
+        {showScores && (handoffs.data ?? []).length > 0 && (
+          <div className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-2 text-xs">
+            <p className="font-medium">{t("mood.handoff.sent_heading")}</p>
+            {(handoffs.data ?? []).slice(0, 3).map((h) => (
+              <p key={h.id} className="text-charcoal-ink/70 dark:text-night-ink/70">
+                {new Date(h.created_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" })}
+                {typeof h.summary.instrument === "string" ? `, ${String(h.summary.instrument).toUpperCase()} ${String(h.summary.severity_band ?? "")} ${String(h.summary.total_score ?? "")}`.trimEnd() : ""}
+                {h.patient_note ? `: ${h.patient_note}` : ""}
+              </p>
+            ))}
           </div>
         )}
         {!showScores && (

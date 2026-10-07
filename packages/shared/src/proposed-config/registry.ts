@@ -1179,6 +1179,36 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
   },
+  // S56: mental wellbeing. DRAFT, unsigned: the CMO confirms or replaces both entries by publishing a higher version.
+  {
+    key: "mental_health.follow_up_rules",
+    // Task due times (minutes) for the follow-up after a moderate or high PHQ-9, GAD-7 or EPDS result. Live values are the active row
+    // of `mental_health_follow_up_config`; a test fails if the migration seed and this value drift. The pathway is behind the CMO
+    // switched guard mental_health_follow_up_enabled (off). The build proposed these numbers; they are not a clinical decision.
+    value: {
+      phq9: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+      gad7: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+      epds: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S56.md; spec 10.2",
+  },
+  {
+    key: "crisis.card",
+    // The crisis card (function 10.3). Live values are the active row of `crisis_card_config`; a test fails on drift.
+    // emergency_number: the national emergency line (the card always also says go to the nearest hospital). helpline_reverify_days:
+    // a helpline verified longer ago than this drops back to unverified. callback_sla_minutes: the staffed callback time after a
+    // crisis flag; it is shown to a patient only once this row is confirmed, never while it is a draft.
+    value: { emergency_number: "112", helpline_reverify_days: 180, callback_sla_minutes: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S56.md; spec 10.3",
+  },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {
     key: "entitlements.expiry_reminder_days",

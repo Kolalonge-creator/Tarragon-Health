@@ -1477,3 +1477,35 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Fixed after review: crisis failure incidents are per screen (`crisis_follow_up_failed:<screen id>`); a replay after a partial failure does not notify twice (`crisis.notified` marker); orphaned education recommendations (content hidden by expiry) are dropped on web and mobile; the closed symptom checker card no longer prints an emergency number (numbers are an unconfirmed localisation fact); a database refusal (42501) on the symptom checker insert returns the calm unavailable state.
 - Accepted, recorded: the guard check on the web action answers for the signed-in person while the table checks the person acted for (only differs for a test account acting for a real dependant; the table is the gate). The AI coach medicine tool relies on RLS for expiry (patient sessions are covered; an admin session sees everything by design). The draft SLA's version is computed at apply time (highest plus one): re-check `max(version)` at apply. See OQ-F1-02, OQ-F1-03, OQ-F1-04.
 
+
+### OQ-S56-01 Mental-health data is now per-patient: decisions and gaps for the founder and CMO (S56, 2026-10-07)
+- Built (migrations 20261007150213 to 20261007152231, not applied to production): five tables (`mental_health_screens`, `mental_health_screening_schedules`, `wellbeing_checkins`, `wellbeing_checkin_preferences`, `therapy_sessions`) readable only by the patient and a Care Circle supporter holding the explicit `mental_health` category; staff read through `read_patient_mental_health_audited` (tie or break-glass, audited, refusals audited). Closes the INV-12 and INV-10 exposure for mental health (OQ-02 option b, mental health first). The other ~100 tables are unchanged.
+- Decision needed (founder): break-glass grants are NOT category scoped. `private.has_emergency_access` ignores the category for everything except `reproductive_health`, so any active break-glass grant opens mental health. Options: (a) accept, since break-glass already needs a reason and alerts the CMO; (b) add `mental_health` to the categories break-glass never reaches, like reproductive health; (c) a per-category grant. Recommendation: (a) for now, because a person in a mental-health emergency is the case break-glass exists for.
+- Decision needed (founder): support-view (admin view-as) deliberately does NOT open mental health. Confirm that an admin investigating a support case should not see mood or screen data without a tie or break-glass.
+- Not moved, recorded: `obesity_ed_screens` (eating-disorder screens), `postnatal_checkins`, `sexual_health_screens`, alcohol tables, `safeguarding_concerns` still use org-wide staff reads. Mental-health-adjacent; each needs its own readers inventoried before it moves.
+- Still open, not fixed: `handle_emergency_event` sends `emergency_event_clinician_alert` to EVERY clinician in the organisation with `source_label` = the source name (INV-12 and INV-07). The alert text is neutral now, but the broadcast itself and the source label are unchanged because the whole emergency ladder is out of scope. The F1 path (class 1 task, on-call page) is the targeted route.
+- Not rewritten: existing `emergency_events.trigger_detail` rows (rows older than this migration may still say "reported thoughts of self-harm"). Existing alert rows ARE rewritten by `private.s56_neutralise_mental_health_text()`. The dry run records both counts.
+- Decision: open.
+
+### OQ-S56-02 Pre-existing defect found: approving a psychiatry booking cannot confirm it
+- `approve_therapy_session` sets `status = confirmed` but not `scheduled_for`, and the table constraint `therapy_confirmed_needs_a_time` refuses a confirmed session with no time. A confirm therefore fails unless something else set the time first (nothing in the code does). Found while proving the approval path (the proof sets the time by hand). Not changed: the decision is who sets the time (the practitioner, the patient, or an approval with a proposed slot).
+- Decision: open (founder, clinical operations).
+
+### OQ-S56-03 Crisis card content and sign-offs the build cannot make
+- The card shows the national emergency number 112 with "go to the nearest hospital" beside it. Older copy (`emergency-alert.tsx`, `emergency-guidance-modal.tsx`) says Nigeria has no single reliable emergency number, so those screens quote none. The CMO must confirm one wording for both.
+- Helplines: all three seeded rows are UNVERIFIED. SURPIN and MANI carry no number (the research number source was a directory listing). A human must phone each line, then use `/admin/settings/crisis-helplines` to record the number and how it was verified. Until then the card says helplines are not yet verified and to call 112.
+- `crisis_card_config` v1 is a DRAFT (PROPOSED, owner CMO): re-verify age 180 days, staffed callback 30 minutes. The callback time is not shown to a patient until the row is confirmed. Nobody has confirmed that anyone is staffed to call back within it.
+- The marketing component `mental-health-support-notice.tsx` still hard-codes a helpline number. It should read the verified config; not changed here because marketing pages must not import platform modules.
+- Decision: open (CMO, ops).
+
+### OQ-S56-04 Follow-up pathway is a DRAFT behind a guard that is off
+- `mental_health_follow_up_config` v1 (task due times 3 days for moderate, 1 day for high, for PHQ-9, GAD-7, EPDS) is the build's proposal, not a clinical decision. Guard `mental_health_follow_up_enabled` (switch role: CMO) is seeded OFF with two attestations (timings confirmed, cover confirmed); a test account always gets the task so the pathway can be exercised. A crisis is never behind it. The older clinician alert for moderate and high results is unchanged.
+- Decision: open (CMO signs the timings and attests both conditions).
+
+### OQ-S56-05 Smaller reconciliations
+- The brief asked for i18n in en and pcm. D-14 (2026-10-06) made the product English only and `pcm.ts` does not exist on this base, so the `mood` and `crisis` namespaces are English only.
+- Care Circle (S29, `care_circle_members`) is not on this branch. The consent hook is `private.supporter_has_mental_health_consent(patient, user)` over `profile_access_categories`; S29's supporter views must call it before showing anything from the five tables.
+- The patient proxy-confirmation card lists every `care_access_category` as an unticked box, so `mental_health` now appears there too (nothing is ticked by default). Confirm the label.
+- Clinician reads of the chart go through the audited function; the clinician `/clinician/tasks/[taskId]` page does not yet render the hand-off summary (the chart's wellbeing card does).
+- A clinician who is only a care coordinator (`doctor_tier = care_coordinator`) is refused mental-health reads even with a tie. Coordinators handle logistics; confirm.
+- Decision: open.

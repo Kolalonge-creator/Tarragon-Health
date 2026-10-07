@@ -124,6 +124,7 @@ export function CareVisibilityList() {
             const name = follower.fullName ?? "Someone you have added";
             const open = openId === follower.grantId;
             const reproductiveHealthOn = follower.categories.includes("reproductive_health");
+            const mentalHealthOn = follower.categories.includes("mental_health");
             return (
               <li key={follower.grantId} className="py-3">
                 <button
@@ -196,6 +197,30 @@ export function CareVisibilityList() {
                         Kept separate on purpose: turning on everything else above leaves this
                         untouched. Cycle, pregnancy and related information stays private
                         unless you choose to share it here too.
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card p-3">
+                      <label className="flex items-center gap-2 text-sm font-medium text-charcoal-ink dark:text-night-ink">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35"
+                          checked={mentalHealthOn}
+                          disabled={setCategories.isPending}
+                          onChange={() =>
+                            setAll(
+                              follower.grantId,
+                              toggled(follower.categories, "mental_health")
+                            )
+                          }
+                        />
+                        Mental wellbeing
+                      </label>
+                      <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                        Kept separate on purpose: turning on everything else above leaves this
+                        untouched. Your check-ins, questionnaire answers and any therapy bookings
+                        stay private unless you choose to share them here. You can turn this off at
+                        any time.
                       </p>
                     </div>
 

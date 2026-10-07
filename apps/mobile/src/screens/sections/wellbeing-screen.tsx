@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, View } from "react-native";
 import { postMentalHealthScreen } from "@/lib/api";
+import { WELLBEING_TAGS, cleanWellbeingTags, type WellbeingTag } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
+import { CrisisCard } from "@/components/mental-health/crisis-card";
+import { MentalHealthHandoffCard } from "@/components/mental-health/handoff-card";
+import { MoodBesideReadings } from "@/components/mental-health/mood-beside-readings";
+import { HiddenCard, SharedPhoneSettings } from "@/components/mental-health/shared-phone-controls";
+import { useSharedPhone } from "@/lib/shared-phone";
 import { TherapyNetworkScreen } from "@/screens/sections/therapy-network-screen";
 import {
   loadLatestWellbeingCheckin,
@@ -12,6 +19,7 @@ import {
   bandLowerIsBetter,
   wellbeingBandLabel,
   WELLBEING_SCALE_QUESTIONS,
+  wellbeingTagLabel,
   type WellbeingCheckin,
 } from "@/lib/wellbeing";
 import {
@@ -120,6 +128,8 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
   // WellbeingTrendChart — which fetches its own history independently, there
   // being no shared query cache to invalidate on mobile — knows to refetch.
   const [trendReloadToken, setTrendReloadToken] = useState(0);
+  const { hidden: hiddenOnThisPhone, ready: sharedPhoneReady } = useSharedPhone();
+  const [crisisOpen, setCrisisOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const [c, f, r, s] = await Promise.all([
@@ -162,40 +172,61 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
         <MutedText>Track how you&apos;re doing, take a mental health check-in, and learn ways to support yourself.</MutedText>
       </View>
 
-      <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your wellbeing</Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          <Tile label="Mood" value={checkin ? wellbeingBandLabel(bandHigherIsBetter(checkin.mood_score)) : null} />
-          <Tile label="Stress" value={checkin ? wellbeingBandLabel(bandLowerIsBetter(checkin.stress_score)) : null} />
-          <Tile label="Sleep" value={checkin ? wellbeingBandLabel(bandHigherIsBetter(checkin.sleep_quality)) : null} />
-          <Tile label="Check-in" value={isDue ? "Due" : "Up to date"} />
-        </View>
-        {nextReviewDue && <MutedText>Next review: {new Date(nextReviewDue).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}</MutedText>}
-        {!checkin && <MutedText>Log your first check-in below to see your mood, stress and sleep at a glance.</MutedText>}
-      </Card>
-
-      <WellbeingTrendChart patientId={patientId} reloadToken={trendReloadToken} />
-
-      <CheckinForm
-        patientId={patientId}
-        organisationId={organisationId}
-        frequencyDays={frequencyDays}
-        onSaved={refresh}
-      />
-
-      <MentalHealthSummaryCard screens={screens} />
-
-      {showScreenForm ? (
-        <MentalHealthScreenForm onDone={() => { setShowScreenForm(false); void refresh(); }} />
+      {/* The crisis card is outside the shared-phone gate on purpose: help is never hidden. */}
+      {crisisOpen ? (
+        <CrisisCard />
       ) : (
-        <SecondaryButton title="Take the full mental wellbeing check-in" onPress={() => setShowScreenForm(true)} />
+        <SecondaryButton title={t("crisis.open_card")} onPress={() => setCrisisOpen(true)} />
       )}
 
-      <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Talk to someone</Text>
-        <MutedText>Book a session with one of our therapists, over telemedicine or in person, whichever suits you.</MutedText>
-        <SecondaryButton title="Book a therapy session" onPress={() => setTherapyOpen(true)} />
-      </Card>
+      <SharedPhoneSettings />
+
+      {!sharedPhoneReady ? (
+        <ActivityIndicator color={colors.brand} />
+      ) : hiddenOnThisPhone ? (
+        <HiddenCard />
+      ) : (
+        <>
+        <Card style={{ gap: 8 }}>
+          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your wellbeing</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <Tile label="Mood" value={checkin ? wellbeingBandLabel(bandHigherIsBetter(checkin.mood_score)) : null} />
+            <Tile label="Stress" value={checkin ? wellbeingBandLabel(bandLowerIsBetter(checkin.stress_score)) : null} />
+            <Tile label="Sleep" value={checkin ? wellbeingBandLabel(bandHigherIsBetter(checkin.sleep_quality)) : null} />
+            <Tile label="Check-in" value={isDue ? "Due" : "Up to date"} />
+          </View>
+          {nextReviewDue && <MutedText>Next review: {new Date(nextReviewDue).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}</MutedText>}
+          {!checkin && <MutedText>Log your first check-in below to see your mood, stress and sleep at a glance.</MutedText>}
+        </Card>
+
+        <WellbeingTrendChart patientId={patientId} reloadToken={trendReloadToken} />
+
+        <MoodBesideReadings patientId={patientId} reloadToken={trendReloadToken} />
+
+        <CheckinForm
+          patientId={patientId}
+          organisationId={organisationId}
+          frequencyDays={frequencyDays}
+          onSaved={refresh}
+        />
+
+        <MentalHealthSummaryCard screens={screens} />
+
+        <MentalHealthHandoffCard screens={screens} />
+
+        {showScreenForm ? (
+          <MentalHealthScreenForm onDone={() => { setShowScreenForm(false); void refresh(); }} />
+        ) : (
+          <SecondaryButton title="Take the full mental wellbeing check-in" onPress={() => setShowScreenForm(true)} />
+        )}
+
+        <Card style={{ gap: 8 }}>
+          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Talk to someone</Text>
+          <MutedText>Book a session with one of our therapists, over telemedicine or in person, whichever suits you.</MutedText>
+          <SecondaryButton title="Book a therapy session" onPress={() => setTherapyOpen(true)} />
+        </Card>
+        </>
+      )}
 
       <Card style={{ gap: 6 }}>
         <MutedText>
@@ -244,6 +275,7 @@ function CheckinForm({
   const { scheme } = useTheme();
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [note, setNote] = useState("");
+  const [tags, setTags] = useState<WellbeingTag[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -266,6 +298,7 @@ function CheckinForm({
       sleepQuality: answers.sleep_quality,
       activityLevel: answers.activity_level,
       note: note.trim() || undefined,
+      tags: cleanWellbeingTags(tags),
     });
     setSubmitting(false);
     if (!result.ok) {
@@ -275,6 +308,7 @@ function CheckinForm({
     setMessage("Check-in saved.");
     setAnswers({});
     setNote("");
+    setTags([]);
     onSaved();
   }
 
@@ -298,6 +332,25 @@ function CheckinForm({
           </View>
         </View>
       ))}
+      <View style={{ gap: 6 }}>
+        <Text style={{ fontSize: 13, color: colors.ink }}>{t("mood.tags.title")} {t("mood.tags.optional")}</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+          {WELLBEING_TAGS.map((tag) => {
+            const on = tags.includes(tag);
+            return (
+              <Text
+                key={tag}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: on }}
+                onPress={() => setTags((prev) => (prev.includes(tag) ? prev.filter((x) => x !== tag) : cleanWellbeingTags([...prev, tag])))}
+                style={{ fontSize: 12, fontWeight: "600", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: on ? colors.brand : colors.groupBg, color: on ? "#FFFFFF" : colors.ink, overflow: "hidden" }}
+              >
+                {wellbeingTagLabel(tag)}
+              </Text>
+            );
+          })}
+        </View>
+      </View>
       <View style={{ gap: 6 }}>
         <Text style={{ fontSize: 13, color: colors.ink }}>Anything else you&apos;d like to note? (optional)</Text>
         <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
@@ -442,14 +495,7 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Thanks for checking in</Text>
         <MutedText>Your answers are saved and your care team can see them.</MutedText>
-        {result.crisis && (
-          <View style={{ backgroundColor: colors.dangerBg, borderRadius: radius.card, padding: 10 }}>
-            <Text style={{ fontSize: 13, color: colors.status.critical }}>
-              You told us you have had thoughts of harming yourself. You are not alone. A member of your care
-              team will reach out. If you are in immediate danger, please go to the nearest hospital now.
-            </Text>
-          </View>
-        )}
+        {result.crisis && <CrisisCard told />}
         <SecondaryButton title="Close" onPress={onDone} />
       </Card>
     );

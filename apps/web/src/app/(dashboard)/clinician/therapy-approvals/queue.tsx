@@ -44,20 +44,20 @@ type Session = {
   provider: { name: string | null; specialist_type: string | null } | null;
 };
 
+/** Read through the audited queue function (S56): only requests for patients this clinician holds a task for (or has an emergency grant on). */
 function useAwaitingApproval() {
   return useQuery({
     queryKey: ["therapy", "awaiting-approval"],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("therapy_sessions")
-        .select(
-          "*, patient:profiles!therapy_sessions_patient_id_fkey(full_name, patient_number), provider:therapy_directory(name, specialist_type)"
-        )
-        .eq("status", "awaiting_clinician_approval")
-        .order("requested_at", { ascending: true });
+      const { data, error } = await supabase.rpc("list_therapy_approvals_audited");
       if (error) throw error;
-      return data as unknown as Session[];
+      const payload = data as { status?: string; rows?: unknown; not_yet_yours?: unknown } | null;
+      if (!payload || payload.status !== "ok" || !Array.isArray(payload.rows)) throw new Error("unexpected queue response");
+      return {
+        rows: payload.rows as unknown as Session[],
+        notYetYours: typeof payload.not_yet_yours === "number" ? payload.not_yet_yours : 0,
+      };
     },
   });
 }
@@ -165,13 +165,18 @@ export function TherapyApprovalQueue() {
         {isError && (
           <p className="text-sm text-red-600 dark:text-red-400">Could not load the queue.</p>
         )}
-        {!isLoading && !isError && (data ?? []).length === 0 && (
+        {!isLoading && !isError && (data?.rows ?? []).length === 0 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             Nothing waiting on a decision.
           </p>
         )}
+        {!isLoading && !isError && (data?.notYetYours ?? 0) > 0 && (
+          <p className="mb-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+            {data?.notYetYours} more {data?.notYetYours === 1 ? "request is" : "requests are"} waiting in the task list. Claim the task to open it.
+          </p>
+        )}
         <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
-          {(data ?? []).map((session) => (
+          {(data?.rows ?? []).map((session) => (
             <SessionRow key={session.id} session={session} />
           ))}
         </ul>

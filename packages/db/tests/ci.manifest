@@ -898,3 +898,5 @@ f1_wellness_points_non_monetary.sql
 f1_symptom_checker_go_live_guard.sql
 # F1 fix 4: a crisis-flagged wellbeing screen raises one class 1 task, an urgent crisis.detected event (ids only), a neutral notice to the clinician on call or the lead and ops with an incident, idempotent on replay, loud on failure. Sabotage: the trigger dropped, no task.
 f1_crisis_priority_task_and_event.sql
+# S56: every mental-health table is per-patient (INV-12) with audited reads (INV-10): no staff direct read (tied, untied, coordinator, CMO, admin, finance, analyst, corporate, sponsor), caregiver consent hook (owner-only, revocable, no dependent bypass), neutral alert text, sponsor report, corporate aggregate with minimum cohort, therapy approval, follow-up guard, hand-off, crisis card helplines unverified by default. Sabotage: four protections removed, each flips.
+s56_mental_health_access.sql
